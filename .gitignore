@@ -1,0 +1,18 @@
+# Build .NET / Visual Studio
+bin/
+obj/
+.vs/
+*.user
+*.suo
+
+# Logs / data locaux
+*.log
+data/
+logs/
+*.db
+*.sqlite
+
+# Secrets / env
+infra/.env
+.env
+config/config.local.yaml

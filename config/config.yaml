@@ -1,0 +1,61 @@
+app:
+  name: "Agent AI RAG"
+  environment: "local"
+  timezone: "Europe/Zurich"
+
+paths:
+  # Dossier racine (Windows) où tu stockes les docs à indexer
+  documents_root: "C:\\Documents"
+
+categories:
+  # La WinUI affichera ces catégories
+  - id: "general"
+    label: "Général"
+    path: "C:\\Documents\\General"
+  - id: "automation"
+    label: "Automation"
+    path: "C:\\Documents\\Automation"
+  - id: "codes"
+    label: "Codes & Standards"
+    path: "C:\\Documents\\Codes"
+
+qdrant:
+  url: "http://localhost:6333"
+  api_key: ""                  # vide si pas de clé
+  collection: "knowledge_base" # collection unique
+  payload_category_field: "category"
+
+llm:
+  base_url: "http://localhost:8080"   # ex: TGI / vLLM local
+  model: "mistral-7b"
+  temperature: 0.2
+  max_tokens: 800
+  stream: true
+  request_timeout_seconds: 120
+
+embeddings:
+  # si tu exposes un endpoint local embeddings (recommandé)
+  base_url: "http://localhost:8081"
+  model: "multilingual-e5-base"       # exemple
+  vector_size: 768                    # doit matcher Qdrant
+
+ingestion:
+  allowed_extensions: [".pdf", ".docx", ".txt", ".md"]
+  chunk_size: 1200            # en caractères (simple pour démarrer)
+  chunk_overlap: 200
+  min_chunk_chars: 200
+  max_chunks_per_doc: 500
+  compute_file_hash: true     # pour registre d’indexation
+
+sqlite:
+  db_path: "C:\\AgentAI\\data\\sessions.db"
+
+api:
+  listen_url: "http://localhost:5000"
+  cors_allowed_origins:
+    - "http://localhost"
+    - "app://winui"           # pseudo-origin, selon implémentation
+logging:
+  level: "Information"
+  log_to_file: true
+  log_path: "C:\\AgentAI\\logs\\backend.log"
