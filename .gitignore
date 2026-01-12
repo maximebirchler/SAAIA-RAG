@@ -4,11 +4,14 @@ obj/
 .vs/
 *.user
 *.suo
+Thumbs.db
+Desktop.ini
 
 # Logs / data locaux
 *.log
 data/
 logs/
+documents/
 *.db
 *.sqlite
 
