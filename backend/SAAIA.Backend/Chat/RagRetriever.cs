@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Net;
 using Microsoft.Extensions.Options;
 
 namespace SAAIA.Backend.Chat;
@@ -56,12 +57,29 @@ internal sealed class RagRetriever
             filter = new { must = filterMust }
         };
 
-        var resp = await qdrant.PostAsync($"/collections/{rag.QdrantCollection}/points/search",
-            new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"),
-            ct);
+        var url = $"/collections/{rag.QdrantCollection}/points/search";
+        var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+
+        HttpResponseMessage resp = await qdrant.PostAsync(url, content, ct);
+
+        // ✅ auto-create si la collection n'existe pas
+        if (resp.StatusCode == HttpStatusCode.NotFound)
+        {
+            resp.Dispose();
+
+            // collec + dim = qvec.Length
+            await global::QdrantClient.EnsureCollectionAsync(qdrant, rag.QdrantCollection, qvec.Length, ct);
+
+            content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+            resp = await qdrant.PostAsync(url, content, ct);
+        }
 
         if (!resp.IsSuccessStatusCode)
-            throw new Exception($"Qdrant search failed: {(int)resp.StatusCode} {resp.ReasonPhrase}");
+        {
+            var err = await resp.Content.ReadAsStringAsync(ct);
+            throw new Exception($"Qdrant search failed: {(int)resp.StatusCode} {resp.ReasonPhrase} {err}");
+        }
+
 
         using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
 

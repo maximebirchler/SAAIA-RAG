@@ -335,6 +335,48 @@ app.MapPost("/ingest/enqueue", async (
 });
 
 
+app.MapPost("/admin/reindex", async (
+    HttpContext ctx,
+    NpgsqlDataSource ds,
+    IOptions<IngestionOptions> ingestOpt,
+    ReindexRequest req) =>
+{
+    var tenantId = ctx.GetTenantId();
+    var ingest = ingestOpt.Value;
+    var ct = ctx.RequestAborted;
+
+    var max = Math.Clamp(req.Max ?? 5000, 1, 200000);
+    var root = ingest.DocumentsRoot;
+
+    var files = Directory.EnumerateFiles(root, "*.pdf", SearchOption.AllDirectories)
+        .Take(max)
+        .ToArray();
+
+    await using var conn = await ds.OpenConnectionAsync(ct);
+
+    int enqueued = 0;
+    foreach (var abs in files)
+    {
+        var rel = DocPathNormalizer.NormalizeToRelative(abs, root);
+
+        // même logique que le scanner
+        var category = ingest.CategoryFromFirstFolder
+            ? (rel.Split('/', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? ingest.DefaultCategory ?? "general").Trim().ToLowerInvariant()
+            : (ingest.DefaultCategory ?? "general").Trim().ToLowerInvariant();
+
+        if (!string.IsNullOrWhiteSpace(req.Category) &&
+            category != req.Category.Trim().ToLowerInvariant())
+            continue;
+
+        var fi = new FileInfo(abs);
+        await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, category, fi, ct);
+        enqueued++;
+    }
+
+    return Results.Ok(new { enqueued, scanned = files.Length, max });
+});
+
+
 // Categories (from registry DB)
 app.MapGet("/rag/categories", async (HttpContext ctx, NpgsqlDataSource ds) =>
 {
@@ -378,6 +420,9 @@ app.MapPost("/rag/query", async (HttpContext ctx, IOptions<RagOptions> ragOpt, I
     var qdrant = httpFactory.CreateClient("qdrant");
     qdrant.BaseAddress = new Uri(rag.QdrantBaseUrl);
 
+    var ct = ctx.RequestAborted;
+    var col = rag.QdrantCollection;
+
     var filterMust = new List<object>
     {
         new { key = "tenant_id", match = new { value = tenantId.ToString() } }
@@ -385,7 +430,7 @@ app.MapPost("/rag/query", async (HttpContext ctx, IOptions<RagOptions> ragOpt, I
     if (!string.IsNullOrWhiteSpace(category))
         filterMust.Add(new { key = "category", match = new { value = category } });
 
-    var body = new
+    var payload = new
     {
         vector = qvec,
         limit = topK,
@@ -393,14 +438,28 @@ app.MapPost("/rag/query", async (HttpContext ctx, IOptions<RagOptions> ragOpt, I
         filter = new { must = filterMust }
     };
 
-    var resp = await qdrant.PostAsync($"/collections/{rag.QdrantCollection}/points/search",
-        new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"),
-        ctx.RequestAborted);
+    var url = $"/collections/{col}/points/search";
+    var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+    var resp = await qdrant.PostAsync(url, content, ct);
+
+    // ✅ auto-create si la collection n'existe pas
+    if (resp.StatusCode == HttpStatusCode.NotFound)
+    {
+        resp.Dispose();
+        await QdrantClient.EnsureCollectionAsync(qdrant, col, qvec.Length, ct);
+
+        content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+        resp = await qdrant.PostAsync(url, content, ct);
+    }
 
     if (!resp.IsSuccessStatusCode)
-        return Results.Problem($"Qdrant search failed: {(int)resp.StatusCode} {resp.ReasonPhrase}");
+    {
+        var errBody = await resp.Content.ReadAsStringAsync(ct);
+        return Results.Problem($"Qdrant search failed: {(int)resp.StatusCode} {resp.ReasonPhrase} {errBody}");
+    }
 
-    using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ctx.RequestAborted));
+    using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
     var result = QdrantClient.ParseSearchResults(doc);
 
     return Results.Ok(new
@@ -501,6 +560,8 @@ sealed class IngestionOptions
 sealed record IngestEnqueueRequest(string DocPath, string? Category, string? Action);
 
 sealed record RagQueryRequest(string Query, string? Category, int? TopK);
+
+sealed record ReindexRequest(int? Max = 5000, string? Category = null);
 
 sealed record ReadinessSnapshot(bool Ok, object Payload);
 
