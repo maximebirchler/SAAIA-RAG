@@ -1,3 +1,10 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Dapper;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -10,9 +17,6 @@ sealed class IngestionScanner : BackgroundService
 
     // Anti “wipe transitoire”
     private int _emptyScanStreak = 0;
-
-    // Si un job reste "running" trop longtemps, on le considère bloqué
-    private static readonly TimeSpan StaleRunningAfter = TimeSpan.FromMinutes(30);
 
     public IngestionScanner(IServiceProvider sp, ILogger<IngestionScanner> log)
     {
@@ -76,7 +80,8 @@ sealed class IngestionScanner : BackgroundService
         await using var conn = await ds.OpenConnectionAsync(ct);
 
         // 0) Si un job "running" est bloqué depuis trop longtemps, on le fail et on libère
-        await MarkStaleRunningJobsFailedAsync(conn, tenantId, ct);
+        var staleRunningAfter = TimeSpan.FromMinutes(Math.Clamp(opt.StaleRunningMinutes, 5, 24 * 60));
+        await MarkStaleRunningJobsFailedAsync(conn, tenantId, staleRunningAfter, ct);
 
         // 1) Si un job est EN COURS (running), on stoppe le scan (comme souhaité)
         if (await HasRunningJobAsync(conn, tenantId, ct))
@@ -265,7 +270,7 @@ LIMIT 1;";
         return exists.HasValue;
     }
 
-    private static async Task MarkStaleRunningJobsFailedAsync(NpgsqlConnection conn, Guid tenantId, CancellationToken ct)
+    private static async Task MarkStaleRunningJobsFailedAsync(NpgsqlConnection conn, Guid tenantId, TimeSpan staleRunningAfter, CancellationToken ct)
     {
         const string sql = @"
 UPDATE ingestion_jobs
@@ -282,7 +287,7 @@ WHERE tenant_id=@tenant_id
         await conn.ExecuteAsync(new CommandDefinition(sql, new
         {
             tenant_id = tenantId,
-            stale = StaleRunningAfter
+            stale = staleRunningAfter
         }, cancellationToken: ct));
     }
 
