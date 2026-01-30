@@ -19,3 +19,17 @@ documents/
 infra/.env
 .env
 config/config.local.yaml
+
+# Models (GGUF) - ne jamais versionner
+models/**/*.gguf
+models/**/*.bin
+models/**/*.safetensors
+models/**/.cache/
+
+# Optionnel : ignore les exports/archives
+infra/**/*.tgz
+infra/**/*.tar.gz
+
+# Local overrides (backend)
+backend/SAAIA.Backend/appsettings.Local.json
+backend/SAAIA.Backend/appsettings.*.local.json

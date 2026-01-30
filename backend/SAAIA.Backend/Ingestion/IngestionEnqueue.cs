@@ -1,0 +1,224 @@
+using Dapper;
+using Npgsql;
+using System.Text.Json;
+
+static class IngestionEnqueue
+{
+    public static async Task<(Guid DocId, int Version, Guid JobId)> EnqueueUpsertAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        string docPath,
+        string category,
+        FileInfo? fi,
+        CancellationToken ct)
+    {
+        docPath = PathUtil.NormalizeRelativePath(docPath);
+        category = string.IsNullOrWhiteSpace(category) ? "general" : category.Trim().ToLowerInvariant();
+
+        var docName = Path.GetFileName(docPath);
+        var docId = IdUtil.DeterministicGuid($"{tenantId}:{docPath}");
+
+        long? fileSize = fi is null ? null : fi.Length;
+        DateTime? fileMtime = fi is null ? null : DateTime.SpecifyKind(fi.LastWriteTimeUtc, DateTimeKind.Utc);
+
+        const string docSql = @"
+INSERT INTO documents(
+  tenant_id, doc_id, doc_path, doc_name, category,
+  status, updated_at, file_size, file_mtime,
+  last_seen_at, missing_since, ingestion_version
+)
+VALUES(
+  @tenant_id, @doc_id, @doc_path, @doc_name, @category,
+  'pending', now(), @file_size, @file_mtime,
+  now(), NULL, 1
+)
+ON CONFLICT (tenant_id, doc_path)
+DO UPDATE SET
+  category = EXCLUDED.category,
+  status = 'pending',
+  updated_at = now(),
+  file_size = EXCLUDED.file_size,
+  file_mtime = EXCLUDED.file_mtime,
+  last_seen_at = now(),
+  missing_since = NULL,
+  ingestion_version = documents.ingestion_version + 1
+RETURNING doc_id, ingestion_version;";
+
+        var returned = await conn.QuerySingleAsync<(Guid doc_id, int ingestion_version)>(
+            new CommandDefinition(docSql, new
+            {
+                tenant_id = tenantId,
+                doc_id = docId,
+                doc_path = docPath,
+                doc_name = docName,
+                category,
+                file_size = fileSize,
+                file_mtime = fileMtime
+            }, cancellationToken: ct)
+        );
+
+        const string cancelDelete = @"
+UPDATE ingestion_jobs
+SET status='canceled', finished_at=now(), last_error='coalesced_by_upsert'
+WHERE tenant_id=@tenant_id AND doc_path=@doc_path
+  AND action='delete' AND status='queued';";
+
+        await conn.ExecuteAsync(new CommandDefinition(cancelDelete, new
+        {
+            tenant_id = tenantId,
+            doc_path = docPath
+        }, cancellationToken: ct));
+
+        var payload = JsonSerializer.Serialize(new { docId = returned.doc_id, version = returned.ingestion_version });
+        var jobId = Guid.NewGuid();
+
+        const string jobSql = @"
+INSERT INTO ingestion_jobs(job_id, tenant_id, action, doc_path, category, status, payload, available_at)
+VALUES(@job_id, @tenant_id, 'upsert', @doc_path, @category, 'queued', @payload::jsonb, now())
+ON CONFLICT (tenant_id, doc_path, action) WHERE status='queued'
+DO UPDATE SET
+  available_at = now(),
+  payload = EXCLUDED.payload,
+  category = EXCLUDED.category
+RETURNING job_id;";
+
+        var effectiveJobId = await conn.ExecuteScalarAsync<Guid>(
+            new CommandDefinition(jobSql, new
+            {
+                job_id = jobId,
+                tenant_id = tenantId,
+                doc_path = docPath,
+                category,
+                payload
+            }, cancellationToken: ct)
+        );
+
+        return (returned.doc_id, returned.ingestion_version, effectiveJobId);
+    }
+
+    public static async Task<bool> MarkMissingAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        string docPath,
+        CancellationToken ct)
+    {
+        docPath = PathUtil.NormalizeRelativePath(docPath);
+        var docId = IdUtil.DeterministicGuid($"{tenantId}:{docPath}");
+        var docName = Path.GetFileName(docPath);
+
+        const string docSql = @"
+INSERT INTO documents(
+  tenant_id, doc_id, doc_path, doc_name, category,
+  status, updated_at, missing_since, ingestion_version
+)
+VALUES(
+  @tenant_id, @doc_id, @doc_path, @doc_name, 'general',
+  'missing', now(), now(), 0
+)
+ON CONFLICT (tenant_id, doc_path)
+DO UPDATE SET
+  status = CASE WHEN documents.status='deleted' THEN documents.status ELSE 'missing' END,
+  updated_at = now(),
+  missing_since = COALESCE(documents.missing_since, now())
+WHERE documents.status NOT IN ('missing','deleted')
+RETURNING doc_id;";
+
+        var affected = await conn.ExecuteScalarAsync<Guid?>(
+            new CommandDefinition(docSql, new
+            {
+                tenant_id = tenantId,
+                doc_id = docId,
+                doc_path = docPath,
+                doc_name = docName
+            }, cancellationToken: ct)
+        );
+
+        const string cancelUpsert = @"
+UPDATE ingestion_jobs
+SET status='canceled', finished_at=now(), last_error='coalesced_by_missing'
+WHERE tenant_id=@tenant_id AND doc_path=@doc_path
+  AND action='upsert' AND status='queued';";
+
+        await conn.ExecuteAsync(new CommandDefinition(cancelUpsert, new
+        {
+            tenant_id = tenantId,
+            doc_path = docPath
+        }, cancellationToken: ct));
+
+        return affected.HasValue;
+    }
+
+    public static async Task<(Guid DocId, int Version, Guid JobId)> EnqueueDeleteAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        string docPath,
+        CancellationToken ct)
+    {
+        docPath = PathUtil.NormalizeRelativePath(docPath);
+        var docId = IdUtil.DeterministicGuid($"{tenantId}:{docPath}");
+        var docName = Path.GetFileName(docPath);
+
+        const string docSql = @"
+INSERT INTO documents(
+  tenant_id, doc_id, doc_path, doc_name, category,
+  status, updated_at, missing_since, ingestion_version
+)
+VALUES(
+  @tenant_id, @doc_id, @doc_path, @doc_name, 'general',
+  'missing', now(), now(), 1
+)
+ON CONFLICT (tenant_id, doc_path)
+DO UPDATE SET
+  status = 'missing',
+  updated_at = now(),
+  missing_since = COALESCE(documents.missing_since, now()),
+  ingestion_version = documents.ingestion_version + 1
+RETURNING doc_id, ingestion_version;";
+
+        var returned = await conn.QuerySingleAsync<(Guid doc_id, int ingestion_version)>(
+            new CommandDefinition(docSql, new
+            {
+                tenant_id = tenantId,
+                doc_id = docId,
+                doc_path = docPath,
+                doc_name = docName
+            }, cancellationToken: ct)
+        );
+
+        const string cancelUpsert = @"
+UPDATE ingestion_jobs
+SET status='canceled', finished_at=now(), last_error='coalesced_by_delete'
+WHERE tenant_id=@tenant_id AND doc_path=@doc_path
+  AND action='upsert' AND status='queued';";
+
+        await conn.ExecuteAsync(new CommandDefinition(cancelUpsert, new
+        {
+            tenant_id = tenantId,
+            doc_path = docPath
+        }, cancellationToken: ct));
+
+        var payload = JsonSerializer.Serialize(new { docId = returned.doc_id, version = returned.ingestion_version });
+        var jobId = Guid.NewGuid();
+
+        const string jobSql = @"
+INSERT INTO ingestion_jobs(job_id, tenant_id, action, doc_path, category, status, payload, available_at)
+VALUES(@job_id, @tenant_id, 'delete', @doc_path, NULL, 'queued', @payload::jsonb, now())
+ON CONFLICT (tenant_id, doc_path, action) WHERE status='queued'
+DO UPDATE SET
+  available_at = now(),
+  payload = EXCLUDED.payload
+RETURNING job_id;";
+
+        var effectiveJobId = await conn.ExecuteScalarAsync<Guid>(
+            new CommandDefinition(jobSql, new
+            {
+                job_id = jobId,
+                tenant_id = tenantId,
+                doc_path = docPath,
+                payload
+            }, cancellationToken: ct)
+        );
+
+        return (returned.doc_id, returned.ingestion_version, effectiveJobId);
+    }
+}
