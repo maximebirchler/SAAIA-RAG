@@ -1,11 +1,25 @@
 # Build .NET / Visual Studio
-bin/
-obj/
+**/bin/
+**/obj/
 .vs/
 *.user
 *.suo
 Thumbs.db
 Desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.tmp
+*.bak
+.DS_Store
+
+# Tests / coverage
+**/TestResults/
+**/.coverage
+**/coverage/
+**/*.trx
 
 # Logs / data locaux
 *.log
@@ -15,10 +29,31 @@ documents/
 *.db
 *.sqlite
 
+# Docker volumes courants
+**/*_data/
+**/*-data/
+**/qdrant_storage/
+**/postgres_data/
+**/pgdata/
+**/n8n_data/
+**/.n8n/
+
 # Secrets / env
 infra/.env
 .env
+.env.*
+!.env.example
 config/config.local.yaml
+
+# Certificats / clés
+**/*.pem
+**/*.key
+**/*.crt
+**/*.cer
+**/*.pfx
+**/*.p12
+**/keys/
+**/private*.b64
 
 # Models (GGUF) - ne jamais versionner
 models/**/*.gguf
@@ -29,7 +64,13 @@ models/**/.cache/
 # Optionnel : ignore les exports/archives
 infra/**/*.tgz
 infra/**/*.tar.gz
+**/*.zip
+**/*.7z
 
 # Local overrides (backend)
 backend/SAAIA.Backend/appsettings.Local.json
 backend/SAAIA.Backend/appsettings.*.local.json
+
+# Config signée (par environnement)
+**/deployment.config.json
+**/deployment.config.sig

@@ -17,6 +17,8 @@ public static class AdminEndpoints
         IOptions<IngestionOptions> ingestOpt,
         ReindexRequest req)
     {
+        AdminAuth.EnsureAdmin(ctx);
+
         var tenantId = ctx.GetTenantId();
         var ingest = ingestOpt.Value;
         var ct = ctx.RequestAborted;

@@ -12,6 +12,7 @@
     <PackageReference Include="Npgsql" Version="10.0.1" />
     <PackageReference Include="PdfPig" Version="0.1.13" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.0" />
+    <PackageReference Include="NSec.Cryptography" Version="25.4.0" />
   </ItemGroup>
 
 </Project>

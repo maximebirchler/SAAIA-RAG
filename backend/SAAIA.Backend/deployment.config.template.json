@@ -1,26 +1,4 @@
 {
-  "ConfigSignature": {
-    "ConfigPath": "deployment.config.json",
-    "SignaturePath": "deployment.config.sig",
-    "TrustedPublicKeysBase64": [
-      "8LNTQpr23+P3YfN5RHz21zD1d75GOqc/f17vAipLTZ0="
-    ],
-    "AllowUnsignedInDevelopment": false
-  },
-  "Database": {
-    "ConnectionString": ""
-  },
-  "Auth": {
-    "ApiKeyHeaderName": "X-Api-Key",
-    "Pepper": ""
-  },
-  "Bootstrap": {
-    "Enabled": false,
-    "TenantId": "00000000-0000-0000-0000-000000000000",
-    "TenantName": "Default",
-    "ApiKeyPlain": "",
-    "ApiKeyLabel": "bootstrap"
-  },
   "Rag": {
     "QdrantBaseUrl": "http://localhost:6333",
     "TeiBaseUrl": "http://localhost:8081",
@@ -49,15 +27,12 @@
     "MaxTokens": 800,
     "SystemPrompt": "Tu es un assistant technique. Cite toujours la source avec doc et page."
   },
+  "Bootstrap": {
+    "Enabled": false
+  },
   "RateLimiting": {
     "PermitLimit": 120,
     "WindowSeconds": 60,
     "QueueLimit": 0
-  },
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning"
-    }
   }
 }

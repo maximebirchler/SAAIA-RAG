@@ -8,23 +8,30 @@ namespace SAAIA.Backend.Auth;
 public static class ApiKeyAuth
 {
     public const string TenantIdItemKey = "tenant_id";
-
-    public static byte[] Sha256Bytes(string s)
-    {
-        var bytes = Encoding.UTF8.GetBytes(s);
-        return SHA256.HashData(bytes);
-    }
+    public const string ApiKeyIdItemKey = "api_key_id";
+    public const string IsAdminItemKey  = "is_admin";
 
     public static string Prefix(string key)
         => key.Length <= 8 ? key : key.Substring(0, 8);
 
-    public static async Task<Guid?> ResolveTenantIdAsync(NpgsqlDataSource ds, string apiKey, CancellationToken ct)
+    public static byte[] Sha256Bytes(string apiKey, string? pepper)
     {
-        var hash = Sha256Bytes(apiKey);
+        // SHA256(pepper + apiKey)
+        var bytes = Encoding.UTF8.GetBytes((pepper ?? "") + apiKey);
+        return SHA256.HashData(bytes);
+    }
+
+    public sealed record ApiKeyPrincipal(Guid ApiKeyId, Guid TenantId, bool IsAdmin);
+
+    public static async Task<ApiKeyPrincipal?> ResolvePrincipalAsync(NpgsqlDataSource ds, string apiKey, string? pepper, CancellationToken ct)
+    {
+        var hash = Sha256Bytes(apiKey, pepper);
         var prefix = Prefix(apiKey);
 
         const string sql = @"
-SELECT tenant_id
+SELECT api_key_id AS ""ApiKeyId"",
+       tenant_id  AS ""TenantId"",
+       is_admin   AS ""IsAdmin""
 FROM api_keys
 WHERE revoked_at IS NULL
   AND key_prefix = @prefix
@@ -32,7 +39,16 @@ WHERE revoked_at IS NULL
 LIMIT 1;";
 
         await using var conn = await ds.OpenConnectionAsync(ct);
-        var tenant = await conn.QueryFirstOrDefaultAsync<Guid?>(new CommandDefinition(sql, new { prefix, hash }, cancellationToken: ct));
-        return tenant;
+        var principal = await conn.QueryFirstOrDefaultAsync<ApiKeyPrincipal>(
+            new CommandDefinition(sql, new { prefix, hash }, cancellationToken: ct));
+
+        if (principal is null)
+            return null;
+
+        // best-effort : last_used_at
+        const string upd = @"UPDATE api_keys SET last_used_at = now() WHERE api_key_id=@id;";
+        await conn.ExecuteAsync(new CommandDefinition(upd, new { id = principal.ApiKeyId }, cancellationToken: ct));
+
+        return principal;
     }
 }
