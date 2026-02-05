@@ -118,6 +118,14 @@ public sealed class ChatPromptBuilder
 
         var sb = new StringBuilder();
 
+        // Prompt custom (si fourni), sans retirer les règles RAG strictes
+        if (!string.IsNullOrWhiteSpace(o.SystemPrompt))
+        {
+            sb.AppendLine(o.SystemPrompt.Trim());
+            sb.AppendLine();
+        }
+
+
         sb.AppendLine("Tu es un assistant technique. Tu dois répondre UNIQUEMENT à partir des SOURCES fournies.");
         sb.AppendLine("Si l'information n'est pas clairement présente dans les sources, dis-le explicitement.");
         sb.AppendLine();

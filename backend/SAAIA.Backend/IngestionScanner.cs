@@ -238,6 +238,7 @@ WHERE tenant_id = @tenant_id
             "Scanner: files={Files} unchanged={Unchanged} upsert_enqueued={Upserts} delete_enqueued={Deletes} skipped_too_fresh={TooFresh}",
             files.Count, unchanged, enqUpsert, enqDelete, skippedTooFresh
         );
+
     }
 
     private static bool SameMtime(DateTime? dbMtime, DateTime fsMtimeUtc)
@@ -305,18 +306,32 @@ WHERE tenant_id=@tenant_id
 
     private static async Task<Guid> ResolveSingleTenantIdAsync(NpgsqlDataSource ds, BootstrapOptions bootstrap, CancellationToken ct)
     {
-        if (bootstrap.TenantId != Guid.Empty)
-            return bootstrap.TenantId;
-
         await using var conn = await ds.OpenConnectionAsync(ct);
-        var tid = await conn.ExecuteScalarAsync<Guid?>(
-            "SELECT tenant_id FROM tenants WHERE is_active=true ORDER BY created_at ASC LIMIT 1;"
-        );
+
+        // 1) Si un tenant est fourni via config, ne l'accepter QUE s'il existe réellement.
+        //    (Sinon: FK violations sur documents/api_keys, et Qdrant peut paraître "vide" car filtré par tenant.)
+        if (bootstrap.TenantId != Guid.Empty)
+        {
+            var exists = await conn.ExecuteScalarAsync<int?>(new CommandDefinition(
+                "SELECT 1 FROM tenants WHERE tenant_id=@id LIMIT 1;",
+                new { id = bootstrap.TenantId },
+                cancellationToken: ct));
+
+            if (exists.HasValue)
+                return bootstrap.TenantId;
+        }
+
+        // 2) Fallback: premier tenant actif (profil single-tenant dev/prod).
+        var tid = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+            "SELECT tenant_id FROM tenants WHERE is_active=true ORDER BY created_at ASC LIMIT 1;",
+            cancellationToken: ct));
+
         if (tid is null || tid == Guid.Empty)
             throw new Exception("No tenant found. Enable Bootstrap or create a tenant in DB.");
 
         return tid.Value;
     }
+
 
     // Dapper: classe simple (évite les erreurs de ctor record)
     private sealed class DocRow

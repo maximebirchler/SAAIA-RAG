@@ -1,5 +1,6 @@
 using Dapper;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using SAAIA.Backend.Bootstrap;
 using System.Collections.Concurrent;
@@ -15,8 +16,6 @@ sealed class FileWatcherService : BackgroundService
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _pendingDeletes
         = new(StringComparer.OrdinalIgnoreCase);
 
-    private static readonly TimeSpan Debounce = TimeSpan.FromMilliseconds(500);
-
     public FileWatcherService(IServiceProvider sp, ILogger<FileWatcherService> log)
     {
         _sp = sp;
@@ -25,16 +24,12 @@ sealed class FileWatcherService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
-        IngestionOptions opt;
-        BootstrapOptions bootstrap;
-        NpgsqlDataSource ds;
+        // ⚠️ IMPORTANT: ne pas récupérer NpgsqlDataSource dans un scope qui pourrait le disposer.
+        var opt = _sp.GetRequiredService<IOptions<IngestionOptions>>().Value;
+        var bootstrap = _sp.GetRequiredService<IOptions<BootstrapOptions>>().Value;
+        var ds = _sp.GetRequiredService<NpgsqlDataSource>();
 
-        using (var scope = _sp.CreateScope())
-        {
-            opt = scope.ServiceProvider.GetRequiredService<IOptions<IngestionOptions>>().Value;
-            bootstrap = scope.ServiceProvider.GetRequiredService<IOptions<BootstrapOptions>>().Value;
-            ds = scope.ServiceProvider.GetRequiredService<NpgsqlDataSource>();
-        }
+        var debounce = TimeSpan.FromMilliseconds(Math.Clamp(opt.WatcherDebounceMs, 50, 10_000));
 
         if (!opt.WatcherEnabled)
         {
@@ -49,9 +44,16 @@ sealed class FileWatcherService : BackgroundService
             return;
         }
 
-        if (!Directory.Exists(root))
+        // ✅ Normalise en chemin absolu (robuste en service Windows / docker)
+        root = Path.GetFullPath(root);
+
+        try
         {
-            _log.LogWarning("FileWatcher: DocumentsRoot does not exist: {Root}", root);
+            Directory.CreateDirectory(root); // ✅ évite un stop bête si le dossier n’existe pas
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "FileWatcher: cannot create/open DocumentsRoot: {Root}", root);
             return;
         }
 
@@ -61,39 +63,60 @@ sealed class FileWatcherService : BackgroundService
         try
         {
             tenantId = await ResolveSingleTenantIdAsync(ds, bootstrap, ct);
+            _log.LogInformation("FileWatcher: tenant resolved to {TenantId}", tenantId);
         }
+        
         catch (Exception ex)
         {
             _log.LogError(ex, "FileWatcher: cannot resolve tenant id");
             return;
         }
 
-        using var watcher = new FileSystemWatcher(root)
-        {
-            Filter = "*.pdf",
-            IncludeSubdirectories = true,
-            NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.DirectoryName,
-            InternalBufferSize = 64 * 1024, // max recommandé (64KB)
-            EnableRaisingEvents = true
-        };
-
-        watcher.Created += (_, e) => ScheduleUpsert(ds, tenantId, root, opt, e.FullPath, "created", Debounce, ct);
-        watcher.Changed += (_, e) => ScheduleUpsert(ds, tenantId, root, opt, e.FullPath, "changed", Debounce, ct);
-        watcher.Renamed += (_, e) =>
-        {
-            ScheduleDelete(ds, tenantId, root, e.OldFullPath, "renamed(old)", missingGrace, ct);
-            ScheduleUpsert(ds, tenantId, root, opt, e.FullPath, "renamed(new)", Debounce, ct);
-        };
-        watcher.Deleted += (_, e) => ScheduleDelete(ds, tenantId, root, e.FullPath, "deleted", missingGrace, ct);
-        watcher.Error += (_, e) => _log.LogWarning(e.GetException(), "FileWatcher: watcher error (buffer overflow possible); scanner will resync.");
-
-        _log.LogInformation("FileWatcher: enabled on {Root} (MissingGrace={Grace}s)", root, (int)missingGrace.TotalSeconds);
-
+        FileSystemWatcher watcher;
         try
         {
-            await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+            watcher = new FileSystemWatcher(root)
+            {
+                Filter = "*.pdf",
+                IncludeSubdirectories = true,
+                NotifyFilter = NotifyFilters.FileName
+                             | NotifyFilters.LastWrite
+                             | NotifyFilters.Size
+                             | NotifyFilters.DirectoryName,
+                InternalBufferSize = 64 * 1024,
+                EnableRaisingEvents = true
+            };
         }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "FileWatcher: cannot start watcher on {Root}", root);
+            return;
+        }
+
+        using (watcher)
+        {
+            watcher.Created += (_, e) => ScheduleUpsert(ds, tenantId, root, opt, e.FullPath, "created", debounce, ct);
+            watcher.Changed += (_, e) => ScheduleUpsert(ds, tenantId, root, opt, e.FullPath, "changed", debounce, ct);
+            watcher.Renamed += (_, e) =>
+            {
+                ScheduleDelete(ds, tenantId, root, e.OldFullPath, "renamed(old)", missingGrace, ct);
+                ScheduleUpsert(ds, tenantId, root, opt, e.FullPath, "renamed(new)", debounce, ct);
+            };
+            watcher.Deleted += (_, e) => ScheduleDelete(ds, tenantId, root, e.FullPath, "deleted", missingGrace, ct);
+
+            watcher.Error += (_, e) =>
+                _log.LogWarning(e.GetException(),
+                    "FileWatcher: watcher error (buffer overflow possible); scanner will resync.");
+
+            _log.LogInformation("FileWatcher: enabled on {Root} (MissingGrace={Grace}s, DebounceMs={Debounce})",
+                root, (int)missingGrace.TotalSeconds, (int)debounce.TotalMilliseconds);
+
+            try
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+        }
     }
 
     private void ScheduleUpsert(
@@ -113,15 +136,14 @@ sealed class FileWatcherService : BackgroundService
         if (rel is null || IngestionPathFilter.ShouldIgnoreRel(rel))
             return;
 
-        // Si un delete était planifié pour ce doc, on l’annule (upsert prend le dessus)
+        // Upsert prend le dessus
         CancelPending(_pendingDeletes, rel);
 
         var cts = new CancellationTokenSource();
         _pendingUpserts.AddOrUpdate(rel, cts, (_, old) =>
         {
             try { old.Cancel(); } catch { }
-            // IMPORTANT: ne pas Dispose ici, sinon ObjectDisposedException dans le Task
-            return cts;
+            return cts; // pas de Dispose ici
         });
 
         _ = Task.Run(async () =>
@@ -135,23 +157,17 @@ sealed class FileWatcherService : BackgroundService
                 if (!File.Exists(fullPath))
                     return;
 
-                FileInfo fi;
-                try { fi = new FileInfo(fullPath); }
-                catch { return; }
-
-                // Evite de traiter un fichier encore en cours de copie
-                var now = DateTime.UtcNow;
-                var ageSeconds = (now - fi.LastWriteTimeUtc).TotalSeconds;
+                // 1) Age minimal
                 var minAge = Math.Max(0, opt.MinFileAgeSeconds);
-
-                if (ageSeconds < minAge)
-                {
-                    var wait = TimeSpan.FromSeconds(minAge - ageSeconds);
-                    if (wait > TimeSpan.Zero)
-                        await Task.Delay(wait, linked.Token);
-                }
+                if (minAge > 0)
+                    await WaitMinAgeAsync(fullPath, minAge, linked.Token);
 
                 if (!File.Exists(fullPath))
+                    return;
+
+                // 2) Fichier prêt (taille stable + ouverture possible)
+                var ready = await WaitForFileReadyAsync(fullPath, maxAttempts: 8, delayMs: 250, linked.Token);
+                if (!ready)
                     return;
 
                 var category = DeriveCategory(rel, opt);
@@ -168,7 +184,6 @@ sealed class FileWatcherService : BackgroundService
             }
             finally
             {
-                // On retire seulement si c’est encore le même CTS
                 if (_pendingUpserts.TryGetValue(rel, out var current) && ReferenceEquals(current, cts))
                     _pendingUpserts.TryRemove(rel, out _);
 
@@ -193,15 +208,14 @@ sealed class FileWatcherService : BackgroundService
         if (rel is null || IngestionPathFilter.ShouldIgnoreRel(rel))
             return;
 
-        // Si un upsert est planifié, on l’annule (delete prend le dessus)
+        // Delete/missing prend le dessus
         CancelPending(_pendingUpserts, rel);
 
         var cts = new CancellationTokenSource();
         _pendingDeletes.AddOrUpdate(rel, cts, (_, old) =>
         {
             try { old.Cancel(); } catch { }
-            // IMPORTANT: ne pas Dispose ici, sinon ObjectDisposedException dans le Task
-            return cts;
+            return cts; // pas de Dispose ici
         });
 
         _ = Task.Run(async () =>
@@ -216,7 +230,7 @@ sealed class FileWatcherService : BackgroundService
                 if (File.Exists(fullPath))
                     return;
 
-                // P0: le watcher ne fait PAS de delete final => il marque "missing".
+                // P0: le watcher ne fait PAS de delete final => il marque missing.
                 await using var conn = await ds.OpenConnectionAsync(linked.Token);
                 await IngestionEnqueue.MarkMissingAsync(conn, tenantId, rel, linked.Token);
 
@@ -242,7 +256,7 @@ sealed class FileWatcherService : BackgroundService
         if (map.TryRemove(key, out var old))
         {
             try { old.Cancel(); } catch { }
-            // IMPORTANT: Dispose dans le Task qui l’utilise
+            // Dispose dans le Task qui l’utilise
         }
     }
 
@@ -260,16 +274,84 @@ sealed class FileWatcherService : BackgroundService
 
     private static async Task<Guid> ResolveSingleTenantIdAsync(NpgsqlDataSource ds, BootstrapOptions bootstrap, CancellationToken ct)
     {
-        if (bootstrap.TenantId != Guid.Empty)
-            return bootstrap.TenantId;
-
         await using var conn = await ds.OpenConnectionAsync(ct);
-        var tid = await conn.ExecuteScalarAsync<Guid?>(
-            "SELECT tenant_id FROM tenants WHERE is_active=true ORDER BY created_at ASC LIMIT 1;"
-        );
+
+        // 1) Si un tenant est fourni via config, ne l'accepter QUE s'il existe réellement.
+        //    (Sinon: FK violations sur documents/api_keys, et Qdrant peut paraître "vide" car filtré par tenant.)
+        if (bootstrap.TenantId != Guid.Empty)
+        {
+            var exists = await conn.ExecuteScalarAsync<int?>(new CommandDefinition(
+                "SELECT 1 FROM tenants WHERE tenant_id=@id LIMIT 1;",
+                new { id = bootstrap.TenantId },
+                cancellationToken: ct));
+
+            if (exists.HasValue)
+                return bootstrap.TenantId;
+        }
+
+        // 2) Fallback: premier tenant actif (profil single-tenant dev/prod).
+        var tid = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+            "SELECT tenant_id FROM tenants WHERE is_active=true ORDER BY created_at ASC LIMIT 1;",
+            cancellationToken: ct));
+
         if (tid is null || tid == Guid.Empty)
             throw new Exception("No tenant found. Enable Bootstrap or create a tenant in DB.");
 
         return tid.Value;
+    }
+
+
+    private static async Task WaitMinAgeAsync(string fullPath, int minAgeSeconds, CancellationToken ct)
+    {
+        try
+        {
+            var fi = new FileInfo(fullPath);
+            var now = DateTime.UtcNow;
+            var ageSeconds = (now - fi.LastWriteTimeUtc).TotalSeconds;
+
+            if (ageSeconds < minAgeSeconds)
+            {
+                var wait = TimeSpan.FromSeconds(minAgeSeconds - ageSeconds);
+                if (wait > TimeSpan.Zero)
+                    await Task.Delay(wait, ct);
+            }
+        }
+        catch { /* ignore */ }
+    }
+
+    private static async Task<bool> WaitForFileReadyAsync(string fullPath, int maxAttempts, int delayMs, CancellationToken ct)
+    {
+        long? lastSize = null;
+
+        for (var i = 0; i < maxAttempts; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            try
+            {
+                var fi = new FileInfo(fullPath);
+                if (!fi.Exists) return false;
+
+                var size = fi.Length;
+
+                // taille stable sur 2 ticks consécutifs
+                if (lastSize.HasValue && lastSize.Value == size)
+                {
+                    // tentons une ouverture lecture (si verrou exclusif, ça échoue)
+                    using var fs = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                    return true;
+                }
+
+                lastSize = size;
+            }
+            catch
+            {
+                // ignore -> retry
+            }
+
+            await Task.Delay(delayMs, ct);
+        }
+
+        return false;
     }
 }

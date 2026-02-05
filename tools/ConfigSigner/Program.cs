@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using NSec.Cryptography;
 
@@ -7,69 +8,100 @@ public static class Program
 {
     public static int Main(string[] args)
     {
-        if (args.Length == 0)
-        {
-            PrintHelp();
-            return 2;
-        }
-
-        var cmd = args[0].Trim().ToLowerInvariant();
         try
         {
+            if (args.Length == 0)
+            {
+                PrintHelp();
+                return 1;
+            }
+
+            var cmd = args[0].Trim().ToLowerInvariant();
             return cmd switch
             {
                 "gen-keypair" => GenKeypair(),
                 "sign" => Sign(args),
                 "verify" => Verify(args),
+                "--help" or "-h" or "/?" => Help(),
                 _ => Unknown(cmd)
             };
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine("ERROR: " + ex.Message);
-            return 1;
+            return 2;
         }
+    }
+
+    private static int Help()
+    {
+        PrintHelp();
+        return 0;
+    }
+
+    private static int Unknown(string cmd)
+    {
+        Console.Error.WriteLine($"Unknown command: {cmd}");
+        PrintHelp();
+        return 1;
     }
 
     private static void PrintHelp()
     {
         Console.WriteLine(@"
-ConfigSigner (Ed25519)
-Commands:
-  gen-keypair
-      Prints:
-        PUBLIC_KEY_BASE64=...
-        PRIVATE_KEY_BASE64=...
+ConfigSigner (Ed25519) - SAAIA
 
-  sign <configPath> <privateKeyBase64> [signatureOutPath]
-      Writes Base64 signature to signatureOutPath (default: <configPath>.sig)
+USAGE
+  ConfigSigner gen-keypair
+    -> prints:
+       PRIVATE_KEY_BASE64 (RawPrivateKey, 32 bytes)
+       PUBLIC_KEY_BASE64  (RawPublicKey,  32 bytes)
 
-  verify <configPath> <signatureBase64|signatureFilePath> <publicKeyBase64>
-      Returns 0 if valid, 1 if invalid
+  ConfigSigner sign <configPath> <privateKeyBase64|@privateKeyFile> [signatureOutPath]
+    -> writes Base64 signature to signatureOutPath
+    -> default signatureOutPath:
+       <same folder>\<config filename without extension>.sig
+       Example: deployment.config.json -> deployment.config.sig
+
+  ConfigSigner verify <configPath> <signatureBase64|signatureFilePath|@signatureFile> <publicKeyBase64|@publicKeyFile>
+    -> exits 0 if OK, 3 if invalid signature
+
+NOTES
+  - Using @file reads the file content (trimmed) as Base64.
+  - Do NOT store private keys in the repo.
 ");
     }
 
-    private static int Unknown(string cmd)
+    private static string ReadArgOrFile(string value)
     {
-        Console.Error.WriteLine("Unknown command: " + cmd);
-        PrintHelp();
-        return 2;
+        value = (value ?? "").Trim();
+        if (value.StartsWith("@"))
+        {
+            var path = value.Substring(1).Trim().Trim('"');
+            if (!File.Exists(path))
+                throw new FileNotFoundException($"File not found: {path}");
+            return File.ReadAllText(path, Encoding.UTF8).Trim();
+        }
+        return value;
+    }
+
+    private static string DefaultSigPath(string configPath)
+    {
+        var dir = Path.GetDirectoryName(configPath);
+        var name = Path.GetFileNameWithoutExtension(configPath);
+        var file = $"{name}.sig";
+        return string.IsNullOrEmpty(dir) ? file : Path.Combine(dir, file);
     }
 
     private static int GenKeypair()
     {
-        var kp = new KeyCreationParameters
-        {
-            ExportPolicy = KeyExportPolicies.AllowPlaintextExport
-        };
+        var kp = new Key(SignatureAlgorithm.Ed25519, new KeyCreationParameters { ExportPolicy = KeyExportPolicies.AllowPlaintextExport });
 
-        using var key = new Key(SignatureAlgorithm.Ed25519, kp);
+        var priv = kp.Export(KeyBlobFormat.RawPrivateKey);
+        var pub = kp.PublicKey.Export(KeyBlobFormat.RawPublicKey);
 
-        var pub = key.PublicKey.Export(KeyBlobFormat.RawPublicKey);
-        var priv = key.Export(KeyBlobFormat.RawPrivateKey);
-
-        Console.WriteLine("PUBLIC_KEY_BASE64=" + Convert.ToBase64String(pub));
         Console.WriteLine("PRIVATE_KEY_BASE64=" + Convert.ToBase64String(priv));
+        Console.WriteLine("PUBLIC_KEY_BASE64=" + Convert.ToBase64String(pub));
         return 0;
     }
 
@@ -78,22 +110,28 @@ Commands:
         if (args.Length < 3)
         {
             PrintHelp();
-            return 2;
+            return 1;
         }
 
-        var configPath = args[1];
-        var privB64 = args[2];
-        var sigOut = args.Length >= 4 ? args[3] : (configPath + ".sig");
+        var configPath = args[1].Trim().Trim('"');
+        if (!File.Exists(configPath))
+            throw new FileNotFoundException($"Config file not found: {configPath}");
+
+        var privB64 = ReadArgOrFile(args[2]);
+        var sigOut = (args.Length >= 4 && !string.IsNullOrWhiteSpace(args[3]))
+            ? args[3].Trim().Trim('"')
+            : DefaultSigPath(configPath);
+
+        var privBytes = Convert.FromBase64String(privB64.Trim());
+        var key = Key.Import(SignatureAlgorithm.Ed25519, privBytes, KeyBlobFormat.RawPrivateKey);
 
         var cfgBytes = File.ReadAllBytes(configPath);
-        var priv = Convert.FromBase64String(privB64);
-
-        using var key = Key.Import(SignatureAlgorithm.Ed25519, priv, KeyBlobFormat.RawPrivateKey);
-
         var sig = SignatureAlgorithm.Ed25519.Sign(key, cfgBytes);
+
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(sigOut))!);
         File.WriteAllText(sigOut, Convert.ToBase64String(sig), Encoding.UTF8);
 
-        Console.WriteLine("OK: wrote signature to " + sigOut);
+        Console.WriteLine($"OK: signature written to {sigOut}");
         return 0;
     }
 
@@ -102,26 +140,41 @@ Commands:
         if (args.Length < 4)
         {
             PrintHelp();
-            return 2;
+            return 1;
         }
 
-        var configPath = args[1];
-        var sigArg = args[2];
-        var pubB64 = args[3];
+        var configPath = args[1].Trim().Trim('"');
+        if (!File.Exists(configPath))
+            throw new FileNotFoundException($"Config file not found: {configPath}");
+
+        var sigArg = args[2].Trim();
+        byte[] sigBytes;
+
+        if (sigArg.StartsWith("@"))
+        {
+            sigBytes = Convert.FromBase64String(ReadArgOrFile(sigArg));
+        }
+        else if (File.Exists(sigArg.Trim('"')))
+        {
+            var sigPath = sigArg.Trim().Trim('"');
+            var sigText = File.ReadAllText(sigPath, Encoding.UTF8).Trim();
+            if (string.IsNullOrWhiteSpace(sigText))
+                throw new InvalidOperationException($"Empty signature file: {sigPath}");
+            sigBytes = Convert.FromBase64String(sigText);
+        }
+        else
+        {
+            sigBytes = Convert.FromBase64String(sigArg);
+        }
+
+        var pubB64 = ReadArgOrFile(args[3]);
+        var pubBytes = Convert.FromBase64String(pubB64.Trim());
+        var pub = PublicKey.Import(SignatureAlgorithm.Ed25519, pubBytes, KeyBlobFormat.RawPublicKey);
 
         var cfgBytes = File.ReadAllBytes(configPath);
+        var ok = SignatureAlgorithm.Ed25519.Verify(pub, cfgBytes, sigBytes);
 
-        byte[] sig;
-        if (File.Exists(sigArg))
-            sig = Convert.FromBase64String(File.ReadAllText(sigArg, Encoding.UTF8).Trim());
-        else
-            sig = Convert.FromBase64String(sigArg.Trim());
-
-        var pub = Convert.FromBase64String(pubB64);
-        var pk = PublicKey.Import(SignatureAlgorithm.Ed25519, pub, KeyBlobFormat.RawPublicKey);
-
-        var ok = SignatureAlgorithm.Ed25519.Verify(pk, cfgBytes, sig);
         Console.WriteLine(ok ? "VALID" : "INVALID");
-        return ok ? 0 : 1;
+        return ok ? 0 : 3;
     }
 }

@@ -27,8 +27,8 @@ public static class SignedConfigLoader
             throw new InvalidOperationException($"Missing signature file: {sigPath}");
         }
 
-        if (opt.TrustedPublicKeysBase64 is null || opt.TrustedPublicKeysBase64.Length == 0)
-            throw new InvalidOperationException("ConfigSignature:TrustedPublicKeysBase64 is empty.");
+        if (TrustedKeyring.PublicKeysBase64 is null || TrustedKeyring.PublicKeysBase64.Length == 0)
+            throw new InvalidOperationException("TrustedKeyring.PublicKeysBase64 is empty.");
 
         var cfgBytes = File.ReadAllBytes(configPath);
         var sigText = File.ReadAllText(sigPath, Encoding.UTF8).Trim();
@@ -37,7 +37,7 @@ public static class SignedConfigLoader
 
         var sig = Convert.FromBase64String(sigText);
 
-        var ok = opt.TrustedPublicKeysBase64.Any(pk64 =>
+        var ok = TrustedKeyring.PublicKeysBase64.Any(pk64 =>
         {
             if (string.IsNullOrWhiteSpace(pk64)) return false;
             try
