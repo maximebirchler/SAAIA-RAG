@@ -35,6 +35,17 @@ sealed class IngestionOptions
     public int TeiTimeoutSeconds { get; set; } = 180;
     public int QdrantTimeoutSeconds { get; set; } = 180;
 
+    // Bulkheads (limite la concurrence réelle TEI/Qdrant)
+    public int TeiMaxConcurrency { get; set; } = 2;
+    public int QdrantMaxConcurrency { get; set; } = 4;
+
+    // Temps max d'attente pour entrer dans un bulkhead (évite deadlocks)
+    public int BulkheadAcquireTimeoutSeconds { get; set; } = 30;
+
+    // Auto-heal si Qdrant est vide alors que la DB contient des documents
+    public bool ReindexIfQdrantEmpty { get; set; } = true;
+
+
     // ==========================
     // Backward compatible aliases
     // ==========================

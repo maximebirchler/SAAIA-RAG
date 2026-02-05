@@ -2,23 +2,48 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 
+/// <summary>
+/// Client HTTP minimal pour Qdrant.
+/// IMPORTANT:
+/// - Dispose toujours les HttpResponseMessage (sinon épuisement du pool de connexions)
+/// - Dispose aussi les HttpContent (sinon pression mémoire inutile)
+/// - Gère le race: 2 threads peuvent créer la collection en même temps (409 Conflict).
+/// </summary>
 static class QdrantClient
 {
     public static async Task EnsureCollectionAsync(HttpClient qdrant, string collection, int vectorSize, CancellationToken ct)
     {
-        var get = await qdrant.GetAsync($"/collections/{collection}", ct);
+        using var get = await qdrant.GetAsync($"/collections/{collection}", ct);
         if (get.IsSuccessStatusCode) return;
 
         if (get.StatusCode != HttpStatusCode.NotFound)
-            return; // avoid failing startup hard
+        {
+            var err = await TryReadErrorBodyAsync(get, ct);
+            throw new Exception($"Qdrant get collection failed: {(int)get.StatusCode} {get.ReasonPhrase} {err}".Trim());
+        }
 
-        var body = new { vectors = new { size = vectorSize, distance = "Cosine" } };
+        var body = new
+        {
+            vectors = new
+            {
+                size = vectorSize,
+                distance = "Cosine"
+            }
+        };
 
-        var put = await qdrant.PutAsync($"/collections/{collection}",
-            new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"), ct);
+        using var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+
+        using var put = await qdrant.PutAsync($"/collections/{collection}", content, ct);
+
+        // Race condition: si une autre requête a créé la collection entre temps,
+        // Qdrant peut répondre 409 Conflict -> on considère OK.
+        if (put.StatusCode == HttpStatusCode.Conflict) return;
 
         if (!put.IsSuccessStatusCode)
-            throw new Exception($"Create collection failed: {(int)put.StatusCode} {put.ReasonPhrase}");
+        {
+            var err = await TryReadErrorBodyAsync(put, ct);
+            throw new Exception($"Qdrant create collection failed: {(int)put.StatusCode} {put.ReasonPhrase} {err}".Trim());
+        }
     }
 
     public static async Task DeleteByDocAsync(HttpClient qdrant, string collection, Guid tenantId, Guid docId, CancellationToken ct)
@@ -33,22 +58,37 @@ static class QdrantClient
         };
         var body = new { filter };
 
-        var resp = await qdrant.PostAsync($"/collections/{collection}/points/delete?wait=true",
-            new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"), ct);
+        using var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+
+        using var resp = await qdrant.PostAsync(
+            $"/collections/{collection}/points/delete?wait=true",
+            content,
+            ct);
 
         if (resp.StatusCode == HttpStatusCode.NotFound) return;
         if (!resp.IsSuccessStatusCode)
-            throw new Exception($"Qdrant delete failed: {(int)resp.StatusCode} {resp.ReasonPhrase}");
+        {
+            var err = await TryReadErrorBodyAsync(resp, ct);
+            throw new Exception($"Qdrant delete failed: {(int)resp.StatusCode} {resp.ReasonPhrase} {err}".Trim());
+        }
     }
 
     public static async Task UpsertPointsAsync(HttpClient qdrant, string collection, List<object> points, CancellationToken ct)
     {
         var body = new { points };
-        var resp = await qdrant.PutAsync($"/collections/{collection}/points?wait=true",
-            new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"), ct);
+
+        using var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+
+        using var resp = await qdrant.PutAsync(
+            $"/collections/{collection}/points?wait=true",
+            content,
+            ct);
 
         if (!resp.IsSuccessStatusCode)
-            throw new Exception($"Qdrant upsert failed: {(int)resp.StatusCode} {resp.ReasonPhrase}");
+        {
+            var err = await TryReadErrorBodyAsync(resp, ct);
+            throw new Exception($"Qdrant upsert failed: {(int)resp.StatusCode} {resp.ReasonPhrase} {err}".Trim());
+        }
     }
 
     public static object[] ParseSearchResults(JsonDocument doc)
@@ -71,5 +111,20 @@ static class QdrantClient
             list.Add(new { score, docPath, pageStart, pageEnd, chunkIndex, text });
         }
         return list.ToArray();
+    }
+
+    private static async Task<string> TryReadErrorBodyAsync(HttpResponseMessage resp, CancellationToken ct)
+    {
+        try
+        {
+            var s = await resp.Content.ReadAsStringAsync(ct);
+            if (string.IsNullOrWhiteSpace(s)) return string.Empty;
+            s = s.Replace("\r", " ").Replace("\n", " ");
+            return s.Length <= 2000 ? s : s[..2000];
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 }

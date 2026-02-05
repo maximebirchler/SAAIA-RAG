@@ -83,30 +83,43 @@ ORDER BY category;";
         };
 
         var url = $"/collections/{rag.QdrantCollection}/points/search";
-        var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
-        var resp = await qdrant.PostAsync(url, content, ct);
-
-        // auto-create collection si n'existe pas
-        if (resp.StatusCode == HttpStatusCode.NotFound)
+        HttpResponseMessage? resp = null;
+        try
         {
-            resp.Dispose();
-            await QdrantClient.EnsureCollectionAsync(qdrant, rag.QdrantCollection, qvec.Length, ct);
+            using (var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"))
+            {
+                resp = await qdrant.PostAsync(url, content, ct);
+            }
 
-            content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-            resp = await qdrant.PostAsync(url, content, ct);
+            // auto-create collection si n'existe pas
+            if (resp.StatusCode == HttpStatusCode.NotFound)
+            {
+                resp.Dispose();
+                resp = null;
+
+                await QdrantClient.EnsureCollectionAsync(qdrant, rag.QdrantCollection, qvec.Length, ct);
+
+                using var content2 = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+                resp = await qdrant.PostAsync(url, content2, ct);
+            }
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                var errBody = await resp.Content.ReadAsStringAsync(ct);
+                return Results.Problem($"Qdrant search failed: {(int)resp.StatusCode} {resp.ReasonPhrase} {errBody}");
+            }
+
+            await using var stream = await resp.Content.ReadAsStreamAsync(ct);
+            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+            var result = QdrantClient.ParseSearchResults(doc);
+
+            return Results.Ok(new { query = req.Query, category, topK, matches = result });
         }
-
-        if (!resp.IsSuccessStatusCode)
+        finally
         {
-            var errBody = await resp.Content.ReadAsStringAsync(ct);
-            return Results.Problem($"Qdrant search failed: {(int)resp.StatusCode} {resp.ReasonPhrase} {errBody}");
+            resp?.Dispose();
         }
-
-        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
-        var result = QdrantClient.ParseSearchResults(doc);
-
-        return Results.Ok(new { query = req.Query, category, topK, matches = result });
     }
 
     private static async Task<IResult> ScrollAsync(
@@ -134,9 +147,10 @@ ORDER BY category;";
             }
         };
 
-        var resp = await qdrant.PostAsync(
+        using var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+        using var resp = await qdrant.PostAsync(
             $"/collections/{rag.QdrantCollection}/points/scroll",
-            new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"),
+            content,
             ctx.RequestAborted);
 
         if (!resp.IsSuccessStatusCode)

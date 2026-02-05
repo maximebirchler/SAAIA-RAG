@@ -101,6 +101,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ChatPromptBuilder>();
         services.AddSingleton<LlmClient>();
 
+        // ---------- Bulkheads ----------
+        services.AddSingleton<IngestionBulkheads>();
+
         // ---------- Worker ----------
         services.AddHostedService<IngestionWorker>();
         services.AddHostedService<IngestionScanner>();

@@ -1,7 +1,7 @@
 {
   "Rag": {
     "QdrantBaseUrl": "http://localhost:6333",
-    "QdrantCollection": "saaia_docs_v1",
+    "QdrantCollection": "knowledge_base",
     "EmbeddingsBaseUrl": "http://localhost:8081",
     "EmbeddingsModel": "intfloat/multilingual-e5-base",
     "DefaultTopK": 5,
@@ -26,7 +26,10 @@
     "DefaultCategory": "general",
     "CategoryFromFirstFolder": true,
     "TeiTimeoutSeconds": 180,
-    "QdrantTimeoutSeconds": 180
+    "QdrantTimeoutSeconds": 180,
+    "TeiMaxConcurrency": 2,
+    "QdrantMaxConcurrency": 4,
+    "BulkheadAcquireTimeoutSeconds": 30
   },
   "Chat": {
     "LlmBaseUrl": "http://127.0.0.1:1234",

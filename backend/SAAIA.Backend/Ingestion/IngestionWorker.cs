@@ -6,9 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
-using System.Net;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using Dapper;
 using Microsoft.Extensions.Options;
@@ -26,11 +24,13 @@ sealed class IngestionWorker : BackgroundService
 {
     private readonly IServiceProvider _sp;
     private readonly ILogger<IngestionWorker> _log;
+    private readonly IngestionBulkheads _bulkheads;
 
-    public IngestionWorker(IServiceProvider sp, ILogger<IngestionWorker> log)
+    public IngestionWorker(IServiceProvider sp, ILogger<IngestionWorker> log, IngestionBulkheads bulkheads)
     {
         _sp = sp;
         _log = log;
+        _bulkheads = bulkheads;
     }
 
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
@@ -81,7 +81,8 @@ sealed class IngestionWorker : BackgroundService
                     continue;
                 }
 
-                _log.LogInformation("Ingestion start job={JobId} action={Action} doc={DocPath} v={Version}", job.JobId, job.Action, job.DocPath, job.Version);
+                _log.LogInformation("Ingestion start job={JobId} action={Action} doc={DocPath} v={Version}",
+                    job.JobId, job.Action, job.DocPath, job.Version);
 
                 try
                 {
@@ -95,16 +96,19 @@ sealed class IngestionWorker : BackgroundService
                 }
                 catch (JobCanceledException jc)
                 {
-                    _log.LogInformation("Job canceled job={JobId} action={Action} doc={DocPath} reason={Reason}", job.JobId, job.Action, job.DocPath, jc.Reason);
+                    _log.LogInformation("Job canceled job={JobId} action={Action} doc={DocPath} reason={Reason}",
+                        job.JobId, job.Action, job.DocPath, jc.Reason);
                 }
                 catch (OperationCanceledException) when (!ct.IsCancellationRequested)
                 {
-                    _log.LogWarning("Job timed out/canceled job={JobId} action={Action} doc={DocPath}", job.JobId, job.Action, job.DocPath);
+                    _log.LogWarning("Job timed out/canceled job={JobId} action={Action} doc={DocPath}",
+                        job.JobId, job.Action, job.DocPath);
                     await JobRepo.MarkFailedAsync(ds, job.JobId, "timeout_or_canceled", ct);
                 }
                 catch (Exception ex)
                 {
-                    _log.LogError(ex, "Job failed job={JobId} action={Action} doc={DocPath}", job.JobId, job.Action, job.DocPath);
+                    _log.LogError(ex, "Job failed job={JobId} action={Action} doc={DocPath}",
+                        job.JobId, job.Action, job.DocPath);
                     await JobRepo.MarkFailedAsync(ds, job.JobId, ex.Message, ct);
                 }
             }
@@ -173,26 +177,14 @@ WHERE job_id=@job_id
             }
         }
 
-        var filter = new
-        {
-            must = new object[]
-            {
-                new { key = "tenant_id", match = new { value = tenantId.ToString() } },
-                new { key = "doc_id", match = new { value = docId.ToString() } }
-            }
-        };
-        var body = new { filter };
-
         using var qdrantCts = CreateTimeoutCts(ct, ingest.QdrantTimeoutSeconds);
         var qct = qdrantCts?.Token ?? ct;
 
-        var resp = await qdrant.PostAsync(
-            $"/collections/{rag.QdrantCollection}/points/delete?wait=true",
-            new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"),
-            qct);
-
-        if (resp.StatusCode != HttpStatusCode.NotFound && !resp.IsSuccessStatusCode)
-            throw new Exception($"Qdrant delete failed: {(int)resp.StatusCode} {resp.ReasonPhrase}");
+        // ✅ Bulkhead Qdrant + delete via client (dispose OK)
+        using (await _bulkheads.AcquireQdrantAsync(qct))
+        {
+            await QdrantClient.DeleteByDocAsync(qdrant, rag.QdrantCollection, tenantId, docId, qct);
+        }
 
         await using var conn = await ds.OpenConnectionAsync(ct);
         const string sql = @"
@@ -257,7 +249,12 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
 
         using var teiCts = CreateTimeoutCts(ct, ingest.TeiTimeoutSeconds);
         var teiToken = teiCts?.Token ?? ct;
-        var dim = await TeiClient.GetVectorDimAsync(tei, rag.EmbeddingsModel, teiToken);
+
+        int dim;
+        using (await _bulkheads.AcquireTeiAsync(teiToken))
+        {
+            dim = await TeiClient.GetVectorDimAsync(tei, rag.EmbeddingsModel, teiToken);
+        }
 
         // Qdrant
         var qdrant = httpFactory.CreateClient("qdrant");
@@ -266,10 +263,17 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
         using var qdrantCts = CreateTimeoutCts(ct, ingest.QdrantTimeoutSeconds);
         var qdrantToken = qdrantCts?.Token ?? ct;
 
-        await QdrantClient.EnsureCollectionAsync(qdrant, rag.QdrantCollection, dim, qdrantToken);
+        // ✅ EnsureCollection sous bulkhead Qdrant
+        using (await _bulkheads.AcquireQdrantAsync(qdrantToken))
+        {
+            await QdrantClient.EnsureCollectionAsync(qdrant, rag.QdrantCollection, dim, qdrantToken);
+        }
 
-        // delete previous points
-        await QdrantClient.DeleteByDocAsync(qdrant, rag.QdrantCollection, tenantId, docId, qdrantToken);
+        // ✅ delete previous points sous bulkhead Qdrant
+        using (await _bulkheads.AcquireQdrantAsync(qdrantToken))
+        {
+            await QdrantClient.DeleteByDocAsync(qdrant, rag.QdrantCollection, tenantId, docId, qdrantToken);
+        }
 
         // embed + upsert by batches
         var batchSize = Math.Clamp(ingest.EmbeddingsBatchSize, 1, 256);
@@ -289,7 +293,11 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
             using var bTeiCts = CreateTimeoutCts(ct, ingest.TeiTimeoutSeconds);
             var bTeiToken = bTeiCts?.Token ?? ct;
 
-            var vectors = await TeiClient.EmbedAsync(tei, rag.EmbeddingsModel, inputs, bTeiToken);
+            float[][] vectors;
+            using (await _bulkheads.AcquireTeiAsync(bTeiToken))
+            {
+                vectors = await TeiClient.EmbedAsync(tei, rag.EmbeddingsModel, inputs, bTeiToken);
+            }
             swTei.Stop();
 
             var points = new List<object>(slice.Count);
@@ -327,7 +335,10 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
             using var bQdrantCts = CreateTimeoutCts(ct, ingest.QdrantTimeoutSeconds);
             var bQToken = bQdrantCts?.Token ?? ct;
 
-            await QdrantClient.UpsertPointsAsync(qdrant, rag.QdrantCollection, points, bQToken);
+            using (await _bulkheads.AcquireQdrantAsync(bQToken))
+            {
+                await QdrantClient.UpsertPointsAsync(qdrant, rag.QdrantCollection, points, bQToken);
+            }
             swQ.Stop();
 
             // Heartbeat + log progression

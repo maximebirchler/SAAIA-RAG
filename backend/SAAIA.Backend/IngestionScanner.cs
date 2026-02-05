@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -30,13 +33,17 @@ sealed class IngestionScanner : BackgroundService
         {
             IngestionOptions opt;
             BootstrapOptions bootstrap;
+            RagOptions rag;
             NpgsqlDataSource ds;
+            IHttpClientFactory httpFactory;
 
             using (var scope = _sp.CreateScope())
             {
                 opt = scope.ServiceProvider.GetRequiredService<IOptions<IngestionOptions>>().Value;
                 bootstrap = scope.ServiceProvider.GetRequiredService<IOptions<BootstrapOptions>>().Value;
+                rag = scope.ServiceProvider.GetRequiredService<IOptions<RagOptions>>().Value;
                 ds = scope.ServiceProvider.GetRequiredService<NpgsqlDataSource>();
+                httpFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
             }
 
             if (!opt.ScannerEnabled)
@@ -47,7 +54,7 @@ sealed class IngestionScanner : BackgroundService
 
             try
             {
-                await ScanOnceAsync(ds, opt, bootstrap, ct);
+                await ScanOnceAsync(ds, httpFactory, rag, opt, bootstrap, ct);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
             catch (Exception ex)
@@ -60,7 +67,13 @@ sealed class IngestionScanner : BackgroundService
         }
     }
 
-    private async Task ScanOnceAsync(NpgsqlDataSource ds, IngestionOptions opt, BootstrapOptions bootstrap, CancellationToken ct)
+    private async Task ScanOnceAsync(
+        NpgsqlDataSource ds,
+        IHttpClientFactory httpFactory,
+        RagOptions rag,
+        IngestionOptions opt,
+        BootstrapOptions bootstrap,
+        CancellationToken ct)
     {
         var root = opt.DocumentsRoot;
         if (string.IsNullOrWhiteSpace(root))
@@ -79,18 +92,18 @@ sealed class IngestionScanner : BackgroundService
 
         await using var conn = await ds.OpenConnectionAsync(ct);
 
-        // 0) Si un job "running" est bloqué depuis trop longtemps, on le fail et on libère
+        // 0) stale running -> failed
         var staleRunningAfter = TimeSpan.FromMinutes(Math.Clamp(opt.StaleRunningMinutes, 5, 24 * 60));
         await MarkStaleRunningJobsFailedAsync(conn, tenantId, staleRunningAfter, ct);
 
-        // 1) Si un job est EN COURS (running), on stoppe le scan (comme souhaité)
+        // 1) stop scan if running job exists
         if (await HasRunningJobAsync(conn, tenantId, ct))
         {
             _log.LogInformation("Scanner: running ingestion job detected => skipping scan this cycle");
             return;
         }
 
-        // 2) Liste fichiers sur disque
+        // 2) list files
         var now = DateTime.UtcNow;
         var missingGrace = TimeSpan.FromSeconds(Math.Clamp(opt.MissingGraceSeconds, 5, 24 * 3600));
         var maxFiles = Math.Clamp(opt.MaxFilesPerScan, 1, 200000);
@@ -99,7 +112,7 @@ sealed class IngestionScanner : BackgroundService
             .Take(maxFiles)
             .ToList();
 
-        // Anti wipe: delete seulement après 2 scans vides
+        // Anti wipe: delete only after 2 empty scans
         if (files.Count == 0)
         {
             _emptyScanStreak++;
@@ -112,7 +125,7 @@ sealed class IngestionScanner : BackgroundService
             _emptyScanStreak = 0;
         }
 
-        // 3) Charge docs connus
+        // 3) load known docs
         const string loadSql = @"
 SELECT
   doc_path      AS ""DocPath"",
@@ -126,6 +139,28 @@ WHERE tenant_id = @tenant_id
 
         var existing = (await conn.QueryAsync<DocRow>(loadSql, new { tenant_id = tenantId }))
             .ToDictionary(x => x.DocPath, StringComparer.OrdinalIgnoreCase);
+
+        // 3.1) Auto-heal: if Qdrant is empty for this tenant but DB has docs, force reindex.
+        bool forceReindexAll = false;
+        if (opt.ReindexIfQdrantEmpty && existing.Count > 0 && files.Count > 0)
+        {
+            var count = await TryGetTenantPointCountAsync(httpFactory, rag, tenantId, ct);
+
+            // count == 0 => collection missing OR empty for this tenant
+            if (count == 0)
+            {
+                forceReindexAll = true;
+                _log.LogWarning(
+                    "Scanner: Qdrant has 0 points for tenant {TenantId} while DB has {Docs} documents. Forcing reindex of all seen PDFs.",
+                    tenantId, existing.Count
+                );
+            }
+            else if (count is null)
+            {
+                // Qdrant unreachable / error => do NOT force reindex (avoid storms)
+                _log.LogWarning("Scanner: cannot check Qdrant point count (skipping auto-heal this cycle).");
+            }
+        }
 
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -146,10 +181,10 @@ WHERE tenant_id = @tenant_id
             if (IngestionPathFilter.ShouldIgnoreRel(rel))
                 continue;
 
-            // IMPORTANT: on marque "seen" même si le fichier est trop frais (copy en cours)
+            // mark seen even if too fresh
             seen.Add(rel);
 
-            // Evite de traiter un fichier encore en cours de copie
+            // avoid in-progress copy
             var ageSeconds = (now - fi.LastWriteTimeUtc).TotalSeconds;
             if (ageSeconds < Math.Max(0, opt.MinFileAgeSeconds))
             {
@@ -171,8 +206,8 @@ WHERE tenant_id = @tenant_id
                 (row.FileSize ?? -1) != fi.Length ||
                 !SameMtime(row.FileMtime, fi.LastWriteTimeUtc);
 
-            // Re-index si: contenu changé OU doc était "missing" (il est revenu)
             var needsReindex =
+                forceReindexAll ||
                 changed ||
                 string.Equals(row.Status, "missing", StringComparison.OrdinalIgnoreCase);
 
@@ -188,17 +223,12 @@ WHERE tenant_id = @tenant_id
         }
 
         // 5) Deletions
-        // IMPORTANT: si on détecte des fichiers "too fresh" (copy/move en cours),
-        // on NE FAIT PAS de deletions à ce cycle.
         if (!anyTooFresh)
         {
             foreach (var kv in existing)
             {
-                // si dossier vide (streak>=2) => on supprime tout
-                // sinon => on supprime ce qui n'est plus vu
                 if (files.Count == 0 || !seen.Contains(kv.Key))
                 {
-                    // 1) Première détection "manquant" => on marque le doc missing et on attend MissingGrace
                     if (!string.Equals(kv.Value.Status, "missing", StringComparison.OrdinalIgnoreCase))
                     {
                         await IngestionEnqueue.MarkMissingAsync(conn, tenantId, kv.Key, ct);
@@ -207,10 +237,7 @@ WHERE tenant_id = @tenant_id
                         continue;
                     }
 
-                    // 2) Si le doc est missing depuis suffisamment longtemps => enqueue delete
                     var missingSince = kv.Value.MissingSince;
-
-                    // Legacy safety: si missing_since est NULL, on le fixe maintenant
                     if (missingSince is null)
                     {
                         await IngestionEnqueue.MarkMissingAsync(conn, tenantId, kv.Key, ct);
@@ -235,10 +262,60 @@ WHERE tenant_id = @tenant_id
         }
 
         _log.LogInformation(
-            "Scanner: files={Files} unchanged={Unchanged} upsert_enqueued={Upserts} delete_enqueued={Deletes} skipped_too_fresh={TooFresh}",
-            files.Count, unchanged, enqUpsert, enqDelete, skippedTooFresh
+            "Scanner: files={Files} unchanged={Unchanged} upsert_enqueued={Upserts} delete_enqueued={Deletes} skipped_too_fresh={TooFresh} force_reindex={Force}",
+            files.Count, unchanged, enqUpsert, enqDelete, skippedTooFresh, forceReindexAll
         );
+    }
 
+    private static async Task<int?> TryGetTenantPointCountAsync(
+        IHttpClientFactory httpFactory,
+        RagOptions rag,
+        Guid tenantId,
+        CancellationToken ct)
+    {
+        try
+        {
+            var qdrant = httpFactory.CreateClient("qdrant");
+            qdrant.BaseAddress = new Uri(rag.QdrantBaseUrl);
+
+            var body = new
+            {
+                filter = new
+                {
+                    must = new object[]
+                    {
+                        new { key = "tenant_id", match = new { value = tenantId.ToString() } }
+                    }
+                },
+                exact = false
+            };
+
+            using var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+            using var resp = await qdrant.PostAsync($"/collections/{rag.QdrantCollection}/points/count", content, ct);
+
+            if (resp.StatusCode == HttpStatusCode.NotFound)
+                return 0;
+
+            if (!resp.IsSuccessStatusCode)
+                return null;
+
+            await using var stream = await resp.Content.ReadAsStreamAsync(ct);
+            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+
+            if (doc.RootElement.TryGetProperty("result", out var result) &&
+                result.ValueKind == JsonValueKind.Object &&
+                result.TryGetProperty("count", out var countEl) &&
+                countEl.ValueKind == JsonValueKind.Number)
+            {
+                return countEl.GetInt32();
+            }
+
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static bool SameMtime(DateTime? dbMtime, DateTime fsMtimeUtc)
@@ -308,8 +385,6 @@ WHERE tenant_id=@tenant_id
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
 
-        // 1) Si un tenant est fourni via config, ne l'accepter QUE s'il existe réellement.
-        //    (Sinon: FK violations sur documents/api_keys, et Qdrant peut paraître "vide" car filtré par tenant.)
         if (bootstrap.TenantId != Guid.Empty)
         {
             var exists = await conn.ExecuteScalarAsync<int?>(new CommandDefinition(
@@ -321,7 +396,6 @@ WHERE tenant_id=@tenant_id
                 return bootstrap.TenantId;
         }
 
-        // 2) Fallback: premier tenant actif (profil single-tenant dev/prod).
         var tid = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
             "SELECT tenant_id FROM tenants WHERE is_active=true ORDER BY created_at ASC LIMIT 1;",
             cancellationToken: ct));
@@ -332,8 +406,6 @@ WHERE tenant_id=@tenant_id
         return tid.Value;
     }
 
-
-    // Dapper: classe simple (évite les erreurs de ctor record)
     private sealed class DocRow
     {
         public string DocPath { get; set; } = "";
