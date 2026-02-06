@@ -31,15 +31,6 @@
     "QdrantMaxConcurrency": 4,
     "BulkheadAcquireTimeoutSeconds": 30
   },
-  "Chat": {
-    "LlmBaseUrl": "http://127.0.0.1:1234",
-    "LlmModel": "local",
-    "LlmTemperature": 0.2,
-    "LlmMaxTokens": 800,
-    "LlmTimeoutSeconds": 120,
-    "LlmFirstTokenTimeoutSeconds": 25,
-    "SystemPrompt": "Tu es un assistant technique. Cite toujours la source avec doc et page."
-  },
   "Bootstrap": {
     "Enabled": false
   },

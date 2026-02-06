@@ -2,7 +2,6 @@ using Microsoft.Extensions.Options;
 using Npgsql;
 using SAAIA.Backend.Auth;
 using SAAIA.Backend.Bootstrap;
-using SAAIA.Backend.Chat;
 using SAAIA.Backend.Db;
 using SAAIA.Backend.Endpoints;
 
@@ -76,9 +75,6 @@ public static class WebApplicationExtensions
         AdminKeysEndpoints.Map(app);
 
         RagEndpoints.Map(app);
-
-        // Chat streaming SSE
-        app.MapChatEndpoints();
 
         return app;
     }

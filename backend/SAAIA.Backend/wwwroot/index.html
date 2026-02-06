@@ -15,29 +15,30 @@
     button { cursor:pointer; }
     pre { white-space: pre-wrap; word-wrap: break-word; }
     .row { display:grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .sources li { margin-bottom: 6px; }
+    .sources li { margin-bottom: 8px; }
     .muted { color:#666; font-size: 12px; }
     .ok { color: #0a7; font-weight: 600; }
     .bad { color: #c22; font-weight: 600; }
+    .snippet { color:#222; font-size: 12px; margin-top:4px; }
   </style>
 </head>
 <body>
 <header>
   <strong>SAAIA RAG — Dev UI</strong>
   <span id="readyBadge" class="muted">/ready: …</span>
-  <span class="muted">• SSE POST /chat/stream</span>
+  <span class="muted">• POST /rag/query</span>
 </header>
 
 <main>
   <section class="card">
     <div class="row">
       <div>
-        <label>Category</label>
+        <label>Category (optionnel)</label>
         <input id="category" value="programmation" />
       </div>
       <div>
         <label>topK</label>
-        <input id="topK" type="number" value="3" min="0" max="10" />
+        <input id="topK" type="number" value="5" min="1" max="20" />
       </div>
     </div>
 
@@ -45,33 +46,27 @@
     <input id="apiKey" type="password" placeholder="CHANGE_ME_BACKEND_API_KEY" />
 
     <label>Question</label>
-    <textarea id="query">Résume clairement le passage et termine par les citations</textarea>
-
-    <label>System prompt (override)</label>
-    <textarea id="systemPrompt" placeholder="Ex: Réponds en 5 points, très court, et termine par citations."></textarea>
+    <textarea id="query">Résume le passage le plus pertinent.</textarea>
 
     <div class="row" style="margin-top:10px;">
-      <button id="sendBtn">Envoyer</button>
-      <button id="stopBtn" disabled>Stop</button>
+      <button id="sendBtn">Rechercher</button>
+      <button id="copyBtn" type="button">Copier JSON</button>
     </div>
 
     <p class="muted" style="margin-top:10px;">
-      Astuce : mets topK=0 pour tester LLM seul.
+      Le serveur v2.7 ne génère pas de réponse LLM : il renvoie des chunks sourçables (doc/pages/extrait).
     </p>
   </section>
 
   <section class="card">
     <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-      <strong>Réponse</strong>
-      <div style="display:flex; gap:10px; align-items:center;">
-        <button id="copyBtn" type="button" style="width:auto; padding:6px 10px;">Copier</button>
-        <span class="muted" id="status">Idle</span>
-      </div>
+      <strong>Résultats</strong>
+      <span class="muted" id="status">Idle</span>
     </div>
 
     <hr />
     <div>
-      <strong>Sources (meta)</strong>
+      <strong>Matches</strong>
       <ul class="sources" id="sources"></ul>
     </div>
     <hr />
@@ -80,11 +75,6 @@
 </main>
 
 <script>
-let currentAbort = null;
-let gotFirstDelta = false;
-let ttftMs = null;
-let t0 = 0;
-
 const LS = {
   get: (k, d='') => localStorage.getItem(k) ?? d,
   set: (k, v) => localStorage.setItem(k, v ?? '')
@@ -92,24 +82,24 @@ const LS = {
 
 function loadSettings() {
   document.getElementById('category').value = LS.get('category', 'programmation');
-  document.getElementById('topK').value = LS.get('topK', '3');
+  document.getElementById('topK').value = LS.get('topK', '5');
   document.getElementById('apiKey').value = LS.get('apiKey', '');
-  document.getElementById('query').value = LS.get('query', 'Résume clairement le passage et termine par les citations');
-  const spEl = document.getElementById('systemPrompt');
-  if (spEl) spEl.value = LS.get('systemPrompt', '');
+  document.getElementById('query').value = LS.get('query', 'Résume le passage le plus pertinent.');
 }
-
 function wireAutosave() {
-  const ids = ['category','topK','apiKey','query','systemPrompt'];
-  ids.forEach(id => {
+  ['category','topK','apiKey','query'].forEach(id => {
     const el = document.getElementById(id);
-    if (!el) return;
     el.addEventListener('input', () => LS.set(id, el.value));
   });
 }
-
 loadSettings();
 wireAutosave();
+
+function setStatus(s) { document.getElementById('status').textContent = s; }
+function clearUi() {
+  document.getElementById('output').textContent = '';
+  document.getElementById('sources').innerHTML = '';
+}
 
 async function refreshReady() {
   const badge = document.getElementById('readyBadge');
@@ -131,140 +121,68 @@ async function refreshReady() {
 setInterval(refreshReady, 4000);
 refreshReady();
 
-function setStatus(s) { document.getElementById('status').textContent = s; }
-function clearUi() {
-  document.getElementById('output').textContent = '';
-  document.getElementById('sources').innerHTML = '';
-}
-
-function renderSources(meta) {
+function renderMatches(matches) {
   const ul = document.getElementById('sources');
   ul.innerHTML = '';
-
-  // Infos de sélection (si fournies)
-  if (meta.retrieval) {
+  (matches || []).forEach(m => {
     const li = document.createElement('li');
-    const r = meta.retrieval;
-    li.textContent = `Retrieval: confidence=${r.confidence} • bestScore=${(r.bestScore ?? 0).toFixed(3)} • gap=${(r.scoreGap ?? 0).toFixed(3)} • selected=${r.selectedK}/${r.candidateK}`;
-    ul.appendChild(li);
-  }
-
-  (meta.sources || []).forEach(s => {
-    const li = document.createElement('li');
-    li.textContent = `[${s.sourceId}] ${s.docName} (p.${s.pageStart}-${s.pageEnd}, chunk ${s.chunkIndex}) score=${(s.score ?? 0).toFixed(3)}`;
+    const p1 = (m.pageStart ?? '?');
+    const p2 = (m.pageEnd ?? '?');
+    li.innerHTML = `<div><b>${m.docPath ?? 'unknown'}</b> • p.${p1}-${p2} • chunk ${m.chunkIndex ?? '?'} • score ${(m.score ?? 0).toFixed(3)}</div>`;
+    if (m.text) {
+      const sn = document.createElement('div');
+      sn.className = 'snippet';
+      sn.textContent = m.text;
+      li.appendChild(sn);
+    }
     ul.appendChild(li);
   });
 }
 
-function handleSseEvent(eventName, dataObj) {
-  if (eventName === 'meta') { renderSources(dataObj); return; }
-  if (eventName === 'delta') {
-    if (!gotFirstDelta) {
-      gotFirstDelta = true;
-      ttftMs = Math.round(performance.now() - t0);
-      setStatus(`Streaming… TTFT ${ttftMs} ms`);
-    }
-    document.getElementById('output').textContent += (dataObj.content || '');
-    return;
-  }
-  if (eventName === 'done') { setStatus('Done'); return; }
-}
-
-function parseSseBlock(block) {
-  if (!block || block.startsWith(':')) return; // ignore ping/comments
-  const lines = block.split('\n');
-  let eventName = 'message';
-  let dataLine = '';
-  for (const ln of lines) {
-    if (ln.startsWith('event:')) eventName = ln.slice(6).trim();
-    if (ln.startsWith('data:')) dataLine += ln.slice(5).trim();
-  }
-  if (!dataLine) return;
-  let obj;
-  try { obj = JSON.parse(dataLine); }
-  catch {
-    document.getElementById('output').textContent += `\n[parse error] ${dataLine}\n`;
-    return;
-  }
-  try { handleSseEvent(eventName, obj); }
-  catch (e) {
-    console.error(e);
-    setStatus('UI error (console)');
-  }
-}
-
 async function send() {
   clearUi();
-  setStatus('Streaming...');
+  setStatus('Recherche…');
 
   const apiKey = document.getElementById('apiKey').value.trim();
   const query = document.getElementById('query').value;
-  const category = document.getElementById('category').value.trim();
-  const topK = Number(document.getElementById('topK').value || 0);
-  const systemPrompt = (document.getElementById('systemPrompt')?.value || '').trim();
+  const categoryRaw = document.getElementById('category').value.trim();
+  const topK = Number(document.getElementById('topK').value || 5);
 
-  const payload = systemPrompt ? { query, category, topK, systemPrompt } : { query, category, topK };
-
-  currentAbort = new AbortController();
-  document.getElementById('sendBtn').disabled = true;
-  document.getElementById('stopBtn').disabled = false;
-
-  t0 = performance.now();
-  ttftMs = null;
-  gotFirstDelta = false;
+  const payload = {
+    query,
+    topK,
+    ...(categoryRaw ? { category: categoryRaw } : {})
+  };
 
   try {
-    const res = await fetch('/chat/stream', {
+    const res = await fetch('/rag/query', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(apiKey ? { 'X-Api-Key': apiKey } : {})
       },
-      body: JSON.stringify(payload),
-      signal: currentAbort.signal
+      body: JSON.stringify(payload)
     });
 
+    const text = await res.text();
     if (!res.ok) {
       setStatus(`HTTP ${res.status}`);
-      document.getElementById('output').textContent = await res.text();
+      document.getElementById('output').textContent = text;
       return;
     }
 
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder('utf-8');
-    let buffer = '';
-
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
-
-      // SSE events separated by blank line
-      let idx;
-      while ((idx = buffer.indexOf('\n\n')) >= 0) {
-        const block = buffer.slice(0, idx).trim();
-        buffer = buffer.slice(idx + 2);
-        parseSseBlock(block);
-      }
-    }
-
-    const totalMs = Math.round(performance.now() - t0);
-    if (ttftMs === null) setStatus(`Done • Total ${totalMs} ms`);
-    else setStatus(`Done • TTFT ${ttftMs} ms • Total ${totalMs} ms`);
+    const obj = JSON.parse(text);
+    renderMatches(obj.matches);
+    document.getElementById('output').textContent = JSON.stringify(obj, null, 2);
+    setStatus(`OK • ${obj.matches?.length ?? 0} match(es)`);
 
   } catch (e) {
-    if (e.name === 'AbortError') setStatus('Stopped');
-    else setStatus('Error');
-  } finally {
-    document.getElementById('sendBtn').disabled = false;
-    document.getElementById('stopBtn').disabled = true;
-    currentAbort = null;
+    setStatus('Erreur');
+    document.getElementById('output').textContent = String(e);
   }
 }
 
 document.getElementById('sendBtn').addEventListener('click', send);
-document.getElementById('stopBtn').addEventListener('click', () => currentAbort?.abort());
 document.getElementById('copyBtn').addEventListener('click', async () => {
   const text = document.getElementById('output').textContent || '';
   try {

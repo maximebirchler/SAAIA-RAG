@@ -1,14 +1,13 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Npgsql;
-using SAAIA.Backend.Chat;
 
 namespace SAAIA.Backend.Endpoints;
 
 public static class ReadyEndpoints
 {
     private static readonly SemaphoreSlim _gate = new(1, 1);
-    private const string ReadyCacheKey = "ready:v1";
+    private const string ReadyCacheKey = "ready:v2";
     private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(10);
 
     private sealed record ReadinessSnapshot(bool Ok, object Payload);
@@ -22,8 +21,6 @@ public static class ReadyEndpoints
         NpgsqlDataSource ds,
         IHttpClientFactory httpFactory,
         IOptions<RagOptions> ragOpt,
-        IOptions<ChatOptions> chatOpt,
-        LlmClient llm,
         IMemoryCache cache,
         CancellationToken ct)
     {
@@ -107,22 +104,8 @@ public static class ReadyEndpoints
                 details["tei_error"] = ex.Message;
             }
 
-            // LLM check
-            try
-            {
-                var chat = chatOpt.Value;
-                details["llm_model"] = chat.LlmModel;
-
-                var llmOk = await llm.ProbeAsync(timeoutSeconds: 15, ct);
-                details["llm"] = llmOk;
-                if (!llmOk) ok = false;
-            }
-            catch (Exception ex)
-            {
-                ok = false;
-                details["llm"] = false;
-                details["llm_error"] = ex.Message;
-            }
+            // LLM: client-only en v2.7
+            details["llm"] = "client-only";
 
             var payload = new { ok, ts = DateTimeOffset.UtcNow, details };
             var snap = new ReadinessSnapshot(ok, payload);

@@ -1,5 +1,0 @@
-{
-    "query":  "Résume ce document en 5 bullet points et cite les sources.",
-    "topK":  5,
-    "category":  "programmation"
-}

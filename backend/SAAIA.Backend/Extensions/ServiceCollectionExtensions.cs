@@ -1,4 +1,3 @@
-using System.Net;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.AspNetCore.RateLimiting;
@@ -8,7 +7,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using SAAIA.Backend.Auth;
 using SAAIA.Backend.Bootstrap;
-using SAAIA.Backend.Chat;
 
 namespace SAAIA.Backend;
 
@@ -37,7 +35,6 @@ public static class ServiceCollectionExtensions
         services.Configure<DatabaseOptions>(config.GetSection("Database"));
         services.Configure<RagOptions>(config.GetSection("Rag"));
         services.Configure<IngestionOptions>(config.GetSection("Ingestion"));
-        services.Configure<ChatOptions>(config.GetSection("Chat"));
         services.Configure<RateLimitOptions>(config.GetSection("RateLimiting"));
 
         // Stabilise DocumentsRoot si relatif (par rapport au ContentRootPath)
@@ -49,7 +46,7 @@ public static class ServiceCollectionExtensions
         });
 
         // ---------- Rate limiting (par API key) ----------
-        // CDC v2.6 : "Rate limiting par API key"
+        // CDC : "Rate limiting par API key"
         var headerName = config.GetValue<string>("Auth:ApiKeyHeaderName") ?? "X-Api-Key";
         var rl = config.GetSection("RateLimiting").Get<RateLimitOptions>() ?? new RateLimitOptions();
         var window = TimeSpan.FromSeconds(Math.Max(1, rl.WindowSeconds));
@@ -87,19 +84,9 @@ public static class ServiceCollectionExtensions
         });
 
         // ---------- HTTP clients ----------
-        // NOTE: llm streaming => Timeout infini (géré via CancellationToken)
-        services.AddHttpClient("llm", c => c.Timeout = Timeout.InfiniteTimeSpan);
-        services.AddHttpClient("ollama", c => c.Timeout = Timeout.InfiniteTimeSpan);
-
         // Qdrant + TEI : timeout “raisonnable”.
         services.AddHttpClient("qdrant", c => c.Timeout = TimeSpan.FromMinutes(5));
         services.AddHttpClient("tei", c => c.Timeout = TimeSpan.FromMinutes(5));
-
-        // ---------- Chat (SSE) ----------
-        services.AddSingleton<ChatLimiter>();
-        services.AddSingleton<RagRetriever>();
-        services.AddSingleton<ChatPromptBuilder>();
-        services.AddSingleton<LlmClient>();
 
         // ---------- Bulkheads ----------
         services.AddSingleton<IngestionBulkheads>();
@@ -108,9 +95,6 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<IngestionWorker>();
         services.AddHostedService<IngestionScanner>();
         services.AddHostedService<FileWatcherService>();
-
-        // Warmup LLM
-        services.AddHostedService<LlmWarmupService>();
 
         return services;
     }
