@@ -35,8 +35,6 @@ static class QdrantClient
 
         using var put = await qdrant.PutAsync($"/collections/{collection}", content, ct);
 
-        // Race condition: si une autre requête a créé la collection entre temps,
-        // Qdrant peut répondre 409 Conflict -> on considère OK.
         if (put.StatusCode == HttpStatusCode.Conflict) return;
 
         if (!put.IsSuccessStatusCode)
@@ -91,26 +89,39 @@ static class QdrantClient
         }
     }
 
-    public static object[] ParseSearchResults(JsonDocument doc)
+    public static List<RagMatch> ParseSearchResults(JsonDocument doc)
     {
         if (!doc.RootElement.TryGetProperty("result", out var result) || result.ValueKind != JsonValueKind.Array)
-            return Array.Empty<object>();
+            return new List<RagMatch>();
 
-        var list = new List<object>();
+        var list = new List<RagMatch>(result.GetArrayLength());
         foreach (var item in result.EnumerateArray())
         {
             var score = item.TryGetProperty("score", out var s) ? s.GetDouble() : 0.0;
             var payload = item.TryGetProperty("payload", out var p) ? p : default;
 
-            string? docPath = payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty("doc_path", out var dp) ? dp.GetString() : null;
-            int? pageStart = payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty("page_start", out var ps) && ps.ValueKind == JsonValueKind.Number ? ps.GetInt32() : null;
-            int? pageEnd = payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty("page_end", out var pe) && pe.ValueKind == JsonValueKind.Number ? pe.GetInt32() : null;
-            int? chunkIndex = payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty("chunk_index", out var ci) && ci.ValueKind == JsonValueKind.Number ? ci.GetInt32() : null;
-            string? text = payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty("text", out var t) ? t.GetString() : null;
+            string? GetStr(string k)
+                => payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty(k, out var v) ? v.GetString() : null;
 
-            list.Add(new { score, docPath, pageStart, pageEnd, chunkIndex, text });
+            int? GetInt(string k)
+                => payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : null;
+
+            var m = new RagMatch(
+                Score: score,
+                DocId: GetStr("doc_id"),
+                DocPath: GetStr("doc_path"),
+                DocName: GetStr("doc_name"),
+                PageStart: GetInt("page_start"),
+                PageEnd: GetInt("page_end"),
+                ChunkId: GetStr("chunk_id"),
+                ChunkIndex: GetInt("chunk_index"),
+                Text: GetStr("text")
+            );
+
+            list.Add(m);
         }
-        return list.ToArray();
+
+        return list;
     }
 
     private static async Task<string> TryReadErrorBodyAsync(HttpResponseMessage resp, CancellationToken ct)
@@ -128,3 +139,15 @@ static class QdrantClient
         }
     }
 }
+
+public sealed record RagMatch(
+    double Score,
+    string? DocId,
+    string? DocPath,
+    string? DocName,
+    int? PageStart,
+    int? PageEnd,
+    string? ChunkId,
+    int? ChunkIndex,
+    string? Text
+);

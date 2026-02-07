@@ -1,10 +1,11 @@
+using System.Diagnostics;
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using Microsoft.Extensions.Options;
-using SAAIA.Backend.Auth;
-using Npgsql;
 using Dapper;
+using Microsoft.Extensions.Options;
+using Npgsql;
+using SAAIA.Backend.Auth;
 
 namespace SAAIA.Backend.Endpoints;
 
@@ -13,7 +14,13 @@ public static class RagEndpoints
     public static void Map(WebApplication app)
     {
         app.MapGet("/rag/categories", CategoriesAsync);
+
+        // Nouveau endpoint "client"
+        app.MapPost("/rag/search", SearchAsync);
+
+        // Compat (dev / anciens scripts)
         app.MapPost("/rag/query", QueryAsync);
+
         app.MapGet("/rag/debug/scroll", ScrollAsync);
     }
 
@@ -35,14 +42,58 @@ ORDER BY category;";
         return Results.Ok(cats);
     }
 
+    // =========================
+    // /rag/query (compat)
+    // =========================
     private static async Task<IResult> QueryAsync(
         HttpContext ctx,
         IOptions<RagOptions> ragOpt,
         IHttpClientFactory httpFactory,
         RagQueryRequest req)
     {
+        var r = new RagSearchRequest(
+            Query: req.Query,
+            Category: req.Category,
+            TopK: req.TopK
+        );
+
+        var resp = await SearchCoreAsync(ctx, ragOpt.Value, httpFactory, r);
+
+        // format "historique"
+        return Results.Ok(new
+        {
+            query = req.Query,
+            category = resp.Category,
+            topK = resp.TopK,
+            matches = resp.Matches
+        });
+    }
+
+    // =========================
+    // /rag/search (client)
+    // =========================
+    private static async Task<IResult> SearchAsync(
+        HttpContext ctx,
+        IOptions<RagOptions> ragOpt,
+        IHttpClientFactory httpFactory,
+        RagSearchRequest req)
+    {
+        var resp = await SearchCoreAsync(ctx, ragOpt.Value, httpFactory, req);
+        return Results.Ok(resp);
+    }
+
+    private static async Task<RagSearchResponse> SearchCoreAsync(
+        HttpContext ctx,
+        RagOptions rag,
+        IHttpClientFactory httpFactory,
+        RagSearchRequest req)
+    {
         var tenantId = ctx.GetTenantId();
-        var rag = ragOpt.Value;
+
+        if (string.IsNullOrWhiteSpace(req.Query))
+            throw new BadHttpRequestException("query is required");
+
+        var queryNorm = NormalizeQuery(req.Query);
 
         var topK = req.TopK ?? rag.DefaultTopK;
         topK = Math.Clamp(topK, 1, rag.MaxTopK);
@@ -51,16 +102,50 @@ ORDER BY category;";
             ? null
             : req.Category.Trim().ToLowerInvariant();
 
-        if (string.IsNullOrWhiteSpace(req.Query))
-            return Results.BadRequest(new { error = "query is required" });
+        // defaults selon mode
+        var mode = (req.Mode ?? "balanced").Trim().ToLowerInvariant();
+        double defMinScore = mode switch
+        {
+            "focused" => 0.35,
+            "broad" => 0.15,
+            _ => 0.25
+        };
+        int defCandidates = mode switch
+        {
+            "focused" => topK * 3,
+            "broad" => topK * 12,
+            _ => topK * 6
+        };
+        int defMaxPerDoc = mode switch
+        {
+            "focused" => topK, // pas de diversité imposée
+            "broad" => 2,
+            _ => Math.Max(2, topK / 2)
+        };
+
+        var minScore = req.MinScore ?? defMinScore;
+        minScore = Math.Clamp(minScore, 0.0, 1.0);
+
+        var candidates = req.Candidates ?? defCandidates;
+        candidates = Math.Clamp(candidates, topK, Math.Max(topK, rag.MaxTopK * 20)); // max 400 si MaxTopK=20
+
+        var maxPerDoc = req.MaxPerDoc ?? defMaxPerDoc;
+        maxPerDoc = Math.Clamp(maxPerDoc, 1, topK);
+
+        var maxPerPage = req.MaxPerPage ?? 1;
+        maxPerPage = Math.Clamp(maxPerPage, 1, topK);
 
         var ct = ctx.RequestAborted;
+        var swTotal = Stopwatch.StartNew();
 
         // Embed query (TEI)
         var tei = httpFactory.CreateClient("tei");
         tei.BaseAddress = new Uri(rag.EmbeddingsBaseUrl);
 
-        var emb = await TeiClient.EmbedAsync(tei, rag.EmbeddingsModel, new[] { req.Query }, ct);
+        var swTei = Stopwatch.StartNew();
+        var emb = await TeiClient.EmbedAsync(tei, rag.EmbeddingsModel, new[] { queryNorm }, ct);
+        swTei.Stop();
+
         var qvec = emb[0];
 
         // Search Qdrant
@@ -77,7 +162,7 @@ ORDER BY category;";
         var payload = new
         {
             vector = qvec,
-            limit = topK,
+            limit = candidates,
             with_payload = true,
             filter = new { must = filterMust }
         };
@@ -85,14 +170,15 @@ ORDER BY category;";
         var url = $"/collections/{rag.QdrantCollection}/points/search";
 
         HttpResponseMessage? resp = null;
+        int qdrantStatus = 0;
+        List<RagMatch> rawMatches;
+
+        var swQ = Stopwatch.StartNew();
         try
         {
             using (var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"))
-            {
                 resp = await qdrant.PostAsync(url, content, ct);
-            }
 
-            // auto-create collection si n'existe pas
             if (resp.StatusCode == HttpStatusCode.NotFound)
             {
                 resp.Dispose();
@@ -104,22 +190,96 @@ ORDER BY category;";
                 resp = await qdrant.PostAsync(url, content2, ct);
             }
 
+            qdrantStatus = (int)resp.StatusCode;
+
             if (!resp.IsSuccessStatusCode)
             {
                 var errBody = await resp.Content.ReadAsStringAsync(ct);
-                return Results.Problem($"Qdrant search failed: {(int)resp.StatusCode} {resp.ReasonPhrase} {errBody}");
+                throw new Exception($"Qdrant search failed: {(int)resp.StatusCode} {resp.ReasonPhrase} {errBody}");
             }
 
             await using var stream = await resp.Content.ReadAsStreamAsync(ct);
             using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
-            var result = QdrantClient.ParseSearchResults(doc);
-
-            return Results.Ok(new { query = req.Query, category, topK, matches = result });
+            rawMatches = QdrantClient.ParseSearchResults(doc);
         }
         finally
         {
+            swQ.Stop();
             resp?.Dispose();
         }
+
+        // Post-filter: minScore + diversité (per doc / per page)
+        var selected = new List<RagMatch>(capacity: topK);
+        var perDoc = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var perPage = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var m in rawMatches)
+        {
+            if (m.Score < minScore) continue;
+            if (string.IsNullOrWhiteSpace(m.DocPath)) continue;
+
+            var docKey = m.DocPath!;
+            perDoc.TryGetValue(docKey, out var docCount);
+            if (docCount >= maxPerDoc) continue;
+
+            var pageKey = $"{docKey}:{m.PageStart ?? -1}:{m.PageEnd ?? -1}";
+            perPage.TryGetValue(pageKey, out var pageCount);
+            if (pageCount >= maxPerPage) continue;
+
+            selected.Add(m);
+            perDoc[docKey] = docCount + 1;
+            perPage[pageKey] = pageCount + 1;
+
+            if (selected.Count >= topK) break;
+        }
+
+        swTotal.Stop();
+
+        return new RagSearchResponse(
+            RequestId: ctx.TraceIdentifier,
+            Query: req.Query,
+            QueryNormalized: queryNorm,
+            Category: category,
+            TopK: topK,
+            MinScore: minScore,
+            Candidates: candidates,
+            MaxPerDoc: maxPerDoc,
+            MaxPerPage: maxPerPage,
+            QdrantStatus: qdrantStatus,
+            Timings: new RagSearchTimings(
+                TotalMs: swTotal.ElapsedMilliseconds,
+                TeiMs: swTei.ElapsedMilliseconds,
+                QdrantMs: swQ.ElapsedMilliseconds
+            ),
+            Matches: selected
+        );
+    }
+
+    private static string NormalizeQuery(string s)
+    {
+        s = (s ?? "").Trim();
+        if (s.Length == 0) return s;
+
+        // collapse whitespace
+        var sb = new StringBuilder(s.Length);
+        bool inWs = false;
+        foreach (var ch in s)
+        {
+            if (char.IsWhiteSpace(ch))
+            {
+                if (!inWs)
+                {
+                    sb.Append(' ');
+                    inWs = true;
+                }
+            }
+            else
+            {
+                sb.Append(ch);
+                inWs = false;
+            }
+        }
+        return sb.ToString();
     }
 
     private static async Task<IResult> ScrollAsync(
@@ -162,3 +322,31 @@ ORDER BY category;";
 }
 
 public sealed record RagQueryRequest(string Query, string? Category, int? TopK);
+
+public sealed record RagSearchRequest(
+    string Query,
+    string? Category = null,
+    int? TopK = null,
+    double? MinScore = null,
+    int? Candidates = null,
+    int? MaxPerDoc = null,
+    int? MaxPerPage = null,
+    string? Mode = null
+);
+
+public sealed record RagSearchTimings(long TotalMs, long TeiMs, long QdrantMs);
+
+public sealed record RagSearchResponse(
+    string RequestId,
+    string Query,
+    string QueryNormalized,
+    string? Category,
+    int TopK,
+    double MinScore,
+    int Candidates,
+    int MaxPerDoc,
+    int MaxPerPage,
+    int QdrantStatus,
+    RagSearchTimings Timings,
+    IReadOnlyList<RagMatch> Matches
+);

@@ -26,7 +26,7 @@
 <header>
   <strong>SAAIA RAG — Dev UI</strong>
   <span id="readyBadge" class="muted">/ready: …</span>
-  <span class="muted">• POST /rag/query</span>
+  <span class="muted">• POST /rag/search</span>
 </header>
 
 <main>
@@ -155,7 +155,7 @@ async function send() {
   };
 
   try {
-    const res = await fetch('/rag/query', {
+    const res = await fetch('/rag/search', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
