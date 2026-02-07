@@ -77,3 +77,8 @@ backend/SAAIA.Backend/appsettings.*.local.json
 # Config signée (par environnement)
 **/deployment.config.json
 **/deployment.config.sig
+
+# Local request payloads
+req*.json
+infra/req*.json
+
