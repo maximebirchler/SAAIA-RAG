@@ -3,13 +3,20 @@ using SAAIA.Backend.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Local overrides (non versionné)
-builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+// Local overrides (prod): chargé AVANT la config signée (donc la config signée garde la priorité)
+if (!builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+}
 
 // ✅ CONFIG SIGNÉE (obligatoire)
-// - charge deployment.config.json uniquement si la signature Ed25519 est valide
-// - ajoute ensuite ces valeurs au pipeline de configuration (priorité haute)
 SignedConfigLoader.AddSignedDeploymentConfig(builder);
+
+// Local overrides (dev): chargé APRÈS la config signée (pour pouvoir overrider bootstrap/DB localement)
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+}
 
 // Services
 builder.Services.AddSaaiaServices(builder.Configuration, builder.Environment);
