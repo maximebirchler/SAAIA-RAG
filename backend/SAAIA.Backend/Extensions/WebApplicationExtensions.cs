@@ -75,6 +75,7 @@ public static class WebApplicationExtensions
         AdminKeysEndpoints.Map(app);
 
         RagEndpoints.Map(app);
+        ChatStoreEndpoints.Map(app);
 
         return app;
     }
