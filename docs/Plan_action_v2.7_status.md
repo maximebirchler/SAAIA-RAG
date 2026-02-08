@@ -76,10 +76,28 @@ e5e3c05 Init structure projet + config
 - erreurs 401/403/429/400 pas encore homogènes avec requestId
 
 ### M2.1 — server: RequestId middleware + log scopes
-**Statut : NON FAIT**
-**Éléments observés :**
-- aucune occurrence `X-Request-Id` dans le code
-- pas de middleware request-id
+**Statut : FAIT**
+**Éléments implémentés :**
+- RequestIdMiddleware : génère/récupère `X-Request-Id` (header client ou nouveau UUID)
+- ErrorHandlingMiddleware : capture exceptions et les formate en `{ error, requestId }`
+- Log scopes : `request_id`, `path`, `method`, `tenant_id` (après auth)
+- Tous les endpoints retournent `X-Request-Id` (même erreurs)
+- ReadyEndpoints et RagEndpoints alignés avec le contrat
+
+**Fichiers créés :**
+- `backend/SAAIA.Backend/Middleware/RequestIdMiddleware.cs`
+- `backend/SAAIA.Backend/Middleware/ErrorHandlingMiddleware.cs`
+- `backend/SAAIA.Backend/Models/ErrorResponse.cs`
+
+**Fichiers modifiés :**
+- `backend/SAAIA.Backend/Extensions/WebApplicationExtensions.cs`
+- `backend/SAAIA.Backend/Auth/ApiKeyAuthMiddleware.cs`
+- `backend/SAAIA.Backend/Endpoints/ReadyEndpoints.cs`
+- `backend/SAAIA.Backend/Endpoints/RagEndpoints.cs`
+- `backend/SAAIA.Backend/Endpoints/ChatStoreEndpoints.cs`
+
+**Tests :**
+- `tests/M2.1_tests.ps1` : tests PowerShell pour valider RequestId + error handling
 
 ### M2.2 — server: OpenTelemetry metrics+traces (toggle)
 **Statut : NON FAIT**

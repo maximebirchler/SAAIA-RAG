@@ -1,5 +1,8 @@
+using System.Text.Json;
 using Microsoft.Extensions.Options;
 using Npgsql;
+using SAAIA.Backend.Middleware;
+using SAAIA.Backend.Models;
 
 namespace SAAIA.Backend.Auth;
 
@@ -16,8 +19,13 @@ public sealed class ApiKeyAuthOptions
 public sealed class ApiKeyAuthMiddleware
 {
     private readonly RequestDelegate _next;
+    private readonly ILogger<ApiKeyAuthMiddleware> _logger;
 
-    public ApiKeyAuthMiddleware(RequestDelegate next) => _next = next;
+    public ApiKeyAuthMiddleware(RequestDelegate next, ILogger<ApiKeyAuthMiddleware> logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
 
     public async Task InvokeAsync(HttpContext ctx, NpgsqlDataSource ds, IOptions<ApiKeyAuthOptions> opt)
     {
@@ -32,26 +40,28 @@ public sealed class ApiKeyAuthMiddleware
             return;
         }
 
+        var requestId = ctx.GetRequestId();
+
         if (!ctx.Request.Headers.TryGetValue(opt.Value.ApiKeyHeaderName, out var keyVals))
         {
-            ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            await ctx.Response.WriteAsync("Missing API key.");
+            _logger.LogWarning("Missing API key for {Path}", path);
+            await WriteErrorResponseAsync(ctx, StatusCodes.Status401Unauthorized, "Missing API key.", requestId);
             return;
         }
 
         var apiKey = keyVals.ToString().Trim();
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            await ctx.Response.WriteAsync("Empty API key.");
+            _logger.LogWarning("Empty API key for {Path}", path);
+            await WriteErrorResponseAsync(ctx, StatusCodes.Status401Unauthorized, "Empty API key.", requestId);
             return;
         }
 
         var principal = await ApiKeyAuth.ResolvePrincipalAsync(ds, apiKey, opt.Value.Pepper, ctx.RequestAborted);
         if (principal is null)
         {
-            ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            await ctx.Response.WriteAsync("Invalid API key.");
+            _logger.LogWarning("Invalid API key for {Path}", path);
+            await WriteErrorResponseAsync(ctx, StatusCodes.Status401Unauthorized, "Invalid API key.", requestId);
             return;
         }
 
@@ -59,7 +69,29 @@ public sealed class ApiKeyAuthMiddleware
         ctx.Items[ApiKeyAuth.ApiKeyIdItemKey] = principal.ApiKeyId;
         ctx.Items[ApiKeyAuth.IsAdminItemKey] = principal.IsAdmin;
 
-        await _next(ctx);
+        // M2.1: Ajouter tenant_id et user_id aux log scopes
+        using (_logger.BeginScope(new Dictionary<string, object>
+        {
+            { "tenant_id", principal.TenantId }
+        }))
+        {
+            await _next(ctx);
+        }
+    }
+
+    private static async Task WriteErrorResponseAsync(HttpContext ctx, int statusCode, string message, string requestId)
+    {
+        if (ctx.Response.HasStarted)
+        {
+            return;
+        }
+
+        ctx.Response.StatusCode = statusCode;
+        ctx.Response.ContentType = "application/json";
+        ctx.Response.Headers["X-Request-Id"] = requestId;
+
+        var json = JsonSerializer.Serialize(new ErrorResponse(message, requestId), new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        await ctx.Response.WriteAsync(json);
     }
 }
 
@@ -77,3 +109,4 @@ public static class TenantExtensions
     public static bool IsAdmin(this HttpContext ctx)
         => ctx.Items.TryGetValue(ApiKeyAuth.IsAdminItemKey, out var v) && v is bool b && b;
 }
+

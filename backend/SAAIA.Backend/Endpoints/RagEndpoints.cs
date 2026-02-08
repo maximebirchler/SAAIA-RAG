@@ -6,6 +6,7 @@ using Dapper;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using SAAIA.Backend.Auth;
+using SAAIA.Backend.Middleware;
 
 namespace SAAIA.Backend.Endpoints;
 
@@ -236,7 +237,7 @@ ORDER BY category;";
         swTotal.Stop();
 
         return new RagSearchResponse(
-            RequestId: ctx.TraceIdentifier,
+            RequestId: ctx.GetRequestId(),
             Query: req.Query,
             QueryNormalized: queryNorm,
             Category: category,

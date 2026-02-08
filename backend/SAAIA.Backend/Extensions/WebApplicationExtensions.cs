@@ -4,6 +4,7 @@ using SAAIA.Backend.Auth;
 using SAAIA.Backend.Bootstrap;
 using SAAIA.Backend.Db;
 using SAAIA.Backend.Endpoints;
+using SAAIA.Backend.Middleware;
 
 namespace SAAIA.Backend;
 
@@ -22,22 +23,11 @@ public static class WebApplicationExtensions
             app.UseStaticFiles(new StaticFileOptions { RequestPath = "/ui" });
         }
 
-        // Map UnauthorizedAccessException -> 403 (utilisé par AdminAuth)
-        app.Use(async (ctx, next) =>
-        {
-            try
-            {
-                await next();
-            }
-            catch (UnauthorizedAccessException)
-            {
-                if (!ctx.Response.HasStarted)
-                {
-                    ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
-                    await ctx.Response.WriteAsync("Forbidden.");
-                }
-            }
-        });
+        // M2.1: Error handling (doit être AVANT les autres middlewares)
+        app.UseMiddleware<ErrorHandlingMiddleware>();
+
+        // M2.1: RequestId (génère/récupère X-Request-Id, configure log scopes)
+        app.UseMiddleware<RequestIdMiddleware>();
 
         // Rate limiting (global)
         app.UseRateLimiter();

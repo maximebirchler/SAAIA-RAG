@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Npgsql;
+using SAAIA.Backend.Middleware;
 
 namespace SAAIA.Backend.Endpoints;
 
@@ -18,12 +19,15 @@ public static class ReadyEndpoints
     }
 
     private static async Task<IResult> HandleAsync(
+        HttpContext ctx,
         NpgsqlDataSource ds,
         IHttpClientFactory httpFactory,
         IOptions<RagOptions> ragOpt,
         IMemoryCache cache,
         CancellationToken ct)
     {
+        var requestId = ctx.GetRequestId();
+
         // 1) Cache rapide
         if (cache.TryGetValue(ReadyCacheKey, out ReadinessSnapshot? cached) && cached is not null)
         {
@@ -107,7 +111,7 @@ public static class ReadyEndpoints
             // LLM: client-only en v2.7
             details["llm"] = "client-only";
 
-            var payload = new { ok, ts = DateTimeOffset.UtcNow, details };
+            var payload = new { ok, ts = DateTimeOffset.UtcNow, requestId, details };
             var snap = new ReadinessSnapshot(ok, payload);
 
             cache.Set(ReadyCacheKey, snap, CacheTtl);

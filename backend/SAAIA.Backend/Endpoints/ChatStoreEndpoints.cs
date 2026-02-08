@@ -2,6 +2,7 @@ using System.Text.Json;
 using Dapper;
 using Npgsql;
 using SAAIA.Backend.Auth;
+using SAAIA.Backend.Middleware;
 
 namespace SAAIA.Backend.Endpoints;
 
