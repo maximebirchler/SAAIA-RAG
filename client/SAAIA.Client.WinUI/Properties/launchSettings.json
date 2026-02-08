@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "SAAIA.Client.WinUI (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "SAAIA.Client.WinUI (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

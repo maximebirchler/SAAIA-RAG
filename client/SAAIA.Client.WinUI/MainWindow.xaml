@@ -1,0 +1,86 @@
+<Window
+    x:Class="SAAIA.Client.WinUI.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="SAAIA Client">
+
+    <Grid Padding="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Settings -->
+        <StackPanel Orientation="Horizontal" Spacing="10">
+            <StackPanel Width="320">
+                <TextBlock Text="Server URL" FontWeight="SemiBold"/>
+                <TextBox x:Name="ServerUrlBox" PlaceholderText="http://localhost:5122"/>
+            </StackPanel>
+
+            <StackPanel Width="320">
+                <TextBlock Text="API Key (X-Api-Key)" FontWeight="SemiBold"/>
+                <PasswordBox x:Name="ApiKeyBox"/>
+            </StackPanel>
+
+            <StackPanel Width="320">
+                <TextBlock Text="LLM URL (OpenAI compat)" FontWeight="SemiBold"/>
+                <TextBox x:Name="LlmUrlBox" PlaceholderText="http://127.0.0.1:8080/v1"/>
+            </StackPanel>
+
+            <StackPanel Width="180">
+                <TextBlock Text="LLM Model" FontWeight="SemiBold"/>
+                <TextBox x:Name="LlmModelBox" PlaceholderText="mistral"/>
+            </StackPanel>
+
+            <StackPanel Width="140" VerticalAlignment="Bottom">
+                <Button Content="Connect" Click="Connect_Click"/>
+            </StackPanel>
+
+            <TextBlock x:Name="StatusText" VerticalAlignment="Bottom" Margin="10,0,0,4"/>
+        </StackPanel>
+
+        <!-- Messages -->
+        <Grid Grid.Row="1" Margin="0,12,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <ListView x:Name="MessagesList" Grid.Column="0" SelectionChanged="MessagesList_SelectionChanged">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <Border BorderBrush="#2D2D2D" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,10">
+                            <StackPanel>
+                                <TextBlock Text="{Binding Role}" FontWeight="Bold"/>
+                                <TextBlock Text="{Binding Content}" TextWrapping="WrapWholeWords" Margin="0,6,0,0"/>
+                                <TextBlock Text="{Binding CreatedAt}" Opacity="0.6" FontSize="12" Margin="0,6,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <ScrollViewer Grid.Column="1" Margin="12,0,0,0">
+                <StackPanel>
+                    <TextBlock Text="Sources (JSON)" FontWeight="SemiBold"/>
+                    <TextBox x:Name="SourcesBox" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" Height="520"/>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- Input -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="160"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBox x:Name="InputBox" PlaceholderText="Tape ta question..." KeyDown="InputBox_KeyDown"/>
+            <Button Grid.Column="1" Content="Send" Click="Send_Click" Margin="10,0,0,0"/>
+        </Grid>
+    </Grid>
+</Window>
