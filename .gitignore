@@ -82,3 +82,9 @@ backend/SAAIA.Backend/appsettings.*.local.json
 req*.json
 infra/req*.json
 
+# Ignore build artifacts anywhere (client included)
+**/.vs/
+**/bin/
+**/obj/
+**/*.user
+**/*.suo
