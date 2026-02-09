@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using Npgsql;
 using SAAIA.Backend.Auth;
 using SAAIA.Backend.Middleware;
+using SAAIA.Backend.Models;
 
 namespace SAAIA.Backend.Endpoints;
 
@@ -44,23 +45,17 @@ ORDER BY category;";
     }
 
     // =========================
-    // /rag/query (compat)
+    // /rag/query (compat legacy)
     // =========================
     private static async Task<IResult> QueryAsync(
         HttpContext ctx,
         IOptions<RagOptions> ragOpt,
         IHttpClientFactory httpFactory,
-        RagQueryRequest req)
+        RagSearchRequestDto req)
     {
-        var r = new RagSearchRequest(
-            Query: req.Query,
-            Category: req.Category,
-            TopK: req.TopK
-        );
+        var resp = await SearchCoreAsync(ctx, ragOpt.Value, httpFactory, req);
 
-        var resp = await SearchCoreAsync(ctx, ragOpt.Value, httpFactory, r);
-
-        // format "historique"
+        // Format "historique" (backward compat)
         return Results.Ok(new
         {
             query = req.Query,
@@ -71,23 +66,55 @@ ORDER BY category;";
     }
 
     // =========================
-    // /rag/search (client)
+    // /rag/search (client) — CDC v2.7
     // =========================
     private static async Task<IResult> SearchAsync(
         HttpContext ctx,
         IOptions<RagOptions> ragOpt,
         IHttpClientFactory httpFactory,
-        RagSearchRequest req)
+        RagSearchRequestDto req)
     {
         var resp = await SearchCoreAsync(ctx, ragOpt.Value, httpFactory, req);
-        return Results.Ok(resp);
+
+        // Convertir au format CDC v2.7 (items[] au lieu de matches[])
+        var responseDto = new RagSearchResponseDto(
+            RequestId: resp.RequestId,
+            Query: resp.Query,
+            QueryNormalized: resp.QueryNormalized,
+            Category: resp.Category,
+            TopK: resp.TopK,
+            MinScore: resp.MinScore,
+            Candidates: resp.Candidates,
+            MaxPerDoc: resp.MaxPerDoc,
+            MaxPerPage: resp.MaxPerPage,
+            Metrics: new RagMetricsDto(
+                TookMs: resp.Timings.TotalMs,
+                Returned: resp.Matches.Count
+            ),
+            Items: resp.Matches
+                .Select(m => new RagItemDto(
+                    Score: m.Score,
+                    DocId: m.DocId,
+                    DocName: m.DocName ?? "Unknown",
+                    DocPath: m.DocPath,
+                    Category: resp.Category,
+                    PageStart: m.PageStart,
+                    PageEnd: m.PageEnd,
+                    ChunkId: m.ChunkId,
+                    ChunkIndex: m.ChunkIndex,
+                    Text: m.Text ?? ""
+                ))
+                .ToList()
+        );
+
+        return Results.Ok(responseDto);
     }
 
     private static async Task<RagSearchResponse> SearchCoreAsync(
         HttpContext ctx,
         RagOptions rag,
         IHttpClientFactory httpFactory,
-        RagSearchRequest req)
+        RagSearchRequestDto req)
     {
         var tenantId = ctx.GetTenantId();
 
