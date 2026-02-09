@@ -12,15 +12,25 @@ Retourner des **chunks citables** (doc/pages/extrait) pour permettre une reponse
   "category": "general",
   "topK": 12,
   "minScore": 0.2,
-  "mode": "balanced"
+  "mode": "balanced",
+  "diversity": {
+    "maxChunksPerDoc": 2,
+    "preferDistinctPages": true
+  }
 }
 ```
+
+**Parametres obligatoires :**
+- `query` : question utilisateur
 
 **Parametres optionnels :**
 - `category` : filtre par categorie
 - `topK` : nombre de resultats (1-50, defaut: 10)
 - `minScore` : score minimum (0-1, defaut: 0.25)
 - `mode` : "focused" | "balanced" | "broad" (defaut: "balanced")
+- `diversity` : (CDC v2.7 compat) override maxPerDoc/maxPerPage
+  - `maxChunksPerDoc` : max chunks par document (int?)
+  - `preferDistinctPages` : 1 chunk par page si true (bool?)
 
 ## Response (CDC v2.7)
 ```json
@@ -57,10 +67,25 @@ Retourner des **chunks citables** (doc/pages/extrait) pour permettre une reponse
 
 ## Test (curl)
 ```bash
+# Basic request
 curl -X POST http://localhost:5122/rag/search \
   -H "Content-Type: application/json" \
   -H "X-Api-Key: saaia_dev_bootstrap_2026_CHANGE_ME" \
   -d '{"query":"configuration","topK":5,"minScore":0.3}'
+
+# Request avec diversity (CDC v2.7)
+curl -X POST http://localhost:5122/rag/search \
+  -H "Content-Type: application/json" \
+  -H "X-Api-Key: saaia_dev_bootstrap_2026_CHANGE_ME" \
+  -d '{
+    "query":"configuration",
+    "topK":5,
+    "minScore":0.3,
+    "diversity":{
+      "maxChunksPerDoc":2,
+      "preferDistinctPages":true
+    }
+  }'
 ```
 
 ## Notes

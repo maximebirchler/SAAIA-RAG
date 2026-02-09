@@ -115,10 +115,14 @@ WHERE tenant_id=@tenant AND user_id=@user_id AND session_id=@sid;";
     }
     public sealed record UpdateSessionRequest(string? Title = null, string? ClientUser = null);
 
-    private static async Task<IResult> UpdateSessionAsync(HttpContext ctx, NpgsqlDataSource ds, Guid sessionId, UpdateSessionRequest req)
+    private static async Task<IResult> UpdateSessionAsync(HttpContext ctx, NpgsqlDataSource ds, Guid sessionId, string? userId, UpdateSessionRequest req)
     {
         var tenantId = ctx.GetTenantId();
         var ct = ctx.RequestAborted;
+
+        // userId obligatoire (CDC v2.7)
+        if (string.IsNullOrWhiteSpace(userId))
+            throw new BadHttpRequestException("userId query parameter is required");
 
         var title = NormalizeTitle(req.Title);
         var clientUser = NormalizeSmall(req.ClientUser, 80);
@@ -130,11 +134,12 @@ UPDATE chat_sessions
 SET title = COALESCE(@title, title),
     client_user = COALESCE(@client_user, client_user),
     updated_at = now()
-WHERE tenant_id=@tenant AND session_id=@sid;";
+WHERE tenant_id=@tenant AND user_id=@user_id AND session_id=@sid;";
 
         var n = await conn.ExecuteAsync(new CommandDefinition(sql, new
         {
             tenant = tenantId,
+            user_id = userId,
             sid = sessionId,
             title,
             client_user = clientUser
@@ -143,18 +148,22 @@ WHERE tenant_id=@tenant AND session_id=@sid;";
         return n == 0 ? Results.NotFound() : Results.Ok(new { ok = true });
     }
 
-    private static async Task<IResult> DeleteSessionAsync(HttpContext ctx, NpgsqlDataSource ds, Guid sessionId)
+    private static async Task<IResult> DeleteSessionAsync(HttpContext ctx, NpgsqlDataSource ds, Guid sessionId, string? userId)
     {
         var tenantId = ctx.GetTenantId();
         var ct = ctx.RequestAborted;
+
+        // userId obligatoire (CDC v2.7)
+        if (string.IsNullOrWhiteSpace(userId))
+            throw new BadHttpRequestException("userId query parameter is required");
 
         await using var conn = await ds.OpenConnectionAsync(ct);
 
         const string sql = @"
 DELETE FROM chat_sessions
-WHERE tenant_id=@tenant AND session_id=@sid;";
+WHERE tenant_id=@tenant AND user_id=@user_id AND session_id=@sid;";
 
-        var n = await conn.ExecuteAsync(new CommandDefinition(sql, new { tenant = tenantId, sid = sessionId }, cancellationToken: ct));
+        var n = await conn.ExecuteAsync(new CommandDefinition(sql, new { tenant = tenantId, user_id = userId, sid = sessionId }, cancellationToken: ct));
         return n == 0 ? Results.NotFound() : Results.Ok(new { ok = true });
     }
 

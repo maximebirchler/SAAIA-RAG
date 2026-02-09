@@ -1,6 +1,15 @@
 namespace SAAIA.Backend.Models;
 
 /// <summary>
+/// Diversité RAG — CDC v2.7 (optionnel)
+/// Override maxPerDoc et maxPerPage si présent
+/// </summary>
+public sealed record RagDiversityDto(
+    int? MaxChunksPerDoc = null,
+    bool? PreferDistinctPages = null
+);
+
+/// <summary>
 /// Request pour POST /rag/search — CDC v2.7
 /// </summary>
 public sealed record RagSearchRequestDto(
@@ -11,7 +20,8 @@ public sealed record RagSearchRequestDto(
     int? Candidates = null,
     int? MaxPerDoc = null,
     int? MaxPerPage = null,
-    string? Mode = null
+    string? Mode = null,
+    RagDiversityDto? Diversity = null
 );
 
 /// <summary>

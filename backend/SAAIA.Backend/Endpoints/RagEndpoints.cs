@@ -163,6 +163,15 @@ ORDER BY category;";
         var maxPerPage = req.MaxPerPage ?? 1;
         maxPerPage = Math.Clamp(maxPerPage, 1, topK);
 
+        // Diversity override (CDC v2.7 compat) — si diversity != null, override maxPerDoc et maxPerPage
+        if (req.Diversity != null)
+        {
+            if (req.Diversity.MaxChunksPerDoc.HasValue)
+                maxPerDoc = Math.Clamp(req.Diversity.MaxChunksPerDoc.Value, 1, topK);
+            if (req.Diversity.PreferDistinctPages == true)
+                maxPerPage = 1;
+        }
+
         var ct = ctx.RequestAborted;
         var swTotal = Stopwatch.StartNew();
 

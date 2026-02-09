@@ -51,6 +51,49 @@ Liste les sessions de l'utilisateur.
 ]
 ```
 
+### GET /chat/sessions/{sessionId}?userId=UUID
+Recupere une session specifique (validation userId).
+
+**Response :**
+```json
+{
+  "sessionId": "660e8400-e29b-41d4-a716-446655440001",
+  "title": "Configuration questions",
+  "clientUser": "john.doe",
+  "createdAt": "2026-02-08T22:50:00Z",
+  "updatedAt": "2026-02-08T23:15:00Z",
+  "lastMessageAt": "2026-02-08T23:15:00Z"
+}
+```
+
+### PATCH /chat/sessions/{sessionId}?userId=UUID
+Modifie une session (userId obligatoire).
+
+**Request :**
+```json
+{
+  "title": "Updated Title",
+  "clientUser": "john.doe"
+}
+```
+
+**Response :**
+```json
+{
+  "ok": true
+}
+```
+
+### DELETE /chat/sessions/{sessionId}?userId=UUID
+Supprime une session (userId obligatoire).
+
+**Response :**
+```json
+{
+  "ok": true
+}
+```
+
 ### POST /chat/sessions/{sessionId}/messages
 Ajoute un message a une session.
 
@@ -103,6 +146,22 @@ Recupere l'historique (avec validation userId).
 
 # GET /chat/sessions avec userId query param (OBLIGATOIRE)
 curl.exe -i -X GET "http://localhost:5122/chat/sessions?userId=550e8400-e29b-41d4-a716-446655440000" `
+  -H "X-Api-Key: saaia_dev_bootstrap_2026_CHANGE_ME"
+
+# GET /chat/sessions/{sessionId} avec userId (OBLIGATOIRE)
+curl.exe -i -X GET "http://localhost:5122/chat/sessions/SESSION_ID?userId=550e8400-e29b-41d4-a716-446655440000" `
+  -H "X-Api-Key: saaia_dev_bootstrap_2026_CHANGE_ME"
+
+# PATCH /chat/sessions/{sessionId} avec userId query param (OBLIGATOIRE)
+@'
+{"title":"Updated Title"}
+'@ | curl.exe -i -X PATCH "http://localhost:5122/chat/sessions/SESSION_ID?userId=550e8400-e29b-41d4-a716-446655440000" `
+  -H "Content-Type: application/json" `
+  -H "X-Api-Key: saaia_dev_bootstrap_2026_CHANGE_ME" `
+  --data-binary "@-"
+
+# DELETE /chat/sessions/{sessionId} avec userId query param (OBLIGATOIRE)
+curl.exe -i -X DELETE "http://localhost:5122/chat/sessions/SESSION_ID?userId=550e8400-e29b-41d4-a716-446655440000" `
   -H "X-Api-Key: saaia_dev_bootstrap_2026_CHANGE_ME"
 
 # POST /chat/sessions/{sessionId}/messages avec userId
