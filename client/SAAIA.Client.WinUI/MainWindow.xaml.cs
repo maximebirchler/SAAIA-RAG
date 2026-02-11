@@ -182,8 +182,6 @@ public sealed partial class MainWindow : Window
             // On passe un "tail" pour contexte (derniers messages)
             var tail = _messages.ToList();
 
-            object? sourcesPayload = null;
-
             var (finalAnswer, sourcesObj) = await _agent.RunAsync(
                 userText: text,
                 category: "general",
@@ -197,18 +195,16 @@ public sealed partial class MainWindow : Window
                 },
                 ct: _cts.Token);
 
-            sourcesPayload = sourcesObj;
-
             assistantMsg.Content = finalAnswer;
 
             var pretty = System.Text.Json.JsonSerializer.Serialize(
-                sourcesPayload,
+                sourcesObj,
                 new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
 
             assistantMsg.SourcesJson = pretty;
             SourcesBox.Text = pretty;
 
-            await _api.AddMessageAsync(_sessionId!, "assistant", assistantMsg.Content, sourcesPayload, CancellationToken.None);
+            await _api.AddMessageAsync(_sessionId!, "assistant", assistantMsg.Content, sourcesObj, CancellationToken.None);
 
             Status("Done.");
         }

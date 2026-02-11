@@ -130,16 +130,10 @@ public sealed class ApiClient
 
             DateTime GetDateTime(string a, string b)
             {
-                if (el.TryGetProperty(a, out var p) && (p.ValueKind == JsonValueKind.String || p.ValueKind == JsonValueKind.Number))
-                {
-                    if (p.ValueKind == JsonValueKind.String && DateTime.TryParse(p.GetString(), out var dt1)) return dt1.ToUniversalTime();
-                    if (p.ValueKind == JsonValueKind.Number && p.TryGetDateTime(out var dt2)) return dt2.ToUniversalTime();
-                }
-                if (el.TryGetProperty(b, out p) && (p.ValueKind == JsonValueKind.String || p.ValueKind == JsonValueKind.Number))
-                {
-                    if (p.ValueKind == JsonValueKind.String && DateTime.TryParse(p.GetString(), out var dt1)) return dt1.ToUniversalTime();
-                    if (p.ValueKind == JsonValueKind.Number && p.TryGetDateTime(out var dt2)) return dt2.ToUniversalTime();
-                }
+                if (el.TryGetProperty(a, out var p) && p.ValueKind == JsonValueKind.String && DateTime.TryParse(p.GetString(), out var dt1))
+                    return dt1.ToUniversalTime();
+                if (el.TryGetProperty(b, out p) && p.ValueKind == JsonValueKind.String && DateTime.TryParse(p.GetString(), out var dt2))
+                    return dt2.ToUniversalTime();
                 return DateTime.UtcNow;
             }
 
