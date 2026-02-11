@@ -11,21 +11,39 @@ using SAAIA.Client.WinUI.Models;
 
 namespace SAAIA.Client.WinUI.Services;
 
+/// <summary>
+/// Client HTTP vers le backend SAAIA.
+///
+/// Contrats importants (CDC v2.7) :
+/// - /rag/search -> RagSearchResponse (items + metrics)
+/// - chat-store -> userId obligatoire (body + query...)
+/// </summary>
 public sealed class ApiClient
 {
     private readonly HttpClient _http = new();
     private string _baseUrl = "http://localhost:5122";
     private string _apiKey = "";
+    private string _userId = "";
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true
     };
 
-    public void Configure(string baseUrl, string apiKey)
+    public void Configure(string baseUrl, string apiKey, string userId)
     {
-        _baseUrl = baseUrl.Trim().TrimEnd('/');
-        _apiKey = apiKey.Trim();
+        _baseUrl = (baseUrl ?? "").Trim().TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(_baseUrl)) _baseUrl = "http://localhost:5122";
+        _apiKey = (apiKey ?? "").Trim();
+        _userId = (userId ?? "").Trim();
+    }
+
+    private string RequireUserId()
+    {
+        if (string.IsNullOrWhiteSpace(_userId))
+            throw new InvalidOperationException("userId not configured");
+        return _userId;
     }
 
     private HttpRequestMessage NewRequest(HttpMethod method, string path, string? jsonBody = null)
@@ -42,9 +60,19 @@ public sealed class ApiClient
         return req;
     }
 
+    // ---------------------
+    // Chat-store (CDC v2.7)
+    // ---------------------
+
     public async Task<CreateSessionResponse> CreateSessionAsync(string? title, string? clientUser, CancellationToken ct)
     {
-        var body = JsonSerializer.Serialize(new { title, clientUser }, JsonOpts);
+        var body = JsonSerializer.Serialize(new
+        {
+            userId = RequireUserId(),
+            title,
+            clientUser
+        }, JsonOpts);
+
         using var req = NewRequest(HttpMethod.Post, "/chat/sessions", body);
         using var resp = await _http.SendAsync(req, ct);
         resp.EnsureSuccessStatusCode();
@@ -56,46 +84,98 @@ public sealed class ApiClient
 
     public async Task AddMessageAsync(string sessionId, string role, string content, object? sources, CancellationToken ct)
     {
-        var body = JsonSerializer.Serialize(new { role, content, sources }, JsonOpts);
+        string? sourcesJson = null;
+        if (sources is string s)
+            sourcesJson = string.IsNullOrWhiteSpace(s) ? null : s;
+        else if (sources is not null)
+            sourcesJson = JsonSerializer.Serialize(sources, JsonOpts);
+
+        var body = JsonSerializer.Serialize(new
+        {
+            userId = RequireUserId(),
+            role,
+            content,
+            sourcesJson
+        }, JsonOpts);
+
         using var req = NewRequest(HttpMethod.Post, $"/chat/sessions/{sessionId}/messages", body);
         using var resp = await _http.SendAsync(req, ct);
         resp.EnsureSuccessStatusCode();
     }
 
-    public async Task<List<ChatMessageItem>> ListMessagesAsync(string sessionId, CancellationToken ct)
+    public async Task<List<ChatMessageItem>> ListMessagesAsync(string sessionId, CancellationToken ct, int limit = 500)
     {
-        using var req = NewRequest(HttpMethod.Get, $"/chat/sessions/{sessionId}/messages?limit=500");
+        var uid = Uri.EscapeDataString(RequireUserId());
+        var lim = Math.Clamp(limit, 1, 1000);
+
+        using var req = NewRequest(HttpMethod.Get, $"/chat/sessions/{sessionId}/messages?userId={uid}&limit={lim}");
         using var resp = await _http.SendAsync(req, ct);
         resp.EnsureSuccessStatusCode();
 
         var json = await resp.Content.ReadAsStringAsync(ct);
 
+        // Le backend retourne des rows Dapper (keys = Role/Content/CreatedAt/Sources)
+        // -> parsing tolérant pour accepter camelCase ou PascalCase.
         using var doc = JsonDocument.Parse(json);
         var list = new List<ChatMessageItem>();
 
         foreach (var el in doc.RootElement.EnumerateArray())
         {
-            var role = el.GetProperty("Role").GetString() ?? "user";
-            var content = el.GetProperty("Content").GetString() ?? "";
-            var createdAt = el.GetProperty("CreatedAt").GetDateTime();
+            string GetString(string a, string b)
+            {
+                if (el.TryGetProperty(a, out var p) && p.ValueKind == JsonValueKind.String) return p.GetString() ?? "";
+                if (el.TryGetProperty(b, out p) && p.ValueKind == JsonValueKind.String) return p.GetString() ?? "";
+                return "";
+            }
+
+            DateTime GetDateTime(string a, string b)
+            {
+                if (el.TryGetProperty(a, out var p) && (p.ValueKind == JsonValueKind.String || p.ValueKind == JsonValueKind.Number))
+                {
+                    if (p.ValueKind == JsonValueKind.String && DateTime.TryParse(p.GetString(), out var dt1)) return dt1.ToUniversalTime();
+                    if (p.ValueKind == JsonValueKind.Number && p.TryGetDateTime(out var dt2)) return dt2.ToUniversalTime();
+                }
+                if (el.TryGetProperty(b, out p) && (p.ValueKind == JsonValueKind.String || p.ValueKind == JsonValueKind.Number))
+                {
+                    if (p.ValueKind == JsonValueKind.String && DateTime.TryParse(p.GetString(), out var dt1)) return dt1.ToUniversalTime();
+                    if (p.ValueKind == JsonValueKind.Number && p.TryGetDateTime(out var dt2)) return dt2.ToUniversalTime();
+                }
+                return DateTime.UtcNow;
+            }
+
+            var role = GetString("role", "Role");
+            if (string.IsNullOrWhiteSpace(role)) role = "user";
+
+            var content = GetString("content", "Content");
+            var createdAt = GetDateTime("createdAt", "CreatedAt");
 
             string? sourcesJson = null;
-            if (el.TryGetProperty("Sources", out var s) && s.ValueKind != JsonValueKind.Null)
+            if (el.TryGetProperty("sourcesJson", out var sj) && sj.ValueKind != JsonValueKind.Null)
+                sourcesJson = sj.GetRawText();
+            else if (el.TryGetProperty("SourcesJson", out sj) && sj.ValueKind != JsonValueKind.Null)
+                sourcesJson = sj.GetRawText();
+            else if (el.TryGetProperty("sources", out var s) && s.ValueKind != JsonValueKind.Null)
+                sourcesJson = s.GetRawText();
+            else if (el.TryGetProperty("Sources", out s) && s.ValueKind != JsonValueKind.Null)
                 sourcesJson = s.GetRawText();
 
             list.Add(new ChatMessageItem
             {
                 Role = role,
                 Content = content,
-                SourcesJson = sourcesJson,
-                CreatedAt = createdAt
+                CreatedAt = createdAt,
+                SourcesJson = sourcesJson
             });
         }
 
         return list;
     }
 
-    public async Task<RagSearchResponse> RagSearchAsync(string query, string? category, int topK, string mode, CancellationToken ct)
+    // ---------------------
+    // RAG (CDC v2.7)
+    // ---------------------
+
+    public async Task<RagSearchResponse> RagSearchAsync(string query, string? category, int topK, string? mode, CancellationToken ct)
     {
         var body = JsonSerializer.Serialize(new
         {

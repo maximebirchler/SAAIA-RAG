@@ -26,6 +26,7 @@ public sealed partial class MainWindow : Window
     private readonly ObservableCollection<ChatMessageItem> _messages = new();
 
     private string? _sessionId;
+    private string _userId = "";
     private CancellationTokenSource? _cts;
 
     public MainWindow()
@@ -65,7 +66,10 @@ public sealed partial class MainWindow : Window
         var ls = ApplicationData.Current.LocalSettings;
 
         ServerUrlBox.Text = (ls.Values["serverUrl"] as string) ?? "http://localhost:5122";
-        ApiKeyBox.Password = (ls.Values["apiKey"] as string) ?? "";
+        _userId = SecureLocalStore.GetOrCreateUserId();
+
+        // API Key serveur : DPAPI (migration auto si ancienne clé en clair existe)
+        ApiKeyBox.Password = SecureLocalStore.GetServerApiKey() ?? "";
 
         LlmUrlBox.Text = (ls.Values["llmUrl"] as string) ?? "http://127.0.0.1:8080/v1";
         LlmModelBox.Text = (ls.Values["llmModel"] as string) ?? "mistral";
@@ -78,7 +82,9 @@ public sealed partial class MainWindow : Window
         var ls = ApplicationData.Current.LocalSettings;
 
         ls.Values["serverUrl"] = ServerUrlBox.Text.Trim();
-        ls.Values["apiKey"] = ApiKeyBox.Password.Trim();
+
+        // Secret -> DPAPI
+        SecureLocalStore.SetServerApiKey(ApiKeyBox.Password.Trim());
 
         ls.Values["llmUrl"] = LlmUrlBox.Text.Trim();
         ls.Values["llmModel"] = LlmModelBox.Text.Trim();
@@ -91,9 +97,15 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            _api.Configure(ServerUrlBox.Text, ApiKeyBox.Password);
+            // userId stable requis par le chat-store (CDC v2.7)
+            _userId = SecureLocalStore.GetOrCreateUserId();
+
+            _api.Configure(ServerUrlBox.Text, ApiKeyBox.Password, _userId);
             _llm.Configure(LlmUrlBox.Text, LlmModelBox.Text);
             _agent = new RagChatAgent(_api, _llm);
+
+            // Persist settings (serverUrl / apiKey (DPAPI) / llmUrl / llmModel)
+            SaveSettings();
 
             Status("Connecting…");
 

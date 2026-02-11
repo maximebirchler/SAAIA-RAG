@@ -3,17 +3,24 @@ using System.Collections.Generic;
 
 namespace SAAIA.Client.WinUI.Models;
 
-public sealed record RagMatch(
+// =====================
+// RAG (CDC v2.7) — /rag/search
+// =====================
+
+public sealed record RagItem(
     double Score,
     string? DocId,
+    string DocName,
     string? DocPath,
-    string? DocName,
+    string? Category,
     int? PageStart,
     int? PageEnd,
     string? ChunkId,
     int? ChunkIndex,
-    string? Text
+    string Text
 );
+
+public sealed record RagMetrics(long TookMs, int Returned);
 
 public sealed record RagSearchResponse(
     string RequestId,
@@ -25,24 +32,29 @@ public sealed record RagSearchResponse(
     int Candidates,
     int MaxPerDoc,
     int MaxPerPage,
-    int QdrantStatus,
-    Timings Timings,
-    IReadOnlyList<RagMatch> Matches
+    RagMetrics Metrics,
+    IReadOnlyList<RagItem> Items
 );
 
-public sealed record Timings(long TotalMs, long TeiMs, long QdrantMs);
+// =====================
+// Chat-store (CDC v2.7)
+// =====================
 
 public sealed record CreateSessionResponse(
     string SessionId,
     string? Title,
     string? ClientUser,
-    string CreatedAtUtc
+    DateTimeOffset CreatedAtUtc
 );
 
 public sealed record AddMessageResponse(
     string MessageId,
-    string CreatedAtUtc
+    DateTimeOffset CreatedAtUtc
 );
+
+// =====================
+// UI
+// =====================
 
 public sealed class ChatMessageItem
 {

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -54,9 +54,9 @@ public sealed class RagChatAgent
             searches.Add(s);
         }
 
-        // merge matches (dedupe)
+        // merge items (dedupe)
         var merged = searches
-            .SelectMany(s => s.Matches)
+            .SelectMany(s => s.Items)
             .GroupBy(m => m.ChunkId ?? $"{m.DocId}:{m.PageStart}:{m.ChunkIndex}")
             .Select(g => g.OrderByDescending(x => x.Score).First())
             .OrderByDescending(m => m.Score)
@@ -121,8 +121,8 @@ Réponds en français. Donne une réponse actionnable. Ajoute des citations [Doc
             {
                 s.RequestId,
                 s.Query,
-                s.Timings,
-                s.Matches
+                s.Metrics,
+                s.Items
             }),
             merged
         };
