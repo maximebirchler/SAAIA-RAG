@@ -1,65 +1,51 @@
 using System;
-using System.Collections.Generic;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
 namespace SAAIA.Client.WinUI.Models;
 
-// =====================
-// RAG (CDC v2.7) — /rag/search
-// =====================
-
-public sealed record RagItem(
-    double Score,
-    string? DocId,
-    string DocName,
-    string? DocPath,
-    string? Category,
-    int? PageStart,
-    int? PageEnd,
-    string? ChunkId,
-    int? ChunkIndex,
-    string Text
-);
-
-public sealed record RagMetrics(long TookMs, int Returned);
-
-public sealed record RagSearchResponse(
-    string RequestId,
-    string Query,
-    string QueryNormalized,
-    string? Category,
-    int TopK,
-    double MinScore,
-    int Candidates,
-    int MaxPerDoc,
-    int MaxPerPage,
-    RagMetrics Metrics,
-    IReadOnlyList<RagItem> Items
-);
-
-// =====================
-// Chat-store (CDC v2.7)
-// =====================
-
-public sealed record CreateSessionResponse(
-    string SessionId,
-    string? Title,
-    string? ClientUser,
-    DateTimeOffset CreatedAtUtc
-);
-
-public sealed record AddMessageResponse(
-    string MessageId,
-    DateTimeOffset CreatedAtUtc
-);
-
-// =====================
-// UI
-// =====================
-
-public sealed class ChatMessageItem
+public sealed class ChatMessageItem : INotifyPropertyChanged
 {
-    public string Role { get; set; } = "user"; // user|assistant|system|tool
-    public string Content { get; set; } = "";
-    public string? SourcesJson { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    private string _role = "user";
+    private string _content = "";
+    private string? _sourcesJson;
+    private DateTime _createdAt = DateTime.UtcNow;
+
+    // ✅ Petit label gris sous le message (ex: “Génération interrompue.”)
+    private string? _statusNote;
+
+    public string Role
+    {
+        get => _role;
+        set { if (_role != value) { _role = value; OnPropertyChanged(); } }
+    }
+
+    public string Content
+    {
+        get => _content;
+        set { if (_content != value) { _content = value; OnPropertyChanged(); } }
+    }
+
+    public string? SourcesJson
+    {
+        get => _sourcesJson;
+        set { if (_sourcesJson != value) { _sourcesJson = value; OnPropertyChanged(); } }
+    }
+
+    public DateTime CreatedAt
+    {
+        get => _createdAt;
+        set { if (_createdAt != value) { _createdAt = value; OnPropertyChanged(); } }
+    }
+
+    public string? StatusNote
+    {
+        get => _statusNote;
+        set { if (_statusNote != value) { _statusNote = value; OnPropertyChanged(); } }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void OnPropertyChanged([CallerMemberName] string? name = null)
+        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }

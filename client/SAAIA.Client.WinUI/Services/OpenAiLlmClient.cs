@@ -9,11 +9,15 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
+
 namespace SAAIA.Client.WinUI.Services;
 
 public sealed class OpenAiLlmClient
 {
-    private readonly HttpClient _http = new();
+    private readonly HttpClient _http = new()
+    {
+        Timeout = Timeout.InfiniteTimeSpan
+    };
 
     // Exemple llama.cpp server OpenAI compat : http://127.0.0.1:8080/v1
     private string _baseUrl = "http://127.0.0.1:8080/v1";
@@ -90,13 +94,17 @@ public sealed class OpenAiLlmClient
         await using var stream = await resp.Content.ReadAsStreamAsync(ct);
         using var reader = new StreamReader(stream);
 
-        while (!reader.EndOfStream && !ct.IsCancellationRequested)
-        {
-            var line = await reader.ReadLineAsync();
-            if (string.IsNullOrWhiteSpace(line)) continue;
+        // Robuste: certains serveurs streament du "delta", d'autres du "contenu cumulatif"
+        var emittedSoFar = "";
 
-            // SSE format: "data: {...}" or "data: [DONE]"
-            if (!line.StartsWith("data:")) continue;
+        while (!ct.IsCancellationRequested)
+        {
+            var line = await reader.ReadLineAsync().WaitAsync(ct);
+            if (line is null) break;                // stream fermé
+            if (line.Length == 0) continue;         // ligne vide SSE
+
+
+            if (!line.StartsWith("data:", StringComparison.OrdinalIgnoreCase)) continue;
 
             var data = line.Substring("data:".Length).Trim();
             if (data == "[DONE]") break;
@@ -109,9 +117,25 @@ public sealed class OpenAiLlmClient
                 var delta = root.GetProperty("choices")[0].GetProperty("delta");
                 if (delta.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.String)
                 {
-                    var token = c.GetString();
-                    if (!string.IsNullOrEmpty(token))
-                        onDelta(token);
+                    var chunk = c.GetString() ?? "";
+                    if (chunk.Length == 0) continue;
+
+                    // Si "chunk" est cumulatif et contient déjà ce qu'on a émis, on n'émet que le "diff"
+                    if (chunk.StartsWith(emittedSoFar, StringComparison.Ordinal))
+                    {
+                        var diff = chunk.Substring(emittedSoFar.Length);
+                        if (diff.Length > 0)
+                        {
+                            onDelta(diff);
+                            emittedSoFar += diff;
+                        }
+                    }
+                    else
+                    {
+                        // Sinon, on considère que c'est un vrai delta
+                        onDelta(chunk);
+                        emittedSoFar += chunk;
+                    }
                 }
             }
             catch
@@ -120,4 +144,5 @@ public sealed class OpenAiLlmClient
             }
         }
     }
+
 }

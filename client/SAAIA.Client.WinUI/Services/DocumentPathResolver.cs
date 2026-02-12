@@ -1,0 +1,76 @@
+using System;
+using System.IO;
+using System.Linq;
+
+namespace SAAIA.Client.WinUI.Services;
+
+internal static class DocumentPathResolver
+{
+    // Optionnel : override via variable d'environnement
+    // setx SAAIA_DOCUMENTS_ROOT "C:\...\RAG\documents"
+    private const string EnvVar = "SAAIA_DOCUMENTS_ROOT";
+
+    public static string GetDocumentsRoot()
+    {
+        // 1) ENV override
+        var env = Environment.GetEnvironmentVariable(EnvVar);
+        if (!string.IsNullOrWhiteSpace(env) && Directory.Exists(env))
+            return Path.GetFullPath(env);
+
+        // 2) Heuristique : remonter depuis le dossier de l'exe et chercher un dossier "documents"
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        for (int i = 0; i < 10 && dir is not null; i++)
+        {
+            var candidate = Path.Combine(dir.FullName, "documents");
+            if (Directory.Exists(candidate))
+                return Path.GetFullPath(candidate);
+
+            dir = dir.Parent;
+        }
+
+        // 3) fallback (peut ne pas exister)
+        return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "documents"));
+    }
+
+    public static string? Resolve(string? docPath)
+    {
+        if (string.IsNullOrWhiteSpace(docPath))
+            return null;
+
+        // Normalise
+        var p = docPath.Trim().TrimStart('\\', '/')
+            .Replace('/', Path.DirectorySeparatorChar)
+            .Replace('\\', Path.DirectorySeparatorChar);
+
+        // Si déjà absolu et existe -> OK
+        if (Path.IsPathRooted(p) && File.Exists(p))
+            return Path.GetFullPath(p);
+
+        var root = GetDocumentsRoot();
+
+        // Essai 1 : root + docPath relatif
+        var candidate = Path.GetFullPath(Path.Combine(root, p));
+        if (File.Exists(candidate))
+            return candidate;
+
+        // Essai 2 : root + nom du fichier (si le backend ne renvoie pas les sous-dossiers)
+        var fileName = Path.GetFileName(p);
+        if (!string.IsNullOrWhiteSpace(fileName))
+        {
+            var candidate2 = Path.GetFullPath(Path.Combine(root, fileName));
+            if (File.Exists(candidate2))
+                return candidate2;
+
+            // Essai 3 : recherche dans documents (best effort)
+            try
+            {
+                var found = Directory.EnumerateFiles(root, fileName, SearchOption.AllDirectories).FirstOrDefault();
+                if (!string.IsNullOrWhiteSpace(found) && File.Exists(found))
+                    return found;
+            }
+            catch { }
+        }
+
+        return null;
+    }
+}

@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="using:SAAIA.Client.WinUI.Controls"
     mc:Ignorable="d"
     Title="SAAIA Client">
 
@@ -15,33 +16,42 @@
         </Grid.RowDefinitions>
 
         <!-- Settings -->
-        <StackPanel Orientation="Horizontal" Spacing="10">
-            <StackPanel Width="320">
-                <TextBlock Text="Server URL" FontWeight="SemiBold"/>
-                <TextBox x:Name="ServerUrlBox" PlaceholderText="http://localhost:5122"/>
-            </StackPanel>
+        <Grid RowSpacing="8" ColumnSpacing="10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*"/>
+                <ColumnDefinition Width="2*"/>
+                <ColumnDefinition Width="2*"/>
+                <ColumnDefinition Width="1*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
 
-            <StackPanel Width="320">
-                <TextBlock Text="API Key (X-Api-Key)" FontWeight="SemiBold"/>
-                <PasswordBox x:Name="ApiKeyBox"/>
-            </StackPanel>
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Server URL" FontWeight="SemiBold"/>
+            <TextBlock Grid.Row="0" Grid.Column="1" Text="API Key (X-Api-Key)" FontWeight="SemiBold"/>
+            <TextBlock Grid.Row="0" Grid.Column="2" Text="LLM URL (OpenAI compat)" FontWeight="SemiBold"/>
+            <TextBlock Grid.Row="0" Grid.Column="3" Text="LLM Model" FontWeight="SemiBold"/>
 
-            <StackPanel Width="320">
-                <TextBlock Text="LLM URL (OpenAI compat)" FontWeight="SemiBold"/>
-                <TextBox x:Name="LlmUrlBox" PlaceholderText="http://127.0.0.1:8080/v1"/>
-            </StackPanel>
+            <TextBox Grid.Row="1" Grid.Column="0" x:Name="ServerUrlBox" PlaceholderText="http://localhost:5122" IsReadOnly="True"/>
+            <PasswordBox Grid.Row="1" Grid.Column="1" x:Name="ApiKeyBox"/>
+            <TextBox Grid.Row="1" Grid.Column="2" x:Name="LlmUrlBox" PlaceholderText="http://localhost:1234/v1" IsReadOnly="True"/>
+            <TextBox Grid.Row="1" Grid.Column="3" x:Name="LlmModelBox" PlaceholderText="mistral" IsReadOnly="True"/>
 
-            <StackPanel Width="180">
-                <TextBlock Text="LLM Model" FontWeight="SemiBold"/>
-                <TextBox x:Name="LlmModelBox" PlaceholderText="mistral"/>
-            </StackPanel>
+            <Button Grid.Row="1" Grid.Column="4"
+                    x:Name="ConnectButton"
+                    Content="Connect"
+                    Click="Connect_Click"
+                    MinWidth="120"
+                    VerticalAlignment="Bottom"/>
 
-            <StackPanel Width="140" VerticalAlignment="Bottom">
-                <Button Content="Connect" Click="Connect_Click"/>
-            </StackPanel>
-
-            <TextBlock x:Name="StatusText" VerticalAlignment="Bottom" Margin="10,0,0,4"/>
-        </StackPanel>
+            <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="5"
+                       x:Name="StatusText"
+                       Opacity="0.85"
+                       TextWrapping="WrapWholeWords"/>
+        </Grid>
 
         <!-- Messages -->
         <Grid Grid.Row="1" Margin="0,12,0,12">
@@ -56,18 +66,44 @@
                         <Border BorderBrush="#2D2D2D" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,10">
                             <StackPanel>
                                 <TextBlock Text="{Binding Role}" FontWeight="Bold"/>
-                                <TextBlock Text="{Binding Content}" TextWrapping="WrapWholeWords" Margin="0,6,0,0"/>
-                                <TextBlock Text="{Binding CreatedAt}" Opacity="0.6" FontSize="12" Margin="0,6,0,0"/>
+
+                                <TextBlock Text="{Binding Content}"
+                                        TextWrapping="WrapWholeWords"
+                                        Margin="0,6,0,0"/>
+
+                                <!-- ✅ Petit label gris (style ChatGPT) -->
+                                <Border Margin="0,8,0,0"
+                                        Padding="8,6"
+                                        CornerRadius="6"
+                                        Background="{ThemeResource SystemControlBackgroundBaseLowBrush}"
+                                        Visibility="{Binding StatusNote, Converter={StaticResource NonEmptyStringToVisibility}}">
+                                    <TextBlock Text="{Binding StatusNote}"
+                                            FontSize="12"
+                                            Opacity="0.70"/>
+                                </Border>
+
+                                <TextBlock Text="{Binding CreatedAt}" Opacity="0.6" FontSize="12" Margin="0,8,0,0"/>
                             </StackPanel>
                         </Border>
                     </DataTemplate>
                 </ListView.ItemTemplate>
+
             </ListView>
 
+            <!-- Sources -->
             <ScrollViewer Grid.Column="1" Margin="12,0,0,0">
-                <StackPanel>
-                    <TextBlock Text="Sources (JSON)" FontWeight="SemiBold"/>
-                    <TextBox x:Name="SourcesBox" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" Height="520"/>
+                <StackPanel Spacing="12">
+
+                    <controls:SourcesCardsControl x:Name="SourcesCards" />
+
+                    <!-- Debug JSON (caché) -->
+                    <TextBlock Text="Sources (JSON)" FontWeight="SemiBold" Opacity="0.7" Visibility="Collapsed"/>
+                    <TextBox x:Name="SourcesBox"
+                             IsReadOnly="True"
+                             TextWrapping="Wrap"
+                             AcceptsReturn="True"
+                             Height="520"
+                             Visibility="Collapsed"/>
                 </StackPanel>
             </ScrollViewer>
         </Grid>
@@ -77,10 +113,33 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="160"/>
+                <ColumnDefinition Width="120"/>
+                <ColumnDefinition Width="120"/>
             </Grid.ColumnDefinitions>
 
-            <TextBox x:Name="InputBox" PlaceholderText="Tape ta question..." KeyDown="InputBox_KeyDown"/>
-            <Button Grid.Column="1" Content="Send" Click="Send_Click" Margin="10,0,0,0"/>
+            <TextBox x:Name="InputBox"
+                     PlaceholderText="Tape ta question..."
+                     KeyDown="InputBox_KeyDown"/>
+
+            <Button Grid.Column="1"
+                    x:Name="SendButton"
+                    Content="Send"
+                    Click="Send_Click"
+                    Margin="10,0,0,0"/>
+
+            <Button Grid.Column="2"
+                    x:Name="CancelButton"
+                    Content="Cancel"
+                    Click="Cancel_Click"
+                    Margin="10,0,0,0"
+                    IsEnabled="False"/>
+
+            <Button Grid.Column="3"
+                    x:Name="NewChatButton"
+                    Content="New chat"
+                    Click="NewChat_Click"
+                    Margin="10,0,0,0"
+                    IsEnabled="False"/>
         </Grid>
     </Grid>
 </Window>

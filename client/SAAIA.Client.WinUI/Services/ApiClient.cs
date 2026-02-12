@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using SAAIA.Client.WinUI.Models;
+using SAAIA.Contracts;
 
 namespace SAAIA.Client.WinUI.Services;
 

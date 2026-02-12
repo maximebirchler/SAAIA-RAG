@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using SAAIA.Client.WinUI.Models;
+using SAAIA.Contracts;
 
 namespace SAAIA.Client.WinUI.Services;
 
@@ -29,13 +30,13 @@ public sealed class RagChatAgent
         Action<string> onDelta,
         CancellationToken ct)
     {
-        // 1) PLAN: 1-3 requêtes RAG ou question de clarification
+        // 1) PLAN
         var plan = await BuildPlanAsync(userText, category, ct);
 
         if (plan.NeedClarification && !string.IsNullOrWhiteSpace(plan.ClarificationQuestion))
         {
             var q = plan.ClarificationQuestion.Trim();
-            var payload = new { plan, searches = Array.Empty<object>() };
+            var payload = new { plan, searches = Array.Empty<object>(), merged = Array.Empty<object>() };
             return (q, payload);
         }
 
@@ -46,15 +47,16 @@ public sealed class RagChatAgent
             .Take(3)
             .ToList();
 
-        // 2) MULTI SEARCH (initiative)
+        // 2) MULTI SEARCH
         var searches = new List<RagSearchResponse>();
         foreach (var q in queries)
         {
+            ct.ThrowIfCancellationRequested();
             var s = await _api.RagSearchAsync(q, category, topK: 6, mode: "balanced", ct);
             searches.Add(s);
         }
 
-        // merge items (dedupe)
+        // merge
         var merged = searches
             .SelectMany(s => s.Items)
             .GroupBy(m => m.ChunkId ?? $"{m.DocId}:{m.PageStart}:{m.ChunkIndex}")
@@ -63,7 +65,22 @@ public sealed class RagChatAgent
             .Take(12)
             .ToList();
 
-        // 3) FINAL ANSWER (stream)
+        // ✅ Payload construit AVANT le LLM => dispo même si cancel pendant génération
+        var sourcesPayload = new
+        {
+            plan,
+            queries,
+            searches = searches.Select(s => new
+            {
+                s.RequestId,
+                s.Query,
+                s.Metrics,
+                s.Items
+            }),
+            merged
+        };
+
+        // 3) FINAL ANSWER
         var sys = """
 Tu es SAAIA, un assistant IA local “type ChatGPT” MAIS sans internet.
 Ta base de connaissance vient uniquement des SOURCES fournies (extraits de documents).
@@ -102,31 +119,39 @@ Réponds en français. Donne une réponse actionnable. Ajoute des citations [Doc
         };
 
         var answer = "";
-        await _llm.ChatStreamAsync(
-            msgs,
-            temperature: 0.2,
-            maxTokens: 900,
-            onDelta: t =>
-            {
-                answer += t;
-                onDelta(t);
-            },
-            ct);
 
-        var sourcesPayload = new
+        try
         {
-            plan,
-            queries,
-            searches = searches.Select(s => new
-            {
-                s.RequestId,
-                s.Query,
-                s.Metrics,
-                s.Items
-            }),
-            merged
-        };
+            await _llm.ChatStreamAsync(
+                msgs,
+                temperature: 0.2,
+                maxTokens: 900,
+                onDelta: t =>
+                {
+                    answer += t;
+                    onDelta(t);
+                },
+                ct);
 
+            if (string.IsNullOrWhiteSpace(answer))
+            {
+                // LLM a répondu vide => fallback (vraie anomalie)
+                answer = BuildRagOnlyFallback(userText, merged, "LLM returned empty response");
+                onDelta(answer);
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // ✅ Cancel utilisateur : PAS de mode dégradé, on garde answer partiel (ou vide)
+        }
+        catch (Exception ex)
+        {
+            // Vraie erreur LLM => mode dégradé
+            answer = BuildRagOnlyFallback(userText, merged, ex.Message);
+            onDelta(answer);
+        }
+
+        answer = DedupConsecutiveRepeat(answer);
         return (answer, sourcesPayload);
     }
 
@@ -151,21 +176,58 @@ Question: {userText}
 Catégorie: {category}
 """;
 
-        var txt = await _llm.ChatOnceAsync(
-            new List<(string role, string content)> { ("system", sys), ("user", user) },
-            temperature: 0.1,
-            maxTokens: 220,
-            ct);
-
-        // Parse tolérant
+        string txt;
         try
         {
-            using var doc = JsonDocument.Parse(txt);
+            txt = await _llm.ChatOnceAsync(
+                new List<(string role, string content)> { ("system", sys), ("user", user) },
+                temperature: 0.1,
+                maxTokens: 220,
+                ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            return new Plan(false, null, new List<string> { userText });
+        }
+
+        if (TryParsePlanJson(txt, out var parsed))
+            return parsed;
+
+        var extracted = ExtractFirstJsonObject(txt);
+        if (extracted is not null && TryParsePlanJson(extracted, out parsed))
+            return parsed;
+
+        return new Plan(false, null, new List<string> { userText });
+    }
+
+    private static bool TryParsePlanJson(string json, out Plan plan)
+    {
+        plan = new Plan(false, null, new List<string>());
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json, new JsonDocumentOptions
+            {
+                AllowTrailingCommas = true,
+                CommentHandling = JsonCommentHandling.Skip
+            });
+
             var root = doc.RootElement;
 
-            var need = root.TryGetProperty("needClarification", out var n)
-                       && (n.ValueKind == JsonValueKind.True || n.ValueKind == JsonValueKind.False)
-                       && n.GetBoolean();
+            if (root.ValueKind == JsonValueKind.Object &&
+                root.TryGetProperty("plan", out var planNode) &&
+                planNode.ValueKind == JsonValueKind.Object)
+            {
+                root = planNode;
+            }
+
+            bool need = root.TryGetProperty("needClarification", out var n) &&
+                        (n.ValueKind == JsonValueKind.True || n.ValueKind == JsonValueKind.False) &&
+                        n.GetBoolean();
 
             string? q = null;
             if (root.TryGetProperty("clarificationQuestion", out var cq) && cq.ValueKind == JsonValueKind.String)
@@ -179,12 +241,104 @@ Catégorie: {category}
                         queries.Add(el.GetString() ?? "");
             }
 
-            return new Plan(need, q, queries);
+            plan = new Plan(need, q, queries);
+            return true;
         }
         catch
         {
-            // fallback: une seule requête = question utilisateur
-            return new Plan(false, null, new List<string> { userText });
+            return false;
         }
+    }
+
+    private static string? ExtractFirstJsonObject(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        var t = text.Trim();
+
+        if (t.StartsWith("```", StringComparison.Ordinal))
+        {
+            var firstNl = t.IndexOf('\n');
+            if (firstNl > 0)
+            {
+                var endFence = t.IndexOf("```", firstNl + 1, StringComparison.Ordinal);
+                if (endFence > firstNl)
+                    t = t.Substring(firstNl + 1, endFence - firstNl - 1).Trim();
+            }
+        }
+
+        var start = t.IndexOf('{');
+        if (start < 0) return null;
+
+        bool inStr = false;
+        bool esc = false;
+        int depth = 0;
+
+        for (int i = start; i < t.Length; i++)
+        {
+            char c = t[i];
+
+            if (inStr)
+            {
+                if (esc) { esc = false; continue; }
+                if (c == '\\') { esc = true; continue; }
+                if (c == '"') inStr = false;
+                continue;
+            }
+
+            if (c == '"') { inStr = true; continue; }
+
+            if (c == '{') depth++;
+            else if (c == '}')
+            {
+                depth--;
+                if (depth == 0)
+                    return t.Substring(start, i - start + 1);
+            }
+        }
+
+        return null;
+    }
+
+    private static string BuildRagOnlyFallback(string userText, List<RagItem> merged, string err)
+    {
+        var top = merged.Take(6).ToList();
+
+        var docs = string.Join("\n", top.Select(m =>
+            $"- {m.DocName} p.{m.PageStart}-{m.PageEnd}"));
+
+        var extracts = string.Join("\n\n---\n\n", top.Take(3).Select(m =>
+            $"[{m.DocName} p.{m.PageStart}-{m.PageEnd}]\n{m.Text}"));
+
+        return
+$@"⚠️ Mode dégradé : le serveur LLM local est indisponible (synthèse impossible).
+Erreur : {err}
+
+Question :
+{userText}
+
+Meilleures sources trouvées :
+{docs}
+
+Extraits :
+{extracts}";
+    }
+
+    private static string DedupConsecutiveRepeat(string s)
+    {
+        var t = (s ?? "").Trim();
+        if (t.Length < 300) return s;
+
+        var prefixLen = Math.Min(80, t.Length);
+        var prefix = t.Substring(0, prefixLen);
+
+        var idx = t.IndexOf(prefix, prefixLen, StringComparison.Ordinal);
+        if (idx <= 0) return s;
+
+        var a = t.Substring(0, idx).Trim();
+        var b = t.Substring(idx).Trim();
+
+        return (a.Length > 0 && a.Equals(b, StringComparison.Ordinal)) ? a : s;
     }
 }

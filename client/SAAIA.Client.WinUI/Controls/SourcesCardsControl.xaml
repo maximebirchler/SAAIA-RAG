@@ -1,0 +1,48 @@
+<UserControl
+    x:Class="SAAIA.Client.WinUI.Controls.SourcesCardsControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <StackPanel Spacing="8">
+        <TextBlock Text="Sources" FontWeight="SemiBold" Opacity="0.85"/>
+
+        <ItemsControl x:Name="ItemsHost">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border CornerRadius="10"
+                            Padding="10"
+                            BorderThickness="1"
+                            BorderBrush="{ThemeResource SystemControlForegroundBaseLowBrush}">
+                        <StackPanel Spacing="6">
+
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <TextBlock Text="{Binding DocName}"
+                                           FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis"
+                                           MaxWidth="520"/>
+
+                                <TextBlock Text="{Binding PagesLabel}" Opacity="0.8"/>
+
+                                <!-- ✅ WinUI: pas de StringFormat -->
+                                <TextBlock Text="{Binding ScoreLabel}" Opacity="0.6"/>
+                            </StackPanel>
+
+                            <TextBlock Text="{Binding Snippet}"
+                                       TextWrapping="WrapWholeWords"
+                                       Opacity="0.9"
+                                       MaxLines="4"/>
+
+                            <Button Content="Ouvrir"
+                                    HorizontalAlignment="Left"
+                                    Click="Open_Click"
+                                    Tag="{Binding}"/>
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </StackPanel>
+</UserControl>
