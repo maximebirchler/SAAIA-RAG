@@ -14,6 +14,7 @@
 
             <!-- ✅ Utilisé pour afficher/cacher le label gris -->
             <conv:NonEmptyStringToVisibilityConverter x:Key="NonEmptyStringToVisibility"/>
+            <conv:DateTimeToLocalShortConverter x:Key="DateTimeToLocalShort"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

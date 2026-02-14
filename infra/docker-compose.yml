@@ -26,7 +26,7 @@ services:
     environment:
       TZ: ${TZ}
       # Optionnel : active une API key Qdrant (si tu veux durcir).
-      # QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY}
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY}
     volumes:
       - qdrant_storage:/qdrant/storage
     # Port exposé uniquement sur localhost (pas public)

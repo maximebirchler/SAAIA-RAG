@@ -13,6 +13,10 @@ public static class SignedConfigLoader
         var configPath = ResolvePath(builder.Environment.ContentRootPath, opt.ConfigPath);
         var sigPath = ResolvePath(builder.Environment.ContentRootPath, opt.SignaturePath);
 
+        // Expose status for /ready (non-sensitive).
+        // Note: if verification fails, app won't start.
+        SignedConfigStatus? statusToRegister = null;
+
         if (!File.Exists(configPath))
             throw new InvalidOperationException($"Missing signed deployment config: {configPath}");
 
@@ -20,6 +24,17 @@ public static class SignedConfigLoader
         {
             if (builder.Environment.IsDevelopment() && opt.AllowUnsignedInDevelopment)
             {
+                statusToRegister = new SignedConfigStatus
+                {
+                    ConfigPath = configPath,
+                    SignaturePath = sigPath,
+                    SignaturePresent = false,
+                    Verified = false,
+                    AllowUnsignedInDevelopment = opt.AllowUnsignedInDevelopment,
+                    Mode = "unsigned-dev"
+                };
+                builder.Services.AddSingleton(statusToRegister);
+
                 builder.Configuration.AddJsonFile(configPath, optional: false, reloadOnChange: false);
                 return;
             }
@@ -54,6 +69,17 @@ public static class SignedConfigLoader
 
         if (!ok)
             throw new InvalidOperationException("deployment.config.json signature verification failed.");
+
+        statusToRegister = new SignedConfigStatus
+        {
+            ConfigPath = configPath,
+            SignaturePath = sigPath,
+            SignaturePresent = true,
+            Verified = true,
+            AllowUnsignedInDevelopment = opt.AllowUnsignedInDevelopment,
+            Mode = "signed"
+        };
+        builder.Services.AddSingleton(statusToRegister);
 
         using var ms = new MemoryStream(cfgBytes);
         builder.Configuration.AddJsonStream(ms);

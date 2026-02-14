@@ -37,6 +37,10 @@ public sealed class RequestIdMiddleware
             requestId = Activity.Current?.Id ?? ctx.TraceIdentifier ?? Guid.NewGuid().ToString();
         }
 
+        // OpenTelemetry: enrichit l'Activity courante avec notre request_id
+        Activity.Current?.SetTag("saaia.request_id", requestId);
+        Activity.Current?.SetTag("http.request_id", requestId);
+
         // 2. Ajoute à Items pour accès dans les endpoints
         ctx.Items[RequestIdItemKey] = requestId;
 

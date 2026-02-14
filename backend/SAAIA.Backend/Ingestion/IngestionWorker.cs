@@ -81,8 +81,19 @@ sealed class IngestionWorker : BackgroundService
                     continue;
                 }
 
-                _log.LogInformation("Ingestion start job={JobId} action={Action} doc={DocPath} v={Version}",
-                    job.JobId, job.Action, job.DocPath, job.Version);
+                using (_log.BeginScope(new Dictionary<string, object>
+                {
+                    { "tenant_id", job.TenantId },
+                    { "job_id", job.JobId },
+                    { "doc_id", job.DocId },
+                    { "doc_path", job.DocPath },
+                    { "version", job.Version },
+                    { "action", job.Action },
+                    { "worker_id", workerId }
+                }))
+                {
+                    _log.LogInformation("Ingestion start job={JobId} action={Action} doc={DocPath} v={Version}",
+                        job.JobId, job.Action, job.DocPath, job.Version);
 
                 try
                 {
@@ -110,6 +121,7 @@ sealed class IngestionWorker : BackgroundService
                     _log.LogError(ex, "Job failed job={JobId} action={Action} doc={DocPath}",
                         job.JobId, job.Action, job.DocPath);
                     await JobRepo.MarkFailedAsync(ds, job.JobId, ex.Message, ct);
+                }
                 }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { }

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using Npgsql;
+using SAAIA.Backend.Audit;
 using SAAIA.Backend.Auth;
 
 namespace SAAIA.Backend.Endpoints;
@@ -20,11 +21,17 @@ public static class AdminEndpoints
         AdminAuth.EnsureAdmin(ctx);
 
         var tenantId = ctx.GetTenantId();
+        var actorApiKeyId = ctx.GetApiKeyIdOrNull();
+        var actorIsAdmin = ctx.IsAdmin();
+
         var ingest = ingestOpt.Value;
         var ct = ctx.RequestAborted;
 
         var max = Math.Clamp(req.Max ?? 5000, 1, 200000);
         var root = ingest.DocumentsRoot;
+
+        if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+            return Results.BadRequest(new { error = "DocumentsRoot not found", root });
 
         var files = Directory.EnumerateFiles(root, "*.pdf", SearchOption.AllDirectories)
             .Take(max)
@@ -36,6 +43,9 @@ public static class AdminEndpoints
         foreach (var abs in files)
         {
             var rel = DocPathNormalizer.NormalizeToRelative(abs, root);
+
+            if (IngestionPathFilter.ShouldIgnoreRel(rel))
+                continue;
 
             var category = ingest.CategoryFromFirstFolder
                 ? (rel.Split('/', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? ingest.DefaultCategory ?? "general").Trim().ToLowerInvariant()
@@ -49,6 +59,17 @@ public static class AdminEndpoints
             await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, category, fi, ct);
             enqueued++;
         }
+
+        await AuditWriter.WriteAsync(
+            conn,
+            tenantId,
+            actorApiKeyId,
+            actorIsAdmin,
+            action: "ingestion.scan",
+            target: "admin.reindex",
+            payload: new { scanned = files.Length, enqueued, max, category = req.Category },
+            ip: ctx.Connection.RemoteIpAddress?.ToString(),
+            ct: ct);
 
         return Results.Ok(new { enqueued, scanned = files.Length, max });
     }

@@ -3,6 +3,34 @@ sealed class RagOptions
     public string QdrantBaseUrl { get; set; } = "http://localhost:6333/";
     public string QdrantCollection { get; set; } = "knowledge_base";
 
+    /// <summary>
+    /// Optional: Qdrant API key (recommended in prod).
+    /// If set, backend will send it on every Qdrant REST call.
+    /// </summary>
+    public string? QdrantApiKey { get; set; }
+
+    /// <summary>
+    /// Recommended for prod: reference to the secret instead of embedding it in the signed config.
+    /// Supported forms:
+    /// - "ENV:QDRANT_API_KEY"  -> reads Environment variable QDRANT_API_KEY
+    /// - "FILE:/run/secrets/qdrant_api_key" -> reads file content (trimmed)
+    /// Relative FILE paths are resolved from ContentRootPath.
+    /// </summary>
+    public string? QdrantApiKeyRef { get; set; }
+
+    /// <summary>
+    /// Security policy: in Production, require Qdrant auth configured in the backend.
+    /// This is a POLICY (should remain in signed config).
+    /// </summary>
+    public bool RequireQdrantAuthInProd { get; set; } = true;
+
+    /// <summary>
+    /// How to send QdrantApiKey:
+    /// - "api-key" (default): header "api-key: &lt;key&gt;"
+    /// - "bearer": header "Authorization: Bearer &lt;key&gt;"
+    /// </summary>
+    public string QdrantAuthMode { get; set; } = "api-key";
+
     public string EmbeddingsBaseUrl { get; set; } = "http://localhost:8081/";
     public string EmbeddingsModel { get; set; } = "intfloat/multilingual-e5-base";
 

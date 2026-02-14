@@ -1,12 +1,16 @@
+using System.Globalization;
+using System.Net.Http.Headers;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Npgsql;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using SAAIA.Backend.Auth;
 using SAAIA.Backend.Bootstrap;
+using SAAIA.Backend.Middleware;
+using SAAIA.Backend.Security;
 
 namespace SAAIA.Backend;
 
@@ -36,6 +40,10 @@ public static class ServiceCollectionExtensions
         services.Configure<RagOptions>(config.GetSection("Rag"));
         services.Configure<IngestionOptions>(config.GetSection("Ingestion"));
         services.Configure<RateLimitOptions>(config.GetSection("RateLimiting"));
+        services.Configure<OpenTelemetryOptions>(config.GetSection("OpenTelemetry"));
+
+        // ---------- OpenTelemetry (M2.2) ----------
+        services.AddSaaiaOpenTelemetry(config, env);
 
         // Stabilise DocumentsRoot si relatif (par rapport au ContentRootPath)
         var contentRoot = env.ContentRootPath;
@@ -55,11 +63,45 @@ public static class ServiceCollectionExtensions
         {
             o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
+            // M3.2 DoD : 429 + Retry-After (+ payload JSON minimal)
+            o.OnRejected = async (context, ct) =>
+            {
+                var http = context.HttpContext;
+                if (http.Response.HasStarted) return;
+
+                var retryAfterSeconds = (int)Math.Ceiling(window.TotalSeconds);
+                retryAfterSeconds = Math.Max(1, retryAfterSeconds);
+
+                http.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                http.Response.Headers["Retry-After"] = retryAfterSeconds.ToString(CultureInfo.InvariantCulture);
+                http.Response.ContentType = "application/json";
+
+                var payload = new
+                {
+                    error = "rate_limited",
+                    requestId = http.GetRequestId(),
+                    retryAfterSeconds
+                };
+
+                await http.Response.WriteAsync(JsonSerializer.Serialize(payload), ct);
+            };
+
             o.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
             {
                 var path = ctx.Request.Path.Value ?? "";
-                if (path.StartsWith("/health") || path.StartsWith("/ready") || path.StartsWith("/swagger") || path.StartsWith("/ui"))
+
+                // Ne jamais limiter les endpoints publics/non sensibles.
+                if (path.StartsWith("/health", StringComparison.OrdinalIgnoreCase)
+                    || path.StartsWith("/ready", StringComparison.OrdinalIgnoreCase)
+                    || path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase)
+                    || path.StartsWith("/ui", StringComparison.OrdinalIgnoreCase))
                     return RateLimitPartition.GetNoLimiter("public");
+
+                // Roadmap v2.7 : limiter uniquement RAG + chat-store.
+                var isRagOrChat = path.StartsWith("/rag", StringComparison.OrdinalIgnoreCase)
+                               || path.StartsWith("/chat", StringComparison.OrdinalIgnoreCase);
+                if (!isRagOrChat)
+                    return RateLimitPartition.GetNoLimiter("unlimited");
 
                 var key = ctx.Request.Headers[headerName].ToString().Trim();
                 if (string.IsNullOrWhiteSpace(key))
@@ -85,7 +127,36 @@ public static class ServiceCollectionExtensions
 
         // ---------- HTTP clients ----------
         // Qdrant + TEI : timeout “raisonnable”.
-        services.AddHttpClient("qdrant", c => c.Timeout = TimeSpan.FromMinutes(5));
+        services.AddHttpClient("qdrant", (sp, c) =>
+        {
+            c.Timeout = TimeSpan.FromMinutes(5);
+
+            // BaseAddress + auth depuis RagOptions (si défini).
+            var rag = sp.GetRequiredService<IOptions<RagOptions>>().Value;
+            if (!string.IsNullOrWhiteSpace(rag.QdrantBaseUrl))
+                c.BaseAddress = new Uri(rag.QdrantBaseUrl);
+
+            var env = sp.GetRequiredService<IHostEnvironment>();
+
+            // Secret resolution (P2.1c): allow Rag:QdrantApiKeyRef (ENV:/FILE:) in signed config.
+            var key = SecretRefResolver.Resolve(rag.QdrantApiKey, rag.QdrantApiKeyRef, env.ContentRootPath, out _);
+            if (!string.IsNullOrWhiteSpace(key))
+            {
+                var mode = (rag.QdrantAuthMode ?? "api-key").Trim().ToLowerInvariant();
+                key = key.Trim();
+
+                if (mode is "bearer" or "authorization")
+                {
+                    c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", key);
+                }
+                else
+                {
+                    // Qdrant REST: header "api-key: <key>"
+                    c.DefaultRequestHeaders.Remove("api-key");
+                    c.DefaultRequestHeaders.TryAddWithoutValidation("api-key", key);
+                }
+            }
+        });
         services.AddHttpClient("tei", c => c.Timeout = TimeSpan.FromMinutes(5));
 
         // ---------- Bulkheads ----------

@@ -58,6 +58,7 @@ public sealed class ApiKeyAuthMiddleware
         }
 
         var principal = await ApiKeyAuth.ResolvePrincipalAsync(ds, apiKey, opt.Value.Pepper, ctx.RequestAborted);
+
         if (principal is null)
         {
             _logger.LogWarning("Invalid API key for {Path}", path);
@@ -69,11 +70,20 @@ public sealed class ApiKeyAuthMiddleware
         ctx.Items[ApiKeyAuth.ApiKeyIdItemKey] = principal.ApiKeyId;
         ctx.Items[ApiKeyAuth.IsAdminItemKey] = principal.IsAdmin;
 
-        // M2.1: Ajouter tenant_id et user_id aux log scopes
-        using (_logger.BeginScope(new Dictionary<string, object>
+        // M2.1: Ajouter tenant_id + api_key_id + actor_is_admin + user_id (si query userId)
+        var userId = ctx.Request.Query.TryGetValue("userId", out var u) ? u.ToString() : null;
+
+        var scope = new Dictionary<string, object>
         {
-            { "tenant_id", principal.TenantId }
-        }))
+            { "tenant_id", principal.TenantId },
+            { "api_key_id", principal.ApiKeyId },
+            { "actor_is_admin", principal.IsAdmin }
+        };
+
+        if (!string.IsNullOrWhiteSpace(userId))
+            scope["user_id"] = userId;
+
+        using (_logger.BeginScope(scope))
         {
             await _next(ctx);
         }
@@ -109,4 +119,3 @@ public static class TenantExtensions
     public static bool IsAdmin(this HttpContext ctx)
         => ctx.Items.TryGetValue(ApiKeyAuth.IsAdminItemKey, out var v) && v is bool b && b;
 }
-

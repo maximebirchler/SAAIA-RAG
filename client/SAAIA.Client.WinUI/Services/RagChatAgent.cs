@@ -325,20 +325,21 @@ Extraits :
 {extracts}";
     }
 
-    private static string DedupConsecutiveRepeat(string s)
+    private static string DedupConsecutiveRepeat(string? s)
     {
         var t = (s ?? "").Trim();
-        if (t.Length < 300) return s;
+        if (t.Length < 300) return t;
 
         var prefixLen = Math.Min(80, t.Length);
         var prefix = t.Substring(0, prefixLen);
 
         var idx = t.IndexOf(prefix, prefixLen, StringComparison.Ordinal);
-        if (idx <= 0) return s;
+        if (idx <= 0) return t;
 
         var a = t.Substring(0, idx).Trim();
         var b = t.Substring(idx).Trim();
 
-        return (a.Length > 0 && a.Equals(b, StringComparison.Ordinal)) ? a : s;
+        return (a.Length > 0 && a.Equals(b, StringComparison.Ordinal)) ? a : t;
     }
+
 }

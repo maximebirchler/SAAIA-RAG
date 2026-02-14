@@ -2,6 +2,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using SAAIA.Backend.Middleware;
+using SAAIA.Backend.Security;
 
 namespace SAAIA.Backend.Endpoints;
 
@@ -20,9 +21,11 @@ public static class ReadyEndpoints
 
     private static async Task<IResult> HandleAsync(
         HttpContext ctx,
+        IHostEnvironment env,
         NpgsqlDataSource ds,
         IHttpClientFactory httpFactory,
         IOptions<RagOptions> ragOpt,
+        SignedConfigStatus? cfgStatus,
         IMemoryCache cache,
         CancellationToken ct)
     {
@@ -69,12 +72,24 @@ public static class ReadyEndpoints
             try
             {
                 var rag = ragOpt.Value;
+                // P2.1c: policy (signed) + secret resolution (ENV/FILE) via Rag:QdrantApiKeyRef
+                var effectiveKey = SecretRefResolver.Resolve(rag.QdrantApiKey, rag.QdrantApiKeyRef, env.ContentRootPath, out var keySource);
+                details["qdrant_auth_policy_required"] = string.Equals(env.EnvironmentName, "Production", StringComparison.OrdinalIgnoreCase) && rag.RequireQdrantAuthInProd;
+                details["qdrant_auth_configured"] = !string.IsNullOrWhiteSpace(effectiveKey);
+                details["qdrant_auth_mode"] = rag.QdrantAuthMode;
+                details["qdrant_auth_source"] = keySource;
                 var qdrant = httpFactory.CreateClient("qdrant");
                 qdrant.BaseAddress = new Uri(rag.QdrantBaseUrl);
 
                 using var resp = await qdrant.GetAsync($"/collections/{rag.QdrantCollection}", ct);
                 details["qdrant"] = resp.IsSuccessStatusCode;
                 details["qdrant_status"] = (int)resp.StatusCode;
+                if ((int)resp.StatusCode == 401 || (int)resp.StatusCode == 403)
+                {
+                    details["qdrant_auth_required"] = true;
+                    if (string.IsNullOrWhiteSpace(effectiveKey))
+                        details["qdrant_auth_hint"] = "Qdrant returned 401/403 but backend has no effective Qdrant key (Rag:QdrantApiKey/Ref).";
+                }
                 if (!resp.IsSuccessStatusCode) ok = false;
             }
             catch (Exception ex)
@@ -110,6 +125,14 @@ public static class ReadyEndpoints
 
             // LLM: client-only en v2.7
             details["llm"] = "client-only";
+
+            // Signed deployment config status (M2.3)
+            if (cfgStatus is not null)
+            {
+                details["config_signature_mode"] = cfgStatus.Mode;
+                details["config_signature_present"] = cfgStatus.SignaturePresent;
+                details["config_signature_verified"] = cfgStatus.Verified;
+            }
 
             var payload = new { ok, ts = DateTimeOffset.UtcNow, requestId, details };
             var snap = new ReadinessSnapshot(ok, payload);

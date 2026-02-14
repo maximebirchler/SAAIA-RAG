@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using Npgsql;
+using SAAIA.Backend.Audit;
 using SAAIA.Backend.Auth;
 
 namespace SAAIA.Backend.Endpoints;
@@ -18,6 +19,8 @@ public static class IngestionEndpoints
         IngestEnqueueRequest req)
     {
         var tenantId = ctx.GetTenantId();
+        var actorApiKeyId = ctx.GetApiKeyIdOrNull();
+        var actorIsAdmin = ctx.IsAdmin();
         var ingest = ingestOpt.Value;
         var ct = ctx.RequestAborted;
 
@@ -52,6 +55,18 @@ public static class IngestionEndpoints
         if (action == "delete")
         {
             var r = await IngestionEnqueue.EnqueueDeleteAsync(conn, tenantId, relDocPath, ct);
+
+            await AuditWriter.WriteAsync(
+                conn,
+                tenantId,
+                actorApiKeyId,
+                actorIsAdmin,
+                action: "ingestion.enqueue",
+                target: relDocPath,
+                payload: new { action, docPath = relDocPath, jobId = r.JobId, docId = r.DocId, version = r.Version },
+                ip: ctx.Connection.RemoteIpAddress?.ToString(),
+                ct: ct);
+
             return Results.Ok(new
             {
                 jobId = r.JobId,
@@ -74,6 +89,18 @@ public static class IngestionEndpoints
             catch { /* ignore */ }
 
             var r = await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, relDocPath, category, fi, ct);
+
+            await AuditWriter.WriteAsync(
+                conn,
+                tenantId,
+                actorApiKeyId,
+                actorIsAdmin,
+                action: "ingestion.enqueue",
+                target: relDocPath,
+                payload: new { action = "upsert", docPath = relDocPath, category, jobId = r.JobId, docId = r.DocId, version = r.Version },
+                ip: ctx.Connection.RemoteIpAddress?.ToString(),
+                ct: ct);
+
             return Results.Ok(new
             {
                 jobId = r.JobId,

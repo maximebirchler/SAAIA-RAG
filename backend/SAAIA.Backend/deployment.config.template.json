@@ -34,6 +34,11 @@
   "Bootstrap": {
     "Enabled": false
   },
+  "OpenTelemetry": {
+    "Enabled": false,
+    "ServiceName": "saaia-backend",
+    "OtlpEndpoint": "http://localhost:4317"
+  },
   "RateLimiting": {
     "PermitLimit": 120,
     "WindowSeconds": 60,

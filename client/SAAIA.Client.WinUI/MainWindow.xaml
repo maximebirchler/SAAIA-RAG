@@ -5,28 +5,196 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:controls="using:SAAIA.Client.WinUI.Controls"
+    xmlns:models="using:SAAIA.Client.WinUI.Models"
+    xmlns:conv="using:SAAIA.Client.WinUI.Converters"
     mc:Ignorable="d"
     Title="SAAIA Client">
 
-    <Grid Padding="12">
+    <Grid x:Name="Root" Padding="12" SizeChanged="Root_SizeChanged">
+        <Grid.Resources>
+            <!-- converters -->
+            <conv:NonEmptyStringToVisibilityConverter x:Key="NonEmptyStringToVisibility" />
+
+            <!-- =========================
+                MESSAGE TEMPLATES (bulles)
+                ========================= -->
+
+            <!-- User bubble -->
+            <DataTemplate x:Key="UserMessageTemplate" x:DataType="models:ChatMessageItem">
+                <Grid Margin="0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="1"
+                            Background="#1E4E8C"
+                            CornerRadius="14"
+                            Padding="12,10"
+                            MaxWidth="720"
+                            HorizontalAlignment="Right"
+                            PointerEntered="Bubble_PointerEntered"
+                            PointerExited="Bubble_PointerExited">
+                        <Grid RowSpacing="8">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0"
+                                    Text="{x:Bind Content}"
+                                    Foreground="White"
+                                    TextWrapping="Wrap"/>
+
+                            <!-- Bottom bar: time (left) + copy icon (right) -->
+                            <Grid Grid.Row="1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column="0"
+                                        Text="{Binding CreatedAt, Converter={StaticResource DateTimeToLocalShort}}"
+                                        Foreground="#D6D6D6"
+                                        FontSize="11"
+                                        VerticalAlignment="Center"/>
+
+                                <Button x:Name="CopyBtn"
+                                        Grid.Column="1"
+                                        Click="CopyMessage_Click"
+                                        CommandParameter="{Binding}"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Padding="2"
+                                        Width="26"
+                                        Height="22"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        ToolTipService.ToolTip="Copier"
+                                        IsTabStop="False"
+                                        Opacity="0"
+                                        IsHitTestVisible="False">
+                                    <FontIcon Glyph="&#xE8C8;"
+                                            FontSize="14"
+                                            Foreground="#F2F2F2" />
+                                </Button>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </DataTemplate>
+
+            <!-- Assistant bubble -->
+            <DataTemplate x:Key="AssistantMessageTemplate" x:DataType="models:ChatMessageItem">
+                <Grid Margin="0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Avatar -->
+                    <Border Grid.Column="0"
+                            Width="28"
+                            Height="28"
+                            CornerRadius="14"
+                            Background="#2A2A2A"
+                            VerticalAlignment="Top"
+                            Margin="0,0,10,0">
+                        <TextBlock Text="S"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Foreground="#CFCFCF"
+                                FontWeight="SemiBold"/>
+                    </Border>
+
+                    <Border Grid.Column="1"
+                            Background="#222222"
+                            CornerRadius="14"
+                            Padding="12,10"
+                            MaxWidth="900"
+                            HorizontalAlignment="Left"
+                            PointerEntered="Bubble_PointerEntered"
+                            PointerExited="Bubble_PointerExited">
+                        <StackPanel Spacing="8">
+
+                            <TextBlock Text="{x:Bind Content}"
+                                    Foreground="White"
+                                    TextWrapping="Wrap"/>
+
+                            <!-- Status note (ex: Génération interrompue.) -->
+                            <TextBlock Text="{Binding StatusNote}"
+                                    Visibility="{Binding StatusNote, Converter={StaticResource NonEmptyStringToVisibility}}"
+                                    Foreground="#BFBFBF"
+                                    FontSize="12"/>
+
+                            <!-- Bottom bar: copy icon (left) + time (right) -->
+                            <Grid Margin="0,2,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Button x:Name="CopyBtn"
+                                        Grid.Column="0"
+                                        Click="CopyMessage_Click"
+                                        CommandParameter="{Binding}"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Padding="2"
+                                        Width="26"
+                                        Height="22"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        ToolTipService.ToolTip="Copier"
+                                        IsTabStop="False"
+                                        Opacity="0"
+                                        IsHitTestVisible="False">
+                                    <FontIcon Glyph="&#xE8C8;"
+                                            FontSize="14"
+                                            Foreground="#BFBFBF" />
+                                </Button>
+
+                                <TextBlock Grid.Column="2"
+                                        Text="{Binding CreatedAt, Converter={StaticResource DateTimeToLocalShort}}"
+                                        Foreground="#BFBFBF"
+                                        FontSize="11"
+                                        VerticalAlignment="Center"
+                                        HorizontalAlignment="Right"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </DataTemplate>
+
+            <!-- Selector -->
+            <controls:ChatMessageTemplateSelector x:Key="ChatMessageTemplateSelector"
+                                                UserTemplate="{StaticResource UserMessageTemplate}"
+                                                AssistantTemplate="{StaticResource AssistantMessageTemplate}" />
+        </Grid.Resources>
+
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Settings -->
-        <Grid RowSpacing="8" ColumnSpacing="10">
+        <!-- =========================
+             TOP BAR (settings)
+             ========================= -->
+        <Grid Grid.Row="0" RowSpacing="8" ColumnSpacing="10">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
+
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*"/>
                 <ColumnDefinition Width="2*"/>
                 <ColumnDefinition Width="2*"/>
-                <ColumnDefinition Width="1*"/>
+                <ColumnDefinition Width="1.2*"/>
+                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
@@ -35,10 +203,10 @@
             <TextBlock Grid.Row="0" Grid.Column="2" Text="LLM URL (OpenAI compat)" FontWeight="SemiBold"/>
             <TextBlock Grid.Row="0" Grid.Column="3" Text="LLM Model" FontWeight="SemiBold"/>
 
-            <TextBox Grid.Row="1" Grid.Column="0" x:Name="ServerUrlBox" PlaceholderText="http://localhost:5122" IsReadOnly="True"/>
+            <TextBox Grid.Row="1" Grid.Column="0" x:Name="ServerUrlBox" IsReadOnly="True"/>
             <PasswordBox Grid.Row="1" Grid.Column="1" x:Name="ApiKeyBox"/>
-            <TextBox Grid.Row="1" Grid.Column="2" x:Name="LlmUrlBox" PlaceholderText="http://localhost:1234/v1" IsReadOnly="True"/>
-            <TextBox Grid.Row="1" Grid.Column="3" x:Name="LlmModelBox" PlaceholderText="mistral" IsReadOnly="True"/>
+            <TextBox Grid.Row="1" Grid.Column="2" x:Name="LlmUrlBox" IsReadOnly="True"/>
+            <TextBox Grid.Row="1" Grid.Column="3" x:Name="LlmModelBox" IsReadOnly="True"/>
 
             <Button Grid.Row="1" Grid.Column="4"
                     x:Name="ConnectButton"
@@ -47,72 +215,199 @@
                     MinWidth="120"
                     VerticalAlignment="Bottom"/>
 
-            <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="5"
+            <!-- ✅ Visible seulement quand la colonne Sources est cachée (petit écran) -->
+            <Button Grid.Row="1" Grid.Column="5"
+                    x:Name="SourcesToggleButton"
+                    Content="Sources"
+                    Click="SourcesToggle_Click"
+                    MinWidth="120"
+                    VerticalAlignment="Bottom"
+                    Visibility="Collapsed"/>
+
+            <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="6"
                        x:Name="StatusText"
                        Opacity="0.85"
                        TextWrapping="WrapWholeWords"/>
         </Grid>
 
-        <!-- Messages -->
-        <Grid Grid.Row="1" Margin="0,12,0,12">
+        <!-- =========================
+             BODY : chats + messages + sources
+             ========================= -->
+        <Grid Grid.Row="1" Margin="0,12,0,12" ColumnSpacing="12">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*"/>
+                <!-- gauche : chats -->
+                <ColumnDefinition x:Name="ChatsCol" Width="280" MinWidth="220"/>
+                <!-- milieu : messages -->
                 <ColumnDefinition Width="*"/>
+                <!-- droite : sources (peut être cachée en petit écran) -->
+                <ColumnDefinition x:Name="SourcesCol" Width="360" MinWidth="280"/>
             </Grid.ColumnDefinitions>
 
-            <ListView x:Name="MessagesList" Grid.Column="0" SelectionChanged="MessagesList_SelectionChanged">
-                <ListView.ItemTemplate>
-                    <DataTemplate>
-                        <Border BorderBrush="#2D2D2D" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,10">
-                            <StackPanel>
-                                <TextBlock Text="{Binding Role}" FontWeight="Bold"/>
+            <!-- ===== LEFT : Chats panel ===== -->
+            <Border Grid.Column="0"
+                    Background="#111111"
+                    BorderBrush="#2D2D2D"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="12">
 
-                                <TextBlock Text="{Binding Content}"
-                                        TextWrapping="WrapWholeWords"
-                                        Margin="0,6,0,0"/>
+                <Grid RowSpacing="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
 
-                                <!-- ✅ Petit label gris (style ChatGPT) -->
-                                <Border Margin="0,8,0,0"
-                                        Padding="8,6"
-                                        CornerRadius="6"
-                                        Background="{ThemeResource SystemControlBackgroundBaseLowBrush}"
-                                        Visibility="{Binding StatusNote, Converter={StaticResource NonEmptyStringToVisibility}}">
-                                    <TextBlock Text="{Binding StatusNote}"
-                                            FontSize="12"
-                                            Opacity="0.70"/>
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Text="Chats" FontWeight="SemiBold" FontSize="16"/>
+                        <Button Grid.Column="1"
+                                x:Name="NewChatButton"
+                                Content="New"
+                                Click="NewChat_Click"
+                                MinWidth="80"/>
+                    </Grid>
+
+                    <ListView Grid.Row="1"
+                              x:Name="SessionsList"
+                              SelectionChanged="SessionsList_SelectionChanged"
+                              HorizontalContentAlignment="Stretch"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="models:ChatSessionItem">
+                                <Border Background="#151515"
+                                        BorderBrush="#2D2D2D"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="10"
+                                        Margin="0,0,0,10">
+                                    <Grid ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="{x:Bind DisplayTitle}"
+                                                       FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{x:Bind DisplaySubtitle}"
+                                                       Opacity="0.7"
+                                                       FontSize="12"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+
+                                        <!-- Menu ... -->
+                                        <Button Grid.Column="1"
+                                                Content="…"
+                                                Width="34"
+                                                Height="28"
+                                                HorizontalAlignment="Right"
+                                                VerticalAlignment="Top">
+                                            <Button.Flyout>
+                                                <MenuFlyout>
+                                                    <MenuFlyoutItem Text="Rename" Click="SessionRename_Click" CommandParameter="{Binding}"/>
+                                                    <MenuFlyoutItem Text="Delete" Click="SessionDelete_Click" CommandParameter="{Binding}"/>
+                                                </MenuFlyout>
+                                            </Button.Flyout>
+                                        </Button>
+                                    </Grid>
                                 </Border>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+            </Border>
 
-                                <TextBlock Text="{Binding CreatedAt}" Opacity="0.6" FontSize="12" Margin="0,8,0,0"/>
-                            </StackPanel>
-                        </Border>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
+            <!-- ===== CENTER : Messages ===== -->
+            <Border x:Name="MessagesPanelBorder"
+                    Grid.Column="1"
+                    Background="#111111"
+                    BorderBrush="#2D2D2D"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="12">
 
-            </ListView>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
 
-            <!-- Sources -->
-            <ScrollViewer Grid.Column="1" Margin="12,0,0,0">
-                <StackPanel Spacing="12">
+                    <!-- Scroll + list -->
+                    <ScrollViewer x:Name="MessagesScroll"
+                                  Grid.Row="0"
+                                  ViewChanged="MessagesScroll_ViewChanged"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <ListView x:Name="MessagesList"
+                                SelectionChanged="MessagesList_SelectionChanged"
+                                ItemTemplateSelector="{StaticResource ChatMessageTemplateSelector}"
+                                HorizontalContentAlignment="Stretch"
+                                ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+                    </ScrollViewer>
 
-                    <controls:SourcesCardsControl x:Name="SourcesCards" />
+                    <!-- Typing + jump -->
+                    <Grid Grid.Row="1" Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
 
-                    <!-- Debug JSON (caché) -->
-                    <TextBlock Text="Sources (JSON)" FontWeight="SemiBold" Opacity="0.7" Visibility="Collapsed"/>
-                    <TextBox x:Name="SourcesBox"
-                             IsReadOnly="True"
-                             TextWrapping="Wrap"
-                             AcceptsReturn="True"
-                             Height="520"
-                             Visibility="Collapsed"/>
-                </StackPanel>
-            </ScrollViewer>
+                        <TextBlock x:Name="TypingText"
+                                   Text="Typing…"
+                                   Opacity="0.65"
+                                   Visibility="Collapsed"
+                                   VerticalAlignment="Center"/>
+
+                        <Button Grid.Column="1"
+                                x:Name="JumpBottomButton"
+                                Content="Jump to bottom"
+                                Click="JumpBottom_Click"
+                                Visibility="Collapsed"/>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- ===== RIGHT : Sources ===== -->
+            <Border x:Name="SourcesPanel"
+                    Grid.Column="2"
+                    Background="#111111"
+                    BorderBrush="#2D2D2D"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="12">
+
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="12">
+
+                        <TextBlock Text="Sources" FontWeight="SemiBold" FontSize="16"/>
+
+                        <controls:SourcesCardsControl x:Name="SourcesCards" />
+
+                        <!-- Debug JSON (si tu veux le laisser caché) -->
+                        <TextBox x:Name="SourcesBox"
+                                 IsReadOnly="True"
+                                 TextWrapping="Wrap"
+                                 AcceptsReturn="True"
+                                 Visibility="Collapsed"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
         </Grid>
 
-        <!-- Input -->
-        <Grid Grid.Row="2">
+        <!-- =========================
+             INPUT BAR
+             ========================= -->
+        <Grid Grid.Row="2" ColumnSpacing="10">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="160"/>
                 <ColumnDefinition Width="120"/>
                 <ColumnDefinition Width="120"/>
             </Grid.ColumnDefinitions>
@@ -124,21 +419,12 @@
             <Button Grid.Column="1"
                     x:Name="SendButton"
                     Content="Send"
-                    Click="Send_Click"
-                    Margin="10,0,0,0"/>
+                    Click="Send_Click"/>
 
             <Button Grid.Column="2"
                     x:Name="CancelButton"
                     Content="Cancel"
                     Click="Cancel_Click"
-                    Margin="10,0,0,0"
-                    IsEnabled="False"/>
-
-            <Button Grid.Column="3"
-                    x:Name="NewChatButton"
-                    Content="New chat"
-                    Click="NewChat_Click"
-                    Margin="10,0,0,0"
                     IsEnabled="False"/>
         </Grid>
     </Grid>

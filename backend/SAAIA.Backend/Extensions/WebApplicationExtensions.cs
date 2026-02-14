@@ -58,11 +58,18 @@ public static class WebApplicationExtensions
     {
         HealthEndpoints.Map(app);
         ReadyEndpoints.Map(app);
+
+        // Ingestion (public enqueue)
         IngestionEndpoints.Map(app);
+
+        // Admin ingestion + documents
+        IngestionAdminEndpoints.Map(app);
+        DocumentsEndpoints.Map(app);
 
         // Admin
         AdminEndpoints.Map(app);
         AdminKeysEndpoints.Map(app);
+        AdminAuditEndpoints.Map(app);
 
         RagEndpoints.Map(app);
         ChatStoreEndpoints.Map(app);

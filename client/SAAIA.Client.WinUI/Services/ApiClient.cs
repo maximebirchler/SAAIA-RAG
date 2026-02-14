@@ -14,10 +14,6 @@ namespace SAAIA.Client.WinUI.Services;
 
 /// <summary>
 /// Client HTTP vers le backend SAAIA.
-///
-/// Contrats importants (CDC v2.7) :
-/// - /rag/search -> RagSearchResponse (items + metrics)
-/// - chat-store -> userId obligatoire (body + query...)
 /// </summary>
 public sealed class ApiClient
 {
@@ -83,6 +79,100 @@ public sealed class ApiClient
                ?? throw new Exception("Invalid create session response");
     }
 
+    public async Task<List<ChatSessionItem>> ListSessionsAsync(CancellationToken ct, int limit = 100, int offset = 0)
+    {
+        var uid = Uri.EscapeDataString(RequireUserId());
+        var lim = Math.Clamp(limit, 1, 200);
+        var off = Math.Max(0, offset);
+
+        using var req = NewRequest(HttpMethod.Get, $"/chat/sessions?userId={uid}&limit={lim}&offset={off}");
+        using var resp = await _http.SendAsync(req, ct);
+        resp.EnsureSuccessStatusCode();
+
+        var json = await resp.Content.ReadAsStringAsync(ct);
+
+        using var doc = JsonDocument.Parse(json);
+        var list = new List<ChatSessionItem>();
+
+        foreach (var el in doc.RootElement.EnumerateArray())
+        {
+            string GetString(string a, string b)
+            {
+                if (el.TryGetProperty(a, out var p) && p.ValueKind == JsonValueKind.String) return p.GetString() ?? "";
+                if (el.TryGetProperty(b, out p) && p.ValueKind == JsonValueKind.String) return p.GetString() ?? "";
+                return "";
+            }
+
+            DateTime GetDateTime(string a, string b)
+            {
+                if (el.TryGetProperty(a, out var p) && p.ValueKind == JsonValueKind.String && DateTime.TryParse(p.GetString(), out var dt1))
+                    return dt1.ToUniversalTime();
+                if (el.TryGetProperty(b, out p) && p.ValueKind == JsonValueKind.String && DateTime.TryParse(p.GetString(), out var dt2))
+                    return dt2.ToUniversalTime();
+                return DateTime.MinValue;
+            }
+
+            DateTime? GetDateTimeNullable(string a, string b)
+            {
+                if (el.TryGetProperty(a, out var p) && p.ValueKind == JsonValueKind.String && DateTime.TryParse(p.GetString(), out var dt1))
+                    return dt1.ToUniversalTime();
+                if (el.TryGetProperty(b, out p) && p.ValueKind == JsonValueKind.String && DateTime.TryParse(p.GetString(), out var dt2))
+                    return dt2.ToUniversalTime();
+                if (el.TryGetProperty(a, out p) && p.ValueKind == JsonValueKind.Null) return null;
+                if (el.TryGetProperty(b, out p) && p.ValueKind == JsonValueKind.Null) return null;
+                return null;
+            }
+
+            var sid = GetString("sessionId", "SessionId");
+            if (string.IsNullOrWhiteSpace(sid)) continue;
+
+            var title = GetString("title", "Title");
+            if (string.IsNullOrWhiteSpace(title)) title = null;
+
+            var clientUser = GetString("clientUser", "ClientUser");
+            if (string.IsNullOrWhiteSpace(clientUser)) clientUser = null;
+
+            var createdAt = GetDateTime("createdAt", "CreatedAt");
+            var updatedAt = GetDateTime("updatedAt", "UpdatedAt");
+            var lastMsg = GetDateTimeNullable("lastMessageAt", "LastMessageAt");
+
+            list.Add(new ChatSessionItem
+            {
+                SessionId = sid,
+                Title = title,
+                ClientUser = clientUser,
+                CreatedAtUtc = createdAt,
+                UpdatedAtUtc = updatedAt,
+                LastMessageAtUtc = lastMsg
+            });
+        }
+
+        return list;
+    }
+
+    public async Task UpdateSessionTitleAsync(string sessionId, string? title, CancellationToken ct)
+    {
+        var uid = Uri.EscapeDataString(RequireUserId());
+
+        var body = JsonSerializer.Serialize(new
+        {
+            title
+        }, JsonOpts);
+
+        using var req = NewRequest(HttpMethod.Patch, $"/chat/sessions/{sessionId}?userId={uid}", body);
+        using var resp = await _http.SendAsync(req, ct);
+        resp.EnsureSuccessStatusCode();
+    }
+
+    public async Task DeleteSessionAsync(string sessionId, CancellationToken ct)
+    {
+        var uid = Uri.EscapeDataString(RequireUserId());
+
+        using var req = NewRequest(HttpMethod.Delete, $"/chat/sessions/{sessionId}?userId={uid}");
+        using var resp = await _http.SendAsync(req, ct);
+        resp.EnsureSuccessStatusCode();
+    }
+
     public async Task AddMessageAsync(string sessionId, string role, string content, object? sources, CancellationToken ct)
     {
         string? sourcesJson = null;
@@ -115,8 +205,6 @@ public sealed class ApiClient
 
         var json = await resp.Content.ReadAsStringAsync(ct);
 
-        // Le backend retourne des rows Dapper (keys = Role/Content/CreatedAt/Sources)
-        // -> parsing tolérant pour accepter camelCase ou PascalCase.
         using var doc = JsonDocument.Parse(json);
         var list = new List<ChatMessageItem>();
 
@@ -144,15 +232,11 @@ public sealed class ApiClient
             var content = GetString("content", "Content");
             var createdAt = GetDateTime("createdAt", "CreatedAt");
 
+            // ✅ FIX: sourcesJson peut être (1) string contenant du JSON, ou (2) objet JSON direct.
             string? sourcesJson = null;
-            if (el.TryGetProperty("sourcesJson", out var sj) && sj.ValueKind != JsonValueKind.Null)
-                sourcesJson = sj.GetRawText();
-            else if (el.TryGetProperty("SourcesJson", out sj) && sj.ValueKind != JsonValueKind.Null)
-                sourcesJson = sj.GetRawText();
-            else if (el.TryGetProperty("sources", out var s) && s.ValueKind != JsonValueKind.Null)
-                sourcesJson = s.GetRawText();
-            else if (el.TryGetProperty("Sources", out s) && s.ValueKind != JsonValueKind.Null)
-                sourcesJson = s.GetRawText();
+
+            if (TryReadSources(el, out var src))
+                sourcesJson = src;
 
             list.Add(new ChatMessageItem
             {
@@ -164,7 +248,59 @@ public sealed class ApiClient
         }
 
         return list;
+
+        static bool TryReadSources(JsonElement el, out string? sourcesJson)
+        {
+            sourcesJson = null;
+
+            // Priorité : sourcesJson / SourcesJson
+            if (TryGetAny(el, out var sj, "sourcesJson", "SourcesJson"))
+            {
+                sourcesJson = ReadJsonStringOrRaw(sj);
+                return !string.IsNullOrWhiteSpace(sourcesJson);
+            }
+
+            // Fallback : sources / Sources (si jamais)
+            if (TryGetAny(el, out var s, "sources", "Sources"))
+            {
+                sourcesJson = ReadJsonStringOrRaw(s);
+                return !string.IsNullOrWhiteSpace(sourcesJson);
+            }
+
+            return false;
+        }
+
+        static bool TryGetAny(JsonElement el, out JsonElement value, params string[] names)
+        {
+            foreach (var n in names)
+            {
+                if (el.ValueKind == JsonValueKind.Object && el.TryGetProperty(n, out value))
+                    return true;
+            }
+            value = default;
+            return false;
+        }
+
+        static string? ReadJsonStringOrRaw(JsonElement el)
+        {
+            if (el.ValueKind == JsonValueKind.Null) return null;
+
+            // ✅ cas principal : le backend renvoie une string qui contient du JSON
+            if (el.ValueKind == JsonValueKind.String)
+            {
+                var s = el.GetString();
+                return string.IsNullOrWhiteSpace(s) ? null : s;
+            }
+
+            // ✅ sinon: objet/array => raw json
+            if (el.ValueKind is JsonValueKind.Object or JsonValueKind.Array)
+                return el.GetRawText();
+
+            // fallback: number/bool => string
+            return el.ToString();
+        }
     }
+
 
     // ---------------------
     // RAG (CDC v2.7)
