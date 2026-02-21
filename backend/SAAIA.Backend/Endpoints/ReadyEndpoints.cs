@@ -9,7 +9,7 @@ namespace SAAIA.Backend.Endpoints;
 public static class ReadyEndpoints
 {
     private static readonly SemaphoreSlim _gate = new(1, 1);
-    private const string ReadyCacheKey = "ready:v2";
+    private const string ReadyCacheKey = "ready:v3";
     private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(10);
 
     private sealed record ReadinessSnapshot(bool Ok, object Payload);
@@ -68,38 +68,8 @@ public static class ReadyEndpoints
                 details["db_error"] = ex.Message;
             }
 
-            // Qdrant check
-            try
-            {
-                var rag = ragOpt.Value;
-                // P2.1c: policy (signed) + secret resolution (ENV/FILE) via Rag:QdrantApiKeyRef
-                var effectiveKey = SecretRefResolver.Resolve(rag.QdrantApiKey, rag.QdrantApiKeyRef, env.ContentRootPath, out var keySource);
-                details["qdrant_auth_policy_required"] = string.Equals(env.EnvironmentName, "Production", StringComparison.OrdinalIgnoreCase) && rag.RequireQdrantAuthInProd;
-                details["qdrant_auth_configured"] = !string.IsNullOrWhiteSpace(effectiveKey);
-                details["qdrant_auth_mode"] = rag.QdrantAuthMode;
-                details["qdrant_auth_source"] = keySource;
-                var qdrant = httpFactory.CreateClient("qdrant");
-                qdrant.BaseAddress = new Uri(rag.QdrantBaseUrl);
-
-                using var resp = await qdrant.GetAsync($"/collections/{rag.QdrantCollection}", ct);
-                details["qdrant"] = resp.IsSuccessStatusCode;
-                details["qdrant_status"] = (int)resp.StatusCode;
-                if ((int)resp.StatusCode == 401 || (int)resp.StatusCode == 403)
-                {
-                    details["qdrant_auth_required"] = true;
-                    if (string.IsNullOrWhiteSpace(effectiveKey))
-                        details["qdrant_auth_hint"] = "Qdrant returned 401/403 but backend has no effective Qdrant key (Rag:QdrantApiKey/Ref).";
-                }
-                if (!resp.IsSuccessStatusCode) ok = false;
-            }
-            catch (Exception ex)
-            {
-                ok = false;
-                details["qdrant"] = false;
-                details["qdrant_error"] = ex.Message;
-            }
-
-            // TEI check (embedding ping, timeout court)
+            // TEI check (embedding ping, timeout court) => donne aussi la dimension (utile pour bootstrap Qdrant)
+            var teiDim = 0;
             try
             {
                 var rag = ragOpt.Value;
@@ -110,17 +80,63 @@ public static class ReadyEndpoints
                 teiCts.CancelAfter(TimeSpan.FromSeconds(10));
 
                 var vectors = await TeiClient.EmbedAsync(tei, rag.EmbeddingsModel, new[] { "ping" }, teiCts.Token);
-                var dim = (vectors is { Length: > 0 }) ? vectors[0].Length : 0;
+                teiDim = (vectors is { Length: > 0 }) ? vectors[0].Length : 0;
 
-                details["tei"] = dim > 0;
-                details["tei_dim"] = dim;
-                if (dim <= 0) ok = false;
+                details["tei"] = teiDim > 0;
+                details["tei_dim"] = teiDim;
+                if (teiDim <= 0) ok = false;
             }
             catch (Exception ex)
             {
                 ok = false;
                 details["tei"] = false;
                 details["tei_error"] = ex.Message;
+            }
+
+            // Qdrant check (+ auto-create collection if missing and TEI is OK)
+            try
+            {
+                var rag = ragOpt.Value;
+
+                // P2.1c: policy (signed) + secret resolution (ENV/FILE) via Rag:QdrantApiKeyRef
+                var effectiveKey = SecretRefResolver.Resolve(rag.QdrantApiKey, rag.QdrantApiKeyRef, env.ContentRootPath, out var keySource);
+                details["qdrant_auth_policy_required"] = string.Equals(env.EnvironmentName, "Production", StringComparison.OrdinalIgnoreCase) && rag.RequireQdrantAuthInProd;
+                details["qdrant_auth_configured"] = !string.IsNullOrWhiteSpace(effectiveKey);
+                details["qdrant_auth_mode"] = rag.QdrantAuthMode;
+                details["qdrant_auth_source"] = keySource;
+
+                var qdrant = httpFactory.CreateClient("qdrant");
+                qdrant.BaseAddress = new Uri(rag.QdrantBaseUrl);
+
+                // Fresh install: bootstrap collection so /ready can turn green without requiring a first ingestion/query.
+                if (teiDim > 0)
+                {
+                    await QdrantClient.EnsureCollectionAsync(qdrant, rag.QdrantCollection, teiDim, ct);
+                    details["qdrant_collection_bootstrap"] = true;
+                }
+                else
+                {
+                    details["qdrant_collection_bootstrap"] = false;
+                }
+
+                using var resp = await qdrant.GetAsync($"/collections/{rag.QdrantCollection}", ct);
+                details["qdrant"] = resp.IsSuccessStatusCode;
+                details["qdrant_status"] = (int)resp.StatusCode;
+
+                if ((int)resp.StatusCode == 401 || (int)resp.StatusCode == 403)
+                {
+                    details["qdrant_auth_required"] = true;
+                    if (string.IsNullOrWhiteSpace(effectiveKey))
+                        details["qdrant_auth_hint"] = "Qdrant returned 401/403 but backend has no effective Qdrant key (Rag:QdrantApiKey/Ref).";
+                }
+
+                if (!resp.IsSuccessStatusCode) ok = false;
+            }
+            catch (Exception ex)
+            {
+                ok = false;
+                details["qdrant"] = false;
+                details["qdrant_error"] = ex.Message;
             }
 
             // LLM: client-only en v2.7

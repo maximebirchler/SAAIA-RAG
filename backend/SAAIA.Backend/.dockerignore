@@ -1,0 +1,29 @@
+# --- Build outputs ---
+**/bin/
+**/obj/
+**/.vs/
+**/.idea/
+
+# --- Git / tooling ---
+.git/
+.gitattributes
+.gitignore
+
+# --- Local data (never needed in image) ---
+infra/.env
+.env
+**/*.log
+logs/
+data/
+documents/
+deploy/
+cache/
+
+# --- Archives ---
+**/*.zip
+**/*.tgz
+**/*.tar.gz
+
+# --- OS files ---
+Thumbs.db
+Desktop.ini

@@ -1,0 +1,56 @@
+{
+  "Auth": {
+    "ApiKeyHeaderName": "X-Api-Key",
+    "Pepper": "__AUTH_PEPPER__"
+  },
+  "Bootstrap": {
+    "Enabled": __BOOTSTRAP_ENABLED__,
+    "TenantId": "11111111-1111-1111-1111-111111111111",
+    "TenantName": "Default",
+    "ApiKeyPlain": "__BOOTSTRAP_API_KEY__",
+    "ApiKeyLabel": "bootstrap"
+  },
+  "Database": {
+    "ConnectionString": "Host=postgres;Port=5432;Database=__POSTGRES_DB__;Username=__POSTGRES_USER__;Password=__POSTGRES_PASSWORD__;Pooling=true;Maximum Pool Size=50;GssEncryptionMode=Disable"
+  },
+  "Rag": {
+    "QdrantBaseUrl": "http://qdrant:6333",
+    "QdrantCollection": "knowledge_base",
+    "QdrantApiKeyRef": "ENV:QDRANT_API_KEY",
+    "RequireQdrantAuthInProd": __REQUIRE_QDRANT_AUTH__,
+    "EmbeddingsBaseUrl": "http://tei",
+    "EmbeddingsModel": "__TEI_MODEL_ID__",
+    "DefaultTopK": 5,
+    "MaxTopK": 20
+  },
+  "Ingestion": {
+    "DocumentsRoot": "/app/documents",
+    "ScannerEnabled": true,
+    "ScanIntervalSeconds": 10,
+    "WatcherEnabled": true,
+    "WatcherDebounceMs": 800,
+    "MissingGraceSeconds": 120,
+    "ChunkMaxWords": 180,
+    "ChunkOverlapWords": 35,
+    "ChunkMinWords": 25,
+    "EmbeddingsBatchSize": 16
+  },
+  "RateLimiting": {
+    "Enabled": true,
+    "PermitLimit": 120,
+    "WindowSeconds": 60
+  },
+  "OpenTelemetry": {
+    "Enabled": false,
+    "ServiceName": "saaia-backend",
+    "ServiceNamespace": "saaia",
+    "OtlpEndpoint": "http://otel-collector:4317",
+    "Metrics": {
+      "Enabled": true
+    },
+    "Tracing": {
+      "Enabled": true,
+      "SampleRatio": 0.2
+    }
+  }
+}

@@ -1,0 +1,75 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    # Bind ports on host. Default is local-only (127.0.0.1).
+    # To expose on LAN/WAN: set SAAIA_BIND_ADDR=0.0.0.0 in infra/.env.
+    ports:
+      - "${SAAIA_BIND_ADDR:-127.0.0.1}:${POSTGRES_HOST_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      # Persist under install root (or repo root by default)
+      - "${SAAIA_INSTALL_ROOT:-..}/data/postgres:/var/lib/postgresql/data"
+
+  qdrant:
+    image: qdrant/qdrant:v1.10.1
+    restart: unless-stopped
+    ports:
+      - "${SAAIA_BIND_ADDR:-127.0.0.1}:${QDRANT_HOST_PORT:-6333}:6333"
+    environment:
+      # Optional API key for securing Qdrant
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:-}
+    volumes:
+      # Persist under install root (or repo root by default)
+      - "${SAAIA_INSTALL_ROOT:-..}/data/qdrant:/qdrant/storage"
+
+  tei:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.6
+    restart: unless-stopped
+    # auto-truncate avoids 413 when a chunk slightly exceeds model token limit
+    command: ["--model-id", "${TEI_MODEL_ID:-intfloat/multilingual-e5-base}", "--json-output", "--auto-truncate"]
+    ports:
+      - "${SAAIA_BIND_ADDR:-127.0.0.1}:${TEI_HOST_PORT:-8081}:80"
+    environment:
+      # Optional HF token if you use gated models
+      HF_TOKEN: ${HF_TOKEN:-}
+    volumes:
+      # Persist model cache under install root (or repo root by default)
+      - "${SAAIA_INSTALL_ROOT:-..}/cache/tei:/data"
+
+  backend:
+    build:
+      context: ..
+      dockerfile: backend/SAAIA.Backend/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${SAAIA_BIND_ADDR:-127.0.0.1}:${BACKEND_HOST_PORT:-5122}:5122"
+    environment:
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      Qdrant__Host: qdrant
+      Qdrant__Port: 6333
+      Embeddings__BaseUrl: http://tei
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      tei:
+        condition: service_started
+    volumes:
+      # Signed deployment config (persisted under install root)
+      - "${SAAIA_INSTALL_ROOT:-..}/deploy/deployment.config.json:/app/deployment.config.json:ro"
+      - "${SAAIA_INSTALL_ROOT:-..}/deploy/deployment.config.sig:/app/deployment.config.sig:ro"
+
+      # App data + documents under install root (or repo root by default)
+      - "${SAAIA_INSTALL_ROOT:-..}/data/backend:/app/data"
+      - "${SAAIA_INSTALL_ROOT:-..}/documents:/app/documents"
