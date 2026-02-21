@@ -86,6 +86,8 @@ Attendu :
 ⚠️ Le restore est **destructif** : il fait `docker compose down -v` (wipe volumes) avant restauration.
 
 ### G) Smoke test RAG
+
+> Pour des smoke plus complets (Chat-store, rate-limit, audit) : voir `07_smoke_tests.md`.
 Commande :
 
 ```powershell
