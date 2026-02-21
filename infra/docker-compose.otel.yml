@@ -1,0 +1,16 @@
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.97.0
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - "./otel/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro"
+    ports:
+      - "${SAAIA_BIND_ADDR:-127.0.0.1}:4317:4317"
+      - "${SAAIA_BIND_ADDR:-127.0.0.1}:4318:4318"
+
+  # Override backend env to enable OTLP export to the collector on the compose network
+  backend:
+    environment:
+      OpenTelemetry__Enabled: "true"
+      OpenTelemetry__OtlpEndpoint: "http://otel-collector:4317"

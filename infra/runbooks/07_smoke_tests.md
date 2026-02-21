@@ -18,20 +18,34 @@ Un script est fourni :
 
 ### Exemples
 
-Avec la clé bootstrap (ou une clé admin) :
+Avec la **clé bootstrap** (ou toute clé admin) :
 
 ```powershell
 cd <repo>
 powershell -NoProfile -ExecutionPolicy Bypass -File .\infra\scripts\prod\smoke.ps1 -ApiKey "SAAIA_BOOTSTRAP_API_KEY_ICI"
 ```
 
-Tester aussi l’audit (nécessite une **clé admin**) :
+> Note : la clé bootstrap créée par l’installer est **ADMIN par défaut**, donc l’audit est testé automatiquement.
+
+Avec une clé “client” (non-admin) + une clé admin séparée pour l’audit :
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\infra\scripts\prod\smoke.ps1 `
-  -ApiKey "CLE_POUR_CHAT_RAG" `
+  -ApiKey "CLE_CLIENT_POUR_CHAT_RAG" `
   -AdminApiKey "CLE_ADMIN_POUR_AUDIT"
 ```
+
+Éviter d’être throttlé ~60s (si tu veux enchaîner des appels API manuels juste après) :
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\infra\scripts\prod\smoke.ps1 `
+  -ApiKey "SAAIA_BOOTSTRAP_API_KEY_ICI" `
+  -SkipRateLimit
+```
+
+Variables d’environnement possibles :
+- `SAAIA_SMOKE_API_KEY`
+- `SAAIA_SMOKE_ADMIN_API_KEY`
 
 ---
 
@@ -80,54 +94,39 @@ $SID="<sessionId>"
     --data-binary "@-"
 ```
 
-Lister les messages (doit retourner ≥2) :
+Lister les messages :
 
 ```powershell
 curl.exe -s "http://localhost:5122/chat/sessions/$SID/messages?userId=$USER&limit=50" -H "X-Api-Key: $API"
 ```
 
-Lister les sessions :
-
-```powershell
-curl.exe -s "http://localhost:5122/chat/sessions?userId=$USER&limit=10" -H "X-Api-Key: $API"
-```
-
-Supprimer la session (cleanup) :
-
-> ⚠️ PowerShell : si un `?` suit immédiatement une variable (`$SID?userId`), PowerShell cherche une variable nommée `SID?userId`.
-> Utilise donc `$($SID)` (ou concatène la string) pour construire l’URL.
+Supprimer la session (⚠️ PowerShell : utiliser `$($SID)` avant `?userId=`) :
 
 ```powershell
 curl.exe -s -X DELETE "http://localhost:5122/chat/sessions/$($SID)?userId=$USER" -H "X-Api-Key: $API"
 ```
 
-> Note : le test rate-limit peut bloquer la même clé pour ~60s (Retry-After). Si tu fais des appels manuels juste après, attends la fin du délai.
-
 ### 3) Rate limiting (M3.2)
 
-Boucle agressive : on veut voir apparaître un `429` et un header `Retry-After`.
+⚠️ Ce test peut throttler la clé pendant ~60s (`Retry-After`).  
+Si tu veux éviter ça, utilise le smoke avec `-SkipRateLimit`.
 
 ```powershell
-$API="saaia_dev_bootstrap_2026_CHANGE_ME"
-1..600 | % {
-  '{"query":"ping","topK":1}' | curl.exe -s -o NUL -w "%{http_code}`n" -X POST "http://localhost:5122/rag/search" `
-    -H "Content-Type: application/json" `
-    -H "X-Api-Key: $API" `
-    --data-binary "@-"
+1..300 | % {
+  '{"query":"ping","topK":1}' | curl.exe -s -o NUL -w "%{http_code}`n" -X POST "http://localhost:5122/rag/search" -H "Content-Type: application/json" -H "X-Api-Key: $API" --data-binary "@-"
 }
 ```
 
-### 4) Audit (M3.3) — clé admin requise
+Attendu : apparition de `429` + header `Retry-After`.
+
+### 4) Audit (M3.3)
+
+Nécessite une **clé admin**.
 
 ```powershell
-$ADMIN="<admin key>"
-curl.exe -s "http://localhost:5122/admin/audit?limit=20" -H "X-Api-Key: $ADMIN"
+$ADMIN = "CLE_ADMIN"
+curl.exe -s "http://localhost:5122/admin/audit?limit=50" -H "X-Api-Key: $ADMIN"
 ```
 
----
+Attendu : JSON avec `{ items: [...], total: ... }`
 
-## Notes
-
-- Si tu n’obtiens pas de `429`, c’est possible si `RateLimiting:PermitLimit` est élevé et/ou si ta boucle est trop lente.
-  - Augmente le nombre d’itérations (ex: `-RateLimitAttempts 1500`)
-  - Ou abaisse temporairement `PermitLimit` dans la config signée (pour validation DoD).
