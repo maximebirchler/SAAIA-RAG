@@ -94,7 +94,7 @@ if ($null -eq $sessions) { throw "List sessions returned null." }
 Write-Ok "List sessions => $(@($sessions).Count)"
 
 # Delete session (cleanup)
-Invoke-WebRequest -UseBasicParsing -Method Delete -Uri "$BaseUrl/chat/sessions/$sessionId?userId=$userId" -Headers @{ "X-Api-Key" = $ApiKey } | Out-Null
+Invoke-WebRequest -UseBasicParsing -Method Delete -Uri "$BaseUrl/chat/sessions/$($sessionId)?userId=$userId" -Headers @{ "X-Api-Key" = $ApiKey } | Out-Null
 Write-Ok "Delete session => OK"
 
 # 3) Rate limiting (M3.2)
