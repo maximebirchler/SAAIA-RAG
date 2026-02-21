@@ -1,0 +1,35 @@
+# Normalize line endings to reduce noisy diffs (especially on Windows).
+# We keep Git in control of EOLs for text files.
+* text=auto
+
+# Common text formats -> LF
+*.md        text eol=lf
+*.ps1       text eol=lf
+*.sh        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.json      text eol=lf
+*.sql       text eol=lf
+*.cs        text eol=lf
+*.csproj    text eol=lf
+*.props     text eol=lf
+*.targets   text eol=lf
+*.txt       text eol=lf
+
+# Windows-specific scripts -> CRLF
+*.cmd       text eol=crlf
+*.bat       text eol=crlf
+
+# Visual Studio solution files are typically CRLF
+*.sln       text eol=crlf
+
+# Binary assets
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.pdf       binary
+*.zip       binary
+*.tgz       binary
+*.tar.gz    binary
