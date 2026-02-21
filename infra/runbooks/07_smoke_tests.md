@@ -94,9 +94,14 @@ curl.exe -s "http://localhost:5122/chat/sessions?userId=$USER&limit=10" -H "X-Ap
 
 Supprimer la session (cleanup) :
 
+> ⚠️ PowerShell : si un `?` suit immédiatement une variable (`$SID?userId`), PowerShell cherche une variable nommée `SID?userId`.
+> Utilise donc `$($SID)` (ou concatène la string) pour construire l’URL.
+
 ```powershell
-curl.exe -s -X DELETE "http://localhost:5122/chat/sessions/$SID?userId=$USER" -H "X-Api-Key: $API"
+curl.exe -s -X DELETE "http://localhost:5122/chat/sessions/$($SID)?userId=$USER" -H "X-Api-Key: $API"
 ```
+
+> Note : le test rate-limit peut bloquer la même clé pour ~60s (Retry-After). Si tu fais des appels manuels juste après, attends la fin du délai.
 
 ### 3) Rate limiting (M3.2)
 
