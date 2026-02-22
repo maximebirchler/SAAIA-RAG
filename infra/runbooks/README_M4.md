@@ -32,5 +32,8 @@ Ce dossier contient les *runbooks* (procédures) pour :
 
 Ensuite lis : `01_install.md` (bootstrap & hardening).
 
+Puis : `07_smoke_tests.md` (smoke fonctionnels chat-store/rate-limit/audit).
+
 ## Validation
-- Voir `06_M4_DoD.md` (checklist d’acceptation M4 : install/diag/backup/restore/smoke).
+- Voir `06_M4_DoD.md` (checklist d’acceptation M4 : install/diag/backup/restore).
+Pour les smoke fonctionnels (M1.3/M3.2/M3.3) : `07_smoke_tests.md`.

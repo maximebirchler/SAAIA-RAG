@@ -1,5 +1,6 @@
 param(
-  [switch]$NoBuild
+  [switch]$NoBuild,
+  [switch]$WithOtel
 )
 
 Set-StrictMode -Version Latest
@@ -27,6 +28,23 @@ if (!(Test-Path $envPath)) {
 }
 
 $envMap = Read-DotEnv $envPath
+# ---------------------------
+# Optional: install with local OTel collector
+# - Use -WithOtel, or set SAAIA_INSTALL_WITH_OTEL=true in infra/.env
+# ---------------------------
+function Parse-Bool([string]$raw, [bool]$default) {
+  if ([string]::IsNullOrWhiteSpace($raw)) { return $default }
+  $x = $raw.Trim().ToLowerInvariant()
+  if ($x -in @('1','true','yes','y','on')) { return $true }
+  if ($x -in @('0','false','no','n','off')) { return $false }
+  return $default
+}
+
+$installWithOtel = $WithOtel.IsPresent
+if (-not $installWithOtel -and $envMap.ContainsKey('SAAIA_INSTALL_WITH_OTEL')) {
+  $installWithOtel = Parse-Bool ([string]$envMap['SAAIA_INSTALL_WITH_OTEL']) $false
+}
+
 
 # ---------------------------
 # Required keys for signed config
@@ -128,7 +146,25 @@ $args = @('up','-d')
 if (-not $NoBuild) { $args += @('--build') }
 
 Write-Host "== docker compose up (prod) ==" -ForegroundColor Cyan
-Docker-Compose -RepoRoot $repo -ComposeFile 'infra/docker-compose.prod.yml' -EnvFile $envFileRel -ComposeArgs $args
+
+$composeProd = Resolve-PathFromRepo $repo 'infra/docker-compose.prod.yml'
+$envPathAbs  = Resolve-PathFromRepo $repo $envFileRel
+
+$full = @('compose','-f', $composeProd)
+if ($installWithOtel) {
+  $composeOtelRel = 'infra/docker-compose.otel.yml'
+  $composeOtel = Resolve-PathFromRepo $repo $composeOtelRel
+  if (!(Test-Path $composeOtel)) {
+    throw "InstallWithOtel requested but missing $composeOtelRel. Add it (OTel patch) or run install.ps1 without -WithOtel."
+  }
+  $full += @('-f', $composeOtel)
+  Write-Host "(with OTel collector)" -ForegroundColor DarkCyan
+}
+
+$full += @('--env-file', $envPathAbs) + $args
+Write-Host ('> docker ' + ($full -join ' '))
+& docker @full
+if ($LASTEXITCODE -ne 0) { throw "docker compose failed ($LASTEXITCODE)" }
 
 # ---------------------------
 # Verify /ready (retry)
@@ -157,5 +193,14 @@ for ($i = 1; $i -le $maxTries; $i++) {
 }
 
 if (-not $ok) {
-  Write-Warning "Could not reach backend /ready after $maxTries tries. Check logs: docker compose -f .\infra\docker-compose.prod.yml --env-file .\infra\.env logs -f backend"
+  $logCmd = "docker compose -f .\infra\docker-compose.prod.yml"
+  if ($installWithOtel) { $logCmd += " -f .\infra\docker-compose.otel.yml" }
+  $logCmd += " --env-file .\infra\.env logs -f backend"
+  Write-Warning "Could not reach backend /ready after $maxTries tries. Check logs: $logCmd"
+}
+
+if ($ok -and $installWithOtel) {
+  Write-Host ""
+  Write-Host "OTel collector logs:" -ForegroundColor Cyan
+  Write-Host "docker compose -f .\infra\docker-compose.prod.yml -f .\infra\docker-compose.otel.yml --env-file .\infra\.env logs -f otel-collector"
 }

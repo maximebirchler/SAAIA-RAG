@@ -20,17 +20,23 @@
 
 3) Lance :
    - `powershell -ExecutionPolicy Bypass -File .\infra\scripts\prod\install.ps1`
+   - (optionnel) **avec collector local OpenTelemetry** : `powershell -ExecutionPolicy Bypass -File .\infra\scripts\prod\install.ps1 -WithOtel`
+     - alternative sans paramètre : dans `infra/.env`, mets `SAAIA_INSTALL_WITH_OTEL=true`
 
 Le script :
 - génère `deployment.config.json` depuis le template
 - signe la config (`deployment.config.sig`)
 - écrit les deux fichiers dans `<SAAIA_INSTALL_ROOT>\deploy` (ou `deploy/` à la racine du repo si INSTALL_ROOT est vide)
 - démarre `docker compose -f infra/docker-compose.prod.yml up -d`
+- si `-WithOtel` (ou `SAAIA_INSTALL_WITH_OTEL=true`), démarre aussi le collector via `infra/docker-compose.otel.yml` et active l’export OTLP du backend
 
 ## Vérifications
 - Backend : `Invoke-WebRequest http://localhost:<BACKEND_HOST_PORT>/ready`
 - Qdrant : `Invoke-WebRequest http://localhost:<QDRANT_HOST_PORT>/collections` (si auth activée, ajoute le header `api-key`)
 - TEI : `Invoke-WebRequest http://localhost:<TEI_HOST_PORT>/`
+
+## Stopper l’OTel collector (si activé)
+- `powershell -ExecutionPolicy Bypass -File .\infra\scripts\prod\otel-down.ps1`
 
 ## Bootstrap (important)
 Le template active le bootstrap via `SAAIA_BOOTSTRAP_ENABLED=true` (dans `infra/.env`) pour insérer la clé
