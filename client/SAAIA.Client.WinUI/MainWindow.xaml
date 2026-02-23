@@ -194,8 +194,9 @@
                 <ColumnDefinition Width="2*"/>
                 <ColumnDefinition Width="2*"/>
                 <ColumnDefinition Width="1.2*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/> <!-- Connect -->
+                <ColumnDefinition Width="Auto"/> <!-- LLM -->
+                <ColumnDefinition Width="Auto"/> <!-- Sources -->
             </Grid.ColumnDefinitions>
 
             <TextBlock Grid.Row="0" Grid.Column="0" Text="Server URL" FontWeight="SemiBold"/>
@@ -216,7 +217,78 @@
                     VerticalAlignment="Bottom"/>
 
             <!-- ✅ Visible seulement quand la colonne Sources est cachée (petit écran) -->
+            
             <Button Grid.Row="1" Grid.Column="5"
+                    x:Name="LlmSettingsButton"
+                    Content="LLM"
+                    MinWidth="80"
+                    VerticalAlignment="Bottom">
+                <Button.Flyout>
+                    <Flyout Placement="Bottom">
+                        <ScrollViewer MaxWidth="560" MaxHeight="620"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto">
+                            <StackPanel Spacing="10" Padding="12">
+
+                                <TextBlock Text="Local LLM (llama.cpp)" FontWeight="SemiBold" FontSize="16"/>
+
+                                <CheckBox x:Name="LocalLlmEnabledCheck" Content="Enable local LLM (llama.cpp)" />
+                                <CheckBox x:Name="LocalLlmAutoStartCheck" Content="Auto-start local LLM on Connect" />
+
+                                <TextBlock Text="Server executable (llama-server.exe)" FontWeight="SemiBold"/>
+                                <TextBox x:Name="LocalLlmExePathBox" PlaceholderText="C:\SAAIA\llm\llama-server.exe"/>
+
+                                <TextBlock Text="Model (.gguf)" FontWeight="SemiBold"/>
+                                <TextBox x:Name="LocalLlmModelPathBox" PlaceholderText="C:\SAAIA\models\Mistral-7B-Instruct-v0.3-IQ3_M.gguf"/>
+
+                                <Grid ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="2*"/>
+                                        <ColumnDefinition Width="1*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" Spacing="4">
+                                        <TextBlock Text="Host" FontWeight="SemiBold"/>
+                                        <TextBox x:Name="LocalLlmHostBox" PlaceholderText="127.0.0.1"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="1" Spacing="4">
+                                        <TextBlock Text="Port" FontWeight="SemiBold"/>
+                                        <TextBox x:Name="LocalLlmPortBox" PlaceholderText="1234"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <TextBlock Text="Model ID (OpenAI 'model')" FontWeight="SemiBold"/>
+                                <TextBox x:Name="LocalLlmModelIdBox" PlaceholderText="Mistral-7B-Instruct-v0.3-IQ3_M.gguf"/>
+
+                                <TextBlock Text="Extra args (optional)" FontWeight="SemiBold"/>
+                                <TextBox x:Name="LocalLlmExtraArgsBox"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         PlaceholderText="--ctx-size 4096"/>
+
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <Button Content="Start now" Click="LocalLlmStart_Click" MinWidth="110"/>
+                                    <Button Content="Stop" Click="LocalLlmStop_Click" MinWidth="80"/>
+                                    <Button Content="Save" Click="LocalLlmSave_Click" MinWidth="80"/>
+                                </StackPanel>
+
+                                <TextBlock x:Name="LocalLlmStatusText" Opacity="0.8" TextWrapping="Wrap"/>
+
+                                <TextBlock Text="Command line (for support)" FontWeight="SemiBold"/>
+                                <TextBox x:Name="LocalLlmCmdLineBox"
+                                         IsReadOnly="True"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         MinHeight="60"/>
+
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Flyout>
+                </Button.Flyout>
+            </Button>
+
+            <Button Grid.Row="1" Grid.Column="6"
                     x:Name="SourcesToggleButton"
                     Content="Sources"
                     Click="SourcesToggle_Click"
@@ -224,7 +296,7 @@
                     VerticalAlignment="Bottom"
                     Visibility="Collapsed"/>
 
-            <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="6"
+            <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="7"
                        x:Name="StatusText"
                        Opacity="0.85"
                        TextWrapping="WrapWholeWords"/>

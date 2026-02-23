@@ -24,6 +24,8 @@ public sealed partial class MainWindow : Window
 {
     private readonly ApiClient _api = new();
     private readonly OpenAiLlmClient _llm = new();
+    private AppSettings _appSettings = AppSettings.Load();
+    private readonly LlamaCppProcessManager _llmProc = new();
     private RagChatAgent? _agent;
 
     private readonly ObservableCollection<ChatMessageItem> _messages = new();
@@ -52,6 +54,7 @@ public sealed partial class MainWindow : Window
         SessionsList.ItemsSource = _sessions;
 
         LoadSettings();
+        LoadLocalLlmUiFromSettings();
         UpdateUiState(isGenerating: false);
         Status("Ready.");
     }
@@ -88,27 +91,26 @@ public sealed partial class MainWindow : Window
 
     private void LoadSettings()
     {
-        var ls = ApplicationData.Current.LocalSettings;
-
         ServerUrlBox.Text = ClientDefaults.BackendBaseUrl;
-        _userId = SecureLocalStore.GetOrCreateUserId();
 
+        _userId = SecureLocalStore.GetOrCreateUserId();
         ApiKeyBox.Password = SecureLocalStore.GetServerApiKey() ?? "";
 
-        LlmUrlBox.Text = ClientDefaults.LlmBaseUrl;
-        LlmModelBox.Text = ClientDefaults.LlmModel;
+        _appSettings = AppSettings.Load();
+        LlmUrlBox.Text = _appSettings.UseLocalLlm ? _appSettings.LlmBaseUrl : ClientDefaults.LlmBaseUrl;
+        LlmModelBox.Text = string.IsNullOrWhiteSpace(_appSettings.ModelId) ? ClientDefaults.LlmModel : _appSettings.ModelId;
 
-        _sessionId = (ls.Values["sessionId"] as string);
+        _sessionId = string.IsNullOrWhiteSpace(_appSettings.LastSessionId) ? null : _appSettings.LastSessionId;
     }
 
     private void SaveSettings()
     {
-        var ls = ApplicationData.Current.LocalSettings;
-
         SecureLocalStore.SetServerApiKey(ApiKeyBox.Password.Trim());
 
-        if (!string.IsNullOrWhiteSpace(_sessionId))
-            ls.Values["sessionId"] = _sessionId;
+        // Persist last session id in AppSettings (works both packaged and unpackaged)
+        _appSettings ??= AppSettings.Load();
+        _appSettings.LastSessionId = _sessionId;
+        _appSettings.Save();
     }
 
     private async void Connect_Click(object sender, RoutedEventArgs e)
@@ -118,8 +120,25 @@ public sealed partial class MainWindow : Window
             _userId = SecureLocalStore.GetOrCreateUserId();
 
             _api.Configure(ClientDefaults.BackendBaseUrl, ApiKeyBox.Password, _userId);
-            _llm.Configure(ClientDefaults.LlmBaseUrl, ClientDefaults.LlmModel);
+
+            _appSettings = AppSettings.Load();
+            var llmBaseUrl = _appSettings.UseLocalLlm ? _appSettings.LlmBaseUrl : ClientDefaults.LlmBaseUrl;
+            var llmModelId = string.IsNullOrWhiteSpace(_appSettings.ModelId) ? ClientDefaults.LlmModel : _appSettings.ModelId;
+
+            // Auto-start local llama.cpp if enabled (M6.1)
+            if (_appSettings.UseLocalLlm && _appSettings.AutoStartOnConnect)
+            {
+                var started = await EnsureLocalLlmStartedAsync(CancellationToken.None);
+                if (!started)
+                    Status("Local LLM start failed. See LLM panel for details.");
+            }
+
+            _llm.Configure(llmBaseUrl, llmModelId);
             _agent = new RagChatAgent(_api, _llm);
+
+            // reflect in UI
+            LlmUrlBox.Text = llmBaseUrl;
+            LlmModelBox.Text = llmModelId;
 
             SaveSettings();
 
@@ -774,4 +793,119 @@ public sealed partial class MainWindow : Window
             SourcesBox.Text = m.SourcesJson ?? "";
         }
     }
+
+    // =========================
+    // Local LLM (llama.cpp) - M6.1
+    // =========================
+
+    private void LoadLocalLlmUiFromSettings()
+    {
+        try
+        {
+            _appSettings = AppSettings.Load();
+
+            LocalLlmEnabledCheck.IsChecked = _appSettings.UseLocalLlm;
+            LocalLlmAutoStartCheck.IsChecked = _appSettings.AutoStartOnConnect;
+
+            LocalLlmExePathBox.Text = _appSettings.LlamaExePath;
+            LocalLlmModelPathBox.Text = _appSettings.ModelPath;
+
+            LocalLlmHostBox.Text = _appSettings.Host;
+            LocalLlmPortBox.Text = _appSettings.Port.ToString();
+
+            LocalLlmModelIdBox.Text = _appSettings.ModelId;
+            LocalLlmExtraArgsBox.Text = _appSettings.ExtraArgs;
+
+            LocalLlmStatusText.Text = _llmProc.IsRunning ? "Running." : "";
+            LocalLlmCmdLineBox.Text = _llmProc.LastCommandLine ?? "";
+        }
+        catch
+        {
+            // ignore UI init failures
+        }
+    }
+
+    private AppSettings ReadLocalLlmSettingsFromUi()
+    {
+        var s = AppSettings.Load();
+
+        s.UseLocalLlm = LocalLlmEnabledCheck.IsChecked == true;
+        s.AutoStartOnConnect = LocalLlmAutoStartCheck.IsChecked == true;
+
+        s.LlamaExePath = (LocalLlmExePathBox.Text ?? "").Trim();
+        s.ModelPath = (LocalLlmModelPathBox.Text ?? "").Trim();
+
+        s.Host = string.IsNullOrWhiteSpace(LocalLlmHostBox.Text) ? "127.0.0.1" : LocalLlmHostBox.Text.Trim();
+
+        if (int.TryParse((LocalLlmPortBox.Text ?? "").Trim(), out var p) && p > 0) s.Port = p;
+        else s.Port = 1234;
+
+        s.ModelId = string.IsNullOrWhiteSpace(LocalLlmModelIdBox.Text) ? ClientDefaults.LlmModel : LocalLlmModelIdBox.Text.Trim();
+        s.ExtraArgs = (LocalLlmExtraArgsBox.Text ?? "").Trim();
+
+        return s;
+    }
+
+    private async Task<bool> EnsureLocalLlmStartedAsync(CancellationToken ct)
+    {
+        _appSettings = ReadLocalLlmSettingsFromUi();
+        _appSettings.Save();
+
+        LocalLlmStatusText.Text = "Starting llama.cpp…";
+        var (ok, msg) = await _llmProc.StartAsync(_appSettings, ct);
+
+        LocalLlmCmdLineBox.Text = _llmProc.LastCommandLine ?? "";
+        LocalLlmStatusText.Text = msg;
+
+        // reflect URL/model
+        LlmUrlBox.Text = _appSettings.LlmBaseUrl;
+        LlmModelBox.Text = _appSettings.ModelId;
+
+        return ok;
+    }
+
+    private async void LocalLlmStart_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await EnsureLocalLlmStartedAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            LocalLlmStatusText.Text = "Start failed: " + ex.Message;
+        }
+    }
+
+    private void LocalLlmStop_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            _llmProc.Stop();
+            LocalLlmStatusText.Text = "Stopped.";
+        }
+        catch (Exception ex)
+        {
+            LocalLlmStatusText.Text = "Stop failed: " + ex.Message;
+        }
+    }
+
+    private void LocalLlmSave_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            _appSettings = ReadLocalLlmSettingsFromUi();
+            _appSettings.Save();
+
+            // reflect URL/model in top bar
+            LlmUrlBox.Text = _appSettings.UseLocalLlm ? _appSettings.LlmBaseUrl : ClientDefaults.LlmBaseUrl;
+            LlmModelBox.Text = _appSettings.ModelId;
+
+            LocalLlmStatusText.Text = "Saved.";
+        }
+        catch (Exception ex)
+        {
+            LocalLlmStatusText.Text = "Save failed: " + ex.Message;
+        }
+    }
+
 }

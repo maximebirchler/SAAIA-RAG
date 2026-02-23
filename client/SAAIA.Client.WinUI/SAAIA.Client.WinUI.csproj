@@ -5,13 +5,39 @@
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>SAAIA.Client.WinUI</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+
     <Platforms>x86;x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
-    <PublishProfile>win-$(Platform).pubxml</PublishProfile>
+
     <UseWinUI>true</UseWinUI>
-    <WinUISDKReferences>false</WinUISDKReferences>
+
+    <!-- Unpackaged app (installer-friendly) -->
+    <WindowsPackageType>None</WindowsPackageType>
+    <AppxPackage>false</AppxPackage>
+
+    <!-- Windows App SDK initialization strategy:
+         - Use the bootstrapper auto-initializer (framework-dependent) to load the WinAppSDK framework package.
+         - Disable DeploymentManager auto-initializer (we don't want runtime install/registration logic at startup).
+         - Disable UndockedRegFreeWinRT auto-initializer (not needed when using the framework package). -->
+    <WindowsAppSdkBootstrapInitialize>true</WindowsAppSdkBootstrapInitialize>
+    <WindowsAppSdkDeploymentManagerInitialize>false</WindowsAppSdkDeploymentManagerInitialize>
+    <WindowsAppSdkUndockedRegFreeWinRTInitialize>false</WindowsAppSdkUndockedRegFreeWinRTInitialize>
+
+    <!-- Avoid MSIX tooling interfering with CLI builds; keep it enabled in VS if you need it.
+         If you still want it in VS, you can switch this back to true. -->
     <EnableMsixTooling>true</EnableMsixTooling>
+
     <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!-- CLI default: Platform=AnyCPU is not supported for WinUI/MSIX. Default to x64 unless explicitly set. -->
+  <PropertyGroup Condition="'$(Platform)'=='' Or '$(Platform)'=='AnyCPU'">
+    <Platform>x64</Platform>
+  </PropertyGroup>
+
+  <!-- PublishProfile is optional; only set it if the file exists to avoid NETSDK1198 warnings. -->
+  <PropertyGroup Condition="Exists('Properties\PublishProfiles\win-$(Platform).pubxml')">
+    <PublishProfile>win-$(Platform).pubxml</PublishProfile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -34,7 +60,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.7463" />
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260101001" />
+    <!-- Align with WinAppSDK 1.8.5 runtime (winget installs 1.8.5 -> 1.8.260209005) -->
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260209005" />
     <!-- DPAPI (ProtectedData) pour chiffrer les secrets (M5.2) -->
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
   </ItemGroup>
@@ -43,14 +70,4 @@
     <ProjectReference Include="..\..\contracts\SAAIA.Contracts\SAAIA.Contracts.csproj" />
   </ItemGroup>
 
-  <PropertyGroup Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
-    <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
-  </PropertyGroup>
-
-  <PropertyGroup>
-    <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
-    <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
-    <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
-    <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
-  </PropertyGroup>
 </Project>

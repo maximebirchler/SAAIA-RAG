@@ -1,20 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
+using System.Reflection;
+using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
-using Microsoft.UI.Xaml.Data;
-using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Navigation;
-using Microsoft.UI.Xaml.Shapes;
-using Windows.ApplicationModel;
-using Windows.ApplicationModel.Activation;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
+using SAAIA.Client.WinUI.Services;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -35,6 +23,21 @@ namespace SAAIA.Client.WinUI
         public App()
         {
             InitializeComponent();
+
+            // Startup diagnostics (support-friendly). If the UI crashes before showing,
+            // the log will contain the exception details.
+            ClientLog.Info("=== App starting ===");
+            try
+            {
+                var ver = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "?";
+                ClientLog.Info($"Version: {ver}");
+                ClientLog.Info($"OS: {Environment.OSVersion}");
+                ClientLog.Info($"Process: {Environment.ProcessPath}");
+            }
+            catch { /* ignore */ }
+
+            ClientLog.RegisterGlobalHandlers();
+            UnhandledException += App_UnhandledException;
         }
 
         /// <summary>
@@ -43,8 +46,30 @@ namespace SAAIA.Client.WinUI
         /// <param name="args">Details about the launch request and process.</param>
         protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
         {
-            _window = new MainWindow();
-            _window.Activate();
+            try
+            {
+                ClientLog.Info("OnLaunched");
+                _window = new MainWindow();
+                _window.Activate();
+                ClientLog.Info("MainWindow activated");
+            }
+            catch (Exception ex)
+            {
+                // If anything fails before the window is visible, we want a clean log.
+                ClientLog.Exception("OnLaunched", ex);
+                throw;
+            }
         }
+
+        private void App_UnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
+        {
+            try
+            {
+                ClientLog.Exception("UI.UnhandledException", e.Exception);
+            }
+            catch { /* ignore */ }
+        }
+
+        // AppDomain/TaskScheduler handlers are registered in ClientLog.RegisterGlobalHandlers().
     }
 }

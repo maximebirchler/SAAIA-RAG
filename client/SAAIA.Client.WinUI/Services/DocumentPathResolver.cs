@@ -18,7 +18,8 @@ internal static class DocumentPathResolver
     private static string? NormalizeEnvPath(string? p)
     {
         if (string.IsNullOrWhiteSpace(p)) return null;
-        p = p.Trim().Trim('"').Trim(''');
+        // Supporte des valeurs entourées de guillemets ou apostrophes (ex: "C:\SAAIA" ou 'C:\SAAIA')
+        p = p.Trim().Trim('"').Trim('\'');
         return p;
     }
 
@@ -62,10 +63,12 @@ internal static class DocumentPathResolver
         if (string.IsNullOrWhiteSpace(docPath))
             return null;
 
-        // Normalise
-        var p = docPath.Trim().TrimStart('\', '/')
+        // Normalise : enlève le leading slash/backslash puis uniformise les séparateurs
+        var p = docPath
+            .Trim()
+            .TrimStart('\\', '/')
             .Replace('/', Path.DirectorySeparatorChar)
-            .Replace('\', Path.DirectorySeparatorChar);
+            .Replace('\\', Path.DirectorySeparatorChar);
 
         // Si déjà absolu et existe -> OK
         if (Path.IsPathRooted(p) && File.Exists(p))
