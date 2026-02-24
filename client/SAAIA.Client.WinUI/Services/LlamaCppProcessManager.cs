@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -172,4 +172,22 @@ internal sealed class LlamaCppProcessManager
 
         return false;
     }
+    internal static string BuildArgsAutoTune(string host, int port, string modelPath, int threads, int batch, int ngl)
+    {
+        // Note: -ngl enables GPU offload if runtime supports it (CUDA/Vulkan build).
+        // Keep flags minimal/compatible.
+        return $"--host {host} --port {port} --model \"{modelPath}\" -t {threads} -b {batch} -ngl {ngl}";
+    }
+
+    internal static string ResolveRuntimeExePath(string runtimeDir)
+    {
+        // Prefer CUDA runtime if present
+        var cuda = System.IO.Path.Combine(runtimeDir, "llama-server-cuda.exe");
+        if (System.IO.File.Exists(cuda)) return cuda;
+
+        var cpu = System.IO.Path.Combine(runtimeDir, "llama-server.exe");
+        return cpu;
+    }
 }
+
+
