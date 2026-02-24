@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -16,84 +16,20 @@ internal sealed class LlamaCppProcessManager
     public string? LastCommandLine { get; private set; }
     public string? LastLogFile { get; private set; }
 
-    internal async Task<(bool ok, string message)> StartAsync(AppSettings s, CancellationToken ct)
-    {
-        if (!s.UseLocalLlm)
-            return (false, "LLM is disabled (search-only mode). ");
-
-        if (!s.ManageLocalLlmProcess)
-            return (false, "Local LLM process management is disabled.");
-
-        if (IsRunning)
-            return (true, "Already running.");
-
-        if (string.IsNullOrWhiteSpace(s.LlamaExePath) || !File.Exists(s.LlamaExePath))
-            return (false, "Server executable not found (llama.cpp).");
-
-        if (string.IsNullOrWhiteSpace(s.ModelPath) || !File.Exists(s.ModelPath))
-            return (false, "Model file not found (.gguf).");
-
-        var logsDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "SAAIA", "logs");
-        Directory.CreateDirectory(logsDir);
-
-        LastLogFile = Path.Combine(logsDir, $"llama-server_{DateTime.Now:yyyyMMdd_HHmmss}.log");
-
-        var args = BuildArgs(s);
-        LastCommandLine = $"\"{s.LlamaExePath}\" {args}";
-
-        var psi = new ProcessStartInfo
-        {
-            FileName = s.LlamaExePath,
-            Arguments = args,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            WorkingDirectory = Path.GetDirectoryName(s.LlamaExePath) ?? Environment.CurrentDirectory
-        };
-
-        _proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
-
-        try
-        {
-            if (!_proc.Start())
-                return (false, "Failed to start process.");
-
-            // async log piping
-            _ = PipeToFileAsync(_proc.StandardOutput, LastLogFile!, ct);
-            _ = PipeToFileAsync(_proc.StandardError, LastLogFile!, ct);
-
-            // readiness loop
-            // IMPORTANT: readiness = /v1/models returns 200 (not /health), to avoid "ready" while the model is still loading.
-            var timeout = TimeSpan.FromSeconds(Math.Max(90, s.StartupTimeoutSeconds));
-            var ok = await WaitModelsReadyAsync(s.LlmBaseUrl, timeout, ct);
-            if (!ok)
-            {
-                // Avoid leaving a stray llama.cpp process running when readiness fails.
-                try { Stop(); } catch { }
-                return (false, $"Started but /v1/models did not become ready within {timeout.TotalSeconds:0}s. See logs: {LastLogFile}");
-            }
-
-            return (true, "Ready.");
-        }
-        catch (Exception ex)
-        {
-            try { Stop(); } catch { }
-            return (false, "Start failed: " + ex.Message);
-        }
-    }
-
+    /// <summary>
+    /// Stops the managed llama-server process if running.
+    /// Safe to call multiple times.
+    /// </summary>
     public void Stop()
     {
         if (_proc is null) return;
+
         try
         {
             if (!_proc.HasExited)
             {
                 try { _proc.Kill(entireProcessTree: true); }
-                catch { _proc.Kill(); }
+                catch { try { _proc.Kill(); } catch { } }
             }
         }
         finally
@@ -103,12 +39,110 @@ internal sealed class LlamaCppProcessManager
         }
     }
 
+    /// <summary>
+    /// Starts llama-server using AppSettings (LlamaExePath + ModelPath + Host/Port + ExtraArgs),
+    /// then waits for /v1/models to become ready.
+    /// </summary>
+    internal async Task<(bool ok, string message)> StartAsync(AppSettings s, CancellationToken ct)
+    {
+        var exePath = (s.LlamaExePath ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(exePath))
+            return (false, "Missing LLM runtime path (LlamaExePath).");
+
+        if (!File.Exists(exePath))
+            return (false, $"LLM runtime not found: {exePath}");
+
+        var modelPath = (s.ModelPath ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(modelPath))
+            return (false, "Missing model path (ModelPath).");
+
+        if (!File.Exists(modelPath))
+            return (false, $"Model not found: {modelPath}");
+
+        var args = BuildArgs(s);
+        return await StartAsync(exePath, args, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Starts llama-server with explicit exePath + args, then waits for /v1/models.
+    /// This overload is useful for bootstrap/autotune.
+    /// </summary>
+    internal async Task<(bool ok, string message)> StartAsync(string exePath, string args, CancellationToken ct)
+    {
+        // Stop any previous instance we manage
+        Stop();
+
+        var host = "127.0.0.1";
+        var port = 1234;
+
+        // Best-effort parse host/port from args (if present)
+        // If not present, defaults above are OK for readiness check.
+        try
+        {
+            var parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (parts[i] == "--host" && i + 1 < parts.Length) host = parts[i + 1];
+                if (parts[i] == "--port" && i + 1 < parts.Length && int.TryParse(parts[i + 1], out var p)) port = p;
+            }
+        }
+        catch { /* ignore */ }
+
+        var logsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "logs");
+        Directory.CreateDirectory(logsDir);
+        var logPath = Path.Combine(logsDir, $"llama-server_{DateTime.Now:yyyyMMdd_HHmmss}.log");
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = exePath,
+            Arguments = args,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+            WorkingDirectory = Path.GetDirectoryName(exePath) ?? Environment.CurrentDirectory
+        };
+
+        try
+        {
+            _proc = Process.Start(psi);
+            if (_proc is null)
+                return (false, "Failed to start llama-server process.");
+
+            LastLogFile = logPath;
+            LastCommandLine = $"\"{exePath}\" {args}";
+
+            _ = PipeToFileAsync(_proc, logPath, ct);
+
+            // Wait for /v1/models
+            var timeout = Math.Max(5,  (new AppSettings()).StartupTimeoutSeconds); // default fallback if caller doesn't set
+            // If args include a known port/host, use that.
+            var baseUrl = $"http://{host}:{port}";
+            var ok = await WaitModelsReadyAsync(baseUrl, timeoutSeconds: 120, ct).ConfigureAwait(false);
+
+            if (!ok)
+            {
+                try { Stop(); } catch { }
+                return (false, $"Started but /v1/models did not become ready within timeout. See log: {logPath}");
+            }
+
+            return (true, $"LLM ready at {baseUrl} (log: {logPath})");
+        }
+        catch (Exception ex)
+        {
+            try { Stop(); } catch { }
+            return (false, "Start failed: " + ex.Message);
+        }
+    }
+
     private static string BuildArgs(AppSettings s)
     {
         var host = string.IsNullOrWhiteSpace(s.Host) ? "127.0.0.1" : s.Host.Trim();
         var port = s.Port <= 0 ? 1234 : s.Port;
 
-        var baseArgs = $"--host {host} --port {port} --model \"{s.ModelPath}\"";
+        var model = (s.ModelPath ?? "").Trim();
+
+        var baseArgs = $"--host {host} --port {port} --model \"{model}\"";
 
         var extra = (s.ExtraArgs ?? "").Trim();
         if (extra.Length > 0)
@@ -117,19 +151,44 @@ internal sealed class LlamaCppProcessManager
         return baseArgs;
     }
 
-    private static async Task PipeToFileAsync(StreamReader reader, string filePath, CancellationToken ct)
+    private static async Task PipeToFileAsync(Process proc, string path, CancellationToken ct)
     {
         try
         {
-            using var fs = new FileStream(filePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
-            using var sw = new StreamWriter(fs) { AutoFlush = true };
+            await using var fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+            await using var sw = new StreamWriter(fs) { AutoFlush = true };
 
-            while (!ct.IsCancellationRequested)
+            // Stdout
+            var stdoutTask = Task.Run(async () =>
             {
-                var line = await reader.ReadLineAsync().ConfigureAwait(false);
-                if (line is null) break;
-                await sw.WriteLineAsync(line).ConfigureAwait(false);
-            }
+                try
+                {
+                    while (!proc.StandardOutput.EndOfStream && !ct.IsCancellationRequested)
+                    {
+                        var line = await proc.StandardOutput.ReadLineAsync().ConfigureAwait(false);
+                        if (line is null) break;
+                        await sw.WriteLineAsync(line).ConfigureAwait(false);
+                    }
+                }
+                catch { }
+            }, ct);
+
+            // Stderr
+            var stderrTask = Task.Run(async () =>
+            {
+                try
+                {
+                    while (!proc.StandardError.EndOfStream && !ct.IsCancellationRequested)
+                    {
+                        var line = await proc.StandardError.ReadLineAsync().ConfigureAwait(false);
+                        if (line is null) break;
+                        await sw.WriteLineAsync(line).ConfigureAwait(false);
+                    }
+                }
+                catch { }
+            }, ct);
+
+            await Task.WhenAll(stdoutTask, stderrTask).ConfigureAwait(false);
         }
         catch
         {
@@ -137,57 +196,39 @@ internal sealed class LlamaCppProcessManager
         }
     }
 
-    private static async Task<bool> WaitModelsReadyAsync(string llmBaseUrl, TimeSpan timeout, CancellationToken ct)
+    private static async Task<bool> WaitModelsReadyAsync(string baseUrl, int timeoutSeconds, CancellationToken ct)
     {
-        var start = DateTime.UtcNow;
-        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(6) };
+        using var http = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(6)
+        };
 
-        var modelsUrl = llmBaseUrl.TrimEnd('/') + "/models";
+        var deadline = DateTime.UtcNow.AddSeconds(timeoutSeconds);
+        var url = baseUrl.TrimEnd('/') + "/v1/models";
 
-        while (DateTime.UtcNow - start < timeout && !ct.IsCancellationRequested)
+        while (DateTime.UtcNow < deadline && !ct.IsCancellationRequested)
         {
             try
             {
-                using var req = new HttpRequestMessage(HttpMethod.Get, modelsUrl);
-                using var resp = await http.SendAsync(req, ct).ConfigureAwait(false);
+                using var resp = await http.GetAsync(url, ct).ConfigureAwait(false);
+                if ((int)resp.StatusCode == 200) return true;
 
-                // 200 => ready
-                if ((int)resp.StatusCode >= 200 && (int)resp.StatusCode <= 299)
-                    return true;
-
-                // 503 while loading => keep waiting (not ready yet)
-                if ((int)resp.StatusCode == 503)
-                {
-                    await Task.Delay(650, ct).ConfigureAwait(false);
-                    continue;
-                }
+                // 503 while loading is normal: keep waiting
+                await Task.Delay(800, ct).ConfigureAwait(false);
+                continue;
+            }
+            catch (TaskCanceledException)
+            {
+                // request timeout -> keep waiting
             }
             catch
             {
-                // keep waiting
+                // refused / down -> keep waiting a bit
             }
 
-            await Task.Delay(650, ct).ConfigureAwait(false);
+            try { await Task.Delay(900, ct).ConfigureAwait(false); } catch { }
         }
 
         return false;
     }
-    internal static string BuildArgsAutoTune(string host, int port, string modelPath, int threads, int batch, int ngl)
-    {
-        // Note: -ngl enables GPU offload if runtime supports it (CUDA/Vulkan build).
-        // Keep flags minimal/compatible.
-        return $"--host {host} --port {port} --model \"{modelPath}\" -t {threads} -b {batch} -ngl {ngl}";
-    }
-
-    internal static string ResolveRuntimeExePath(string runtimeDir)
-    {
-        // Prefer CUDA runtime if present
-        var cuda = System.IO.Path.Combine(runtimeDir, "llama-server-cuda.exe");
-        if (System.IO.File.Exists(cuda)) return cuda;
-
-        var cpu = System.IO.Path.Combine(runtimeDir, "llama-server.exe");
-        return cpu;
-    }
 }
-
-

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -58,11 +58,26 @@ internal sealed class LocalLlmBootstrapper
 
             if (!useProvisionedPlanForExe)
             {
-                var (okExe, _, exePath) = await _llamaDl.EnsureWindowsCpuAsync(progress, ct).ConfigureAwait(false);
-                if (okExe && !string.IsNullOrWhiteSpace(exePath) && File.Exists(exePath))
+                // Prefer CUDA runtime when NVIDIA is available (CPU+GPU conjoint via -ngl).
+                if (hasNvidia)
                 {
-                    s.LlamaExePath = exePath;
-                    installed.Add(exePath);
+                    var (okCuda, _, cudaPath) = await _llamaDl.EnsureWindowsCudaAsync(progress, ct).ConfigureAwait(false);
+                    if (okCuda && !string.IsNullOrWhiteSpace(cudaPath) && File.Exists(cudaPath))
+                    {
+                        s.LlamaExePath = cudaPath;
+                        installed.Add(cudaPath);
+                    }
+                }
+
+                // Fallback to CPU runtime
+                if (string.IsNullOrWhiteSpace(s.LlamaExePath) || !File.Exists(s.LlamaExePath))
+                {
+                    var (okExe, _, exePath) = await _llamaDl.EnsureWindowsCpuAsync(progress, ct).ConfigureAwait(false);
+                    if (okExe && !string.IsNullOrWhiteSpace(exePath) && File.Exists(exePath))
+                    {
+                        s.LlamaExePath = exePath;
+                        installed.Add(exePath);
+                    }
                 }
             }
         }
@@ -123,6 +138,13 @@ internal sealed class LocalLlmBootstrapper
             return;
 
         // Prefer downloaded runtime under %LOCALAPPDATA%\SAAIA\llm\runtime (MVP auto).
+        // If NVIDIA is detected and a CUDA runtime was downloaded, use it.
+        if (hasNvidiaGpu && File.Exists(LlamaCppReleaseDownloader.CudaServerExePath))
+        {
+            s.LlamaExePath = LlamaCppReleaseDownloader.CudaServerExePath;
+            return;
+        }
+
         if (File.Exists(LlamaCppReleaseDownloader.CpuServerExePath))
         {
             s.LlamaExePath = LlamaCppReleaseDownloader.CpuServerExePath;
@@ -222,4 +244,3 @@ internal sealed class LocalLlmBootstrapper
         }
     }
 }
-
