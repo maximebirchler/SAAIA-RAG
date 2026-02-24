@@ -28,6 +28,11 @@ internal sealed class UserSettingsDialog : ContentDialog
 
     private readonly DownloadManager _downloads = new();
 
+    // Busy state (prevents double actions + blocks Apply/Close while running)
+    private bool _busy;
+    private string? _closeButtonTextBackup;
+
+
     // UI controls (safe)
     private readonly ToggleSwitch _assistantEnabled = new() { Header = "Assistant IA", OnContent = "Activé", OffContent = "Désactivé" };
     private readonly ToggleSwitch _strictMode = new() { Header = "Mode strict", OnContent = "Sources uniquement", OffContent = "Standard" };
@@ -60,6 +65,8 @@ internal sealed class UserSettingsDialog : ContentDialog
 
         // Handle apply
         PrimaryButtonClick += OnPrimaryClicked;
+        CloseButtonClick += OnCloseClicked;
+        Closing += OnClosing;
 
         _assistantEnabled.IsOn = _working.UseLocalLlm;
         _strictMode.IsOn = _working.StrictMode;
@@ -180,6 +187,13 @@ internal sealed class UserSettingsDialog : ContentDialog
 
     private void OnPrimaryClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
+        if (_busy)
+        {
+            args.Cancel = true;
+            _assistantStatus.Text = "Opération en cours…";
+            return;
+        }
+
         // Apply "safe" settings only
         _working.UseLocalLlm = _assistantEnabled.IsOn;
         _working.StrictMode = _strictMode.IsOn;
@@ -191,6 +205,62 @@ internal sealed class UserSettingsDialog : ContentDialog
         _original.CopyFrom(_working);
         _original.Save();
         UpdatedSettings = _original;
+    }
+
+
+    private void SetBusy(bool busy, string? status = null)
+    {
+        _busy = busy;
+
+        // Disable dialog buttons
+        IsPrimaryButtonEnabled = !busy;
+        IsSecondaryButtonEnabled = !busy;
+
+        // Hide the Close button while busy (WinUI3 has no IsCloseButtonEnabled)
+        if (busy)
+        {
+            _closeButtonTextBackup ??= CloseButtonText;
+            CloseButtonText = "";
+        }
+        else
+        {
+            if (_closeButtonTextBackup is not null)
+            {
+                CloseButtonText = _closeButtonTextBackup;
+                _closeButtonTextBackup = null;
+            }
+        }
+
+        // Disable interactive controls
+        _assistantEnabled.IsEnabled = !busy;
+        _strictMode.IsEnabled = !busy;
+        _ragQuality.IsEnabled = !busy;
+        _style.IsEnabled = !busy;
+        _length.IsEnabled = !busy;
+
+        _assistantRepairBtn.IsEnabled = !busy;
+        _exportBtn.IsEnabled = !busy;
+
+        if (status is not null)
+            _assistantStatus.Text = status;
+    }
+
+    private void OnClosing(ContentDialog sender, ContentDialogClosingEventArgs args)
+    {
+        if (_busy)
+        {
+            args.Cancel = true;
+            _assistantStatus.Text = "Opération en cours…";
+        }
+    }
+
+    private void OnCloseClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
+    {
+        if (_busy)
+        {
+            args.Cancel = true;
+            _assistantStatus.Text = "Opération en cours…";
+        }
     }
 
     private static int MapRagQualityToIndex(string? preset)
@@ -242,9 +312,10 @@ internal sealed class UserSettingsDialog : ContentDialog
 
     private async Task ExportSupportBundleAsync()
     {
+        if (_busy) return;
+        SetBusy(true, "Création du support-bundle…");
         try
         {
-            _exportBtn.IsEnabled = false;
             var zipPath = await SupportBundleBuilder.BuildAsync(_original).ConfigureAwait(true);
             _assistantStatus.Text = "Diagnostic exporté :\n" + zipPath;
             TryOpenFolder(Path.GetDirectoryName(zipPath));
@@ -255,7 +326,7 @@ internal sealed class UserSettingsDialog : ContentDialog
         }
         finally
         {
-            _exportBtn.IsEnabled = true;
+            SetBusy(false);
         }
     }
 
@@ -265,6 +336,8 @@ internal sealed class UserSettingsDialog : ContentDialog
         // Preferred path: caller-provided repair action (embedded bootstrap in MainWindow).
         if (_repairAssistantAsync is not null)
         {
+            if (_busy) return;
+            SetBusy(true, "Installation / réparation en cours…");
             _assistantRepairBtn.IsEnabled = false;
             _assistantProgress.Visibility = Visibility.Visible;
             _assistantProgress.IsIndeterminate = true;
@@ -274,11 +347,11 @@ internal sealed class UserSettingsDialog : ContentDialog
             {
                 await _repairAssistantAsync().ConfigureAwait(true);
 
-                // Post-check
-                if (await IsLlmReadyAsync().ConfigureAwait(true))
+                // Post-check (Loading-aware)
+                if (await WaitForModelsReadyAsync(TimeSpan.FromMinutes(2)).ConfigureAwait(true))
                     _assistantStatus.Text = "Assistant prêt (LLM disponible).";
                 else
-                    _assistantStatus.Text = "Terminé. Vérification en cours…";
+                    _assistantStatus.Text = "Assistant démarré, mais le modèle n’est pas prêt. Réessaie dans 1–2 minutes.";
             }
             catch (Exception ex)
             {
@@ -288,6 +361,7 @@ internal sealed class UserSettingsDialog : ContentDialog
             {
                 _assistantProgress.Visibility = Visibility.Collapsed;
                 _assistantRepairBtn.IsEnabled = true;
+                SetBusy(false);
             }
 
             return;
@@ -299,7 +373,9 @@ internal sealed class UserSettingsDialog : ContentDialog
 
     private async Task RepairAssistantAsync()
     {
-        _assistantRepairBtn.IsEnabled = false;
+        if (_busy) return;
+            SetBusy(true, "Installation / réparation en cours…");
+            _assistantRepairBtn.IsEnabled = false;
         _assistantProgress.Visibility = Visibility.Visible;
         _assistantProgress.IsIndeterminate = true;
         _assistantStatus.Text = "Vérification de l'assistant…";
@@ -443,6 +519,35 @@ internal sealed class UserSettingsDialog : ContentDialog
 
         _assistantStatus.Text = "Timeout : le LLM ne répond pas encore.\n"
             + "Vérifie Docker Desktop et le container saaia-llama.";
+        return false;
+    }
+
+
+    private async Task<bool> WaitForModelsReadyAsync(TimeSpan timeout)
+    {
+        var deadline = DateTimeOffset.UtcNow + timeout;
+
+        _assistantProgress.Visibility = Visibility.Visible;
+        _assistantProgress.IsIndeterminate = true;
+
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            var probe = await LlmEndpointProbe.GetModelsStatusAsync(
+                _original.LlmBaseUrl,
+                TimeSpan.FromSeconds(8),
+                CancellationToken.None).ConfigureAwait(true);
+
+            if (probe.Status == LlmModelsStatus.Ok)
+                return true;
+
+            if (probe.Status == LlmModelsStatus.Loading)
+                _assistantStatus.Text = "Chargement du modèle en cours…";
+            else
+                _assistantStatus.Text = "Démarrage de l’assistant…";
+
+            await Task.Delay(1000).ConfigureAwait(true);
+        }
+
         return false;
     }
 

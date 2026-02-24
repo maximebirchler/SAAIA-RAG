@@ -66,13 +66,14 @@ internal sealed class LlamaCppProcessManager
             _ = PipeToFileAsync(_proc.StandardError, LastLogFile!, ct);
 
             // readiness loop
-            var timeout = TimeSpan.FromSeconds(Math.Max(5, s.StartupTimeoutSeconds));
-            var ok = await WaitReadyAsync(s.LlmBaseUrl, timeout, ct);
+            // IMPORTANT: readiness = /v1/models returns 200 (not /health), to avoid "ready" while the model is still loading.
+            var timeout = TimeSpan.FromSeconds(Math.Max(90, s.StartupTimeoutSeconds));
+            var ok = await WaitModelsReadyAsync(s.LlmBaseUrl, timeout, ct);
             if (!ok)
             {
-                // Important: avoid leaving a stray llama.cpp process running when readiness fails.
+                // Avoid leaving a stray llama.cpp process running when readiness fails.
                 try { Stop(); } catch { }
-                return (false, $"Started but did not become ready within {timeout.TotalSeconds:0}s. See logs: {LastLogFile}");
+                return (false, $"Started but /v1/models did not become ready within {timeout.TotalSeconds:0}s. See logs: {LastLogFile}");
             }
 
             return (true, "Ready.");
@@ -104,8 +105,6 @@ internal sealed class LlamaCppProcessManager
 
     private static string BuildArgs(AppSettings s)
     {
-        // llama.cpp server arguments (common)
-        // NOTE: user extra args are appended last so they can override defaults if needed.
         var host = string.IsNullOrWhiteSpace(s.Host) ? "127.0.0.1" : s.Host.Trim();
         var port = s.Port <= 0 ? 1234 : s.Port;
 
@@ -138,38 +137,39 @@ internal sealed class LlamaCppProcessManager
         }
     }
 
-    private static async Task<bool> WaitReadyAsync(string llmBaseUrl, TimeSpan timeout, CancellationToken ct)
+    private static async Task<bool> WaitModelsReadyAsync(string llmBaseUrl, TimeSpan timeout, CancellationToken ct)
     {
         var start = DateTime.UtcNow;
-        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(6) };
 
-        // Try /v1/models then fallback to /health on root (varies by build)
         var modelsUrl = llmBaseUrl.TrimEnd('/') + "/models";
-        var root = llmBaseUrl.Replace("/v1", "", StringComparison.OrdinalIgnoreCase).TrimEnd('/');
-        var healthUrl = root + "/health";
 
         while (DateTime.UtcNow - start < timeout && !ct.IsCancellationRequested)
         {
-            if (await Is200Async(http, modelsUrl, ct).ConfigureAwait(false)) return true;
-            if (await Is200Async(http, healthUrl, ct).ConfigureAwait(false)) return true;
+            try
+            {
+                using var req = new HttpRequestMessage(HttpMethod.Get, modelsUrl);
+                using var resp = await http.SendAsync(req, ct).ConfigureAwait(false);
 
-            await Task.Delay(600, ct).ConfigureAwait(false);
+                // 200 => ready
+                if ((int)resp.StatusCode >= 200 && (int)resp.StatusCode <= 299)
+                    return true;
+
+                // 503 while loading => keep waiting (not ready yet)
+                if ((int)resp.StatusCode == 503)
+                {
+                    await Task.Delay(650, ct).ConfigureAwait(false);
+                    continue;
+                }
+            }
+            catch
+            {
+                // keep waiting
+            }
+
+            await Task.Delay(650, ct).ConfigureAwait(false);
         }
 
         return false;
-    }
-
-    private static async Task<bool> Is200Async(HttpClient http, string url, CancellationToken ct)
-    {
-        try
-        {
-            using var req = new HttpRequestMessage(HttpMethod.Get, url);
-            using var resp = await http.SendAsync(req, ct).ConfigureAwait(false);
-            return (int)resp.StatusCode >= 200 && (int)resp.StatusCode <= 299;
-        }
-        catch
-        {
-            return false;
-        }
     }
 }

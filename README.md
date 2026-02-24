@@ -59,8 +59,7 @@ $body | curl.exe -s -X POST "http://localhost:5122/rag/search" `
 ### 3) Client WinUI (dev)
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\client\scripts
-un-client-x64.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\client\scriptsun-client-x64.ps1
 ```
 
 Les logs client sont dans : `%LOCALAPPDATA%\SAAIA\logs\`.

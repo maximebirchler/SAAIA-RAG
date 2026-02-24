@@ -462,44 +462,18 @@ public sealed partial class MainWindow : Window
             {
                 ClientLog.Info($"LLM endpoint not ready (status={http}, msg={msg}). Proceeding with bootstrap.");
             }
-            var mode = (_appSettings.LlmMode ?? "embedded").Trim().ToLowerInvariant();
 
-            // Embedded: if we already have runtime+model, try a cheap start before any heavy bootstrap.
-            // This fixes the case where the model exists on disk but the llama-server process is not running.
-            if (mode == "embedded" && _appSettings.ManageLocalLlmProcess &&
-                !string.IsNullOrWhiteSpace(_appSettings.LlamaExePath) && File.Exists(_appSettings.LlamaExePath) &&
-                !string.IsNullOrWhiteSpace(_appSettings.ModelPath) && File.Exists(_appSettings.ModelPath))
-            {
-                var (startedOk2, startedMsg2) = await _llmProc.StartAsync(_appSettings, CancellationToken.None);
-                if (startedOk2)
-                {
-                    var probe2 = await LlmEndpointProbe.GetModelsStatusAsync(
-                        _appSettings.LlmBaseUrl,
-                        TimeSpan.FromSeconds(6),
-                        CancellationToken.None);
-
-                    if (probe2.Status == LlmModelsStatus.Ok) return;
-
-                    if (probe2.Status == LlmModelsStatus.Loading)
-                    {
-                        Status("Assistant IA : chargement du modèle en cours…");
-                        return;
-                    }
-                }
-                else
-                {
-                    ClientLog.Info($"LLM start attempt failed: {startedMsg2}");
-                }
-            }
-
-            // Avoid re-running heavy bootstrap every startup when provisioning didn't change.
+            // Avoid re-running every startup when provisioning didn't change.
             if (!force && !string.IsNullOrWhiteSpace(_appSettings.ProvisioningHash) &&
                 string.Equals(_appSettings.ProvisioningHash, _appSettings.LlmAutoInstallAttemptedHash, StringComparison.OrdinalIgnoreCase))
             {
                 Status("Assistant IA : réparation requise (Paramètres → Installer / réparer). ");
                 return;
             }
-if (mode == "docker")
+
+            var mode = (_appSettings.LlmMode ?? "embedded").Trim().ToLowerInvariant();
+
+            if (mode == "docker")
             {
                 // Dev/test only: Option B via script (UAC + PowerShell).
                 await TryAutoInstallIfConfiguredAsync();
@@ -589,40 +563,8 @@ if (mode == "docker")
                 await Task.Delay(1200);
                 return;
             }
-            // Wait until /v1/models is really ready (handles 503 "Loading model")
-            var readyDeadline = DateTimeOffset.UtcNow + TimeSpan.FromMinutes(2);
-            while (DateTimeOffset.UtcNow < readyDeadline && !cts.IsCancellationRequested)
-            {
-                var probe2 = await LlmEndpointProbe.GetModelsStatusAsync(
-                    _appSettings.LlmBaseUrl,
-                    TimeSpan.FromSeconds(8),
-                    cts.Token);
-
-                if (probe2.Status == LlmModelsStatus.Ok)
-                    break;
-
-                detail.Text = probe2.Status == LlmModelsStatus.Loading
-                    ? "Chargement du modèle…"
-                    : "Démarrage de l’assistant…";
-
-                await Task.Delay(1000, cts.Token);
-            }
-
-            var finalProbe = await LlmEndpointProbe.GetModelsStatusAsync(
-                _appSettings.LlmBaseUrl,
-                TimeSpan.FromSeconds(8),
-                cts.Token);
-
-            if (finalProbe.Status != LlmModelsStatus.Ok)
-            {
-                detail.Text = "Assistant démarré, mais le modèle n’est pas prêt. Réessaie dans 1–2 minutes.";
-                await Task.Delay(1600);
-                return;
-            }
 
             detail.Text = "Assistant prêt.";
-
-            // Mark provisioning as successfully applied ONLY when models are ready.
             if (!string.IsNullOrWhiteSpace(_appSettings.ProvisioningHash))
             {
                 _appSettings.LlmAutoInstallAttemptedHash = _appSettings.ProvisioningHash;
@@ -630,7 +572,7 @@ if (mode == "docker")
             }
 
             await Task.Delay(600);
-}
+        }
         catch (OperationCanceledException)
         {
             // ignore

@@ -38,8 +38,10 @@ internal sealed class LocalLlmBootstrapper
         if (mode != "embedded")
             return (true, $"LLM mode is '{mode}' (no embedded bootstrap).", Array.Empty<string>());
 
-
         var installed = new List<string>();
+
+        // 0) Auto-detect an existing model in %LOCALAPPDATA%\SAAIA\Models (helps after manual copy).
+        TryAutoDetectExistingModel(s);
 
         // 1) Resolve executable (installer should ship it).
         var hasNvidia = await GpuDetector.HasNvidiaGpuAsync(ct).ConfigureAwait(false);
@@ -66,6 +68,7 @@ internal sealed class LocalLlmBootstrapper
         }
 
         // 2) Resolve model path (download if missing)
+        TryAutoDetectExistingModel(s);
 
         if (string.IsNullOrWhiteSpace(s.ModelPath) || !File.Exists(s.ModelPath) || force)
         {
@@ -101,6 +104,15 @@ internal sealed class LocalLlmBootstrapper
         if (string.IsNullOrWhiteSpace(s.ModelPath) || !File.Exists(s.ModelPath))
             return (false, "Model file not found (.gguf).", installed);
 
+        // Ensure minimal runtime flags
+        s.ManageLocalLlmProcess = true;
+        s.AutoStartOnConnect = true;
+        s.UseLocalLlm = true;
+        s.LlmMode = "embedded";
+        s.Host = "127.0.0.1";
+        s.Port = 1234;
+        s.Save();
+
         return (true, "OK", installed);
     }
 
@@ -110,7 +122,7 @@ internal sealed class LocalLlmBootstrapper
         if (!string.IsNullOrWhiteSpace(s.LlamaExePath) && File.Exists(s.LlamaExePath))
             return;
 
-        // Prefer downloaded runtime under %LOCALAPPDATA%\SAAIA\llm\runtime (MVP autop).
+        // Prefer downloaded runtime under %LOCALAPPDATA%\SAAIA\llm\runtime (MVP auto).
         if (File.Exists(LlamaCppReleaseDownloader.CpuServerExePath))
         {
             s.LlamaExePath = LlamaCppReleaseDownloader.CpuServerExePath;
@@ -151,6 +163,36 @@ internal sealed class LocalLlmBootstrapper
         {
             s.LlamaExePath = cpuExe;
             return;
+        }
+    }
+
+    private static void TryAutoDetectExistingModel(AppSettings s)
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(s.ModelPath) && File.Exists(s.ModelPath))
+                return;
+
+            var modelsDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "SAAIA", "Models");
+
+            if (!Directory.Exists(modelsDir))
+                return;
+
+            var gguf = Directory.GetFiles(modelsDir, "*.gguf", SearchOption.TopDirectoryOnly)
+                                .OrderByDescending(File.GetLastWriteTimeUtc)
+                                .FirstOrDefault();
+
+            if (!string.IsNullOrWhiteSpace(gguf) && File.Exists(gguf))
+            {
+                s.ModelPath = gguf;
+                s.ModelId = Path.GetFileName(gguf);
+            }
+        }
+        catch
+        {
+            // ignore
         }
     }
 
