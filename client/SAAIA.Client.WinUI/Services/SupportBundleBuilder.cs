@@ -1,0 +1,260 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.IO.Compression;
+using System.Net.Http;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks;
+
+namespace SAAIA.Client.WinUI.Services;
+
+internal static class SupportBundleBuilder
+{
+    public static string SupportDir =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "support");
+
+    public static async Task<string> BuildAsync(AppSettings settings)
+    {
+        Directory.CreateDirectory(SupportDir);
+
+        var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
+        var zipPath = Path.Combine(SupportDir, $"support-bundle_{stamp}.zip");
+
+        var staging = Path.Combine(SupportDir, $"staging_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(staging);
+
+        try
+        {
+            // 1) README
+            File.WriteAllText(Path.Combine(staging, "README.txt"),
+                "SAAIA support bundle (redacted)\r\n" +
+                "- No API key is included.\r\n" +
+                "- Contains logs, settings (non-sensitive), environment info, and readiness probes.\r\n");
+
+            // 2) Settings (non-sensitive)
+            CopyIfExists(Path.Combine(LocalClientDir(), "settings.json"), Path.Combine(staging, "settings.json"));
+
+            // 3) Provisioning (redacted)
+            var provPath = Provisioning.FindProvisioningPath();
+            if (!string.IsNullOrWhiteSpace(provPath) && File.Exists(provPath))
+            {
+                var redacted = RedactJsonFile(provPath, new[] { "apiKey" });
+                File.WriteAllText(Path.Combine(staging, "provisioning.redacted.json"), redacted);
+            }
+
+            // 4) Models manifest if exists
+            var modelsJson = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "Models", "models.json");
+            CopyIfExists(modelsJson, Path.Combine(staging, "models.json"));
+
+            // 5) Downloads manifest if exists
+            var dlManifest = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "downloads", "manifest.json");
+            CopyIfExists(dlManifest, Path.Combine(staging, "downloads.manifest.json"));
+
+            // 5b) LLM install artifacts (optional)
+            var llmDir = Path.Combine(staging, "llm");
+            Directory.CreateDirectory(llmDir);
+
+            // Produced by infra/scripts/llm/install-llm.ps1 (Option B)
+            CopyIfExists(Path.Combine(@"C:\SAAIA", "deploy", "docker-compose.llm.yml"), Path.Combine(llmDir, "docker-compose.llm.yml"));
+            CopyIfExists(Path.Combine(@"C:\SAAIA", "deploy", "llm.install.json"), Path.Combine(llmDir, "llm.install.json"));
+            CopyIfExists(Path.Combine(@"C:\SAAIA", "deploy", "install-llm.log"), Path.Combine(llmDir, "install-llm.log"));
+
+
+// 6) Logs (last 40)
+            var logsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "logs");
+            if (Directory.Exists(logsDir))
+            {
+                var outLogs = Path.Combine(staging, "logs");
+                Directory.CreateDirectory(outLogs);
+
+                foreach (var f in GetLatestFiles(logsDir, 40))
+                {
+                    CopyIfExists(f, Path.Combine(outLogs, Path.GetFileName(f)));
+                }
+            }
+
+            // 7) Runtime info (redacted)
+            var runtimeInfo = new Dictionary<string, object?>
+            {
+                ["ts"] = DateTimeOffset.Now.ToString("o"),
+                ["os"] = RuntimeInformation.OSDescription,
+                ["osVersion"] = Environment.OSVersion.VersionString,
+                ["processArch"] = RuntimeInformation.ProcessArchitecture.ToString(),
+                ["dotnet"] = Environment.Version.ToString(),
+                ["appBaseDir"] = AppContext.BaseDirectory,
+                ["userId"] = SafeGetUserId(),
+                ["hasApiKey"] = SafeHasApiKey(),
+                ["backendUrl"] = settings.BackendUrl,
+                ["llmBaseUrl"] = settings.LlmBaseUrl,
+                ["modelId"] = settings.ModelId,
+                ["safeSettings"] = new Dictionary<string, object?>
+                {
+                    ["assistantEnabled"] = settings.UseLocalLlm,
+                    ["strictMode"] = settings.StrictMode,
+                    ["ragQualityPreset"] = settings.RagQualityPreset,
+                    ["answerLengthTokens"] = settings.LlmMaxOutputTokens,
+                    ["styleTemperature"] = settings.LlmTemperature
+                }
+            };
+
+            File.WriteAllText(Path.Combine(staging, "runtime.json"),
+                JsonSerializer.Serialize(runtimeInfo, new JsonSerializerOptions { WriteIndented = true }));
+
+            // 8) Probes (no auth)
+            await WriteProbeAsync(Path.Combine(staging, "backend_ready.json"),
+                new Uri(new Uri(settings.BackendUrl.TrimEnd('/')), "/ready")).ConfigureAwait(false);
+
+            await WriteProbeAsync(Path.Combine(staging, "llm_models.json"),
+                new Uri(new Uri(settings.LlmBaseUrl.TrimEnd('/')), "models")).ConfigureAwait(false);
+
+            // 9) Create zip
+            if (File.Exists(zipPath)) File.Delete(zipPath);
+            ZipFile.CreateFromDirectory(staging, zipPath, CompressionLevel.Fastest, includeBaseDirectory: false);
+
+            return zipPath;
+        }
+        finally
+        {
+            try { Directory.Delete(staging, recursive: true); } catch { }
+        }
+    }
+
+    private static string LocalClientDir() =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "client");
+
+    private static void CopyIfExists(string src, string dst)
+    {
+        try
+        {
+            if (!File.Exists(src)) return;
+            Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
+            File.Copy(src, dst, overwrite: true);
+        }
+        catch { }
+    }
+
+    private static IEnumerable<string> GetLatestFiles(string dir, int max)
+    {
+        try
+        {
+            var files = Directory.GetFiles(dir);
+            Array.Sort(files, (a, b) => File.GetLastWriteTimeUtc(b).CompareTo(File.GetLastWriteTimeUtc(a)));
+
+            var take = Math.Min(files.Length, Math.Max(0, max));
+            if (take <= 0) return Array.Empty<string>();
+
+            var list = new List<string>(take);
+            for (int i = 0; i < take; i++)
+                list.Add(files[i]);
+            return list;
+        }
+        catch
+        {
+            return Array.Empty<string>();
+        }
+    }
+
+    private static async Task WriteProbeAsync(string outputPath, Uri uri)
+    {
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+            var resp = await http.GetAsync(uri).ConfigureAwait(false);
+            var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            var obj = new Dictionary<string, object?>
+            {
+                ["url"] = uri.ToString(),
+                ["status"] = (int)resp.StatusCode,
+                ["ok"] = resp.IsSuccessStatusCode,
+                ["body"] = TryParseJson(body) ?? body
+            };
+
+            File.WriteAllText(outputPath, JsonSerializer.Serialize(obj, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch (Exception ex)
+        {
+            var obj = new Dictionary<string, object?>
+            {
+                ["url"] = uri.ToString(),
+                ["ok"] = false,
+                ["error"] = ex.GetType().Name + ": " + ex.Message
+            };
+            File.WriteAllText(outputPath, JsonSerializer.Serialize(obj, new JsonSerializerOptions { WriteIndented = true }));
+        }
+    }
+
+    private static object? TryParseJson(string s)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(s);
+            return JsonSerializer.Deserialize<object>(doc.RootElement.GetRawText());
+        }
+        catch { return null; }
+    }
+
+    private static string RedactJsonFile(string path, IEnumerable<string> keysToRedact)
+    {
+        try
+        {
+            var txt = File.ReadAllText(path, Encoding.UTF8);
+            using var doc = JsonDocument.Parse(txt);
+
+            var redacted = RedactElement(doc.RootElement, new HashSet<string>(keysToRedact, StringComparer.OrdinalIgnoreCase));
+            return JsonSerializer.Serialize(redacted, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch
+        {
+            return "{\n  \"error\": \"failed to read/parse provisioning\"\n}";
+        }
+    }
+
+    private static object? RedactElement(JsonElement el, HashSet<string> keysToRedact)
+    {
+        switch (el.ValueKind)
+        {
+            case JsonValueKind.Object:
+            {
+                var dict = new Dictionary<string, object?>();
+                foreach (var p in el.EnumerateObject())
+                {
+                    if (keysToRedact.Contains(p.Name))
+                        dict[p.Name] = "***REDACTED***";
+                    else
+                        dict[p.Name] = RedactElement(p.Value, keysToRedact);
+                }
+                return dict;
+            }
+            case JsonValueKind.Array:
+            {
+                var list = new List<object?>();
+                foreach (var v in el.EnumerateArray())
+                    list.Add(RedactElement(v, keysToRedact));
+                return list;
+            }
+            case JsonValueKind.String: return el.GetString();
+            case JsonValueKind.Number:
+                if (el.TryGetInt64(out var l)) return l;
+                if (el.TryGetDouble(out var d)) return d;
+                return el.GetRawText();
+            case JsonValueKind.True: return true;
+            case JsonValueKind.False: return false;
+            case JsonValueKind.Null: return null;
+            default: return el.GetRawText();
+        }
+    }
+
+    private static string? SafeGetUserId()
+    {
+        try { return SecureLocalStore.GetOrCreateUserId(); } catch { return null; }
+    }
+
+    private static bool SafeHasApiKey()
+    {
+        try { return !string.IsNullOrWhiteSpace(SecureLocalStore.GetServerApiKey()); } catch { return false; }
+    }
+}

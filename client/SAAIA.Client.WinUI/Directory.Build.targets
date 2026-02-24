@@ -1,0 +1,6 @@
+<Project>
+  <ItemGroup>
+    <Page Remove="Controls\UserSettingsDialog.xaml" />
+    <Compile Remove="Controls\UserSettingsDialog.xaml.cs" />
+  </ItemGroup>
+</Project>

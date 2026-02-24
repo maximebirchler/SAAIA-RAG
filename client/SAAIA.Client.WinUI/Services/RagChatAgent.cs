@@ -15,10 +15,37 @@ public sealed class RagChatAgent
     private readonly ApiClient _api;
     private readonly OpenAiLlmClient _llm;
 
+    // Safe, user-facing tuning (must never break RAG).
+    private bool _llmEnabled = true;
+    private bool _strictMode = false;
+    private double _temperature = 0.2;
+    private int _maxTokens = 900;
+    private string _ragQualityPreset = "balanced"; // quick|balanced|deep
+
     public RagChatAgent(ApiClient api, OpenAiLlmClient llm)
     {
         _api = api;
         _llm = llm;
+    }
+    internal void ApplySettings(AppSettings s)
+    {
+        _llmEnabled = s.UseLocalLlm;
+        _strictMode = s.StrictMode;
+
+        var t = s.LlmTemperature;
+        if (double.IsNaN(t) || double.IsInfinity(t)) t = 0.2;
+        if (t < 0) t = 0;
+        if (t > 1) t = 1;
+        _temperature = t;
+
+        var mt = s.LlmMaxOutputTokens;
+        if (mt < 128) mt = 128;
+        if (mt > 4096) mt = 4096;
+        _maxTokens = mt;
+
+        _ragQualityPreset = string.IsNullOrWhiteSpace(s.RagQualityPreset) ? "balanced" : s.RagQualityPreset.Trim().ToLowerInvariant();
+        if (_ragQualityPreset is not ("quick" or "balanced" or "deep"))
+            _ragQualityPreset = "balanced";
     }
 
     private sealed record Plan(bool NeedClarification, string? ClarificationQuestion, List<string> Queries);
@@ -30,6 +57,28 @@ public sealed class RagChatAgent
         Action<string> onDelta,
         CancellationToken ct)
     {
+        // Retrieval knobs (safe)
+        var (topKPerQuery, mergedTake, maxQueries) = _ragQualityPreset switch
+        {
+            "quick" => (4, 8, 2),
+            "deep" => (10, 16, 3),
+            _ => (6, 12, 3)
+        };
+
+        // If LLM disabled, we still must support a degraded "search-only" mode (CDC v2.7).
+        if (!_llmEnabled)
+        {
+            var s = await _api.RagSearchAsync(userText, category, topK: mergedTake, mode: "balanced", ct);
+            var merged0 = s.Items
+                .OrderByDescending(m => m.Score)
+                .Take(mergedTake)
+                .ToList();
+
+            var payload0 = new { plan = (object?)null, queries = new[] { userText }, searches = new[] { new { s.RequestId, s.Query, s.Metrics, s.Items } }, merged = merged0 };
+            var ans0 = BuildRagOnlyFallback(userText, merged0, "LLM disabled (search-only mode)");
+            return (ans0, payload0);
+        }
+
         // 1) PLAN
         var plan = await BuildPlanAsync(userText, category, ct);
 
@@ -44,7 +93,7 @@ public sealed class RagChatAgent
             .Select(q => q.Trim())
             .Where(q => q.Length > 0)
             .Distinct()
-            .Take(3)
+            .Take(maxQueries)
             .ToList();
 
         // 2) MULTI SEARCH
@@ -52,7 +101,7 @@ public sealed class RagChatAgent
         foreach (var q in queries)
         {
             ct.ThrowIfCancellationRequested();
-            var s = await _api.RagSearchAsync(q, category, topK: 6, mode: "balanced", ct);
+            var s = await _api.RagSearchAsync(q, category, topK: topKPerQuery, mode: "balanced", ct);
             searches.Add(s);
         }
 
@@ -62,7 +111,7 @@ public sealed class RagChatAgent
             .GroupBy(m => m.ChunkId ?? $"{m.DocId}:{m.PageStart}:{m.ChunkIndex}")
             .Select(g => g.OrderByDescending(x => x.Score).First())
             .OrderByDescending(m => m.Score)
-            .Take(12)
+            .Take(mergedTake)
             .ToList();
 
         // ✅ Payload construit AVANT le LLM => dispo même si cancel pendant génération
@@ -81,7 +130,15 @@ public sealed class RagChatAgent
         };
 
         // 3) FINAL ANSWER
-        var sys = """
+        var sys = _strictMode ? """
+Tu es SAAIA, un assistant IA local, sans internet.
+Tu dois répondre UNIQUEMENT à partir des SOURCES fournies.
+Règles :
+- Si les sources ne suffisent pas, dis-le et pose UNE question de clarification.
+- Ne fais pas d'hypothèses non sourcées.
+- Cite tes sources directement dans le texte : [DocName p.X-Y]
+- Ne cite JAMAIS une source non présente.
+""" : """
 Tu es SAAIA, un assistant IA local “type ChatGPT” MAIS sans internet.
 Ta base de connaissance vient uniquement des SOURCES fournies (extraits de documents).
 Comportement attendu :
@@ -124,8 +181,8 @@ Réponds en français. Donne une réponse actionnable. Ajoute des citations [Doc
         {
             await _llm.ChatStreamAsync(
                 msgs,
-                temperature: 0.2,
-                maxTokens: 900,
+                temperature: _temperature,
+                maxTokens: _maxTokens,
                 onDelta: t =>
                 {
                     answer += t;

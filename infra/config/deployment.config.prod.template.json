@@ -1,4 +1,4 @@
-{
+﻿{
   "Auth": {
     "ApiKeyHeaderName": "X-Api-Key",
     "Pepper": "__AUTH_PEPPER__"
@@ -11,7 +11,7 @@
     "ApiKeyLabel": "bootstrap"
   },
   "Database": {
-    "ConnectionString": "Host=postgres;Port=5432;Database=__POSTGRES_DB__;Username=__POSTGRES_USER__;Password=__POSTGRES_PASSWORD__;Pooling=true;Maximum Pool Size=50;GssEncryptionMode=Disable"
+    "ConnectionString": "Host=postgres;Port=5432;Database=__POSTGRES_DB__;Username=__POSTGRES_USER__;Password=__POSTGRES_PASSWORD__;Pooling=true;Maximum Pool Size=50"
   },
   "Rag": {
     "QdrantBaseUrl": "http://qdrant:6333",
@@ -54,3 +54,4 @@
     }
   }
 }
+

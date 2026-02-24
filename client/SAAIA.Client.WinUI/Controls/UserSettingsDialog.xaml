@@ -1,0 +1,77 @@
+<ContentDialog
+    x:Class="SAAIA.Client.WinUI.Controls.UserSettingsDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="Paramètres"
+    PrimaryButtonText="Appliquer"
+    CloseButtonText="Fermer"
+    DefaultButton="Primary">
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto"
+                  MaxWidth="560">
+        <StackPanel Spacing="14">
+
+            <TextBlock Text="Ces réglages sont sûrs : ils ne peuvent pas casser le RAG. Au pire : réponses plus lentes ou plus/moins détaillées."
+                       Opacity="0.75"
+                       TextWrapping="Wrap" />
+
+            <ToggleSwitch x:Name="AssistantEnabledToggle"
+                          Header="Assistant activé"
+                          OnContent="Réponse avec assistant"
+                          OffContent="Recherche uniquement (sources)" />
+
+            <ToggleSwitch x:Name="StrictModeToggle"
+                          Header="Mode strict"
+                          OnContent="Uniquement sourcé"
+                          OffContent="Peut reformuler (toujours sourcé si possible)" />
+
+            <TextBlock Text="Qualité de recherche" FontWeight="SemiBold"/>
+            <ComboBox x:Name="RagQualityCombo">
+                <ComboBoxItem Content="Rapide (moins de passages)"/>
+                <ComboBoxItem Content="Équilibré"/>
+                <ComboBoxItem Content="Approfondi (plus de passages)"/>
+            </ComboBox>
+
+            <TextBlock Text="Style de réponse" FontWeight="SemiBold"/>
+            <ComboBox x:Name="StyleCombo">
+                <ComboBoxItem Content="Précis (factuel)"/>
+                <ComboBoxItem Content="Équilibré"/>
+                <ComboBoxItem Content="Créatif"/>
+            </ComboBox>
+
+            <TextBlock Text="Longueur de réponse" FontWeight="SemiBold"/>
+            <ComboBox x:Name="AnswerLengthCombo">
+                <ComboBoxItem Content="Court"/>
+                <ComboBoxItem Content="Standard"/>
+                <ComboBoxItem Content="Long"/>
+            </ComboBox>
+
+            <Separator/>
+
+            <TextBlock Text="Assistant IA" FontWeight="SemiBold"/>
+            <TextBlock Text="Installe / répare l’assistant local (modèle + service) automatiquement." Opacity="0.75" TextWrapping="Wrap"/>
+
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button x:Name="RepairAssistantButton" Content="Installer / réparer l’assistant" Click="RepairAssistant_Click"/>
+            </StackPanel>
+            <TextBlock x:Name="RepairStatusText" Opacity="0.75" TextWrapping="Wrap"/>
+
+            <TextBlock Text="Support" FontWeight="SemiBold"/>
+            <TextBlock Text="Exporte un fichier .zip de diagnostic (sans clé API) pour l’intégrateur."
+                       Opacity="0.75"
+                       TextWrapping="Wrap" />
+
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button x:Name="ExportSupportButton" Content="Exporter diagnostic…" Click="ExportSupport_Click"/>
+                <Button x:Name="OpenSupportFolderButton" Content="Ouvrir le dossier" Click="OpenSupportFolder_Click"/>
+            </StackPanel>
+
+            <TextBlock x:Name="ExportStatusText" Opacity="0.75" TextWrapping="Wrap"/>
+
+        </StackPanel>
+    </ScrollViewer>
+</ContentDialog>

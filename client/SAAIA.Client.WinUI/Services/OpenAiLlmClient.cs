@@ -145,4 +145,50 @@ public sealed class OpenAiLlmClient
         }
     }
 
+    public async Task<List<string>> ListModelsAsync(CancellationToken ct)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, $"{_baseUrl}/models");
+        req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        using var resp = await _http.SendAsync(req, ct);
+        resp.EnsureSuccessStatusCode();
+
+        var json = await resp.Content.ReadAsStringAsync(ct);
+        using var doc = JsonDocument.Parse(json);
+
+        var list = new List<string>();
+        var root = doc.RootElement;
+
+        // Common OpenAI format: { data: [ { id: "..." } ] }
+        if (root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var el in data.EnumerateArray())
+            {
+                if (el.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.String)
+                {
+                    var s = id.GetString();
+                    if (!string.IsNullOrWhiteSpace(s)) list.Add(s!);
+                }
+            }
+        }
+
+        // llama.cpp may also return { models: [ { name|model: "..." } ] }
+        if (root.TryGetProperty("models", out var models) && models.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var el in models.EnumerateArray())
+            {
+                string? v = null;
+                if (el.TryGetProperty("name", out var name) && name.ValueKind == JsonValueKind.String) v = name.GetString();
+                else if (el.TryGetProperty("model", out var model) && model.ValueKind == JsonValueKind.String) v = model.GetString();
+
+                if (!string.IsNullOrWhiteSpace(v)) list.Add(v!);
+            }
+        }
+
+        return list
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
 }

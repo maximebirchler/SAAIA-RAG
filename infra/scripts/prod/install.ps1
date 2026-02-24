@@ -118,6 +118,19 @@ foreach ($p in $pathsToEnsure) {
 }
 
 # ---------------------------
+# Deploy optional LLM installer script (client repair)
+# Copy infra/scripts/llm/install-llm.ps1 into <InstallRoot>\deploy\install-llm.ps1
+# so the WinUI client can run it (UAC) to download the model + start docker LLM.
+# ---------------------------
+$llmScriptSrc = Resolve-PathFromRepo $repo "infra/scripts/llm/install-llm.ps1"
+if (Test-Path $llmScriptSrc) {
+  Copy-Item -Force $llmScriptSrc (Join-Path $deployDirExpected "install-llm.ps1")
+  if (-not $deployDirIsExpected) {
+    Copy-Item -Force $llmScriptSrc (Join-Path $deployDir "install-llm.ps1")
+  }
+}
+
+# ---------------------------
 # Generate + sign deployment config
 # Always generate into <InstallRoot>\deploy (what compose mounts),
 # and optionally duplicate into SAAIA_DEPLOY_DIR if different.

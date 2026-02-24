@@ -24,6 +24,9 @@ public static class IngestionEndpoints
         var ingest = ingestOpt.Value;
         var ct = ctx.RequestAborted;
 
+        // Enqueue ingestion jobs is an admin capability.
+        AdminAuth.EnsureAdmin(ctx);
+
         if (string.IsNullOrWhiteSpace(req.DocPath))
             return Results.BadRequest(new { error = "docPath is required" });
 

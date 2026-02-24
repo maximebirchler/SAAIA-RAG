@@ -14,8 +14,17 @@ namespace SAAIA.Client.WinUI.Services;
 /// </summary>
 internal sealed class AppSettings
 {
+    // Core
+    private const string KBackendUrl = "backend.url";
+    private const string KShowAdvancedUi = "ui.showAdvanced";
+    private const string KAutoConnect = "ui.autoConnect";
+    private const string KProvisioningHash = "provisioning.hash";
+    private const string KLlmAutoInstallAttemptedHash = "llm.autoInstall.attemptedHash";
+    private const string KLlmMode = "llm.mode"; // embedded|docker|external
+
     // Keys (LocalSettings compatibility)
     private const string KUseLocalLlm = "llm.useLocal";
+    private const string KManageLocalLlmProcess = "llm.manageProcess";
     private const string KAutoStart = "llm.autoStartOnConnect";
     private const string KExePath = "llm.llamaExePath";
     private const string KModelPath = "llm.modelPath";
@@ -24,9 +33,48 @@ internal sealed class AppSettings
     private const string KModelId = "llm.modelId";
     private const string KExtraArgs = "llm.extraArgs";
     private const string KStartupTimeoutSec = "llm.startupTimeoutSec";
+
+    // Safe tuning (must not break RAG)
+    private const string KStrictMode = "llm.strictMode";
+    private const string KLlmTemperature = "llm.temperature";
+    private const string KLlmMaxOutputTokens = "llm.maxOutputTokens";
+    private const string KRagQualityPreset = "rag.qualityPreset";
+
     private const string KLastSessionId = "chat.lastSessionId";
 
-    public bool UseLocalLlm { get; set; } = false;
+    public string BackendUrl { get; set; } = ClientDefaults.BackendBaseUrl;
+
+    /// <summary>
+    /// UI: when false, the app hides all advanced/provisioning-risky fields.
+    /// This is the default for end users.
+    /// </summary>
+    public bool ShowAdvancedUi { get; set; } = false;
+
+    /// <summary>
+    /// UI: auto connect at startup when provisioning is present.
+    /// </summary>
+    public bool AutoConnect { get; set; } = true;
+
+    /// <summary>
+    /// LLM enable/disable (safe). If false: app runs in degraded "search-only" mode.
+    /// Note: historically named UseLocalLlm.
+    /// </summary>
+    public bool UseLocalLlm { get; set; } = true;
+
+    /// <summary>
+    /// How the client obtains the LLM endpoint:
+    ///  - embedded: client downloads model and starts a local llama.cpp server (recommended)
+    ///  - docker: endpoint is provided by Docker/script (dev/test)
+    ///  - external: endpoint is managed externally (IT/service)
+    /// </summary>
+    public string LlmMode { get; set; } = "embedded";
+
+    /// <summary>
+    /// Advanced: whether the client should manage a local llama.cpp process.
+    /// Default false (use an already-running OpenAI-compatible endpoint).
+    /// </summary>
+    public bool ManageLocalLlmProcess { get; set; } = true;
+
     public bool AutoStartOnConnect { get; set; } = true;
 
     public string LlamaExePath { get; set; } = "";
@@ -41,6 +89,24 @@ internal sealed class AppSettings
 
     public int StartupTimeoutSeconds { get; set; } = 60;
 
+    /// <summary>Safe tuning: strict mode reduces non-sourced content.</summary>
+    public bool StrictMode { get; set; } = false;
+
+    /// <summary>Safe tuning: temperature (0..1). Higher => more creative.</summary>
+    public double LlmTemperature { get; set; } = 0.2;
+
+    /// <summary>Safe tuning: max tokens for the final answer.</summary>
+    public int LlmMaxOutputTokens { get; set; } = 900;
+
+    /// <summary>Safe tuning: controls retrieval depth (quick|balanced|deep).</summary>
+    public string RagQualityPreset { get; set; } = "balanced";
+
+    /// <summary>Provisioning file hash (to avoid re-applying the same provisioning every startup).</summary>
+    public string? ProvisioningHash { get; set; }
+
+    /// <summary>Internal: prevents re-running LLM auto-install on every startup.</summary>
+    public string? LlmAutoInstallAttemptedHash { get; set; }
+
     /// <summary>Last active chat session id (chat-store).</summary>
     public string? LastSessionId { get; set; }
 
@@ -52,7 +118,14 @@ internal sealed class AppSettings
     private static string SettingsPath => Path.Combine(SettingsDir, "settings.json");
 
     private sealed record FileDto(
+        string BackendUrl,
+        bool ShowAdvancedUi,
+        bool AutoConnect,
+        string? ProvisioningHash,
+        string? LlmAutoInstallAttemptedHash,
+        string LlmMode,
         bool UseLocalLlm,
+        bool ManageLocalLlmProcess,
         bool AutoStartOnConnect,
         string LlamaExePath,
         string ModelPath,
@@ -61,6 +134,10 @@ internal sealed class AppSettings
         string ModelId,
         string ExtraArgs,
         int StartupTimeoutSeconds,
+        bool StrictMode,
+        double LlmTemperature,
+        int LlmMaxOutputTokens,
+        string RagQualityPreset,
         string? LastSessionId);
 
     public static AppSettings Load()
@@ -72,7 +149,15 @@ internal sealed class AppSettings
         {
             var ls = ApplicationData.Current.LocalSettings;
 
+            s.BackendUrl = (ls.Values[KBackendUrl] as string) ?? s.BackendUrl;
+            s.ShowAdvancedUi = (ls.Values[KShowAdvancedUi] as bool?) ?? s.ShowAdvancedUi;
+            s.AutoConnect = (ls.Values[KAutoConnect] as bool?) ?? s.AutoConnect;
+            s.ProvisioningHash = (ls.Values[KProvisioningHash] as string) ?? s.ProvisioningHash;
+            s.LlmAutoInstallAttemptedHash = (ls.Values[KLlmAutoInstallAttemptedHash] as string) ?? s.LlmAutoInstallAttemptedHash;
+            s.LlmMode = (ls.Values[KLlmMode] as string) ?? s.LlmMode;
+
             s.UseLocalLlm = (ls.Values[KUseLocalLlm] as bool?) ?? s.UseLocalLlm;
+            s.ManageLocalLlmProcess = (ls.Values[KManageLocalLlmProcess] as bool?) ?? s.ManageLocalLlmProcess;
             s.AutoStartOnConnect = (ls.Values[KAutoStart] as bool?) ?? s.AutoStartOnConnect;
 
             s.LlamaExePath = (ls.Values[KExePath] as string) ?? s.LlamaExePath;
@@ -84,6 +169,11 @@ internal sealed class AppSettings
             s.ModelId = (ls.Values[KModelId] as string) ?? s.ModelId;
             s.ExtraArgs = (ls.Values[KExtraArgs] as string) ?? s.ExtraArgs;
             s.StartupTimeoutSeconds = (ls.Values[KStartupTimeoutSec] as int?) ?? s.StartupTimeoutSeconds;
+
+            s.StrictMode = (ls.Values[KStrictMode] as bool?) ?? s.StrictMode;
+            s.LlmTemperature = (ls.Values[KLlmTemperature] as double?) ?? s.LlmTemperature;
+            s.LlmMaxOutputTokens = (ls.Values[KLlmMaxOutputTokens] as int?) ?? s.LlmMaxOutputTokens;
+            s.RagQualityPreset = (ls.Values[KRagQualityPreset] as string) ?? s.RagQualityPreset;
 
             s.LastSessionId = (ls.Values[KLastSessionId] as string) ?? s.LastSessionId;
 
@@ -104,7 +194,31 @@ internal sealed class AppSettings
             var dto = JsonSerializer.Deserialize<FileDto>(json);
             if (dto is null) return s;
 
-            s.UseLocalLlm = dto.UseLocalLlm;
+            bool Has(string name) => json.IndexOf('"' + name + '"', StringComparison.OrdinalIgnoreCase) >= 0;
+
+            if (Has(nameof(FileDto.BackendUrl)))
+                s.BackendUrl = string.IsNullOrWhiteSpace(dto.BackendUrl) ? s.BackendUrl : dto.BackendUrl;
+
+            if (Has(nameof(FileDto.ShowAdvancedUi)))
+                s.ShowAdvancedUi = dto.ShowAdvancedUi;
+
+            if (Has(nameof(FileDto.AutoConnect)))
+                s.AutoConnect = dto.AutoConnect;
+
+            if (Has(nameof(FileDto.ProvisioningHash)))
+                s.ProvisioningHash = string.IsNullOrWhiteSpace(dto.ProvisioningHash) ? null : dto.ProvisioningHash;
+
+            if (Has(nameof(FileDto.LlmAutoInstallAttemptedHash)))
+                s.LlmAutoInstallAttemptedHash = string.IsNullOrWhiteSpace(dto.LlmAutoInstallAttemptedHash) ? null : dto.LlmAutoInstallAttemptedHash;
+
+            if (Has(nameof(FileDto.LlmMode)))
+                s.LlmMode = string.IsNullOrWhiteSpace(dto.LlmMode) ? "embedded" : dto.LlmMode;
+
+            if (Has(nameof(FileDto.UseLocalLlm)))
+                s.UseLocalLlm = dto.UseLocalLlm;
+
+            if (Has(nameof(FileDto.ManageLocalLlmProcess)))
+                s.ManageLocalLlmProcess = dto.ManageLocalLlmProcess;
             s.AutoStartOnConnect = dto.AutoStartOnConnect;
             s.LlamaExePath = dto.LlamaExePath ?? "";
             s.ModelPath = dto.ModelPath ?? "";
@@ -113,6 +227,15 @@ internal sealed class AppSettings
             s.ModelId = string.IsNullOrWhiteSpace(dto.ModelId) ? ClientDefaults.LlmModel : dto.ModelId;
             s.ExtraArgs = dto.ExtraArgs ?? "";
             s.StartupTimeoutSeconds = dto.StartupTimeoutSeconds <= 0 ? 60 : dto.StartupTimeoutSeconds;
+
+            if (Has(nameof(FileDto.StrictMode)))
+                s.StrictMode = dto.StrictMode;
+            if (Has(nameof(FileDto.LlmTemperature)))
+                s.LlmTemperature = dto.LlmTemperature;
+            if (Has(nameof(FileDto.LlmMaxOutputTokens)))
+                s.LlmMaxOutputTokens = dto.LlmMaxOutputTokens;
+            if (Has(nameof(FileDto.RagQualityPreset)))
+                s.RagQualityPreset = string.IsNullOrWhiteSpace(dto.RagQualityPreset) ? "balanced" : dto.RagQualityPreset;
             s.LastSessionId = string.IsNullOrWhiteSpace(dto.LastSessionId) ? null : dto.LastSessionId;
 
             return s;
@@ -131,7 +254,19 @@ internal sealed class AppSettings
         {
             var ls = ApplicationData.Current.LocalSettings;
 
+            ls.Values[KBackendUrl] = BackendUrl ?? ClientDefaults.BackendBaseUrl;
+            ls.Values[KShowAdvancedUi] = ShowAdvancedUi;
+            ls.Values[KAutoConnect] = AutoConnect;
+            if (string.IsNullOrWhiteSpace(ProvisioningHash)) ls.Values.Remove(KProvisioningHash);
+            else ls.Values[KProvisioningHash] = ProvisioningHash;
+
+            if (string.IsNullOrWhiteSpace(LlmAutoInstallAttemptedHash)) ls.Values.Remove(KLlmAutoInstallAttemptedHash);
+            else ls.Values[KLlmAutoInstallAttemptedHash] = LlmAutoInstallAttemptedHash;
+
+            ls.Values[KLlmMode] = string.IsNullOrWhiteSpace(LlmMode) ? "embedded" : LlmMode;
+
             ls.Values[KUseLocalLlm] = UseLocalLlm;
+            ls.Values[KManageLocalLlmProcess] = ManageLocalLlmProcess;
             ls.Values[KAutoStart] = AutoStartOnConnect;
 
             ls.Values[KExePath] = LlamaExePath ?? "";
@@ -143,6 +278,11 @@ internal sealed class AppSettings
             ls.Values[KModelId] = ModelId ?? ClientDefaults.LlmModel;
             ls.Values[KExtraArgs] = ExtraArgs ?? "";
             ls.Values[KStartupTimeoutSec] = StartupTimeoutSeconds;
+
+            ls.Values[KStrictMode] = StrictMode;
+            ls.Values[KLlmTemperature] = LlmTemperature;
+            ls.Values[KLlmMaxOutputTokens] = LlmMaxOutputTokens;
+            ls.Values[KRagQualityPreset] = RagQualityPreset ?? "balanced";
 
             if (string.IsNullOrWhiteSpace(LastSessionId))
                 ls.Values.Remove(KLastSessionId);
@@ -163,7 +303,14 @@ internal sealed class AppSettings
             Directory.CreateDirectory(SettingsDir);
 
             var dto = new FileDto(
+                BackendUrl ?? ClientDefaults.BackendBaseUrl,
+                ShowAdvancedUi,
+                AutoConnect,
+                string.IsNullOrWhiteSpace(ProvisioningHash) ? null : ProvisioningHash,
+                string.IsNullOrWhiteSpace(LlmAutoInstallAttemptedHash) ? null : LlmAutoInstallAttemptedHash,
+                string.IsNullOrWhiteSpace(LlmMode) ? "embedded" : LlmMode,
                 UseLocalLlm,
+                ManageLocalLlmProcess,
                 AutoStartOnConnect,
                 LlamaExePath ?? "",
                 ModelPath ?? "",
@@ -172,6 +319,10 @@ internal sealed class AppSettings
                 ModelId ?? ClientDefaults.LlmModel,
                 ExtraArgs ?? "",
                 StartupTimeoutSeconds,
+                StrictMode,
+                LlmTemperature,
+                LlmMaxOutputTokens,
+                RagQualityPreset ?? "balanced",
                 string.IsNullOrWhiteSpace(LastSessionId) ? null : LastSessionId);
 
             var json = JsonSerializer.Serialize(dto, new JsonSerializerOptions { WriteIndented = true });
@@ -182,4 +333,71 @@ internal sealed class AppSettings
             ClientLog.Exception("AppSettings.Save(file)", ex);
         }
     }
+
+    // --- Compatibility helpers (UI / older patches) ---
+
+    // Aliases used by some UI code (avoid breaking when property names evolve).
+    public double Temperature { get => LlmTemperature; set => LlmTemperature = value; }
+    public int MaxOutputTokens { get => LlmMaxOutputTokens; set => LlmMaxOutputTokens = value; }
+    public string LlmHost { get => Host; set => Host = value; }
+    public int LlmPort { get => Port; set => Port = value; }
+
+    public AppSettings Clone() => new AppSettings
+    {
+        BackendUrl = this.BackendUrl,
+        ShowAdvancedUi = this.ShowAdvancedUi,
+        AutoConnect = this.AutoConnect,
+
+        UseLocalLlm = this.UseLocalLlm,
+        LlmMode = this.LlmMode,
+        ManageLocalLlmProcess = this.ManageLocalLlmProcess,
+        AutoStartOnConnect = this.AutoStartOnConnect,
+        LlamaExePath = this.LlamaExePath,
+        ModelPath = this.ModelPath,
+        Host = this.Host,
+        Port = this.Port,
+        ModelId = this.ModelId,
+        ExtraArgs = this.ExtraArgs,
+        StartupTimeoutSeconds = this.StartupTimeoutSeconds,
+
+        StrictMode = this.StrictMode,
+        LlmTemperature = this.LlmTemperature,
+        LlmMaxOutputTokens = this.LlmMaxOutputTokens,
+        RagQualityPreset = this.RagQualityPreset,
+
+        ProvisioningHash = this.ProvisioningHash,
+        LlmAutoInstallAttemptedHash = this.LlmAutoInstallAttemptedHash,
+        LastSessionId = this.LastSessionId
+    };
+
+    public void CopyFrom(AppSettings other)
+    {
+        if (other is null) return;
+
+        BackendUrl = other.BackendUrl;
+        ShowAdvancedUi = other.ShowAdvancedUi;
+        AutoConnect = other.AutoConnect;
+
+        UseLocalLlm = other.UseLocalLlm;
+        LlmMode = other.LlmMode;
+        ManageLocalLlmProcess = other.ManageLocalLlmProcess;
+        AutoStartOnConnect = other.AutoStartOnConnect;
+        LlamaExePath = other.LlamaExePath;
+        ModelPath = other.ModelPath;
+        Host = other.Host;
+        Port = other.Port;
+        ModelId = other.ModelId;
+        ExtraArgs = other.ExtraArgs;
+        StartupTimeoutSeconds = other.StartupTimeoutSeconds;
+
+        StrictMode = other.StrictMode;
+        LlmTemperature = other.LlmTemperature;
+        LlmMaxOutputTokens = other.LlmMaxOutputTokens;
+        RagQualityPreset = other.RagQualityPreset;
+
+        ProvisioningHash = other.ProvisioningHash;
+        LlmAutoInstallAttemptedHash = other.LlmAutoInstallAttemptedHash;
+        LastSessionId = other.LastSessionId;
+    }
+
 }

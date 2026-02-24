@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,10 +14,12 @@ using Microsoft.UI.Xaml.Media;
 
 using SAAIA.Client.WinUI.Models;
 using SAAIA.Client.WinUI.Services;
+using SAAIA.Client.WinUI.Controls;
 
 using Windows.Foundation;
 using Windows.Graphics;
 using Windows.Storage;
+using Windows.Storage.Pickers;
 using Windows.ApplicationModel.DataTransfer;
 
 namespace SAAIA.Client.WinUI;
@@ -26,6 +30,8 @@ public sealed partial class MainWindow : Window
     private readonly OpenAiLlmClient _llm = new();
     private AppSettings _appSettings = AppSettings.Load();
     private readonly LlamaCppProcessManager _llmProc = new();
+    private readonly DownloadManager _downloads = new();
+    private readonly LocalLlmBootstrapper _llmBootstrapper = new();
     private RagChatAgent? _agent;
 
     private readonly ObservableCollection<ChatMessageItem> _messages = new();
@@ -42,11 +48,24 @@ public sealed partial class MainWindow : Window
     private bool _isProgrammaticScroll = false;
     private bool _sourcesCollapsedByWidth;
 
+    private bool _setupAutoPrompted;
+
     public MainWindow()
     {
         InitializeComponent();
 
-        Root.Loaded += (_, __) => UpdateMessagesClip();
+        // Option B provisioning: installer/IT can drop a provisioning.json.
+        // Apply it before loading settings so the user has nothing to configure.
+        if (Provisioning.TryApplyIfPresent(out var provMsg))
+        {
+            ClientLog.Info(provMsg);
+        }
+
+        Root.Loaded += async (_, __) =>
+        {
+            UpdateMessagesClip();
+            await InitializeUserModeAsync();
+        };
 
         TryResize(1400, 820);
 
@@ -57,6 +76,28 @@ public sealed partial class MainWindow : Window
         LoadLocalLlmUiFromSettings();
         UpdateUiState(isGenerating: false);
         Status("Ready.");
+    }
+
+    private async Task InitializeUserModeAsync()
+    {
+        try
+        {
+            ApplyUserModeVisibility();
+            await ShowSetupWizardIfNeededAsync();
+
+            // Ensure assistant is usable (embedded by default).
+            await EnsureAssistantReadyIfNeededAsync(force: false);
+
+            // Auto-connect (default) when apiKey exists.
+            if (_appSettings.AutoConnect && _agent is null && !NeedsSetupWizard())
+            {
+                await ConnectAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Status("Init failed: " + ex.Message);
+        }
     }
 
     private void TryResize(int width, int height)
@@ -91,13 +132,14 @@ public sealed partial class MainWindow : Window
 
     private void LoadSettings()
     {
-        ServerUrlBox.Text = ClientDefaults.BackendBaseUrl;
+        _appSettings = AppSettings.Load();
+        ServerUrlBox.Text = string.IsNullOrWhiteSpace(_appSettings.BackendUrl) ? ClientDefaults.BackendBaseUrl : _appSettings.BackendUrl;
 
         _userId = SecureLocalStore.GetOrCreateUserId();
         ApiKeyBox.Password = SecureLocalStore.GetServerApiKey() ?? "";
 
-        _appSettings = AppSettings.Load();
-        LlmUrlBox.Text = _appSettings.UseLocalLlm ? _appSettings.LlmBaseUrl : ClientDefaults.LlmBaseUrl;
+        // LLM endpoint is configured in settings (usually 127.0.0.1:1234/v1). Hidden in user mode.
+        LlmUrlBox.Text = _appSettings.LlmBaseUrl;
         LlmModelBox.Text = string.IsNullOrWhiteSpace(_appSettings.ModelId) ? ClientDefaults.LlmModel : _appSettings.ModelId;
 
         _sessionId = string.IsNullOrWhiteSpace(_appSettings.LastSessionId) ? null : _appSettings.LastSessionId;
@@ -113,32 +155,507 @@ public sealed partial class MainWindow : Window
         _appSettings.Save();
     }
 
-    private async void Connect_Click(object sender, RoutedEventArgs e)
+    private bool NeedsSetupWizard()
+    {
+        var apiKey = (ApiKeyBox.Password ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(apiKey)) return true;
+        return false;
+    }
+
+    private async Task ShowSetupWizardIfNeededAsync()
+    {
+        if (_setupAutoPrompted) return;
+        _setupAutoPrompted = true;
+
+        if (!NeedsSetupWizard()) return;
+
+        await ShowSetupWizardAsync();
+    }
+
+    private async Task ShowSetupWizardAsync()
     {
         try
         {
             _userId = SecureLocalStore.GetOrCreateUserId();
 
-            _api.Configure(ClientDefaults.BackendBaseUrl, ApiKeyBox.Password, _userId);
+            var dlg = new SetupWizardDialog(
+                backendUrl: ClientDefaults.BackendBaseUrl,
+                userId: _userId,
+                apiKeyInitial: ApiKeyBox.Password,
+                settingsInitial: _appSettings,
+                llmProc: _llmProc);
 
-            _appSettings = AppSettings.Load();
-            var llmBaseUrl = _appSettings.UseLocalLlm ? _appSettings.LlmBaseUrl : ClientDefaults.LlmBaseUrl;
-            var llmModelId = string.IsNullOrWhiteSpace(_appSettings.ModelId) ? ClientDefaults.LlmModel : _appSettings.ModelId;
+            dlg.XamlRoot = Root.XamlRoot;
 
-            // Auto-start local llama.cpp if enabled (M6.1)
-            if (_appSettings.UseLocalLlm && _appSettings.AutoStartOnConnect)
+            await dlg.ShowAsync();
+
+            if (dlg.Applied)
             {
-                var started = await EnsureLocalLlmStartedAsync(CancellationToken.None);
-                if (!started)
-                    Status("Local LLM start failed. See LLM panel for details.");
+                LoadSettings();
+                LoadLocalLlmUiFromSettings();
+                ApplyUserModeVisibility();
+                Status("Setup saved.");
+
+                if (_appSettings.AutoConnect && _agent is null && !NeedsSetupWizard())
+                    await ConnectAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Status("Setup wizard failed: " + ex.Message);
+        }
+    }
+
+
+    private async Task TryAutoInstallIfConfiguredAsync()
+    {
+        try
+        {
+            _appSettings = AppSettings.Load();
+
+            // Only if assistant is enabled.
+            if (!_appSettings.UseLocalLlm) return;
+
+            var (st, _, _) = await LlmEndpointProbe.GetModelsStatusAsync(_appSettings.LlmBaseUrl, TimeSpan.FromSeconds(2), CancellationToken.None);
+            if (st == LlmModelsStatus.Ok) return;
+
+            // If model is already loading, do not attempt an install (wait for IT/docker).
+            if (st == LlmModelsStatus.Loading)
+            {
+                Status("Assistant IA : chargement du modèle…");
+                return;
             }
 
-            _llm.Configure(llmBaseUrl, llmModelId);
-            _agent = new RagChatAgent(_api, _llm);
+            // Preferred: Option B (docker + model) via elevated installer script.
+            if (Provisioning.TryGetLlmAutoInstall(out var autoLlm, out var scriptPath) && autoLlm)
+            {
+                if (!string.IsNullOrWhiteSpace(scriptPath) && File.Exists(scriptPath))
+                {
+                    // Prevent re-running every startup.
+                    if (!string.IsNullOrWhiteSpace(_appSettings.ProvisioningHash) &&
+                        string.Equals(_appSettings.ProvisioningHash, _appSettings.LlmAutoInstallAttemptedHash, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return;
+                    }
 
-            // reflect in UI
-            LlmUrlBox.Text = llmBaseUrl;
-            LlmModelBox.Text = llmModelId;
+                    var title = new TextBlock
+                    {
+                        Text = "Installation / réparation de l’assistant IA…",
+                        TextWrapping = TextWrapping.Wrap
+                    };
+
+                    var detail = new TextBlock
+                    {
+                        Text = "Une fenêtre Windows peut demander une autorisation (UAC).",
+                        Opacity = 0.85,
+                        TextWrapping = TextWrapping.Wrap
+                    };
+
+                    var bar = new ProgressBar
+                    {
+                        IsIndeterminate = true,
+                        Height = 6,
+                        Minimum = 0,
+                        Maximum = 1
+                    };
+
+                    var panel = new StackPanel { Spacing = 12 };
+                    panel.Children.Add(title);
+                    panel.Children.Add(bar);
+                    panel.Children.Add(detail);
+
+                    using var cts = new CancellationTokenSource();
+
+                    var dlg = new ContentDialog
+                    {
+                        Title = "Préparation",
+                        Content = panel,
+                        CloseButtonText = "Annuler",
+                        XamlRoot = Root.XamlRoot
+                    };
+
+                    dlg.CloseButtonClick += (_, __) =>
+                    {
+                        try { cts.Cancel(); } catch { }
+                    };
+
+                    var showTask = dlg.ShowAsync().AsTask();
+
+                    try
+                    {
+                        detail.Text = "Lancement de l’installation…";
+                        var (ok, err) = await LlmInstallScriptRunner.RunElevatedAsync(scriptPath, cts.Token);
+
+                        if (!ok)
+                        {
+                            detail.Text = "Installation annulée ou échouée."
+                                          + (string.IsNullOrWhiteSpace(err) ? "" : ("\n" + err));
+                            await Task.Delay(1200);
+                            return;
+                        }
+
+                        detail.Text = "Démarrage de l’assistant…";
+                        var deadline = DateTime.UtcNow.AddMinutes(10);
+
+                        while (!cts.IsCancellationRequested && DateTime.UtcNow < deadline)
+                        {
+                            var (s2, _, _) = await LlmEndpointProbe.GetModelsStatusAsync(_appSettings.LlmBaseUrl, TimeSpan.FromSeconds(3), CancellationToken.None);
+                            if (s2 == LlmModelsStatus.Ok)
+                            {
+                                detail.Text = "Assistant prêt.";
+                                _appSettings.LlmAutoInstallAttemptedHash = _appSettings.ProvisioningHash;
+                                _appSettings.Save();
+                                await Task.Delay(600);
+                                return;
+                            }
+
+                            detail.Text = s2 == LlmModelsStatus.Loading
+                                ? "Chargement du modèle…"
+                                : "Attente de l’assistant…";
+
+                            await Task.Delay(1500, cts.Token);
+                        }
+
+                        detail.Text = "Timeout : l’assistant n’a pas répondu à temps.";
+                        await Task.Delay(1200);
+                    }
+                    catch
+                    {
+                        // ignore
+                    }
+                    finally
+                    {
+                        try { dlg.Hide(); } catch { }
+                        try { await showTask; } catch { }
+                    }
+
+                    return;
+                }
+            }
+
+            // Fallback (legacy): installer/IT may provide a download plan.
+            if (!Provisioning.TryGetDownloadAssets(out var assets, out var auto) || !auto)
+                return;
+
+            var titleDl = new TextBlock
+            {
+                Text = "Téléchargement de l’assistant IA…",
+                TextWrapping = TextWrapping.Wrap
+            };
+
+            var detailDl = new TextBlock
+            {
+                Text = "",
+                Opacity = 0.85,
+                TextWrapping = TextWrapping.Wrap
+            };
+
+            var barDl = new ProgressBar
+            {
+                IsIndeterminate = true,
+                Height = 6,
+                Minimum = 0,
+                Maximum = 1
+            };
+
+            var panelDl = new StackPanel { Spacing = 12 };
+            panelDl.Children.Add(titleDl);
+            panelDl.Children.Add(barDl);
+            panelDl.Children.Add(detailDl);
+
+            using var ctsDl = new CancellationTokenSource();
+
+            var dlgDl = new ContentDialog
+            {
+                Title = "Préparation",
+                Content = panelDl,
+                CloseButtonText = "Annuler",
+                XamlRoot = Root.XamlRoot
+            };
+
+            dlgDl.CloseButtonClick += (_, __) =>
+            {
+                try { ctsDl.Cancel(); } catch { }
+            };
+
+            var showTaskDl = dlgDl.ShowAsync().AsTask();
+
+            try
+            {
+                var prog = new Progress<DownloadManager.ProgressInfo>(p =>
+                {
+                    if (p.TotalBytes is long tot && tot > 0)
+                    {
+                        barDl.IsIndeterminate = false;
+                        barDl.Maximum = tot;
+                        barDl.Value = Math.Min(tot, Math.Max(0, p.DownloadedBytes));
+                    }
+                    else
+                    {
+                        barDl.IsIndeterminate = true;
+                    }
+
+                    detailDl.Text = p.Stage switch
+                    {
+                        "verify" => $"Vérification : {p.Id}",
+                        "download" => $"Téléchargement : {p.Id}",
+                        "done" => $"OK : {p.Id}",
+                        _ => p.Stage
+                    };
+                });
+
+                var mgr = new DownloadManager();
+                var installed = await mgr.InstallAsync(assets, prog, ctsDl.Token);
+                ApplyInstalledAssetsToSettings(installed);
+            }
+            catch
+            {
+                // ignore
+            }
+            finally
+            {
+                try { dlgDl.Hide(); } catch { }
+                try { await showTaskDl; } catch { }
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    private async Task EnsureAssistantReadyIfNeededAsync(bool force)
+    {
+        try
+        {
+            _appSettings = AppSettings.Load();
+            if (!_appSettings.UseLocalLlm) return;
+
+            var (st, _, _) = await LlmEndpointProbe.GetModelsStatusAsync(_appSettings.LlmBaseUrl, TimeSpan.FromSeconds(2), CancellationToken.None);
+            if (st == LlmModelsStatus.Ok) return;
+
+            // Avoid re-running every startup when provisioning didn't change.
+            if (!force && !string.IsNullOrWhiteSpace(_appSettings.ProvisioningHash) &&
+                string.Equals(_appSettings.ProvisioningHash, _appSettings.LlmAutoInstallAttemptedHash, StringComparison.OrdinalIgnoreCase))
+            {
+                Status("Assistant IA : réparation requise (Paramètres → Installer / réparer). ");
+                return;
+            }
+
+            var mode = (_appSettings.LlmMode ?? "embedded").Trim().ToLowerInvariant();
+
+            if (mode == "docker")
+            {
+                // Dev/test only: Option B via script (UAC + PowerShell).
+                await TryAutoInstallIfConfiguredAsync();
+                return;
+            }
+
+            await EnsureEmbeddedAssistantAsync(force);
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    private async Task EnsureEmbeddedAssistantAsync(bool force)
+    {
+        // UI dialog with progress; no PowerShell/UAC needed.
+        var title = new TextBlock { Text = "Préparation de l’assistant IA…", TextWrapping = TextWrapping.Wrap };
+        var detail = new TextBlock { Text = "Vérification…", Opacity = 0.85, TextWrapping = TextWrapping.Wrap };
+        var bar = new ProgressBar { IsIndeterminate = true, Height = 6, Minimum = 0, Maximum = 1 };
+
+        var panel = new StackPanel { Spacing = 12 };
+        panel.Children.Add(title);
+        panel.Children.Add(bar);
+        panel.Children.Add(detail);
+
+        using var cts = new CancellationTokenSource();
+
+        var dlg = new ContentDialog
+        {
+            Title = "Assistant",
+            Content = panel,
+            CloseButtonText = "Annuler",
+            XamlRoot = Root.XamlRoot
+        };
+
+        dlg.CloseButtonClick += (_, __) =>
+        {
+            try { cts.Cancel(); } catch { }
+        };
+
+        var showTask = dlg.ShowAsync().AsTask();
+
+        try
+        {
+            var prog = new Progress<DownloadManager.ProgressInfo>(p =>
+            {
+                if (p.TotalBytes is long tot && tot > 0)
+                {
+                    bar.IsIndeterminate = false;
+                    bar.Maximum = tot;
+                    bar.Value = Math.Min(tot, Math.Max(0, p.DownloadedBytes));
+                }
+                else
+                {
+                    bar.IsIndeterminate = true;
+                }
+
+                detail.Text = p.Stage switch
+                {
+                    "verify" => $"Vérification : {p.Id}",
+                    "download" => $"Téléchargement : {p.Id}",
+                    "done" => $"OK : {p.Id}",
+                    _ => p.Stage
+                };
+            });
+
+            detail.Text = "Préparation des fichiers…";
+            var (ok, msg, _) = await _llmBootstrapper.EnsureAsync(_appSettings, force, prog, cts.Token);
+            if (!ok)
+            {
+                detail.Text = "Échec : " + msg;
+                await Task.Delay(1200);
+                return;
+            }
+
+            detail.Text = "Démarrage de l’assistant…";
+            _appSettings = AppSettings.Load();
+            _appSettings.ManageLocalLlmProcess = true;
+            _appSettings.LlmMode = "embedded";
+            _appSettings.Save();
+
+            var (startedOk, startedMsg) = await _llmProc.StartAsync(_appSettings, cts.Token);
+            if (!startedOk)
+            {
+                detail.Text = "Échec : " + startedMsg;
+                await Task.Delay(1200);
+                return;
+            }
+
+            detail.Text = "Assistant prêt.";
+            if (!string.IsNullOrWhiteSpace(_appSettings.ProvisioningHash))
+            {
+                _appSettings.LlmAutoInstallAttemptedHash = _appSettings.ProvisioningHash;
+                _appSettings.Save();
+            }
+
+            await Task.Delay(600);
+        }
+        catch (OperationCanceledException)
+        {
+            // ignore
+        }
+        catch
+        {
+            // ignore
+        }
+        finally
+        {
+            try { dlg.Hide(); } catch { }
+            try { await showTask; } catch { }
+        }
+    }
+
+    private void ApplyInstalledAssetsToSettings(IReadOnlyList<string> installed)
+    {
+        try
+        {
+            _appSettings = AppSettings.Load();
+
+            var exe = installed.FirstOrDefault(p => p.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
+            var gguf = installed.FirstOrDefault(p => p.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrWhiteSpace(exe))
+                _appSettings.LlamaExePath = exe;
+
+            if (!string.IsNullOrWhiteSpace(gguf))
+            {
+                _appSettings.ModelPath = gguf;
+                _appSettings.ModelId = Path.GetFileName(gguf);
+            }
+
+            if (!string.IsNullOrWhiteSpace(exe) && !string.IsNullOrWhiteSpace(gguf))
+            {
+                _appSettings.ManageLocalLlmProcess = true;
+                _appSettings.AutoStartOnConnect = true;
+                _appSettings.UseLocalLlm = true;
+
+                _appSettings.Host = "127.0.0.1";
+                _appSettings.Port = 1234;
+            }
+
+            _appSettings.Save();
+
+            // Refresh UI (even in user mode)
+            LoadSettings();
+            LoadLocalLlmUiFromSettings();
+            ApplyUserModeVisibility();
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+    private async void SetupWizard_Click(object sender, RoutedEventArgs e)
+    {
+        await ShowSetupWizardAsync();
+    }
+
+    private async void Connect_Click(object sender, RoutedEventArgs e)
+    {
+        await ConnectAsync();
+    }
+
+    private async Task ConnectAsync()
+    {
+        try
+        {
+            _userId = SecureLocalStore.GetOrCreateUserId();
+
+            _appSettings = AppSettings.Load();
+            var backendUrl = string.IsNullOrWhiteSpace(_appSettings.BackendUrl) ? ClientDefaults.BackendBaseUrl : _appSettings.BackendUrl;
+            _api.Configure(backendUrl, ApiKeyBox.Password, _userId);
+
+            // LLM endpoint (usually already running via Docker/service). In user mode we do NOT manage a process.
+            // Advanced mode can manage llama.cpp if ManageLocalLlmProcess is true.
+            if (_appSettings.ManageLocalLlmProcess && _appSettings.UseLocalLlm && _appSettings.AutoStartOnConnect)
+            {
+                var started = _appSettings.ShowAdvancedUi
+                    ? await EnsureLocalLlmStartedAsync(CancellationToken.None)
+                    : await EnsureLocalLlmStartedFromSettingsAsync(CancellationToken.None);
+                if (!started)
+                    Status("Local LLM start failed. Mode dégradé possible.");
+            }
+
+            // Configure LLM (even if disabled; agent will handle degraded mode)
+            var llmBaseUrl = _appSettings.LlmBaseUrl;
+            var llmModelId = string.IsNullOrWhiteSpace(_appSettings.ModelId) ? ClientDefaults.LlmModel : _appSettings.ModelId;
+
+            // If modelId is invalid, auto-fallback to the first /v1/models (safe, prevents breaking).
+            try
+            {
+                _llm.Configure(llmBaseUrl, llmModelId);
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(4));
+                var models = await _llm.ListModelsAsync(cts.Token);
+                if (models.Count > 0 && !models.Any(m => string.Equals(m, llmModelId, StringComparison.OrdinalIgnoreCase)))
+                {
+                    _appSettings.ModelId = models[0];
+                    _appSettings.Save();
+                    llmModelId = models[0];
+                    _llm.Configure(llmBaseUrl, llmModelId);
+                }
+            }
+            catch
+            {
+                // LLM might be down; keep config and continue (degraded mode supported).
+                _llm.Configure(llmBaseUrl, llmModelId);
+            }
+
+            _agent = new RagChatAgent(_api, _llm);
+            _agent.ApplySettings(_appSettings);
 
             SaveSettings();
 
@@ -162,7 +679,50 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private async Task RefreshSessionsAsync(string? preferSessionId, CancellationToken ct)
+    private void ApplyUserModeVisibility()
+    {
+        _appSettings = AppSettings.Load();
+
+        var showAdv = _appSettings.ShowAdvancedUi;
+        SetupButton.Visibility = (showAdv || NeedsSetupWizard()) ? Visibility.Visible : Visibility.Collapsed;
+        LlmSettingsButton.Visibility = showAdv ? Visibility.Visible : Visibility.Collapsed;
+        ConnectButton.Visibility = showAdv ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private async Task RepairAssistantAsync()
+    {
+        await EnsureAssistantReadyIfNeededAsync(force: true);
+    }
+
+    private async void UserSettings_Click(object sender, RoutedEventArgs e)
+{
+    try
+    {
+        // Reload settings (they might have been provisioned or edited externally)
+        _appSettings = AppSettings.Load();
+
+        var dlg = new UserSettingsDialog(_appSettings, RepairAssistantAsync);
+        dlg.XamlRoot = Root.XamlRoot;
+
+        var res = await dlg.ShowAsync();
+        if (res == ContentDialogResult.Primary)
+        {
+            _appSettings = dlg.UpdatedSettings;
+            _appSettings.Save();
+
+            // Apply live to the running agent
+            _agent?.ApplySettings(_appSettings);
+
+            Status("Settings applied.");
+        }
+    }
+    catch (Exception ex)
+    {
+        Status("Settings failed: " + ex.Message);
+    }
+}
+
+private async Task RefreshSessionsAsync(string? preferSessionId, CancellationToken ct)
     {
         var list = await _api.ListSessionsAsync(ct, limit: 200, offset: 0);
 
@@ -818,6 +1378,7 @@ public sealed partial class MainWindow : Window
 
             LocalLlmStatusText.Text = _llmProc.IsRunning ? "Running." : "";
             LocalLlmCmdLineBox.Text = _llmProc.LastCommandLine ?? "";
+            RefreshLocalLlmModelInfoText();
         }
         catch
         {
@@ -835,6 +1396,10 @@ public sealed partial class MainWindow : Window
         s.LlamaExePath = (LocalLlmExePathBox.Text ?? "").Trim();
         s.ModelPath = (LocalLlmModelPathBox.Text ?? "").Trim();
 
+        // If exe+model are provided, assume integrator wants process management.
+        if (!string.IsNullOrWhiteSpace(s.LlamaExePath) && !string.IsNullOrWhiteSpace(s.ModelPath))
+            s.ManageLocalLlmProcess = true;
+
         s.Host = string.IsNullOrWhiteSpace(LocalLlmHostBox.Text) ? "127.0.0.1" : LocalLlmHostBox.Text.Trim();
 
         if (int.TryParse((LocalLlmPortBox.Text ?? "").Trim(), out var p) && p > 0) s.Port = p;
@@ -846,6 +1411,31 @@ public sealed partial class MainWindow : Window
         return s;
     }
 
+
+    private async Task<bool> EnsureLocalLlmStartedFromSettingsAsync(CancellationToken ct)
+    {
+        _appSettings = AppSettings.Load();
+
+        if (string.IsNullOrWhiteSpace(_appSettings.LlamaExePath) || string.IsNullOrWhiteSpace(_appSettings.ModelPath))
+            return false;
+
+        try { LocalLlmStatusText.Text = "Starting llama.cpp…"; } catch { }
+
+        var (ok, msg) = await _llmProc.StartAsync(_appSettings, ct);
+
+        try
+        {
+            LocalLlmCmdLineBox.Text = _llmProc.LastCommandLine ?? "";
+            LocalLlmStatusText.Text = msg;
+        }
+        catch { }
+
+        // reflect URL/model
+        LlmUrlBox.Text = _appSettings.LlmBaseUrl;
+        LlmModelBox.Text = _appSettings.ModelId;
+
+        return ok;
+    }
     private async Task<bool> EnsureLocalLlmStartedAsync(CancellationToken ct)
     {
         _appSettings = ReadLocalLlmSettingsFromUi();
@@ -908,4 +1498,144 @@ public sealed partial class MainWindow : Window
         }
     }
 
+
+    // =========================
+    // M6.2 - Model library (import + sha256)
+    // =========================
+
+    private void RefreshLocalLlmModelInfoText()
+    {
+        try
+        {
+            var path = (LocalLlmModelPathBox.Text ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                LocalLlmModelInfoText.Text = "";
+                return;
+            }
+
+            var info = ModelLibrary.TryGetByPath(path);
+            if (info is null)
+            {
+                if (File.Exists(path))
+                {
+                    var fi = new FileInfo(path);
+                    var sizeMb = fi.Length / 1024d / 1024d;
+                    LocalLlmModelInfoText.Text = $"Size: {sizeMb:0.0} MB (not in library)";
+                }
+                else
+                {
+                    LocalLlmModelInfoText.Text = "File not found.";
+                }
+                return;
+            }
+
+            var libSizeMb = info.SizeBytes / 1024d / 1024d;
+            var shaShort = info.Sha256.Length > 12 ? info.Sha256.Substring(0, 12) : info.Sha256;
+            LocalLlmModelInfoText.Text = $"Library: {info.Id} | {libSizeMb:0.0} MB | sha256 {shaShort}…";
+        }
+        catch
+        {
+            LocalLlmModelInfoText.Text = "";
+        }
+    }
+
+    private async Task<string?> PickFilePathAsync(params string[] extensions)
+    {
+        var picker = new FileOpenPicker();
+        foreach (var ext in extensions) picker.FileTypeFilter.Add(ext);
+
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+
+        var file = await picker.PickSingleFileAsync();
+        return file?.Path;
+    }
+
+    private async void LocalLlmBrowseExe_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var path = await PickFilePathAsync(".exe");
+            if (!string.IsNullOrWhiteSpace(path))
+                LocalLlmExePathBox.Text = path;
+        }
+        catch (Exception ex)
+        {
+            LocalLlmStatusText.Text = "Browse failed: " + ex.Message;
+        }
+    }
+
+    private async void LocalLlmBrowseModel_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var path = await PickFilePathAsync(".gguf");
+            if (!string.IsNullOrWhiteSpace(path))
+            {
+                LocalLlmModelPathBox.Text = path;
+                if (string.IsNullOrWhiteSpace(LocalLlmModelIdBox.Text))
+                    LocalLlmModelIdBox.Text = Path.GetFileName(path);
+
+                RefreshLocalLlmModelInfoText();
+            }
+        }
+        catch (Exception ex)
+        {
+            LocalLlmStatusText.Text = "Browse failed: " + ex.Message;
+        }
+    }
+
+    private async void LocalLlmImportModel_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var src = (LocalLlmModelPathBox.Text ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(src) || !File.Exists(src))
+            {
+                LocalLlmStatusText.Text = "Select a .gguf file first.";
+                return;
+            }
+
+            LocalLlmStatusText.Text = "Importing model…";
+            var entry = await ModelLibrary.ImportAsync(src, CancellationToken.None);
+
+            LocalLlmModelPathBox.Text = entry.FullPath;
+            LocalLlmModelIdBox.Text = entry.Id;
+
+            _appSettings = ReadLocalLlmSettingsFromUi();
+            _appSettings.ModelPath = entry.FullPath;
+            _appSettings.ModelId = entry.Id;
+            _appSettings.Save();
+
+            // reflect URL/model in top bar
+            LlmUrlBox.Text = _appSettings.UseLocalLlm ? _appSettings.LlmBaseUrl : ClientDefaults.LlmBaseUrl;
+            LlmModelBox.Text = _appSettings.ModelId;
+
+            RefreshLocalLlmModelInfoText();
+            LocalLlmStatusText.Text = $"Imported to {ModelLibrary.ModelsDir}";
+        }
+        catch (Exception ex)
+        {
+            LocalLlmStatusText.Text = "Import failed: " + ex.Message;
+        }
+    }
+
+    private void LocalLlmOpenModelsFolder_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Directory.CreateDirectory(ModelLibrary.ModelsDir);
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = ModelLibrary.ModelsDir,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            LocalLlmStatusText.Text = "Open folder failed: " + ex.Message;
+        }
+    }
 }

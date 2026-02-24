@@ -1,0 +1,101 @@
+<ContentDialog
+    x:Class="SAAIA.Client.WinUI.Controls.SetupWizardDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="Setup (First run)"
+    PrimaryButtonText="Apply"
+    CloseButtonText="Cancel"
+    DefaultButton="Primary"
+    PrimaryButtonClick="Dialog_PrimaryButtonClick">
+
+    <ScrollViewer MaxWidth="760" MaxHeight="760"
+                  VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="14">
+
+            <!-- BACKEND -->
+            <TextBlock Text="Backend" FontWeight="SemiBold" FontSize="16"/>
+            <TextBlock Text="Le serveur SAAIA (RAG) est on-prem. Cette étape vérifie /ready." Opacity="0.75" TextWrapping="Wrap"/>
+
+            <TextBox x:Name="BackendUrlBox" IsReadOnly="True" />
+
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Content="Test /ready" Click="TestReady_Click" MinWidth="120"/>
+                <TextBlock x:Name="ReadyStatusText" VerticalAlignment="Center" Opacity="0.85" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <TextBox x:Name="ReadyRawBox"
+                     IsReadOnly="True"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     Visibility="Collapsed"
+                     MinHeight="72"/>
+
+            <Rectangle Height="1" Fill="#2D2D2D" Margin="0,6,0,6"/>
+
+            <!-- API KEY -->
+            <TextBlock Text="API Key" FontWeight="SemiBold" FontSize="16"/>
+            <TextBlock Text="Cette clé est stockée localement (DPAPI) et sert à accéder au chat-store (sessions/messages)." Opacity="0.75" TextWrapping="Wrap"/>
+
+            <PasswordBox x:Name="ApiKeyBox" PlaceholderText="X-Api-Key"/>
+
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Content="Test API key" Click="TestApiKey_Click" MinWidth="120"/>
+                <TextBlock x:Name="ApiKeyStatusText" VerticalAlignment="Center" Opacity="0.85" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <Rectangle Height="1" Fill="#2D2D2D" Margin="0,6,0,6"/>
+
+            <!-- LOCAL LLM (advanced / integrator) -->
+            <StackPanel x:Name="LlmSection" Spacing="14">
+
+                <TextBlock Text="Local LLM (advanced)" FontWeight="SemiBold" FontSize="16"/>
+                <TextBlock Text="Section avancée (intégrateur). En usage standard, l'app utilise un endpoint OpenAI-compatible déjà lancé (ex: Docker)." Opacity="0.75" TextWrapping="Wrap"/>
+
+                <CheckBox x:Name="UseLocalLlmCheck" Content="Enable assistant (LLM)"/>
+                <CheckBox x:Name="AutoStartCheck" Content="Auto-start local LLM process on Connect"/>
+
+                <TextBlock Text="Server executable (llama-server.exe)" FontWeight="SemiBold"/>
+                <TextBox x:Name="LlamaExeBox" PlaceholderText="C:\SAAIA\llm\llama-server.exe"/>
+
+                <TextBlock Text="Model (.gguf)" FontWeight="SemiBold"/>
+                <TextBox x:Name="ModelPathBox" PlaceholderText="C:\SAAIA\models\model.gguf"/>
+
+                <Grid ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*"/>
+                        <ColumnDefinition Width="1*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Spacing="4">
+                        <TextBlock Text="Host" FontWeight="SemiBold"/>
+                        <TextBox x:Name="HostBox" PlaceholderText="127.0.0.1"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Spacing="4">
+                        <TextBlock Text="Port" FontWeight="SemiBold"/>
+                        <TextBox x:Name="PortBox" PlaceholderText="1234"/>
+                    </StackPanel>
+                </Grid>
+
+                <TextBlock Text="Model ID (OpenAI 'model')" FontWeight="SemiBold"/>
+                <TextBox x:Name="ModelIdBox" PlaceholderText="Mistral-7B-Instruct-v0.3-IQ3_M.gguf"/>
+
+                <TextBlock Text="Extra args (optional)" FontWeight="SemiBold"/>
+                <TextBox x:Name="ExtraArgsBox" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="54"/>
+
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <Button Content="Test /v1/models" Click="TestModels_Click" MinWidth="140"/>
+                    <Button Content="Start local LLM" Click="StartLocalLlm_Click" MinWidth="140"/>
+                    <Button Content="Stop" Click="StopLocalLlm_Click" MinWidth="90"/>
+                </StackPanel>
+
+                <TextBlock x:Name="LlmStatusText" Opacity="0.85" TextWrapping="Wrap"/>
+
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</ContentDialog>

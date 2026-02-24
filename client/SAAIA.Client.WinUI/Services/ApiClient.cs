@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -57,6 +58,77 @@ public sealed class ApiClient
         return req;
     }
 
+    private async Task<HttpResponseMessage> SendWithRateLimitRetryAsync(Func<HttpRequestMessage> reqFactory, CancellationToken ct)
+    {
+        // Retry once on 429 (rate limit), honoring Retry-After when present.
+        const int maxAttempts = 2;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            using var req = reqFactory();
+            var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
+
+            if (resp.StatusCode != (HttpStatusCode)429 || attempt == maxAttempts)
+                return resp;
+
+            var delay = GetRetryAfterDelay(resp);
+            resp.Dispose();
+
+            if (delay > TimeSpan.Zero)
+                await Task.Delay(delay, ct).ConfigureAwait(false);
+        }
+
+        // unreachable
+        throw new Exception("Unexpected send retry loop termination.");
+    }
+
+    private static TimeSpan GetRetryAfterDelay(HttpResponseMessage resp)
+    {
+        var ra = resp.Headers.RetryAfter;
+        var delay = TimeSpan.FromSeconds(2);
+
+        if (ra?.Delta is TimeSpan d)
+        {
+            delay = d;
+        }
+        else if (ra?.Date is DateTimeOffset dto)
+        {
+            var computed = dto - DateTimeOffset.UtcNow;
+            if (computed > TimeSpan.Zero)
+                delay = computed;
+        }
+
+        if (delay < TimeSpan.Zero) delay = TimeSpan.Zero;
+        if (delay > TimeSpan.FromSeconds(60)) delay = TimeSpan.FromSeconds(60);
+        return delay;
+    }
+
+
+    // ---------------------
+    // Diagnostics
+    // ---------------------
+
+    public async Task<(bool ok, string raw)> ReadyAsync(CancellationToken ct)
+    {
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, "/ready"), ct).ConfigureAwait(false);
+        var raw = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+
+        if (!resp.IsSuccessStatusCode)
+            return (false, raw);
+
+        try
+        {
+            using var doc = JsonDocument.Parse(raw);
+            if (doc.RootElement.TryGetProperty("ok", out var p) && p.ValueKind == JsonValueKind.True)
+                return (true, raw);
+        }
+        catch { }
+
+        // If parsing fails, still treat 2xx as OK.
+        return (true, raw);
+    }
+
+
     // ---------------------
     // Chat-store (CDC v2.7)
     // ---------------------
@@ -70,8 +142,7 @@ public sealed class ApiClient
             clientUser
         }, JsonOpts);
 
-        using var req = NewRequest(HttpMethod.Post, "/chat/sessions", body);
-        using var resp = await _http.SendAsync(req, ct);
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Post, "/chat/sessions", body), ct);
         resp.EnsureSuccessStatusCode();
 
         var json = await resp.Content.ReadAsStringAsync(ct);
@@ -85,8 +156,7 @@ public sealed class ApiClient
         var lim = Math.Clamp(limit, 1, 200);
         var off = Math.Max(0, offset);
 
-        using var req = NewRequest(HttpMethod.Get, $"/chat/sessions?userId={uid}&limit={lim}&offset={off}");
-        using var resp = await _http.SendAsync(req, ct);
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, $"/chat/sessions?userId={uid}&limit={lim}&offset={off}"), ct);
         resp.EnsureSuccessStatusCode();
 
         var json = await resp.Content.ReadAsStringAsync(ct);
@@ -159,8 +229,7 @@ public sealed class ApiClient
             title
         }, JsonOpts);
 
-        using var req = NewRequest(HttpMethod.Patch, $"/chat/sessions/{sessionId}?userId={uid}", body);
-        using var resp = await _http.SendAsync(req, ct);
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Patch, $"/chat/sessions/{sessionId}?userId={uid}", body), ct);
         resp.EnsureSuccessStatusCode();
     }
 
@@ -168,8 +237,7 @@ public sealed class ApiClient
     {
         var uid = Uri.EscapeDataString(RequireUserId());
 
-        using var req = NewRequest(HttpMethod.Delete, $"/chat/sessions/{sessionId}?userId={uid}");
-        using var resp = await _http.SendAsync(req, ct);
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Delete, $"/chat/sessions/{sessionId}?userId={uid}"), ct);
         resp.EnsureSuccessStatusCode();
     }
 
@@ -189,8 +257,7 @@ public sealed class ApiClient
             sourcesJson
         }, JsonOpts);
 
-        using var req = NewRequest(HttpMethod.Post, $"/chat/sessions/{sessionId}/messages", body);
-        using var resp = await _http.SendAsync(req, ct);
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Post, $"/chat/sessions/{sessionId}/messages", body), ct);
         resp.EnsureSuccessStatusCode();
     }
 
@@ -199,8 +266,7 @@ public sealed class ApiClient
         var uid = Uri.EscapeDataString(RequireUserId());
         var lim = Math.Clamp(limit, 1, 1000);
 
-        using var req = NewRequest(HttpMethod.Get, $"/chat/sessions/{sessionId}/messages?userId={uid}&limit={lim}");
-        using var resp = await _http.SendAsync(req, ct);
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, $"/chat/sessions/{sessionId}/messages?userId={uid}&limit={lim}"), ct);
         resp.EnsureSuccessStatusCode();
 
         var json = await resp.Content.ReadAsStringAsync(ct);
@@ -316,8 +382,7 @@ public sealed class ApiClient
             mode
         }, JsonOpts);
 
-        using var req = NewRequest(HttpMethod.Post, "/rag/search", body);
-        using var resp = await _http.SendAsync(req, ct);
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Post, "/rag/search", body), ct);
         resp.EnsureSuccessStatusCode();
 
         var json = await resp.Content.ReadAsStringAsync(ct);

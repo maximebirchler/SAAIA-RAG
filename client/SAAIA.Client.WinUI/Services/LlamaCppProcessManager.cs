@@ -16,10 +16,13 @@ internal sealed class LlamaCppProcessManager
     public string? LastCommandLine { get; private set; }
     public string? LastLogFile { get; private set; }
 
-    public async Task<(bool ok, string message)> StartAsync(AppSettings s, CancellationToken ct)
+    internal async Task<(bool ok, string message)> StartAsync(AppSettings s, CancellationToken ct)
     {
         if (!s.UseLocalLlm)
-            return (false, "Local LLM is disabled.");
+            return (false, "LLM is disabled (search-only mode). ");
+
+        if (!s.ManageLocalLlmProcess)
+            return (false, "Local LLM process management is disabled.");
 
         if (IsRunning)
             return (true, "Already running.");
@@ -66,7 +69,11 @@ internal sealed class LlamaCppProcessManager
             var timeout = TimeSpan.FromSeconds(Math.Max(5, s.StartupTimeoutSeconds));
             var ok = await WaitReadyAsync(s.LlmBaseUrl, timeout, ct);
             if (!ok)
+            {
+                // Important: avoid leaving a stray llama.cpp process running when readiness fails.
+                try { Stop(); } catch { }
                 return (false, $"Started but did not become ready within {timeout.TotalSeconds:0}s. See logs: {LastLogFile}");
+            }
 
             return (true, "Ready.");
         }
@@ -118,7 +125,7 @@ internal sealed class LlamaCppProcessManager
             using var fs = new FileStream(filePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
             using var sw = new StreamWriter(fs) { AutoFlush = true };
 
-            while (!reader.EndOfStream && !ct.IsCancellationRequested)
+            while (!ct.IsCancellationRequested)
             {
                 var line = await reader.ReadLineAsync().ConfigureAwait(false);
                 if (line is null) break;

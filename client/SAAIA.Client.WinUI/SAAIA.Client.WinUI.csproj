@@ -70,4 +70,14 @@
     <ProjectReference Include="..\..\contracts\SAAIA.Contracts\SAAIA.Contracts.csproj" />
   </ItemGroup>
 
+
+  <!-- Exclude UserSettingsDialog XAML from WinUI XAML compilation (fix XamlCompiler exit code 1) -->
+  <ItemGroup>
+    <Page Remove="Controls\UserSettingsDialog.xaml" />
+    <Compile Remove="Controls\UserSettingsDialog.xaml.cs" />
+    <!-- Keep files on disk but treat as None so they don't participate in compilation -->
+    <None Include="Controls\UserSettingsDialog.xaml" />
+    <None Include="Controls\UserSettingsDialog.xaml.cs" />
+  </ItemGroup>
+
 </Project>

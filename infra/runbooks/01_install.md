@@ -1,8 +1,9 @@
 # 01 – Installation (M4)
 
 ## Pré‑requis
-- Docker Desktop
-- PowerShell 5.1+ (Windows)
+- **Windows** : Docker Desktop + PowerShell 5.1+
+- **Linux (recommandé en prod)** : Docker Engine + Docker Compose (plugin) + bash
+- **.NET SDK 8.x** (Windows/Linux) : requis pour exécuter `tools/ConfigSigner` lors de `install` / `diag -ResignOnly`
 - Ton **private key** de signature (Ed25519 RAW private key au format base64 texte) compatible avec `TrustedKeyring`.
 
 ## Étapes

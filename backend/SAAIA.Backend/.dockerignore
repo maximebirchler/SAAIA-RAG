@@ -27,3 +27,9 @@ cache/
 # --- OS files ---
 Thumbs.db
 Desktop.ini
+models/
+Images/
+**/deployment.config.json
+**/deployment.config.sig
+backend/**/appsettings.Local.json
+backend/**/appsettings.*.local.json
