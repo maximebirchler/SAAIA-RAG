@@ -24,6 +24,8 @@ internal sealed class UserSettingsDialog : ContentDialog
     private readonly AppSettings _original;
     private readonly AppSettings _working;
 
+    private readonly Func<Task>? _repairAssistantAsync;
+
     private readonly DownloadManager _downloads = new();
 
     // UI controls (safe)
@@ -43,11 +45,13 @@ internal sealed class UserSettingsDialog : ContentDialog
 
     internal AppSettings UpdatedSettings { get; private set; }
 
-    public UserSettingsDialog(AppSettings settings)
+    public UserSettingsDialog(AppSettings settings, Func<Task>? repairAssistantAsync = null)
     {
         _original = settings ?? throw new ArgumentNullException(nameof(settings));
         _working = _original.Clone();
         UpdatedSettings = _original;
+
+        _repairAssistantAsync = repairAssistantAsync;
 
         Title = "Paramètres";
         PrimaryButtonText = "Appliquer";
@@ -77,11 +81,28 @@ internal sealed class UserSettingsDialog : ContentDialog
         _style.SelectedIndex = MapStyleToIndex(_working.Temperature);
         _length.SelectedIndex = MapLenToIndex(_working.MaxOutputTokens);
 
-        _assistantRepairBtn.Click += async (_, _) => await RepairAssistantAsync().ConfigureAwait(true);
+        _assistantRepairBtn.Click += async (_, _) => await RunRepairAsync().ConfigureAwait(true);
         _exportBtn.Click += async (_, _) => await ExportSupportBundleAsync().ConfigureAwait(true);
 
         Content = BuildUi();
     }
+
+
+    // Overload used by some callers: pass XamlRoot explicitly.
+    public UserSettingsDialog(AppSettings settings, XamlRoot? xamlRoot)
+        : this(settings, xamlRoot, null)
+    {
+    }
+
+    // Overload used by some callers: pass XamlRoot explicitly + optional repair delegate.
+    public UserSettingsDialog(AppSettings settings, XamlRoot? xamlRoot, Func<Task>? repairAssistantAsync = null)
+        : this(settings, repairAssistantAsync)
+    {
+        if (xamlRoot != null)
+            XamlRoot = xamlRoot;
+    }
+
+
 
     private UIElement BuildUi()
     {
@@ -236,6 +257,44 @@ internal sealed class UserSettingsDialog : ContentDialog
         {
             _exportBtn.IsEnabled = true;
         }
+    }
+
+
+    private async Task RunRepairAsync()
+    {
+        // Preferred path: caller-provided repair action (embedded bootstrap in MainWindow).
+        if (_repairAssistantAsync is not null)
+        {
+            _assistantRepairBtn.IsEnabled = false;
+            _assistantProgress.Visibility = Visibility.Visible;
+            _assistantProgress.IsIndeterminate = true;
+            _assistantStatus.Text = "Installation / réparation en cours…";
+
+            try
+            {
+                await _repairAssistantAsync().ConfigureAwait(true);
+
+                // Post-check
+                if (await IsLlmReadyAsync().ConfigureAwait(true))
+                    _assistantStatus.Text = "Assistant prêt (LLM disponible).";
+                else
+                    _assistantStatus.Text = "Terminé. Vérification en cours…";
+            }
+            catch (Exception ex)
+            {
+                _assistantStatus.Text = "Échec : " + ex.Message;
+            }
+            finally
+            {
+                _assistantProgress.Visibility = Visibility.Collapsed;
+                _assistantRepairBtn.IsEnabled = true;
+            }
+
+            return;
+        }
+
+        // Fallback: legacy/script-based repair (dev/test).
+        await RepairAssistantAsync().ConfigureAwait(true);
     }
 
     private async Task RepairAssistantAsync()

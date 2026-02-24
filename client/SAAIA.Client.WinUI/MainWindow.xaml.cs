@@ -701,8 +701,7 @@ public sealed partial class MainWindow : Window
         // Reload settings (they might have been provisioned or edited externally)
         _appSettings = AppSettings.Load();
 
-        var dlg = new UserSettingsDialog(_appSettings, RepairAssistantAsync);
-        dlg.XamlRoot = Root.XamlRoot;
+        var dlg = new UserSettingsDialog(_appSettings, Root.XamlRoot, () => EnsureAssistantReadyIfNeededAsync(force: true));
 
         var res = await dlg.ShowAsync();
         if (res == ContentDialogResult.Primary)

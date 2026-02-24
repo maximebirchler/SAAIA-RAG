@@ -30,6 +30,13 @@ internal sealed partial class UserSettingsDialog : ContentDialog
         PrimaryButtonClick += OnPrimaryButtonClick;
     }
 
+    public UserSettingsDialog(AppSettings settings, XamlRoot? xamlRoot, Func<Task>? repairAssistantAsync = null)
+    : this(settings, repairAssistantAsync)
+    {
+        if (xamlRoot != null)
+            XamlRoot = xamlRoot;
+    }
+
     private async void RepairAssistant_Click(object sender, RoutedEventArgs e)
     {
         try
