@@ -216,7 +216,13 @@ public sealed partial class MainWindow : Window
             // Only if assistant is enabled.
             if (!_appSettings.UseLocalLlm) return;
 
-            var (st, _, _) = await LlmEndpointProbe.GetModelsStatusAsync(_appSettings.LlmBaseUrl, TimeSpan.FromSeconds(2), CancellationToken.None);
+            // Probe /v1/models (OpenAI-compatible). Avoid tuple deconstruction here to keep compilation
+            // resilient across minor signature changes.
+            var probe0 = await LlmEndpointProbe.GetModelsStatusAsync(
+                _appSettings.LlmBaseUrl,
+                TimeSpan.FromSeconds(6),
+                CancellationToken.None);
+            var st = probe0.Status;
             if (st == LlmModelsStatus.Ok) return;
 
             // If model is already loading, do not attempt an install (wait for IT/docker).
@@ -299,7 +305,11 @@ public sealed partial class MainWindow : Window
 
                         while (!cts.IsCancellationRequested && DateTime.UtcNow < deadline)
                         {
-                            var (s2, _, _) = await LlmEndpointProbe.GetModelsStatusAsync(_appSettings.LlmBaseUrl, TimeSpan.FromSeconds(3), CancellationToken.None);
+                            var probe2 = await LlmEndpointProbe.GetModelsStatusAsync(
+                                _appSettings.LlmBaseUrl,
+                                TimeSpan.FromSeconds(6),
+                                CancellationToken.None);
+                            var s2 = probe2.Status;
                             if (s2 == LlmModelsStatus.Ok)
                             {
                                 detail.Text = "Assistant prêt.";
@@ -431,12 +441,18 @@ public sealed partial class MainWindow : Window
             _appSettings = AppSettings.Load();
             if (!_appSettings.UseLocalLlm) return;
 
-            var (st, http, msg) = await LlmEndpointProbe.GetModelsStatusAsync(_appSettings.LlmBaseUrl, TimeSpan.FromSeconds(2), CancellationToken.None);
-            if (st == LlmModelsStatus.Ok) return;
+            var probe = await LlmEndpointProbe.GetModelsStatusAsync(
+                _appSettings.LlmBaseUrl,
+                TimeSpan.FromSeconds(6),
+                CancellationToken.None);
+            var st3 = probe.Status;
+            var http = probe.HttpStatus;
+            var msg = probe.ErrorMessage;
+            if (st3 == LlmModelsStatus.Ok) return;
 
             // Important: if the model is already loading, do NOT attempt any install/repair.
             // Just let the running llama-server finish loading (prevents loops / double-start).
-            if (st == LlmModelsStatus.Loading)
+            if (st3 == LlmModelsStatus.Loading)
             {
                 ClientLog.Info($"LLM endpoint reports Loading (http={http}). Skipping repair.");
                 Status("Assistant IA : chargement du modèle en cours…");
