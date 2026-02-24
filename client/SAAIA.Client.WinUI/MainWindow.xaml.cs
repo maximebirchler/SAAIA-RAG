@@ -431,8 +431,21 @@ public sealed partial class MainWindow : Window
             _appSettings = AppSettings.Load();
             if (!_appSettings.UseLocalLlm) return;
 
-            var (st, _, _) = await LlmEndpointProbe.GetModelsStatusAsync(_appSettings.LlmBaseUrl, TimeSpan.FromSeconds(2), CancellationToken.None);
+            var (st, http, msg) = await LlmEndpointProbe.GetModelsStatusAsync(_appSettings.LlmBaseUrl, TimeSpan.FromSeconds(2), CancellationToken.None);
             if (st == LlmModelsStatus.Ok) return;
+
+            // Important: if the model is already loading, do NOT attempt any install/repair.
+            // Just let the running llama-server finish loading (prevents loops / double-start).
+            if (st == LlmModelsStatus.Loading)
+            {
+                ClientLog.Info($"LLM endpoint reports Loading (http={http}). Skipping repair.");
+                Status("Assistant IA : chargement du modèle en cours…");
+                return;
+            }
+            else
+            {
+                ClientLog.Info($"LLM endpoint not ready (status={http}, msg={msg}). Proceeding with bootstrap.");
+            }
 
             // Avoid re-running every startup when provisioning didn't change.
             if (!force && !string.IsNullOrWhiteSpace(_appSettings.ProvisioningHash) &&
@@ -701,7 +714,8 @@ public sealed partial class MainWindow : Window
         // Reload settings (they might have been provisioned or edited externally)
         _appSettings = AppSettings.Load();
 
-        var dlg = new UserSettingsDialog(_appSettings, Root.XamlRoot, () => EnsureAssistantReadyIfNeededAsync(force: true));
+        var dlg = new UserSettingsDialog(_appSettings, RepairAssistantAsync);
+        dlg.XamlRoot = Root.XamlRoot;
 
         var res = await dlg.ShowAsync();
         if (res == ContentDialogResult.Primary)

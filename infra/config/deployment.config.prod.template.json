@@ -1,4 +1,4 @@
-﻿{
+{
   "Auth": {
     "ApiKeyHeaderName": "X-Api-Key",
     "Pepper": "__AUTH_PEPPER__"
@@ -54,4 +54,3 @@
     }
   }
 }
-

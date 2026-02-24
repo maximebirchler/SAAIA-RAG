@@ -22,6 +22,7 @@ internal sealed class LocalLlmBootstrapper
     private const string DefaultModelSha256 = "4ea14c5a6c787ac2703505f04a4ee746f746d1ace3ffd907af28f6f179e6b224";
 
     private readonly DownloadManager _dl = new();
+    private readonly LlamaCppReleaseDownloader _llamaDl = new();
 
     public async Task<(bool ok, string message, IReadOnlyList<string> installedPaths)> EnsureAsync(
         AppSettings s,
@@ -37,12 +38,34 @@ internal sealed class LocalLlmBootstrapper
         if (mode != "embedded")
             return (true, $"LLM mode is '{mode}' (no embedded bootstrap).", Array.Empty<string>());
 
+
+        var installed = new List<string>();
+
         // 1) Resolve executable (installer should ship it).
         var hasNvidia = await GpuDetector.HasNvidiaGpuAsync(ct).ConfigureAwait(false);
         ResolveExePath(s, hasNvidia);
 
+        // If still missing, attempt to download a CPU runtime from official llama.cpp releases.
+        // (This makes the MVP fully automatic without Docker; installer can later ship the exe.)
+        if (string.IsNullOrWhiteSpace(s.LlamaExePath) || !File.Exists(s.LlamaExePath) || force)
+        {
+            // If provisioning provides a downloads plan, we prefer it (it may include custom binaries).
+            // Otherwise, fallback to downloading llama.cpp windows CPU runtime.
+            var useProvisionedPlanForExe = Provisioning.TryGetDownloadAssets(out var assets2, out var auto2) && auto2 &&
+                                           assets2.Any(a => a.TargetRelativePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
+
+            if (!useProvisionedPlanForExe)
+            {
+                var (okExe, _, exePath) = await _llamaDl.EnsureWindowsCpuAsync(progress, ct).ConfigureAwait(false);
+                if (okExe && !string.IsNullOrWhiteSpace(exePath) && File.Exists(exePath))
+                {
+                    s.LlamaExePath = exePath;
+                    installed.Add(exePath);
+                }
+            }
+        }
+
         // 2) Resolve model path (download if missing)
-        var installed = new List<string>();
 
         if (string.IsNullOrWhiteSpace(s.ModelPath) || !File.Exists(s.ModelPath) || force)
         {
@@ -73,7 +96,7 @@ internal sealed class LocalLlmBootstrapper
         }
 
         if (string.IsNullOrWhiteSpace(s.LlamaExePath) || !File.Exists(s.LlamaExePath))
-            return (false, "Server executable not found (llama.cpp). The installer must ship it, or provisioning downloads must include it.", installed);
+            return (false, "Server executable not found (llama.cpp).", installed);
 
         if (string.IsNullOrWhiteSpace(s.ModelPath) || !File.Exists(s.ModelPath))
             return (false, "Model file not found (.gguf).", installed);
@@ -86,6 +109,13 @@ internal sealed class LocalLlmBootstrapper
         // If already set and exists, keep.
         if (!string.IsNullOrWhiteSpace(s.LlamaExePath) && File.Exists(s.LlamaExePath))
             return;
+
+        // Prefer downloaded runtime under %LOCALAPPDATA%\SAAIA\llm\runtime (MVP autop).
+        if (File.Exists(LlamaCppReleaseDownloader.CpuServerExePath))
+        {
+            s.LlamaExePath = LlamaCppReleaseDownloader.CpuServerExePath;
+            return;
+        }
 
         // Prefer shipped binaries under app directory.
         var baseDir = AppContext.BaseDirectory;

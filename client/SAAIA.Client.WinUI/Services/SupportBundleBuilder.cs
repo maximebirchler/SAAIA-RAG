@@ -62,6 +62,22 @@ internal static class SupportBundleBuilder
             CopyIfExists(Path.Combine(@"C:\SAAIA", "deploy", "llm.install.json"), Path.Combine(llmDir, "llm.install.json"));
             CopyIfExists(Path.Combine(@"C:\SAAIA", "deploy", "install-llm.log"), Path.Combine(llmDir, "install-llm.log"));
 
+            // Embedded runtime (M6): include lightweight marker files (not the whole runtime folder)
+            try
+            {
+                var rtTag = Path.Combine(LlamaCppReleaseDownloader.CpuRuntimeDir, "runtime.tag");
+                CopyIfExists(rtTag, Path.Combine(llmDir, "embedded.runtime.tag"));
+
+                var rtInfo = new Dictionary<string, object?>
+                {
+                    ["cpuExeExists"] = File.Exists(LlamaCppReleaseDownloader.CpuServerExePath),
+                    ["cpuExePath"] = LlamaCppReleaseDownloader.CpuServerExePath,
+                };
+                File.WriteAllText(Path.Combine(llmDir, "embedded.runtime.json"),
+                    JsonSerializer.Serialize(rtInfo, new JsonSerializerOptions { WriteIndented = true }));
+            }
+            catch { /* ignore */ }
+
 
 // 6) Logs (last 40)
             var logsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "logs");
