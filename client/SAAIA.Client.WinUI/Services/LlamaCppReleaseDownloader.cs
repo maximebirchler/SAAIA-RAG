@@ -30,9 +30,11 @@ internal sealed class LlamaCppReleaseDownloader
 
     public static string CpuRuntimeDir => Path.Combine(RuntimeRoot, "win-cpu-x64");
     public static string CudaRuntimeDir => Path.Combine(RuntimeRoot, "win-cuda-x64");
+    public static string VulkanRuntimeDir => Path.Combine(RuntimeRoot, "win-vulkan-x64");
 
     public static string CpuServerExePath => Path.Combine(CpuRuntimeDir, "llama-server.exe");
     public static string CudaServerExePath => Path.Combine(CudaRuntimeDir, "llama-server.exe");
+    public static string VulkanServerExePath => Path.Combine(VulkanRuntimeDir, "llama-server.exe");
 
     private sealed record GhAsset(string name, string browser_download_url, long? size);
     private sealed record GhRelease(string tag_name, List<GhAsset> assets);
@@ -175,7 +177,57 @@ internal sealed class LlamaCppReleaseDownloader
         }
     }
 
-    private static (bool ok, string message, string? exePath) ExtractServerZip(
+    
+    public async Task<(bool ok, string message, string? exePath)> EnsureWindowsVulkanAsync(
+        IProgress<DownloadManager.ProgressInfo>? progress,
+        CancellationToken ct)
+    {
+        try
+        {
+            if (File.Exists(VulkanServerExePath))
+                return (true, "OK", VulkanServerExePath);
+
+            Directory.CreateDirectory(VulkanRuntimeDir);
+
+            progress?.Report(new DownloadManager.ProgressInfo("llama.cpp", "resolve", 0, null, null));
+            var rel = await GetLatestReleaseAsync(ct).ConfigureAwait(false);
+            if (rel is null)
+                return (false, "Impossible de récupérer la release llama.cpp (GitHub API).", null);
+
+            // Common asset name: llama-bXXXX-bin-win-vulkan-x64.zip
+            var vkZip = rel.assets
+                .FirstOrDefault(a => a.name.StartsWith("llama-", StringComparison.OrdinalIgnoreCase)
+                                  && a.name.Contains("-bin-win-vulkan-", StringComparison.OrdinalIgnoreCase)
+                                  && a.name.EndsWith("-x64.zip", StringComparison.OrdinalIgnoreCase));
+
+            if (vkZip is null)
+                return (false, "Release llama.cpp trouvée, mais aucun binaire Windows Vulkan x64 n'a été détecté.", null);
+
+            var dm = new DownloadManager();
+            var zipSpec = new DownloadManager.AssetSpec(
+                Id: $"llama.cpp_{rel.tag_name}_win-vulkan-x64",
+                Url: vkZip.browser_download_url,
+                TargetRelativePath: $"downloads/llama.cpp/{rel.tag_name}/" + vkZip.name,
+                Sha256Hex: null);
+
+            var downloaded = await dm.EnsureAssetsAsync(new[] { zipSpec }, progress, ct).ConfigureAwait(false);
+            var zipPath = downloaded.FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(zipPath) || !File.Exists(zipPath))
+                return (false, "Téléchargement llama.cpp Vulkan échoué.", null);
+
+            return ExtractServerZip(zipPath, VulkanRuntimeDir, rel.tag_name, progress);
+        }
+        catch (OperationCanceledException)
+        {
+            return (false, "Annulé.", null);
+        }
+        catch (Exception ex)
+        {
+            return (false, "Erreur: " + ex.Message, null);
+        }
+    }
+
+private static (bool ok, string message, string? exePath) ExtractServerZip(
         string zipPath,
         string runtimeDir,
         string tag,

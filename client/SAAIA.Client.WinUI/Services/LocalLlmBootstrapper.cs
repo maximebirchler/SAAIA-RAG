@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -46,6 +46,39 @@ internal sealed class LocalLlmBootstrapper
         // 1) Resolve executable (installer should ship it).
         var hasNvidia = await GpuDetector.HasNvidiaGpuAsync(ct).ConfigureAwait(false);
         ResolveExePath(s, hasNvidia);
+
+        // Prefer GPU runtime when available (NVIDIA -> CUDA, fallback Vulkan).
+        // Important: even if a CPU runtime is already installed, we upgrade to GPU runtime when a compatible GPU is present.
+        if (hasNvidia && (force || IsCpuRuntimePath(s.LlamaExePath) || string.IsNullOrWhiteSpace(s.LlamaExePath)))
+        {
+            // 1) Try CUDA
+            if (!File.Exists(LlamaCppReleaseDownloader.CudaServerExePath))
+            {
+                var (okCuda, _, _) = await _llamaDl.EnsureWindowsCudaAsync(progress, ct).ConfigureAwait(false);
+                _ = okCuda; // best-effort
+            }
+            if (File.Exists(LlamaCppReleaseDownloader.CudaServerExePath))
+            {
+                s.LlamaExePath = LlamaCppReleaseDownloader.CudaServerExePath;
+                installed.Add(s.LlamaExePath);
+            }
+
+            // 2) Fallback Vulkan (still uses GPU via Vulkan backend)
+            if (IsCpuRuntimePath(s.LlamaExePath) || string.IsNullOrWhiteSpace(s.LlamaExePath) || !File.Exists(s.LlamaExePath))
+            {
+                if (!File.Exists(LlamaCppReleaseDownloader.VulkanServerExePath))
+                {
+                    var (okVk, _, _) = await _llamaDl.EnsureWindowsVulkanAsync(progress, ct).ConfigureAwait(false);
+                    _ = okVk;
+                }
+                if (File.Exists(LlamaCppReleaseDownloader.VulkanServerExePath))
+                {
+                    s.LlamaExePath = LlamaCppReleaseDownloader.VulkanServerExePath;
+                    installed.Add(s.LlamaExePath);
+                }
+            }
+        }
+
 
         // If still missing, attempt to download a CPU runtime from official llama.cpp releases.
         // (This makes the MVP fully automatic without Docker; installer can later ship the exe.)
@@ -119,6 +152,11 @@ internal sealed class LocalLlmBootstrapper
         if (string.IsNullOrWhiteSpace(s.ModelPath) || !File.Exists(s.ModelPath))
             return (false, "Model file not found (.gguf).", installed);
 
+        // Apply conservative auto-tuning (threads/batch/ngl) based on hardware.
+        // - Always applies threads+batch if not already specified by ExtraArgs.
+        // - Applies -ngl only when a GPU-enabled runtime is selected (CUDA/Vulkan); otherwise forces -ngl 0.
+        ApplyAutoTuningFlags(s, hasNvidia);
+
         // Ensure minimal runtime flags
         s.ManageLocalLlmProcess = true;
         s.AutoStartOnConnect = true;
@@ -142,6 +180,12 @@ internal sealed class LocalLlmBootstrapper
         if (hasNvidiaGpu && File.Exists(LlamaCppReleaseDownloader.CudaServerExePath))
         {
             s.LlamaExePath = LlamaCppReleaseDownloader.CudaServerExePath;
+            return;
+        }
+
+        if (File.Exists(LlamaCppReleaseDownloader.VulkanServerExePath))
+        {
+            s.LlamaExePath = LlamaCppReleaseDownloader.VulkanServerExePath;
             return;
         }
 
@@ -243,4 +287,69 @@ internal sealed class LocalLlmBootstrapper
             s.Port = 1234;
         }
     }
+
+    // === M6 GPU helpers (auto-upgrade + safe autotuning) ===
+    private static bool IsCpuRuntimePath(string? exePath)
+    {
+        if (string.IsNullOrWhiteSpace(exePath)) return true;
+        return exePath.Contains(System.IO.Path.Combine("llm", "runtime", "win-cpu-x64"), StringComparison.OrdinalIgnoreCase)
+            || (exePath.EndsWith("llama-server.exe", StringComparison.OrdinalIgnoreCase) && exePath.Contains("win-cpu", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsGpuRuntimePath(string? exePath)
+    {
+        if (string.IsNullOrWhiteSpace(exePath)) return false;
+        return exePath.Contains(System.IO.Path.Combine("llm", "runtime", "win-cuda-x64"), StringComparison.OrdinalIgnoreCase)
+            || exePath.Contains(System.IO.Path.Combine("llm", "runtime", "win-vulkan-x64"), StringComparison.OrdinalIgnoreCase)
+            || exePath.Contains("cuda", StringComparison.OrdinalIgnoreCase)
+            || exePath.Contains("vulkan", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void ApplyAutoTuningFlags(AppSettings s, bool hasNvidia)
+    {
+        // Goal: CPU+GPU mixed usage when GPU runtime is selected.
+        // We only add flags if user did not already specify them in ExtraArgs.
+        try
+        {
+            NvidiaGpuInfo? nvidia = null;
+            if (hasNvidia && GpuDetector.TryGetNvidia(out var info))
+                nvidia = info;
+
+            var isGpuRuntime = IsGpuRuntimePath(s.LlamaExePath);
+
+            var (threads, batch, ngl) = GpuDetector.ComputeAutoTuning(nvidia);
+
+            // GPU offload only makes sense if we are using a GPU-enabled runtime (CUDA/Vulkan build).
+            if (!isGpuRuntime) ngl = 0;
+
+            var extra = (s.ExtraArgs ?? "").Trim();
+
+            if (!ContainsArg(extra, "-t") && !ContainsArg(extra, "--threads"))
+                extra = AppendArg(extra, "-t", threads.ToString());
+
+            if (!ContainsArg(extra, "-b") && !ContainsArg(extra, "--batch") && !ContainsArg(extra, "--batch-size"))
+                extra = AppendArg(extra, "-b", batch.ToString());
+
+            // -ngl => mixed CPU+GPU (n_gpu_layers). With 4GB VRAM, we keep it conservative.
+            if (!ContainsArg(extra, "-ngl") && !ContainsArg(extra, "--n-gpu-layers"))
+                extra = AppendArg(extra, "-ngl", ngl.ToString());
+
+            s.ExtraArgs = extra;
+        }
+        catch
+        {
+            // Never fail bootstrap due to tuning.
+        }
+    }
+
+    private static bool ContainsArg(string extra, string token)
+        => extra.Contains(token, StringComparison.OrdinalIgnoreCase);
+
+    private static string AppendArg(string extra, string key, string value)
+    {
+        if (string.IsNullOrWhiteSpace(extra))
+            return $"{key} {value}";
+        return extra + " " + key + " " + value;
+    }
 }
+

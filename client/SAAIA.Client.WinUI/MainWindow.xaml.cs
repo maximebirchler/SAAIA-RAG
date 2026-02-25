@@ -464,9 +464,17 @@ public sealed partial class MainWindow : Window
             }
             var mode = (_appSettings.LlmMode ?? "embedded").Trim().ToLowerInvariant();
 
+            // GPU upgrade path: if NVIDIA is available and we are still configured with a CPU runtime,
+            // do not perform a "cheap start" and do not skip bootstrap due to attempted-hash.
+            var hasNvidiaGpuForUpgrade = await GpuDetector.HasNvidiaGpuAsync(CancellationToken.None).ConfigureAwait(false);
+            var exePathNow = _appSettings.LlamaExePath ?? "";
+            var isCpuRuntimeNow = exePathNow.Contains(System.IO.Path.Combine("llm", "runtime", "win-cpu-x64"), StringComparison.OrdinalIgnoreCase);
+
+
             // Embedded: if we already have runtime+model, try a cheap start before any heavy bootstrap.
             // This fixes the case where the model exists on disk but the llama-server process is not running.
             if (mode == "embedded" && _appSettings.ManageLocalLlmProcess &&
+                !(hasNvidiaGpuForUpgrade && isCpuRuntimeNow) &&
                 !string.IsNullOrWhiteSpace(_appSettings.LlamaExePath) && File.Exists(_appSettings.LlamaExePath) &&
                 !string.IsNullOrWhiteSpace(_appSettings.ModelPath) && File.Exists(_appSettings.ModelPath))
             {
@@ -494,7 +502,8 @@ public sealed partial class MainWindow : Window
 
             // Avoid re-running heavy bootstrap every startup when provisioning didn't change.
             if (!force && !string.IsNullOrWhiteSpace(_appSettings.ProvisioningHash) &&
-                string.Equals(_appSettings.ProvisioningHash, _appSettings.LlmAutoInstallAttemptedHash, StringComparison.OrdinalIgnoreCase))
+                string.Equals(_appSettings.ProvisioningHash, _appSettings.LlmAutoInstallAttemptedHash, StringComparison.OrdinalIgnoreCase) &&
+                !(hasNvidiaGpuForUpgrade && isCpuRuntimeNow))
             {
                 Status("Assistant IA : réparation requise (Paramètres → Installer / réparer). ");
                 return;
