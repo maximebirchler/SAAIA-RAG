@@ -152,21 +152,41 @@ Comportement attendu :
         var conv = string.Join("\n", conversationTail.TakeLast(6).Select(m =>
             $"{m.Role.ToUpperInvariant()}: {m.Content}".Trim()));
 
-        var sourcesBlock = string.Join("\n\n", merged.Select((m, i) =>
+        // ---- Prompt budgeting to avoid llama.cpp 400 (context overflow) ----
+        const int MaxSourcesInPrompt = 8;
+        const int MaxExcerptChars = 900;
+        const int MaxConversationChars = 1500;
+
+        var convTrim = Truncate(conv, MaxConversationChars);
+
+        var mergedForPrompt = merged
+            .Take(MaxSourcesInPrompt)
+            .Select(m => new
+            {
+                m.DocName,
+                m.PageStart,
+                m.PageEnd,
+                Text = Truncate(m.Text, MaxExcerptChars)
+            })
+            .ToList();
+
+        var sourcesBlock = string.Join("\n\n", mergedForPrompt.Select((m, i) =>
             $"SOURCE {i + 1}\nDOC: {m.DocName}\nPAGES: {m.PageStart}-{m.PageEnd}\nEXTRAIT: {m.Text}"));
 
         var userPrompt = $"""
-CONVERSATION (résumé des derniers messages) :
-{conv}
+CONVERSATION (résumé des derniers messages - peut être tronqué) :
+{convTrim}
 
 QUESTION UTILISATEUR :
 {userText}
 
-SOURCES :
+SOURCES (top {MaxSourcesInPrompt}, extraits tronqués) :
 {sourcesBlock}
 
 INSTRUCTION :
-Réponds en français. Donne une réponse actionnable. Ajoute des citations [DocName p.X-Y] aux affirmations basées sur les sources.
+Réponds en français. Donne une réponse actionnable.
+Quand tu t'appuies sur une source, ajoute une citation au format [DocName p.X-Y].
+Si les sources ne suffisent pas, dis-le clairement.
 """;
 
         var msgs = new List<(string role, string content)>
@@ -397,6 +417,13 @@ Extraits :
         var b = t.Substring(idx).Trim();
 
         return (a.Length > 0 && a.Equals(b, StringComparison.Ordinal)) ? a : t;
+    }
+
+    private static string Truncate(string? s, int maxChars)
+    {
+        if (string.IsNullOrEmpty(s)) return "";
+        if (s.Length <= maxChars) return s;
+        return s.Substring(0, maxChars) + " …";
     }
 
 }

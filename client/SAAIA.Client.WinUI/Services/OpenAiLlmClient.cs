@@ -28,6 +28,18 @@ public sealed class OpenAiLlmClient
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
+
+    private static async Task EnsureSuccessAsync(HttpResponseMessage resp, CancellationToken ct)
+    {
+        if (resp.IsSuccessStatusCode) return;
+
+        string body = "";
+        try { body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false); } catch { /* ignore */ }
+
+        var msg = $"LLM request failed: {(int)resp.StatusCode} {resp.ReasonPhrase}. Body: {body}";
+        throw new HttpRequestException(msg, null, resp.StatusCode);
+    }
+
     public void Configure(string baseUrl, string model)
     {
         _baseUrl = baseUrl.Trim().TrimEnd('/');
@@ -54,7 +66,7 @@ public sealed class OpenAiLlmClient
         req.Content = new StringContent(JsonSerializer.Serialize(payload, JsonOpts), Encoding.UTF8, "application/json");
 
         using var resp = await _http.SendAsync(req, ct);
-        resp.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(resp, ct).ConfigureAwait(false);
 
         var json = await resp.Content.ReadAsStringAsync(ct);
         using var doc = JsonDocument.Parse(json);
@@ -89,7 +101,7 @@ public sealed class OpenAiLlmClient
         req.Content = new StringContent(JsonSerializer.Serialize(payload, JsonOpts), Encoding.UTF8, "application/json");
 
         using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
-        resp.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(resp, ct).ConfigureAwait(false);
 
         await using var stream = await resp.Content.ReadAsStreamAsync(ct);
         using var reader = new StreamReader(stream);
@@ -151,7 +163,7 @@ public sealed class OpenAiLlmClient
         req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
         using var resp = await _http.SendAsync(req, ct);
-        resp.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(resp, ct).ConfigureAwait(false);
 
         var json = await resp.Content.ReadAsStringAsync(ct);
         using var doc = JsonDocument.Parse(json);
