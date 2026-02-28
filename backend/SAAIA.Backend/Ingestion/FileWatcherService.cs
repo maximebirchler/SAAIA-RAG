@@ -99,7 +99,11 @@ sealed class FileWatcherService : BackgroundService
             watcher.Changed += (_, e) => ScheduleUpsert(ds, tenantId, root, opt, e.FullPath, "changed", debounce, ct);
             watcher.Renamed += (_, e) =>
             {
-                ScheduleDelete(ds, tenantId, root, e.OldFullPath, "renamed(old)", missingGrace, ct);
+                // Renames/moves can take a little time on some filesystems (Docker Desktop mounts, network shares…).
+                // But we also want the UI catalog to reflect the move quickly.
+                // => Use a shorter grace for the old path on rename, while keeping the global grace for true deletes.
+                var renameGrace = TimeSpan.FromSeconds(Math.Min(missingGrace.TotalSeconds, 3));
+                ScheduleDelete(ds, tenantId, root, e.OldFullPath, "renamed(old)", renameGrace, ct);
                 ScheduleUpsert(ds, tenantId, root, opt, e.FullPath, "renamed(new)", debounce, ct);
             };
             watcher.Deleted += (_, e) => ScheduleDelete(ds, tenantId, root, e.FullPath, "deleted", missingGrace, ct);

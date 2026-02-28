@@ -7,8 +7,10 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Linq;
 
 using SAAIA.Client.WinUI.Models;
+using SAAIA.Client.WinUI.Services.ToolAgent;
 using SAAIA.Contracts;
 
 namespace SAAIA.Client.WinUI.Services;
@@ -241,7 +243,7 @@ public sealed class ApiClient
         resp.EnsureSuccessStatusCode();
     }
 
-    public async Task AddMessageAsync(string sessionId, string role, string content, object? sources, CancellationToken ct)
+    public async Task AddMessageAsync(string sessionId, string role, string content, object? sources, CancellationToken ct, string? statusNote = null)
     {
         string? sourcesJson = null;
         if (sources is string s)
@@ -254,7 +256,8 @@ public sealed class ApiClient
             userId = RequireUserId(),
             role,
             content,
-            sourcesJson
+            sourcesJson,
+            statusNote
         }, JsonOpts);
 
         using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Post, $"/chat/sessions/{sessionId}/messages", body), ct);
@@ -298,6 +301,9 @@ public sealed class ApiClient
             var content = GetString("content", "Content");
             var createdAt = GetDateTime("createdAt", "CreatedAt");
 
+            var statusNote = GetString("statusNote", "StatusNote");
+            if (string.IsNullOrWhiteSpace(statusNote)) statusNote = null;
+
             // ✅ FIX: sourcesJson peut être (1) string contenant du JSON, ou (2) objet JSON direct.
             string? sourcesJson = null;
 
@@ -309,7 +315,8 @@ public sealed class ApiClient
                 Role = role,
                 Content = content,
                 CreatedAt = createdAt,
-                SourcesJson = sourcesJson
+                SourcesJson = sourcesJson,
+                StatusNote = statusNote
             });
         }
 
@@ -369,6 +376,324 @@ public sealed class ApiClient
 
 
     // ---------------------
+    // Documents catalog (read-only)
+    // ---------------------
+
+    public async Task<DocumentsCatalogResponse> DocumentsCatalogAsync(string? category, string? q, int limit, int offset, CancellationToken ct)
+{
+    var lim = Math.Clamp(limit, 1, 2000);
+    var off = Math.Max(0, offset);
+
+    var qs = new List<string>
+    {
+        $"limit={lim}",
+        $"offset={off}"
+    };
+
+    if (!string.IsNullOrWhiteSpace(category))
+        qs.Add($"category={Uri.EscapeDataString(category.Trim())}");
+
+    if (!string.IsNullOrWhiteSpace(q))
+        qs.Add($"q={Uri.EscapeDataString(q.Trim())}");
+
+    // Spec tool: documents.list/catalog. Some older backends expose only GET /documents (admin) and not /documents/catalog (user).
+    // We try /documents/catalog first, then fallback to /documents to avoid hard failure.
+    var pathCatalog = "/documents/catalog?" + string.Join("&", qs);
+    using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, pathCatalog), ct).ConfigureAwait(false);
+
+    if (resp.StatusCode != HttpStatusCode.NotFound)
+    {
+        if (!resp.IsSuccessStatusCode)
+        {
+            var bodyErr = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            throw new HttpRequestException(
+                $"DocumentsCatalog failed: {(int)resp.StatusCode} {resp.ReasonPhrase}. Body: {bodyErr}",
+                null,
+                resp.StatusCode);
+        }
+
+        var jsonOk = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        return JsonSerializer.Deserialize<DocumentsCatalogResponse>(jsonOk, JsonOpts)
+               ?? throw new Exception("Invalid documents catalog response");
+    }
+
+    // Fallback: GET /documents (often admin-only)
+    var pathFallback = "/documents?" + string.Join("&", qs);
+    using var resp2 = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, pathFallback), ct).ConfigureAwait(false);
+
+    if (!resp2.IsSuccessStatusCode)
+    {
+        var bodyErr = await resp2.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        throw new HttpRequestException(
+            $"Documents fallback failed: {(int)resp2.StatusCode} {resp2.ReasonPhrase}. Body: {bodyErr}",
+            null,
+            resp2.StatusCode);
+    }
+
+    var json = await resp2.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+    return JsonSerializer.Deserialize<DocumentsCatalogResponse>(json, JsonOpts)
+           ?? throw new Exception("Invalid documents catalog response");
+}
+
+
+
+    // ---------------------
+
+    // ---------------------
+    // Categories (tool-agent)
+    // ---------------------
+
+    /// <summary>
+    /// Tool-agent friendly: returns raw JSON as <see cref="JsonElement"/> (cloned) so it can be stored safely.
+    /// Expected shape: ["atex","general",...]
+    /// </summary>
+    public async Task<JsonElement> RagCategoriesAsync(CancellationToken ct)
+    {
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, "/rag/categories"), ct).ConfigureAwait(false);
+        resp.EnsureSuccessStatusCode();
+
+        var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.Clone();
+    }
+
+    /// <summary>
+    /// Convenience for call-sites that want a list of strings.
+    /// </summary>
+    public async Task<List<string>> RagCategoriesListAsync(CancellationToken ct)
+    {
+        var el = await RagCategoriesAsync(ct).ConfigureAwait(false);
+        if (el.ValueKind != JsonValueKind.Array) return new List<string>();
+
+        var list = new List<string>();
+        foreach (var it in el.EnumerateArray())
+        {
+            if (it.ValueKind == JsonValueKind.String)
+            {
+                var s = (it.GetString() ?? "").Trim();
+                if (!string.IsNullOrWhiteSpace(s)) list.Add(s);
+            }
+        }
+
+        return list
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    // ---------------------
+    // Documents (tool-agent)
+    // ---------------------
+
+    /// <summary>
+    /// Tool-agent friendly documents list: returns JSON object with items + paging.
+    /// Adds a stable pdfRef per item (PDF01, PDF02, ...), based on offset.
+    /// </summary>
+    public async Task<JsonElement> DocumentsListAsync(string? category, string? q, int limit, int offset, CancellationToken ct)
+    {
+        var lim = Math.Clamp(limit, 1, 2000);
+        var off = Math.Max(0, offset);
+
+        var qs = new List<string>
+        {
+            $"limit={lim}",
+            $"offset={off}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(category))
+            qs.Add($"category={Uri.EscapeDataString(category.Trim())}");
+
+        if (!string.IsNullOrWhiteSpace(q))
+            qs.Add($"q={Uri.EscapeDataString(q.Trim())}");
+        // Prefer the user-safe catalog endpoint. Admin endpoint is /documents.
+        var pathCatalog = "/documents/catalog?" + string.Join("&", qs);
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, pathCatalog), ct).ConfigureAwait(false);
+
+        string json;
+        if (resp.StatusCode != HttpStatusCode.NotFound)
+        {
+            resp.EnsureSuccessStatusCode();
+            json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        }
+        else
+        {
+            // Fallback: GET /documents (admin-only) for older builds / support scenarios.
+            var pathFallback = "/documents?" + string.Join("&", qs);
+            using var resp2 = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, pathFallback), ct).ConfigureAwait(false);
+            resp2.EnsureSuccessStatusCode();
+            json = await resp2.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        }
+
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        var itemsEl = root.TryGetProperty("items", out var arr) && arr.ValueKind == JsonValueKind.Array
+            ? arr
+            : default;
+
+        var total = root.TryGetProperty("total", out var t) && t.ValueKind == JsonValueKind.Number ? t.GetInt32() : (int?)null;
+
+        var newItems = new List<object>();
+        if (itemsEl.ValueKind == JsonValueKind.Array)
+        {
+            var i = 0;
+            foreach (var it in itemsEl.EnumerateArray())
+            {
+                // Filter missing by default (spec: only indexed)
+                var status = TryGetString(it, "status") ?? "";
+                if (string.Equals(status, "missing", StringComparison.OrdinalIgnoreCase)) { i++; continue; }
+
+                var docId = TryGetString(it, "docId") ?? TryGetString(it, "DocId") ?? "";
+                var docPath = TryGetString(it, "docPath") ?? TryGetString(it, "DocPath") ?? "";
+                var docName = TryGetString(it, "docName") ?? TryGetString(it, "DocName") ?? "";
+                var cat = TryGetString(it, "category") ?? TryGetString(it, "Category") ?? "";
+                var pages = TryGetInt(it, "pages") ?? TryGetInt(it, "pageCount");
+
+                var pdfIndex = off + i + 1;
+                var pdfRef = $"PDF{pdfIndex:00}";
+
+                newItems.Add(new
+                {
+                    pdfRef,
+                    docId,
+                    docPath = NormalizeDocPath(docPath),
+                    docName,
+                    category = cat,
+                    pages
+                });
+
+                i++;
+            }
+        }
+
+        var endOfList = newItems.Count < lim;
+        if (total.HasValue)
+            endOfList = (off + newItems.Count) >= total.Value;
+
+        var normalized = new
+        {
+            items = newItems,
+            limit = lim,
+            offset = off,
+            total,
+            endOfList
+        };
+
+        var normalizedJson = JsonSerializer.Serialize(normalized, JsonOpts);
+        using var doc2 = JsonDocument.Parse(normalizedJson);
+        return doc2.RootElement.Clone();
+    }
+
+    public Task<JsonElement> DocumentsSearchAsync(string q, string? category, int limit, int offset, CancellationToken ct)
+        => DocumentsListAsync(category, q, limit, offset, ct);
+
+    public async Task<JsonElement> DocumentsGetAsync(string docId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(docId))
+            throw new ArgumentException("docId is required", nameof(docId));
+
+        // Prefer user-safe catalog detail endpoint.
+        var pathCatalog = $"/documents/catalog/{Uri.EscapeDataString(docId)}";
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, pathCatalog), ct).ConfigureAwait(false);
+
+        string json;
+        if (resp.StatusCode != HttpStatusCode.NotFound)
+        {
+            resp.EnsureSuccessStatusCode();
+            json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        }
+        else
+        {
+            // Fallback: admin-only endpoint (support / older builds)
+            var pathAdmin = $"/documents/{Uri.EscapeDataString(docId)}";
+            using var resp2 = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, pathAdmin), ct).ConfigureAwait(false);
+            resp2.EnsureSuccessStatusCode();
+            json = await resp2.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        }
+
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.Clone();
+    }
+
+    // ---------------------
+    // RAG search (tool-agent)
+    // ---------------------
+
+    /// <summary>
+    /// Tool-agent friendly RAG search: raw JSON as JsonElement (cloned).
+    /// </summary>
+    public async Task<JsonElement> RagSearchAsync(string query, int topK, string? category, CancellationToken ct)
+    {
+        var body = JsonSerializer.Serialize(new
+        {
+            query,
+            category,
+            topK,
+            mode = "balanced"
+        }, JsonOpts);
+
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Post, "/rag/search", body), ct);
+        resp.EnsureSuccessStatusCode();
+
+        var json = await resp.Content.ReadAsStringAsync(ct);
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.Clone();
+    }
+
+    /// <summary>
+    /// Helper for ToolAgent: parse the last documents listing into a stable in-memory mapping.
+    /// </summary>
+    public List<ToolMemory.DocumentItem> ParseDocumentItems(JsonElement response)
+    {
+        var items = new List<ToolMemory.DocumentItem>();
+
+        if (!response.TryGetProperty("items", out var arr) || arr.ValueKind != JsonValueKind.Array)
+            return items;
+
+        foreach (var it in arr.EnumerateArray())
+        {
+            var docId = TryGetString(it, "docId") ?? "";
+            var docPath = TryGetString(it, "docPath") ?? "";
+            var docName = TryGetString(it, "docName") ?? "";
+            var cat = TryGetString(it, "category") ?? "";
+            var pages = TryGetInt(it, "pages");
+
+            items.Add(new ToolMemory.DocumentItem
+            {
+                DocId = docId,
+                DocPath = docPath,
+                DocName = docName,
+                Category = cat,
+                Pages = pages
+            });
+        }
+
+        return items;
+    }
+
+    private static string NormalizeDocPath(string? p)
+    {
+        var s = (p ?? "").Trim().Replace('\\', '/');
+        while (s.Contains("//", StringComparison.Ordinal)) s = s.Replace("//", "/", StringComparison.Ordinal);
+        return s;
+    }
+
+    private static string? TryGetString(JsonElement obj, string prop)
+    {
+        if (obj.ValueKind != JsonValueKind.Object) return null;
+        if (!obj.TryGetProperty(prop, out var v)) return null;
+        return v.ValueKind == JsonValueKind.String ? v.GetString() : v.ToString();
+    }
+
+    private static int? TryGetInt(JsonElement obj, string prop)
+    {
+        if (obj.ValueKind != JsonValueKind.Object) return null;
+        if (!obj.TryGetProperty(prop, out var v)) return null;
+        if (v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var n)) return n;
+        if (v.ValueKind == JsonValueKind.String && int.TryParse(v.GetString(), out var n2)) return n2;
+        return null;
+    }
+
     // RAG (CDC v2.7)
     // ---------------------
 

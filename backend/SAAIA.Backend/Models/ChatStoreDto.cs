@@ -30,7 +30,8 @@ public sealed record ChatMessageCreateRequestDto(
     string UserId,
     string Role,
     string Content,
-    string? SourcesJson = null
+    string? SourcesJson = null,
+    string? StatusNote = null
 );
 
 /// <summary>
@@ -41,5 +42,6 @@ public sealed record ChatMessageDto(
     string Role,
     string Content,
     string? SourcesJson,
-    DateTimeOffset CreatedAt
+    DateTimeOffset CreatedAt,
+    string? StatusNote = null
 );

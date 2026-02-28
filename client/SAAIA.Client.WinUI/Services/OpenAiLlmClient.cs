@@ -103,11 +103,25 @@ public sealed class OpenAiLlmClient
         using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
         await EnsureSuccessAsync(resp, ct).ConfigureAwait(false);
 
-        await using var stream = await resp.Content.ReadAsStreamAsync(ct);
+        var mediaType = resp.Content.Headers.ContentType?.MediaType ?? "";
+
+        // Some OpenAI-compatible servers ignore SSE and return a normal JSON response.
+        // Spec requires progressive UX anyway => simulate streaming client-side.
+        if (!mediaType.Contains("event-stream", StringComparison.OrdinalIgnoreCase))
+        {
+            var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            var full = TryExtractChatContent(json);
+            if (!string.IsNullOrEmpty(full))
+                await SimulateStreamingAsync(full, onDelta, ct).ConfigureAwait(false);
+            return;
+        }
+
+        await using var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
         using var reader = new StreamReader(stream);
 
         // Robuste: certains serveurs streament du "delta", d'autres du "contenu cumulatif"
         var emittedSoFar = "";
+        var sawData = false;
 
         while (!ct.IsCancellationRequested)
         {
@@ -115,9 +129,9 @@ public sealed class OpenAiLlmClient
             if (line is null) break;                // stream fermé
             if (line.Length == 0) continue;         // ligne vide SSE
 
-
             if (!line.StartsWith("data:", StringComparison.OrdinalIgnoreCase)) continue;
 
+            sawData = true;
             var data = line.Substring("data:".Length).Trim();
             if (data == "[DONE]") break;
 
@@ -155,7 +169,78 @@ public sealed class OpenAiLlmClient
                 // ignore malformed chunks
             }
         }
+
+        // Safety net: if server claimed SSE but never sent data lines, fall back to JSON parsing and simulate.
+        if (!sawData || string.IsNullOrEmpty(emittedSoFar))
+        {
+            try
+            {
+                // NOTE: at this point the stream might be consumed; we can only do best-effort by reading the remaining buffer.
+                var remaining = await reader.ReadToEndAsync().WaitAsync(ct);
+                var full = TryExtractChatContent(remaining);
+                if (!string.IsNullOrEmpty(full))
+                    await SimulateStreamingAsync(full, onDelta, ct).ConfigureAwait(false);
+            }
+            catch
+            {
+                // ignore
+            }
+        }
     }
+
+    private static string TryExtractChatContent(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return "";
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("choices", out var choices) && choices.ValueKind == JsonValueKind.Array && choices.GetArrayLength() > 0)
+            {
+                var ch0 = choices[0];
+
+                // Non-stream: choices[0].message.content
+                if (ch0.TryGetProperty("message", out var msg) &&
+                    msg.TryGetProperty("content", out var content) &&
+                    content.ValueKind == JsonValueKind.String)
+                    return content.GetString() ?? "";
+
+                // Some servers return "text"
+                if (ch0.TryGetProperty("text", out var txt) && txt.ValueKind == JsonValueKind.String)
+                    return txt.GetString() ?? "";
+
+                // Fallback: delta.content
+                if (ch0.TryGetProperty("delta", out var delta) &&
+                    delta.TryGetProperty("content", out var dc) &&
+                    dc.ValueKind == JsonValueKind.String)
+                    return dc.GetString() ?? "";
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+
+        return "";
+    }
+
+    private static async Task SimulateStreamingAsync(string full, Action<string> onDelta, CancellationToken ct)
+    {
+        // Chunking without artificial slowness; Task.Yield lets the UI breathe between chunks.
+        const int chunkSize = 48;
+
+        for (int i = 0; i < full.Length; i += chunkSize)
+        {
+            ct.ThrowIfCancellationRequested();
+            var len = Math.Min(chunkSize, full.Length - i);
+            var chunk = full.Substring(i, len);
+            if (chunk.Length > 0) onDelta(chunk);
+            await Task.Yield();
+        }
+    }
+
 
     public async Task<List<string>> ListModelsAsync(CancellationToken ct)
     {

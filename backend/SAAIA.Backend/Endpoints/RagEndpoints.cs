@@ -28,7 +28,6 @@ public static class RagEndpoints
 
     private static async Task<IResult> CategoriesAsync(HttpContext ctx, NpgsqlDataSource ds)
     {
-        AdminAuth.EnsureAdmin(ctx);
         var tenantId = ctx.GetTenantId();
         await using var conn = await ds.OpenConnectionAsync(ctx.RequestAborted);
 
@@ -117,7 +116,6 @@ ORDER BY category;";
         IHttpClientFactory httpFactory,
         RagSearchRequestDto req)
     {
-        AdminAuth.EnsureAdmin(ctx);
         var tenantId = ctx.GetTenantId();
 
         if (string.IsNullOrWhiteSpace(req.Query))

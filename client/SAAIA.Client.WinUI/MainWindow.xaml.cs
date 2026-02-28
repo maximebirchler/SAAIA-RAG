@@ -162,6 +162,21 @@ public sealed partial class MainWindow : Window
         return false;
     }
 
+
+    private async Task<Microsoft.UI.Xaml.XamlRoot?> GetDialogXamlRootAsync()
+    {
+        // WinUI 3: ContentDialog requires a non-null XamlRoot.
+        // In early startup it can briefly be null.
+        Microsoft.UI.Xaml.XamlRoot? xamlRoot = null;
+        try { xamlRoot = Root?.XamlRoot ?? Content?.XamlRoot; } catch { }
+        for (var i = 0; xamlRoot is null && i < 40; i++)
+        {
+            await Task.Delay(50);
+            try { xamlRoot = Root?.XamlRoot ?? Content?.XamlRoot; } catch { }
+        }
+        return xamlRoot;
+    }
+
     private async Task ShowSetupWizardIfNeededAsync()
     {
         if (_setupAutoPrompted) return;
@@ -185,7 +200,8 @@ public sealed partial class MainWindow : Window
                 settingsInitial: _appSettings,
                 llmProc: _llmProc);
 
-            dlg.XamlRoot = Root.XamlRoot;
+            var xamlRoot = await GetDialogXamlRootAsync();
+            if (xamlRoot is not null) dlg.XamlRoot = xamlRoot;
 
             await dlg.ShowAsync();
 
@@ -215,6 +231,14 @@ public sealed partial class MainWindow : Window
 
             // Only if assistant is enabled.
             if (!_appSettings.UseLocalLlm) return;
+
+            var xamlRoot = await GetDialogXamlRootAsync();
+            if (xamlRoot is null)
+            {
+                ClientLog.Error("LLM bootstrap UI: XamlRoot is null; cannot show progress dialog.");
+                Status("Assistant IA : UI non prête (réessayez).");
+                return;
+            }
 
             // Probe /v1/models (OpenAI-compatible). Avoid tuple deconstruction here to keep compilation
             // resilient across minor signature changes.
@@ -277,7 +301,7 @@ public sealed partial class MainWindow : Window
                         Title = "Préparation",
                         Content = panel,
                         CloseButtonText = "Annuler",
-                        XamlRoot = Root.XamlRoot
+                        XamlRoot = xamlRoot
                     };
 
                     dlg.CloseButtonClick += (_, __) =>
@@ -380,7 +404,7 @@ public sealed partial class MainWindow : Window
                 Title = "Préparation",
                 Content = panelDl,
                 CloseButtonText = "Annuler",
-                XamlRoot = Root.XamlRoot
+                XamlRoot = xamlRoot
             };
 
             dlgDl.CloseButtonClick += (_, __) =>
@@ -428,9 +452,10 @@ public sealed partial class MainWindow : Window
                 try { await showTaskDl; } catch { }
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // ignore
+            ClientLog.Exception("EnsureAssistantReadyIfNeededAsync", ex);
+            Status("Assistant IA : erreur au démarrage (voir logs)");
         }
     }
 
@@ -501,14 +526,23 @@ public sealed partial class MainWindow : Window
             }
 
             // Avoid re-running heavy bootstrap every startup when provisioning didn't change.
-            if (!force && !string.IsNullOrWhiteSpace(_appSettings.ProvisioningHash) &&
+            
+            // If required assets are missing, we MUST run bootstrap automatically (no manual "repair" gate).
+            var exeMissing = string.IsNullOrWhiteSpace(_appSettings.LlamaExePath) || !File.Exists(_appSettings.LlamaExePath);
+            var modelMissing = string.IsNullOrWhiteSpace(_appSettings.ModelPath) || !File.Exists(_appSettings.ModelPath);
+            var missingAssets = exeMissing || modelMissing;
+            if (missingAssets)
+            {
+                ClientLog.Info($"LLM missing assets (exeMissing={exeMissing}, modelMissing={modelMissing}). Forcing bootstrap.");
+            }
+if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.ProvisioningHash) &&
                 string.Equals(_appSettings.ProvisioningHash, _appSettings.LlmAutoInstallAttemptedHash, StringComparison.OrdinalIgnoreCase) &&
                 !(hasNvidiaGpuForUpgrade && isCpuRuntimeNow))
             {
                 Status("Assistant IA : réparation requise (Paramètres → Installer / réparer). ");
                 return;
             }
-if (mode == "docker")
+            if (mode == "docker")
             {
                 // Dev/test only: Option B via script (UAC + PowerShell).
                 await TryAutoInstallIfConfiguredAsync();
@@ -517,14 +551,23 @@ if (mode == "docker")
 
             await EnsureEmbeddedAssistantAsync(force);
         }
-        catch
+        catch (Exception ex)
         {
-            // ignore
+            ClientLog.Exception("EnsureAssistantReadyIfNeededAsync", ex);
+            Status("Assistant IA : erreur au démarrage (voir logs)");
         }
     }
 
     private async Task EnsureEmbeddedAssistantAsync(bool force)
     {
+        var xamlRoot = await GetDialogXamlRootAsync();
+        if (xamlRoot is null)
+        {
+            ClientLog.Error("LLM bootstrap UI: XamlRoot is null; cannot show embedded progress dialog.");
+            Status("Assistant IA : UI non prête (réessayez).");
+            return;
+        }
+
         // UI dialog with progress; no PowerShell/UAC needed.
         var title = new TextBlock { Text = "Préparation de l’assistant IA…", TextWrapping = TextWrapping.Wrap };
         var detail = new TextBlock { Text = "Vérification…", Opacity = 0.85, TextWrapping = TextWrapping.Wrap };
@@ -542,7 +585,7 @@ if (mode == "docker")
             Title = "Assistant",
             Content = panel,
             CloseButtonText = "Annuler",
-            XamlRoot = Root.XamlRoot
+            XamlRoot = xamlRoot
         };
 
         dlg.CloseButtonClick += (_, __) =>
@@ -644,9 +687,10 @@ if (mode == "docker")
         {
             // ignore
         }
-        catch
+        catch (Exception ex)
         {
-            // ignore
+            ClientLog.Exception("EnsureAssistantReadyIfNeededAsync", ex);
+            Status("Assistant IA : erreur au démarrage (voir logs)");
         }
         finally
         {
@@ -690,9 +734,10 @@ if (mode == "docker")
             LoadLocalLlmUiFromSettings();
             ApplyUserModeVisibility();
         }
-        catch
+        catch (Exception ex)
         {
-            // ignore
+            ClientLog.Exception("EnsureAssistantReadyIfNeededAsync", ex);
+            Status("Assistant IA : erreur au démarrage (voir logs)");
         }
     }
     private async void SetupWizard_Click(object sender, RoutedEventArgs e)
@@ -798,7 +843,8 @@ if (mode == "docker")
         _appSettings = AppSettings.Load();
 
         var dlg = new UserSettingsDialog(_appSettings, RepairAssistantAsync);
-        dlg.XamlRoot = Root.XamlRoot;
+        var xamlRoot = await GetDialogXamlRootAsync();
+        if (xamlRoot is not null) dlg.XamlRoot = xamlRoot;
 
         var res = await dlg.ShowAsync();
         if (res == ContentDialogResult.Primary)
@@ -1356,7 +1402,7 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
             SourcesCards.Items = new List<SourceCard>();
             SourcesBox.Text = "";
 
-            Status("Thinking…");
+            Status("Routeur…");
             
             SetTyping(true);
             _autoFollow = true;
@@ -1378,6 +1424,14 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
                             ScrollToBottom();
                     });
                 },
+                onPhase: phase =>
+                {
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        // UX: phases Router/Tools/Answer (spec v2.8.x)
+                        Status(phase);
+                    });
+                },
                 ct: _cts.Token);
 
             var wasCancelled = _cts.Token.IsCancellationRequested;
@@ -1397,19 +1451,29 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
                     assistantMsg.Content = finalAnswer;
             }
 
-            var pretty = System.Text.Json.JsonSerializer.Serialize(
-                sourcesObj,
-                new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            var pretty = sourcesObj is null
+                ? ""
+                : System.Text.Json.JsonSerializer.Serialize(
+                    sourcesObj,
+                    new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
 
             assistantMsg.SourcesJson = pretty;
 
             SourcesCards.Items = SourceCardParser.Parse(pretty);
             SourcesBox.Text = pretty;
 
-            await _api.AddMessageAsync(_sessionId!, "assistant", assistantMsg.Content, sourcesObj, CancellationToken.None);
+            // ✅ Persist aussi StatusNote (annulation/échec UX)
+            await _api.AddMessageAsync(_sessionId!, "assistant", assistantMsg.Content, sourcesObj, CancellationToken.None, assistantMsg.StatusNote);
 
-            // refresh sidebar order after activity
-            await RefreshSessionsAsync(preferSessionId: _sessionId, CancellationToken.None);
+            // refresh sidebar order after activity (non bloquant : évite doublons si ça plante après l'insert)
+            try
+            {
+                await RefreshSessionsAsync(preferSessionId: _sessionId, CancellationToken.None);
+            }
+            catch
+            {
+                // non bloquant
+            }
 
             if (_autoFollow && !_userScrolledUp)
                 ScrollToBottom(force: true);
@@ -1421,6 +1485,28 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
             SetTyping(false);
             UpdateJumpButton();
             MarkInterrupted(assistantMsg);
+
+            // ✅ Important: persister le message assistant même en cas d'annulation,
+            // sinon StatusNote ("Génération interrompue") est perdu au reload.
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(_sessionId) && assistantMsg is not null)
+                {
+                    await _api.AddMessageAsync(
+                        _sessionId!,
+                        "assistant",
+                        assistantMsg.Content ?? "",
+                        assistantMsg.SourcesJson,
+                        CancellationToken.None,
+                        assistantMsg.StatusNote);
+
+                    try { await RefreshSessionsAsync(preferSessionId: _sessionId, CancellationToken.None); } catch { }
+                }
+            }
+            catch
+            {
+                // non bloquant (backend down, etc.)
+            }
 
             if (_autoFollow && !_userScrolledUp)
                 ScrollToBottom(force: true);

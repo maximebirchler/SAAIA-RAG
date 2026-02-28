@@ -8,6 +8,25 @@ $ErrorActionPreference = "Stop"
 Write-Host "== Preflight: Windows App Runtime ==" -ForegroundColor Cyan
 & "$PSScriptRoot\check-winappruntime.ps1" | Write-Host
 
+# ---- Load InstallRoot from infra/.env (dev convenience) ----
+# This keeps the WinUI client aligned with the backend install root configured for docker bind-mounts.
+try {
+  $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\.." )).Path
+  $envPath = Join-Path $repoRoot "infra\.env"
+  if (Test-Path $envPath) {
+    $line = (Get-Content $envPath | Where-Object { $_ -match '^\s*SAAIA_INSTALL_ROOT\s*=' } | Select-Object -First 1)
+    if ($line) {
+      $val = ($line -replace '^\s*SAAIA_INSTALL_ROOT\s*=\s*','').Trim().Trim('"').Trim("'")
+      if ($val) {
+        $env:SAAIA_INSTALL_ROOT = $val
+        Write-Host "[INFO] SAAIA_INSTALL_ROOT (from infra/.env): $val" -ForegroundColor DarkGray
+      }
+    }
+  }
+} catch {
+  # ignore: the client can still run with fallbacks
+}
+
 # Clean startup log for an unambiguous run
 $logDir = Join-Path $env:LOCALAPPDATA "SAAIA\logs"
 $logFile = Join-Path $logDir "client_startup.log"

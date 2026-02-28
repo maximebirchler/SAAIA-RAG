@@ -16,10 +16,21 @@ namespace SAAIA.Client.WinUI.Services;
 /// </summary>
 internal sealed class LocalLlmBootstrapper
 {
-    // Default model used in infra/scripts/llm/install-llm.ps1
-    private const string DefaultModelRepo = "bartowski/Mistral-7B-Instruct-v0.3-GGUF";
-    private const string DefaultModelFile = "Mistral-7B-Instruct-v0.3-IQ3_M.gguf";
-    private const string DefaultModelSha256 = "4ea14c5a6c787ac2703505f04a4ee746f746d1ace3ffd907af28f6f179e6b224";
+    // Default embedded model pack (auto-selected by VRAM)
+// - <~5GB VRAM or CPU-only: Qwen 3B Q4 (fast + small)
+// - <~7GB VRAM: Qwen 3B Q6 (better quality, still reasonable)
+// - >=~8GB VRAM: Mistral 7B IQ3_M (best quality in this pack)
+private const string MistralRepo = "bartowski/Mistral-7B-Instruct-v0.3-GGUF";
+private const string MistralFile = "Mistral-7B-Instruct-v0.3-IQ3_M.gguf";
+// SHA256 is known for this default (legacy); Qwen files are downloaded without hash enforcement for now.
+private const string MistralSha256 = "4ea14c5a6c787ac2703505f04a4ee746f746d1ace3ffd907af28f6f179e6b224";
+
+private const string QwenRepo = "bartowski/Qwen2.5-3B-Instruct-GGUF";
+private const string QwenQ4File = "Qwen2.5-3B-Instruct-Q4_K_M.gguf";
+private const string QwenQ6File = "Qwen2.5-3B-Instruct-Q6_K_L.gguf";
+
+private sealed record ModelSpec(string Repo, string File, string? Sha256Hex);
+
 
     private readonly DownloadManager _dl = new();
     private readonly LlamaCppReleaseDownloader _llamaDl = new();
@@ -39,6 +50,10 @@ internal sealed class LocalLlmBootstrapper
             return (true, $"LLM mode is '{mode}' (no embedded bootstrap).", Array.Empty<string>());
 
         var installed = new List<string>();
+        // Model auto-selection (VRAM-based) when the model isn't already configured/present.
+        // This should trigger downloads automatically (and thus the UI popup) when necessary.
+        AutoSelectModelIfNeeded(s);
+
 
         // 0) Auto-detect an existing model in %LOCALAPPDATA%\SAAIA\Models (helps after manual copy).
         TryAutoDetectExistingModel(s);
@@ -130,13 +145,27 @@ internal sealed class LocalLlmBootstrapper
             }
             else
             {
-                // Default: download model from HF (public)
-                var url = $"https://huggingface.co/{DefaultModelRepo}/resolve/main/{DefaultModelFile}";
+                // Default: download model from HF (public) using our VRAM-based selection.
+                // If the user configured a pack model id (Mistral/Qwen), respect it; otherwise select by hardware.
+                var spec = SelectModelByHardware();
+                if (!string.IsNullOrWhiteSpace(s.ModelId))
+                {
+                    if (string.Equals(s.ModelId, MistralFile, StringComparison.OrdinalIgnoreCase))
+                        spec = new ModelSpec(MistralRepo, MistralFile, MistralSha256);
+                    else if (string.Equals(s.ModelId, QwenQ6File, StringComparison.OrdinalIgnoreCase))
+                        spec = new ModelSpec(QwenRepo, QwenQ6File, null);
+                    else if (string.Equals(s.ModelId, QwenQ4File, StringComparison.OrdinalIgnoreCase))
+                        spec = new ModelSpec(QwenRepo, QwenQ4File, null);
+                }
+
+                var url = $"https://huggingface.co/{spec.Repo}/resolve/main/{spec.File}";
+                ClientLog.Info($"LLM bootstrap: downloading model '{spec.File}' from HF repo '{spec.Repo}'.");
+
                 var modelAsset = new DownloadManager.AssetSpec(
-                    Id: "model",
+                    Id: spec.File,
                     Url: url,
-                    TargetRelativePath: $"Models/{DefaultModelFile}",
-                    Sha256Hex: DefaultModelSha256);
+                    TargetRelativePath: $"Models/{spec.File}",
+                    Sha256Hex: spec.Sha256Hex);
 
                 var paths = await _dl.EnsureAssetsAsync(new[] { modelAsset }, progress, ct).ConfigureAwait(false);
                 installed.AddRange(paths);
@@ -169,7 +198,67 @@ internal sealed class LocalLlmBootstrapper
         return (true, "OK", installed);
     }
 
-    private static void ResolveExePath(AppSettings s, bool hasNvidiaGpu)
+    
+    private static ModelSpec SelectModelByHardware()
+    {
+        // Prefer NVIDIA VRAM data when available
+        if (GpuDetector.TryGetNvidia(out var gpu) && gpu.VramMiB > 0)
+        {
+            // Thresholds are tuned for best quality while staying stable on common machines.
+            // With 4GB VRAM (e.g. Quadro P520 ~4096 MiB), Qwen 3B Q6 usually works and gives a noticeable lift.
+            // Q4 remains the safe fallback for very small GPUs or CPU-only.
+            if (gpu.VramMiB <= 3584) return new ModelSpec(QwenRepo, QwenQ4File, null);
+            if (gpu.VramMiB <= 7168) return new ModelSpec(QwenRepo, QwenQ6File, null);
+            return new ModelSpec(MistralRepo, MistralFile, MistralSha256);
+        }
+
+        // CPU-only fallback
+        return new ModelSpec(QwenRepo, QwenQ4File, null);
+    }
+
+    private static bool IsPackModel(string? modelId)
+    {
+        if (string.IsNullOrWhiteSpace(modelId)) return false;
+        return string.Equals(modelId, MistralFile, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(modelId, QwenQ4File, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(modelId, QwenQ6File, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void AutoSelectModelIfNeeded(AppSettings s)
+    {
+        try
+        {
+            // If a real model path exists, keep it (user might have a custom model).
+            if (!string.IsNullOrWhiteSpace(s.ModelPath) && File.Exists(s.ModelPath))
+                return;
+
+            // If the user set a custom ModelId that's not in our pack, keep it.
+            if (!string.IsNullOrWhiteSpace(s.ModelId) && !IsPackModel(s.ModelId))
+                return;
+
+            var spec = SelectModelByHardware();
+            var modelsDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "SAAIA", "Models");
+
+            var desiredPath = Path.Combine(modelsDir, spec.File);
+
+            // Only update settings if needed (avoid churn).
+            if (!string.Equals(s.ModelId, spec.File, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(s.ModelPath, desiredPath, StringComparison.OrdinalIgnoreCase))
+            {
+                s.ModelId = spec.File;
+                s.ModelPath = desiredPath;
+                ClientLog.Info($"AutoModel: selected '{spec.File}' (repo={spec.Repo}).");
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+private static void ResolveExePath(AppSettings s, bool hasNvidiaGpu)
     {
         // If already set and exists, keep.
         if (!string.IsNullOrWhiteSpace(s.LlamaExePath) && File.Exists(s.LlamaExePath))

@@ -283,8 +283,13 @@ WHERE tenant_id=@tenant AND session_id=@sid AND user_id=@user_id;";
             throw new BadHttpRequestException("role must be system|user|assistant|tool");
 
         var content = (req.Content ?? "").Trim();
-        if (content.Length == 0)
-            throw new BadHttpRequestException("content is required");
+
+        // Petit label UX optionnel (ex: "Génération interrompue.")
+        var statusNote = NormalizeSmall(req.StatusNote, 200);
+
+        // On accepte un message vide uniquement si un statusNote est fourni (cas: annulation/erreur)
+        if (content.Length == 0 && string.IsNullOrWhiteSpace(statusNote))
+            throw new BadHttpRequestException("content is required (or statusNote)");
 
         if (content.Length > 200000)
             throw new BadHttpRequestException("content too large");
@@ -315,9 +320,10 @@ LIMIT 1;";
 
         // 2) Insert message
         const string insSql = @"
-INSERT INTO chat_messages(tenant_id, session_id, message_id, role, content, sources_json, created_at)
+INSERT INTO chat_messages(tenant_id, session_id, message_id, role, content, sources_json, status_note, created_at)
 VALUES (@tenant, @sid, @mid, @role, @content,
         CASE WHEN @sources_json IS NULL THEN NULL ELSE @sources_json::jsonb END,
+        @status_note,
         now());";
 
         await conn.ExecuteAsync(new CommandDefinition(insSql, new
@@ -327,7 +333,8 @@ VALUES (@tenant, @sid, @mid, @role, @content,
             mid = messageId,
             role,
             content,
-            sources_json = sourcesJson
+            sources_json = sourcesJson,
+            status_note = statusNote
         }, cancellationToken: ct));
 
 
@@ -346,11 +353,11 @@ WHERE tenant_id=@tenant AND session_id=@sid AND user_id=@user_id;";
             actorIsAdmin,
             action: "chat.message.add",
             target: $"{sessionId}:{messageId}",
-            payload: new { userId = effectiveUserId, sessionId, messageId, role, hasSources = sourcesJson is not null, contentChars = content.Length },
+            payload: new { userId = effectiveUserId, sessionId, messageId, role, hasSources = sourcesJson is not null, hasStatusNote = statusNote is not null, contentChars = content.Length },
             ip: ctx.Connection.RemoteIpAddress?.ToString(),
             ct: ct);
 
-        return Results.Ok(new ChatMessageDto(messageId, role, content, sourcesJson, DateTimeOffset.UtcNow));
+        return Results.Ok(new ChatMessageDto(messageId, role, content, sourcesJson, DateTimeOffset.UtcNow, statusNote));
     }
 
     private static async Task<IResult> ListMessagesAsync(HttpContext ctx, NpgsqlDataSource ds, Guid sessionId, string? userId, int? limit)
@@ -372,6 +379,7 @@ SELECT
   m.role         AS ""Role"",
   m.content      AS ""Content"",
   m.sources_json AS ""Sources"",
+  m.status_note  AS ""StatusNote"",
   m.created_at   AS ""CreatedAt""
 FROM chat_messages m
 INNER JOIN chat_sessions s ON m.tenant_id = s.tenant_id AND m.session_id = s.session_id

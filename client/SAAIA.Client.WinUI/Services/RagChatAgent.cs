@@ -1,32 +1,44 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
 using SAAIA.Client.WinUI.Models;
+using SAAIA.Client.WinUI.Services.ToolAgent;
 using SAAIA.Contracts;
 
 namespace SAAIA.Client.WinUI.Services;
 
+/// <summary>
+/// Client-side “agent outillé” :
+/// - Le LLM choisit quoi faire via un routeur JSON (tools).
+/// - Le code n’écrit pas de réponses préfabriquées (on fournit des règles + résultats d’outils).
+/// - Les sources sont renvoyées via payload (chips UI) et non imposées dans le texte.
+/// </summary>
 public sealed class RagChatAgent
 {
     private readonly ApiClient _api;
     private readonly OpenAiLlmClient _llm;
 
-    // Safe, user-facing tuning (must never break RAG).
+    // Safe, user-facing tuning.
     private bool _llmEnabled = true;
     private bool _strictMode = false;
     private double _temperature = 0.2;
     private int _maxTokens = 900;
     private string _ragQualityPreset = "balanced"; // quick|balanced|deep
 
+    // Tool-memory (spec v2.8.x): keeps paging + PDFxx mapping between turns.
+    private readonly ToolMemory _mem = new();
+
     public RagChatAgent(ApiClient api, OpenAiLlmClient llm)
     {
         _api = api;
         _llm = llm;
     }
+
     internal void ApplySettings(AppSettings s)
     {
         _llmEnabled = s.UseLocalLlm;
@@ -34,396 +46,225 @@ public sealed class RagChatAgent
 
         var t = s.LlmTemperature;
         if (double.IsNaN(t) || double.IsInfinity(t)) t = 0.2;
-        if (t < 0) t = 0;
-        if (t > 1) t = 1;
-        _temperature = t;
+        _temperature = Math.Clamp(t, 0, 1);
 
         var mt = s.LlmMaxOutputTokens;
-        if (mt < 128) mt = 128;
-        if (mt > 4096) mt = 4096;
-        _maxTokens = mt;
+        _maxTokens = Math.Clamp(mt, 128, 4096);
 
-        _ragQualityPreset = string.IsNullOrWhiteSpace(s.RagQualityPreset) ? "balanced" : s.RagQualityPreset.Trim().ToLowerInvariant();
+        _ragQualityPreset = string.IsNullOrWhiteSpace(s.RagQualityPreset)
+            ? "balanced"
+            : s.RagQualityPreset.Trim().ToLowerInvariant();
+
         if (_ragQualityPreset is not ("quick" or "balanced" or "deep"))
             _ragQualityPreset = "balanced";
     }
 
-    private sealed record Plan(bool NeedClarification, string? ClarificationQuestion, List<string> Queries);
-
-    public async Task<(string finalAnswer, object sourcesPayload)> RunAsync(
+    public async Task<(string finalAnswer, object? sourcesPayload)> RunAsync(
         string userText,
         string category,
         IReadOnlyList<ChatMessageItem> conversationTail,
         Action<string> onDelta,
-        CancellationToken ct)
+        CancellationToken ct,
+        Action<string>? onPhase = null)
     {
-        // Retrieval knobs (safe)
-        var (topKPerQuery, mergedTake, maxQueries) = _ragQualityPreset switch
-        {
-            "quick" => (4, 8, 2),
-            "deep" => (10, 16, 3),
-            _ => (6, 12, 3)
-        };
+        userText ??= "";
 
-        // If LLM disabled, we still must support a degraded "search-only" mode (CDC v2.7).
-        if (!_llmEnabled)
+        // Fast-path for very common, tool-only intents.
+        // Rationale: avoids the router + writer LLM latency and prevents name/path hallucinations.
+        if (LooksLikeDocumentsListQuery(userText))
         {
-            var s = await _api.RagSearchAsync(userText, category, topK: mergedTake, mode: "balanced", ct);
-            var merged0 = s.Items
-                .OrderByDescending(m => m.Score)
-                .Take(mergedTake)
+            onPhase?.Invoke("Documents (liste)…");
+
+            var resp = await _api.DocumentsListAsync(ct);
+            var items = (resp.Items ?? new List<DocumentCatalogItem>())
+                .Where(x => !string.IsNullOrWhiteSpace(x.DocPath))
+                .OrderBy(x => x.DocPath, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            var payload0 = new { plan = (object?)null, queries = new[] { userText }, searches = new[] { new { s.RequestId, s.Query, s.Metrics, s.Items } }, merged = merged0 };
-            var ans0 = BuildRagOnlyFallback(userText, merged0, "LLM disabled (search-only mode)");
-            return (ans0, payload0);
-        }
+            var sb = new StringBuilder();
+            sb.AppendLine("Voici la liste des documents présents sur le serveur :");
 
-        // 1) PLAN
-        var plan = await BuildPlanAsync(userText, category, ct);
-
-        if (plan.NeedClarification && !string.IsNullOrWhiteSpace(plan.ClarificationQuestion))
-        {
-            var q = plan.ClarificationQuestion.Trim();
-            var payload = new { plan, searches = Array.Empty<object>(), merged = Array.Empty<object>() };
-            return (q, payload);
-        }
-
-        var queries = (plan.Queries?.Count > 0 ? plan.Queries : new List<string> { userText })
-            .Select(q => q.Trim())
-            .Where(q => q.Length > 0)
-            .Distinct()
-            .Take(maxQueries)
-            .ToList();
-
-        // 2) MULTI SEARCH
-        var searches = new List<RagSearchResponse>();
-        foreach (var q in queries)
-        {
-            ct.ThrowIfCancellationRequested();
-            var s = await _api.RagSearchAsync(q, category, topK: topKPerQuery, mode: "balanced", ct);
-            searches.Add(s);
-        }
-
-        // merge
-        var merged = searches
-            .SelectMany(s => s.Items)
-            .GroupBy(m => m.ChunkId ?? $"{m.DocId}:{m.PageStart}:{m.ChunkIndex}")
-            .Select(g => g.OrderByDescending(x => x.Score).First())
-            .OrderByDescending(m => m.Score)
-            .Take(mergedTake)
-            .ToList();
-
-        // ✅ Payload construit AVANT le LLM => dispo même si cancel pendant génération
-        var sourcesPayload = new
-        {
-            plan,
-            queries,
-            searches = searches.Select(s => new
+            if (items.Count == 0)
             {
-                s.RequestId,
-                s.Query,
-                s.Metrics,
-                s.Items
-            }),
-            merged
-        };
-
-        // 3) FINAL ANSWER
-        var sys = _strictMode ? """
-Tu es SAAIA, un assistant IA local, sans internet.
-Tu dois répondre UNIQUEMENT à partir des SOURCES fournies.
-Règles :
-- Si les sources ne suffisent pas, dis-le et pose UNE question de clarification.
-- Ne fais pas d'hypothèses non sourcées.
-- Cite tes sources directement dans le texte : [DocName p.X-Y]
-- Ne cite JAMAIS une source non présente.
-""" : """
-Tu es SAAIA, un assistant IA local “type ChatGPT” MAIS sans internet.
-Ta base de connaissance vient uniquement des SOURCES fournies (extraits de documents).
-Comportement attendu :
-- Prends des initiatives : reformule, structure, propose des étapes.
-- Si les sources ne suffisent pas, dis-le et pose UNE question de clarification.
-- Donne une réponse claire et utile.
-- Cite tes sources directement dans le texte sous forme : [DocName p.X-Y]
-- Ne cite JAMAIS une source non présente.
-""";
-
-        var conv = string.Join("\n", conversationTail.TakeLast(6).Select(m =>
-            $"{m.Role.ToUpperInvariant()}: {m.Content}".Trim()));
-
-        // ---- Prompt budgeting to avoid llama.cpp 400 (context overflow) ----
-        const int MaxSourcesInPrompt = 8;
-        const int MaxExcerptChars = 900;
-        const int MaxConversationChars = 1500;
-
-        var convTrim = Truncate(conv, MaxConversationChars);
-
-        var mergedForPrompt = merged
-            .Take(MaxSourcesInPrompt)
-            .Select(m => new
-            {
-                m.DocName,
-                m.PageStart,
-                m.PageEnd,
-                Text = Truncate(m.Text, MaxExcerptChars)
-            })
-            .ToList();
-
-        var sourcesBlock = string.Join("\n\n", mergedForPrompt.Select((m, i) =>
-            $"SOURCE {i + 1}\nDOC: {m.DocName}\nPAGES: {m.PageStart}-{m.PageEnd}\nEXTRAIT: {m.Text}"));
-
-        var userPrompt = $"""
-CONVERSATION (résumé des derniers messages - peut être tronqué) :
-{convTrim}
-
-QUESTION UTILISATEUR :
-{userText}
-
-SOURCES (top {MaxSourcesInPrompt}, extraits tronqués) :
-{sourcesBlock}
-
-INSTRUCTION :
-Réponds en français. Donne une réponse actionnable.
-Quand tu t'appuies sur une source, ajoute une citation au format [DocName p.X-Y].
-Si les sources ne suffisent pas, dis-le clairement.
-""";
-
-        var msgs = new List<(string role, string content)>
-        {
-            ("system", sys),
-            ("user", userPrompt)
-        };
-
-        var answer = "";
-
-        try
-        {
-            await _llm.ChatStreamAsync(
-                msgs,
-                temperature: _temperature,
-                maxTokens: _maxTokens,
-                onDelta: t =>
-                {
-                    answer += t;
-                    onDelta(t);
-                },
-                ct);
-
-            if (string.IsNullOrWhiteSpace(answer))
-            {
-                // LLM a répondu vide => fallback (vraie anomalie)
-                answer = BuildRagOnlyFallback(userText, merged, "LLM returned empty response");
-                onDelta(answer);
+                sb.AppendLine("- (aucun document)");
             }
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-        {
-            // ✅ Cancel utilisateur : PAS de mode dégradé, on garde answer partiel (ou vide)
-        }
-        catch (Exception ex)
-        {
-            // Vraie erreur LLM => mode dégradé
-            answer = BuildRagOnlyFallback(userText, merged, ex.Message);
-            onDelta(answer);
+            else
+            {
+                foreach (var d in items)
+                    sb.AppendLine($"- {d.DocPath}");
+            }
+
+            var answer = sb.ToString().TrimEnd();
+            await SimulateStreamingAsync(answer, onDelta, ct);
+            return (answer, null);
         }
 
-        answer = DedupConsecutiveRepeat(answer);
+        // Degraded mode: no LLM => best-effort RAG search only.
+        if (!_llmEnabled)
+        {
+            onPhase?.Invoke("Recherche RAG…");
+            var (ans, payload) = await RunSearchOnlyFallbackAsync(userText, category, ct);
+            await SimulateStreamingAsync(ans, onDelta, ct);
+            return (ans, payload);
+        }
+
+        // Convert UI history into OpenAI roles.
+        var history = (conversationTail ?? Array.Empty<ChatMessageItem>())
+            .Where(m => m is not null)
+            .Select(m => (role: NormalizeRole(m.Role), content: (m.Content ?? "").Trim()))
+            .Where(m => !string.IsNullOrWhiteSpace(m.content))
+            .TakeLast(12)
+            .ToList();
+
+        // Inject soft preferences as context (not hard-coded answers).
+        if (_strictMode)
+        {
+            history.Insert(0, ("system",
+                "User preference: strict documentary mode. Avoid invention. If missing sources, say so and ask 1 clarification question."));
+        }
+
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            history.Insert(0, ("system",
+                $"Default retrieval category hint: {category}. Use it only if it matches the user's intent."));
+        }
+
+        // LLM adapter: non-stream call for router/answer; we simulate streaming on the UI.
+        var llm = new LlmAdapter(_llm, _temperature, _maxTokens);
+        var orch = new ToolAgentOrchestrator(_api, llm, _mem);
+
+        var (answer, sourcesPayload) = await orch.RunAsync(history, userText, ct, onPhase);
+
+        // Progressive UX required by spec (even if the LLM endpoint does not stream).
+        await SimulateStreamingAsync(answer, onDelta, ct);
+
         return (answer, sourcesPayload);
     }
 
-    private async Task<Plan> BuildPlanAsync(string userText, string category, CancellationToken ct)
+    // --------------------
+    // Fallback (LLM disabled)
+    // --------------------
+
+    private async Task<(string finalAnswer, object? sourcesPayload)> RunSearchOnlyFallbackAsync(
+        string userText,
+        string category,
+        CancellationToken ct)
     {
-        var sys = """
-Tu es un assistant qui prépare une stratégie de recherche dans une base documentaire (RAG).
-Tu dois produire UNIQUEMENT un JSON valide (pas de texte autour).
-Format:
-{
-  "needClarification": true|false,
-  "clarificationQuestion": "..." | null,
-  "queries": ["...","..."]
-}
-Règles:
-- 1 à 3 queries max, courtes, pertinentes.
-- Si la question utilisateur est trop vague, needClarification=true et une seule question claire.
-""";
+        if (string.IsNullOrWhiteSpace(userText))
+            return ("", null);
 
-        var user = $"""
-Question: {userText}
-Catégorie: {category}
-""";
-
-        string txt;
-        try
+        var topK = _ragQualityPreset switch
         {
-            txt = await _llm.ChatOnceAsync(
-                new List<(string role, string content)> { ("system", sys), ("user", user) },
-                temperature: 0.1,
-                maxTokens: 220,
-                ct);
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            "quick" => 5,
+            "deep" => 12,
+            _ => 8
+        };
+
+        var resp = await _api.RagSearchAsync(userText, category, topK: topK, mode: "balanced", ct);
+        var items = (resp.Items ?? new List<RagItem>())
+            .OrderByDescending(x => x.Score)
+            .Take(8)
+            .ToList();
+
+        // Provide sources for UI chips even in degraded mode.
+        var sources = items.Select(x => new
         {
-            throw;
-        }
-        catch
-        {
-            return new Plan(false, null, new List<string> { userText });
-        }
+            docPath = (x.DocPath ?? "").Replace('\\', '/'),
+            docName = x.DocName ?? "",
+            pageStart = x.PageStart ?? 1,
+            pageEnd = x.PageEnd ?? x.PageStart ?? 1,
+            label = $"{(x.DocName ?? "document")} (p.{(x.PageStart ?? 1)}{(((x.PageEnd ?? x.PageStart ?? 1) != (x.PageStart ?? 1)) ? $"–{(x.PageEnd ?? x.PageStart ?? 1)}" : "")})",
+            snippet = (x.Text ?? "").Length > 240 ? (x.Text ?? "").Substring(0, 240) + "…" : (x.Text ?? "")
+        }).ToList();
 
-        if (TryParsePlanJson(txt, out var parsed))
-            return parsed;
+        var payload = new { intent = "rag_search", sources };
 
-        var extracted = ExtractFirstJsonObject(txt);
-        if (extracted is not null && TryParsePlanJson(extracted, out parsed))
-            return parsed;
+        // Minimal text (no template-heavy formatting).
+        var ans = items.Count == 0
+            ? "Je n’ai trouvé aucun extrait pertinent dans les documents indexés."
+            : "Je ne peux pas utiliser le LLM local pour rédiger la réponse (mode dégradé). Regarde les sources à droite.";
 
-        return new Plan(false, null, new List<string> { userText });
+        return (ans, payload);
     }
 
-    private static bool TryParsePlanJson(string json, out Plan plan)
+    // --------------------
+    // Helpers
+    // --------------------
+
+    private static string NormalizeRole(string? role)
     {
-        plan = new Plan(false, null, new List<string>());
-
-        try
+        var r = (role ?? "user").Trim().ToLowerInvariant();
+        return r switch
         {
-            using var doc = JsonDocument.Parse(json, new JsonDocumentOptions
-            {
-                AllowTrailingCommas = true,
-                CommentHandling = JsonCommentHandling.Skip
-            });
+            "assistant" => "assistant",
+            "system" => "system",
+            _ => "user"
+        };
+    }
 
-            var root = doc.RootElement;
+    private static bool LooksLikeDocumentsListQuery(string userText)
+    {
+        if (string.IsNullOrWhiteSpace(userText)) return false;
 
-            if (root.ValueKind == JsonValueKind.Object &&
-                root.TryGetProperty("plan", out var planNode) &&
-                planNode.ValueKind == JsonValueKind.Object)
-            {
-                root = planNode;
-            }
+        var t = userText.Trim().ToLowerInvariant();
 
-            bool need = root.TryGetProperty("needClarification", out var n) &&
-                        (n.ValueKind == JsonValueKind.True || n.ValueKind == JsonValueKind.False) &&
-                        n.GetBoolean();
-
-            string? q = null;
-            if (root.TryGetProperty("clarificationQuestion", out var cq) && cq.ValueKind == JsonValueKind.String)
-                q = cq.GetString();
-
-            var queries = new List<string>();
-            if (root.TryGetProperty("queries", out var arr) && arr.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var el in arr.EnumerateArray())
-                    if (el.ValueKind == JsonValueKind.String)
-                        queries.Add(el.GetString() ?? "");
-            }
-
-            plan = new Plan(need, q, queries);
+        // FR
+        if ((t.Contains("liste") || t.Contains("lister") || t.Contains("affiche")) && t.Contains("document"))
             return true;
-        }
-        catch
+        if (t.Contains("quels sont") && t.Contains("documents"))
+            return true;
+        if (t.Contains("documents présents") || t.Contains("documents presents"))
+            return true;
+
+        // EN
+        if ((t.Contains("list") || t.Contains("show")) && t.Contains("document"))
+            return true;
+
+        return false;
+    }
+
+    private static async Task SimulateStreamingAsync(string text, Action<string> onDelta, CancellationToken ct)
+    {
+        if (onDelta is null) return;
+        if (string.IsNullOrEmpty(text)) return;
+
+        const int chunk = 64;
+        for (var i = 0; i < text.Length; i += chunk)
         {
-            return false;
+            ct.ThrowIfCancellationRequested();
+            var take = Math.Min(chunk, text.Length - i);
+            onDelta(text.Substring(i, take));
+            await Task.Yield();
         }
     }
 
-    private static string? ExtractFirstJsonObject(string text)
+    /// <summary>
+    /// Adapter between the existing streaming-capable OpenAiLlmClient and the tool-agent ILlmClient.
+    /// </summary>
+    private sealed class LlmAdapter : ILlmClient
     {
-        if (string.IsNullOrWhiteSpace(text))
-            return null;
+        private readonly OpenAiLlmClient _llm;
+        private readonly double _temperature;
+        private readonly int _maxTokens;
 
-        var t = text.Trim();
-
-        if (t.StartsWith("```", StringComparison.Ordinal))
+        public LlmAdapter(OpenAiLlmClient llm, double temperature, int maxTokens)
         {
-            var firstNl = t.IndexOf('\n');
-            if (firstNl > 0)
-            {
-                var endFence = t.IndexOf("```", firstNl + 1, StringComparison.Ordinal);
-                if (endFence > firstNl)
-                    t = t.Substring(firstNl + 1, endFence - firstNl - 1).Trim();
-            }
+            _llm = llm;
+            _temperature = Math.Clamp(temperature, 0, 1);
+            _maxTokens = Math.Clamp(maxTokens, 128, 4096);
         }
 
-        var start = t.IndexOf('{');
-        if (start < 0) return null;
-
-        bool inStr = false;
-        bool esc = false;
-        int depth = 0;
-
-        for (int i = start; i < t.Length; i++)
+        public async Task<string> CompleteAsync(IReadOnlyList<(string role, string content)> messages, bool forceJson, CancellationToken ct)
         {
-            char c = t[i];
-
-            if (inStr)
+            // The ToolAgent prompts already enforce JSON strictly when needed.
+            // We keep a small extra nudge in case the local endpoint is lax.
+            var list = messages?.ToList() ?? new List<(string role, string content)>();
+            if (forceJson)
             {
-                if (esc) { esc = false; continue; }
-                if (c == '\\') { esc = true; continue; }
-                if (c == '"') inStr = false;
-                continue;
+                list.Insert(0, ("system", "Return ONLY valid JSON. No markdown. No extra text."));
             }
 
-            if (c == '"') { inStr = true; continue; }
-
-            if (c == '{') depth++;
-            else if (c == '}')
-            {
-                depth--;
-                if (depth == 0)
-                    return t.Substring(start, i - start + 1);
-            }
+            return await _llm.ChatOnceAsync(list, _temperature, _maxTokens, ct);
         }
-
-        return null;
     }
-
-    private static string BuildRagOnlyFallback(string userText, List<RagItem> merged, string err)
-    {
-        var top = merged.Take(6).ToList();
-
-        var docs = string.Join("\n", top.Select(m =>
-            $"- {m.DocName} p.{m.PageStart}-{m.PageEnd}"));
-
-        var extracts = string.Join("\n\n---\n\n", top.Take(3).Select(m =>
-            $"[{m.DocName} p.{m.PageStart}-{m.PageEnd}]\n{m.Text}"));
-
-        return
-$@"⚠️ Mode dégradé : le serveur LLM local est indisponible (synthèse impossible).
-Erreur : {err}
-
-Question :
-{userText}
-
-Meilleures sources trouvées :
-{docs}
-
-Extraits :
-{extracts}";
-    }
-
-    private static string DedupConsecutiveRepeat(string? s)
-    {
-        var t = (s ?? "").Trim();
-        if (t.Length < 300) return t;
-
-        var prefixLen = Math.Min(80, t.Length);
-        var prefix = t.Substring(0, prefixLen);
-
-        var idx = t.IndexOf(prefix, prefixLen, StringComparison.Ordinal);
-        if (idx <= 0) return t;
-
-        var a = t.Substring(0, idx).Trim();
-        var b = t.Substring(idx).Trim();
-
-        return (a.Length > 0 && a.Equals(b, StringComparison.Ordinal)) ? a : t;
-    }
-
-    private static string Truncate(string? s, int maxChars)
-    {
-        if (string.IsNullOrEmpty(s)) return "";
-        if (s.Length <= maxChars) return s;
-        return s.Substring(0, maxChars) + " …";
-    }
-
 }
