@@ -155,12 +155,12 @@ public sealed class RagChatAgent
         var llm = new LlmAdapter(_llm, _temperature, _maxTokens);
         var orch = new ToolAgentOrchestrator(_api, llm, _mem);
 
-        var (answer, sourcesPayload) = await orch.RunAsync(history, userText, ct, onPhase);
+        var (finalanswer, sourcesPayload) = await orch.RunAsync(history, userText, ct, onPhase);
 
         // Progressive UX required by spec (even if the LLM endpoint does not stream).
-        await SimulateStreamingAsync(answer, onDelta, ct);
+        await SimulateStreamingAsync(finalanswer, onDelta, ct);
 
-        return (answer, sourcesPayload);
+        return (finalanswer, sourcesPayload);
     }
 
     // --------------------
