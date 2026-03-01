@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using System.IO;
 
 using SAAIA.Client.WinUI.Models;
 using SAAIA.Client.WinUI.Services.ToolAgent;
@@ -75,23 +76,44 @@ public sealed class RagChatAgent
         {
             onPhase?.Invoke("Documents (liste)…");
 
-            var resp = await _api.DocumentsListAsync(ct);
-            var items = (resp.Items ?? new List<DocumentCatalogItem>())
-                .Where(x => !string.IsNullOrWhiteSpace(x.DocPath))
-                .OrderBy(x => x.DocPath, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            // Fast-path local : inventaire disque des PDFs sous le dossier documents.
+            // Avantages : réponse quasi instantanée et cohérente avec l'état réel du disque.
+            var root = DocumentPathResolver.GetDocumentsRoot();
+            var list = new List<string>();
+            if (Directory.Exists(root))
+            {
+                foreach (var file in Directory.EnumerateFiles(root, "*.pdf", SearchOption.AllDirectories))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    try
+                    {
+                        var rel = Path.GetRelativePath(root, file);
+                        rel = rel.Replace(Path.DirectorySeparatorChar, '/');
+                        if (!string.IsNullOrWhiteSpace(rel))
+                            list.Add(rel);
+                    }
+                    catch
+                    {
+                        // ignore
+                    }
+                }
+            }
+
+            list = list.Distinct(StringComparer.OrdinalIgnoreCase)
+                       .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+                       .ToList();
 
             var sb = new StringBuilder();
             sb.AppendLine("Voici la liste des documents présents sur le serveur :");
 
-            if (items.Count == 0)
+            if (list.Count == 0)
             {
                 sb.AppendLine("- (aucun document)");
             }
             else
             {
-                foreach (var d in items)
-                    sb.AppendLine($"- {d.DocPath}");
+                foreach (var d in list)
+                    sb.AppendLine($"- {d}");
             }
 
             var answer = sb.ToString().TrimEnd();

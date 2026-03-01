@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using SAAIA.Client.WinUI.Models;
+using System.IO;
 
 namespace SAAIA.Client.WinUI.Services.ToolAgent;
 
@@ -51,12 +52,11 @@ public sealed class ToolAgentOrchestrator
         onPhase?.Invoke("Outils…");
         var toolResults = await ExecuteToolsAsync(plan, userMessage, ct, onPhase);
 
-        // Fast-path: for list_documents we can return a deterministic response without running
-        // the (slow) writer LLM, and without risking filename/path hallucinations.
+        // Fast-path: for list_documents we can return a deterministic response without
+        // running the (slow) writer LLM. Streaming (if desired) is handled by the caller.
         if (plan.Intent == "list_documents" || (plan.ToolCalls.Count == 1 && plan.ToolCalls[0].Name == "documents.list"))
         {
             var fast = BuildDocumentsListAnswer(toolResults);
-            await SimulateStreamingAsync(fast, onDelta, ct);
             return (fast, null);
         }
 
@@ -85,28 +85,41 @@ public sealed class ToolAgentOrchestrator
 	{
 		try
 		{
-			var item = toolResults.Items.FirstOrDefault(x => x.Name == "documents.list");
+			// ToolResults exposes ToolName (not Name). Also accept filesystem listing.
+			var item = toolResults.Items.FirstOrDefault(x => x.ToolName == "documents.list" || x.ToolName == "documents.fs_list");
 			if (item == null)
 				return "Je n'ai trouvé aucun document (la liste est vide).";
 
-			var json = item.Result.GetRawText();
-			var resp = JsonSerializer.Deserialize<DocumentCatalogResponse>(json);
-			var docs = (resp?.Items ?? new List<DocumentCatalogItem>())
-				.Where(x => !string.IsNullOrWhiteSpace(x.DocPath))
-				.OrderBy(x => x.DocPath, StringComparer.OrdinalIgnoreCase)
-				.ToList();
+			var root = item.Result;
+			if (root.ValueKind != JsonValueKind.Object ||
+				!root.TryGetProperty("items", out var arr) ||
+				arr.ValueKind != JsonValueKind.Array)
+				return "Voici la liste des documents présents sur le serveur.";
+
+			var docs = new List<string>();
+			foreach (var it in arr.EnumerateArray())
+			{
+				if (it.ValueKind != JsonValueKind.Object) continue;
+				if (it.TryGetProperty("docPath", out var dp) && dp.ValueKind == JsonValueKind.String)
+				{
+					var docPath = dp.GetString();
+					if (!string.IsNullOrWhiteSpace(docPath))
+						docs.Add(docPath);
+				}
+			}
+
+			docs = docs.Distinct(StringComparer.OrdinalIgnoreCase)
+					 .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+					 .ToList();
 
 			var sb = new StringBuilder();
 			sb.AppendLine("Voici la liste des documents présents sur le serveur :");
-
 			if (docs.Count == 0)
-			{
 				sb.AppendLine("- (aucun document)");
-			}
 			else
 			{
 				foreach (var d in docs)
-					sb.AppendLine($"- {d.DocPath}");
+					sb.AppendLine($"- {d}");
 			}
 
 			return sb.ToString().TrimEnd();
@@ -225,6 +238,8 @@ USER_MESSAGE:
                     "documents.get" => await ExecDocumentsGetAsync(call.Args, ct),
                     "rag.search" => await ExecRagSearchAsync(call.Args, ct),
                     "sources.resolve" => ExecSourcesResolve(call.Args),
+                    "documents.fs_list" => await ExecDocumentsFsListAsync(call.Args, ct),
+                    "documents.fs_categories" => await ExecDocumentsFsCategoriesAsync(call.Args, ct),
                     _ => JsonDocument.Parse("{\"error\":\"unknown_tool\"}").RootElement
                 };
 
@@ -248,6 +263,70 @@ USER_MESSAGE:
         }
 
         return results;
+    }
+
+    private static Task<JsonElement> ExecDocumentsFsListAsync(JsonElement args, CancellationToken ct)
+    {
+        try
+        {
+            var root = SAAIA.Client.WinUI.Services.DocumentPathResolver.GetDocumentsRoot();
+            var items = new List<object>();
+            if (Directory.Exists(root))
+            {
+                foreach (var file in Directory.EnumerateFiles(root, "*.pdf", SearchOption.AllDirectories))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    try
+                    {
+                        var rel = Path.GetRelativePath(root, file);
+                        rel = rel.Replace(Path.DirectorySeparatorChar, '/');
+                        if (!string.IsNullOrWhiteSpace(rel))
+                            items.Add(new { docPath = rel });
+                    }
+                    catch { }
+                }
+            }
+
+            return Task.FromResult(JsonSerializer.SerializeToElement(new { items }));
+        }
+        catch
+        {
+            return Task.FromResult(JsonSerializer.SerializeToElement(new { items = Array.Empty<object>() }));
+        }
+    }
+
+    private static Task<JsonElement> ExecDocumentsFsCategoriesAsync(JsonElement args, CancellationToken ct)
+    {
+        try
+        {
+            var root = SAAIA.Client.WinUI.Services.DocumentPathResolver.GetDocumentsRoot();
+            var categories = new List<string>();
+
+            if (Directory.Exists(root))
+            {
+                foreach (var dir in Directory.EnumerateDirectories(root, "*", SearchOption.TopDirectoryOnly))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    try
+                    {
+                        var name = Path.GetFileName(dir);
+                        if (!string.IsNullOrWhiteSpace(name))
+                            categories.Add(name);
+                    }
+                    catch { }
+                }
+            }
+
+            categories = categories.Distinct(StringComparer.OrdinalIgnoreCase)
+                                   .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+                                   .ToList();
+
+            return Task.FromResult(JsonSerializer.SerializeToElement(new { categories }));
+        }
+        catch
+        {
+            return Task.FromResult(JsonSerializer.SerializeToElement(new { categories = Array.Empty<string>() }));
+        }
     }
 
     private async Task<(string answer, List<ToolMemory.SourceRef>? sources)> AnswerAsync(

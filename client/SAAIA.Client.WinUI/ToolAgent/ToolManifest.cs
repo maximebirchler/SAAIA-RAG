@@ -19,6 +19,21 @@ public static class ToolManifest
                     args_schema = new { category = "string|null", q = "string|null", limit = "int", offset = "int" },
                     result_schema = new { items = "DocumentItem[]", nextOffset = "int|null", total = "int|null" }
                 },
+                // Expose des outils purement locaux pour lister les fichiers et catégories directement sur le disque.
+                new {
+                    name = "documents.fs_list",
+                    access = "user",
+                    description = "Lister les fichiers PDF présents sous le dossier documents/ (chemins relatifs, récursif).",
+                    args_schema = new { },
+                    result_schema = new { items = "FsListItem[]" }
+                },
+                new {
+                    name = "documents.fs_categories",
+                    access = "user",
+                    description = "Lister les catégories (dossiers de premier niveau sous documents/).",
+                    args_schema = new { },
+                    result_schema = new { categories = "string[]" }
+                },
                 new {
                     name = "documents.search",
                     access = "user",
