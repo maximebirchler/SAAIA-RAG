@@ -67,9 +67,11 @@ public static class WebApplicationExtensions
 
         // IMPORTANT (spec v2.8.x): documents catalog (user-safe) + admin docs endpoints
         DocumentsEndpoints.Map(app);
+        SummaryEndpoints.Map(app);
 
         // Admin
         AdminEndpoints.Map(app);
+        AdminCatalogEndpoints.Map(app);
         AdminKeysEndpoints.Map(app);
         AdminAuditEndpoints.Map(app);
 

@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 using Npgsql;
 using SAAIA.Backend.Auth;
 using SAAIA.Backend.Bootstrap;
+using SAAIA.Backend.CatalogSnapshot;
 using SAAIA.Backend.Middleware;
 using SAAIA.Backend.Security;
 
@@ -41,6 +42,7 @@ public static class ServiceCollectionExtensions
         services.Configure<IngestionOptions>(config.GetSection("Ingestion"));
         services.Configure<RateLimitOptions>(config.GetSection("RateLimiting"));
         services.Configure<OpenTelemetryOptions>(config.GetSection("OpenTelemetry"));
+        services.Configure<CatalogSnapshotOptions>(config.GetSection("CatalogSnapshot"));
 
         // ---------- OpenTelemetry (M2.2) ----------
         services.AddSaaiaOpenTelemetry(config, env);
@@ -166,6 +168,7 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<IngestionWorker>();
         services.AddHostedService<IngestionScanner>();
         services.AddHostedService<FileWatcherService>();
+        services.AddHostedService<CatalogSnapshotService>();
 
         return services;
     }

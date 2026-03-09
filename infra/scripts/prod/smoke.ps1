@@ -104,7 +104,7 @@ if (-not $SkipAudit) {
 
   Write-Info "Audit test via /admin/audit (key source=$auditKeySource)."
   try {
-    $aud = Invoke-RestMethod -Method Get -Uri "$BaseUrl/admin/audit?limit=20" -Headers @{ "X-Api-Key" = $auditKey }
+    $aud = Invoke-RestMethod -Method Get -Uri "$BaseUrl/admin/audit?limit=20" -Headers @{ "X-Admin-Key" = $auditKey }
     $n = 0
     if ($null -ne $aud -and $null -ne $aud.items) { $n = @($aud.items).Count }
     if ($n -le 0) {

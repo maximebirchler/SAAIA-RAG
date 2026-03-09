@@ -223,42 +223,49 @@ WHERE tenant_id = @tenant_id
         }
 
         // 5) Deletions
-        if (!anyTooFresh)
+        // M1.2b: lors d'un copy/move, certains fichiers peuvent être "too fresh".
+        // On doit quand même marquer les documents absents en "missing" pour éviter les doublons/fantômes
+        // dans l'inventaire user. En revanche, on diffère l'enqueue des deletes définitifs tant que
+        // l'on détecte un copy/move en cours (anyTooFresh=true).
+        foreach (var kv in existing)
         {
-            foreach (var kv in existing)
+            if (files.Count == 0 || !seen.Contains(kv.Key))
             {
-                if (files.Count == 0 || !seen.Contains(kv.Key))
+                // 5.1) Marquer missing (même si anyTooFresh=true)
+                if (!string.Equals(kv.Value.Status, "missing", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (!string.Equals(kv.Value.Status, "missing", StringComparison.OrdinalIgnoreCase))
-                    {
-                        await IngestionEnqueue.MarkMissingAsync(conn, tenantId, kv.Key, ct);
-                        kv.Value.Status = "missing";
-                        kv.Value.MissingSince = now;
-                        continue;
-                    }
+                    await IngestionEnqueue.MarkMissingAsync(conn, tenantId, kv.Key, ct);
+                    kv.Value.Status = "missing";
+                    kv.Value.MissingSince = now;
+                    continue;
+                }
 
-                    var missingSince = kv.Value.MissingSince;
-                    if (missingSince is null)
-                    {
-                        await IngestionEnqueue.MarkMissingAsync(conn, tenantId, kv.Key, ct);
-                        missingSince = now;
-                    }
+                // 5.2) Robustesse legacy: missing mais missing_since null => fixer missing_since
+                if (kv.Value.MissingSince is null)
+                {
+                    await IngestionEnqueue.MarkMissingAsync(conn, tenantId, kv.Key, ct);
+                    kv.Value.MissingSince = now;
+                }
 
-                    var missingSinceUtc = missingSince.Value.Kind == DateTimeKind.Utc
-                        ? missingSince.Value
-                        : missingSince.Value.ToUniversalTime();
+                // 5.3) Delete définitif uniquement si aucun fichier trop frais (sinon on attend un prochain scan)
+                if (anyTooFresh)
+                    continue;
 
-                    if ((now - missingSinceUtc) >= missingGrace)
-                    {
-                        await IngestionEnqueue.EnqueueDeleteAsync(conn, tenantId, kv.Key, ct);
-                        enqDelete++;
-                    }
+                var missingSinceUtc = kv.Value.MissingSince!.Value.Kind == DateTimeKind.Utc
+                    ? kv.Value.MissingSince!.Value
+                    : kv.Value.MissingSince!.Value.ToUniversalTime();
+
+                if ((now - missingSinceUtc) >= missingGrace)
+                {
+                    await IngestionEnqueue.EnqueueDeleteAsync(conn, tenantId, kv.Key, ct);
+                    enqDelete++;
                 }
             }
         }
-        else
+
+        if (anyTooFresh)
         {
-            _log.LogWarning("Scanner: skipped deletions because some files are too fresh (copy/move in progress)");
+            _log.LogWarning("Scanner: some files are too fresh (copy/move in progress) => missing is marked, but final deletes are deferred");
         }
 
         _log.LogInformation(

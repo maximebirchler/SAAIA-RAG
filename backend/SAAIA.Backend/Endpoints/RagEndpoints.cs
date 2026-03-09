@@ -23,7 +23,7 @@ public static class RagEndpoints
         // Compat (dev / anciens scripts)
         app.MapPost("/rag/query", QueryAsync);
 
-        app.MapGet("/rag/debug/scroll", ScrollAsync);
+        app.MapGet("/rag/debug/scroll", ScrollAsync).RequireAdminKey();
     }
 
     private static async Task<IResult> CategoriesAsync(HttpContext ctx, NpgsqlDataSource ds)
@@ -323,7 +323,8 @@ ORDER BY category;";
         HttpContext ctx,
         IOptions<RagOptions> ragOpt,
         IHttpClientFactory httpFactory,
-        int? limit)
+        int? limit,
+        string? docPath)
     {
         AdminAuth.EnsureAdmin(ctx);
         var tenantId = ctx.GetTenantId();
@@ -332,16 +333,24 @@ ORDER BY category;";
         var qdrant = httpFactory.CreateClient("qdrant");
         qdrant.BaseAddress = new Uri(rag.QdrantBaseUrl);
 
+        docPath = string.IsNullOrWhiteSpace(docPath)
+            ? null
+            : docPath.Trim().Replace('\\', '/').TrimStart('/');
+
+        var must = new List<object>
+        {
+            new { key = "tenant_id", match = new { value = tenantId.ToString() } }
+        };
+        if (!string.IsNullOrWhiteSpace(docPath))
+            must.Add(new { key = "doc_path", match = new { value = docPath } });
+
         var body = new
         {
             limit = Math.Clamp(limit ?? 20, 1, 200),
             with_payload = true,
             filter = new
             {
-                must = new object[]
-                {
-                    new { key = "tenant_id", match = new { value = tenantId.ToString() } }
-                }
+                must = must.ToArray()
             }
         };
 

@@ -1,6 +1,7 @@
 {
   "Auth": {
     "ApiKeyHeaderName": "X-Api-Key",
+    "AdminKeyHeaderName": "X-Admin-Key",
     "Pepper": "__AUTH_PEPPER__"
   },
   "Bootstrap": {

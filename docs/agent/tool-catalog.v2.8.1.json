@@ -1,0 +1,705 @@
+{
+  "version": "v2.8.1",
+  "updatedAt": "2026-03-03",
+  "tools": [
+    {
+      "name": "documents.list",
+      "access": "user",
+      "description": "List indexed documents. Supports pagination and optional filters.",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "categoryPath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "limit",
+          "offset"
+        ]
+      }
+    },
+    {
+      "name": "documents.search",
+      "access": "user",
+      "description": "Search documents by name/path. Paginated.",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "q",
+          "limit",
+          "offset"
+        ]
+      }
+    },
+    {
+      "name": "documents.get",
+      "access": "user",
+      "description": "Get document metadata (docPath, categoryPath, pages, statusIngest).",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "docRef": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "docRef"
+        ]
+      }
+    },
+    {
+      "name": "documents.count",
+      "access": "user",
+      "description": "Count indexed documents (global or filtered).",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "categoryPath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "q": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "documents.tree",
+      "access": "user",
+      "description": "Get category tree (multi-level). Optionally returns markdown.",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "depth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 10
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "json",
+              "markdown"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "documents.stats",
+      "access": "user",
+      "description": "Get inventory stats (totalDocs, depthCounts, top categories).",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "sources.resolve",
+      "access": "user",
+      "description": "Resolve a source reference like 'PDF34' to docPath and pages for UI chips.",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref"
+        ]
+      }
+    },
+    {
+      "name": "rag.search",
+      "access": "user",
+      "description": "RAG retrieval: returns snippets with doc/page references.",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "topK": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "filters": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "strict",
+              "standard"
+            ]
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "rag.multi_search",
+      "access": "user",
+      "description": "Multi-query retrieval with dedup/diversity.",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "queries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "maxItems": 10
+          },
+          "topK": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "filters": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "diversity": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": [
+          "queries"
+        ]
+      }
+    },
+    {
+      "name": "rag.summarize_live",
+      "access": "user",
+      "description": "Live (non-stored) document summary using skim+anchors on ingested chunks (1 doc at a time).",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "docRef": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "short",
+              "medium"
+            ]
+          },
+          "strategy": {
+            "type": "string",
+            "enum": [
+              "skim"
+            ]
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "fr",
+              "en"
+            ]
+          },
+          "maxWords": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3000
+          }
+        },
+        "required": [
+          "docRef"
+        ]
+      }
+    },
+    {
+      "name": "summary.get",
+      "access": "user",
+      "description": "Get an admin-stored summary for a document (stored in doc language).",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "docRef": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "medium"
+            ]
+          }
+        },
+        "required": [
+          "docRef"
+        ]
+      }
+    },
+    {
+      "name": "summary.exists",
+      "access": "user",
+      "description": "Check if an admin summary exists and is fresh for a document.",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "docRef": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "medium"
+            ]
+          }
+        },
+        "required": [
+          "docRef"
+        ]
+      }
+    },
+    {
+      "name": "summary.search",
+      "access": "user",
+      "description": "Search within stored summaries (fast navigation).",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "q",
+          "limit",
+          "offset"
+        ]
+      }
+    },
+    {
+      "name": "export.create",
+      "access": "user",
+      "description": "Create an export artifact from provided content or tool result references.",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": [
+              "txt",
+              "md",
+              "csv",
+              "docx"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "content": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "format",
+          "content"
+        ]
+      }
+    },
+    {
+      "name": "support.bundle",
+      "access": "user",
+      "description": "Create a support bundle (logs + redacted config).",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "include": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "diagnostic.performance",
+      "access": "user",
+      "description": "Return router/tools/writer timings and perf hints.",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "lastN": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          }
+        }
+      }
+    },
+    {
+      "name": "admin.summary.missing",
+      "access": "admin",
+      "description": "List indexed documents without an admin-stored summary (level=medium).",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "categoryPath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "limit",
+          "offset"
+        ]
+      }
+    },
+    {
+      "name": "admin.summary.request",
+      "access": "admin",
+      "description": "Create a summary request/job (execution via admin client or backoffice worker).",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "docRef": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "medium"
+            ]
+          }
+        },
+        "required": [
+          "docRef"
+        ]
+      }
+    },
+    {
+      "name": "admin.summary.submit",
+      "access": "admin",
+      "description": "Submit an admin-generated summary to be stored in DB (doc language).",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "docRef": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "medium"
+            ]
+          },
+          "docLanguage": {
+            "type": "string"
+          },
+          "sourceHash": {
+            "type": "string"
+          },
+          "summaryText": {
+            "type": "string"
+          },
+          "meta": {
+            "type": [
+              "object",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "docRef",
+          "level",
+          "summaryText",
+          "docLanguage",
+          "sourceHash"
+        ]
+      }
+    },
+    {
+      "name": "admin.summary.status",
+      "access": "admin",
+      "description": "Get status of a summary request/job.",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId"
+        ]
+      }
+    },
+    {
+      "name": "admin.summary.delete",
+      "access": "admin",
+      "description": "Delete a stored summary (maintenance).",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "docRef": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "medium"
+            ]
+          }
+        },
+        "required": [
+          "docRef"
+        ]
+      }
+    },
+    {
+      "name": "admin.catalog.rescan_now",
+      "access": "admin",
+      "description": "Force a catalog rescan/reconcile.",
+      "argsSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "admin.catalog.health",
+      "access": "admin",
+      "description": "Catalog/index health report (duplicates, missing, failed, pending).",
+      "argsSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "admin.ingestion.reindex",
+      "access": "admin",
+      "description": "Re-trigger ingestion for a document (failed/outdated).",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "docRef": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "docRef"
+        ]
+      }
+    },
+    {
+      "name": "admin.jobs.list",
+      "access": "admin",
+      "description": "List admin jobs (summaries, maintenance) with status and errors.",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "limit",
+          "offset"
+        ]
+      }
+    },
+    {
+      "name": "admin.jobs.cancel",
+      "access": "admin",
+      "description": "Cancel an admin job.",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId"
+        ]
+      }
+    },
+    {
+      "name": "admin.summary.generate",
+      "access": "admin",
+      "description": "OPTIONAL (when BACKOFFICE_LLM_ENABLED=true): server-side generation of an admin summary job.",
+      "optional": true,
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "docRef": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "medium"
+            ]
+          },
+          "force": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "docRef"
+        ]
+      }
+    },
+    {
+      "name": "rag.debug.scroll",
+      "access": "admin",
+      "description": "OPTIONAL: scroll/paginate raw chunks for debugging RAG ingestion.",
+      "optional": true,
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "docRef": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "docRef",
+          "limit",
+          "offset"
+        ]
+      }
+    },
+    {
+      "name": "admin.qdrant.health",
+      "access": "admin",
+      "description": "OPTIONAL: Qdrant health checks (collections, point counts, latency).",
+      "optional": true,
+      "argsSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}

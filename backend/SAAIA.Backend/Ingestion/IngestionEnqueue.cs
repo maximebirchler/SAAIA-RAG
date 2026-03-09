@@ -120,7 +120,8 @@ DO UPDATE SET
   status = CASE WHEN documents.status='deleted' THEN documents.status ELSE 'missing' END,
   updated_at = now(),
   missing_since = COALESCE(documents.missing_since, now())
-WHERE documents.status NOT IN ('missing','deleted')
+WHERE documents.status <> 'deleted'
+  AND (documents.status <> 'missing' OR documents.missing_since IS NULL)
 RETURNING doc_id;";
 
         var affected = await conn.ExecuteScalarAsync<Guid?>(

@@ -9,7 +9,7 @@ public static class IngestionEndpoints
 {
     public static void Map(WebApplication app)
     {
-        app.MapPost("/ingest/enqueue", EnqueueAsync);
+        app.MapPost("/ingest/enqueue", EnqueueAsync).RequireAdminKey();
     }
 
     private static async Task<IResult> EnqueueAsync(

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using SAAIA.Backend.Middleware;
@@ -9,6 +10,11 @@ namespace SAAIA.Backend.Auth;
 public sealed class ApiKeyAuthOptions
 {
     public string ApiKeyHeaderName { get; set; } = "X-Api-Key";
+
+    /// <summary>
+    /// Header dédié aux endpoints admin (/admin/*). Doit correspondre à une clé avec is_admin=true.
+    /// </summary>
+    public string AdminKeyHeaderName { get; set; } = "X-Admin-Key";
 
     /// <summary>
     /// Pepper optionnel : SHA256(pepper + apiKey). A stocker uniquement en local (appsettings.Local.json / env).
@@ -40,20 +46,31 @@ public sealed class ApiKeyAuthMiddleware
             return;
         }
 
+        // Admin endpoints are protected by a dedicated header (architecture v2.8.1).
+        // Some legacy admin-only endpoints may not be under /admin; they must opt-in via endpoint metadata.
+        var endpoint = ctx.GetEndpoint();
+        var isAdminRoute = path.StartsWith("/admin", StringComparison.OrdinalIgnoreCase)
+            || endpoint?.Metadata.GetMetadata<RequireAdminKeyMetadata>() is not null;
+        var headerName = isAdminRoute
+            ? (string.IsNullOrWhiteSpace(opt.Value.AdminKeyHeaderName) ? "X-Admin-Key" : opt.Value.AdminKeyHeaderName)
+            : (string.IsNullOrWhiteSpace(opt.Value.ApiKeyHeaderName) ? "X-Api-Key" : opt.Value.ApiKeyHeaderName);
+
         var requestId = ctx.GetRequestId();
 
-        if (!ctx.Request.Headers.TryGetValue(opt.Value.ApiKeyHeaderName, out var keyVals))
+        if (!ctx.Request.Headers.TryGetValue(headerName, out var keyVals))
         {
-            _logger.LogWarning("Missing API key for {Path}", path);
-            await WriteErrorResponseAsync(ctx, StatusCodes.Status401Unauthorized, "Missing API key.", requestId);
+            _logger.LogWarning("Missing {Header} for {Path}", headerName, path);
+            var msg = isAdminRoute ? "Missing admin key." : "Missing API key.";
+            await WriteErrorResponseAsync(ctx, StatusCodes.Status401Unauthorized, msg, requestId);
             return;
         }
 
         var apiKey = keyVals.ToString().Trim();
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            _logger.LogWarning("Empty API key for {Path}", path);
-            await WriteErrorResponseAsync(ctx, StatusCodes.Status401Unauthorized, "Empty API key.", requestId);
+            _logger.LogWarning("Empty {Header} for {Path}", headerName, path);
+            var msg = isAdminRoute ? "Empty admin key." : "Empty API key.";
+            await WriteErrorResponseAsync(ctx, StatusCodes.Status401Unauthorized, msg, requestId);
             return;
         }
 
@@ -61,8 +78,16 @@ public sealed class ApiKeyAuthMiddleware
 
         if (principal is null)
         {
-            _logger.LogWarning("Invalid API key for {Path}", path);
-            await WriteErrorResponseAsync(ctx, StatusCodes.Status401Unauthorized, "Invalid API key.", requestId);
+            _logger.LogWarning("Invalid {Header} for {Path}", headerName, path);
+            var msg = isAdminRoute ? "Invalid admin key." : "Invalid API key.";
+            await WriteErrorResponseAsync(ctx, StatusCodes.Status401Unauthorized, msg, requestId);
+            return;
+        }
+
+        if (isAdminRoute && !principal.IsAdmin)
+        {
+            _logger.LogWarning("Non-admin key used on admin route {Path}", path);
+            await WriteErrorResponseAsync(ctx, StatusCodes.Status403Forbidden, "Admin API key required.", requestId);
             return;
         }
 

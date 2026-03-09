@@ -125,7 +125,7 @@ Nécessite une **clé admin**.
 
 ```powershell
 $ADMIN = "CLE_ADMIN"
-curl.exe -s "http://localhost:5122/admin/audit?limit=50" -H "X-Api-Key: $ADMIN"
+curl.exe -s "http://localhost:5122/admin/audit?limit=50" -H "X-Admin-Key: $ADMIN"
 ```
 
 Attendu : JSON avec `{ items: [...], total: ... }`

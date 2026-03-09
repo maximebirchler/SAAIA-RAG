@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SAAIA Router Plan Schema v2.8.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "language",
+    "intent",
+    "responseStyle",
+    "mode",
+    "toolCalls"
+  ],
+  "properties": {
+    "language": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "fr",
+        "en"
+      ],
+      "description": "Target language for the Writer output (auto = use session + user message)."
+    },
+    "intent": {
+      "type": "string",
+      "enum": [
+        "meta.set_language",
+        "meta.set_style",
+        "meta.set_mode",
+        "meta.help",
+        "meta.rewrite_last",
+        "inventory.count",
+        "inventory.list",
+        "inventory.tree",
+        "inventory.tree_sub",
+        "inventory.categories",
+        "inventory.stats",
+        "inventory.find",
+        "inventory.changed_since",
+        "inventory.health",
+        "rag.summarize_doc",
+        "rag.summarize_live",
+        "rag.answer",
+        "rag.cite",
+        "rag.compare",
+        "rag.extract",
+        "rag.summarize_topic",
+        "rag.followup",
+        "export.create",
+        "support.bundle",
+        "diagnostic.performance"
+      ],
+      "description": "Canonical intent name (v2.8.1)."
+    },
+    "responseStyle": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "brief",
+        "detailed",
+        "bullets",
+        "count_only",
+        "list",
+        "tree",
+        "table"
+      ],
+      "description": "How the assistant should respond. Must be respected by the Writer."
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "standard",
+        "strict"
+      ],
+      "description": "Strict mode forbids invention and requires sources for RAG answers."
+    },
+    "toolCalls": {
+      "type": "array",
+      "description": "Ordered tool calls requested by the router.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "args"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "documents.list",
+              "documents.search",
+              "documents.get",
+              "documents.count",
+              "documents.tree",
+              "documents.stats",
+              "sources.resolve",
+              "rag.search",
+              "rag.multi_search",
+              "rag.summarize_live",
+              "summary.get",
+              "summary.exists",
+              "summary.search",
+              "export.create",
+              "support.bundle",
+              "diagnostic.performance",
+              "admin.summary.missing",
+              "admin.summary.request",
+              "admin.summary.submit",
+              "admin.summary.status",
+              "admin.summary.delete",
+              "admin.catalog.rescan_now",
+              "admin.catalog.health",
+              "admin.ingestion.reindex",
+              "admin.jobs.list",
+              "admin.jobs.cancel",
+              "admin.summary.generate",
+              "rag.debug.scroll",
+              "admin.qdrant.health"
+            ]
+          },
+          "args": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "memoryUpdate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "preferredLanguage": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "fr",
+            "en"
+          ]
+        },
+        "preferredStyle": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "brief",
+            "detailed",
+            "bullets",
+            "table"
+          ]
+        },
+        "strictMode": {
+          "type": "boolean"
+        }
+      }
+    },
+    "questions": {
+      "type": "array",
+      "description": "Optional clarification questions (max 2).",
+      "maxItems": 2,
+      "items": {
+        "type": "string"
+      }
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional internal note for debugging. Must not contain user-facing text."
+    }
+  },
+  "$id": "https://saaia.local/schemas/router.schema.v2.8.1.json",
+  "version": "v2.8.1"
+}

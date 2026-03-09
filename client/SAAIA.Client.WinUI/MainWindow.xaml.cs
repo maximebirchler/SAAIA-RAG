@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -31,7 +32,7 @@ public sealed partial class MainWindow : Window
     private AppSettings _appSettings = AppSettings.Load();
     private readonly LlamaCppProcessManager _llmProc = new();
     private readonly DownloadManager _downloads = new();
-    private readonly LocalLlmBootstrapper _llmBootstrapper = new();
+    private readonly Services.LocalLlmBootstrapper _llmBootstrapper = new();
     private RagChatAgent? _agent;
 
     private readonly ObservableCollection<ChatMessageItem> _messages = new();
@@ -46,7 +47,17 @@ public sealed partial class MainWindow : Window
     private bool _userScrolledUp = false;     // si true: on ne force plus le scroll
     private DateTime _lastAutoScroll = DateTime.MinValue;
     private bool _isProgrammaticScroll = false;
-    private bool _sourcesCollapsedByWidth;
+
+    // Windows title bar colors (edit these values if you want another header color)
+    private static readonly global::Windows.UI.Color TitleBarBackgroundColor = global::Windows.UI.Color.FromArgb(255, 18, 18, 18);
+    private static readonly global::Windows.UI.Color TitleBarInactiveBackgroundColor = global::Windows.UI.Color.FromArgb(255, 18, 18, 18);
+    private static readonly global::Windows.UI.Color TitleBarButtonHoverColor = global::Windows.UI.Color.FromArgb(255, 40, 40, 40);
+    private static readonly global::Windows.UI.Color TitleBarButtonPressedColor = global::Windows.UI.Color.FromArgb(255, 55, 55, 55);
+    private static readonly global::Windows.UI.Color TitleBarForegroundColor = global::Windows.UI.Color.FromArgb(255, 255, 255, 255);
+    private static readonly global::Windows.UI.Color TitleBarTransparentColor = global::Windows.UI.Color.FromArgb(0, 0, 0, 0);
+
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _statusHideTimer;
+    private bool _typingPinned;
 
     private bool _setupAutoPrompted;
 
@@ -68,6 +79,7 @@ public sealed partial class MainWindow : Window
         };
 
         TryResize(1400, 820);
+        ApplyWindowChrome();
 
         MessagesList.ItemsSource = _messages;
         SessionsList.ItemsSource = _sessions;
@@ -112,7 +124,95 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void Status(string s) => StatusText.Text = s;
+    private void ApplyWindowChrome()
+    {
+        try
+        {
+            if (!AppWindowTitleBar.IsCustomizationSupported()) return;
+
+            ExtendsContentIntoTitleBar = true;
+            SetTitleBar(AppTitleBar);
+
+            var tb = AppWindow.TitleBar;
+            tb.BackgroundColor = TitleBarBackgroundColor;
+            tb.ForegroundColor = TitleBarForegroundColor;
+            tb.InactiveBackgroundColor = TitleBarInactiveBackgroundColor;
+            tb.InactiveForegroundColor = TitleBarForegroundColor;
+
+            // Keep the caption buttons visually on the exact same background as the custom title bar.
+            // Using Transparent here lets the AppTitleBar background show through.
+            tb.ButtonBackgroundColor = TitleBarTransparentColor;
+            tb.ButtonForegroundColor = TitleBarForegroundColor;
+            tb.ButtonHoverBackgroundColor = TitleBarButtonHoverColor;
+            tb.ButtonHoverForegroundColor = TitleBarForegroundColor;
+            tb.ButtonPressedBackgroundColor = TitleBarButtonPressedColor;
+            tb.ButtonPressedForegroundColor = TitleBarForegroundColor;
+            tb.ButtonInactiveBackgroundColor = TitleBarTransparentColor;
+            tb.ButtonInactiveForegroundColor = TitleBarForegroundColor;
+        }
+        catch
+        {
+            // non bloquant
+        }
+    }
+
+    private void Status(string s)
+    {
+        try
+        {
+            // Keep the legacy status text updated (even if the legacy top bar is collapsed).
+            if (StatusText is not null)
+                StatusText.Text = s;
+
+            // Primary UX: show status where the "Typing…" label is.
+            if (TypingText is null) return;
+
+            TypingText.Text = s;
+            TypingText.Visibility = Visibility.Visible;
+
+            _statusHideTimer?.Stop();
+
+            // While generating, we keep it visible.
+            if (_isGenerating || _typingPinned)
+                return;
+
+            _statusHideTimer = DispatcherQueue.CreateTimer();
+            _statusHideTimer.Interval = TimeSpan.FromSeconds(1.8);
+            _statusHideTimer.Tick += (_, __) =>
+            {
+                _statusHideTimer?.Stop();
+                if (!_isGenerating && !_typingPinned)
+                    TypingText.Visibility = Visibility.Collapsed;
+            };
+            _statusHideTimer.Start();
+        }
+        catch
+        {
+            // silent (UX)
+        }
+    }
+
+    private void ClearStatus()
+    {
+        try
+        {
+            _statusHideTimer?.Stop();
+            _statusHideTimer = null;
+
+            if (StatusText is not null)
+                StatusText.Text = string.Empty;
+
+            if (TypingText is not null)
+            {
+                TypingText.Text = string.Empty;
+                TypingText.Visibility = Visibility.Collapsed;
+            }
+        }
+        catch
+        {
+            // silent (UX)
+        }
+    }
 
     private bool IsConnected => _agent is not null;
 
@@ -120,9 +220,12 @@ public sealed partial class MainWindow : Window
     {
         _isGenerating = isGenerating;
 
-        SendButton.IsEnabled = IsConnected && !_isGenerating && !string.IsNullOrWhiteSpace(_sessionId);
-        CancelButton.IsEnabled = IsConnected && _isGenerating;
         InputBox.IsEnabled = IsConnected && !_isGenerating && !string.IsNullOrWhiteSpace(_sessionId);
+
+        // Single button (Option B): Send when idle, Cancel when generating.
+        SendCancelButton.IsEnabled = IsConnected && !string.IsNullOrWhiteSpace(_sessionId);
+        SendCancelIcon.Glyph = _isGenerating ? "\uE71A" : "\uE724"; // Stop / Send
+        ToolTipService.SetToolTip(SendCancelButton, _isGenerating ? "Annuler" : "Envoyer");
 
         SessionsList.IsEnabled = IsConnected && !_isGenerating;
         NewChatButton.IsEnabled = IsConnected && !_isGenerating;
@@ -1077,23 +1180,66 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
         }
     }
 
-    private async void Send_Click(object sender, RoutedEventArgs e) => await SendAsync();
-
-    private async void InputBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    private async void SendCancel_Click(object sender, RoutedEventArgs e)
     {
-        if (e.Key == Windows.System.VirtualKey.Enter && !e.KeyStatus.IsMenuKeyDown && !e.KeyStatus.IsKeyReleased)
+        if (_isGenerating)
         {
-            e.Handled = true;
-            await SendAsync();
+            CancelGeneration();
+            return;
         }
+
+        await SendAsync();
     }
 
-    private void Cancel_Click(object sender, RoutedEventArgs e)
+    private void InputBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != Windows.System.VirtualKey.Enter || e.KeyStatus.IsMenuKeyDown)
+            return;
+
+        if (sender is not TextBox tb)
+            return;
+
+        var shift = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift);
+        var shiftDown = (shift & Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
+
+        e.Handled = true;
+
+        if (shiftDown)
+        {
+            InsertNewLineAtCaret(tb);
+            return;
+        }
+
+        DispatcherQueue.TryEnqueue(async () =>
+        {
+            try
+            {
+                await SendAsync();
+            }
+            catch
+            {
+                // non bloquant
+            }
+        });
+    }
+
+    private static void InsertNewLineAtCaret(TextBox tb)
+    {
+        var newline = Environment.NewLine;
+        var text = tb.Text ?? string.Empty;
+        var start = Math.Clamp(tb.SelectionStart, 0, text.Length);
+        var length = Math.Clamp(tb.SelectionLength, 0, text.Length - start);
+
+        tb.Text = text.Remove(start, length).Insert(start, newline);
+        tb.SelectionStart = start + newline.Length;
+        tb.SelectionLength = 0;
+    }
+
+    private void CancelGeneration()
     {
         if (!_isGenerating) return;
 
         Status("Cancelling…");
-        CancelButton.IsEnabled = false;
         try { _cts?.Cancel(); } catch { }
     }
 
@@ -1138,7 +1284,22 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
 
     private void SetTyping(bool isTyping)
     {
-        TypingText.Visibility = isTyping ? Visibility.Visible : Visibility.Collapsed;
+        if (TypingText is null) return;
+
+        _typingPinned = isTyping;
+
+        if (isTyping)
+        {
+            _statusHideTimer?.Stop();
+            TypingText.Visibility = Visibility.Visible;
+            if (string.IsNullOrWhiteSpace(TypingText.Text))
+                TypingText.Text = "…";
+            return;
+        }
+
+        // If a status hide timer is running (ex: "Done."), let it hide the label.
+        if (_statusHideTimer is null)
+            TypingText.Visibility = Visibility.Collapsed;
     }
 
     private void UpdateJumpButton()
@@ -1156,17 +1317,35 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
             _lastAutoScroll = now;
         }
 
-        try
+        void ScrollNow()
         {
-            _isProgrammaticScroll = true;
-            MessagesScroll.ChangeView(null, MessagesScroll.ScrollableHeight, null, true);
-        }
-        catch { }
-        finally
-        {
-            _isProgrammaticScroll = false;
+            try
+            {
+                _isProgrammaticScroll = true;
+                MessagesList?.UpdateLayout();
+                MessagesScroll?.UpdateLayout();
+                MessagesScroll?.ChangeView(null, MessagesScroll.ScrollableHeight, null, true);
+            }
+            catch
+            {
+                // non bloquant
+            }
+            finally
+            {
+                _isProgrammaticScroll = false;
+            }
         }
 
+        ScrollNow();
+
+        try
+        {
+            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, ScrollNow);
+        }
+        catch
+        {
+            // non bloquant
+        }
     }
 
     private void MessagesScroll_ViewChanged(object sender, ScrollViewerViewChangedEventArgs e)
@@ -1218,32 +1397,17 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
 
     private void ApplyResponsiveLayout(double width)
     {
-        // seuils simples et efficaces
-        // - >= 1200 : on montre Sources à droite
-        // - < 1200 : on cache Sources pour laisser respirer le chat
-        var shouldCollapseSources = width < 1200;
-
-        if (shouldCollapseSources == _sourcesCollapsedByWidth)
-            return;
-
-        _sourcesCollapsedByWidth = shouldCollapseSources;
-
-        if (_sourcesCollapsedByWidth)
+        // UI change: Sources panel is deprecated (sources are now inline in the chat).
+        // Keep it permanently hidden to avoid wasting space.
+        try
         {
-            // cache la colonne Sources
             SourcesCol.Width = new GridLength(0);
             SourcesPanel.Visibility = Visibility.Collapsed;
-
-            // affiche bouton "Sources" en haut (ouvre un popup)
-            SourcesToggleButton.Visibility = Visibility.Visible;
-        }
-        else
-        {
-            // restore
-            SourcesCol.Width = new GridLength(360);
-            SourcesPanel.Visibility = Visibility.Visible;
-
             SourcesToggleButton.Visibility = Visibility.Collapsed;
+        }
+        catch
+        {
+            // non bloquant
         }
     }
 
@@ -1273,6 +1437,36 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
     {
         ApplyResponsiveLayout(e.NewSize.Width);
         UpdateMessagesClip();
+    }
+
+    private bool _chatsCollapsed;
+
+    private void ChatsToggle_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            _chatsCollapsed = !_chatsCollapsed;
+
+            ChatsCol.Width = _chatsCollapsed ? new GridLength(0) : new GridLength(280);
+            ChatsPanel.Visibility = _chatsCollapsed ? Visibility.Collapsed : Visibility.Visible;
+
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                try
+                {
+                    MessagesPanelBorder?.UpdateLayout();
+                    UpdateMessagesClip();
+                }
+                catch
+                {
+                    // non bloquant
+                }
+            });
+        }
+        catch
+        {
+            // non bloquant
+        }
     }
 
     private async void SourcesToggle_Click(object sender, RoutedEventArgs e)
@@ -1322,7 +1516,7 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
         // CommandParameter="{Binding}" => ChatMessageItem
         if (b.CommandParameter is not ChatMessageItem msg) return;
 
-        var text = msg.Content ?? "";
+        var text = LinkifiedTextBlock.ToPlainText(msg.Content);
         if (text.Length == 0) return;
 
         var dp = new DataPackage();
@@ -1374,6 +1568,10 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
 
         try
         {
+            _autoFollow = true;
+            _userScrolledUp = false;
+            UpdateJumpButton();
+
             UpdateUiState(isGenerating: true);
 
             InputBox.Text = "";
@@ -1382,6 +1580,7 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
 
             var userMsg = new ChatMessageItem { Role = "user", Content = text, CreatedAt = DateTime.UtcNow };
             _messages.Add(userMsg);
+            ScrollToBottom(force: true);
             await _api.AddMessageAsync(_sessionId!, "user", text, null, CancellationToken.None);
 
             await MaybeAutoTitleAsync(text);
@@ -1398,6 +1597,7 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
             };
             _messages.Add(assistantMsg);
             ScrollToBottom(force: true);
+            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => ScrollToBottom(force: true));
 
             SourcesCards.Items = new List<SourceCard>();
             SourcesBox.Text = "";
@@ -1421,7 +1621,7 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
 
                         // Auto-follow seulement si on est en mode follow et que l'user n'a pas scroll up
                         if (_autoFollow && !_userScrolledUp)
-                            ScrollToBottom();
+                            ScrollToBottom(force: true);
                     });
                 },
                 onPhase: phase =>
@@ -1478,7 +1678,7 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
             if (_autoFollow && !_userScrolledUp)
                 ScrollToBottom(force: true);
 
-            Status(wasCancelled ? "Cancelled." : "Done.");
+            ClearStatus();
         }
         catch (OperationCanceledException)
         {
@@ -1511,7 +1711,7 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
             if (_autoFollow && !_userScrolledUp)
                 ScrollToBottom(force: true);
 
-            Status("Cancelled.");
+            ClearStatus();
         }
         catch (Exception ex)
         {
@@ -1521,9 +1721,9 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
         }
         finally
         {
+            UpdateUiState(isGenerating: false);
             SetTyping(false);
             UpdateJumpButton();
-            UpdateUiState(isGenerating: false);
         }
     }
 

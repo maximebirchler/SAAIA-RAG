@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.IO;
@@ -14,24 +13,26 @@ using SAAIA.Contracts;
 namespace SAAIA.Client.WinUI.Services;
 
 /// <summary>
-/// Client-side “agent outillé” :
-/// - Le LLM choisit quoi faire via un routeur JSON (tools).
-/// - Le code n’écrit pas de réponses préfabriquées (on fournit des règles + résultats d’outils).
-/// - Les sources sont renvoyées via payload (chips UI) et non imposées dans le texte.
+/// RAG Chat Agent (client).
+///
+/// Règles d'architecture (v2.8.1) : Router → Tools → Writer.
+/// - Pas de réponses « codées en dur » côté client.
+/// - Pas de listing d'inventaire basé sur le filesystem (source of truth = backend index).
+///
+/// Nota : le filesystem reste utile uniquement pour la résolution UX (ouvrir un fichier local)
+/// via <see cref="DocumentInventory"/> et <see cref="DocumentPathResolver"/>.
 /// </summary>
 public sealed class RagChatAgent
 {
     private readonly ApiClient _api;
     private readonly OpenAiLlmClient _llm;
 
-    // Safe, user-facing tuning.
     private bool _llmEnabled = true;
     private bool _strictMode = false;
     private double _temperature = 0.2;
     private int _maxTokens = 900;
     private string _ragQualityPreset = "balanced"; // quick|balanced|deep
 
-    // Tool-memory (spec v2.8.x): keeps paging + PDFxx mapping between turns.
     private readonly ToolMemory _mem = new();
 
     public RagChatAgent(ApiClient api, OpenAiLlmClient llm)
@@ -69,59 +70,9 @@ public sealed class RagChatAgent
         Action<string>? onPhase = null)
     {
         userText ??= "";
+        var raw = userText.Trim();
 
-        // Fast-path for very common, tool-only intents.
-        // Rationale: avoids the router + writer LLM latency and prevents name/path hallucinations.
-        if (LooksLikeDocumentsListQuery(userText))
-        {
-            onPhase?.Invoke("Documents (liste)…");
-
-            // Fast-path local : inventaire disque des PDFs sous le dossier documents.
-            // Avantages : réponse quasi instantanée et cohérente avec l'état réel du disque.
-            var root = DocumentPathResolver.GetDocumentsRoot();
-            var list = new List<string>();
-            if (Directory.Exists(root))
-            {
-                foreach (var file in Directory.EnumerateFiles(root, "*.pdf", SearchOption.AllDirectories))
-                {
-                    ct.ThrowIfCancellationRequested();
-                    try
-                    {
-                        var rel = Path.GetRelativePath(root, file);
-                        rel = rel.Replace(Path.DirectorySeparatorChar, '/');
-                        if (!string.IsNullOrWhiteSpace(rel))
-                            list.Add(rel);
-                    }
-                    catch
-                    {
-                        // ignore
-                    }
-                }
-            }
-
-            list = list.Distinct(StringComparer.OrdinalIgnoreCase)
-                       .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
-                       .ToList();
-
-            var sb = new StringBuilder();
-            sb.AppendLine("Voici la liste des documents présents sur le serveur :");
-
-            if (list.Count == 0)
-            {
-                sb.AppendLine("- (aucun document)");
-            }
-            else
-            {
-                foreach (var d in list)
-                    sb.AppendLine($"- {d}");
-            }
-
-            var answer = sb.ToString().TrimEnd();
-            await SimulateStreamingAsync(answer, onDelta, ct);
-            return (answer, null);
-        }
-
-        // Degraded mode: no LLM => best-effort RAG search only.
+        // Mode dégradé (sans LLM)
         if (!_llmEnabled)
         {
             onPhase?.Invoke("Recherche RAG…");
@@ -130,7 +81,7 @@ public sealed class RagChatAgent
             return (ans, payload);
         }
 
-        // Convert UI history into OpenAI roles.
+        // Sinon: pipeline ToolAgent normal
         var history = (conversationTail ?? Array.Empty<ChatMessageItem>())
             .Where(m => m is not null)
             .Select(m => (role: NormalizeRole(m.Role), content: (m.Content ?? "").Trim()))
@@ -138,7 +89,6 @@ public sealed class RagChatAgent
             .TakeLast(12)
             .ToList();
 
-        // Inject soft preferences as context (not hard-coded answers).
         if (_strictMode)
         {
             history.Insert(0, ("system",
@@ -151,20 +101,16 @@ public sealed class RagChatAgent
                 $"Default retrieval category hint: {category}. Use it only if it matches the user's intent."));
         }
 
-        // LLM adapter: non-stream call for router/answer; we simulate streaming on the UI.
         var llm = new LlmAdapter(_llm, _temperature, _maxTokens);
-        var orch = new ToolAgentOrchestrator(_api, llm, _mem);
+        var orch = new ToolAgentOrchestrator(_api, llm, _mem, null);
 
-        var (finalanswer, sourcesPayload) = await orch.RunAsync(history, userText, ct, onPhase);
-
-        // Progressive UX required by spec (even if the LLM endpoint does not stream).
-        await SimulateStreamingAsync(finalanswer, onDelta, ct);
-
-        return (finalanswer, sourcesPayload);
+        var (finalAnswer, sourcesPayload) = await orch.RunAsync(history, userText, ct, onPhase);
+        await SimulateStreamingAsync(finalAnswer, onDelta, ct);
+        return (finalAnswer, sourcesPayload);
     }
 
     // --------------------
-    // Fallback (LLM disabled)
+    // Degraded fallback (no LLM)
     // --------------------
 
     private async Task<(string finalAnswer, object? sourcesPayload)> RunSearchOnlyFallbackAsync(
@@ -188,10 +134,9 @@ public sealed class RagChatAgent
             .Take(8)
             .ToList();
 
-        // Provide sources for UI chips even in degraded mode.
         var sources = items.Select(x => new
         {
-            docPath = (x.DocPath ?? "").Replace('\\', '/'),
+            docPath = (x.DocPath ?? "").Replace('\u005C', '/'),
             docName = x.DocName ?? "",
             pageStart = x.PageStart ?? 1,
             pageEnd = x.PageEnd ?? x.PageStart ?? 1,
@@ -201,7 +146,6 @@ public sealed class RagChatAgent
 
         var payload = new { intent = "rag_search", sources };
 
-        // Minimal text (no template-heavy formatting).
         var ans = items.Count == 0
             ? "Je n’ai trouvé aucun extrait pertinent dans les documents indexés."
             : "Je ne peux pas utiliser le LLM local pour rédiger la réponse (mode dégradé). Regarde les sources à droite.";
@@ -210,7 +154,7 @@ public sealed class RagChatAgent
     }
 
     // --------------------
-    // Helpers
+    // Misc helpers
     // --------------------
 
     private static string NormalizeRole(string? role)
@@ -222,27 +166,6 @@ public sealed class RagChatAgent
             "system" => "system",
             _ => "user"
         };
-    }
-
-    private static bool LooksLikeDocumentsListQuery(string userText)
-    {
-        if (string.IsNullOrWhiteSpace(userText)) return false;
-
-        var t = userText.Trim().ToLowerInvariant();
-
-        // FR
-        if ((t.Contains("liste") || t.Contains("lister") || t.Contains("affiche")) && t.Contains("document"))
-            return true;
-        if (t.Contains("quels sont") && t.Contains("documents"))
-            return true;
-        if (t.Contains("documents présents") || t.Contains("documents presents"))
-            return true;
-
-        // EN
-        if ((t.Contains("list") || t.Contains("show")) && t.Contains("document"))
-            return true;
-
-        return false;
     }
 
     private static async Task SimulateStreamingAsync(string text, Action<string> onDelta, CancellationToken ct)
@@ -260,9 +183,6 @@ public sealed class RagChatAgent
         }
     }
 
-    /// <summary>
-    /// Adapter between the existing streaming-capable OpenAiLlmClient and the tool-agent ILlmClient.
-    /// </summary>
     private sealed class LlmAdapter : ILlmClient
     {
         private readonly OpenAiLlmClient _llm;
@@ -278,13 +198,9 @@ public sealed class RagChatAgent
 
         public async Task<string> CompleteAsync(IReadOnlyList<(string role, string content)> messages, bool forceJson, CancellationToken ct)
         {
-            // The ToolAgent prompts already enforce JSON strictly when needed.
-            // We keep a small extra nudge in case the local endpoint is lax.
             var list = messages?.ToList() ?? new List<(string role, string content)>();
             if (forceJson)
-            {
                 list.Insert(0, ("system", "Return ONLY valid JSON. No markdown. No extra text."));
-            }
 
             return await _llm.ChatOnceAsync(list, _temperature, _maxTokens, ct);
         }

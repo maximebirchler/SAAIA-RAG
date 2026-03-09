@@ -54,7 +54,7 @@ $BOOT = "<SAAIA_BOOTSTRAP_API_KEY>"
 '{"label":"admin","isAdmin":true}' |
   curl.exe -s -X POST "http://localhost:5122/admin/keys" `
     -H "Content-Type: application/json" `
-    -H "X-Api-Key: $BOOT" `
+    -H "X-Admin-Key: $BOOT" `
     --data-binary "@-"
 ```
 
@@ -66,7 +66,7 @@ $ADMIN = "<la nouvelle clé admin retournée>"
 '{"label":"client","isAdmin":false}' |
   curl.exe -s -X POST "http://localhost:5122/admin/keys" `
     -H "Content-Type: application/json" `
-    -H "X-Api-Key: $ADMIN" `
+    -H "X-Admin-Key: $ADMIN" `
     --data-binary "@-"
 ```
 
@@ -74,9 +74,9 @@ $ADMIN = "<la nouvelle clé admin retournée>"
 
 ```powershell
 $ADMIN = "<la nouvelle clé admin>"
-$keys = curl.exe -s "http://localhost:5122/admin/keys" -H "X-Api-Key: $ADMIN" | ConvertFrom-Json
+$keys = curl.exe -s "http://localhost:5122/admin/keys" -H "X-Admin-Key: $ADMIN" | ConvertFrom-Json
 $boot = $keys | Where-Object { $_.Label -eq "bootstrap" } | Select-Object -First 1
-curl.exe -s -X POST "http://localhost:5122/admin/keys/$($boot.ApiKeyId)/revoke" -H "X-Api-Key: $ADMIN"
+curl.exe -s -X POST "http://localhost:5122/admin/keys/$($boot.ApiKeyId)/revoke" -H "X-Admin-Key: $ADMIN"
 ```
 
 4) Désactive le bootstrap + re-signe :

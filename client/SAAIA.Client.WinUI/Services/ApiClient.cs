@@ -18,7 +18,7 @@ namespace SAAIA.Client.WinUI.Services;
 /// <summary>
 /// Client HTTP vers le backend SAAIA.
 /// </summary>
-public sealed class ApiClient
+public sealed partial class ApiClient
 {
     private readonly HttpClient _http = new();
     private string _baseUrl = "http://localhost:5122";
@@ -615,6 +615,39 @@ public sealed class ApiClient
         return doc.RootElement.Clone();
     }
 
+    /// <summary>
+    /// Tool-agent friendly documents tree (categories multi-niveaux).
+    /// Expected shape: { path: "...", markdown: "...", source: "snapshot"|"documents" }
+    /// </summary>
+    public async Task<JsonElement> DocumentsTreeAsync(string? path, int depth, string? format, CancellationToken ct)
+    {
+        var d = Math.Clamp(depth, 1, 50);
+        var fmt = (format ?? "markdown").Trim().ToLowerInvariant();
+        if (fmt is not ("markdown" or "json")) fmt = "markdown";
+
+        var qs = new List<string>
+        {
+            $"depth={d}",
+            $"format={Uri.EscapeDataString(fmt)}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(path))
+        {
+            var p = (path ?? "").Replace('\\', '/').Trim().TrimStart('/');
+            if (!string.IsNullOrWhiteSpace(p))
+                qs.Add($"path={Uri.EscapeDataString(p)}");
+        }
+
+        var url = "/documents/tree?" + string.Join("&", qs);
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, url), ct).ConfigureAwait(false);
+        resp.EnsureSuccessStatusCode();
+
+        var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.Clone();
+    }
+
+
     // ---------------------
     // RAG search (tool-agent)
     // ---------------------
@@ -624,12 +657,24 @@ public sealed class ApiClient
     /// </summary>
     public async Task<JsonElement> RagSearchAsync(string query, int topK, string? category, CancellationToken ct)
     {
+        return await RagSearchToolAsync(query, topK, category, mode: "balanced", ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Tool-agent friendly RAG search with explicit mode (balanced|precise|fast).
+    /// </summary>
+    public async Task<JsonElement> RagSearchToolAsync(string query, int topK, string? category, string? mode, CancellationToken ct)
+    {
+        var m = (mode ?? "balanced").Trim().ToLowerInvariant();
+        if (m is not ("balanced" or "precise" or "fast"))
+            m = "balanced";
+
         var body = JsonSerializer.Serialize(new
         {
             query,
             category,
             topK,
-            mode = "balanced"
+            mode = m
         }, JsonOpts);
 
         using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Post, "/rag/search", body), ct);
@@ -652,6 +697,7 @@ public sealed class ApiClient
 
         foreach (var it in arr.EnumerateArray())
         {
+            var pdfRef = TryGetString(it, "pdfRef") ?? "";
             var docId = TryGetString(it, "docId") ?? "";
             var docPath = TryGetString(it, "docPath") ?? "";
             var docName = TryGetString(it, "docName") ?? "";
@@ -660,6 +706,7 @@ public sealed class ApiClient
 
             items.Add(new ToolMemory.DocumentItem
             {
+                PdfRef = pdfRef,
                 DocId = docId,
                 DocPath = docPath,
                 DocName = docName,
@@ -713,5 +760,37 @@ public sealed class ApiClient
         var json = await resp.Content.ReadAsStringAsync(ct);
         return JsonSerializer.Deserialize<RagSearchResponse>(json, JsonOpts)
                ?? throw new Exception("Invalid rag search response");
+    }
+
+    // ---------------------
+    // Admin / debug
+    // ---------------------
+
+    /// <summary>
+    /// Optional admin endpoint (may not exist on older builds): list chunks for debug.
+    /// When not supported, returns { items:[], nextCursor:null, error:"not_supported" }.
+    /// </summary>
+    public async Task<JsonElement> RagDebugScrollAsync(string? cursor, int limit, string? docPath, CancellationToken ct)
+    {
+        var lim = Math.Clamp(limit, 1, 1000);
+        var qs = new List<string> { $"limit={lim}" };
+        if (!string.IsNullOrWhiteSpace(cursor))
+            qs.Add($"cursor={Uri.EscapeDataString(cursor)}");
+        if (!string.IsNullOrWhiteSpace(docPath))
+            qs.Add($"docPath={Uri.EscapeDataString(docPath.Trim().Replace('\\', '/').TrimStart('/'))}");
+
+        var path = "/rag/debug/scroll?" + string.Join("&", qs);
+        using var resp = await SendWithRateLimitRetryAsync(() => NewAdminRequest(HttpMethod.Get, path), ct).ConfigureAwait(false);
+
+        if (resp.StatusCode == HttpStatusCode.NotFound)
+        {
+            using var docNF = JsonDocument.Parse("{\"items\":[],\"nextCursor\":null,\"error\":\"not_supported\"}");
+            return docNF.RootElement.Clone();
+        }
+
+        resp.EnsureSuccessStatusCode();
+        var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.Clone();
     }
 }

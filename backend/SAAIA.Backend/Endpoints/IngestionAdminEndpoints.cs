@@ -10,8 +10,8 @@ public static class IngestionAdminEndpoints
 {
     public static void Map(WebApplication app)
     {
-        app.MapPost("/ingestion/scan", ScanAsync);
-        app.MapGet("/ingestion/jobs", ListJobsAsync);
+        app.MapPost("/ingestion/scan", ScanAsync).RequireAdminKey();
+        app.MapGet("/ingestion/jobs", ListJobsAsync).RequireAdminKey();
     }
 
     public sealed record ScanRequest(int? Max = null, string? Category = null);
@@ -20,7 +20,8 @@ public static class IngestionAdminEndpoints
         HttpContext ctx,
         NpgsqlDataSource ds,
         IOptions<IngestionOptions> ingestOpt,
-        ScanRequest req)
+        int? max,
+        string? category)
     {
         AdminAuth.EnsureAdmin(ctx);
 
@@ -34,12 +35,28 @@ public static class IngestionAdminEndpoints
         if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
             return Results.BadRequest(new { error = "DocumentsRoot not found", root });
 
-        var max = Math.Clamp(req.Max ?? ingest.MaxFilesPerScan, 1, 200000);
+        // Allow empty body (curl without JSON) by reading optional JSON payload.
+        ScanRequest? body = null;
+        if (ctx.Request.ContentLength is > 0)
+        {
+            try
+            {
+                body = await ctx.Request.ReadFromJsonAsync<ScanRequest>(cancellationToken: ct);
+            }
+            catch
+            {
+                return Results.BadRequest(new { error = "invalid_json" });
+            }
+        }
+
+        var maxEff = Math.Clamp(max ?? body?.Max ?? ingest.MaxFilesPerScan, 1, 200000);
         var minAge = TimeSpan.FromSeconds(Math.Clamp(ingest.MinFileAgeSeconds, 0, 3600));
-        var filterCategory = string.IsNullOrWhiteSpace(req.Category) ? null : req.Category.Trim().ToLowerInvariant();
+
+        var catRaw = string.IsNullOrWhiteSpace(category) ? body?.Category : category;
+        var filterCategory = string.IsNullOrWhiteSpace(catRaw) ? null : catRaw.Trim().ToLowerInvariant();
 
         var files = Directory.EnumerateFiles(root, "*.pdf", SearchOption.AllDirectories)
-            .Take(max)
+            .Take(maxEff)
             .ToArray();
 
         var now = DateTimeOffset.UtcNow;
@@ -66,16 +83,16 @@ public static class IngestionAdminEndpoints
             if (minAge > TimeSpan.Zero && (now - fi.LastWriteTimeUtc) < minAge)
                 continue;
 
-            var category = ingest.CategoryFromFirstFolder
+            var docCategory = ingest.CategoryFromFirstFolder
                 ? (rel.Split('/', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? ingest.DefaultCategory ?? "general").Trim().ToLowerInvariant()
                 : (ingest.DefaultCategory ?? "general").Trim().ToLowerInvariant();
 
-            if (filterCategory is not null && category != filterCategory)
+            if (filterCategory is not null && docCategory != filterCategory)
                 continue;
 
             eligible++;
 
-            await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, category, fi, ct);
+            await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, docCategory, fi, ct);
             enqueued++;
         }
 
@@ -86,11 +103,11 @@ public static class IngestionAdminEndpoints
             actorIsAdmin,
             action: "ingestion.scan",
             target: "ingestion.scan",
-            payload: new { scanned = files.Length, eligible, enqueued, max, category = filterCategory },
+            payload: new { scanned = files.Length, eligible, enqueued, max = maxEff, category = filterCategory },
             ip: ctx.Connection.RemoteIpAddress?.ToString(),
             ct: ct);
 
-        return Results.Ok(new { scanned = files.Length, eligible, enqueued, max, category = filterCategory });
+        return Results.Ok(new { scanned = files.Length, eligible, enqueued, max = maxEff, category = filterCategory });
     }
 
     private static async Task<IResult> ListJobsAsync(
