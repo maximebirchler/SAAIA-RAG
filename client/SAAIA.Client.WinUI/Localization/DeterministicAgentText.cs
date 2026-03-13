@@ -1,0 +1,376 @@
+using System;
+using System.Text;
+using SAAIA.Client.WinUI.Services.ToolAgent;
+
+namespace SAAIA.Client.WinUI.Localization;
+
+internal static class DeterministicAgentText
+{
+    private static string Lang(string? language) => LocalizedStrings.NormalizeLanguage(language);
+
+    private static string Pick(string? language, string fr, string en, string es, string pt, string de, string it)
+        => Lang(language) switch
+        {
+            "en" => en,
+            "es" => es,
+            "pt" => pt,
+            "de" => de,
+            "it" => it,
+            _ => fr
+        };
+
+    private static string WithOptionalDocRef(string docRef, string? language, Func<string, string> builder)
+    {
+        var suffix = string.IsNullOrWhiteSpace(docRef)
+            ? string.Empty
+            : Lang(language) switch
+            {
+                "en" => $" for {docRef}",
+                "es" => $" para {docRef}",
+                "pt" => $" para {docRef}",
+                "de" => $" für {docRef}",
+                "it" => $" per {docRef}",
+                _ => $" pour {docRef}"
+            };
+        return builder(suffix);
+    }
+
+    public static string PhaseRouter(string? language)
+        => Pick(language, "Routeur…", "Router…", "Enrutador…", "Roteador…", "Router…", "Router…");
+
+    public static string PhaseClarification(string? language)
+        => Pick(language, "Clarification…", "Clarification…", "Aclaración…", "Esclarecimento…", "Klärung…", "Chiarimento…");
+
+    public static string PhaseTools(string? language)
+        => Pick(language, "Outils…", "Tools…", "Herramientas…", "Ferramentas…", "Werkzeuge…", "Strumenti…");
+
+    public static string PhaseWriting(string? language)
+        => Pick(language, "Rédaction…", "Writing…", "Redacción…", "Redação…", "Formulierung…", "Scrittura…");
+
+    public static string PhaseSummary(string? language)
+        => Pick(language, "Résumé…", "Summary…", "Resumen…", "Resumo…", "Zusammenfassung…", "Riassunto…");
+
+    public static string PhaseRag(string? language)
+        => Pick(language, "Recherche documentaire…", "Document search…", "Búsqueda documental…", "Pesquisa documental…", "Dokumentensuche…", "Ricerca documentale…");
+
+    public static string ProgressCollectInformation(string? language)
+        => Pick(language, "Je collecte les informations utiles…", "I am collecting the useful information…", "Estoy recopilando la información útil…", "Estou coletando as informações úteis…", "Ich sammle die nützlichen Informationen…", "Sto raccogliendo le informazioni utili…");
+
+    public static string ProgressCorrectPreviousInterpretation(string? language)
+        => Pick(language, "Je corrige mon interprétation précédente…", "I am correcting my previous interpretation…", "Estoy corrigiendo mi interpretación anterior…", "Estou corrigindo minha interpretação anterior…", "Ich korrigiere meine vorherige Interpretation…", "Sto correggendo la mia interpretazione precedente…");
+
+    public static string ProgressDraftFinalAnswer(string? language)
+        => Pick(language, "Je rédige la réponse finale…", "I am drafting the final answer…", "Estoy redactando la respuesta final…", "Estou redigindo a resposta final…", "Ich formuliere die endgültige Antwort…", "Sto redigendo la risposta finale…");
+
+    public static string ProgressCheckAlignmentWithSources(string? language)
+        => Pick(language, "Je vérifie l’alignement avec les sources disponibles…", "I am checking alignment with the available sources…", "Estoy comprobando la coherencia con las fuentes disponibles…", "Estou verificando o alinhamento com as fontes disponíveis…", "Ich prüfe die Übereinstimmung mit den verfügbaren Quellen…", "Sto verificando l’allineamento con le fonti disponibili…");
+
+
+    public static string ProgressRetrieveRepresentativePassages(string? language)
+        => Pick(language, "Je récupère des passages représentatifs du document…", "I am retrieving representative passages from the document…", "Estoy recuperando pasajes representativos del documento…", "Estou recuperando trechos representativos do documento…", "Ich rufe repräsentative Passagen aus dem Dokument ab…", "Sto recuperando passaggi rappresentativi dal documento…");
+
+    public static string ProgressComposeShortOverview(string? language)
+        => Pick(language, "Je formule un aperçu court du document…", "I am drafting a short overview of the document…", "Estoy redactando una vista breve del documento…", "Estou redigindo uma visão breve do documento…", "Ich formuliere eine kurze Übersicht des Dokuments…", "Sto redigendo una breve panoramica del documento…");
+
+    public static string ProgressCheckStoredSummaryAvailable(string? language)
+        => Pick(language, "Je vérifie si un résumé stocké est déjà disponible…", "I am checking whether a stored summary is already available…", "Estoy comprobando si ya hay un resumen almacenado disponible…", "Estou verificando se já existe um resumo armazenado disponível…", "Ich prüfe, ob bereits eine gespeicherte Zusammenfassung verfügbar ist…", "Sto verificando se è già disponibile un riassunto salvato…");
+
+    public static string ProgressReturnStoredSummary(string? language)
+        => Pick(language, "Je renvoie le résumé stocké…", "I am returning the stored summary…", "Estoy devolviendo el resumen almacenado…", "Estou retornando o resumo armazenado…", "Ich gebe die gespeicherte Zusammenfassung zurück…", "Sto restituendo il riassunto salvato…");
+
+    public static string ProgressCheckReusableSummaryCache(string? language)
+        => Pick(language, "Je vérifie le cache de résumés réutilisables…", "I am checking the reusable summary cache…", "Estoy comprobando la caché de resúmenes reutilizables…", "Estou verificando o cache de resumos reutilizáveis…", "Ich prüfe den Cache wiederverwendbarer Zusammenfassungen…", "Sto verificando la cache dei riassunti riutilizzabili…");
+
+    public static string ProgressReusableSummaryAlreadyAvailable(string? language)
+        => Pick(language, "Un résumé réutilisable est déjà disponible. Je le renvoie…", "A reusable summary is already available. I am returning it…", "Ya hay un resumen reutilizable disponible. Lo devuelvo…", "Já existe um resumo reutilizável disponível. Vou retorná-lo…", "Eine wiederverwendbare Zusammenfassung ist bereits verfügbar. Ich gebe sie zurück…", "È già disponibile un riassunto riutilizzabile. Lo restituisco…");
+
+    public static string ProgressGenerateAndStoreReusableSummary(string? language)
+        => Pick(language, "Je génère et je stocke le résumé réutilisable…", "I am generating and storing the reusable summary…", "Estoy generando y almacenando el resumen reutilizable…", "Estou gerando e armazenando o resumo reutilizável…", "Ich erstelle und speichere die wiederverwendbare Zusammenfassung…", "Sto generando e salvando il riassunto riutilizzabile…");
+
+    public static string ProgressCheckExistingStoredSummary(string? language)
+        => Pick(language, "Je vérifie s'il existe déjà un résumé stocké…", "I am checking whether a stored summary already exists…", "Estoy comprobando si ya existe un resumen almacenado…", "Estou verificando se já existe um resumo armazenado…", "Ich prüfe, ob bereits eine gespeicherte Zusammenfassung existiert…", "Sto verificando se esiste già un riassunto salvato…");
+
+    public static string ProgressRephraseStoredSummaryForDisplay(string? language)
+        => Pick(language, "Je reformule le résumé stocké pour l'affichage…", "I am rephrasing the stored summary for display…", "Estoy reformulando el resumen almacenado para mostrarlo…", "Estou reformulando o resumo armazenado para exibição…", "Ich formuliere die gespeicherte Zusammenfassung für die Anzeige um…", "Sto riformulando il riassunto salvato per la visualizzazione…");
+
+    public static string ProgressBuildLiveSummaryFromDocument(string? language)
+        => Pick(language, "Je construis un résumé live à partir du document…", "I am building a live summary from the document…", "Estoy construyendo un resumen en vivo a partir del documento…", "Estou criando um resumo ao vivo a partir do documento…", "Ich erstelle eine Live-Zusammenfassung aus dem Dokument…", "Sto costruendo un riassunto live a partire dal documento…");
+
+    public static string ProgressWriteFinalSummary(string? language)
+        => Pick(language, "Je rédige le résumé final…", "I am drafting the final summary…", "Estoy redactando el resumen final…", "Estou redigindo o resumo final…", "Ich formuliere die endgültige Zusammenfassung…", "Sto redigendo il riassunto finale…");
+
+
+    public static string ProgressCheckStoredSummaryForDocument(string docRef, string? language)
+        => WithOptionalDocRef(docRef, language,
+            (suffix) => Pick(language,
+                $"Je vérifie s'il existe déjà un résumé stocké{suffix}…",
+                $"I am checking whether a stored summary already exists{suffix}…",
+                $"Estoy comprobando si ya existe un resumen almacenado{suffix}…",
+                $"Estou verificando se já existe um resumo armazenado{suffix}…",
+                $"Ich prüfe, ob bereits eine gespeicherte Zusammenfassung existiert{suffix}…",
+                $"Sto verificando se esiste già un riassunto salvato{suffix}…"));
+
+    public static string ProgressLoadStoredSummaryForDocument(string docRef, string? language)
+        => WithOptionalDocRef(docRef, language,
+            (suffix) => Pick(language,
+                $"Je charge le résumé stocké{suffix}…",
+                $"I am loading the stored summary{suffix}…",
+                $"Estoy cargando el resumen almacenado{suffix}…",
+                $"Estou carregando o resumo armazenado{suffix}…",
+                $"Ich lade die gespeicherte Zusammenfassung{suffix}…",
+                $"Sto caricando il riassunto salvato{suffix}…"));
+
+    public static string ProgressBuildLiveSummaryForDocument(string docRef, string? language)
+        => WithOptionalDocRef(docRef, language,
+            (suffix) => Pick(language,
+                $"Je construis un résumé live à partir de passages représentatifs{suffix}…",
+                $"I am building a live summary from representative passages{suffix}…",
+                $"Estoy construyendo un resumen en vivo a partir de pasajes representativos{suffix}…",
+                $"Estou criando um resumo ao vivo a partir de trechos representativos{suffix}…",
+                $"Ich erstelle eine Live-Zusammenfassung aus repräsentativen Passagen{suffix}…",
+                $"Sto costruendo un riassunto live a partire da passaggi rappresentativi{suffix}…"));
+
+    public static string DocumentNotFound(string? language)
+        => Pick(language, "Le document n'a pas pu être trouvé.", "The document could not be found.", "No se pudo encontrar el documento.", "Não foi possível encontrar o documento.", "Das Dokument konnte nicht gefunden werden.", "Non è stato possibile trovare il documento.");
+
+    public static string SourceHeading(string? language)
+        => Pick(language, "Source", "Source", "Fuente", "Fonte", "Quelle", "Fonte");
+
+    public static string TreeSkippedLocalUnresolved(string? language, int dropped)
+        => Pick(language,
+            $"({dropped} élément(s) ignoré(s) car le fichier n'a pas pu être résolu localement.)",
+            $"({dropped} item(s) were skipped because the file could not be resolved locally.)",
+            $"({dropped} elemento(s) omitido(s) porque el archivo no pudo resolverse localmente.)",
+            $"({dropped} item(ns) foram ignorado(s) porque o arquivo não pôde ser resolvido localmente.)",
+            $"({dropped} Element(e) wurden übersprungen, weil die Datei lokal nicht aufgelöst werden konnte.)",
+            $"({dropped} elemento/i ignorato/i perché il file non ha potuto essere risolto localmente.)");
+
+    public static string DegradedNoLlm(string? language)
+        => Pick(language,
+            "Je ne peux pas utiliser le LLM local pour rédiger la réponse pour le moment (mode dégradé). Regarde les sources à droite.",
+            "I cannot use the local LLM to draft the reply right now (degraded mode). Check the sources on the right.",
+            "No puedo usar el LLM local para redactar la respuesta en este momento (modo degradado). Mira las fuentes a la derecha.",
+            "Não consigo usar o LLM local para redigir a resposta agora (modo degradado). Veja as fontes à direita.",
+            "Ich kann das lokale LLM im Moment nicht verwenden, um die Antwort zu formulieren (degradierter Modus). Sieh dir rechts die Quellen an.",
+            "Non posso usare il LLM locale per redigere la risposta in questo momento (modalità degradata). Guarda le fonti a destra.");
+
+    public static string AnswerNotEnoughUsableInfo(string? language)
+        => Pick(language,
+            "Je n'ai pas assez d'informations exploitables pour répondre clairement.",
+            "I do not have enough usable information to answer clearly.",
+            "No tengo suficiente información utilizable para responder con claridad.",
+            "Não tenho informações utilizáveis suficientes para responder com clareza.",
+            "Ich habe nicht genügend verwertbare Informationen, um klar zu antworten.",
+            "Non ho informazioni utilizzabili sufficienti per rispondere chiaramente.");
+
+    public static string DocumentsCount(int total, string? language)
+        => Pick(language,
+            $"Il y a actuellement {total} document(s) indexé(s) sur le serveur.",
+            $"There are currently {total} indexed document(s) on the server.",
+            $"Actualmente hay {total} documento(s) indexado(s) en el servidor.",
+            $"Atualmente há {total} documento(s) indexado(s) no servidor.",
+            $"Derzeit sind {total} Dokument(e) auf dem Server indexiert.",
+            $"Attualmente ci sono {total} documento/i indicizzato/i sul server.");
+
+    public static string DocumentsListHeader(string? language)
+        => Pick(language,
+            "Documents présents sur le serveur :",
+            "Documents present on the server:",
+            "Documentos presentes en el servidor:",
+            "Documentos presentes no servidor:",
+            "Dokumente auf dem Server:",
+            "Documenti presenti sul server:");
+
+    public static string EmptyFoldersCount(int total, string? language)
+        => Pick(language,
+            $"Il y a actuellement {total} dossier(s) vide(s) sur le serveur.",
+            $"There are currently {total} empty folder(s) on the server.",
+            $"Actualmente hay {total} carpeta(s) vacía(s) en el servidor.",
+            $"Atualmente há {total} pasta(s) vazia(s) no servidor.",
+            $"Derzeit gibt es {total} leere Ordner auf dem Server.",
+            $"Attualmente ci sono {total} cartella/e vuota/e sul server.");
+
+    public static string NoEmptyFoldersFound(string? language)
+        => Pick(language,
+            "Aucun dossier vide n'a été trouvé sur le serveur.",
+            "No empty folders were found on the server.",
+            "No se encontraron carpetas vacías en el servidor.",
+            "Nenhuma pasta vazia foi encontrada no servidor.",
+            "Auf dem Server wurden keine leeren Ordner gefunden.",
+            "Non sono state trovate cartelle vuote sul server.");
+
+    public static string EmptyFoldersHeader(string? language)
+        => Pick(language,
+            "Dossiers vides sur le serveur :",
+            "Empty folders on the server:",
+            "Carpetas vacías en el servidor:",
+            "Pastas vazias no servidor:",
+            "Leere Ordner auf dem Server:",
+            "Cartelle vuote sul server:");
+
+
+    public static string CategoriesListHeader(string? language)
+        => Pick(language,
+            "Catégories présentes sur le serveur :",
+            "Categories present on the server:",
+            "Categorías presentes en el servidor:",
+            "Categorias presentes no servidor:",
+            "Kategorien auf dem Server:",
+            "Categorie presenti sul server:");
+
+    public static string CategoriesCount(int total, string? language)
+        => Pick(language,
+            $"Il y a actuellement {total} catégorie(s) de premier niveau sur le serveur.",
+            $"There are currently {total} first-level category(ies) on the server.",
+            $"Actualmente hay {total} categoría(s) de primer nivel en el servidor.",
+            $"Atualmente há {total} categoria(s) de primeiro nível no servidor.",
+            $"Derzeit gibt es {total} Kategorien der ersten Ebene auf dem Server.",
+            $"Attualmente ci sono {total} categorie di primo livello sul server.");
+
+    public static string MissingSummariesHeader(string? language)
+        => Pick(language,
+            "Voici la liste des documents sans résumé stocké :",
+            "Here is the list of documents without a stored summary:",
+            "Aquí está la lista de documentos sin resumen almacenado:",
+            "Aqui está a lista de documentos sem resumo armazenado:",
+            "Hier ist die Liste der Dokumente ohne gespeicherte Zusammenfassung:",
+            "Ecco l'elenco dei documenti senza riassunto salvato:");
+
+    public static string MissingSummariesCount(int total, string? language)
+        => Pick(language,
+            $"Il y a actuellement {total} document(s) indexé(s) sans résumé stocké.",
+            $"There are currently {total} indexed document(s) without a stored summary.",
+            $"Actualmente hay {total} documento(s) indexado(s) sin resumen almacenado.",
+            $"Atualmente há {total} documento(s) indexado(s) sem resumo armazenado.",
+            $"Derzeit gibt es {total} indexierte Dokument(e) ohne gespeicherte Zusammenfassung.",
+            $"Attualmente ci sono {total} documento/i indicizzato/i senza riassunto salvato.");
+
+    public static string NoMissingSummaries(string? language)
+        => Pick(language,
+            "Tous les documents indexés disposent déjà d'un résumé stocké.",
+            "All indexed documents already have a stored summary.",
+            "Todos los documentos indexados ya tienen un resumen almacenado.",
+            "Todos os documentos indexados já têm um resumo armazenado.",
+            "Alle indexierten Dokumente verfügen bereits über eine gespeicherte Zusammenfassung.",
+            "Tutti i documenti indicizzati dispongono già di un riassunto salvato.");
+
+    public static string ToolFailureAdminRequired(string? language)
+        => Pick(language,
+            "Cette action nécessite une session admin active dans le client WinUI.",
+            "This action requires an active admin session in the WinUI client.",
+            "Esta acción requiere una sesión de administrador activa en el cliente WinUI.",
+            "Esta ação requer uma sessão de administrador ativa no cliente WinUI.",
+            "Diese Aktion erfordert eine aktive Admin-Sitzung im WinUI-Client.",
+            "Questa azione richiede una sessione admin attiva nel client WinUI.");
+
+    public static string ToolFailureUnknownPlan(string? language)
+        => Pick(language,
+            "Le plan d'outils interne était invalide pour cette demande. Relance la demande ou reformule-la.",
+            "The internal tool plan was invalid for this request. Please retry or reformulate the request.",
+            "El plan interno de herramientas no era válido para esta solicitud. Vuelve a intentarlo o reformula la solicitud.",
+            "O plano interno de ferramentas era inválido para esta solicitação. Tente novamente ou reformule o pedido.",
+            "Der interne Tool-Plan war für diese Anfrage ungültig. Bitte versuche es erneut oder formuliere die Anfrage um.",
+            "Il piano interno degli strumenti non era valido per questa richiesta. Riprova o riformula la richiesta.");
+
+    public static string ToolFailureToolFailed(string? language)
+        => Pick(language,
+            "Un ou plusieurs outils ont échoué avant de pouvoir produire une réponse fondée.",
+            "One or more tools failed before a grounded answer could be produced.",
+            "Una o varias herramientas fallaron antes de poder producir una respuesta fundamentada.",
+            "Uma ou mais ferramentas falharam antes que fosse possível produzir uma resposta fundamentada.",
+            "Ein oder mehrere Werkzeuge sind fehlgeschlagen, bevor eine fundierte Antwort erzeugt werden konnte.",
+            "Uno o più strumenti hanno avuto un errore prima di poter produrre una risposta fondata.");
+
+    public static string ToolAction(string toolName, string? language)
+        => toolName switch
+        {
+            "documents.tree" => Pick(language, "Je vais chercher l'arborescence des documents…", "I am retrieving the document tree…", "Estoy recuperando el árbol de documentos…", "Estou recuperando a árvore de documentos…", "Ich rufe den Dokumentbaum ab…", "Sto recuperando l'albero dei documenti…"),
+            "documents.count" => Pick(language, "Je compte les documents indexés…", "I am counting indexed documents…", "Estoy contando los documentos indexados…", "Estou contando os documentos indexados…", "Ich zähle die indexierten Dokumente…", "Sto contando i documenti indicizzati…"),
+            "documents.stats" => Pick(language, "Je rassemble les statistiques du catalogue…", "I am compiling catalog statistics…", "Estoy recopilando las estadísticas del catálogo…", "Estou reunindo as estatísticas do catálogo…", "Ich stelle die Katalogstatistiken zusammen…", "Sto raccogliendo le statistiche del catalogo…"),
+            "documents.empty_count" => Pick(language, "Je compte les dossiers vides…", "I am counting empty folders…", "Estoy contando las carpetas vacías…", "Estou contando as pastas vazias…", "Ich zähle die leeren Ordner…", "Sto contando le cartelle vuote…"),
+            "documents.empty_list" => Pick(language, "Je liste les dossiers vides…", "I am listing empty folders…", "Estoy enumerando las carpetas vacías…", "Estou listando as pastas vazias…", "Ich liste die leeren Ordner auf…", "Sto elencando le cartelle vuote…"),
+            "documents.list" or "documents.search" => Pick(language, "Je cherche dans les documents indexés…", "I am searching the indexed documents…", "Estoy buscando en los documentos indexados…", "Estou pesquisando nos documentos indexados…", "Ich suche in den indexierten Dokumenten…", "Sto cercando nei documenti indicizzati…"),
+            "rag.search" or "rag.multi_search" => Pick(language, "Je récupère les passages les plus pertinents…", "I am retrieving the most relevant passages…", "Estoy recuperando los pasajes más relevantes…", "Estou recuperando os trechos mais relevantes…", "Ich rufe die relevantesten Passagen ab…", "Sto recuperando i passaggi più pertinenti…"),
+            "sources.resolve" => Pick(language, "Je résous la source demandée…", "I am resolving the requested source…", "Estoy resolviendo la fuente solicitada…", "Estou resolvendo a fonte solicitada…", "Ich löse die angeforderte Quelle auf…", "Sto risolvendo la fonte richiesta…"),
+            "admin.summary.generate" => Pick(language, "Je prépare le cache de résumé réutilisable pour ce document…", "I am preparing the reusable summary cache for this document…", "Estoy preparando la caché de resumen reutilizable para este documento…", "Estou preparando o cache de resumo reutilizável para este documento…", "Ich bereite den Cache für wiederverwendbare Zusammenfassungen dieses Dokuments vor…", "Sto preparando la cache del riassunto riutilizzabile per questo documento…"),
+            "admin.summary.submit" => Pick(language, "Je stocke le résumé réutilisable…", "I am storing the reusable summary…", "Estoy almacenando el resumen reutilizable…", "Estou armazenando o resumo reutilizável…", "Ich speichere die wiederverwendbare Zusammenfassung…", "Sto salvando il riassunto riutilizzabile…"),
+            _ => ProgressCollectInformation(language)
+        };
+
+    public static string ToolPhase(string toolName, string? language)
+        => toolName switch
+        {
+            "documents.list" or "documents.search" or "documents.get" or "documents.count" or "documents.tree" or "documents.stats" or "documents.empty_count" or "documents.empty_list"
+                => Pick(language, "Recherche documents…", "Document search…", "Búsqueda de documentos…", "Pesquisa de documentos…", "Dokumentsuche…", "Ricerca documenti…"),
+            "rag.search" or "rag.multi_search"
+                => Pick(language, "Recherche RAG…", "RAG search…", "Búsqueda RAG…", "Pesquisa RAG…", "RAG-Suche…", "Ricerca RAG…"),
+            "sources.resolve"
+                => Pick(language, "Résolution source…", "Source resolution…", "Resolución de fuente…", "Resolução de fonte…", "Quellenauflösung…", "Risoluzione fonte…"),
+            "summary.get" or "summary.exists" or "summary.search"
+                => Pick(language, "Chargement résumé…", "Loading summary…", "Cargando resumen…", "Carregando resumo…", "Zusammenfassung wird geladen…", "Caricamento riassunto…"),
+            "admin.summary.missing" or "admin.summary.request" or "admin.summary.submit" or "admin.summary.status" or "admin.summary.delete" or "admin.summary.generate"
+                => Pick(language, "Outils admin résumés…", "Admin summary tools…", "Herramientas admin de resúmenes…", "Ferramentas admin de resumos…", "Admin-Zusammenfassungstools…", "Strumenti admin riassunti…"),
+            "admin.catalog.health" or "admin.catalog.rescan_now"
+                => Pick(language, "Outils admin catalogue…", "Admin catalog tools…", "Herramientas admin del catálogo…", "Ferramentas admin do catálogo…", "Admin-Katalogwerkzeuge…", "Strumenti admin catalogo…"),
+            "admin.ingestion.reindex"
+                => Pick(language, "Relance ingestion…", "Restarting ingestion…", "Reinicio de ingestión…", "Reiniciando ingestão…", "Ingestion wird neu gestartet…", "Riavvio ingestione…"),
+            "admin.jobs.list" or "admin.jobs.cancel"
+                => Pick(language, "Gestion jobs admin…", "Admin job management…", "Gestión de trabajos admin…", "Gestão de jobs admin…", "Admin-Jobverwaltung…", "Gestione job admin…"),
+            "diagnostic.performance"
+                => Pick(language, "Diagnostic…", "Diagnostics…", "Diagnóstico…", "Diagnóstico…", "Diagnose…", "Diagnostica…"),
+            "export.create"
+                => Pick(language, "Export…", "Export…", "Exportación…", "Exportação…", "Export…", "Esportazione…"),
+            "support.bundle"
+                => Pick(language, "Support…", "Support…", "Soporte…", "Suporte…", "Support…", "Supporto…"),
+            "rag.debug.scroll"
+                => Pick(language, "Debug…", "Debug…", "Depuración…", "Depuração…", "Debug…", "Debug…"),
+            _ => PhaseTools(language)
+        };
+
+    public static string JsonEnvelopeError(string? language)
+        => Pick(language,
+            "⚠️ La réponse interne est arrivée dans un format inattendu. Peux-tu relancer ta question (ou reformuler) ?",
+            "⚠️ The internal response arrived in an unexpected format. Please retry (or rephrase).",
+            "⚠️ La respuesta interna llegó con un formato inesperado. Vuelve a intentarlo o reformúlala.",
+            "⚠️ A resposta interna chegou em um formato inesperado. Tente novamente ou reformule.",
+            "⚠️ Die interne Antwort kam in einem unerwarteten Format an. Bitte versuche es erneut oder formuliere die Frage um.",
+            "⚠️ La risposta interna è arrivata in un formato inatteso. Riprova o riformula la richiesta.");
+
+    public static string StatsTitle(string? language)
+        => Pick(language, "Statistiques du catalogue :", "Catalog statistics:", "Estadísticas del catálogo:", "Estatísticas do catálogo:", "Katalogstatistiken:", "Statistiche del catalogo:");
+
+    public static string StatsIndexedDocuments(int total, string? language)
+        => Pick(language, $"- Documents indexés : {total}", $"- Indexed documents: {total}", $"- Documentos indexados: {total}", $"- Documentos indexados: {total}", $"- Indexierte Dokumente: {total}", $"- Documenti indicizzati: {total}");
+
+    public static string StatsTotalFolders(int total, string? language)
+        => Pick(language, $"- Dossiers totaux : {total}", $"- Total folders: {total}", $"- Carpetas totales: {total}", $"- Pastas totais: {total}", $"- Ordner insgesamt: {total}", $"- Cartelle totali: {total}");
+
+    public static string StatsMaximumDepth(int depth, string? language)
+        => Pick(language, $"- Profondeur maximale : {depth}", $"- Maximum depth: {depth}", $"- Profundidad máxima: {depth}", $"- Profundidade máxima: {depth}", $"- Maximale Tiefe: {depth}", $"- Profondità massima: {depth}");
+
+    public static string StatsMainStructure(string? language)
+        => Pick(language, "- Structure principale :", "- Main structure:", "- Estructura principal:", "- Estrutura principal:", "- Hauptstruktur:", "- Struttura principale:");
+
+    public static string FirstLevelFolders(int count, string? language)
+        => Pick(language, $"- Dossiers de premier niveau : {count}", $"- First-level folders: {count}", $"- Carpetas de primer nivel: {count}", $"- Pastas de primeiro nível: {count}", $"- Ordner der ersten Ebene: {count}", $"- Cartelle di primo livello: {count}");
+
+    public static string FolderDepthLabel(int depth, string? language)
+        => Lang(language) switch
+        {
+            "en" => depth switch { 1 => "First-level folders", 2 => "Second-level folders", 3 => "Third-level folders", _ => $"Level {depth} folders" },
+            "es" => depth switch { 1 => "Carpetas de primer nivel", 2 => "Carpetas de segundo nivel", 3 => "Carpetas de tercer nivel", _ => $"Carpetas de nivel {depth}" },
+            "pt" => depth switch { 1 => "Pastas de primeiro nível", 2 => "Pastas de segundo nível", 3 => "Pastas de terceiro nível", _ => $"Pastas de nível {depth}" },
+            "de" => depth switch { 1 => "Ordner der ersten Ebene", 2 => "Ordner der zweiten Ebene", 3 => "Ordner der dritten Ebene", _ => $"Ordner der Ebene {depth}" },
+            "it" => depth switch { 1 => "Cartelle di primo livello", 2 => "Cartelle di secondo livello", 3 => "Cartelle di terzo livello", _ => $"Cartelle di livello {depth}" },
+            _ => depth switch { 1 => "Dossiers de premier niveau", 2 => "Dossiers de deuxième niveau", 3 => "Dossiers de troisième niveau", _ => $"Dossiers de niveau {depth}" },
+        };
+
+    public static string RootFolderLine(string name, int total, int direct, int subfolders, string? language)
+        => Pick(language,
+            $"  • {name}: {total} document(s) au total, {direct} direct(s), {subfolders} sous-dossier(s)",
+            $"  • {name}: {total} document(s) in total, {direct} direct, {subfolders} subfolder(s)",
+            $"  • {name}: {total} documento(s) en total, {direct} directo(s), {subfolders} subcarpeta(s)",
+            $"  • {name}: {total} documento(s) no total, {direct} direto(s), {subfolders} subpasta(s)",
+            $"  • {name}: {total} Dokument(e) insgesamt, {direct} direkt, {subfolders} Unterordner",
+            $"  • {name}: {total} documento/i in totale, {direct} diretto/i, {subfolders} sottocartella/e");
+}

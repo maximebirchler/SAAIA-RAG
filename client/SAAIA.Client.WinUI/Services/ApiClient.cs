@@ -23,6 +23,7 @@ public sealed partial class ApiClient
     private readonly HttpClient _http = new();
     private string _baseUrl = "http://localhost:5122";
     private string _apiKey = "";
+    private string _adminKey = "";
     private string _userId = "";
 
     private static readonly JsonSerializerOptions JsonOpts = new()
@@ -31,13 +32,26 @@ public sealed partial class ApiClient
         PropertyNameCaseInsensitive = true
     };
 
-    public void Configure(string baseUrl, string apiKey, string userId)
+    public void Configure(string baseUrl, string apiKey, string userId, string? adminKey = null)
     {
         _baseUrl = (baseUrl ?? "").Trim().TrimEnd('/');
         if (string.IsNullOrWhiteSpace(_baseUrl)) _baseUrl = "http://localhost:5122";
         _apiKey = (apiKey ?? "").Trim();
         _userId = (userId ?? "").Trim();
+
+        if (adminKey is not null)
+            _adminKey = (adminKey ?? "").Trim();
     }
+
+    public void SetAdminSessionKey(string? adminKey)
+        => _adminKey = (adminKey ?? "").Trim();
+
+    public void ClearAdminSessionKey()
+        => _adminKey = string.Empty;
+
+    public bool HasAdminKey => !string.IsNullOrWhiteSpace(_adminKey);
+
+    public bool HasAdminSessionKey => HasAdminKey;
 
     private string RequireUserId()
     {
@@ -53,6 +67,20 @@ public sealed partial class ApiClient
 
         if (!string.IsNullOrWhiteSpace(_apiKey))
             req.Headers.Add("X-Api-Key", _apiKey);
+
+        if (jsonBody is not null)
+            req.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+
+        return req;
+    }
+
+    private HttpRequestMessage NewAdminRequest(HttpMethod method, string path, string? jsonBody = null)
+    {
+        var req = new HttpRequestMessage(method, $"{_baseUrl}{path}");
+        req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        if (!string.IsNullOrWhiteSpace(_adminKey))
+            req.Headers.Add("X-Admin-Key", _adminKey);
 
         if (jsonBody is not null)
             req.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
@@ -489,7 +517,7 @@ public sealed partial class ApiClient
     /// Tool-agent friendly documents list: returns JSON object with items + paging.
     /// Adds a stable pdfRef per item (PDF01, PDF02, ...), based on offset.
     /// </summary>
-    public async Task<JsonElement> DocumentsListAsync(string? category, string? q, int limit, int offset, CancellationToken ct)
+    public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? q, int limit, int offset, CancellationToken ct)
     {
         var lim = Math.Clamp(limit, 1, 2000);
         var off = Math.Max(0, offset);
@@ -500,8 +528,8 @@ public sealed partial class ApiClient
             $"offset={off}"
         };
 
-        if (!string.IsNullOrWhiteSpace(category))
-            qs.Add($"category={Uri.EscapeDataString(category.Trim())}");
+        if (!string.IsNullOrWhiteSpace(categoryPath))
+            qs.Add($"categoryPath={Uri.EscapeDataString(categoryPath.Trim().Replace('\\', '/').Trim('/'))}");
 
         if (!string.IsNullOrWhiteSpace(q))
             qs.Add($"q={Uri.EscapeDataString(q.Trim())}");
@@ -547,18 +575,26 @@ public sealed partial class ApiClient
                 var docPath = TryGetString(it, "docPath") ?? TryGetString(it, "DocPath") ?? "";
                 var docName = TryGetString(it, "docName") ?? TryGetString(it, "DocName") ?? "";
                 var cat = TryGetString(it, "category") ?? TryGetString(it, "Category") ?? "";
+                var itemCategoryPath = TryGetString(it, "categoryPath") ?? TryGetString(it, "CategoryPath") ?? "";
                 var pages = TryGetInt(it, "pages") ?? TryGetInt(it, "pageCount");
 
                 var pdfIndex = off + i + 1;
                 var pdfRef = $"PDF{pdfIndex:00}";
 
+                var normalizedDocPath = NormalizeDocPath(docPath);
+                var normalizedCategoryPath = NormalizeCategoryPathForDocuments(itemCategoryPath, normalizedDocPath);
+                var normalizedCategory = !string.IsNullOrWhiteSpace(cat)
+                    ? NormalizeTopLevelCategoryForDocuments(cat)
+                    : NormalizeTopLevelCategoryForDocuments(normalizedCategoryPath);
+
                 newItems.Add(new
                 {
                     pdfRef,
                     docId,
-                    docPath = NormalizeDocPath(docPath),
+                    docPath = normalizedDocPath,
                     docName,
-                    category = cat,
+                    category = normalizedCategory,
+                    categoryPath = normalizedCategoryPath,
                     pages
                 });
 
@@ -584,8 +620,26 @@ public sealed partial class ApiClient
         return doc2.RootElement.Clone();
     }
 
-    public Task<JsonElement> DocumentsSearchAsync(string q, string? category, int limit, int offset, CancellationToken ct)
-        => DocumentsListAsync(category, q, limit, offset, ct);
+    public Task<JsonElement> DocumentsSearchAsync(string q, string? categoryPath, int limit, int offset, CancellationToken ct)
+        => DocumentsListAsync(categoryPath, q, limit, offset, ct);
+
+    private static string NormalizeCategoryPathForDocuments(string? categoryPath, string? docPath)
+    {
+        var normalized = (categoryPath ?? string.Empty).Replace('\\', '/').Trim().TrimStart('/').TrimEnd('/');
+        if (!string.IsNullOrWhiteSpace(normalized))
+            return normalized;
+
+        var path = NormalizeDocPath(docPath ?? string.Empty);
+        var idx = path.LastIndexOf('/');
+        return idx > 0 ? path.Substring(0, idx) : string.Empty;
+    }
+
+    private static string NormalizeTopLevelCategoryForDocuments(string? categoryPath)
+    {
+        var normalized = (categoryPath ?? string.Empty).Replace('\\', '/').Trim().TrimStart('/').TrimEnd('/');
+        var idx = normalized.IndexOf('/');
+        return idx > 0 ? normalized.Substring(0, idx) : normalized;
+    }
 
     public async Task<JsonElement> DocumentsGetAsync(string docId, CancellationToken ct)
     {
@@ -744,14 +798,23 @@ public sealed partial class ApiClient
     // RAG (CDC v2.7)
     // ---------------------
 
-    public async Task<RagSearchResponse> RagSearchAsync(string query, string? category, int topK, string? mode, CancellationToken ct)
+    public async Task<RagSearchResponse> RagSearchAsync(
+        string query,
+        string? category,
+        int topK,
+        string? mode,
+        CancellationToken ct,
+        string? docId = null,
+        string? docPath = null)
     {
         var body = JsonSerializer.Serialize(new
         {
             query,
             category,
             topK,
-            mode
+            mode,
+            docId = string.IsNullOrWhiteSpace(docId) ? null : docId.Trim(),
+            docPath = string.IsNullOrWhiteSpace(docPath) ? null : NormalizeDocPath(docPath)
         }, JsonOpts);
 
         using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Post, "/rag/search", body), ct);

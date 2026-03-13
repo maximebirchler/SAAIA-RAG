@@ -10,9 +10,8 @@ public sealed class ChatMessageItem : INotifyPropertyChanged
     private string _content = "";
     private string? _sourcesJson;
     private DateTime _createdAt = DateTime.UtcNow;
-
-    // ✅ Petit label gris sous le message (ex: “Génération interrompue.”)
     private string? _statusNote;
+    private string? _progressText;
 
     public string Role
     {
@@ -42,6 +41,12 @@ public sealed class ChatMessageItem : INotifyPropertyChanged
     {
         get => _statusNote;
         set { if (_statusNote != value) { _statusNote = value; OnPropertyChanged(); } }
+    }
+
+    public string? ProgressText
+    {
+        get => _progressText;
+        set { if (_progressText != value) { _progressText = value; OnPropertyChanged(); } }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

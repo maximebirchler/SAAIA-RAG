@@ -124,6 +124,19 @@
                             PointerExited="Bubble_PointerExited">
                         <StackPanel Spacing="8">
 
+                            <StackPanel Orientation="Horizontal"
+                                        Spacing="8"
+                                        Visibility="{Binding ProgressText, Converter={StaticResource NonEmptyStringToVisibility}}">
+                                <ProgressRing Width="14"
+                                              Height="14"
+                                              IsActive="True"
+                                              VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding ProgressText}"
+                                           Foreground="#CFCFCF"
+                                           FontSize="12"
+                                           TextWrapping="WrapWholeWords"/>
+                            </StackPanel>
+
                             <controls:LinkifiedTextBlock Text="{x:Bind Content, Mode=OneWay}" TextForeground="#F5F5F5" TextFontSize="14"/>
 
                             <!-- Status note (ex: Génération interrompue.) -->
@@ -462,7 +475,9 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock Text="Chats" FontWeight="SemiBold" FontSize="16"/>
+                        <Border Background="Transparent" Padding="2,2,8,2" HorizontalAlignment="Left" VerticalAlignment="Center" PointerPressed="ChatsSecretHotzone_PointerPressed">
+                            <TextBlock Text="Chats" FontWeight="SemiBold" FontSize="16"/>
+                        </Border>
                         <Button Grid.Column="1"
                                 x:Name="NewChatButton"
                                 Content="New"

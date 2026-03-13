@@ -60,6 +60,9 @@ public sealed partial class MainWindow : Window
     private bool _typingPinned;
 
     private bool _setupAutoPrompted;
+    private int _secretAdminClickCount;
+    private DateTimeOffset _secretAdminFirstClickUtc = DateTimeOffset.MinValue;
+    private static readonly TimeSpan SecretAdminClickWindow = TimeSpan.FromMilliseconds(1500);
 
     public MainWindow()
     {
@@ -160,20 +163,11 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            // Keep the legacy status text updated (even if the legacy top bar is collapsed).
             if (StatusText is not null)
                 StatusText.Text = s;
 
-            // Primary UX: show status where the "Typing…" label is.
-            if (TypingText is null) return;
-
-            TypingText.Text = s;
-            TypingText.Visibility = Visibility.Visible;
-
             _statusHideTimer?.Stop();
-
-            // While generating, we keep it visible.
-            if (_isGenerating || _typingPinned)
+            if (_isGenerating)
                 return;
 
             _statusHideTimer = DispatcherQueue.CreateTimer();
@@ -181,14 +175,13 @@ public sealed partial class MainWindow : Window
             _statusHideTimer.Tick += (_, __) =>
             {
                 _statusHideTimer?.Stop();
-                if (!_isGenerating && !_typingPinned)
-                    TypingText.Visibility = Visibility.Collapsed;
+                if (!_isGenerating && StatusText is not null)
+                    StatusText.Text = string.Empty;
             };
             _statusHideTimer.Start();
         }
         catch
         {
-            // silent (UX)
         }
     }
 
@@ -210,7 +203,6 @@ public sealed partial class MainWindow : Window
         }
         catch
         {
-            // silent (UX)
         }
     }
 
@@ -923,6 +915,90 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
         }
     }
 
+    private async void ChatsSecretHotzone_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        try
+        {
+            var now = DateTimeOffset.UtcNow;
+            if (_secretAdminFirstClickUtc == DateTimeOffset.MinValue || (now - _secretAdminFirstClickUtc) > SecretAdminClickWindow)
+            {
+                _secretAdminFirstClickUtc = now;
+                _secretAdminClickCount = 1;
+            }
+            else
+            {
+                _secretAdminClickCount++;
+            }
+
+            if (_secretAdminClickCount < 5)
+                return;
+
+            _secretAdminClickCount = 0;
+            _secretAdminFirstClickUtc = DateTimeOffset.MinValue;
+            await ShowAdminSessionDialogAsync();
+        }
+        catch (Exception ex)
+        {
+            Status("Admin popup failed: " + ex.Message);
+        }
+    }
+
+    private async Task ShowAdminSessionDialogAsync()
+    {
+        var passwordBox = new PasswordBox
+        {
+            PlaceholderText = _api.HasAdminKey ? "Remplacer la clé admin de session" : "Entrer la clé admin",
+            MinWidth = 360
+        };
+
+        var info = new TextBlock
+        {
+            Text = _api.HasAdminKey
+                ? "Session admin active sur cette ouverture de l'application."
+                : "Aucune session admin active.",
+            Opacity = 0.8,
+            TextWrapping = TextWrapping.Wrap
+        };
+
+        var stack = new StackPanel { Spacing = 10 };
+        stack.Children.Add(info);
+        stack.Children.Add(passwordBox);
+
+        var dlg = new ContentDialog
+        {
+            Title = "Administration",
+            Content = stack,
+            PrimaryButtonText = _api.HasAdminKey ? "Mettre à jour" : "Connecter",
+            SecondaryButtonText = _api.HasAdminKey ? "Déconnecter" : string.Empty,
+            CloseButtonText = "Fermer",
+            DefaultButton = ContentDialogButton.Primary
+        };
+
+        var xamlRoot = await GetDialogXamlRootAsync();
+        if (xamlRoot is not null) dlg.XamlRoot = xamlRoot;
+
+        var res = await dlg.ShowAsync();
+        if (res == ContentDialogResult.Primary)
+        {
+            var key = (passwordBox.Password ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                Status("Clé admin vide.");
+                return;
+            }
+
+            _api.SetAdminSessionKey(key);
+            ClientLog.Info("Admin session key set for current app session.");
+            Status("Session admin activée.");
+        }
+        else if (res == ContentDialogResult.Secondary)
+        {
+            _api.ClearAdminSessionKey();
+            ClientLog.Info("Admin session key cleared.");
+            Status("Session admin désactivée.");
+        }
+    }
+
     private void ApplyUserModeVisibility()
     {
         _appSettings = AppSettings.Load();
@@ -1247,9 +1323,11 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
     {
         if (assistantMsg is null) return;
 
+        assistantMsg.ProgressText = null;
+
         if (string.IsNullOrWhiteSpace(assistantMsg.Content))
         {
-            assistantMsg.Content = ""; // on laisse vide (ou tu peux mettre "…")
+            assistantMsg.Content = "";
             assistantMsg.StatusNote = "Génération interrompue.";
             return;
         }
@@ -1257,6 +1335,15 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
         if (string.IsNullOrWhiteSpace(assistantMsg.StatusNote))
             assistantMsg.StatusNote = "Génération interrompue.";
     }
+
+    private static void SetAssistantProgress(ChatMessageItem? assistantMsg, string? progress)
+    {
+        if (assistantMsg is null) return;
+        assistantMsg.ProgressText = string.IsNullOrWhiteSpace(progress) ? null : progress.Trim();
+    }
+
+    private static void ClearAssistantProgress(ChatMessageItem? assistantMsg)
+        => SetAssistantProgress(assistantMsg, null);
 
     private async Task MaybeAutoTitleAsync(string userText)
     {
@@ -1284,22 +1371,12 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
 
     private void SetTyping(bool isTyping)
     {
-        if (TypingText is null) return;
-
         _typingPinned = isTyping;
-
-        if (isTyping)
+        if (TypingText is not null)
         {
-            _statusHideTimer?.Stop();
-            TypingText.Visibility = Visibility.Visible;
-            if (string.IsNullOrWhiteSpace(TypingText.Text))
-                TypingText.Text = "…";
-            return;
-        }
-
-        // If a status hide timer is running (ex: "Done."), let it hide the label.
-        if (_statusHideTimer is null)
+            TypingText.Text = string.Empty;
             TypingText.Visibility = Visibility.Collapsed;
+        }
     }
 
     private void UpdateJumpButton()
@@ -1573,8 +1650,7 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
             UpdateJumpButton();
 
             UpdateUiState(isGenerating: true);
-
-            InputBox.Text = "";
+            InputBox.Text = string.Empty;
 
             var tailBefore = _messages.ToList();
 
@@ -1591,23 +1667,24 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
             assistantMsg = new ChatMessageItem
             {
                 Role = "assistant",
-                Content = "",
+                Content = string.Empty,
                 CreatedAt = DateTime.UtcNow,
-                StatusNote = null
+                StatusNote = null,
+                ProgressText = "Je prépare la réponse…"
             };
             _messages.Add(assistantMsg);
             ScrollToBottom(force: true);
             DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => ScrollToBottom(force: true));
 
             SourcesCards.Items = new List<SourceCard>();
-            SourcesBox.Text = "";
+            SourcesBox.Text = string.Empty;
 
-            Status("Routeur…");
-            
             SetTyping(true);
             _autoFollow = true;
             _userScrolledUp = false;
             UpdateJumpButton();
+
+            var hasStreamedDelta = false;
 
             var (finalAnswer, sourcesObj) = await _agent.RunAsync(
                 userText: text,
@@ -1615,21 +1692,28 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
                 conversationTail: tailBefore,
                 onDelta: token =>
                 {
-                   DispatcherQueue.TryEnqueue(() =>
+                    if (string.IsNullOrEmpty(token))
+                        return;
+
+                    hasStreamedDelta = true;
+                    DispatcherQueue.TryEnqueue(() =>
                     {
+                        assistantMsg.StatusNote = null;
+                        ClearAssistantProgress(assistantMsg);
                         assistantMsg.Content += token;
 
-                        // Auto-follow seulement si on est en mode follow et que l'user n'a pas scroll up
                         if (_autoFollow && !_userScrolledUp)
                             ScrollToBottom(force: true);
                     });
                 },
-                onPhase: phase =>
+                onPhase: _ => { },
+                onProgress: progress =>
                 {
                     DispatcherQueue.TryEnqueue(() =>
                     {
-                        // UX: phases Router/Tools/Answer (spec v2.8.x)
-                        Status(phase);
+                        SetAssistantProgress(assistantMsg, progress);
+                        if (_autoFollow && !_userScrolledUp)
+                            ScrollToBottom(force: true);
                     });
                 },
                 ct: _cts.Token);
@@ -1638,9 +1722,12 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
 
             if (!wasCancelled)
             {
-                assistantMsg.Content = string.IsNullOrWhiteSpace(finalAnswer)
-                    ? "⚠️ Réponse vide côté LLM. Voir les sources à droite."
-                    : finalAnswer;
+                ClearAssistantProgress(assistantMsg);
+
+                if (string.IsNullOrWhiteSpace(finalAnswer))
+                    assistantMsg.Content = "⚠️ Réponse vide côté LLM. Voir les sources à droite.";
+                else if (!hasStreamedDelta || string.IsNullOrWhiteSpace(assistantMsg.Content))
+                    assistantMsg.Content = finalAnswer;
 
                 assistantMsg.StatusNote = null;
             }
@@ -1658,21 +1745,17 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
                     new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
 
             assistantMsg.SourcesJson = pretty;
-
             SourcesCards.Items = SourceCardParser.Parse(pretty);
             SourcesBox.Text = pretty;
 
-            // ✅ Persist aussi StatusNote (annulation/échec UX)
             await _api.AddMessageAsync(_sessionId!, "assistant", assistantMsg.Content, sourcesObj, CancellationToken.None, assistantMsg.StatusNote);
 
-            // refresh sidebar order after activity (non bloquant : évite doublons si ça plante après l'insert)
             try
             {
                 await RefreshSessionsAsync(preferSessionId: _sessionId, CancellationToken.None);
             }
             catch
             {
-                // non bloquant
             }
 
             if (_autoFollow && !_userScrolledUp)
@@ -1686,8 +1769,6 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
             UpdateJumpButton();
             MarkInterrupted(assistantMsg);
 
-            // ✅ Important: persister le message assistant même en cas d'annulation,
-            // sinon StatusNote ("Génération interrompue") est perdu au reload.
             try
             {
                 if (!string.IsNullOrWhiteSpace(_sessionId) && assistantMsg is not null)
@@ -1705,7 +1786,6 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
             }
             catch
             {
-                // non bloquant (backend down, etc.)
             }
 
             if (_autoFollow && !_userScrolledUp)
@@ -1715,6 +1795,7 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
         }
         catch (Exception ex)
         {
+            ClearAssistantProgress(assistantMsg);
             SetTyping(false);
             UpdateJumpButton();
             Status("Send failed: " + ex.Message);

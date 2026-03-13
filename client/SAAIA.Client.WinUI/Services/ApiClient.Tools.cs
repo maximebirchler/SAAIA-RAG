@@ -12,27 +12,8 @@ namespace SAAIA.Client.WinUI.Services;
 
 public sealed partial class ApiClient
 {
-    private string _adminKey = "";
-
-    public void SetAdminKey(string? adminKey)
-    {
-        _adminKey = (adminKey ?? "").Trim();
-    }
-
-    private HttpRequestMessage NewAdminRequest(HttpMethod method, string path, string? jsonBody = null)
-    {
-        var req = new HttpRequestMessage(method, $"{_baseUrl}{path}");
-        req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-
-        var adminKey = string.IsNullOrWhiteSpace(_adminKey) ? _apiKey : _adminKey;
-        if (!string.IsNullOrWhiteSpace(adminKey))
-            req.Headers.Add("X-Admin-Key", adminKey);
-
-        if (jsonBody is not null)
-            req.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
-
-        return req;
-    }
+    private static string NormalizeStoredSummaryLevel(string? level)
+        => "medium";
 
     private async Task<JsonElement> SendJsonAsync(HttpMethod method, string path, string? jsonBody, bool admin, CancellationToken ct)
     {
@@ -67,9 +48,34 @@ public sealed partial class ApiClient
         return await SendJsonAsync(HttpMethod.Get, "/documents/stats" + qs, null, admin: false, ct).ConfigureAwait(false);
     }
 
+    public async Task<JsonElement> DocumentsEmptyFoldersCountAsync(string? path, CancellationToken ct)
+    {
+        var qs = string.IsNullOrWhiteSpace(path)
+            ? string.Empty
+            : $"?path={Uri.EscapeDataString(path.Trim().Replace('\\', '/').Trim('/'))}";
+
+        return await SendJsonAsync(HttpMethod.Get, "/documents/empty-folders/count" + qs, null, admin: false, ct).ConfigureAwait(false);
+    }
+
+    public async Task<JsonElement> DocumentsEmptyFoldersListAsync(string? path, int limit, int offset, CancellationToken ct)
+    {
+        var lim = Math.Clamp(limit, 1, 2000);
+        var off = Math.Max(0, offset);
+        var qs = new List<string>
+        {
+            $"limit={lim}",
+            $"offset={off}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(path))
+            qs.Add($"path={Uri.EscapeDataString(path.Trim().Replace('\\', '/').Trim('/'))}");
+
+        return await SendJsonAsync(HttpMethod.Get, "/documents/empty-folders?" + string.Join("&", qs), null, admin: false, ct).ConfigureAwait(false);
+    }
+
     public async Task<JsonElement> SummaryGetAsync(string docId, string? level, CancellationToken ct)
     {
-        var lvl = string.IsNullOrWhiteSpace(level) ? "medium" : level.Trim().ToLowerInvariant();
+        var lvl = NormalizeStoredSummaryLevel(level);
         var path = $"/summaries/{Uri.EscapeDataString(docId)}?level={Uri.EscapeDataString(lvl)}";
 
         using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, path), ct).ConfigureAwait(false);
@@ -87,7 +93,7 @@ public sealed partial class ApiClient
 
     public Task<JsonElement> SummaryExistsAsync(string docId, string? level, CancellationToken ct)
     {
-        var lvl = string.IsNullOrWhiteSpace(level) ? "medium" : level.Trim().ToLowerInvariant();
+        var lvl = NormalizeStoredSummaryLevel(level);
         var path = $"/summaries/{Uri.EscapeDataString(docId)}/exists?level={Uri.EscapeDataString(lvl)}";
         return SendJsonAsync(HttpMethod.Get, path, null, admin: false, ct);
     }
@@ -116,7 +122,7 @@ public sealed partial class ApiClient
         var body = JsonSerializer.Serialize(new
         {
             docId,
-            level = string.IsNullOrWhiteSpace(level) ? "medium" : level.Trim().ToLowerInvariant()
+            level = NormalizeStoredSummaryLevel(level)
         }, JsonOpts);
 
         return SendJsonAsync(HttpMethod.Post, "/admin/summaries/request", body, admin: true, ct);
@@ -127,7 +133,7 @@ public sealed partial class ApiClient
         var body = JsonSerializer.Serialize(new
         {
             docId,
-            level = string.IsNullOrWhiteSpace(level) ? "medium" : level.Trim().ToLowerInvariant(),
+            level = NormalizeStoredSummaryLevel(level),
             force
         }, JsonOpts);
 
@@ -154,7 +160,7 @@ public sealed partial class ApiClient
         {
             jobId,
             docId,
-            level = string.IsNullOrWhiteSpace(level) ? "medium" : level.Trim().ToLowerInvariant(),
+            level = NormalizeStoredSummaryLevel(level),
             docLanguage,
             sourceHash,
             summaryText,
@@ -182,7 +188,7 @@ public sealed partial class ApiClient
 
     public Task<JsonElement> AdminSummaryDeleteAsync(string docId, string? level, CancellationToken ct)
     {
-        var lvl = string.IsNullOrWhiteSpace(level) ? "medium" : level.Trim().ToLowerInvariant();
+        var lvl = NormalizeStoredSummaryLevel(level);
         var path = $"/admin/summaries/{Uri.EscapeDataString(docId)}?level={Uri.EscapeDataString(lvl)}";
         return SendJsonAsync(HttpMethod.Delete, path, null, admin: true, ct);
     }

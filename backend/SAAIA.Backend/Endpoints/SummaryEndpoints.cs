@@ -44,7 +44,7 @@ public static class SummaryEndpoints
     {
         var tenantId = ctx.GetTenantId();
         var ct = ctx.RequestAborted;
-        level = NormalizeLevel(level);
+        level = NormalizeStoredSummaryLevel(level);
 
         await using var conn = await ds.OpenConnectionAsync(ct);
         var row = await LoadSummaryRowAsync(conn, tenantId, docId, level, ct);
@@ -80,7 +80,7 @@ public static class SummaryEndpoints
     {
         var tenantId = ctx.GetTenantId();
         var ct = ctx.RequestAborted;
-        level = NormalizeLevel(level);
+        level = NormalizeStoredSummaryLevel(level);
 
         await using var conn = await ds.OpenConnectionAsync(ct);
         var row = await LoadSummaryRowAsync(conn, tenantId, docId, level, ct);
@@ -228,7 +228,7 @@ LIMIT @lim OFFSET @off;
         var doc = await LoadDocumentAsync(conn, tenantId, cmd.DocId.Value, ct);
         if (doc is null) return Results.NotFound(new { error = "document_not_found", docId = cmd.DocId });
 
-        var level = NormalizeLevel(cmd.Level);
+        var level = NormalizeStoredSummaryLevel(cmd.Level);
         var jobId = await InsertAdminJobAsync(conn, tenantId, cmd.DocId.Value, level, "summary.request", new
         {
             docId = cmd.DocId,
@@ -253,7 +253,7 @@ LIMIT @lim OFFSET @off;
         var doc = await LoadDocumentAsync(conn, tenantId, cmd.DocId.Value, ct);
         if (doc is null) return Results.NotFound(new { error = "document_not_found", docId = cmd.DocId });
 
-        var level = NormalizeLevel(cmd.Level);
+        var level = NormalizeStoredSummaryLevel(cmd.Level);
         var jobId = await InsertAdminJobAsync(conn, tenantId, cmd.DocId.Value, level, "summary.generate", new
         {
             docId = cmd.DocId,
@@ -276,7 +276,7 @@ LIMIT @lim OFFSET @off;
         if (string.IsNullOrWhiteSpace(cmd.SummaryText))
             return Results.BadRequest(new { error = "summary_text_required" });
 
-        var level = NormalizeLevel(cmd.Level);
+        var level = NormalizeStoredSummaryLevel(cmd.Level);
         await using var conn = await ds.OpenConnectionAsync(ct);
         var doc = await LoadDocumentAsync(conn, tenantId, cmd.DocId.Value, ct);
         if (doc is null) return Results.NotFound(new { error = "document_not_found", docId = cmd.DocId });
@@ -361,8 +361,8 @@ LIMIT 1;
         var tenantId = ctx.GetTenantId();
         var ct = ctx.RequestAborted;
         await using var conn = await ds.OpenConnectionAsync(ct);
-        var deleted = await DeleteSummaryCoreAsync(conn, tenantId, docId, NormalizeLevel(level), ct);
-        return Results.Ok(new { deleted, docId, level = NormalizeLevel(level) });
+        var deleted = await DeleteSummaryCoreAsync(conn, tenantId, docId, NormalizeStoredSummaryLevel(level), ct);
+        return Results.Ok(new { deleted, docId, level = NormalizeStoredSummaryLevel(level) });
     }
 
     private static async Task<IResult> CatalogHealthAsync(HttpContext ctx, NpgsqlDataSource ds)
@@ -602,10 +602,12 @@ LIMIT 1;
         return await conn.ExecuteScalarAsync<Guid>(new CommandDefinition(sql, new { jobId, tenant = tenantId, jobType, docId, level, payload = payloadJson }, cancellationToken: ct));
     }
 
-    private static string NormalizeLevel(string? level)
+    private static string NormalizeStoredSummaryLevel(string? level)
     {
-        var value = string.IsNullOrWhiteSpace(level) ? "medium" : level.Trim().ToLowerInvariant();
-        return value is "short" or "medium" or "long" ? value : "medium";
+        // Stored summaries are currently persisted only at the reusable medium level.
+        // Accept looser inputs from callers and coerce them to the supported storage level
+        // instead of letting the DB constraint fail at runtime.
+        return "medium";
     }
 
     private static string? NormalizePath(string? path)

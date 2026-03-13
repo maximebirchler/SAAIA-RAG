@@ -1,27 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.IO;
 
+using SAAIA.Client.WinUI.Localization;
 using SAAIA.Client.WinUI.Models;
 using SAAIA.Client.WinUI.Services.ToolAgent;
 using SAAIA.Contracts;
 
 namespace SAAIA.Client.WinUI.Services;
 
-/// <summary>
-/// RAG Chat Agent (client).
-///
-/// Règles d'architecture (v2.8.1) : Router → Tools → Writer.
-/// - Pas de réponses « codées en dur » côté client.
-/// - Pas de listing d'inventaire basé sur le filesystem (source of truth = backend index).
-///
-/// Nota : le filesystem reste utile uniquement pour la résolution UX (ouvrir un fichier local)
-/// via <see cref="DocumentInventory"/> et <see cref="DocumentPathResolver"/>.
-/// </summary>
 public sealed class RagChatAgent
 {
     private readonly ApiClient _api;
@@ -31,7 +20,7 @@ public sealed class RagChatAgent
     private bool _strictMode = false;
     private double _temperature = 0.2;
     private int _maxTokens = 900;
-    private string _ragQualityPreset = "balanced"; // quick|balanced|deep
+    private string _ragQualityPreset = "balanced";
 
     private readonly ToolMemory _mem = new();
 
@@ -67,24 +56,50 @@ public sealed class RagChatAgent
         IReadOnlyList<ChatMessageItem> conversationTail,
         Action<string> onDelta,
         CancellationToken ct,
-        Action<string>? onPhase = null)
+        Action<string>? onPhase = null,
+        Action<string>? onProgress = null)
     {
-        userText ??= "";
-        var raw = userText.Trim();
+        userText ??= string.Empty;
 
-        // Mode dégradé (sans LLM)
         if (!_llmEnabled)
         {
-            onPhase?.Invoke("Recherche RAG…");
-            var (ans, payload) = await RunSearchOnlyFallbackAsync(userText, category, ct);
-            await SimulateStreamingAsync(ans, onDelta, ct);
+            if (LocalizedStrings.TryDetectLanguagePreferenceChange(userText, out var requestedLanguage))
+            {
+                _mem.LastLanguage = requestedLanguage;
+                if (!string.IsNullOrWhiteSpace(_mem.LastUserMessage)
+                    && string.Equals(_mem.LastRouterIntent, "rag_search_fallback", StringComparison.OrdinalIgnoreCase))
+                {
+                    var replayCategory = string.IsNullOrWhiteSpace(_mem.LastSearchOnlyCategory) ? category : _mem.LastSearchOnlyCategory;
+                    onPhase?.Invoke(DeterministicAgentText.PhaseRag(requestedLanguage));
+                    onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(requestedLanguage));
+                    var (replayedAnswer, replayedPayload) = await RunSearchOnlyFallbackAsync(_mem.LastUserMessage, replayCategory, ct, requestedLanguage).ConfigureAwait(false);
+                    await SimulateStreamingAsync(replayedAnswer, onDelta, ct).ConfigureAwait(false);
+                    onProgress?.Invoke(string.Empty);
+                    return (replayedAnswer, replayedPayload);
+                }
+
+                var ack = LocalizedStrings.LanguageChanged(requestedLanguage);
+                await SimulateStreamingAsync(ack, onDelta, ct).ConfigureAwait(false);
+                onProgress?.Invoke(string.Empty);
+                _mem.LastUserMessage = userText;
+                _mem.LastAssistantAnswer = ack;
+                _mem.LastRouterIntent = "meta.set_language";
+                return (ack, null);
+            }
+
+            var language = LocalizedStrings.DetectLanguage(userText, _mem.LastLanguage);
+            _mem.LastLanguage = language;
+            onPhase?.Invoke(DeterministicAgentText.PhaseRag(language));
+            onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(language));
+            var (ans, payload) = await RunSearchOnlyFallbackAsync(userText, category, ct, language).ConfigureAwait(false);
+            await SimulateStreamingAsync(ans, onDelta, ct).ConfigureAwait(false);
+            onProgress?.Invoke(string.Empty);
             return (ans, payload);
         }
 
-        // Sinon: pipeline ToolAgent normal
         var history = (conversationTail ?? Array.Empty<ChatMessageItem>())
             .Where(m => m is not null)
-            .Select(m => (role: NormalizeRole(m.Role), content: (m.Content ?? "").Trim()))
+            .Select(m => (role: NormalizeRole(m.Role), content: (m.Content ?? string.Empty).Trim()))
             .Where(m => !string.IsNullOrWhiteSpace(m.content))
             .TakeLast(12)
             .ToList();
@@ -95,6 +110,11 @@ public sealed class RagChatAgent
                 "User preference: strict documentary mode. Avoid invention. If missing sources, say so and ask 1 clarification question."));
         }
 
+        if (!string.IsNullOrWhiteSpace(_mem.LastLanguage))
+        {
+            history.Insert(0, ("system", $"Session preferred language: {_mem.LastLanguage}. Follow it unless the user explicitly asks for another language."));
+        }
+
         if (!string.IsNullOrWhiteSpace(category))
         {
             history.Insert(0, ("system",
@@ -102,24 +122,26 @@ public sealed class RagChatAgent
         }
 
         var llm = new LlmAdapter(_llm, _temperature, _maxTokens);
-        var orch = new ToolAgentOrchestrator(_api, llm, _mem, null);
+        var orchSettings = new AppSettings { StrictMode = _strictMode };
+        var orch = new ToolAgentOrchestrator(_api, llm, _mem, orchSettings);
 
-        var (finalAnswer, sourcesPayload) = await orch.RunAsync(history, userText, ct, onPhase);
-        await SimulateStreamingAsync(finalAnswer, onDelta, ct);
-        return (finalAnswer, sourcesPayload);
+        return await orch.RunAsync(
+            history,
+            userText,
+            ct,
+            onPhase,
+            onDelta,
+            onProgress).ConfigureAwait(false);
     }
-
-    // --------------------
-    // Degraded fallback (no LLM)
-    // --------------------
 
     private async Task<(string finalAnswer, object? sourcesPayload)> RunSearchOnlyFallbackAsync(
         string userText,
         string category,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? forcedLanguage = null)
     {
         if (string.IsNullOrWhiteSpace(userText))
-            return ("", null);
+            return (string.Empty, null);
 
         var topK = _ragQualityPreset switch
         {
@@ -128,7 +150,7 @@ public sealed class RagChatAgent
             _ => 8
         };
 
-        var resp = await _api.RagSearchAsync(userText, category, topK: topK, mode: "balanced", ct);
+        var resp = await _api.RagSearchAsync(userText, category, topK: topK, mode: "balanced", ct).ConfigureAwait(false);
         var items = (resp.Items ?? new List<RagItem>())
             .OrderByDescending(x => x.Score)
             .Take(8)
@@ -136,26 +158,31 @@ public sealed class RagChatAgent
 
         var sources = items.Select(x => new
         {
-            docPath = (x.DocPath ?? "").Replace('\u005C', '/'),
-            docName = x.DocName ?? "",
+            docPath = (x.DocPath ?? string.Empty).Replace('\u005C', '/'),
+            docName = x.DocName ?? string.Empty,
             pageStart = x.PageStart ?? 1,
             pageEnd = x.PageEnd ?? x.PageStart ?? 1,
-            label = $"{(x.DocName ?? "document")} (p.{(x.PageStart ?? 1)}{(((x.PageEnd ?? x.PageStart ?? 1) != (x.PageStart ?? 1)) ? $"–{(x.PageEnd ?? x.PageStart ?? 1)}" : "")})",
-            snippet = (x.Text ?? "").Length > 240 ? (x.Text ?? "").Substring(0, 240) + "…" : (x.Text ?? "")
+            label = $"{(x.DocName ?? "document")} (p.{(x.PageStart ?? 1)}{(((x.PageEnd ?? x.PageStart ?? 1) != (x.PageStart ?? 1)) ? $"–{(x.PageEnd ?? x.PageStart ?? 1)}" : string.Empty)})",
+            snippet = (x.Text ?? string.Empty).Length > 240 ? (x.Text ?? string.Empty).Substring(0, 240) + "…" : (x.Text ?? string.Empty)
         }).ToList();
 
         var payload = new { intent = "rag_search", sources };
 
+        var detectedLanguage = string.IsNullOrWhiteSpace(forcedLanguage)
+            ? LocalizedStrings.DetectLanguage(userText, _mem.LastLanguage)
+            : LocalizedStrings.NormalizeLanguage(forcedLanguage);
         var ans = items.Count == 0
-            ? "Je n’ai trouvé aucun extrait pertinent dans les documents indexés."
-            : "Je ne peux pas utiliser le LLM local pour rédiger la réponse (mode dégradé). Regarde les sources à droite.";
+            ? LocalizedStrings.NoDocumentsFound(detectedLanguage)
+            : DeterministicAgentText.DegradedNoLlm(detectedLanguage);
+
+        _mem.LastLanguage = detectedLanguage;
+        _mem.LastUserMessage = userText;
+        _mem.LastAssistantAnswer = ans;
+        _mem.LastRouterIntent = "rag_search_fallback";
+        _mem.LastSearchOnlyCategory = category;
 
         return (ans, payload);
     }
-
-    // --------------------
-    // Misc helpers
-    // --------------------
 
     private static string NormalizeRole(string? role)
     {
@@ -170,10 +197,9 @@ public sealed class RagChatAgent
 
     private static async Task SimulateStreamingAsync(string text, Action<string> onDelta, CancellationToken ct)
     {
-        if (onDelta is null) return;
-        if (string.IsNullOrEmpty(text)) return;
+        if (onDelta is null || string.IsNullOrEmpty(text)) return;
 
-        const int chunk = 64;
+        const int chunk = 48;
         for (var i = 0; i < text.Length; i += chunk)
         {
             ct.ThrowIfCancellationRequested();
@@ -202,7 +228,20 @@ public sealed class RagChatAgent
             if (forceJson)
                 list.Insert(0, ("system", "Return ONLY valid JSON. No markdown. No extra text."));
 
-            return await _llm.ChatOnceAsync(list, _temperature, _maxTokens, ct);
+            return await _llm.ChatOnceAsync(list, _temperature, _maxTokens, ct).ConfigureAwait(false);
+        }
+
+        public async Task StreamAsync(IReadOnlyList<(string role, string content)> messages, bool forceJson, Action<string> onDelta, CancellationToken ct)
+        {
+            var list = messages?.ToList() ?? new List<(string role, string content)>();
+            if (forceJson)
+            {
+                var full = await CompleteAsync(list, forceJson: true, ct).ConfigureAwait(false);
+                await SimulateStreamingAsync(full, onDelta, ct).ConfigureAwait(false);
+                return;
+            }
+
+            await _llm.ChatStreamAsync(list, _temperature, _maxTokens, onDelta, ct).ConfigureAwait(false);
         }
     }
 }

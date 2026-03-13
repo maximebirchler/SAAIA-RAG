@@ -53,6 +53,7 @@ internal static class DocumentListHelper
             var docPath = GetString(it, "docPath") ?? "";
             var docName = GetString(it, "docName") ?? "";
             var category = GetString(it, "category") ?? "";
+            var categoryPath = GetString(it, "categoryPath") ?? "";
             var pages = GetInt(it, "pages");
 
             // If backend doesn't provide a stable ref, synthesize one based on paging.
@@ -65,13 +66,22 @@ internal static class DocumentListHelper
             // Deduplicate by resolved display path
             if (!seen.Add(sanitized)) { idx++; continue; }
 
+            var normalizedCategoryPath = NormalizeCategoryPath(!string.IsNullOrWhiteSpace(categoryPath)
+                ? categoryPath
+                : GuessCategoryPathFromPath(sanitized));
+
+            var normalizedCategory = string.IsNullOrWhiteSpace(category)
+                ? GetMainCategory(normalizedCategoryPath, sanitized)
+                : NormalizeTopLevelCategory(category);
+
             var d = new ToolMemory.DocumentItem
             {
                 PdfRef = pdfRef,
                 DocId = docId,
                 DocPath = sanitized.Replace('\\', '/').TrimStart('/'),
                 DocName = string.IsNullOrWhiteSpace(docName) ? Path.GetFileName(sanitized) : docName,
-                Category = string.IsNullOrWhiteSpace(category) ? GuessCategoryFromPath(sanitized) : category,
+                Category = normalizedCategory,
+                CategoryPath = normalizedCategoryPath,
                 Pages = pages
             };
 
@@ -96,23 +106,47 @@ internal static class DocumentListHelper
 
     public static string BuildUserText(List<ToolMemory.DocumentItem> docs, bool endOfList, int dropped)
     {
-        // Intentionally minimal and language-neutral: the LLM can add prose if it wants.
-        // We only output a deterministic, clickable list.
-        if (docs.Count == 0)
+        _ = endOfList;
+        _ = dropped;
+        return BuildTokenizedList(docs);
+    }
+
+    public static string BuildTokenizedList(IEnumerable<ToolMemory.DocumentItem> docs)
+    {
+        var list = docs?.Where(d => d is not null).ToList() ?? new List<ToolMemory.DocumentItem>();
+        if (list.Count == 0)
             return string.Empty;
 
         var sb = new StringBuilder();
-        for (var i = 0; i < docs.Count; i++)
+        for (var i = 0; i < list.Count; i++)
         {
-            var d = docs[i];
-            var mainCat = GetMainCategory(d.Category, d.DocPath);
-            var label = string.IsNullOrWhiteSpace(mainCat) ? d.DocName : $"{d.DocName} ({mainCat})";
+            var d = list[i];
+            var label = GetStableDisplayLabel(d);
+            if (string.IsNullOrWhiteSpace(d.DocPath) || string.IsNullOrWhiteSpace(label))
+                continue;
 
-            // clickable token (rendered by LinkifiedTextBlock)
-            sb.AppendLine($"{i + 1}. [[open|{d.DocPath}|1|{EscapeTokenLabel(label)}]]");
+            sb.AppendLine($"{i + 1}. [[open|{d.DocPath}|1|{label}]]");
         }
 
         return sb.ToString().TrimEnd();
+    }
+
+    public static string GetStableDisplayLabel(ToolMemory.DocumentItem doc)
+    {
+        var normalizedPath = (doc?.DocPath ?? string.Empty).Replace('\\', '/').Trim().TrimStart('/');
+        var fromPath = Path.GetFileNameWithoutExtension(normalizedPath);
+        if (!string.IsNullOrWhiteSpace(fromPath))
+            return EscapeTokenLabel(fromPath);
+
+        var fromName = Path.GetFileNameWithoutExtension((doc?.DocName ?? string.Empty).Trim());
+        if (!string.IsNullOrWhiteSpace(fromName))
+            return EscapeTokenLabel(fromName);
+
+        var fallback = Path.GetFileName(normalizedPath);
+        if (!string.IsNullOrWhiteSpace(fallback))
+            return EscapeTokenLabel(fallback);
+
+        return EscapeTokenLabel(doc?.DocName ?? string.Empty);
     }
 
     private static string EscapeTokenLabel(string s)
@@ -123,11 +157,11 @@ internal static class DocumentListHelper
             .Replace("]", ")");
     }
 
-    private static string GetMainCategory(string? category, string? docPath)
+    private static string GetMainCategory(string? categoryPath, string? docPath)
     {
-        var c = (category ?? "").Replace('\\', '/').Trim();
+        var c = NormalizeCategoryPath(categoryPath);
         if (string.IsNullOrWhiteSpace(c))
-            c = GuessCategoryFromPath(docPath ?? "");
+            c = GuessCategoryPathFromPath(docPath ?? string.Empty);
 
         var idx = c.IndexOf('/');
         return idx > 0 ? c.Substring(0, idx) : c;
@@ -170,11 +204,21 @@ internal static class DocumentListHelper
         return null;
     }
 
-    private static string GuessCategoryFromPath(string rel)
+    private static string GuessCategoryPathFromPath(string rel)
     {
-        var s = (rel ?? "").Replace('\\', '/').TrimStart('/');
-        var idx = s.IndexOf('/');
-        return idx > 0 ? s.Substring(0, idx) : "";
+        var s = NormalizeCategoryPath(rel);
+        var idx = s.LastIndexOf('/');
+        return idx > 0 ? s.Substring(0, idx) : string.Empty;
+    }
+
+    private static string NormalizeCategoryPath(string? raw)
+        => (raw ?? string.Empty).Replace('\\', '/').Trim().TrimStart('/').TrimEnd('/');
+
+    private static string NormalizeTopLevelCategory(string? raw)
+    {
+        var normalized = NormalizeCategoryPath(raw);
+        var idx = normalized.IndexOf('/');
+        return idx > 0 ? normalized.Substring(0, idx) : normalized;
     }
 
     private static string? GetString(JsonElement obj, string prop)

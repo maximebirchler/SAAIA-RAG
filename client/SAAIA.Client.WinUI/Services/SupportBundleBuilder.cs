@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -16,7 +17,7 @@ internal static class SupportBundleBuilder
     public static string SupportDir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "support");
 
-    public static async Task<string> BuildAsync(AppSettings settings)
+    public static async Task<string> BuildAsync(AppSettings settings, object? agentRuntimeSnapshot = null, IReadOnlyCollection<string>? include = null)
     {
         Directory.CreateDirectory(SupportDir);
 
@@ -25,6 +26,12 @@ internal static class SupportBundleBuilder
 
         var staging = Path.Combine(SupportDir, $"staging_{Guid.NewGuid():N}");
         Directory.CreateDirectory(staging);
+
+        var includes = new HashSet<string>((include ?? Array.Empty<string>()).Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()), StringComparer.OrdinalIgnoreCase);
+        var includeAgentRuntime = includes.Count == 0
+            || includes.Contains("diagnostics")
+            || includes.Contains("diagnostics/agent-runtime")
+            || includes.Contains("agent-runtime");
 
         try
         {
@@ -125,6 +132,15 @@ internal static class SupportBundleBuilder
 
             await WriteProbeAsync(Path.Combine(staging, "llm_models.json"),
                 new Uri(new Uri(settings.LlmBaseUrl.TrimEnd('/')), "models")).ConfigureAwait(false);
+
+            // 8b) Agent runtime diagnostics (optional but enabled by default)
+            if (includeAgentRuntime && agentRuntimeSnapshot is not null)
+            {
+                var diagnosticsDir = Path.Combine(staging, "diagnostics");
+                Directory.CreateDirectory(diagnosticsDir);
+                File.WriteAllText(Path.Combine(diagnosticsDir, "agent-runtime.json"),
+                    JsonSerializer.Serialize(agentRuntimeSnapshot, new JsonSerializerOptions { WriteIndented = true }));
+            }
 
             // 9) Create zip
             if (File.Exists(zipPath)) File.Delete(zipPath);

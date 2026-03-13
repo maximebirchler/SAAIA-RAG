@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using System.Text;
 using System.Text.Json;
 using Dapper;
@@ -23,8 +24,10 @@ public static class DocumentsEndpoints
         app.MapGet("/documents/count", CountAsync);
         app.MapGet("/documents/tree", TreeAsync);
         app.MapGet("/documents/stats", StatsAsync);
+        app.MapGet("/documents/empty-folders/count", EmptyFoldersCountAsync);
+        app.MapGet("/documents/empty-folders", EmptyFoldersListAsync);
 
-        app.Logger.LogInformation("Mapped documents endpoints (catalog + count/tree/stats + legacy admin list)");
+        app.Logger.LogInformation("Mapped documents endpoints (catalog + count/tree/stats/empty-folders + legacy admin list)");
     }
 
     // -------------------------
@@ -71,7 +74,7 @@ WHERE tenant_id=@tenant
   AND (@category IS NULL OR category=@category)
   AND (@categoryPath IS NULL OR doc_path LIKE (@categoryPath || '/%'))
   AND (@q IS NULL OR (doc_name ILIKE ('%' || @q || '%') OR doc_path ILIKE ('%' || @q || '%')))
-ORDER BY category ASC, doc_name ASC
+ORDER BY category ASC, doc_path ASC
 LIMIT @lim OFFSET @off;";
 
         var rows = await conn.QueryAsync(sql, new { tenant = tenantId, category, categoryPath, q, lim, off });
@@ -153,60 +156,16 @@ LIMIT 1;";
 
         await using var conn = await ds.OpenConnectionAsync(ct);
 
-        // If q is provided, we must hit the documents table.
-        if (!string.IsNullOrWhiteSpace(q))
-        {
-            const string sql = @"
+        const string sql = @"
 SELECT COUNT(*)
 FROM documents
 WHERE tenant_id=@tenant
   AND status='indexed'
   AND (@categoryPath IS NULL OR doc_path LIKE (@categoryPath || '/%'))
-  AND (doc_name ILIKE ('%' || @q || '%') OR doc_path ILIKE ('%' || @q || '%'));";
+  AND (@q IS NULL OR (doc_name ILIKE ('%' || @q || '%') OR doc_path ILIKE ('%' || @q || '%')));";
 
-            var total = await conn.ExecuteScalarAsync<long>(new CommandDefinition(sql, new { tenant = tenantId, categoryPath, q }, cancellationToken: ct));
-            return Results.Ok(new { total, source = "documents" });
-        }
-
-        // CategoryPath-only: use snapshot node count.
-        if (!string.IsNullOrWhiteSpace(categoryPath))
-        {
-            const string nodeSql = @"
-SELECT doc_count
-FROM documents_category_nodes
-WHERE tenant_id=@tenant AND path=@path
-LIMIT 1;";
-
-            var docCount = await conn.ExecuteScalarAsync<int?>(new CommandDefinition(nodeSql, new { tenant = tenantId, path = categoryPath }, cancellationToken: ct));
-            if (docCount is not null)
-                return Results.Ok(new { total = docCount.Value, source = "snapshot" });
-
-            // Fallback
-            const string fallback = @"
-SELECT COUNT(*)
-FROM documents
-WHERE tenant_id=@tenant AND status='indexed'
-  AND doc_path LIKE (@path || '/%');";
-
-            var totalFallback = await conn.ExecuteScalarAsync<long>(new CommandDefinition(fallback, new { tenant = tenantId, path = categoryPath }, cancellationToken: ct));
-            return Results.Ok(new { total = totalFallback, source = "documents" });
-        }
-
-        // Global: use snapshot summary.
-        const string summarySql = @"
-SELECT total_docs
-FROM documents_catalog_summary
-WHERE tenant_id=@tenant
-LIMIT 1;";
-
-        var totalDocs = await conn.ExecuteScalarAsync<long?>(new CommandDefinition(summarySql, new { tenant = tenantId }, cancellationToken: ct));
-        if (totalDocs is not null)
-            return Results.Ok(new { total = totalDocs.Value, source = "snapshot" });
-
-        // Fallback
-        const string countSql = @"SELECT COUNT(*) FROM documents WHERE tenant_id=@tenant AND status='indexed';";
-        var total2 = await conn.ExecuteScalarAsync<long>(new CommandDefinition(countSql, new { tenant = tenantId }, cancellationToken: ct));
-        return Results.Ok(new { total = total2, source = "documents" });
+        var total = await conn.ExecuteScalarAsync<long>(new CommandDefinition(sql, new { tenant = tenantId, categoryPath, q }, cancellationToken: ct));
+        return Results.Ok(new { total });
     }
 
     private static async Task<IResult> TreeAsync(
@@ -271,51 +230,130 @@ WHERE tenant_id=@tenant AND status='indexed';";
         return Results.Ok(new { path = node.Path, tree = dto2, source = "documents" });
     }
 
-    private static async Task<IResult> StatsAsync(HttpContext ctx, NpgsqlDataSource ds)
+
+    private static IResult EmptyFoldersCountAsync(HttpContext ctx, IOptions<IngestionOptions> ingestOpt, string? path)
+    {
+        var (ok, root, scopeAbs, scopeRel, errorResult) = TryResolveFolderScope(ingestOpt.Value, path);
+        if (!ok)
+            return errorResult!;
+
+        var folders = GetEmptyFolderPaths(root!, scopeAbs!);
+        return Results.Ok(new
+        {
+            scopePath = scopeRel,
+            total = folders.Count
+        });
+    }
+
+    private static IResult EmptyFoldersListAsync(HttpContext ctx, IOptions<IngestionOptions> ingestOpt, string? path, int? limit, int? offset)
+    {
+        var (ok, root, scopeAbs, scopeRel, errorResult) = TryResolveFolderScope(ingestOpt.Value, path);
+        if (!ok)
+            return errorResult!;
+
+        var lim = Math.Clamp(limit ?? 200, 1, 2000);
+        var off = Math.Max(offset ?? 0, 0);
+        var folders = GetEmptyFolderPaths(root!, scopeAbs!);
+        var page = folders
+            .Skip(off)
+            .Take(lim)
+            .Select(x => new { path = x, name = Path.GetFileName(x) })
+            .ToList();
+
+        return Results.Ok(new
+        {
+            scopePath = scopeRel,
+            total = folders.Count,
+            limit = lim,
+            offset = off,
+            items = page
+        });
+    }
+
+    private static (bool ok, string? root, string? scopeAbs, string? scopeRel, IResult? errorResult) TryResolveFolderScope(IngestionOptions ingest, string? path)
+    {
+        var root = (ingest.DocumentsRoot ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+            return (false, null, null, null, Results.BadRequest(new { error = "documents_root_not_found", root }));
+
+        var scopeRel = NormalizeCategoryPathOrNull(path) ?? string.Empty;
+        var scopeAbs = string.IsNullOrWhiteSpace(scopeRel)
+            ? Path.GetFullPath(root)
+            : Path.GetFullPath(Path.Combine(root, scopeRel.Replace('/', Path.DirectorySeparatorChar)));
+
+        var rootFull = Path.GetFullPath(root);
+        if (!scopeAbs.StartsWith(rootFull, StringComparison.OrdinalIgnoreCase))
+            return (false, null, null, null, Results.BadRequest(new { error = "path_outside_root", path = scopeRel }));
+
+        if (!Directory.Exists(scopeAbs))
+            return (false, null, null, null, Results.NotFound(new { error = "path_not_found", path = scopeRel }));
+
+        return (true, rootFull, scopeAbs, scopeRel, null);
+    }
+
+    private static List<string> GetEmptyFolderPaths(string root, string scopeAbs)
+    {
+        var result = new List<string>();
+
+        bool ShouldSkipDir(string absDir)
+        {
+            var name = Path.GetFileName(absDir)?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(name))
+                return false;
+            if (name.StartsWith(".", StringComparison.Ordinal) || name.StartsWith("~", StringComparison.Ordinal))
+                return true;
+            return string.Equals(name, "__macosx", StringComparison.OrdinalIgnoreCase);
+        }
+
+        bool HasValidPdfDirectly(string absDir)
+        {
+            foreach (var file in Directory.EnumerateFiles(absDir, "*", SearchOption.TopDirectoryOnly))
+            {
+                var rel = IngestionPathFilter.SafeRelPath(root, file);
+                if (!string.IsNullOrWhiteSpace(rel) && !IngestionPathFilter.ShouldIgnoreRel(rel))
+                    return true;
+            }
+            return false;
+        }
+
+        bool Scan(string absDir, bool isScopeRoot)
+        {
+            var subtreeHasPdf = HasValidPdfDirectly(absDir);
+
+            foreach (var child in Directory.EnumerateDirectories(absDir, "*", SearchOption.TopDirectoryOnly).OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
+            {
+                if (ShouldSkipDir(child))
+                    continue;
+
+                if (Scan(child, isScopeRoot: false))
+                    subtreeHasPdf = true;
+            }
+
+            if (!isScopeRoot && !subtreeHasPdf)
+            {
+                var relDir = Path.GetRelativePath(root, absDir).Replace('\\', '/').Trim('/');
+                if (!string.IsNullOrWhiteSpace(relDir))
+                    result.Add(relDir);
+            }
+
+            return subtreeHasPdf;
+        }
+
+        Scan(scopeAbs, isScopeRoot: true);
+        result.Sort(StringComparer.OrdinalIgnoreCase);
+        return result;
+    }
+
+    private static async Task<IResult> StatsAsync(HttpContext ctx, NpgsqlDataSource ds, IOptions<IngestionOptions> ingestOpt, string? path)
     {
         var tenantId = ctx.GetTenantId();
         var ct = ctx.RequestAborted;
+        path = NormalizeCategoryPathOrNull(path);
 
         await using var conn = await ds.OpenConnectionAsync(ct);
 
-        // Snapshot-first
-        const string summarySql = @"
-SELECT
-  computed_at            AS ""ComputedAt"",
-  total_docs             AS ""TotalDocs"",
-  max_depth              AS ""MaxDepth"",
-  nodes_by_depth::text   AS ""NodesByDepth"",
-  docs_by_depth::text    AS ""DocsByDepth"",
-  direct_docs_by_depth::text AS ""DirectDocsByDepth"",
-  top::text              AS ""Top""
-FROM documents_catalog_summary
-WHERE tenant_id=@tenant
-LIMIT 1;";
-
-        var summary = await conn.QueryFirstOrDefaultAsync<SummaryRow>(new CommandDefinition(summarySql, new { tenant = tenantId }, cancellationToken: ct));
-        if (summary is not null)
-        {
-            var nodesByDepth = ParseJsonOrEmptyObject(summary.NodesByDepth);
-            var docsByDepth = ParseJsonOrEmptyObject(summary.DocsByDepth);
-            var directDocsByDepth = ParseJsonOrEmptyObject(summary.DirectDocsByDepth);
-            var top = ParseJsonOrEmptyArray(summary.Top);
-
-            return Results.Ok(new
-            {
-                computedAtUtc = summary.ComputedAt,
-                totalDocs = summary.TotalDocs,
-                maxDepth = summary.MaxDepth,
-                nodesByDepth,
-                docsByDepth,
-                directDocsByDepth,
-                top,
-                source = "snapshot"
-            });
-        }
-
-        // Fallback (no snapshot yet)
         const string sql = @"
-SELECT doc_path AS ""DocPath""
+SELECT doc_path
 FROM documents
 WHERE tenant_id=@tenant AND status='indexed';";
 
@@ -324,43 +362,179 @@ WHERE tenant_id=@tenant AND status='indexed';";
             .ToList();
 
         var root = BuildTreeFromDocPaths(docPaths);
+        var scopedNode = string.IsNullOrWhiteSpace(path) ? root : FindNode(root, path!);
+        if (scopedNode is null)
+            return Results.NotFound(new { error = "path_not_found", path });
 
-        var nodesByDepth2 = new Dictionary<int, int>();
-        var docsByDepth2 = new Dictionary<int, int>();
-        var directDocsByDepth2 = new Dictionary<int, int>();
+        var scopedDepthBase = string.IsNullOrWhiteSpace(scopedNode.Path)
+            ? 0
+            : scopedNode.Path.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Length;
 
-        var top2 = root.Children.Values
+        var foldersByDepth = new Dictionary<int, int>();
+        var leafFoldersCount = 0;
+        var totalFolders = 0;
+        var topLevelFolderCount = scopedNode.Children.Count;
+        var rootFolders = scopedNode.Children.Values
             .OrderByDescending(n => n.DocCount)
             .ThenBy(n => n.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(n => new { path = n.Path, name = n.Name, docCount = n.DocCount, directDocCount = n.DirectDocCount })
-            .Take(50)
+            .Select(n => new
+            {
+                path = n.Path,
+                name = n.Name,
+                totalDocuments = n.DocCount,
+                directDocuments = n.DirectDocCount,
+                subfolderCount = n.Children.Count
+            })
             .ToList();
+        var includesEmptyFolders = false;
+        var emptyFoldersKnown = false;
 
-        Walk(root, depth: 0);
+        void Walk(TreeNode node)
+        {
+            if (!string.IsNullOrWhiteSpace(node.Path))
+            {
+                totalFolders++;
+                var relativeDepth = Math.Max(0, node.Depth - scopedDepthBase);
+                foldersByDepth[relativeDepth] = foldersByDepth.TryGetValue(relativeDepth, out var c) ? c + 1 : 1;
+                if (node.Children.Count == 0)
+                    leafFoldersCount++;
+            }
+
+            foreach (var child in node.Children.Values)
+                Walk(child);
+        }
+
+        if (ReferenceEquals(scopedNode, root))
+        {
+            foreach (var child in root.Children.Values)
+                Walk(child);
+        }
+        else
+        {
+            Walk(scopedNode);
+        }
+
+        var fsScope = TryResolveFolderScope(ingestOpt.Value, path);
+        if (fsScope.ok)
+        {
+            var allFolders = GetFolderPaths(fsScope.root!, fsScope.scopeAbs!);
+            if (allFolders.Count > 0 || Directory.EnumerateDirectories(fsScope.scopeAbs!, "*", SearchOption.TopDirectoryOnly).Any())
+            {
+                includesEmptyFolders = true;
+                emptyFoldersKnown = true;
+                totalFolders = allFolders.Count;
+                foldersByDepth = allFolders
+                    .GroupBy(x => string.IsNullOrWhiteSpace(x) ? 0 : x.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Length - (string.IsNullOrWhiteSpace(fsScope.scopeRel) ? 0 : fsScope.scopeRel!.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Length))
+                    .ToDictionary(g => Math.Max(0, g.Key), g => g.Count());
+
+                topLevelFolderCount = Directory.EnumerateDirectories(fsScope.scopeAbs!, "*", SearchOption.TopDirectoryOnly)
+                    .Count(d => !ShouldSkipDirectoryName(Path.GetFileName(d)));
+
+                leafFoldersCount = allFolders.Count(rel =>
+                {
+                    var abs = Path.GetFullPath(Path.Combine(fsScope.root!, rel.Replace('/', Path.DirectorySeparatorChar)));
+                    return !Directory.EnumerateDirectories(abs, "*", SearchOption.TopDirectoryOnly)
+                        .Any(d => !ShouldSkipDirectoryName(Path.GetFileName(d)));
+                });
+
+                rootFolders = Directory.EnumerateDirectories(fsScope.scopeAbs!, "*", SearchOption.TopDirectoryOnly)
+                    .Where(d => !ShouldSkipDirectoryName(Path.GetFileName(d)))
+                    .Select(d =>
+                    {
+                        var rel = Path.GetRelativePath(fsScope.root!, d).Replace('\\', '/').Trim('/');
+                        var indexedNode = FindNode(root, rel);
+                        var directSubfolders = Directory.EnumerateDirectories(d, "*", SearchOption.TopDirectoryOnly)
+                            .Count(sd => !ShouldSkipDirectoryName(Path.GetFileName(sd)));
+                        return new
+                        {
+                            path = rel,
+                            name = Path.GetFileName(d),
+                            totalDocuments = indexedNode?.DocCount ?? 0,
+                            directDocuments = indexedNode?.DirectDocCount ?? 0,
+                            subfolderCount = directSubfolders
+                        };
+                    })
+                    .OrderByDescending(x => x.totalDocuments)
+                    .ThenBy(x => x.name, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+        }
+
+        var documentsByDepth = new Dictionary<int, int>();
+        foreach (var docPath in docPaths)
+        {
+            var categoryPath = GetCategoryPath(docPath);
+            if (!string.IsNullOrWhiteSpace(path))
+            {
+                if (!(string.Equals(categoryPath, path, StringComparison.OrdinalIgnoreCase)
+                      || categoryPath.StartsWith(path + "/", StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+            }
+
+            var depth = string.IsNullOrWhiteSpace(categoryPath)
+                ? 0
+                : categoryPath.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Length;
+            var relativeDepth = Math.Max(0, depth - scopedDepthBase);
+            documentsByDepth[relativeDepth] = documentsByDepth.TryGetValue(relativeDepth, out var c) ? c + 1 : 1;
+        }
 
         return Results.Ok(new
         {
-            totalDocs = root.DocCount,
-            maxDepth = nodesByDepth2.Keys.DefaultIfEmpty(0).Max(),
-            nodesByDepth = nodesByDepth2,
-            docsByDepth = docsByDepth2,
-            directDocsByDepth = directDocsByDepth2,
-            top = top2,
-            source = "documents"
+            scopePath = scopedNode.Path,
+            totalDocuments = scopedNode.DocCount,
+            maxDepth = foldersByDepth.Keys.DefaultIfEmpty(0).Max(),
+            totalNonEmptyFolders = totalFolders,
+            topLevelFolderCount = topLevelFolderCount,
+            leafFolderCount = leafFoldersCount,
+            foldersByDepth = foldersByDepth
+                .OrderBy(kv => kv.Key)
+                .Select(kv => new { depth = kv.Key, folderCount = kv.Value })
+                .ToList(),
+            documentsByDepth = documentsByDepth
+                .OrderBy(kv => kv.Key)
+                .Select(kv => new { depth = kv.Key, documentCount = kv.Value })
+                .ToList(),
+            rootFolders,
+            includesEmptyFolders,
+            emptyFoldersKnown,
+            folderTree = ToDto(scopedNode, maxDepth: null)
         });
+    }
 
-        void Walk(TreeNode n, int depth)
+    private static bool ShouldSkipDirectoryName(string? name)
+    {
+        var n = (name ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(n))
+            return false;
+        if (n.StartsWith(".", StringComparison.Ordinal) || n.StartsWith("~", StringComparison.Ordinal))
+            return true;
+        return string.Equals(n, "__macosx", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static List<string> GetFolderPaths(string root, string scopeAbs)
+    {
+        var result = new List<string>();
+
+        void Walk(string absDir, bool isScopeRoot)
         {
-            if (depth > 0)
+            foreach (var child in Directory.EnumerateDirectories(absDir, "*", SearchOption.TopDirectoryOnly).OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
             {
-                nodesByDepth2[depth] = nodesByDepth2.TryGetValue(depth, out var c) ? c + 1 : 1;
-                docsByDepth2[depth] = docsByDepth2.TryGetValue(depth, out var d) ? d + n.DocCount : n.DocCount;
-                directDocsByDepth2[depth] = directDocsByDepth2.TryGetValue(depth, out var dd) ? dd + n.DirectDocCount : n.DirectDocCount;
-            }
+                if (ShouldSkipDirectoryName(Path.GetFileName(child)))
+                    continue;
 
-            foreach (var child in n.Children.Values)
-                Walk(child, depth + 1);
+                var rel = Path.GetRelativePath(root, child).Replace('\\', '/').Trim('/');
+                if (!string.IsNullOrWhiteSpace(rel))
+                    result.Add(rel);
+
+                Walk(child, isScopeRoot: false);
+            }
         }
+
+        Walk(scopeAbs, isScopeRoot: true);
+        result.Sort(StringComparer.OrdinalIgnoreCase);
+        return result;
     }
 
     private static JsonElement ParseJsonOrEmptyObject(string? json)
@@ -688,10 +862,7 @@ return map[baseKey];
     {
         var prefix = new string(' ', indent * 2);
         if (!string.IsNullOrWhiteSpace(node.Path))
-        {
-            var direct = node.DirectDocCount > 0 ? $" (direct {node.DirectDocCount})" : "";
-            sb.AppendLine($"{prefix}- {node.Name} ({node.DocCount}){direct}");
-        }
+            sb.AppendLine($"{prefix}- {node.Name} ({node.DocCount})");
 
         if (maxDepth is not null && maxDepth.Value == 0)
             return;

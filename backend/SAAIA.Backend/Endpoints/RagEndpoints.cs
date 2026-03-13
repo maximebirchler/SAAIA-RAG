@@ -195,6 +195,10 @@ ORDER BY category;";
         };
         if (!string.IsNullOrWhiteSpace(category))
             filterMust.Add(new { key = "category", match = new { value = category } });
+        if (!string.IsNullOrWhiteSpace(req.DocId))
+            filterMust.Add(new { key = "doc_id", match = new { value = req.DocId.Trim() } });
+        if (!string.IsNullOrWhiteSpace(req.DocPath))
+            filterMust.Add(new { key = "doc_path", match = new { value = req.DocPath.Trim().Replace('\\', '/') } });
 
         var payload = new
         {

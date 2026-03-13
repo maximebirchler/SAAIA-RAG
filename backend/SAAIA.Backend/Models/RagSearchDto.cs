@@ -21,7 +21,9 @@ public sealed record RagSearchRequestDto(
     int? MaxPerDoc = null,
     int? MaxPerPage = null,
     string? Mode = null,
-    RagDiversityDto? Diversity = null
+    RagDiversityDto? Diversity = null,
+    string? DocId = null,
+    string? DocPath = null
 );
 
 /// <summary>

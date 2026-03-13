@@ -75,6 +75,12 @@
     <ProjectReference Include="..\..\contracts\SAAIA.Contracts\SAAIA.Contracts.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="Services\ApiClient.ToolRuntime.cs" />
+    <Compile Remove="ToolAgent\ToolAgentOrchestrator.ToolRuntime.cs" />
+    <Compile Remove="ToolAgent\ToolAgentOrchestrator.ToolsPhase2.cs" />
+  </ItemGroup>
+
 
   <!-- Exclude UserSettingsDialog XAML from WinUI XAML compilation (fix XamlCompiler exit code 1) -->
   <ItemGroup>
