@@ -59,6 +59,12 @@ internal sealed class UserSettingsDialog : ContentDialog
     // Support bundle
     private readonly Button _exportBtn = new() { HorizontalAlignment = HorizontalAlignment.Left };
 
+    private readonly ScrollViewer _layoutScroller = new()
+    {
+        VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+        HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+    };
+
     internal AppSettings UpdatedSettings { get; private set; }
 
     public UserSettingsDialog(AppSettings settings, Func<Task>? repairAssistantAsync = null)
@@ -118,13 +124,41 @@ internal sealed class UserSettingsDialog : ContentDialog
 
     private UIElement BuildUi()
     {
+        _uiLanguage.HorizontalAlignment = HorizontalAlignment.Stretch;
+        _assistantEnabled.HorizontalAlignment = HorizontalAlignment.Stretch;
+        _strictMode.HorizontalAlignment = HorizontalAlignment.Stretch;
+        _ragQuality.HorizontalAlignment = HorizontalAlignment.Stretch;
+        _style.HorizontalAlignment = HorizontalAlignment.Stretch;
+        _length.HorizontalAlignment = HorizontalAlignment.Stretch;
+
+        _assistantRepairBtn.HorizontalAlignment = HorizontalAlignment.Left;
+        _assistantRepairBtn.Padding = new Thickness(14, 8, 14, 8);
+        _exportBtn.HorizontalAlignment = HorizontalAlignment.Left;
+        _exportBtn.Padding = new Thickness(14, 8, 14, 8);
+        _assistantStatus.Opacity = 0.85;
+
         var root = new StackPanel
         {
-            Spacing = 12,
-            MaxWidth = 520
+            Spacing = 14,
+            MaxWidth = 760
         };
 
-        var section1 = Section(_assistantSectionTitle, new UIElement[]
+        var hero = new Border
+        {
+            CornerRadius = new CornerRadius(18),
+            Padding = new Thickness(18, 16, 18, 16),
+            Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x16, 0x16, 0x16)),
+            BorderBrush = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x2C, 0x2C, 0x2C)),
+            BorderThickness = new Thickness(1),
+            Child = new TextBlock
+            {
+                Text = T("settings.title"),
+                FontSize = 20,
+                FontWeight = FontWeights.SemiBold
+            }
+        };
+
+        var section1 = SectionCard(_assistantSectionTitle, new UIElement[]
         {
             _uiLanguage,
             _assistantEnabled,
@@ -134,51 +168,54 @@ internal sealed class UserSettingsDialog : ContentDialog
             _length
         });
 
-        var section2 = Section(_repairSectionTitle, new UIElement[]
+        var section2 = SectionCard(_repairSectionTitle, new UIElement[]
         {
             _assistantRepairBtn,
             _assistantProgress,
             _assistantStatus
         });
 
-        var section3 = Section(_supportSectionTitle, new UIElement[]
+        var section3 = SectionCard(_supportSectionTitle, new UIElement[]
         {
             _exportBtn,
             _supportNote
         });
 
+        root.Children.Add(hero);
         root.Children.Add(section1);
-        root.Children.Add(Divider());
         root.Children.Add(section2);
-        root.Children.Add(Divider());
         root.Children.Add(section3);
 
-        return new ScrollViewer
-        {
-            Content = root,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-        };
+        _layoutScroller.Content = root;
+        return _layoutScroller;
     }
 
-    private static Border Divider() => new()
+    public void ApplyResponsiveLayout(double maxWidth, double maxHeight)
     {
-        Height = 1,
-        Opacity = 0.18,
-        Background = new SolidColorBrush(Microsoft.UI.Colors.White),
-        Margin = new Thickness(0, 4, 0, 4)
-    };
+        _layoutScroller.MaxWidth = maxWidth;
+        _layoutScroller.MaxHeight = maxHeight;
+    }
 
-    private static UIElement Section(TextBlock titleBlock, UIElement[] body)
+    private static UIElement SectionCard(TextBlock titleBlock, UIElement[] body)
     {
         titleBlock.FontWeight = FontWeights.SemiBold;
-        titleBlock.FontSize = 14;
+        titleBlock.FontSize = 15;
 
-        var panel = new StackPanel { Spacing = 8 };
+        var panel = new StackPanel { Spacing = 10 };
         panel.Children.Add(titleBlock);
 
-        foreach (var el in body) panel.Children.Add(el);
+        foreach (var el in body)
+            panel.Children.Add(el);
 
-        return panel;
+        return new Border
+        {
+            CornerRadius = new CornerRadius(18),
+            Padding = new Thickness(18, 16, 18, 16),
+            Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x11, 0x11, 0x11)),
+            BorderBrush = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x28, 0x28, 0x28)),
+            BorderThickness = new Thickness(1),
+            Child = panel
+        };
     }
 
     private string UiLang => ClientUiText.NormalizeLanguage(GetSelectedLanguageCode());

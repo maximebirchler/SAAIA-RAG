@@ -107,8 +107,7 @@ public sealed partial class MainWindow
                     _activeHelpDialog = null;
             };
 
-            var (helpWidth, helpMaxHeight) = ComputeHelpDialogSize(xamlRoot);
-            var root = new StackPanel { Spacing = 12, Width = helpWidth };
+            var root = new StackPanel { Spacing = 12 };
             root.Children.Add(new TextBlock
             {
                 Text = !canRun
@@ -517,12 +516,20 @@ public sealed partial class MainWindow
                 root.Children.Add(resultsPanel);
             }
 
-            dlg.Content = new ScrollViewer
+            var dialogSize = GetDialogMaxSize(900, 760, horizontalMargin: 72, verticalMargin: 110);
+            dlg.Content = new Border
             {
-                Content = root,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                MaxHeight = 640
+                MaxWidth = dialogSize.Width,
+                MaxHeight = dialogSize.Height,
+                Padding = new Thickness(2, 0, 2, 0),
+                Child = new ScrollViewer
+                {
+                    Content = root,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                    MaxWidth = dialogSize.Width,
+                    MaxHeight = dialogSize.Height
+                }
             };
 
             await dlg.ShowAsync();
@@ -745,13 +752,5 @@ public sealed partial class MainWindow
         }
 
         return result;
-    }
-
-
-    private static (double Width, double MaxHeight) ComputeHelpDialogSize(Microsoft.UI.Xaml.XamlRoot xamlRoot)
-    {
-        var width = Math.Clamp(xamlRoot.Size.Width * 0.72, 520, 860);
-        var maxHeight = Math.Clamp(xamlRoot.Size.Height * 0.78, 460, 760);
-        return (width, maxHeight);
     }
 }

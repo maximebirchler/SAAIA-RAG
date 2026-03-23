@@ -64,12 +64,10 @@ public sealed partial class MainWindow : Window
     private string? _pendingOutboundWireText;
     private string? _pendingOutboundDisplayText;
     private ContentDialog? _activeHelpDialog;
-    private Grid? _startupSplashOverlay;
-    private Border? _startupSplashCard;
-    private TextBlock? _startupSplashTitleText;
-    private TextBlock? _startupSplashSubtitleText;
-    private TextBlock? _startupSplashStatusText;
-    private WindowSizeConstraintsController? _windowSizeConstraints;
+    private IntPtr _windowHandle;
+    private IntPtr _originalWindowProc;
+    private WindowProc? _windowProcDelegate;
+    private bool _windowConstraintsInstalled;
     private int _secretAdminClickCount;
     private DateTimeOffset _secretAdminFirstClickUtc = DateTimeOffset.MinValue;
     private static readonly TimeSpan SecretAdminClickWindow = TimeSpan.FromMilliseconds(1500);
@@ -85,15 +83,13 @@ public sealed partial class MainWindow : Window
             ClientLog.Info(provMsg);
         }
 
-        EnsureWindowSizingConstraints();
-        EnsureStartupSplashOverlay();
-        ShowStartupSplash(ClientUiText.Get("startup.status.initializing", _appSettings.UiLanguage));
-
         Root.Loaded += async (_, __) =>
         {
             UpdateMessagesClip();
             await InitializeUserModeAsync();
         };
+
+        Activated += MainWindow_Activated;
 
         TryResize(1400, 820);
         ApplyWindowChrome();
@@ -101,7 +97,7 @@ public sealed partial class MainWindow : Window
         MessagesList.ItemsSource = _messages;
         SessionsList.ItemsSource = _sessions;
 
-        Closed += (_, __) => { CloseTransientDialogs(); try { _windowSizeConstraints?.Dispose(); } catch { } _windowSizeConstraints = null; };
+        Closed += MainWindow_Closed;
 
         LoadSettings();
         LoadLocalLlmUiFromSettings();
@@ -152,28 +148,21 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            ShowStartupSplash(ClientUiText.Get("startup.status.initializing", _appSettings.UiLanguage));
             ApplyUserModeVisibility();
-
-            ShowStartupSplash(ClientUiText.Get("startup.status.checking_setup", _appSettings.UiLanguage));
             await ShowSetupWizardIfNeededAsync();
 
-            ShowStartupSplash(ClientUiText.Get("startup.status.starting_assistant", _appSettings.UiLanguage));
+            // Ensure assistant is usable (embedded by default).
             await EnsureAssistantReadyIfNeededAsync(force: false);
 
+            // Auto-connect (default) when apiKey exists.
             if (_appSettings.AutoConnect && _agent is null && !NeedsSetupWizard())
             {
-                ShowStartupSplash(ClientUiText.Get("startup.status.connecting", _appSettings.UiLanguage));
                 await ConnectAsync();
             }
         }
         catch (Exception ex)
         {
             Status(ClientUiText.Get("status.init_failed", _appSettings.UiLanguage) + ex.Message);
-        }
-        finally
-        {
-            HideStartupSplash();
         }
     }
 
@@ -187,6 +176,144 @@ public sealed partial class MainWindow : Window
                 try { AppWindow.Resize(new SizeInt32(width, height)); } catch { }
             };
         }
+    }
+
+    private void MainWindow_Activated(object sender, WindowActivatedEventArgs args)
+    {
+        if (_windowConstraintsInstalled)
+            return;
+
+        TryInstallDynamicMinimumWindowSize();
+    }
+
+    private void MainWindow_Closed(object sender, WindowEventArgs args)
+    {
+        CloseTransientDialogs();
+        TryRemoveDynamicMinimumWindowSize();
+    }
+
+    private void TryInstallDynamicMinimumWindowSize()
+    {
+        if (_windowConstraintsInstalled)
+            return;
+
+        try
+        {
+            _windowHandle = WinRT.Interop.WindowNative.GetWindowHandle(this);
+            if (_windowHandle == IntPtr.Zero)
+                return;
+
+            _windowProcDelegate = WindowProcHook;
+            var newWindowProc = Marshal.GetFunctionPointerForDelegate(_windowProcDelegate);
+            _originalWindowProc = SetWindowLongPtr(_windowHandle, GwlWndProc, newWindowProc);
+            if (_originalWindowProc == IntPtr.Zero)
+                return;
+
+            _windowConstraintsInstalled = true;
+        }
+        catch
+        {
+            _windowConstraintsInstalled = false;
+        }
+    }
+
+    private void TryRemoveDynamicMinimumWindowSize()
+    {
+        if (!_windowConstraintsInstalled || _windowHandle == IntPtr.Zero || _originalWindowProc == IntPtr.Zero)
+            return;
+
+        try
+        {
+            SetWindowLongPtr(_windowHandle, GwlWndProc, _originalWindowProc);
+        }
+        catch
+        {
+        }
+        finally
+        {
+            _windowConstraintsInstalled = false;
+            _originalWindowProc = IntPtr.Zero;
+            _windowProcDelegate = null;
+        }
+    }
+
+    private IntPtr WindowProcHook(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam)
+    {
+        if (msg == WmGetMinMaxInfo)
+        {
+            try
+            {
+                var minMaxInfo = Marshal.PtrToStructure<MINMAXINFO>(lParam);
+                var minimumSize = GetDynamicMinimumTrackSize(hwnd);
+                minMaxInfo.ptMinTrackSize.x = minimumSize.Width;
+                minMaxInfo.ptMinTrackSize.y = minimumSize.Height;
+                Marshal.StructureToPtr(minMaxInfo, lParam, true);
+            }
+            catch
+            {
+            }
+        }
+
+        return _originalWindowProc != IntPtr.Zero
+            ? CallWindowProc(_originalWindowProc, hwnd, msg, wParam, lParam)
+            : IntPtr.Zero;
+    }
+
+    private SizeInt32 GetDynamicMinimumTrackSize(IntPtr hwnd)
+    {
+        try
+        {
+            var monitor = MonitorFromWindow(hwnd, MonitorDefaultToNearest);
+            if (monitor != IntPtr.Zero)
+            {
+                var monitorInfo = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+                if (GetMonitorInfo(monitor, ref monitorInfo))
+                {
+                    var workWidth = Math.Max(1, monitorInfo.rcWork.right - monitorInfo.rcWork.left);
+                    var workHeight = Math.Max(1, monitorInfo.rcWork.bottom - monitorInfo.rcWork.top);
+                    return new SizeInt32(Math.Max(1, workWidth / 4), Math.Max(1, workHeight / 4));
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        return new SizeInt32(400, 300);
+    }
+
+    private Size GetDialogMaxSize(double designMaxWidth, double designMaxHeight, double horizontalMargin = 72, double verticalMargin = 96)
+    {
+        double availableWidth = 0;
+        double availableHeight = 0;
+
+        try
+        {
+            availableWidth = Root?.ActualWidth ?? 0;
+            availableHeight = Root?.ActualHeight ?? 0;
+        }
+        catch
+        {
+        }
+
+        if ((availableWidth <= 0 || availableHeight <= 0) && AppWindow is not null)
+        {
+            try
+            {
+                var scale = Root?.XamlRoot?.RasterizationScale ?? 1.0;
+                if (scale <= 0) scale = 1.0;
+                availableWidth = availableWidth <= 0 ? AppWindow.Size.Width / scale : availableWidth;
+                availableHeight = availableHeight <= 0 ? AppWindow.Size.Height / scale : availableHeight;
+            }
+            catch
+            {
+            }
+        }
+
+        availableWidth = Math.Max(220, availableWidth - horizontalMargin);
+        availableHeight = Math.Max(220, availableHeight - verticalMargin);
+
+        return new Size(Math.Min(designMaxWidth, availableWidth), Math.Min(designMaxHeight, availableHeight));
     }
 
     private void ApplyWindowChrome()
@@ -218,161 +345,6 @@ public sealed partial class MainWindow : Window
         catch
         {
             // non bloquant
-        }
-    }
-
-    private void EnsureWindowSizingConstraints()
-    {
-        try
-        {
-            _windowSizeConstraints ??= WindowSizeConstraintsController.TryAttach(this, 1120, 760, 1800, 1220);
-            if (_windowSizeConstraints is not null)
-                return;
-
-            Activated += (_, __) =>
-            {
-                try { _windowSizeConstraints ??= WindowSizeConstraintsController.TryAttach(this, 1120, 760, 1800, 1220); } catch { }
-            };
-        }
-        catch
-        {
-        }
-    }
-
-    private void EnsureStartupSplashOverlay()
-    {
-        if (_startupSplashOverlay is not null || Root is null)
-            return;
-
-        var lang = ClientUiText.NormalizeLanguage(_appSettings.UiLanguage);
-
-        _startupSplashTitleText = new TextBlock
-        {
-            Text = ClientUiText.Get("startup.title", lang),
-            FontSize = 24,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            HorizontalAlignment = HorizontalAlignment.Center
-        };
-
-        _startupSplashSubtitleText = new TextBlock
-        {
-            Text = ClientUiText.Get("startup.subtitle", lang),
-            Opacity = 0.85,
-            TextWrapping = TextWrapping.WrapWholeWords,
-            TextAlignment = TextAlignment.Center,
-            MaxWidth = 460,
-            HorizontalAlignment = HorizontalAlignment.Center
-        };
-
-        _startupSplashStatusText = new TextBlock
-        {
-            Text = ClientUiText.Get("startup.status.initializing", lang),
-            Opacity = 0.88,
-            TextWrapping = TextWrapping.WrapWholeWords,
-            VerticalAlignment = VerticalAlignment.Center,
-            MaxWidth = 380
-        };
-
-        var ringRow = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 10,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        ringRow.Children.Add(new ProgressRing { Width = 20, Height = 20, IsActive = true });
-        ringRow.Children.Add(_startupSplashStatusText);
-
-        var content = new StackPanel
-        {
-            Spacing = 14,
-            HorizontalAlignment = HorizontalAlignment.Center
-        };
-        content.Children.Add(new Image
-        {
-            Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri("ms-appx:///Assets/SAAIA_Main.png")),
-            Height = 72,
-            Stretch = Stretch.Uniform,
-            HorizontalAlignment = HorizontalAlignment.Center
-        });
-        content.Children.Add(_startupSplashTitleText);
-        content.Children.Add(_startupSplashSubtitleText);
-        content.Children.Add(ringRow);
-
-        _startupSplashCard = new Border
-        {
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            Background = new SolidColorBrush(global::Windows.UI.Color.FromArgb(255, 21, 21, 21)),
-            BorderBrush = new SolidColorBrush(global::Windows.UI.Color.FromArgb(255, 45, 45, 45)),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(18),
-            Padding = new Thickness(28),
-            MinWidth = 360,
-            MaxWidth = 560,
-            Child = content
-        };
-
-        _startupSplashOverlay = new Grid
-        {
-            Background = new SolidColorBrush(global::Windows.UI.Color.FromArgb(204, 15, 15, 15)),
-            Visibility = Visibility.Collapsed,
-            IsHitTestVisible = false
-        };
-        _startupSplashOverlay.Children.Add(_startupSplashCard);
-        Grid.SetRowSpan(_startupSplashOverlay, 3);
-        Canvas.SetZIndex(_startupSplashOverlay, 1000);
-        Root.Children.Add(_startupSplashOverlay);
-    }
-
-    private void ShowStartupSplash(string? statusText = null)
-    {
-        try
-        {
-            EnsureStartupSplashOverlay();
-            if (_startupSplashOverlay is null)
-                return;
-
-            UpdateStartupSplashText(statusText);
-            _startupSplashOverlay.Visibility = Visibility.Visible;
-            _startupSplashOverlay.IsHitTestVisible = true;
-        }
-        catch
-        {
-        }
-    }
-
-    private void HideStartupSplash()
-    {
-        try
-        {
-            if (_startupSplashOverlay is null)
-                return;
-
-            _startupSplashOverlay.Visibility = Visibility.Collapsed;
-            _startupSplashOverlay.IsHitTestVisible = false;
-        }
-        catch
-        {
-        }
-    }
-
-    private void UpdateStartupSplashText(string? statusText = null)
-    {
-        try
-        {
-            var lang = ClientUiText.NormalizeLanguage(_appSettings.UiLanguage);
-            if (_startupSplashTitleText is not null)
-                _startupSplashTitleText.Text = ClientUiText.Get("startup.title", lang);
-            if (_startupSplashSubtitleText is not null)
-                _startupSplashSubtitleText.Text = ClientUiText.Get("startup.subtitle", lang);
-            if (_startupSplashStatusText is not null)
-                _startupSplashStatusText.Text = string.IsNullOrWhiteSpace(statusText)
-                    ? ClientUiText.Get("startup.status.initializing", lang)
-                    : statusText;
-        }
-        catch
-        {
         }
     }
 
@@ -1267,6 +1239,8 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
         var dlg = new UserSettingsDialog(_appSettings, RepairAssistantAsync);
         var xamlRoot = await GetDialogXamlRootAsync();
         if (xamlRoot is not null) dlg.XamlRoot = xamlRoot;
+        var settingsDialogSize = GetDialogMaxSize(760, 760, horizontalMargin: 96, verticalMargin: 120);
+        dlg.ApplyResponsiveLayout(settingsDialogSize.Width, settingsDialogSize.Height);
 
         var res = await dlg.ShowAsync();
         if (res == ContentDialogResult.Primary)
@@ -2400,123 +2374,13 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
             LocalLlmStatusText.Text = "Open folder failed: " + ex.Message;
         }
     }
-}
 
 
-internal sealed class WindowSizeConstraintsController : IDisposable
-{
-    private const int GwlpWndProc = -4;
+    private delegate IntPtr WindowProc(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    private const int GwlWndProc = -4;
     private const uint WmGetMinMaxInfo = 0x0024;
-    private static readonly Dictionary<IntPtr, WindowSizeConstraintsController> Instances = new();
-
-    private readonly IntPtr _hwnd;
-    private readonly int _minWidthDip;
-    private readonly int _minHeightDip;
-    private readonly int _maxWidthDip;
-    private readonly int _maxHeightDip;
-    private readonly WndProc _wndProcDelegate;
-    private readonly IntPtr _wndProcPtr;
-    private IntPtr _previousWndProc;
-    private bool _disposed;
-
-    private delegate IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
-
-    private WindowSizeConstraintsController(IntPtr hwnd, int minWidthDip, int minHeightDip, int maxWidthDip, int maxHeightDip)
-    {
-        _hwnd = hwnd;
-        _minWidthDip = minWidthDip;
-        _minHeightDip = minHeightDip;
-        _maxWidthDip = maxWidthDip;
-        _maxHeightDip = maxHeightDip;
-        _wndProcDelegate = WindowProc;
-        _wndProcPtr = Marshal.GetFunctionPointerForDelegate(_wndProcDelegate);
-        _previousWndProc = SetWindowLongPtr(_hwnd, GwlpWndProc, _wndProcPtr);
-    }
-
-    public static WindowSizeConstraintsController? TryAttach(Window window, int minWidthDip, int minHeightDip, int maxWidthDip, int maxHeightDip)
-    {
-        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
-        if (hwnd == IntPtr.Zero)
-            return null;
-
-        if (Instances.TryGetValue(hwnd, out var existing))
-            return existing;
-
-        var controller = new WindowSizeConstraintsController(hwnd, minWidthDip, minHeightDip, maxWidthDip, maxHeightDip);
-        Instances[hwnd] = controller;
-        return controller;
-    }
-
-    public void Dispose()
-    {
-        if (_disposed)
-            return;
-
-        _disposed = true;
-        try
-        {
-            if (_hwnd != IntPtr.Zero && _previousWndProc != IntPtr.Zero)
-                SetWindowLongPtr(_hwnd, GwlpWndProc, _previousWndProc);
-        }
-        catch
-        {
-        }
-
-        Instances.Remove(_hwnd);
-        GC.SuppressFinalize(this);
-    }
-
-    private IntPtr WindowProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
-    {
-        if (msg == WmGetMinMaxInfo && lParam != IntPtr.Zero)
-        {
-            var info = Marshal.PtrToStructure<MINMAXINFO>(lParam);
-            var dpi = GetSafeDpi(hWnd);
-            info.ptMinTrackSize.x = DipToPixels(_minWidthDip, dpi);
-            info.ptMinTrackSize.y = DipToPixels(_minHeightDip, dpi);
-            if (_maxWidthDip > 0)
-                info.ptMaxTrackSize.x = DipToPixels(_maxWidthDip, dpi);
-            if (_maxHeightDip > 0)
-                info.ptMaxTrackSize.y = DipToPixels(_maxHeightDip, dpi);
-            Marshal.StructureToPtr(info, lParam, false);
-            return IntPtr.Zero;
-        }
-
-        return CallWindowProc(_previousWndProc, hWnd, msg, wParam, lParam);
-    }
-
-    private static uint GetSafeDpi(IntPtr hwnd)
-    {
-        try
-        {
-            var dpi = GetDpiForWindow(hwnd);
-            return dpi == 0 ? 96u : dpi;
-        }
-        catch
-        {
-            return 96u;
-        }
-    }
-
-    private static int DipToPixels(int dip, uint dpi)
-        => (int)Math.Round(dip * dpi / 96d, MidpointRounding.AwayFromZero);
-
-    private static IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr newLong)
-        => IntPtr.Size == 8
-            ? SetWindowLongPtr64(hWnd, nIndex, newLong)
-            : new IntPtr(SetWindowLong32(hWnd, nIndex, newLong.ToInt32()));
-
-    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
-    private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, IntPtr newLong);
-
-    [DllImport("user32.dll", EntryPoint = "SetWindowLongW", SetLastError = true)]
-    private static extern int SetWindowLong32(IntPtr hWnd, int nIndex, int newLong);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern IntPtr CallWindowProc(IntPtr lpPrevWndFunc, IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
-
-    [DllImport("user32.dll")]
-    private static extern uint GetDpiForWindow(IntPtr hwnd);
+    private const uint MonitorDefaultToNearest = 0x00000002;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct POINT
@@ -2534,4 +2398,41 @@ internal sealed class WindowSizeConstraintsController : IDisposable
         public POINT ptMinTrackSize;
         public POINT ptMaxTrackSize;
     }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT
+    {
+        public int left;
+        public int top;
+        public int right;
+        public int bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    private struct MONITORINFO
+    {
+        public int cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public int dwFlags;
+    }
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
+    private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongW", SetLastError = true)]
+    private static extern IntPtr SetWindowLong32(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+    private static IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr newLong)
+        => IntPtr.Size == 8 ? SetWindowLongPtr64(hWnd, nIndex, newLong) : SetWindowLong32(hWnd, nIndex, newLong);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr CallWindowProc(IntPtr lpPrevWndFunc, IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
 }
