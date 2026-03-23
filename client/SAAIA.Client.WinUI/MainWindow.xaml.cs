@@ -60,6 +60,9 @@ public sealed partial class MainWindow : Window
     private bool _typingPinned;
 
     private bool _setupAutoPrompted;
+    private string? _pendingOutboundWireText;
+    private string? _pendingOutboundDisplayText;
+    private ContentDialog? _activeHelpDialog;
     private int _secretAdminClickCount;
     private DateTimeOffset _secretAdminFirstClickUtc = DateTimeOffset.MinValue;
     private static readonly TimeSpan SecretAdminClickWindow = TimeSpan.FromMilliseconds(1500);
@@ -86,6 +89,8 @@ public sealed partial class MainWindow : Window
 
         MessagesList.ItemsSource = _messages;
         SessionsList.ItemsSource = _sessions;
+
+        Closed += (_, __) => CloseTransientDialogs();
 
         LoadSettings();
         LoadLocalLlmUiFromSettings();
@@ -221,6 +226,29 @@ public sealed partial class MainWindow : Window
         }
         catch
         {
+        }
+    }
+
+    private void StageOutboundMessage(string wireText, string? displayText = null)
+    {
+        _pendingOutboundWireText = string.IsNullOrWhiteSpace(wireText) ? null : wireText.Trim();
+        _pendingOutboundDisplayText = string.IsNullOrWhiteSpace(displayText) ? null : displayText.Trim();
+        if (InputBox is not null)
+            InputBox.Text = _pendingOutboundDisplayText ?? _pendingOutboundWireText ?? string.Empty;
+    }
+
+    private void CloseTransientDialogs()
+    {
+        try
+        {
+            _activeHelpDialog?.Hide();
+        }
+        catch
+        {
+        }
+        finally
+        {
+            _activeHelpDialog = null;
         }
     }
 
@@ -1713,7 +1741,14 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
             return;
         }
 
-        var text = (InputBox.Text ?? "").Trim();
+        var wireText = _pendingOutboundWireText;
+        var displayText = _pendingOutboundDisplayText;
+        var text = string.IsNullOrWhiteSpace(wireText)
+            ? (InputBox.Text ?? "").Trim()
+            : wireText.Trim();
+        var shownText = string.IsNullOrWhiteSpace(displayText)
+            ? text
+            : displayText!.Trim();
         if (text.Length == 0) return;
 
         ChatMessageItem? assistantMsg = null;
@@ -1726,15 +1761,17 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
 
             UpdateUiState(isGenerating: true);
             InputBox.Text = string.Empty;
+            _pendingOutboundWireText = null;
+            _pendingOutboundDisplayText = null;
 
             var tailBefore = _messages.ToList();
 
-            var userMsg = new ChatMessageItem { Role = "user", Content = text, CreatedAt = DateTime.UtcNow };
+            var userMsg = new ChatMessageItem { Role = "user", Content = shownText, CreatedAt = DateTime.UtcNow };
             _messages.Add(userMsg);
             ScrollToBottom(force: true);
-            await _api.AddMessageAsync(_sessionId!, "user", text, null, CancellationToken.None);
+            await _api.AddMessageAsync(_sessionId!, "user", shownText, null, CancellationToken.None);
 
-            await MaybeAutoTitleAsync(text);
+            await MaybeAutoTitleAsync(shownText);
 
             _cts?.Cancel();
             _cts = new CancellationTokenSource();

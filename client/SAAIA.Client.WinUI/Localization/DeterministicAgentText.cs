@@ -450,25 +450,73 @@ internal static class DeterministicAgentText
 
     public static string AdminRescanQueued(string? language, string? jobId)
     {
-        var suffix = string.IsNullOrWhiteSpace(jobId) ? string.Empty : $" (job {jobId})";
+        _ = jobId;
         return Pick(language,
-            $"Le rescan du catalogue a bien été lancé{suffix}.",
-            $"The catalog rescan has been started{suffix}.",
-            $"El reescaneo del catálogo se ha iniciado correctamente{suffix}.",
-            $"O reescaneamento do catálogo foi iniciado com sucesso{suffix}.",
-            $"Der Katalog-Rescan wurde gestartet{suffix}.",
-            $"La scansione del catalogo è stata avviata{suffix}.");
+            "Le rescan du catalogue a bien été lancé.",
+            "The catalog rescan has been started.",
+            "El reescaneo del catálogo se ha iniciado correctamente.",
+            "O reescaneamento do catálogo foi iniciado com sucesso.",
+            "Der Katalog-Rescan wurde gestartet.",
+            "La scansione del catalogo è stata avviata.");
     }
 
     public static string AdminReindexQueued(string? language, string documentLabel, string? jobId)
     {
-        var suffix = string.IsNullOrWhiteSpace(jobId) ? string.Empty : $" (job {jobId})";
+        _ = jobId;
         return Pick(language,
-            $"La relance d'ingestion du document {documentLabel} a bien été demandée{suffix}.",
-            $"The ingestion restart for document {documentLabel} has been requested{suffix}.",
-            $"Se ha solicitado el reinicio de la ingestión del documento {documentLabel}{suffix}.",
-            $"Foi pedido o reinício da ingestão do documento {documentLabel}{suffix}.",
-            $"Die erneute Verarbeitung des Dokuments {documentLabel} wurde angefordert{suffix}.",
-            $"È stato richiesto il riavvio dell'ingestione del documento {documentLabel}{suffix}.");
+            $"La réindexation du document {documentLabel} a bien été lancée.",
+            $"The reindexing of document {documentLabel} has been started.",
+            $"La reindexación del documento {documentLabel} se ha iniciado correctamente.",
+            $"A reindexação do documento {documentLabel} foi iniciada com sucesso.",
+            $"Die Neuindexierung des Dokuments {documentLabel} wurde gestartet.",
+            $"La reindicizzazione del documento {documentLabel} è stata avviata.");
     }
+
+    public static string AdminReindexRunning(string? language, string documentLabel)
+        => Pick(language,
+            $"La réindexation du document {documentLabel} est en cours en arrière-plan.",
+            $"The reindexing of document {documentLabel} is running in the background.",
+            $"La reindexación del documento {documentLabel} está en curso en segundo plano.",
+            $"A reindexação do documento {documentLabel} está em curso em segundo plano.",
+            $"Die Neuindexierung des Dokuments {documentLabel} läuft im Hintergrund.",
+            $"La reindicizzazione del documento {documentLabel} è in corso in background.");
+
+    public static string AdminReindexCompleted(string? language, string documentLabel)
+        => Pick(language,
+            $"La réindexation du document {documentLabel} est terminée.",
+            $"The reindexing of document {documentLabel} is complete.",
+            $"La reindexación del documento {documentLabel} ha terminado.",
+            $"A reindexação do documento {documentLabel} está concluída.",
+            $"Die Neuindexierung des Dokuments {documentLabel} ist abgeschlossen.",
+            $"La reindicizzazione del documento {documentLabel} è completata.");
+
+    public static string AdminReindexFailed(string? language, string documentLabel, string? error)
+    {
+        var detail = string.IsNullOrWhiteSpace(error) ? string.Empty : " " + error.Trim();
+        return Pick(language,
+            $"La réindexation du document {documentLabel} a échoué.{detail}",
+            $"The reindexing of document {documentLabel} failed.{detail}",
+            $"La reindexación del documento {documentLabel} ha fallado.{detail}",
+            $"A reindexação do documento {documentLabel} falhou.{detail}",
+            $"Die Neuindexierung des Dokuments {documentLabel} ist fehlgeschlagen.{detail}",
+            $"La reindicizzazione del documento {documentLabel} non è riuscita.{detail}");
+    }
+
+    public static string AdminJobQueued(string? language, string? actionLabel)
+        => Pick(language,
+            $"{actionLabel ?? "Action admin"} en file d'attente…",
+            $"{actionLabel ?? "Admin action"} queued…",
+            $"{actionLabel ?? "Acción admin"} en cola…",
+            $"{actionLabel ?? "Ação admin"} em fila…",
+            $"{actionLabel ?? "Admin-Aktion"} in der Warteschlange…",
+            $"{actionLabel ?? "Azione admin"} in coda…");
+
+    public static string AdminJobRunning(string? language, string? actionLabel)
+        => Pick(language,
+            $"{actionLabel ?? "Action admin"} en cours…",
+            $"{actionLabel ?? "Admin action"} running…",
+            $"{actionLabel ?? "Acción admin"} en curso…",
+            $"{actionLabel ?? "Ação admin"} em curso…",
+            $"{actionLabel ?? "Admin-Aktion"} läuft…",
+            $"{actionLabel ?? "Azione admin"} in corso…");
 }

@@ -81,12 +81,30 @@ public sealed partial class MainWindow
             var canSearchDocuments = directCommands.Contains("catalog.documents.listAll") || directCommands.Contains("catalog.documents.listByCategory") || directCommands.Count == 0;
             var canCategoryScoped = directCommands.Contains("catalog.documents.listByCategory") || directCommands.Contains("catalog.stats.view") || directCommands.Count == 0;
 
+            if (_activeHelpDialog is not null)
+            {
+                try
+                {
+                    _activeHelpDialog.Hide();
+                }
+                catch
+                {
+                }
+                _activeHelpDialog = null;
+            }
+
             var dlg = new ContentDialog
             {
                 XamlRoot = xamlRoot,
                 Title = ClientUiText.Get("help.title", lang),
                 CloseButtonText = ClientUiText.Get("dialog.close", lang),
                 DefaultButton = ContentDialogButton.Close
+            };
+            _activeHelpDialog = dlg;
+            dlg.Closed += (_, __) =>
+            {
+                if (ReferenceEquals(_activeHelpDialog, dlg))
+                    _activeHelpDialog = null;
             };
 
             var root = new StackPanel { Spacing = 12, MaxWidth = 780 };
@@ -314,6 +332,9 @@ public sealed partial class MainWindow
                             var prompt = currentMode == HelpGuidedMode.ReindexDocument
                                 ? ClientUiText.BuildPromptAdminReindex(lang, docTitle)
                                 : ClientUiText.BuildPromptSearchDocuments(lang, docTitle);
+                            var displayPrompt = currentMode == HelpGuidedMode.ReindexDocument
+                                ? ClientUiText.BuildPromptAdminReindexDisplay(lang, docTitle)
+                                : prompt;
 
                             resultsPanel.Children.Add(CreateActionButton(
                                 docTitle,
@@ -322,7 +343,7 @@ public sealed partial class MainWindow
                                 async () =>
                                 {
                                     dlg.Hide();
-                                    await TrySendHelpPromptAsync(prompt).ConfigureAwait(true);
+                                    await TrySendHelpPromptAsync(prompt, displayPrompt).ConfigureAwait(true);
                                 }));
                         }
                     }
@@ -511,7 +532,7 @@ public sealed partial class MainWindow
         }
     }
 
-    private async Task<bool> TrySendHelpPromptAsync(string prompt)
+    private async Task<bool> TrySendHelpPromptAsync(string prompt, string? displayText = null)
     {
         if (_isGenerating)
         {
@@ -527,7 +548,7 @@ public sealed partial class MainWindow
 
         try
         {
-            InputBox.Text = prompt;
+            StageOutboundMessage(prompt, displayText);
             await SendAsync().ConfigureAwait(true);
             return true;
         }

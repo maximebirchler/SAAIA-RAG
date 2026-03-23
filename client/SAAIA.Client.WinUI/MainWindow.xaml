@@ -39,7 +39,7 @@
                             Background="#1E4E8C"
                             CornerRadius="14"
                             Padding="12,10"
-                            MaxWidth="720"
+                            MaxWidth="560"
                             HorizontalAlignment="Right"
                             PointerEntered="Bubble_PointerEntered"
                             PointerExited="Bubble_PointerExited">
@@ -52,7 +52,7 @@
                             <TextBlock Grid.Row="0"
                                     Text="{x:Bind Content, Mode=OneWay}"
                                     Foreground="White"
-                                    TextWrapping="Wrap"
+                                    TextWrapping="WrapWholeWords"
                                     IsTextSelectionEnabled="True"/>
 
                             <!-- Bottom bar: time (left) + copy icon (right) -->

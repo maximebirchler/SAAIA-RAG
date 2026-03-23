@@ -127,7 +127,7 @@ public sealed partial class ToolAgentOrchestrator
 
             var category = TryExtractFollowUpCategoryRef(effectiveUserMessage, out var requestedCategoryRef)
                 ? ResolveCategorySnapshotFromReference(requestedCategoryRef)
-                : _mem.LastResolvedCategory;
+                : null;
 
             var isPresentMode = string.Equals(summaryState, "present", StringComparison.OrdinalIgnoreCase);
             if (string.Equals(summaryMode, "count", StringComparison.OrdinalIgnoreCase))
@@ -267,7 +267,8 @@ public sealed partial class ToolAgentOrchestrator
 
                 var res = await _api.AdminIngestionReindexAsync(resolved.DocPath, ct).ConfigureAwait(false);
                 var label = string.IsNullOrWhiteSpace(resolved.DocName) ? reindexDocRef : resolved.DocName;
-                var answer = DeterministicAgentText.AdminReindexQueued(interactionLanguage, label, TryGetString(res, "jobId"));
+                var jobId = TryGetString(res, "jobId");
+                var answer = await WaitForAdminIngestionJobAsync(jobId, label, interactionLanguage, ct, onProgress).ConfigureAwait(false);
                 await EmitDeterministicTextAsync(answer, onDelta, ct).ConfigureAwait(false);
                 return (true, answer, null, "admin.ingestion.reindex", new[] { "admin.ingestion.reindex" });
             }
@@ -1273,6 +1274,61 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
         }
 
         return false;
+    }
+
+    private async Task<string> WaitForAdminIngestionJobAsync(string? jobId, string documentLabel, string language, CancellationToken ct, Action<string>? onProgress)
+    {
+        if (string.IsNullOrWhiteSpace(jobId))
+            return DeterministicAgentText.AdminReindexQueued(language, documentLabel, null);
+
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            ct.ThrowIfCancellationRequested();
+            var snapshot = await TryLoadAdminIngestionJobAsync(jobId, ct).ConfigureAwait(false);
+            var status = (TryGetString(snapshot, "status") ?? string.Empty).Trim().ToLowerInvariant();
+            if (status.Length == 0)
+                break;
+
+            if (status is "done" or "completed" or "succeeded" or "success")
+                return DeterministicAgentText.AdminReindexCompleted(language, documentLabel);
+
+            if (status is "failed" or "error" or "canceled" or "cancelled")
+                return DeterministicAgentText.AdminReindexFailed(language, documentLabel, TryGetString(snapshot, "lastError"));
+
+            onProgress?.Invoke(status switch
+            {
+                "queued" => DeterministicAgentText.AdminJobQueued(language, documentLabel),
+                "running" => DeterministicAgentText.AdminJobRunning(language, documentLabel),
+                _ => DeterministicAgentText.AdminReindexRunning(language, documentLabel)
+            });
+
+            await Task.Delay(TimeSpan.FromMilliseconds(700), ct).ConfigureAwait(false);
+        }
+
+        return DeterministicAgentText.AdminReindexRunning(language, documentLabel);
+    }
+
+    private async Task<JsonElement> TryLoadAdminIngestionJobAsync(string jobId, CancellationToken ct)
+    {
+        try
+        {
+            var json = await _api.AdminJobsListAsync("ingestion", 100, 0, ct).ConfigureAwait(false);
+            if (json.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in items.EnumerateArray())
+                {
+                    var currentJobId = TryGetString(item, "jobId") ?? TryGetString(item, "JobId");
+                    if (string.Equals(currentJobId, jobId, StringComparison.OrdinalIgnoreCase))
+                        return item;
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        using var doc = JsonDocument.Parse("{}");
+        return doc.RootElement.Clone();
     }
 
     private static bool LooksLikeMalformedGuidedCommandRequest(string? message)

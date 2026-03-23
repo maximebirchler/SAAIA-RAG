@@ -284,6 +284,24 @@ internal static class ClientUiText
             _ => $"Relance l'ingestion du document {documentRef}."
         };
 
+
+    public static string BuildPromptAdminReindexDisplay(string? language, string documentRef)
+    {
+        var compact = CompactDocumentLabel(documentRef, 64);
+        return BuildPromptAdminReindex(language, compact);
+    }
+
+    private static string CompactDocumentLabel(string value, int maxLength)
+    {
+        var s = (value ?? string.Empty).Trim();
+        if (s.Length <= maxLength || maxLength < 12)
+            return s;
+
+        var keepHead = Math.Max(8, (maxLength - 1) / 2);
+        var keepTail = Math.Max(4, maxLength - keepHead - 1);
+        return s[..keepHead] + "…" + s[^keepTail..];
+    }
+
     private static Dictionary<string, string> Multi(string fr, string en, string es, string pt, string de, string it)
         => new(StringComparer.OrdinalIgnoreCase)
         {

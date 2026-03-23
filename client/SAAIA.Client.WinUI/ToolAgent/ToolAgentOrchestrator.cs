@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using SAAIA.Client.WinUI.Localization;
 using SAAIA.Client.WinUI.Models;
 using SAAIA.Client.WinUI.Services;
+using SAAIA.Contracts;
 
 namespace SAAIA.Client.WinUI.Services.ToolAgent;
 
@@ -228,6 +229,18 @@ public sealed partial class ToolAgentOrchestrator
             RememberPendingClarification(docResolution.ClarificationKind ?? "generic", userMessage, docResolution.ClarificationHint, plan.Language);
             onProgress?.Invoke(string.Empty);
             return FinalizeAndReturn(swTotalPipeline, userMessage, clarification, null, "clarification", Array.Empty<string>(), _mem.LastReasoningTracePublic, clearPendingClarification: false);
+        }
+
+        var documentaryProbe = await TryHandleDocumentaryProbeAsync(
+            effectiveUserMessage,
+            plan,
+            ct,
+            onPhase,
+            onDelta,
+            onProgress).ConfigureAwait(false);
+        if (documentaryProbe.handled)
+        {
+            return FinalizeAndReturn(swTotalPipeline, userMessage, documentaryProbe.finalAnswer, documentaryProbe.sourcesPayload, documentaryProbe.routerIntent, documentaryProbe.toolNames, _mem.LastReasoningTracePublic, clearPendingClarification: documentaryProbe.clearPendingClarification);
         }
 
         if (plan.NeedClarification && plan.ClarificationQuestions.Count > 0)
@@ -1590,6 +1603,116 @@ Rules:
 
         return sb.ToString().TrimEnd();
     }
+    private bool ShouldRunDocumentaryProbe(string effectiveUserMessage, RouterPlan plan)
+    {
+        if (plan is null)
+            return false;
+        if (!string.Equals(plan.Intent, "chat.general", StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (plan.ToolCalls.Count > 0 || plan.NeedClarification)
+            return false;
+
+        var s = (effectiveUserMessage ?? string.Empty).Trim();
+        if (s.Length < 12)
+            return false;
+
+        if (Regex.IsMatch(s, @"^(?:hi|hello|bonjour|salut|merci|thanks?|ok|okay)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+            return false;
+
+        return Regex.IsMatch(s, @"\b(?:qu['’]est\s*ce\s+que\s+tu\s+peux\s+me\s+dire|que\s+peux\s*tu\s+me\s+dire|parle\s*[- ]?moi|au\s+sujet\s+de|a\s+propos\s+de|à\s+propos\s+de|what\s+can\s+you\s+tell\s+me|tell\s+me\s+about|about\s+the|regarding|concerning)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+            || s.Contains("?", StringComparison.Ordinal);
+    }
+
+    private async Task<(bool handled, string finalAnswer, object? sourcesPayload, string? routerIntent, IReadOnlyList<string> toolNames, bool clearPendingClarification)> TryHandleDocumentaryProbeAsync(
+        string effectiveUserMessage,
+        RouterPlan plan,
+        CancellationToken ct,
+        Action<string>? onPhase,
+        Action<string>? onDelta,
+        Action<string>? onProgress)
+    {
+        if (!ShouldRunDocumentaryProbe(effectiveUserMessage, plan))
+            return (false, string.Empty, null, null, Array.Empty<string>(), true);
+
+        try
+        {
+            onPhase?.Invoke(DeterministicAgentText.PhaseRag(plan.Language));
+            onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(plan.Language));
+
+            var probeCategory = string.IsNullOrWhiteSpace(_mem.LastResolvedCategory?.CategoryPath)
+                ? null
+                : _mem.LastResolvedCategory!.CategoryPath;
+            var rag = await _api.RagSearchAsync(effectiveUserMessage, probeCategory, 5, "balanced", ct).ConfigureAwait(false);
+            var hits = (rag.Items ?? new List<RagItem>())
+                .Where(x => !string.IsNullOrWhiteSpace(x.DocPath) || !string.IsNullOrWhiteSpace(x.DocName))
+                .GroupBy(x => string.IsNullOrWhiteSpace(x.DocPath) ? (x.DocName ?? string.Empty) : x.DocPath!, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.OrderByDescending(x => x.Score).First())
+                .OrderByDescending(x => x.Score)
+                .Take(3)
+                .ToList();
+
+            if (hits.Count == 0)
+                return (false, string.Empty, null, null, Array.Empty<string>(), true);
+
+            var answer = BuildDocumentaryProbeClarification(hits, plan.Language);
+            var sourcesPayload = new
+            {
+                intent = "rag_probe",
+                sources = hits.Select(x => new
+                {
+                    docPath = (x.DocPath ?? string.Empty).Replace('\\', '/'),
+                    docName = x.DocName ?? string.Empty,
+                    pageStart = x.PageStart ?? 1,
+                    pageEnd = x.PageEnd ?? x.PageStart ?? 1,
+                    label = $"{(x.DocName ?? x.DocPath ?? "document")} (p.{(x.PageStart ?? 1)})",
+                    snippet = string.IsNullOrWhiteSpace(x.Text)
+                        ? string.Empty
+                        : (x.Text!.Length > 220 ? x.Text[..220] + "…" : x.Text)
+                }).ToList()
+            };
+
+            await EmitDeterministicTextAsync(answer, onDelta, ct).ConfigureAwait(false);
+            RememberPendingClarification("rag_probe", effectiveUserMessage, "documentary_probe", plan.Language);
+            onProgress?.Invoke(string.Empty);
+            return (true, answer, sourcesPayload, "rag.followup", new[] { "rag.search" }, false);
+        }
+        catch
+        {
+            return (false, string.Empty, null, null, Array.Empty<string>(), true);
+        }
+    }
+
+    private static string BuildDocumentaryProbeClarification(IReadOnlyList<RagItem> hits, string language)
+    {
+        language = NormalizeLanguageCode(language);
+        var first = hits[0];
+        var firstLabel = string.IsNullOrWhiteSpace(first.DocName) ? (first.DocPath ?? "document") : first.DocName!;
+        if (hits.Count == 1)
+        {
+            return language switch
+            {
+                "en" => $"I found a likely matching document: {firstLabel}. Do you want me to search in this one?",
+                "es" => $"He encontrado un documento que parece coincidir: {firstLabel}. ¿Quieres que busque en ese documento?",
+                "pt" => $"Encontrei um documento que parece corresponder: {firstLabel}. Queres que eu pesquise nesse documento?",
+                "de" => $"Ich habe ein wahrscheinlich passendes Dokument gefunden: {firstLabel}. Soll ich in diesem Dokument suchen?",
+                "it" => $"Ho trovato un documento che sembra corrispondere: {firstLabel}. Vuoi che cerchi in questo documento?",
+                _ => $"J'ai trouvé un document qui semble correspondre : {firstLabel}. Veux-tu que je cherche dans celui-ci ?"
+            };
+        }
+
+        var labels = hits.Select(x => string.IsNullOrWhiteSpace(x.DocName) ? (x.DocPath ?? "document") : x.DocName!).Take(3).ToList();
+        var joined = string.Join(language == "fr" ? " ; " : "; ", labels);
+        return language switch
+        {
+            "en" => $"I found several possible matches: {joined}. Which one should I use?",
+            "es" => $"He encontrado varias coincidencias posibles: {joined}. ¿Cuál debo usar?",
+            "pt" => $"Encontrei várias correspondências possíveis: {joined}. Qual devo usar?",
+            "de" => $"Ich habe mehrere mögliche Treffer gefunden: {joined}. Welchen soll ich verwenden?",
+            "it" => $"Ho trovato diverse corrispondenze possibili: {joined}. Quale devo usare?",
+            _ => $"J'ai trouvé plusieurs correspondances possibles : {joined}. Laquelle veux-tu que j'utilise ?"
+        };
+    }
+
 private string GuessLanguage(string userMessage)
 {
     return ResolveInteractionLanguage(userMessage);
@@ -2777,10 +2900,13 @@ TOOL_RESULTS (json):
         var expectsDocumentAnswer = string.Equals(pending.Kind, "doc_reference", StringComparison.OrdinalIgnoreCase)
             || string.Equals(pending.Kind, "document_reference", StringComparison.OrdinalIgnoreCase);
         var expectsTreeScope = string.Equals(pending.Kind, "tree_scope", StringComparison.OrdinalIgnoreCase);
+        var expectsRagProbeRefinement = string.Equals(pending.Kind, "rag_probe", StringComparison.OrdinalIgnoreCase);
 
         var isExpectedAnswer = expectsDocumentAnswer
             ? DocumentRefResolver.LooksLikeDocumentReferenceAnswer(current, _mem.LastFocusedDocument, _mem.LastListedDocuments, _mem.LastRequestedDocumentRef)
-            : expectsTreeScope && DocumentRefResolver.LooksLikeTreeScopeAnswer(current);
+            : expectsTreeScope
+                ? DocumentRefResolver.LooksLikeTreeScopeAnswer(current)
+                : expectsRagProbeRefinement && current.Length >= 2;
 
         if (!isExpectedAnswer)
         {
@@ -2791,13 +2917,21 @@ TOOL_RESULTS (json):
             return new PendingClarificationPreparation(safeUserMessage, null, false);
         }
 
-        var effectiveUserMessage = $@"PREVIOUS_AMBIGUOUS_REQUEST:
+        var effectiveUserMessage = expectsRagProbeRefinement
+            ? $@"PREVIOUS_DOCUMENTARY_REQUEST:
+{pending.OriginalUserMessage}
+
+RETRIEVAL_REFINEMENT:
+{current}"
+            : $@"PREVIOUS_AMBIGUOUS_REQUEST:
 {pending.OriginalUserMessage}
 
 CLARIFICATION_ANSWER:
 {current}";
 
-        var analysisOverride = DocumentRefResolver.Analyze(effectiveUserMessage, _mem.LastFocusedDocument, _mem.LastListedDocuments, _mem.LastRequestedDocumentRef);
+        var analysisOverride = expectsRagProbeRefinement
+            ? null
+            : DocumentRefResolver.Analyze(effectiveUserMessage, _mem.LastFocusedDocument, _mem.LastListedDocuments, _mem.LastRequestedDocumentRef);
         ClearPendingClarification();
         return new PendingClarificationPreparation(effectiveUserMessage, analysisOverride, true);
     }
