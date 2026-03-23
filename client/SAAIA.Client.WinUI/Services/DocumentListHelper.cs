@@ -170,16 +170,17 @@ internal static class DocumentListHelper
     private static string? TryResolveToDisplayPath(string docPath, string docName)
     {
         // 0) If docPath is already a clean relative path, normalize it.
+        // IMPORTANT:
+        // Do NOT validate it through DocumentPathResolver.Resolve(quick), because Resolve(...) includes
+        // a filename-search fallback under the documents root. That behavior is useful for recovering
+        // moved files, but it would incorrectly "validate" a ghost path like "Ghost/file.pdf" merely
+        // because a file with the same name exists elsewhere. In that case we must return the real path,
+        // not preserve the ghost relative path.
         var quick = DocumentPathResolver.ToDisplayPath(docPath);
-        if (!string.IsNullOrWhiteSpace(quick) && !quick.Contains(".."))
-        {
-            // Still ensure it exists on disk if possible.
-            var abs0 = DocumentPathResolver.Resolve(quick);
-            if (!string.IsNullOrWhiteSpace(abs0) && File.Exists(abs0))
-                return quick;
-        }
+        if (!string.IsNullOrWhiteSpace(quick) && !quick.Contains("..") && ExistsExactlyUnderDocumentsRoot(quick))
+            return quick;
 
-        // 1) try exact docPath
+        // 1) try exact docPath (may recover a moved file through filename search and then canonicalize it)
         var abs = DocumentPathResolver.Resolve(docPath);
         if (!string.IsNullOrWhiteSpace(abs) && File.Exists(abs))
             return DocumentPathResolver.ToDisplayPath(abs);
@@ -202,6 +203,24 @@ internal static class DocumentListHelper
         }
 
         return null;
+    }
+
+    private static bool ExistsExactlyUnderDocumentsRoot(string displayPath)
+    {
+        try
+        {
+            var root = DocumentPathResolver.GetDocumentsRoot();
+            var rel = displayPath
+                .Replace('/', Path.DirectorySeparatorChar)
+                .Replace('\\', Path.DirectorySeparatorChar)
+                .TrimStart(Path.DirectorySeparatorChar);
+            var candidate = Path.GetFullPath(Path.Combine(root, rel));
+            return File.Exists(candidate);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static string GuessCategoryPathFromPath(string rel)

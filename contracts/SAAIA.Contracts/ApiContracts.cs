@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace SAAIA.Contracts;
@@ -101,4 +102,149 @@ public sealed class RagSearchResponse
 
     [JsonPropertyName("items")]
     public List<RagItem> Items { get; set; } = new();
+}
+
+
+// ---------------------
+// Catalog / capabilities contracts (transition to snapshot + capabilities)
+// ---------------------
+public sealed class CatalogSnapshotResponse
+{
+    [JsonPropertyName("snapshotId")]
+    public string SnapshotId { get; set; } = "";
+
+    [JsonPropertyName("catalogVersion")]
+    public string CatalogVersion { get; set; } = "";
+
+    [JsonPropertyName("etag")]
+    public string ETag { get; set; } = "";
+
+    [JsonPropertyName("categories")]
+    public List<CatalogSnapshotCategoryItem> Categories { get; set; } = new();
+
+    [JsonPropertyName("totals")]
+    public CatalogSnapshotTotals Totals { get; set; } = new();
+}
+
+public sealed class CatalogSnapshotCategoryItem
+{
+    [JsonPropertyName("categoryRef")]
+    public string CategoryRef { get; set; } = "";
+
+    [JsonPropertyName("categoryPath")]
+    public string CategoryPath { get; set; } = "";
+
+    [JsonPropertyName("displayOrder")]
+    public int DisplayOrder { get; set; }
+
+    [JsonPropertyName("canonicalName")]
+    public string CanonicalName { get; set; } = "";
+
+    [JsonPropertyName("documentCount")]
+    public int DocumentCount { get; set; }
+
+    [JsonPropertyName("lastUpdatedUtc")]
+    public DateTimeOffset? LastUpdatedUtc { get; set; }
+
+    [JsonPropertyName("aliases")]
+    public List<string> Aliases { get; set; } = new();
+}
+
+public sealed class CatalogSnapshotTotals
+{
+    [JsonPropertyName("documents")]
+    public long Documents { get; set; }
+
+    [JsonPropertyName("categories")]
+    public int Categories { get; set; }
+}
+
+public sealed class CatalogDocumentItem
+{
+    [JsonPropertyName("documentRef")]
+    public string DocumentRef { get; set; } = "";
+
+    [JsonPropertyName("docId")]
+    public Guid DocId { get; set; }
+
+    [JsonPropertyName("docPath")]
+    public string DocPath { get; set; } = "";
+
+    [JsonPropertyName("canonicalName")]
+    public string CanonicalName { get; set; } = "";
+
+    [JsonPropertyName("categoryRef")]
+    public string? CategoryRef { get; set; }
+
+    [JsonPropertyName("categoryCanonicalName")]
+    public string? CategoryCanonicalName { get; set; }
+
+    [JsonPropertyName("categoryPath")]
+    public string? CategoryPath { get; set; }
+
+    [JsonPropertyName("lastModifiedUtc")]
+    public DateTimeOffset? LastModifiedUtc { get; set; }
+}
+
+public sealed class CatalogDocumentListResponse
+{
+    [JsonPropertyName("value")]
+    public List<CatalogDocumentItem> Value { get; set; } = new();
+
+    [JsonPropertyName("nextLink")]
+    public string? NextLink { get; set; }
+}
+
+public sealed class AuthCapabilitiesResponse
+{
+    [JsonPropertyName("user")]
+    public AuthCapabilitiesUser User { get; set; } = new();
+
+    [JsonPropertyName("ui")]
+    public AuthCapabilitiesUi Ui { get; set; } = new();
+
+    [JsonPropertyName("capabilities")]
+    public AuthCapabilitiesPayload Capabilities { get; set; } = new();
+}
+
+public sealed class AuthCapabilitiesUser
+{
+    [JsonPropertyName("isAuthenticated")]
+    public bool IsAuthenticated { get; set; }
+
+    [JsonPropertyName("isAdmin")]
+    public bool IsAdmin { get; set; }
+
+    [JsonPropertyName("displayName")]
+    public string DisplayName { get; set; } = "";
+}
+
+public sealed class AuthCapabilitiesUi
+{
+    [JsonPropertyName("defaultLocale")]
+    public string DefaultLocale { get; set; } = "fr-CH";
+}
+
+public sealed class AuthCapabilitiesPayload
+{
+    [JsonPropertyName("directCommands")]
+    public List<AuthCapabilityCommand> DirectCommands { get; set; } = new();
+
+    [JsonPropertyName("adminCommands")]
+    public List<AuthCapabilityCommand> AdminCommands { get; set; } = new();
+}
+
+public sealed class AuthCapabilityCommand
+{
+    [JsonPropertyName("commandId")]
+    public string CommandId { get; set; } = "";
+
+    [JsonPropertyName("visibility")]
+    public string Visibility { get; set; } = "always";
+
+    [JsonPropertyName("requiresContext")]
+    public List<string> RequiresContext { get; set; } = new();
+
+    [JsonPropertyName("argsSchema")]
+    public JsonElement ArgsSchema { get; set; }
 }

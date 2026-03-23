@@ -517,10 +517,42 @@ public sealed partial class ApiClient
     /// Tool-agent friendly documents list: returns JSON object with items + paging.
     /// Adds a stable pdfRef per item (PDF01, PDF02, ...), based on offset.
     /// </summary>
-    public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? q, int limit, int offset, CancellationToken ct)
+    public Task<JsonElement> DocumentsListAsync(string? categoryPath, string? q, int limit, int offset, CancellationToken ct)
+        => DocumentsListAsync(categoryPath, null, q, limit, offset, ct);
+
+    
+public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? categoryRef, string? q, int limit, int offset, CancellationToken ct)
     {
         var lim = Math.Clamp(limit, 1, 2000);
         var off = Math.Max(0, offset);
+
+        var catalogQs = new List<string>
+        {
+            $"pageSize={Math.Min(lim, 200)}",
+            "orderby=name_asc"
+        };
+
+        if (!string.IsNullOrWhiteSpace(categoryPath))
+            catalogQs.Add($"categoryPath={Uri.EscapeDataString(categoryPath.Trim().Replace('\\', '/').Trim('/'))}");
+        if (!string.IsNullOrWhiteSpace(categoryRef))
+            catalogQs.Add($"categoryRef={Uri.EscapeDataString(categoryRef.Trim())}");
+        if (!string.IsNullOrWhiteSpace(q))
+            catalogQs.Add($"q={Uri.EscapeDataString(q.Trim())}");
+        if (off > 0)
+        {
+            var cursorPayload = JsonSerializer.Serialize(new { PageSize = Math.Min(lim, 200), Offset = off, CategoryPath = categoryPath, CategoryRef = categoryRef, Query = q, OrderBy = "name_asc" });
+            var cursor = Convert.ToBase64String(Encoding.UTF8.GetBytes(cursorPayload)).TrimEnd('=');
+            catalogQs.Add($"cursor={Uri.EscapeDataString(cursor)}");
+        }
+
+        using var catalogResp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, "/catalog/documents?" + string.Join("&", catalogQs)), ct).ConfigureAwait(false);
+        if (catalogResp.StatusCode != HttpStatusCode.NotFound)
+        {
+            catalogResp.EnsureSuccessStatusCode();
+            var catalogJson = await catalogResp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            using var catalogDoc = JsonDocument.Parse(catalogJson);
+            return NormalizeCatalogDocumentsResponse(catalogDoc.RootElement, lim, off);
+        }
 
         var qs = new List<string>
         {
@@ -530,10 +562,11 @@ public sealed partial class ApiClient
 
         if (!string.IsNullOrWhiteSpace(categoryPath))
             qs.Add($"categoryPath={Uri.EscapeDataString(categoryPath.Trim().Replace('\\', '/').Trim('/'))}");
-
+        if (!string.IsNullOrWhiteSpace(categoryRef))
+            qs.Add($"categoryRef={Uri.EscapeDataString(categoryRef.Trim())}");
         if (!string.IsNullOrWhiteSpace(q))
             qs.Add($"q={Uri.EscapeDataString(q.Trim())}");
-        // Prefer the user-safe catalog endpoint. Admin endpoint is /documents.
+
         var pathCatalog = "/documents/catalog?" + string.Join("&", qs);
         using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, pathCatalog), ct).ConfigureAwait(false);
 
@@ -545,7 +578,6 @@ public sealed partial class ApiClient
         }
         else
         {
-            // Fallback: GET /documents (admin-only) for older builds / support scenarios.
             var pathFallback = "/documents?" + string.Join("&", qs);
             using var resp2 = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, pathFallback), ct).ConfigureAwait(false);
             resp2.EnsureSuccessStatusCode();
@@ -553,32 +585,25 @@ public sealed partial class ApiClient
         }
 
         using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
+        return NormalizeLegacyDocumentsResponse(doc.RootElement, lim, off);
+    }
 
-        var itemsEl = root.TryGetProperty("items", out var arr) && arr.ValueKind == JsonValueKind.Array
-            ? arr
-            : default;
-
-        var total = root.TryGetProperty("total", out var t) && t.ValueKind == JsonValueKind.Number ? t.GetInt32() : (int?)null;
-
+    private JsonElement NormalizeCatalogDocumentsResponse(JsonElement root, int limit, int offset)
+    {
+        var value = root.TryGetProperty("value", out var arr) && arr.ValueKind == JsonValueKind.Array ? arr : default;
         var newItems = new List<object>();
-        if (itemsEl.ValueKind == JsonValueKind.Array)
+        if (value.ValueKind == JsonValueKind.Array)
         {
             var i = 0;
-            foreach (var it in itemsEl.EnumerateArray())
+            foreach (var it in value.EnumerateArray())
             {
-                // Filter missing by default (spec: only indexed)
-                var status = TryGetString(it, "status") ?? "";
-                if (string.Equals(status, "missing", StringComparison.OrdinalIgnoreCase)) { i++; continue; }
-
-                var docId = TryGetString(it, "docId") ?? TryGetString(it, "DocId") ?? "";
-                var docPath = TryGetString(it, "docPath") ?? TryGetString(it, "DocPath") ?? "";
-                var docName = TryGetString(it, "docName") ?? TryGetString(it, "DocName") ?? "";
-                var cat = TryGetString(it, "category") ?? TryGetString(it, "Category") ?? "";
-                var itemCategoryPath = TryGetString(it, "categoryPath") ?? TryGetString(it, "CategoryPath") ?? "";
+                var docId = TryGetString(it, "docId") ?? string.Empty;
+                var docPath = TryGetString(it, "docPath") ?? string.Empty;
+                var docName = TryGetString(it, "canonicalName") ?? TryGetString(it, "docName") ?? string.Empty;
+                var cat = TryGetString(it, "categoryCanonicalName") ?? string.Empty;
+                var itemCategoryPath = TryGetString(it, "categoryPath") ?? string.Empty;
                 var pages = TryGetInt(it, "pages") ?? TryGetInt(it, "pageCount");
-
-                var pdfIndex = off + i + 1;
+                var pdfIndex = offset + i + 1;
                 var pdfRef = $"PDF{pdfIndex:00}";
 
                 var normalizedDocPath = NormalizeDocPath(docPath);
@@ -597,31 +622,76 @@ public sealed partial class ApiClient
                     categoryPath = normalizedCategoryPath,
                     pages
                 });
-
                 i++;
             }
         }
 
-        var endOfList = newItems.Count < lim;
-        if (total.HasValue)
-            endOfList = (off + newItems.Count) >= total.Value;
+        int? total = null;
+        if (root.TryGetProperty("totals", out var totals))
+            total = TryGetInt(totals, "total") ?? TryGetInt(totals, "documents");
 
-        var normalized = new
+        var endOfList = !root.TryGetProperty("nextLink", out var nextLink) || nextLink.ValueKind == JsonValueKind.Null || string.IsNullOrWhiteSpace(nextLink.GetString());
+        var normalized = new { items = newItems, limit, offset, total, endOfList };
+        using var doc = JsonDocument.Parse(JsonSerializer.Serialize(normalized, JsonOpts));
+        return doc.RootElement.Clone();
+    }
+
+    private JsonElement NormalizeLegacyDocumentsResponse(JsonElement root, int limit, int offset)
+    {
+        var itemsEl = root.TryGetProperty("items", out var arr) && arr.ValueKind == JsonValueKind.Array ? arr : default;
+        var total = root.TryGetProperty("total", out var t) && t.ValueKind == JsonValueKind.Number ? t.GetInt32() : (int?)null;
+        var newItems = new List<object>();
+        if (itemsEl.ValueKind == JsonValueKind.Array)
         {
-            items = newItems,
-            limit = lim,
-            offset = off,
-            total,
-            endOfList
-        };
+            var i = 0;
+            foreach (var it in itemsEl.EnumerateArray())
+            {
+                var status = TryGetString(it, "status") ?? string.Empty;
+                if (string.Equals(status, "missing", StringComparison.OrdinalIgnoreCase)) { i++; continue; }
 
-        var normalizedJson = JsonSerializer.Serialize(normalized, JsonOpts);
-        using var doc2 = JsonDocument.Parse(normalizedJson);
-        return doc2.RootElement.Clone();
+                var docId = TryGetString(it, "docId") ?? TryGetString(it, "DocId") ?? string.Empty;
+                var docPath = TryGetString(it, "docPath") ?? TryGetString(it, "DocPath") ?? string.Empty;
+                var docName = TryGetString(it, "docName") ?? TryGetString(it, "DocName") ?? string.Empty;
+                var cat = TryGetString(it, "category") ?? TryGetString(it, "Category") ?? string.Empty;
+                var itemCategoryPath = TryGetString(it, "categoryPath") ?? TryGetString(it, "CategoryPath") ?? string.Empty;
+                var pages = TryGetInt(it, "pages") ?? TryGetInt(it, "pageCount");
+                var pdfIndex = offset + i + 1;
+                var pdfRef = $"PDF{pdfIndex:00}";
+
+                var normalizedDocPath = NormalizeDocPath(docPath);
+                var normalizedCategoryPath = NormalizeCategoryPathForDocuments(itemCategoryPath, normalizedDocPath);
+                var normalizedCategory = !string.IsNullOrWhiteSpace(cat)
+                    ? NormalizeTopLevelCategoryForDocuments(cat)
+                    : NormalizeTopLevelCategoryForDocuments(normalizedCategoryPath);
+
+                newItems.Add(new
+                {
+                    pdfRef,
+                    docId,
+                    docPath = normalizedDocPath,
+                    docName,
+                    category = normalizedCategory,
+                    categoryPath = normalizedCategoryPath,
+                    pages
+                });
+                i++;
+            }
+        }
+
+        var endOfList = newItems.Count < limit;
+        if (total.HasValue)
+            endOfList = (offset + newItems.Count) >= total.Value;
+
+        var normalized = new { items = newItems, limit, offset, total, endOfList };
+        using var doc = JsonDocument.Parse(JsonSerializer.Serialize(normalized, JsonOpts));
+        return doc.RootElement.Clone();
     }
 
     public Task<JsonElement> DocumentsSearchAsync(string q, string? categoryPath, int limit, int offset, CancellationToken ct)
-        => DocumentsListAsync(categoryPath, q, limit, offset, ct);
+        => DocumentsListAsync(categoryPath, null, q, limit, offset, ct);
+
+    public Task<JsonElement> DocumentsSearchAsync(string q, string? categoryPath, string? categoryRef, int limit, int offset, CancellationToken ct)
+        => DocumentsListAsync(categoryPath, categoryRef, q, limit, offset, ct);
 
     private static string NormalizeCategoryPathForDocuments(string? categoryPath, string? docPath)
     {

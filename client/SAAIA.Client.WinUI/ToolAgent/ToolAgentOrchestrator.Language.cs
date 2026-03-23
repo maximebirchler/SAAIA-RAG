@@ -23,12 +23,12 @@ public sealed partial class ToolAgentOrchestrator
 
     private static readonly Dictionary<string, string[]> LanguageSignals = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["fr"] = new[] { "bonjour", "salut", "coucou", "donne", "liste", "serveur", "arborescence", "résumé", "resume", "français", "francais", "merci", "stp", "comment", "documents", "document", "quels", "quelles", "présents", "present", "présent", "combien" },
-        ["en"] = new[] { "hello", "hi", "hey", "give", "list", "server", "tree", "summary", "please", "what", "how", "english", "document", "file", "documents", "which", "many", "present" },
-        ["es"] = new[] { "hola", "dame", "lista", "servidor", "árbol", "arbol", "resumen", "español", "espanol", "por", "favor", "archivo", "qué", "que", "significa", "cuántos", "cuantos", "documentos", "hay", "presentes" },
-        ["pt"] = new[] { "olá", "ola", "liste", "lista", "servidor", "árvore", "arvore", "resumo", "português", "portugues", "por", "favor", "arquivo", "o", "que", "quantos", "documentos", "presentes" },
-        ["de"] = new[] { "hallo", "bitte", "baum", "server", "zusammenfassung", "deutsch", "dokument", "dokumente", "datei", "was", "bedeutet", "liste", "wieviele", "wie viele", "vorhanden" },
-        ["it"] = new[] { "ciao", "elenco", "server", "albero", "riassunto", "italiano", "per", "favore", "documento", "documenti", "file", "che", "significa", "quali", "quanti", "presenti", "sono", "sul" }
+        ["fr"] = new[] { "bonjour", "salut", "coucou", "donne", "liste", "serveur", "arborescence", "résumé", "resume", "français", "francais", "merci", "stp", "comment", "documents", "document", "quels", "quelles", "présents", "present", "présent", "combien", "qui", "tu", "quoi", "categorie", "catégorie", "statistiques", "sans", "vient", "viens", "lister", "atex" },
+        ["en"] = new[] { "hello", "hi", "hey", "give", "list", "server", "tree", "summary", "please", "what", "how", "english", "document", "file", "documents", "category", "categories", "which", "many", "present", "thank", "thanks", "who", "are", "you" },
+        ["es"] = new[] { "hola", "dame", "lista", "servidor", "árbol", "arbol", "resumen", "español", "espanol", "archivo", "qué", "significa", "cuántos", "cuantos", "documentos", "hay", "estadísticas", "estadisticas", "categoria", "categoría", "quien", "eres" },
+        ["pt"] = new[] { "olá", "ola", "lista", "servidor", "árvore", "arvore", "resumo", "português", "portugues", "arquivo", "quantos", "documentos", "estatísticas", "estatisticas", "categoria", "quem", "és", "voce" },
+        ["de"] = new[] { "hallo", "bitte", "baum", "server", "zusammenfassung", "deutsch", "dokument", "dokumente", "datei", "was", "bedeutet", "liste", "wieviele", "wie viele", "vorhanden", "wer", "bist", "du" },
+        ["it"] = new[] { "ciao", "elenco", "server", "albero", "riassunto", "italiano", "documento", "documenti", "file", "significa", "quali", "quanti", "presenti", "sono", "sul", "chi", "sei", "categoria", "statistiche" }
     };
 
     private static string StripDiacritics(string value)
@@ -73,15 +73,17 @@ public sealed partial class ToolAgentOrchestrator
             return false;
         }
 
-        var patterns = new[]
+        if (LocalizedStrings.TryDetectLanguagePreferenceChange(s, out language))
+            return true;
+
+        var informalPatterns = new[]
         {
-            @"^(?:please\s+)?(?:respond|answer|reply|talk|speak|continue|write|reponds|réponds|parle|continue|continuer|ecris|écris|responde|contesta|habla|sigue|escribe|fale|continua|escreva|antworte|beantworte|sprich|schreibe|rispondi|parla|scrivi)\s+(?:in|en|em|auf)?\s*(?<lang>[\p{L}]+)(?:\s+(?:please|por favor|svp|stp|bitte|per favore))?[!.?]*$",
-            @"^(?:en|in|em|auf)\s+(?<lang>[\p{L}]+)(?:\s+(?:please|por favor|svp|stp|bitte|per favore))?[!.?]*$",
-            @"^(?:non\s+|not\s+)?(?:en|in|em|auf)\s+(?<lang>[\p{L}]+)(?:\s+(?:please|por favor|svp|stp|bitte|per favore))?[!.?]*$",
-            @"^(?<lang>[\p{L}]+)(?:\s+(?:please|por favor|svp|stp|bitte|per favore))?[!.?]*$"
+            @"^(?:ca|ça)\s+donne\s+quoi\s+(?:en|in|em|auf)\s+(?<lang>[\p{L}]+)\s*[!.?]*$",
+            @"^(?:what\s+about|how\s+about|and|et|alors|donc|du\s+coup|maintenant|now)\s+(?:en|in|em|auf)\s+(?<lang>[\p{L}]+)\s*[!.?]*$",
+            @"^(?:comment|how)\s+(?:le|la|that|this|ca|ça|cela|ce\s+message)\s+(?:se\s+dit|says|looks|sounds)?\s*(?:en|in|em|auf)\s+(?<lang>[\p{L}]+)\s*[!.?]*$"
         };
 
-        foreach (var pattern in patterns)
+        foreach (var pattern in informalPatterns)
         {
             var match = Regex.Match(s, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
             if (match.Success && TryMapLanguageAlias(match.Groups["lang"].Value, out language))
@@ -98,7 +100,10 @@ public sealed partial class ToolAgentOrchestrator
             return requested;
 
         var detected = DetectMessageLanguage(userMessage);
-        return string.IsNullOrWhiteSpace(detected) ? NormalizeLanguageCode(_mem.LastLanguage) : detected;
+        if (!string.IsNullOrWhiteSpace(detected))
+            return detected;
+
+        return "fr";
     }
 
     private static string DetectMessageLanguage(string? message)

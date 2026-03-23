@@ -25,6 +25,30 @@ public sealed partial class ToolAgentOrchestrator
     }
 
 
+    private (string? categoryPath, string? categoryRef) ResolveCategoryScopeArgs(JsonElement args)
+    {
+        var rawPath = GetStringArg(args, "categoryPath") ?? GetStringArg(args, "path") ?? GetStringArg(args, "category");
+        var rawRef = GetStringArg(args, "categoryRef");
+
+        var normalizedPath = NormalizeCategoryPathArg(rawPath);
+        var normalizedRef = string.IsNullOrWhiteSpace(rawRef) ? null : rawRef.Trim();
+
+        if (!string.IsNullOrWhiteSpace(normalizedRef) || !string.IsNullOrWhiteSpace(normalizedPath))
+        {
+            var snapshot = ResolveCategorySnapshotFromReference(normalizedRef, normalizedPath);
+            if (snapshot is not null)
+            {
+                var resolvedPath = !string.IsNullOrWhiteSpace(snapshot.CategoryPath) ? snapshot.CategoryPath : normalizedPath;
+                var resolvedRef = !string.IsNullOrWhiteSpace(snapshot.CategoryRef) ? snapshot.CategoryRef : normalizedRef;
+                return (string.IsNullOrWhiteSpace(resolvedPath) ? null : resolvedPath,
+                        string.IsNullOrWhiteSpace(resolvedRef) ? null : resolvedRef);
+            }
+        }
+
+        return (string.IsNullOrWhiteSpace(normalizedPath) ? null : normalizedPath,
+                string.IsNullOrWhiteSpace(normalizedRef) ? null : normalizedRef);
+    }
+
     private void RememberFocusedDocument(ResolvedDocRef resolved)
     {
         _mem.LastFocusedDocument = new ToolMemory.DocumentItem
@@ -37,6 +61,164 @@ public sealed partial class ToolAgentOrchestrator
             PdfRef = _mem.LastFocusedDocument?.PdfRef ?? string.Empty,
             Pages = resolved.Pages
         };
+
+        _mem.LastRequestedDocumentRef = !string.IsNullOrWhiteSpace(resolved.DocPath)
+            ? resolved.DocPath
+            : !string.IsNullOrWhiteSpace(resolved.DocId)
+                ? resolved.DocId
+                : resolved.DocName;
+    }
+
+    private IEnumerable<ToolMemory.DocumentItem> EnumerateKnownDocuments()
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (_mem.LastFocusedDocument is not null)
+        {
+            var key = !string.IsNullOrWhiteSpace(_mem.LastFocusedDocument.DocId)
+                ? _mem.LastFocusedDocument.DocId
+                : _mem.LastFocusedDocument.DocPath;
+            if (!string.IsNullOrWhiteSpace(key) && seen.Add(key))
+                yield return _mem.LastFocusedDocument;
+        }
+
+        foreach (var doc in _mem.LastListedDocuments)
+        {
+            var key = !string.IsNullOrWhiteSpace(doc.DocId) ? doc.DocId : doc.DocPath;
+            if (!string.IsNullOrWhiteSpace(key) && seen.Add(key))
+                yield return doc;
+        }
+
+        foreach (var doc in _mem.PdfMap.Values)
+        {
+            var key = !string.IsNullOrWhiteSpace(doc.DocId) ? doc.DocId : doc.DocPath;
+            if (!string.IsNullOrWhiteSpace(key) && seen.Add(key))
+                yield return doc;
+        }
+    }
+
+    private static string NormalizeDocumentLookupText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var s = value.Trim();
+        s = Regex.Replace(s, @"(?<=[a-z])(?=[A-Z])", " ");
+        s = Regex.Replace(s, @"(?<=[A-Z])(?=[A-Z][a-z])", " ");
+        s = s.Replace('_', ' ').Replace('-', ' ').Replace('/', ' ').Replace('\\', ' ');
+        s = Regex.Replace(s, @"(?i)\.pdf\b", " ");
+        s = StripDiacritics(s);
+        s = Regex.Replace(s, @"[^a-z0-9 ]+", " ");
+        s = Regex.Replace(s, @"\s+", " ").Trim();
+        return s;
+    }
+
+    private static string NormalizeDocumentLookupCompact(string? value)
+        => Regex.Replace(NormalizeDocumentLookupText(value), @"\s+", string.Empty);
+
+    private static int ScoreDocumentMatch(string query, string? docName, string? docPath)
+    {
+        var normalizedQuery = NormalizeDocumentLookupText(query);
+        var compactQuery = NormalizeDocumentLookupCompact(query);
+        if (string.IsNullOrWhiteSpace(normalizedQuery) && string.IsNullOrWhiteSpace(compactQuery))
+            return 0;
+
+        var names = new[]
+        {
+            docName ?? string.Empty,
+            docPath ?? string.Empty,
+            string.IsNullOrWhiteSpace(docPath) ? string.Empty : Path.GetFileName(docPath)
+        };
+
+        var best = 0;
+        var queryTokens = normalizedQuery.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(x => x.Length >= 2)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        foreach (var raw in names)
+        {
+            var normalizedCandidate = NormalizeDocumentLookupText(raw);
+            var compactCandidate = NormalizeDocumentLookupCompact(raw);
+            if (string.IsNullOrWhiteSpace(normalizedCandidate) && string.IsNullOrWhiteSpace(compactCandidate))
+                continue;
+
+            var score = 0;
+            if (!string.IsNullOrWhiteSpace(compactQuery) && compactCandidate == compactQuery)
+                score += 300;
+            else if (!string.IsNullOrWhiteSpace(normalizedQuery) && normalizedCandidate == normalizedQuery)
+                score += 280;
+            else if (!string.IsNullOrWhiteSpace(compactQuery) && compactCandidate.Contains(compactQuery, StringComparison.Ordinal))
+                score += 220;
+            else if (!string.IsNullOrWhiteSpace(normalizedQuery) && normalizedCandidate.Contains(normalizedQuery, StringComparison.Ordinal))
+                score += 200;
+
+            var matchedTokens = 0;
+            foreach (var token in queryTokens)
+            {
+                if (normalizedCandidate.Contains(token, StringComparison.Ordinal)
+                    || compactCandidate.Contains(token, StringComparison.Ordinal))
+                {
+                    matchedTokens++;
+                    score += token.Length >= 4 ? 28 : 16;
+                }
+            }
+
+            if (queryTokens.Length > 0 && matchedTokens == queryTokens.Length)
+                score += 60;
+
+            if (Path.GetFileName(raw ?? string.Empty).Equals(docName ?? string.Empty, StringComparison.OrdinalIgnoreCase))
+                score += 4;
+
+            best = Math.Max(best, score);
+        }
+
+        return best;
+    }
+
+    private ResolvedDocRef? TryResolveKnownDocumentByFuzzyReference(string docRef)
+    {
+        var best = default(ToolMemory.DocumentItem);
+        var bestScore = 0;
+
+        foreach (var doc in EnumerateKnownDocuments())
+        {
+            var score = ScoreDocumentMatch(docRef, doc.DocName, doc.DocPath);
+            if (score <= bestScore)
+                continue;
+
+            best = doc;
+            bestScore = score;
+        }
+
+        if (best is null || bestScore < 110)
+            return null;
+
+        return new ResolvedDocRef(best.DocId, best.DocPath, best.DocName, best.Category, best.CategoryPath, best.Pages);
+    }
+
+    private static IReadOnlyList<string> BuildDocumentSearchVariants(string docRef)
+    {
+        var variants = new List<string>();
+        void Add(string? value)
+        {
+            var v = (value ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(v))
+                return;
+            if (!variants.Any(x => string.Equals(x, v, StringComparison.OrdinalIgnoreCase)))
+                variants.Add(v);
+        }
+
+        var raw = (docRef ?? string.Empty).Trim();
+        Add(raw);
+        Add(Regex.Replace(raw, @"(?i)\.pdf\b", string.Empty).Trim());
+        Add(Regex.Replace(raw, @"[_\-/]+", " ").Trim());
+        Add(Regex.Replace(raw, @"(?<=[a-z])(?=[A-Z])", " ").Trim());
+
+        var normalized = NormalizeDocumentLookupText(raw);
+        Add(normalized);
+
+        return variants;
     }
 
     private async Task<JsonElement> ExecDocumentsGetResolvedAsync(JsonElement args, CancellationToken ct)
@@ -54,34 +236,42 @@ public sealed partial class ToolAgentOrchestrator
 
     private async Task<JsonElement> ExecDocumentsCountAsync(JsonElement args, CancellationToken ct)
     {
-        var categoryPath = GetStringArg(args, "categoryPath") ?? GetStringArg(args, "category");
+        var (categoryPath, categoryRef) = ResolveCategoryScopeArgs(args);
         var q = GetStringArg(args, "q");
-        return await _api.DocumentsCountAsync(categoryPath, q, ct).ConfigureAwait(false);
+        return await _api.DocumentsCountAsync(categoryPath, categoryRef, q, ct).ConfigureAwait(false);
+    }
+
+    private async Task<JsonElement> ExecDocumentsCategoriesAsync(JsonElement args, CancellationToken ct)
+    {
+        var (path, categoryRef) = ResolveCategoryScopeArgs(args);
+        var limit = GetIntArg(args, "limit") ?? 100;
+        var offset = GetIntArg(args, "offset") ?? 0;
+        return await _api.DocumentsCategoriesAsync(path, categoryRef, limit, offset, ct).ConfigureAwait(false);
     }
 
     private async Task<JsonElement> ExecDocumentsTreeAsync(JsonElement args, CancellationToken ct)
     {
-        var path = GetStringArg(args, "path") ?? GetStringArg(args, "categoryPath");
+        var (path, categoryRef) = ResolveCategoryScopeArgs(args);
         var depth = GetIntArg(args, "depth") ?? 10;
         var format = GetStringArg(args, "format") ?? "markdown";
-        return await _api.DocumentsTreeAsync(path, depth, format, ct).ConfigureAwait(false);
+        return await _api.DocumentsTreeAsync(path, categoryRef, depth, format, ct).ConfigureAwait(false);
     }
 
     private async Task<JsonElement> ExecDocumentsStatsAsync(JsonElement args, CancellationToken ct)
     {
-        var path = GetStringArg(args, "path") ?? GetStringArg(args, "categoryPath");
-        return await _api.DocumentsStatsAsync(path, ct).ConfigureAwait(false);
+        var (path, categoryRef) = ResolveCategoryScopeArgs(args);
+        return await _api.DocumentsStatsAsync(path, categoryRef, ct).ConfigureAwait(false);
     }
 
     private async Task<JsonElement> ExecDocumentsEmptyCountAsync(JsonElement args, CancellationToken ct)
     {
-        var path = GetStringArg(args, "path") ?? GetStringArg(args, "categoryPath");
+        var (path, _) = ResolveCategoryScopeArgs(args);
         return await _api.DocumentsEmptyFoldersCountAsync(path, ct).ConfigureAwait(false);
     }
 
     private async Task<JsonElement> ExecDocumentsEmptyListAsync(JsonElement args, CancellationToken ct)
     {
-        var path = GetStringArg(args, "path") ?? GetStringArg(args, "categoryPath");
+        var (path, _) = ResolveCategoryScopeArgs(args);
         var limit = GetIntArg(args, "limit") ?? 200;
         var offset = GetIntArg(args, "offset") ?? 0;
         return await _api.DocumentsEmptyFoldersListAsync(path, limit, offset, ct).ConfigureAwait(false);
@@ -123,12 +313,40 @@ public sealed partial class ToolAgentOrchestrator
         return await _api.SummarySearchAsync(q, limit, offset, ct).ConfigureAwait(false);
     }
 
+    private async Task<JsonElement> ExecSummaryStatusCountAsync(JsonElement args, CancellationToken ct)
+    {
+        var (categoryPath, categoryRef) = ResolveCategoryScopeArgs(args);
+        return await _api.AdminSummaryMissingCountAsync(categoryPath, categoryRef, ct).ConfigureAwait(false);
+    }
+
+    private async Task<JsonElement> ExecSummaryStatusListAsync(JsonElement args, CancellationToken ct)
+    {
+        var limit = GetIntArg(args, "limit") ?? 100;
+        var offset = GetIntArg(args, "offset") ?? 0;
+        var (categoryPath, categoryRef) = ResolveCategoryScopeArgs(args);
+        return await _api.AdminSummaryMissingAsync(limit, offset, categoryPath, categoryRef, ct).ConfigureAwait(false);
+    }
+
+    private async Task<JsonElement> ExecSummaryPresentCountAsync(JsonElement args, CancellationToken ct)
+    {
+        var (categoryPath, categoryRef) = ResolveCategoryScopeArgs(args);
+        return await _api.AdminSummaryPresentCountAsync(categoryPath, categoryRef, ct).ConfigureAwait(false);
+    }
+
+    private async Task<JsonElement> ExecSummaryPresentListAsync(JsonElement args, CancellationToken ct)
+    {
+        var limit = GetIntArg(args, "limit") ?? 100;
+        var offset = GetIntArg(args, "offset") ?? 0;
+        var (categoryPath, categoryRef) = ResolveCategoryScopeArgs(args);
+        return await _api.AdminSummaryPresentAsync(limit, offset, categoryPath, categoryRef, ct).ConfigureAwait(false);
+    }
+
     private async Task<JsonElement> ExecAdminSummaryMissingAsync(JsonElement args, CancellationToken ct)
     {
         var limit = GetIntArg(args, "limit") ?? 100;
         var offset = GetIntArg(args, "offset") ?? 0;
-        var categoryPath = GetStringArg(args, "categoryPath") ?? GetStringArg(args, "category");
-        return await _api.AdminSummaryMissingAsync(limit, offset, categoryPath, ct).ConfigureAwait(false);
+        var (categoryPath, categoryRef) = ResolveCategoryScopeArgs(args);
+        return await _api.AdminSummaryMissingAsync(limit, offset, categoryPath, categoryRef, ct).ConfigureAwait(false);
     }
 
     private async Task<JsonElement> ExecAdminSummaryRequestAsync(JsonElement args, CancellationToken ct)
@@ -344,6 +562,8 @@ public sealed partial class ToolAgentOrchestrator
         if (string.IsNullOrWhiteSpace(s))
             return null;
 
+        _mem.LastRequestedDocumentRef = s;
+
         if (_mem.PdfMap.TryGetValue(s, out var mapped) && mapped is not null)
         {
             var resolved = new ResolvedDocRef(mapped.DocId, mapped.DocPath, mapped.DocName, mapped.Category, mapped.CategoryPath, mapped.Pages);
@@ -371,7 +591,7 @@ public sealed partial class ToolAgentOrchestrator
             return resolved;
         }
 
-        foreach (var d in _mem.LastListedDocuments)
+        foreach (var d in EnumerateKnownDocuments())
         {
             if (string.Equals(d.DocId, s, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(d.DocPath, s, StringComparison.OrdinalIgnoreCase)
@@ -383,15 +603,11 @@ public sealed partial class ToolAgentOrchestrator
             }
         }
 
-        if (_mem.LastFocusedDocument is not null
-            && (string.Equals(_mem.LastFocusedDocument.DocId, s, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(_mem.LastFocusedDocument.DocPath, s, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(_mem.LastFocusedDocument.DocName, s, StringComparison.OrdinalIgnoreCase)))
+        var fuzzyKnown = TryResolveKnownDocumentByFuzzyReference(s);
+        if (fuzzyKnown is not null)
         {
-            var d = _mem.LastFocusedDocument;
-            var resolved = new ResolvedDocRef(d.DocId, d.DocPath, d.DocName, d.Category, d.CategoryPath, d.Pages);
-            RememberFocusedDocument(resolved);
-            return resolved;
+            RememberFocusedDocument(fuzzyKnown);
+            return fuzzyKnown;
         }
 
         if (Guid.TryParse(s, out _))
@@ -411,39 +627,47 @@ public sealed partial class ToolAgentOrchestrator
             }
         }
 
-        var search = await _api.DocumentsSearchAsync(s, categoryPath: null, limit: 20, offset: 0, ct).ConfigureAwait(false);
-        if (search.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
+        var candidateMap = new Dictionary<string, (string docId, string docPath, string docName, string? category, string? categoryPath, int? pages, int score)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var query in BuildDocumentSearchVariants(s).Take(5))
         {
-            JsonElement? best = null;
+            var search = await _api.DocumentsSearchAsync(query, categoryPath: null, categoryRef: null, limit: 20, offset: 0, ct: ct).ConfigureAwait(false);
+            if (!search.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+                continue;
+
             foreach (var it in items.EnumerateArray())
             {
-                var name = TryGetString(it, "docName") ?? string.Empty;
-                var path = TryGetString(it, "docPath") ?? string.Empty;
-                if (string.Equals(name, s, StringComparison.OrdinalIgnoreCase) || string.Equals(path, s, StringComparison.OrdinalIgnoreCase))
-                {
-                    best = it;
-                    break;
-                }
-
-                best ??= it;
-            }
-
-            if (best.HasValue)
-            {
-                var it = best.Value;
                 var docId = TryGetString(it, "docId") ?? string.Empty;
                 var docPath = TryGetString(it, "docPath") ?? string.Empty;
                 var docName = TryGetString(it, "docName") ?? docPath;
-                var category = TryGetString(it, "category");
-                var categoryPath = TryGetString(it, "categoryPath") ?? GuessCategoryPath(docPath);
-                var pages = TryGetInt(it, "pages");
-                if (!string.IsNullOrWhiteSpace(docId) && !string.IsNullOrWhiteSpace(docPath))
+                if (string.IsNullOrWhiteSpace(docId) || string.IsNullOrWhiteSpace(docPath))
+                    continue;
+
+                var score = ScoreDocumentMatch(s, docName, docPath);
+                var key = docId;
+                if (!candidateMap.TryGetValue(key, out var existing) || score > existing.score)
                 {
-                    var resolved = new ResolvedDocRef(docId, docPath, docName, category, categoryPath, pages);
-                    RememberFocusedDocument(resolved);
-                    return resolved;
+                    candidateMap[key] = (
+                        docId,
+                        docPath,
+                        docName,
+                        TryGetString(it, "category"),
+                        TryGetString(it, "categoryPath") ?? GuessCategoryPath(docPath),
+                        TryGetInt(it, "pages"),
+                        score);
                 }
             }
+        }
+
+        var best = candidateMap.Values
+            .OrderByDescending(x => x.score)
+            .ThenByDescending(x => x.docName.Length)
+            .FirstOrDefault();
+
+        if (!string.IsNullOrWhiteSpace(best.docId) && best.score >= 90)
+        {
+            var resolved = new ResolvedDocRef(best.docId, best.docPath, best.docName, best.category, best.categoryPath, best.pages);
+            RememberFocusedDocument(resolved);
+            return resolved;
         }
 
         return null;
@@ -863,6 +1087,7 @@ public sealed partial class ToolAgentOrchestrator
         => GetStringArg(args, "docRef")
            ?? GetStringArg(args, "docId")
            ?? GetStringArg(args, "ref")
+           ?? _mem.LastRequestedDocumentRef
            ?? _mem.LastFocusedDocument?.DocId
            ?? _mem.LastFocusedDocument?.DocPath
            ?? _mem.LastFocusedDocument?.DocName;

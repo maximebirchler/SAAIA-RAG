@@ -29,17 +29,24 @@ public sealed class ToolContractParityTests
     }
 
     [Theory]
+    [InlineData("documents.categories")]
     [InlineData("support.bundle")]
     [InlineData("diagnostic.performance")]
     [InlineData("summary.get")]
     [InlineData("summary.exists")]
     [InlineData("summary.search")]
+    [InlineData("summary.status.count")]
+    [InlineData("summary.status.list")]
+    [InlineData("summary.present.count")]
+    [InlineData("summary.present.list")]
     [InlineData("admin.summary.missing")]
     [InlineData("admin.summary.request")]
     [InlineData("admin.summary.submit")]
     [InlineData("admin.summary.status")]
     [InlineData("admin.summary.delete")]
     [InlineData("admin.summary.generate")]
+    [InlineData("documents.empty_count")]
+    [InlineData("documents.empty_list")]
     public void Sensitive_tools_are_declared_and_executable(string toolName)
     {
         Assert.True(ToolManifest.KnownToolNames.Contains(toolName));

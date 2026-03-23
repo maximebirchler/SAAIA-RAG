@@ -259,22 +259,40 @@
                 <FontIcon Glyph="&#xE700;" FontSize="18" />
             </Button>
 
-            <!-- Settings -->
-            <Button Grid.Column="2"
-                    x:Name="HeaderSettingsButton"
-                    Width="40"
-                    Height="40"
-                    Margin="0,0,8,0"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Center"
-                    Background="Transparent"
-                    BorderThickness="0"
-                    Padding="8"
-                    Click="UserSettings_Click"
-                    ToolTipService.ToolTip="Paramètres"
-                    IsTabStop="False">
-                <FontIcon Glyph="&#xE713;" FontSize="19" />
-            </Button>
+            <StackPanel Grid.Column="2"
+                        Orientation="Horizontal"
+                        Spacing="2"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center">
+                <Button x:Name="HeaderHelpButton"
+                        Width="40"
+                        Height="40"
+                        Margin="0,0,0,0"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Padding="0"
+                        Click="HelpButton_Click"
+                        ToolTipService.ToolTip="Aide"
+                        IsTabStop="False">
+                    <TextBlock Text="?" FontSize="18" FontWeight="SemiBold" />
+                </Button>
+
+                <!-- Settings -->
+                <Button x:Name="HeaderSettingsButton"
+                        Width="40"
+                        Height="40"
+                        Margin="0,0,8,0"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Padding="8"
+                        Click="UserSettings_Click"
+                        ToolTipService.ToolTip="Paramètres"
+                        IsTabStop="False">
+                    <FontIcon Glyph="&#xE713;" FontSize="19" />
+                </Button>
+            </StackPanel>
         </Grid>
 
         <!-- =========================
@@ -476,7 +494,7 @@
                         </Grid.ColumnDefinitions>
 
                         <Border Background="Transparent" Padding="2,2,8,2" HorizontalAlignment="Left" VerticalAlignment="Center" PointerPressed="ChatsSecretHotzone_PointerPressed">
-                            <TextBlock Text="Chats" FontWeight="SemiBold" FontSize="16"/>
+                            <TextBlock x:Name="ChatsHeaderText" Text="Chats" FontWeight="SemiBold" FontSize="16"/>
                         </Border>
                         <Button Grid.Column="1"
                                 x:Name="NewChatButton"
@@ -523,7 +541,7 @@
                                                 HorizontalAlignment="Right"
                                                 VerticalAlignment="Top">
                                             <Button.Flyout>
-                                                <MenuFlyout>
+                                                <MenuFlyout Opening="SessionMenu_Opening">
                                                     <MenuFlyoutItem Text="Rename" Click="SessionRename_Click" CommandParameter="{Binding}"/>
                                                     <MenuFlyoutItem Text="Delete" Click="SessionDelete_Click" CommandParameter="{Binding}"/>
                                                 </MenuFlyout>

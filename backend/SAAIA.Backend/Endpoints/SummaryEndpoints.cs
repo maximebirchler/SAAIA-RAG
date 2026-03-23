@@ -1,3 +1,7 @@
+using System.Globalization;
+using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
 using System.Text.Json;
 using Dapper;
 using Npgsql;
@@ -6,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SAAIA.Backend.Auth;
 using SAAIA.Backend.CatalogSnapshot;
+using SAAIA.Backend.Shared;
 
 namespace SAAIA.Backend.Endpoints;
 
@@ -19,7 +24,13 @@ public static class SummaryEndpoints
         app.MapGet("/summaries/{docId:guid}/exists", SummaryExistsAsync);
         app.MapGet("/summaries/search", SearchSummariesAsync);
 
+        // Contract-aligned catalog surface (admin summary status remains server-enforced)
+        app.MapGet("/catalog/summaries", CatalogSummariesAsync).RequireAdminKey();
+
+        app.MapGet("/admin/summaries/missing_count", MissingSummariesCountAsync).RequireAdminKey();
         app.MapGet("/admin/summaries/missing", MissingSummariesAsync).RequireAdminKey();
+        app.MapGet("/admin/summaries/present_count", PresentSummariesCountAsync).RequireAdminKey();
+        app.MapGet("/admin/summaries/present", PresentSummariesAsync).RequireAdminKey();
         app.MapPost("/admin/summaries/request", RequestSummaryAsync).RequireAdminKey();
         app.MapPost("/admin/summaries/generate", GenerateSummaryAsync).RequireAdminKey();
         app.MapPost("/admin/summaries/submit", SubmitSummaryAsync).RequireAdminKey();
@@ -161,18 +172,70 @@ LIMIT @lim OFFSET @off;
         return Results.Ok(new { items, limit = lim, offset = off });
     }
 
-    private static async Task<IResult> MissingSummariesAsync(HttpContext ctx, NpgsqlDataSource ds, string? categoryPath, int? limit, int? offset)
+
+    private static async Task<IResult> CatalogSummariesAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        string? categoryRef,
+        string? categoryPath,
+        int? pageSize,
+        int? maxpagesize,
+        string? cursor)
     {
         AdminAuth.EnsureAdmin(ctx);
         var tenantId = ctx.GetTenantId();
         var ct = ctx.RequestAborted;
-        categoryPath = NormalizePath(categoryPath);
-        var lim = Math.Clamp(limit ?? 100, 1, 500);
-        var off = Math.Max(offset ?? 0, 0);
+
+        categoryPath = NormalizeCategoryPathOrNull(categoryPath);
+        categoryRef = NormalizeCategoryRefOrNull(categoryRef);
+        var requestedPageSize = Math.Clamp(pageSize ?? maxpagesize ?? 100, 1, 500);
+
+        CatalogSummariesCursor? cursorState = null;
+        if (!string.IsNullOrWhiteSpace(cursor))
+        {
+            if (!OpaqueCursor.TryDecode<CatalogSummariesCursor>(cursor, out cursorState) || cursorState is null)
+            {
+                return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "invalid_cursor", detail: "The supplied cursor is invalid.");
+            }
+
+            if (!CursorMatches(cursorState.CategoryPath, categoryPath)
+                || !CursorMatches(cursorState.CategoryRef, categoryRef)
+                || !CursorMatches(cursorState.PageSize, requestedPageSize))
+            {
+                return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "cursor_mismatch", detail: "The supplied cursor does not match the requested summaries filters.");
+            }
+
+            categoryPath = cursorState.CategoryPath;
+            categoryRef = cursorState.CategoryRef;
+            requestedPageSize = cursorState.PageSize;
+        }
+
+        var offset = cursorState?.Offset ?? 0;
 
         await using var conn = await ds.OpenConnectionAsync(ct);
+        categoryPath = await ResolveSummaryCategoryScopeAsync(conn, tenantId, categoryPath, categoryRef, ct);
 
-        var sql = """
+        const string countSql = """
+SELECT
+  COUNT(*)::int AS "Total",
+  COUNT(*) FILTER (WHERE s.source_hash IS NULL)::int AS "MissingStored",
+  COUNT(*) FILTER (
+    WHERE s.source_hash IS NOT NULL
+      AND s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')))
+  )::int AS "StaleStored"
+FROM documents d
+LEFT JOIN document_summaries s
+  ON s.tenant_id = d.tenant_id AND s.doc_id = d.doc_id AND s.level='medium'
+WHERE d.tenant_id=@tenant
+  AND d.status='indexed'
+  AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
+  AND (
+    s.source_hash IS NULL
+    OR s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')))
+  );
+""";
+
+        const string sql = """
 SELECT
   d.doc_id           AS "DocId",
   d.doc_path         AS "DocPath",
@@ -181,39 +244,328 @@ SELECT
   d.page_count       AS "PageCount",
   d.last_ingested_at AS "LastIngestedAt",
   d.updated_at       AS "UpdatedAt",
-  s.source_hash      AS "StoredSourceHash"
+  CASE
+    WHEN s.source_hash IS NULL THEN 'missing'
+    WHEN s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,''))) THEN 'stale'
+    ELSE 'fresh'
+  END AS "SummaryState"
 FROM documents d
 LEFT JOIN document_summaries s
   ON s.tenant_id = d.tenant_id AND s.doc_id = d.doc_id AND s.level='medium'
 WHERE d.tenant_id=@tenant
   AND d.status='indexed'
   AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
+  AND (
+    s.source_hash IS NULL
+    OR s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')))
+  )
 ORDER BY d.updated_at DESC
 LIMIT @lim OFFSET @off;
 """;
 
-        var rows = await conn.QueryAsync<MissingSummaryRow>(new CommandDefinition(sql, new { tenant = tenantId, categoryPath, lim, off }, cancellationToken: ct));
-        var items = new List<object>();
-        foreach (var row in rows)
+        var counts = await conn.QueryFirstAsync<MissingSummaryCountRow>(new CommandDefinition(countSql, new { tenant = tenantId, categoryPath }, cancellationToken: ct));
+        var rows = (await conn.QueryAsync<MissingSummaryRow>(new CommandDefinition(sql, new { tenant = tenantId, categoryPath, lim = requestedPageSize, off = offset }, cancellationToken: ct))).ToList();
+
+        var value = rows.Select(row =>
         {
-            var currentHash = await ComputeDocumentSourceHashAsync(conn, tenantId, row.DocId, ct);
-            var exists = !string.IsNullOrWhiteSpace(row.StoredSourceHash) && string.Equals(row.StoredSourceHash, currentHash, StringComparison.OrdinalIgnoreCase);
-            if (!exists)
+            var topLevel = row.DocPath?.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
+            var canonicalCategory = string.IsNullOrWhiteSpace(topLevel)
+                ? row.Category
+                : topLevel;
+
+            return new
             {
-                items.Add(new
-                {
-                    row.DocId,
-                    row.DocPath,
-                    row.DocName,
-                    row.Category,
-                    row.PageCount,
-                    row.LastIngestedAt,
-                    row.UpdatedAt
-                });
-            }
+                documentRef = $"doc_{row.DocId:N}",
+                row.DocId,
+                row.DocPath,
+                canonicalName = row.DocName,
+                categoryCanonicalName = canonicalCategory,
+                row.PageCount,
+                row.LastIngestedAt,
+                row.UpdatedAt,
+                row.SummaryState
+            };
+        }).ToList();
+
+        string? nextLink = null;
+        var nextOffset = offset + value.Count;
+        if (nextOffset < counts.Total)
+        {
+            var nextCursor = OpaqueCursor.Encode(new CatalogSummariesCursor
+            {
+                CategoryPath = categoryPath,
+                CategoryRef = categoryRef,
+                PageSize = requestedPageSize,
+                Offset = nextOffset
+            });
+
+            nextLink = BuildAbsoluteNextLink(ctx, new Dictionary<string, string?>
+            {
+                ["categoryPath"] = categoryPath,
+                ["categoryRef"] = categoryRef,
+                ["pageSize"] = requestedPageSize.ToString(),
+                ["cursor"] = nextCursor
+            });
         }
 
-        return Results.Ok(new { items, limit = lim, offset = off });
+        return Results.Ok(new
+        {
+            value,
+            nextLink,
+            totals = new
+            {
+                total = counts.Total,
+                missingStored = counts.MissingStored,
+                staleStored = counts.StaleStored
+            },
+            scopePath = categoryPath,
+            level = "medium"
+        });
+    }
+
+    private static async Task<IResult> MissingSummariesCountAsync(HttpContext ctx, NpgsqlDataSource ds, string? categoryPath, string? categoryRef)
+    {
+        AdminAuth.EnsureAdmin(ctx);
+        var tenantId = ctx.GetTenantId();
+        var ct = ctx.RequestAborted;
+        categoryPath = NormalizeCategoryPathOrNull(categoryPath);
+        categoryRef = NormalizeCategoryRefOrNull(categoryRef);
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        categoryPath = await ResolveSummaryCategoryScopeAsync(conn, tenantId, categoryPath, categoryRef, ct);
+
+        const string sql = """
+SELECT
+  COUNT(*)::int AS "Total",
+  COUNT(*) FILTER (WHERE s.source_hash IS NULL)::int AS "MissingStored",
+  COUNT(*) FILTER (
+    WHERE s.source_hash IS NOT NULL
+      AND s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')))
+  )::int AS "StaleStored"
+FROM documents d
+LEFT JOIN document_summaries s
+  ON s.tenant_id = d.tenant_id AND s.doc_id = d.doc_id AND s.level='medium'
+WHERE d.tenant_id=@tenant
+  AND d.status='indexed'
+  AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
+  AND (
+    s.source_hash IS NULL
+    OR s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')))
+  );
+""";
+
+        var row = await conn.QueryFirstAsync<MissingSummaryCountRow>(new CommandDefinition(sql, new { tenant = tenantId, categoryPath }, cancellationToken: ct));
+        return Results.Ok(new
+        {
+            total = row.Total,
+            missingStored = row.MissingStored,
+            staleStored = row.StaleStored,
+            scopePath = categoryPath,
+            level = "medium"
+        });
+    }
+
+    private static async Task<IResult> PresentSummariesCountAsync(HttpContext ctx, NpgsqlDataSource ds, string? categoryPath, string? categoryRef)
+    {
+        AdminAuth.EnsureAdmin(ctx);
+        var tenantId = ctx.GetTenantId();
+        var ct = ctx.RequestAborted;
+        categoryPath = NormalizeCategoryPathOrNull(categoryPath);
+        categoryRef = NormalizeCategoryRefOrNull(categoryRef);
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        categoryPath = await ResolveSummaryCategoryScopeAsync(conn, tenantId, categoryPath, categoryRef, ct);
+
+        const string sql = """
+SELECT
+  COUNT(*)::int AS "Total"
+FROM documents d
+JOIN document_summaries s
+  ON s.tenant_id = d.tenant_id AND s.doc_id = d.doc_id AND s.level='medium'
+WHERE d.tenant_id=@tenant
+  AND d.status='indexed'
+  AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
+  AND s.source_hash IS NOT NULL
+  AND s.source_hash = COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')));
+""";
+
+        var total = await conn.ExecuteScalarAsync<int>(new CommandDefinition(sql, new { tenant = tenantId, categoryPath }, cancellationToken: ct));
+        return Results.Ok(new
+        {
+            total,
+            presentStored = total,
+            scopePath = categoryPath,
+            level = "medium",
+            mode = "present"
+        });
+    }
+
+    private static async Task<IResult> PresentSummariesAsync(HttpContext ctx, NpgsqlDataSource ds, string? categoryPath, string? categoryRef, int? limit, int? offset)
+    {
+        AdminAuth.EnsureAdmin(ctx);
+        var tenantId = ctx.GetTenantId();
+        var ct = ctx.RequestAborted;
+        categoryPath = NormalizeCategoryPathOrNull(categoryPath);
+        categoryRef = NormalizeCategoryRefOrNull(categoryRef);
+        var lim = Math.Clamp(limit ?? 100, 1, 500);
+        var off = Math.Max(offset ?? 0, 0);
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        categoryPath = await ResolveSummaryCategoryScopeAsync(conn, tenantId, categoryPath, categoryRef, ct);
+
+        const string countSql = """
+SELECT
+  COUNT(*)::int AS "Total"
+FROM documents d
+JOIN document_summaries s
+  ON s.tenant_id = d.tenant_id AND s.doc_id = d.doc_id AND s.level='medium'
+WHERE d.tenant_id=@tenant
+  AND d.status='indexed'
+  AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
+  AND s.source_hash IS NOT NULL
+  AND s.source_hash = COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')));
+""";
+
+        const string sql = """
+SELECT
+  d.doc_id           AS "DocId",
+  d.doc_path         AS "DocPath",
+  d.doc_name         AS "DocName",
+  d.category         AS "Category",
+  d.page_count       AS "PageCount",
+  d.last_ingested_at AS "LastIngestedAt",
+  d.updated_at       AS "UpdatedAt",
+  s.source_hash      AS "StoredSourceHash",
+  COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,''))) AS "CurrentSourceHash",
+  'fresh'            AS "SummaryState"
+FROM documents d
+JOIN document_summaries s
+  ON s.tenant_id = d.tenant_id AND s.doc_id = d.doc_id AND s.level='medium'
+WHERE d.tenant_id=@tenant
+  AND d.status='indexed'
+  AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
+  AND s.source_hash IS NOT NULL
+  AND s.source_hash = COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')))
+ORDER BY d.updated_at DESC
+LIMIT @lim OFFSET @off;
+""";
+
+        var total = await conn.ExecuteScalarAsync<int>(new CommandDefinition(countSql, new { tenant = tenantId, categoryPath }, cancellationToken: ct));
+        var rows = await conn.QueryAsync<MissingSummaryRow>(new CommandDefinition(sql, new { tenant = tenantId, categoryPath, lim, off }, cancellationToken: ct));
+        var items = rows.Select(row => new
+        {
+            row.DocId,
+            row.DocPath,
+            row.DocName,
+            row.Category,
+            row.PageCount,
+            row.LastIngestedAt,
+            row.UpdatedAt,
+            row.SummaryState
+        }).ToArray();
+
+        return Results.Ok(new
+        {
+            total,
+            presentStored = total,
+            limit = lim,
+            offset = off,
+            endOfList = off + items.Length >= total,
+            scopePath = categoryPath,
+            level = "medium",
+            mode = "present",
+            items
+        });
+    }
+
+    private static async Task<IResult> MissingSummariesAsync(HttpContext ctx, NpgsqlDataSource ds, string? categoryPath, string? categoryRef, int? limit, int? offset)
+    {
+        AdminAuth.EnsureAdmin(ctx);
+        var tenantId = ctx.GetTenantId();
+        var ct = ctx.RequestAborted;
+        categoryPath = NormalizeCategoryPathOrNull(categoryPath);
+        categoryRef = NormalizeCategoryRefOrNull(categoryRef);
+        var lim = Math.Clamp(limit ?? 100, 1, 500);
+        var off = Math.Max(offset ?? 0, 0);
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        categoryPath = await ResolveSummaryCategoryScopeAsync(conn, tenantId, categoryPath, categoryRef, ct);
+
+        const string countSql = """
+SELECT
+  COUNT(*)::int AS "Total",
+  COUNT(*) FILTER (WHERE s.source_hash IS NULL)::int AS "MissingStored",
+  COUNT(*) FILTER (
+    WHERE s.source_hash IS NOT NULL
+      AND s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')))
+  )::int AS "StaleStored"
+FROM documents d
+LEFT JOIN document_summaries s
+  ON s.tenant_id = d.tenant_id AND s.doc_id = d.doc_id AND s.level='medium'
+WHERE d.tenant_id=@tenant
+  AND d.status='indexed'
+  AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
+  AND (
+    s.source_hash IS NULL
+    OR s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')))
+  );
+""";
+
+        const string sql = """
+SELECT
+  d.doc_id           AS "DocId",
+  d.doc_path         AS "DocPath",
+  d.doc_name         AS "DocName",
+  d.category         AS "Category",
+  d.page_count       AS "PageCount",
+  d.last_ingested_at AS "LastIngestedAt",
+  d.updated_at       AS "UpdatedAt",
+  s.source_hash      AS "StoredSourceHash",
+  COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,''))) AS "CurrentSourceHash",
+  CASE
+    WHEN s.source_hash IS NULL THEN 'missing'
+    WHEN s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,''))) THEN 'stale'
+    ELSE 'fresh'
+  END AS "SummaryState"
+FROM documents d
+LEFT JOIN document_summaries s
+  ON s.tenant_id = d.tenant_id AND s.doc_id = d.doc_id AND s.level='medium'
+WHERE d.tenant_id=@tenant
+  AND d.status='indexed'
+  AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
+  AND (
+    s.source_hash IS NULL
+    OR s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')))
+  )
+ORDER BY d.updated_at DESC
+LIMIT @lim OFFSET @off;
+""";
+
+        var counts = await conn.QueryFirstAsync<MissingSummaryCountRow>(new CommandDefinition(countSql, new { tenant = tenantId, categoryPath }, cancellationToken: ct));
+        var rows = await conn.QueryAsync<MissingSummaryRow>(new CommandDefinition(sql, new { tenant = tenantId, categoryPath, lim, off }, cancellationToken: ct));
+        var items = rows.Select(row => new
+        {
+            row.DocId,
+            row.DocPath,
+            row.DocName,
+            row.Category,
+            row.PageCount,
+            row.LastIngestedAt,
+            row.UpdatedAt,
+            row.SummaryState
+        }).ToList();
+
+        return Results.Ok(new
+        {
+            items,
+            limit = lim,
+            offset = off,
+            total = counts.Total,
+            missingStored = counts.MissingStored,
+            staleStored = counts.StaleStored,
+            scopePath = categoryPath,
+            level = "medium"
+        });
     }
 
     private static async Task<IResult> RequestSummaryAsync(HttpContext ctx, NpgsqlDataSource ds, SummaryCommand cmd)
@@ -529,7 +881,7 @@ WHERE tenant_id=@tenant AND job_id=@jobId AND status IN ('queued','running');
         if (doc is null)
             return Results.NotFound(new { error = "document_not_found" });
 
-        var enqueued = await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, doc.DocPath, doc.Category, fi: null, ct);
+        var enqueued = await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, doc.DocPath, doc.Category, fi: null, ct: ct);
         return Results.Ok(new { queued = true, docId = enqueued.DocId, jobId = enqueued.JobId, docPath = doc.DocPath });
     }
 
@@ -602,6 +954,231 @@ LIMIT 1;
         return await conn.ExecuteScalarAsync<Guid>(new CommandDefinition(sql, new { jobId, tenant = tenantId, jobType, docId, level, payload = payloadJson }, cancellationToken: ct));
     }
 
+    private static string? NormalizeCategoryPathOrNull(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return null;
+
+        var normalized = path.Trim().Replace('\\', '/').Trim().Trim('/');
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
+    private static string? NormalizeCategoryRefOrNull(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var normalized = value.Trim();
+        return normalized.Length == 0 ? null : normalized;
+    }
+
+    private static async Task<string?> ResolveSummaryCategoryScopeAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        string? categoryPath,
+        string? categoryRef,
+        CancellationToken ct)
+    {
+        var normalizedPath = NormalizeCategoryPathOrNull(categoryPath);
+        if (!string.IsNullOrWhiteSpace(normalizedPath))
+        {
+            var exactPath = await ResolveExistingSummaryCategoryPathAsync(conn, tenantId, normalizedPath!, ct);
+            if (!string.IsNullOrWhiteSpace(exactPath))
+                return exactPath;
+
+            return await ResolveSummaryCategoryRefToPathAsync(conn, tenantId, categoryRef ?? normalizedPath!, ct);
+        }
+
+        if (string.IsNullOrWhiteSpace(categoryRef))
+            return null;
+
+        return await ResolveSummaryCategoryRefToPathAsync(conn, tenantId, categoryRef!, ct);
+    }
+
+    private static async Task<string?> ResolveExistingSummaryCategoryPathAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        string categoryPath,
+        CancellationToken ct)
+    {
+        var normalizedPath = NormalizeCategoryPathOrNull(categoryPath);
+        if (string.IsNullOrWhiteSpace(normalizedPath))
+            return null;
+
+        return await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
+            @"SELECT path FROM documents_category_nodes WHERE tenant_id=@tenant AND path=@path LIMIT 1;",
+            new { tenant = tenantId, path = normalizedPath },
+            cancellationToken: ct));
+    }
+
+    private static async Task<string?> ResolveSummaryCategoryRefToPathAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        string categoryRef,
+        CancellationToken ct)
+    {
+        var raw = NormalizeCategoryRefOrNull(categoryRef);
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+
+        var normalizedPath = NormalizeCategoryPathOrNull(raw);
+        if (!string.IsNullOrWhiteSpace(normalizedPath))
+        {
+            var exactPath = await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
+                @"SELECT path FROM documents_category_nodes WHERE tenant_id=@tenant AND path=@path LIMIT 1;",
+                new { tenant = tenantId, path = normalizedPath },
+                cancellationToken: ct));
+            if (!string.IsNullOrWhiteSpace(exactPath))
+                return exactPath;
+        }
+
+        var ordinal = TryParseOrdinalCategoryRef(raw);
+        if (ordinal is not null)
+        {
+            var byOrder = await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
+                @"SELECT path FROM documents_catalog_categories WHERE tenant_id=@tenant AND display_order=@displayOrder LIMIT 1;",
+                new { tenant = tenantId, displayOrder = ordinal.Value },
+                cancellationToken: ct));
+            if (!string.IsNullOrWhiteSpace(byOrder))
+                return byOrder;
+        }
+
+        var probe = NormalizeCategoryComparableText(raw);
+        if (!string.IsNullOrWhiteSpace(probe))
+        {
+            var byAlias = await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
+                @"SELECT path
+FROM documents_catalog_category_aliases
+WHERE tenant_id=@tenant AND alias_key=@aliasKey
+ORDER BY priority ASC, path ASC
+LIMIT 1;",
+                new { tenant = tenantId, aliasKey = probe },
+                cancellationToken: ct));
+            if (!string.IsNullOrWhiteSpace(byAlias))
+                return byAlias;
+        }
+
+        var byName = await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
+            @"SELECT path FROM documents_catalog_categories WHERE tenant_id=@tenant AND (LOWER(path)=LOWER(@value) OR LOWER(name)=LOWER(@value)) ORDER BY display_order ASC, name ASC LIMIT 1;",
+            new { tenant = tenantId, value = raw.Trim() },
+            cancellationToken: ct));
+        if (!string.IsNullOrWhiteSpace(byName))
+            return byName;
+
+        if (!string.IsNullOrWhiteSpace(probe))
+        {
+            var candidates = (await conn.QueryAsync<TopCategorySnapshotRow>(new CommandDefinition(
+                """
+SELECT path AS "Path", name AS "Name", display_order AS "DisplayOrder"
+FROM documents_catalog_categories
+WHERE tenant_id=@tenant
+ORDER BY display_order ASC, name ASC;
+""",
+                new { tenant = tenantId },
+                cancellationToken: ct))).ToList();
+
+            var matched = candidates.FirstOrDefault(candidate =>
+            {
+                var candidateName = NormalizeCategoryComparableText(candidate.Name);
+                if (IsLooseCategoryComparableMatch(probe, candidateName))
+                    return true;
+
+                var candidatePath = NormalizeCategoryComparableText(candidate.Path);
+                if (IsLooseCategoryComparableMatch(probe, candidatePath))
+                    return true;
+
+                var topLevelPath = NormalizeCategoryComparableText(candidate.Path.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault());
+                return IsLooseCategoryComparableMatch(probe, topLevelPath);
+            });
+
+            if (matched is not null && !string.IsNullOrWhiteSpace(matched.Path))
+                return matched.Path;
+        }
+
+        return normalizedPath;
+    }
+
+    private static int? TryParseOrdinalCategoryRef(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+
+        var trimmed = raw.Trim();
+        if (int.TryParse(trimmed, out var direct) && direct > 0)
+            return direct;
+
+        var compact = trimmed.Replace("-", string.Empty, StringComparison.Ordinal).Replace("_", string.Empty, StringComparison.Ordinal);
+        if (compact.StartsWith("cat", StringComparison.OrdinalIgnoreCase)
+            && int.TryParse(compact.Substring(3), out var catOrdinal)
+            && catOrdinal > 0)
+        {
+            return catOrdinal;
+        }
+
+        var ordinalMatch = Regex.Match(trimmed, @"(?:^|\b)(?:cat(?:egory)?|cat[ée]gorie|categoria|kategorie)?\s*(?<n>\d{1,4})(?:st|nd|rd|th|er|e|eme|ème)?(?:\b|$)", RegexOptions.IgnoreCase);
+        if (ordinalMatch.Success && int.TryParse(ordinalMatch.Groups["n"].Value, out var parsed) && parsed > 0)
+            return parsed;
+
+        return null;
+    }
+
+    private static string NormalizeCategoryComparableText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var normalized = RemoveDiacritics(value).ToLowerInvariant();
+        normalized = normalized.Replace('&', ' ');
+        normalized = Regex.Replace(normalized, @"[^a-z0-9]+", " ");
+        normalized = Regex.Replace(normalized, @"\s+", " ").Trim();
+        return normalized;
+    }
+
+    private static bool IsLooseCategoryComparableMatch(string probe, string? candidate)
+    {
+        if (string.IsNullOrWhiteSpace(probe) || string.IsNullOrWhiteSpace(candidate))
+            return false;
+
+        if (string.Equals(probe, candidate, StringComparison.Ordinal))
+            return true;
+
+        if (candidate.StartsWith(probe, StringComparison.Ordinal) || probe.StartsWith(candidate, StringComparison.Ordinal))
+            return true;
+
+        var probeCompact = probe.Replace(" ", string.Empty, StringComparison.Ordinal);
+        var candidateCompact = candidate.Replace(" ", string.Empty, StringComparison.Ordinal);
+
+        if (string.Equals(probeCompact, candidateCompact, StringComparison.Ordinal))
+            return true;
+
+        if (candidateCompact.StartsWith(probeCompact, StringComparison.Ordinal) || probeCompact.StartsWith(candidateCompact, StringComparison.Ordinal))
+            return true;
+
+        var sharedPrefix = 0;
+        var max = Math.Min(probeCompact.Length, candidateCompact.Length);
+        while (sharedPrefix < max && probeCompact[sharedPrefix] == candidateCompact[sharedPrefix])
+            sharedPrefix++;
+
+        return sharedPrefix >= 7;
+    }
+
+    private static string RemoveDiacritics(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var normalized = value.Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder(normalized.Length);
+        foreach (var ch in normalized)
+        {
+            var category = CharUnicodeInfo.GetUnicodeCategory(ch);
+            if (category != UnicodeCategory.NonSpacingMark)
+                sb.Append(ch);
+        }
+
+        return sb.ToString().Normalize(NormalizationForm.FormC);
+    }
+
     private static string NormalizeStoredSummaryLevel(string? level)
     {
         // Stored summaries are currently persisted only at the reusable medium level.
@@ -650,6 +1227,44 @@ LIMIT 1;
         public DateTimeOffset UpdatedAt { get; set; }
     }
 
+
+    private sealed class CatalogSummariesCursor
+    {
+        public string? CategoryPath { get; set; }
+        public string? CategoryRef { get; set; }
+        public int PageSize { get; set; }
+        public int Offset { get; set; }
+    }
+
+    private static bool CursorMatches(string? cursorValue, string? requestValue)
+        => string.IsNullOrWhiteSpace(requestValue) || string.Equals(cursorValue ?? string.Empty, requestValue ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+
+    private static bool CursorMatches(int cursorValue, int requestValue)
+        => requestValue <= 0 || cursorValue == requestValue;
+
+    private static string BuildAbsoluteNextLink(HttpContext ctx, IReadOnlyDictionary<string, string?> query)
+    {
+        var request = ctx.Request;
+        var builder = new UriBuilder(request.Scheme, request.Host.Host, request.Host.Port ?? -1, "/catalog/summaries");
+        var parts = new List<string>();
+        foreach (var pair in query)
+        {
+            if (string.IsNullOrWhiteSpace(pair.Value))
+                continue;
+            parts.Add($"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value!)}");
+        }
+
+        builder.Query = string.Join("&", parts);
+        return builder.Uri.AbsoluteUri;
+    }
+
+    private sealed class MissingSummaryCountRow
+    {
+        public int Total { get; set; }
+        public int MissingStored { get; set; }
+        public int StaleStored { get; set; }
+    }
+
     private sealed class MissingSummaryRow
     {
         public Guid DocId { get; set; }
@@ -660,6 +1275,15 @@ LIMIT 1;
         public DateTimeOffset? LastIngestedAt { get; set; }
         public DateTimeOffset UpdatedAt { get; set; }
         public string? StoredSourceHash { get; set; }
+        public string? CurrentSourceHash { get; set; }
+        public string SummaryState { get; set; } = "missing";
+    }
+
+    private sealed class TopCategorySnapshotRow
+    {
+        public string Path { get; set; } = "";
+        public string Name { get; set; } = "";
+        public int DisplayOrder { get; set; }
     }
 
     private sealed class DocumentRow

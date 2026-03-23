@@ -51,35 +51,82 @@ public sealed class ApiKeyAuthMiddleware
         var endpoint = ctx.GetEndpoint();
         var isAdminRoute = path.StartsWith("/admin", StringComparison.OrdinalIgnoreCase)
             || endpoint?.Metadata.GetMetadata<RequireAdminKeyMetadata>() is not null;
-        var headerName = isAdminRoute
-            ? (string.IsNullOrWhiteSpace(opt.Value.AdminKeyHeaderName) ? "X-Admin-Key" : opt.Value.AdminKeyHeaderName)
-            : (string.IsNullOrWhiteSpace(opt.Value.ApiKeyHeaderName) ? "X-Api-Key" : opt.Value.ApiKeyHeaderName);
+        var allowApiKeyOrAdminKey = endpoint?.Metadata.GetMetadata<AllowApiKeyOrAdminKeyMetadata>() is not null;
+
+        var apiKeyHeaderName = string.IsNullOrWhiteSpace(opt.Value.ApiKeyHeaderName) ? "X-Api-Key" : opt.Value.ApiKeyHeaderName;
+        var adminKeyHeaderName = string.IsNullOrWhiteSpace(opt.Value.AdminKeyHeaderName) ? "X-Admin-Key" : opt.Value.AdminKeyHeaderName;
 
         var requestId = ctx.GetRequestId();
 
-        if (!ctx.Request.Headers.TryGetValue(headerName, out var keyVals))
-        {
-            _logger.LogWarning("Missing {Header} for {Path}", headerName, path);
-            var msg = isAdminRoute ? "Missing admin key." : "Missing API key.";
-            await WriteErrorResponseAsync(ctx, StatusCodes.Status401Unauthorized, msg, requestId);
-            return;
-        }
+        string effectiveHeaderName;
+        string apiKey;
 
-        var apiKey = keyVals.ToString().Trim();
-        if (string.IsNullOrWhiteSpace(apiKey))
+        if (isAdminRoute)
         {
-            _logger.LogWarning("Empty {Header} for {Path}", headerName, path);
-            var msg = isAdminRoute ? "Empty admin key." : "Empty API key.";
-            await WriteErrorResponseAsync(ctx, StatusCodes.Status401Unauthorized, msg, requestId);
-            return;
+            effectiveHeaderName = adminKeyHeaderName;
+            if (!ctx.Request.Headers.TryGetValue(effectiveHeaderName, out var keyVals))
+            {
+                _logger.LogWarning("Missing {Header} for {Path}", effectiveHeaderName, path);
+                await WriteErrorResponseAsync(ctx, StatusCodes.Status401Unauthorized, "Missing admin key.", requestId);
+                return;
+            }
+
+            apiKey = keyVals.ToString().Trim();
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                _logger.LogWarning("Empty {Header} for {Path}", effectiveHeaderName, path);
+                await WriteErrorResponseAsync(ctx, StatusCodes.Status401Unauthorized, "Empty admin key.", requestId);
+                return;
+            }
+        }
+        else if (allowApiKeyOrAdminKey)
+        {
+            var hasAdminHeader = ctx.Request.Headers.TryGetValue(adminKeyHeaderName, out var adminVals) && !string.IsNullOrWhiteSpace(adminVals.ToString());
+            var hasApiHeader = ctx.Request.Headers.TryGetValue(apiKeyHeaderName, out var apiVals) && !string.IsNullOrWhiteSpace(apiVals.ToString());
+
+            if (!hasAdminHeader && !hasApiHeader)
+            {
+                _logger.LogWarning("Missing {ApiHeader}/{AdminHeader} for {Path}", apiKeyHeaderName, adminKeyHeaderName, path);
+                await WriteErrorResponseAsync(ctx, StatusCodes.Status401Unauthorized, "Missing API key.", requestId);
+                return;
+            }
+
+            if (hasAdminHeader)
+            {
+                effectiveHeaderName = adminKeyHeaderName;
+                apiKey = adminVals.ToString().Trim();
+            }
+            else
+            {
+                effectiveHeaderName = apiKeyHeaderName;
+                apiKey = apiVals.ToString().Trim();
+            }
+        }
+        else
+        {
+            effectiveHeaderName = apiKeyHeaderName;
+            if (!ctx.Request.Headers.TryGetValue(effectiveHeaderName, out var keyVals))
+            {
+                _logger.LogWarning("Missing {Header} for {Path}", effectiveHeaderName, path);
+                await WriteErrorResponseAsync(ctx, StatusCodes.Status401Unauthorized, "Missing API key.", requestId);
+                return;
+            }
+
+            apiKey = keyVals.ToString().Trim();
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                _logger.LogWarning("Empty {Header} for {Path}", effectiveHeaderName, path);
+                await WriteErrorResponseAsync(ctx, StatusCodes.Status401Unauthorized, "Empty API key.", requestId);
+                return;
+            }
         }
 
         var principal = await ApiKeyAuth.ResolvePrincipalAsync(ds, apiKey, opt.Value.Pepper, ctx.RequestAborted);
 
         if (principal is null)
         {
-            _logger.LogWarning("Invalid {Header} for {Path}", headerName, path);
-            var msg = isAdminRoute ? "Invalid admin key." : "Invalid API key.";
+            _logger.LogWarning("Invalid {Header} for {Path}", effectiveHeaderName, path);
+            var msg = isAdminRoute || string.Equals(effectiveHeaderName, adminKeyHeaderName, StringComparison.OrdinalIgnoreCase) ? "Invalid admin key." : "Invalid API key.";
             await WriteErrorResponseAsync(ctx, StatusCodes.Status401Unauthorized, msg, requestId);
             return;
         }

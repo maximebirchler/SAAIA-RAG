@@ -66,6 +66,7 @@ public static class WebApplicationExtensions
         IngestionAdminEndpoints.Map(app);
 
         // IMPORTANT (spec v2.8.x): documents catalog (user-safe) + admin docs endpoints
+        AuthCapabilitiesEndpoints.Map(app);
         DocumentsEndpoints.Map(app);
         SummaryEndpoints.Map(app);
 

@@ -181,6 +181,21 @@ internal static class DeterministicAgentText
             "Dokumente auf dem Server:",
             "Documenti presenti sul server:");
 
+    public static string DocumentsListHeader(string? language, string? scopePath)
+    {
+        var scope = (scopePath ?? string.Empty).Replace('\\', '/').Trim().Trim('/');
+        if (string.IsNullOrWhiteSpace(scope))
+            return DocumentsListHeader(language);
+
+        return Pick(language,
+            $"Documents de la catégorie {scope} :",
+            $"Documents in category {scope}:",
+            $"Documentos de la categoría {scope}:",
+            $"Documentos da categoria {scope}:",
+            $"Dokumente der Kategorie {scope}:",
+            $"Documenti della categoria {scope}:");
+    }
+
     public static string EmptyFoldersCount(int total, string? language)
         => Pick(language,
             $"Il y a actuellement {total} dossier(s) vide(s) sur le serveur.",
@@ -254,6 +269,34 @@ internal static class DeterministicAgentText
             "Alle indexierten Dokumente verfügen bereits über eine gespeicherte Zusammenfassung.",
             "Tutti i documenti indicizzati dispongono già di un riassunto salvato.");
 
+
+    public static string StoredSummariesHeader(string? language)
+        => Pick(language,
+            "Voici la liste des documents avec un résumé stocké :",
+            "Here is the list of documents with a stored summary:",
+            "Aquí está la lista de documentos con un resumen almacenado:",
+            "Aqui está a lista de documentos com um resumo armazenado:",
+            "Hier ist die Liste der Dokumente mit gespeicherter Zusammenfassung:",
+            "Ecco l'elenco dei documenti con un riassunto salvato:");
+
+    public static string StoredSummariesCount(int total, string? language)
+        => Pick(language,
+            $"Il y a actuellement {total} document(s) indexé(s) qui ont un résumé stocké.",
+            $"There are currently {total} indexed document(s) with a stored summary.",
+            $"Actualmente hay {total} documento(s) indexado(s) con un resumen almacenado.",
+            $"Atualmente há {total} documento(s) indexado(s) com um resumo armazenado.",
+            $"Derzeit gibt es {total} indexierte Dokument(e) mit gespeicherter Zusammenfassung.",
+            $"Attualmente ci sono {total} documento/i indicizzato/i con un riassunto salvato.");
+
+    public static string NoStoredSummaries(string? language)
+        => Pick(language,
+            "Aucun document indexé n'a actuellement de résumé stocké.",
+            "No indexed document currently has a stored summary.",
+            "Actualmente ningún documento indexado tiene un resumen almacenado.",
+            "Atualmente nenhum documento indexado tem um resumo armazenado.",
+            "Derzeit hat kein indexiertes Dokument eine gespeicherte Zusammenfassung.",
+            "Attualmente nessun documento indicizzato ha un riassunto salvato.");
+
     public static string ToolFailureAdminRequired(string? language)
         => Pick(language,
             "Cette action nécessite une session admin active dans le client WinUI.",
@@ -286,6 +329,7 @@ internal static class DeterministicAgentText
         {
             "documents.tree" => Pick(language, "Je vais chercher l'arborescence des documents…", "I am retrieving the document tree…", "Estoy recuperando el árbol de documentos…", "Estou recuperando a árvore de documentos…", "Ich rufe den Dokumentbaum ab…", "Sto recuperando l'albero dei documenti…"),
             "documents.count" => Pick(language, "Je compte les documents indexés…", "I am counting indexed documents…", "Estoy contando los documentos indexados…", "Estou contando os documentos indexados…", "Ich zähle die indexierten Dokumente…", "Sto contando i documenti indicizzati…"),
+            "documents.categories" => Pick(language, "Je récupère les catégories du catalogue…", "I am retrieving the catalog categories…", "Estoy recuperando las categorías del catálogo…", "Estou recuperando as categorias do catálogo…", "Ich rufe die Katalogkategorien ab…", "Sto recuperando le categorie del catalogo…"),
             "documents.stats" => Pick(language, "Je rassemble les statistiques du catalogue…", "I am compiling catalog statistics…", "Estoy recopilando las estadísticas del catálogo…", "Estou reunindo as estatísticas do catálogo…", "Ich stelle die Katalogstatistiken zusammen…", "Sto raccogliendo le statistiche del catalogo…"),
             "documents.empty_count" => Pick(language, "Je compte les dossiers vides…", "I am counting empty folders…", "Estoy contando las carpetas vacías…", "Estou contando as pastas vazias…", "Ich zähle die leeren Ordner…", "Sto contando le cartelle vuote…"),
             "documents.empty_list" => Pick(language, "Je liste les dossiers vides…", "I am listing empty folders…", "Estoy enumerando las carpetas vacías…", "Estou listando as pastas vazias…", "Ich liste die leeren Ordner auf…", "Sto elencando le cartelle vuote…"),
@@ -297,10 +341,13 @@ internal static class DeterministicAgentText
             _ => ProgressCollectInformation(language)
         };
 
+    public static string ToolProgress(string toolName, string? language)
+        => ToolAction(toolName, language);
+
     public static string ToolPhase(string toolName, string? language)
         => toolName switch
         {
-            "documents.list" or "documents.search" or "documents.get" or "documents.count" or "documents.tree" or "documents.stats" or "documents.empty_count" or "documents.empty_list"
+            "documents.list" or "documents.search" or "documents.get" or "documents.count" or "documents.categories" or "documents.tree" or "documents.stats" or "documents.empty_count" or "documents.empty_list"
                 => Pick(language, "Recherche documents…", "Document search…", "Búsqueda de documentos…", "Pesquisa de documentos…", "Dokumentsuche…", "Ricerca documenti…"),
             "rag.search" or "rag.multi_search"
                 => Pick(language, "Recherche RAG…", "RAG search…", "Búsqueda RAG…", "Pesquisa RAG…", "RAG-Suche…", "Ricerca RAG…"),
@@ -339,11 +386,29 @@ internal static class DeterministicAgentText
     public static string StatsTitle(string? language)
         => Pick(language, "Statistiques du catalogue :", "Catalog statistics:", "Estadísticas del catálogo:", "Estatísticas do catálogo:", "Katalogstatistiken:", "Statistiche del catalogo:");
 
+    public static string StatsTitle(string? language, string? scopePath)
+    {
+        var scope = (scopePath ?? string.Empty).Replace('\\', '/').Trim().Trim('/');
+        if (string.IsNullOrWhiteSpace(scope))
+            return StatsTitle(language);
+
+        return Pick(language,
+            $"Statistiques de la catégorie {scope} :",
+            $"Category statistics for {scope}:",
+            $"Estadísticas de la categoría {scope}:",
+            $"Estatísticas da categoria {scope}:",
+            $"Kategoristatistiken für {scope}:",
+            $"Statistiche della categoria {scope}:");
+    }
+
     public static string StatsIndexedDocuments(int total, string? language)
         => Pick(language, $"- Documents indexés : {total}", $"- Indexed documents: {total}", $"- Documentos indexados: {total}", $"- Documentos indexados: {total}", $"- Indexierte Dokumente: {total}", $"- Documenti indicizzati: {total}");
 
     public static string StatsTotalFolders(int total, string? language)
         => Pick(language, $"- Dossiers totaux : {total}", $"- Total folders: {total}", $"- Carpetas totales: {total}", $"- Pastas totais: {total}", $"- Ordner insgesamt: {total}", $"- Cartelle totali: {total}");
+
+    public static string StatsEmptyFolders(int total, string? language)
+        => Pick(language, $"- Dossiers vides : {total}", $"- Empty folders: {total}", $"- Carpetas vacías: {total}", $"- Pastas vazias: {total}", $"- Leere Ordner: {total}", $"- Cartelle vuote: {total}");
 
     public static string StatsMaximumDepth(int depth, string? language)
         => Pick(language, $"- Profondeur maximale : {depth}", $"- Maximum depth: {depth}", $"- Profundidad máxima: {depth}", $"- Profundidade máxima: {depth}", $"- Maximale Tiefe: {depth}", $"- Profondità massima: {depth}");
@@ -367,10 +432,43 @@ internal static class DeterministicAgentText
 
     public static string RootFolderLine(string name, int total, int direct, int subfolders, string? language)
         => Pick(language,
-            $"  • {name}: {total} document(s) au total, {direct} direct(s), {subfolders} sous-dossier(s)",
-            $"  • {name}: {total} document(s) in total, {direct} direct, {subfolders} subfolder(s)",
-            $"  • {name}: {total} documento(s) en total, {direct} directo(s), {subfolders} subcarpeta(s)",
-            $"  • {name}: {total} documento(s) no total, {direct} direto(s), {subfolders} subpasta(s)",
-            $"  • {name}: {total} Dokument(e) insgesamt, {direct} direkt, {subfolders} Unterordner",
-            $"  • {name}: {total} documento/i in totale, {direct} diretto/i, {subfolders} sottocartella/e");
+            $"  • {name}: {total} document(s), {subfolders} sous-dossier(s)",
+            $"  • {name}: {total} document(s), {subfolders} subfolder(s)",
+            $"  • {name}: {total} documento(s), {subfolders} subcarpeta(s)",
+            $"  • {name}: {total} documento(s), {subfolders} subpasta(s)",
+            $"  • {name}: {total} Dokument(e), {subfolders} Unterordner",
+            $"  • {name}: {total} documento/i, {subfolders} sottocartella/e");
+
+    public static string NoSubfoldersInScope(string? language)
+        => Pick(language,
+            "  • Aucun sous-dossier dans cette portée.",
+            "  • No subfolder in this scope.",
+            "  • No hay subcarpetas en este alcance.",
+            "  • Não há subpastas neste âmbito.",
+            "  • Keine Unterordner in diesem Bereich.",
+            "  • Nessuna sottocartella in questo ambito.");
+
+    public static string AdminRescanQueued(string? language, string? jobId)
+    {
+        var suffix = string.IsNullOrWhiteSpace(jobId) ? string.Empty : $" (job {jobId})";
+        return Pick(language,
+            $"Le rescan du catalogue a bien été lancé{suffix}.",
+            $"The catalog rescan has been started{suffix}.",
+            $"El reescaneo del catálogo se ha iniciado correctamente{suffix}.",
+            $"O reescaneamento do catálogo foi iniciado com sucesso{suffix}.",
+            $"Der Katalog-Rescan wurde gestartet{suffix}.",
+            $"La scansione del catalogo è stata avviata{suffix}.");
+    }
+
+    public static string AdminReindexQueued(string? language, string documentLabel, string? jobId)
+    {
+        var suffix = string.IsNullOrWhiteSpace(jobId) ? string.Empty : $" (job {jobId})";
+        return Pick(language,
+            $"La relance d'ingestion du document {documentLabel} a bien été demandée{suffix}.",
+            $"The ingestion restart for document {documentLabel} has been requested{suffix}.",
+            $"Se ha solicitado el reinicio de la ingestión del documento {documentLabel}{suffix}.",
+            $"Foi pedido o reinício da ingestão do documento {documentLabel}{suffix}.",
+            $"Die erneute Verarbeitung des Dokuments {documentLabel} wurde angefordert{suffix}.",
+            $"È stato richiesto il riavvio dell'ingestione del documento {documentLabel}{suffix}.");
+    }
 }

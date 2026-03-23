@@ -21,13 +21,17 @@ internal static class DocumentRefResolver
     public static AnalysisResult Analyze(
         string? userMessage,
         ToolMemory.DocumentItem? lastFocusedDocument,
-        IReadOnlyList<ToolMemory.DocumentItem>? lastListedDocuments = null)
+        IReadOnlyList<ToolMemory.DocumentItem>? lastListedDocuments = null,
+        string? lastRequestedDocumentRef = null)
     {
         var s = (userMessage ?? string.Empty).Trim();
         if (s.Length == 0)
             return new AnalysisResult(false, false, false, false, false, null, false, null, null);
 
         if (LooksLikeSourceOrOpenRequest(s))
+            return new AnalysisResult(false, false, false, false, false, null, false, null, null);
+
+        if (LooksLikeSummaryStatusRequest(s))
             return new AnalysisResult(false, false, false, false, false, null, false, null, null);
 
         var wantsAbout =
@@ -82,8 +86,21 @@ internal static class DocumentRefResolver
             allowImplicitFocus: true,
             allowBareIndexWithoutLabel: true);
 
+        if (string.IsNullOrWhiteSpace(resolvedDocRef)
+            && !string.IsNullOrWhiteSpace(lastRequestedDocumentRef)
+            && LooksLikeDocumentFollowUpWithoutExplicitReference(s))
+        {
+            resolvedDocRef = lastRequestedDocumentRef!.Trim();
+        }
+
         if (string.IsNullOrWhiteSpace(resolvedDocRef))
+        {
+            var searchProbe = TryExtractDocumentSearchProbe(s);
+            if (!string.IsNullOrWhiteSpace(searchProbe))
+                return new AnalysisResult(true, wantsAbout, wantsSummary, wantsStoredSummaryCheck, wantsStoredSummaryStore, searchProbe, false, null, null);
+
             return new AnalysisResult(true, wantsAbout, wantsSummary, wantsStoredSummaryCheck, wantsStoredSummaryStore, null, true, "doc_reference", "document_reference");
+        }
 
         return new AnalysisResult(true, wantsAbout, wantsSummary, wantsStoredSummaryCheck, wantsStoredSummaryStore, resolvedDocRef, false, null, null);
     }
@@ -91,7 +108,8 @@ internal static class DocumentRefResolver
     public static bool LooksLikeDocumentReferenceAnswer(
         string? userMessage,
         ToolMemory.DocumentItem? lastFocusedDocument,
-        IReadOnlyList<ToolMemory.DocumentItem>? lastListedDocuments = null)
+        IReadOnlyList<ToolMemory.DocumentItem>? lastListedDocuments = null,
+        string? lastRequestedDocumentRef = null)
     {
         var s = (userMessage ?? string.Empty).Trim();
         if (s.Length == 0)
@@ -145,6 +163,25 @@ internal static class DocumentRefResolver
         return Regex.IsMatch(s, @"\b(?:full\s+tree|whole\s+tree|entire\s+tree|complete\s+tree|all\s+levels|all\s+the\s+levels|the\s+tree\s+with\s+all\s+the\s+levels|tous\s+les\s+niveaux|toutes\s+les\s+niveaux|alle\s+ebenen|tutti\s+i\s+livelli|todos\s+los\s+niveles|compl[eè]te?|complet)\b", RegexOptions.IgnoreCase);
     }
 
+    private static bool LooksLikeSummaryStatusRequest(string s)
+    {
+        if (string.IsNullOrWhiteSpace(s))
+            return false;
+
+        var hasSummaryCue = Regex.IsMatch(s, @"\b(?:r[ée]sum[ée]?|summary|summaries|riassunt[oi]|zusammenfassung(?:en)?|resumen(?:es)?|resumo(?:s)?)\b", RegexOptions.IgnoreCase);
+        if (!hasSummaryCue)
+            return false;
+
+        var hasCatalogScope = Regex.IsMatch(s, @"\b(?:documents?|fichiers?|files?|catalog(?:ue|o)?|serveur|server|corpus|index(?:ed|es|ado|ados|iert)?|dossiers?|folders?|documentos?|documenti|ficheiros?|dokumente?|dateien?)\b", RegexOptions.IgnoreCase);
+        var hasCountCue = Regex.IsMatch(s, @"\b(?:combien|how\s+many|count|nombre|cu[aá]nt[oa]s?|quant[oa]s?|wie\s+viele|quanti|quante)\b", RegexOptions.IgnoreCase);
+        var hasListCue = Regex.IsMatch(s, @"\b(?:liste|list|which|quels?|cu[aá]les|welche|lista|quais|quali|mostra|zeige|dame|dammi)\b", RegexOptions.IgnoreCase);
+        var hasMissingCue = Regex.IsMatch(s, @"\b(?:sans|without|missing|manquant(?:s)?|non\s+stock[ée]s?|not\s+stored|pas\s+de\s+r[ée]sum[ée]|no\s+summary|sin|sem|ohne|senza)\b", RegexOptions.IgnoreCase);
+        var hasStoredCue = Regex.IsMatch(s, @"\b(?:stored|store|saved|cached|stock[ée]?|enregistr[ée]?|almacenad[oa]?|armazenad[oa]?|gespeichert(?:e|en)?|memorizzat[oa])\b", RegexOptions.IgnoreCase);
+        var hasPresentCue = Regex.IsMatch(s, @"\b(?:avec|with|have|has|ont|qui\s+ont|con|tienen|tem|hanno|mit)\b", RegexOptions.IgnoreCase);
+
+        return hasCatalogScope && hasSummaryCue && (hasCountCue || hasListCue) && (hasMissingCue || hasStoredCue || hasPresentCue);
+    }
+
     public static bool IsRepairMessage(string? userMessage)
     {
         var s = (userMessage ?? string.Empty).Trim();
@@ -191,6 +228,9 @@ internal static class DocumentRefResolver
         if (TryResolveOrdinalListReference(s, lastListedDocuments, out var ordinalDoc))
             return SelectDocRef(ordinalDoc);
 
+        if (TryResolveLooseKnownDocumentReference(s, lastFocusedDocument, lastListedDocuments, out var namedDoc))
+            return SelectDocRef(namedDoc);
+
         if (LooksLikePathAnswer(s))
             return s.Trim();
 
@@ -203,11 +243,80 @@ internal static class DocumentRefResolver
         return null;
     }
 
+    private static bool TryResolveLooseKnownDocumentReference(
+        string s,
+        ToolMemory.DocumentItem? lastFocusedDocument,
+        IReadOnlyList<ToolMemory.DocumentItem>? lastListedDocuments,
+        out ToolMemory.DocumentItem resolved)
+    {
+        resolved = default!;
+        var probe = NormalizeLooseDocumentToken(s);
+        if (string.IsNullOrWhiteSpace(probe) || probe.Length < 6)
+            return false;
+
+        var candidates = new List<ToolMemory.DocumentItem>();
+        if (lastFocusedDocument is not null)
+            candidates.Add(lastFocusedDocument);
+        if (lastListedDocuments is { Count: > 0 })
+        {
+            foreach (var doc in lastListedDocuments)
+            {
+                if (candidates.Any(x => string.Equals(x.DocId, doc.DocId, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(x.DocPath, doc.DocPath, StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+                candidates.Add(doc);
+            }
+        }
+
+        ToolMemory.DocumentItem? best = null;
+        var bestScore = 0;
+        foreach (var doc in candidates)
+        {
+            foreach (var raw in new[] { doc.DocName, doc.DocPath })
+            {
+                var candidate = NormalizeLooseDocumentToken(raw);
+                if (string.IsNullOrWhiteSpace(candidate) || candidate.Length < 6)
+                    continue;
+
+                if (probe.Contains(candidate, StringComparison.Ordinal) || candidate.Contains(probe, StringComparison.Ordinal))
+                {
+                    if (candidate.Length > bestScore)
+                    {
+                        best = doc;
+                        bestScore = candidate.Length;
+                    }
+                }
+            }
+        }
+
+        if (best is null)
+            return false;
+
+        resolved = best;
+        return true;
+    }
+
+    private static string NormalizeLooseDocumentToken(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var s = value.Trim();
+        s = Regex.Replace(s,
+            @"(?i)\b(?:donne|donne[- ]?moi|give|show|display|montre|affiche|read|get|load|lis|return|renvoie|summary|résumé|resume|stored|stock[ée]?|document|doc|file|fichier|documento|archivo|ficheiro|datei|dokument|please|stp|svp|the|du|de|des|le|la|les|un|une|el|los|las|del|do|da|dos|das|il|lo|gli|dei|der|die|das)\b",
+            " ");
+        s = Regex.Replace(s, @"(?i)\.pdf\b", " ");
+        s = Regex.Replace(s, @"[^\p{L}\p{Nd}]+", string.Empty);
+        return s.ToLowerInvariant();
+    }
+
     private static string? TryExtractExplicitPdfReference(string s)
     {
         var prefixedMatch = Regex.Match(
             s,
-            @"(?i)\b(?:document|doc|fichier|file)\b\s+(?<ref>(?:[A-Za-z0-9_.\-]+[\\/])+[A-Za-z0-9_][A-Za-z0-9_.\- ]*\.pdf|[A-Za-z0-9_][A-Za-z0-9_.\- ]*\.pdf)\b");
+            @"(?i)\b(?:document|doc|fichier|file|documento|archivo|ficheiro|datei|dokument)\b\s+(?<ref>(?:[A-Za-z0-9_.\-]+[\\/])+[A-Za-z0-9_][A-Za-z0-9_.\- ]*\.pdf|[A-Za-z0-9_][A-Za-z0-9_.\- ]*\.pdf)\b");
         if (prefixedMatch.Success)
             return SanitizePdfReference(prefixedMatch.Groups["ref"].Value);
 
@@ -234,7 +343,7 @@ internal static class DocumentRefResolver
 
         candidate = Regex.Replace(
             candidate,
-            @"(?i)^.*?\b(?:document|doc|fichier|file|pdf)\b\s+",
+            @"(?i)^.*?\b(?:document|doc|fichier|file|pdf|documento|archivo|ficheiro|datei|dokument)\b\s+",
             string.Empty);
 
         candidate = candidate.Trim(' ', '"', '\'', '`');
@@ -247,6 +356,52 @@ internal static class DocumentRefResolver
                              .Trim();
 
         return candidate.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) ? candidate : null;
+    }
+
+    private static string? TryExtractDocumentSearchProbe(string s)
+    {
+        if (string.IsNullOrWhiteSpace(s))
+            return null;
+
+        var match = Regex.Match(
+            s,
+            @"(?ix)
+            \b(?:document|doc|fichier|file|pdf|documento|archivo|ficheiro|datei|dokument)\b
+            (?:\s+(?:named|nomm[ée]|appele|called|intitule|llamado|chamado|genannte|genanntes|chiamato))?
+            [\s:;,'""“”‘’«»_-]*
+            (?<ref>[\p{L}\p{Nd}][\p{L}\p{Nd}\s._\-/]{5,120})");
+        if (!match.Success)
+            return null;
+
+        var candidate = match.Groups["ref"].Value.Trim();
+        candidate = Regex.Replace(candidate, @"(?i)\b(?:stp|svp|please|merci|thanks?|thank\s+you|grazie|obrigad[oa]?|danke|por\s+favor|per\s+favore|bitte)\b.*$", string.Empty).Trim();
+        candidate = candidate.Trim(' ', '"', '\'', '`', '.', ',', ';', ':', '?', '!');
+        if (candidate.Length < 6)
+            return null;
+
+        var hasLetter = candidate.Any(char.IsLetter);
+        var tokenCount = Regex.Matches(candidate, @"[\p{L}\p{Nd}]+", RegexOptions.CultureInvariant).Count;
+        var hasDigit = candidate.Any(char.IsDigit);
+        if (!hasLetter || (tokenCount < 2 && !hasDigit))
+            return null;
+
+        return candidate;
+    }
+
+    private static bool LooksLikeDocumentFollowUpWithoutExplicitReference(string s)
+    {
+        if (string.IsNullOrWhiteSpace(s))
+            return false;
+
+        if (TryExtractExplicitPdfReference(s) is not null)
+            return false;
+
+        return Regex.IsMatch(s,
+            @"\b(?:resume|résumé|resumer|résumer|summary|summarize|summarise|zusammenfassung|zusammenfassen|riassunto|riassumi|resumen|resumo)\b",
+            RegexOptions.IgnoreCase)
+            && Regex.IsMatch(s,
+                @"\b(?:live|en\s+vivo|ao\s+vivo|sur\s+ca|sur\s+ce\s+document|de\s+ce\s+document|ce\s+document|this\s+document|that\s+document|it|le|la|lui|fais|faites|make|do|mach|fai|haz|faz|bitte|please|svp|stp|por\s+favor|per\s+favore|este\s+documento|esse\s+documento|dieses\s+dokument|questo\s+documento)\b",
+                RegexOptions.IgnoreCase);
     }
 
     private static bool TryResolveRelativeListReference(
@@ -369,7 +524,12 @@ internal static class DocumentRefResolver
             "celui ci",
             "celui-là",
             "celui la",
+            "este documento",
+            "ese documento",
+            "esse documento",
+            "este ficheiro",
             "dieses dokument",
+            "diese datei",
             "questo documento");
 
     private static bool LooksLikeSourceOrOpenRequest(string s)

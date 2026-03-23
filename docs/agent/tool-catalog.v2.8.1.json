@@ -98,6 +98,37 @@
               "string",
               "null"
             ]
+          },
+          "categoryRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "documents.categories",
+      "access": "user",
+      "description": "List categories from the catalog snapshot. Top-level categories use a stable display order.",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       }
@@ -138,6 +169,12 @@
           "offset": {
             "type": "integer",
             "minimum": 0
+          },
+          "categoryRef": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       }
@@ -154,6 +191,53 @@
               "string",
               "null"
             ]
+          },
+          "categoryRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "documents.empty_count",
+      "access": "admin",
+      "description": "Count empty folders on the server filesystem for admin/health diagnostics.",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "documents.empty_list",
+      "access": "admin",
+      "description": "List empty folders on the server filesystem for admin/health diagnostics.",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2000
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       }
@@ -360,6 +444,64 @@
       }
     },
     {
+      "name": "summary.status.count",
+      "access": "admin",
+      "description": "Count indexed documents without a fresh stored summary (missing or stale).",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "categoryPath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "categoryRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "summary.status.list",
+      "access": "admin",
+      "description": "List indexed documents without a fresh stored summary (missing or stale).",
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "categoryPath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "categoryRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "limit",
+          "offset"
+        ]
+      }
+    },
+    {
       "name": "export.create",
       "access": "user",
       "description": "Create an export artifact from provided content or tool result references.",
@@ -443,6 +585,12 @@
           "offset": {
             "type": "integer",
             "minimum": 0
+          },
+          "categoryRef": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [

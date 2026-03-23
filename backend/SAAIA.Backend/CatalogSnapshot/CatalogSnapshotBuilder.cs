@@ -79,6 +79,33 @@ LIMIT @lim;";
             // 2) Build tree
             var root = BuildTree(docPaths);
 
+            var previousTopOrderRows = (await conn.QueryAsync<TopCategoryOrderRow>(new CommandDefinition(
+                @"SELECT path AS ""Path"", display_order AS ""DisplayOrder""
+FROM documents_catalog_categories
+WHERE tenant_id=@tenant
+ORDER BY display_order ASC, name ASC;",
+                new { tenant = tenantId },
+                cancellationToken: ct))).ToList();
+
+            var previousTopOrders = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var row in previousTopOrderRows)
+            {
+                if (string.IsNullOrWhiteSpace(row.Path))
+                    continue;
+
+                if (!previousTopOrders.ContainsKey(row.Path))
+                    previousTopOrders[row.Path] = row.DisplayOrder;
+            }
+
+            var orderedTopNodes = root.Children.Values
+                .Where(n => previousTopOrders.ContainsKey(n.Path))
+                .OrderBy(n => previousTopOrders[n.Path])
+                .ThenBy(n => n.Name, StringComparer.OrdinalIgnoreCase)
+                .Concat(root.Children.Values
+                    .Where(n => !previousTopOrders.ContainsKey(n.Path))
+                    .OrderBy(n => n.Name, StringComparer.OrdinalIgnoreCase))
+                .ToList();
+
             // 3) Aggregate stats
             var nodesByDepth = new Dictionary<int, int>();
             var docsByDepth = new Dictionary<int, int>();
@@ -98,10 +125,17 @@ LIMIT @lim;";
                 directDocsByDepth[n.Depth] = directDocsByDepth.TryGetValue(n.Depth, out var dd) ? dd + n.DirectDocCount : n.DirectDocCount;
             }
 
-            var top = root.Children.Values
-                .OrderByDescending(n => n.DocCount)
-                .ThenBy(n => n.Name, StringComparer.OrdinalIgnoreCase)
-                .Select(n => new { path = n.Path, name = n.Name, docCount = n.DocCount, directDocCount = n.DirectDocCount })
+            var top = orderedTopNodes
+                .Select((n, index) => new
+                {
+                    path = n.Path,
+                    name = n.Name,
+                    displayOrder = index + 1,
+                    ordinal = index + 1,
+                    docCount = n.DocCount,
+                    directDocCount = n.DirectDocCount,
+                    subfolderCount = n.Children.Count
+                })
                 .Take(100)
                 .ToList();
 
@@ -148,6 +182,84 @@ INSERT INTO documents_category_nodes(
                     cancellationToken: ct));
             }
 
+            // Replace stable top-level category snapshot
+            await conn.ExecuteAsync(new CommandDefinition(
+                "DELETE FROM documents_catalog_categories WHERE tenant_id=@tenant;",
+                new { tenant = tenantId },
+                transaction: tx,
+                cancellationToken: ct));
+
+            await conn.ExecuteAsync(new CommandDefinition(
+                "DELETE FROM documents_catalog_category_aliases WHERE tenant_id=@tenant;",
+                new { tenant = tenantId },
+                transaction: tx,
+                cancellationToken: ct));
+
+            const string insertTopCategorySql = @"
+INSERT INTO documents_catalog_categories(
+  tenant_id, path, name, display_order, doc_count, direct_doc_count, subfolder_count, updated_at
+) VALUES (
+  @TenantId, @Path, @Name, @DisplayOrder, @DocCount, @DirectDocCount, @SubfolderCount, @UpdatedAt
+);";
+
+            const string insertTopCategoryAliasSql = @"
+INSERT INTO documents_catalog_category_aliases(
+  tenant_id, path, alias, alias_key, language, source, priority, updated_at
+) VALUES (
+  @TenantId, @Path, @Alias, @AliasKey, @Language, @Source, @Priority, @UpdatedAt
+);";
+
+            var topCategoryRows = orderedTopNodes
+                .Select((n, index) => new TopCategoryRow
+                {
+                    TenantId = tenantId,
+                    Path = n.Path,
+                    Name = n.Name,
+                    DisplayOrder = index + 1,
+                    DocCount = n.DocCount,
+                    DirectDocCount = n.DirectDocCount,
+                    SubfolderCount = n.Children.Count,
+                    UpdatedAt = now
+                })
+                .ToList();
+
+
+            var topCategoryAliasRows = orderedTopNodes
+                .SelectMany(n => CatalogCategoryAliasRegistry.BuildAliases(n.Path, n.Name)
+                    .Select(alias => new TopCategoryAliasRow
+                    {
+                        TenantId = tenantId,
+                        Path = n.Path,
+                        Alias = alias.Alias,
+                        AliasKey = alias.AliasKey,
+                        Language = alias.Language,
+                        Source = alias.Source,
+                        Priority = alias.Priority,
+                        UpdatedAt = now
+                    }))
+                .ToList();
+
+            for (var i = 0; i < topCategoryRows.Count; i += batchSize)
+            {
+                var batch = topCategoryRows.Skip(i).Take(batchSize).ToList();
+                await conn.ExecuteAsync(new CommandDefinition(
+                    insertTopCategorySql,
+                    batch,
+                    transaction: tx,
+                    cancellationToken: ct));
+            }
+
+
+            for (var i = 0; i < topCategoryAliasRows.Count; i += batchSize)
+            {
+                var batch = topCategoryAliasRows.Skip(i).Take(batchSize).ToList();
+                await conn.ExecuteAsync(new CommandDefinition(
+                    insertTopCategoryAliasSql,
+                    batch,
+                    transaction: tx,
+                    cancellationToken: ct));
+            }
+
             // Upsert summary
             var nodesByDepthJson = JsonSerializer.Serialize(nodesByDepth);
             var docsByDepthJson = JsonSerializer.Serialize(docsByDepth);
@@ -189,7 +301,7 @@ ON CONFLICT (tenant_id) DO UPDATE SET
 
             await tx.CommitAsync(ct);
 
-            logger.LogInformation("Catalog snapshot built: tenant={TenantId} docs={Docs} nodes={Nodes} maxDepth={MaxDepth}", tenantId, root.DocCount, nodeRows.Count, maxDepth);
+            logger.LogInformation("Catalog snapshot built: tenant={TenantId} docs={Docs} nodes={Nodes} topCategories={TopCategories} maxDepth={MaxDepth}", tenantId, root.DocCount, nodeRows.Count, topCategoryRows.Count, maxDepth);
 
             return new BuildTenantResult(tenantId, Success: true, Message: "ok", Docs: root.DocCount, Nodes: nodeRows.Count, ComputedAtUtc: now);
         }
@@ -319,6 +431,36 @@ ON CONFLICT (tenant_id) DO UPDATE SET
         public int Depth { get; set; }
         public int DocCount { get; set; }
         public int DirectDocCount { get; set; }
+        public DateTime UpdatedAt { get; set; }
+    }
+
+    private sealed class TopCategoryOrderRow
+    {
+        public string Path { get; set; } = "";
+        public int DisplayOrder { get; set; }
+    }
+
+    private sealed class TopCategoryRow
+    {
+        public Guid TenantId { get; set; }
+        public string Path { get; set; } = "";
+        public string Name { get; set; } = "";
+        public int DisplayOrder { get; set; }
+        public int DocCount { get; set; }
+        public int DirectDocCount { get; set; }
+        public int SubfolderCount { get; set; }
+        public DateTime UpdatedAt { get; set; }
+    }
+
+    private sealed class TopCategoryAliasRow
+    {
+        public Guid TenantId { get; set; }
+        public string Path { get; set; } = string.Empty;
+        public string Alias { get; set; } = string.Empty;
+        public string AliasKey { get; set; } = string.Empty;
+        public string? Language { get; set; }
+        public string Source { get; set; } = string.Empty;
+        public int Priority { get; set; }
         public DateTime UpdatedAt { get; set; }
     }
 }

@@ -5,6 +5,8 @@ using Dapper;
 using Npgsql;
 using SAAIA.Backend.Audit;
 using SAAIA.Backend.Auth;
+using SAAIA.Backend.Shared;
+using SAAIA.Contracts;
 
 namespace SAAIA.Backend.Endpoints;
 
@@ -22,12 +24,21 @@ public static class DocumentsEndpoints
 
         // Inventory helpers (CDC v2.8.1)
         app.MapGet("/documents/count", CountAsync);
+        app.MapGet("/documents/categories", CategoriesAsync);
         app.MapGet("/documents/tree", TreeAsync);
         app.MapGet("/documents/stats", StatsAsync);
-        app.MapGet("/documents/empty-folders/count", EmptyFoldersCountAsync);
-        app.MapGet("/documents/empty-folders", EmptyFoldersListAsync);
 
-        app.Logger.LogInformation("Mapped documents endpoints (catalog + count/tree/stats/empty-folders + legacy admin list)");
+        // Contract-aligned catalog surface (transition to snapshot + capabilities)
+        app.MapGet("/catalog/snapshot", SnapshotAsync);
+        app.MapGet("/catalog/categories", CatalogCategoriesAsync);
+        app.MapGet("/catalog/documents", CatalogDocumentsAsync);
+        app.MapGet("/catalog/stats", CatalogStatsAsync);
+
+        // Admin/health filesystem diagnostics (kept out of nominal user inventory)
+        app.MapGet("/admin/catalog/empty-folders/count", EmptyFoldersCountAsync).RequireAdminKey();
+        app.MapGet("/admin/catalog/empty-folders", EmptyFoldersListAsync).RequireAdminKey();
+
+        app.Logger.LogInformation("Mapped documents endpoints (catalog + count/tree/stats + legacy admin list + admin empty-folder diagnostics)");
     }
 
     // -------------------------
@@ -39,6 +50,7 @@ public static class DocumentsEndpoints
         NpgsqlDataSource ds,
         string? category,
         string? categoryPath,
+        string? categoryRef,
         string? q,
         int? limit,
         int? offset)
@@ -53,9 +65,11 @@ public static class DocumentsEndpoints
 
         category = string.IsNullOrWhiteSpace(category) ? null : category.Trim().ToLowerInvariant();
         categoryPath = NormalizeCategoryPathOrNull(categoryPath);
+        categoryRef = NormalizeCategoryRefOrNull(categoryRef);
         q = string.IsNullOrWhiteSpace(q) ? null : q.Trim();
 
         await using var conn = await ds.OpenConnectionAsync(ct);
+        categoryPath = await ResolveCategoryScopeAsync(conn, tenantId, categoryPath, categoryRef, ct);
 
         const string sql = @"
 SELECT
@@ -86,7 +100,7 @@ LIMIT @lim OFFSET @off;";
             actorIsAdmin,
             action: "documents.catalog",
             target: null,
-            payload: new { category, categoryPath, q, limit = lim, offset = off },
+            payload: new { category, categoryPath, categoryRef, q, limit = lim, offset = off },
             ip: ctx.Connection.RemoteIpAddress?.ToString(),
             ct: ct);
 
@@ -146,15 +160,18 @@ LIMIT 1;";
         HttpContext ctx,
         NpgsqlDataSource ds,
         string? categoryPath,
+        string? categoryRef,
         string? q)
     {
         var tenantId = ctx.GetTenantId();
         var ct = ctx.RequestAborted;
 
         categoryPath = NormalizeCategoryPathOrNull(categoryPath);
+        categoryRef = NormalizeCategoryRefOrNull(categoryRef);
         q = string.IsNullOrWhiteSpace(q) ? null : q.Trim();
 
         await using var conn = await ds.OpenConnectionAsync(ct);
+        categoryPath = await ResolveCategoryScopeAsync(conn, tenantId, categoryPath, categoryRef, ct);
 
         const string sql = @"
 SELECT COUNT(*)
@@ -168,21 +185,121 @@ WHERE tenant_id=@tenant
         return Results.Ok(new { total });
     }
 
+    private static async Task<IResult> CategoriesAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        string? path,
+        string? categoryRef,
+        int? limit,
+        int? offset)
+    {
+        var tenantId = ctx.GetTenantId();
+        var ct = ctx.RequestAborted;
+        path = NormalizeCategoryPathOrNull(path);
+        categoryRef = NormalizeCategoryRefOrNull(categoryRef);
+        var lim = Math.Clamp(limit ?? 100, 1, 500);
+        var off = Math.Max(offset ?? 0, 0);
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        path = await ResolveCategoryScopeAsync(conn, tenantId, path, categoryRef, ct);
+
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            const string sql = @"
+SELECT
+  path             AS ""Path"",
+  name             AS ""Name"",
+  display_order    AS ""DisplayOrder"",
+  doc_count        AS ""DocCount"",
+  direct_doc_count AS ""DirectDocCount"",
+  subfolder_count  AS ""SubfolderCount""
+FROM documents_catalog_categories
+WHERE tenant_id=@tenant
+ORDER BY display_order ASC, name ASC
+LIMIT @lim OFFSET @off;";
+
+            const string totalSql = @"SELECT COUNT(*) FROM documents_catalog_categories WHERE tenant_id=@tenant;";
+
+            var rows = (await conn.QueryAsync<TopCategoryDto>(new CommandDefinition(sql, new { tenant = tenantId, lim, off }, cancellationToken: ct))).ToList();
+            var total = await conn.ExecuteScalarAsync<int>(new CommandDefinition(totalSql, new { tenant = tenantId }, cancellationToken: ct));
+            var aliasesByPath = await LoadTopCategoryAliasesAsync(conn, tenantId, rows.Select(x => x.Path).ToList(), ct);
+
+            var items = rows.Select(x => new
+            {
+                ordinal = x.DisplayOrder,
+                displayOrder = x.DisplayOrder,
+                path = x.Path,
+                name = x.Name,
+                depth = 1,
+                totalDocuments = x.DocCount,
+                directDocuments = x.DirectDocCount,
+                subfolderCount = x.SubfolderCount,
+                aliases = aliasesByPath.TryGetValue(x.Path, out var aliases) ? aliases : Array.Empty<string>()
+            }).ToList();
+
+            return Results.Ok(new { scopePath = (string?)null, total, limit = lim, offset = off, items });
+        }
+
+        const string scopedSql = @"
+SELECT
+  n.path             AS ""Path"",
+  n.name             AS ""Name"",
+  n.depth            AS ""Depth"",
+  n.doc_count        AS ""DocCount"",
+  n.direct_doc_count AS ""DirectDocCount"",
+  COALESCE(c.child_count, 0) AS ""SubfolderCount""
+FROM documents_category_nodes n
+LEFT JOIN (
+    SELECT tenant_id, parent_path, COUNT(*)::int AS child_count
+    FROM documents_category_nodes
+    WHERE tenant_id=@tenant
+    GROUP BY tenant_id, parent_path
+) c ON c.tenant_id = n.tenant_id AND c.parent_path = n.path
+WHERE n.tenant_id=@tenant AND n.parent_path=@path
+ORDER BY n.doc_count DESC, n.name ASC
+LIMIT @lim OFFSET @off;";
+
+        const string scopedTotalSql = @"
+SELECT COUNT(*)
+FROM documents_category_nodes
+WHERE tenant_id=@tenant AND parent_path=@path;";
+
+        var scopedRows = (await conn.QueryAsync<CategoryNodeDto>(new CommandDefinition(scopedSql, new { tenant = tenantId, path, lim, off }, cancellationToken: ct))).ToList();
+        var scopedTotal = await conn.ExecuteScalarAsync<int>(new CommandDefinition(scopedTotalSql, new { tenant = tenantId, path }, cancellationToken: ct));
+
+        var scopedItems = scopedRows.Select(x => new
+        {
+            path = x.Path,
+            name = x.Name,
+            depth = x.Depth,
+            totalDocuments = x.DocCount,
+            directDocuments = x.DirectDocCount,
+            subfolderCount = x.SubfolderCount
+        }).ToList();
+
+        return Results.Ok(new { scopePath = path, total = scopedTotal, limit = lim, offset = off, items = scopedItems });
+    }
+
     private static async Task<IResult> TreeAsync(
         HttpContext ctx,
         NpgsqlDataSource ds,
         string? path,
+        string? categoryRef,
         int? depth,
-        string? format)
+        string? format,
+        int? limit,
+        int? offset)
     {
         var tenantId = ctx.GetTenantId();
         var ct = ctx.RequestAborted;
 
         path = NormalizeCategoryPathOrNull(path);
+        categoryRef = NormalizeCategoryRefOrNull(categoryRef);
         var maxDepth = depth is null ? (int?)null : Math.Clamp(depth.Value, 0, 20);
         format = string.IsNullOrWhiteSpace(format) ? "json" : format.Trim().ToLowerInvariant();
 
         await using var conn = await ds.OpenConnectionAsync(ct);
+        path = await ResolveCategoryScopeAsync(conn, tenantId, path, categoryRef, ct);
 
         // Snapshot-first
         var snapTree = await TryLoadTreeFromSnapshotAsync(conn, tenantId, path, maxDepth, ct);
@@ -191,7 +308,7 @@ WHERE tenant_id=@tenant
             if (format is "markdown" or "md")
             {
                 var sb = new StringBuilder();
-                RenderMarkdownTree(snapTree, sb, indent: 0, maxDepth);
+                RenderMarkdownTree(snapTree, sb, indent: 0, maxDepth: maxDepth);
                 return Results.Ok(new { path = snapTree.Path, markdown = sb.ToString(), source = "snapshot" });
             }
 
@@ -222,7 +339,7 @@ WHERE tenant_id=@tenant AND status='indexed';";
         if (format is "markdown" or "md")
         {
             var sb = new StringBuilder();
-            RenderMarkdownTree(node, sb, indent: 0, maxDepth);
+            RenderMarkdownTree(node, sb, indent: 0, maxDepth: maxDepth);
             return Results.Ok(new { path = node.Path, markdown = sb.ToString(), source = "documents" });
         }
 
@@ -233,6 +350,8 @@ WHERE tenant_id=@tenant AND status='indexed';";
 
     private static IResult EmptyFoldersCountAsync(HttpContext ctx, IOptions<IngestionOptions> ingestOpt, string? path)
     {
+        AdminAuth.EnsureAdmin(ctx);
+
         var (ok, root, scopeAbs, scopeRel, errorResult) = TryResolveFolderScope(ingestOpt.Value, path);
         if (!ok)
             return errorResult!;
@@ -247,6 +366,8 @@ WHERE tenant_id=@tenant AND status='indexed';";
 
     private static IResult EmptyFoldersListAsync(HttpContext ctx, IOptions<IngestionOptions> ingestOpt, string? path, int? limit, int? offset)
     {
+        AdminAuth.EnsureAdmin(ctx);
+
         var (ok, root, scopeAbs, scopeRel, errorResult) = TryResolveFolderScope(ingestOpt.Value, path);
         if (!ok)
             return errorResult!;
@@ -344,14 +465,21 @@ WHERE tenant_id=@tenant AND status='indexed';";
         return result;
     }
 
-    private static async Task<IResult> StatsAsync(HttpContext ctx, NpgsqlDataSource ds, IOptions<IngestionOptions> ingestOpt, string? path)
+    private static async Task<IResult> StatsAsync(HttpContext ctx, NpgsqlDataSource ds, IOptions<IngestionOptions> ingestOpt, string? path, string? categoryRef)
     {
         var tenantId = ctx.GetTenantId();
         var ct = ctx.RequestAborted;
         path = NormalizeCategoryPathOrNull(path);
+        categoryRef = NormalizeCategoryRefOrNull(categoryRef);
 
         await using var conn = await ds.OpenConnectionAsync(ct);
+        path = await ResolveCategoryScopeAsync(conn, tenantId, path, categoryRef, ct);
 
+        var snapshotPayload = await TryBuildStatsFromSnapshotAsync(conn, tenantId, path, ct);
+        if (snapshotPayload is not null)
+            return Results.Ok(snapshotPayload);
+
+        // Fallback only when the snapshot is absent or incomplete.
         const string sql = @"
 SELECT doc_path
 FROM documents
@@ -501,6 +629,537 @@ WHERE tenant_id=@tenant AND status='indexed';";
             emptyFoldersKnown,
             folderTree = ToDto(scopedNode, maxDepth: null)
         });
+    }
+
+
+    private static async Task<IResult> SnapshotAsync(HttpContext ctx, NpgsqlDataSource ds)
+    {
+        var tenantId = ctx.GetTenantId();
+        var ct = ctx.RequestAborted;
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+
+        const string summarySql = @"
+SELECT
+  computed_at AS ""ComputedAt"",
+  total_docs  AS ""TotalDocs""
+FROM documents_catalog_summary
+WHERE tenant_id=@tenant
+LIMIT 1;";
+
+        const string categoriesSql = @"
+SELECT
+  path          AS ""Path"",
+  name          AS ""Name"",
+  display_order AS ""DisplayOrder"",
+  doc_count     AS ""DocCount"",
+  updated_at    AS ""UpdatedAt""
+FROM documents_catalog_categories
+WHERE tenant_id=@tenant
+ORDER BY display_order ASC, name ASC;";
+
+        var summary = await conn.QueryFirstOrDefaultAsync<SnapshotSummaryRow>(new CommandDefinition(summarySql, new { tenant = tenantId }, cancellationToken: ct));
+        var categoryRows = (await conn.QueryAsync<SnapshotCategoryRow>(new CommandDefinition(categoriesSql, new { tenant = tenantId }, cancellationToken: ct))).ToList();
+        var aliasesByPath = await LoadTopCategoryAliasesAsync(conn, tenantId, categoryRows.Select(x => x.Path).ToList(), ct);
+
+        var computedAt = summary?.ComputedAt ?? (categoryRows.Count > 0 ? categoryRows.Max(x => x.UpdatedAt) : DateTimeOffset.UtcNow);
+        var snapshotId = BuildSnapshotId(computedAt, summary?.TotalDocs ?? categoryRows.Sum(x => x.DocCount));
+        var etag = BuildSnapshotEtag(computedAt, summary?.TotalDocs ?? categoryRows.Sum(x => x.DocCount), categoryRows.Count);
+        ctx.Response.Headers.ETag = etag;
+
+        var payload = new CatalogSnapshotResponse
+        {
+            SnapshotId = snapshotId,
+            CatalogVersion = computedAt.ToUniversalTime().ToString("O"),
+            ETag = etag,
+            Categories = categoryRows.Select(x => new CatalogSnapshotCategoryItem
+            {
+                CategoryRef = BuildCategoryRef(x.DisplayOrder),
+                CategoryPath = x.Path,
+                DisplayOrder = x.DisplayOrder,
+                CanonicalName = x.Name,
+                DocumentCount = x.DocCount,
+                LastUpdatedUtc = x.UpdatedAt,
+                Aliases = aliasesByPath.TryGetValue(x.Path, out var aliases) ? aliases.ToList() : new List<string>()
+            }).ToList(),
+            Totals = new CatalogSnapshotTotals
+            {
+                Documents = summary?.TotalDocs ?? categoryRows.Sum(x => (long)x.DocCount),
+                Categories = categoryRows.Count
+            }
+        };
+
+        return Results.Ok(payload);
+    }
+
+    private static async Task<IResult> CatalogCategoriesAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        string? path,
+        string? categoryRef,
+        int? pageSize,
+        int? maxpagesize,
+        string? cursor)
+    {
+        var tenantId = ctx.GetTenantId();
+        var ct = ctx.RequestAborted;
+
+        var requestedPath = NormalizeCategoryPathOrNull(path);
+        var requestedCategoryRef = NormalizeCategoryRefOrNull(categoryRef);
+        var requestedPageSize = Math.Clamp(pageSize ?? maxpagesize ?? 100, 1, 500);
+
+        CatalogCategoriesCursor? cursorState = null;
+        if (!string.IsNullOrWhiteSpace(cursor))
+        {
+            if (!OpaqueCursor.TryDecode<CatalogCategoriesCursor>(cursor, out cursorState) || cursorState is null)
+            {
+                return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "invalid_cursor", detail: "The supplied cursor is invalid.");
+            }
+
+            if (!CursorMatches(cursorState.Path, requestedPath)
+                || !CursorMatches(cursorState.CategoryRef, requestedCategoryRef)
+                || !CursorMatches(cursorState.PageSize, requestedPageSize))
+            {
+                return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "cursor_mismatch", detail: "The supplied cursor does not match the requested category filters.");
+            }
+
+            requestedPath = cursorState.Path;
+            requestedCategoryRef = cursorState.CategoryRef;
+            requestedPageSize = cursorState.PageSize;
+        }
+
+        var offset = cursorState?.Offset ?? 0;
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        requestedPath = await ResolveCategoryScopeAsync(conn, tenantId, requestedPath, requestedCategoryRef, ct);
+
+        List<object> value;
+        var nextOffset = 0;
+        var total = 0;
+
+        if (!string.IsNullOrWhiteSpace(requestedCategoryRef) && !string.IsNullOrWhiteSpace(requestedPath))
+        {
+            const string exactSql = @"
+SELECT
+  path             AS ""Path"",
+  name             AS ""Name"",
+  display_order    AS ""DisplayOrder"",
+  doc_count        AS ""DocCount"",
+  direct_doc_count AS ""DirectDocCount"",
+  subfolder_count  AS ""SubfolderCount"",
+  updated_at       AS ""UpdatedAt""
+FROM documents_catalog_categories
+WHERE tenant_id=@tenant AND path=@path
+LIMIT 1;";
+
+            var row = await conn.QueryFirstOrDefaultAsync<SnapshotCategoryRow>(new CommandDefinition(exactSql, new { tenant = tenantId, path = requestedPath }, cancellationToken: ct));
+            total = row is null ? 0 : 1;
+
+            if (row is null || offset > 0)
+            {
+                value = new List<object>();
+            }
+            else
+            {
+                var aliasesByPath = await LoadTopCategoryAliasesAsync(conn, tenantId, new[] { row.Path }, ct);
+                value = new List<object>
+                {
+                    new
+                    {
+                        categoryRef = BuildCategoryRef(row.DisplayOrder),
+                        categoryPath = row.Path,
+                        canonicalName = row.Name,
+                        displayOrder = row.DisplayOrder,
+                        documentCount = row.DocCount,
+                        directDocumentCount = row.DirectDocCount,
+                        subfolderCount = row.SubfolderCount,
+                        lastUpdatedUtc = row.UpdatedAt,
+                        aliases = aliasesByPath.TryGetValue(row.Path, out var aliases) ? aliases : Array.Empty<string>()
+                    }
+                };
+            }
+        }
+        else if (string.IsNullOrWhiteSpace(requestedPath))
+        {
+            const string sql = @"
+SELECT
+  path             AS ""Path"",
+  name             AS ""Name"",
+  display_order    AS ""DisplayOrder"",
+  doc_count        AS ""DocCount"",
+  direct_doc_count AS ""DirectDocCount"",
+  subfolder_count  AS ""SubfolderCount"",
+  updated_at       AS ""UpdatedAt""
+FROM documents_catalog_categories
+WHERE tenant_id=@tenant
+ORDER BY display_order ASC, name ASC
+LIMIT @lim OFFSET @off;";
+
+            const string totalSql = @"SELECT COUNT(*) FROM documents_catalog_categories WHERE tenant_id=@tenant;";
+
+            var rows = (await conn.QueryAsync<SnapshotCategoryRow>(new CommandDefinition(sql, new { tenant = tenantId, lim = requestedPageSize, off = offset }, cancellationToken: ct))).ToList();
+            total = await conn.ExecuteScalarAsync<int>(new CommandDefinition(totalSql, new { tenant = tenantId }, cancellationToken: ct));
+            var aliasesByPath = await LoadTopCategoryAliasesAsync(conn, tenantId, rows.Select(x => x.Path).ToList(), ct);
+
+            value = rows.Select(x => (object)new
+            {
+                categoryRef = BuildCategoryRef(x.DisplayOrder),
+                categoryPath = x.Path,
+                canonicalName = x.Name,
+                displayOrder = x.DisplayOrder,
+                documentCount = x.DocCount,
+                directDocumentCount = x.DirectDocCount,
+                subfolderCount = x.SubfolderCount,
+                lastUpdatedUtc = x.UpdatedAt,
+                aliases = aliasesByPath.TryGetValue(x.Path, out var aliases) ? aliases : Array.Empty<string>()
+            }).ToList();
+        }
+        else
+        {
+            const string scopedSql = @"
+SELECT
+  n.path             AS ""Path"",
+  n.name             AS ""Name"",
+  n.depth            AS ""Depth"",
+  n.doc_count        AS ""DocCount"",
+  n.direct_doc_count AS ""DirectDocCount"",
+  COALESCE(c.child_count, 0) AS ""SubfolderCount"",
+  n.updated_at       AS ""UpdatedAt""
+FROM documents_category_nodes n
+LEFT JOIN (
+    SELECT tenant_id, parent_path, COUNT(*)::int AS child_count
+    FROM documents_category_nodes
+    WHERE tenant_id=@tenant
+    GROUP BY tenant_id, parent_path
+) c ON c.tenant_id = n.tenant_id AND c.parent_path = n.path
+WHERE n.tenant_id=@tenant AND n.parent_path=@path
+ORDER BY n.doc_count DESC, n.name ASC
+LIMIT @lim OFFSET @off;";
+
+            const string scopedTotalSql = @"
+SELECT COUNT(*)
+FROM documents_category_nodes
+WHERE tenant_id=@tenant AND parent_path=@path;";
+
+            var rows = (await conn.QueryAsync<ScopedSnapshotCategoryRow>(new CommandDefinition(scopedSql, new { tenant = tenantId, path = requestedPath, lim = requestedPageSize, off = offset }, cancellationToken: ct))).ToList();
+            total = await conn.ExecuteScalarAsync<int>(new CommandDefinition(scopedTotalSql, new { tenant = tenantId, path = requestedPath }, cancellationToken: ct));
+
+            value = rows.Select(x => (object)new
+            {
+                categoryPath = x.Path,
+                canonicalName = x.Name,
+                depth = x.Depth,
+                documentCount = x.DocCount,
+                directDocumentCount = x.DirectDocCount,
+                subfolderCount = x.SubfolderCount,
+                lastUpdatedUtc = x.UpdatedAt
+            }).ToList();
+        }
+
+        nextOffset = offset + value.Count;
+        string? nextLink = null;
+        if (nextOffset < total)
+        {
+            var nextCursor = OpaqueCursor.Encode(new CatalogCategoriesCursor
+            {
+                Path = requestedPath,
+                CategoryRef = requestedCategoryRef,
+                PageSize = requestedPageSize,
+                Offset = nextOffset
+            });
+
+            nextLink = BuildAbsoluteNextLink(ctx, "/catalog/categories", new Dictionary<string, string?>
+            {
+                ["path"] = requestedPath,
+                ["categoryRef"] = requestedCategoryRef,
+                ["pageSize"] = requestedPageSize.ToString(),
+                ["cursor"] = nextCursor
+            });
+        }
+
+        return Results.Ok(new { value, nextLink });
+    }
+
+    private static async Task<IResult> CatalogDocumentsAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        string? categoryRef,
+        string? q,
+        string? orderby,
+        int? pageSize,
+        int? maxpagesize,
+        string? cursor)
+    {
+        var tenantId = ctx.GetTenantId();
+        var ct = ctx.RequestAborted;
+
+        var requestedCategoryRef = NormalizeCategoryRefOrNull(categoryRef);
+        var requestedQuery = string.IsNullOrWhiteSpace(q) ? null : q.Trim();
+        var requestedOrderBy = NormalizeCatalogOrderBy(orderby);
+        var requestedPageSize = Math.Clamp(pageSize ?? maxpagesize ?? 50, 1, 200);
+
+        CatalogDocumentsCursor? cursorState = null;
+        if (!string.IsNullOrWhiteSpace(cursor))
+        {
+            if (!OpaqueCursor.TryDecode<CatalogDocumentsCursor>(cursor, out cursorState) || cursorState is null)
+            {
+                return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "invalid_cursor", detail: "The supplied cursor is invalid.");
+            }
+
+            if (!CursorMatches(cursorState.CategoryRef, requestedCategoryRef)
+                || !CursorMatches(cursorState.Query, requestedQuery)
+                || !CursorMatches(cursorState.OrderBy, requestedOrderBy)
+                || !CursorMatches(cursorState.PageSize, requestedPageSize))
+            {
+                return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "cursor_mismatch", detail: "The supplied cursor does not match the requested document filters.");
+            }
+
+            requestedCategoryRef = cursorState.CategoryRef;
+            requestedQuery = cursorState.Query;
+            requestedOrderBy = cursorState.OrderBy;
+            requestedPageSize = cursorState.PageSize;
+        }
+
+        var offset = cursorState?.Offset ?? 0;
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        var resolvedCategoryPath = await ResolveCategoryScopeAsync(conn, tenantId, categoryPath: null, categoryRef: requestedCategoryRef, ct: ct);
+
+        var orderClause = requestedOrderBy switch
+        {
+            "name_desc" => "d.doc_name DESC, d.doc_path DESC",
+            "updatedAt_desc" => "d.updated_at DESC, d.doc_path ASC",
+            "updatedAt_asc" => "d.updated_at ASC, d.doc_path ASC",
+            _ => "d.doc_name ASC, d.doc_path ASC"
+        };
+
+        var sql = $@"
+SELECT
+  d.doc_id           AS ""DocId"",
+  d.doc_path         AS ""DocPath"",
+  d.doc_name         AS ""DocName"",
+  d.updated_at       AS ""UpdatedAt"",
+  CASE WHEN d.doc_path LIKE '%/%' THEN regexp_replace(d.doc_path, '/[^/]+$', '') ELSE '' END AS ""CategoryPath""
+FROM documents d
+WHERE d.tenant_id=@tenant
+  AND d.status='indexed'
+  AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
+  AND (@q IS NULL OR (d.doc_name ILIKE ('%' || @q || '%') OR d.doc_path ILIKE ('%' || @q || '%')))
+ORDER BY {orderClause}
+LIMIT @lim OFFSET @off;";
+
+        const string countSql = @"
+SELECT COUNT(*)
+FROM documents d
+WHERE d.tenant_id=@tenant
+  AND d.status='indexed'
+  AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
+  AND (@q IS NULL OR (d.doc_name ILIKE ('%' || @q || '%') OR d.doc_path ILIKE ('%' || @q || '%')));";
+
+        var rows = (await conn.QueryAsync<CatalogDocumentRow>(new CommandDefinition(sql, new { tenant = tenantId, categoryPath = resolvedCategoryPath, q = requestedQuery, lim = requestedPageSize, off = offset }, cancellationToken: ct))).ToList();
+        var total = await conn.ExecuteScalarAsync<int>(new CommandDefinition(countSql, new { tenant = tenantId, categoryPath = resolvedCategoryPath, q = requestedQuery }, cancellationToken: ct));
+
+        var topCategories = (await conn.QueryAsync<SnapshotCategoryRow>(new CommandDefinition(
+            @"SELECT path AS ""Path"", name AS ""Name"", display_order AS ""DisplayOrder"", doc_count AS ""DocCount"", direct_doc_count AS ""DirectDocCount"", subfolder_count AS ""SubfolderCount"", updated_at AS ""UpdatedAt"" FROM documents_catalog_categories WHERE tenant_id=@tenant ORDER BY display_order ASC, name ASC;",
+            new { tenant = tenantId },
+            cancellationToken: ct))).ToList();
+
+        var topCategoryMap = topCategories.ToDictionary(x => x.Path, x => x, StringComparer.OrdinalIgnoreCase);
+
+        var value = rows.Select(row =>
+        {
+            var topLevel = row.CategoryPath?.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
+            topCategoryMap.TryGetValue(topLevel ?? string.Empty, out var topCategory);
+            return new CatalogDocumentItem
+            {
+                DocumentRef = BuildDocumentRef(row.DocId),
+                DocId = row.DocId,
+                DocPath = row.DocPath,
+                CanonicalName = row.DocName,
+                CategoryRef = topCategory is null ? null : BuildCategoryRef(topCategory.DisplayOrder),
+                CategoryCanonicalName = topCategory?.Name ?? topLevel,
+                CategoryPath = row.CategoryPath,
+                LastModifiedUtc = row.UpdatedAt
+            };
+        }).ToList();
+
+        string? nextLink = null;
+        var nextOffset = offset + value.Count;
+        if (nextOffset < total)
+        {
+            var nextCursor = OpaqueCursor.Encode(new CatalogDocumentsCursor
+            {
+                CategoryRef = requestedCategoryRef,
+                Query = requestedQuery,
+                OrderBy = requestedOrderBy,
+                PageSize = requestedPageSize,
+                Offset = nextOffset
+            });
+
+            nextLink = BuildAbsoluteNextLink(ctx, "/catalog/documents", new Dictionary<string, string?>
+            {
+                ["categoryRef"] = requestedCategoryRef,
+                ["q"] = requestedQuery,
+                ["orderby"] = requestedOrderBy,
+                ["pageSize"] = requestedPageSize.ToString(),
+                ["cursor"] = nextCursor
+            });
+        }
+
+        return Results.Ok(new CatalogDocumentListResponse
+        {
+            Value = value,
+            NextLink = nextLink
+        });
+    }
+
+    private static Task<IResult> CatalogStatsAsync(HttpContext ctx, NpgsqlDataSource ds, IOptions<IngestionOptions> ingestOpt, string? path, string? categoryRef)
+        => StatsAsync(ctx, ds, ingestOpt, path, categoryRef);
+
+    private static string BuildCategoryRef(int displayOrder)
+        => $"cat_{displayOrder:000}";
+
+    private static string BuildDocumentRef(Guid docId)
+        => $"doc_{docId:N}";
+
+    private static string BuildSnapshotId(DateTimeOffset computedAtUtc, long totalDocs)
+        => $"snap_{computedAtUtc.ToUniversalTime():yyyy-MM-dd'T'HH:mm:ss'Z'}_{Math.Abs(HashCode.Combine(computedAtUtc.UtcTicks, totalDocs)):x8}";
+
+    private static string BuildSnapshotEtag(DateTimeOffset computedAtUtc, long totalDocs, int categoryCount)
+        => $"\"cat-{computedAtUtc.UtcTicks:x}-{totalDocs:x}-{categoryCount:x}\"";
+
+    private static string BuildAbsoluteNextLink(HttpContext ctx, string path, IReadOnlyDictionary<string, string?> query)
+    {
+        var request = ctx.Request;
+        var builder = new UriBuilder(request.Scheme, request.Host.Host, request.Host.Port ?? -1, path);
+        var parts = new List<string>();
+        foreach (var pair in query)
+        {
+            if (string.IsNullOrWhiteSpace(pair.Value))
+                continue;
+            parts.Add($"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value!)}");
+        }
+
+        builder.Query = string.Join("&", parts);
+        return builder.Uri.AbsoluteUri;
+    }
+
+    private static string NormalizeCatalogOrderBy(string? orderBy)
+    {
+        if (string.IsNullOrWhiteSpace(orderBy))
+            return "name_asc";
+
+        return orderBy.Trim().ToLowerInvariant() switch
+        {
+            "name_desc" => "name_desc",
+            "updatedat_desc" => "updatedAt_desc",
+            "updatedat_asc" => "updatedAt_asc",
+            _ => "name_asc"
+        };
+    }
+
+    private static bool CursorMatches(string? cursorValue, string? requestValue)
+        => string.IsNullOrWhiteSpace(requestValue) || string.Equals(cursorValue ?? string.Empty, requestValue ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+
+    private static bool CursorMatches(int cursorValue, int requestValue)
+        => requestValue <= 0 || cursorValue == requestValue;
+
+    private static async Task<object?> TryBuildStatsFromSnapshotAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        string? path,
+        CancellationToken ct)
+    {
+        var scopedNode = await TryLoadTreeFromSnapshotAsync(conn, tenantId, path, maxDepth: null, ct: ct);
+        if (scopedNode is null)
+            return null;
+
+        var scopedDepthBase = string.IsNullOrWhiteSpace(scopedNode.Path)
+            ? 0
+            : scopedNode.Path.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Length;
+
+        var foldersByDepth = new Dictionary<int, int>();
+        var documentsByDepth = new Dictionary<int, int>();
+        var leafFoldersCount = 0;
+        var totalFolders = 0;
+        var topLevelFolderCount = scopedNode.Children.Count;
+
+        void AddDocumentsAtDepth(int depth, int count)
+        {
+            if (count <= 0)
+                return;
+
+            documentsByDepth[depth] = documentsByDepth.TryGetValue(depth, out var existing)
+                ? existing + count
+                : count;
+        }
+
+        void Walk(TreeNode node, bool includeCurrent)
+        {
+            if (includeCurrent && !string.IsNullOrWhiteSpace(node.Path))
+            {
+                totalFolders++;
+                var relativeDepth = Math.Max(0, node.Depth - scopedDepthBase);
+                foldersByDepth[relativeDepth] = foldersByDepth.TryGetValue(relativeDepth, out var existingFolders)
+                    ? existingFolders + 1
+                    : 1;
+
+                if (node.Children.Count == 0)
+                    leafFoldersCount++;
+            }
+
+            var documentDepth = Math.Max(0, node.Depth - scopedDepthBase);
+            AddDocumentsAtDepth(documentDepth, node.DirectDocCount);
+
+            foreach (var child in node.Children.Values)
+                Walk(child, includeCurrent: true);
+        }
+
+        if (string.IsNullOrWhiteSpace(scopedNode.Path))
+        {
+            AddDocumentsAtDepth(0, scopedNode.DirectDocCount);
+            foreach (var child in scopedNode.Children.Values)
+                Walk(child, includeCurrent: true);
+        }
+        else
+        {
+            Walk(scopedNode, includeCurrent: true);
+        }
+
+        var rootFolders = scopedNode.Children.Values
+            .OrderByDescending(n => n.DocCount)
+            .ThenBy(n => n.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(n => new
+            {
+                path = n.Path,
+                name = n.Name,
+                totalDocuments = n.DocCount,
+                directDocuments = n.DirectDocCount,
+                subfolderCount = n.Children.Count
+            })
+            .ToList();
+
+        return new
+        {
+            scopePath = scopedNode.Path,
+            totalDocuments = scopedNode.DocCount,
+            maxDepth = foldersByDepth.Keys.DefaultIfEmpty(0).Max(),
+            totalNonEmptyFolders = totalFolders,
+            topLevelFolderCount = topLevelFolderCount,
+            leafFolderCount = leafFoldersCount,
+            foldersByDepth = foldersByDepth
+                .OrderBy(kv => kv.Key)
+                .Select(kv => new { depth = kv.Key, folderCount = kv.Value })
+                .ToList(),
+            documentsByDepth = documentsByDepth
+                .OrderBy(kv => kv.Key)
+                .Select(kv => new { depth = kv.Key, documentCount = kv.Value })
+                .ToList(),
+            rootFolders,
+            includesEmptyFolders = false,
+            emptyFoldersKnown = false,
+            folderTree = ToDto(scopedNode, maxDepth: null)
+        };
     }
 
     private static bool ShouldSkipDirectoryName(string? name)
@@ -896,6 +1555,308 @@ return map[baseKey];
         return string.IsNullOrWhiteSpace(s) ? null : s;
     }
 
+    private static string? NormalizeCategoryRefOrNull(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var s = raw.Trim();
+        return string.IsNullOrWhiteSpace(s) ? null : s;
+    }
+
+    private static string NormalizeCategoryComparableText(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return string.Empty;
+
+        var normalized = raw.Trim().Normalize(System.Text.NormalizationForm.FormD);
+        var sb = new StringBuilder(normalized.Length);
+        foreach (var ch in normalized)
+        {
+            var category = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch);
+            if (category == System.Globalization.UnicodeCategory.NonSpacingMark)
+                continue;
+
+            if (char.IsLetterOrDigit(ch))
+                sb.Append(char.ToLowerInvariant(ch));
+        }
+
+        return sb.ToString();
+    }
+
+    private static bool IsLooseCategoryComparableMatch(string probe, string candidate)
+    {
+        if (string.IsNullOrWhiteSpace(probe) || string.IsNullOrWhiteSpace(candidate))
+            return false;
+
+        if (string.Equals(probe, candidate, StringComparison.Ordinal))
+            return true;
+
+        if (probe.Length >= 5 && candidate.Length >= 5
+            && (probe.StartsWith(candidate, StringComparison.Ordinal) || candidate.StartsWith(probe, StringComparison.Ordinal)))
+        {
+            return true;
+        }
+
+        var sharedPrefix = 0;
+        var max = Math.Min(probe.Length, candidate.Length);
+        while (sharedPrefix < max && probe[sharedPrefix] == candidate[sharedPrefix])
+            sharedPrefix++;
+
+        return sharedPrefix >= 7;
+    }
+
+    private static async Task<Dictionary<string, string[]>> LoadTopCategoryAliasesAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        IReadOnlyCollection<string> paths,
+        CancellationToken ct)
+    {
+        if (paths is null || paths.Count == 0)
+            return new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+        var rows = (await conn.QueryAsync<CategoryAliasDto>(new CommandDefinition(
+            @"SELECT
+  path      AS ""Path"",
+  alias     AS ""Alias"",
+  priority  AS ""Priority""
+FROM documents_catalog_category_aliases
+WHERE tenant_id=@tenant
+  AND path = ANY(@paths)
+  AND source='builtin'
+ORDER BY path ASC, priority ASC, alias ASC;",
+            new { tenant = tenantId, paths = paths.ToArray() },
+            cancellationToken: ct))).ToList();
+
+        return rows
+            .GroupBy(x => x.Path ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(x => x.Alias)
+                      .Where(x => !string.IsNullOrWhiteSpace(x))
+                      .Distinct(StringComparer.OrdinalIgnoreCase)
+                      .ToArray(),
+                StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static async Task<string?> ResolveCategoryScopeAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        string? categoryPath,
+        string? categoryRef,
+        CancellationToken ct)
+    {
+        var normalizedPath = NormalizeCategoryPathOrNull(categoryPath);
+        if (!string.IsNullOrWhiteSpace(normalizedPath))
+        {
+            var exactPath = await ResolveExistingCategoryPathAsync(conn, tenantId, normalizedPath!, ct);
+            if (!string.IsNullOrWhiteSpace(exactPath))
+                return exactPath;
+
+            return await ResolveCategoryRefToPathAsync(conn, tenantId, categoryRef ?? normalizedPath!, ct);
+        }
+
+        if (string.IsNullOrWhiteSpace(categoryRef))
+            return null;
+
+        return await ResolveCategoryRefToPathAsync(conn, tenantId, categoryRef!, ct);
+    }
+
+    private static async Task<string?> ResolveExistingCategoryPathAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        string categoryPath,
+        CancellationToken ct)
+    {
+        var normalizedPath = NormalizeCategoryPathOrNull(categoryPath);
+        if (string.IsNullOrWhiteSpace(normalizedPath))
+            return null;
+
+        return await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
+            @"SELECT path
+FROM documents_category_nodes
+WHERE tenant_id=@tenant AND path=@path
+LIMIT 1;",
+            new { tenant = tenantId, path = normalizedPath },
+            cancellationToken: ct));
+    }
+
+    private static async Task<string?> ResolveCategoryRefToPathAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        string categoryRef,
+        CancellationToken ct)
+    {
+        var raw = NormalizeCategoryRefOrNull(categoryRef);
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+
+        var normalizedPath = NormalizeCategoryPathOrNull(raw);
+        if (!string.IsNullOrWhiteSpace(normalizedPath))
+        {
+            var exactPath = await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
+                @"SELECT path
+FROM documents_category_nodes
+WHERE tenant_id=@tenant AND path=@path
+LIMIT 1;",
+                new { tenant = tenantId, path = normalizedPath },
+                cancellationToken: ct));
+            if (!string.IsNullOrWhiteSpace(exactPath))
+                return exactPath;
+        }
+
+        var ordinal = TryParseOrdinalCategoryRef(raw);
+        if (ordinal is not null)
+        {
+            var byOrder = await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
+                @"SELECT path
+FROM documents_catalog_categories
+WHERE tenant_id=@tenant AND display_order=@displayOrder
+LIMIT 1;",
+                new { tenant = tenantId, displayOrder = ordinal.Value },
+                cancellationToken: ct));
+            if (!string.IsNullOrWhiteSpace(byOrder))
+                return byOrder;
+        }
+
+        var byName = await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
+            @"SELECT path
+FROM documents_catalog_categories
+WHERE tenant_id=@tenant
+  AND (LOWER(path)=LOWER(@value) OR LOWER(name)=LOWER(@value))
+ORDER BY display_order ASC, name ASC
+LIMIT 1;",
+            new { tenant = tenantId, value = raw.Trim() },
+            cancellationToken: ct));
+        if (!string.IsNullOrWhiteSpace(byName))
+            return byName;
+
+        var probe = NormalizeCategoryComparableText(raw);
+        if (!string.IsNullOrWhiteSpace(probe))
+        {
+            var candidates = (await conn.QueryAsync<TopCategoryDto>(new CommandDefinition(
+                @"SELECT
+  path             AS ""Path"",
+  name             AS ""Name"",
+  display_order    AS ""DisplayOrder"",
+  doc_count        AS ""DocCount"",
+  direct_doc_count AS ""DirectDocCount"",
+  subfolder_count  AS ""SubfolderCount""
+FROM documents_catalog_categories
+WHERE tenant_id=@tenant
+ORDER BY display_order ASC, name ASC;",
+                new { tenant = tenantId },
+                cancellationToken: ct))).ToList();
+
+            var matched = candidates.FirstOrDefault(candidate =>
+            {
+                var candidateName = NormalizeCategoryComparableText(candidate.Name);
+                if (IsLooseCategoryComparableMatch(probe, candidateName))
+                    return true;
+
+                var candidatePath = NormalizeCategoryComparableText(candidate.Path);
+                if (IsLooseCategoryComparableMatch(probe, candidatePath))
+                    return true;
+
+                var topLevelPath = NormalizeCategoryComparableText(candidate.Path.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault());
+                return IsLooseCategoryComparableMatch(probe, topLevelPath);
+            });
+
+            if (matched is not null && !string.IsNullOrWhiteSpace(matched.Path))
+                return matched.Path;
+        }
+
+        return normalizedPath;
+    }
+
+    private static int? TryParseOrdinalCategoryRef(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+
+        var trimmed = raw.Trim();
+        if (int.TryParse(trimmed, out var direct) && direct > 0)
+            return direct;
+
+        var compact = trimmed.Replace("-", string.Empty, StringComparison.Ordinal).Replace("_", string.Empty, StringComparison.Ordinal);
+        if (compact.StartsWith("cat", StringComparison.OrdinalIgnoreCase)
+            && int.TryParse(compact.Substring(3), out var catOrdinal)
+            && catOrdinal > 0)
+        {
+            return catOrdinal;
+        }
+
+
+        var match = System.Text.RegularExpressions.Regex.Match(
+            trimmed,
+            @"(?:^|\b)(?:category|categorie|catégorie|cat|rang)\s*(\d+)(?:er|eme|ème|nd|rd|th)?(?:\b|$)",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        if (match.Success && int.TryParse(match.Groups[1].Value, out var parsed) && parsed > 0)
+            return parsed;
+
+        match = System.Text.RegularExpressions.Regex.Match(
+            trimmed,
+            @"^(\d+)(?:er|eme|ème|nd|rd|th)?$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        if (match.Success && int.TryParse(match.Groups[1].Value, out parsed) && parsed > 0)
+            return parsed;
+
+        return null;
+    }
+
+
+    private sealed class CatalogCategoriesCursor
+    {
+        public string? Path { get; set; }
+        public string? CategoryRef { get; set; }
+        public int PageSize { get; set; }
+        public int Offset { get; set; }
+    }
+
+    private sealed class CatalogDocumentsCursor
+    {
+        public string? CategoryRef { get; set; }
+        public string? Query { get; set; }
+        public string? OrderBy { get; set; }
+        public int PageSize { get; set; }
+        public int Offset { get; set; }
+    }
+
+    private sealed class SnapshotSummaryRow
+    {
+        public DateTimeOffset ComputedAt { get; set; }
+        public long TotalDocs { get; set; }
+    }
+
+    private sealed class SnapshotCategoryRow
+    {
+        public string Path { get; set; } = "";
+        public string Name { get; set; } = "";
+        public int DisplayOrder { get; set; }
+        public int DocCount { get; set; }
+        public int DirectDocCount { get; set; }
+        public int SubfolderCount { get; set; }
+        public DateTimeOffset UpdatedAt { get; set; }
+    }
+
+    private sealed class ScopedSnapshotCategoryRow
+    {
+        public string Path { get; set; } = "";
+        public string Name { get; set; } = "";
+        public int Depth { get; set; }
+        public int DocCount { get; set; }
+        public int DirectDocCount { get; set; }
+        public int SubfolderCount { get; set; }
+        public DateTimeOffset UpdatedAt { get; set; }
+    }
+
+    private sealed class CatalogDocumentRow
+    {
+        public Guid DocId { get; set; }
+        public string DocPath { get; set; } = "";
+        public string DocName { get; set; } = "";
+        public string CategoryPath { get; set; } = "";
+        public DateTimeOffset? UpdatedAt { get; set; }
+    }
+
     private sealed class SummaryRow
     {
         public DateTime ComputedAt { get; set; }
@@ -905,6 +1866,33 @@ return map[baseKey];
         public string DocsByDepth { get; set; } = "{}";
         public string DirectDocsByDepth { get; set; } = "{}";
         public string Top { get; set; } = "[]";
+    }
+
+    private sealed class TopCategoryDto
+    {
+        public string Path { get; set; } = "";
+        public string Name { get; set; } = "";
+        public int DisplayOrder { get; set; }
+        public int DocCount { get; set; }
+        public int DirectDocCount { get; set; }
+        public int SubfolderCount { get; set; }
+    }
+
+    private sealed class CategoryNodeDto
+    {
+        public string Path { get; set; } = "";
+        public string Name { get; set; } = "";
+        public int Depth { get; set; }
+        public int DocCount { get; set; }
+        public int DirectDocCount { get; set; }
+        public int SubfolderCount { get; set; }
+    }
+
+    private sealed class CategoryAliasDto
+    {
+        public string Path { get; set; } = "";
+        public string Alias { get; set; } = "";
+        public int Priority { get; set; }
     }
 
     private sealed class NodeRow

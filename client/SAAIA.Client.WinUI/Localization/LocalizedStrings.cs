@@ -121,6 +121,15 @@ internal static class LocalizedStrings
                 ["de"] = "Ich konnte keine wiederverwendbare Zusammenfassung für dieses Dokument speichern.",
                 ["it"] = "Non sono riuscito a salvare un riassunto riutilizzabile per questo documento."
             },
+            ["no_previous_answer_to_translate"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "Je n'ai pas encore de réponse précédente à traduire.",
+                ["en"] = "I do not have a previous answer to translate yet.",
+                ["es"] = "Todavía no tengo una respuesta anterior para traducir.",
+                ["pt"] = "Ainda não tenho uma resposta anterior para traduzir.",
+                ["de"] = "Ich habe noch keine vorherige Antwort zum Übersetzen.",
+                ["it"] = "Non ho ancora una risposta precedente da tradurre."
+            },
             ["phase.interpreting"] = new(StringComparer.OrdinalIgnoreCase)
             {
                 ["fr"] = "J'interprète la demande…",
@@ -139,6 +148,16 @@ internal static class LocalizedStrings
                 ["de"] = "Ich bereite eine kurze Antwort vor…",
                 ["it"] = "Sto preparando una risposta breve…"
             }
+,
+            ["guided_command_help_required"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "Cette demande ressemble à une commande guidée catalogue/admin, mais elle ne correspond pas exactement à une commande supportée. Je n'ai lancé aucun outil pour éviter une action partielle ou incorrecte. Ouvre le bouton ? puis clique sur la commande voulue pour insérer la formulation exacte attendue. Garde le langage naturel pour les recherches, les questions sur le contenu d'un document et les résumés.",
+                ["en"] = "This request looks like a guided catalog/admin command, but it does not exactly match a supported command. I did not run any tool to avoid a partial or incorrect action. Open the ? button and click the command you want to insert the exact supported wording. Keep natural language for searches, document-content questions, and summaries.",
+                ["es"] = "Esta solicitud parece un comando guiado de catálogo/administración, pero no coincide exactamente con un comando soportado. No ejecuté ninguna herramienta para evitar una acción parcial o incorrecta. Abre el botón ? y haz clic en el comando deseado para insertar la formulación exacta admitida. Mantén el lenguaje natural para las búsquedas, las preguntas sobre el contenido de un documento y los resúmenes.",
+                ["pt"] = "Este pedido parece um comando guiado de catálogo/administração, mas não corresponde exatamente a um comando suportado. Não executei nenhuma ferramenta para evitar uma ação parcial ou incorreta. Abre o botão ? e clica no comando pretendido para inserir a formulação exata suportada. Mantém a linguagem natural para pesquisas, perguntas sobre o conteúdo de um documento e resumos.",
+                ["de"] = "Diese Anfrage sieht wie ein geführter Katalog-/Admin-Befehl aus, entspricht aber nicht exakt einem unterstützten Befehl. Ich habe kein Tool ausgeführt, um eine teilweise oder falsche Aktion zu vermeiden. Öffne die Schaltfläche ? und klicke auf den gewünschten Befehl, um die exakt unterstützte Formulierung einzufügen. Verwende natürliche Sprache für Recherchen, Fragen zum Dokumentinhalt und Zusammenfassungen.",
+                ["it"] = "Questa richiesta sembra un comando guidato di catalogo/amministrazione, ma non corrisponde esattamente a un comando supportato. Non ho eseguito alcuno strumento per evitare un'azione parziale o errata. Apri il pulsante ? e fai clic sul comando desiderato per inserire la formulazione esatta supportata. Mantieni il linguaggio naturale per le ricerche, le domande sul contenuto di un documento e i riassunti."
+            }
         };
 
     private static readonly Dictionary<string, string[]> LanguageAliases =
@@ -155,12 +174,12 @@ internal static class LocalizedStrings
     private static readonly Dictionary<string, string[]> LanguageSignals =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            ["fr"] = new[] { "bonjour", "salut", "coucou", "donne", "liste", "serveur", "arborescence", "résumé", "resume", "français", "francais", "merci", "stp", "comment", "documents", "document", "quels", "quelles", "présents", "present", "présent", "combien" },
-            ["en"] = new[] { "hello", "hi", "hey", "give", "list", "server", "tree", "summary", "please", "what", "how", "english", "document", "file", "documents", "which", "many", "present" },
-            ["es"] = new[] { "hola", "dame", "lista", "servidor", "árbol", "arbol", "resumen", "español", "espanol", "por", "favor", "archivo", "qué", "que", "significa", "cuántos", "cuantos", "documentos", "hay", "presentes" },
-            ["pt"] = new[] { "olá", "ola", "liste", "lista", "servidor", "árvore", "arvore", "resumo", "português", "portugues", "por", "favor", "arquivo", "o", "que", "quantos", "documentos", "presentes" },
-            ["de"] = new[] { "hallo", "bitte", "baum", "server", "zusammenfassung", "deutsch", "dokument", "dokumente", "datei", "was", "bedeutet", "liste", "wieviele", "wie viele", "vorhanden" },
-            ["it"] = new[] { "ciao", "elenco", "server", "albero", "riassunto", "italiano", "per", "favore", "documento", "documenti", "file", "che", "significa", "quali", "quanti", "presenti", "sono", "sul" }
+            ["fr"] = new[] { "bonjour", "salut", "coucou", "donne", "liste", "serveur", "arborescence", "résumé", "resume", "français", "francais", "merci", "stp", "comment", "documents", "document", "quels", "quelles", "présents", "present", "présent", "combien", "qui", "tu", "quoi", "categorie", "catégorie", "statistiques", "sans", "vient", "viens", "lister", "atex" },
+            ["en"] = new[] { "hello", "hi", "hey", "give", "list", "server", "tree", "summary", "please", "what", "how", "english", "document", "file", "documents", "category", "categories", "which", "many", "present", "thank", "thanks", "who", "are", "you" },
+            ["es"] = new[] { "hola", "dame", "lista", "servidor", "árbol", "arbol", "resumen", "español", "espanol", "archivo", "qué", "significa", "cuántos", "cuantos", "documentos", "hay", "estadísticas", "estadisticas", "categoria", "categoría", "quien", "eres" },
+            ["pt"] = new[] { "olá", "ola", "lista", "servidor", "árvore", "arvore", "resumo", "português", "portugues", "arquivo", "quantos", "documentos", "estatísticas", "estatisticas", "categoria", "quem", "és", "voce" },
+            ["de"] = new[] { "hallo", "bitte", "baum", "server", "zusammenfassung", "deutsch", "dokument", "dokumente", "datei", "was", "bedeutet", "liste", "wieviele", "wie viele", "vorhanden", "wer", "bist", "du" },
+            ["it"] = new[] { "ciao", "elenco", "server", "albero", "riassunto", "italiano", "documento", "documenti", "file", "significa", "quali", "quanti", "presenti", "sono", "sul", "chi", "sei", "categoria", "statistiche" }
         };
 
     public static string Normalize(string? language) => NormalizeLanguage(language);
@@ -205,6 +224,7 @@ internal static class LocalizedStrings
     public static string SummaryAlreadyStored(string? language) => Get("summary_already_stored", language);
     public static string SummaryStoreDone(string? language) => Get("summary_store_done", language);
     public static string SummaryStoreFailed(string? language) => Get("summary_store_failed", language);
+    public static string GuidedCommandHelpRequired(string? language) => Get("guided_command_help_required", language);
 
     public static string LocalizedLanguageName(string language, string? uiLanguage)
     {
@@ -276,6 +296,9 @@ internal static class LocalizedStrings
         };
     }
 
+    public static string NoPreviousAnswerToTranslate(string? language)
+        => Get("no_previous_answer_to_translate", language);
+
     public static string DetectLanguage(string? text, string? fallbackLanguage = "fr")
     {
         var detected = DetectLanguageInternal(text);
@@ -293,10 +316,14 @@ internal static class LocalizedStrings
 
         var patterns = new[]
         {
-            @"^(?:please\s+)?(?:respond|answer|reply|talk|speak|continue|write|reponds|réponds|parle|continue|continuer|ecris|écris|responde|contesta|habla|sigue|escribe|fale|continua|escreva|antworte|beantworte|sprich|schreibe|rispondi|parla|scrivi)\s+(?:in|en|em|auf)?\s*(?<lang>[\p{L}]+)(?:\s+(?:please|por favor|svp|stp|bitte|per favore))?[!.?]*$",
-            @"^(?:en|in|em|auf)\s+(?<lang>[\p{L}]+)(?:\s+(?:please|por favor|svp|stp|bitte|per favore))?[!.?]*$",
-            @"^(?:non\s+|not\s+)?(?:en|in|em|auf)\s+(?<lang>[\p{L}]+)(?:\s+(?:please|por favor|svp|stp|bitte|per favore))?[!.?]*$",
-            @"^(?<lang>[\p{L}]+)(?:\s+(?:please|por favor|svp|stp|bitte|per favore))?[!.?]*$"
+            @"^(?:please\s+)?(?:respond|answer|reply|talk|speak|continue|write|translate|reponds|réponds|parle|continue|continuer|ecris|écris|traduis|traduit|responde|contesta|habla|sigue|escribe|traduce|fale|continua|escreva|traduza|antworte|beantworte|sprich|schreibe|übersetze|rispondi|parla|scrivi|traduci)\s+(?:in|en|em|auf)?\s*(?<lang>[\p{L}]+)(?:\s+(?:please|por favor|svp|stp|bitte|per favore))?\s*[!.?]*$",
+            @"^(?:traduis|traduit|translate|traduce|traduza|traduci)\s+(?:en|in|em|auf)?\s*(?<lang>[\p{L}]+)(?:\s+(?:please|por favor|svp|stp|bitte|per favore))?\s*[!.?]*$",
+            @"^(?:en|in|em|auf)\s+(?<lang>[\p{L}]+)(?:\s+(?:please|por favor|svp|stp|bitte|per favore))?\s*[!.?]*$",
+            @"^(?:non\s+|not\s+)?(?:en|in|em|auf)\s+(?<lang>[\p{L}]+)(?:\s+(?:please|por favor|svp|stp|bitte|per favore))?\s*[!.?]*$",
+            @"^(?<lang>[\p{L}]+)(?:\s+(?:please|por favor|svp|stp|bitte|per favore))?\s*[!.?]*$",
+            @"^(?:ca|ça)\s+donne\s+quoi\s+(?:en|in|em|auf)\s+(?<lang>[\p{L}]+)\s*[!.?]*$",
+            @"^(?:what\s+about|how\s+about|and|et|alors|donc|du\s+coup|maintenant|now)\s+(?:en|in|em|auf)\s+(?<lang>[\p{L}]+)\s*[!.?]*$",
+            @"^(?:comment|how)\s+(?:le|la|that|this|ca|ça|cela|ce\s+message)\s+(?:se\s+dit|says|looks|sounds)?\s*(?:en|in|em|auf)\s+(?<lang>[\p{L}]+)\s*[!.?]*$"
         };
 
         foreach (var pattern in patterns)

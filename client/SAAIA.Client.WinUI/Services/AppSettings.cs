@@ -18,6 +18,7 @@ internal sealed class AppSettings
     private const string KBackendUrl = "backend.url";
     private const string KShowAdvancedUi = "ui.showAdvanced";
     private const string KAutoConnect = "ui.autoConnect";
+    private const string KUiLanguage = "ui.language";
     private const string KProvisioningHash = "provisioning.hash";
     private const string KLlmAutoInstallAttemptedHash = "llm.autoInstall.attemptedHash";
     private const string KLlmMode = "llm.mode"; // embedded|docker|external
@@ -54,6 +55,12 @@ internal sealed class AppSettings
     /// UI: auto connect at startup when provisioning is present.
     /// </summary>
     public bool AutoConnect { get; set; } = true;
+
+    /// <summary>
+    /// UI language for the WinUI shell and built-in help commands.
+    /// Supported: fr|en|es|pt|de|it
+    /// </summary>
+    public string UiLanguage { get; set; } = "fr";
 
     /// <summary>
     /// LLM enable/disable (safe). If false: app runs in degraded "search-only" mode.
@@ -121,6 +128,7 @@ internal sealed class AppSettings
         string BackendUrl,
         bool ShowAdvancedUi,
         bool AutoConnect,
+        string UiLanguage,
         string? ProvisioningHash,
         string? LlmAutoInstallAttemptedHash,
         string LlmMode,
@@ -152,6 +160,7 @@ internal sealed class AppSettings
             s.BackendUrl = (ls.Values[KBackendUrl] as string) ?? s.BackendUrl;
             s.ShowAdvancedUi = (ls.Values[KShowAdvancedUi] as bool?) ?? s.ShowAdvancedUi;
             s.AutoConnect = (ls.Values[KAutoConnect] as bool?) ?? s.AutoConnect;
+            s.UiLanguage = (ls.Values[KUiLanguage] as string) ?? s.UiLanguage;
             s.ProvisioningHash = (ls.Values[KProvisioningHash] as string) ?? s.ProvisioningHash;
             s.LlmAutoInstallAttemptedHash = (ls.Values[KLlmAutoInstallAttemptedHash] as string) ?? s.LlmAutoInstallAttemptedHash;
             s.LlmMode = (ls.Values[KLlmMode] as string) ?? s.LlmMode;
@@ -205,6 +214,9 @@ internal sealed class AppSettings
             if (Has(nameof(FileDto.AutoConnect)))
                 s.AutoConnect = dto.AutoConnect;
 
+            if (Has(nameof(FileDto.UiLanguage)))
+                s.UiLanguage = string.IsNullOrWhiteSpace(dto.UiLanguage) ? s.UiLanguage : dto.UiLanguage;
+
             if (Has(nameof(FileDto.ProvisioningHash)))
                 s.ProvisioningHash = string.IsNullOrWhiteSpace(dto.ProvisioningHash) ? null : dto.ProvisioningHash;
 
@@ -257,6 +269,7 @@ internal sealed class AppSettings
             ls.Values[KBackendUrl] = BackendUrl ?? ClientDefaults.BackendBaseUrl;
             ls.Values[KShowAdvancedUi] = ShowAdvancedUi;
             ls.Values[KAutoConnect] = AutoConnect;
+            ls.Values[KUiLanguage] = string.IsNullOrWhiteSpace(UiLanguage) ? "fr" : UiLanguage;
             if (string.IsNullOrWhiteSpace(ProvisioningHash)) ls.Values.Remove(KProvisioningHash);
             else ls.Values[KProvisioningHash] = ProvisioningHash;
 
@@ -306,6 +319,7 @@ internal sealed class AppSettings
                 BackendUrl ?? ClientDefaults.BackendBaseUrl,
                 ShowAdvancedUi,
                 AutoConnect,
+                string.IsNullOrWhiteSpace(UiLanguage) ? "fr" : UiLanguage,
                 string.IsNullOrWhiteSpace(ProvisioningHash) ? null : ProvisioningHash,
                 string.IsNullOrWhiteSpace(LlmAutoInstallAttemptedHash) ? null : LlmAutoInstallAttemptedHash,
                 string.IsNullOrWhiteSpace(LlmMode) ? "embedded" : LlmMode,
@@ -347,6 +361,7 @@ internal sealed class AppSettings
         BackendUrl = this.BackendUrl,
         ShowAdvancedUi = this.ShowAdvancedUi,
         AutoConnect = this.AutoConnect,
+        UiLanguage = this.UiLanguage,
 
         UseLocalLlm = this.UseLocalLlm,
         LlmMode = this.LlmMode,
@@ -377,6 +392,7 @@ internal sealed class AppSettings
         BackendUrl = other.BackendUrl;
         ShowAdvancedUi = other.ShowAdvancedUi;
         AutoConnect = other.AutoConnect;
+        UiLanguage = other.UiLanguage;
 
         UseLocalLlm = other.UseLocalLlm;
         LlmMode = other.LlmMode;

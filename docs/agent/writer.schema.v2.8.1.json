@@ -68,7 +68,7 @@
             "tree",
             "table"
           ],
-          "description": "Hint for UI rendering, usually equals Router responseStyle."
+          "description": "Hint for UI rendering, usually equals Router responseFormat."
         }
       },
       "required": []

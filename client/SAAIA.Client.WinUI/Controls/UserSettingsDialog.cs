@@ -33,20 +33,31 @@ internal sealed class UserSettingsDialog : ContentDialog
     private string? _closeButtonTextBackup;
 
 
+    private sealed record UiLanguageChoice(string Code, string Label)
+    {
+        public override string ToString() => Label;
+    }
+
     // UI controls (safe)
-    private readonly ToggleSwitch _assistantEnabled = new() { Header = "Assistant IA", OnContent = "Activé", OffContent = "Désactivé" };
-    private readonly ToggleSwitch _strictMode = new() { Header = "Mode strict", OnContent = "Sources uniquement", OffContent = "Standard" };
-    private readonly ComboBox _ragQuality = new() { Header = "Qualité de recherche" };
-    private readonly ComboBox _style = new() { Header = "Style de réponse" };
-    private readonly ComboBox _length = new() { Header = "Longueur de réponse" };
+    private readonly ComboBox _uiLanguage = new();
+    private readonly ToggleSwitch _assistantEnabled = new();
+    private readonly ToggleSwitch _strictMode = new();
+    private readonly ComboBox _ragQuality = new();
+    private readonly ComboBox _style = new();
+    private readonly ComboBox _length = new();
+
+    private readonly TextBlock _assistantSectionTitle = new();
+    private readonly TextBlock _repairSectionTitle = new();
+    private readonly TextBlock _supportSectionTitle = new();
+    private readonly TextBlock _supportNote = new() { Opacity = 0.8, TextWrapping = TextWrapping.Wrap };
 
     // Assistant install / repair
     private readonly TextBlock _assistantStatus = new() { Text = "", TextWrapping = TextWrapping.Wrap };
     private readonly ProgressBar _assistantProgress = new() { Minimum = 0, Maximum = 100, Height = 6, Visibility = Visibility.Collapsed };
-    private readonly Button _assistantRepairBtn = new() { Content = "Installer / réparer l'assistant…", HorizontalAlignment = HorizontalAlignment.Left };
+    private readonly Button _assistantRepairBtn = new() { HorizontalAlignment = HorizontalAlignment.Left };
 
     // Support bundle
-    private readonly Button _exportBtn = new() { Content = "Exporter diagnostic…", HorizontalAlignment = HorizontalAlignment.Left };
+    private readonly Button _exportBtn = new() { HorizontalAlignment = HorizontalAlignment.Left };
 
     internal AppSettings UpdatedSettings { get; private set; }
 
@@ -58,9 +69,6 @@ internal sealed class UserSettingsDialog : ContentDialog
 
         _repairAssistantAsync = repairAssistantAsync;
 
-        Title = "Paramètres";
-        PrimaryButtonText = "Appliquer";
-        CloseButtonText = "Fermer";
         DefaultButton = ContentDialogButton.Primary;
 
         // Handle apply
@@ -71,17 +79,13 @@ internal sealed class UserSettingsDialog : ContentDialog
         _assistantEnabled.IsOn = _working.UseLocalLlm;
         _strictMode.IsOn = _working.StrictMode;
 
-        _ragQuality.Items.Add("Rapide");
-        _ragQuality.Items.Add("Équilibré");
-        _ragQuality.Items.Add("Approfondi");
+        foreach (var option in ClientUiText.GetLanguageOptions())
+            _uiLanguage.Items.Add(new UiLanguageChoice(option.Code, option.Label));
 
-        _style.Items.Add("Précis");
-        _style.Items.Add("Équilibré");
-        _style.Items.Add("Créatif");
-
-        _length.Items.Add("Court");
-        _length.Items.Add("Standard");
-        _length.Items.Add("Long");
+        var selectedUiLanguage = ClientUiText.NormalizeLanguage(_working.UiLanguage);
+        var selectedIndex = ClientUiText.GetLanguageOptions().ToList().FindIndex(x => string.Equals(x.Code, selectedUiLanguage, StringComparison.OrdinalIgnoreCase));
+        _uiLanguage.SelectedIndex = selectedIndex >= 0 ? selectedIndex : 0;
+        _uiLanguage.SelectionChanged += (_, _) => RefreshUiTexts();
 
         // Apply current selections
         _ragQuality.SelectedIndex = MapRagQualityToIndex(_working.RagQualityPreset);
@@ -91,6 +95,7 @@ internal sealed class UserSettingsDialog : ContentDialog
         _assistantRepairBtn.Click += async (_, _) => await RunRepairAsync().ConfigureAwait(true);
         _exportBtn.Click += async (_, _) => await ExportSupportBundleAsync().ConfigureAwait(true);
 
+        RefreshUiTexts();
         Content = BuildUi();
     }
 
@@ -119,8 +124,9 @@ internal sealed class UserSettingsDialog : ContentDialog
             MaxWidth = 520
         };
 
-        var section1 = Section("Assistant", new UIElement[]
+        var section1 = Section(_assistantSectionTitle, new UIElement[]
         {
+            _uiLanguage,
             _assistantEnabled,
             _strictMode,
             _ragQuality,
@@ -128,22 +134,17 @@ internal sealed class UserSettingsDialog : ContentDialog
             _length
         });
 
-        var section2 = Section("Dépannage assistant", new UIElement[]
+        var section2 = Section(_repairSectionTitle, new UIElement[]
         {
             _assistantRepairBtn,
             _assistantProgress,
             _assistantStatus
         });
 
-        var section3 = Section("Support", new UIElement[]
+        var section3 = Section(_supportSectionTitle, new UIElement[]
         {
             _exportBtn,
-            new TextBlock
-            {
-                Text = "Le diagnostic ne contient pas la clé API (elle est masquée).",
-                Opacity = 0.8,
-                TextWrapping = TextWrapping.Wrap
-            }
+            _supportNote
         });
 
         root.Children.Add(section1);
@@ -167,20 +168,62 @@ internal sealed class UserSettingsDialog : ContentDialog
         Margin = new Thickness(0, 4, 0, 4)
     };
 
-    private static UIElement Section(string title, UIElement[] body)
+    private static UIElement Section(TextBlock titleBlock, UIElement[] body)
     {
-        var panel = new StackPanel { Spacing = 8 };
+        titleBlock.FontWeight = FontWeights.SemiBold;
+        titleBlock.FontSize = 14;
 
-        panel.Children.Add(new TextBlock
-        {
-            Text = title,
-            FontWeight = FontWeights.SemiBold,
-            FontSize = 14
-        });
+        var panel = new StackPanel { Spacing = 8 };
+        panel.Children.Add(titleBlock);
 
         foreach (var el in body) panel.Children.Add(el);
 
         return panel;
+    }
+
+    private string UiLang => ClientUiText.NormalizeLanguage(GetSelectedLanguageCode());
+
+    private string T(string key) => ClientUiText.Get(key, UiLang);
+
+    private string GetSelectedLanguageCode()
+        => _uiLanguage.SelectedItem is UiLanguageChoice choice ? choice.Code : ClientUiText.NormalizeLanguage(_working.UiLanguage);
+
+    private void ResetComboItems(ComboBox combo, params string[] items)
+    {
+        var selectedIndex = combo.SelectedIndex < 0 ? 0 : combo.SelectedIndex;
+        combo.Items.Clear();
+        foreach (var item in items) combo.Items.Add(item);
+        combo.SelectedIndex = Math.Clamp(selectedIndex, 0, Math.Max(0, items.Length - 1));
+    }
+
+    private void RefreshUiTexts()
+    {
+        Title = T("settings.title");
+        PrimaryButtonText = T("settings.apply");
+        CloseButtonText = _busy ? string.Empty : ClientUiText.Get("dialog.close", UiLang);
+
+        _assistantSectionTitle.Text = T("settings.section.assistant");
+        _repairSectionTitle.Text = T("settings.section.repair");
+        _supportSectionTitle.Text = T("settings.section.support");
+        _supportNote.Text = T("settings.support.note");
+
+        _uiLanguage.Header = T("settings.language");
+        _assistantEnabled.Header = T("settings.toggle.assistant");
+        _assistantEnabled.OnContent = T("settings.toggle.assistant.on");
+        _assistantEnabled.OffContent = T("settings.toggle.assistant.off");
+        _strictMode.Header = T("settings.toggle.strict");
+        _strictMode.OnContent = T("settings.toggle.strict.on");
+        _strictMode.OffContent = T("settings.toggle.strict.off");
+        _ragQuality.Header = T("settings.rag_quality");
+        _style.Header = T("settings.style");
+        _length.Header = T("settings.length");
+
+        ResetComboItems(_ragQuality, T("settings.choice.quick"), T("settings.choice.balanced"), T("settings.choice.deep"));
+        ResetComboItems(_style, T("settings.choice.precise"), T("settings.choice.balanced"), T("settings.choice.creative"));
+        ResetComboItems(_length, T("settings.choice.short"), T("settings.choice.standard"), T("settings.choice.long"));
+
+        _assistantRepairBtn.Content = T("settings.repair.button");
+        _exportBtn.Content = T("settings.support.button");
     }
 
 
@@ -190,7 +233,7 @@ internal sealed class UserSettingsDialog : ContentDialog
         if (_busy)
         {
             args.Cancel = true;
-            _assistantStatus.Text = "Opération en cours…";
+            _assistantStatus.Text = T("help.subtitle.busy");
             return;
         }
 
@@ -201,6 +244,8 @@ internal sealed class UserSettingsDialog : ContentDialog
         _working.RagQualityPreset = MapIndexToRagQuality(_ragQuality.SelectedIndex);
         _working.Temperature = MapIndexToTemp(_style.SelectedIndex);
         _working.MaxOutputTokens = MapIndexToMaxTokens(_length.SelectedIndex);
+
+        _working.UiLanguage = UiLang;
 
         _original.CopyFrom(_working);
         _original.Save();
@@ -232,6 +277,7 @@ internal sealed class UserSettingsDialog : ContentDialog
         }
 
         // Disable interactive controls
+        _uiLanguage.IsEnabled = !busy;
         _assistantEnabled.IsEnabled = !busy;
         _strictMode.IsEnabled = !busy;
         _ragQuality.IsEnabled = !busy;
@@ -250,7 +296,7 @@ internal sealed class UserSettingsDialog : ContentDialog
         if (_busy)
         {
             args.Cancel = true;
-            _assistantStatus.Text = "Opération en cours…";
+            _assistantStatus.Text = T("help.subtitle.busy");
         }
     }
 
@@ -259,7 +305,7 @@ internal sealed class UserSettingsDialog : ContentDialog
         if (_busy)
         {
             args.Cancel = true;
-            _assistantStatus.Text = "Opération en cours…";
+            _assistantStatus.Text = T("help.subtitle.busy");
         }
     }
 

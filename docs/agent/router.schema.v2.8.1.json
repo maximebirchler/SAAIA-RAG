@@ -6,7 +6,7 @@
   "required": [
     "language",
     "intent",
-    "responseStyle",
+    "responseFormat",
     "mode",
     "toolCalls"
   ],
@@ -34,6 +34,7 @@
         "inventory.tree_sub",
         "inventory.categories",
         "inventory.stats",
+        "inventory.summary_status",
         "inventory.find",
         "inventory.changed_since",
         "inventory.health",
@@ -50,20 +51,6 @@
         "diagnostic.performance"
       ],
       "description": "Canonical intent name (v2.8.1)."
-    },
-    "responseStyle": {
-      "type": "string",
-      "enum": [
-        "auto",
-        "brief",
-        "detailed",
-        "bullets",
-        "count_only",
-        "list",
-        "tree",
-        "table"
-      ],
-      "description": "How the assistant should respond. Must be respected by the Writer."
     },
     "mode": {
       "type": "string",
@@ -92,6 +79,7 @@
               "documents.search",
               "documents.get",
               "documents.count",
+              "documents.categories",
               "documents.tree",
               "documents.stats",
               "sources.resolve",
@@ -101,6 +89,8 @@
               "summary.get",
               "summary.exists",
               "summary.search",
+              "summary.status.count",
+              "summary.status.list",
               "export.create",
               "support.bundle",
               "diagnostic.performance",
@@ -116,7 +106,9 @@
               "admin.jobs.cancel",
               "admin.summary.generate",
               "rag.debug.scroll",
-              "admin.qdrant.health"
+              "admin.qdrant.health",
+              "documents.empty_count",
+              "documents.empty_list"
             ]
           },
           "args": {
@@ -163,6 +155,20 @@
     "notes": {
       "type": "string",
       "description": "Optional internal note for debugging. Must not contain user-facing text."
+    },
+    "responseFormat": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "brief",
+        "detailed",
+        "bullets",
+        "count_only",
+        "list",
+        "tree",
+        "table"
+      ],
+      "description": "How the assistant should respond. Must be respected by the Writer."
     }
   },
   "$id": "https://saaia.local/schemas/router.schema.v2.8.1.json",

@@ -65,7 +65,6 @@ public sealed class RagChatAgent
         {
             if (LocalizedStrings.TryDetectLanguagePreferenceChange(userText, out var requestedLanguage))
             {
-                _mem.LastLanguage = requestedLanguage;
                 if (!string.IsNullOrWhiteSpace(_mem.LastUserMessage)
                     && string.Equals(_mem.LastRouterIntent, "rag_search_fallback", StringComparison.OrdinalIgnoreCase))
                 {
@@ -78,7 +77,7 @@ public sealed class RagChatAgent
                     return (replayedAnswer, replayedPayload);
                 }
 
-                var ack = LocalizedStrings.LanguageChanged(requestedLanguage);
+                var ack = LocalizedStrings.NoPreviousAnswerToTranslate(requestedLanguage);
                 await SimulateStreamingAsync(ack, onDelta, ct).ConfigureAwait(false);
                 onProgress?.Invoke(string.Empty);
                 _mem.LastUserMessage = userText;
@@ -87,8 +86,9 @@ public sealed class RagChatAgent
                 return (ack, null);
             }
 
-            var language = LocalizedStrings.DetectLanguage(userText, _mem.LastLanguage);
+            var language = LocalizedStrings.DetectLanguage(userText, "fr");
             _mem.LastLanguage = language;
+            _mem.LastUserDetectedLanguage = language;
             onPhase?.Invoke(DeterministicAgentText.PhaseRag(language));
             onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(language));
             var (ans, payload) = await RunSearchOnlyFallbackAsync(userText, category, ct, language).ConfigureAwait(false);
@@ -108,11 +108,6 @@ public sealed class RagChatAgent
         {
             history.Insert(0, ("system",
                 "User preference: strict documentary mode. Avoid invention. If missing sources, say so and ask 1 clarification question."));
-        }
-
-        if (!string.IsNullOrWhiteSpace(_mem.LastLanguage))
-        {
-            history.Insert(0, ("system", $"Session preferred language: {_mem.LastLanguage}. Follow it unless the user explicitly asks for another language."));
         }
 
         if (!string.IsNullOrWhiteSpace(category))
@@ -169,7 +164,7 @@ public sealed class RagChatAgent
         var payload = new { intent = "rag_search", sources };
 
         var detectedLanguage = string.IsNullOrWhiteSpace(forcedLanguage)
-            ? LocalizedStrings.DetectLanguage(userText, _mem.LastLanguage)
+            ? LocalizedStrings.DetectLanguage(userText, "fr")
             : LocalizedStrings.NormalizeLanguage(forcedLanguage);
         var ans = items.Count == 0
             ? LocalizedStrings.NoDocumentsFound(detectedLanguage)

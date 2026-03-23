@@ -59,6 +59,59 @@ public sealed partial class ToolAgentOrchestrator
         _settings = settings;
     }
 
+    private async Task<string> CompleteWithRetryAsync(IReadOnlyList<(string role, string content)> messages, bool forceJson, CancellationToken ct)
+    {
+        try
+        {
+            return await _llm.CompleteAsync(messages, forceJson, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            await Task.Delay(150, ct).ConfigureAwait(false);
+            return await _llm.CompleteAsync(messages, forceJson, ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task<string> StreamOrCompleteWithRetryAsync(
+        IReadOnlyList<(string role, string content)> messages,
+        Action<string>? onDelta,
+        CancellationToken ct)
+    {
+        if (onDelta is null)
+            return await CompleteWithRetryAsync(messages, forceJson: false, ct).ConfigureAwait(false);
+
+        var streamed = new StringBuilder();
+        try
+        {
+            await _llm.StreamAsync(messages, forceJson: false, delta =>
+            {
+                if (string.IsNullOrEmpty(delta))
+                    return;
+                streamed.Append(delta);
+                onDelta(delta);
+            }, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            if (streamed.Length == 0)
+                return await CompleteWithRetryAsync(messages, forceJson: false, ct).ConfigureAwait(false);
+        }
+
+        var finalAnswer = streamed.ToString();
+        if (string.IsNullOrWhiteSpace(finalAnswer))
+            finalAnswer = await CompleteWithRetryAsync(messages, forceJson: false, ct).ConfigureAwait(false);
+
+        return finalAnswer;
+    }
+
     /// <summary>
     /// Exécute le pipeline Router → Tools → Answer.
     /// </summary>
@@ -76,24 +129,52 @@ public sealed partial class ToolAgentOrchestrator
 
         if (TryDetectExplicitLanguageSwitch(userMessage, out var requestedLanguage))
         {
-            _mem.LastLanguage = requestedLanguage;
-            if (TryReplayLastDeterministicAnswer(requestedLanguage, out var replayedAnswer, out var replayedPayload))
+            onPhase?.Invoke(DeterministicAgentText.PhaseWriting(requestedLanguage));
+            onProgress?.Invoke(DeterministicAgentText.ProgressDraftFinalAnswer(requestedLanguage));
+
+            var translated = await TryTranslateLastAnswerOneShotAsync(requestedLanguage, ct, onDelta).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(translated))
             {
                 onProgress?.Invoke(string.Empty);
-                return FinalizeAndReturn(swTotalPipeline, userMessage, replayedAnswer, replayedPayload, _mem.LastDeterministicRender?.RouterIntent ?? _mem.LastRouterIntent, _mem.LastToolNames, Array.Empty<string>());
+                return FinalizeAndReturn(
+                    swTotalPipeline,
+                    userMessage,
+                    translated.Trim(),
+                    null,
+                    "meta.translate_last_answer",
+                    new[] { "meta.translate_last_answer" },
+                    Array.Empty<string>());
             }
 
-            var ack = LocalizedStrings.LanguageChanged(requestedLanguage);
+            var ack = LocalizedStrings.NoPreviousAnswerToTranslate(requestedLanguage);
+            await EmitDeterministicTextAsync(ack, onDelta, ct).ConfigureAwait(false);
             onProgress?.Invoke(string.Empty);
-            return FinalizeAndReturn(swTotalPipeline, userMessage, ack, null, "meta.set_language", Array.Empty<string>(), Array.Empty<string>());
+            return FinalizeAndReturn(swTotalPipeline, userMessage, ack, null, "meta.translate_last_answer", Array.Empty<string>(), Array.Empty<string>());
         }
 
         var pendingClarification = PrepareUserMessageForPendingClarification(userMessage);
         var effectiveUserMessage = pendingClarification.EffectiveUserMessage;
         var interactionLanguage = ResolveInteractionLanguage(effectiveUserMessage);
         var docResolution = pendingClarification.AnalysisOverride
-            ?? DocumentRefResolver.Analyze(effectiveUserMessage, _mem.LastFocusedDocument, _mem.LastListedDocuments);
+            ?? DocumentRefResolver.Analyze(effectiveUserMessage, _mem.LastFocusedDocument, _mem.LastListedDocuments, _mem.LastRequestedDocumentRef);
         var repairMessage = DocumentRefResolver.IsRepairMessage(effectiveUserMessage);
+
+        var shortcut = await TryHandleDeterministicShortcutAsync(
+            chatHistory,
+            userMessage,
+            effectiveUserMessage,
+            interactionLanguage,
+            docResolution,
+            ct,
+            onPhase,
+            onDelta,
+            onProgress,
+            swTotalPipeline).ConfigureAwait(false);
+        if (shortcut.handled)
+        {
+            onProgress?.Invoke(string.Empty);
+            return FinalizeAndReturn(swTotalPipeline, userMessage, shortcut.finalAnswer, shortcut.sourcesPayload, shortcut.routerIntent, shortcut.toolNames, Array.Empty<string>());
+        }
 
         onPhase?.Invoke(DeterministicAgentText.PhaseRouter(interactionLanguage));
         onProgress?.Invoke(LocalizedStrings.Get("phase.interpreting", interactionLanguage));
@@ -108,9 +189,7 @@ public sealed partial class ToolAgentOrchestrator
         swRouter.Stop();
         _lastRouterMs = swRouter.ElapsedMilliseconds;
 
-        plan.Language = NormalizeLanguageCode(string.IsNullOrWhiteSpace(plan.Language) ? interactionLanguage : plan.Language);
-        if (IsInventoryIntent(plan.Intent))
-            plan.Language = interactionLanguage;
+        plan.Language = NormalizeLanguageCode(interactionLanguage);
         if ((_settings?.StrictMode ?? false) && !string.Equals(plan.Mode, "strict", StringComparison.OrdinalIgnoreCase))
             plan.Mode = "strict";
         _mem.LastLanguage = plan.Language;
@@ -193,6 +272,8 @@ public sealed partial class ToolAgentOrchestrator
         if (localItems.Count > 0)
             toolResults.Items.InsertRange(0, localItems);
 
+        CaptureStructuredConversationState(plan, toolResults);
+
         var inventoryRendered = TryBuildInventoryRenderedItem(toolResults, plan.Language, ct);
         _lastUsedInventoryRendered = inventoryRendered is not null;
         if (inventoryRendered is not null)
@@ -265,7 +346,10 @@ public sealed partial class ToolAgentOrchestrator
             var (docs, _, _, _, endOfList, dropped) = DocumentListHelper.Sanitize(item.Result, _mem);
             var list = DocumentListHelper.BuildUserText(docs, endOfList, dropped);
             if (!string.IsNullOrWhiteSpace(list))
-                return $"{DeterministicAgentText.DocumentsListHeader(language)}{Environment.NewLine}{list}".TrimEnd();
+            {
+                var scopePath = TryInferDocumentsScopePath(item.Result);
+                return $"{DeterministicAgentText.DocumentsListHeader(language, scopePath)}{Environment.NewLine}{list}".TrimEnd();
+            }
 
             return LocalizedStrings.NoDocumentsFound(language);
         }
@@ -328,48 +412,56 @@ public sealed partial class ToolAgentOrchestrator
     {
         _ = ct;
 
-        string? rendered = null;
         string kind = string.Empty;
         object? data = null;
 
         if (toolResults.Items.Any(x => x.ToolName == "documents.tree" && string.IsNullOrWhiteSpace(x.Error)))
         {
-            rendered = BuildDocumentsTreeAnswer(toolResults, language);
             kind = "tree";
             data = BuildTreeInventoryData(toolResults);
         }
-        else if (toolResults.Items.Any(x => x.ToolName is "documents.list" or "documents.search" && string.IsNullOrWhiteSpace(x.Error)))
+        else if (toolResults.Items.Any(x => (x.ToolName is "documents.list" or "documents.search") && string.IsNullOrWhiteSpace(x.Error)))
         {
-            rendered = BuildDocumentsListAnswer(toolResults, language);
             kind = "list";
             data = BuildListInventoryData(toolResults);
         }
         else if (toolResults.Items.Any(x => x.ToolName == "documents.stats" && string.IsNullOrWhiteSpace(x.Error)))
         {
-            rendered = BuildStatsFallbackAnswerFromResults(toolResults, language);
             kind = "stats";
             data = BuildStatsInventoryData(toolResults);
         }
+        else if (toolResults.Items.Any(x => x.ToolName == "documents.categories" && string.IsNullOrWhiteSpace(x.Error)))
+        {
+            kind = "categories";
+            data = BuildCategoriesInventoryData(toolResults);
+        }
+        else if (toolResults.Items.Any(x => (x.ToolName is "summary.status.list" or "summary.present.list") && string.IsNullOrWhiteSpace(x.Error)))
+        {
+            kind = "summary_status_list";
+            data = BuildSummaryStatusListInventoryData(toolResults);
+        }
+        else if (toolResults.Items.Any(x => (x.ToolName is "summary.status.count" or "summary.present.count") && string.IsNullOrWhiteSpace(x.Error)))
+        {
+            kind = "summary_status_count";
+            data = BuildSummaryStatusCountInventoryData(toolResults);
+        }
         else if (toolResults.Items.Any(x => x.ToolName == "documents.count" && string.IsNullOrWhiteSpace(x.Error)))
         {
-            rendered = TryBuildDocumentsCountAnswer(toolResults, language);
             kind = "count";
             data = BuildCountInventoryData(toolResults, "documents.count");
         }
         else if (toolResults.Items.Any(x => x.ToolName == "documents.empty_count" && string.IsNullOrWhiteSpace(x.Error)))
         {
-            rendered = TryBuildEmptyFoldersCountAnswer(toolResults, language);
             kind = "empty_count";
             data = BuildCountInventoryData(toolResults, "documents.empty_count");
         }
         else if (toolResults.Items.Any(x => x.ToolName == "documents.empty_list" && string.IsNullOrWhiteSpace(x.Error)))
         {
-            rendered = TryBuildEmptyFoldersListAnswer(toolResults, language);
             kind = "empty_list";
             data = BuildEmptyFoldersInventoryData(toolResults);
         }
 
-        if (string.IsNullOrWhiteSpace(rendered))
+        if (string.IsNullOrWhiteSpace(kind) || data is null)
             return null;
 
         var payload = new
@@ -377,7 +469,6 @@ public sealed partial class ToolAgentOrchestrator
             kind,
             language,
             authoritative = true,
-            text = rendered.Trim(),
             data
         };
 
@@ -402,7 +493,7 @@ public sealed partial class ToolAgentOrchestrator
 
     private object? BuildListInventoryData(ToolResults toolResults)
     {
-        var item = toolResults.Items.LastOrDefault(x => x.ToolName is "documents.list" or "documents.search" && string.IsNullOrWhiteSpace(x.Error));
+        var item = toolResults.Items.LastOrDefault(x => (x.ToolName is "documents.list" or "documents.search") && string.IsNullOrWhiteSpace(x.Error));
         if (item is null)
             return null;
 
@@ -411,6 +502,7 @@ public sealed partial class ToolAgentOrchestrator
             var (docs, limit, offset, total, endOfList, dropped) = DocumentListHelper.Sanitize(item.Result, _mem);
             return new
             {
+                scopePath = TryInferDocumentsScopePath(item.Result),
                 limit,
                 offset,
                 total,
@@ -508,6 +600,7 @@ public sealed partial class ToolAgentOrchestrator
 
             return new
             {
+                scopePath = TryGetString(item.Result, "scopePath") ?? string.Empty,
                 totalDocuments = TryGetInt(item.Result, "totalDocuments") ?? 0,
                 maxDepth = TryGetInt(item.Result, "maxDepth") ?? 0,
                 totalNonEmptyFolders = TryGetInt(item.Result, "totalNonEmptyFolders") ?? 0,
@@ -523,6 +616,122 @@ public sealed partial class ToolAgentOrchestrator
         {
             return null;
         }
+    }
+
+    private static object? BuildCategoriesInventoryData(ToolResults toolResults)
+    {
+        var item = toolResults.Items.LastOrDefault(x => x.ToolName == "documents.categories" && string.IsNullOrWhiteSpace(x.Error));
+        if (item is null || item.Result.ValueKind != JsonValueKind.Object)
+            return null;
+
+        try
+        {
+            var rows = new List<object>();
+            if (item.Result.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var entry in items.EnumerateArray())
+                {
+                    if (entry.ValueKind != JsonValueKind.Object)
+                        continue;
+
+                    var aliases = new List<string>();
+                    if (entry.TryGetProperty("aliases", out var aliasArray) && aliasArray.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var alias in aliasArray.EnumerateArray())
+                        {
+                            if (alias.ValueKind != JsonValueKind.String)
+                                continue;
+
+                            var value = alias.GetString() ?? string.Empty;
+                            if (!string.IsNullOrWhiteSpace(value))
+                                aliases.Add(value.Trim());
+                        }
+                    }
+
+                    rows.Add(new
+                    {
+                        ordinal = TryGetInt(entry, "ordinal") ?? TryGetInt(entry, "displayOrder") ?? 0,
+                        displayOrder = TryGetInt(entry, "displayOrder") ?? TryGetInt(entry, "ordinal") ?? 0,
+                        path = TryGetString(entry, "path") ?? string.Empty,
+                        name = TryGetString(entry, "name") ?? string.Empty,
+                        depth = TryGetInt(entry, "depth") ?? 0,
+                        totalDocuments = TryGetInt(entry, "totalDocuments") ?? 0,
+                        directDocuments = TryGetInt(entry, "directDocuments") ?? 0,
+                        subfolderCount = TryGetInt(entry, "subfolderCount") ?? 0,
+                        aliases = aliases
+                    });
+                }
+            }
+
+            return new
+            {
+                scopePath = TryGetString(item.Result, "scopePath") ?? string.Empty,
+                total = TryGetInt(item.Result, "total") ?? rows.Count,
+                limit = TryGetInt(item.Result, "limit") ?? rows.Count,
+                offset = TryGetInt(item.Result, "offset") ?? 0,
+                items = rows
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static object? BuildSummaryStatusCountInventoryData(ToolResults toolResults)
+    {
+        var item = toolResults.Items.LastOrDefault(x => (x.ToolName is "summary.status.count" or "summary.present.count") && string.IsNullOrWhiteSpace(x.Error));
+        if (item is null || item.Result.ValueKind != JsonValueKind.Object)
+            return null;
+
+        return new
+        {
+            total = TryGetInt(item.Result, "total") ?? 0,
+            missingStored = TryGetInt(item.Result, "missingStored") ?? 0,
+            staleStored = TryGetInt(item.Result, "staleStored") ?? 0,
+            scopePath = TryGetString(item.Result, "scopePath") ?? string.Empty,
+            level = TryGetString(item.Result, "level") ?? "medium",
+            mode = TryGetString(item.Result, "mode") ?? (string.Equals(item.ToolName, "summary.present.count", StringComparison.OrdinalIgnoreCase) ? "present" : "missing")
+        };
+    }
+
+    private static object? BuildSummaryStatusListInventoryData(ToolResults toolResults)
+    {
+        var item = toolResults.Items.LastOrDefault(x => (x.ToolName is "summary.status.list" or "summary.present.list") && string.IsNullOrWhiteSpace(x.Error));
+        if (item is null || item.Result.ValueKind != JsonValueKind.Object)
+            return null;
+
+        var rows = new List<object>();
+        if (item.Result.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var entry in items.EnumerateArray())
+            {
+                if (entry.ValueKind != JsonValueKind.Object)
+                    continue;
+
+                rows.Add(new
+                {
+                    docId = TryGetString(entry, "DocId") ?? TryGetString(entry, "docId") ?? string.Empty,
+                    docPath = TryGetString(entry, "DocPath") ?? TryGetString(entry, "docPath") ?? string.Empty,
+                    docName = TryGetString(entry, "DocName") ?? TryGetString(entry, "docName") ?? string.Empty,
+                    category = TryGetString(entry, "Category") ?? TryGetString(entry, "category") ?? string.Empty,
+                    summaryState = TryGetString(entry, "SummaryState") ?? TryGetString(entry, "summaryState") ?? "missing"
+                });
+            }
+        }
+
+        return new
+        {
+            total = TryGetInt(item.Result, "total") ?? rows.Count,
+            missingStored = TryGetInt(item.Result, "missingStored") ?? 0,
+            staleStored = TryGetInt(item.Result, "staleStored") ?? 0,
+            limit = TryGetInt(item.Result, "limit") ?? rows.Count,
+            offset = TryGetInt(item.Result, "offset") ?? 0,
+            scopePath = TryGetString(item.Result, "scopePath") ?? string.Empty,
+            level = TryGetString(item.Result, "level") ?? "medium",
+            mode = TryGetString(item.Result, "mode") ?? (string.Equals(item.ToolName, "summary.present.list", StringComparison.OrdinalIgnoreCase) ? "present" : "missing"),
+            items = rows
+        };
     }
 
     private static object? BuildCountInventoryData(ToolResults toolResults, string toolName)
@@ -855,6 +1064,9 @@ Rules:
         Action<string>? onDelta,
         Action<string>? onProgress)
     {
+        if (!string.IsNullOrWhiteSpace(docRef))
+            _mem.LastRequestedDocumentRef = docRef.Trim();
+
         var detectedLanguage = NormalizeLanguageCode(ResolveInteractionLanguage(userMessage));
         var language = !string.IsNullOrWhiteSpace(detectedLanguage)
             ? detectedLanguage
@@ -1278,6 +1490,68 @@ Rules:
         return sb.ToString().TrimEnd();
     }
 
+    private string TryBuildSummaryStatusCountAnswer(ToolResults toolResults, string language)
+    {
+        var item = toolResults.Items.LastOrDefault(x => (x.ToolName is "summary.status.count" or "summary.present.count") && string.IsNullOrWhiteSpace(x.Error));
+        if (item is null || item.Result.ValueKind != JsonValueKind.Object)
+            return string.Empty;
+
+        var total = TryGetInt(item.Result, "total") ?? 0;
+        var mode = TryGetString(item.Result, "mode") ?? (string.Equals(item.ToolName, "summary.present.count", StringComparison.OrdinalIgnoreCase) ? "present" : "missing");
+        if (string.Equals(mode, "present", StringComparison.OrdinalIgnoreCase))
+        {
+            return total <= 0
+                ? DeterministicAgentText.NoStoredSummaries(language)
+                : DeterministicAgentText.StoredSummariesCount(total, language);
+        }
+
+        return total <= 0
+            ? DeterministicAgentText.NoMissingSummaries(language)
+            : DeterministicAgentText.MissingSummariesCount(total, language);
+    }
+
+    private string TryBuildSummaryStatusListAnswer(ToolResults toolResults, string language)
+    {
+        var item = toolResults.Items.LastOrDefault(x => (x.ToolName is "summary.status.list" or "summary.present.list") && string.IsNullOrWhiteSpace(x.Error));
+        if (item is null || item.Result.ValueKind != JsonValueKind.Object)
+            return string.Empty;
+
+        if (!item.Result.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+            return string.Empty;
+
+        var rows = new List<(string path, string state)>();
+        foreach (var entry in items.EnumerateArray())
+        {
+            if (entry.ValueKind != JsonValueKind.Object)
+                continue;
+
+            var path = TryGetString(entry, "DocPath") ?? TryGetString(entry, "docPath") ?? string.Empty;
+            var state = TryGetString(entry, "SummaryState") ?? TryGetString(entry, "summaryState") ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(path))
+                rows.Add((path, state));
+        }
+
+        var mode = TryGetString(item.Result, "mode") ?? (string.Equals(item.ToolName, "summary.present.list", StringComparison.OrdinalIgnoreCase) ? "present" : "missing");
+        if (rows.Count == 0)
+            return string.Equals(mode, "present", StringComparison.OrdinalIgnoreCase)
+                ? DeterministicAgentText.NoStoredSummaries(language)
+                : DeterministicAgentText.NoMissingSummaries(language);
+
+        var sb = new StringBuilder();
+        sb.AppendLine(string.Equals(mode, "present", StringComparison.OrdinalIgnoreCase)
+            ? DeterministicAgentText.StoredSummariesHeader(language)
+            : DeterministicAgentText.MissingSummariesHeader(language));
+        for (var i = 0; i < rows.Count; i++)
+        {
+            var suffix = rows[i].state.Equals("stale", StringComparison.OrdinalIgnoreCase)
+                ? " [stale]"
+                : string.Empty;
+            sb.AppendLine($"{i + 1}. {rows[i].path}{suffix}");
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
     private static string InjectInlineSources(string answer, List<ToolMemory.SourceRef> sources, string language)
     {
         if (sources is null || sources.Count == 0) return answer;
@@ -1329,12 +1603,14 @@ private async Task<RouterPlan> RouterAsync(
         var manifestJson = ToolManifest.BuildManifestJson();
         var toolbook = ToolManifest.ToolbookText;
         var repairHint = DocumentRefResolver.IsRepairMessage(userMessage);
-        var resolverHint = DocumentRefResolver.Analyze(userMessage, _mem.LastFocusedDocument, _mem.LastListedDocuments);
+        var resolverHint = DocumentRefResolver.Analyze(userMessage, _mem.LastFocusedDocument, _mem.LastListedDocuments, _mem.LastRequestedDocumentRef);
 
         // Contexte mémoire minimal (évite heuristiques hardcodées)
         var memoryCtx = new
         {
             lastLanguage = _mem.LastLanguage,
+            lastUserDetectedLanguage = _mem.LastUserDetectedLanguage,
+            lastAnswerLanguage = _mem.LastAnswerLanguage,
             lastList = new
             {
                 offset = _mem.LastListOffset,
@@ -1374,6 +1650,34 @@ private async Task<RouterPlan> RouterAsync(
             {
                 hasAdminKey = _api.HasAdminKey
             },
+            lastResolvedCategory = _mem.LastResolvedCategory is null ? null : new
+            {
+                categoryRef = _mem.LastResolvedCategory.CategoryRef,
+                categoryPath = _mem.LastResolvedCategory.CategoryPath,
+                displayName = _mem.LastResolvedCategory.DisplayName,
+                ordinal = _mem.LastResolvedCategory.Ordinal,
+                totalDocuments = _mem.LastResolvedCategory.TotalDocuments,
+                aliases = _mem.LastResolvedCategory.Aliases
+            },
+            lastPresentedCategories = _mem.LastPresentedCategories?.Select(x => new
+            {
+                categoryRef = x.CategoryRef,
+                categoryPath = x.CategoryPath,
+                displayName = x.DisplayName,
+                ordinal = x.Ordinal,
+                totalDocuments = x.TotalDocuments,
+                aliases = x.Aliases
+            }).ToList(),
+            lastSummaryStatus = _mem.LastSummaryStatusSnapshot is null ? null : new
+            {
+                categoryPath = _mem.LastSummaryStatusSnapshot.CategoryPath,
+                categoryRef = _mem.LastSummaryStatusSnapshot.CategoryRef,
+                mode = _mem.LastSummaryStatusSnapshot.Mode,
+                total = _mem.LastSummaryStatusSnapshot.Total,
+                missingStored = _mem.LastSummaryStatusSnapshot.MissingStored,
+                staleStored = _mem.LastSummaryStatusSnapshot.StaleStored,
+                itemsCount = _mem.LastSummaryStatusSnapshot.Items?.Count ?? 0
+            },
             resolverHint = new
             {
                 isContentRequest = resolverHint.IsContentRequest,
@@ -1391,7 +1695,7 @@ private async Task<RouterPlan> RouterAsync(
         var system = PromptCatalog.BuildRouterSystemPrompt(manifestJson, toolbook) + $@"
 
 Additional runtime rules:
-- Session preferred language: {_mem.LastLanguage}
+- Last answer language (informational only): {_mem.LastLanguage}
 - Current message language hint: {detectedMessageLanguage}
 - Disallow meta.set_language for this turn: {(disallowMetaSetLanguage ? "true" : "false")}
 - The current message looks like a repair/correction turn: {(repairHint ? "true" : "false")}
@@ -1410,11 +1714,23 @@ USER_MESSAGE:
 {userMessage}
 ";
 
-        var raw = await _llm.CompleteAsync(new[]
+        string raw;
+        try
         {
-            ("system", system),
-            ("user", user)
-        }, forceJson: true, ct);
+            raw = await CompleteWithRetryAsync(new[]
+            {
+                ("system", system),
+                ("user", user)
+            }, forceJson: true, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return new RouterPlan { Mode = "auto", Language = detectedMessageLanguage, Intent = "chat.general" };
+        }
 
         if (!TryExtractJsonObject(raw, out var planJson))
         {
@@ -1486,43 +1802,20 @@ USER_MESSAGE:
                     });
                     continue;
                 }
-
-                JsonElement res = call.Name switch
+                var handlers = GetOrCreateToolHandlers();
+                if (!handlers.TryGetValue(call.Name, out var handler))
                 {
-                    "rag.categories" => await _api.RagCategoriesAsync(ct),
-                    "documents.list" => await ExecDocumentsListAsync(call.Args, ct),
-                    "documents.search" => await ExecDocumentsSearchAsync(call.Args, ct),
-                    "documents.get" => await ExecDocumentsGetResolvedAsync(call.Args, ct),
-                    "documents.count" => await ExecDocumentsCountAsync(call.Args, ct),
-                    "documents.tree" => await ExecDocumentsTreeAsync(call.Args, ct),
-                    "documents.stats" => await ExecDocumentsStatsAsync(call.Args, ct),
-                    "documents.empty_count" => await ExecDocumentsEmptyCountAsync(call.Args, ct),
-                    "documents.empty_list" => await ExecDocumentsEmptyListAsync(call.Args, ct),
-                    "rag.search" => await ExecRagSearchAsync(call.Args, ct),
-                    "rag.multi_search" => await ExecRagMultiSearchAsync(call.Args, ct),
-                    "rag.summarize_live" => await ExecRagSummarizeLiveAsync(call.Args, ct),
-                    "sources.resolve" => ExecSourcesResolveV2(call.Args),
-                    "summary.get" => await ExecSummaryGetAsync(call.Args, ct),
-                    "summary.exists" => await ExecSummaryExistsAsync(call.Args, ct),
-                    "summary.search" => await ExecSummarySearchAsync(call.Args, ct),
-                    "admin.summary.missing" => await ExecAdminSummaryMissingAsync(call.Args, ct),
-                    "admin.summary.request" => await ExecAdminSummaryRequestAsync(call.Args, ct),
-                    "admin.summary.submit" => await ExecAdminSummarySubmitAsync(call.Args, ct),
-                    "admin.summary.status" => await ExecAdminSummaryStatusAsync(call.Args, ct),
-                    "admin.summary.delete" => await ExecAdminSummaryDeleteAsync(call.Args, ct),
-                    "admin.summary.generate" => await ExecAdminSummaryGenerateAsync(call.Args, ct),
-                    "admin.catalog.health" => await ExecAdminCatalogHealthAsync(ct),
-                    "admin.catalog.rescan_now" => await ExecAdminCatalogRescanNowAsync(ct),
-                    "admin.ingestion.reindex" => await ExecAdminIngestionReindexAsync(call.Args, ct),
-                    "admin.jobs.list" => await ExecAdminJobsListAsync(call.Args, ct),
-                    "admin.jobs.cancel" => await ExecAdminJobsCancelAsync(call.Args, ct),
-                    "diagnostic.performance" => ExecDiagnosticPerformance(call.Args),
-                    "export.create" => ExecExportCreate(call.Args),
-                    "support.bundle" => await ExecSupportBundleAsync(call.Args, ct),
-                    "rag.debug.scroll" => await ExecRagDebugScrollAsync(call.Args, ct),
-                    "admin.qdrant.health" => await ExecAdminQdrantHealthAsync(ct),
-                    _ => JsonDocument.Parse("{\"error\":\"unknown_tool\"}").RootElement
-                };
+                    results.Items.Add(new ToolResults.Item
+                    {
+                        ToolName = call.Name,
+                        Error = "unknown_tool",
+                        DurationMs = sw.ElapsedMilliseconds,
+                        Result = JsonDocument.Parse("{\"error\":\"unknown_tool\"}").RootElement
+                    });
+                    continue;
+                }
+
+                JsonElement res = await handler(call.Args, ct).ConfigureAwait(false);
 
                 results.Items.Add(new ToolResults.Item
                 {
@@ -1569,7 +1862,7 @@ USER_MESSAGE:
         var writerToolResults = BuildWriterToolResults(plan, toolResults);
         _lastWriterToolNames = writerToolResults.Items.Select(x => x.ToolName).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         _lastUsedInventoryRendered = _lastUsedInventoryRendered || _lastWriterToolNames.Any(x => string.Equals(x, "inventory.rendered", StringComparison.OrdinalIgnoreCase));
-        var inventoryRenderedText = TryExtractInventoryRenderedText(writerToolResults);
+        var inventoryRenderedText = TryRenderInventoryFallbackText(writerToolResults, plan.Language);
         var inventoryRenderedDataJson = TryExtractInventoryRenderedDataJson(writerToolResults);
 
         if (ShouldBypassWriterForDeterministicInventory(plan, writerToolResults, inventoryRenderedText))
@@ -1589,43 +1882,28 @@ USER_MESSAGE:
 TOOL_RESULTS (json):
 {SerializeToolResults(writerToolResults)}
 
-AUTHORITATIVE_INVENTORY_TEXT:
-{inventoryRenderedText ?? string.Empty}
-
 AUTHORITATIVE_INVENTORY_DATA (json):
 {inventoryRenderedDataJson ?? "null"}
 ";
 
-        string finalAnswer;
-        if (onDelta is not null)
+        var writerMessages = new[]
         {
-            var streamed = new StringBuilder();
-            await _llm.StreamAsync(new[]
-            {
-                ("system", system),
-                ("user", user)
-            }, forceJson: false, delta =>
-            {
-                if (string.IsNullOrEmpty(delta))
-                    return;
-                streamed.Append(delta);
-                onDelta(delta);
-            }, ct).ConfigureAwait(false);
+            ("system", system),
+            ("user", user)
+        };
 
-            finalAnswer = streamed.ToString();
-            if (string.IsNullOrWhiteSpace(finalAnswer))
-                finalAnswer = await _llm.CompleteAsync(new[] { ("system", system), ("user", user) }, forceJson: false, ct).ConfigureAwait(false);
-        }
-        else
-        {
-            finalAnswer = await _llm.CompleteAsync(new[] { ("system", system), ("user", user) }, forceJson: false, ct).ConfigureAwait(false);
-        }
+        var finalAnswer = await StreamOrCompleteWithRetryAsync(writerMessages, onDelta, ct).ConfigureAwait(false);
 
         finalAnswer = (finalAnswer ?? string.Empty).Replace("**", string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(finalAnswer) && !string.IsNullOrWhiteSpace(inventoryRenderedText))
             finalAnswer = inventoryRenderedText.Trim();
         if (string.IsNullOrWhiteSpace(finalAnswer))
             finalAnswer = DeterministicAgentText.AnswerNotEnoughUsableInfo(plan.Language);
+
+        if (plan.ToolCalls.Count == 0)
+        {
+            finalAnswer = await EnsureAnswerMatchesRequestedLanguageAsync(finalAnswer, plan.Language, ct).ConfigureAwait(false);
+        }
 
         List<ToolMemory.SourceRef>? sources = null;
         var usedRagSearch = toolResults.Items.Any(x => x.ToolName is "rag.search" or "rag.multi_search");
@@ -1654,7 +1932,18 @@ AUTHORITATIVE_INVENTORY_DATA (json):
 
     internal static bool ShouldBypassWriterForDeterministicInventory(string? intent, IEnumerable<string> toolNames, string? inventoryRenderedText)
     {
-        return false;
+        if (string.IsNullOrWhiteSpace(inventoryRenderedText))
+            return false;
+
+        if (IsInventoryIntent(intent))
+            return true;
+
+        var names = toolNames?
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList() ?? new List<string>();
+
+        return names.Count > 0 && names.All(IsInventoryLikeToolName);
     }
 
     private static bool ShouldBypassWriterForDeterministicInventory(RouterPlan plan, ToolResults writerToolResults, string? inventoryRenderedText)
@@ -1945,6 +2234,8 @@ TOOL_RESULTS (json):
             "diagnostic.latency" => "diagnostic.performance",
             "support.zip" or "support.export" => "support.bundle",
             "summary.read" => "summary.get",
+            "summary.missing" or "summaries.missing" => "summary.status.list",
+            "summary.missing_count" or "summaries.missing_count" => "summary.status.count",
             _ => normalized
         };
     }
@@ -1973,11 +2264,20 @@ TOOL_RESULTS (json):
             "documents.count" => new
             {
                 categoryPath = NormalizeCategoryPathArg(GetStringArg(args, "categoryPath") ?? GetStringArg(args, "category")),
+                categoryRef = GetStringArg(args, "categoryRef"),
                 q = GetStringArg(args, "q") ?? GetStringArg(args, "query")
+            },
+            "documents.categories" => new
+            {
+                path = NormalizeCategoryPathArg(GetStringArg(args, "path") ?? GetStringArg(args, "categoryPath")),
+                categoryRef = GetStringArg(args, "categoryRef"),
+                limit = NormalizeIntArg(GetIntArg(args, "limit"), 100, 1, 500),
+                offset = NormalizeIntArg(GetIntArg(args, "offset"), 0, 0, 100000)
             },
             "documents.tree" => new
             {
                 path = NormalizeCategoryPathArg(GetStringArg(args, "path") ?? GetStringArg(args, "categoryPath")),
+                categoryRef = GetStringArg(args, "categoryRef"),
                 depth = NormalizeIntArg(GetIntArg(args, "depth"), 8, 1, 20),
                 format = NormalizeTreeFormat(GetStringArg(args, "format")),
                 limit = NormalizeNullableIntArg(GetIntArg(args, "limit"), 1, 5000),
@@ -1985,7 +2285,8 @@ TOOL_RESULTS (json):
             },
             "documents.stats" => new
             {
-                path = NormalizeCategoryPathArg(GetStringArg(args, "path") ?? GetStringArg(args, "categoryPath"))
+                path = NormalizeCategoryPathArg(GetStringArg(args, "path") ?? GetStringArg(args, "categoryPath")),
+                categoryRef = GetStringArg(args, "categoryRef")
             },
             "documents.empty_count" => new
             {
@@ -2038,11 +2339,17 @@ TOOL_RESULTS (json):
                 limit = NormalizeIntArg(GetIntArg(args, "limit"), 20, 1, 200),
                 offset = NormalizeIntArg(GetIntArg(args, "offset"), 0, 0, 100000)
             },
-            "admin.summary.missing" => new
+            "summary.status.count" => new
+            {
+                categoryPath = NormalizeCategoryPathArg(GetStringArg(args, "categoryPath") ?? GetStringArg(args, "category")),
+                categoryRef = GetStringArg(args, "categoryRef")
+            },
+            "summary.status.list" or "admin.summary.missing" => new
             {
                 limit = NormalizeIntArg(GetIntArg(args, "limit"), 100, 1, 500),
                 offset = NormalizeIntArg(GetIntArg(args, "offset"), 0, 0, 100000),
-                categoryPath = NormalizeCategoryPathArg(GetStringArg(args, "categoryPath") ?? GetStringArg(args, "category"))
+                categoryPath = NormalizeCategoryPathArg(GetStringArg(args, "categoryPath") ?? GetStringArg(args, "category")),
+                categoryRef = GetStringArg(args, "categoryRef")
             },
             "admin.summary.submit" => new
             {
@@ -2212,8 +2519,10 @@ TOOL_RESULTS (json):
             "repair" or "rewrite_last" or "meta.rewrite_last" => "meta.repair_last",
             "count_documents" or "documents.count" => "inventory.count",
             "list_documents" or "documents.list" or "documents.search" or "inventory.find" => "inventory.list",
+            "categories" or "documents.categories" => "inventory.categories",
             "tree" or "documents.tree" or "inventory.tree_sub" => "inventory.tree",
             "stats" or "documents.stats" => "inventory.stats",
+            "summary.status" or "summary_status" or "inventory.summary_status" or "admin.summary.missing" or "summary.status.count" or "summary.status.list" or "summary.present.count" or "summary.present.list" => "inventory.summary_status",
             "document.about" or "document_about" or "rag.about_doc" => "rag.summarize_doc",
             "summary.exists" or "check_summary" => "summary.check",
             "summary.store" or "refresh_summary" => "admin.summary.store",
@@ -2251,8 +2560,10 @@ TOOL_RESULTS (json):
         return first.Name switch
         {
             "documents.count" => "inventory.count",
+            "documents.categories" => "inventory.categories",
             "documents.tree" => "inventory.tree",
             "documents.stats" => "inventory.stats",
+            "summary.status.count" or "summary.status.list" or "summary.present.count" or "summary.present.list" or "admin.summary.missing" => "inventory.summary_status",
             "documents.list" or "documents.search" => "inventory.list",
             "summary.exists" or "summary.get" => "summary.check",
             "rag.search" or "rag.multi_search" => "rag.answer",
@@ -2268,10 +2579,10 @@ TOOL_RESULTS (json):
     {
         return toolName switch
         {
-            "documents.list" or "documents.search" or "documents.get" or "documents.count" or "documents.tree" or "documents.stats" or "documents.empty_count" or "documents.empty_list" or
+            "documents.list" or "documents.search" or "documents.get" or "documents.count" or "documents.categories" or "documents.tree" or "documents.stats" or "documents.empty_count" or "documents.empty_list" or
             "inventory.rendered" or
             "rag.search" or "rag.multi_search" or "rag.summarize_live" or
-            "summary.get" or "summary.exists" or "summary.search" or
+            "summary.get" or "summary.exists" or "summary.search" or "summary.status.count" or "summary.status.list" or "summary.present.count" or "summary.present.list" or
             "sources.resolve" => true,
             _ => false
         };
@@ -2344,6 +2655,13 @@ TOOL_RESULTS (json):
     {
         if (clearPendingClarification)
             ClearPendingClarification();
+
+        if (IsInventoryIntent(routerIntent)
+            && _mem.LastDeterministicRender is not null
+            && string.IsNullOrWhiteSpace(_mem.LastDeterministicRender.SourceUserMessage))
+        {
+            _mem.LastDeterministicRender.SourceUserMessage = rememberedUserMessage;
+        }
 
         RememberTurnState(rememberedUserMessage, finalAnswer, routerIntent, toolNames, reasoningTracePublic);
         swTotalPipeline.Stop();
@@ -2461,7 +2779,7 @@ TOOL_RESULTS (json):
         var expectsTreeScope = string.Equals(pending.Kind, "tree_scope", StringComparison.OrdinalIgnoreCase);
 
         var isExpectedAnswer = expectsDocumentAnswer
-            ? DocumentRefResolver.LooksLikeDocumentReferenceAnswer(current, _mem.LastFocusedDocument, _mem.LastListedDocuments)
+            ? DocumentRefResolver.LooksLikeDocumentReferenceAnswer(current, _mem.LastFocusedDocument, _mem.LastListedDocuments, _mem.LastRequestedDocumentRef)
             : expectsTreeScope && DocumentRefResolver.LooksLikeTreeScopeAnswer(current);
 
         if (!isExpectedAnswer)
@@ -2479,7 +2797,7 @@ TOOL_RESULTS (json):
 CLARIFICATION_ANSWER:
 {current}";
 
-        var analysisOverride = DocumentRefResolver.Analyze(effectiveUserMessage, _mem.LastFocusedDocument, _mem.LastListedDocuments);
+        var analysisOverride = DocumentRefResolver.Analyze(effectiveUserMessage, _mem.LastFocusedDocument, _mem.LastListedDocuments, _mem.LastRequestedDocumentRef);
         ClearPendingClarification();
         return new PendingClarificationPreparation(effectiveUserMessage, analysisOverride, true);
     }
@@ -2527,6 +2845,46 @@ USER_MESSAGE:
 ";
 
         return await CompleteTextResponseAsync(system, user, ct, onDelta).ConfigureAwait(false);
+    }
+
+    private async Task<string> EnsureAnswerMatchesRequestedLanguageAsync(string answer, string requestedLanguage, CancellationToken ct)
+    {
+        var trimmed = (answer ?? string.Empty).Trim();
+        if (trimmed.Length == 0)
+            return trimmed;
+
+        var targetLanguage = NormalizeLanguageCode(requestedLanguage);
+        var detectedLanguageRaw = DetectMessageLanguage(trimmed);
+        if (string.IsNullOrWhiteSpace(targetLanguage) || string.IsNullOrWhiteSpace(detectedLanguageRaw))
+            return trimmed;
+
+        var detectedLanguage = NormalizeLanguageCode(detectedLanguageRaw);
+        if (string.Equals(detectedLanguage, targetLanguage, StringComparison.OrdinalIgnoreCase))
+            return trimmed;
+
+        try
+        {
+            var system = $@"You are SAAIA assistant.
+Translate the provided assistant answer faithfully.
+Target language: {targetLanguage}
+Rules:
+- Keep the same meaning and tone.
+- Do not add or remove facts.
+- Return plain text only.";
+
+            var translated = await _llm.CompleteAsync(new[]
+            {
+                ("system", system),
+                ("user", trimmed)
+            }, forceJson: false, ct).ConfigureAwait(false);
+
+            translated = (translated ?? string.Empty).Replace("**", string.Empty).Trim();
+            return string.IsNullOrWhiteSpace(translated) ? trimmed : translated;
+        }
+        catch
+        {
+            return trimmed;
+        }
     }
 
     private async Task<string> GenerateRepairResponseAsync(
@@ -2598,6 +2956,30 @@ CURRENT_USER_MESSAGE:
         _mem.LastRouterIntent = routerIntent;
         _mem.LastToolNames = toolNames?.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).ToList() ?? new List<string>();
         _mem.LastReasoningTracePublic = reasoningTracePublic?.Where(x => !string.IsNullOrWhiteSpace(x)).ToList() ?? new List<string>();
+
+        var hasExplicitLanguageSwitch = TryDetectExplicitLanguageSwitch(userMessage, out var requestedLanguage);
+        var isOneShotTranslation = string.Equals(routerIntent, "meta.translate_last_answer", StringComparison.OrdinalIgnoreCase)
+            || hasExplicitLanguageSwitch;
+
+        var answerLanguage = isOneShotTranslation && !string.IsNullOrWhiteSpace(requestedLanguage)
+            ? requestedLanguage
+            : DetectMessageLanguage(assistantAnswer);
+
+        if (!string.IsNullOrWhiteSpace(answerLanguage))
+        {
+            _mem.LastAnswerLanguage = answerLanguage;
+            if (!isOneShotTranslation)
+                _mem.LastLanguage = answerLanguage;
+        }
+
+        if (!isOneShotTranslation)
+        {
+            var userLanguage = DetectMessageLanguage(userMessage);
+            if (string.IsNullOrWhiteSpace(userLanguage))
+                userLanguage = "fr";
+
+            _mem.LastUserDetectedLanguage = userLanguage;
+        }
     }
 
 
@@ -2814,14 +3196,21 @@ CURRENT_USER_MESSAGE:
         var totalDocuments = TryGetInt(result, "totalDocuments") ?? 0;
         var maxDepth = TryGetInt(result, "maxDepth") ?? 0;
         var totalFolders = TryGetInt(result, "totalNonEmptyFolders") ?? 0;
+        var scopePath = NormalizeCategoryPathArg(TryGetString(result, "scopePath"));
         var sb = new StringBuilder();
-        sb.AppendLine(DeterministicAgentText.StatsTitle(language));
+        sb.AppendLine(DeterministicAgentText.StatsTitle(language, scopePath));
         sb.AppendLine(DeterministicAgentText.StatsIndexedDocuments(totalDocuments, language));
         sb.AppendLine(DeterministicAgentText.StatsTotalFolders(totalFolders, language));
+        var emptyFolders = TryGetInt(result, "totalEmptyFolders")
+                           ?? TryGetInt(result, "emptyFolderCount")
+                           ?? TryGetInt(result, "emptyFolders")
+                           ?? TryGetInt(result, "emptyCount");
+        if (emptyFolders.HasValue)
+            sb.AppendLine(DeterministicAgentText.StatsEmptyFolders(emptyFolders.Value, language));
         AppendFolderDepthLines(sb, result, language);
-        sb.AppendLine(DeterministicAgentText.StatsMaximumDepth(maxDepth, language));
         sb.AppendLine(DeterministicAgentText.StatsMainStructure(language));
 
+        var appendedRootLine = false;
         if (result.TryGetProperty("rootFolders", out var rf) && rf.ValueKind == JsonValueKind.Array)
         {
             foreach (var x in rf.EnumerateArray())
@@ -2834,8 +3223,12 @@ CURRENT_USER_MESSAGE:
                     continue;
 
                 sb.AppendLine(DeterministicAgentText.RootFolderLine(name, total, direct, sub, language));
+                appendedRootLine = true;
             }
         }
+
+        if (!appendedRootLine)
+            sb.AppendLine(DeterministicAgentText.NoSubfoldersInScope(language));
 
         return sb.ToString().TrimEnd();
     }
@@ -2876,30 +3269,40 @@ CURRENT_USER_MESSAGE:
         return null;
     }
 
-    private bool TryReplayLastDeterministicAnswer(string language, out string answer, out object? sourcesPayload)
+    private async Task<(bool ok, string answer, object? sourcesPayload)> TryReplayLastInventoryAnswerWithWriterAsync(
+        IReadOnlyList<(string role, string content)> chatHistory,
+        string userMessage,
+        string language,
+        CancellationToken ct,
+        Action<string>? onPhase,
+        Action<string>? onDelta,
+        Action<string>? onProgress)
     {
-        answer = string.Empty;
-        sourcesPayload = null;
+        _ = chatHistory;
+        _ = userMessage;
 
         if (_mem.LastDeterministicRender is null
             || string.IsNullOrWhiteSpace(_mem.LastDeterministicRender.Kind)
             || string.IsNullOrWhiteSpace(_mem.LastDeterministicRender.DataJson)
-            || !IsInventoryIntent(_mem.LastRouterIntent))
+            || !IsInventoryIntent(_mem.LastDeterministicRender.RouterIntent ?? _mem.LastRouterIntent))
         {
-            return false;
+            return (false, string.Empty, null);
         }
 
         try
         {
-            using var doc = JsonDocument.Parse(_mem.LastDeterministicRender.DataJson);
-            answer = RenderDeterministicInventoryFromData(_mem.LastDeterministicRender.Kind, doc.RootElement, language);
-            return !string.IsNullOrWhiteSpace(answer);
+            var answer = TryRenderLastDeterministicAnswer(language);
+            if (string.IsNullOrWhiteSpace(answer))
+                return (false, string.Empty, null);
+
+            onPhase?.Invoke(DeterministicAgentText.PhaseWriting(language));
+            onProgress?.Invoke(DeterministicAgentText.ProgressDraftFinalAnswer(language));
+            await EmitDeterministicTextAsync(answer, onDelta, ct).ConfigureAwait(false);
+            return (true, answer.Trim(), null);
         }
         catch
         {
-            answer = string.Empty;
-            sourcesPayload = null;
-            return false;
+            return (false, string.Empty, null);
         }
     }
 
@@ -2910,11 +3313,42 @@ CURRENT_USER_MESSAGE:
             "list" => RenderDocumentsListFromReplayData(data, language),
             "tree" => RenderDocumentsTreeFromReplayData(data, language),
             "stats" => BuildStatsFallbackAnswer(data, language),
+            "categories" => RenderCategoriesFromReplayData(data, language),
             "count" => DeterministicAgentText.DocumentsCount(TryGetInt(data, "total") ?? 0, language),
             "empty_count" => DeterministicAgentText.EmptyFoldersCount(TryGetInt(data, "total") ?? 0, language),
             "empty_list" => RenderEmptyFoldersListFromReplayData(data, language),
+            "summary_status_count" => RenderSummaryStatusCountFromReplayData(data, language),
+            "summary_status_list" => RenderSummaryStatusListFromReplayData(data, language),
             _ => string.Empty
         };
+    }
+
+    private static string RenderCategoriesFromReplayData(JsonElement data, string language)
+    {
+        if (!data.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+            return DeterministicAgentText.CategoriesCount(TryGetInt(data, "total") ?? 0, language);
+
+        var rows = new List<string>();
+        foreach (var entry in items.EnumerateArray())
+        {
+            if (entry.ValueKind != JsonValueKind.Object)
+                continue;
+
+            var ordinal = TryGetInt(entry, "ordinal") ?? TryGetInt(entry, "displayOrder") ?? 0;
+            var name = TryGetString(entry, "name") ?? string.Empty;
+            var totalDocuments = TryGetInt(entry, "totalDocuments") ?? 0;
+            rows.Add($"{ordinal}. {name} ({totalDocuments})");
+        }
+
+        if (rows.Count == 0)
+            return DeterministicAgentText.CategoriesCount(TryGetInt(data, "total") ?? 0, language);
+
+        var sb = new StringBuilder();
+        sb.AppendLine(DeterministicAgentText.CategoriesListHeader(language));
+        foreach (var row in rows)
+            sb.AppendLine(row);
+
+        return sb.ToString().TrimEnd();
     }
 
     private static string RenderDocumentsTreeFromReplayData(JsonElement data, string language)
@@ -2946,9 +3380,42 @@ CURRENT_USER_MESSAGE:
                 lines.Add($"{i++}. [[open|{docPath}|1|{label}]]");
         }
 
+        var explicitScopePath = NormalizeCategoryPathArg(TryGetString(data, "scopePath"));
+        var header = string.IsNullOrWhiteSpace(explicitScopePath)
+            ? DeterministicAgentText.DocumentsListHeader(language)
+            : DeterministicAgentText.DocumentsListHeader(language, explicitScopePath);
+
         return lines.Count == 0
             ? LocalizedStrings.NoDocumentsFound(language)
-            : $"{DeterministicAgentText.DocumentsListHeader(language)}{Environment.NewLine}{string.Join(Environment.NewLine, lines)}".TrimEnd();
+            : $"{header}{Environment.NewLine}{string.Join(Environment.NewLine, lines)}".TrimEnd();
+    }
+
+    private static string? TryInferDocumentsScopePath(JsonElement data)
+    {
+        var explicitScope = NormalizeCategoryPathArg(TryGetString(data, "scopePath"));
+        if (!string.IsNullOrWhiteSpace(explicitScope))
+            return explicitScope;
+
+        if (!data.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+            return null;
+
+        string? unique = null;
+        foreach (var entry in items.EnumerateArray())
+        {
+            var categoryPath = NormalizeCategoryPathArg(TryGetString(entry, "categoryPath"));
+            if (string.IsNullOrWhiteSpace(categoryPath))
+                return null;
+            if (unique is null)
+            {
+                unique = categoryPath;
+                continue;
+            }
+
+            if (!string.Equals(unique, categoryPath, StringComparison.OrdinalIgnoreCase))
+                return null;
+        }
+
+        return unique;
     }
 
     private static string RenderEmptyFoldersListFromReplayData(JsonElement data, string language)
@@ -2978,20 +3445,76 @@ CURRENT_USER_MESSAGE:
         return sb.ToString().TrimEnd();
     }
 
+    private static string RenderSummaryStatusCountFromReplayData(JsonElement data, string language)
+    {
+        var total = TryGetInt(data, "total") ?? 0;
+        var mode = TryGetString(data, "mode") ?? "missing";
+        if (string.Equals(mode, "present", StringComparison.OrdinalIgnoreCase))
+        {
+            return total <= 0
+                ? DeterministicAgentText.NoStoredSummaries(language)
+                : DeterministicAgentText.StoredSummariesCount(total, language);
+        }
+
+        return total <= 0
+            ? DeterministicAgentText.NoMissingSummaries(language)
+            : DeterministicAgentText.MissingSummariesCount(total, language);
+    }
+
+    private static string RenderSummaryStatusListFromReplayData(JsonElement data, string language)
+    {
+        if (!data.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+            return string.Equals(TryGetString(data, "mode"), "present", StringComparison.OrdinalIgnoreCase)
+                ? DeterministicAgentText.NoStoredSummaries(language)
+                : DeterministicAgentText.NoMissingSummaries(language);
+
+        var rows = new List<(string path, string state, string label)>();
+        foreach (var entry in items.EnumerateArray())
+        {
+            if (entry.ValueKind != JsonValueKind.Object)
+                continue;
+
+            var path = (TryGetString(entry, "docPath") ?? string.Empty).Replace('\\', '/').TrimStart('/');
+            var state = TryGetString(entry, "summaryState") ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(path))
+                continue;
+
+            var label = path.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? path;
+            label = (label ?? string.Empty).Replace("|", " ").Replace("]", ")");
+            rows.Add((path, state, label));
+        }
+
+        var mode = TryGetString(data, "mode") ?? "missing";
+        if (rows.Count == 0)
+            return string.Equals(mode, "present", StringComparison.OrdinalIgnoreCase)
+                ? DeterministicAgentText.NoStoredSummaries(language)
+                : DeterministicAgentText.NoMissingSummaries(language);
+
+        var sb = new StringBuilder();
+        sb.AppendLine(string.Equals(mode, "present", StringComparison.OrdinalIgnoreCase)
+            ? DeterministicAgentText.StoredSummariesHeader(language)
+            : DeterministicAgentText.MissingSummariesHeader(language));
+        for (var i = 0; i < rows.Count; i++)
+        {
+            var suffix = rows[i].state.Equals("stale", StringComparison.OrdinalIgnoreCase)
+                ? " [stale]"
+                : string.Empty;
+            sb.AppendLine($"{i + 1}. [[open|{rows[i].path}|1|{rows[i].label}]]{suffix}");
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
     // ---------------- Tools exec helpers ----------------
 
     private async Task<JsonElement> ExecDocumentsListAsync(JsonElement args, CancellationToken ct)
     {
-        var categoryPath = args.TryGetProperty("categoryPath", out var cp) && cp.ValueKind != JsonValueKind.Null
-            ? cp.GetString()
-            : args.TryGetProperty("category", out var c) && c.ValueKind != JsonValueKind.Null
-                ? c.GetString()
-                : null;
+        var (categoryPath, categoryRef) = ResolveCategoryScopeArgs(args);
         var q = args.TryGetProperty("q", out var qj) && qj.ValueKind != JsonValueKind.Null ? qj.GetString() : null;
         var limit = args.TryGetProperty("limit", out var l) ? l.GetInt32() : 80;
         var offset = args.TryGetProperty("offset", out var o) ? o.GetInt32() : 0;
 
-        var res = await _api.DocumentsListAsync(categoryPath, q, limit, offset, ct);
+        var res = await _api.DocumentsListAsync(categoryPath, categoryRef, q, limit, offset, ct);
 
         _mem.LastListCategoryPath = categoryPath;
         _mem.LastListQuery = q;
@@ -3005,15 +3528,11 @@ CURRENT_USER_MESSAGE:
     private async Task<JsonElement> ExecDocumentsSearchAsync(JsonElement args, CancellationToken ct)
     {
         var q = args.GetProperty("q").GetString() ?? "";
-        var categoryPath = args.TryGetProperty("categoryPath", out var cp) && cp.ValueKind != JsonValueKind.Null
-            ? cp.GetString()
-            : args.TryGetProperty("category", out var c) && c.ValueKind != JsonValueKind.Null
-                ? c.GetString()
-                : null;
+        var (categoryPath, categoryRef) = ResolveCategoryScopeArgs(args);
         var limit = args.TryGetProperty("limit", out var l) ? l.GetInt32() : 80;
         var offset = args.TryGetProperty("offset", out var o) ? o.GetInt32() : 0;
 
-        var res = await _api.DocumentsSearchAsync(q, categoryPath, limit, offset, ct);
+        var res = await _api.DocumentsSearchAsync(q, categoryPath, categoryRef, limit, offset, ct);
 
         _mem.LastListCategoryPath = categoryPath;
         _mem.LastListQuery = q;
@@ -3214,10 +3733,15 @@ private JsonElement ExecExportCreate(JsonElement args)
             or "documents.list"
             or "documents.search"
             or "documents.tree"
+            or "documents.categories"
             or "documents.stats"
             or "documents.count"
             or "documents.empty_count"
             or "documents.empty_list"
+            or "summary.status.count"
+            or "summary.status.list"
+            or "summary.present.count"
+            or "summary.present.list"
             or "diagnostic.performance";
     }
 
@@ -3230,16 +3754,21 @@ private JsonElement ExecExportCreate(JsonElement args)
         return successful.All(x => IsInventoryLikeToolName(x.ToolName));
     }
 
-    private static string? TryExtractInventoryRenderedText(ToolResults toolResults)
+    private static string? TryRenderInventoryFallbackText(ToolResults toolResults, string language)
     {
         var item = toolResults.Items.LastOrDefault(x => x.ToolName == "inventory.rendered" && string.IsNullOrWhiteSpace(x.Error));
         if (item is null || item.Result.ValueKind != JsonValueKind.Object)
             return null;
 
-        return item.Result.TryGetProperty("text", out var text)
-               && text.ValueKind == JsonValueKind.String
-            ? (text.GetString() ?? string.Empty).Trim()
-            : null;
+        var kind = item.Result.TryGetProperty("kind", out var kindEl) && kindEl.ValueKind == JsonValueKind.String
+            ? (kindEl.GetString() ?? string.Empty)
+            : string.Empty;
+
+        if (!item.Result.TryGetProperty("data", out var data))
+            return null;
+
+        var fallback = RenderDeterministicInventoryFromData(kind, data, language);
+        return string.IsNullOrWhiteSpace(fallback) ? null : fallback.Trim();
     }
 
     private static string? TryExtractInventoryRenderedDataJson(ToolResults toolResults)

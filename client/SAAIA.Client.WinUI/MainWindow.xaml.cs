@@ -90,7 +90,46 @@ public sealed partial class MainWindow : Window
         LoadSettings();
         LoadLocalLlmUiFromSettings();
         UpdateUiState(isGenerating: false);
-        Status("Ready.");
+        Status(ClientUiText.Get("status.ready", _appSettings.UiLanguage));
+    }
+
+    private string GetDefaultSessionTitle()
+        => ClientUiText.Get("chat.default_title", _appSettings.UiLanguage);
+
+    private static bool IsDefaultSessionTitle(string? title)
+    {
+        var value = (title ?? string.Empty).Trim();
+        if (value.Length == 0)
+            return true;
+
+        foreach (var language in ClientUiText.SupportedLanguageCodes())
+        {
+            if (string.Equals(value, ClientUiText.Get("chat.default_title", language), StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return string.Equals(value, "New chat", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void ApplyLocalizedDefaultSessionTitles()
+    {
+        var localizedDefault = GetDefaultSessionTitle();
+        foreach (var session in _sessions)
+        {
+            if (IsDefaultSessionTitle(session.Title))
+                session.Title = localizedDefault;
+        }
+    }
+
+    private void SessionMenu_Opening(object sender, object e)
+    {
+        if (sender is not MenuFlyout flyout)
+            return;
+
+        if (flyout.Items.Count > 0 && flyout.Items[0] is MenuFlyoutItem rename)
+            rename.Text = ClientUiText.Get("session.menu.rename", _appSettings.UiLanguage);
+        if (flyout.Items.Count > 1 && flyout.Items[1] is MenuFlyoutItem delete)
+            delete.Text = ClientUiText.Get("session.menu.delete", _appSettings.UiLanguage);
     }
 
     private async Task InitializeUserModeAsync()
@@ -111,7 +150,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Status("Init failed: " + ex.Message);
+            Status(ClientUiText.Get("status.init_failed", _appSettings.UiLanguage) + ex.Message);
         }
     }
 
@@ -217,7 +256,9 @@ public sealed partial class MainWindow : Window
         // Single button (Option B): Send when idle, Cancel when generating.
         SendCancelButton.IsEnabled = IsConnected && !string.IsNullOrWhiteSpace(_sessionId);
         SendCancelIcon.Glyph = _isGenerating ? "\uE71A" : "\uE724"; // Stop / Send
-        ToolTipService.SetToolTip(SendCancelButton, _isGenerating ? "Annuler" : "Envoyer");
+        ToolTipService.SetToolTip(SendCancelButton, _isGenerating ? ClientUiText.Get("button.cancel", _appSettings.UiLanguage) : ClientUiText.Get("button.send", _appSettings.UiLanguage));
+        if (HeaderHelpButton is not null)
+            HeaderHelpButton.IsEnabled = !_isGenerating;
 
         SessionsList.IsEnabled = IsConnected && !_isGenerating;
         NewChatButton.IsEnabled = IsConnected && !_isGenerating;
@@ -238,6 +279,7 @@ public sealed partial class MainWindow : Window
         LlmModelBox.Text = string.IsNullOrWhiteSpace(_appSettings.ModelId) ? ClientDefaults.LlmModel : _appSettings.ModelId;
 
         _sessionId = string.IsNullOrWhiteSpace(_appSettings.LastSessionId) ? null : _appSettings.LastSessionId;
+        ApplyUiLanguage();
     }
 
     private void SaveSettings()
@@ -1034,12 +1076,13 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
             // Apply live to the running agent
             _agent?.ApplySettings(_appSettings);
 
-            Status("Settings applied.");
+            ApplyUiLanguage();
+            Status(ClientUiText.Get("status.settings_applied", _appSettings.UiLanguage));
         }
     }
     catch (Exception ex)
     {
-        Status("Settings failed: " + ex.Message);
+        Status(ClientUiText.Get("status.settings_failed", _appSettings.UiLanguage) + ex.Message);
     }
 }
 
@@ -1050,7 +1093,7 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
         // Si aucune session: on en crée une
         if (list.Count == 0)
         {
-            var created = await _api.CreateSessionAsync("New chat", Environment.UserName, ct);
+            var created = await _api.CreateSessionAsync(GetDefaultSessionTitle(), Environment.UserName, ct);
             list.Insert(0, new ChatSessionItem
             {
                 SessionId = created.SessionId,
@@ -1064,6 +1107,7 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
 
         _sessions.Clear();
         foreach (var s in list) _sessions.Add(s);
+        ApplyLocalizedDefaultSessionTitles();
 
         ChatSessionItem? toSelect = null;
 
@@ -1086,7 +1130,7 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
             _sessionId = session.SessionId;
             SaveSettings();
 
-            Status("Loading chat…");
+            Status(ClientUiText.Get("status.loading_chat", _appSettings.UiLanguage));
 
             _messages.Clear();
             var msgs = await _api.ListMessagesAsync(_sessionId!, ct);
@@ -1113,7 +1157,7 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
             }
 
 
-            Status($"Loaded. Session: {_sessionId}");
+            Status(ClientUiText.Format("status.loaded_session", _appSettings.UiLanguage, _sessionId ?? string.Empty));
             UpdateUiState(_isGenerating);
         }
         finally
@@ -1139,7 +1183,7 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
     {
         if (_agent is null)
         {
-            Status("Click Connect first.");
+            Status(ClientUiText.Get("status.connect_first", _appSettings.UiLanguage));
             return;
         }
 
@@ -1147,9 +1191,9 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
 
         try
         {
-            Status("Creating new chat…");
+            Status(ClientUiText.Get("status.creating_chat", _appSettings.UiLanguage));
 
-            var res = await _api.CreateSessionAsync("New chat", Environment.UserName, CancellationToken.None);
+            var res = await _api.CreateSessionAsync(GetDefaultSessionTitle(), Environment.UserName, CancellationToken.None);
 
             // refresh pour ordre correct (backend ORDER BY updated_at desc)
             await RefreshSessionsAsync(preferSessionId: res.SessionId, CancellationToken.None);
@@ -1157,11 +1201,11 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
             if (SessionsList.SelectedItem is ChatSessionItem sel)
                 await LoadSessionAsync(sel, CancellationToken.None);
 
-            Status($"New session: {_sessionId}");
+            Status(ClientUiText.Format("status.new_session", _appSettings.UiLanguage, _sessionId ?? string.Empty));
         }
         catch (Exception ex)
         {
-            Status("New chat failed: " + ex.Message);
+            Status(ClientUiText.Get("status.new_chat_failed", _appSettings.UiLanguage) + ex.Message);
         }
         finally
         {
@@ -1184,14 +1228,14 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
             var box = new TextBox
             {
                 Text = s.DisplayTitle,
-                PlaceholderText = "Titre…"
+                PlaceholderText = ClientUiText.Get("session.rename.placeholder", _appSettings.UiLanguage)
             };
 
             var dlg = new ContentDialog
             {
-                Title = "Rename chat",
-                PrimaryButtonText = "Save",
-                CloseButtonText = "Cancel",
+                Title = ClientUiText.Get("session.rename.title", _appSettings.UiLanguage),
+                PrimaryButtonText = ClientUiText.Get("session.rename.save", _appSettings.UiLanguage),
+                CloseButtonText = ClientUiText.Get("dialog.close", _appSettings.UiLanguage),
                 DefaultButton = ContentDialogButton.Primary,
                 Content = box,
                 XamlRoot = xamlRoot
@@ -1201,17 +1245,17 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
             if (res != ContentDialogResult.Primary) return;
 
             var newTitle = (box.Text ?? "").Trim();
-            if (newTitle.Length == 0) newTitle = "New chat";
+            if (newTitle.Length == 0) newTitle = GetDefaultSessionTitle();
             if (newTitle.Length > 120) newTitle = newTitle[..120];
 
             await _api.UpdateSessionTitleAsync(s.SessionId, newTitle, CancellationToken.None);
 
             await RefreshSessionsAsync(preferSessionId: s.SessionId, CancellationToken.None);
-            Status("Renamed.");
+            Status(ClientUiText.Get("session.rename.done", _appSettings.UiLanguage));
         }
         catch (Exception ex)
         {
-            Status("Rename failed: " + ex.Message);
+            Status(ClientUiText.Get("session.rename.failed", _appSettings.UiLanguage) + ex.Message);
         }
     }
 
@@ -1229,10 +1273,10 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
 
             var dlg = new ContentDialog
             {
-                Title = "Delete chat?",
-                Content = $"Supprimer définitivement: \"{s.DisplayTitle}\" ?",
-                PrimaryButtonText = "Delete",
-                CloseButtonText = "Cancel",
+                Title = ClientUiText.Get("session.delete.title", _appSettings.UiLanguage),
+                Content = ClientUiText.Format("session.delete.confirm", _appSettings.UiLanguage, s.DisplayTitle),
+                PrimaryButtonText = ClientUiText.Get("session.delete.confirm_button", _appSettings.UiLanguage),
+                CloseButtonText = ClientUiText.Get("dialog.close", _appSettings.UiLanguage),
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = xamlRoot
             };
@@ -1248,11 +1292,11 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
             if (SessionsList.SelectedItem is ChatSessionItem sel)
                 await LoadSessionAsync(sel, CancellationToken.None);
 
-            Status("Deleted.");
+            Status(ClientUiText.Get("session.delete.done", _appSettings.UiLanguage));
         }
         catch (Exception ex)
         {
-            Status("Delete failed: " + ex.Message);
+            Status(ClientUiText.Get("session.delete.failed", _appSettings.UiLanguage) + ex.Message);
         }
     }
 
@@ -1301,13 +1345,21 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
 
     private static void InsertNewLineAtCaret(TextBox tb)
     {
-        var newline = Environment.NewLine;
-        var text = tb.Text ?? string.Empty;
-        var start = Math.Clamp(tb.SelectionStart, 0, text.Length);
-        var length = Math.Clamp(tb.SelectionLength, 0, text.Length - start);
+        // WinUI TextBox normalizes line breaks internally. Using Environment.NewLine here can
+        // desynchronize SelectionStart vs the actual stored text on repeated Shift+Enter presses.
+        // A single CR keeps caret math stable and avoids the regression where a second Shift+Enter
+        // appears to remove the previous line break.
+        const string newline = "\r";
 
-        tb.Text = text.Remove(start, length).Insert(start, newline);
-        tb.SelectionStart = start + newline.Length;
+        var current = tb.Text ?? string.Empty;
+        var selectionStart = Math.Clamp(tb.SelectionStart, 0, current.Length);
+        var selectionLength = Math.Clamp(tb.SelectionLength, 0, current.Length - selectionStart);
+
+        var updated = current.Remove(selectionStart, selectionLength).Insert(selectionStart, newline);
+        tb.Text = updated;
+
+        var caret = Math.Clamp(selectionStart + newline.Length, 0, tb.Text?.Length ?? 0);
+        tb.SelectionStart = caret;
         tb.SelectionLength = 0;
     }
 
@@ -1345,13 +1397,36 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
     private static void ClearAssistantProgress(ChatMessageItem? assistantMsg)
         => SetAssistantProgress(assistantMsg, null);
 
+    private static void StampAssistantMessageStart(ChatMessageItem? assistantMsg, ref int replyStarted)
+    {
+        if (assistantMsg is null)
+            return;
+
+        if (System.Threading.Interlocked.CompareExchange(ref replyStarted, 1, 0) != 0)
+            return;
+
+        assistantMsg.CreatedAt = DateTime.UtcNow;
+    }
+
+    private static void EnsureAssistantMessageHasFailureText(ChatMessageItem? assistantMsg)
+    {
+        if (assistantMsg is null)
+            return;
+
+        ClearAssistantProgress(assistantMsg);
+        assistantMsg.StatusNote = null;
+
+        if (string.IsNullOrWhiteSpace(assistantMsg.Content))
+            assistantMsg.Content = "⚠️ La réponse n'a pas pu être générée. Réessaie.";
+    }
+
     private async Task MaybeAutoTitleAsync(string userText)
     {
         // Si le titre est "New chat" (ou vide), on met un titre basé sur la 1ère question
         if (SessionsList.SelectedItem is not ChatSessionItem s) return;
 
         var currentTitle = (s.Title ?? "").Trim();
-        if (!string.IsNullOrWhiteSpace(currentTitle) && !string.Equals(currentTitle, "New chat", StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(currentTitle) && !IsDefaultSessionTitle(currentTitle))
             return;
 
         var title = (userText ?? "").Trim();
@@ -1684,7 +1759,8 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
             _userScrolledUp = false;
             UpdateJumpButton();
 
-            var hasStreamedDelta = false;
+            var finalAnswerCommitted = 0;
+            var replyStarted = 0;
 
             var (finalAnswer, sourcesObj) = await _agent.RunAsync(
                 userText: text,
@@ -1692,12 +1768,15 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
                 conversationTail: tailBefore,
                 onDelta: token =>
                 {
-                    if (string.IsNullOrEmpty(token))
+                    if (string.IsNullOrEmpty(token) || System.Threading.Volatile.Read(ref finalAnswerCommitted) == 1)
                         return;
 
-                    hasStreamedDelta = true;
                     DispatcherQueue.TryEnqueue(() =>
                     {
+                        if (System.Threading.Volatile.Read(ref finalAnswerCommitted) == 1)
+                            return;
+
+                        StampAssistantMessageStart(assistantMsg, ref replyStarted);
                         assistantMsg.StatusNote = null;
                         ClearAssistantProgress(assistantMsg);
                         assistantMsg.Content += token;
@@ -1724,10 +1803,16 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
             {
                 ClearAssistantProgress(assistantMsg);
 
-                if (string.IsNullOrWhiteSpace(finalAnswer))
-                    assistantMsg.Content = "⚠️ Réponse vide côté LLM. Voir les sources à droite.";
-                else if (!hasStreamedDelta || string.IsNullOrWhiteSpace(assistantMsg.Content))
+                if (!string.IsNullOrWhiteSpace(finalAnswer))
+                {
+                    StampAssistantMessageStart(assistantMsg, ref replyStarted);
+                    System.Threading.Interlocked.Exchange(ref finalAnswerCommitted, 1);
                     assistantMsg.Content = finalAnswer;
+                }
+                else if (string.IsNullOrWhiteSpace(assistantMsg.Content))
+                {
+                    assistantMsg.Content = "⚠️ Réponse vide côté LLM. Voir les sources à droite.";
+                }
 
                 assistantMsg.StatusNote = null;
             }
@@ -1735,7 +1820,11 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
             {
                 MarkInterrupted(assistantMsg);
                 if (string.IsNullOrWhiteSpace(assistantMsg.Content) && !string.IsNullOrWhiteSpace(finalAnswer))
+                {
+                    StampAssistantMessageStart(assistantMsg, ref replyStarted);
+                    System.Threading.Interlocked.Exchange(ref finalAnswerCommitted, 1);
                     assistantMsg.Content = finalAnswer;
+                }
             }
 
             var pretty = sourcesObj is null
@@ -1795,7 +1884,7 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
         }
         catch (Exception ex)
         {
-            ClearAssistantProgress(assistantMsg);
+            EnsureAssistantMessageHasFailureText(assistantMsg);
             SetTyping(false);
             UpdateJumpButton();
             Status("Send failed: " + ex.Message);
