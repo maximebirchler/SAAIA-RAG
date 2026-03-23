@@ -113,6 +113,21 @@ public sealed partial class ToolAgentOrchestrator
             return (true, answer, null, "inventory.stats", new[] { "documents.stats", "inventory.rendered" });
         }
 
+        if (LooksLikeDirectTreeRequest(effectiveUserMessage))
+        {
+            onPhase?.Invoke(DeterministicAgentText.PhaseTools(interactionLanguage));
+            onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(interactionLanguage));
+
+            var res = await _api.DocumentsTreeAsync(path: null, categoryRef: null, depth: 20, format: "markdown", ct).ConfigureAwait(false);
+            RememberDeterministicRenderFromJson("tree", res, "inventory.tree", displayUserMessage);
+            _mem.LastInventoryAction = "tree";
+            _mem.LastSummaryStatusSnapshot = null;
+
+            var answer = RenderDeterministicInventoryFromData("tree", res, interactionLanguage).Trim();
+            await EmitDeterministicTextAsync(answer, onDelta, ct).ConfigureAwait(false);
+            return (true, answer, null, "inventory.tree", new[] { "documents.tree", "inventory.rendered" });
+        }
+
         if (LooksLikeDirectSummaryStatusRequest(effectiveUserMessage, out var summaryMode, out var summaryState))
         {
             if (!_api.HasAdminKey)
@@ -192,7 +207,7 @@ public sealed partial class ToolAgentOrchestrator
             onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(interactionLanguage));
 
             var rawRes = await _api.DocumentsListAsync(categoryPath: null, categoryRef: null, q: exactDocumentSearchQuery, limit: 20, offset: 0, ct: ct).ConfigureAwait(false);
-            var res = CreateCanonicalDocumentsListJson(rawRes);
+            var res = CreateCanonicalDocumentsListJsonCore(rawRes, scopePath: null, searchQuery: exactDocumentSearchQuery);
             RememberDeterministicRenderFromJson("list", res, "inventory.find", displayUserMessage);
             _mem.LastInventoryAction = "search_documents";
             var answer = RenderDeterministicInventoryFromData("list", res, interactionLanguage).Trim();
@@ -643,16 +658,18 @@ public sealed partial class ToolAgentOrchestrator
     }
 
     private JsonElement CreateCanonicalDocumentsListJson(JsonElement rawData)
-        => CreateCanonicalDocumentsListJsonCore(rawData, null);
+        => CreateCanonicalDocumentsListJsonCore(rawData, null, null);
 
-    private JsonElement CreateCanonicalDocumentsListJsonCore(JsonElement rawData, string? scopePath)
+    private JsonElement CreateCanonicalDocumentsListJsonCore(JsonElement rawData, string? scopePath, string? searchQuery = null)
     {
         var (docs, limit, offset, total, endOfList, dropped) = DocumentListHelper.Sanitize(rawData, _mem);
         var normalizedScopePath = NormalizeCategoryPathArg(scopePath) ?? NormalizeCategoryPathArg(TryGetString(rawData, "scopePath"));
+        var normalizedSearchQuery = string.IsNullOrWhiteSpace(searchQuery) ? TryGetString(rawData, "searchQuery") : searchQuery.Trim();
 
         using var doc = JsonDocument.Parse(JsonSerializer.Serialize(new
         {
             scopePath = normalizedScopePath,
+            searchQuery = normalizedSearchQuery,
             limit,
             offset,
             total,
@@ -1095,6 +1112,9 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
     private static bool LooksLikeDirectCatalogStatsRequest(string? message)
         => MatchesCanonicalStaticPrompt(message, ClientUiText.BuildPromptCatalogStats);
 
+    private static bool LooksLikeDirectTreeRequest(string? message)
+        => MatchesCanonicalStaticPrompt(message, ClientUiText.BuildPromptCatalogTree);
+
     private bool LastAnswerRequiresStructuredReplay()
     {
         if (_mem.LastDeterministicRender is not null)
@@ -1342,6 +1362,7 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
             || LooksLikeDirectDocumentsByCategoryRequest(s)
             || LooksLikeDirectCategoryStatsRequest(s)
             || LooksLikeDirectSummaryStatusRequest(s, out _, out _)
+            || LooksLikeDirectTreeRequest(s)
             || LooksLikeDirectAdminRescanRequest(s)
             || LooksLikeDirectAdminReindexRequest(s))
         {
@@ -1350,6 +1371,7 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
 
         return LooksLikeMalformedCategoriesCommand(s)
             || LooksLikeMalformedCatalogStatsCommand(s)
+            || LooksLikeMalformedTreeCommand(s)
             || LooksLikeMalformedCategoryScopedCommand(s)
             || LooksLikeMalformedSummaryStatusCommand(s)
             || LooksLikeMalformedAdminCatalogCommand(s);
@@ -1375,6 +1397,15 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
 
         var hasCommandVerb = Regex.IsMatch(normalizedMessage, @"\b(?:liste|list|show|display|give|donne|montre|montres|affiche|dame|muestrame|lista|mostra|zeige|gib)\b", ShortcutRegexOptions);
         return hasCommandVerb || normalizedMessage.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length <= 4;
+    }
+
+    private static bool LooksLikeMalformedTreeCommand(string normalizedMessage)
+    {
+        var hasTree = Regex.IsMatch(normalizedMessage, @"(?:tree|arborescence|arbre|árbol|baum|albero)", ShortcutRegexOptions);
+        if (!hasTree)
+            return false;
+
+        return Regex.IsMatch(normalizedMessage, @"(?:show|display|give|list|donne|montre|affiche|dame|muestrame|mostra|zeige|gib)", ShortcutRegexOptions);
     }
 
     private static bool LooksLikeMalformedCategoryScopedCommand(string normalizedMessage)

@@ -196,6 +196,20 @@ internal static class DeterministicAgentText
             $"Documenti della categoria {scope}:");
     }
 
+    public static string DocumentsSearchHeader(string? language, string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return DocumentsListHeader(language);
+
+        return Pick(language,
+            $"Documents correspondant à la recherche « {query} » :",
+            $"Documents matching search \"{query}\":",
+            $"Documentos que coinciden con la búsqueda « {query} »:",
+            $"Documentos correspondentes à pesquisa \"{query}\":",
+            $"Dokumente passend zur Suche \"{query}\":",
+            $"Documenti corrispondenti alla ricerca \"{query}\":");
+    }
+
     public static string EmptyFoldersCount(int total, string? language)
         => Pick(language,
             $"Il y a actuellement {total} dossier(s) vide(s) sur le serveur.",

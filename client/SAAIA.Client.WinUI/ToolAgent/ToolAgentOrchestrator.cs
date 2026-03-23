@@ -3515,9 +3515,12 @@ CURRENT_USER_MESSAGE:
         }
 
         var explicitScopePath = NormalizeCategoryPathArg(TryGetString(data, "scopePath"));
-        var header = string.IsNullOrWhiteSpace(explicitScopePath)
-            ? DeterministicAgentText.DocumentsListHeader(language)
-            : DeterministicAgentText.DocumentsListHeader(language, explicitScopePath);
+        var searchQuery = (TryGetString(data, "searchQuery") ?? string.Empty).Trim();
+        var header = !string.IsNullOrWhiteSpace(explicitScopePath)
+            ? DeterministicAgentText.DocumentsListHeader(language, explicitScopePath)
+            : (!string.IsNullOrWhiteSpace(searchQuery)
+                ? DeterministicAgentText.DocumentsSearchHeader(language, searchQuery)
+                : DeterministicAgentText.DocumentsListHeader(language));
 
         return lines.Count == 0
             ? LocalizedStrings.NoDocumentsFound(language)

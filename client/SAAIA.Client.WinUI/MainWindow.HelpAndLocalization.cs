@@ -60,43 +60,23 @@ public sealed partial class MainWindow
                 return;
 
             var lang = UiLang;
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
-
-            JsonElement? capabilities = null;
-            JsonElement? snapshot = null;
-
-            try { capabilities = await _api.AuthCapabilitiesAsync(cts.Token).ConfigureAwait(true); } catch { }
-            try { snapshot = await _api.CatalogSnapshotAsync(cts.Token).ConfigureAwait(true); } catch { }
-
-            var directCommands = capabilities.HasValue ? ParseCommandIds(capabilities.Value, "directCommands") : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var adminCommands = capabilities.HasValue ? ParseCommandIds(capabilities.Value, "adminCommands") : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var categories = snapshot.HasValue ? ParseCategories(snapshot.Value) : new List<HelpCategory>();
-
             var canRun = !_isGenerating && _agent is not null && !string.IsNullOrWhiteSpace(_sessionId);
-            var canRescan = HasAny(adminCommands, "admin.catalog.rescan", "admin.catalog.rescan_now");
-            var canReindex = HasAny(adminCommands, "admin.ingestion.reindexDocument", "admin.ingestion.reindex");
-            var canSummaryStatus = adminCommands.Contains("catalog.summaries.status");
-            var canCategories = directCommands.Contains("catalog.categories.list") || directCommands.Count == 0;
-            var canCatalogStats = directCommands.Contains("catalog.stats.view") || directCommands.Count == 0;
-            var canSearchDocuments = directCommands.Contains("catalog.documents.listAll") || directCommands.Contains("catalog.documents.listByCategory") || directCommands.Count == 0;
-            var canCategoryScoped = directCommands.Contains("catalog.documents.listByCategory") || directCommands.Contains("catalog.stats.view") || directCommands.Count == 0;
+            var isAdmin = _api.HasAdminKey;
+            List<HelpCategory> categories = new();
+            var categoriesLoaded = false;
+            var categoriesLoadStarted = false;
+            Exception? categoriesLoadError = null;
 
             if (_activeHelpDialog is not null)
             {
-                try
-                {
-                    _activeHelpDialog.Hide();
-                }
-                catch
-                {
-                }
+                try { _activeHelpDialog.Hide(); } catch { }
                 _activeHelpDialog = null;
             }
 
             var dlg = new ContentDialog
             {
                 XamlRoot = xamlRoot,
-                Title = ClientUiText.Get("help.title", lang),
+                Title = string.Empty,
                 CloseButtonText = ClientUiText.Get("dialog.close", lang),
                 DefaultButton = ContentDialogButton.Close
             };
@@ -107,429 +87,414 @@ public sealed partial class MainWindow
                     _activeHelpDialog = null;
             };
 
-            var root = new StackPanel { Spacing = 12 };
-            root.Children.Add(new TextBlock
+            var contentScroller = new ScrollViewer
             {
-                Text = !canRun
-                    ? (_isGenerating ? ClientUiText.Get("help.subtitle.busy", lang) : ClientUiText.Get("help.subtitle.disconnected", lang))
-                    : ClientUiText.Get("help.subtitle.ready", lang),
-                Opacity = 0.82,
-                TextWrapping = TextWrapping.WrapWholeWords
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+            };
+
+            var root = new StackPanel { Spacing = 14, MaxWidth = 860 };
+            var hero = CreateSectionCard(null, new UIElement[]
+            {
+                new StackPanel
+                {
+                    Spacing = 6,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = ClientUiText.Get("help.title", lang),
+                            FontSize = 22,
+                            FontWeight = FontWeights.SemiBold
+                        },
+                        new TextBlock
+                        {
+                            Text = !canRun
+                                ? (_isGenerating ? ClientUiText.Get("help.subtitle.busy", lang) : ClientUiText.Get("help.subtitle.disconnected", lang))
+                                : ClientUiText.Get("help.subtitle.ready", lang),
+                            Opacity = 0.82,
+                            TextWrapping = TextWrapping.WrapWholeWords
+                        }
+                    }
+                }
             });
+            root.Children.Add(hero);
 
-            if (canCategories || canCatalogStats || canSummaryStatus || canRescan)
+            var quickPanel = new StackPanel { Spacing = 8 };
+            quickPanel.Children.Add(CreateActionButton(ClientUiText.Get("cmd.catalog.categories", lang), null, canRun, async () =>
             {
-                root.Children.Add(BuildSectionHeader(ClientUiText.Get("help.section.quick", lang)));
+                dlg.Hide();
+                await TrySendHelpPromptAsync(ClientUiText.BuildPromptCategories(lang)).ConfigureAwait(true);
+            }));
+            quickPanel.Children.Add(CreateActionButton(ClientUiText.Get("cmd.catalog.stats", lang), null, canRun, async () =>
+            {
+                dlg.Hide();
+                await TrySendHelpPromptAsync(ClientUiText.BuildPromptCatalogStats(lang)).ConfigureAwait(true);
+            }));
+            quickPanel.Children.Add(CreateActionButton(ClientUiText.Get("cmd.catalog.tree", lang), null, canRun, async () =>
+            {
+                dlg.Hide();
+                await TrySendHelpPromptAsync(ClientUiText.BuildPromptCatalogTree(lang)).ConfigureAwait(true);
+            }));
+            root.Children.Add(CreateSectionCard(ClientUiText.Get("help.section.quick", lang), new UIElement[] { quickPanel }));
 
-                if (canCategories)
+            var guidedButtons = new StackPanel { Spacing = 8 };
+            var modeDescription = new TextBlock
+            {
+                Text = ClientUiText.Get("help.mode.none", lang),
+                Opacity = 0.84,
+                TextWrapping = TextWrapping.WrapWholeWords
+            };
+            var searchBox = new TextBox { Visibility = Visibility.Collapsed };
+            var searchButton = new Button
+            {
+                Content = ClientUiText.Get("button.search", lang),
+                Visibility = Visibility.Collapsed,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                MinWidth = 120,
+                CornerRadius = new CornerRadius(12)
+            };
+            var helperText = new TextBlock
+            {
+                Opacity = 0.9,
+                FontWeight = FontWeights.SemiBold,
+                TextWrapping = TextWrapping.WrapWholeWords
+            };
+            var searchAnchor = new Border { Padding = new Thickness(0, 1, 0, 0) };
+            var resultsPanel = new StackPanel { Spacing = 8 };
+            HelpGuidedMode currentMode = HelpGuidedMode.None;
+
+            async Task EnsureCategoriesLoadedAsync()
+            {
+                if (categoriesLoaded || categoriesLoadStarted)
+                    return;
+
+                categoriesLoadStarted = true;
+                try
                 {
-                    root.Children.Add(CreateActionButton(
-                        ClientUiText.Get("cmd.catalog.categories", lang),
-                        null,
-                        canRun,
-                        async () =>
-                        {
-                            dlg.Hide();
-                            await TrySendHelpPromptAsync(ClientUiText.BuildPromptCategories(lang)).ConfigureAwait(true);
-                        }));
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                    var snapshot = await _api.CatalogSnapshotAsync(cts.Token).ConfigureAwait(true);
+                    categories = ParseCategories(snapshot);
+                    categoriesLoaded = true;
+                }
+                catch (Exception ex)
+                {
+                    categoriesLoadError = ex;
+                }
+            }
+
+            void RenderCategoryResults()
+            {
+                resultsPanel.Children.Clear();
+                if (!categoriesLoaded)
+                {
+                    resultsPanel.Children.Add(new TextBlock
+                    {
+                        Text = categoriesLoadError is null ? ClientUiText.Get("help.loading", lang) : categoriesLoadError.Message,
+                        Opacity = 0.72,
+                        TextWrapping = TextWrapping.WrapWholeWords
+                    });
+                    return;
                 }
 
-                if (canCatalogStats)
+                if (categories.Count == 0)
                 {
-                    root.Children.Add(CreateActionButton(
-                        ClientUiText.Get("cmd.catalog.stats", lang),
-                        null,
-                        canRun,
-                        async () =>
-                        {
-                            dlg.Hide();
-                            await TrySendHelpPromptAsync(ClientUiText.BuildPromptCatalogStats(lang)).ConfigureAwait(true);
-                        }));
+                    resultsPanel.Children.Add(new TextBlock
+                    {
+                        Text = ClientUiText.Get("help.none.categories", lang),
+                        Opacity = 0.72,
+                        TextWrapping = TextWrapping.WrapWholeWords
+                    });
+                    return;
                 }
 
-                if (canSummaryStatus)
+                var query = (searchBox.Text ?? string.Empty).Trim();
+                var hits = FilterCategories(categories, query).Take(10).ToList();
+                if (hits.Count == 0)
                 {
-                    root.Children.Add(CreateActionButton(
-                        ClientUiText.Get("cmd.summary.missing.count", lang),
-                        null,
-                        canRun,
-                        async () =>
-                        {
-                            dlg.Hide();
-                            await TrySendHelpPromptAsync(ClientUiText.BuildPromptSummaryMissingCount(lang)).ConfigureAwait(true);
-                        }));
-
-                    root.Children.Add(CreateActionButton(
-                        ClientUiText.Get("cmd.summary.missing.list", lang),
-                        null,
-                        canRun,
-                        async () =>
-                        {
-                            dlg.Hide();
-                            await TrySendHelpPromptAsync(ClientUiText.BuildPromptSummaryMissingList(lang)).ConfigureAwait(true);
-                        }));
-
-                    root.Children.Add(CreateActionButton(
-                        ClientUiText.Get("cmd.summary.present.count", lang),
-                        null,
-                        canRun,
-                        async () =>
-                        {
-                            dlg.Hide();
-                            await TrySendHelpPromptAsync(ClientUiText.BuildPromptSummaryPresentCount(lang)).ConfigureAwait(true);
-                        }));
-
-                    root.Children.Add(CreateActionButton(
-                        ClientUiText.Get("cmd.summary.present.list", lang),
-                        null,
-                        canRun,
-                        async () =>
-                        {
-                            dlg.Hide();
-                            await TrySendHelpPromptAsync(ClientUiText.BuildPromptSummaryPresentList(lang)).ConfigureAwait(true);
-                        }));
+                    resultsPanel.Children.Add(new TextBlock
+                    {
+                        Text = ClientUiText.Get("help.search.no_results", lang),
+                        Opacity = 0.72,
+                        TextWrapping = TextWrapping.WrapWholeWords
+                    });
+                    return;
                 }
 
-                if (canRescan)
+                foreach (var category in hits)
                 {
-                    root.Children.Add(CreateActionButton(
-                        ClientUiText.Get("cmd.admin.rescan", lang),
-                        null,
+                    var categoryLabel = GetCategoryLabel(category);
+                    var subtitle = string.IsNullOrWhiteSpace(category.CategoryPath)
+                        ? ClientUiText.Format("help.meta.documents", lang, category.DocumentCount)
+                        : $"{category.CategoryPath} • {ClientUiText.Format("help.meta.documents", lang, category.DocumentCount)}";
+
+                    resultsPanel.Children.Add(CreateActionButton(
+                        categoryLabel,
+                        subtitle,
                         canRun,
                         async () =>
                         {
+                            var prompt = currentMode switch
+                            {
+                                HelpGuidedMode.CategoryStats => ClientUiText.BuildPromptCategoryStats(lang, categoryLabel),
+                                _ => ClientUiText.BuildPromptCategoryDocuments(lang, categoryLabel)
+                            };
+
                             dlg.Hide();
-                            await TrySendHelpPromptAsync(ClientUiText.BuildPromptAdminRescan(lang)).ConfigureAwait(true);
+                            await TrySendHelpPromptAsync(prompt).ConfigureAwait(true);
                         }));
                 }
             }
 
-            if (canSearchDocuments || canCategoryScoped || canReindex)
+            async Task SearchDocumentsAsync()
             {
-                root.Children.Add(BuildSectionHeader(ClientUiText.Get("help.section.guided", lang)));
-
-                var guidedButtons = new StackPanel { Spacing = 8 };
-                var modeDescription = new TextBlock
+                resultsPanel.Children.Clear();
+                var query = (searchBox.Text ?? string.Empty).Trim();
+                if (query.Length < 2)
                 {
-                    Text = ClientUiText.Get("help.mode.none", lang),
-                    Opacity = 0.84,
+                    resultsPanel.Children.Add(new TextBlock
+                    {
+                        Text = ClientUiText.Get("help.search.type_more", lang),
+                        Opacity = 0.72,
+                        TextWrapping = TextWrapping.WrapWholeWords
+                    });
+                    return;
+                }
+
+                resultsPanel.Children.Add(new TextBlock
+                {
+                    Text = ClientUiText.Get("help.search.loading", lang),
+                    Opacity = 0.72,
                     TextWrapping = TextWrapping.WrapWholeWords
-                };
-                var searchBox = new TextBox { Visibility = Visibility.Collapsed };
-                var searchButton = new Button
-                {
-                    Content = ClientUiText.Get("button.search", lang),
-                    Visibility = Visibility.Collapsed,
-                    HorizontalAlignment = HorizontalAlignment.Left,
-                    MinWidth = 120
-                };
-                var helperText = new TextBlock
-                {
-                    Opacity = 0.9,
-                    FontWeight = FontWeights.SemiBold,
-                    TextWrapping = TextWrapping.WrapWholeWords
-                };
-                var resultsPanel = new StackPanel { Spacing = 8 };
+                });
 
-                HelpGuidedMode currentMode = HelpGuidedMode.None;
-
-                void RenderCategoryResultsAsync()
+                try
                 {
+                    var json = await _api.DocumentsListAsync(categoryPath: null, categoryRef: null, q: query, limit: 10, offset: 0, ct: CancellationToken.None).ConfigureAwait(true);
+                    var docs = ParseDocuments(json);
                     resultsPanel.Children.Clear();
-                    if (categories.Count == 0)
+
+                    if (docs.Count == 0)
                     {
                         resultsPanel.Children.Add(new TextBlock
                         {
-                            Text = ClientUiText.Get("help.none.categories", lang),
+                            Text = ClientUiText.Get("help.none.documents", lang),
                             Opacity = 0.72,
                             TextWrapping = TextWrapping.WrapWholeWords
                         });
                         return;
                     }
 
-                    var query = (searchBox.Text ?? string.Empty).Trim();
-                    var hits = FilterCategories(categories, query).Take(10).ToList();
-                    if (hits.Count == 0)
+                    foreach (var doc in docs)
                     {
-                        resultsPanel.Children.Add(new TextBlock
-                        {
-                            Text = ClientUiText.Get("help.search.no_results", lang),
-                            Opacity = 0.72,
-                            TextWrapping = TextWrapping.WrapWholeWords
-                        });
-                        return;
-                    }
-
-                    foreach (var category in hits)
-                    {
-                        var categoryLabel = GetCategoryLabel(category);
-                        var subtitle = string.IsNullOrWhiteSpace(category.CategoryPath)
-                            ? ClientUiText.Format("help.meta.documents", lang, category.DocumentCount)
-                            : $"{category.CategoryPath} • {ClientUiText.Format("help.meta.documents", lang, category.DocumentCount)}";
+                        var docTitle = string.IsNullOrWhiteSpace(doc.DocName) ? doc.DocPath : doc.DocName;
+                        var docRef = string.IsNullOrWhiteSpace(doc.DocPath) ? docTitle : doc.DocPath;
+                        var subtitle = string.IsNullOrWhiteSpace(doc.CategoryPath) ? docRef : $"{doc.CategoryPath} • {docRef}";
+                        var prompt = currentMode == HelpGuidedMode.ReindexDocument
+                            ? ClientUiText.BuildPromptAdminReindex(lang, docTitle)
+                            : ClientUiText.BuildPromptSearchDocuments(lang, docTitle);
+                        var displayPrompt = currentMode == HelpGuidedMode.ReindexDocument
+                            ? ClientUiText.BuildPromptAdminReindexDisplay(lang, docTitle)
+                            : prompt;
 
                         resultsPanel.Children.Add(CreateActionButton(
-                            categoryLabel,
+                            docTitle,
                             subtitle,
                             canRun,
                             async () =>
                             {
-                                var prompt = currentMode switch
-                                {
-                                    HelpGuidedMode.CategoryStats => ClientUiText.BuildPromptCategoryStats(lang, categoryLabel),
-                                    _ => ClientUiText.BuildPromptCategoryDocuments(lang, categoryLabel)
-                                };
-
                                 dlg.Hide();
-                                await TrySendHelpPromptAsync(prompt).ConfigureAwait(true);
+                                await TrySendHelpPromptAsync(prompt, displayPrompt).ConfigureAwait(true);
                             }));
                     }
                 }
-
-                async Task SearchDocumentsAsync()
+                catch (Exception ex)
                 {
                     resultsPanel.Children.Clear();
-                    var query = (searchBox.Text ?? string.Empty).Trim();
-                    if (query.Length < 2)
+                    resultsPanel.Children.Add(new TextBlock
                     {
+                        Text = ex.Message,
+                        Opacity = 0.72,
+                        TextWrapping = TextWrapping.WrapWholeWords
+                    });
+                }
+            }
+
+            async Task ScrollSearchRegionIntoViewAsync()
+            {
+                await Task.Delay(30).ConfigureAwait(true);
+                searchAnchor.StartBringIntoView(new BringIntoViewOptions { VerticalAlignmentRatio = 0.08, AnimationDesired = true });
+                searchBox.Focus(FocusState.Programmatic);
+            }
+
+            async Task ActivateModeAsync(HelpGuidedMode mode)
+            {
+                currentMode = mode;
+                resultsPanel.Children.Clear();
+                searchBox.Text = string.Empty;
+
+                switch (mode)
+                {
+                    case HelpGuidedMode.CategoryDocuments:
+                        modeDescription.Text = ClientUiText.Get("help.mode.category.documents", lang);
+                        searchBox.Visibility = Visibility.Visible;
+                        searchButton.Visibility = Visibility.Collapsed;
+                        searchBox.PlaceholderText = ClientUiText.Get("help.search.placeholder.category", lang);
+                        helperText.Text = ClientUiText.Get("help.search.hint.category", lang) + Environment.NewLine + ClientUiText.Get("help.search.next_step.category", lang);
+                        await EnsureCategoriesLoadedAsync().ConfigureAwait(true);
+                        RenderCategoryResults();
+                        await ScrollSearchRegionIntoViewAsync().ConfigureAwait(true);
+                        break;
+
+                    case HelpGuidedMode.CategoryStats:
+                        modeDescription.Text = ClientUiText.Get("help.mode.category.stats", lang);
+                        searchBox.Visibility = Visibility.Visible;
+                        searchButton.Visibility = Visibility.Collapsed;
+                        searchBox.PlaceholderText = ClientUiText.Get("help.search.placeholder.category", lang);
+                        helperText.Text = ClientUiText.Get("help.search.hint.category", lang) + Environment.NewLine + ClientUiText.Get("help.search.next_step.category", lang);
+                        await EnsureCategoriesLoadedAsync().ConfigureAwait(true);
+                        RenderCategoryResults();
+                        await ScrollSearchRegionIntoViewAsync().ConfigureAwait(true);
+                        break;
+
+                    case HelpGuidedMode.DocumentSearch:
+                        modeDescription.Text = ClientUiText.Get("help.mode.document.search", lang);
+                        searchBox.Visibility = Visibility.Visible;
+                        searchButton.Visibility = Visibility.Visible;
+                        searchBox.PlaceholderText = ClientUiText.Get("help.search.placeholder.document", lang);
+                        helperText.Text = ClientUiText.Get("help.search.hint.document", lang) + Environment.NewLine + ClientUiText.Get("help.search.next_step.document", lang);
                         resultsPanel.Children.Add(new TextBlock
                         {
                             Text = ClientUiText.Get("help.search.type_more", lang),
                             Opacity = 0.72,
                             TextWrapping = TextWrapping.WrapWholeWords
                         });
-                        return;
-                    }
+                        await ScrollSearchRegionIntoViewAsync().ConfigureAwait(true);
+                        break;
 
-                    resultsPanel.Children.Add(new TextBlock
-                    {
-                        Text = ClientUiText.Get("help.search.loading", lang),
-                        Opacity = 0.72,
-                        TextWrapping = TextWrapping.WrapWholeWords
-                    });
-
-                    try
-                    {
-                        var json = await _api.DocumentsListAsync(categoryPath: null, categoryRef: null, q: query, limit: 10, offset: 0, ct: CancellationToken.None).ConfigureAwait(true);
-                        var docs = ParseDocuments(json);
-                        resultsPanel.Children.Clear();
-
-                        if (docs.Count == 0)
-                        {
-                            resultsPanel.Children.Add(new TextBlock
-                            {
-                                Text = ClientUiText.Get("help.none.documents", lang),
-                                Opacity = 0.72,
-                                TextWrapping = TextWrapping.WrapWholeWords
-                            });
-                            return;
-                        }
-
-                        foreach (var doc in docs)
-                        {
-                            var docTitle = string.IsNullOrWhiteSpace(doc.DocName) ? doc.DocPath : doc.DocName;
-                            var docRef = string.IsNullOrWhiteSpace(doc.DocPath) ? docTitle : doc.DocPath;
-                            var subtitle = string.IsNullOrWhiteSpace(doc.CategoryPath) ? docRef : $"{doc.CategoryPath} • {docRef}";
-                            var prompt = currentMode == HelpGuidedMode.ReindexDocument
-                                ? ClientUiText.BuildPromptAdminReindex(lang, docTitle)
-                                : ClientUiText.BuildPromptSearchDocuments(lang, docTitle);
-                            var displayPrompt = currentMode == HelpGuidedMode.ReindexDocument
-                                ? ClientUiText.BuildPromptAdminReindexDisplay(lang, docTitle)
-                                : prompt;
-
-                            resultsPanel.Children.Add(CreateActionButton(
-                                docTitle,
-                                subtitle,
-                                canRun,
-                                async () =>
-                                {
-                                    dlg.Hide();
-                                    await TrySendHelpPromptAsync(prompt, displayPrompt).ConfigureAwait(true);
-                                }));
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        resultsPanel.Children.Clear();
+                    case HelpGuidedMode.ReindexDocument:
+                        modeDescription.Text = ClientUiText.Get("help.mode.document.reindex", lang);
+                        searchBox.Visibility = Visibility.Visible;
+                        searchButton.Visibility = Visibility.Visible;
+                        searchBox.PlaceholderText = ClientUiText.Get("help.search.placeholder.document", lang);
+                        helperText.Text = ClientUiText.Get("help.search.hint.document", lang) + Environment.NewLine + ClientUiText.Get("help.search.next_step.document", lang);
                         resultsPanel.Children.Add(new TextBlock
                         {
-                            Text = ex.Message,
+                            Text = ClientUiText.Get("help.search.type_more", lang),
                             Opacity = 0.72,
                             TextWrapping = TextWrapping.WrapWholeWords
                         });
-                    }
+                        await ScrollSearchRegionIntoViewAsync().ConfigureAwait(true);
+                        break;
+
+                    default:
+                        modeDescription.Text = ClientUiText.Get("help.mode.none", lang);
+                        searchBox.Visibility = Visibility.Collapsed;
+                        searchButton.Visibility = Visibility.Collapsed;
+                        helperText.Text = string.Empty;
+                        break;
                 }
-
-                void ActivateMode(HelpGuidedMode mode)
-                {
-                    currentMode = mode;
-                    resultsPanel.Children.Clear();
-                    searchBox.Text = string.Empty;
-
-                    switch (mode)
-                    {
-                        case HelpGuidedMode.CategoryDocuments:
-                            modeDescription.Text = ClientUiText.Get("help.mode.category.documents", lang);
-                            searchBox.Visibility = Visibility.Visible;
-                            searchButton.Visibility = Visibility.Collapsed;
-                            searchBox.PlaceholderText = ClientUiText.Get("help.search.placeholder.category", lang);
-                            helperText.Text = ClientUiText.Get("help.search.hint.category", lang)
-                                + Environment.NewLine
-                                + ClientUiText.Get("help.search.next_step.category", lang);
-                            RenderCategoryResultsAsync();
-                            searchBox.Focus(FocusState.Programmatic);
-                            searchBox.StartBringIntoView();
-                            break;
-
-                        case HelpGuidedMode.CategoryStats:
-                            modeDescription.Text = ClientUiText.Get("help.mode.category.stats", lang);
-                            searchBox.Visibility = Visibility.Visible;
-                            searchButton.Visibility = Visibility.Collapsed;
-                            searchBox.PlaceholderText = ClientUiText.Get("help.search.placeholder.category", lang);
-                            helperText.Text = ClientUiText.Get("help.search.hint.category", lang)
-                                + Environment.NewLine
-                                + ClientUiText.Get("help.search.next_step.category", lang);
-                            RenderCategoryResultsAsync();
-                            searchBox.Focus(FocusState.Programmatic);
-                            searchBox.StartBringIntoView();
-                            break;
-
-                        case HelpGuidedMode.DocumentSearch:
-                            modeDescription.Text = ClientUiText.Get("help.mode.document.search", lang);
-                            searchBox.Visibility = Visibility.Visible;
-                            searchButton.Visibility = Visibility.Visible;
-                            searchBox.PlaceholderText = ClientUiText.Get("help.search.placeholder.document", lang);
-                            helperText.Text = ClientUiText.Get("help.search.hint.document", lang)
-                                + Environment.NewLine
-                                + ClientUiText.Get("help.search.next_step.document", lang);
-                            searchBox.Focus(FocusState.Programmatic);
-                            searchBox.StartBringIntoView();
-                            resultsPanel.Children.Add(new TextBlock
-                            {
-                                Text = ClientUiText.Get("help.search.type_more", lang),
-                                Opacity = 0.72,
-                                TextWrapping = TextWrapping.WrapWholeWords
-                            });
-                            break;
-
-                        case HelpGuidedMode.ReindexDocument:
-                            modeDescription.Text = ClientUiText.Get("help.mode.document.reindex", lang);
-                            searchBox.Visibility = Visibility.Visible;
-                            searchButton.Visibility = Visibility.Visible;
-                            searchBox.PlaceholderText = ClientUiText.Get("help.search.placeholder.document", lang);
-                            helperText.Text = ClientUiText.Get("help.search.hint.document", lang)
-                                + Environment.NewLine
-                                + ClientUiText.Get("help.search.next_step.document", lang);
-                            searchBox.Focus(FocusState.Programmatic);
-                            searchBox.StartBringIntoView();
-                            resultsPanel.Children.Add(new TextBlock
-                            {
-                                Text = ClientUiText.Get("help.search.type_more", lang),
-                                Opacity = 0.72,
-                                TextWrapping = TextWrapping.WrapWholeWords
-                            });
-                            break;
-
-                        default:
-                            modeDescription.Text = ClientUiText.Get("help.mode.none", lang);
-                            searchBox.Visibility = Visibility.Collapsed;
-                            searchButton.Visibility = Visibility.Collapsed;
-                            helperText.Text = string.Empty;
-                            break;
-                    }
-                }
-
-                if (canSearchDocuments)
-                {
-                    guidedButtons.Children.Add(CreateActionButton(
-                        ClientUiText.Get("cmd.guided.document_search", lang),
-                        null,
-                        true,
-                        () =>
-                        {
-                            ActivateMode(HelpGuidedMode.DocumentSearch);
-                            return Task.CompletedTask;
-                        }));
-                }
-
-                if (canCategoryScoped)
-                {
-                    guidedButtons.Children.Add(CreateActionButton(
-                        ClientUiText.Get("cmd.guided.documents_by_category", lang),
-                        ClientUiText.Get("help.search.top_categories", lang),
-                        true,
-                        () =>
-                        {
-                            ActivateMode(HelpGuidedMode.CategoryDocuments);
-                            return Task.CompletedTask;
-                        }));
-
-                    guidedButtons.Children.Add(CreateActionButton(
-                        ClientUiText.Get("cmd.guided.category_stats", lang),
-                        ClientUiText.Get("help.search.top_categories", lang),
-                        true,
-                        () =>
-                        {
-                            ActivateMode(HelpGuidedMode.CategoryStats);
-                            return Task.CompletedTask;
-                        }));
-                }
-
-                if (canReindex)
-                {
-                    guidedButtons.Children.Add(CreateActionButton(
-                        ClientUiText.Get("cmd.guided.reindex", lang),
-                        null,
-                        true,
-                        () =>
-                        {
-                            ActivateMode(HelpGuidedMode.ReindexDocument);
-                            return Task.CompletedTask;
-                        }));
-                }
-
-                searchBox.TextChanged += (_, __) =>
-                {
-                    if (currentMode is HelpGuidedMode.CategoryDocuments or HelpGuidedMode.CategoryStats)
-                        RenderCategoryResultsAsync();
-                };
-
-                searchBox.KeyDown += async (_, args) =>
-                {
-                    if (args.Key != Windows.System.VirtualKey.Enter)
-                        return;
-
-                    if (currentMode is HelpGuidedMode.DocumentSearch or HelpGuidedMode.ReindexDocument)
-                    {
-                        args.Handled = true;
-                        await SearchDocumentsAsync().ConfigureAwait(true);
-                    }
-                };
-
-                searchButton.Click += async (_, __) => await SearchDocumentsAsync().ConfigureAwait(true);
-
-                root.Children.Add(guidedButtons);
-                root.Children.Add(modeDescription);
-                root.Children.Add(searchBox);
-                root.Children.Add(searchButton);
-                root.Children.Add(helperText);
-                root.Children.Add(BuildSectionHeader(ClientUiText.Get("help.section.results", lang)));
-                root.Children.Add(resultsPanel);
             }
 
-            var dialogSize = GetDialogMaxSize(900, 760, horizontalMargin: 72, verticalMargin: 110);
+            guidedButtons.Children.Add(CreateActionButton(
+                ClientUiText.Get("cmd.guided.document_search", lang),
+                null,
+                true,
+                async () => await ActivateModeAsync(HelpGuidedMode.DocumentSearch).ConfigureAwait(true)));
+
+            guidedButtons.Children.Add(CreateActionButton(
+                ClientUiText.Get("cmd.guided.documents_by_category", lang),
+                ClientUiText.Get("help.search.top_categories", lang),
+                true,
+                async () => await ActivateModeAsync(HelpGuidedMode.CategoryDocuments).ConfigureAwait(true)));
+
+            guidedButtons.Children.Add(CreateActionButton(
+                ClientUiText.Get("cmd.guided.category_stats", lang),
+                ClientUiText.Get("help.search.top_categories", lang),
+                true,
+                async () => await ActivateModeAsync(HelpGuidedMode.CategoryStats).ConfigureAwait(true)));
+
+            if (isAdmin)
+            {
+                guidedButtons.Children.Add(CreateActionButton(
+                    ClientUiText.Get("cmd.guided.reindex", lang),
+                    null,
+                    true,
+                    async () => await ActivateModeAsync(HelpGuidedMode.ReindexDocument).ConfigureAwait(true)));
+            }
+
+            searchBox.TextChanged += (_, __) =>
+            {
+                if (currentMode is HelpGuidedMode.CategoryDocuments or HelpGuidedMode.CategoryStats)
+                    RenderCategoryResults();
+            };
+
+            searchBox.KeyDown += async (_, args) =>
+            {
+                if (args.Key != Windows.System.VirtualKey.Enter)
+                    return;
+                if (currentMode is HelpGuidedMode.DocumentSearch or HelpGuidedMode.ReindexDocument)
+                {
+                    args.Handled = true;
+                    await SearchDocumentsAsync().ConfigureAwait(true);
+                }
+            };
+            searchButton.Click += async (_, __) => await SearchDocumentsAsync().ConfigureAwait(true);
+
+            var guidedCardChildren = new List<UIElement>
+            {
+                guidedButtons,
+                modeDescription,
+                searchAnchor,
+                searchBox,
+                searchButton,
+                helperText,
+                BuildSectionHeader(ClientUiText.Get("help.section.results", lang)),
+                resultsPanel
+            };
+            root.Children.Add(CreateSectionCard(ClientUiText.Get("help.section.guided", lang), guidedCardChildren));
+
+            if (isAdmin)
+            {
+                var adminPanel = new StackPanel { Spacing = 8 };
+                adminPanel.Children.Add(CreateActionButton(ClientUiText.Get("cmd.summary.missing.count", lang), null, canRun, async () =>
+                {
+                    dlg.Hide();
+                    await TrySendHelpPromptAsync(ClientUiText.BuildPromptSummaryMissingCount(lang)).ConfigureAwait(true);
+                }));
+                adminPanel.Children.Add(CreateActionButton(ClientUiText.Get("cmd.summary.missing.list", lang), null, canRun, async () =>
+                {
+                    dlg.Hide();
+                    await TrySendHelpPromptAsync(ClientUiText.BuildPromptSummaryMissingList(lang)).ConfigureAwait(true);
+                }));
+                adminPanel.Children.Add(CreateActionButton(ClientUiText.Get("cmd.summary.present.count", lang), null, canRun, async () =>
+                {
+                    dlg.Hide();
+                    await TrySendHelpPromptAsync(ClientUiText.BuildPromptSummaryPresentCount(lang)).ConfigureAwait(true);
+                }));
+                adminPanel.Children.Add(CreateActionButton(ClientUiText.Get("cmd.summary.present.list", lang), null, canRun, async () =>
+                {
+                    dlg.Hide();
+                    await TrySendHelpPromptAsync(ClientUiText.BuildPromptSummaryPresentList(lang)).ConfigureAwait(true);
+                }));
+                adminPanel.Children.Add(CreateActionButton(ClientUiText.Get("cmd.admin.rescan", lang), null, canRun, async () =>
+                {
+                    dlg.Hide();
+                    await TrySendHelpPromptAsync(ClientUiText.BuildPromptAdminRescan(lang)).ConfigureAwait(true);
+                }));
+                root.Children.Add(CreateSectionCard(ClientUiText.Get("help.section.admin", lang), new UIElement[] { adminPanel }));
+            }
+
+            var dialogSize = GetDialogMaxSize(900, 760, horizontalMargin: 56, verticalMargin: 88);
+            contentScroller.Content = root;
+            contentScroller.MaxWidth = dialogSize.Width;
+            contentScroller.MaxHeight = dialogSize.Height;
             dlg.Content = new Border
             {
                 MaxWidth = dialogSize.Width,
                 MaxHeight = dialogSize.Height,
                 Padding = new Thickness(2, 0, 2, 0),
-                Child = new ScrollViewer
-                {
-                    Content = root,
-                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                    MaxWidth = dialogSize.Width,
-                    MaxHeight = dialogSize.Height
-                }
+                Child = contentScroller
             };
 
             await dlg.ShowAsync();
@@ -567,6 +532,24 @@ public sealed partial class MainWindow
         }
     }
 
+    private static Border CreateSectionCard(string? title, IEnumerable<UIElement> body)
+    {
+        var stack = new StackPanel { Spacing = 10 };
+        if (!string.IsNullOrWhiteSpace(title))
+            stack.Children.Add(BuildSectionHeader(title));
+        foreach (var child in body)
+            stack.Children.Add(child);
+        return new Border
+        {
+            CornerRadius = new CornerRadius(20),
+            Padding = new Thickness(16, 16, 16, 16),
+            Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x11, 0x11, 0x11)),
+            BorderBrush = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x27, 0x27, 0x27)),
+            BorderThickness = new Thickness(1),
+            Child = stack
+        };
+    }
+
     private static TextBlock BuildSectionHeader(string text)
         => new()
         {
@@ -578,7 +561,7 @@ public sealed partial class MainWindow
 
     private static Button CreateActionButton(string title, string? subtitle, bool canRun, Func<Task> onClick)
     {
-        var stack = new StackPanel { Spacing = 2 };
+        var stack = new StackPanel { Spacing = 4 };
         stack.Children.Add(new TextBlock
         {
             Text = title,
@@ -601,7 +584,10 @@ public sealed partial class MainWindow
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            Padding = new Thickness(12, 10, 12, 10),
+            Padding = new Thickness(14, 12, 14, 12),
+            CornerRadius = new CornerRadius(14),
+            BorderThickness = new Thickness(0),
+            Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x22, 0x22, 0x22)),
             IsEnabled = canRun,
             Content = stack
         };

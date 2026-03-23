@@ -68,6 +68,10 @@ public sealed partial class MainWindow : Window
     private IntPtr _originalWindowProc;
     private WindowProc? _windowProcDelegate;
     private bool _windowConstraintsInstalled;
+    private Grid? _startupOverlay;
+    private TextBlock? _startupOverlayStatusText;
+    private TextBlock? _startupOverlaySubtitleText;
+    private ProgressRing? _startupOverlayRing;
     private int _secretAdminClickCount;
     private DateTimeOffset _secretAdminFirstClickUtc = DateTimeOffset.MinValue;
     private static readonly TimeSpan SecretAdminClickWindow = TimeSpan.FromMilliseconds(1500);
@@ -83,9 +87,12 @@ public sealed partial class MainWindow : Window
             ClientLog.Info(provMsg);
         }
 
+        EnsureStartupOverlay();
+
         Root.Loaded += async (_, __) =>
         {
             UpdateMessagesClip();
+            ShowStartupOverlay(ClientUiText.Get("startup.subtitle", _appSettings.UiLanguage), ClientUiText.Get("startup.status.initializing", _appSettings.UiLanguage));
             await InitializeUserModeAsync();
         };
 
@@ -146,23 +153,30 @@ public sealed partial class MainWindow : Window
 
     private async Task InitializeUserModeAsync()
     {
+        var shouldHideOverlay = true;
         try
         {
             ApplyUserModeVisibility();
+            ShowStartupOverlay(ClientUiText.Get("startup.subtitle", _appSettings.UiLanguage), ClientUiText.Get("startup.status.checking_setup", _appSettings.UiLanguage));
             await ShowSetupWizardIfNeededAsync();
 
-            // Ensure assistant is usable (embedded by default).
+            ShowStartupOverlay(ClientUiText.Get("startup.subtitle", _appSettings.UiLanguage), ClientUiText.Get("startup.status.starting_assistant", _appSettings.UiLanguage));
             await EnsureAssistantReadyIfNeededAsync(force: false);
 
-            // Auto-connect (default) when apiKey exists.
             if (_appSettings.AutoConnect && _agent is null && !NeedsSetupWizard())
             {
+                ShowStartupOverlay(ClientUiText.Get("startup.subtitle", _appSettings.UiLanguage), ClientUiText.Get("startup.status.connecting", _appSettings.UiLanguage));
                 await ConnectAsync();
             }
         }
         catch (Exception ex)
         {
             Status(ClientUiText.Get("status.init_failed", _appSettings.UiLanguage) + ex.Message);
+        }
+        finally
+        {
+            if (shouldHideOverlay)
+                HideStartupOverlay();
         }
     }
 
@@ -271,7 +285,9 @@ public sealed partial class MainWindow : Window
                 {
                     var workWidth = Math.Max(1, monitorInfo.rcWork.right - monitorInfo.rcWork.left);
                     var workHeight = Math.Max(1, monitorInfo.rcWork.bottom - monitorInfo.rcWork.top);
-                    return new SizeInt32(Math.Max(1, workWidth / 4), Math.Max(1, workHeight / 4));
+                    var minWidth = Math.Max(620, (int)Math.Round(workWidth * 0.34));
+                    var minHeight = Math.Max(480, (int)Math.Round(workHeight * 0.40));
+                    return new SizeInt32(minWidth, minHeight);
                 }
             }
         }
@@ -279,7 +295,7 @@ public sealed partial class MainWindow : Window
         {
         }
 
-        return new SizeInt32(400, 300);
+        return new SizeInt32(620, 480);
     }
 
     private Size GetDialogMaxSize(double designMaxWidth, double designMaxHeight, double horizontalMargin = 72, double verticalMargin = 96)
@@ -346,6 +362,117 @@ public sealed partial class MainWindow : Window
         {
             // non bloquant
         }
+    }
+
+    private void EnsureStartupOverlay()
+    {
+        if (_startupOverlay is not null || Root is null)
+            return;
+
+        var brand = new Border
+        {
+            Width = 72,
+            Height = 72,
+            CornerRadius = new CornerRadius(36),
+            Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x14, 0x14, 0x14)),
+            BorderBrush = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x2C, 0x2C, 0x2C)),
+            BorderThickness = new Thickness(1),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Child = new Image
+            {
+                Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri("ms-appx:///Assets/SAAIA_Icone.png")),
+                Stretch = Stretch.Uniform,
+                Width = 40,
+                Height = 40,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            }
+        };
+
+        _startupOverlaySubtitleText = new TextBlock
+        {
+            Text = ClientUiText.Get("startup.subtitle", _appSettings.UiLanguage),
+            Opacity = 0.78,
+            FontSize = 15,
+            TextWrapping = TextWrapping.WrapWholeWords,
+            TextAlignment = TextAlignment.Center,
+            MaxWidth = 560,
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+
+        _startupOverlayStatusText = new TextBlock
+        {
+            Text = ClientUiText.Get("startup.status.initializing", _appSettings.UiLanguage),
+            Opacity = 0.82,
+            FontSize = 14,
+            TextWrapping = TextWrapping.WrapWholeWords,
+            TextAlignment = TextAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+
+        _startupOverlayRing = new ProgressRing
+        {
+            IsActive = true,
+            Width = 28,
+            Height = 28,
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+
+        var content = new StackPanel
+        {
+            Spacing = 14,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Children =
+            {
+                brand,
+                new TextBlock
+                {
+                    Text = ClientUiText.Get("startup.title", _appSettings.UiLanguage),
+                    FontSize = 28,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    TextAlignment = TextAlignment.Center
+                },
+                _startupOverlaySubtitleText,
+                _startupOverlayRing,
+                _startupOverlayStatusText
+            }
+        };
+
+        _startupOverlay = new Grid
+        {
+            Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xF6, 0x08, 0x08, 0x08)),
+            Visibility = Visibility.Visible,
+            Children = { content }
+        };
+        Grid.SetRowSpan(_startupOverlay, 3);
+        Root.Children.Add(_startupOverlay);
+    }
+
+    private void ShowStartupOverlay(string subtitle, string status)
+    {
+        EnsureStartupOverlay();
+        if (_startupOverlay is null)
+            return;
+
+        _startupOverlay.Visibility = Visibility.Visible;
+        if (_startupOverlaySubtitleText is not null)
+            _startupOverlaySubtitleText.Text = subtitle;
+        if (_startupOverlayStatusText is not null)
+            _startupOverlayStatusText.Text = status;
+        if (_startupOverlayRing is not null)
+            _startupOverlayRing.IsActive = true;
+    }
+
+    private void HideStartupOverlay()
+    {
+        if (_startupOverlay is null)
+            return;
+
+        _startupOverlay.Visibility = Visibility.Collapsed;
+        if (_startupOverlayRing is not null)
+            _startupOverlayRing.IsActive = false;
     }
 
     private void Status(string s)

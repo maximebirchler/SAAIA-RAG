@@ -77,6 +77,8 @@ internal static class ClientUiText
         ["help.search.next_step.document"] = Multi("Étape suivante : la zone de recherche s'ouvre juste ci-dessous. Tape au moins 2 caractères puis appuie sur Entrée ou sur Rechercher.", "Next step: the search box opens just below. Type at least 2 characters, then press Enter or Search.", "Siguiente paso: la zona de búsqueda se abre justo debajo. Escribe al menos 2 caracteres y luego pulsa Intro o Buscar.", "Passo seguinte: a caixa de pesquisa abre mesmo abaixo. Escreve pelo menos 2 caracteres e depois carrega em Enter ou em Pesquisar.", "Nächster Schritt: Das Suchfeld öffnet sich direkt darunter. Gib mindestens 2 Zeichen ein und drücke dann Enter oder Suche.", "Passo successivo: la casella di ricerca si apre appena sotto. Digita almeno 2 caratteri, poi premi Invio oppure Cerca."),
         ["help.search.top_categories"] = Multi("Suggestions dynamiques", "Dynamic suggestions", "Sugerencias dinámicas", "Sugestões dinâmicas", "Dynamische Vorschläge", "Suggerimenti dinamici"),
         ["help.search.loading"] = Multi("Recherche en cours…", "Searching…", "Buscando…", "A pesquisar…", "Suche läuft…", "Ricerca in corso…"),
+        ["help.loading"] = Multi("Chargement des commandes et du catalogue…", "Loading commands and catalog…", "Cargando comandos y catálogo…", "A carregar comandos e catálogo…", "Befehle und Katalog werden geladen…", "Caricamento dei comandi e del catalogo…"),
+        ["help.admin.badge"] = Multi("Admin", "Admin", "Admin", "Admin", "Admin", "Admin"),
         ["help.search.type_more"] = Multi("Tape au moins 2 caractères.", "Type at least 2 characters.", "Escribe al menos 2 caracteres.", "Escreve pelo menos 2 caracteres.", "Gib mindestens 2 Zeichen ein.", "Digita almeno 2 caratteri."),
         ["help.search.no_results"] = Multi("Aucun résultat.", "No results.", "Sin resultados.", "Sem resultados.", "Keine Ergebnisse.", "Nessun risultato."),
         ["help.none.categories"] = Multi("Aucune catégorie chargée pour le moment.", "No categories loaded yet.", "Aún no hay categorías cargadas.", "Ainda não há categorias carregadas.", "Noch keine Kategorien geladen.", "Nessuna categoria caricata al momento."),
@@ -85,6 +87,7 @@ internal static class ClientUiText
 
         ["cmd.catalog.categories"] = Multi("Voir les catégories du catalogue", "Show catalog categories", "Ver categorías del catálogo", "Ver categorias do catálogo", "Katalogkategorien anzeigen", "Mostra le categorie del catalogo"),
         ["cmd.catalog.stats"] = Multi("Voir les statistiques du catalogue", "Show catalog statistics", "Ver estadísticas del catálogo", "Ver estatísticas do catálogo", "Katalogstatistiken anzeigen", "Mostrare le statistiche del catalogo"),
+        ["cmd.catalog.tree"] = Multi("Voir l'arborescence du catalogue", "Show the catalog tree", "Ver el árbol del catálogo", "Ver a árvore do catálogo", "Katalogbaum anzeigen", "Mostrare l'albero del catalogo"),
         ["cmd.guided.documents_by_category"] = Multi("Voir les documents d'une catégorie", "Show documents in a category", "Ver los documentos de una categoría", "Ver os documentos de uma categoria", "Dokumente einer Kategorie anzeigen", "Mostrare i documenti di una categoria"),
         ["cmd.guided.category_stats"] = Multi("Voir les statistiques d'une catégorie", "Show category statistics", "Ver las estadísticas de una categoría", "Ver as estatísticas de uma categoria", "Kategorienstatistiken anzeigen", "Mostrare le statistiche di una categoria"),
         ["cmd.guided.document_search"] = Multi("Rechercher un document", "Search for a document", "Buscar un documento", "Pesquisar um documento", "Nach einem Dokument suchen", "Cercare un documento"),
@@ -96,6 +99,13 @@ internal static class ClientUiText
         ["cmd.admin.rescan"] = Multi("Lancer un rescan du catalogue", "Run a catalog rescan", "Lanzar un reescaneo del catálogo", "Lançar um novo scan do catálogo", "Katalog erneut scannen", "Avviare una nuova scansione del catalogo"),
 
         ["settings.title"] = Multi("Paramètres", "Settings", "Configuración", "Definições", "Einstellungen", "Impostazioni"),
+        ["settings.subtitle"] = Multi("Réglages de base pour l'interface et l'assistant local.", "Core settings for the interface and local assistant.", "Ajustes principales para la interfaz y el asistente local.", "Definições principais da interface e do assistente local.", "Grundeinstellungen für Oberfläche und lokalen Assistenten.", "Impostazioni di base per l'interfaccia e l'assistente locale."),
+        ["settings.tab.general"] = Multi("Général", "General", "General", "Geral", "Allgemein", "Generale"),
+        ["settings.tab.advanced"] = Multi("Options avancées", "Advanced options", "Opciones avanzadas", "Opções avançadas", "Erweiterte Optionen", "Opzioni avanzate"),
+        ["settings.advanced.subtitle"] = Multi("Support, réparation et diagnostic.", "Support, repair and diagnostics.", "Soporte, reparación y diagnóstico.", "Suporte, reparação e diagnóstico.", "Support, Reparatur und Diagnose.", "Supporto, riparazione e diagnostica."),
+        ["settings.section.interface"] = Multi("Interface", "Interface", "Interfaz", "Interface", "Oberfläche", "Interfaccia"),
+        ["settings.section.behavior"] = Multi("Comportement", "Behavior", "Comportamiento", "Comportamento", "Verhalten", "Comportamento"),
+        ["settings.interface.note"] = Multi("Ces réglages sont appliqués immédiatement après validation.", "These settings are applied immediately after confirmation.", "Estos ajustes se aplican inmediatamente tras la validación.", "Estas definições são aplicadas imediatamente após a validação.", "Diese Einstellungen werden nach dem Bestätigen sofort angewendet.", "Queste impostazioni vengono applicate subito dopo la conferma."),
         ["settings.apply"] = Multi("Appliquer", "Apply", "Aplicar", "Aplicar", "Anwenden", "Applica"),
         ["settings.language"] = Multi("Langue de l'interface", "Interface language", "Idioma de la interfaz", "Idioma da interface", "Sprache der Oberfläche", "Lingua dell'interfaccia"),
         ["settings.section.assistant"] = Multi("Assistant", "Assistant", "Asistente", "Assistente", "Assistent", "Assistente"),
@@ -189,6 +199,17 @@ internal static class ClientUiText
             "de" => "Gib mir die Katalogstatistiken.",
             "it" => "Dammi le statistiche del catalogo.",
             _ => "Donne-moi les statistiques du catalogue."
+        };
+
+    public static string BuildPromptCatalogTree(string? language)
+        => NormalizeLanguage(language) switch
+        {
+            "en" => "Show me the catalog tree.",
+            "es" => "Muéstrame el árbol del catálogo.",
+            "pt" => "Mostra-me a árvore do catálogo.",
+            "de" => "Zeige mir den Katalogbaum.",
+            "it" => "Mostrami l'albero del catalogo.",
+            _ => "Montre-moi l'arborescence du catalogue."
         };
 
     public static string BuildPromptCategoryDocuments(string? language, string categoryName)

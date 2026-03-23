@@ -49,7 +49,18 @@ internal sealed class UserSettingsDialog : ContentDialog
     private readonly TextBlock _assistantSectionTitle = new();
     private readonly TextBlock _repairSectionTitle = new();
     private readonly TextBlock _supportSectionTitle = new();
+    private readonly TextBlock _interfaceSectionTitle = new();
+    private readonly TextBlock _behaviorSectionTitle = new();
+    private readonly TextBlock _heroTitle = new();
+    private readonly TextBlock _heroSubtitle = new() { Opacity = 0.78, TextWrapping = TextWrapping.Wrap };
+    private readonly TextBlock _advancedSubtitle = new() { Opacity = 0.78, TextWrapping = TextWrapping.Wrap };
+    private readonly TextBlock _interfaceNote = new() { Opacity = 0.78, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _supportNote = new() { Opacity = 0.8, TextWrapping = TextWrapping.Wrap };
+    private readonly Button _generalTabButton = new();
+    private readonly Button _advancedTabButton = new();
+    private readonly StackPanel _generalContent = new() { Spacing = 14 };
+    private readonly StackPanel _advancedContent = new() { Spacing = 14 };
+    private bool _showAdvanced;
 
     // Assistant install / repair
     private readonly TextBlock _assistantStatus = new() { Text = "", TextWrapping = TextWrapping.Wrap };
@@ -132,41 +143,95 @@ internal sealed class UserSettingsDialog : ContentDialog
         _length.HorizontalAlignment = HorizontalAlignment.Stretch;
 
         _assistantRepairBtn.HorizontalAlignment = HorizontalAlignment.Left;
-        _assistantRepairBtn.Padding = new Thickness(14, 8, 14, 8);
+        _assistantRepairBtn.Padding = new Thickness(16, 10, 16, 10);
         _exportBtn.HorizontalAlignment = HorizontalAlignment.Left;
-        _exportBtn.Padding = new Thickness(14, 8, 14, 8);
+        _exportBtn.Padding = new Thickness(16, 10, 16, 10);
         _assistantStatus.Opacity = 0.85;
+
+        _layoutScroller.Padding = new Thickness(4, 2, 4, 2);
 
         var root = new StackPanel
         {
             Spacing = 14,
-            MaxWidth = 760
+            MaxWidth = 840
         };
 
         var hero = new Border
         {
-            CornerRadius = new CornerRadius(18),
-            Padding = new Thickness(18, 16, 18, 16),
-            Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x16, 0x16, 0x16)),
-            BorderBrush = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x2C, 0x2C, 0x2C)),
+            CornerRadius = new CornerRadius(22),
+            Padding = new Thickness(20, 18, 20, 18),
+            Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x15, 0x15, 0x15)),
+            BorderBrush = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x2B, 0x2B, 0x2B)),
             BorderThickness = new Thickness(1),
-            Child = new TextBlock
+            Child = new StackPanel
             {
-                Text = T("settings.title"),
-                FontSize = 20,
-                FontWeight = FontWeights.SemiBold
+                Spacing = 6,
+                Children =
+                {
+                    _heroTitle,
+                    _heroSubtitle
+                }
             }
         };
 
-        var section1 = SectionCard(_assistantSectionTitle, new UIElement[]
+        _generalTabButton.Click += (_, _) => SetSettingsView(showAdvanced: false);
+        _advancedTabButton.Click += (_, _) => SetSettingsView(showAdvanced: true);
+
+        var tabsHost = new Border
+        {
+            CornerRadius = new CornerRadius(18),
+            Padding = new Thickness(6),
+            Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x12, 0x12, 0x12)),
+            BorderBrush = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x28, 0x28, 0x28)),
+            BorderThickness = new Thickness(1),
+            Child = new Grid
+            {
+                ColumnSpacing = 8,
+                ColumnDefinitions =
+                {
+                    new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                    new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }
+                },
+                Children =
+                {
+                    _generalTabButton,
+                    CreateTabbedButtonHost(_advancedTabButton, 1)
+                }
+            }
+        };
+
+        var interfaceCard = SectionCard(_interfaceSectionTitle, new UIElement[]
         {
             _uiLanguage,
+            _interfaceNote
+        });
+
+        var assistantCard = SectionCard(_assistantSectionTitle, new UIElement[]
+        {
             _assistantEnabled,
-            _strictMode,
             _ragQuality,
             _style,
             _length
         });
+
+        var behaviorCard = SectionCard(_behaviorSectionTitle, new UIElement[]
+        {
+            _strictMode
+        });
+
+        _generalContent.Children.Add(interfaceCard);
+        _generalContent.Children.Add(assistantCard);
+        _generalContent.Children.Add(behaviorCard);
+
+        var advancedIntro = new Border
+        {
+            CornerRadius = new CornerRadius(18),
+            Padding = new Thickness(18, 16, 18, 16),
+            Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x12, 0x12, 0x12)),
+            BorderBrush = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x28, 0x28, 0x28)),
+            BorderThickness = new Thickness(1),
+            Child = _advancedSubtitle
+        };
 
         var section2 = SectionCard(_repairSectionTitle, new UIElement[]
         {
@@ -181,12 +246,17 @@ internal sealed class UserSettingsDialog : ContentDialog
             _supportNote
         });
 
+        _advancedContent.Children.Add(advancedIntro);
+        _advancedContent.Children.Add(section2);
+        _advancedContent.Children.Add(section3);
+
         root.Children.Add(hero);
-        root.Children.Add(section1);
-        root.Children.Add(section2);
-        root.Children.Add(section3);
+        root.Children.Add(tabsHost);
+        root.Children.Add(_generalContent);
+        root.Children.Add(_advancedContent);
 
         _layoutScroller.Content = root;
+        SetSettingsView(showAdvanced: false);
         return _layoutScroller;
     }
 
@@ -196,12 +266,41 @@ internal sealed class UserSettingsDialog : ContentDialog
         _layoutScroller.MaxHeight = maxHeight;
     }
 
+    private static UIElement CreateTabbedButtonHost(Button button, int column)
+    {
+        Grid.SetColumn(button, column);
+        return button;
+    }
+
+    private void SetSettingsView(bool showAdvanced)
+    {
+        _showAdvanced = showAdvanced;
+        _generalContent.Visibility = showAdvanced ? Visibility.Collapsed : Visibility.Visible;
+        _advancedContent.Visibility = showAdvanced ? Visibility.Visible : Visibility.Collapsed;
+        ApplyTabButtonStyle(_generalTabButton, !showAdvanced);
+        ApplyTabButtonStyle(_advancedTabButton, showAdvanced);
+    }
+
+    private static void ApplyTabButtonStyle(Button button, bool isSelected)
+    {
+        button.HorizontalAlignment = HorizontalAlignment.Stretch;
+        button.HorizontalContentAlignment = HorizontalAlignment.Center;
+        button.Padding = new Thickness(12, 10, 12, 10);
+        button.BorderThickness = new Thickness(0);
+        button.CornerRadius = new CornerRadius(14);
+        button.Background = new SolidColorBrush(isSelected
+            ? Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x2D, 0x7D, 0xB8)
+            : Microsoft.UI.ColorHelper.FromArgb(0x00, 0x00, 0x00, 0x00));
+        button.Foreground = new SolidColorBrush(Microsoft.UI.Colors.White);
+        button.FontWeight = isSelected ? FontWeights.SemiBold : FontWeights.Normal;
+    }
+
     private static UIElement SectionCard(TextBlock titleBlock, UIElement[] body)
     {
         titleBlock.FontWeight = FontWeights.SemiBold;
         titleBlock.FontSize = 15;
 
-        var panel = new StackPanel { Spacing = 10 };
+        var panel = new StackPanel { Spacing = 12 };
         panel.Children.Add(titleBlock);
 
         foreach (var el in body)
@@ -209,10 +308,10 @@ internal sealed class UserSettingsDialog : ContentDialog
 
         return new Border
         {
-            CornerRadius = new CornerRadius(18),
+            CornerRadius = new CornerRadius(20),
             Padding = new Thickness(18, 16, 18, 16),
-            Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x11, 0x11, 0x11)),
-            BorderBrush = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x28, 0x28, 0x28)),
+            Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x10, 0x10, 0x10)),
+            BorderBrush = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x27, 0x27, 0x27)),
             BorderThickness = new Thickness(1),
             Child = panel
         };
@@ -235,11 +334,25 @@ internal sealed class UserSettingsDialog : ContentDialog
 
     private void RefreshUiTexts()
     {
-        Title = T("settings.title");
+        Title = string.Empty;
         PrimaryButtonText = T("settings.apply");
         CloseButtonText = _busy ? string.Empty : ClientUiText.Get("dialog.close", UiLang);
 
+        _heroTitle.Text = T("settings.title");
+        _heroTitle.FontSize = 22;
+        _heroTitle.FontWeight = FontWeights.SemiBold;
+        _heroSubtitle.Text = T("settings.subtitle");
+        _advancedSubtitle.Text = T("settings.advanced.subtitle");
+        _interfaceNote.Text = T("settings.interface.note");
+
+        _generalTabButton.Content = T("settings.tab.general");
+        _advancedTabButton.Content = T("settings.tab.advanced");
+        ApplyTabButtonStyle(_generalTabButton, !_showAdvanced);
+        ApplyTabButtonStyle(_advancedTabButton, _showAdvanced);
+
+        _interfaceSectionTitle.Text = T("settings.section.interface");
         _assistantSectionTitle.Text = T("settings.section.assistant");
+        _behaviorSectionTitle.Text = T("settings.section.behavior");
         _repairSectionTitle.Text = T("settings.section.repair");
         _supportSectionTitle.Text = T("settings.section.support");
         _supportNote.Text = T("settings.support.note");
