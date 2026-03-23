@@ -64,11 +64,12 @@ models/**/*.bin
 models/**/*.safetensors
 models/**/.cache/
 
-# Optionnel : ignore les exports/archives
+# Optionnel : ignore les exports/archives/pdf
 infra/**/*.tgz
 infra/**/*.tar.gz
 **/*.zip
 **/*.7z
+**/*.pdf
 
 # Local overrides (backend)
 backend/SAAIA.Backend/appsettings.Local.json
