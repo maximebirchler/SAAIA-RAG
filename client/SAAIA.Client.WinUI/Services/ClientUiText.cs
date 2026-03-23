@@ -46,6 +46,12 @@ internal static class ClientUiText
         ["status.new_chat_failed"] = Multi("Échec de la nouvelle discussion : ", "New chat failed: ", "Error al crear el chat: ", "Falha ao criar a conversa: ", "Neuer Chat fehlgeschlagen: ", "Creazione nuova chat non riuscita: "),
         ["status.loading_chat"] = Multi("Chargement de la discussion…", "Loading chat…", "Cargando chat…", "A carregar a conversa…", "Chat wird geladen…", "Caricamento chat…"),
         ["status.loaded_session"] = Multi("Chargée. Session : {0}", "Loaded. Session: {0}", "Cargada. Sesión: {0}", "Carregada. Sessão: {0}", "Geladen. Sitzung: {0}", "Caricata. Sessione: {0}"),
+        ["startup.title"] = Multi("SAAIA", "SAAIA", "SAAIA", "SAAIA", "SAAIA", "SAAIA"),
+        ["startup.subtitle"] = Multi("Initialisation de l'application…", "Initializing the application…", "Inicializando la aplicación…", "Inicializando a aplicação…", "Anwendung wird initialisiert…", "Inizializzazione dell'applicazione…"),
+        ["startup.status.initializing"] = Multi("Initialisation…", "Initializing…", "Inicializando…", "Inicializando…", "Initialisierung…", "Inizializzazione…"),
+        ["startup.status.checking_setup"] = Multi("Vérification de la configuration…", "Checking configuration…", "Comprobando la configuración…", "Verificando a configuração…", "Konfiguration wird geprüft…", "Verifica della configurazione…"),
+        ["startup.status.starting_assistant"] = Multi("Démarrage de l'assistant…", "Starting assistant…", "Iniciando el asistente…", "Iniciando o assistente…", "Assistent wird gestartet…", "Avvio dell'assistente…"),
+        ["startup.status.connecting"] = Multi("Connexion au serveur…", "Connecting to server…", "Conectando al servidor…", "A ligar ao servidor…", "Verbindung zum Server…", "Connessione al server…"),
         ["status.init_failed"] = Multi("Échec de l'initialisation : ", "Init failed: ", "Error de inicialización: ", "Falha na inicialização: ", "Initialisierung fehlgeschlagen: ", "Errore di inizializzazione: "),
 
         ["dialog.close"] = Multi("Fermer", "Close", "Cerrar", "Fechar", "Schließen", "Chiudi"),

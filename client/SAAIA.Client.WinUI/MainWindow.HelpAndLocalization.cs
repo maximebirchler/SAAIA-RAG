@@ -107,7 +107,8 @@ public sealed partial class MainWindow
                     _activeHelpDialog = null;
             };
 
-            var root = new StackPanel { Spacing = 12, MaxWidth = 780 };
+            var (helpWidth, helpMaxHeight) = ComputeHelpDialogSize(xamlRoot);
+            var root = new StackPanel { Spacing = 12, Width = helpWidth };
             root.Children.Add(new TextBlock
             {
                 Text = !canRun
@@ -744,5 +745,13 @@ public sealed partial class MainWindow
         }
 
         return result;
+    }
+
+
+    private static (double Width, double MaxHeight) ComputeHelpDialogSize(Microsoft.UI.Xaml.XamlRoot xamlRoot)
+    {
+        var width = Math.Clamp(xamlRoot.Size.Width * 0.72, 520, 860);
+        var maxHeight = Math.Clamp(xamlRoot.Size.Height * 0.78, 460, 760);
+        return (width, maxHeight);
     }
 }
