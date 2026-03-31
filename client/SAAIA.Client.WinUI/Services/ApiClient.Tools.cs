@@ -30,6 +30,50 @@ public sealed partial class ApiClient
         return doc.RootElement.Clone();
     }
 
+
+    private static string ClassifyAdminSessionValidationFailure(HttpStatusCode? statusCode, bool wasCanceled = false)
+    {
+        if (wasCanceled)
+            return "unavailable";
+
+        return statusCode switch
+        {
+            HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => "invalid",
+            _ => "unavailable"
+        };
+    }
+
+    public async Task<(bool isValid, string status)> TryActivateAdminSessionKeyAsync(string? adminKey, CancellationToken ct)
+    {
+        var candidate = (adminKey ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(candidate))
+            return (false, "empty");
+
+        var previous = _adminKey;
+        _adminKey = candidate;
+
+        try
+        {
+            _ = await AdminCatalogHealthAsync(ct).ConfigureAwait(false);
+            return (true, "ok");
+        }
+        catch (HttpRequestException ex)
+        {
+            _adminKey = previous;
+            return (false, ClassifyAdminSessionValidationFailure(ex.StatusCode));
+        }
+        catch (TaskCanceledException)
+        {
+            _adminKey = previous;
+            return (false, ClassifyAdminSessionValidationFailure(null, wasCanceled: true));
+        }
+        catch
+        {
+            _adminKey = previous;
+            return (false, "unavailable");
+        }
+    }
+
     public async Task<JsonElement> AuthCapabilitiesAsync(CancellationToken ct)
     {
         if (HasAdminKey)
@@ -441,15 +485,53 @@ public sealed partial class ApiClient
     }
 
     public Task<JsonElement> AdminIngestionReindexAsync(string docPath, CancellationToken ct)
+        => AdminIngestionReindexAsync(docPath, null, ct);
+
+    public async Task<JsonElement> AdminIngestionReindexAsync(string? docPath, string? docId, CancellationToken ct)
     {
-        var body = JsonSerializer.Serialize(new
+        Guid? parsedDocId = null;
+        if (!string.IsNullOrWhiteSpace(docId) && Guid.TryParse(docId, out var guid))
+            parsedDocId = guid;
+
+        var adminBody = JsonSerializer.Serialize(new
         {
             docPath,
+            docId = parsedDocId,
+            level = (string?)null,
+            jobId = (Guid?)null,
+            docLanguage = (string?)null,
+            sourceHash = (string?)null,
+            summaryText = (string?)null,
+            meta = (object?)null,
+            force = (bool?)null
+        }, JsonOpts);
+
+        using var adminResp = await SendWithRateLimitRetryAsync(
+            () => NewAdminRequest(HttpMethod.Post, "/admin/ingestion/reindex", adminBody),
+            ct).ConfigureAwait(false);
+
+        if (adminResp.StatusCode != HttpStatusCode.NotFound)
+        {
+            adminResp.EnsureSuccessStatusCode();
+            var adminJson = await adminResp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            using var adminDoc = JsonDocument.Parse(adminJson);
+            return adminDoc.RootElement.Clone();
+        }
+
+        var legacyBody = JsonSerializer.Serialize(new
+        {
+            docPath = docPath ?? string.Empty,
             category = (string?)null,
             action = "upsert"
         }, JsonOpts);
 
-        return SendJsonAsync(HttpMethod.Post, "/ingest/enqueue", body, admin: true, ct);
+        using var legacyResp = await SendWithRateLimitRetryAsync(
+            () => NewAdminRequest(HttpMethod.Post, "/ingest/enqueue", legacyBody),
+            ct).ConfigureAwait(false);
+        legacyResp.EnsureSuccessStatusCode();
+        var legacyJson = await legacyResp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        using var legacyDoc = JsonDocument.Parse(legacyJson);
+        return legacyDoc.RootElement.Clone();
     }
 
     public Task<JsonElement> AdminJobsListAsync(string? type, int limit, int offset, CancellationToken ct)
@@ -467,6 +549,14 @@ public sealed partial class ApiClient
     {
         var body = JsonSerializer.Serialize(new { jobId }, JsonOpts);
         return SendJsonAsync(HttpMethod.Post, "/admin/jobs/cancel", body, admin: true, ct);
+    }
+
+    public Task<JsonElement> AdminJobGetAsync(string jobId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(jobId))
+            throw new ArgumentException("jobId is required.", nameof(jobId));
+
+        return SendJsonAsync(HttpMethod.Get, "/admin/jobs/" + Uri.EscapeDataString(jobId.Trim()), null, admin: true, ct);
     }
 
     public Task<JsonElement> AdminQdrantHealthAsync(CancellationToken ct)

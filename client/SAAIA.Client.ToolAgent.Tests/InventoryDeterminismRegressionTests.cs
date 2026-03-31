@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Text.Json;
+using SAAIA.Client.WinUI.Localization;
 using SAAIA.Client.WinUI.Services;
 using SAAIA.Client.WinUI.Services.ToolAgent;
 using Xunit;
@@ -52,7 +52,7 @@ public sealed class InventoryDeterminismRegressionTests
             "Documents present on the server:\n1. [[open|General/test.pdf|1|test]]");
 
         Assert.Single(chunks);
-        Assert.Equal("Documents present on the server:\n1. [[open|General/test.pdf|1|test]]", chunks.Single());
+        Assert.Equal("Documents present on the server:\n1. [[open|General/test.pdf|1|test]]", chunks[0]);
     }
 
     [Fact]
@@ -89,22 +89,91 @@ public sealed class InventoryDeterminismRegressionTests
             {
               "docPath": "Ghost/Accord sur le transfert du code source des logiciels & des documents natifs_2109-3142_Signed.pdf",
               "docName": "Accord sur le transfert du code source des logiciels & des documents natifs_2109-3142_Signed.pdf",
+              "categoryPath": "Ghost"
+            }
+          ]
+        }
+        """);
+
+        var canonical = InvokeCreateCanonicalDocumentsListJson(doc.RootElement);
+        var rendered = ToolAgentOrchestrator.RenderDeterministicInventoryFromData("list", canonical, "fr");
+
+        Assert.DoesNotContain("[[open|Ghost/", rendered);
+        Assert.Contains($"[[open|{relativePath}|1|", rendered);
+        Assert.Contains(fileName, rendered);
+    }
+
+    [Fact]
+    public void Shortcut_canonicalization_rewrites_ghost_document_name_to_the_resolved_file_name()
+    {
+        const string relativePath = "General/Siemens S7 Manual.pdf";
+
+        using var inventoryScope = DocumentInventoryTestScope.WithSingleDocument(relativePath);
+        using var doc = JsonDocument.Parse("""
+        {
+          "items": [
+            {
+              "docPath": "General/Siemens S7 Manual.pdf",
+              "docName": "siemens.pdf",
               "categoryPath": "General"
             }
           ]
         }
         """);
 
-        var sut = new ToolAgentOrchestrator(api: null!, llm: null!, mem: new ToolMemory());
-        var method = typeof(ToolAgentOrchestrator).GetMethod("CreateCanonicalDocumentsListJson", BindingFlags.NonPublic | BindingFlags.Instance);
-        Assert.NotNull(method);
-
-        var canonical = (JsonElement)method!.Invoke(sut, new object[] { doc.RootElement })!;
+        var canonical = InvokeCreateCanonicalDocumentsListJson(doc.RootElement, searchQuery: "siemens");
         var rendered = ToolAgentOrchestrator.RenderDeterministicInventoryFromData("list", canonical, "fr");
 
-        Assert.DoesNotContain("[[open|Ghost/", rendered);
-        Assert.Contains($"[[open|{relativePath}|1|", rendered);
-        Assert.Contains(fileName, rendered);
+        Assert.Contains("Siemens S7 Manual.pdf", rendered);
+        Assert.DoesNotContain("siemens.pdf (General)", rendered);
+    }
+
+    [Fact]
+    public void Exact_pdf_search_filters_out_stale_backend_document_names_after_sanitization()
+    {
+        const string relativePath = "General/Siemens S7 Manual.pdf";
+
+        using var inventoryScope = DocumentInventoryTestScope.WithSingleDocument(relativePath);
+        using var doc = JsonDocument.Parse("""
+        {
+          "items": [
+            {
+              "docPath": "General/Siemens S7 Manual.pdf",
+              "docName": "siemens.pdf",
+              "categoryPath": "General"
+            }
+          ]
+        }
+        """);
+
+        var canonical = InvokeCreateCanonicalDocumentsListJson(doc.RootElement, searchQuery: "siemens.pdf");
+        var rendered = ToolAgentOrchestrator.RenderDeterministicInventoryFromData("list", canonical, "fr");
+
+        Assert.Equal(LocalizedStrings.NoDocumentsFound("fr"), rendered);
+    }
+
+    [Fact]
+    public void Exact_pdf_search_keeps_the_exact_match()
+    {
+        const string relativePath = "General/siemens.pdf";
+
+        using var inventoryScope = DocumentInventoryTestScope.WithSingleDocument(relativePath);
+        using var doc = JsonDocument.Parse("""
+        {
+          "items": [
+            {
+              "docPath": "General/siemens.pdf",
+              "docName": "siemens.pdf",
+              "categoryPath": "General"
+            }
+          ]
+        }
+        """);
+
+        var canonical = InvokeCreateCanonicalDocumentsListJson(doc.RootElement, searchQuery: "siemens.pdf");
+        var rendered = ToolAgentOrchestrator.RenderDeterministicInventoryFromData("list", canonical, "fr");
+
+        Assert.Contains("[[open|General/siemens.pdf|1|siemens.pdf (General)]]", rendered);
     }
 
     [Fact]
@@ -128,21 +197,36 @@ public sealed class InventoryDeterminismRegressionTests
         Assert.DoesNotContain("Statistiques du catalogue :", rendered);
     }
 
+    private static JsonElement InvokeCreateCanonicalDocumentsListJson(JsonElement root, string? scopePath = null, string? searchQuery = null)
+    {
+        var sut = new ToolAgentOrchestrator(api: null!, llm: null!, mem: new ToolMemory());
+        var method = typeof(ToolAgentOrchestrator).GetMethod("CreateCanonicalDocumentsListJsonCore", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(method);
+        return (JsonElement)method!.Invoke(sut, new object?[] { root, scopePath, searchQuery })!;
+    }
 
     private sealed class DocumentInventoryTestScope : IDisposable
     {
         private readonly string _tempRoot;
         private readonly object? _previousEntries;
         private readonly DateTimeOffset _previousLastScan;
+        private readonly string? _previousDocumentsRoot;
+        private readonly string? _previousInstallRoot;
         private readonly FieldInfo _entriesField;
         private readonly FieldInfo _lastScanField;
 
         private DocumentInventoryTestScope(string relativePath)
         {
             _tempRoot = Path.Combine(Path.GetTempPath(), "SAAIA.Client.ToolAgent.Tests", Guid.NewGuid().ToString("N"));
-            var fullPath = Path.Combine(_tempRoot, "documents", relativePath.Replace('/', Path.DirectorySeparatorChar));
+            var documentsRoot = Path.Combine(_tempRoot, "documents");
+            var fullPath = Path.Combine(documentsRoot, relativePath.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
             File.WriteAllBytes(fullPath, Array.Empty<byte>());
+
+            _previousDocumentsRoot = Environment.GetEnvironmentVariable("SAAIA_DOCUMENTS_ROOT");
+            _previousInstallRoot = Environment.GetEnvironmentVariable("SAAIA_INSTALL_ROOT");
+            Environment.SetEnvironmentVariable("SAAIA_DOCUMENTS_ROOT", documentsRoot);
+            Environment.SetEnvironmentVariable("SAAIA_INSTALL_ROOT", null);
 
             var inventoryType = typeof(DocumentInventory);
             _entriesField = inventoryType.GetField("_entries", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -167,6 +251,8 @@ public sealed class InventoryDeterminismRegressionTests
         {
             _entriesField.SetValue(null, _previousEntries);
             _lastScanField.SetValue(null, _previousLastScan);
+            Environment.SetEnvironmentVariable("SAAIA_DOCUMENTS_ROOT", _previousDocumentsRoot);
+            Environment.SetEnvironmentVariable("SAAIA_INSTALL_ROOT", _previousInstallRoot);
 
             try
             {
@@ -179,5 +265,4 @@ public sealed class InventoryDeterminismRegressionTests
             }
         }
     }
-
 }

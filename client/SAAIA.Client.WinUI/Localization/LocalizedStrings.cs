@@ -158,6 +158,16 @@ internal static class LocalizedStrings
                 ["de"] = "Diese Anfrage sieht wie ein geführter Katalog-/Admin-Befehl aus, entspricht aber nicht exakt einem unterstützten Befehl. Ich habe kein Tool ausgeführt, um eine teilweise oder falsche Aktion zu vermeiden. Öffne die Schaltfläche ? und klicke auf den gewünschten Befehl, um die exakt unterstützte Formulierung einzufügen. Verwende natürliche Sprache für Recherchen, Fragen zum Dokumentinhalt und Zusammenfassungen.",
                 ["it"] = "Questa richiesta sembra un comando guidato di catalogo/amministrazione, ma non corrisponde esattamente a un comando supportato. Non ho eseguito alcuno strumento per evitare un'azione parziale o errata. Apri il pulsante ? e fai clic sul comando desiderato per inserire la formulazione esatta supportata. Mantieni il linguaggio naturale per le ricerche, le domande sul contenuto di un documento e i riassunti."
             }
+,
+            ["help_only_command_use_help"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "Cette action guidée n'est disponible que depuis le bouton ?. Je n'ai lancé aucune commande depuis le chat. Utilise le Help pour les actions admin sensibles, et garde le chat libre pour les recherches, questions documentaires et résumés.",
+                ["en"] = "This guided action is only available from the ? button. I did not run any command from the chat. Use Help for sensitive admin actions, and keep free chat for searches, document questions, and summaries.",
+                ["es"] = "Esta acción guiada solo está disponible desde el botón ?. No ejecuté ningún comando desde el chat. Usa la Ayuda para las acciones admin sensibles y deja el chat libre para búsquedas, preguntas documentales y resúmenes.",
+                ["pt"] = "Esta ação guiada só está disponível a partir do botão ?. Não executei nenhum comando a partir do chat. Usa a Ajuda para ações admin sensíveis e mantém o chat livre para pesquisas, perguntas documentais e resumos.",
+                ["de"] = "Diese geführte Aktion ist nur über die Schaltfläche ? verfügbar. Ich habe keinen Befehl aus dem Chat ausgeführt. Verwende die Hilfe für sensible Admin-Aktionen und den freien Chat für Recherchen, Dokumentfragen und Zusammenfassungen.",
+                ["it"] = "Questa azione guidata è disponibile solo dal pulsante ?. Non ho eseguito alcun comando dalla chat. Usa l'Aiuto per le azioni admin sensibili e lascia la chat libera per ricerche, domande sui documenti e riassunti."
+            }
         };
 
     private static readonly Dictionary<string, string[]> LanguageAliases =
@@ -225,6 +235,7 @@ internal static class LocalizedStrings
     public static string SummaryStoreDone(string? language) => Get("summary_store_done", language);
     public static string SummaryStoreFailed(string? language) => Get("summary_store_failed", language);
     public static string GuidedCommandHelpRequired(string? language) => Get("guided_command_help_required", language);
+    public static string HelpOnlyCommandUseHelp(string? language) => Get("help_only_command_use_help", language);
 
     public static string LocalizedLanguageName(string language, string? uiLanguage)
     {

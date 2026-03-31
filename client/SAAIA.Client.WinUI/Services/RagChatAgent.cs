@@ -129,6 +129,17 @@ public sealed class RagChatAgent
             onProgress).ConfigureAwait(false);
     }
 
+
+    public async Task<DirectCommandExecutionResult> ExecuteDirectCommandAsync(DirectCommandRequest request, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var llm = new LlmAdapter(_llm, _temperature, _maxTokens);
+        var orchSettings = new AppSettings { StrictMode = _strictMode };
+        var orch = new ToolAgentOrchestrator(_api, llm, _mem, orchSettings);
+        return await orch.ExecuteDirectCommandAsync(request, ct).ConfigureAwait(false);
+    }
+
     private async Task<(string finalAnswer, object? sourcesPayload)> RunSearchOnlyFallbackAsync(
         string userText,
         string category,

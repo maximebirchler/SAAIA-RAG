@@ -20,7 +20,7 @@ internal static class ClientUiText
         ["panel.chats"] = Multi("Discussions", "Chats", "Chats", "Chats", "Chats", "Chat"),
         ["button.new"] = Multi("Nouveau", "New", "Nuevo", "Novo", "Neu", "Nuovo"),
         ["button.connect"] = Multi("Connecter", "Connect", "Conectar", "Ligar", "Verbinden", "Connetti"),
-        ["button.setup"] = Multi("Setup", "Setup", "Setup", "Setup", "Setup", "Setup"),
+        ["button.setup"] = Multi("Configuration", "Setup", "Configuración", "Configuração", "Einrichtung", "Configurazione"),
         ["button.send"] = Multi("Envoyer", "Send", "Enviar", "Enviar", "Senden", "Invia"),
         ["button.cancel"] = Multi("Annuler", "Cancel", "Cancelar", "Cancelar", "Abbrechen", "Annulla"),
         ["button.jump_bottom"] = Multi("Aller en bas", "Jump to bottom", "Ir abajo", "Ir para baixo", "Nach unten", "Vai in basso"),
@@ -40,6 +40,7 @@ internal static class ClientUiText
         ["session.delete.confirm_button"] = Multi("Supprimer", "Delete", "Eliminar", "Eliminar", "Löschen", "Elimina"),
         ["session.delete.done"] = Multi("Discussion supprimée.", "Chat deleted.", "Chat eliminado.", "Chat eliminado.", "Chat gelöscht.", "Chat eliminata."),
         ["session.delete.failed"] = Multi("Échec de la suppression : ", "Delete failed: ", "Error al eliminar: ", "Falha ao eliminar: ", "Löschen fehlgeschlagen: ", "Eliminazione non riuscita: "),
+        ["session.chat_name"] = Multi("Nom de la discussion", "Chat name", "Nombre del chat", "Nome do chat", "Chat-Name", "Nome chat"),
         ["status.connect_first"] = Multi("Clique d'abord sur Connecter.", "Click Connect first.", "Haz clic primero en Conectar.", "Clica primeiro em Ligar.", "Klicke zuerst auf Verbinden.", "Fai prima clic su Connetti."),
         ["status.creating_chat"] = Multi("Création d'une nouvelle discussion…", "Creating new chat…", "Creando un nuevo chat…", "A criar uma nova conversa…", "Neuer Chat wird erstellt…", "Creazione di una nuova chat…"),
         ["status.new_session"] = Multi("Nouvelle session : {0}", "New session: {0}", "Nueva sesión: {0}", "Nova sessão: {0}", "Neue Sitzung: {0}", "Nuova sessione: {0}"),
@@ -55,6 +56,22 @@ internal static class ClientUiText
         ["status.init_failed"] = Multi("Échec de l'initialisation : ", "Init failed: ", "Error de inicialización: ", "Falha na inicialização: ", "Initialisierung fehlgeschlagen: ", "Errore di inizializzazione: "),
 
         ["dialog.close"] = Multi("Fermer", "Close", "Cerrar", "Fechar", "Schließen", "Chiudi"),
+        ["admin.session.title"] = Multi("Session administrateur", "Administrator session", "Sesión de administrador", "Sessão de administrador", "Administrator-Sitzung", "Sessione amministratore"),
+        ["admin.session.subtitle"] = Multi("La clé admin reste uniquement dans cette session de l'application.", "The admin key stays only in this app session.", "La clave admin solo permanece en esta sesión de la aplicación.", "A chave admin fica apenas nesta sessão da aplicação.", "Der Admin-Schlüssel bleibt nur in dieser App-Sitzung erhalten.", "La chiave admin resta solo in questa sessione dell'app."),
+        ["admin.session.placeholder.enter"] = Multi("Entrer la clé admin", "Enter the admin key", "Introducir la clave admin", "Introduzir a chave admin", "Admin-Schlüssel eingeben", "Inserisci la chiave admin"),
+        ["admin.session.placeholder.update"] = Multi("Remplacer la clé admin de session", "Replace the session admin key", "Reemplazar la clave admin de sesión", "Substituir a chave admin da sessão", "Admin-Sitzungsschlüssel ersetzen", "Sostituisci la chiave admin di sessione"),
+        ["admin.session.active"] = Multi("Une session admin est active pour cette ouverture de l'application.", "An admin session is active for this app launch.", "Hay una sesión admin activa para esta apertura de la aplicación.", "Existe uma sessão admin ativa nesta abertura da aplicação.", "Für diesen App-Start ist eine Admin-Sitzung aktiv.", "Per questa apertura dell'app è attiva una sessione admin."),
+        ["admin.session.inactive"] = Multi("Aucune session admin active.", "No admin session is active.", "No hay ninguna sesión admin activa.", "Nenhuma sessão admin ativa.", "Keine Admin-Sitzung aktiv.", "Nessuna sessione admin attiva."),
+        ["admin.session.connect"] = Multi("Activer", "Enable", "Activar", "Ativar", "Aktivieren", "Attiva"),
+        ["admin.session.update"] = Multi("Mettre à jour", "Update", "Actualizar", "Atualizar", "Aktualisieren", "Aggiorna"),
+        ["admin.session.disconnect"] = Multi("Désactiver", "Disable", "Desactivar", "Desativar", "Deaktivieren", "Disattiva"),
+        ["admin.session.empty"] = Multi("Clé admin vide.", "Admin key is empty.", "La clave admin está vacía.", "A chave admin está vazia.", "Admin-Schlüssel ist leer.", "La chiave admin è vuota."),
+        ["admin.session.validating"] = Multi("Vérification de la clé admin…", "Checking the admin key…", "Comprobando la clave admin…", "A verificar a chave admin…", "Admin-Schlüssel wird geprüft…", "Verifica della chiave admin…"),
+        ["admin.session.invalid"] = Multi("Clé admin invalide ou refusée par le serveur.", "Admin key is invalid or was rejected by the server.", "La clave admin es inválida o fue rechazada por el servidor.", "A chave admin é inválida ou foi rejeitada pelo servidor.", "Der Admin-Schlüssel ist ungültig oder wurde vom Server abgelehnt.", "La chiave admin non è valida oppure è stata rifiutata dal server."),
+        ["admin.session.validation_unavailable"] = Multi("Impossible de vérifier la clé admin pour le moment.", "Could not verify the admin key right now.", "No se pudo verificar la clave admin en este momento.", "Não foi possível verificar a chave admin neste momento.", "Der Admin-Schlüssel konnte momentan nicht überprüft werden.", "Impossibile verificare la chiave admin in questo momento."),
+        ["admin.session.enabled"] = Multi("Session admin activée.", "Admin session enabled.", "Sesión admin activada.", "Sessão admin ativada.", "Admin-Sitzung aktiviert.", "Sessione admin attivata."),
+        ["admin.session.disabled"] = Multi("Session admin désactivée.", "Admin session disabled.", "Sesión admin desactivada.", "Sessão admin desativada.", "Admin-Sitzung deaktiviert.", "Sessione admin disattivata."),
+        ["admin.tracking.reconnect_required"] = Multi("Reconnecte la session admin pour reprendre le suivi réel de cette réindexation.", "Reconnect the admin session to resume the live status of this reindexing job.", "Vuelve a conectar la sesión admin para reanudar el estado real de esta reindexación.", "Restabeleça a sessão admin para retomar o estado real desta reindexação.", "Verbinde die Admin-Sitzung erneut, um den echten Status dieser Neuindexierung wieder aufzunehmen.", "Ricollega la sessione admin per riprendere lo stato reale di questa reindicizzazione."),
 
         ["help.title"] = Multi("Aide rapide", "Quick help", "Ayuda rápida", "Ajuda rápida", "Schnellhilfe", "Aiuto rapido"),
         ["help.subtitle.ready"] = Multi("Choisis une action stable, puis cherche une catégorie ou un document seulement si nécessaire.", "Choose a stable action, then search for a category or document only when needed.", "Elige una acción estable y busca una categoría o un documento solo si hace falta.", "Escolhe uma ação estável e pesquisa uma categoria ou documento apenas se necessário.", "Wähle eine stabile Aktion und suche nur bei Bedarf nach einer Kategorie oder einem Dokument.", "Scegli un'azione stabile e cerca una categoria o un documento solo se necessario."),
@@ -106,6 +123,10 @@ internal static class ClientUiText
         ["settings.section.interface"] = Multi("Interface", "Interface", "Interfaz", "Interface", "Oberfläche", "Interfaccia"),
         ["settings.section.behavior"] = Multi("Comportement", "Behavior", "Comportamiento", "Comportamento", "Verhalten", "Comportamento"),
         ["settings.interface.note"] = Multi("Ces réglages sont appliqués immédiatement après validation.", "These settings are applied immediately after confirmation.", "Estos ajustes se aplican inmediatamente tras la validación.", "Estas definições são aplicadas imediatamente após a validação.", "Diese Einstellungen werden nach dem Bestätigen sofort angewendet.", "Queste impostazioni vengono applicate subito dopo la conferma."),
+        ["settings.appearance"] = Multi("Apparence", "Appearance", "Apariencia", "Aspeto", "Darstellung", "Aspetto"),
+        ["settings.theme.system"] = Multi("Suivre Windows", "Follow Windows", "Seguir Windows", "Seguir o Windows", "Windows folgen", "Segui Windows"),
+        ["settings.theme.dark"] = Multi("Sombre", "Dark", "Oscuro", "Escuro", "Dunkel", "Scuro"),
+        ["settings.theme.light"] = Multi("Clair", "Light", "Claro", "Claro", "Hell", "Chiaro"),
         ["settings.apply"] = Multi("Appliquer", "Apply", "Aplicar", "Aplicar", "Anwenden", "Applica"),
         ["settings.language"] = Multi("Langue de l'interface", "Interface language", "Idioma de la interfaz", "Idioma da interface", "Sprache der Oberfläche", "Lingua dell'interfaccia"),
         ["settings.section.assistant"] = Multi("Assistant", "Assistant", "Asistente", "Assistente", "Assistent", "Assistente"),
@@ -130,7 +151,25 @@ internal static class ClientUiText
         ["settings.choice.long"] = Multi("Long", "Long", "Largo", "Longo", "Lang", "Lungo"),
         ["settings.repair.button"] = Multi("Installer / réparer l'assistant…", "Install / repair assistant…", "Instalar / reparar el asistente…", "Instalar / reparar o assistente…", "Assistent installieren / reparieren…", "Installare / riparare l'assistente…"),
         ["settings.support.button"] = Multi("Exporter diagnostic…", "Export diagnostic…", "Exportar diagnóstico…", "Exportar diagnóstico…", "Diagnose exportieren…", "Esporta diagnostica…"),
-        ["settings.support.note"] = Multi("Le diagnostic ne contient pas la clé API (elle est masquée).", "The diagnostic does not contain the API key (it is masked).", "El diagnóstico no contiene la clave API (está oculta).", "O diagnóstico não contém a chave API (está mascarada).", "Die Diagnose enthält keinen API-Schlüssel (er ist maskiert).", "La diagnostica non contiene la chiave API (è mascherata).")
+        ["settings.support.note"] = Multi("Le diagnostic ne contient pas la clé API (elle est masquée).", "The diagnostic does not contain the API key (it is masked).", "El diagnóstico no contiene la clave API (está oculta).", "O diagnóstico não contém a chave API (está mascarada).", "Die Diagnose enthält keinen API-Schlüssel (er ist maskiert).", "La diagnostica non contiene la chiave API (è mascherata)."),
+        ["settings.status.busy"] = Multi("Une action est déjà en cours.", "An action is already running.", "Ya hay una acción en curso.", "Já existe uma ação em curso.", "Es läuft bereits eine Aktion.", "È già in corso un'azione."),
+        ["settings.status.exporting"] = Multi("Création du diagnostic…", "Creating diagnostic bundle…", "Creando el diagnóstico…", "A criar o diagnóstico…", "Diagnose wird erstellt…", "Creazione diagnostica…"),
+        ["settings.status.exported"] = Multi("Diagnostic exporté :", "Diagnostic exported:", "Diagnóstico exportado:", "Diagnóstico exportado:", "Diagnose exportiert:", "Diagnostica esportata:"),
+        ["settings.status.export_failed"] = Multi("Échec export diagnostic.", "Diagnostic export failed.", "Error al exportar el diagnóstico.", "Falha ao exportar o diagnóstico.", "Diagnoseexport fehlgeschlagen.", "Esportazione diagnostica non riuscita."),
+        ["settings.status.repair.running"] = Multi("Installation / réparation en cours…", "Install / repair in progress…", "Instalación / reparación en curso…", "Instalação / reparação em curso…", "Installation / Reparatur läuft…", "Installazione / riparazione in corso…"),
+        ["settings.status.repair.ready"] = Multi("Assistant prêt (LLM disponible).", "Assistant ready (LLM available).", "Asistente listo (LLM disponible).", "Assistente pronto (LLM disponível).", "Assistent bereit (LLM verfügbar).", "Assistente pronto (LLM disponibile)."),
+        ["settings.status.repair.not_ready"] = Multi("Assistant démarré, mais le modèle n'est pas encore prêt. Réessaie dans 1–2 minutes.", "Assistant started, but the model is not ready yet. Try again in 1–2 minutes.", "El asistente se inició, pero el modelo aún no está listo. Vuelve a intentarlo en 1–2 minutos.", "O assistente arrancou, mas o modelo ainda não está pronto. Tenta novamente em 1–2 minutos.", "Der Assistent wurde gestartet, aber das Modell ist noch nicht bereit. Versuche es in 1–2 Minuten erneut.", "L'assistente è stato avviato, ma il modello non è ancora pronto. Riprova tra 1–2 minuti."),
+        ["settings.status.repair.checking"] = Multi("Vérification de l'assistant…", "Checking the assistant…", "Comprobando el asistente…", "A verificar o assistente…", "Assistent wird geprüft…", "Verifica dell'assistente…"),
+        ["settings.status.repair.loading"] = Multi("Chargement du modèle en cours…", "Model is loading…", "Cargando el modelo…", "A carregar o modelo…", "Modell wird geladen…", "Caricamento del modello…"),
+        ["settings.status.repair.starting"] = Multi("Démarrage de l'assistant…", "Starting the assistant…", "Iniciando el asistente…", "A iniciar o assistente…", "Assistent wird gestartet…", "Avvio dell'assistente…"),
+        ["settings.status.repair.downloading"] = Multi("Téléchargement des composants…", "Downloading components…", "Descargando componentes…", "A transferir componentes…", "Komponenten werden heruntergeladen…", "Download dei componenti…"),
+        ["settings.status.repair.download_done"] = Multi("Téléchargement terminé. Redémarre l'assistant si nécessaire.", "Download completed. Restart the assistant if needed.", "Descarga terminada. Reinicia el asistente si es necesario.", "Transferência concluída. Reinicia o assistente se necessário.", "Download abgeschlossen. Starte den Assistenten bei Bedarf neu.", "Download completato. Riavvia l'assistente se necessario."),
+        ["settings.status.repair.no_auto"] = Multi("Aucun moyen automatique trouvé. Vérifie l'installation locale ou contacte l'intégrateur.", "No automatic method found. Check the local installation or contact the integrator.", "No se encontró ningún método automático. Comprueba la instalación local o contacta con el integrador.", "Não foi encontrado nenhum método automático. Verifica a instalação local ou contacta o integrador.", "Es wurde keine automatische Methode gefunden. Prüfe die lokale Installation oder kontaktiere den Integrator.", "Nessun metodo automatico trovato. Controlla l'installazione locale o contatta l'integratore."),
+        ["settings.status.repair.cancelled"] = Multi("Installation annulée.", "Installation cancelled.", "Instalación cancelada.", "Instalação cancelada.", "Installation abgebrochen.", "Installazione annullata."),
+        ["settings.status.repair.launch_failed"] = Multi("Impossible de lancer l'installation.", "Could not start the installation.", "No se pudo iniciar la instalación.", "Não foi possível iniciar a instalação.", "Die Installation konnte nicht gestartet werden.", "Impossibile avviare l'installazione."),
+        ["settings.status.repair.waiting"] = Multi("Attente du démarrage du LLM…", "Waiting for the LLM to start…", "Esperando al arranque del LLM…", "À espera do arranque do LLM…", "Warten auf den Start des LLM…", "In attesa dell'avvio del LLM…"),
+        ["settings.status.repair.timeout"] = Multi("Le LLM ne répond pas encore. Vérifie le service local puis réessaie.", "The LLM is not responding yet. Check the local service and try again.", "El LLM aún no responde. Comprueba el servicio local y vuelve a intentarlo.", "O LLM ainda não responde. Verifica o serviço local e tenta novamente.", "Das LLM antwortet noch nicht. Prüfe den lokalen Dienst und versuche es erneut.", "Il LLM non risponde ancora. Controlla il servizio locale e riprova."),
+        ["settings.status.failed_prefix"] = Multi("Échec : ", "Failed: ", "Error: ", "Falha: ", "Fehler: ", "Errore: ")
     };
 
     public static string NormalizeLanguage(string? language)
@@ -315,7 +354,15 @@ internal static class ClientUiText
     public static string BuildPromptAdminReindexDisplay(string? language, string documentRef)
     {
         var compact = CompactDocumentLabel(documentRef, 64);
-        return BuildPromptAdminReindex(language, compact);
+        return NormalizeLanguage(language) switch
+        {
+            "en" => $"Help action — reindex document: {compact}",
+            "es" => $"Acción de ayuda — reindexar documento: {compact}",
+            "pt" => $"Ação da ajuda — reindexar documento: {compact}",
+            "de" => $"Hilfeaktion — Dokument neu indexieren: {compact}",
+            "it" => $"Azione guida — reindicizza documento: {compact}",
+            _ => $"Action aide — réindexer le document : {compact}"
+        };
     }
 
     private static string CompactDocumentLabel(string value, int maxLength)

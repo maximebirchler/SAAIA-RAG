@@ -1,6 +1,7 @@
 <Project>
-  <ItemGroup>
-    <Page Remove="Controls\UserSettingsDialog.xaml" />
-    <Compile Remove="Controls\UserSettingsDialog.xaml.cs" />
-  </ItemGroup>
+  <!--
+    Intentionally left without ItemGroup overrides.
+    UserSettingsDialog XAML exclusion is owned by SAAIA.Client.WinUI.csproj so the build behavior
+    stays explicit and local to the WinUI project.
+  -->
 </Project>

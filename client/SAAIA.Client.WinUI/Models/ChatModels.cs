@@ -4,14 +4,28 @@ using System.Runtime.CompilerServices;
 
 namespace SAAIA.Client.WinUI.Models;
 
+public sealed class ChatTrackingMeta
+{
+    public string? Kind { get; set; }
+    public string? JobId { get; set; }
+    public string? JobType { get; set; }
+    public string? DisplayLabel { get; set; }
+    public bool IsTerminal { get; set; }
+}
+
 public sealed class ChatMessageItem : INotifyPropertyChanged
 {
     private string _role = "user";
     private string _content = "";
     private string? _sourcesJson;
     private DateTime _createdAt = DateTime.UtcNow;
+    private string? _messageId;
     private string? _statusNote;
     private string? _progressText;
+    private ChatTrackingMeta? _trackingMeta;
+
+    // UI-only smoothing state for progress/status updates.
+    public DateTime ProgressLastUpdatedUtc { get; set; } = DateTime.MinValue;
 
     public string Role
     {
@@ -37,6 +51,12 @@ public sealed class ChatMessageItem : INotifyPropertyChanged
         set { if (_createdAt != value) { _createdAt = value; OnPropertyChanged(); } }
     }
 
+    public string? MessageId
+    {
+        get => _messageId;
+        set { if (_messageId != value) { _messageId = value; OnPropertyChanged(); } }
+    }
+
     public string? StatusNote
     {
         get => _statusNote;
@@ -47,6 +67,12 @@ public sealed class ChatMessageItem : INotifyPropertyChanged
     {
         get => _progressText;
         set { if (_progressText != value) { _progressText = value; OnPropertyChanged(); } }
+    }
+
+    public ChatTrackingMeta? TrackingMeta
+    {
+        get => _trackingMeta;
+        set { if (!ReferenceEquals(_trackingMeta, value)) { _trackingMeta = value; OnPropertyChanged(); } }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

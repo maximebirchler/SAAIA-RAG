@@ -32,6 +32,7 @@ public static class ChatStoreEndpoints
         // GET  /chat/messages?sessionId=...&userId=...
         g.MapPost("/messages", AddMessageCdcAsync);
         g.MapGet("/messages", ListMessagesCdcAsync);
+        g.MapPatch("/messages/{messageId:guid}", PatchMessageAsync);
     }
 
     // -------------------------
@@ -53,6 +54,107 @@ public static class ChatStoreEndpoints
         string? userId,
         int? limit)
         => ListMessagesAsync(ctx, ds, sessionId, userId, limit);
+
+    private static async Task<IResult> PatchMessageAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        ILogger<LogTag> log,
+        Guid messageId,
+        string? userId,
+        JsonElement req)
+    {
+        var tenantId = ctx.GetTenantId();
+        var actorApiKeyId = ctx.GetApiKeyIdOrNull();
+        var actorIsAdmin = ctx.IsAdmin();
+        var ct = ctx.RequestAborted;
+
+        var effectiveUserId = userId;
+        if (TryReadOptionalString(req, "userId", out var bodyUserId) && !string.IsNullOrWhiteSpace(bodyUserId))
+            effectiveUserId = bodyUserId;
+        if (string.IsNullOrWhiteSpace(effectiveUserId))
+            throw new BadHttpRequestException("userId is required (body or query)");
+
+        var hasContent = TryReadOptionalString(req, "content", out var contentRaw);
+        var hasStatusNote = TryReadOptionalString(req, "statusNote", out var statusNoteRaw);
+        var hasProgressText = TryReadOptionalString(req, "progressText", out var progressTextRaw);
+        string? trackingMetaRaw = null;
+        var hasTrackingMeta = TryReadOptionalJsonString(req, "trackingMetaJson", out trackingMetaRaw);
+        if (!hasTrackingMeta)
+            hasTrackingMeta = TryReadOptionalJsonString(req, "trackingMeta", out trackingMetaRaw);
+
+        if (!hasContent && !hasStatusNote && !hasProgressText && !hasTrackingMeta)
+            throw new BadHttpRequestException("at least one patch field is required");
+
+        var content = hasContent ? NormalizeContent(contentRaw) : null;
+        var statusNote = hasStatusNote ? NormalizeSmall(statusNoteRaw, 200) : null;
+        var progressText = hasProgressText ? NormalizeSmall(progressTextRaw, 240) : null;
+        var trackingMetaJson = hasTrackingMeta ? NormalizeJsonText(trackingMetaRaw) : null;
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+
+        const string sql = @"
+UPDATE chat_messages m
+SET content = CASE WHEN @has_content THEN @content ELSE m.content END,
+    status_note = CASE WHEN @has_status_note THEN @status_note ELSE m.status_note END,
+    progress_text = CASE WHEN @has_progress_text THEN @progress_text ELSE m.progress_text END,
+    tracking_meta_json = CASE WHEN @has_tracking_meta THEN CASE WHEN @tracking_meta_json IS NULL THEN NULL ELSE @tracking_meta_json::jsonb END ELSE m.tracking_meta_json END
+FROM chat_sessions s
+WHERE m.tenant_id=@tenant
+  AND m.message_id=@mid
+  AND s.tenant_id=m.tenant_id
+  AND s.session_id=m.session_id
+  AND s.user_id=@user_id;";
+
+        var n = await conn.ExecuteAsync(new CommandDefinition(sql, new
+        {
+            tenant = tenantId,
+            mid = messageId,
+            user_id = effectiveUserId,
+            has_content = hasContent,
+            content,
+            has_status_note = hasStatusNote,
+            status_note = statusNote,
+            has_progress_text = hasProgressText,
+            progress_text = progressText,
+            has_tracking_meta = hasTrackingMeta,
+            tracking_meta_json = trackingMetaJson
+        }, cancellationToken: ct));
+
+        if (n == 0)
+            return Results.NotFound(new { error = "message not found" });
+
+        const string readSql = @"
+SELECT
+  m.message_id         AS ""MessageId"",
+  m.role               AS ""Role"",
+  m.content            AS ""Content"",
+  m.sources_json       AS ""SourcesJson"",
+  m.status_note        AS ""StatusNote"",
+  m.progress_text      AS ""ProgressText"",
+  m.tracking_meta_json AS ""TrackingMetaJson"",
+  m.created_at         AS ""CreatedAt""
+FROM chat_messages m
+INNER JOIN chat_sessions s ON m.tenant_id=s.tenant_id AND m.session_id=s.session_id
+WHERE m.tenant_id=@tenant AND m.message_id=@mid AND s.user_id=@user_id
+LIMIT 1;";
+
+        var row = await conn.QueryFirstOrDefaultAsync<ChatMessageDto>(new CommandDefinition(readSql, new { tenant = tenantId, mid = messageId, user_id = effectiveUserId }, cancellationToken: ct));
+        if (row is null)
+            return Results.NotFound(new { error = "message not found" });
+
+        await AuditWriter.WriteAsync(
+            conn,
+            tenantId,
+            actorApiKeyId,
+            actorIsAdmin,
+            action: "chat.message.patch",
+            target: messageId.ToString(),
+            payload: new { userId = effectiveUserId, hasContent, hasStatusNote, hasProgressText, hasTrackingMeta },
+            ip: ctx.Connection.RemoteIpAddress?.ToString(),
+            ct: ct);
+
+        return Results.Ok(row);
+    }
 
     public sealed record CreateSessionRequest(string? Title = null, string? ClientUser = null);
     public sealed record CreateSessionResponse(Guid SessionId, string? Title, string? ClientUser, DateTimeOffset CreatedAtUtc);
@@ -286,6 +388,8 @@ WHERE tenant_id=@tenant AND session_id=@sid AND user_id=@user_id;";
 
         // Petit label UX optionnel (ex: "Génération interrompue.")
         var statusNote = NormalizeSmall(req.StatusNote, 200);
+        var progressText = NormalizeSmall(req.ProgressText, 240);
+        var trackingMetaJson = NormalizeJsonText(req.TrackingMetaJson);
 
         // On accepte un message vide uniquement si un statusNote est fourni (cas: annulation/erreur)
         if (content.Length == 0 && string.IsNullOrWhiteSpace(statusNote))
@@ -320,10 +424,12 @@ LIMIT 1;";
 
         // 2) Insert message
         const string insSql = @"
-INSERT INTO chat_messages(tenant_id, session_id, message_id, role, content, sources_json, status_note, created_at)
+INSERT INTO chat_messages(tenant_id, session_id, message_id, role, content, sources_json, status_note, progress_text, tracking_meta_json, created_at)
 VALUES (@tenant, @sid, @mid, @role, @content,
         CASE WHEN @sources_json IS NULL THEN NULL ELSE @sources_json::jsonb END,
         @status_note,
+        @progress_text,
+        CASE WHEN @tracking_meta_json IS NULL THEN NULL ELSE @tracking_meta_json::jsonb END,
         now());";
 
         await conn.ExecuteAsync(new CommandDefinition(insSql, new
@@ -334,7 +440,9 @@ VALUES (@tenant, @sid, @mid, @role, @content,
             role,
             content,
             sources_json = sourcesJson,
-            status_note = statusNote
+            status_note = statusNote,
+            progress_text = progressText,
+            tracking_meta_json = trackingMetaJson
         }, cancellationToken: ct));
 
 
@@ -353,11 +461,11 @@ WHERE tenant_id=@tenant AND session_id=@sid AND user_id=@user_id;";
             actorIsAdmin,
             action: "chat.message.add",
             target: $"{sessionId}:{messageId}",
-            payload: new { userId = effectiveUserId, sessionId, messageId, role, hasSources = sourcesJson is not null, hasStatusNote = statusNote is not null, contentChars = content.Length },
+            payload: new { userId = effectiveUserId, sessionId, messageId, role, hasSources = sourcesJson is not null, hasStatusNote = statusNote is not null, hasProgressText = progressText is not null, hasTrackingMeta = trackingMetaJson is not null, contentChars = content.Length },
             ip: ctx.Connection.RemoteIpAddress?.ToString(),
             ct: ct);
 
-        return Results.Ok(new ChatMessageDto(messageId, role, content, sourcesJson, DateTimeOffset.UtcNow, statusNote));
+        return Results.Ok(new ChatMessageDto(messageId, role, content, sourcesJson, DateTimeOffset.UtcNow, statusNote, progressText, trackingMetaJson));
     }
 
     private static async Task<IResult> ListMessagesAsync(HttpContext ctx, NpgsqlDataSource ds, Guid sessionId, string? userId, int? limit)
@@ -375,12 +483,14 @@ WHERE tenant_id=@tenant AND session_id=@sid AND user_id=@user_id;";
 
         const string sql = @"
 SELECT
-  m.message_id   AS ""MessageId"",
-  m.role         AS ""Role"",
-  m.content      AS ""Content"",
-  m.sources_json AS ""Sources"",
-  m.status_note  AS ""StatusNote"",
-  m.created_at   AS ""CreatedAt""
+  m.message_id         AS ""MessageId"",
+  m.role               AS ""Role"",
+  m.content            AS ""Content"",
+  m.sources_json       AS ""Sources"",
+  m.status_note        AS ""StatusNote"",
+  m.progress_text      AS ""ProgressText"",
+  m.tracking_meta_json AS ""TrackingMetaJson"",
+  m.created_at         AS ""CreatedAt""
 FROM chat_messages m
 INNER JOIN chat_sessions s ON m.tenant_id = s.tenant_id AND m.session_id = s.session_id
 WHERE m.tenant_id=@tenant AND m.session_id=@sid AND s.user_id=@user_id
@@ -389,6 +499,57 @@ LIMIT @lim;";
 
         var rows = await conn.QueryAsync(sql, new { tenant = tenantId, sid = sessionId, user_id = userId, lim });
         return Results.Ok(rows);
+    }
+
+    private static string? NormalizeContent(string? s)
+    {
+        s = (s ?? string.Empty).Trim();
+        if (s.Length == 0) return string.Empty;
+        if (s.Length > 200000)
+            throw new BadHttpRequestException("content too large");
+        return s;
+    }
+
+    private static string? NormalizeJsonText(string? s)
+    {
+        s = (s ?? string.Empty).Trim();
+        if (s.Length == 0) return null;
+        try { JsonDocument.Parse(s); }
+        catch { }
+        return s;
+    }
+
+    private static bool TryReadOptionalString(JsonElement root, string propertyName, out string? value)
+    {
+        value = null;
+        if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty(propertyName, out var prop))
+            return false;
+
+        value = prop.ValueKind switch
+        {
+            JsonValueKind.Null => null,
+            JsonValueKind.String => prop.GetString(),
+            JsonValueKind.Undefined => null,
+            _ => prop.GetRawText()
+        };
+        return true;
+    }
+
+    private static bool TryReadOptionalJsonString(JsonElement root, string propertyName, out string? value)
+    {
+        value = null;
+        if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty(propertyName, out var prop))
+            return false;
+
+        value = prop.ValueKind switch
+        {
+            JsonValueKind.Null => null,
+            JsonValueKind.String => prop.GetString(),
+            JsonValueKind.Object or JsonValueKind.Array => prop.GetRawText(),
+            JsonValueKind.Undefined => null,
+            _ => prop.GetRawText()
+        };
+        return true;
     }
 
     private static string? NormalizeTitle(string? s)

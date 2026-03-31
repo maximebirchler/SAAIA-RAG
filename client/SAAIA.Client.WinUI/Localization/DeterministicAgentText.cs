@@ -320,6 +320,15 @@ internal static class DeterministicAgentText
             "Diese Aktion erfordert eine aktive Admin-Sitzung im WinUI-Client.",
             "Questa azione richiede una sessione admin attiva nel client WinUI.");
 
+    public static string ToolFailureAdminInvalidOrForbidden(string? language)
+        => Pick(language,
+            "La session admin WinUI est invalide ou n'est plus autorisée pour cette action.",
+            "The WinUI admin session is invalid or is no longer allowed for this action.",
+            "La sesión de administrador de WinUI es inválida o ya no está autorizada para esta acción.",
+            "A sessão de administrador do WinUI é inválida ou não está mais autorizada para esta ação.",
+            "Die WinUI-Admin-Sitzung ist ungültig oder für diese Aktion nicht mehr berechtigt.",
+            "La sessione admin WinUI non è valida o non è più autorizzata per questa azione.");
+
     public static string ToolFailureUnknownPlan(string? language)
         => Pick(language,
             "Le plan d'outils interne était invalide pour cette demande. Relance la demande ou reformule-la.",
@@ -337,6 +346,24 @@ internal static class DeterministicAgentText
             "Uma ou mais ferramentas falharam antes que fosse possível produzir uma resposta fundamentada.",
             "Ein oder mehrere Werkzeuge sind fehlgeschlagen, bevor eine fundierte Antwort erzeugt werden konnte.",
             "Uno o più strumenti hanno avuto un errore prima di poter produrre una risposta fondata.");
+
+    public static string ToolFailureDocumentNotFound(string? language)
+        => Pick(language,
+            "Je n'ai pas trouvé le document demandé dans le catalogue indexé.",
+            "I could not find the requested document in the indexed catalog.",
+            "No he encontrado el documento solicitado en el catálogo indexado.",
+            "Não encontrei o documento solicitado no catálogo indexado.",
+            "Ich konnte das angeforderte Dokument im indizierten Katalog nicht finden.",
+            "Non ho trovato il documento richiesto nel catalogo indicizzato.");
+
+    public static string ToolFailureSourceNotFound(string? language)
+        => Pick(language,
+            "Je n'ai pas trouvé la source demandée parmi les documents déjà résolus dans cette conversation.",
+            "I could not find the requested source among the documents already resolved in this conversation.",
+            "No he encontrado la fuente solicitada entre los documentos ya resueltos en esta conversación.",
+            "Não encontrei a fonte solicitada entre os documentos já resolvidos nesta conversa.",
+            "Ich konnte die angeforderte Quelle nicht unter den in dieser Unterhaltung bereits aufgelösten Dokumenten finden.",
+            "Non ho trovato la fonte richiesta tra i documenti già risolti in questa conversazione.");
 
     public static string ToolAction(string toolName, string? language)
         => toolName switch
@@ -455,45 +482,89 @@ internal static class DeterministicAgentText
 
     public static string NoSubfoldersInScope(string? language)
         => Pick(language,
-            "  • Aucun sous-dossier dans cette portée.",
-            "  • No subfolder in this scope.",
-            "  • No hay subcarpetas en este alcance.",
-            "  • Não há subpastas neste âmbito.",
-            "  • Keine Unterordner in diesem Bereich.",
-            "  • Nessuna sottocartella in questo ambito.");
+            "  • Aucun dossier ni sous-dossier.",
+            "  • No folder or subfolder.",
+            "  • No hay carpetas ni subcarpetas.",
+            "  • Nenhuma pasta nem subpasta.",
+            "  • Keine Ordner oder Unterordner.",
+            "  • Nessuna cartella né sottocartella.");
 
     public static string AdminRescanQueued(string? language, string? jobId)
     {
         _ = jobId;
         return Pick(language,
-            "Le rescan du catalogue a bien été lancé.",
-            "The catalog rescan has been started.",
-            "El reescaneo del catálogo se ha iniciado correctamente.",
-            "O reescaneamento do catálogo foi iniciado com sucesso.",
-            "Der Katalog-Rescan wurde gestartet.",
-            "La scansione del catalogo è stata avviata.");
+            "Le rescan du catalogue est en cours…",
+            "The catalog rescan is running…",
+            "El reescaneo del catálogo está en curso…",
+            "O reescaneamento do catálogo está em andamento…",
+            "Der Katalog-Rescan läuft…",
+            "La scansione del catalogo è in corso…");
+    }
+
+    public static string AdminReindexStarted(string? language, string documentLabel)
+        => Pick(language,
+            $"La réindexation du document {documentLabel} a été lancée.",
+            $"The reindexing of document {documentLabel} has been started.",
+            $"La reindexación del documento {documentLabel} se ha iniciado.",
+            $"A reindexação do documento {documentLabel} foi iniciada.",
+            $"Die Neuindexierung des Dokuments {documentLabel} wurde gestartet.",
+            $"La reindicizzazione del documento {documentLabel} è stata avviata.");
+
+    public static string AdminReindexProgressPhase(string? language, string? phase, int? percent = null, int? current = null, int? total = null, int? elapsedSeconds = null)
+    {
+        var normalized = (phase ?? string.Empty).Trim().ToLowerInvariant();
+        var elapsed = elapsedSeconds.GetValueOrDefault();
+        var elapsedPart = elapsed > 0 ? $" • {elapsed}s" : string.Empty;
+        var percentPart = percent.HasValue ? $"{Math.Clamp(percent.Value, 0, 100)} % • " : string.Empty;
+        var countPart = current.HasValue && total.HasValue && total.Value > 0 ? $" ({Math.Min(current.Value, total.Value)}/{total.Value})" : string.Empty;
+
+        return normalized switch
+        {
+            "queued" => Pick(language, $"En file d'attente…{elapsedPart}", $"Queued…{elapsedPart}", $"En cola…{elapsedPart}", $"Em fila…{elapsedPart}", $"In der Warteschlange…{elapsedPart}", $"In coda…{elapsedPart}"),
+            "preparing" => Pick(language, $"Préparation du document…{elapsedPart}", $"Preparing document…{elapsedPart}", $"Preparando el documento…{elapsedPart}", $"Preparando o documento…{elapsedPart}", $"Dokument wird vorbereitet…{elapsedPart}", $"Preparazione del documento…{elapsedPart}"),
+            "extracting" => Pick(language, $"Extraction du contenu…{elapsedPart}", $"Extracting content…{elapsedPart}", $"Extrayendo el contenido…{elapsedPart}", $"Extraindo o conteúdo…{elapsedPart}", $"Inhalt wird extrahiert…{elapsedPart}", $"Estrazione del contenuto…{elapsedPart}"),
+            "embedding" or "indexing" => Pick(language, $"{percentPart}Indexation{countPart}…{elapsedPart}", $"{percentPart}Indexing{countPart}…{elapsedPart}", $"{percentPart}Indexación{countPart}…{elapsedPart}", $"{percentPart}Indexação{countPart}…{elapsedPart}", $"{percentPart}Indexierung{countPart}…{elapsedPart}", $"{percentPart}Indicizzazione{countPart}…{elapsedPart}"),
+            "deleting" => Pick(language, $"Nettoyage des anciens points…{elapsedPart}", $"Cleaning previous points…{elapsedPart}", $"Limpiando puntos anteriores…{elapsedPart}", $"Limpando pontos anteriores…{elapsedPart}", $"Vorherige Punkte werden bereinigt…{elapsedPart}", $"Pulizia dei punti precedenti…{elapsedPart}"),
+            "finalizing" => Pick(language, $"Finalisation…{elapsedPart}", $"Finalizing…{elapsedPart}", $"Finalizando…{elapsedPart}", $"Finalizando…{elapsedPart}", $"Finalisierung…{elapsedPart}", $"Finalizzazione…{elapsedPart}"),
+            _ => Pick(language, $"En cours…{elapsedPart}", $"Running…{elapsedPart}", $"En curso…{elapsedPart}", $"Em andamento…{elapsedPart}", $"Läuft…{elapsedPart}", $"In corso…{elapsedPart}")
+        };
     }
 
     public static string AdminReindexQueued(string? language, string documentLabel, string? jobId)
     {
         _ = jobId;
         return Pick(language,
-            $"La réindexation du document {documentLabel} a bien été lancée.",
-            $"The reindexing of document {documentLabel} has been started.",
-            $"La reindexación del documento {documentLabel} se ha iniciado correctamente.",
-            $"A reindexação do documento {documentLabel} foi iniciada com sucesso.",
-            $"Die Neuindexierung des Dokuments {documentLabel} wurde gestartet.",
-            $"La reindicizzazione del documento {documentLabel} è stata avviata.");
+            $"La réindexation du document {documentLabel} est en file d'attente.",
+            $"The reindexing of document {documentLabel} is queued.",
+            $"La reindexación del documento {documentLabel} está en cola.",
+            $"A reindexação do documento {documentLabel} está na fila.",
+            $"Die Neuindexierung des Dokuments {documentLabel} ist in der Warteschlange.",
+            $"La reindicizzazione del documento {documentLabel} è in coda.");
     }
 
-    public static string AdminReindexRunning(string? language, string documentLabel)
-        => Pick(language,
-            $"La réindexation du document {documentLabel} est en cours en arrière-plan.",
-            $"The reindexing of document {documentLabel} is running in the background.",
-            $"La reindexación del documento {documentLabel} está en curso en segundo plano.",
-            $"A reindexação do documento {documentLabel} está em curso em segundo plano.",
-            $"Die Neuindexierung des Dokuments {documentLabel} läuft im Hintergrund.",
-            $"La reindicizzazione del documento {documentLabel} è in corso in background.");
+    public static string AdminReindexRunning(string? language, string documentLabel, int? elapsedSeconds = null)
+    {
+        _ = elapsedSeconds;
+        return Pick(language,
+            $"La réindexation du document {documentLabel} est en cours.",
+            $"The reindexing of document {documentLabel} is running.",
+            $"La reindexación del documento {documentLabel} está en curso.",
+            $"A reindexação do documento {documentLabel} está em andamento.",
+            $"Die Neuindexierung des Dokuments {documentLabel} läuft.",
+            $"La reindicizzazione del documento {documentLabel} è in corso.");
+    }
+
+    public static string AdminReindexRunningWithPercent(string? language, string documentLabel, int percent)
+    {
+        var p = Math.Clamp(percent, 0, 100);
+        return Pick(language,
+            $"La réindexation du document {documentLabel} est en cours ({p} %).",
+            $"The reindexing of document {documentLabel} is running ({p}%).",
+            $"La reindexación del documento {documentLabel} está en curso ({p} %).",
+            $"A reindexação do documento {documentLabel} está em andamento ({p} %).",
+            $"Die Neuindexierung des Dokuments {documentLabel} läuft ({p} %).",
+            $"La reindicizzazione del documento {documentLabel} è in corso ({p} %).");
+    }
 
     public static string AdminReindexCompleted(string? language, string documentLabel)
         => Pick(language,
@@ -503,6 +574,55 @@ internal static class DeterministicAgentText
             $"A reindexação do documento {documentLabel} está concluída.",
             $"Die Neuindexierung des Dokuments {documentLabel} ist abgeschlossen.",
             $"La reindicizzazione del documento {documentLabel} è completata.");
+
+    public static string DocumentTargetNotFound(string? language, string? documentRef)
+    {
+        var label = string.IsNullOrWhiteSpace(documentRef) ? Pick(language, "ce document", "this document", "este documento", "este documento", "dieses Dokument", "questo documento") : documentRef.Trim();
+        return Pick(language,
+            $"Le document {label} n'existe pas ou n'a pas été trouvé.",
+            $"The document {label} does not exist or was not found.",
+            $"El documento {label} no existe o no se ha encontrado.",
+            $"O documento {label} não existe ou não foi encontrado.",
+            $"Das Dokument {label} existiert nicht oder wurde nicht gefunden.",
+            $"Il documento {label} non esiste o non è stato trovato.");
+    }
+
+
+    public static string DocumentTargetIsCategory(string? language, string? documentRef)
+    {
+        var label = string.IsNullOrWhiteSpace(documentRef) ? Pick(language, "cette référence", "this reference", "esta referencia", "esta referência", "diese Referenz", "questo riferimento") : documentRef.Trim();
+        return Pick(language,
+            $"La référence {label} correspond à un dossier ou une catégorie, pas à un document réindexable. Précise le nom exact du PDF.",
+            $"The reference {label} points to a folder or category, not to a reindexable document. Please provide the exact PDF name.",
+            $"La referencia {label} corresponde a una carpeta o categoría, no a un documento reindexable. Indica el nombre exacto del PDF.",
+            $"A referência {label} corresponde a uma pasta ou categoria, não a um documento reindexável. Indique o nome exato do PDF.",
+            $"Die Referenz {label} verweist auf einen Ordner oder eine Kategorie, nicht auf ein neu zu indexierendes Dokument. Bitte gib den genauen PDF-Namen an.",
+            $"Il riferimento {label} corrisponde a una cartella o categoria, non a un documento reindicizzabile. Indica il nome esatto del PDF.");
+    }
+
+    public static string DocumentTargetAmbiguous(string? language, string? documentRef)
+    {
+        var label = string.IsNullOrWhiteSpace(documentRef) ? Pick(language, "ce document", "this document", "este documento", "este documento", "dieses Dokument", "questo documento") : documentRef.Trim();
+        return Pick(language,
+            $"La référence {label} est ambiguë. Précise le nom exact du PDF.",
+            $"The reference {label} is ambiguous. Please provide the exact PDF name.",
+            $"La referencia {label} es ambigua. Indica el nombre exacto del PDF.",
+            $"A referência {label} é ambígua. Indique o nome exato do PDF.",
+            $"Die Referenz {label} ist mehrdeutig. Bitte gib den genauen PDF-Namen an.",
+            $"Il riferimento {label} è ambiguo. Indica il nome esatto del PDF.");
+    }
+
+
+
+    // Backward/forward-compatible aliases used by newer reindex hardening tests and patches.
+    public static string AdminReindexDocumentNotFound(string? language, string? documentRef)
+        => DocumentTargetNotFound(language, documentRef);
+
+    public static string AdminReindexDocumentTargetIsCategory(string? language, string? documentRef)
+        => DocumentTargetIsCategory(language, documentRef);
+
+    public static string AdminReindexDocumentAmbiguous(string? language, string? documentRef)
+        => DocumentTargetAmbiguous(language, documentRef);
 
     public static string AdminReindexFailed(string? language, string documentLabel, string? error)
     {
@@ -516,21 +636,51 @@ internal static class DeterministicAgentText
             $"La reindicizzazione del documento {documentLabel} non è riuscita.{detail}");
     }
 
-    public static string AdminJobQueued(string? language, string? actionLabel)
-        => Pick(language,
-            $"{actionLabel ?? "Action admin"} en file d'attente…",
-            $"{actionLabel ?? "Admin action"} queued…",
-            $"{actionLabel ?? "Acción admin"} en cola…",
-            $"{actionLabel ?? "Ação admin"} em fila…",
-            $"{actionLabel ?? "Admin-Aktion"} in der Warteschlange…",
-            $"{actionLabel ?? "Azione admin"} in coda…");
+    public static string AdminJobQueued(string? language, string? actionLabel, int? elapsedSeconds = null)
+    {
+        var elapsed = elapsedSeconds.GetValueOrDefault();
+        var suffix = elapsed > 0 ? $" ({elapsed}s)" : string.Empty;
+        return Pick(language,
+            $"{actionLabel ?? "Action admin"} en file d'attente…{suffix}",
+            $"{actionLabel ?? "Admin action"} queued…{suffix}",
+            $"{actionLabel ?? "Acción admin"} en cola…{suffix}",
+            $"{actionLabel ?? "Ação admin"} em fila…{suffix}",
+            $"{actionLabel ?? "Admin-Aktion"} in der Warteschlange…{suffix}",
+            $"{actionLabel ?? "Azione admin"} in coda…{suffix}");
+    }
 
-    public static string AdminJobRunning(string? language, string? actionLabel)
-        => Pick(language,
-            $"{actionLabel ?? "Action admin"} en cours…",
-            $"{actionLabel ?? "Admin action"} running…",
-            $"{actionLabel ?? "Acción admin"} en curso…",
-            $"{actionLabel ?? "Ação admin"} em curso…",
-            $"{actionLabel ?? "Admin-Aktion"} läuft…",
-            $"{actionLabel ?? "Azione admin"} in corso…");
+    public static string AdminJobRunning(string? language, string? actionLabel, int? elapsedSeconds = null)
+    {
+        var elapsed = elapsedSeconds.GetValueOrDefault();
+        var suffix = elapsed > 0 ? $" ({elapsed}s)" : string.Empty;
+        return Pick(language,
+            $"{actionLabel ?? "Action admin"} en cours…{suffix}",
+            $"{actionLabel ?? "Admin action"} running…{suffix}",
+            $"{actionLabel ?? "Acción admin"} en curso…{suffix}",
+            $"{actionLabel ?? "Ação admin"} em curso…{suffix}",
+            $"{actionLabel ?? "Admin-Aktion"} läuft…{suffix}",
+            $"{actionLabel ?? "Azione admin"} in corso…{suffix}");
+    }
+
+    public static string AdminRescanCompleted(string? language, int? totalDocuments, int? totalCategories, int? maxDepth)
+    {
+        var details = new StringBuilder();
+        var documentCount = totalDocuments.GetValueOrDefault();
+        var categoryCount = totalCategories.GetValueOrDefault();
+        var depth = maxDepth.GetValueOrDefault();
+        if (documentCount > 0)
+            details.Append(Pick(language, $" {documentCount} document(s)", $" {documentCount} document(s)", $" {documentCount} documento(s)", $" {documentCount} documento(s)", $" {documentCount} Dokument(e)", $" {documentCount} documento/i"));
+        if (categoryCount > 0)
+            details.Append(Pick(language, $", {categoryCount} dossier(s)", $", {categoryCount} folder(s)", $", {categoryCount} carpeta(s)", $", {categoryCount} pasta(s)", $", {categoryCount} Ordner", $", {categoryCount} cartella/e"));
+        if (depth > 0)
+            details.Append(Pick(language, $", profondeur {depth}", $", depth {depth}", $", profundidad {depth}", $", profundidade {depth}", $", Tiefe {depth}", $", profondità {depth}"));
+
+        return Pick(language,
+            $"Le rescan du catalogue est terminé.{details}",
+            $"The catalog rescan is complete.{details}",
+            $"El reescaneo del catálogo ha terminado.{details}",
+            $"O reescaneamento do catálogo foi concluído.{details}",
+            $"Der Katalog-Rescan ist abgeschlossen.{details}",
+            $"La scansione del catalogo è completata.{details}");
+    }
 }

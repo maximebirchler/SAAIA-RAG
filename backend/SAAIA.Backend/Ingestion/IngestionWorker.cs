@@ -193,6 +193,7 @@ WHERE job_id=@job_id
         var qct = qdrantCts?.Token ?? ct;
 
         // ✅ Bulkhead Qdrant + delete via client (dispose OK)
+        await JobRepo.UpdateProgressAsync(ds, job.JobId, "deleting", null, null, ct);
         using (await _bulkheads.AcquireQdrantAsync(qct))
         {
             await QdrantClient.DeleteByDocAsync(qdrant, rag.QdrantCollection, tenantId, docId, qct);
@@ -223,6 +224,8 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
         var relDocPath = DocPathNormalizer.NormalizeToRelative(job.DocPath, ingest.DocumentsRoot);
         var absPath = DocPathNormalizer.ToAbsoluteFromRelative(relDocPath, ingest.DocumentsRoot);
 
+        await JobRepo.UpdateProgressAsync(ds, job.JobId, "preparing", null, null, ct);
+
         if (job.Version > 0)
         {
             var ok = await IsCurrentDocVersionAsync(ds, tenantId, relDocPath, job.Version, ct);
@@ -249,11 +252,13 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
         }
 
         // PDF -> tokens -> chunks
+        await JobRepo.UpdateProgressAsync(ds, job.JobId, "extracting", null, null, ct);
         var tokens = PdfExtractor.ExtractWordTokens(absPath);
         if (tokens.Count == 0)
             throw new Exception("No text extracted from PDF");
 
         var chunks = Chunker.MakeChunks(tokens, ingest.ChunkMaxWords, ingest.ChunkOverlapWords, ingest.ChunkMinWords);
+        await JobRepo.UpdateProgressAsync(ds, job.JobId, "embedding", 0, chunks.Count, ct);
 
         // TEI
         var tei = httpFactory.CreateClient("tei");
@@ -353,15 +358,18 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
             }
             swQ.Stop();
 
-            // Heartbeat + log progression
+            // Heartbeat + progression
             await TouchJobLockAsync(ds, job.JobId, workerId, ct);
 
             var done = Math.Min(i + slice.Count, chunks.Count);
+            await JobRepo.UpdateProgressAsync(ds, job.JobId, "embedding", done, chunks.Count, ct);
             _log.LogInformation(
                 "Ingestion progress job={JobId} doc={DocPath} chunks={Done}/{Total} tei_ms={TeiMs} qdrant_ms={QdrantMs}",
                 job.JobId, relDocPath, done, chunks.Count, swTei.ElapsedMilliseconds, swQ.ElapsedMilliseconds
             );
         }
+
+        await JobRepo.UpdateProgressAsync(ds, job.JobId, "finalizing", chunks.Count, chunks.Count, ct);
 
         // Update documents row
         await using var conn = await ds.OpenConnectionAsync(ct);

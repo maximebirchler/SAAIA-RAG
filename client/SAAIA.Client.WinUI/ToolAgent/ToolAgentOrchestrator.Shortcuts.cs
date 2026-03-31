@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -36,6 +37,23 @@ public sealed partial class ToolAgentOrchestrator
             await EmitDeterministicTextAsync(answer, onDelta, ct).ConfigureAwait(false);
             return (true, answer, null, "chat.general", Array.Empty<string>());
         }
+
+        if (LooksLikeHelpOnlyAdminReindexDisplayText(effectiveUserMessage))
+        {
+            var answer = LocalizedStrings.HelpOnlyCommandUseHelp(interactionLanguage);
+            await EmitDeterministicTextAsync(answer, onDelta, ct).ConfigureAwait(false);
+            return (true, answer, null, "meta.help", Array.Empty<string>());
+        }
+
+        var recentAdminStatus = await TryHandleRecentAdminOperationStatusAsync(
+            effectiveUserMessage,
+            interactionLanguage,
+            ct,
+            onPhase,
+            onDelta,
+            onProgress).ConfigureAwait(false);
+        if (recentAdminStatus.handled)
+            return (true, recentAdminStatus.finalAnswer, null, recentAdminStatus.routerIntent, recentAdminStatus.toolNames);
 
         if (LooksLikeExplicitLiveSummaryFollowUp(effectiveUserMessage)
             && !string.IsNullOrWhiteSpace(_mem.LastRequestedDocumentRef))
@@ -73,6 +91,7 @@ public sealed partial class ToolAgentOrchestrator
 
             var rawRes = await _api.DocumentsListAsync(null, null, null, 500, 0, ct).ConfigureAwait(false);
             var res = CreateCanonicalDocumentsListJson(rawRes);
+            ResetFocusedDocumentIfNoDocumentItems(res);
             RememberDeterministicRenderFromJson("list", res, "inventory.list", displayUserMessage);
             _mem.LastInventoryAction = "list_documents";
             _mem.LastSummaryStatusSnapshot = null;
@@ -176,6 +195,7 @@ public sealed partial class ToolAgentOrchestrator
                     Mode = isPresentMode ? "present" : "missing"
                 };
                 UpdateSummaryStatusSnapshotFromJson(res);
+                UpdateLastListedDocumentsFromSummaryStatusSnapshot();
                 RememberDeterministicRenderFromJson("summary_status_list", res, "inventory.summary_status", displayUserMessage);
                 _mem.LastInventoryAction = "summary_status_list";
                 var answer = RenderDeterministicInventoryFromData("summary_status_list", res, interactionLanguage).Trim();
@@ -192,6 +212,7 @@ public sealed partial class ToolAgentOrchestrator
             var category = ResolveCategorySnapshotFromReference(exactCategoryDocumentsRef, exactCategoryDocumentsRef);
             var rawRes = await _api.DocumentsListAsync(category?.CategoryPath, category?.CategoryRef ?? exactCategoryDocumentsRef, null, 80, 0, ct).ConfigureAwait(false);
             var res = CreateCanonicalDocumentsListJsonCore(rawRes, category?.CategoryPath ?? exactCategoryDocumentsRef);
+            ResetFocusedDocumentIfNoDocumentItems(res);
             RememberDeterministicRenderFromJson("list", res, "inventory.list", displayUserMessage);
             _mem.LastInventoryAction = "list_documents_by_category";
             if (category is not null)
@@ -208,6 +229,7 @@ public sealed partial class ToolAgentOrchestrator
 
             var rawRes = await _api.DocumentsListAsync(categoryPath: null, categoryRef: null, q: exactDocumentSearchQuery, limit: 20, offset: 0, ct: ct).ConfigureAwait(false);
             var res = CreateCanonicalDocumentsListJsonCore(rawRes, scopePath: null, searchQuery: exactDocumentSearchQuery);
+            ResetFocusedDocumentIfNoDocumentItems(res);
             RememberDeterministicRenderFromJson("list", res, "inventory.find", displayUserMessage);
             _mem.LastInventoryAction = "search_documents";
             var answer = RenderDeterministicInventoryFromData("list", res, interactionLanguage).Trim();
@@ -241,12 +263,13 @@ public sealed partial class ToolAgentOrchestrator
             }
 
             onPhase?.Invoke(DeterministicAgentText.PhaseTools(interactionLanguage));
-            onProgress?.Invoke(DeterministicAgentText.ToolProgress("admin.catalog.rescan_now", interactionLanguage));
+            onProgress?.Invoke(DeterministicAgentText.AdminRescanQueued(interactionLanguage, null));
 
             try
             {
                 var res = await _api.AdminCatalogRescanNowAsync(ct).ConfigureAwait(false);
-                var answer = DeterministicAgentText.AdminRescanQueued(interactionLanguage, TryGetString(res, "jobId"));
+                var answer = BuildAdminRescanCompletedAnswer(res, interactionLanguage);
+                RememberCompletedAdminRescan(res);
                 await EmitDeterministicTextAsync(answer, onDelta, ct).ConfigureAwait(false);
                 return (true, answer, null, "admin.catalog.rescan_now", new[] { "admin.catalog.rescan_now" });
             }
@@ -258,42 +281,6 @@ public sealed partial class ToolAgentOrchestrator
             }
         }
 
-        if (TryExtractExactAdminReindexDocumentRef(effectiveUserMessage, out var reindexDocRef))
-        {
-            if (!_api.HasAdminKey)
-            {
-                var denied = DeterministicAgentText.ToolFailureAdminRequired(interactionLanguage);
-                await EmitDeterministicTextAsync(denied, onDelta, ct).ConfigureAwait(false);
-                return (true, denied, null, "admin.ingestion.reindex", new[] { "admin.ingestion.reindex" });
-            }
-
-            onPhase?.Invoke(DeterministicAgentText.PhaseTools(interactionLanguage));
-            onProgress?.Invoke(DeterministicAgentText.ToolProgress("admin.ingestion.reindex", interactionLanguage));
-
-            try
-            {
-                var resolved = await ResolveDocRefAsync(reindexDocRef, ct).ConfigureAwait(false);
-                if (resolved is null)
-                {
-                    var missing = LocalizedStrings.NoDocumentsFound(interactionLanguage);
-                    await EmitDeterministicTextAsync(missing, onDelta, ct).ConfigureAwait(false);
-                    return (true, missing, null, "admin.ingestion.reindex", new[] { "admin.ingestion.reindex" });
-                }
-
-                var res = await _api.AdminIngestionReindexAsync(resolved.DocPath, ct).ConfigureAwait(false);
-                var label = string.IsNullOrWhiteSpace(resolved.DocName) ? reindexDocRef : resolved.DocName;
-                var jobId = TryGetString(res, "jobId");
-                var answer = await WaitForAdminIngestionJobAsync(jobId, label, interactionLanguage, ct, onProgress).ConfigureAwait(false);
-                await EmitDeterministicTextAsync(answer, onDelta, ct).ConfigureAwait(false);
-                return (true, answer, null, "admin.ingestion.reindex", new[] { "admin.ingestion.reindex" });
-            }
-            catch (Exception ex)
-            {
-                var failure = DeterministicAgentText.ToolFailureToolFailed(interactionLanguage) + " " + ex.Message;
-                await EmitDeterministicTextAsync(failure, onDelta, ct).ConfigureAwait(false);
-                return (true, failure, null, "admin.ingestion.reindex", new[] { "admin.ingestion.reindex" });
-            }
-        }
 
         if (TryExtractFollowUpCategoryRef(effectiveUserMessage, out var directCategoryRef))
         {
@@ -305,6 +292,7 @@ public sealed partial class ToolAgentOrchestrator
                 var category = ResolveCategorySnapshotFromReference(directCategoryRef);
                 var rawRes = await _api.DocumentsListAsync(category?.CategoryPath, category?.CategoryRef ?? directCategoryRef, null, 80, 0, ct).ConfigureAwait(false);
                 var res = CreateCanonicalDocumentsListJsonCore(rawRes, category?.CategoryPath ?? directCategoryRef);
+                ResetFocusedDocumentIfNoDocumentItems(res);
                 RememberDeterministicRenderFromJson("list", res, "inventory.list", displayUserMessage);
                 _mem.LastInventoryAction = "list_documents_by_category";
                 if (category is not null)
@@ -343,6 +331,7 @@ public sealed partial class ToolAgentOrchestrator
                 ? await _api.AdminSummaryPresentAsync(limit, 0, _mem.LastSummaryStatusSnapshot.CategoryPath, _mem.LastSummaryStatusSnapshot.CategoryRef, ct).ConfigureAwait(false)
                 : await _api.AdminSummaryMissingAsync(limit, 0, _mem.LastSummaryStatusSnapshot.CategoryPath, _mem.LastSummaryStatusSnapshot.CategoryRef, ct).ConfigureAwait(false);
             UpdateSummaryStatusSnapshotFromJson(data);
+            UpdateLastListedDocumentsFromSummaryStatusSnapshot();
 
             RememberDeterministicRenderFromJson("summary_status_list", data, "inventory.summary_status", displayUserMessage);
             _mem.LastInventoryAction = "summary_status_list";
@@ -365,6 +354,7 @@ public sealed partial class ToolAgentOrchestrator
                 var category = ResolveCategorySnapshotFromReference(categoryRef);
                 var rawRes = await _api.DocumentsListAsync(category?.CategoryPath, category?.CategoryRef ?? categoryRef, null, 80, 0, ct).ConfigureAwait(false);
                 var res = CreateCanonicalDocumentsListJsonCore(rawRes, category?.CategoryPath ?? categoryRef);
+                ResetFocusedDocumentIfNoDocumentItems(res);
                 RememberDeterministicRenderFromJson("list", res, "inventory.list", displayUserMessage);
                 _mem.LastInventoryAction = "list_documents_by_category";
                 if (category is not null)
@@ -666,13 +656,16 @@ public sealed partial class ToolAgentOrchestrator
         var normalizedScopePath = NormalizeCategoryPathArg(scopePath) ?? NormalizeCategoryPathArg(TryGetString(rawData, "scopePath"));
         var normalizedSearchQuery = string.IsNullOrWhiteSpace(searchQuery) ? TryGetString(rawData, "searchQuery") : searchQuery.Trim();
 
+        if (LooksLikeExactDocumentReference(normalizedSearchQuery))
+            docs = FilterExactDocumentMatches(docs, normalizedSearchQuery!);
+
         using var doc = JsonDocument.Parse(JsonSerializer.Serialize(new
         {
             scopePath = normalizedScopePath,
             searchQuery = normalizedSearchQuery,
             limit,
             offset,
-            total,
+            total = docs.Count,
             endOfList,
             dropped,
             items = docs.Select(x => new
@@ -688,6 +681,34 @@ public sealed partial class ToolAgentOrchestrator
         }));
 
         return doc.RootElement.Clone();
+    }
+
+    private static bool LooksLikeExactDocumentReference(string? searchQuery)
+    {
+        if (string.IsNullOrWhiteSpace(searchQuery))
+            return false;
+
+        var q = searchQuery.Trim();
+        return q.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)
+            || q.Contains('/')
+            || q.Contains('\\');
+    }
+
+    private static List<ToolMemory.DocumentItem> FilterExactDocumentMatches(List<ToolMemory.DocumentItem> docs, string searchQuery)
+    {
+        if (docs.Count == 0)
+            return docs;
+
+        var normalizedQuery = searchQuery.Trim().Replace('\\', '/').TrimStart('/');
+        var byPath = normalizedQuery.Contains('/');
+        var queryFileName = Path.GetFileName(normalizedQuery);
+
+        return docs
+            .Where(x => byPath
+                ? string.Equals((x.DocPath ?? string.Empty).Replace('\\', '/').TrimStart('/'), normalizedQuery, StringComparison.OrdinalIgnoreCase)
+                : string.Equals(Path.GetFileName(x.DocName ?? string.Empty), queryFileName, StringComparison.OrdinalIgnoreCase)
+                  || string.Equals(Path.GetFileName(x.DocPath ?? string.Empty), queryFileName, StringComparison.OrdinalIgnoreCase))
+            .ToList();
     }
 
     private string TryRenderLastDeterministicAnswer(string language)
@@ -1299,37 +1320,67 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
     private async Task<string> WaitForAdminIngestionJobAsync(string? jobId, string documentLabel, string language, CancellationToken ct, Action<string>? onProgress)
     {
         if (string.IsNullOrWhiteSpace(jobId))
+        {
+            UpdateRecentAdminOperationStatus("queued", completed: false, success: false, error: null);
             return DeterministicAgentText.AdminReindexQueued(language, documentLabel, null);
+        }
 
-        for (var attempt = 0; attempt < 10; attempt++)
+        var startedAtUtc = _mem.LastAdminOperation?.CreatedAtUtc ?? DateTimeOffset.UtcNow;
+        string? lastStatus = null;
+
+        for (var attempt = 0; attempt < 180; attempt++)
         {
             ct.ThrowIfCancellationRequested();
             var snapshot = await TryLoadAdminIngestionJobAsync(jobId, ct).ConfigureAwait(false);
-            var status = (TryGetString(snapshot, "status") ?? string.Empty).Trim().ToLowerInvariant();
+            var status = (ReadAdminJobStatus(snapshot) ?? string.Empty).Trim().ToLowerInvariant();
+            var elapsedSeconds = Math.Max(1, (int)Math.Round((DateTimeOffset.UtcNow - startedAtUtc).TotalSeconds));
             if (status.Length == 0)
-                break;
+                status = "running";
 
             if (status is "done" or "completed" or "succeeded" or "success")
+            {
+                UpdateRecentAdminOperationStatus("done", completed: true, success: true, error: null);
                 return DeterministicAgentText.AdminReindexCompleted(language, documentLabel);
+            }
 
             if (status is "failed" or "error" or "canceled" or "cancelled")
-                return DeterministicAgentText.AdminReindexFailed(language, documentLabel, TryGetString(snapshot, "lastError"));
-
-            onProgress?.Invoke(status switch
             {
-                "queued" => DeterministicAgentText.AdminJobQueued(language, documentLabel),
-                "running" => DeterministicAgentText.AdminJobRunning(language, documentLabel),
-                _ => DeterministicAgentText.AdminReindexRunning(language, documentLabel)
-            });
+                var error = ReadAdminJobLastError(snapshot);
+                UpdateRecentAdminOperationStatus(status, completed: true, success: false, error: error);
+                return DeterministicAgentText.AdminReindexFailed(language, documentLabel, error);
+            }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(700), ct).ConfigureAwait(false);
+            UpdateRecentAdminOperationStatus(status, completed: false, success: false, error: null);
+            if (!string.Equals(lastStatus, status, StringComparison.OrdinalIgnoreCase) || attempt == 0 || attempt % 5 == 0)
+            {
+                onProgress?.Invoke(status switch
+                {
+                    "queued" => DeterministicAgentText.AdminJobQueued(language, documentLabel, elapsedSeconds),
+                    "running" => DeterministicAgentText.AdminJobRunning(language, documentLabel, elapsedSeconds),
+                    _ => DeterministicAgentText.AdminReindexRunning(language, documentLabel, elapsedSeconds)
+                });
+                lastStatus = status;
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(1), ct).ConfigureAwait(false);
         }
 
-        return DeterministicAgentText.AdminReindexRunning(language, documentLabel);
+        var finalElapsed = Math.Max(1, (int)Math.Round((DateTimeOffset.UtcNow - startedAtUtc).TotalSeconds));
+        UpdateRecentAdminOperationStatus("running", completed: false, success: false, error: null);
+        return DeterministicAgentText.AdminReindexRunning(language, documentLabel, finalElapsed);
     }
 
     private async Task<JsonElement> TryLoadAdminIngestionJobAsync(string jobId, CancellationToken ct)
     {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(jobId))
+                return await _api.AdminJobGetAsync(jobId, ct).ConfigureAwait(false);
+        }
+        catch
+        {
+        }
+
         try
         {
             var json = await _api.AdminJobsListAsync("ingestion", 100, 0, ct).ConfigureAwait(false);
@@ -1339,7 +1390,7 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
                 {
                     var currentJobId = TryGetString(item, "jobId") ?? TryGetString(item, "JobId");
                     if (string.Equals(currentJobId, jobId, StringComparison.OrdinalIgnoreCase))
-                        return item;
+                        return item.Clone();
                 }
             }
         }
@@ -1349,6 +1400,235 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
 
         using var doc = JsonDocument.Parse("{}");
         return doc.RootElement.Clone();
+    }
+
+    private static string? ReadAdminJobStatus(JsonElement snapshot)
+    {
+        return TryGetString(snapshot, "status")
+               ?? TryGetString(snapshot, "Status");
+    }
+
+    private static string? ReadAdminJobLastError(JsonElement snapshot)
+    {
+        return TryGetString(snapshot, "lastError")
+               ?? TryGetString(snapshot, "LastError");
+    }
+
+    private static string? ReadAdminJobProgressPhase(JsonElement snapshot)
+        => TryGetString(snapshot, "progressPhase") ?? TryGetString(snapshot, "ProgressPhase");
+
+    private static int? ReadAdminJobProgressCurrent(JsonElement snapshot)
+        => TryGetInt(snapshot, "progressCurrent") ?? TryGetInt(snapshot, "ProgressCurrent");
+
+    private static int? ReadAdminJobProgressTotal(JsonElement snapshot)
+        => TryGetInt(snapshot, "progressTotal") ?? TryGetInt(snapshot, "ProgressTotal");
+
+    private static int? ReadAdminJobProgressPercent(JsonElement snapshot)
+        => TryGetInt(snapshot, "progressPercent") ?? TryGetInt(snapshot, "ProgressPercent");
+
+    private async Task<(bool handled, string finalAnswer, string? routerIntent, IReadOnlyList<string> toolNames)> TryHandleRecentAdminOperationStatusAsync(
+        string effectiveUserMessage,
+        string interactionLanguage,
+        CancellationToken ct,
+        Action<string>? onPhase,
+        Action<string>? onDelta,
+        Action<string>? onProgress)
+    {
+        if (!LooksLikeRecentAdminOperationStatusFollowUp(effectiveUserMessage))
+            return (false, string.Empty, null, Array.Empty<string>());
+
+        var op = _mem.LastAdminOperation;
+        if (op is null || (DateTimeOffset.UtcNow - op.CreatedAtUtc) > TimeSpan.FromMinutes(30))
+            return (false, string.Empty, null, Array.Empty<string>());
+
+        onPhase?.Invoke(DeterministicAgentText.PhaseTools(interactionLanguage));
+
+        if (!op.IsCompleted && string.Equals(op.OperationKind, "document_reindex", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(op.JobId))
+        {
+            onProgress?.Invoke(DeterministicAgentText.AdminJobRunning(interactionLanguage, op.DisplayLabel));
+            var snapshot = await TryLoadAdminIngestionJobAsync(op.JobId, ct).ConfigureAwait(false);
+            var status = (ReadAdminJobStatus(snapshot) ?? string.Empty).Trim().ToLowerInvariant();
+            if (status.Length == 0)
+                status = op.Status;
+
+            var progressPhase = ReadAdminJobProgressPhase(snapshot);
+            var progressCurrent = ReadAdminJobProgressCurrent(snapshot);
+            var progressTotal = ReadAdminJobProgressTotal(snapshot);
+            var progressPercent = ReadAdminJobProgressPercent(snapshot);
+
+            if (status is "done" or "completed" or "succeeded" or "success")
+                UpdateRecentAdminOperationStatus("done", completed: true, success: true, error: null, progressPhase, progressCurrent, progressTotal, progressPercent);
+            else if (status is "failed" or "error" or "canceled" or "cancelled")
+                UpdateRecentAdminOperationStatus(status, completed: true, success: false, error: ReadAdminJobLastError(snapshot), progressPhase, progressCurrent, progressTotal, progressPercent);
+            else
+                UpdateRecentAdminOperationStatus(string.IsNullOrWhiteSpace(status) ? "running" : status, completed: false, success: false, error: null, progressPhase, progressCurrent, progressTotal, progressPercent);
+
+            op = _mem.LastAdminOperation;
+        }
+
+        if (op is null)
+            return (false, string.Empty, null, Array.Empty<string>());
+
+        var answer = BuildRecentAdminOperationStatusAnswer(op, interactionLanguage);
+        await EmitDeterministicTextAsync(answer, onDelta, ct).ConfigureAwait(false);
+        return (true, answer, "admin.operation.status", new[] { "admin.operation.status" });
+    }
+
+    private string BuildRecentAdminOperationStatusAnswer(ToolMemory.AdminOperationState operation, string language)
+    {
+        if (string.Equals(operation.OperationKind, "catalog_rescan", StringComparison.OrdinalIgnoreCase))
+        {
+            return operation.IsCompleted
+                ? DeterministicAgentText.AdminRescanCompleted(language, operation.IndexedDocuments, operation.TotalCategories, operation.MaxDepth)
+                : DeterministicAgentText.AdminRescanQueued(language, operation.JobId);
+        }
+
+        if (operation.IsCompleted)
+        {
+            return operation.IsSuccess
+                ? DeterministicAgentText.AdminReindexCompleted(language, operation.DisplayLabel)
+                : DeterministicAgentText.AdminReindexFailed(language, operation.DisplayLabel, operation.LastError);
+        }
+
+        var elapsedSeconds = Math.Max(1, (int)Math.Round((DateTimeOffset.UtcNow - operation.CreatedAtUtc).TotalSeconds));
+        if (!string.IsNullOrWhiteSpace(operation.ProgressPhase) || operation.ProgressPercent.HasValue || operation.ProgressCurrent.HasValue || operation.ProgressTotal.HasValue)
+            return DeterministicAgentText.AdminReindexProgressPhase(language, operation.ProgressPhase, operation.ProgressPercent, operation.ProgressCurrent, operation.ProgressTotal, elapsedSeconds);
+
+        return string.Equals(operation.Status, "queued", StringComparison.OrdinalIgnoreCase)
+            ? DeterministicAgentText.AdminJobQueued(language, operation.DisplayLabel, elapsedSeconds)
+            : DeterministicAgentText.AdminReindexRunning(language, operation.DisplayLabel, elapsedSeconds);
+    }
+
+    private void UpdateRecentAdminOperationStatus(string status, bool completed, bool success, string? error, string? progressPhase = null, int? progressCurrent = null, int? progressTotal = null, int? progressPercent = null)
+    {
+        if (_mem.LastAdminOperation is null)
+            return;
+
+        _mem.LastAdminOperation.Status = string.IsNullOrWhiteSpace(status) ? _mem.LastAdminOperation.Status : status;
+        _mem.LastAdminOperation.IsCompleted = completed;
+        _mem.LastAdminOperation.IsSuccess = success;
+        _mem.LastAdminOperation.LastError = string.IsNullOrWhiteSpace(error) ? _mem.LastAdminOperation.LastError : error.Trim();
+        _mem.LastAdminOperation.ProgressPhase = string.IsNullOrWhiteSpace(progressPhase) ? _mem.LastAdminOperation.ProgressPhase : progressPhase.Trim();
+        _mem.LastAdminOperation.ProgressCurrent = progressCurrent ?? _mem.LastAdminOperation.ProgressCurrent;
+        _mem.LastAdminOperation.ProgressTotal = progressTotal ?? _mem.LastAdminOperation.ProgressTotal;
+        _mem.LastAdminOperation.ProgressPercent = progressPercent ?? _mem.LastAdminOperation.ProgressPercent;
+        _mem.LastAdminOperation.LastUpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    private void RememberCompletedAdminRescan(JsonElement result)
+    {
+        int? totalDocuments = null;
+        int? totalCategories = null;
+        int? maxDepth = null;
+
+        if (result.TryGetProperty("snapshot", out var snapshot) && snapshot.ValueKind == JsonValueKind.Object)
+        {
+            if (snapshot.TryGetProperty("tenants", out var tenants) && tenants.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var tenant in tenants.EnumerateArray())
+                {
+                    totalDocuments = TryGetInt(tenant, "docs") ?? totalDocuments;
+                    totalCategories = TryGetInt(tenant, "nodes") ?? totalCategories;
+                    break;
+                }
+            }
+        }
+
+        _mem.LastAdminOperation = new ToolMemory.AdminOperationState
+        {
+            OperationKind = "catalog_rescan",
+            DisplayLabel = "catalog_rescan",
+            Status = "done",
+            IsCompleted = true,
+            IsSuccess = true,
+            IndexedDocuments = totalDocuments,
+            TotalCategories = totalCategories,
+            MaxDepth = maxDepth,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            LastUpdatedAtUtc = DateTimeOffset.UtcNow
+        };
+    }
+
+    private string BuildAdminRescanCompletedAnswer(JsonElement result, string language)
+    {
+        int? totalDocuments = null;
+        int? totalCategories = null;
+        int? maxDepth = null;
+
+        if (result.TryGetProperty("snapshot", out var snapshot) && snapshot.ValueKind == JsonValueKind.Object)
+        {
+            if (snapshot.TryGetProperty("tenants", out var tenants) && tenants.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var tenant in tenants.EnumerateArray())
+                {
+                    totalDocuments = TryGetInt(tenant, "docs") ?? totalDocuments;
+                    totalCategories = TryGetInt(tenant, "nodes") ?? totalCategories;
+                    break;
+                }
+            }
+        }
+
+        return DeterministicAgentText.AdminRescanCompleted(language, totalDocuments, totalCategories, maxDepth);
+    }
+
+    private void UpdateLastListedDocumentsFromSummaryStatusSnapshot()
+    {
+        if (_mem.LastSummaryStatusSnapshot is null || _mem.LastSummaryStatusSnapshot.Items.Count == 0)
+            return;
+
+        _mem.LastListedDocuments = _mem.LastSummaryStatusSnapshot.Items
+            .Where(x => !string.IsNullOrWhiteSpace(x.DocPath))
+            .Select(x => new ToolMemory.DocumentItem
+            {
+                DocId = x.DocId,
+                DocPath = x.DocPath,
+                DocName = string.IsNullOrWhiteSpace(x.DocName) ? System.IO.Path.GetFileName(x.DocPath) : x.DocName,
+                Category = x.Category,
+                CategoryPath = x.Category,
+                PdfRef = string.Empty
+            })
+            .ToList();
+
+        _mem.LastListOffset = 0;
+        _mem.LastListTotal = _mem.LastSummaryStatusSnapshot.Total > 0 ? _mem.LastSummaryStatusSnapshot.Total : _mem.LastListedDocuments.Count;
+        _mem.LastListEndOfList = true;
+        _mem.LastListCategoryPath = _mem.LastSummaryStatusSnapshot.CategoryPath;
+        _mem.LastListQuery = null;
+    }
+
+    private static bool LooksLikeRecentAdminOperationStatusFollowUp(string? message)
+    {
+        var s = NormalizeShortcutToken(message);
+        if (string.IsNullOrWhiteSpace(s))
+            return false;
+
+        return Regex.IsMatch(s, @"\b(?:c est fait|c est fini|c est termine|fini|termine|ou en est|statut|status|done yet|is it done|is it finished|still running|toujours en cours|toujours en train|est ce termine|est ce fini)\b", ShortcutRegexOptions);
+    }
+
+    private static bool LooksLikeHelpOnlyAdminReindexDisplayText(string? message)
+    {
+        var rawMessage = (message ?? string.Empty).Trim();
+        if (rawMessage.Length == 0)
+            return false;
+
+        var normalizedExact = NormalizeExactPromptText(rawMessage);
+        if (normalizedExact.Length == 0 || ContainsConversationalContentCue(normalizedExact))
+            return false;
+
+        if (MatchesCanonicalDynamicDisplayPrompt(rawMessage, ClientUiText.BuildPromptAdminReindexDisplay))
+            return true;
+
+        if (TryMatchCanonicalDynamicPrompt(rawMessage, ClientUiText.BuildPromptAdminReindex, out _))
+            return true;
+
+        var normalizedShortcut = NormalizeShortcutToken(rawMessage);
+        if (normalizedShortcut.Length == 0)
+            return false;
+
+        return Regex.IsMatch(
+            normalizedShortcut,
+            @"^(?:cible de reindexation|action aide reindexer le document|help action reindex document|reindex target|reindex the document|relance l ingestion du document|objetivo de reindexacion|accion de ayuda reindexar documento|reindexa el documento|destino da reindexacao|acao da ajuda reindexar documento|reindexa o documento|neuindexierungsziel|hilfeaktion dokument neu indexieren|reindiziere das dokument|destinazione reindicizzazione|azione guida reindicizza documento|reindicizza il documento)\b",
+            ShortcutRegexOptions);
     }
 
     private static bool LooksLikeMalformedGuidedCommandRequest(string? message)
@@ -1363,8 +1643,7 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
             || LooksLikeDirectCategoryStatsRequest(s)
             || LooksLikeDirectSummaryStatusRequest(s, out _, out _)
             || LooksLikeDirectTreeRequest(s)
-            || LooksLikeDirectAdminRescanRequest(s)
-            || LooksLikeDirectAdminReindexRequest(s))
+            || LooksLikeDirectAdminRescanRequest(s))
         {
             return false;
         }
@@ -1374,7 +1653,7 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
             || LooksLikeMalformedTreeCommand(s)
             || LooksLikeMalformedCategoryScopedCommand(s)
             || LooksLikeMalformedSummaryStatusCommand(s)
-            || LooksLikeMalformedAdminCatalogCommand(s);
+            || LooksLikeMalformedAdminCatalogRescanCommand(s);
     }
 
     private static bool LooksLikeMalformedCategoriesCommand(string normalizedMessage)
@@ -1437,19 +1716,17 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
         return Regex.IsMatch(normalizedMessage, @"\b(?:combien|how many|count|liste|list|show|display|give|donne|montre|affiche|cuantos|quantos|wie viele|quanti)\b", ShortcutRegexOptions);
     }
 
-    private static bool LooksLikeMalformedAdminCatalogCommand(string normalizedMessage)
+    private static bool LooksLikeMalformedAdminCatalogRescanCommand(string normalizedMessage)
     {
-        return (Regex.IsMatch(normalizedMessage, @"\b(?:rescan|rescann|re scan|scan)\b", ShortcutRegexOptions)
-                && Regex.IsMatch(normalizedMessage, @"\b(?:catalogue|catalog|catalogo|katalog)\b", ShortcutRegexOptions))
-            || (Regex.IsMatch(normalizedMessage, @"\b(?:reindex|reindexe|reindexer|reindic|reindiz)\b", ShortcutRegexOptions)
-                && Regex.IsMatch(normalizedMessage, @"\b(?:document|documents|documento|documentos|dokument|dokumente|file|fichier|fichiers)\b", ShortcutRegexOptions));
+        return Regex.IsMatch(normalizedMessage, @"\b(?:rescan|rescann|re scan|scan)\b", ShortcutRegexOptions)
+            && Regex.IsMatch(normalizedMessage, @"\b(?:catalogue|catalog|catalogo|katalog)\b", ShortcutRegexOptions);
     }
 
     private static bool LooksLikeDirectAdminRescanRequest(string? message)
         => MatchesCanonicalStaticPrompt(message, ClientUiText.BuildPromptAdminRescan);
 
     private static bool LooksLikeDirectAdminReindexRequest(string? message)
-        => TryExtractExactAdminReindexDocumentRef(message, out _);
+        => false;
 
     private static bool TryExtractExactCategoryDocumentsRef(string? message, out string categoryRef)
         => TryMatchCanonicalDynamicPrompt(message, ClientUiText.BuildPromptCategoryDocuments, out categoryRef);
@@ -1461,7 +1738,41 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
         => TryMatchCanonicalDynamicPrompt(message, ClientUiText.BuildPromptSearchDocuments, out query);
 
     private static bool TryExtractExactAdminReindexDocumentRef(string? message, out string documentRef)
-        => TryMatchCanonicalDynamicPrompt(message, ClientUiText.BuildPromptAdminReindex, out documentRef);
+    {
+        documentRef = string.Empty;
+        return false;
+    }
+
+    private static bool MatchesCanonicalDynamicDisplayPrompt(string? message, Func<string?, string, string> promptBuilder)
+    {
+        var rawMessage = (message ?? string.Empty).Trim();
+        if (rawMessage.Length == 0)
+            return false;
+
+        var normalizedMessage = NormalizeExactPromptText(rawMessage);
+        var token = NormalizeExactPromptText("__VALUE__");
+        foreach (var language in ClientUiText.SupportedLanguageCodes())
+        {
+            var template = NormalizeExactPromptText(promptBuilder(language, "__VALUE__").Trim());
+            var tokenIndex = template.IndexOf(token, StringComparison.Ordinal);
+            if (tokenIndex < 0)
+                continue;
+
+            var prefix = template[..tokenIndex].TrimEnd();
+            var suffix = template[(tokenIndex + token.Length)..].TrimStart();
+            if (!normalizedMessage.StartsWith(prefix, StringComparison.Ordinal))
+                continue;
+
+            if (!string.IsNullOrWhiteSpace(suffix) && !normalizedMessage.EndsWith(suffix, StringComparison.Ordinal))
+                continue;
+
+            var valueLength = normalizedMessage.Length - prefix.Length - suffix.Length;
+            if (valueLength > 0)
+                return true;
+        }
+
+        return false;
+    }
 
     private static bool MatchesCanonicalStaticPrompt(string? message, Func<string?, string> promptBuilder)
     {
@@ -1470,10 +1781,15 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
         if (normalizedMessage.Length == 0 || ContainsConversationalContentCue(normalizedMessage))
             return false;
 
+        var canonicalMessage = NormalizeExactPromptText(rawMessage);
         foreach (var language in ClientUiText.SupportedLanguageCodes())
         {
-            if (string.Equals(rawMessage, promptBuilder(language).Trim(), StringComparison.Ordinal))
+            var template = promptBuilder(language).Trim();
+            if (string.Equals(rawMessage, template, StringComparison.Ordinal)
+                || string.Equals(canonicalMessage, NormalizeExactPromptText(template), StringComparison.Ordinal))
+            {
                 return true;
+            }
         }
 
         return false;
@@ -1488,6 +1804,8 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
             return false;
 
         const string token = "__value__";
+        var canonicalMessage = NormalizeExactPromptText(rawMessage);
+
         foreach (var language in ClientUiText.SupportedLanguageCodes())
         {
             var template = promptBuilder(language, token).Trim();
@@ -1497,24 +1815,59 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
 
             var prefix = template[..tokenIndex];
             var suffix = template[(tokenIndex + token.Length)..];
-            if (prefix.Length > 0 && !rawMessage.StartsWith(prefix, StringComparison.Ordinal))
-                continue;
-            if (suffix.Length > 0 && !rawMessage.EndsWith(suffix, StringComparison.Ordinal))
+            if (prefix.Length > 0 && rawMessage.StartsWith(prefix, StringComparison.Ordinal)
+                && (suffix.Length == 0 || rawMessage.EndsWith(suffix, StringComparison.Ordinal)))
+            {
+                var length = rawMessage.Length - prefix.Length - suffix.Length;
+                if (length > 0)
+                {
+                    var captured = rawMessage.Substring(prefix.Length, length).Trim();
+                    if (captured.Length > 0)
+                    {
+                        value = captured;
+                        return true;
+                    }
+                }
+            }
+
+            var canonicalTemplate = NormalizeExactPromptText(template);
+            var canonicalTokenIndex = canonicalTemplate.IndexOf(token, StringComparison.Ordinal);
+            if (canonicalTokenIndex < 0)
                 continue;
 
-            var length = rawMessage.Length - prefix.Length - suffix.Length;
-            if (length <= 0)
+            var canonicalPrefix = canonicalTemplate[..canonicalTokenIndex];
+            var canonicalSuffix = canonicalTemplate[(canonicalTokenIndex + token.Length)..];
+            if (canonicalPrefix.Length > 0 && !canonicalMessage.StartsWith(canonicalPrefix, StringComparison.Ordinal))
+                continue;
+            if (canonicalSuffix.Length > 0 && !canonicalMessage.EndsWith(canonicalSuffix, StringComparison.Ordinal))
                 continue;
 
-            var captured = rawMessage.Substring(prefix.Length, length).Trim();
-            if (captured.Length == 0)
+            var canonicalLength = canonicalMessage.Length - canonicalPrefix.Length - canonicalSuffix.Length;
+            if (canonicalLength <= 0)
                 continue;
 
-            value = captured;
+            var canonicalCaptured = canonicalMessage.Substring(canonicalPrefix.Length, canonicalLength).Trim();
+            if (canonicalCaptured.Length == 0)
+                continue;
+
+            value = canonicalCaptured;
             return true;
         }
 
         return false;
+    }
+
+    private static string NormalizeExactPromptText(string? value)
+    {
+        var normalized = (value ?? string.Empty)
+            .Replace('’', '\'')
+            .Replace('‘', '\'')
+            .Replace(' ', ' ')
+            .Replace("…", "...")
+            .Trim();
+
+        normalized = Regex.Replace(normalized, @"\s+", " ").Trim();
+        return normalized;
     }
 
     private static string NormalizeShortcutToken(string? value)

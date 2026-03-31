@@ -31,7 +31,9 @@ public sealed record ChatMessageCreateRequestDto(
     string Role,
     string Content,
     string? SourcesJson = null,
-    string? StatusNote = null
+    string? StatusNote = null,
+    string? ProgressText = null,
+    string? TrackingMetaJson = null
 );
 
 /// <summary>
@@ -43,5 +45,16 @@ public sealed record ChatMessageDto(
     string Content,
     string? SourcesJson,
     DateTimeOffset CreatedAt,
-    string? StatusNote = null
+    string? StatusNote = null,
+    string? ProgressText = null,
+    string? TrackingMetaJson = null
+);
+
+
+public sealed record ChatMessagePatchRequestDto(
+    string UserId,
+    string? Content = null,
+    string? StatusNote = null,
+    string? ProgressText = null,
+    string? TrackingMetaJson = null
 );

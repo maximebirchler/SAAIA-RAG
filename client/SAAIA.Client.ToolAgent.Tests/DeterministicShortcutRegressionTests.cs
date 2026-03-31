@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Text.Json;
 using SAAIA.Client.WinUI.Services;
 using SAAIA.Client.WinUI.Services.ToolAgent;
+using SAAIA.Client.WinUI.Localization;
 using Xunit;
 
 namespace SAAIA.Client.ToolAgent.Tests;
@@ -445,7 +446,7 @@ public sealed class DeterministicShortcutRegressionTests
     [Theory]
     [InlineData("liste les documents de catégorie", true)]
     [InlineData("montres les statistiques", true)]
-    [InlineData("reindex document", true)]
+    [InlineData("reindex document", false)]
     [InlineData("list the documents in category Programmation", true)]
     [InlineData("How many documents are on the server?", false)]
     [InlineData("Quels documents parlent d'API ?", false)]
@@ -479,14 +480,19 @@ public sealed class DeterministicShortcutRegressionTests
     [Theory]
     [InlineData("fr", "PumpManual.pdf")]
     [InlineData("en", "PumpManual.pdf")]
-    public void Exact_admin_reindex_help_prompts_are_whitelisted_before_the_malformed_guard(string language, string document)
+    public void Admin_reindex_help_prompts_are_no_longer_exposed_as_chat_shortcuts(string language, string document)
     {
-        var target = typeof(ToolAgentOrchestrator).GetMethod("LooksLikeDirectAdminReindexRequest", BindingFlags.NonPublic | BindingFlags.Static);
-        Assert.NotNull(target);
+        var directTarget = typeof(ToolAgentOrchestrator).GetMethod("LooksLikeDirectAdminReindexRequest", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(directTarget);
 
-        var handled = (bool)target!.Invoke(null, new object?[] { ClientUiText.BuildPromptAdminReindex(language, document) })!;
+        var directHandled = (bool)directTarget!.Invoke(null, new object?[] { ClientUiText.BuildPromptAdminReindex(language, document) })!;
+        Assert.False(directHandled);
 
-        Assert.True(handled);
+        var malformedTarget = typeof(ToolAgentOrchestrator).GetMethod("LooksLikeMalformedGuidedCommandRequest", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(malformedTarget);
+
+        var malformedHandled = (bool)malformedTarget!.Invoke(null, new object?[] { ClientUiText.BuildPromptAdminReindex(language, document) })!;
+        Assert.False(malformedHandled);
     }
 
     [Fact]
@@ -525,7 +531,212 @@ public sealed class DeterministicShortcutRegressionTests
         var rendered = (string)method!.Invoke(null, new object[] { doc.RootElement, "fr" })!;
 
         Assert.Contains("Statistiques de la catégorie ATEX", rendered);
-        Assert.Contains("  • Aucun sous-dossier dans cette portée.", rendered);
+        Assert.Contains("  • Aucun dossier ni sous-dossier.", rendered);
+    }
+
+
+    [Fact]
+    public void Exact_static_help_prompt_tolerates_typographic_variants()
+    {
+        var method = typeof(ToolAgentOrchestrator).GetMethod("LooksLikeDirectAdminRescanRequest", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var input = ClientUiText.BuildPromptAdminRescan("fr").Replace("'", "’");
+        var handled = (bool)method!.Invoke(null, new object?[] { input })!;
+
+        Assert.True(handled);
+    }
+
+    [Fact]
+    public void Summary_status_snapshot_becomes_referenceable_document_list()
+    {
+        var mem = new ToolMemory
+        {
+            LastSummaryStatusSnapshot = new ToolMemory.SummaryStatusSnapshot
+            {
+                Total = 1,
+                Items = new()
+                {
+                    new ToolMemory.SummaryStatusItem
+                    {
+                        DocId = "doc-1",
+                        DocPath = "Programmation/Mettler/MettlerToledo_IND570.pdf",
+                        DocName = "MettlerToledo_IND570.pdf",
+                        Category = "Programmation/Mettler",
+                        SummaryState = "present"
+                    }
+                }
+            }
+        };
+
+        var sut = new ToolAgentOrchestrator(api: null!, llm: null!, mem: mem);
+        var method = typeof(ToolAgentOrchestrator).GetMethod("UpdateLastListedDocumentsFromSummaryStatusSnapshot", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(method);
+
+        method!.Invoke(sut, Array.Empty<object>());
+
+        var item = Assert.Single(mem.LastListedDocuments);
+        Assert.Equal("MettlerToledo_IND570.pdf", item.DocName);
+        Assert.Equal("Programmation/Mettler/MettlerToledo_IND570.pdf", item.DocPath);
+    }
+
+    [Theory]
+    [InlineData("C'est fait ?")]
+    [InlineData("c’est fini ?")]
+    [InlineData("is it done?")]
+    public void Recent_admin_status_follow_up_is_detected(string input)
+    {
+        var method = typeof(ToolAgentOrchestrator).GetMethod("LooksLikeRecentAdminOperationStatusFollowUp", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var handled = (bool)method!.Invoke(null, new object?[] { input })!;
+
+        Assert.True(handled);
+    }
+
+
+    [Fact]
+    public void Admin_job_status_reader_supports_pascal_case_payloads()
+    {
+        using var doc = JsonDocument.Parse("""
+{
+  "Status": "done",
+  "LastError": "boom"
+}
+""");
+
+        var statusMethod = typeof(ToolAgentOrchestrator).GetMethod("ReadAdminJobStatus", BindingFlags.NonPublic | BindingFlags.Static);
+        var errorMethod = typeof(ToolAgentOrchestrator).GetMethod("ReadAdminJobLastError", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(statusMethod);
+        Assert.NotNull(errorMethod);
+
+        var status = (string?)statusMethod!.Invoke(null, new object?[] { doc.RootElement });
+        var error = (string?)errorMethod!.Invoke(null, new object?[] { doc.RootElement });
+
+        Assert.Equal("done", status);
+        Assert.Equal("boom", error);
+    }
+
+
+    [Fact]
+    public void Fuzzy_document_resolution_rejects_single_token_vendor_reference()
+    {
+        var mem = new ToolMemory
+        {
+            LastListedDocuments = new()
+            {
+                new ToolMemory.DocumentItem { DocId = "1", DocPath = "Programmation/Siemens/TIA_Portal_V16.pdf", DocName = "TIA_Portal_V16.pdf", Category = "Programmation", CategoryPath = "Programmation/Siemens" },
+                new ToolMemory.DocumentItem { DocId = "2", DocPath = "Programmation/Siemens/Siemens_S7_Manual.pdf", DocName = "Siemens_S7_Manual.pdf", Category = "Programmation", CategoryPath = "Programmation/Siemens" }
+            }
+        };
+
+        var sut = new ToolAgentOrchestrator(api: null!, llm: null!, mem: mem);
+        var method = typeof(ToolAgentOrchestrator).GetMethod("TryResolveKnownDocumentByFuzzyReference", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(method);
+
+        var resolved = method!.Invoke(sut, new object?[] { "Siemens" });
+        Assert.Null(resolved);
+    }
+
+    [Fact]
+    public void Fuzzy_document_resolution_accepts_specific_multi_token_reference()
+    {
+        var mem = new ToolMemory
+        {
+            LastListedDocuments = new()
+            {
+                new ToolMemory.DocumentItem { DocId = "1", DocPath = "Programmation/Mettler/MettlerToledo_IND570.pdf", DocName = "MettlerToledo_IND570.pdf", Category = "Programmation", CategoryPath = "Programmation/Mettler" }
+            }
+        };
+
+        var sut = new ToolAgentOrchestrator(api: null!, llm: null!, mem: mem);
+        var method = typeof(ToolAgentOrchestrator).GetMethod("TryResolveKnownDocumentByFuzzyReference", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(method);
+
+        var resolved = method!.Invoke(sut, new object?[] { "Mettler Toledo IND570" });
+        Assert.NotNull(resolved);
+    }
+
+    [Theory]
+    [InlineData("Accord sur le transfert du code source des logiciels & des documents natifs_2109-3142_Signed")]
+    [InlineData("Accord sur le transfert du code source des logiciels & des documents natifs_2109-3142_Signed.pdf")]
+    public void Exact_document_reference_match_accepts_exact_file_name_with_or_without_extension(string query)
+    {
+        var method = typeof(ToolAgentOrchestrator).GetMethod("IsExactDocumentReferenceMatch", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var matched = (bool)method!.Invoke(null, new object?[]
+        {
+            query,
+            "Accord sur le transfert du code source des logiciels & des documents natifs_2109-3142_Signed.pdf",
+            "General/Accords/Accord sur le transfert du code source des logiciels & des documents natifs_2109-3142_Signed.pdf"
+        })!;
+
+        Assert.True(matched);
+    }
+
+
+    [Fact]
+    public void Candidate_matches_document_identity_does_not_treat_folder_name_as_document_name()
+    {
+        var method = typeof(ToolAgentOrchestrator).GetMethod("CandidateMatchesDocumentIdentity", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var folderOnly = (bool)method!.Invoke(null, new object?[] { "Siemens", "TIA Portal Manual.pdf", "Programmation/Siemens/TIA Portal Manual.pdf" })!;
+        var exactDoc = (bool)method.Invoke(null, new object?[] { "Accord sur le transfert du code source des logiciels & des documents natifs_2109-3142_Signed.pdf", "Accord sur le transfert du code source des logiciels & des documents natifs_2109-3142_Signed.pdf", "General/Accords/Accord sur le transfert du code source des logiciels & des documents natifs_2109-3142_Signed.pdf" })!;
+
+        Assert.False(folderOnly);
+        Assert.True(exactDoc);
+    }
+
+    [Fact]
+    public void Document_target_is_category_message_is_explicit()
+    {
+        var message = DeterministicAgentText.AdminReindexDocumentTargetIsCategory("fr", "Siemens");
+        Assert.Contains("dossier", message);
+        Assert.Contains("catégorie", message);
+        Assert.Contains("PDF", message);
+    }
+
+
+
+    [Theory]
+    [InlineData("fr", "PumpManual.pdf")]
+    [InlineData("en", "PumpManual.pdf")]
+    public void Help_only_admin_reindex_display_text_is_detected_as_help_only(string language, string documentRef)
+    {
+        var method = typeof(ToolAgentOrchestrator).GetMethod("LooksLikeHelpOnlyAdminReindexDisplayText", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var handled = (bool)method!.Invoke(null, new object?[] { ClientUiText.BuildPromptAdminReindexDisplay(language, documentRef) })!;
+        Assert.True(handled);
+    }
+
+    [Theory]
+    [InlineData("Cible de réindexation : Siemens")]
+    [InlineData("Action aide — réindexer le document : PumpManual.pdf")]
+    [InlineData("Relance l'ingestion du document PumpManual.pdf.")]
+    [InlineData("Help action — reindex document: PumpManual.pdf")]
+    public void Help_only_admin_reindex_text_detection_catches_old_and_new_chat_like_forms(string input)
+    {
+        var method = typeof(ToolAgentOrchestrator).GetMethod("LooksLikeHelpOnlyAdminReindexDisplayText", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var handled = (bool)method!.Invoke(null, new object?[] { input })!;
+        Assert.True(handled);
+    }
+
+    [Theory]
+    [InlineData("Programmation/Siemens/TIA_Portal.pdf", true)]
+    [InlineData("Programmation/Siemens", false)]
+    [InlineData("Siemens", false)]
+    public void Reindexable_document_path_requires_an_exact_pdf_path(string path, bool expected)
+    {
+        var method = typeof(ToolAgentOrchestrator).GetMethod("LooksLikeReindexableDocumentPath", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var actual = (bool)method!.Invoke(null, new object?[] { path })!;
+        Assert.Equal(expected, actual);
     }
 
 }

@@ -1,12 +1,11 @@
-using System;
 using System.Collections.Generic;
-using System.IO;
+using System.Threading.Tasks;
+
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+
 using SAAIA.Client.WinUI.Models;
 using SAAIA.Client.WinUI.Services;
-using Windows.Storage;
-using Windows.System;
 
 namespace SAAIA.Client.WinUI.Controls;
 
@@ -43,42 +42,20 @@ public sealed partial class SourcesCardsControl : UserControl
 
     private async void Open_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button b || b.Tag is not SourceCard s) return;
-
-        var resolved = DocumentPathResolver.Resolve(s.DocPath);
-        if (string.IsNullOrWhiteSpace(resolved))
-        {
-            await ShowErrorAsync(
-                "Fichier introuvable",
-                $"docPath (backend): {s.DocPath}\nDocumentsRoot (client): {DocumentPathResolver.GetDocumentsRoot()}");
+        if (sender is not Button b || b.Tag is not SourceCard s)
             return;
-        }
 
         var page = s.PageStart ?? s.PageEnd;
+        var result = await DocumentLauncher.TryOpenAsync(s.DocPath, page);
+        if (result.Success)
+            return;
 
-        try
-        {
-            // 1) Best-effort: PDF + page (Edge supporte souvent #page=)
-            if (page is not null && string.Equals(Path.GetExtension(resolved), ".pdf", StringComparison.OrdinalIgnoreCase))
-            {
-                var fileUri = new Uri(resolved); // file:///C:/... (avec espaces encodés)
-                var uriWithPage = new Uri(fileUri.AbsoluteUri + $"#page={page}");
-
-                var ok = await Launcher.LaunchUriAsync(uriWithPage);
-                if (ok) return;
-            }
-
-            // 2) Fallback: ouvrir le fichier directement (robuste)
-            var file = await StorageFile.GetFileFromPathAsync(resolved);
-            await Launcher.LaunchFileAsync(file);
-        }
-        catch (Exception ex)
-        {
-            await ShowErrorAsync("Impossible d'ouvrir le fichier", ex.Message);
-        }
+        await ShowErrorAsync(
+            result.ErrorTitle ?? "Impossible d'ouvrir le fichier",
+            result.ErrorMessage ?? "Erreur inconnue.");
     }
 
-    private async System.Threading.Tasks.Task ShowErrorAsync(string title, string message)
+    private async Task ShowErrorAsync(string title, string message)
     {
         try
         {
@@ -93,7 +70,7 @@ public sealed partial class SourcesCardsControl : UserControl
         }
         catch
         {
-            // si pas de XamlRoot dispo dans un cas edge, on évite de crasher
+            // Edge case: no XamlRoot available. Avoid crashing while keeping the UI responsive.
         }
     }
 }

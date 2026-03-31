@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Net;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
@@ -826,11 +827,23 @@ public sealed partial class ToolAgentOrchestrator
     private static string BuildSourceResolveAnswer(ToolMemory.SourceRef src, string language, out object payload)
     {
         var dp = (src.DocPath ?? string.Empty).Replace('\\', '/').TrimStart('/');
-        var label = (src.Label ?? string.Empty).Trim().Replace("|", " ").Replace("]", ")");
+        var label = SanitizeOpenTokenLabel((src.Label ?? string.Empty).Trim());
         payload = new { sources = new[] { new { docPath = dp, pageStart = src.PageStart, pageEnd = src.PageEnd, label } } };
 
         var heading = DeterministicAgentText.SourceHeading(language);
         return $"{heading}:\n1. [[open|{dp}|{Math.Max(1, src.PageStart)}|{label}]]";
+    }
+
+    private static string SanitizeOpenTokenLabel(string? label)
+    {
+        var safe = (label ?? string.Empty).Trim();
+        if (safe.Length == 0)
+            return string.Empty;
+
+        return safe
+            .Replace("|", " ")
+            .Replace("[", "(")
+            .Replace("]", ")");
     }
 
     private async Task<string> RenderSummaryForDisplayAsync(string summaryText, string language, string mode, Action<string>? onDelta, CancellationToken ct)
@@ -1596,7 +1609,7 @@ Rules:
             }
 
             // Keep label minimal + safe.
-            label = label.Replace("|", " ").Replace("]", ")");
+            label = SanitizeOpenTokenLabel(label);
 
             sb.AppendLine($"{i + 1}. [[open|{dp}|{Math.Max(1, s.PageStart)}|{label}]]");
         }
@@ -1949,12 +1962,15 @@ USER_MESSAGE:
             }
             catch (Exception ex)
             {
+                var structuredError = ClassifyToolExecutionError(ex, ToolManifest.IsAdminTool(call.Name));
+                var effectiveError = string.IsNullOrWhiteSpace(structuredError) ? ex.Message : structuredError;
+                var resultError = string.IsNullOrWhiteSpace(structuredError) ? "tool_failed" : structuredError;
                 results.Items.Add(new ToolResults.Item
                 {
                     ToolName = call.Name,
-                    Error = ex.Message,
+                    Error = effectiveError,
                     DurationMs = sw.ElapsedMilliseconds,
-                    Result = JsonDocument.Parse("{\"error\":\"tool_failed\"}").RootElement
+                    Result = JsonDocument.Parse($"{{\"error\":\"{resultError}\"}}").RootElement
                 });
             }
         }
@@ -2051,6 +2067,30 @@ AUTHORITATIVE_INVENTORY_DATA (json):
         }
 
         return (finalAnswer, sources);
+    }
+
+    internal static string? ClassifyToolExecutionError(Exception ex, bool isAdminTool)
+    {
+        if (ex is HttpRequestException httpEx)
+        {
+            var statusCode = httpEx.StatusCode;
+            if (statusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+                return isAdminTool ? "admin_invalid_or_forbidden" : "tool_failed";
+        }
+
+        var message = ex.Message ?? string.Empty;
+        if (isAdminTool)
+        {
+            if (Regex.IsMatch(message, @"(^|\D)401(\D|$)", RegexOptions.CultureInvariant)
+                || Regex.IsMatch(message, @"(^|\D)403(\D|$)", RegexOptions.CultureInvariant)
+                || message.Contains("unauthorized", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("forbidden", StringComparison.OrdinalIgnoreCase))
+            {
+                return "admin_invalid_or_forbidden";
+            }
+        }
+
+        return null;
     }
 
     internal static bool ShouldBypassWriterForDeterministicInventory(string? intent, IEnumerable<string> toolNames, string? inventoryRenderedText)
@@ -2751,6 +2791,11 @@ TOOL_RESULTS (json):
         if (errors.Any(x => string.Equals(x, "admin_required", StringComparison.OrdinalIgnoreCase)))
         {
             return DeterministicAgentText.ToolFailureAdminRequired(language);
+        }
+
+        if (errors.Any(x => string.Equals(x, "admin_invalid_or_forbidden", StringComparison.OrdinalIgnoreCase)))
+        {
+            return DeterministicAgentText.ToolFailureAdminInvalidOrForbidden(language);
         }
 
         if (errors.Any(x => string.Equals(x, "unknown_tool", StringComparison.OrdinalIgnoreCase)))
@@ -3652,12 +3697,18 @@ CURRENT_USER_MESSAGE:
         var offset = args.TryGetProperty("offset", out var o) ? o.GetInt32() : 0;
 
         var res = await _api.DocumentsListAsync(categoryPath, categoryRef, q, limit, offset, ct);
+        res = ApplySpecificDocumentQueryGuard(res, q);
 
         _mem.LastListCategoryPath = categoryPath;
         _mem.LastListQuery = q;
 
         // Sanitize against filesystem + update PDFxx mapping (robust against moves/renames)
-        DocumentListHelper.Sanitize(res, _mem);
+        var sanitized = DocumentListHelper.Sanitize(res, _mem);
+        if (sanitized.docs.Count == 0)
+        {
+            _mem.LastFocusedDocument = null;
+            _mem.LastRequestedDocumentRef = null;
+        }
 
         return res;
     }
@@ -3670,11 +3721,17 @@ CURRENT_USER_MESSAGE:
         var offset = args.TryGetProperty("offset", out var o) ? o.GetInt32() : 0;
 
         var res = await _api.DocumentsSearchAsync(q, categoryPath, categoryRef, limit, offset, ct);
+        res = ApplySpecificDocumentQueryGuard(res, q);
 
         _mem.LastListCategoryPath = categoryPath;
         _mem.LastListQuery = q;
 
-        DocumentListHelper.Sanitize(res, _mem);
+        var sanitized = DocumentListHelper.Sanitize(res, _mem);
+        if (sanitized.docs.Count == 0)
+        {
+            _mem.LastFocusedDocument = null;
+            _mem.LastRequestedDocumentRef = null;
+        }
 
         return res;
     }
@@ -3918,6 +3975,107 @@ private JsonElement ExecExportCreate(JsonElement args)
             return null;
 
         return data.GetRawText();
+    }
+
+    internal static JsonElement ApplySpecificDocumentQueryGuard(JsonElement rawData, string? searchQuery)
+    {
+        var query = (searchQuery ?? string.Empty).Trim();
+        if (!LooksLikeSpecificDocumentReferenceQuery(query))
+            return rawData;
+
+        if (!rawData.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+            return rawData;
+
+        var filtered = new List<JsonElement>();
+        foreach (var entry in items.EnumerateArray())
+        {
+            if (entry.ValueKind != JsonValueKind.Object)
+                continue;
+
+            var docName = TryGetString(entry, "docName");
+            var docPath = TryGetString(entry, "docPath");
+            if (MatchesSpecificDocumentReferenceQuery(query, docName, docPath))
+                filtered.Add(entry.Clone());
+        }
+
+        var normalized = new
+        {
+            scopePath = TryGetString(rawData, "scopePath"),
+            searchQuery = query,
+            limit = TryGetInt(rawData, "limit") ?? filtered.Count,
+            offset = TryGetInt(rawData, "offset") ?? 0,
+            total = filtered.Count,
+            endOfList = true,
+            dropped = TryGetInt(rawData, "dropped") ?? 0,
+            items = filtered
+        };
+
+        using var doc = JsonDocument.Parse(JsonSerializer.Serialize(normalized));
+        return doc.RootElement.Clone();
+    }
+
+    internal static bool LooksLikeSpecificDocumentReferenceQuery(string? searchQuery)
+    {
+        var query = (searchQuery ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(query))
+            return false;
+
+        return Regex.IsMatch(query, @"(?i)\.pdf\b")
+            || query.Contains('/')
+            || query.Contains('\\')
+            || Regex.IsMatch(query, @"(?i)\bPDF\s*0*\d{1,4}\b");
+    }
+
+    internal static bool MatchesSpecificDocumentReferenceQuery(string searchQuery, string? docName, string? docPath)
+    {
+        var query = (searchQuery ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(query))
+            return false;
+
+        var normalizedQueryPath = query.Replace('\\', '/').Trim().Trim('/');
+        var normalizedQueryText = NormalizeDocumentLookupText(query);
+        var normalizedQueryCompact = NormalizeDocumentLookupCompact(query);
+        var queryFileName = Path.GetFileName(normalizedQueryPath);
+        var queryFileNameWithoutExtension = Path.GetFileNameWithoutExtension(normalizedQueryPath);
+        var normalizedQueryFileName = NormalizeDocumentLookupText(queryFileName);
+        var normalizedQueryFileNameWithoutExtension = NormalizeDocumentLookupText(queryFileNameWithoutExtension);
+
+        IEnumerable<string> EnumerateCandidates()
+        {
+            if (!string.IsNullOrWhiteSpace(docName))
+                yield return docName!;
+            if (!string.IsNullOrWhiteSpace(docPath))
+            {
+                yield return docPath!;
+                var fileName = Path.GetFileName(docPath!);
+                if (!string.IsNullOrWhiteSpace(fileName))
+                    yield return fileName;
+            }
+        }
+
+        foreach (var raw in EnumerateCandidates().Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var candidate = raw.Trim();
+            var normalizedCandidatePath = candidate.Replace('\\', '/').Trim().Trim('/');
+            var normalizedCandidateText = NormalizeDocumentLookupText(candidate);
+            var normalizedCandidateCompact = NormalizeDocumentLookupCompact(candidate);
+            var candidateFileName = Path.GetFileName(normalizedCandidatePath);
+            var candidateFileNameWithoutExtension = Path.GetFileNameWithoutExtension(normalizedCandidatePath);
+            var normalizedCandidateFileName = NormalizeDocumentLookupText(candidateFileName);
+            var normalizedCandidateFileNameWithoutExtension = NormalizeDocumentLookupText(candidateFileNameWithoutExtension);
+
+            if (string.Equals(candidate, query, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalizedCandidatePath, normalizedQueryPath, StringComparison.OrdinalIgnoreCase)
+                || (!string.IsNullOrWhiteSpace(normalizedQueryCompact) && string.Equals(normalizedCandidateCompact, normalizedQueryCompact, StringComparison.Ordinal))
+                || (!string.IsNullOrWhiteSpace(normalizedQueryText) && string.Equals(normalizedCandidateText, normalizedQueryText, StringComparison.Ordinal))
+                || (!string.IsNullOrWhiteSpace(normalizedQueryFileName) && string.Equals(normalizedCandidateFileName, normalizedQueryFileName, StringComparison.Ordinal))
+                || (!string.IsNullOrWhiteSpace(normalizedQueryFileNameWithoutExtension) && string.Equals(normalizedCandidateFileNameWithoutExtension, normalizedQueryFileNameWithoutExtension, StringComparison.Ordinal)))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static string SerializeToolResults(ToolResults tr)

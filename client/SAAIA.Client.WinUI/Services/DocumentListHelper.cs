@@ -63,23 +63,38 @@ internal static class DocumentListHelper
             var sanitized = TryResolveToDisplayPath(docPath, docName);
             if (string.IsNullOrWhiteSpace(sanitized)) { dropped++; idx++; continue; }
 
+            var resolvedDisplayPath = sanitized.Replace('\\', '/').TrimStart('/');
+            var backendDisplayPath = NormalizeCategoryPath(DocumentPathResolver.ToDisplayPath(docPath) ?? docPath);
+            var resolvedFileName = Path.GetFileName(resolvedDisplayPath);
+            var backendFileName = Path.GetFileName((docName ?? string.Empty).Trim());
+            var mustRewriteFromResolved = !string.Equals(backendDisplayPath, resolvedDisplayPath, StringComparison.OrdinalIgnoreCase)
+                || (!string.IsNullOrWhiteSpace(resolvedFileName)
+                    && !string.IsNullOrWhiteSpace(backendFileName)
+                    && !string.Equals(backendFileName, resolvedFileName, StringComparison.OrdinalIgnoreCase));
+
             // Deduplicate by resolved display path
-            if (!seen.Add(sanitized)) { idx++; continue; }
+            if (!seen.Add(resolvedDisplayPath)) { idx++; continue; }
 
-            var normalizedCategoryPath = NormalizeCategoryPath(!string.IsNullOrWhiteSpace(categoryPath)
-                ? categoryPath
-                : GuessCategoryPathFromPath(sanitized));
+            var normalizedCategoryPath = mustRewriteFromResolved
+                ? GuessCategoryPathFromPath(resolvedDisplayPath)
+                : NormalizeCategoryPath(!string.IsNullOrWhiteSpace(categoryPath)
+                    ? categoryPath
+                    : GuessCategoryPathFromPath(resolvedDisplayPath));
 
-            var normalizedCategory = string.IsNullOrWhiteSpace(category)
-                ? GetMainCategory(normalizedCategoryPath, sanitized)
-                : NormalizeTopLevelCategory(category);
+            var normalizedCategory = mustRewriteFromResolved
+                ? GetMainCategory(normalizedCategoryPath, resolvedDisplayPath)
+                : (string.IsNullOrWhiteSpace(category)
+                    ? GetMainCategory(normalizedCategoryPath, resolvedDisplayPath)
+                    : NormalizeTopLevelCategory(category));
 
             var d = new ToolMemory.DocumentItem
             {
                 PdfRef = pdfRef,
                 DocId = docId,
-                DocPath = sanitized.Replace('\\', '/').TrimStart('/'),
-                DocName = string.IsNullOrWhiteSpace(docName) ? Path.GetFileName(sanitized) : docName,
+                DocPath = resolvedDisplayPath,
+                DocName = mustRewriteFromResolved
+                    ? (resolvedFileName ?? string.Empty)
+                    : (string.IsNullOrWhiteSpace(docName) ? (resolvedFileName ?? string.Empty) : docName),
                 Category = normalizedCategory,
                 CategoryPath = normalizedCategoryPath,
                 Pages = pages

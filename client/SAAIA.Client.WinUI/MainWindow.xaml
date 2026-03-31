@@ -10,15 +10,8 @@
     mc:Ignorable="d"
     Title="SAAIA">
 
-    <Grid x:Name="Root" Padding="12,0,12,12" SizeChanged="Root_SizeChanged">
+    <Grid x:Name="Root" Padding="12,0,12,12" SizeChanged="Root_SizeChanged" Background="{ThemeResource AppWindowBackgroundBrush}">
         <Grid.Resources>
-            <!-- Assistant bubble colors: edit these 2 brushes to tweak the SAAIA reply look -->
-            <SolidColorBrush x:Key="AssistantBubbleBrush" Color="#FF222222" />
-            <SolidColorBrush x:Key="AssistantAvatarBrush" Color="#FFD8E8FF" />
-
-            <!-- Custom title bar colors -->
-            <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="#FF121212" />
-            <SolidColorBrush x:Key="TitleBarLogoBackgroundBrush" Color="#FF242424" />
 
             <!-- converters -->
             <conv:NonEmptyStringToVisibilityConverter x:Key="NonEmptyStringToVisibility" />
@@ -36,8 +29,10 @@
                     </Grid.ColumnDefinitions>
 
                     <Border Grid.Column="1"
-                            Background="#1E4E8C"
-                            CornerRadius="14"
+                            Background="{ThemeResource AppUserBubbleBrush}"
+                            BorderBrush="{ThemeResource AppAccentHoverBrush}"
+                            BorderThickness="1"
+                            CornerRadius="16"
                             Padding="12,10"
                             MaxWidth="560"
                             HorizontalAlignment="Right"
@@ -51,7 +46,7 @@
 
                             <TextBlock Grid.Row="0"
                                     Text="{x:Bind Content, Mode=OneWay}"
-                                    Foreground="White"
+                                    Foreground="{ThemeResource AppTextOnAccentBrush}"
                                     TextWrapping="WrapWholeWords"
                                     IsTextSelectionEnabled="True"/>
 
@@ -64,7 +59,8 @@
 
                                 <TextBlock Grid.Column="0"
                                         Text="{Binding CreatedAt, Converter={StaticResource DateTimeToLocalShort}}"
-                                        Foreground="#D6D6D6"
+                                        Foreground="{ThemeResource AppTextOnAccentBrush}"
+                                        Opacity="0.78"
                                         FontSize="11"
                                         VerticalAlignment="Center"/>
 
@@ -85,7 +81,8 @@
                                         IsHitTestVisible="False">
                                     <FontIcon Glyph="&#xE8C8;"
                                             FontSize="14"
-                                            Foreground="#F2F2F2" />
+                                            Foreground="{ThemeResource AppTextOnAccentBrush}"
+                                            Opacity="0.86" />
                                 </Button>
                             </Grid>
                         </Grid>
@@ -106,7 +103,7 @@
                             Width="28"
                             Height="28"
                             CornerRadius="14"
-                            Background="{StaticResource AssistantAvatarBrush}"
+                            Background="{ThemeResource AppAssistantAvatarBrush}"
                             VerticalAlignment="Top"
                             Margin="0,0,10,0">
                         <Image Source="ms-appx:///Assets/SAAIA_Icone.png"
@@ -115,8 +112,10 @@
                     </Border>
 
                     <Border Grid.Column="1"
-                            Background="{StaticResource AssistantBubbleBrush}"
-                            CornerRadius="14"
+                            Background="{ThemeResource AppAssistantBubbleBrush}"
+                            BorderBrush="{ThemeResource AppBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="16"
                             Padding="12,10"
                             MaxWidth="900"
                             HorizontalAlignment="Left"
@@ -132,17 +131,17 @@
                                               IsActive="True"
                                               VerticalAlignment="Center"/>
                                 <TextBlock Text="{Binding ProgressText}"
-                                           Foreground="#CFCFCF"
+                                           Foreground="{ThemeResource AppTextSecondaryBrush}"
                                            FontSize="12"
                                            TextWrapping="WrapWholeWords"/>
                             </StackPanel>
 
-                            <controls:LinkifiedTextBlock Text="{x:Bind Content, Mode=OneWay}" TextForeground="#F5F5F5" TextFontSize="14"/>
+                            <controls:LinkifiedTextBlock Text="{x:Bind Content, Mode=OneWay}" TextForeground="{ThemeResource AppTextPrimaryBrush}" TextFontSize="14"/>
 
                             <!-- Status note (ex: Génération interrompue.) -->
                             <TextBlock Text="{Binding StatusNote}"
                                     Visibility="{Binding StatusNote, Converter={StaticResource NonEmptyStringToVisibility}}"
-                                    Foreground="#CFCFCF"
+                                    Foreground="{ThemeResource AppTextSecondaryBrush}"
                                     FontSize="12"/>
 
                             <!-- Bottom bar: copy icon (left) + time (right) -->
@@ -170,12 +169,12 @@
                                         IsHitTestVisible="False">
                                     <FontIcon Glyph="&#xE8C8;"
                                             FontSize="14"
-                                            Foreground="#CFCFCF" />
+                                            Foreground="{ThemeResource AppTextSecondaryBrush}" />
                                 </Button>
 
                                 <TextBlock Grid.Column="2"
                                         Text="{Binding CreatedAt, Converter={StaticResource DateTimeToLocalShort}}"
-                                        Foreground="#CFCFCF"
+                                        Foreground="{ThemeResource AppTextSecondaryBrush}"
                                         FontSize="11"
                                         VerticalAlignment="Center"
                                         HorizontalAlignment="Right"/>
@@ -204,7 +203,7 @@
               Grid.Row="0"
               Height="40"
               Margin="-12,0,-12,0"
-              Background="{StaticResource TitleBarBackgroundBrush}">
+              Background="{ThemeResource AppTitleBarBackgroundBrush}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
@@ -219,7 +218,7 @@
                 <Border Width="28"
                         Height="28"
                         CornerRadius="14"
-                        Background="{StaticResource TitleBarLogoBackgroundBrush}"
+                        Background="{ThemeResource AppTitleBarLogoBackgroundBrush}"
                         VerticalAlignment="Center">
                     <Image Source="ms-appx:///Assets/SAAIA_Icone.png"
                            Width="20"
@@ -229,7 +228,7 @@
                            VerticalAlignment="Center" />
                 </Border>
                 <TextBlock Text="SAAIA"
-                           Foreground="White"
+                           Foreground="{ThemeResource AppTextPrimaryBrush}"
                            FontWeight="SemiBold"
                            FontSize="15"
                            VerticalAlignment="Center"/>
@@ -255,6 +254,7 @@
                     BorderThickness="0"
                     Click="ChatsToggle_Click"
                     ToolTipService.ToolTip="Chats"
+                    Style="{StaticResource AppIconButtonStyle}"
                     IsTabStop="False">
                 <FontIcon Glyph="&#xE700;" FontSize="18" />
             </Button>
@@ -264,6 +264,21 @@
                         Spacing="2"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Center">
+                <Button x:Name="SetupButton"
+                        Width="40"
+                        Height="40"
+                        Margin="0,0,0,0"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Padding="0"
+                        Click="SetupWizard_Click"
+                        ToolTipService.ToolTip="Configuration"
+                        Style="{StaticResource AppIconButtonStyle}"
+                        Visibility="Collapsed"
+                        IsTabStop="False">
+                    <FontIcon Glyph="&#xE90F;" FontSize="18" />
+                </Button>
+
                 <Button x:Name="HeaderHelpButton"
                         Width="40"
                         Height="40"
@@ -273,6 +288,7 @@
                         Padding="0"
                         Click="HelpButton_Click"
                         ToolTipService.ToolTip="Aide"
+                        Style="{StaticResource AppIconButtonStyle}"
                         IsTabStop="False">
                     <TextBlock Text="?" FontSize="18" FontWeight="SemiBold" />
                 </Button>
@@ -289,6 +305,7 @@
                         Padding="8"
                         Click="UserSettings_Click"
                         ToolTipService.ToolTip="Paramètres"
+                        Style="{StaticResource AppIconButtonStyle}"
                         IsTabStop="False">
                     <FontIcon Glyph="&#xE713;" FontSize="19" />
                 </Button>
@@ -350,12 +367,6 @@
         Click="UserSettings_Click"
         VerticalAlignment="Bottom"/>
 
-<Button x:Name="SetupButton"
-                        Content="Setup"
-                        Click="SetupWizard_Click"
-                        MinWidth="90"
-                        VerticalAlignment="Bottom"
-                        Visibility="Collapsed"/>
 
                 <Button
                                     x:Name="LlmSettingsButton"
@@ -474,10 +485,7 @@
             <!-- ===== LEFT : Chats panel ===== -->
             <Border x:Name="ChatsPanel"
                     Grid.Column="0"
-                    Background="#111111"
-                    BorderBrush="#2D2D2D"
-                    BorderThickness="1"
-                    CornerRadius="10"
+                    Style="{StaticResource AppPanelBorderStyle}"
                     Padding="12"
                     Margin="0,0,12,0">
 
@@ -500,46 +508,57 @@
                                 x:Name="NewChatButton"
                                 Content="New"
                                 Click="NewChat_Click"
-                                MinWidth="80"/>
+                                MinWidth="80"
+                                Style="{StaticResource AppSecondaryButtonStyle}"/>
                     </Grid>
 
                     <ListView Grid.Row="1"
                               x:Name="SessionsList"
                               SelectionChanged="SessionsList_SelectionChanged"
+                              ItemContainerStyle="{StaticResource AppSidebarListItemStyle}"
                               HorizontalContentAlignment="Stretch"
                               ScrollViewer.HorizontalScrollBarVisibility="Disabled">
 
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="models:ChatSessionItem">
-                                <Border Background="#151515"
-                                        BorderBrush="#2D2D2D"
-                                        BorderThickness="1"
-                                        CornerRadius="10"
-                                        Padding="10"
-                                        Margin="0,0,0,10">
+                                <Border Background="{x:Bind CardBackgroundBrush, Mode=OneWay}"
+                                        BorderBrush="{x:Bind CardBorderBrush, Mode=OneWay}"
+                                        BorderThickness="{x:Bind CardBorderThickness, Mode=OneWay}"
+                                        CornerRadius="16"
+                                        Padding="12,12,10,12">
                                     <Grid ColumnSpacing="8">
                                         <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
 
-                                        <StackPanel Spacing="4">
+                                        <Border Grid.Column="0"
+                                                Width="4"
+                                                Margin="0,4,0,4"
+                                                CornerRadius="3"
+                                                Background="{ThemeResource AppAccentBrush}"
+                                                Opacity="{x:Bind SelectionAccentOpacity, Mode=OneWay}"/>
+
+                                        <StackPanel Grid.Column="1" Margin="10,0,0,0" Spacing="4" VerticalAlignment="Center">
                                             <TextBlock Text="{x:Bind DisplayTitle}"
                                                        FontWeight="SemiBold"
+                                                       Foreground="{ThemeResource AppTextPrimaryBrush}"
                                                        TextTrimming="CharacterEllipsis"/>
                                             <TextBlock Text="{x:Bind DisplaySubtitle}"
-                                                       Opacity="0.7"
+                                                       Opacity="0.72"
+                                                       Foreground="{ThemeResource AppTextSecondaryBrush}"
                                                        FontSize="12"
                                                        TextTrimming="CharacterEllipsis"/>
                                         </StackPanel>
 
-                                        <!-- Menu ... -->
-                                        <Button Grid.Column="1"
+                                        <Button Grid.Column="2"
                                                 Content="…"
-                                                Width="34"
-                                                Height="28"
+                                                Width="32"
+                                                Height="32"
                                                 HorizontalAlignment="Right"
-                                                VerticalAlignment="Top">
+                                                VerticalAlignment="Center"
+                                                Style="{StaticResource AppCompactButtonStyle}">
                                             <Button.Flyout>
                                                 <MenuFlyout Opening="SessionMenu_Opening">
                                                     <MenuFlyoutItem Text="Rename" Click="SessionRename_Click" CommandParameter="{Binding}"/>
@@ -558,10 +577,10 @@
             <!-- ===== CENTER : Messages ===== -->
             <Border x:Name="MessagesPanelBorder"
                     Grid.Column="1"
-                    Background="#111111"
-                    BorderBrush="#2D2D2D"
+                    Background="{ThemeResource AppPanelElevatedBackgroundBrush}"
+                    BorderBrush="{ThemeResource AppBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="10"
+                    CornerRadius="14"
                     Padding="12">
 
                 <Grid>
@@ -594,7 +613,8 @@
 
                         <TextBlock x:Name="TypingText"
                                    Text="Typing…"
-                                   Opacity="0.65"
+                                   Foreground="{ThemeResource AppTextMutedBrush}"
+                                   Opacity="0.85"
                                    Visibility="Collapsed"
                                    VerticalAlignment="Center"/>
 
@@ -602,7 +622,8 @@
                                 x:Name="JumpBottomButton"
                                 Content="Jump to bottom"
                                 Click="JumpBottom_Click"
-                                Visibility="Collapsed"/>
+                                Visibility="Collapsed"
+                                Style="{StaticResource AppSecondaryButtonStyle}"/>
                     </Grid>
 
                     <!-- INPUT (inside chat panel) -->
@@ -613,13 +634,15 @@
                         </Grid.ColumnDefinitions>
 
                         <TextBox x:Name="InputBox"
+                                 Style="{StaticResource AppComposerTextBoxStyle}"
                                  PlaceholderText="Tape ta question..."
                                  AcceptsReturn="False"
                                  TextWrapping="Wrap"
                                  MinHeight="44"
                                  MaxHeight="220"
                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                 KeyDown="InputBox_KeyDown" />
+                                 KeyDown="InputBox_KeyDown"
+                                 TextChanged="InputBox_TextChanged" />
 
                         <Button Grid.Column="1"
                                 x:Name="SendCancelButton"
@@ -629,7 +652,10 @@
                                 HorizontalAlignment="Right"
                                 VerticalAlignment="Bottom"
                                 ToolTipService.ToolTip="Envoyer"
-                                IsTabStop="False">
+                                IsTabStop="False"
+                                CornerRadius="14"
+                                Padding="0"
+                                BorderThickness="1">
                             <FontIcon x:Name="SendCancelIcon" Glyph="&#xE724;" FontSize="18" />
                         </Button>
                     </Grid>
@@ -639,10 +665,7 @@
             <!-- ===== RIGHT : Sources ===== -->
             <Border x:Name="SourcesPanel"
                     Grid.Column="2"
-                    Background="#111111"
-                    BorderBrush="#2D2D2D"
-                    BorderThickness="1"
-                    CornerRadius="10"
+                    Style="{StaticResource AppPanelBorderStyle}"
                     Padding="12"
                     Visibility="Collapsed">
 
@@ -650,7 +673,7 @@
                               VerticalScrollBarVisibility="Auto">
                     <StackPanel Spacing="12">
 
-                        <TextBlock Text="Sources" FontWeight="SemiBold" FontSize="16"/>
+                        <TextBlock Text="Sources" FontWeight="SemiBold" FontSize="16" Foreground="{ThemeResource AppTextPrimaryBrush}"/>
 
                         <controls:SourcesCardsControl x:Name="SourcesCards" />
 

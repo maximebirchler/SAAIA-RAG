@@ -1,0 +1,629 @@
+namespace SAAIA.Client.WinUI;
+
+public sealed partial class MainWindow
+{
+    private async void SendCancel_Click(object sender, RoutedEventArgs e)
+    {
+        var hasSession = !string.IsNullOrWhiteSpace(_sessionId);
+        var hasText = !string.IsNullOrWhiteSpace(InputBox?.Text);
+        var canInvoke = IsConnected && hasSession && ((_isGenerating && !_isCancellingGeneration) || hasText);
+        if (!canInvoke)
+            return;
+
+        if (_isGenerating && !_isCancellingGeneration)
+        {
+            CancelGeneration();
+            return;
+        }
+
+        await SendAsync();
+    }
+
+    private void InputBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        UpdateSendCancelButtonVisualState();
+    }
+
+    private void InputBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != Windows.System.VirtualKey.Enter || e.KeyStatus.IsMenuKeyDown)
+            return;
+
+        if (sender is not TextBox tb)
+            return;
+
+        var shift = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift);
+        var shiftDown = (shift & Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
+
+        e.Handled = true;
+
+        if (shiftDown)
+        {
+            InsertNewLineAtCaret(tb);
+            return;
+        }
+
+        DispatcherQueue.TryEnqueue(async () =>
+        {
+            try
+            {
+                await SendAsync();
+            }
+            catch
+            {
+                // non bloquant
+            }
+        });
+    }
+
+    private static void InsertNewLineAtCaret(TextBox tb)
+    {
+        // WinUI TextBox normalizes line breaks internally. Using Environment.NewLine here can
+        // desynchronize SelectionStart vs the actual stored text on repeated Shift+Enter presses.
+        // A single CR keeps caret math stable and avoids the regression where a second Shift+Enter
+        // appears to remove the previous line break.
+        const string newline = "\r";
+
+        var current = tb.Text ?? string.Empty;
+        var selectionStart = Math.Clamp(tb.SelectionStart, 0, current.Length);
+        var selectionLength = Math.Clamp(tb.SelectionLength, 0, current.Length - selectionStart);
+
+        var updated = current.Remove(selectionStart, selectionLength).Insert(selectionStart, newline);
+        tb.Text = updated;
+
+        var caret = Math.Clamp(selectionStart + newline.Length, 0, tb.Text?.Length ?? 0);
+        tb.SelectionStart = caret;
+        tb.SelectionLength = 0;
+    }
+
+    private void CancelGeneration()
+    {
+        if (!_isGenerating) return;
+
+        _isCancellingGeneration = true;
+        UpdateSendCancelButtonVisualState();
+        Status("Cancelling…");
+        TrySoftUi("CancelGeneration.CancelToken", () => _cts?.Cancel());
+    }
+
+    private static void MarkInterrupted(ChatMessageItem? assistantMsg)
+    {
+        if (assistantMsg is null) return;
+
+        assistantMsg.ProgressText = null;
+
+        if (string.IsNullOrWhiteSpace(assistantMsg.Content))
+        {
+            assistantMsg.Content = "";
+            assistantMsg.StatusNote = "Génération interrompue.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(assistantMsg.StatusNote))
+            assistantMsg.StatusNote = "Génération interrompue.";
+    }
+
+    private static void SetAssistantProgress(ChatMessageItem? assistantMsg, string? progress)
+    {
+        if (assistantMsg is null) return;
+        assistantMsg.ProgressText = string.IsNullOrWhiteSpace(progress) ? null : progress.Trim();
+    }
+
+    private static void ClearAssistantProgress(ChatMessageItem? assistantMsg)
+        => SetAssistantProgress(assistantMsg, null);
+
+    private static void StampAssistantMessageStart(ChatMessageItem? assistantMsg, ref int replyStarted)
+    {
+        if (assistantMsg is null)
+            return;
+
+        if (System.Threading.Interlocked.CompareExchange(ref replyStarted, 1, 0) != 0)
+            return;
+
+        assistantMsg.CreatedAt = DateTime.UtcNow;
+    }
+
+    private static void EnsureAssistantMessageHasFailureText(ChatMessageItem? assistantMsg)
+    {
+        if (assistantMsg is null)
+            return;
+
+        ClearAssistantProgress(assistantMsg);
+        assistantMsg.StatusNote = null;
+
+        if (string.IsNullOrWhiteSpace(assistantMsg.Content))
+            assistantMsg.Content = "⚠️ La réponse n'a pas pu être générée. Réessaie.";
+    }
+
+    private async Task MaybeAutoTitleAsync(string userText)
+    {
+        // Si le titre est "New chat" (ou vide), on met un titre basé sur la 1ère question
+        if (SessionsList.SelectedItem is not ChatSessionItem s) return;
+
+        var currentTitle = (s.Title ?? "").Trim();
+        if (!string.IsNullOrWhiteSpace(currentTitle) && !IsDefaultSessionTitle(currentTitle))
+            return;
+
+        var title = (userText ?? "").Trim();
+        if (title.Length == 0) return;
+
+        // petit nettoyage + coupe
+        title = title.Replace("\r", " ").Replace("\n", " ");
+        if (title.Length > 60) title = title[..60];
+
+        try
+        {
+            await _api.UpdateSessionTitleAsync(s.SessionId, title, CancellationToken.None);
+            await RefreshSessionsAsync(preferSessionId: s.SessionId, CancellationToken.None);
+        }
+        catch { /* non bloquant */ }
+    }
+
+    private void SetTyping(bool isTyping)
+    {
+        _typingPinned = isTyping;
+        if (TypingText is not null)
+        {
+            TypingText.Text = string.Empty;
+            TypingText.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void UpdateJumpButton()
+    {
+        JumpBottomButton.Visibility = (_userScrolledUp && _messages.Count > 0) ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void ScrollToBottom(bool force = false)
+    {
+        // throttle léger pour éviter un spam de ChangeView pendant streaming
+        if (!force)
+        {
+            var now = DateTime.UtcNow;
+            if ((now - _lastAutoScroll).TotalMilliseconds < 120) return;
+            _lastAutoScroll = now;
+        }
+
+        void ScrollNow()
+        {
+            try
+            {
+                _isProgrammaticScroll = true;
+                MessagesList?.UpdateLayout();
+                MessagesScroll?.UpdateLayout();
+                MessagesScroll?.ChangeView(null, MessagesScroll.ScrollableHeight, null, true);
+            }
+            catch
+            {
+                // non bloquant
+            }
+            finally
+            {
+                _isProgrammaticScroll = false;
+            }
+        }
+
+        ScrollNow();
+
+        try
+        {
+            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, ScrollNow);
+        }
+        catch
+        {
+            // non bloquant
+        }
+    }
+
+    private void MessagesScroll_ViewChanged(object sender, ScrollViewerViewChangedEventArgs e)
+    {
+        if (_isProgrammaticScroll) return;
+
+        // Si le user n'est pas à ~20px du bas => il a scroll up
+        var distanceFromBottom = MessagesScroll.ScrollableHeight - MessagesScroll.VerticalOffset;
+
+        var nearBottom = distanceFromBottom < 20;
+        _userScrolledUp = !nearBottom;
+
+        // si il revient en bas manuellement, on réactive l'autofollow
+        if (nearBottom)
+            _autoFollow = true;
+
+        UpdateJumpButton();
+    }
+
+    private void JumpBottom_Click(object sender, RoutedEventArgs e)
+    {
+        _autoFollow = true;
+        _userScrolledUp = false;
+        UpdateJumpButton();
+        ScrollToBottom(force: true);
+    }
+
+    private void CopyAssistant_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (sender is not Button b) return;
+            if (b.CommandParameter is not ChatMessageItem m) return;
+
+            var text = (m.Content ?? "").Trim();
+            if (text.Length == 0) return;
+
+            var dp = new DataPackage();
+            dp.SetText(text);
+            Clipboard.SetContent(dp);
+
+            Status("Copied.");
+        }
+        catch (Exception ex)
+        {
+            Status("Copy failed: " + ex.Message);
+        }
+    }
+
+    private void ApplyResponsiveLayout(double width)
+    {
+        // UI change: Sources panel is deprecated (sources are now inline in the chat).
+        // Keep it permanently hidden to avoid wasting space.
+        try
+        {
+            SourcesCol.Width = new GridLength(0);
+            SourcesPanel.Visibility = Visibility.Collapsed;
+            SourcesToggleButton.Visibility = Visibility.Collapsed;
+        }
+        catch
+        {
+            // non bloquant
+        }
+    }
+
+    private void UpdateMessagesClip()
+    {
+        try
+        {
+            if (MessagesPanelBorder is null) return;
+
+            var w = MessagesPanelBorder.ActualWidth;
+            var h = MessagesPanelBorder.ActualHeight;
+
+            if (w <= 0 || h <= 0) return;
+
+            MessagesPanelBorder.Clip = new RectangleGeometry
+            {
+                Rect = new Rect(0, 0, w, h)
+            };
+        }
+        catch
+        {
+            // non bloquant
+        }
+    }
+
+    private void Root_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        ApplyResponsiveLayout(e.NewSize.Width);
+        UpdateMessagesClip();
+        try { _dialogOverlayResizeHandler?.Invoke(e.NewSize); } catch { }
+    }
+
+    private async void SourcesToggle_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var xamlRoot = (Content as FrameworkElement)?.XamlRoot;
+            if (xamlRoot is null) return;
+
+            // On prend les sources du message sélectionné.
+            // Si rien n’est sélectionné, on tente le dernier message qui a des sources.
+            string? json = null;
+
+            if (MessagesList.SelectedItem is ChatMessageItem sel)
+                json = sel.SourcesJson;
+
+            if (string.IsNullOrWhiteSpace(json))
+                json = _messages.LastOrDefault(m => !string.IsNullOrWhiteSpace(m.SourcesJson))?.SourcesJson;
+
+            var cards = SourceCardParser.Parse(json);
+
+            var ctrl = new SAAIA.Client.WinUI.Controls.SourcesCardsControl
+            {
+                Items = cards
+            };
+
+            var closeButton = BuildDialogFooterButton(ClientUiText.Get("dialog.close", _appSettings.UiLanguage), primary: true);
+            var dialogSize = GetDialogMaxSize(920, 720, horizontalMargin: 72, verticalMargin: 96);
+            var shell = BuildDialogShell(
+                "Sources",
+                "Sources",
+                cards.Count == 0 ? "Aucune source disponible pour la sélection actuelle." : null,
+                new UIElement[]
+                {
+                    BuildDialogSurfaceCard(ctrl, new Thickness(12))
+                },
+                BuildDialogFooter(closeButton));
+            shell.MaxWidth = dialogSize.Width;
+            shell.MaxHeight = dialogSize.Height;
+
+            OverlayDialogSession? overlay = null;
+            closeButton.Click += (_, __) => overlay?.Close();
+            overlay = ShowOverlayDialog(
+                shell,
+                resizeHandler: _ =>
+                {
+                    var size = GetDialogMaxSize(920, 720, horizontalMargin: 72, verticalMargin: 96);
+                    shell.MaxWidth = size.Width;
+                    shell.MaxHeight = size.Height;
+                });
+
+            await overlay.Completion;
+        }
+        catch
+        {
+            // non bloquant
+        }
+    }
+
+    private void CopyMessage_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button b) return;
+
+        // CommandParameter="{Binding}" => ChatMessageItem
+        if (b.CommandParameter is not ChatMessageItem msg) return;
+
+        var text = LinkifiedTextBlock.ToPlainText(msg.Content);
+        if (text.Length == 0) return;
+
+        var dp = new DataPackage();
+        dp.SetText(text);
+        Clipboard.SetContent(dp);
+
+        Status("Copied.");
+    }
+
+    private void Bubble_PointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe) return;
+
+        if (fe.FindName("CopyBtn") is Button b)
+        {
+            b.Opacity = 1;
+            b.IsHitTestVisible = true;
+        }
+    }
+
+    private void Bubble_PointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe) return;
+
+        if (fe.FindName("CopyBtn") is Button b)
+        {
+            b.Opacity = 0;
+            b.IsHitTestVisible = false;
+        }
+    }
+
+    private async Task SendAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_sessionId))
+        {
+            Status("Select a chat (or New).");
+            return;
+        }
+        if (_agent is null)
+        {
+            Status("Click Connect first (agent not ready).");
+            return;
+        }
+
+        var wireText = _pendingOutboundWireText;
+        var displayText = _pendingOutboundDisplayText;
+        var text = string.IsNullOrWhiteSpace(wireText)
+            ? (InputBox.Text ?? "").Trim()
+            : wireText.Trim();
+        var shownText = string.IsNullOrWhiteSpace(displayText)
+            ? text
+            : displayText!.Trim();
+        if (text.Length == 0) return;
+
+        ChatMessageItem? assistantMsg = null;
+
+        try
+        {
+            _autoFollow = true;
+            _userScrolledUp = false;
+            UpdateJumpButton();
+
+            UpdateUiState(isGenerating: true);
+            InputBox.Text = string.Empty;
+            _pendingOutboundWireText = null;
+            _pendingOutboundDisplayText = null;
+
+            var tailBefore = _messages.ToList();
+
+            var userMsg = new ChatMessageItem { Role = "user", Content = shownText, CreatedAt = DateTime.UtcNow };
+            _messages.Add(userMsg);
+            ScrollToBottom(force: true);
+            var persistedUserMsg = await _api.AddMessageAsync(_sessionId!, "user", shownText, null, CancellationToken.None);
+            if (!string.IsNullOrWhiteSpace(persistedUserMsg?.MessageId))
+                userMsg.MessageId = persistedUserMsg!.MessageId;
+
+            await MaybeAutoTitleAsync(shownText);
+
+            _cts?.Cancel();
+            _cts = new CancellationTokenSource();
+
+            assistantMsg = new ChatMessageItem
+            {
+                Role = "assistant",
+                Content = string.Empty,
+                CreatedAt = DateTime.UtcNow,
+                StatusNote = null,
+                ProgressText = "Je prépare la réponse…"
+            };
+            _messages.Add(assistantMsg);
+            ScrollToBottom(force: true);
+            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => ScrollToBottom(force: true));
+
+            SourcesCards.Items = new List<SourceCard>();
+            SourcesBox.Text = string.Empty;
+
+            SetTyping(true);
+            _autoFollow = true;
+            _userScrolledUp = false;
+            UpdateJumpButton();
+
+            var finalAnswerCommitted = 0;
+            var replyStarted = 0;
+
+            var (finalAnswer, sourcesObj) = await _agent.RunAsync(
+                userText: text,
+                category: ClientDefaults.DefaultCategory,
+                conversationTail: tailBefore,
+                onDelta: token =>
+                {
+                    if (string.IsNullOrEmpty(token) || System.Threading.Volatile.Read(ref finalAnswerCommitted) == 1)
+                        return;
+
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        if (System.Threading.Volatile.Read(ref finalAnswerCommitted) == 1)
+                            return;
+
+                        StampAssistantMessageStart(assistantMsg, ref replyStarted);
+                        assistantMsg.StatusNote = null;
+                        ClearAssistantProgress(assistantMsg);
+                        assistantMsg.Content += token;
+
+                        if (_autoFollow && !_userScrolledUp)
+                            ScrollToBottom(force: true);
+                    });
+                },
+                onPhase: _ => { },
+                onProgress: progress =>
+                {
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        SetAssistantProgress(assistantMsg, progress);
+                        if (_autoFollow && !_userScrolledUp)
+                            ScrollToBottom(force: true);
+                    });
+                },
+                ct: _cts.Token);
+
+            var wasCancelled = _cts.Token.IsCancellationRequested;
+
+            if (!wasCancelled)
+            {
+                ClearAssistantProgress(assistantMsg);
+
+                if (!string.IsNullOrWhiteSpace(finalAnswer))
+                {
+                    StampAssistantMessageStart(assistantMsg, ref replyStarted);
+                    System.Threading.Interlocked.Exchange(ref finalAnswerCommitted, 1);
+                    assistantMsg.Content = finalAnswer;
+                }
+                else if (string.IsNullOrWhiteSpace(assistantMsg.Content))
+                {
+                    assistantMsg.Content = "⚠️ Réponse vide côté LLM. Voir les sources à droite.";
+                }
+
+                assistantMsg.StatusNote = null;
+            }
+            else
+            {
+                MarkInterrupted(assistantMsg);
+                if (string.IsNullOrWhiteSpace(assistantMsg.Content) && !string.IsNullOrWhiteSpace(finalAnswer))
+                {
+                    StampAssistantMessageStart(assistantMsg, ref replyStarted);
+                    System.Threading.Interlocked.Exchange(ref finalAnswerCommitted, 1);
+                    assistantMsg.Content = finalAnswer;
+                }
+            }
+
+            var pretty = sourcesObj is null
+                ? ""
+                : System.Text.Json.JsonSerializer.Serialize(
+                    sourcesObj,
+                    new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+
+            assistantMsg.SourcesJson = pretty;
+            SourcesCards.Items = SourceCardParser.Parse(pretty);
+            SourcesBox.Text = pretty;
+
+            var persistedAssistantMsg = await _api.AddMessageAsync(_sessionId!, "assistant", assistantMsg.Content, sourcesObj, CancellationToken.None, assistantMsg.StatusNote, assistantMsg.ProgressText, assistantMsg.TrackingMeta);
+            if (!string.IsNullOrWhiteSpace(persistedAssistantMsg?.MessageId))
+                assistantMsg.MessageId = persistedAssistantMsg!.MessageId;
+
+            try
+            {
+                await RefreshSessionsAsync(preferSessionId: _sessionId, CancellationToken.None);
+            }
+            catch
+            {
+            }
+
+            if (_autoFollow && !_userScrolledUp)
+                ScrollToBottom(force: true);
+
+            ClearStatus();
+        }
+        catch (OperationCanceledException)
+        {
+            SetTyping(false);
+            UpdateJumpButton();
+            MarkInterrupted(assistantMsg);
+
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(_sessionId) && assistantMsg is not null)
+                {
+                    var persistedCancelledMsg = await _api.AddMessageAsync(
+                        _sessionId!,
+                        "assistant",
+                        assistantMsg.Content ?? "",
+                        assistantMsg.SourcesJson,
+                        CancellationToken.None,
+                        assistantMsg.StatusNote,
+                        assistantMsg.ProgressText,
+                        assistantMsg.TrackingMeta);
+                    if (!string.IsNullOrWhiteSpace(persistedCancelledMsg?.MessageId))
+                        assistantMsg.MessageId = persistedCancelledMsg!.MessageId;
+
+                    try { await RefreshSessionsAsync(preferSessionId: _sessionId, CancellationToken.None); } catch { }
+                }
+            }
+            catch
+            {
+            }
+
+            if (_autoFollow && !_userScrolledUp)
+                ScrollToBottom(force: true);
+
+            ClearStatus();
+        }
+        catch (Exception ex)
+        {
+            EnsureAssistantMessageHasFailureText(assistantMsg);
+            SetTyping(false);
+            UpdateJumpButton();
+            Status("Send failed: " + ex.Message);
+        }
+        finally
+        {
+            UpdateUiState(isGenerating: false);
+            SetTyping(false);
+            UpdateJumpButton();
+        }
+    }
+
+    private void MessagesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (MessagesList.SelectedItem is ChatMessageItem m)
+        {
+            SourcesCards.Items = SourceCardParser.Parse(m.SourcesJson);
+            SourcesBox.Text = m.SourcesJson ?? "";
+        }
+    }
+
+}

@@ -19,6 +19,7 @@ internal sealed class AppSettings
     private const string KShowAdvancedUi = "ui.showAdvanced";
     private const string KAutoConnect = "ui.autoConnect";
     private const string KUiLanguage = "ui.language";
+    private const string KUiTheme = "ui.theme";
     private const string KProvisioningHash = "provisioning.hash";
     private const string KLlmAutoInstallAttemptedHash = "llm.autoInstall.attemptedHash";
     private const string KLlmMode = "llm.mode"; // embedded|docker|external
@@ -61,6 +62,12 @@ internal sealed class AppSettings
     /// Supported: fr|en|es|pt|de|it
     /// </summary>
     public string UiLanguage { get; set; } = "fr";
+
+    /// <summary>
+    /// UI appearance mode for the WinUI shell.
+    /// Supported: system|dark|light
+    /// </summary>
+    public string UiTheme { get; set; } = "dark";
 
     /// <summary>
     /// LLM enable/disable (safe). If false: app runs in degraded "search-only" mode.
@@ -129,6 +136,7 @@ internal sealed class AppSettings
         bool ShowAdvancedUi,
         bool AutoConnect,
         string UiLanguage,
+        string UiTheme,
         string? ProvisioningHash,
         string? LlmAutoInstallAttemptedHash,
         string LlmMode,
@@ -161,6 +169,7 @@ internal sealed class AppSettings
             s.ShowAdvancedUi = (ls.Values[KShowAdvancedUi] as bool?) ?? s.ShowAdvancedUi;
             s.AutoConnect = (ls.Values[KAutoConnect] as bool?) ?? s.AutoConnect;
             s.UiLanguage = (ls.Values[KUiLanguage] as string) ?? s.UiLanguage;
+            s.UiTheme = NormalizeUiTheme(ls.Values[KUiTheme] as string);
             s.ProvisioningHash = (ls.Values[KProvisioningHash] as string) ?? s.ProvisioningHash;
             s.LlmAutoInstallAttemptedHash = (ls.Values[KLlmAutoInstallAttemptedHash] as string) ?? s.LlmAutoInstallAttemptedHash;
             s.LlmMode = (ls.Values[KLlmMode] as string) ?? s.LlmMode;
@@ -217,6 +226,9 @@ internal sealed class AppSettings
             if (Has(nameof(FileDto.UiLanguage)))
                 s.UiLanguage = string.IsNullOrWhiteSpace(dto.UiLanguage) ? s.UiLanguage : dto.UiLanguage;
 
+            if (Has(nameof(FileDto.UiTheme)))
+                s.UiTheme = NormalizeUiTheme(dto.UiTheme);
+
             if (Has(nameof(FileDto.ProvisioningHash)))
                 s.ProvisioningHash = string.IsNullOrWhiteSpace(dto.ProvisioningHash) ? null : dto.ProvisioningHash;
 
@@ -259,6 +271,17 @@ internal sealed class AppSettings
         }
     }
 
+    public static string NormalizeUiTheme(string? theme)
+    {
+        var value = (theme ?? string.Empty).Trim().ToLowerInvariant();
+        return value switch
+        {
+            "system" => "system",
+            "light" => "light",
+            _ => "dark"
+        };
+    }
+
     public void Save()
     {
         // 1) Try packaged LocalSettings
@@ -270,6 +293,7 @@ internal sealed class AppSettings
             ls.Values[KShowAdvancedUi] = ShowAdvancedUi;
             ls.Values[KAutoConnect] = AutoConnect;
             ls.Values[KUiLanguage] = string.IsNullOrWhiteSpace(UiLanguage) ? "fr" : UiLanguage;
+            ls.Values[KUiTheme] = NormalizeUiTheme(UiTheme);
             if (string.IsNullOrWhiteSpace(ProvisioningHash)) ls.Values.Remove(KProvisioningHash);
             else ls.Values[KProvisioningHash] = ProvisioningHash;
 
@@ -320,6 +344,7 @@ internal sealed class AppSettings
                 ShowAdvancedUi,
                 AutoConnect,
                 string.IsNullOrWhiteSpace(UiLanguage) ? "fr" : UiLanguage,
+                NormalizeUiTheme(UiTheme),
                 string.IsNullOrWhiteSpace(ProvisioningHash) ? null : ProvisioningHash,
                 string.IsNullOrWhiteSpace(LlmAutoInstallAttemptedHash) ? null : LlmAutoInstallAttemptedHash,
                 string.IsNullOrWhiteSpace(LlmMode) ? "embedded" : LlmMode,
@@ -362,6 +387,7 @@ internal sealed class AppSettings
         ShowAdvancedUi = this.ShowAdvancedUi,
         AutoConnect = this.AutoConnect,
         UiLanguage = this.UiLanguage,
+        UiTheme = this.UiTheme,
 
         UseLocalLlm = this.UseLocalLlm,
         LlmMode = this.LlmMode,
@@ -393,6 +419,7 @@ internal sealed class AppSettings
         ShowAdvancedUi = other.ShowAdvancedUi;
         AutoConnect = other.AutoConnect;
         UiLanguage = other.UiLanguage;
+        UiTheme = other.UiTheme;
 
         UseLocalLlm = other.UseLocalLlm;
         LlmMode = other.LlmMode;

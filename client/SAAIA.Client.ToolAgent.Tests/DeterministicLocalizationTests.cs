@@ -47,6 +47,17 @@ public sealed class DeterministicLocalizationTests
         Assert.Equal(expected, DeterministicAgentText.ToolFailureAdminRequired(language));
     }
 
+
+    [Theory]
+    [InlineData("es", "La sesión de administrador de WinUI es inválida o ya no está autorizada para esta acción.")]
+    [InlineData("pt", "A sessão de administrador do WinUI é inválida ou não está mais autorizada para esta ação.")]
+    [InlineData("de", "Die WinUI-Admin-Sitzung ist ungültig oder für diese Aktion nicht mehr berechtigt.")]
+    [InlineData("it", "La sessione admin WinUI non è valida o non è più autorizzata per questa azione.")]
+    public void Tool_failure_admin_invalid_or_forbidden_is_localized(string language, string expected)
+    {
+        Assert.Equal(expected, DeterministicAgentText.ToolFailureAdminInvalidOrForbidden(language));
+    }
+
     [Theory]
     [InlineData("es", "Estoy comprobando si ya existe un resumen almacenado para PDF12…")]
     [InlineData("pt", "Estou verificando se já existe um resumo armazenado para PDF12…")]
@@ -86,4 +97,34 @@ public sealed class DeterministicLocalizationTests
     {
         Assert.Equal(expected, DeterministicAgentText.JsonEnvelopeError(language));
     }
+
+    [Theory]
+    [InlineData("fr", "  • Aucun dossier ni sous-dossier.")]
+    [InlineData("en", "  • No folder or subfolder.")]
+    public void Empty_structure_line_is_scope_free(string language, string expected)
+    {
+        Assert.Equal(expected, DeterministicAgentText.NoSubfoldersInScope(language));
+    }
+
+
+    [Theory]
+    [InlineData("es", "No he encontrado el documento solicitado en el catálogo indexado.")]
+    [InlineData("pt", "Não encontrei o documento solicitado no catálogo indexado.")]
+    [InlineData("de", "Ich konnte das angeforderte Dokument im indizierten Katalog nicht finden.")]
+    [InlineData("it", "Non ho trovato il documento richiesto nel catalogo indicizzato.")]
+    public void Tool_failure_document_not_found_is_localized(string language, string expected)
+    {
+        Assert.Equal(expected, DeterministicAgentText.ToolFailureDocumentNotFound(language));
+    }
+
+    [Theory]
+    [InlineData("es", "No he encontrado la fuente solicitada entre los documentos ya resueltos en esta conversación.")]
+    [InlineData("pt", "Não encontrei a fonte solicitada entre os documentos já resolvidos nesta conversa.")]
+    [InlineData("de", "Ich konnte die angeforderte Quelle nicht unter den in dieser Unterhaltung bereits aufgelösten Dokumenten finden.")]
+    [InlineData("it", "Non ho trovato la fonte richiesta tra i documenti già risolti in questa conversazione.")]
+    public void Tool_failure_source_not_found_is_localized(string language, string expected)
+    {
+        Assert.Equal(expected, DeterministicAgentText.ToolFailureSourceNotFound(language));
+    }
+
 }

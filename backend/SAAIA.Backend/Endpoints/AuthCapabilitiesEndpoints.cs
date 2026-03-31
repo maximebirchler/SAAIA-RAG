@@ -95,6 +95,22 @@ public static class AuthCapabilitiesEndpoints
                     additionalProperties = false
                 }),
             CreateCommand(
+                "catalog.documents.search",
+                "always",
+                Array.Empty<string>(),
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        query = new { type = "string" },
+                        pageSize = new { type = "integer", minimum = 1, maximum = 200 },
+                        cursor = new { type = new[] { "string", "null" } }
+                    },
+                    required = new[] { "query" },
+                    additionalProperties = false
+                }),
+            CreateCommand(
                 "catalog.stats.view",
                 "always",
                 Array.Empty<string>(),
@@ -106,6 +122,20 @@ public static class AuthCapabilitiesEndpoints
                         categoryRef = new { type = new[] { "string", "null" } }
                     },
                     additionalProperties = false
+                }),
+            CreateCommand(
+                "catalog.tree.view",
+                "always",
+                Array.Empty<string>(),
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        depth = new { type = "integer", minimum = 1, maximum = 24 },
+                        format = new { type = new[] { "string", "null" } }
+                    },
+                    additionalProperties = false
                 })
         };
 
@@ -113,7 +143,48 @@ public static class AuthCapabilitiesEndpoints
         => new()
         {
             CreateCommand(
-                "catalog.summaries.status",
+                "catalog.summaries.missing.count",
+                "admin_only",
+                Array.Empty<string>(),
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        categoryRef = new { type = new[] { "string", "null" } }
+                    },
+                    additionalProperties = false
+                }),
+            CreateCommand(
+                "catalog.summaries.missing.list",
+                "admin_only",
+                Array.Empty<string>(),
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        categoryRef = new { type = new[] { "string", "null" } },
+                        pageSize = new { type = "integer", minimum = 1, maximum = 500 },
+                        cursor = new { type = new[] { "string", "null" } }
+                    },
+                    additionalProperties = false
+                }),
+            CreateCommand(
+                "catalog.summaries.present.count",
+                "admin_only",
+                Array.Empty<string>(),
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        categoryRef = new { type = new[] { "string", "null" } }
+                    },
+                    additionalProperties = false
+                }),
+            CreateCommand(
+                "catalog.summaries.present.list",
                 "admin_only",
                 Array.Empty<string>(),
                 new
@@ -146,7 +217,11 @@ public static class AuthCapabilitiesEndpoints
                     type = "object",
                     properties = new
                     {
-                        documentRef = new { type = "string" }
+                        documentRef = new { type = "string" },
+                        docPath = new { type = new[] { "string", "null" } },
+                        docId = new { type = new[] { "string", "null" } },
+                        docName = new { type = new[] { "string", "null" } },
+                        displayName = new { type = new[] { "string", "null" } }
                     },
                     required = new[] { "documentRef" },
                     additionalProperties = false

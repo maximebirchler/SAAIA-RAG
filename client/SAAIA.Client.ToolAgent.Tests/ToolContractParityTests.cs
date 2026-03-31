@@ -28,6 +28,13 @@ public sealed class ToolContractParityTests
         Assert.DoesNotContain("rag.categories", ToolAgentOrchestrator.GetExecutableToolNamesForTests());
     }
 
+    [Fact]
+    public void Admin_ingestion_reindex_is_not_available_as_a_runtime_llm_tool_anymore()
+    {
+        Assert.False(ToolManifest.KnownToolNames.Contains("admin.ingestion.reindex"));
+        Assert.DoesNotContain("admin.ingestion.reindex", ToolAgentOrchestrator.GetExecutableToolNamesForTests());
+    }
+
     [Theory]
     [InlineData("documents.categories")]
     [InlineData("support.bundle")]

@@ -82,11 +82,16 @@
   </ItemGroup>
 
 
-  <!-- Exclude UserSettingsDialog XAML from WinUI XAML compilation (fix XamlCompiler exit code 1) -->
+  <!--
+    UserSettingsDialog source of truth:
+    - The compiled dialog implementation is Controls\UserSettingsDialog.cs.
+    - The legacy XAML files are intentionally kept on disk for reference only.
+    - They must not participate in WinUI XAML compilation, otherwise XamlCompiler becomes fragile again.
+    - Keep this configuration here in the project file as the single source of truth.
+  -->
   <ItemGroup>
     <Page Remove="Controls\UserSettingsDialog.xaml" />
     <Compile Remove="Controls\UserSettingsDialog.xaml.cs" />
-    <!-- Keep files on disk but treat as None so they don't participate in compilation -->
     <None Include="Controls\UserSettingsDialog.xaml" />
     <None Include="Controls\UserSettingsDialog.xaml.cs" />
   </ItemGroup>

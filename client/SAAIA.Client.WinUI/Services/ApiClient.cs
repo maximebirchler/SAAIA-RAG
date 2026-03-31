@@ -271,7 +271,7 @@ public sealed partial class ApiClient
         resp.EnsureSuccessStatusCode();
     }
 
-    public async Task AddMessageAsync(string sessionId, string role, string content, object? sources, CancellationToken ct, string? statusNote = null)
+    public async Task<ChatMessageItem?> AddMessageAsync(string sessionId, string role, string content, object? sources, CancellationToken ct, string? statusNote = null, string? progressText = null, ChatTrackingMeta? trackingMeta = null)
     {
         string? sourcesJson = null;
         if (sources is string s)
@@ -279,17 +279,53 @@ public sealed partial class ApiClient
         else if (sources is not null)
             sourcesJson = JsonSerializer.Serialize(sources, JsonOpts);
 
+        var trackingMetaJson = trackingMeta is null ? null : JsonSerializer.Serialize(trackingMeta, JsonOpts);
+
         var body = JsonSerializer.Serialize(new
         {
             userId = RequireUserId(),
             role,
             content,
             sourcesJson,
-            statusNote
+            statusNote,
+            progressText,
+            trackingMetaJson
         }, JsonOpts);
 
         using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Post, $"/chat/sessions/{sessionId}/messages", body), ct);
         resp.EnsureSuccessStatusCode();
+
+        var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
+        using var doc = JsonDocument.Parse(json);
+        return ParseChatMessage(doc.RootElement);
+    }
+
+    public async Task<ChatMessageItem?> PatchMessageAsync(string messageId, string? content, string? statusNote, string? progressText, ChatTrackingMeta? trackingMeta, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(messageId))
+            throw new ArgumentException("messageId is required", nameof(messageId));
+
+        var body = JsonSerializer.Serialize(new
+        {
+            userId = RequireUserId(),
+            content,
+            statusNote,
+            progressText,
+            trackingMetaJson = trackingMeta is null ? null : JsonSerializer.Serialize(trackingMeta, JsonOpts)
+        }, JsonOpts);
+
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Patch, $"/chat/messages/{messageId}" , body), ct);
+        resp.EnsureSuccessStatusCode();
+
+        var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
+        using var doc = JsonDocument.Parse(json);
+        return ParseChatMessage(doc.RootElement);
     }
 
     public async Task<List<ChatMessageItem>> ListMessagesAsync(string sessionId, CancellationToken ct, int limit = 500)
@@ -307,61 +343,83 @@ public sealed partial class ApiClient
 
         foreach (var el in doc.RootElement.EnumerateArray())
         {
-            string GetString(string a, string b)
-            {
-                if (el.TryGetProperty(a, out var p) && p.ValueKind == JsonValueKind.String) return p.GetString() ?? "";
-                if (el.TryGetProperty(b, out p) && p.ValueKind == JsonValueKind.String) return p.GetString() ?? "";
-                return "";
-            }
-
-            DateTime GetDateTime(string a, string b)
-            {
-                if (el.TryGetProperty(a, out var p) && p.ValueKind == JsonValueKind.String && DateTime.TryParse(p.GetString(), out var dt1))
-                    return dt1.ToUniversalTime();
-                if (el.TryGetProperty(b, out p) && p.ValueKind == JsonValueKind.String && DateTime.TryParse(p.GetString(), out var dt2))
-                    return dt2.ToUniversalTime();
-                return DateTime.UtcNow;
-            }
-
-            var role = GetString("role", "Role");
-            if (string.IsNullOrWhiteSpace(role)) role = "user";
-
-            var content = GetString("content", "Content");
-            var createdAt = GetDateTime("createdAt", "CreatedAt");
-
-            var statusNote = GetString("statusNote", "StatusNote");
-            if (string.IsNullOrWhiteSpace(statusNote)) statusNote = null;
-
-            // ✅ FIX: sourcesJson peut être (1) string contenant du JSON, ou (2) objet JSON direct.
-            string? sourcesJson = null;
-
-            if (TryReadSources(el, out var src))
-                sourcesJson = src;
-
-            list.Add(new ChatMessageItem
-            {
-                Role = role,
-                Content = content,
-                CreatedAt = createdAt,
-                SourcesJson = sourcesJson,
-                StatusNote = statusNote
-            });
+            var item = ParseChatMessage(el);
+            if (item is not null)
+                list.Add(item);
         }
 
         return list;
+    }
+
+    private static ChatMessageItem? ParseChatMessage(JsonElement el)
+    {
+        string GetString(string a, string b)
+        {
+            if (el.TryGetProperty(a, out var p) && p.ValueKind == JsonValueKind.String) return p.GetString() ?? "";
+            if (el.TryGetProperty(b, out p) && p.ValueKind == JsonValueKind.String) return p.GetString() ?? "";
+            return "";
+        }
+
+        DateTime GetDateTime(string a, string b)
+        {
+            if (el.TryGetProperty(a, out var p) && p.ValueKind == JsonValueKind.String && DateTime.TryParse(p.GetString(), out var dt1))
+                return dt1.ToUniversalTime();
+            if (el.TryGetProperty(b, out p) && p.ValueKind == JsonValueKind.String && DateTime.TryParse(p.GetString(), out var dt2))
+                return dt2.ToUniversalTime();
+            return DateTime.UtcNow;
+        }
+
+        var role = GetString("role", "Role");
+        if (string.IsNullOrWhiteSpace(role)) role = "user";
+
+        var content = GetString("content", "Content");
+        var createdAt = GetDateTime("createdAt", "CreatedAt");
+        var messageId = GetString("messageId", "MessageId");
+        if (string.IsNullOrWhiteSpace(messageId)) messageId = null;
+
+        var statusNote = GetString("statusNote", "StatusNote");
+        if (string.IsNullOrWhiteSpace(statusNote)) statusNote = null;
+
+        var progressText = GetString("progressText", "ProgressText");
+        if (string.IsNullOrWhiteSpace(progressText)) progressText = null;
+
+        string? sourcesJson = null;
+        if (TryReadSources(el, out var src))
+            sourcesJson = src;
+
+        ChatTrackingMeta? trackingMeta = null;
+        if (TryGetAny(el, out var tm, "trackingMetaJson", "TrackingMetaJson"))
+        {
+            var raw = ReadJsonStringOrRaw(tm);
+            if (!string.IsNullOrWhiteSpace(raw))
+            {
+                try { trackingMeta = JsonSerializer.Deserialize<ChatTrackingMeta>(raw, JsonOpts); }
+                catch { }
+            }
+        }
+
+        return new ChatMessageItem
+        {
+            MessageId = messageId,
+            Role = role,
+            Content = content,
+            CreatedAt = createdAt,
+            SourcesJson = sourcesJson,
+            StatusNote = statusNote,
+            ProgressText = progressText,
+            TrackingMeta = trackingMeta
+        };
 
         static bool TryReadSources(JsonElement el, out string? sourcesJson)
         {
             sourcesJson = null;
 
-            // Priorité : sourcesJson / SourcesJson
             if (TryGetAny(el, out var sj, "sourcesJson", "SourcesJson"))
             {
                 sourcesJson = ReadJsonStringOrRaw(sj);
                 return !string.IsNullOrWhiteSpace(sourcesJson);
             }
 
-            // Fallback : sources / Sources (si jamais)
             if (TryGetAny(el, out var s, "sources", "Sources"))
             {
                 sourcesJson = ReadJsonStringOrRaw(s);

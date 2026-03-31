@@ -42,6 +42,7 @@ public static class SummaryEndpoints
         app.MapPost("/admin/catalog/rescan_now", CatalogRescanAsync).RequireAdminKey();
 
         app.MapGet("/admin/jobs", ListAdminJobsAsync).RequireAdminKey();
+        app.MapGet("/admin/jobs/{jobId:guid}", GetAdminJobAsync).RequireAdminKey();
         app.MapPost("/admin/jobs/cancel", CancelAdminJobAsync).RequireAdminKey();
         app.MapPost("/admin/ingestion/reindex", ReindexAsync).RequireAdminKey();
 
@@ -805,7 +806,11 @@ SELECT * FROM (
     last_error   AS "LastError",
     created_at   AS "CreatedAt",
     started_at   AS "StartedAt",
-    finished_at  AS "FinishedAt"
+    finished_at  AS "FinishedAt",
+    NULL::text   AS "ProgressPhase",
+    NULL::int    AS "ProgressCurrent",
+    NULL::int    AS "ProgressTotal",
+    NULL::int    AS "ProgressPercent"
   FROM admin_jobs
   WHERE tenant_id=@tenant
 
@@ -822,7 +827,11 @@ SELECT * FROM (
     last_error   AS "LastError",
     created_at   AS "CreatedAt",
     started_at   AS "StartedAt",
-    finished_at  AS "FinishedAt"
+    finished_at  AS "FinishedAt",
+    payload #>> '{progress,phase}' AS "ProgressPhase",
+    CASE WHEN jsonb_typeof(payload->'progress'->'current')='number' THEN (payload->'progress'->>'current')::int ELSE NULL END AS "ProgressCurrent",
+    CASE WHEN jsonb_typeof(payload->'progress'->'total')='number' THEN (payload->'progress'->>'total')::int ELSE NULL END AS "ProgressTotal",
+    CASE WHEN jsonb_typeof(payload->'progress'->'percent')='number' THEN (payload->'progress'->>'percent')::int ELSE NULL END AS "ProgressPercent"
   FROM ingestion_jobs
   WHERE tenant_id=@tenant
 ) j
@@ -833,6 +842,62 @@ LIMIT @lim OFFSET @off;
 
         var rows = await conn.QueryAsync(new CommandDefinition(sql, new { tenant = tenantId, type, lim, off }, cancellationToken: ct));
         return Results.Ok(new { items = rows, limit = lim, offset = off });
+    }
+
+    private static async Task<IResult> GetAdminJobAsync(HttpContext ctx, NpgsqlDataSource ds, Guid jobId)
+    {
+        AdminAuth.EnsureAdmin(ctx);
+        var tenantId = ctx.GetTenantId();
+        var ct = ctx.RequestAborted;
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        var sql = """
+SELECT * FROM (
+  SELECT
+    job_id       AS "JobId",
+    'summary'    AS "Type",
+    job_type     AS "JobType",
+    status       AS "Status",
+    doc_id       AS "DocId",
+    NULL::text   AS "DocPath",
+    level        AS "Level",
+    last_error   AS "LastError",
+    created_at   AS "CreatedAt",
+    started_at   AS "StartedAt",
+    finished_at  AS "FinishedAt",
+    NULL::text   AS "ProgressPhase",
+    NULL::int    AS "ProgressCurrent",
+    NULL::int    AS "ProgressTotal",
+    NULL::int    AS "ProgressPercent"
+  FROM admin_jobs
+  WHERE tenant_id=@tenant AND job_id=@jobId
+
+  UNION ALL
+
+  SELECT
+    job_id       AS "JobId",
+    'ingestion'  AS "Type",
+    action       AS "JobType",
+    status       AS "Status",
+    NULL::uuid   AS "DocId",
+    doc_path     AS "DocPath",
+    NULL::text   AS "Level",
+    last_error   AS "LastError",
+    created_at   AS "CreatedAt",
+    started_at   AS "StartedAt",
+    finished_at  AS "FinishedAt",
+    payload #>> '{progress,phase}' AS "ProgressPhase",
+    CASE WHEN jsonb_typeof(payload->'progress'->'current')='number' THEN (payload->'progress'->>'current')::int ELSE NULL END AS "ProgressCurrent",
+    CASE WHEN jsonb_typeof(payload->'progress'->'total')='number' THEN (payload->'progress'->>'total')::int ELSE NULL END AS "ProgressTotal",
+    CASE WHEN jsonb_typeof(payload->'progress'->'percent')='number' THEN (payload->'progress'->>'percent')::int ELSE NULL END AS "ProgressPercent"
+  FROM ingestion_jobs
+  WHERE tenant_id=@tenant AND job_id=@jobId
+) j
+LIMIT 1;
+""";
+
+        var row = await conn.QueryFirstOrDefaultAsync(new CommandDefinition(sql, new { tenant = tenantId, jobId }, cancellationToken: ct));
+        return row is null ? Results.NotFound(new { error = "job_not_found", jobId }) : Results.Ok(row);
     }
 
     private static async Task<IResult> CancelAdminJobAsync(HttpContext ctx, NpgsqlDataSource ds, JobCancelCommand cmd)
@@ -865,7 +930,7 @@ WHERE tenant_id=@tenant AND job_id=@jobId AND status IN ('queued','running');
         return Results.NotFound(new { error = "job_not_found", jobId = cmd.JobId });
     }
 
-    private static async Task<IResult> ReindexAsync(HttpContext ctx, NpgsqlDataSource ds, SummaryCommand cmd)
+    private static async Task<IResult> ReindexAsync(HttpContext ctx, NpgsqlDataSource ds, IOptions<IngestionOptions> ingestOpt, SummaryCommand cmd)
     {
         AdminAuth.EnsureAdmin(ctx);
         var tenantId = ctx.GetTenantId();
@@ -881,7 +946,22 @@ WHERE tenant_id=@tenant AND job_id=@jobId AND status IN ('queued','running');
         if (doc is null)
             return Results.NotFound(new { error = "document_not_found" });
 
-        var enqueued = await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, doc.DocPath, doc.Category, fi: null, ct: ct);
+        FileInfo? fi = null;
+        try
+        {
+            var documentsRoot = ingestOpt.Value.DocumentsRoot;
+            var absPath = DocPathNormalizer.ToAbsoluteFromRelative(doc.DocPath, documentsRoot);
+            if (!File.Exists(absPath))
+                return Results.NotFound(new { error = "document_file_not_found", docPath = doc.DocPath });
+
+            fi = new FileInfo(absPath);
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(new { error = "invalid_document_path", detail = ex.Message, docPath = doc.DocPath });
+        }
+
+        var enqueued = await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, doc.DocPath, doc.Category, fi, ct: ct);
         return Results.Ok(new { queued = true, docId = enqueued.DocId, jobId = enqueued.JobId, docPath = doc.DocPath });
     }
 

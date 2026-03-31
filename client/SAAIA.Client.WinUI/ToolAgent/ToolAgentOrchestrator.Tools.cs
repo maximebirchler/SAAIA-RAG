@@ -24,6 +24,20 @@ public sealed partial class ToolAgentOrchestrator
         return slash > 0 ? normalized[..slash] : normalized;
     }
 
+    private static bool LooksLikeReindexableDocumentPath(string? path)
+    {
+        var normalized = (path ?? string.Empty).Replace('\\', '/').Trim().TrimStart('/').TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        var fileName = Path.GetFileName(normalized);
+        if (string.IsNullOrWhiteSpace(fileName))
+            return false;
+
+        var extension = Path.GetExtension(fileName);
+        return string.Equals(extension, ".pdf", StringComparison.OrdinalIgnoreCase);
+    }
+
 
     private (string? categoryPath, string? categoryRef) ResolveCategoryScopeArgs(JsonElement args)
     {
@@ -96,6 +110,67 @@ public sealed partial class ToolAgentOrchestrator
                 yield return doc;
         }
     }
+
+    private IEnumerable<ToolMemory.CategorySnapshot> EnumerateKnownCategories()
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (_mem.LastResolvedCategory is not null)
+        {
+            var key = !string.IsNullOrWhiteSpace(_mem.LastResolvedCategory.CategoryRef)
+                ? _mem.LastResolvedCategory.CategoryRef
+                : _mem.LastResolvedCategory.CategoryPath;
+            if (!string.IsNullOrWhiteSpace(key) && seen.Add(key))
+                yield return _mem.LastResolvedCategory;
+        }
+
+        if (_mem.LastPresentedCategories is not null)
+        {
+            foreach (var category in _mem.LastPresentedCategories)
+            {
+                var key = !string.IsNullOrWhiteSpace(category.CategoryRef) ? category.CategoryRef : category.CategoryPath;
+                if (!string.IsNullOrWhiteSpace(key) && seen.Add(key))
+                    yield return category;
+            }
+        }
+
+        if (_mem.CatalogSnapshotCache?.Categories is { Count: > 0 })
+        {
+            foreach (var category in _mem.CatalogSnapshotCache.Categories)
+            {
+                var key = !string.IsNullOrWhiteSpace(category.CategoryRef) ? category.CategoryRef : category.CategoryPath;
+                if (!string.IsNullOrWhiteSpace(key) && seen.Add(key))
+                    yield return category;
+            }
+        }
+    }
+
+    private bool LooksLikeKnownCategoryReference(string? value)
+    {
+        var normalized = NormalizeDocumentLookupText(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        foreach (var category in EnumerateKnownCategories())
+        {
+            if (NormalizeDocumentLookupText(category.CategoryRef) == normalized
+                || NormalizeDocumentLookupText(category.DisplayName) == normalized
+                || NormalizeDocumentLookupText(category.CategoryPath) == normalized
+                || NormalizeDocumentLookupText(category.Ordinal.ToString()) == normalized)
+            {
+                return true;
+            }
+
+            foreach (var alias in category.Aliases)
+            {
+                if (NormalizeDocumentLookupText(alias) == normalized)
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
 
     private static string NormalizeDocumentLookupText(string? value)
     {
@@ -178,23 +253,403 @@ public sealed partial class ToolAgentOrchestrator
 
     private ResolvedDocRef? TryResolveKnownDocumentByFuzzyReference(string docRef)
     {
-        var best = default(ToolMemory.DocumentItem);
+        if (!QueryLooksSpecificEnoughForFuzzyResolution(docRef))
+            return null;
+
+        ToolMemory.DocumentItem? best = null;
         var bestScore = 0;
+        var secondScore = 0;
 
         foreach (var doc in EnumerateKnownDocuments())
         {
             var score = ScoreDocumentMatch(docRef, doc.DocName, doc.DocPath);
-            if (score <= bestScore)
+            if (score <= 0)
                 continue;
 
-            best = doc;
-            bestScore = score;
+            if (score > bestScore)
+            {
+                secondScore = bestScore;
+                best = doc;
+                bestScore = score;
+            }
+            else if (score > secondScore)
+            {
+                secondScore = score;
+            }
         }
 
-        if (best is null || bestScore < 110)
+        if (best is null || bestScore < 140)
+            return null;
+
+        if (secondScore > 0 && bestScore - secondScore < 40)
             return null;
 
         return new ResolvedDocRef(best.DocId, best.DocPath, best.DocName, best.Category, best.CategoryPath, best.Pages);
+    }
+
+    private static bool QueryLooksSpecificEnoughForFuzzyResolution(string? query)
+    {
+        var raw = (query ?? string.Empty).Trim();
+        if (raw.Length == 0)
+            return false;
+
+        if (Guid.TryParse(raw, out _))
+            return true;
+
+        if (raw.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)
+            || raw.Contains('/', StringComparison.Ordinal)
+            || raw.Contains('\\', StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var tokens = NormalizeDocumentLookupText(raw)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(x => x.Length >= 3)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        if (tokens.Length >= 2)
+            return true;
+
+        return tokens.Length == 1 && Regex.IsMatch(raw, @"\d", RegexOptions.CultureInvariant);
+    }
+
+    private ResolvedDocRef? TryResolveKnownDocumentByExactReference(string docRef)
+    {
+        var s = (docRef ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(s))
+            return null;
+
+        foreach (var d in EnumerateKnownDocuments())
+        {
+            if (string.Equals(d.DocId, s, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(d.DocPath, s, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(d.DocName, s, StringComparison.OrdinalIgnoreCase)
+                || IsExactDocumentReferenceMatch(s, d.DocName, d.DocPath))
+            {
+                return new ResolvedDocRef(d.DocId, d.DocPath, d.DocName, d.Category, d.CategoryPath, d.Pages);
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsExactDocumentReferenceMatch(string query, string? docName, string? docPath)
+    {
+        var normalizedQuery = NormalizeDocumentLookupText(query);
+        var compactQuery = NormalizeDocumentLookupCompact(query);
+        if (string.IsNullOrWhiteSpace(normalizedQuery) && string.IsNullOrWhiteSpace(compactQuery))
+            return false;
+
+        static IEnumerable<string> BuildCandidates(string? docNameValue, string? docPathValue)
+        {
+            if (!string.IsNullOrWhiteSpace(docNameValue))
+                yield return docNameValue!;
+            if (!string.IsNullOrWhiteSpace(docPathValue))
+                yield return docPathValue!;
+            var fileName = Path.GetFileName(docPathValue ?? string.Empty);
+            if (!string.IsNullOrWhiteSpace(fileName))
+                yield return fileName;
+            var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(docPathValue ?? string.Empty);
+            if (!string.IsNullOrWhiteSpace(fileNameWithoutExtension))
+                yield return fileNameWithoutExtension;
+            var docNameWithoutExtension = Path.GetFileNameWithoutExtension(docNameValue ?? string.Empty);
+            if (!string.IsNullOrWhiteSpace(docNameWithoutExtension))
+                yield return docNameWithoutExtension;
+        }
+
+        foreach (var candidate in BuildCandidates(docName, docPath))
+        {
+            var normalizedCandidate = NormalizeDocumentLookupText(candidate);
+            var compactCandidate = NormalizeDocumentLookupCompact(candidate);
+            if ((!string.IsNullOrWhiteSpace(compactQuery) && compactCandidate == compactQuery)
+                || (!string.IsNullOrWhiteSpace(normalizedQuery) && normalizedCandidate == normalizedQuery))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool CandidateMatchesDocumentIdentity(string query, string? docName, string? docPath)
+    {
+        var normalizedQuery = NormalizeDocumentLookupText(query);
+        if (string.IsNullOrWhiteSpace(normalizedQuery))
+            return false;
+
+        var tokens = normalizedQuery
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(x => x.Length >= 3)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        if (tokens.Length == 0)
+            return false;
+
+        var docNameNormalized = NormalizeDocumentLookupText(docName);
+        var fileNameNormalized = NormalizeDocumentLookupText(Path.GetFileName(docPath ?? string.Empty));
+        var fileNameWithoutExtensionNormalized = NormalizeDocumentLookupText(Path.GetFileNameWithoutExtension(docPath ?? string.Empty));
+
+        static bool AllTokensIn(string[] tokens, string candidate)
+            => !string.IsNullOrWhiteSpace(candidate) && tokens.All(token => candidate.Contains(token, StringComparison.Ordinal));
+
+        return AllTokensIn(tokens, docNameNormalized)
+            || AllTokensIn(tokens, fileNameNormalized)
+            || AllTokensIn(tokens, fileNameWithoutExtensionNormalized);
+    }
+
+    private sealed class ExplicitDocumentResolution
+    {
+        public bool IsResolved { get; init; }
+        public bool IsAmbiguous { get; init; }
+        public bool IsCategoryReference { get; init; }
+        public ResolvedDocRef? Document { get; init; }
+    }
+
+    private async Task<ExplicitDocumentResolution> ResolveExplicitDocumentReferenceStrictAsync(string docRef, CancellationToken ct)
+    {
+        var s = (docRef ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(s))
+            return new ExplicitDocumentResolution();
+
+        _mem.LastRequestedDocumentRef = s;
+
+        if (_mem.PdfMap.TryGetValue(s, out var mapped) && mapped is not null)
+        {
+            var resolved = new ResolvedDocRef(mapped.DocId, mapped.DocPath, mapped.DocName, mapped.Category, mapped.CategoryPath, mapped.Pages);
+            RememberFocusedDocument(resolved);
+            return new ExplicitDocumentResolution { IsResolved = true, Document = resolved };
+        }
+
+        var exactKnown = TryResolveKnownDocumentByExactReference(s);
+        if (exactKnown is not null)
+        {
+            if (!LooksLikeReindexableDocumentPath(exactKnown.DocPath))
+                return new ExplicitDocumentResolution { IsCategoryReference = true };
+
+            RememberFocusedDocument(exactKnown);
+            return new ExplicitDocumentResolution { IsResolved = true, Document = exactKnown };
+        }
+
+        if (LooksLikeKnownCategoryReference(s))
+            return new ExplicitDocumentResolution { IsCategoryReference = true };
+
+        if (Guid.TryParse(s, out _))
+        {
+            try
+            {
+                var doc = await _api.DocumentsGetAsync(s, ct).ConfigureAwait(false);
+                var resolved = TryBuildResolvedDocRefFromDocumentJson(doc, s);
+                if (resolved is not null)
+                {
+                    if (!LooksLikeReindexableDocumentPath(resolved.DocPath))
+                        return new ExplicitDocumentResolution { IsCategoryReference = true };
+
+                    RememberFocusedDocument(resolved);
+                    return new ExplicitDocumentResolution { IsResolved = true, Document = resolved };
+                }
+            }
+            catch
+            {
+                // Ignore exact get failures and continue with exact-search resolution only.
+            }
+        }
+
+        var exactMatches = new Dictionary<string, ResolvedDocRef>(StringComparer.OrdinalIgnoreCase);
+        foreach (var query in BuildDocumentSearchVariants(s).Take(5))
+        {
+            JsonElement search;
+            try
+            {
+                search = await _api.DocumentsSearchAsync(query, categoryPath: null, categoryRef: null, limit: 20, offset: 0, ct: ct).ConfigureAwait(false);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (!search.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+                continue;
+
+            foreach (var it in items.EnumerateArray())
+            {
+                var resolved = TryBuildResolvedDocRefFromSearchItem(it);
+                if (resolved is null)
+                    continue;
+
+                if (!IsExactDocumentReferenceMatch(s, resolved.DocName, resolved.DocPath)
+                    && !string.Equals(resolved.DocId, s, StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(resolved.DocPath, s, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!LooksLikeReindexableDocumentPath(resolved.DocPath))
+                    continue;
+
+                exactMatches[resolved.DocId] = resolved;
+            }
+        }
+
+        if (exactMatches.Count == 1)
+        {
+            var resolved = exactMatches.Values.First();
+            RememberFocusedDocument(resolved);
+            return new ExplicitDocumentResolution { IsResolved = true, Document = resolved };
+        }
+
+        if (exactMatches.Count > 1)
+            return new ExplicitDocumentResolution { IsAmbiguous = true };
+
+        return new ExplicitDocumentResolution();
+    }
+
+    private ResolvedDocRef? TryBuildResolvedDocRefFromDocumentJson(JsonElement doc, string fallbackDocId)
+    {
+        var gotId = TryGetString(doc, "DocId") ?? TryGetString(doc, "docId") ?? fallbackDocId;
+        var path = TryGetString(doc, "DocPath") ?? TryGetString(doc, "docPath") ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(path))
+            return null;
+
+        var name = TryGetString(doc, "DocName") ?? TryGetString(doc, "docName") ?? path;
+        var category = TryGetString(doc, "Category") ?? TryGetString(doc, "category");
+        var categoryPath = TryGetString(doc, "CategoryPath") ?? TryGetString(doc, "categoryPath") ?? GuessCategoryPath(path);
+        var pages = TryGetInt(doc, "PageCount") ?? TryGetInt(doc, "pageCount") ?? TryGetInt(doc, "pages");
+        return new ResolvedDocRef(gotId, path, name, category, categoryPath, pages);
+    }
+
+    private ResolvedDocRef? TryBuildResolvedDocRefFromSearchItem(JsonElement item)
+    {
+        var docId = TryGetString(item, "docId") ?? TryGetString(item, "DocId") ?? string.Empty;
+        var docPath = TryGetString(item, "docPath") ?? TryGetString(item, "DocPath") ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(docId) || string.IsNullOrWhiteSpace(docPath))
+            return null;
+
+        var docName = TryGetString(item, "docName") ?? TryGetString(item, "DocName") ?? docPath;
+        var category = TryGetString(item, "category") ?? TryGetString(item, "Category");
+        var categoryPath = TryGetString(item, "categoryPath") ?? TryGetString(item, "CategoryPath") ?? GuessCategoryPath(docPath);
+        var pages = TryGetInt(item, "pages") ?? TryGetInt(item, "PageCount") ?? TryGetInt(item, "pageCount");
+        return new ResolvedDocRef(docId, docPath, docName, category, categoryPath, pages);
+    }
+
+    private async Task<ExplicitDocumentResolution> ResolveExplicitDocumentReferenceAsync(string docRef, CancellationToken ct)
+    {
+        var s = (docRef ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(s))
+            return new ExplicitDocumentResolution();
+
+        _mem.LastRequestedDocumentRef = s;
+
+        if (_mem.PdfMap.TryGetValue(s, out var mapped) && mapped is not null)
+        {
+            var resolved = new ResolvedDocRef(mapped.DocId, mapped.DocPath, mapped.DocName, mapped.Category, mapped.CategoryPath, mapped.Pages);
+            RememberFocusedDocument(resolved);
+            return new ExplicitDocumentResolution { IsResolved = true, Document = resolved };
+        }
+
+        var exactKnown = TryResolveKnownDocumentByExactReference(s);
+        if (exactKnown is not null)
+        {
+            RememberFocusedDocument(exactKnown);
+            return new ExplicitDocumentResolution { IsResolved = true, Document = exactKnown };
+        }
+
+        if (LooksLikeKnownCategoryReference(s))
+            return new ExplicitDocumentResolution { IsCategoryReference = true };
+
+        if (Guid.TryParse(s, out _))
+        {
+            var doc = await _api.DocumentsGetAsync(s, ct).ConfigureAwait(false);
+            var gotId = TryGetString(doc, "DocId") ?? TryGetString(doc, "docId") ?? s;
+            var path = TryGetString(doc, "DocPath") ?? TryGetString(doc, "docPath") ?? string.Empty;
+            var name = TryGetString(doc, "DocName") ?? TryGetString(doc, "docName") ?? path;
+            var category = TryGetString(doc, "Category") ?? TryGetString(doc, "category");
+            var categoryPath = TryGetString(doc, "CategoryPath") ?? TryGetString(doc, "categoryPath") ?? GuessCategoryPath(path);
+            var pages = TryGetInt(doc, "PageCount") ?? TryGetInt(doc, "pageCount") ?? TryGetInt(doc, "pages");
+            if (!string.IsNullOrWhiteSpace(path))
+            {
+                var resolved = new ResolvedDocRef(gotId, path, name, category, categoryPath, pages);
+                RememberFocusedDocument(resolved);
+                return new ExplicitDocumentResolution { IsResolved = true, Document = resolved };
+            }
+        }
+
+        var allowSearchResolution = LooksLikeSpecificDocumentReferenceQuery(s) || QueryLooksSpecificEnoughForFuzzyResolution(s);
+        if (!allowSearchResolution)
+            return new ExplicitDocumentResolution();
+
+        var candidateMap = new Dictionary<string, (string docId, string docPath, string docName, string? category, string? categoryPath, int? pages, int score)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var query in BuildDocumentSearchVariants(s).Take(5))
+        {
+            var search = await _api.DocumentsSearchAsync(query, categoryPath: null, categoryRef: null, limit: 20, offset: 0, ct: ct).ConfigureAwait(false);
+            if (!search.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+                continue;
+
+            foreach (var it in items.EnumerateArray())
+            {
+                var docId = TryGetString(it, "docId") ?? string.Empty;
+                var docPath = TryGetString(it, "docPath") ?? string.Empty;
+                var docName = TryGetString(it, "docName") ?? docPath;
+                if (string.IsNullOrWhiteSpace(docId) || string.IsNullOrWhiteSpace(docPath))
+                    continue;
+
+                if (!CandidateMatchesDocumentIdentity(s, docName, docPath))
+                    continue;
+
+                var score = ScoreDocumentMatch(s, docName, docPath);
+                if (!candidateMap.TryGetValue(docId, out var existing) || score > existing.score)
+                {
+                    candidateMap[docId] = (
+                        docId,
+                        docPath,
+                        docName,
+                        TryGetString(it, "category"),
+                        TryGetString(it, "categoryPath") ?? GuessCategoryPath(docPath),
+                        TryGetInt(it, "pages"),
+                        score);
+                }
+            }
+        }
+
+        if (candidateMap.Count == 0)
+            return new ExplicitDocumentResolution();
+
+        var exactMatches = candidateMap.Values
+            .Where(x => IsExactDocumentReferenceMatch(s, x.docName, x.docPath))
+            .OrderByDescending(x => x.score)
+            .ToList();
+
+        if (exactMatches.Count == 1)
+        {
+            var winner = exactMatches[0];
+            var resolved = new ResolvedDocRef(winner.docId, winner.docPath, winner.docName, winner.category, winner.categoryPath, winner.pages);
+            RememberFocusedDocument(resolved);
+            return new ExplicitDocumentResolution { IsResolved = true, Document = resolved };
+        }
+
+        if (exactMatches.Count > 1)
+            return new ExplicitDocumentResolution { IsAmbiguous = true };
+
+        if (!QueryLooksSpecificEnoughForFuzzyResolution(s))
+            return new ExplicitDocumentResolution { IsAmbiguous = true };
+
+        var ranked = candidateMap.Values
+            .OrderByDescending(x => x.score)
+            .ThenByDescending(x => x.docName.Length)
+            .ToList();
+
+        var best = ranked[0];
+        var secondScore = ranked.Count > 1 ? ranked[1].score : 0;
+        if (best.score >= 220 && (secondScore == 0 || best.score - secondScore >= 60))
+        {
+            var resolved = new ResolvedDocRef(best.docId, best.docPath, best.docName, best.category, best.categoryPath, best.pages);
+            RememberFocusedDocument(resolved);
+            return new ExplicitDocumentResolution { IsResolved = true, Document = resolved };
+        }
+
+        return new ExplicitDocumentResolution { IsAmbiguous = true };
     }
 
     private static IReadOnlyList<string> BuildDocumentSearchVariants(string docRef)
@@ -433,11 +888,19 @@ public sealed partial class ToolAgentOrchestrator
         if (docRef is null)
             return JsonDocument.Parse("{\"error\":\"missing_doc_ref\"}").RootElement;
 
-        var resolved = await ResolveDocRefAsync(docRef, ct).ConfigureAwait(false);
-        if (resolved is null)
-            return JsonDocument.Parse("{\"error\":\"doc_not_found\"}").RootElement;
+        var strict = await ResolveExplicitDocumentReferenceAsync(docRef, ct).ConfigureAwait(false);
+        if (!strict.IsResolved || strict.Document is null)
+        {
+            var error = strict.IsCategoryReference
+                ? "doc_target_is_category"
+                : strict.IsAmbiguous
+                    ? "doc_ref_ambiguous"
+                    : "doc_not_found";
+            using var errorDoc = JsonDocument.Parse($"{{\"error\":\"{error}\"}}");
+            return errorDoc.RootElement.Clone();
+        }
 
-        return await _api.AdminIngestionReindexAsync(resolved.DocPath, ct).ConfigureAwait(false);
+        return await _api.AdminIngestionReindexAsync(strict.Document.DocPath, ct).ConfigureAwait(false);
     }
 
     private async Task<JsonElement> ExecAdminJobsListAsync(JsonElement args, CancellationToken ct)
@@ -467,11 +930,20 @@ public sealed partial class ToolAgentOrchestrator
     {
         var rawRef = GetStringArg(args, "ref") ?? GetStringArg(args, "pdfRef");
         if (string.IsNullOrWhiteSpace(rawRef))
-            return JsonDocument.Parse("{\"source\":null}").RootElement;
+            return JsonDocument.Parse("{\"source\":null,\"error\":\"missing_source_ref\"}").RootElement;
 
         var source = ResolveSourceRef(rawRef!);
         if (source is null)
-            return JsonDocument.Parse("{\"source\":null}").RootElement;
+        {
+            var notFoundPayload = new
+            {
+                source = (object?)null,
+                error = "source_not_found",
+                requestedRef = rawRef!.Trim()
+            };
+
+            return JsonDocument.Parse(JsonSerializer.Serialize(notFoundPayload)).RootElement;
+        }
 
         var payload = new
         {
@@ -595,13 +1067,17 @@ public sealed partial class ToolAgentOrchestrator
         {
             if (string.Equals(d.DocId, s, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(d.DocPath, s, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(d.DocName, s, StringComparison.OrdinalIgnoreCase))
+                || string.Equals(d.DocName, s, StringComparison.OrdinalIgnoreCase)
+                || IsExactDocumentReferenceMatch(s, d.DocName, d.DocPath))
             {
                 var resolved = new ResolvedDocRef(d.DocId, d.DocPath, d.DocName, d.Category, d.CategoryPath, d.Pages);
                 RememberFocusedDocument(resolved);
                 return resolved;
             }
         }
+
+        if (LooksLikeKnownCategoryReference(s))
+            return null;
 
         var fuzzyKnown = TryResolveKnownDocumentByFuzzyReference(s);
         if (fuzzyKnown is not null)
@@ -627,6 +1103,10 @@ public sealed partial class ToolAgentOrchestrator
             }
         }
 
+        var allowSearchResolution = LooksLikeSpecificDocumentReferenceQuery(s) || QueryLooksSpecificEnoughForFuzzyResolution(s);
+        if (!allowSearchResolution)
+            return null;
+
         var candidateMap = new Dictionary<string, (string docId, string docPath, string docName, string? category, string? categoryPath, int? pages, int score)>(StringComparer.OrdinalIgnoreCase);
         foreach (var query in BuildDocumentSearchVariants(s).Take(5))
         {
@@ -641,6 +1121,12 @@ public sealed partial class ToolAgentOrchestrator
                 var docName = TryGetString(it, "docName") ?? docPath;
                 if (string.IsNullOrWhiteSpace(docId) || string.IsNullOrWhiteSpace(docPath))
                     continue;
+
+                if (!IsExactDocumentReferenceMatch(s, docName, docPath)
+                    && !CandidateMatchesDocumentIdentity(s, docName, docPath))
+                {
+                    continue;
+                }
 
                 var score = ScoreDocumentMatch(s, docName, docPath);
                 var key = docId;

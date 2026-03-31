@@ -131,6 +131,33 @@ AND (
         }, cancellationToken: ct));
     }
 
+
+    public static async Task UpdateProgressAsync(NpgsqlDataSource ds, Guid jobId, string phase, int? current, int? total, CancellationToken ct)
+    {
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        int? percent = null;
+        if (current.HasValue && total.HasValue && total.Value > 0)
+            percent = Math.Clamp((int)Math.Round((current.Value * 100d) / total.Value, MidpointRounding.AwayFromZero), 0, 100);
+
+        const string sql = @"
+UPDATE ingestion_jobs
+SET payload = jsonb_set(
+        COALESCE(payload, '{}'::jsonb),
+        '{progress}',
+        jsonb_strip_nulls(jsonb_build_object(
+            'phase', @phase,
+            'current', @current,
+            'total', @total,
+            'percent', @percent
+        )),
+        true
+    ),
+    locked_at = CASE WHEN status='running' THEN now() ELSE locked_at END
+WHERE job_id=@job_id;";
+
+        await conn.ExecuteAsync(new CommandDefinition(sql, new { job_id = jobId, phase, current, total, percent }, cancellationToken: ct));
+    }
+
     private sealed record IngestionJobRow(Guid JobId, Guid TenantId, string Action, string DocPath, string? Category, string Payload)
     {
         public Guid? DocIdFromPayload

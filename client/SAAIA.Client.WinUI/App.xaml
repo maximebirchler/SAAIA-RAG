@@ -12,7 +12,212 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- ✅ Utilisé pour afficher/cacher le label gris -->
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="AppWindowBackgroundBrush" Color="#FF0A0D12" />
+                    <SolidColorBrush x:Key="AppTitleBarBackgroundBrush" Color="#FF10141A" />
+                    <SolidColorBrush x:Key="AppTitleBarLogoBackgroundBrush" Color="#FF1A212C" />
+                    <SolidColorBrush x:Key="AppPanelBackgroundBrush" Color="#FF0F131A" />
+                    <SolidColorBrush x:Key="AppPanelElevatedBackgroundBrush" Color="#FF131A24" />
+                    <SolidColorBrush x:Key="AppCardBackgroundBrush" Color="#FF1A222D" />
+                    <SolidColorBrush x:Key="AppCardHoverBackgroundBrush" Color="#FF1C2531" />
+                    <SolidColorBrush x:Key="AppCardSelectedBackgroundBrush" Color="#FF1B314A" />
+                    <SolidColorBrush x:Key="AppInputBackgroundBrush" Color="#FF131A24" />
+                    <SolidColorBrush x:Key="AppDialogBackgroundBrush" Color="#FF131A23" />
+                    <SolidColorBrush x:Key="AppDialogHeroBackgroundBrush" Color="#FF151D28" />
+                    <SolidColorBrush x:Key="AppDialogSurfaceBackgroundBrush" Color="#FF18212D" />
+                    <SolidColorBrush x:Key="AppBorderBrush" Color="#FF24303C" />
+                    <SolidColorBrush x:Key="AppBorderStrongBrush" Color="#FF314050" />
+                    <SolidColorBrush x:Key="AppAccentBrush" Color="#FF3A84D8" />
+                    <SolidColorBrush x:Key="AppAccentHoverBrush" Color="#FF4B95E6" />
+                    <SolidColorBrush x:Key="AppAccentPressedBrush" Color="#FF2B6DB6" />
+                    <SolidColorBrush x:Key="AppDangerBrush" Color="#FF914148" />
+                    <SolidColorBrush x:Key="AppDangerHoverBrush" Color="#FFA75159" />
+                    <SolidColorBrush x:Key="AppDangerPressedBrush" Color="#FF77353B" />
+                    <SolidColorBrush x:Key="AppTextPrimaryBrush" Color="#FFF5F7FB" />
+                    <SolidColorBrush x:Key="AppTextSecondaryBrush" Color="#FFD1D9E6" />
+                    <SolidColorBrush x:Key="AppTextMutedBrush" Color="#FF97A3B6" />
+                    <SolidColorBrush x:Key="AppTextOnAccentBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="AppUserBubbleBrush" Color="#FF355F93" />
+                    <SolidColorBrush x:Key="AppAssistantBubbleBrush" Color="#FF1A222D" />
+                    <SolidColorBrush x:Key="AppAssistantAvatarBrush" Color="#FFDCEBFF" />
+                </ResourceDictionary>
+
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="AppWindowBackgroundBrush" Color="#FFD7DEE7" />
+                    <SolidColorBrush x:Key="AppTitleBarBackgroundBrush" Color="#FFDCE4EC" />
+                    <SolidColorBrush x:Key="AppTitleBarLogoBackgroundBrush" Color="#FFC9D5E2" />
+                    <SolidColorBrush x:Key="AppPanelBackgroundBrush" Color="#FFD8E1EA" />
+                    <SolidColorBrush x:Key="AppPanelElevatedBackgroundBrush" Color="#FFE1E8F0" />
+                    <SolidColorBrush x:Key="AppCardBackgroundBrush" Color="#FFEAF0F6" />
+                    <SolidColorBrush x:Key="AppCardHoverBackgroundBrush" Color="#FFE5EBF2" />
+                    <SolidColorBrush x:Key="AppCardSelectedBackgroundBrush" Color="#FFD6E3EF" />
+                    <SolidColorBrush x:Key="AppInputBackgroundBrush" Color="#FFF2F5F8" />
+                    <SolidColorBrush x:Key="AppDialogBackgroundBrush" Color="#FFE7EDF4" />
+                    <SolidColorBrush x:Key="AppDialogHeroBackgroundBrush" Color="#FFDEE6EE" />
+                    <SolidColorBrush x:Key="AppDialogSurfaceBackgroundBrush" Color="#FFF7F9FC" />
+                    <SolidColorBrush x:Key="AppBorderBrush" Color="#FFB8C4D0" />
+                    <SolidColorBrush x:Key="AppBorderStrongBrush" Color="#FFA0B1C2" />
+                    <SolidColorBrush x:Key="AppAccentBrush" Color="#FF58728C" />
+                    <SolidColorBrush x:Key="AppAccentHoverBrush" Color="#FF64809C" />
+                    <SolidColorBrush x:Key="AppAccentPressedBrush" Color="#FF4B637A" />
+                    <SolidColorBrush x:Key="AppDangerBrush" Color="#FFB2565D" />
+                    <SolidColorBrush x:Key="AppDangerHoverBrush" Color="#FFC4636A" />
+                    <SolidColorBrush x:Key="AppDangerPressedBrush" Color="#FF97444A" />
+                    <SolidColorBrush x:Key="AppTextPrimaryBrush" Color="#FF111827" />
+                    <SolidColorBrush x:Key="AppTextSecondaryBrush" Color="#FF485769" />
+                    <SolidColorBrush x:Key="AppTextMutedBrush" Color="#FF667789" />
+                    <SolidColorBrush x:Key="AppTextOnAccentBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="AppUserBubbleBrush" Color="#FF58728C" />
+                    <SolidColorBrush x:Key="AppAssistantBubbleBrush" Color="#FFF8FBFD" />
+                    <SolidColorBrush x:Key="AppAssistantAvatarBrush" Color="#FFD8E3EF" />
+                </ResourceDictionary>
+
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="AppWindowBackgroundBrush" Color="#FF0A0D12" />
+                    <SolidColorBrush x:Key="AppTitleBarBackgroundBrush" Color="#FF10141A" />
+                    <SolidColorBrush x:Key="AppTitleBarLogoBackgroundBrush" Color="#FF1A212C" />
+                    <SolidColorBrush x:Key="AppPanelBackgroundBrush" Color="#FF0F131A" />
+                    <SolidColorBrush x:Key="AppPanelElevatedBackgroundBrush" Color="#FF131A24" />
+                    <SolidColorBrush x:Key="AppCardBackgroundBrush" Color="#FF1A222D" />
+                    <SolidColorBrush x:Key="AppCardHoverBackgroundBrush" Color="#FF1C2531" />
+                    <SolidColorBrush x:Key="AppCardSelectedBackgroundBrush" Color="#FF1B314A" />
+                    <SolidColorBrush x:Key="AppInputBackgroundBrush" Color="#FF131A24" />
+                    <SolidColorBrush x:Key="AppDialogBackgroundBrush" Color="#FF131A23" />
+                    <SolidColorBrush x:Key="AppDialogHeroBackgroundBrush" Color="#FF151D28" />
+                    <SolidColorBrush x:Key="AppDialogSurfaceBackgroundBrush" Color="#FF18212D" />
+                    <SolidColorBrush x:Key="AppBorderBrush" Color="#FF24303C" />
+                    <SolidColorBrush x:Key="AppBorderStrongBrush" Color="#FF314050" />
+                    <SolidColorBrush x:Key="AppAccentBrush" Color="#FF3A84D8" />
+                    <SolidColorBrush x:Key="AppAccentHoverBrush" Color="#FF4B95E6" />
+                    <SolidColorBrush x:Key="AppAccentPressedBrush" Color="#FF2B6DB6" />
+                    <SolidColorBrush x:Key="AppDangerBrush" Color="#FF914148" />
+                    <SolidColorBrush x:Key="AppDangerHoverBrush" Color="#FFA75159" />
+                    <SolidColorBrush x:Key="AppDangerPressedBrush" Color="#FF77353B" />
+                    <SolidColorBrush x:Key="AppTextPrimaryBrush" Color="#FFF5F7FB" />
+                    <SolidColorBrush x:Key="AppTextSecondaryBrush" Color="#FFD1D9E6" />
+                    <SolidColorBrush x:Key="AppTextMutedBrush" Color="#FF97A3B6" />
+                    <SolidColorBrush x:Key="AppTextOnAccentBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="AppUserBubbleBrush" Color="#FF355F93" />
+                    <SolidColorBrush x:Key="AppAssistantBubbleBrush" Color="#FF1A222D" />
+                    <SolidColorBrush x:Key="AppAssistantAvatarBrush" Color="#FFDCEBFF" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
+            <Style x:Key="AppPrimaryButtonStyle" TargetType="Button">
+                <Setter Property="MinHeight" Value="40" />
+                <Setter Property="MinWidth" Value="96" />
+                <Setter Property="Padding" Value="16,10" />
+                <Setter Property="CornerRadius" Value="12" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Background" Value="{ThemeResource AppAccentBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource AppAccentHoverBrush}" />
+                <Setter Property="Foreground" Value="{ThemeResource AppTextOnAccentBrush}" />
+            </Style>
+
+            <Style x:Key="AppSecondaryButtonStyle" TargetType="Button">
+                <Setter Property="MinHeight" Value="40" />
+                <Setter Property="MinWidth" Value="96" />
+                <Setter Property="Padding" Value="16,10" />
+                <Setter Property="CornerRadius" Value="12" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Background" Value="{ThemeResource AppCardBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource AppBorderBrush}" />
+                <Setter Property="Foreground" Value="{ThemeResource AppTextPrimaryBrush}" />
+            </Style>
+
+            <Style x:Key="AppPrimaryIconButtonStyle" TargetType="Button" BasedOn="{StaticResource AppPrimaryButtonStyle}">
+                <Setter Property="MinHeight" Value="44" />
+                <Setter Property="MinWidth" Value="44" />
+                <Setter Property="Width" Value="44" />
+                <Setter Property="Height" Value="44" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="CornerRadius" Value="14" />
+            </Style>
+
+            <Style x:Key="AppDangerButtonStyle" TargetType="Button" BasedOn="{StaticResource AppSecondaryButtonStyle}">
+                <Setter Property="Background" Value="{ThemeResource AppDangerBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource AppDangerHoverBrush}" />
+                <Setter Property="Foreground" Value="White" />
+            </Style>
+
+            <Style x:Key="AppIconButtonStyle" TargetType="Button" BasedOn="{StaticResource AppSecondaryButtonStyle}">
+                <Setter Property="MinHeight" Value="40" />
+                <Setter Property="MinWidth" Value="40" />
+                <Setter Property="Width" Value="40" />
+                <Setter Property="Height" Value="40" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="CornerRadius" Value="12" />
+            </Style>
+
+            <Style x:Key="AppCompactButtonStyle" TargetType="Button" BasedOn="{StaticResource AppSecondaryButtonStyle}">
+                <Setter Property="MinHeight" Value="28" />
+                <Setter Property="MinWidth" Value="34" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="CornerRadius" Value="10" />
+            </Style>
+
+            <Style x:Key="AppComposerTextBoxStyle" TargetType="TextBox">
+                <Setter Property="Background" Value="{ThemeResource AppInputBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource AppBorderBrush}" />
+                <Setter Property="Foreground" Value="{ThemeResource AppTextPrimaryBrush}" />
+                <Setter Property="CornerRadius" Value="14" />
+                <Setter Property="Padding" Value="14,12" />
+            </Style>
+
+            <Style x:Key="AppComboStyle" TargetType="ComboBox">
+                <Setter Property="Background" Value="{ThemeResource AppInputBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource AppBorderBrush}" />
+                <Setter Property="Foreground" Value="{ThemeResource AppTextPrimaryBrush}" />
+                <Setter Property="CornerRadius" Value="12" />
+            </Style>
+
+            <Style x:Key="AppInputTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource AppComposerTextBoxStyle}">
+                <Setter Property="MinHeight" Value="40" />
+                <Setter Property="Padding" Value="12,10" />
+                <Setter Property="CornerRadius" Value="12" />
+            </Style>
+
+
+            <Style x:Key="AppSidebarListItemStyle" TargetType="ListViewItem">
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Margin" Value="0" />
+                <Setter Property="MinHeight" Value="0" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                <Setter Property="UseSystemFocusVisuals" Value="False" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="IsHoldingEnabled" Value="False" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListViewItem">
+                            <Grid Margin="0,0,0,10" Background="Transparent">
+                                <ContentPresenter Content="{TemplateBinding Content}"
+                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                  ContentTransitions="{TemplateBinding ContentTransitions}"
+                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="AppPanelBorderStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource AppPanelBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource AppBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="14" />
+            </Style>
+
+            <Style x:Key="AppCardBorderStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource AppCardBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource AppBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="14" />
+            </Style>
+
             <conv:NonEmptyStringToVisibilityConverter x:Key="NonEmptyStringToVisibility"/>
             <conv:DateTimeToLocalShortConverter x:Key="DateTimeToLocalShort"/>
         </ResourceDictionary>

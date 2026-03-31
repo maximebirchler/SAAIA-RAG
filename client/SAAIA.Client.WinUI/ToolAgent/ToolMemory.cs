@@ -39,6 +39,7 @@ public sealed class ToolMemory
     public RuntimeCatalogSnapshot? CatalogSnapshotCache { get; set; } = null;
     public RuntimeCapabilitiesSnapshot? CapabilitiesCache { get; set; } = null;
     public PendingDirectCommand? StagedDirectCommand { get; set; } = null;
+    public AdminOperationState? LastAdminOperation { get; set; } = null;
 
     public sealed class DocumentItem
     {
@@ -127,6 +128,28 @@ public sealed class ToolMemory
         public DateTimeOffset LoadedAtUtc { get; set; } = DateTimeOffset.UtcNow;
         public List<string> DirectCommandIds { get; set; } = new();
         public List<string> AdminCommandIds { get; set; } = new();
+    }
+
+    public sealed class AdminOperationState
+    {
+        public string OperationKind { get; set; } = "";
+        public string DisplayLabel { get; set; } = "";
+        public string? JobId { get; set; } = null;
+        public string? DocumentRef { get; set; } = null;
+        public string? DocPath { get; set; } = null;
+        public string Status { get; set; } = "queued";
+        public string? LastError { get; set; } = null;
+        public string? ProgressPhase { get; set; } = null;
+        public int? ProgressCurrent { get; set; } = null;
+        public int? ProgressTotal { get; set; } = null;
+        public int? ProgressPercent { get; set; } = null;
+        public bool IsCompleted { get; set; }
+        public bool IsSuccess { get; set; }
+        public int? IndexedDocuments { get; set; } = null;
+        public int? TotalCategories { get; set; } = null;
+        public int? MaxDepth { get; set; } = null;
+        public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
+        public DateTimeOffset LastUpdatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
     }
 
     public sealed class PendingDirectCommand

@@ -67,7 +67,6 @@ public static class ToolManifest
         new("admin.summary.delete", "admin", "Delete a stored summary.", Schema(("docRef", "string"), ("level", "medium"))),
         new("admin.catalog.rescan_now", "admin", "Force a catalog rescan/reconcile.", EmptySchema),
         new("admin.catalog.health", "admin", "Get catalog/index health information.", EmptySchema),
-        new("admin.ingestion.reindex", "admin", "Re-trigger ingestion for one document.", Schema(("docRef", "string"))),
         new("admin.jobs.list", "admin", "List admin jobs with status and errors.", Schema(("type", "string|null"), ("limit", "int"), ("offset", "int"))),
         new("admin.jobs.cancel", "admin", "Cancel an admin job.", Schema(("jobId", "string"))),
         new("admin.summary.generate", "admin", "Generate or queue an admin summary generation for a document.", Schema(("docRef", "string"), ("level", "medium"), ("force", "bool|null"))),
