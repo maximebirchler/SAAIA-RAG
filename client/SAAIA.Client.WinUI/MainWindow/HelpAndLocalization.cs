@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Http;
 using System.IO;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -933,6 +935,8 @@ public sealed partial class MainWindow
             JobId = trackedJob.JobId,
             JobType = string.IsNullOrWhiteSpace(trackedJob.JobType) ? "ingestion" : trackedJob.JobType,
             DisplayLabel = trackedJob.DisplayLabel,
+            DocId = trackedJob.DocId,
+            DocPath = trackedJob.DocPath,
             IsTerminal = isTerminal
         };
 
@@ -952,7 +956,9 @@ public sealed partial class MainWindow
             JobId = meta.JobId,
             JobType = string.IsNullOrWhiteSpace(meta.JobType) ? "ingestion" : meta.JobType,
             DisplayLabel = string.IsNullOrWhiteSpace(meta.DisplayLabel) ? (message.Content ?? string.Empty) : meta.DisplayLabel!,
-            Status = message.StatusNote
+            Status = message.StatusNote,
+            DocId = meta.DocId,
+            DocPath = meta.DocPath
         };
         return true;
     }
@@ -1002,6 +1008,32 @@ public sealed partial class MainWindow
         throw new InvalidOperationException($"Unable to load admin job snapshot for {jobId}.");
     }
 
+    private static bool IsAdminTrackingAccessUnavailable(HttpRequestException ex)
+        => ex.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden;
+
+    private async Task<bool> TryReconcileTrackedJobWithoutAdminAsync(ActiveDirectCommandTrackerState state, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(state.Job.DocId))
+            return false;
+
+        try
+        {
+            var isIndexed = await _api.DocumentsCatalogIsIndexedAsync(state.Job.DocId, ct).ConfigureAwait(false);
+            if (!isIndexed)
+                return false;
+
+            state.LastContent = DeterministicAgentText.AdminReindexCompleted(UiLang, state.Job.DisplayLabel);
+            state.LastProgressText = null;
+            state.LastStatusNote = null;
+            state.IsTerminal = true;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private static JsonElement ChooseBetterTrackedJobSnapshot(JsonElement direct, JsonElement fallback)
     {
         var directScore = GetTrackedJobSnapshotScore(direct);
@@ -1025,30 +1057,34 @@ public sealed partial class MainWindow
         return score;
     }
 
-    private static bool IsAdminTrackingAccessUnavailable(System.Net.Http.HttpRequestException ex)
-        => ex.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden;
-
     private async Task TrackDirectCommandJobAsync(ActiveDirectCommandTrackerState state)
     {
         var ct = state.Cancellation.Token;
         var startedAtUtc = state.StartedAtUtc ?? DateTimeOffset.UtcNow;
+        state.StartedAtUtc = startedAtUtc;
         var hadTrackingError = false;
 
         try
         {
-            while (!ct.IsCancellationRequested)
+            while (!ct.IsCancellationRequested && !state.IsTerminal)
             {
-                if (!_api.HasAdminSessionKey)
-                {
-                    state.LastStatusNote = ClientUiText.Get("admin.tracking.reconnect_required", UiLang);
-                    await ApplyTrackedJobStateToUiAndPersistAsync(state, ct).ConfigureAwait(false);
-                    await Task.Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false);
-                    continue;
-                }
-
                 JsonElement snapshot;
                 try
                 {
+                    if (!_api.HasAdminSessionKey)
+                    {
+                        if (await TryReconcileTrackedJobWithoutAdminAsync(state, ct).ConfigureAwait(false))
+                        {
+                            await ApplyTrackedJobStateToUiAndPersistAsync(state, ct).ConfigureAwait(false);
+                            break;
+                        }
+
+                        state.LastStatusNote = ClientUiText.Get("admin.tracking.reconnect_required", UiLang);
+                        await ApplyTrackedJobStateToUiAndPersistAsync(state, ct).ConfigureAwait(false);
+                        await Task.Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false);
+                        continue;
+                    }
+
                     snapshot = await TryLoadTrackedAdminJobSnapshotAsync(state.Job.JobId, ct).ConfigureAwait(false);
                     hadTrackingError = false;
                 }
@@ -1056,8 +1092,16 @@ public sealed partial class MainWindow
                 {
                     break;
                 }
-                catch (System.Net.Http.HttpRequestException ex) when (IsAdminTrackingAccessUnavailable(ex))
+                catch (HttpRequestException ex) when (IsAdminTrackingAccessUnavailable(ex))
                 {
+                    _api.ClearAdminSessionKey();
+
+                    if (await TryReconcileTrackedJobWithoutAdminAsync(state, ct).ConfigureAwait(false))
+                    {
+                        await ApplyTrackedJobStateToUiAndPersistAsync(state, ct).ConfigureAwait(false);
+                        break;
+                    }
+
                     state.LastStatusNote = ClientUiText.Get("admin.tracking.reconnect_required", UiLang);
                     await ApplyTrackedJobStateToUiAndPersistAsync(state, ct).ConfigureAwait(false);
                     await Task.Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false);
@@ -1066,8 +1110,9 @@ public sealed partial class MainWindow
                 catch
                 {
                     hadTrackingError = true;
+                    var fallbackElapsed = Math.Max(1, (int)Math.Round((DateTimeOffset.UtcNow - startedAtUtc).TotalSeconds));
                     state.LastContent ??= DeterministicAgentText.AdminReindexRunning(UiLang, state.Job.DisplayLabel);
-                    state.LastProgressText ??= DeterministicAgentText.AdminReindexProgressPhase(UiLang, "running", null, null, null, Math.Max(1, (int)Math.Round((DateTimeOffset.UtcNow - startedAtUtc).TotalSeconds)));
+                    state.LastProgressText ??= DeterministicAgentText.AdminReindexProgressPhase(UiLang, "running", null, null, null, fallbackElapsed);
                     state.LastStatusNote = ClientUiText.Get("help.loading", UiLang);
 
                     await ApplyTrackedJobStateToUiAndPersistAsync(state, ct).ConfigureAwait(false);

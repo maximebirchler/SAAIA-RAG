@@ -26,4 +26,6 @@ public sealed class DirectCommandTrackedJob
     public string JobType { get; init; } = "ingestion";
     public string DisplayLabel { get; init; } = string.Empty;
     public string Status { get; init; } = "queued";
+    public string? DocId { get; init; }
+    public string? DocPath { get; init; }
 }

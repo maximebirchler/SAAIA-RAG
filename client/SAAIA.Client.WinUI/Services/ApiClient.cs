@@ -523,6 +523,24 @@ public sealed partial class ApiClient
 
 
 
+    public async Task<bool> DocumentsCatalogIsIndexedAsync(string? docId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(docId))
+            return false;
+        if (!Guid.TryParse(docId, out var parsed))
+            return false;
+
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, $"/documents/catalog/{parsed}"), ct).ConfigureAwait(false);
+        if (resp.StatusCode == HttpStatusCode.NotFound)
+            return false;
+
+        resp.EnsureSuccessStatusCode();
+        return true;
+    }
+
+
+
+
     // ---------------------
 
     // ---------------------

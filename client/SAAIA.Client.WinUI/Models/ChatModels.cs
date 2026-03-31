@@ -10,6 +10,8 @@ public sealed class ChatTrackingMeta
     public string? JobId { get; set; }
     public string? JobType { get; set; }
     public string? DisplayLabel { get; set; }
+    public string? DocId { get; set; }
+    public string? DocPath { get; set; }
     public bool IsTerminal { get; set; }
 }
 

@@ -306,7 +306,9 @@ public sealed partial class ToolAgentOrchestrator
                         JobId = jobId ?? string.Empty,
                         JobType = "ingestion",
                         DisplayLabel = label,
-                        Status = initialStatus
+                        Status = initialStatus,
+                        DocId = resolved.DocId,
+                        DocPath = resolved.DocPath
                     },
                     "admin.ingestion.reindex");
             }
