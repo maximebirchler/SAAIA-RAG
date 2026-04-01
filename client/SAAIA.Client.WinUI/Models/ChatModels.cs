@@ -13,6 +13,16 @@ public sealed class ChatTrackingMeta
     public string? DocId { get; set; }
     public string? DocPath { get; set; }
     public bool IsTerminal { get; set; }
+
+    // Durable progress snapshot used to restore long-running admin job tracking
+    // after session reloads or application restarts.
+    public string? LastKnownStatus { get; set; }
+    public string? LastKnownProgressPhase { get; set; }
+    public int? LastKnownProgressCurrent { get; set; }
+    public int? LastKnownProgressTotal { get; set; }
+    public int? LastKnownProgressPercent { get; set; }
+    public DateTimeOffset? StartedAtUtc { get; set; }
+    public DateTimeOffset? LastSnapshotAtUtc { get; set; }
 }
 
 public sealed class ChatMessageItem : INotifyPropertyChanged

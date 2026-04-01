@@ -563,14 +563,19 @@ public sealed partial class MainWindow
             SourcesBox.Text = pretty;
 
             if (result.TrackedJob is not null && !string.IsNullOrWhiteSpace(result.TrackedJob.JobId))
+            {
                 assistantMsg.TrackingMeta = BuildTrackedJobMeta(result.TrackedJob, isTerminal: false);
+                assistantMsg.ProgressText = string.Equals(result.TrackedJob.Status, "queued", StringComparison.OrdinalIgnoreCase)
+                    ? DeterministicAgentText.AdminJobQueued(UiLang, result.TrackedJob.DisplayLabel, 1)
+                    : DeterministicAgentText.AdminReindexProgressPhase(UiLang, "running", null, null, null, 1);
+            }
 
             var persistedAssistantMsg = await _api.AddMessageAsync(_sessionId!, "assistant", assistantMsg.Content, result.SourcesPayload, CancellationToken.None, assistantMsg.StatusNote, assistantMsg.ProgressText, assistantMsg.TrackingMeta);
             if (!string.IsNullOrWhiteSpace(persistedAssistantMsg?.MessageId))
                 assistantMsg.MessageId = persistedAssistantMsg!.MessageId;
 
             if (result.TrackedJob is not null && !string.IsNullOrWhiteSpace(result.TrackedJob.JobId))
-                StartDirectCommandJobTracker(result.TrackedJob, assistantMsg, _sessionId);
+                await StartAndRefreshDirectCommandJobTrackerAsync(result.TrackedJob, assistantMsg, _sessionId).ConfigureAwait(true);
 
             try
             {
@@ -784,10 +789,10 @@ public sealed partial class MainWindow
     }
 
 
-    private void StartDirectCommandJobTracker(DirectCommandTrackedJob trackedJob, ChatMessageItem assistantMsg, string? sessionId)
+    private ActiveDirectCommandTrackerState? StartDirectCommandJobTracker(DirectCommandTrackedJob trackedJob, ChatMessageItem assistantMsg, string? sessionId, bool startLoop = true)
     {
         if (string.IsNullOrWhiteSpace(trackedJob.JobId))
-            return;
+            return null;
 
         assistantMsg.TrackingMeta ??= BuildTrackedJobMeta(trackedJob, isTerminal: false);
 
@@ -799,13 +804,7 @@ public sealed partial class MainWindow
                 existing.SessionId = sessionId;
                 existing.MessageId = assistantMsg.MessageId;
                 existing.Message = assistantMsg;
-                existing.LastContent ??= assistantMsg.Content;
-                existing.LastProgressText ??= assistantMsg.ProgressText;
-                existing.LastStatusNote ??= assistantMsg.StatusNote;
-                existing.LastPersistedContent ??= assistantMsg.Content;
-                existing.LastPersistedProgressText ??= assistantMsg.ProgressText;
-                existing.LastPersistedStatusNote ??= assistantMsg.StatusNote;
-                existing.LastPersistedTerminal = existing.LastPersistedTerminal || assistantMsg.TrackingMeta?.IsTerminal == true;
+                SeedTrackedJobStateFromMessage(existing, assistantMsg);
             }
             else
             {
@@ -817,14 +816,9 @@ public sealed partial class MainWindow
                     Cancellation = cts,
                     MessageId = assistantMsg.MessageId,
                     Message = assistantMsg,
-                    LastContent = assistantMsg.Content,
-                    LastProgressText = assistantMsg.ProgressText,
-                    LastStatusNote = assistantMsg.StatusNote,
-                    LastPersistedContent = assistantMsg.Content,
-                    LastPersistedProgressText = assistantMsg.ProgressText,
-                    LastPersistedStatusNote = assistantMsg.StatusNote,
                     LastPersistedTerminal = assistantMsg.TrackingMeta?.IsTerminal == true
                 };
+                SeedTrackedJobStateFromMessage(state, assistantMsg);
                 _activeDirectCommandTrackers[trackedJob.JobId] = state;
                 _directCommandTrackers.Add(cts);
                 existing = state;
@@ -833,11 +827,29 @@ public sealed partial class MainWindow
 
         ApplyTrackedJobSnapshotToMessage(existing, assistantMsg);
 
-        if (!existing.IsTerminal && !existing.TrackingLoopStarted && existing.Cancellation is { IsCancellationRequested: false })
-        {
-            existing.TrackingLoopStarted = true;
-            _ = TrackDirectCommandJobAsync(existing);
-        }
+        if (startLoop)
+            StartDirectCommandJobTrackingLoop(existing);
+
+        return existing;
+    }
+
+    private void StartDirectCommandJobTrackingLoop(ActiveDirectCommandTrackerState state)
+    {
+        if (state.IsTerminal || state.TrackingLoopStarted || state.Cancellation.IsCancellationRequested)
+            return;
+
+        state.TrackingLoopStarted = true;
+        _ = TrackDirectCommandJobAsync(state);
+    }
+
+    private async Task StartAndRefreshDirectCommandJobTrackerAsync(DirectCommandTrackedJob trackedJob, ChatMessageItem assistantMsg, string? sessionId)
+    {
+        var state = StartDirectCommandJobTracker(trackedJob, assistantMsg, sessionId, startLoop: false);
+        if (state is null)
+            return;
+
+        await RefreshTrackedJobStateNowAsync(state, CancellationToken.None, persist: true).ConfigureAwait(false);
+        StartDirectCommandJobTrackingLoop(state);
     }
 
     private async Task RehydrateTrackedJobsForCurrentSessionAsync()
@@ -854,7 +866,12 @@ public sealed partial class MainWindow
             if (!TryCreateTrackedJobFromMessage(msg, out var trackedJob))
                 continue;
 
-            StartDirectCommandJobTracker(trackedJob, msg, _sessionId);
+            var state = StartDirectCommandJobTracker(trackedJob, msg, _sessionId, startLoop: false);
+            if (state is null)
+                continue;
+
+            await RefreshTrackedJobStateNowAsync(state, CancellationToken.None, persist: true).ConfigureAwait(false);
+            StartDirectCommandJobTrackingLoop(state);
             await Task.Yield();
         }
     }
@@ -895,6 +912,16 @@ public sealed partial class MainWindow
                 return byId;
         }
 
+        for (var i = _messages.Count - 1; i >= 0; i--)
+        {
+            var msg = _messages[i];
+            if (!string.Equals(msg.Role, "assistant", StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (!string.IsNullOrWhiteSpace(msg.TrackingMeta?.DisplayLabel)
+                && string.Equals(msg.TrackingMeta.DisplayLabel, displayLabel, StringComparison.OrdinalIgnoreCase))
+                return msg;
+        }
+
         if (string.IsNullOrWhiteSpace(displayLabel))
             return null;
 
@@ -919,13 +946,93 @@ public sealed partial class MainWindow
 
     private void ApplyTrackedJobSnapshotToMessage(ActiveDirectCommandTrackerState state, ChatMessageItem assistantMsg)
     {
+        EnsureTrackedJobStateRenderable(state);
+
         if (!string.IsNullOrWhiteSpace(state.LastContent))
             assistantMsg.Content = state.LastContent;
         assistantMsg.ProgressText = state.LastProgressText;
         assistantMsg.StatusNote = state.LastStatusNote;
         if (!string.IsNullOrWhiteSpace(state.MessageId))
             assistantMsg.MessageId = state.MessageId;
-        assistantMsg.TrackingMeta = BuildTrackedJobMeta(state.Job, state.IsTerminal);
+        assistantMsg.TrackingMeta = BuildTrackedJobMeta(state);
+    }
+
+    private void EnsureTrackedJobStateRenderable(ActiveDirectCommandTrackerState state)
+    {
+        var status = (state.LastKnownStatus ?? state.Job.Status ?? string.Empty).Trim().ToLowerInvariant();
+        var displayPercent = GetTrackedJobDisplayPercent(status, state.LastKnownProgressPhase, state.LastKnownProgressPercent, state.LastKnownProgressCurrent, state.LastKnownProgressTotal);
+        var startedAtUtc = state.StartedAtUtc ?? state.LastSnapshotAtUtc ?? DateTimeOffset.UtcNow;
+        var elapsedSeconds = Math.Max(1, (int)Math.Round((DateTimeOffset.UtcNow - startedAtUtc).TotalSeconds));
+
+        if (state.IsTerminal)
+        {
+            if (status is "failed" or "error" or "canceled" or "cancelled")
+                state.LastContent = DeterministicAgentText.AdminReindexFailed(UiLang, state.Job.DisplayLabel, state.Job.Status);
+            else
+                state.LastContent = DeterministicAgentText.AdminReindexCompleted(UiLang, state.Job.DisplayLabel);
+
+            state.LastProgressText = null;
+            state.LastStatusNote = null;
+            return;
+        }
+
+        if (status == "queued")
+        {
+            state.LastContent = DeterministicAgentText.AdminReindexQueued(UiLang, state.Job.DisplayLabel, state.Job.JobId);
+            state.LastProgressText ??= DeterministicAgentText.AdminJobQueued(UiLang, state.Job.DisplayLabel, elapsedSeconds);
+            return;
+        }
+
+        if (displayPercent.HasValue)
+            state.LastContent = DeterministicAgentText.AdminReindexRunningWithPercent(UiLang, state.Job.DisplayLabel, displayPercent.Value);
+        else
+            state.LastContent ??= DeterministicAgentText.AdminReindexRunning(UiLang, state.Job.DisplayLabel);
+
+        var hasStructuredProgress = !string.IsNullOrWhiteSpace(state.LastKnownProgressPhase)
+            || state.LastKnownProgressCurrent.HasValue
+            || state.LastKnownProgressTotal.HasValue
+            || state.LastKnownProgressPercent.HasValue;
+
+        if (hasStructuredProgress || string.IsNullOrWhiteSpace(state.LastProgressText))
+        {
+            state.LastProgressText = DeterministicAgentText.AdminReindexProgressPhase(
+                UiLang,
+                state.LastKnownProgressPhase,
+                displayPercent,
+                state.LastKnownProgressCurrent,
+                state.LastKnownProgressTotal,
+                elapsedSeconds);
+        }
+    }
+
+    private void SeedTrackedJobStateFromMessage(ActiveDirectCommandTrackerState state, ChatMessageItem assistantMsg)
+    {
+        state.LastContent ??= assistantMsg.Content;
+        state.LastProgressText ??= assistantMsg.ProgressText;
+        state.LastStatusNote ??= assistantMsg.StatusNote;
+        state.LastPersistedContent ??= assistantMsg.Content;
+        state.LastPersistedProgressText ??= assistantMsg.ProgressText;
+        state.LastPersistedStatusNote ??= assistantMsg.StatusNote;
+        state.LastPersistedTrackingMetaJson ??= assistantMsg.TrackingMeta is null ? null : JsonSerializer.Serialize(assistantMsg.TrackingMeta);
+        state.LastPersistedTerminal = state.LastPersistedTerminal || assistantMsg.TrackingMeta?.IsTerminal == true;
+
+        var meta = assistantMsg.TrackingMeta;
+        if (meta is null)
+            return;
+
+        if (!string.IsNullOrWhiteSpace(meta.DocId) && string.IsNullOrWhiteSpace(state.Job.DocId))
+            state.Job.DocId = meta.DocId;
+        if (!string.IsNullOrWhiteSpace(meta.DocPath) && string.IsNullOrWhiteSpace(state.Job.DocPath))
+            state.Job.DocPath = meta.DocPath;
+        if (!string.IsNullOrWhiteSpace(meta.LastKnownStatus))
+            state.LastKnownStatus ??= meta.LastKnownStatus;
+        if (!string.IsNullOrWhiteSpace(meta.LastKnownProgressPhase))
+            state.LastKnownProgressPhase ??= meta.LastKnownProgressPhase;
+        state.LastKnownProgressCurrent ??= meta.LastKnownProgressCurrent;
+        state.LastKnownProgressTotal ??= meta.LastKnownProgressTotal;
+        state.LastKnownProgressPercent ??= meta.LastKnownProgressPercent;
+        state.StartedAtUtc ??= meta.StartedAtUtc;
+        state.LastSnapshotAtUtc ??= meta.LastSnapshotAtUtc;
     }
 
     private static ChatTrackingMeta BuildTrackedJobMeta(DirectCommandTrackedJob trackedJob, bool isTerminal)
@@ -937,7 +1044,27 @@ public sealed partial class MainWindow
             DisplayLabel = trackedJob.DisplayLabel,
             DocId = trackedJob.DocId,
             DocPath = trackedJob.DocPath,
+            LastKnownStatus = trackedJob.Status,
             IsTerminal = isTerminal
+        };
+
+    private ChatTrackingMeta BuildTrackedJobMeta(ActiveDirectCommandTrackerState state)
+        => new()
+        {
+            Kind = "admin.ingestion.reindex",
+            JobId = state.Job.JobId,
+            JobType = string.IsNullOrWhiteSpace(state.Job.JobType) ? "ingestion" : state.Job.JobType,
+            DisplayLabel = state.Job.DisplayLabel,
+            DocId = state.Job.DocId,
+            DocPath = state.Job.DocPath,
+            LastKnownStatus = state.LastKnownStatus ?? state.Job.Status,
+            LastKnownProgressPhase = state.LastKnownProgressPhase,
+            LastKnownProgressCurrent = state.LastKnownProgressCurrent,
+            LastKnownProgressTotal = state.LastKnownProgressTotal,
+            LastKnownProgressPercent = state.LastKnownProgressPercent,
+            StartedAtUtc = state.StartedAtUtc,
+            LastSnapshotAtUtc = state.LastSnapshotAtUtc,
+            IsTerminal = state.IsTerminal
         };
 
     private static bool TryCreateTrackedJobFromMessage(ChatMessageItem message, out DirectCommandTrackedJob trackedJob)
@@ -956,10 +1083,82 @@ public sealed partial class MainWindow
             JobId = meta.JobId,
             JobType = string.IsNullOrWhiteSpace(meta.JobType) ? "ingestion" : meta.JobType,
             DisplayLabel = string.IsNullOrWhiteSpace(meta.DisplayLabel) ? (message.Content ?? string.Empty) : meta.DisplayLabel!,
-            Status = message.StatusNote,
+            Status = meta.LastKnownStatus ?? message.StatusNote ?? "queued",
             DocId = meta.DocId,
             DocPath = meta.DocPath
         };
+        return true;
+    }
+
+    private static string? ReadTrackedJobStatus(JsonElement snapshot)
+        => TryGetString(snapshot, "status")
+           ?? TryGetString(snapshot, "Status")
+           ?? TryGetNestedString(snapshot, "payload", "status");
+
+    private static string? ReadTrackedJobLastError(JsonElement snapshot)
+        => TryGetString(snapshot, "lastError")
+           ?? TryGetString(snapshot, "LastError")
+           ?? TryGetNestedString(snapshot, "payload", "lastError")
+           ?? TryGetNestedString(snapshot, "payload", "LastError");
+
+    private static string? ReadTrackedJobProgressPhase(JsonElement snapshot)
+        => TryGetString(snapshot, "progressPhase")
+           ?? TryGetString(snapshot, "ProgressPhase")
+           ?? TryGetNestedString(snapshot, "progress", "phase")
+           ?? TryGetNestedString(snapshot, "payload", "progress", "phase");
+
+    private static int? ReadTrackedJobProgressCurrent(JsonElement snapshot)
+        => TryGetInt(snapshot, "progressCurrent")
+           ?? TryGetInt(snapshot, "ProgressCurrent")
+           ?? TryGetNestedInt(snapshot, "progress", "current")
+           ?? TryGetNestedInt(snapshot, "payload", "progress", "current");
+
+    private static int? ReadTrackedJobProgressTotal(JsonElement snapshot)
+        => TryGetInt(snapshot, "progressTotal")
+           ?? TryGetInt(snapshot, "ProgressTotal")
+           ?? TryGetNestedInt(snapshot, "progress", "total")
+           ?? TryGetNestedInt(snapshot, "payload", "progress", "total");
+
+    private static int? ReadTrackedJobProgressPercent(JsonElement snapshot)
+        => TryGetInt(snapshot, "progressPercent")
+           ?? TryGetInt(snapshot, "ProgressPercent")
+           ?? TryGetNestedInt(snapshot, "progress", "percent")
+           ?? TryGetNestedInt(snapshot, "payload", "progress", "percent");
+
+    private static string? ReadTrackedJobDocId(JsonElement snapshot)
+        => TryGetString(snapshot, "docId")
+           ?? TryGetString(snapshot, "DocId")
+           ?? TryGetNestedString(snapshot, "payload", "docId");
+
+    private static string? TryGetNestedString(JsonElement element, params string[] path)
+    {
+        if (!TryGetNested(element, out var value, path))
+            return null;
+        return value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+    }
+
+    private static int? TryGetNestedInt(JsonElement element, params string[] path)
+    {
+        if (!TryGetNested(element, out var value, path))
+            return null;
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var number))
+            return number;
+        if (value.ValueKind == JsonValueKind.String && int.TryParse(value.GetString(), out number))
+            return number;
+        return null;
+    }
+
+    private static bool TryGetNested(JsonElement element, out JsonElement value, params string[] path)
+    {
+        value = element;
+        foreach (var segment in path)
+        {
+            if (value.ValueKind != JsonValueKind.Object || !value.TryGetProperty(segment, out value))
+            {
+                value = default;
+                return false;
+            }
+        }
         return true;
     }
     private async Task<JsonElement> TryLoadTrackedAdminJobSnapshotAsync(string jobId, CancellationToken ct)
@@ -1011,6 +1210,33 @@ public sealed partial class MainWindow
     private static bool IsAdminTrackingAccessUnavailable(HttpRequestException ex)
         => ex.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden;
 
+    private async Task<JsonElement> TryLoadTrackedJobSnapshotAsync(ActiveDirectCommandTrackerState state, CancellationToken ct)
+    {
+        HttpRequestException? messageTrackingError = null;
+
+        if (!string.IsNullOrWhiteSpace(state.MessageId))
+        {
+            try
+            {
+                return await _api.ChatMessageTrackingAsync(state.MessageId!, ct).ConfigureAwait(false);
+            }
+            catch (HttpRequestException ex)
+            {
+                messageTrackingError = ex;
+                if (ex.StatusCode is not HttpStatusCode.NotFound)
+                    throw;
+            }
+        }
+
+        if (_api.HasAdminSessionKey)
+            return await TryLoadTrackedAdminJobSnapshotAsync(state.Job.JobId, ct).ConfigureAwait(false);
+
+        if (messageTrackingError is not null)
+            throw messageTrackingError;
+
+        throw new InvalidOperationException($"Unable to load tracked job snapshot for {state.Job.JobId}.");
+    }
+
     private async Task<bool> TryReconcileTrackedJobWithoutAdminAsync(ActiveDirectCommandTrackerState state, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(state.Job.DocId))
@@ -1022,6 +1248,9 @@ public sealed partial class MainWindow
             if (!isIndexed)
                 return false;
 
+            state.LastKnownStatus = "done";
+            state.LastSnapshotAtUtc = DateTimeOffset.UtcNow;
+            state.Job.Status = "done";
             state.LastContent = DeterministicAgentText.AdminReindexCompleted(UiLang, state.Job.DisplayLabel);
             state.LastProgressText = null;
             state.LastStatusNote = null;
@@ -1047,134 +1276,162 @@ public sealed partial class MainWindow
     private static int GetTrackedJobSnapshotScore(JsonElement snapshot)
     {
         var score = 0;
-        var status = (TryGetString(snapshot, "status") ?? TryGetString(snapshot, "Status") ?? string.Empty).Trim();
+        var status = (ReadTrackedJobStatus(snapshot) ?? string.Empty).Trim();
         if (!string.IsNullOrWhiteSpace(status)) score += 1;
-        if (!string.IsNullOrWhiteSpace(TryGetString(snapshot, "progressPhase") ?? TryGetString(snapshot, "ProgressPhase"))) score += 2;
-        if (TryGetInt(snapshot, "progressCurrent").HasValue || TryGetInt(snapshot, "ProgressCurrent").HasValue) score += 2;
-        if (TryGetInt(snapshot, "progressTotal").HasValue || TryGetInt(snapshot, "ProgressTotal").HasValue) score += 2;
-        if (TryGetInt(snapshot, "progressPercent").HasValue || TryGetInt(snapshot, "ProgressPercent").HasValue) score += 3;
+        if (!string.IsNullOrWhiteSpace(ReadTrackedJobProgressPhase(snapshot))) score += 2;
+        if (ReadTrackedJobProgressCurrent(snapshot).HasValue) score += 2;
+        if (ReadTrackedJobProgressTotal(snapshot).HasValue) score += 2;
+        if (ReadTrackedJobProgressPercent(snapshot).HasValue) score += 3;
         if (TryGetDateTimeOffset(snapshot, "StartedAt").HasValue || TryGetDateTimeOffset(snapshot, "startedAt").HasValue) score += 1;
         return score;
+    }
+
+    private void ApplyTrackedJobSnapshotState(ActiveDirectCommandTrackerState state, JsonElement snapshot, bool hadTrackingError)
+    {
+        var snapshotStartedAt = TryGetDateTimeOffset(snapshot, "StartedAt")
+            ?? TryGetDateTimeOffset(snapshot, "startedAt")
+            ?? TryGetDateTimeOffset(snapshot, "CreatedAt")
+            ?? TryGetDateTimeOffset(snapshot, "createdAt");
+        if (snapshotStartedAt.HasValue)
+            state.StartedAtUtc = snapshotStartedAt.Value;
+
+        var status = (ReadTrackedJobStatus(snapshot) ?? state.Job.Status ?? "running").Trim().ToLowerInvariant();
+        var lastError = ReadTrackedJobLastError(snapshot);
+        var progressPhase = ReadTrackedJobProgressPhase(snapshot);
+        var progressCurrent = ReadTrackedJobProgressCurrent(snapshot);
+        var progressTotal = ReadTrackedJobProgressTotal(snapshot);
+        var progressPercent = ReadTrackedJobProgressPercent(snapshot);
+        var snapshotDocId = ReadTrackedJobDocId(snapshot);
+        if (!string.IsNullOrWhiteSpace(snapshotDocId) && string.IsNullOrWhiteSpace(state.Job.DocId))
+            state.Job.DocId = snapshotDocId;
+        var snapshotDocPath = TryGetString(snapshot, "docPath") ?? TryGetString(snapshot, "DocPath");
+        if (!string.IsNullOrWhiteSpace(snapshotDocPath) && string.IsNullOrWhiteSpace(state.Job.DocPath))
+            state.Job.DocPath = snapshotDocPath;
+
+        if (!progressPercent.HasValue && progressCurrent.HasValue && progressTotal.HasValue && progressTotal.Value > 0)
+            progressPercent = Math.Clamp((int)Math.Round((progressCurrent.Value * 100d) / progressTotal.Value, MidpointRounding.AwayFromZero), 0, 100);
+
+        var displayPercent = GetTrackedJobDisplayPercent(status, progressPhase, progressPercent, progressCurrent, progressTotal);
+        var startedAtUtc = state.StartedAtUtc ?? state.LastSnapshotAtUtc ?? DateTimeOffset.UtcNow;
+        var elapsedSeconds = Math.Max(1, (int)Math.Round((DateTimeOffset.UtcNow - startedAtUtc).TotalSeconds));
+
+        state.LastKnownStatus = status;
+        state.LastKnownProgressPhase = progressPhase;
+        state.LastKnownProgressCurrent = progressCurrent;
+        state.LastKnownProgressTotal = progressTotal;
+        state.LastKnownProgressPercent = displayPercent;
+        state.LastSnapshotAtUtc = DateTimeOffset.UtcNow;
+        state.Job.Status = status;
+
+        if (status is "done" or "completed" or "succeeded" or "success")
+        {
+            state.LastContent = DeterministicAgentText.AdminReindexCompleted(UiLang, state.Job.DisplayLabel);
+            state.LastProgressText = null;
+            state.LastStatusNote = null;
+            state.IsTerminal = true;
+            return;
+        }
+
+        if (status is "failed" or "error" or "canceled" or "cancelled")
+        {
+            state.LastContent = DeterministicAgentText.AdminReindexFailed(UiLang, state.Job.DisplayLabel, lastError);
+            state.LastProgressText = null;
+            state.LastStatusNote = null;
+            state.IsTerminal = true;
+            return;
+        }
+
+        state.IsTerminal = false;
+        state.LastStatusNote = hadTrackingError ? ClientUiText.Get("help.loading", UiLang) : null;
+
+        if (status == "queued")
+        {
+            state.LastContent = DeterministicAgentText.AdminReindexQueued(UiLang, state.Job.DisplayLabel, state.Job.JobId);
+            state.LastProgressText = DeterministicAgentText.AdminJobQueued(UiLang, state.Job.DisplayLabel, elapsedSeconds);
+            return;
+        }
+
+        state.LastContent = displayPercent.HasValue
+            ? DeterministicAgentText.AdminReindexRunningWithPercent(UiLang, state.Job.DisplayLabel, displayPercent.Value)
+            : DeterministicAgentText.AdminReindexRunning(UiLang, state.Job.DisplayLabel);
+
+        state.LastProgressText = DeterministicAgentText.AdminReindexProgressPhase(
+            UiLang,
+            progressPhase,
+            displayPercent,
+            progressCurrent,
+            progressTotal,
+            elapsedSeconds);
+    }
+
+    private async Task<bool> RefreshTrackedJobStateNowAsync(ActiveDirectCommandTrackerState state, CancellationToken ct, bool persist)
+    {
+        try
+        {
+            var snapshot = await TryLoadTrackedJobSnapshotAsync(state, ct).ConfigureAwait(false);
+            ApplyTrackedJobSnapshotState(state, snapshot, hadTrackingError: false);
+            if (persist)
+                await ApplyTrackedJobStateToUiAndPersistAsync(state, ct).ConfigureAwait(false);
+            else
+                await RunOnUiThreadAsync(() =>
+                {
+                    var msg = state.Message;
+                    if (msg is null && string.Equals(_sessionId, state.SessionId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        msg = FindTrackedJobMessageForCurrentSession(state.MessageId, state.Job.DisplayLabel);
+                        state.Message = msg;
+                    }
+                    if (msg is not null)
+                        ApplyTrackedJobSnapshotToMessage(state, msg);
+                }).ConfigureAwait(false);
+            return true;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            return false;
+        }
+        catch (HttpRequestException ex) when (IsAdminTrackingAccessUnavailable(ex))
+        {
+            _api.ClearAdminSessionKey();
+            ClientLog.Warn($"Tracked job refresh lost admin session for jobId={state.Job.JobId}: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            ClientLog.Warn($"Tracked job refresh failed for jobId={state.Job.JobId}: {ex.Message}");
+        }
+
+        if (await TryReconcileTrackedJobWithoutAdminAsync(state, ct).ConfigureAwait(false))
+        {
+            if (persist)
+                await ApplyTrackedJobStateToUiAndPersistAsync(state, ct).ConfigureAwait(false);
+            return true;
+        }
+
+        return false;
     }
 
     private async Task TrackDirectCommandJobAsync(ActiveDirectCommandTrackerState state)
     {
         var ct = state.Cancellation.Token;
-        var startedAtUtc = state.StartedAtUtc ?? DateTimeOffset.UtcNow;
-        state.StartedAtUtc = startedAtUtc;
-        var hadTrackingError = false;
 
         try
         {
             while (!ct.IsCancellationRequested && !state.IsTerminal)
             {
-                JsonElement snapshot;
-                try
+                var refreshed = await RefreshTrackedJobStateNowAsync(state, ct, persist: true).ConfigureAwait(false);
+                if (state.IsTerminal)
                 {
-                    if (!_api.HasAdminSessionKey)
-                    {
-                        if (await TryReconcileTrackedJobWithoutAdminAsync(state, ct).ConfigureAwait(false))
-                        {
-                            await ApplyTrackedJobStateToUiAndPersistAsync(state, ct).ConfigureAwait(false);
-                            break;
-                        }
-
-                        state.LastStatusNote = ClientUiText.Get("admin.tracking.reconnect_required", UiLang);
-                        await ApplyTrackedJobStateToUiAndPersistAsync(state, ct).ConfigureAwait(false);
-                        await Task.Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false);
-                        continue;
-                    }
-
-                    snapshot = await TryLoadTrackedAdminJobSnapshotAsync(state.Job.JobId, ct).ConfigureAwait(false);
-                    hadTrackingError = false;
-                }
-                catch (OperationCanceledException) when (ct.IsCancellationRequested)
-                {
+                    await PersistTrackedJobTerminalSnapshotStrongAsync(state).ConfigureAwait(false);
                     break;
                 }
-                catch (HttpRequestException ex) when (IsAdminTrackingAccessUnavailable(ex))
+
+                if (!refreshed)
                 {
-                    _api.ClearAdminSessionKey();
-
-                    if (await TryReconcileTrackedJobWithoutAdminAsync(state, ct).ConfigureAwait(false))
-                    {
-                        await ApplyTrackedJobStateToUiAndPersistAsync(state, ct).ConfigureAwait(false);
-                        break;
-                    }
-
-                    state.LastStatusNote = ClientUiText.Get("admin.tracking.reconnect_required", UiLang);
-                    await ApplyTrackedJobStateToUiAndPersistAsync(state, ct).ConfigureAwait(false);
-                    await Task.Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false);
-                    continue;
-                }
-                catch
-                {
-                    hadTrackingError = true;
-                    var fallbackElapsed = Math.Max(1, (int)Math.Round((DateTimeOffset.UtcNow - startedAtUtc).TotalSeconds));
-                    state.LastContent ??= DeterministicAgentText.AdminReindexRunning(UiLang, state.Job.DisplayLabel);
-                    state.LastProgressText ??= DeterministicAgentText.AdminReindexProgressPhase(UiLang, "running", null, null, null, fallbackElapsed);
-                    state.LastStatusNote = ClientUiText.Get("help.loading", UiLang);
-
-                    await ApplyTrackedJobStateToUiAndPersistAsync(state, ct).ConfigureAwait(false);
                     await Task.Delay(TimeSpan.FromSeconds(3), ct).ConfigureAwait(false);
                     continue;
                 }
 
-                var snapshotStartedAt = TryGetDateTimeOffset(snapshot, "StartedAt")
-                    ?? TryGetDateTimeOffset(snapshot, "startedAt")
-                    ?? TryGetDateTimeOffset(snapshot, "CreatedAt")
-                    ?? TryGetDateTimeOffset(snapshot, "createdAt");
-                if (snapshotStartedAt.HasValue)
-                {
-                    state.StartedAtUtc = snapshotStartedAt.Value;
-                    startedAtUtc = snapshotStartedAt.Value;
-                }
-
-                var status = (TryGetString(snapshot, "status") ?? TryGetString(snapshot, "Status") ?? state.Job.Status ?? "running").Trim().ToLowerInvariant();
-                var lastError = TryGetString(snapshot, "lastError") ?? TryGetString(snapshot, "LastError");
-                var progressPhase = TryGetString(snapshot, "progressPhase") ?? TryGetString(snapshot, "ProgressPhase");
-                var progressCurrent = TryGetInt(snapshot, "progressCurrent") ?? TryGetInt(snapshot, "ProgressCurrent");
-                var progressTotal = TryGetInt(snapshot, "progressTotal") ?? TryGetInt(snapshot, "ProgressTotal");
-                var progressPercent = TryGetInt(snapshot, "progressPercent") ?? TryGetInt(snapshot, "ProgressPercent");
-                if (!progressPercent.HasValue && progressCurrent.HasValue && progressTotal.HasValue && progressTotal.Value > 0)
-                    progressPercent = Math.Clamp((int)Math.Round((progressCurrent.Value * 100d) / progressTotal.Value, MidpointRounding.AwayFromZero), 0, 100);
-                var displayPercent = GetTrackedJobDisplayPercent(status, progressPhase, progressPercent, progressCurrent, progressTotal);
-                var elapsedSeconds = Math.Max(1, (int)Math.Round((DateTimeOffset.UtcNow - startedAtUtc).TotalSeconds));
-
-                if (status is "done" or "completed" or "succeeded" or "success")
-                {
-                    state.LastContent = DeterministicAgentText.AdminReindexCompleted(UiLang, state.Job.DisplayLabel);
-                    state.LastProgressText = null;
-                    state.LastStatusNote = null;
-                    state.IsTerminal = true;
-                }
-                else if (status is "failed" or "error" or "canceled" or "cancelled")
-                {
-                    state.LastContent = DeterministicAgentText.AdminReindexFailed(UiLang, state.Job.DisplayLabel, lastError);
-                    state.LastProgressText = null;
-                    state.LastStatusNote = null;
-                    state.IsTerminal = true;
-                }
-                else if (status == "queued")
-                {
-                    state.LastContent = DeterministicAgentText.AdminReindexQueued(UiLang, state.Job.DisplayLabel, state.Job.JobId);
-                    state.LastProgressText = DeterministicAgentText.AdminJobQueued(UiLang, state.Job.DisplayLabel, elapsedSeconds);
-                    state.LastStatusNote = hadTrackingError ? ClientUiText.Get("help.loading", UiLang) : null;
-                }
-                else
-                {
-                    state.LastContent = displayPercent.HasValue
-                        ? DeterministicAgentText.AdminReindexRunningWithPercent(UiLang, state.Job.DisplayLabel, displayPercent.Value)
-                        : DeterministicAgentText.AdminReindexRunning(UiLang, state.Job.DisplayLabel);
-                    state.LastProgressText = DeterministicAgentText.AdminReindexProgressPhase(UiLang, progressPhase, displayPercent, progressCurrent, progressTotal, elapsedSeconds);
-                    state.LastStatusNote = hadTrackingError ? ClientUiText.Get("help.loading", UiLang) : null;
-                }
-
-                await ApplyTrackedJobStateToUiAndPersistAsync(state, ct).ConfigureAwait(false);
-
-                if (state.IsTerminal)
-                    break;
-
+                var status = (state.LastKnownStatus ?? state.Job.Status ?? string.Empty).Trim().ToLowerInvariant();
                 await Task.Delay(TimeSpan.FromSeconds(status == "queued" ? 1.5 : 2.5), ct).ConfigureAwait(false);
             }
         }
@@ -1215,6 +1472,36 @@ public sealed partial class MainWindow
         await MaybePersistTrackedJobSnapshotAsync(state, ct).ConfigureAwait(false);
     }
 
+    private async Task<bool> PersistTrackedJobSnapshotCoreAsync(ActiveDirectCommandTrackerState state, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(state.MessageId))
+            return false;
+
+        var content = state.LastContent;
+        var statusNote = state.LastStatusNote;
+        var progressText = state.LastProgressText;
+        var now = DateTimeOffset.UtcNow;
+        var meta = BuildTrackedJobMeta(state);
+        var metaJson = JsonSerializer.Serialize(meta);
+
+        try
+        {
+            await _api.PatchMessageAsync(state.MessageId!, content, statusNote, progressText, meta, ct).ConfigureAwait(false);
+            state.LastPersistedAtUtc = now;
+            state.LastPersistedContent = content;
+            state.LastPersistedStatusNote = statusNote;
+            state.LastPersistedProgressText = progressText;
+            state.LastPersistedTrackingMetaJson = metaJson;
+            state.LastPersistedTerminal = state.IsTerminal;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            ClientLog.Warn($"Tracked job message patch failed for jobId={state.Job.JobId} messageId={state.MessageId}: {ex.Message}");
+            return false;
+        }
+    }
+
     private async Task MaybePersistTrackedJobSnapshotAsync(ActiveDirectCommandTrackerState state, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(state.MessageId))
@@ -1225,26 +1512,42 @@ public sealed partial class MainWindow
         var progressText = state.LastProgressText;
         var now = DateTimeOffset.UtcNow;
 
+        var meta = BuildTrackedJobMeta(state);
+        var metaJson = JsonSerializer.Serialize(meta);
+
         var changed = !string.Equals(state.LastPersistedContent, content, StringComparison.Ordinal)
             || !string.Equals(state.LastPersistedStatusNote, statusNote, StringComparison.Ordinal)
             || !string.Equals(state.LastPersistedProgressText, progressText, StringComparison.Ordinal)
+            || !string.Equals(state.LastPersistedTrackingMetaJson, metaJson, StringComparison.Ordinal)
             || state.LastPersistedTerminal != state.IsTerminal;
 
-        if (!changed && !state.IsTerminal && (now - state.LastPersistedAtUtc) < TimeSpan.FromSeconds(5))
+        if (!changed)
             return;
 
-        var meta = BuildTrackedJobMeta(state.Job, state.IsTerminal);
-        try
+        await PersistTrackedJobSnapshotCoreAsync(state, ct).ConfigureAwait(false);
+    }
+
+    private async Task PersistTrackedJobTerminalSnapshotStrongAsync(ActiveDirectCommandTrackerState state)
+    {
+        if (!state.IsTerminal)
+            return;
+        if (state.LastPersistedTerminal)
+            return;
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        for (var attempt = 0; attempt < 4; attempt++)
         {
-            await _api.PatchMessageAsync(state.MessageId!, content, statusNote, progressText, meta, ct).ConfigureAwait(false);
-            state.LastPersistedAtUtc = now;
-            state.LastPersistedContent = content;
-            state.LastPersistedStatusNote = statusNote;
-            state.LastPersistedProgressText = progressText;
-            state.LastPersistedTerminal = state.IsTerminal;
-        }
-        catch
-        {
+            if (await PersistTrackedJobSnapshotCoreAsync(state, cts.Token).ConfigureAwait(false))
+                return;
+
+            try
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(350 * (attempt + 1)), cts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
         }
     }
 

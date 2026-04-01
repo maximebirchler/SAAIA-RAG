@@ -53,10 +53,17 @@ public sealed partial class MainWindow
         public bool IsTerminal { get; set; }
         public bool TrackingLoopStarted { get; set; }
         public DateTimeOffset? StartedAtUtc { get; set; }
+        public DateTimeOffset? LastSnapshotAtUtc { get; set; }
+        public string? LastKnownStatus { get; set; }
+        public string? LastKnownProgressPhase { get; set; }
+        public int? LastKnownProgressCurrent { get; set; }
+        public int? LastKnownProgressTotal { get; set; }
+        public int? LastKnownProgressPercent { get; set; }
         public DateTimeOffset LastPersistedAtUtc { get; set; }
         public string? LastPersistedContent { get; set; }
         public string? LastPersistedProgressText { get; set; }
         public string? LastPersistedStatusNote { get; set; }
+        public string? LastPersistedTrackingMetaJson { get; set; }
         public bool LastPersistedTerminal { get; set; }
     }
 

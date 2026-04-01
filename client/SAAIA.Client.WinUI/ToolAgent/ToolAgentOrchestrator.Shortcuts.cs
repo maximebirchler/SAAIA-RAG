@@ -1374,15 +1374,6 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
     {
         try
         {
-            if (!string.IsNullOrWhiteSpace(jobId))
-                return await _api.AdminJobGetAsync(jobId, ct).ConfigureAwait(false);
-        }
-        catch
-        {
-        }
-
-        try
-        {
             var json = await _api.AdminJobsListAsync("ingestion", 100, 0, ct).ConfigureAwait(false);
             if (json.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
             {
@@ -1390,7 +1381,7 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
                 {
                     var currentJobId = TryGetString(item, "jobId") ?? TryGetString(item, "JobId");
                     if (string.Equals(currentJobId, jobId, StringComparison.OrdinalIgnoreCase))
-                        return item.Clone();
+                        return item;
                 }
             }
         }
@@ -1413,18 +1404,6 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
         return TryGetString(snapshot, "lastError")
                ?? TryGetString(snapshot, "LastError");
     }
-
-    private static string? ReadAdminJobProgressPhase(JsonElement snapshot)
-        => TryGetString(snapshot, "progressPhase") ?? TryGetString(snapshot, "ProgressPhase");
-
-    private static int? ReadAdminJobProgressCurrent(JsonElement snapshot)
-        => TryGetInt(snapshot, "progressCurrent") ?? TryGetInt(snapshot, "ProgressCurrent");
-
-    private static int? ReadAdminJobProgressTotal(JsonElement snapshot)
-        => TryGetInt(snapshot, "progressTotal") ?? TryGetInt(snapshot, "ProgressTotal");
-
-    private static int? ReadAdminJobProgressPercent(JsonElement snapshot)
-        => TryGetInt(snapshot, "progressPercent") ?? TryGetInt(snapshot, "ProgressPercent");
 
     private async Task<(bool handled, string finalAnswer, string? routerIntent, IReadOnlyList<string> toolNames)> TryHandleRecentAdminOperationStatusAsync(
         string effectiveUserMessage,
@@ -1451,17 +1430,12 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
             if (status.Length == 0)
                 status = op.Status;
 
-            var progressPhase = ReadAdminJobProgressPhase(snapshot);
-            var progressCurrent = ReadAdminJobProgressCurrent(snapshot);
-            var progressTotal = ReadAdminJobProgressTotal(snapshot);
-            var progressPercent = ReadAdminJobProgressPercent(snapshot);
-
             if (status is "done" or "completed" or "succeeded" or "success")
-                UpdateRecentAdminOperationStatus("done", completed: true, success: true, error: null, progressPhase, progressCurrent, progressTotal, progressPercent);
+                UpdateRecentAdminOperationStatus("done", completed: true, success: true, error: null);
             else if (status is "failed" or "error" or "canceled" or "cancelled")
-                UpdateRecentAdminOperationStatus(status, completed: true, success: false, error: ReadAdminJobLastError(snapshot), progressPhase, progressCurrent, progressTotal, progressPercent);
+                UpdateRecentAdminOperationStatus(status, completed: true, success: false, error: ReadAdminJobLastError(snapshot));
             else
-                UpdateRecentAdminOperationStatus(string.IsNullOrWhiteSpace(status) ? "running" : status, completed: false, success: false, error: null, progressPhase, progressCurrent, progressTotal, progressPercent);
+                UpdateRecentAdminOperationStatus(string.IsNullOrWhiteSpace(status) ? "running" : status, completed: false, success: false, error: null);
 
             op = _mem.LastAdminOperation;
         }
@@ -1491,15 +1465,12 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
         }
 
         var elapsedSeconds = Math.Max(1, (int)Math.Round((DateTimeOffset.UtcNow - operation.CreatedAtUtc).TotalSeconds));
-        if (!string.IsNullOrWhiteSpace(operation.ProgressPhase) || operation.ProgressPercent.HasValue || operation.ProgressCurrent.HasValue || operation.ProgressTotal.HasValue)
-            return DeterministicAgentText.AdminReindexProgressPhase(language, operation.ProgressPhase, operation.ProgressPercent, operation.ProgressCurrent, operation.ProgressTotal, elapsedSeconds);
-
         return string.Equals(operation.Status, "queued", StringComparison.OrdinalIgnoreCase)
             ? DeterministicAgentText.AdminJobQueued(language, operation.DisplayLabel, elapsedSeconds)
             : DeterministicAgentText.AdminReindexRunning(language, operation.DisplayLabel, elapsedSeconds);
     }
 
-    private void UpdateRecentAdminOperationStatus(string status, bool completed, bool success, string? error, string? progressPhase = null, int? progressCurrent = null, int? progressTotal = null, int? progressPercent = null)
+    private void UpdateRecentAdminOperationStatus(string status, bool completed, bool success, string? error)
     {
         if (_mem.LastAdminOperation is null)
             return;
@@ -1508,10 +1479,6 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
         _mem.LastAdminOperation.IsCompleted = completed;
         _mem.LastAdminOperation.IsSuccess = success;
         _mem.LastAdminOperation.LastError = string.IsNullOrWhiteSpace(error) ? _mem.LastAdminOperation.LastError : error.Trim();
-        _mem.LastAdminOperation.ProgressPhase = string.IsNullOrWhiteSpace(progressPhase) ? _mem.LastAdminOperation.ProgressPhase : progressPhase.Trim();
-        _mem.LastAdminOperation.ProgressCurrent = progressCurrent ?? _mem.LastAdminOperation.ProgressCurrent;
-        _mem.LastAdminOperation.ProgressTotal = progressTotal ?? _mem.LastAdminOperation.ProgressTotal;
-        _mem.LastAdminOperation.ProgressPercent = progressPercent ?? _mem.LastAdminOperation.ProgressPercent;
         _mem.LastAdminOperation.LastUpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 

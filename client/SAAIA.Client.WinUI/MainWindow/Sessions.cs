@@ -122,6 +122,8 @@ public sealed partial class MainWindow
             _messages.Clear();
             var msgs = await _api.ListMessagesAsync(_sessionId!, ct);
             foreach (var m in msgs) _messages.Add(m);
+            await RehydrateTrackedJobsForCurrentSessionAsync();
+            RebindDirectCommandTrackersForCurrentSession();
 
             // reset
             SourcesCards.Items = new List<SourceCard>();
@@ -143,8 +145,6 @@ public sealed partial class MainWindow
                 ScrollToBottom(force: true);
             }
 
-            await RehydrateTrackedJobsForCurrentSessionAsync();
-            RebindDirectCommandTrackersForCurrentSession();
 
             Status(ClientUiText.Format("status.loaded_session", _appSettings.UiLanguage, _sessionId ?? string.Empty));
             SyncSessionSelectionVisual(_sessionId);

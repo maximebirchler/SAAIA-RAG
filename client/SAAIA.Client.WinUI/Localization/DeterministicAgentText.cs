@@ -526,7 +526,7 @@ internal static class DeterministicAgentText
             "embedding" or "indexing" => Pick(language, $"{percentPart}Indexation{countPart}…{elapsedPart}", $"{percentPart}Indexing{countPart}…{elapsedPart}", $"{percentPart}Indexación{countPart}…{elapsedPart}", $"{percentPart}Indexação{countPart}…{elapsedPart}", $"{percentPart}Indexierung{countPart}…{elapsedPart}", $"{percentPart}Indicizzazione{countPart}…{elapsedPart}"),
             "deleting" => Pick(language, $"{percentPart}Nettoyage des anciens points…{elapsedPart}", $"{percentPart}Cleaning previous points…{elapsedPart}", $"{percentPart}Limpiando puntos anteriores…{elapsedPart}", $"{percentPart}Limpando pontos anteriores…{elapsedPart}", $"{percentPart}Vorherige Punkte werden bereinigt…{elapsedPart}", $"{percentPart}Pulizia dei punti precedenti…{elapsedPart}"),
             "finalizing" => Pick(language, $"{percentPart}Finalisation…{elapsedPart}", $"{percentPart}Finalizing…{elapsedPart}", $"{percentPart}Finalizando…{elapsedPart}", $"{percentPart}Finalizando…{elapsedPart}", $"{percentPart}Finalisierung…{elapsedPart}", $"{percentPart}Finalizzazione…{elapsedPart}"),
-            _ => Pick(language, $"En cours…{elapsedPart}", $"Running…{elapsedPart}", $"En curso…{elapsedPart}", $"Em andamento…{elapsedPart}", $"Läuft…{elapsedPart}", $"In corso…{elapsedPart}")
+            _ => Pick(language, $"{percentPart}En cours{countPart}…{elapsedPart}", $"{percentPart}Running{countPart}…{elapsedPart}", $"{percentPart}En curso{countPart}…{elapsedPart}", $"{percentPart}Em andamento{countPart}…{elapsedPart}", $"{percentPart}Läuft{countPart}…{elapsedPart}", $"{percentPart}In corso{countPart}…{elapsedPart}")
         };
     }
 

@@ -129,14 +129,6 @@ public sealed partial class MainWindow
                     SetInfo(message, positive: true);
                     Status(message);
                     passwordBox.Password = string.Empty;
-                    try
-                    {
-                        await RehydrateTrackedJobsForCurrentSessionAsync();
-                        RebindDirectCommandTrackersForCurrentSession();
-                    }
-                    catch
-                    {
-                    }
                 }
                 else if (string.Equals(status, "invalid", StringComparison.OrdinalIgnoreCase))
                 {

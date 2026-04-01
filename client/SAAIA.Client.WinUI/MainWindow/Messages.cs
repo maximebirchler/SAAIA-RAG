@@ -444,9 +444,7 @@ public sealed partial class MainWindow
             var userMsg = new ChatMessageItem { Role = "user", Content = shownText, CreatedAt = DateTime.UtcNow };
             _messages.Add(userMsg);
             ScrollToBottom(force: true);
-            var persistedUserMsg = await _api.AddMessageAsync(_sessionId!, "user", shownText, null, CancellationToken.None);
-            if (!string.IsNullOrWhiteSpace(persistedUserMsg?.MessageId))
-                userMsg.MessageId = persistedUserMsg!.MessageId;
+            await _api.AddMessageAsync(_sessionId!, "user", shownText, null, CancellationToken.None);
 
             await MaybeAutoTitleAsync(shownText);
 
@@ -551,9 +549,7 @@ public sealed partial class MainWindow
             SourcesCards.Items = SourceCardParser.Parse(pretty);
             SourcesBox.Text = pretty;
 
-            var persistedAssistantMsg = await _api.AddMessageAsync(_sessionId!, "assistant", assistantMsg.Content, sourcesObj, CancellationToken.None, assistantMsg.StatusNote, assistantMsg.ProgressText, assistantMsg.TrackingMeta);
-            if (!string.IsNullOrWhiteSpace(persistedAssistantMsg?.MessageId))
-                assistantMsg.MessageId = persistedAssistantMsg!.MessageId;
+            await _api.AddMessageAsync(_sessionId!, "assistant", assistantMsg.Content, sourcesObj, CancellationToken.None, assistantMsg.StatusNote);
 
             try
             {
@@ -578,17 +574,13 @@ public sealed partial class MainWindow
             {
                 if (!string.IsNullOrWhiteSpace(_sessionId) && assistantMsg is not null)
                 {
-                    var persistedCancelledMsg = await _api.AddMessageAsync(
+                    await _api.AddMessageAsync(
                         _sessionId!,
                         "assistant",
                         assistantMsg.Content ?? "",
                         assistantMsg.SourcesJson,
                         CancellationToken.None,
-                        assistantMsg.StatusNote,
-                        assistantMsg.ProgressText,
-                        assistantMsg.TrackingMeta);
-                    if (!string.IsNullOrWhiteSpace(persistedCancelledMsg?.MessageId))
-                        assistantMsg.MessageId = persistedCancelledMsg!.MessageId;
+                        assistantMsg.StatusNote);
 
                     try { await RefreshSessionsAsync(preferSessionId: _sessionId, CancellationToken.None); } catch { }
                 }

@@ -33,6 +33,7 @@ public static class ChatStoreEndpoints
         g.MapPost("/messages", AddMessageCdcAsync);
         g.MapGet("/messages", ListMessagesCdcAsync);
         g.MapPatch("/messages/{messageId:guid}", PatchMessageAsync);
+        g.MapGet("/messages/{messageId:guid}/tracking", GetMessageTrackingAsync);
     }
 
     // -------------------------
@@ -54,6 +55,200 @@ public static class ChatStoreEndpoints
         string? userId,
         int? limit)
         => ListMessagesAsync(ctx, ds, sessionId, userId, limit);
+
+    private static async Task<IResult> GetMessageTrackingAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        Guid messageId,
+        string? userId)
+    {
+        var tenantId = ctx.GetTenantId();
+        var ct = ctx.RequestAborted;
+
+        if (string.IsNullOrWhiteSpace(userId))
+            throw new BadHttpRequestException("userId query parameter is required");
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+
+        const string msgSql = @"
+SELECT
+  m.tracking_meta_json::text AS ""TrackingMetaJson"",
+  m.content                 AS ""Content"",
+  m.status_note             AS ""StatusNote"",
+  m.progress_text           AS ""ProgressText""
+FROM chat_messages m
+INNER JOIN chat_sessions s ON m.tenant_id=s.tenant_id AND m.session_id=s.session_id
+WHERE m.tenant_id=@tenant AND m.message_id=@mid AND s.user_id=@user_id
+LIMIT 1;";
+
+        var messageRow = await conn.QueryFirstOrDefaultAsync(new CommandDefinition(msgSql, new { tenant = tenantId, mid = messageId, user_id = userId }, cancellationToken: ct));
+        if (messageRow is null)
+            return Results.NotFound(new { error = "message_not_found", messageId });
+
+        string? trackingMetaJson = messageRow.TrackingMetaJson;
+        string? jobIdRaw = null;
+        string? trackedJobType = null;
+        string? metaDocId = null;
+        string? metaDocPath = null;
+        string? metaStatus = null;
+        string? metaPhase = null;
+        int? metaCurrent = null;
+        int? metaTotal = null;
+        int? metaPercent = null;
+        DateTimeOffset? metaStartedAt = null;
+        DateTimeOffset? metaSnapshotAt = null;
+        bool metaTerminal = false;
+
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(trackingMetaJson))
+            {
+                using var doc = JsonDocument.Parse(trackingMetaJson);
+                if (doc.RootElement.ValueKind == JsonValueKind.Object)
+                {
+                    if (doc.RootElement.TryGetProperty("jobId", out var el) && el.ValueKind == JsonValueKind.String)
+                        jobIdRaw = el.GetString();
+                    if (doc.RootElement.TryGetProperty("jobType", out el) && el.ValueKind == JsonValueKind.String)
+                        trackedJobType = el.GetString();
+                    if (doc.RootElement.TryGetProperty("docId", out el) && el.ValueKind == JsonValueKind.String)
+                        metaDocId = el.GetString();
+                    if (doc.RootElement.TryGetProperty("docPath", out el) && el.ValueKind == JsonValueKind.String)
+                        metaDocPath = el.GetString();
+                    if (doc.RootElement.TryGetProperty("lastKnownStatus", out el) && el.ValueKind == JsonValueKind.String)
+                        metaStatus = el.GetString();
+                    if (doc.RootElement.TryGetProperty("lastKnownProgressPhase", out el) && el.ValueKind == JsonValueKind.String)
+                        metaPhase = el.GetString();
+                    if (doc.RootElement.TryGetProperty("lastKnownProgressCurrent", out el) && el.ValueKind == JsonValueKind.Number && el.TryGetInt32(out var current))
+                        metaCurrent = current;
+                    if (doc.RootElement.TryGetProperty("lastKnownProgressTotal", out el) && el.ValueKind == JsonValueKind.Number && el.TryGetInt32(out var total))
+                        metaTotal = total;
+                    if (doc.RootElement.TryGetProperty("lastKnownProgressPercent", out el) && el.ValueKind == JsonValueKind.Number && el.TryGetInt32(out var percent))
+                        metaPercent = percent;
+                    if (doc.RootElement.TryGetProperty("startedAtUtc", out el) && el.ValueKind == JsonValueKind.String && DateTimeOffset.TryParse(el.GetString(), out var startedAt))
+                        metaStartedAt = startedAt;
+                    if (doc.RootElement.TryGetProperty("lastSnapshotAtUtc", out el) && el.ValueKind == JsonValueKind.String && DateTimeOffset.TryParse(el.GetString(), out var snapshotAt))
+                        metaSnapshotAt = snapshotAt;
+                    if (doc.RootElement.TryGetProperty("isTerminal", out el) && el.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                        metaTerminal = el.GetBoolean();
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        if (string.IsNullOrWhiteSpace(jobIdRaw) || !Guid.TryParse(jobIdRaw, out var jobId))
+            return Results.NotFound(new { error = "tracking_not_configured", messageId });
+
+        const string jobSql = @"
+SELECT * FROM (
+  SELECT
+    job_id       AS ""JobId"",
+    'summary'    AS ""Type"",
+    job_type     AS ""JobType"",
+    status       AS ""Status"",
+    doc_id       AS ""DocId"",
+    NULL::text   AS ""DocPath"",
+    level        AS ""Level"",
+    last_error   AS ""LastError"",
+    created_at   AS ""CreatedAt"",
+    started_at   AS ""StartedAt"",
+    finished_at  AS ""FinishedAt"",
+    NULL::text   AS ""ProgressPhase"",
+    NULL::int    AS ""ProgressCurrent"",
+    NULL::int    AS ""ProgressTotal"",
+    NULL::int    AS ""ProgressPercent""
+  FROM admin_jobs
+  WHERE tenant_id=@tenant AND job_id=@jobId
+
+  UNION ALL
+
+  SELECT
+    job_id       AS ""JobId"",
+    'ingestion'  AS ""Type"",
+    action       AS ""JobType"",
+    CASE WHEN finished_at IS NOT NULL AND status='done' THEN 'done' ELSE status END AS ""Status"",
+    CASE WHEN jsonb_typeof(payload->'docId')='string' THEN (payload->>'docId')::uuid ELSE NULL::uuid END AS ""DocId"",
+    doc_path     AS ""DocPath"",
+    NULL::text   AS ""Level"",
+    last_error   AS ""LastError"",
+    created_at   AS ""CreatedAt"",
+    started_at   AS ""StartedAt"",
+    finished_at  AS ""FinishedAt"",
+    payload #>> '{progress,phase}' AS ""ProgressPhase"",
+    CASE WHEN jsonb_typeof(payload->'progress'->'current')='number' THEN (payload->'progress'->>'current')::int ELSE NULL END AS ""ProgressCurrent"",
+    CASE WHEN jsonb_typeof(payload->'progress'->'total')='number' THEN (payload->'progress'->>'total')::int ELSE NULL END AS ""ProgressTotal"",
+    CASE WHEN jsonb_typeof(payload->'progress'->'percent')='number' THEN (payload->'progress'->>'percent')::int ELSE NULL END AS ""ProgressPercent""
+  FROM ingestion_jobs
+  WHERE tenant_id=@tenant AND job_id=@jobId
+) j
+WHERE (@trackedType IS NULL OR lower(""Type"")=@trackedType)
+LIMIT 1;";
+
+        var row = await conn.QueryFirstOrDefaultAsync(new CommandDefinition(jobSql, new
+        {
+            tenant = tenantId,
+            jobId,
+            trackedType = string.IsNullOrWhiteSpace(trackedJobType) ? null : trackedJobType.Trim().ToLowerInvariant()
+        }, cancellationToken: ct));
+
+        if (row is not null)
+        {
+            var status = (string?)row.Status;
+            var isTerminal = !string.IsNullOrWhiteSpace(status)
+                && (status.Equals("done", StringComparison.OrdinalIgnoreCase)
+                    || status.Equals("completed", StringComparison.OrdinalIgnoreCase)
+                    || status.Equals("succeeded", StringComparison.OrdinalIgnoreCase)
+                    || status.Equals("success", StringComparison.OrdinalIgnoreCase)
+                    || status.Equals("failed", StringComparison.OrdinalIgnoreCase)
+                    || status.Equals("error", StringComparison.OrdinalIgnoreCase)
+                    || status.Equals("canceled", StringComparison.OrdinalIgnoreCase)
+                    || status.Equals("cancelled", StringComparison.OrdinalIgnoreCase));
+
+            return Results.Ok(new
+            {
+                row.JobId,
+                row.Type,
+                row.JobType,
+                row.Status,
+                DocId = row.DocId ?? metaDocId,
+                DocPath = row.DocPath ?? metaDocPath,
+                row.Level,
+                row.LastError,
+                row.CreatedAt,
+                StartedAt = row.StartedAt ?? metaStartedAt,
+                row.FinishedAt,
+                row.ProgressPhase,
+                row.ProgressCurrent,
+                row.ProgressTotal,
+                row.ProgressPercent,
+                IsTerminal = isTerminal
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(metaStatus) && !metaTerminal)
+            return Results.NotFound(new { error = "job_not_found", messageId, jobId });
+
+        return Results.Ok(new
+        {
+            JobId = jobId,
+            Type = string.IsNullOrWhiteSpace(trackedJobType) ? "ingestion" : trackedJobType,
+            JobType = string.IsNullOrWhiteSpace(trackedJobType) ? "ingestion" : trackedJobType,
+            Status = string.IsNullOrWhiteSpace(metaStatus) ? (metaTerminal ? "done" : "running") : metaStatus,
+            DocId = metaDocId,
+            DocPath = metaDocPath,
+            Level = (string?)null,
+            LastError = (string?)null,
+            CreatedAt = metaStartedAt ?? metaSnapshotAt,
+            StartedAt = metaStartedAt,
+            FinishedAt = metaTerminal ? metaSnapshotAt : (DateTimeOffset?)null,
+            ProgressPhase = metaPhase,
+            ProgressCurrent = metaCurrent,
+            ProgressTotal = metaTotal,
+            ProgressPercent = metaPercent,
+            IsTerminal = metaTerminal
+        });
+    }
 
     private static async Task<IResult> PatchMessageAsync(
         HttpContext ctx,

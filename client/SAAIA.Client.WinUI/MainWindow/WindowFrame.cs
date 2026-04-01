@@ -30,21 +30,6 @@ public sealed partial class MainWindow
     private void MainWindow_Closed(object sender, WindowEventArgs args)
     {
         CloseTransientDialogs();
-        try
-        {
-            lock (_directCommandTrackerGate)
-            {
-                foreach (var tracker in _directCommandTrackers.ToArray())
-                {
-                    try { tracker.Cancel(); } catch { }
-                    try { tracker.Dispose(); } catch { }
-                }
-                _directCommandTrackers.Clear();
-            }
-        }
-        catch
-        {
-        }
         TryRemoveDynamicMinimumWindowSize();
     }
 

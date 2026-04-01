@@ -139,10 +139,6 @@ public sealed class ToolMemory
         public string? DocPath { get; set; } = null;
         public string Status { get; set; } = "queued";
         public string? LastError { get; set; } = null;
-        public string? ProgressPhase { get; set; } = null;
-        public int? ProgressCurrent { get; set; } = null;
-        public int? ProgressTotal { get; set; } = null;
-        public int? ProgressPercent { get; set; } = null;
         public bool IsCompleted { get; set; }
         public bool IsSuccess { get; set; }
         public int? IndexedDocuments { get; set; } = null;

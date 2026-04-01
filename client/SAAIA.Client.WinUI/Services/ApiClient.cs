@@ -328,6 +328,22 @@ public sealed partial class ApiClient
         return ParseChatMessage(doc.RootElement);
     }
 
+    public async Task<JsonElement> ChatMessageTrackingAsync(string messageId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(messageId))
+            throw new ArgumentException("messageId is required", nameof(messageId));
+
+        var uid = Uri.EscapeDataString(RequireUserId());
+        using var resp = await SendWithRateLimitRetryAsync(
+            () => NewRequest(HttpMethod.Get, $"/chat/messages/{Uri.EscapeDataString(messageId)}/tracking?userId={uid}"),
+            ct).ConfigureAwait(false);
+
+        resp.EnsureSuccessStatusCode();
+        var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.Clone();
+    }
+
     public async Task<List<ChatMessageItem>> ListMessagesAsync(string sessionId, CancellationToken ct, int limit = 500)
     {
         var uid = Uri.EscapeDataString(RequireUserId());
