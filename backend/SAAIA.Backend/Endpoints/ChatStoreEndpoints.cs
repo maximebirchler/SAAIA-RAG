@@ -106,30 +106,18 @@ LIMIT 1;";
                 using var doc = JsonDocument.Parse(trackingMetaJson);
                 if (doc.RootElement.ValueKind == JsonValueKind.Object)
                 {
-                    if (doc.RootElement.TryGetProperty("jobId", out var el) && el.ValueKind == JsonValueKind.String)
-                        jobIdRaw = el.GetString();
-                    if (doc.RootElement.TryGetProperty("jobType", out el) && el.ValueKind == JsonValueKind.String)
-                        trackedJobType = el.GetString();
-                    if (doc.RootElement.TryGetProperty("docId", out el) && el.ValueKind == JsonValueKind.String)
-                        metaDocId = el.GetString();
-                    if (doc.RootElement.TryGetProperty("docPath", out el) && el.ValueKind == JsonValueKind.String)
-                        metaDocPath = el.GetString();
-                    if (doc.RootElement.TryGetProperty("lastKnownStatus", out el) && el.ValueKind == JsonValueKind.String)
-                        metaStatus = el.GetString();
-                    if (doc.RootElement.TryGetProperty("lastKnownProgressPhase", out el) && el.ValueKind == JsonValueKind.String)
-                        metaPhase = el.GetString();
-                    if (doc.RootElement.TryGetProperty("lastKnownProgressCurrent", out el) && el.ValueKind == JsonValueKind.Number && el.TryGetInt32(out var current))
-                        metaCurrent = current;
-                    if (doc.RootElement.TryGetProperty("lastKnownProgressTotal", out el) && el.ValueKind == JsonValueKind.Number && el.TryGetInt32(out var total))
-                        metaTotal = total;
-                    if (doc.RootElement.TryGetProperty("lastKnownProgressPercent", out el) && el.ValueKind == JsonValueKind.Number && el.TryGetInt32(out var percent))
-                        metaPercent = percent;
-                    if (doc.RootElement.TryGetProperty("startedAtUtc", out el) && el.ValueKind == JsonValueKind.String && DateTimeOffset.TryParse(el.GetString(), out var startedAt))
-                        metaStartedAt = startedAt;
-                    if (doc.RootElement.TryGetProperty("lastSnapshotAtUtc", out el) && el.ValueKind == JsonValueKind.String && DateTimeOffset.TryParse(el.GetString(), out var snapshotAt))
-                        metaSnapshotAt = snapshotAt;
-                    if (doc.RootElement.TryGetProperty("isTerminal", out el) && el.ValueKind is JsonValueKind.True or JsonValueKind.False)
-                        metaTerminal = el.GetBoolean();
+                    jobIdRaw = ReadJsonStringPropertyIgnoreCase(doc.RootElement, "jobId");
+                    trackedJobType = ReadJsonStringPropertyIgnoreCase(doc.RootElement, "jobType");
+                    metaDocId = ReadJsonStringPropertyIgnoreCase(doc.RootElement, "docId");
+                    metaDocPath = ReadJsonStringPropertyIgnoreCase(doc.RootElement, "docPath");
+                    metaStatus = ReadJsonStringPropertyIgnoreCase(doc.RootElement, "lastKnownStatus");
+                    metaPhase = ReadJsonStringPropertyIgnoreCase(doc.RootElement, "lastKnownProgressPhase");
+                    metaCurrent = ReadJsonIntPropertyIgnoreCase(doc.RootElement, "lastKnownProgressCurrent");
+                    metaTotal = ReadJsonIntPropertyIgnoreCase(doc.RootElement, "lastKnownProgressTotal");
+                    metaPercent = ReadJsonIntPropertyIgnoreCase(doc.RootElement, "lastKnownProgressPercent");
+                    metaStartedAt = ReadJsonDateTimeOffsetPropertyIgnoreCase(doc.RootElement, "startedAtUtc");
+                    metaSnapshotAt = ReadJsonDateTimeOffsetPropertyIgnoreCase(doc.RootElement, "lastSnapshotAtUtc");
+                    metaTerminal = ReadJsonBoolPropertyIgnoreCase(doc.RootElement, "isTerminal") ?? false;
                 }
             }
         }
@@ -248,6 +236,61 @@ LIMIT 1;";
             ProgressPercent = metaPercent,
             IsTerminal = metaTerminal
         });
+    }
+
+    private static bool TryGetJsonPropertyIgnoreCase(JsonElement element, string propertyName, out JsonElement property)
+    {
+        property = default;
+        if (element.ValueKind != JsonValueKind.Object)
+            return false;
+        if (element.TryGetProperty(propertyName, out property))
+            return true;
+
+        foreach (var candidate in element.EnumerateObject())
+        {
+            if (!string.Equals(candidate.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+                continue;
+            property = candidate.Value;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string? ReadJsonStringPropertyIgnoreCase(JsonElement element, string propertyName)
+    {
+        if (!TryGetJsonPropertyIgnoreCase(element, propertyName, out var property) || property.ValueKind != JsonValueKind.String)
+            return null;
+        return property.GetString();
+    }
+
+    private static int? ReadJsonIntPropertyIgnoreCase(JsonElement element, string propertyName)
+    {
+        if (!TryGetJsonPropertyIgnoreCase(element, propertyName, out var property))
+            return null;
+        if (property.ValueKind == JsonValueKind.Number && property.TryGetInt32(out var value))
+            return value;
+        if (property.ValueKind == JsonValueKind.String && int.TryParse(property.GetString(), out value))
+            return value;
+        return null;
+    }
+
+    private static bool? ReadJsonBoolPropertyIgnoreCase(JsonElement element, string propertyName)
+    {
+        if (!TryGetJsonPropertyIgnoreCase(element, propertyName, out var property))
+            return null;
+        if (property.ValueKind is JsonValueKind.True or JsonValueKind.False)
+            return property.GetBoolean();
+        if (property.ValueKind == JsonValueKind.String && bool.TryParse(property.GetString(), out var value))
+            return value;
+        return null;
+    }
+
+    private static DateTimeOffset? ReadJsonDateTimeOffsetPropertyIgnoreCase(JsonElement element, string propertyName)
+    {
+        if (!TryGetJsonPropertyIgnoreCase(element, propertyName, out var property) || property.ValueKind != JsonValueKind.String)
+            return null;
+        return DateTimeOffset.TryParse(property.GetString(), out var value) ? value : null;
     }
 
     private static async Task<IResult> PatchMessageAsync(

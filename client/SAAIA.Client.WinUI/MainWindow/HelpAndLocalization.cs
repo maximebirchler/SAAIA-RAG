@@ -789,7 +789,7 @@ public sealed partial class MainWindow
     }
 
 
-    private ActiveDirectCommandTrackerState? StartDirectCommandJobTracker(DirectCommandTrackedJob trackedJob, ChatMessageItem assistantMsg, string? sessionId, bool startLoop = true)
+    private ActiveDirectCommandTrackerState? StartDirectCommandJobTracker(DirectCommandTrackedJob trackedJob, ChatMessageItem assistantMsg, string? sessionId, bool startLoop = true, bool applySnapshotToMessage = true)
     {
         if (string.IsNullOrWhiteSpace(trackedJob.JobId))
             return null;
@@ -825,7 +825,8 @@ public sealed partial class MainWindow
             }
         }
 
-        ApplyTrackedJobSnapshotToMessage(existing, assistantMsg);
+        if (applySnapshotToMessage)
+            ApplyTrackedJobSnapshotToMessage(existing, assistantMsg);
 
         if (startLoop)
             StartDirectCommandJobTrackingLoop(existing);
@@ -852,6 +853,29 @@ public sealed partial class MainWindow
         StartDirectCommandJobTrackingLoop(state);
     }
 
+    private async Task PreloadTrackedJobsForMessagesAsync(IReadOnlyList<ChatMessageItem> messages, string? sessionId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId) || messages.Count == 0)
+            return;
+
+        foreach (var msg in messages)
+        {
+            if (!string.Equals(msg.Role, "assistant", StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (msg.TrackingMeta?.IsTerminal == true)
+                continue;
+            if (!TryCreateTrackedJobFromMessage(msg, out var trackedJob))
+                continue;
+
+            var state = StartDirectCommandJobTracker(trackedJob, msg, sessionId, startLoop: false, applySnapshotToMessage: false);
+            if (state is null)
+                continue;
+
+            await RefreshTrackedJobStateNowAsync(state, ct, persist: true).ConfigureAwait(false);
+            await Task.Yield();
+        }
+    }
+
     private async Task RehydrateTrackedJobsForCurrentSessionAsync()
     {
         if (string.IsNullOrWhiteSpace(_sessionId) || _messages.Count == 0)
@@ -866,7 +890,7 @@ public sealed partial class MainWindow
             if (!TryCreateTrackedJobFromMessage(msg, out var trackedJob))
                 continue;
 
-            var state = StartDirectCommandJobTracker(trackedJob, msg, _sessionId, startLoop: false);
+            var state = StartDirectCommandJobTracker(trackedJob, msg, _sessionId, startLoop: false, applySnapshotToMessage: false);
             if (state is null)
                 continue;
 
@@ -897,6 +921,7 @@ public sealed partial class MainWindow
             state.Message = msg;
             state.MessageId = msg.MessageId;
             ApplyTrackedJobSnapshotToMessage(state, msg);
+            StartDirectCommandJobTrackingLoop(state);
         }
     }
 
@@ -1153,7 +1178,7 @@ public sealed partial class MainWindow
         value = element;
         foreach (var segment in path)
         {
-            if (value.ValueKind != JsonValueKind.Object || !value.TryGetProperty(segment, out value))
+            if (!TryGetPropertyIgnoreCase(value, segment, out value))
             {
                 value = default;
                 return false;
@@ -1383,6 +1408,7 @@ public sealed partial class MainWindow
                     }
                     if (msg is not null)
                         ApplyTrackedJobSnapshotToMessage(state, msg);
+            StartDirectCommandJobTrackingLoop(state);
                 }).ConfigureAwait(false);
             return true;
         }
@@ -1464,6 +1490,7 @@ public sealed partial class MainWindow
             if (msg is not null)
             {
                 ApplyTrackedJobSnapshotToMessage(state, msg);
+            StartDirectCommandJobTrackingLoop(state);
                 if (_autoFollow && !_userScrolledUp)
                     ScrollToBottom(force: false);
             }
@@ -1664,25 +1691,47 @@ public sealed partial class MainWindow
         return list;
     }
 
+    private static bool TryGetPropertyIgnoreCase(JsonElement element, string propertyName, out JsonElement property)
+    {
+        property = default;
+        if (element.ValueKind != JsonValueKind.Object)
+            return false;
+        if (element.TryGetProperty(propertyName, out property))
+            return true;
+
+        foreach (var candidate in element.EnumerateObject())
+        {
+            if (!string.Equals(candidate.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+                continue;
+            property = candidate.Value;
+            return true;
+        }
+
+        property = default;
+        return false;
+    }
+
     private static string? TryGetString(JsonElement element, string propertyName)
     {
-        if (!element.TryGetProperty(propertyName, out var property) || property.ValueKind != JsonValueKind.String)
+        if (!TryGetPropertyIgnoreCase(element, propertyName, out var property) || property.ValueKind != JsonValueKind.String)
             return null;
         return property.GetString();
     }
 
     private static int? TryGetInt(JsonElement element, string propertyName)
     {
-        if (!element.TryGetProperty(propertyName, out var property))
+        if (!TryGetPropertyIgnoreCase(element, propertyName, out var property))
             return null;
         if (property.ValueKind == JsonValueKind.Number && property.TryGetInt32(out var value))
+            return value;
+        if (property.ValueKind == JsonValueKind.String && int.TryParse(property.GetString(), out value))
             return value;
         return null;
     }
 
     private static IReadOnlyList<string> ReadStringArray(JsonElement element, string propertyName)
     {
-        if (!element.TryGetProperty(propertyName, out var property) || property.ValueKind != JsonValueKind.Array)
+        if (!TryGetPropertyIgnoreCase(element, propertyName, out var property) || property.ValueKind != JsonValueKind.Array)
             return Array.Empty<string>();
 
         var result = new List<string>();

@@ -279,6 +279,29 @@ public sealed partial class ToolAgentOrchestrator
                 if (string.IsNullOrWhiteSpace(label))
                     label = string.IsNullOrWhiteSpace(resolved.DocName) ? referenceLabel : resolved.DocName;
                 var jobId = TryGetString(result, "jobId") ?? TryGetString(result, "JobId");
+                var statusFromApi = TryGetString(result, "status") ?? TryGetString(result, "Status");
+                var queued = false;
+                if (result.ValueKind == JsonValueKind.Object)
+                {
+                    if ((result.TryGetProperty("queued", out var queuedElement) || result.TryGetProperty("Queued", out queuedElement))
+                        && queuedElement.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                    {
+                        queued = queuedElement.GetBoolean();
+                    }
+                    else if ((result.TryGetProperty("queued", out queuedElement) || result.TryGetProperty("Queued", out queuedElement))
+                             && queuedElement.ValueKind == JsonValueKind.String
+                             && bool.TryParse(queuedElement.GetString(), out var queuedParsed))
+                    {
+                        queued = queuedParsed;
+                    }
+                }
+
+                var initialStatus = queued
+                    ? "queued"
+                    : !string.IsNullOrWhiteSpace(statusFromApi)
+                        ? statusFromApi.Trim().ToLowerInvariant()
+                        : string.IsNullOrWhiteSpace(jobId) ? "queued" : "running";
+
                 _mem.LastAdminOperation = new ToolMemory.AdminOperationState
                 {
                     OperationKind = "document_reindex",
@@ -286,14 +309,13 @@ public sealed partial class ToolAgentOrchestrator
                     JobId = jobId,
                     DocumentRef = referenceLabel,
                     DocPath = resolved.DocPath,
-                    Status = string.IsNullOrWhiteSpace(jobId) ? "queued" : "running",
+                    Status = initialStatus,
                     IsCompleted = false,
                     IsSuccess = false,
                     CreatedAtUtc = DateTimeOffset.UtcNow,
                     LastUpdatedAtUtc = DateTimeOffset.UtcNow
                 };
 
-                var initialStatus = string.IsNullOrWhiteSpace(jobId) ? "queued" : "running";
                 var answer = initialStatus == "queued"
                     ? DeterministicAgentText.AdminReindexQueued(language, label, jobId)
                     : DeterministicAgentText.AdminReindexRunning(language, label);

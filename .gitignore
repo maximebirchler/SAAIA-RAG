@@ -9,6 +9,8 @@ Desktop.ini
 
 # IDE
 .vscode/
+.vs/
+.claude/
 .idea/
 *.swp
 *.tmp
