@@ -80,6 +80,7 @@ public sealed partial class MainWindow
     {
         TrySoftUi("ConfigureHeaderChrome.ChatsToggleButton", () => ApplyHeaderButtonChrome(ChatsToggleButton));
         TrySoftUi("ConfigureHeaderChrome.SetupButton", () => ApplyHeaderButtonChrome(SetupButton));
+        TrySoftUi("ConfigureHeaderChrome.HeaderJobsButton", () => ApplyHeaderButtonChrome(HeaderJobsButton));
         TrySoftUi("ConfigureHeaderChrome.HeaderHelpButton", () => ApplyHeaderButtonChrome(HeaderHelpButton));
         TrySoftUi("ConfigureHeaderChrome.HeaderSettingsButton", () => ApplyHeaderButtonChrome(HeaderSettingsButton));
     }

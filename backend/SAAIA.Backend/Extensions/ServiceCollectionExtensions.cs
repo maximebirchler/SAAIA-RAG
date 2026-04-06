@@ -161,8 +161,9 @@ public static class ServiceCollectionExtensions
         });
         services.AddHttpClient("tei", c => c.Timeout = TimeSpan.FromMinutes(5));
 
-        // ---------- Bulkheads ----------
+        // ---------- Bulkheads / job runtime state ----------
         services.AddSingleton<IngestionBulkheads>();
+        services.AddSingleton<IngestionJobCancellationRegistry>();
 
         // ---------- Worker ----------
         services.AddHostedService<IngestionWorker>();

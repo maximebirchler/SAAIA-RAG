@@ -96,14 +96,7 @@ sealed class IngestionScanner : BackgroundService
         var staleRunningAfter = TimeSpan.FromMinutes(Math.Clamp(opt.StaleRunningMinutes, 5, 24 * 60));
         await MarkStaleRunningJobsFailedAsync(conn, tenantId, staleRunningAfter, ct);
 
-        // 1) stop scan if running job exists
-        if (await HasRunningJobAsync(conn, tenantId, ct))
-        {
-            _log.LogInformation("Scanner: running ingestion job detected => skipping scan this cycle");
-            return;
-        }
-
-        // 2) list files
+        // 1) list files
         var now = DateTime.UtcNow;
         var missingGrace = TimeSpan.FromSeconds(Math.Clamp(opt.MissingGraceSeconds, 5, 24 * 3600));
         var maxFiles = Math.Clamp(opt.MaxFilesPerScan, 1, 200000);
@@ -206,10 +199,17 @@ WHERE tenant_id = @tenant_id
                 (row.FileSize ?? -1) != fi.Length ||
                 !SameMtime(row.FileMtime, fi.LastWriteTimeUtc);
 
+            var normalizedStatus = (row.Status ?? string.Empty).Trim().ToLowerInvariant();
+            var hasActiveJob = await HasActiveJobForDocAsync(conn, tenantId, rel, ct);
+            var pendingOrBrokenWithoutJob =
+                (normalizedStatus is "pending" or "new" or "error")
+                && !hasActiveJob;
+
             var needsReindex =
-                forceReindexAll ||
-                changed ||
-                string.Equals(row.Status, "missing", StringComparison.OrdinalIgnoreCase);
+                (!hasActiveJob && forceReindexAll) ||
+                (!hasActiveJob && changed) ||
+                (!hasActiveJob && string.Equals(normalizedStatus, "missing", StringComparison.OrdinalIgnoreCase)) ||
+                pendingOrBrokenWithoutJob;
 
             if (needsReindex)
             {
@@ -339,17 +339,18 @@ WHERE tenant_id = @tenant_id
         return Math.Abs((dbUtc - fsUtc).TotalSeconds) <= 2.0;
     }
 
-    private static async Task<bool> HasRunningJobAsync(NpgsqlConnection conn, Guid tenantId, CancellationToken ct)
+    private static async Task<bool> HasActiveJobForDocAsync(NpgsqlConnection conn, Guid tenantId, string docPath, CancellationToken ct)
     {
         const string sql = @"
 SELECT 1
 FROM ingestion_jobs
 WHERE tenant_id=@tenant_id
-  AND status='running'
+  AND doc_path=@doc_path
+  AND status IN ('queued','running')
 LIMIT 1;";
 
         var exists = await conn.ExecuteScalarAsync<int?>(
-            new CommandDefinition(sql, new { tenant_id = tenantId }, cancellationToken: ct)
+            new CommandDefinition(sql, new { tenant_id = tenantId, doc_path = docPath }, cancellationToken: ct)
         );
 
         return exists.HasValue;
@@ -359,11 +360,18 @@ LIMIT 1;";
     {
         const string sql = @"
 UPDATE ingestion_jobs
-SET status='failed',
+SET status = CASE
+        WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) THEN 'canceled'
+        ELSE 'failed'
+    END,
     locked_at=NULL,
     locked_by=NULL,
     finished_at=now(),
-    last_error=COALESCE(last_error,'stale_running_scanner')
+    last_error = CASE
+        WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false)
+            THEN COALESCE(last_error,'canceled_stale_scanner')
+        ELSE COALESCE(last_error,'stale_running_scanner')
+    END
 WHERE tenant_id=@tenant_id
   AND status='running'
   AND locked_at IS NOT NULL

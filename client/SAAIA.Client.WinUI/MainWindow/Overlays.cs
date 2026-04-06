@@ -271,6 +271,8 @@ public sealed partial class MainWindow
         if (_dialogOverlayHost is null || _dialogOverlayPresenter is null)
             throw new InvalidOperationException("Dialog overlay host is not available.");
 
+        _dialogOverlayPresenter.HorizontalAlignment = HorizontalAlignment.Center;
+        _dialogOverlayPresenter.VerticalAlignment = VerticalAlignment.Center;
         _dialogOverlayCloseOnBackgroundTap = closeOnBackgroundTap;
         _dialogOverlayResizeHandler = resizeHandler;
         _dialogOverlayCompletion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -303,6 +305,41 @@ public sealed partial class MainWindow
         return new OverlayDialogSession(_dialogOverlayCompletion.Task, CloseDialogOverlay);
     }
 
+    private OverlayDialogSession ShowOverlayPage(UIElement content, bool closeOnBackgroundTap = false, Action<Size>? resizeHandler = null)
+    {
+        EnsureDialogOverlay();
+        CloseDialogOverlay();
+
+        if (_dialogOverlayHost is null || _dialogOverlayPresenter is null)
+            throw new InvalidOperationException("Dialog overlay host is not available.");
+
+        _dialogOverlayPresenter.HorizontalAlignment = HorizontalAlignment.Stretch;
+        _dialogOverlayPresenter.VerticalAlignment = VerticalAlignment.Stretch;
+        _dialogOverlayCloseOnBackgroundTap = closeOnBackgroundTap;
+        _dialogOverlayResizeHandler = resizeHandler;
+        _dialogOverlayCompletion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _dialogOverlayPresenter.Content = content;
+        _dialogOverlayHost.Visibility = Visibility.Visible;
+        _dialogOverlayHost.IsHitTestVisible = true;
+        RefreshDialogOverlayTheme();
+        if (Root is not null)
+        {
+            TrySoftUi("ShowOverlayPage.ResizeHandler.Initial", () => _dialogOverlayResizeHandler?.Invoke(new Size(Root.ActualWidth, Root.ActualHeight)));
+        }
+
+        try
+        {
+            _dialogOverlayHost.UpdateLayout();
+            if (content is FrameworkElement element)
+                element.Focus(FocusState.Programmatic);
+        }
+        catch
+        {
+        }
+
+        return new OverlayDialogSession(_dialogOverlayCompletion.Task, CloseDialogOverlay);
+    }
+
     private void CloseDialogOverlay()
     {
         if (_dialogOverlayHost is null || _dialogOverlayPresenter is null)
@@ -316,6 +353,8 @@ public sealed partial class MainWindow
         _dialogOverlayCloseOnBackgroundTap = false;
         _dialogOverlayResizeHandler = null;
         _dialogOverlayPresenter.Content = null;
+        _dialogOverlayPresenter.HorizontalAlignment = HorizontalAlignment.Center;
+        _dialogOverlayPresenter.VerticalAlignment = VerticalAlignment.Center;
         _dialogOverlayHost.Visibility = Visibility.Collapsed;
         _dialogOverlayHost.IsHitTestVisible = false;
         completion.TrySetResult(true);

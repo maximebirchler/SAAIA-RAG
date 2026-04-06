@@ -71,6 +71,37 @@ static class QdrantClient
         }
     }
 
+    public static async Task DeleteOtherVersionsByDocAsync(HttpClient qdrant, string collection, Guid tenantId, Guid docId, int keepVersion, CancellationToken ct)
+    {
+        var filter = new
+        {
+            must = new object[]
+            {
+                new { key = "tenant_id", match = new { value = tenantId.ToString() } },
+                new { key = "doc_id", match = new { value = docId.ToString() } }
+            },
+            must_not = new object[]
+            {
+                new { key = "ingestion_version", match = new { value = keepVersion } }
+            }
+        };
+        var body = new { filter };
+
+        using var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+
+        using var resp = await qdrant.PostAsync(
+            $"/collections/{collection}/points/delete?wait=true",
+            content,
+            ct);
+
+        if (resp.StatusCode == HttpStatusCode.NotFound) return;
+        if (!resp.IsSuccessStatusCode)
+        {
+            var err = await TryReadErrorBodyAsync(resp, ct);
+            throw new Exception($"Qdrant delete stale versions failed: {(int)resp.StatusCode} {resp.ReasonPhrase} {err}".Trim());
+        }
+    }
+
     public static async Task UpsertPointsAsync(HttpClient qdrant, string collection, List<object> points, CancellationToken ct)
     {
         var body = new { points };
@@ -115,7 +146,9 @@ static class QdrantClient
                 PageEnd: GetInt("page_end"),
                 ChunkId: GetStr("chunk_id"),
                 ChunkIndex: GetInt("chunk_index"),
-                Text: GetStr("text")
+                Text: GetStr("text"),
+                IngestionVersion: GetInt("ingestion_version"),
+                HashDoc: GetStr("hash_doc")
             );
 
             list.Add(m);
@@ -149,5 +182,7 @@ public sealed record RagMatch(
     int? PageEnd,
     string? ChunkId,
     int? ChunkIndex,
-    string? Text
+    string? Text,
+    int? IngestionVersion,
+    string? HashDoc
 );

@@ -2,13 +2,17 @@ using PdfPig = UglyToad.PdfPig;
 
 static class PdfExtractor
 {
-    public static List<WordToken> ExtractWordTokens(string pdfPath)
+    public static List<WordToken> ExtractWordTokens(string pdfPath, CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
+
         var tokens = new List<WordToken>();
 
         using var doc = PdfPig.PdfDocument.Open(pdfPath);
         foreach (var page in doc.GetPages())
         {
+            ct.ThrowIfCancellationRequested();
+
             var text = page.Text ?? "";
             var words = SplitWords(text);
             foreach (var w in words)

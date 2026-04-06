@@ -129,6 +129,7 @@ public sealed partial class MainWindow
                     SetInfo(message, positive: true);
                     Status(message);
                     passwordBox.Password = string.Empty;
+                    RefreshAdminJobsUiVisibility();
                 }
                 else if (string.Equals(status, "invalid", StringComparison.OrdinalIgnoreCase))
                 {
@@ -163,6 +164,7 @@ public sealed partial class MainWindow
             SetInfo(message);
             Status(message);
             RefreshButtons();
+            RefreshAdminJobsUiVisibility();
         };
 
         closeButton.Click += (_, __) => overlay?.Close();

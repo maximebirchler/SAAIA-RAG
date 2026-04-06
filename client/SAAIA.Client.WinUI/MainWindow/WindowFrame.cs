@@ -30,6 +30,7 @@ public sealed partial class MainWindow
     private void MainWindow_Closed(object sender, WindowEventArgs args)
     {
         CloseTransientDialogs();
+        CloseAdminJobsWindow();
         TryRemoveDynamicMinimumWindowSize();
     }
 

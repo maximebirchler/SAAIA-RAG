@@ -49,11 +49,12 @@ ORDER BY category;";
     // =========================
     private static async Task<IResult> QueryAsync(
         HttpContext ctx,
+        NpgsqlDataSource ds,
         IOptions<RagOptions> ragOpt,
         IHttpClientFactory httpFactory,
         RagSearchRequestDto req)
     {
-        var resp = await SearchCoreAsync(ctx, ragOpt.Value, httpFactory, req);
+        var resp = await SearchCoreAsync(ctx, ds, ragOpt.Value, httpFactory, req);
 
         // Format "historique" (backward compat)
         return Results.Ok(new
@@ -70,11 +71,12 @@ ORDER BY category;";
     // =========================
     private static async Task<IResult> SearchAsync(
         HttpContext ctx,
+        NpgsqlDataSource ds,
         IOptions<RagOptions> ragOpt,
         IHttpClientFactory httpFactory,
         RagSearchRequestDto req)
     {
-        var resp = await SearchCoreAsync(ctx, ragOpt.Value, httpFactory, req);
+        var resp = await SearchCoreAsync(ctx, ds, ragOpt.Value, httpFactory, req);
 
         // Convertir au format CDC v2.7 (items[] au lieu de matches[])
         var responseDto = new RagSearchResponseDto(
@@ -112,6 +114,7 @@ ORDER BY category;";
 
     private static async Task<RagSearchResponse> SearchCoreAsync(
         HttpContext ctx,
+        NpgsqlDataSource ds,
         RagOptions rag,
         IHttpClientFactory httpFactory,
         RagSearchRequestDto req)
@@ -249,6 +252,8 @@ ORDER BY category;";
             resp?.Dispose();
         }
 
+        rawMatches = await FilterMatchesAgainstActiveDocumentVersionsAsync(ds, tenantId, rawMatches, ct);
+
         // Post-filter: minScore + diversité (per doc / per page)
         var selected = new List<RagMatch>(capacity: topK);
         var perDoc = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -295,6 +300,71 @@ ORDER BY category;";
             Matches: selected
         );
     }
+
+    private static async Task<List<RagMatch>> FilterMatchesAgainstActiveDocumentVersionsAsync(
+        NpgsqlDataSource ds,
+        Guid tenantId,
+        IReadOnlyList<RagMatch> rawMatches,
+        CancellationToken ct)
+    {
+        if (rawMatches.Count == 0)
+            return new List<RagMatch>();
+
+        var docIds = rawMatches
+            .Select(m => Guid.TryParse(m.DocId, out var docId) ? docId : Guid.Empty)
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToArray();
+
+        if (docIds.Length == 0)
+            return new List<RagMatch>();
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        const string sql = """
+SELECT doc_id AS "DocId",
+       status AS "Status",
+       indexed_version AS "IndexedVersion",
+       LOWER(ENCODE(content_hash, 'hex')) AS "ContentHashHex"
+FROM documents
+WHERE tenant_id=@tenant_id
+  AND doc_id = ANY(@doc_ids);
+""";
+
+        var rows = await conn.QueryAsync<DocVersionRow>(new CommandDefinition(sql, new
+        {
+            tenant_id = tenantId,
+            doc_ids = docIds
+        }, cancellationToken: ct));
+
+        var active = rows.ToDictionary(x => x.DocId, x => x, EqualityComparer<Guid>.Default);
+        var filtered = new List<RagMatch>(rawMatches.Count);
+        foreach (var match in rawMatches)
+        {
+            if (!Guid.TryParse(match.DocId, out var docId))
+                continue;
+            if (!active.TryGetValue(docId, out var row))
+                continue;
+            if (!string.Equals(row.Status, "indexed", StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (row.IndexedVersion <= 0)
+                continue;
+
+            var versionMatches = match.IngestionVersion.HasValue && match.IngestionVersion.Value == row.IndexedVersion;
+            var legacyHashMatches = !match.IngestionVersion.HasValue
+                && !string.IsNullOrWhiteSpace(match.HashDoc)
+                && !string.IsNullOrWhiteSpace(row.ContentHashHex)
+                && string.Equals(match.HashDoc, row.ContentHashHex, StringComparison.OrdinalIgnoreCase);
+
+            if (!versionMatches && !legacyHashMatches)
+                continue;
+
+            filtered.Add(match);
+        }
+
+        return filtered;
+    }
+
+    private sealed record DocVersionRow(Guid DocId, string Status, int IndexedVersion, string? ContentHashHex);
 
     private static string NormalizeQuery(string s)
     {

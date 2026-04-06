@@ -356,5 +356,82 @@ public sealed partial class MainWindow
         return grid;
     }
 
+    private Button BuildDialogChromeIconButton(string tooltip)
+    {
+        var button = new Button
+        {
+            Width = 40,
+            Height = 40,
+            Padding = new Thickness(0),
+            Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            BorderThickness = new Thickness(0),
+            Content = new FontIcon { Glyph = "", FontFamily = new FontFamily("Segoe Fluent Icons"), FontSize = 16 },
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Top,
+            Style = (Style?)Application.Current.Resources["AppIconButtonStyle"]
+        };
+        ToolTipService.SetToolTip(button, tooltip);
+        ApplyHeaderButtonChrome(button);
+        return button;
+    }
+
+    private Border BuildAdminWorkspaceDialogShell(
+        string badgeText,
+        string title,
+        string? subtitle,
+        FrameworkElement metrics,
+        FrameworkElement toolbar,
+        FrameworkElement body,
+        FrameworkElement footer,
+        FrameworkElement? closeButton,
+        double maxWidth,
+        double maxHeight)
+    {
+        var light = UseLightPalette();
+        var layout = new Grid { RowSpacing = 14 };
+        layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var headerGrid = new Grid { ColumnSpacing = 12 };
+        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var hero = BuildDialogHeroCard(badgeText, title, subtitle);
+        Grid.SetColumn(hero, 0);
+        headerGrid.Children.Add(hero);
+        if (closeButton is not null)
+        {
+            Grid.SetColumn(closeButton, 1);
+            headerGrid.Children.Add(closeButton);
+        }
+
+        Grid.SetRow(headerGrid, 0);
+        Grid.SetRow(metrics, 1);
+        Grid.SetRow(toolbar, 2);
+        Grid.SetRow(body, 3);
+        Grid.SetRow(footer, 4);
+        layout.Children.Add(headerGrid);
+        layout.Children.Add(metrics);
+        layout.Children.Add(toolbar);
+        layout.Children.Add(body);
+        layout.Children.Add(footer);
+
+        return new Border
+        {
+            MaxWidth = maxWidth,
+            MaxHeight = maxHeight,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            CornerRadius = new CornerRadius(24),
+            Padding = new Thickness(18),
+            Background = light ? UiBrush(0xEC, 0xF1, 0xF6) : UiBrush(0x14, 0x19, 0x21),
+            BorderBrush = light ? UiBrush(0xB8, 0xC5, 0xD3) : UiBrush(0x2E, 0x36, 0x42),
+            BorderThickness = new Thickness(1),
+            Child = layout
+        };
+    }
+
 
 }

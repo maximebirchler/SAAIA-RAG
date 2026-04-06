@@ -30,6 +30,7 @@ public sealed partial class MainWindow
 
         TrySoftUi("ApplyUiLanguage.Tooltip.ChatsToggleButton", () => ToolTipService.SetToolTip(ChatsToggleButton, ClientUiText.Get("header.chats", lang)));
         TrySoftUi("ApplyUiLanguage.Tooltip.SetupButton", () => ToolTipService.SetToolTip(SetupButton, ClientUiText.Get("button.setup", lang)));
+        TrySoftUi("ApplyUiLanguage.Tooltip.HeaderJobsButton", () => ToolTipService.SetToolTip(HeaderJobsButton, ClientUiText.Get("header.jobs", lang)));
         TrySoftUi("ApplyUiLanguage.Tooltip.HeaderHelpButton", () => ToolTipService.SetToolTip(HeaderHelpButton, ClientUiText.Get("header.help", lang)));
         TrySoftUi("ApplyUiLanguage.Tooltip.HeaderSettingsButton", () => ToolTipService.SetToolTip(HeaderSettingsButton, ClientUiText.Get("header.settings", lang)));
         TrySoftUi("ApplyUiLanguage.ChatsHeaderText", () => ChatsHeaderText.Text = ClientUiText.Get("panel.chats", lang));
@@ -562,19 +563,30 @@ public sealed partial class MainWindow
             SourcesCards.Items = SourceCardParser.Parse(pretty);
             SourcesBox.Text = pretty;
 
+            var detachTrackedJobToAdminPanel = ShouldDetachTrackedJobToAdminJobsPanel(result.TrackedJob);
             if (result.TrackedJob is not null && !string.IsNullOrWhiteSpace(result.TrackedJob.JobId))
             {
-                assistantMsg.TrackingMeta = BuildTrackedJobMeta(result.TrackedJob, isTerminal: false);
-                assistantMsg.ProgressText = string.Equals(result.TrackedJob.Status, "queued", StringComparison.OrdinalIgnoreCase)
-                    ? DeterministicAgentText.AdminJobQueued(UiLang, result.TrackedJob.DisplayLabel, 1)
-                    : DeterministicAgentText.AdminReindexProgressPhase(UiLang, "running", null, null, null, 1);
+                if (detachTrackedJobToAdminPanel)
+                {
+                    assistantMsg.Content = BuildDetachedAdminJobLaunchMessage(result.TrackedJob);
+                    assistantMsg.ProgressText = null;
+                    assistantMsg.StatusNote = ClientUiText.Get("admin.jobs.detached.status", UiLang);
+                    assistantMsg.TrackingMeta = null;
+                }
+                else
+                {
+                    assistantMsg.TrackingMeta = BuildTrackedJobMeta(result.TrackedJob, isTerminal: false);
+                    assistantMsg.ProgressText = string.Equals(result.TrackedJob.Status, "queued", StringComparison.OrdinalIgnoreCase)
+                        ? DeterministicAgentText.AdminJobQueued(UiLang, result.TrackedJob.DisplayLabel, 1)
+                        : DeterministicAgentText.AdminReindexProgressPhase(UiLang, "running", null, null, null, 1);
+                }
             }
 
             var persistedAssistantMsg = await _api.AddMessageAsync(_sessionId!, "assistant", assistantMsg.Content, result.SourcesPayload, CancellationToken.None, assistantMsg.StatusNote, assistantMsg.ProgressText, assistantMsg.TrackingMeta);
             if (!string.IsNullOrWhiteSpace(persistedAssistantMsg?.MessageId))
                 assistantMsg.MessageId = persistedAssistantMsg!.MessageId;
 
-            if (result.TrackedJob is not null && !string.IsNullOrWhiteSpace(result.TrackedJob.JobId))
+            if (!detachTrackedJobToAdminPanel && result.TrackedJob is not null && !string.IsNullOrWhiteSpace(result.TrackedJob.JobId))
                 await StartAndRefreshDirectCommandJobTrackerAsync(result.TrackedJob, assistantMsg, _sessionId).ConfigureAwait(true);
 
             try
@@ -1053,14 +1065,38 @@ public sealed partial class MainWindow
         if (!string.IsNullOrWhiteSpace(meta.DocPath) && string.IsNullOrWhiteSpace(state.Job.DocPath))
             state.Job.DocPath = meta.DocPath;
         if (!string.IsNullOrWhiteSpace(meta.LastKnownStatus))
-            state.LastKnownStatus ??= meta.LastKnownStatus;
-        if (!string.IsNullOrWhiteSpace(meta.LastKnownProgressPhase))
-            state.LastKnownProgressPhase ??= meta.LastKnownProgressPhase;
-        state.LastKnownProgressCurrent ??= meta.LastKnownProgressCurrent;
-        state.LastKnownProgressTotal ??= meta.LastKnownProgressTotal;
-        state.LastKnownProgressPercent ??= meta.LastKnownProgressPercent;
+        {
+            var incomingStatus = NormalizeTrackedJobStatus(meta.LastKnownStatus);
+            var currentStatus = NormalizeTrackedJobStatus(state.LastKnownStatus);
+            if (state.LastKnownStatus is null || GetTrackedJobStatusRank(incomingStatus) >= GetTrackedJobStatusRank(currentStatus))
+                state.LastKnownStatus = incomingStatus;
+        }
+
+        if (meta.IsTerminal && !state.IsTerminal)
+            state.IsTerminal = true;
+
+        var incomingProgressScore = GetTrackedProgressInfoScore(
+            meta.LastKnownProgressPhase,
+            meta.LastKnownProgressCurrent,
+            meta.LastKnownProgressTotal,
+            meta.LastKnownProgressPercent);
+        var currentProgressScore = GetTrackedProgressInfoScore(
+            state.LastKnownProgressPhase,
+            state.LastKnownProgressCurrent,
+            state.LastKnownProgressTotal,
+            state.LastKnownProgressPercent);
+
+        if (incomingProgressScore >= currentProgressScore)
+        {
+            state.LastKnownProgressPhase = meta.LastKnownProgressPhase ?? state.LastKnownProgressPhase;
+            state.LastKnownProgressCurrent = meta.LastKnownProgressCurrent ?? state.LastKnownProgressCurrent;
+            state.LastKnownProgressTotal = meta.LastKnownProgressTotal ?? state.LastKnownProgressTotal;
+            state.LastKnownProgressPercent = meta.LastKnownProgressPercent ?? state.LastKnownProgressPercent;
+        }
+
         state.StartedAtUtc ??= meta.StartedAtUtc;
-        state.LastSnapshotAtUtc ??= meta.LastSnapshotAtUtc;
+        if (meta.LastSnapshotAtUtc.HasValue && (!state.LastSnapshotAtUtc.HasValue || meta.LastSnapshotAtUtc > state.LastSnapshotAtUtc))
+            state.LastSnapshotAtUtc = meta.LastSnapshotAtUtc;
     }
 
     private static ChatTrackingMeta BuildTrackedJobMeta(DirectCommandTrackedJob trackedJob, bool isTerminal)
@@ -1323,7 +1359,7 @@ public sealed partial class MainWindow
         if (snapshotStartedAt.HasValue)
             state.StartedAtUtc = snapshotStartedAt.Value;
 
-        var status = (ReadTrackedJobStatus(snapshot) ?? state.Job.Status ?? "running").Trim().ToLowerInvariant();
+        var status = NormalizeTrackedJobStatus(ReadTrackedJobStatus(snapshot) ?? state.Job.Status ?? "running");
         var lastError = ReadTrackedJobLastError(snapshot);
         var progressPhase = ReadTrackedJobProgressPhase(snapshot);
         var progressCurrent = ReadTrackedJobProgressCurrent(snapshot);
@@ -1338,6 +1374,38 @@ public sealed partial class MainWindow
 
         if (!progressPercent.HasValue && progressCurrent.HasValue && progressTotal.HasValue && progressTotal.Value > 0)
             progressPercent = Math.Clamp((int)Math.Round((progressCurrent.Value * 100d) / progressTotal.Value, MidpointRounding.AwayFromZero), 0, 100);
+
+        var currentStatus = NormalizeTrackedJobStatus(state.LastKnownStatus ?? state.Job.Status);
+        var currentProgressScore = GetTrackedProgressInfoScore(
+            state.LastKnownProgressPhase,
+            state.LastKnownProgressCurrent,
+            state.LastKnownProgressTotal,
+            state.LastKnownProgressPercent);
+        var incomingProgressScore = GetTrackedProgressInfoScore(
+            progressPhase,
+            progressCurrent,
+            progressTotal,
+            progressPercent);
+
+        var currentIsTerminal = IsTrackedJobTerminalStatus(currentStatus);
+        var incomingIsTerminal = IsTrackedJobTerminalStatus(status);
+
+        if (currentIsTerminal && !incomingIsTerminal)
+        {
+            status = currentStatus;
+            progressPhase = state.LastKnownProgressPhase;
+            progressCurrent = state.LastKnownProgressCurrent;
+            progressTotal = state.LastKnownProgressTotal;
+            progressPercent = state.LastKnownProgressPercent;
+        }
+        else if (status == "queued" && currentStatus == "running" && currentProgressScore > incomingProgressScore)
+        {
+            status = currentStatus;
+            progressPhase = state.LastKnownProgressPhase;
+            progressCurrent = state.LastKnownProgressCurrent;
+            progressTotal = state.LastKnownProgressTotal;
+            progressPercent = state.LastKnownProgressPercent;
+        }
 
         var displayPercent = GetTrackedJobDisplayPercent(status, progressPhase, progressPercent, progressCurrent, progressTotal);
         var startedAtUtc = state.StartedAtUtc ?? state.LastSnapshotAtUtc ?? DateTimeOffset.UtcNow;
@@ -1577,6 +1645,54 @@ public sealed partial class MainWindow
                 return;
             }
         }
+    }
+
+    private static string NormalizeTrackedJobStatus(string? status)
+    {
+        var normalized = (status ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "completed" or "succeeded" or "success" => "done",
+            "error" => "failed",
+            "cancelled" => "canceled",
+            "cancel-requested" or "cancel requested" => "cancel_requested",
+            _ => normalized.Length == 0 ? "queued" : normalized
+        };
+    }
+
+    private static bool IsTrackedJobTerminalStatus(string? status)
+    {
+        var normalized = NormalizeTrackedJobStatus(status);
+        return normalized is "done" or "failed" or "canceled";
+    }
+
+    private static int GetTrackedJobStatusRank(string? status)
+    {
+        var normalized = NormalizeTrackedJobStatus(status);
+        return normalized switch
+        {
+            "queued" => 0,
+            "running" => 1,
+            "cancel_requested" => 1,
+            "done" => 2,
+            "failed" => 2,
+            "canceled" => 2,
+            _ => 0
+        };
+    }
+
+    private static int GetTrackedProgressInfoScore(string? progressPhase, int? progressCurrent, int? progressTotal, int? progressPercent)
+    {
+        var score = 0;
+        if (!string.IsNullOrWhiteSpace(progressPhase))
+            score += 2;
+        if (progressCurrent.HasValue)
+            score += 2;
+        if (progressTotal.HasValue)
+            score += 2;
+        if (progressPercent.HasValue)
+            score += 3;
+        return score;
     }
 
     private static int? GetTrackedJobDisplayPercent(string status, string? progressPhase, int? progressPercent, int? progressCurrent, int? progressTotal)

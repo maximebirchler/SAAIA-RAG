@@ -167,7 +167,19 @@ SELECT * FROM (
     job_id       AS ""JobId"",
     'ingestion'  AS ""Type"",
     action       AS ""JobType"",
-    CASE WHEN finished_at IS NOT NULL AND status='done' THEN 'done' ELSE status END AS ""Status"",
+    CASE
+      WHEN finished_at IS NOT NULL AND status='done' THEN 'done'
+      WHEN status='queued'
+           AND finished_at IS NULL
+           AND (
+             payload #>> '{progress,phase}' IS NOT NULL
+             OR jsonb_typeof(payload->'progress'->'current')='number'
+             OR jsonb_typeof(payload->'progress'->'total')='number'
+             OR jsonb_typeof(payload->'progress'->'percent')='number'
+           )
+        THEN 'running'
+      ELSE status
+    END AS ""Status"",
     CASE WHEN jsonb_typeof(payload->'docId')='string' THEN (payload->>'docId')::uuid ELSE NULL::uuid END AS ""DocId"",
     doc_path     AS ""DocPath"",
     NULL::text   AS ""Level"",

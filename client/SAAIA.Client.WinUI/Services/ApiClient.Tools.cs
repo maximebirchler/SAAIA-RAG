@@ -512,6 +512,13 @@ public sealed partial class ApiClient
 
         if (adminResp.StatusCode != HttpStatusCode.NotFound)
         {
+            if (adminResp.StatusCode == HttpStatusCode.Conflict)
+            {
+                var conflictJson = await adminResp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                using var conflictDoc = JsonDocument.Parse(conflictJson);
+                return conflictDoc.RootElement.Clone();
+            }
+
             adminResp.EnsureSuccessStatusCode();
             var adminJson = await adminResp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             using var adminDoc = JsonDocument.Parse(adminJson);
@@ -557,6 +564,28 @@ public sealed partial class ApiClient
             throw new ArgumentException("jobId is required.", nameof(jobId));
 
         return SendJsonAsync(HttpMethod.Get, "/admin/jobs/" + Uri.EscapeDataString(jobId.Trim()), null, admin: true, ct);
+    }
+
+    public Task<JsonElement> AdminJobsPurgeAsync(string? scope, string? type, CancellationToken ct)
+    {
+        var body = JsonSerializer.Serialize(new
+        {
+            scope = string.IsNullOrWhiteSpace(scope) ? null : scope.Trim(),
+            type = string.IsNullOrWhiteSpace(type) ? null : type.Trim()
+        }, JsonOpts);
+        return SendJsonAsync(HttpMethod.Post, "/admin/jobs/purge", body, admin: true, ct);
+    }
+
+    public Task<JsonElement> AdminJobsDeleteHistoryAsync(IReadOnlyCollection<string> jobIds, CancellationToken ct)
+    {
+        var ids = (jobIds ?? Array.Empty<string>())
+            .Where(static id => !string.IsNullOrWhiteSpace(id))
+            .Select(static id => id.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var body = JsonSerializer.Serialize(new { jobIds = ids }, JsonOpts);
+        return SendJsonAsync(HttpMethod.Post, "/admin/jobs/delete_history", body, admin: true, ct);
     }
 
     public Task<JsonElement> AdminQdrantHealthAsync(CancellationToken ct)
