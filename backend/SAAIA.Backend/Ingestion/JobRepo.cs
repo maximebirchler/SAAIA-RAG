@@ -9,7 +9,7 @@ static class JobRepo
         await using var conn = await ds.OpenConnectionAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
 
-        const string sql = """
+        const string sql = @"
 WITH cte AS (
   SELECT q.job_id
   FROM ingestion_jobs q
@@ -30,13 +30,7 @@ SET status='running',
     locked_by=@worker,
     locked_at=now(),
     started_at=COALESCE(started_at, now()),
-    attempts=attempts+1,
-    payload = jsonb_set(
-        COALESCE(j.payload, '{}'::jsonb),
-        '{control,cancelRequested}',
-        'false'::jsonb,
-        true
-    )
+    attempts=attempts+1
 FROM cte
 WHERE j.job_id=cte.job_id
 RETURNING
@@ -45,8 +39,7 @@ RETURNING
   j.action    AS Action,
   j.doc_path  AS DocPath,
   j.category  AS Category,
-  j.payload   AS Payload;
-""";
+  j.payload   AS Payload;";
 
         var row = await conn.QueryFirstOrDefaultAsync<IngestionJobRow>(
             new CommandDefinition(sql, new { worker = workerId }, transaction: tx, cancellationToken: ct));
@@ -67,54 +60,28 @@ RETURNING
     public static async Task MarkDoneAsync(NpgsqlDataSource ds, Guid jobId, CancellationToken ct)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
-        const string sql = """
-WITH j AS (
-    SELECT
-        job_id,
-        tenant_id,
-        CASE WHEN jsonb_typeof(payload->'docId')='string' THEN (payload->>'docId')::uuid ELSE NULL::uuid END AS doc_id,
-        CASE WHEN jsonb_typeof(payload->'version')='number' THEN (payload->>'version')::int ELSE NULL::int END AS version,
-        COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) AS cancel_requested
-    FROM ingestion_jobs
-    WHERE job_id=@job_id
-)
-UPDATE ingestion_jobs t
+        const string sql = @"
+UPDATE ingestion_jobs
 SET status = CASE
-        WHEN j.cancel_requested AND NOT EXISTS (
-            SELECT 1
-            FROM documents d
-            WHERE d.tenant_id = j.tenant_id
-              AND d.doc_id = j.doc_id
-              AND d.indexed_version = j.version
-              AND d.status = 'indexed'
-        ) THEN 'canceled'
+        WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) THEN 'canceled'
         ELSE 'done'
     END,
     finished_at=now(),
     last_error = CASE
-        WHEN j.cancel_requested AND NOT EXISTS (
-            SELECT 1
-            FROM documents d
-            WHERE d.tenant_id = j.tenant_id
-              AND d.doc_id = j.doc_id
-              AND d.indexed_version = j.version
-              AND d.status = 'indexed'
-        ) THEN COALESCE(t.last_error, 'canceled_by_admin')
+        WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false)
+            THEN COALESCE(last_error, 'canceled_by_admin')
         ELSE NULL
     END,
     locked_by=NULL,
-    locked_at=NULL,
-    available_at=now()
-FROM j
-WHERE t.job_id=j.job_id AND t.status='running';
-""";
+    locked_at=NULL
+WHERE job_id=@job_id AND status='running';";
         await conn.ExecuteAsync(new CommandDefinition(sql, new { job_id = jobId }, cancellationToken: ct));
     }
 
     public static async Task MarkFailedAsync(NpgsqlDataSource ds, Guid jobId, string error, CancellationToken ct)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
-        const string sql = """
+        const string sql = @"
 UPDATE ingestion_jobs
 SET status = CASE
         WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) THEN 'canceled'
@@ -123,64 +90,54 @@ SET status = CASE
     finished_at=now(),
     last_error = CASE
         WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false)
-            THEN COALESCE(last_error, COALESCE(@err, 'canceled_by_admin'))
+            THEN COALESCE(last_error, @err, 'canceled_by_admin')
         ELSE @err
     END,
     locked_by=NULL,
-    locked_at=NULL,
-    available_at=now()
-WHERE job_id=@job_id AND status='running';
-""";
+    locked_at=NULL
+WHERE job_id=@job_id AND status='running';";
         await conn.ExecuteAsync(new CommandDefinition(sql, new { job_id = jobId, err = error }, cancellationToken: ct));
     }
 
     public static async Task MarkCanceledAsync(NpgsqlDataSource ds, Guid jobId, string reason, CancellationToken ct)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
-        const string sql = """
+        const string sql = @"
 UPDATE ingestion_jobs
-SET status='canceled',
-    finished_at=COALESCE(finished_at, now()),
-    last_error=COALESCE(@reason, last_error),
-    locked_by=NULL,
-    locked_at=NULL,
-    available_at=now(),
-    payload = jsonb_set(
-        COALESCE(payload, '{}'::jsonb),
-        '{control,cancelRequested}',
-        'true'::jsonb,
-        true
-    )
-WHERE job_id=@job_id AND status IN ('queued','running','canceled','failed','done');
-""";
+SET status='canceled', finished_at=COALESCE(finished_at, now()), last_error=COALESCE(@reason, last_error),
+    locked_by=NULL, locked_at=NULL, available_at=now()
+WHERE job_id=@job_id AND status IN ('queued','running','canceled');";
         await conn.ExecuteAsync(new CommandDefinition(sql, new { job_id = jobId, reason }, cancellationToken: ct));
     }
 
-    public static async Task<int> FinalizeStaleRunningAsync(NpgsqlDataSource ds, TimeSpan staleAfter, CancellationToken ct)
+    public static async Task<int> RequeueStaleRunningAsync(NpgsqlDataSource ds, TimeSpan staleAfter, CancellationToken ct)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
 
-        const string sql = """
+        const string sql = @"
 UPDATE ingestion_jobs
 SET status = CASE
         WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) THEN 'canceled'
-        ELSE 'failed'
+        ELSE 'queued'
     END,
-    finished_at=now(),
+    finished_at = CASE
+        WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false)
+            THEN COALESCE(finished_at, now())
+        ELSE finished_at
+    END,
     locked_at=NULL,
     locked_by=NULL,
     available_at=now(),
     last_error = CASE
         WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false)
             THEN COALESCE(last_error, 'canceled_stale_running')
-        ELSE COALESCE(last_error, 'stale_running_timeout')
+        ELSE COALESCE(last_error, 'requeued_stale_running')
     END
 WHERE status='running'
-  AND (
-      locked_at IS NULL
-      OR locked_at < now() - (@stale_seconds * interval '1 second')
-  );
-""";
+AND (
+    locked_at IS NULL
+    OR locked_at < now() - (@stale_seconds * interval '1 second')
+);";
 
         return await conn.ExecuteAsync(new CommandDefinition(sql, new
         {
@@ -192,13 +149,12 @@ WHERE status='running'
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
 
-        const string sql = """
-UPDATE ingestion_jobs
-SET locked_at=now()
-WHERE job_id=@job_id
-  AND status='running'
-  AND locked_by=@worker;
-""";
+        const string sql = @"
+    UPDATE ingestion_jobs
+    SET locked_at=now()
+    WHERE job_id=@job_id
+    AND status='running'
+    AND locked_by=@worker;";
 
         await conn.ExecuteAsync(new CommandDefinition(sql, new
         {
@@ -206,6 +162,7 @@ WHERE job_id=@job_id
             worker = workerId
         }, cancellationToken: ct));
     }
+
 
     public static async Task<bool> IsCanceledAsync(NpgsqlDataSource ds, Guid jobId, CancellationToken ct)
     {
@@ -218,15 +175,144 @@ FROM ingestion_jobs
 WHERE job_id=@job_id
 LIMIT 1;
 """;
-        var row = await conn.QueryFirstOrDefaultAsync<JobCancelStateRow>(
-            new CommandDefinition(sql, new { job_id = jobId }, cancellationToken: ct));
-
+        var row = await conn.QueryFirstOrDefaultAsync<JobCancelState>(new CommandDefinition(sql, new { job_id = jobId }, cancellationToken: ct));
         if (row is null)
             return false;
 
-        return string.Equals(row.Status, "canceled", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(row.Status, "cancelled", StringComparison.OrdinalIgnoreCase)
-               || row.CancelRequested;
+        return row.CancelRequested
+               || string.Equals(row.Status, "canceled", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(row.Status, "cancelled", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static async Task<bool> CompleteUpsertAsync(
+        NpgsqlDataSource ds,
+        Guid tenantId,
+        Guid jobId,
+        string docPath,
+        byte[] hash,
+        long size,
+        DateTime mtimeUtc,
+        CancellationToken ct)
+    {
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        await using var tx = await conn.BeginTransactionAsync(ct);
+
+        const string lockSql = """
+SELECT
+    status AS "Status",
+    COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) AS "CancelRequested"
+FROM ingestion_jobs
+WHERE job_id=@job_id
+FOR UPDATE;
+""";
+
+        var row = await conn.QueryFirstOrDefaultAsync<JobCancelState>(new CommandDefinition(lockSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
+        if (row is null)
+        {
+            await tx.CommitAsync(ct);
+            return false;
+        }
+
+        if (!string.Equals(row.Status, "running", StringComparison.OrdinalIgnoreCase) || row.CancelRequested)
+        {
+            const string cancelSql = @"UPDATE ingestion_jobs
+SET status='canceled',
+    finished_at=COALESCE(finished_at, now()),
+    last_error=COALESCE(last_error, 'canceled_by_admin'),
+    locked_by=NULL,
+    locked_at=NULL
+WHERE job_id=@job_id AND status='running';";
+            await conn.ExecuteAsync(new CommandDefinition(cancelSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
+            await tx.CommitAsync(ct);
+            return false;
+        }
+
+        const string docSql = @"UPDATE documents
+SET content_hash=@hash,
+    file_size=@size,
+    file_mtime=@mtime,
+    status='indexed',
+    last_ingested_at=now(),
+    updated_at=now()
+WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
+        await conn.ExecuteAsync(new CommandDefinition(docSql, new
+        {
+            tenant_id = tenantId,
+            doc_path = docPath,
+            hash,
+            size,
+            mtime = DateTime.SpecifyKind(mtimeUtc, DateTimeKind.Utc)
+        }, transaction: tx, cancellationToken: ct));
+
+        const string doneSql = @"UPDATE ingestion_jobs
+SET status='done',
+    finished_at=now(),
+    last_error=NULL,
+    locked_by=NULL,
+    locked_at=NULL
+WHERE job_id=@job_id AND status='running';";
+        await conn.ExecuteAsync(new CommandDefinition(doneSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
+
+        await tx.CommitAsync(ct);
+        return true;
+    }
+
+    public static async Task<bool> CompleteDeleteAsync(
+        NpgsqlDataSource ds,
+        Guid tenantId,
+        Guid jobId,
+        string docPath,
+        CancellationToken ct)
+    {
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        await using var tx = await conn.BeginTransactionAsync(ct);
+
+        const string lockSql = """
+SELECT
+    status AS "Status",
+    COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) AS "CancelRequested"
+FROM ingestion_jobs
+WHERE job_id=@job_id
+FOR UPDATE;
+""";
+
+        var row = await conn.QueryFirstOrDefaultAsync<JobCancelState>(new CommandDefinition(lockSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
+        if (row is null)
+        {
+            await tx.CommitAsync(ct);
+            return false;
+        }
+
+        if (!string.Equals(row.Status, "running", StringComparison.OrdinalIgnoreCase) || row.CancelRequested)
+        {
+            const string cancelSql = @"UPDATE ingestion_jobs
+SET status='canceled',
+    finished_at=COALESCE(finished_at, now()),
+    last_error=COALESCE(last_error, 'canceled_by_admin'),
+    locked_by=NULL,
+    locked_at=NULL
+WHERE job_id=@job_id AND status='running';";
+            await conn.ExecuteAsync(new CommandDefinition(cancelSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
+            await tx.CommitAsync(ct);
+            return false;
+        }
+
+        const string docSql = @"UPDATE documents
+SET status='deleted', updated_at=now()
+WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
+        await conn.ExecuteAsync(new CommandDefinition(docSql, new { tenant_id = tenantId, doc_path = docPath }, transaction: tx, cancellationToken: ct));
+
+        const string doneSql = @"UPDATE ingestion_jobs
+SET status='done',
+    finished_at=now(),
+    last_error=NULL,
+    locked_by=NULL,
+    locked_at=NULL
+WHERE job_id=@job_id AND status='running';";
+        await conn.ExecuteAsync(new CommandDefinition(doneSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
+
+        await tx.CommitAsync(ct);
+        return true;
     }
 
     public static async Task UpdateProgressAsync(NpgsqlDataSource ds, Guid jobId, string phase, int? current, int? total, CancellationToken ct)
@@ -236,7 +322,7 @@ LIMIT 1;
         if (current.HasValue && total.HasValue && total.Value > 0)
             percent = Math.Clamp((int)Math.Round((current.Value * 100d) / total.Value, MidpointRounding.AwayFromZero), 0, 100);
 
-        const string sql = """
+        const string sql = @"
 UPDATE ingestion_jobs
 SET payload = jsonb_set(
         COALESCE(payload, '{}'::jsonb),
@@ -250,13 +336,12 @@ SET payload = jsonb_set(
         true
     ),
     locked_at = CASE WHEN status='running' THEN now() ELSE locked_at END
-WHERE job_id=@job_id;
-""";
+WHERE job_id=@job_id;";
 
         await conn.ExecuteAsync(new CommandDefinition(sql, new { job_id = jobId, phase, current, total, percent }, cancellationToken: ct));
     }
 
-    private sealed record JobCancelStateRow(string Status, bool CancelRequested);
+    private sealed record JobCancelState(string? Status, bool CancelRequested);
 
     private sealed record IngestionJobRow(Guid JobId, Guid TenantId, string Action, string DocPath, string? Category, string Payload)
     {

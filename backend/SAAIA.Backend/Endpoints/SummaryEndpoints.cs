@@ -46,7 +46,6 @@ public static class SummaryEndpoints
         app.MapGet("/admin/jobs/{jobId:guid}", GetAdminJobAsync).RequireAdminKey();
         app.MapPost("/admin/jobs/cancel", CancelAdminJobAsync).RequireAdminKey();
         app.MapPost("/admin/jobs/delete_history", DeleteAdminJobHistoryAsync).RequireAdminKey();
-        app.MapPost("/admin/jobs/purge", PurgeAdminJobsAsync).RequireAdminKey();
         app.MapPost("/admin/ingestion/reindex", ReindexAsync).RequireAdminKey();
 
         app.Logger.LogInformation("Mapped summaries/admin tools endpoints");
@@ -55,7 +54,6 @@ public static class SummaryEndpoints
     public sealed record SummaryCommand(Guid? DocId, string? Level = "medium", Guid? JobId = null, string? DocLanguage = null, string? SourceHash = null, string? SummaryText = null, JsonElement? Meta = null, bool? Force = null, string? DocPath = null);
     public sealed record JobCancelCommand(Guid JobId);
     public sealed record JobDeleteHistoryCommand(string[]? JobIds);
-    public sealed record JobPurgeCommand(string? Scope = null, string? Type = null);
 
     private static async Task<IResult> GetSummaryAsync(HttpContext ctx, NpgsqlDataSource ds, Guid docId, string? level)
     {
@@ -911,7 +909,7 @@ LIMIT 1;
         return row is null ? Results.NotFound(new { error = "job_not_found", jobId }) : Results.Ok(row);
     }
 
-    private static async Task<IResult> CancelAdminJobAsync(HttpContext ctx, NpgsqlDataSource ds, IngestionJobCancellationRegistry cancellationRegistry, JobCancelCommand cmd)
+    private static async Task<IResult> CancelAdminJobAsync(HttpContext ctx, NpgsqlDataSource ds, JobCancelCommand cmd)
     {
         AdminAuth.EnsureAdmin(ctx);
         var tenantId = ctx.GetTenantId();
@@ -928,12 +926,16 @@ WHERE tenant_id=@tenant AND job_id=@jobId AND status IN ('queued','running');
 """;
         var changed = await conn.ExecuteAsync(new CommandDefinition(cancelAdminSql, new { tenant = tenantId, jobId = cmd.JobId }, cancellationToken: ct));
         if (changed > 0)
-            return Results.Ok(new { canceled = true, jobId = cmd.JobId, type = "summary", affected = changed });
+            return Results.Ok(new { canceled = true, jobId = cmd.JobId, type = "summary", affected = changed, status = "canceled", result = "canceled" });
 
-        var ingestionRef = await conn.QueryFirstOrDefaultAsync<(Guid JobId, string DocPath, string Status)>(
+        var ingestionRef = await conn.QueryFirstOrDefaultAsync<(Guid JobId, string DocPath, string Status, bool CancelRequested)>(
             new CommandDefinition(
                 """
-SELECT job_id AS "JobId", doc_path AS "DocPath", status AS "Status"
+SELECT
+  job_id AS "JobId",
+  doc_path AS "DocPath",
+  status AS "Status",
+  COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) AS "CancelRequested"
 FROM ingestion_jobs
 WHERE tenant_id=@tenant AND job_id=@jobId
 LIMIT 1;
@@ -948,53 +950,62 @@ LIMIT 1;
             """
 UPDATE ingestion_jobs
 SET status='canceled',
-    finished_at=now(),
+    finished_at=COALESCE(finished_at, now()),
     last_error=COALESCE(last_error,'canceled_by_admin'),
     locked_by=NULL,
     locked_at=NULL,
-    available_at=now(),
-    payload = jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,cancelRequested}', 'true'::jsonb, true)
-WHERE tenant_id=@tenant
-  AND doc_path=@docPath
-  AND status='queued';
+    available_at=now()
+WHERE tenant_id=@tenant AND doc_path=@docPath AND status='queued';
 """,
             new { tenant = tenantId, docPath = ingestionRef.DocPath },
             cancellationToken: ct));
 
-        var cancelRequested = await conn.ExecuteAsync(new CommandDefinition(
+        var runningCancelRequested = await conn.ExecuteAsync(new CommandDefinition(
             """
 UPDATE ingestion_jobs
-SET payload = jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,cancelRequested}', 'true'::jsonb, true),
-    last_error = COALESCE(last_error, 'canceled_by_admin')
-WHERE tenant_id=@tenant
-  AND doc_path=@docPath
-  AND status='running';
+SET payload = jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,cancelRequested}', 'true'::jsonb, true)
+WHERE tenant_id=@tenant AND doc_path=@docPath AND status='running';
 """,
             new { tenant = tenantId, docPath = ingestionRef.DocPath },
             cancellationToken: ct));
 
-        var canceledInMemory = cancellationRegistry.CancelByDocPath(tenantId, ingestionRef.DocPath);
-        var effectiveCanceled = canceledQueued > 0
-            || cancelRequested > 0
-            || canceledInMemory > 0
-            || string.Equals(ingestionRef.Status, "canceled", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(ingestionRef.Status, "cancelled", StringComparison.OrdinalIgnoreCase);
+        var effectiveStatus = await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
+            """
+SELECT CASE
+    WHEN status='running' AND COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) THEN 'cancel_requested'
+    ELSE status
+END
+FROM ingestion_jobs
+WHERE tenant_id=@tenant AND job_id=@jobId
+LIMIT 1;
+""",
+            new { tenant = tenantId, jobId = cmd.JobId },
+            cancellationToken: ct));
 
-        var effectiveStatus = cancelRequested > 0 ? "cancel_requested"
-            : canceledQueued > 0 ? "canceled"
-            : NormalizeJobStatus(ingestionRef.Status);
+        var normalizedPreviousStatus = string.Equals(ingestionRef.Status, "running", StringComparison.OrdinalIgnoreCase) && ingestionRef.CancelRequested
+            ? "cancel_requested"
+            : ingestionRef.Status;
+
+        var result = effectiveStatus switch
+        {
+            "canceled" or "cancelled" => "canceled",
+            "cancel_requested" => "cancel_requested",
+            "done" or "failed" => "already_finished",
+            _ when canceledQueued > 0 || runningCancelRequested > 0 => "accepted",
+            _ => "nothing_changed"
+        };
 
         return Results.Ok(new
         {
-            canceled = effectiveCanceled,
+            canceled = canceledQueued > 0 || runningCancelRequested > 0 || string.Equals(effectiveStatus, "canceled", StringComparison.OrdinalIgnoreCase),
             jobId = cmd.JobId,
             type = "ingestion",
             docPath = ingestionRef.DocPath,
-            previousStatus = ingestionRef.Status,
-            status = effectiveStatus,
+            previousStatus = normalizedPreviousStatus,
+            status = effectiveStatus ?? normalizedPreviousStatus,
             canceledQueued,
-            cancelRequested,
-            canceledInMemory
+            runningCancelRequested,
+            result
         });
     }
 
@@ -1113,66 +1124,6 @@ RETURNING job_id;";
         });
     }
 
-    private static async Task<IResult> PurgeAdminJobsAsync(HttpContext ctx, NpgsqlDataSource ds, JobPurgeCommand? cmd)
-    {
-        AdminAuth.EnsureAdmin(ctx);
-        var tenantId = ctx.GetTenantId();
-        var ct = ctx.RequestAborted;
-
-        var scope = (cmd?.Scope ?? "all_terminal").Trim().ToLowerInvariant();
-        var type = (cmd?.Type ?? "all").Trim().ToLowerInvariant();
-        var statuses = scope switch
-        {
-            "done" => new[] { "done" },
-            "failed" => new[] { "failed" },
-            "canceled" or "cancelled" => new[] { "canceled" },
-            _ => new[] { "done", "failed", "canceled" }
-        };
-
-        await using var conn = await ds.OpenConnectionAsync(ct);
-        await using var tx = await conn.BeginTransactionAsync(ct);
-
-        Guid[] deletedSummaryIds = Array.Empty<Guid>();
-        Guid[] deletedIngestionIds = Array.Empty<Guid>();
-
-        if (type is "all" or "summary")
-        {
-            deletedSummaryIds = (await conn.QueryAsync<Guid>(new CommandDefinition(
-                """
-DELETE FROM admin_jobs
-WHERE tenant_id=@tenant
-  AND lower(status) = ANY(@statuses)
-RETURNING job_id;
-""",
-                new { tenant = tenantId, statuses }, transaction: tx, cancellationToken: ct))).ToArray();
-        }
-
-        if (type is "all" or "ingestion")
-        {
-            deletedIngestionIds = (await conn.QueryAsync<Guid>(new CommandDefinition(
-                """
-DELETE FROM ingestion_jobs
-WHERE tenant_id=@tenant
-  AND lower(status) = ANY(@statuses)
-RETURNING job_id;
-""",
-                new { tenant = tenantId, statuses }, transaction: tx, cancellationToken: ct))).ToArray();
-        }
-
-        await tx.CommitAsync(ct);
-
-        var deletedIds = deletedSummaryIds.Concat(deletedIngestionIds).Distinct().ToArray();
-        return Results.Ok(new
-        {
-            scope,
-            type,
-            deleted = deletedIds.Length,
-            deletedSummary = deletedSummaryIds.Length,
-            deletedIngestion = deletedIngestionIds.Length,
-            deletedIds
-        });
-    }
-
     private static async Task<IResult> ReindexAsync(HttpContext ctx, NpgsqlDataSource ds, IOptions<IngestionOptions> ingestOpt, SummaryCommand cmd)
     {
         AdminAuth.EnsureAdmin(ctx);
@@ -1204,7 +1155,7 @@ RETURNING job_id;
             return Results.BadRequest(new { error = "invalid_document_path", detail = ex.Message, docPath = doc.DocPath });
         }
 
-        var activeJob = await conn.QueryFirstOrDefaultAsync<ActiveIngestionJobRow>(new CommandDefinition(
+        var activeJob = await conn.QueryFirstOrDefaultAsync<(Guid JobId, string Status, bool CancelRequested)>(new CommandDefinition(
             """
 SELECT
   job_id AS "JobId",
@@ -1214,40 +1165,29 @@ FROM ingestion_jobs
 WHERE tenant_id=@tenant
   AND doc_path=@docPath
   AND status IN ('queued','running')
-ORDER BY created_at ASC
+ORDER BY created_at DESC
 LIMIT 1;
 """,
             new { tenant = tenantId, docPath = doc.DocPath },
             cancellationToken: ct));
 
-        if (activeJob is not null)
+        if (activeJob.JobId != Guid.Empty)
         {
-            var status = NormalizeJobStatus(activeJob.Status);
-            if (string.Equals(status, "running", StringComparison.OrdinalIgnoreCase) && activeJob.CancelRequested)
-                status = "cancel_requested";
-
+            var effectiveStatus = string.Equals(activeJob.Status, "running", StringComparison.OrdinalIgnoreCase) && activeJob.CancelRequested
+                ? "cancel_requested"
+                : activeJob.Status;
             return Results.Conflict(new
             {
                 error = "active_job_exists",
                 jobId = activeJob.JobId,
-                status,
+                status = effectiveStatus,
                 docPath = doc.DocPath
             });
         }
 
         var enqueued = await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, doc.DocPath, doc.Category, fi, ct: ct);
-        return Results.Ok(new { queued = true, docId = enqueued.DocId, jobId = enqueued.JobId, docPath = doc.DocPath, version = enqueued.Version });
+        return Results.Ok(new { queued = true, docId = enqueued.DocId, jobId = enqueued.JobId, docPath = doc.DocPath });
     }
-
-    private sealed record ActiveIngestionJobRow(Guid JobId, string Status, bool CancelRequested);
-
-    private static string NormalizeJobStatus(string? status)
-        => (status ?? string.Empty).Trim().ToLowerInvariant() switch
-        {
-            "cancelled" => "canceled",
-            var s when string.IsNullOrWhiteSpace(s) => "queued",
-            var s => s
-        };
 
     private static async Task<DocumentRow?> LoadDocumentAsync(NpgsqlConnection conn, Guid tenantId, Guid docId, CancellationToken ct)
     {

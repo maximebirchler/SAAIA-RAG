@@ -171,6 +171,7 @@ public sealed partial class MainWindow
         statusCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.status_filter.active", UiLang), Tag = "active" });
         statusCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.status.queued", UiLang), Tag = "queued" });
         statusCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.status.running", UiLang), Tag = "running" });
+        statusCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.status.cancel_requested", UiLang), Tag = "cancel_requested" });
         statusCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.status.done", UiLang), Tag = "done" });
         statusCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.status.failed", UiLang), Tag = "failed" });
         statusCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.status.canceled", UiLang), Tag = "canceled" });
@@ -467,25 +468,20 @@ public sealed partial class MainWindow
     {
         var flyout = new MenuFlyout();
 
-        var doneItem = new MenuFlyoutItem { Text = ClientUiText.Get("admin.jobs.purge.visible_done", UiLang) };
-        doneItem.Click += async (_, __) =>
-            await PurgeAdminJobsAsync(context, "done").ConfigureAwait(true);
-        flyout.Items.Add(doneItem);
+        var visibleDone = new MenuFlyoutItem { Text = ClientUiText.Get("admin.jobs.purge.visible_done", UiLang) };
+        visibleDone.Click += async (_, __) =>
+            await DeleteAdminJobsByPredicateAsync(context, item => item.IsTerminal && !item.IsFailedLike).ConfigureAwait(true);
+        flyout.Items.Add(visibleDone);
 
-        var failedItem = new MenuFlyoutItem { Text = ClientUiText.Get("admin.jobs.purge.visible_failed", UiLang) };
-        failedItem.Click += async (_, __) =>
-            await PurgeAdminJobsAsync(context, "failed").ConfigureAwait(true);
-        flyout.Items.Add(failedItem);
+        var visibleFailed = new MenuFlyoutItem { Text = ClientUiText.Get("admin.jobs.purge.visible_failed", UiLang) };
+        visibleFailed.Click += async (_, __) =>
+            await DeleteAdminJobsByPredicateAsync(context, item => item.IsTerminal && item.IsFailedLike).ConfigureAwait(true);
+        flyout.Items.Add(visibleFailed);
 
-        var canceledItem = new MenuFlyoutItem { Text = ClientUiText.Get("admin.jobs.status.canceled", UiLang) };
-        canceledItem.Click += async (_, __) =>
-            await PurgeAdminJobsAsync(context, "canceled").ConfigureAwait(true);
-        flyout.Items.Add(canceledItem);
-
-        var allItem = new MenuFlyoutItem { Text = ClientUiText.Get("admin.jobs.purge.visible_all", UiLang) };
-        allItem.Click += async (_, __) =>
-            await PurgeAdminJobsAsync(context, "all_terminal").ConfigureAwait(true);
-        flyout.Items.Add(allItem);
+        var visibleAll = new MenuFlyoutItem { Text = ClientUiText.Get("admin.jobs.purge.visible_all", UiLang) };
+        visibleAll.Click += async (_, __) =>
+            await DeleteAdminJobsByPredicateAsync(context, item => item.IsTerminal).ConfigureAwait(true);
+        flyout.Items.Add(visibleAll);
 
         return flyout;
     }
@@ -644,6 +640,7 @@ public sealed partial class MainWindow
             "active" => items.Where(item => !item.IsTerminal),
             "queued" => items.Where(item => item.IsQueued),
             "running" => items.Where(item => item.IsRunning),
+            "cancel_requested" => items.Where(item => string.Equals(NormalizeTrackedJobStatus(item.Status), "cancel_requested", StringComparison.OrdinalIgnoreCase)),
             "done" => items.Where(item => string.Equals(NormalizeTrackedJobStatus(item.Status), "done", StringComparison.OrdinalIgnoreCase)),
             "failed" => items.Where(item => string.Equals(NormalizeTrackedJobStatus(item.Status), "failed", StringComparison.OrdinalIgnoreCase)),
             "canceled" => items.Where(item => string.Equals(NormalizeTrackedJobStatus(item.Status), "canceled", StringComparison.OrdinalIgnoreCase)),
@@ -957,9 +954,26 @@ public sealed partial class MainWindow
                 try
                 {
                     cancelButton.IsEnabled = false;
-                    await _api.AdminJobsCancelAsync(item.JobId, CancellationToken.None).ConfigureAwait(true);
+                    var response = await _api.AdminJobsCancelAsync(item.JobId, CancellationToken.None).ConfigureAwait(true);
                     await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
-                    Status(ClientUiText.Get("admin.jobs.cancel_done", UiLang));
+
+                    var result = (TryGetString(response, "result") ?? string.Empty).Trim().ToLowerInvariant();
+                    var status = NormalizeTrackedJobStatus(TryGetString(response, "status") ?? string.Empty);
+                    var cancelRequested = (TryGetInt(response, "runningCancelRequested") ?? 0) > 0 || status == "cancel_requested" || result == "cancel_requested";
+                    var canceled = TryGetPropertyIgnoreCase(response, "canceled", out var canceledEl)
+                        && canceledEl.ValueKind is JsonValueKind.True or JsonValueKind.False
+                        && canceledEl.GetBoolean();
+
+                    if (cancelRequested)
+                        Status(ClientUiText.Get("admin.jobs.cancel_requested", UiLang));
+                    else if (status is "canceled" or "cancelled" || result == "canceled")
+                        Status(ClientUiText.Get("admin.jobs.cancel_done", UiLang));
+                    else if (status is "done" or "failed" || result == "already_finished")
+                        Status(ClientUiText.Get("admin.jobs.cancel_already_finished", UiLang));
+                    else if (canceled)
+                        Status(ClientUiText.Get("admin.jobs.cancel_done", UiLang));
+                    else
+                        Status(ClientUiText.Get("admin.jobs.cancel_nothing", UiLang));
                 }
                 catch (Exception ex)
                 {
@@ -1118,33 +1132,36 @@ public sealed partial class MainWindow
 
     private async Task DeleteSelectedAdminJobsAsync(AdminJobsOverlayContext context)
     {
-        var ids = context.Items
+        var visibleIds = context.Items
             .Where(item => item.IsTerminal && context.SelectedTerminalJobIds.Contains(item.JobId))
             .Select(item => item.JobId)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        if (ids.Length == 0)
+        if (visibleIds.Length == 0)
+        {
+            Status(ClientUiText.Get("admin.jobs.delete_selection_none", UiLang));
             return;
+        }
 
-        await DeleteAdminJobsAsync(context, ids).ConfigureAwait(true);
+        await DeleteAdminJobsAsync(context, visibleIds).ConfigureAwait(true);
     }
 
     private async Task DeleteAdminJobsByPredicateAsync(AdminJobsOverlayContext context, Func<AdminJobListItem, bool> predicate)
     {
-        var ids = context.Items
+        var visibleIds = ApplyAdminJobsFilters(context)
             .Where(predicate)
             .Select(item => item.JobId)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        if (ids.Length == 0)
+        if (visibleIds.Length == 0)
         {
             Status(ClientUiText.Get("admin.jobs.delete_nothing", UiLang));
             return;
         }
 
-        await DeleteAdminJobsAsync(context, ids).ConfigureAwait(true);
+        await DeleteAdminJobsAsync(context, visibleIds).ConfigureAwait(true);
     }
 
     private async Task DeleteAdminJobsAsync(AdminJobsOverlayContext context, IReadOnlyList<string> jobIds)
@@ -1156,57 +1173,30 @@ public sealed partial class MainWindow
 
             var response = await _api.AdminJobsDeleteHistoryAsync(jobIds, CancellationToken.None).ConfigureAwait(true);
             var deleted = TryGetInt(response, "deleted") ?? TryGetInt(response, "Deleted") ?? 0;
-            var deletedIds = ReadStringArray(response, "deletedIds");
+            var responseDeletedIds = ReadStringArray(response, "deletedIds");
+            var deletedIds = new HashSet<string>(
+                responseDeletedIds.Count > 0 ? responseDeletedIds : jobIds,
+                StringComparer.OrdinalIgnoreCase);
 
-            foreach (var id in deletedIds)
-                context.SelectedTerminalJobIds.Remove(id);
-            if (!string.IsNullOrWhiteSpace(context.SelectedJobId) && deletedIds.Contains(context.SelectedJobId))
-                context.SelectedJobId = null;
+            if (deletedIds.Count > 0 && deleted > 0)
+            {
+                context.Items = context.Items.Where(item => !deletedIds.Contains(item.JobId)).ToList();
+                foreach (var id in deletedIds)
+                    context.SelectedTerminalJobIds.Remove(id);
+                if (!string.IsNullOrWhiteSpace(context.SelectedJobId) && deletedIds.Contains(context.SelectedJobId))
+                    context.SelectedJobId = null;
 
-            await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
-
-            if (deleted > 0)
+                RenderAdminJobsOverlay(context);
                 Status(ClientUiText.Format("admin.jobs.delete_done", UiLang, deleted));
+            }
             else
+            {
                 Status(ClientUiText.Get("admin.jobs.delete_nothing", UiLang));
+            }
         }
         catch (Exception ex)
         {
             ClientLog.Exception("AdminJobs.DeleteHistory", ex);
-            Status(ClientUiText.Get("admin.jobs.delete_failed", UiLang) + ex.Message);
-        }
-        finally
-        {
-            context.PurgeButton.IsEnabled = true;
-            UpdateAdminJobsSelectionState(context, ApplyAdminJobsFilters(context));
-        }
-    }
-
-    private async Task PurgeAdminJobsAsync(AdminJobsOverlayContext context, string scope)
-    {
-        try
-        {
-            context.DeleteSelectionButton.IsEnabled = false;
-            context.PurgeButton.IsEnabled = false;
-
-            var selectedType = ((context.TypeCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? string.Empty).Trim();
-            var type = string.IsNullOrWhiteSpace(selectedType) ? "all" : selectedType;
-            var response = await _api.AdminJobsPurgeAsync(scope, type, CancellationToken.None).ConfigureAwait(true);
-            var deleted = TryGetInt(response, "deleted") ?? 0;
-            context.SelectedTerminalJobIds.Clear();
-            if (!string.IsNullOrWhiteSpace(context.SelectedJobId))
-                context.SelectedJobId = null;
-
-            await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
-
-            if (deleted > 0)
-                Status(ClientUiText.Format("admin.jobs.delete_done", UiLang, deleted));
-            else
-                Status(ClientUiText.Get("admin.jobs.delete_nothing", UiLang));
-        }
-        catch (Exception ex)
-        {
-            ClientLog.Exception("AdminJobs.Purge", ex);
             Status(ClientUiText.Get("admin.jobs.delete_failed", UiLang) + ex.Message);
         }
         finally
@@ -1327,6 +1317,7 @@ public sealed partial class MainWindow
         {
             "done" => light ? UiBrush(0xEC, 0xF7, 0xF2) : UiBrush(0x12, 0x24, 0x1E),
             "failed" or "canceled" => light ? UiBrush(0xFD, 0xEF, 0xEE) : UiBrush(0x2A, 0x14, 0x16),
+            "cancel_requested" => light ? UiBrush(0xF8, 0xF3, 0xE8) : UiBrush(0x2A, 0x22, 0x16),
             "running" => light ? UiBrush(0xEC, 0xF3, 0xFB) : UiBrush(0x11, 0x23, 0x33),
             "queued" => light ? UiBrush(0xF8, 0xF3, 0xE8) : UiBrush(0x28, 0x20, 0x14),
             _ => light ? UiBrush(0xF4, 0xF7, 0xFB) : UiBrush(0x14, 0x1B, 0x24)
@@ -1340,6 +1331,7 @@ public sealed partial class MainWindow
         {
             "done" => light ? UiBrush(0xC6, 0xE5, 0xD7) : UiBrush(0x2A, 0x54, 0x43),
             "failed" or "canceled" => light ? UiBrush(0xF1, 0xC7, 0xC3) : UiBrush(0x6A, 0x2C, 0x31),
+            "cancel_requested" => light ? UiBrush(0xE9, 0xD8, 0xBA) : UiBrush(0x6A, 0x4F, 0x24),
             "running" => light ? UiBrush(0xC5, 0xD8, 0xEA) : UiBrush(0x2B, 0x4B, 0x6B),
             "queued" => light ? UiBrush(0xE9, 0xD8, 0xBA) : UiBrush(0x5F, 0x46, 0x24),
             _ => light ? UiBrush(0xC9, 0xD4, 0xE1) : UiBrush(0x2B, 0x35, 0x41)
@@ -1353,6 +1345,7 @@ public sealed partial class MainWindow
         {
             "done" => light ? UiBrush(0x2E, 0x7D, 0x5A) : UiBrush(0x66, 0xD1, 0x9E),
             "failed" or "canceled" => light ? UiBrush(0xB4, 0x23, 0x18) : UiBrush(0xFF, 0x8A, 0x80),
+            "cancel_requested" => light ? UiBrush(0x9A, 0x62, 0x00) : UiBrush(0xFF, 0xC7, 0x6A),
             "running" => light ? UiBrush(0x2B, 0x5D, 0x91) : UiBrush(0x78, 0xB4, 0xF0),
             "queued" => light ? UiBrush(0x9A, 0x62, 0x00) : UiBrush(0xFF, 0xC7, 0x6A),
             _ => light ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE)
