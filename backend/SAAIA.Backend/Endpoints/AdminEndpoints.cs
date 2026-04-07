@@ -56,7 +56,7 @@ public static class AdminEndpoints
                 continue;
 
             var fi = new FileInfo(abs);
-            await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, category, fi, ct);
+            await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, category, fi, ct, enqueueSource: "admin");
             enqueued++;
         }
 
