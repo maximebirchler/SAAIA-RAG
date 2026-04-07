@@ -113,6 +113,16 @@ sealed class IngestionWorker : BackgroundService
                     _log.LogInformation("Job canceled job={JobId} action={Action} doc={DocPath} reason={Reason}",
                         job.JobId, job.Action, job.DocPath, jc.Reason);
                     await JobRepo.MarkCanceledAsync(ds, job.JobId, jc.Reason, ct);
+                    // Safety net: stabilize document to prevent scanner from recreating the job.
+                    // Uses COALESCE so it won't overwrite if cancel endpoint already set the pause.
+                    try
+                    {
+                        await JobRepo.StabilizeDocumentAfterCancelAsync(ds, job.TenantId, job.DocPath, ct);
+                    }
+                    catch (Exception stabEx)
+                    {
+                        _log.LogWarning(stabEx, "Failed to stabilize document after cancel job={JobId} doc={DocPath}", job.JobId, job.DocPath);
+                    }
                 }
                 catch (OperationCanceledException) when (!ct.IsCancellationRequested)
                 {

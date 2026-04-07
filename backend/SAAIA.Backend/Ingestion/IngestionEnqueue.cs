@@ -10,7 +10,8 @@ static class IngestionEnqueue
         string docPath,
         string category,
         FileInfo? fi,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool isAutomatic = false)
     {
         docPath = PathUtil.NormalizeRelativePath(docPath);
         category = string.IsNullOrWhiteSpace(category) ? "general" : category.Trim().ToLowerInvariant();
@@ -21,7 +22,47 @@ static class IngestionEnqueue
         long? fileSize = fi is null ? null : fi.Length;
         DateTime? fileMtime = fi is null ? null : DateTime.SpecifyKind(fi.LastWriteTimeUtc, DateTimeKind.Utc);
 
-        const string docSql = """
+        var docSql = isAutomatic ? """
+INSERT INTO documents(
+  tenant_id, doc_id, doc_path, doc_name, category,
+  status, updated_at, file_size, file_mtime,
+  last_seen_at, missing_since, ingestion_version, indexed_version,
+  auto_ingest_paused, auto_ingest_paused_at, auto_ingest_pause_reason
+)
+VALUES(
+  @tenant_id, @doc_id, @doc_path, @doc_name, @category,
+  'pending', now(), @file_size, @file_mtime,
+  now(), NULL, 1, 0,
+  false, NULL, NULL
+)
+ON CONFLICT (tenant_id, doc_path)
+DO UPDATE SET
+  doc_name = EXCLUDED.doc_name,
+  category = EXCLUDED.category,
+  status = CASE
+      WHEN documents.status='indexed' AND COALESCE(documents.indexed_version, 0) > 0 THEN 'indexed'
+      ELSE 'pending'
+  END,
+  updated_at = now(),
+  file_size = EXCLUDED.file_size,
+  file_mtime = EXCLUDED.file_mtime,
+  last_seen_at = now(),
+  missing_since = NULL,
+  ingestion_version = GREATEST(COALESCE(documents.ingestion_version, 0), COALESCE(documents.indexed_version, 0)) + 1,
+  auto_ingest_paused = CASE
+      WHEN documents.auto_ingest_pause_reason = 'admin_cancel' THEN documents.auto_ingest_paused
+      ELSE false
+  END,
+  auto_ingest_paused_at = CASE
+      WHEN documents.auto_ingest_pause_reason = 'admin_cancel' THEN documents.auto_ingest_paused_at
+      ELSE NULL
+  END,
+  auto_ingest_pause_reason = CASE
+      WHEN documents.auto_ingest_pause_reason = 'admin_cancel' THEN documents.auto_ingest_pause_reason
+      ELSE NULL
+  END
+RETURNING doc_id, ingestion_version;
+""" : """
 INSERT INTO documents(
   tenant_id, doc_id, doc_path, doc_name, category,
   status, updated_at, file_size, file_mtime,

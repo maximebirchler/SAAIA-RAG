@@ -164,6 +164,30 @@ AND (
     }
 
 
+    /// <summary>
+    /// Safety net: ensures the document is stabilized after a job cancellation.
+    /// Uses COALESCE to not overwrite existing pause info from the cancel endpoint.
+    /// Only acts if the document is not already paused (idempotent).
+    /// </summary>
+    public static async Task StabilizeDocumentAfterCancelAsync(NpgsqlDataSource ds, Guid tenantId, string docPath, CancellationToken ct)
+    {
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        const string sql = @"
+UPDATE documents
+SET auto_ingest_paused = true,
+    auto_ingest_paused_at = COALESCE(auto_ingest_paused_at, now()),
+    auto_ingest_pause_reason = COALESCE(auto_ingest_pause_reason, 'canceled_by_worker'),
+    status = CASE
+        WHEN COALESCE(indexed_version, 0) > 0 THEN 'indexed'
+        ELSE status
+    END,
+    updated_at = now()
+WHERE tenant_id = @tenant_id
+  AND doc_path = @doc_path
+  AND NOT COALESCE(auto_ingest_paused, false);";
+        await conn.ExecuteAsync(new CommandDefinition(sql, new { tenant_id = tenantId, doc_path = docPath }, cancellationToken: ct));
+    }
+
     public static async Task<bool> IsCanceledAsync(NpgsqlDataSource ds, Guid jobId, CancellationToken ct)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
@@ -224,6 +248,21 @@ SET status='canceled',
     locked_at=NULL
 WHERE job_id=@job_id AND status='running';";
             await conn.ExecuteAsync(new CommandDefinition(cancelSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
+
+            // Stabilize document within the same transaction to prevent scanner race
+            const string stabilizeSql = @"UPDATE documents
+SET auto_ingest_paused = true,
+    auto_ingest_paused_at = COALESCE(auto_ingest_paused_at, now()),
+    auto_ingest_pause_reason = COALESCE(auto_ingest_pause_reason, 'canceled_at_commit'),
+    status = CASE
+        WHEN COALESCE(indexed_version, 0) > 0 THEN 'indexed'
+        ELSE status
+    END,
+    updated_at = now()
+WHERE tenant_id=@tenant_id AND doc_path=@doc_path
+  AND NOT COALESCE(auto_ingest_paused, false);";
+            await conn.ExecuteAsync(new CommandDefinition(stabilizeSql, new { tenant_id = tenantId, doc_path = docPath }, transaction: tx, cancellationToken: ct));
+
             await tx.CommitAsync(ct);
             return false;
         }

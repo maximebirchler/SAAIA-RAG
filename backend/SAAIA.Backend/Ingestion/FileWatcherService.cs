@@ -187,7 +187,7 @@ sealed class FileWatcherService : BackgroundService
                     return;
                 }
 
-                await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, category, fi, linked.Token);
+                await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, category, fi, linked.Token, isAutomatic: true);
 
                 _log.LogInformation("FileWatcher: upsert enqueued ({Reason}) for {Doc}", reason, rel);
             }

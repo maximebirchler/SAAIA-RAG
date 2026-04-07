@@ -194,7 +194,7 @@ WHERE tenant_id = @tenant_id
 
             if (!existing.TryGetValue(rel, out var row))
             {
-                await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, category, fi, ct);
+                await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, category, fi, ct, isAutomatic: true);
                 enqUpsert++;
                 continue;
             }
@@ -229,8 +229,23 @@ WHERE tenant_id = @tenant_id
             }
             else if (needsReindex)
             {
-                await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, category, fi, ct);
-                enqUpsert++;
+                // Fresh re-check: close stale batch-load race where admin cancel
+                // set auto_ingest_paused=true after the batch query ran
+                if (await IsFreshAutoIngestPausedAsync(conn, tenantId, rel, ct))
+                {
+                    suppressedAuto++;
+                    _log.LogInformation(
+                        "Scanner: auto-upsert suppressed (fresh re-check after admin cancel) for {DocPath} (batch had paused={BatchPaused})",
+                        rel, row.AutoIngestPaused);
+                }
+                else
+                {
+                    _log.LogInformation(
+                        "Scanner: enqueue upsert for {DocPath} (status={Status}, changed={Changed}, hasActiveJob={HasActiveJob}, pendingOrBroken={PendingOrBroken}, forceReindex={Force})",
+                        rel, row.Status, changed, hasActiveJob, pendingOrBrokenWithoutJob, forceReindexAll);
+                    await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, category, fi, ct, isAutomatic: true);
+                    enqUpsert++;
+                }
             }
             else
             {
@@ -353,6 +368,18 @@ WHERE tenant_id = @tenant_id
         var fsUtc = DateTime.SpecifyKind(fsMtimeUtc, DateTimeKind.Utc);
 
         return Math.Abs((dbUtc - fsUtc).TotalSeconds) <= 2.0;
+    }
+
+    private static async Task<bool> IsFreshAutoIngestPausedAsync(NpgsqlConnection conn, Guid tenantId, string docPath, CancellationToken ct)
+    {
+        const string sql = @"
+SELECT COALESCE(auto_ingest_paused, false)
+FROM documents
+WHERE tenant_id=@tenant_id AND doc_path=@doc_path
+LIMIT 1;";
+
+        return await conn.ExecuteScalarAsync<bool>(
+            new CommandDefinition(sql, new { tenant_id = tenantId, doc_path = docPath }, cancellationToken: ct));
     }
 
     private static async Task<bool> HasActiveJobForDocAsync(NpgsqlConnection conn, Guid tenantId, string docPath, CancellationToken ct)
