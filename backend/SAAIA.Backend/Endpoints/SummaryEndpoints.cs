@@ -813,33 +813,46 @@ SELECT * FROM (
     NULL::text   AS "ProgressPhase",
     NULL::int    AS "ProgressCurrent",
     NULL::int    AS "ProgressTotal",
-    NULL::int    AS "ProgressPercent"
+    NULL::int    AS "ProgressPercent",
+    NULL::text   AS "DocumentStatus",
+    NULL::int    AS "DocumentIngestionVersion",
+    NULL::int    AS "DocumentIndexedVersion",
+    NULL::boolean AS "DocumentAutoIngestPaused",
+    NULL::text   AS "DocumentAutoIngestPauseReason"
   FROM admin_jobs
   WHERE tenant_id=@tenant
 
   UNION ALL
 
   SELECT
-    job_id       AS "JobId",
-    'ingestion'  AS "Type",
-    action       AS "JobType",
+    i.job_id       AS "JobId",
+    'ingestion'    AS "Type",
+    i.action       AS "JobType",
     CASE
-      WHEN status='running' AND COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) THEN 'cancel_requested'
-      ELSE status
-    END          AS "Status",
-    CASE WHEN jsonb_typeof(payload->'docId')='string' THEN (payload->>'docId')::uuid ELSE NULL::uuid END AS "DocId",
-    doc_path     AS "DocPath",
+      WHEN i.status='running' AND COALESCE((i.payload #>> '{control,cancelRequested}')::boolean, false) THEN 'cancel_requested'
+      ELSE i.status
+    END            AS "Status",
+    CASE WHEN jsonb_typeof(i.payload->'docId')='string' THEN (i.payload->>'docId')::uuid ELSE NULL::uuid END AS "DocId",
+    i.doc_path     AS "DocPath",
     NULL::text   AS "Level",
-    last_error   AS "LastError",
-    created_at   AS "CreatedAt",
-    started_at   AS "StartedAt",
-    finished_at  AS "FinishedAt",
-    payload #>> '{progress,phase}' AS "ProgressPhase",
-    CASE WHEN jsonb_typeof(payload->'progress'->'current')='number' THEN (payload->'progress'->>'current')::int ELSE NULL END AS "ProgressCurrent",
-    CASE WHEN jsonb_typeof(payload->'progress'->'total')='number' THEN (payload->'progress'->>'total')::int ELSE NULL END AS "ProgressTotal",
-    CASE WHEN jsonb_typeof(payload->'progress'->'percent')='number' THEN (payload->'progress'->>'percent')::int ELSE NULL END AS "ProgressPercent"
-  FROM ingestion_jobs
-  WHERE tenant_id=@tenant
+    i.last_error   AS "LastError",
+    i.created_at   AS "CreatedAt",
+    i.started_at   AS "StartedAt",
+    i.finished_at  AS "FinishedAt",
+    i.payload #>> '{progress,phase}' AS "ProgressPhase",
+    CASE WHEN jsonb_typeof(i.payload->'progress'->'current')='number' THEN (i.payload->'progress'->>'current')::int ELSE NULL END AS "ProgressCurrent",
+    CASE WHEN jsonb_typeof(i.payload->'progress'->'total')='number' THEN (i.payload->'progress'->>'total')::int ELSE NULL END AS "ProgressTotal",
+    CASE WHEN jsonb_typeof(i.payload->'progress'->'percent')='number' THEN (i.payload->'progress'->>'percent')::int ELSE NULL END AS "ProgressPercent",
+    d.status AS "DocumentStatus",
+    d.ingestion_version AS "DocumentIngestionVersion",
+    d.indexed_version AS "DocumentIndexedVersion",
+    COALESCE(d.auto_ingest_paused, false) AS "DocumentAutoIngestPaused",
+    d.auto_ingest_pause_reason AS "DocumentAutoIngestPauseReason"
+  FROM ingestion_jobs i
+  LEFT JOIN documents d
+    ON d.tenant_id = i.tenant_id
+   AND d.doc_path = i.doc_path
+  WHERE i.tenant_id=@tenant
 ) j
 WHERE (@type IS NULL OR lower("Type")=@type)
 ORDER BY "CreatedAt" DESC
@@ -874,33 +887,46 @@ SELECT * FROM (
     NULL::text   AS "ProgressPhase",
     NULL::int    AS "ProgressCurrent",
     NULL::int    AS "ProgressTotal",
-    NULL::int    AS "ProgressPercent"
+    NULL::int    AS "ProgressPercent",
+    NULL::text   AS "DocumentStatus",
+    NULL::int    AS "DocumentIngestionVersion",
+    NULL::int    AS "DocumentIndexedVersion",
+    NULL::boolean AS "DocumentAutoIngestPaused",
+    NULL::text   AS "DocumentAutoIngestPauseReason"
   FROM admin_jobs
   WHERE tenant_id=@tenant AND job_id=@jobId
 
   UNION ALL
 
   SELECT
-    job_id       AS "JobId",
-    'ingestion'  AS "Type",
-    action       AS "JobType",
+    i.job_id       AS "JobId",
+    'ingestion'    AS "Type",
+    i.action       AS "JobType",
     CASE
-      WHEN status='running' AND COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) THEN 'cancel_requested'
-      ELSE status
-    END          AS "Status",
-    CASE WHEN jsonb_typeof(payload->'docId')='string' THEN (payload->>'docId')::uuid ELSE NULL::uuid END AS "DocId",
-    doc_path     AS "DocPath",
+      WHEN i.status='running' AND COALESCE((i.payload #>> '{control,cancelRequested}')::boolean, false) THEN 'cancel_requested'
+      ELSE i.status
+    END            AS "Status",
+    CASE WHEN jsonb_typeof(i.payload->'docId')='string' THEN (i.payload->>'docId')::uuid ELSE NULL::uuid END AS "DocId",
+    i.doc_path     AS "DocPath",
     NULL::text   AS "Level",
-    last_error   AS "LastError",
-    created_at   AS "CreatedAt",
-    started_at   AS "StartedAt",
-    finished_at  AS "FinishedAt",
-    payload #>> '{progress,phase}' AS "ProgressPhase",
-    CASE WHEN jsonb_typeof(payload->'progress'->'current')='number' THEN (payload->'progress'->>'current')::int ELSE NULL END AS "ProgressCurrent",
-    CASE WHEN jsonb_typeof(payload->'progress'->'total')='number' THEN (payload->'progress'->>'total')::int ELSE NULL END AS "ProgressTotal",
-    CASE WHEN jsonb_typeof(payload->'progress'->'percent')='number' THEN (payload->'progress'->>'percent')::int ELSE NULL END AS "ProgressPercent"
-  FROM ingestion_jobs
-  WHERE tenant_id=@tenant AND job_id=@jobId
+    i.last_error   AS "LastError",
+    i.created_at   AS "CreatedAt",
+    i.started_at   AS "StartedAt",
+    i.finished_at  AS "FinishedAt",
+    i.payload #>> '{progress,phase}' AS "ProgressPhase",
+    CASE WHEN jsonb_typeof(i.payload->'progress'->'current')='number' THEN (i.payload->'progress'->>'current')::int ELSE NULL END AS "ProgressCurrent",
+    CASE WHEN jsonb_typeof(i.payload->'progress'->'total')='number' THEN (i.payload->'progress'->>'total')::int ELSE NULL END AS "ProgressTotal",
+    CASE WHEN jsonb_typeof(i.payload->'progress'->'percent')='number' THEN (i.payload->'progress'->>'percent')::int ELSE NULL END AS "ProgressPercent",
+    d.status AS "DocumentStatus",
+    d.ingestion_version AS "DocumentIngestionVersion",
+    d.indexed_version AS "DocumentIndexedVersion",
+    COALESCE(d.auto_ingest_paused, false) AS "DocumentAutoIngestPaused",
+    d.auto_ingest_pause_reason AS "DocumentAutoIngestPauseReason"
+  FROM ingestion_jobs i
+  LEFT JOIN documents d
+    ON d.tenant_id = i.tenant_id
+   AND d.doc_path = i.doc_path
+  WHERE i.tenant_id=@tenant AND i.job_id=@jobId
 ) j
 LIMIT 1;
 """;
@@ -918,15 +944,19 @@ LIMIT 1;
             return Results.BadRequest(new { error = "job_id_required" });
 
         await using var conn = await ds.OpenConnectionAsync(ct);
+        await using var tx = await conn.BeginTransactionAsync(ct);
 
         var cancelAdminSql = """
 UPDATE admin_jobs
 SET status='canceled', canceled_at=now(), finished_at=now()
 WHERE tenant_id=@tenant AND job_id=@jobId AND status IN ('queued','running');
 """;
-        var changed = await conn.ExecuteAsync(new CommandDefinition(cancelAdminSql, new { tenant = tenantId, jobId = cmd.JobId }, cancellationToken: ct));
+        var changed = await conn.ExecuteAsync(new CommandDefinition(cancelAdminSql, new { tenant = tenantId, jobId = cmd.JobId }, transaction: tx, cancellationToken: ct));
         if (changed > 0)
+        {
+            await tx.CommitAsync(ct);
             return Results.Ok(new { canceled = true, jobId = cmd.JobId, type = "summary", affected = changed, status = "canceled", result = "canceled" });
+        }
 
         var ingestionRef = await conn.QueryFirstOrDefaultAsync<(Guid JobId, string DocPath, string Status, bool CancelRequested)>(
             new CommandDefinition(
@@ -941,10 +971,14 @@ WHERE tenant_id=@tenant AND job_id=@jobId
 LIMIT 1;
 """,
                 new { tenant = tenantId, jobId = cmd.JobId },
+                transaction: tx,
                 cancellationToken: ct));
 
         if (ingestionRef.JobId == Guid.Empty)
+        {
+            await tx.CommitAsync(ct);
             return Results.NotFound(new { error = "job_not_found", jobId = cmd.JobId });
+        }
 
         var canceledQueued = await conn.ExecuteAsync(new CommandDefinition(
             """
@@ -958,6 +992,7 @@ SET status='canceled',
 WHERE tenant_id=@tenant AND doc_path=@docPath AND status='queued';
 """,
             new { tenant = tenantId, docPath = ingestionRef.DocPath },
+            transaction: tx,
             cancellationToken: ct));
 
         var runningCancelRequested = await conn.ExecuteAsync(new CommandDefinition(
@@ -967,7 +1002,28 @@ SET payload = jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,cancelRequeste
 WHERE tenant_id=@tenant AND doc_path=@docPath AND status='running';
 """,
             new { tenant = tenantId, docPath = ingestionRef.DocPath },
+            transaction: tx,
             cancellationToken: ct));
+
+        if (canceledQueued > 0 || runningCancelRequested > 0)
+        {
+            await conn.ExecuteAsync(new CommandDefinition(
+                """
+UPDATE documents
+SET auto_ingest_paused=true,
+    auto_ingest_paused_at=now(),
+    auto_ingest_pause_reason='admin_cancel',
+    status = CASE
+        WHEN COALESCE(indexed_version, 0) > 0 THEN 'indexed'
+        ELSE status
+    END,
+    updated_at=now()
+WHERE tenant_id=@tenant AND doc_path=@docPath;
+""",
+                new { tenant = tenantId, docPath = ingestionRef.DocPath },
+                transaction: tx,
+                cancellationToken: ct));
+        }
 
         var effectiveStatus = await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
             """
@@ -980,6 +1036,7 @@ WHERE tenant_id=@tenant AND job_id=@jobId
 LIMIT 1;
 """,
             new { tenant = tenantId, jobId = cmd.JobId },
+            transaction: tx,
             cancellationToken: ct));
 
         var normalizedPreviousStatus = string.Equals(ingestionRef.Status, "running", StringComparison.OrdinalIgnoreCase) && ingestionRef.CancelRequested
@@ -994,6 +1051,8 @@ LIMIT 1;
             _ when canceledQueued > 0 || runningCancelRequested > 0 => "accepted",
             _ => "nothing_changed"
         };
+
+        await tx.CommitAsync(ct);
 
         return Results.Ok(new
         {

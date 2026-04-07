@@ -192,6 +192,7 @@ LIMIT 1;
         byte[] hash,
         long size,
         DateTime mtimeUtc,
+        int version,
         CancellationToken ct)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
@@ -227,13 +228,41 @@ WHERE job_id=@job_id AND status='running';";
             return false;
         }
 
+        const string versionSql = @"SELECT ingestion_version
+FROM documents
+WHERE tenant_id=@tenant_id AND doc_path=@doc_path
+FOR UPDATE;";
+        var currentVersion = await conn.ExecuteScalarAsync<int?>(new CommandDefinition(versionSql, new
+        {
+            tenant_id = tenantId,
+            doc_path = docPath
+        }, transaction: tx, cancellationToken: ct));
+
+        if (!currentVersion.HasValue || currentVersion.Value != version)
+        {
+            const string supersededSql = @"UPDATE ingestion_jobs
+SET status='canceled',
+    finished_at=COALESCE(finished_at, now()),
+    last_error='superseded_at_commit',
+    locked_by=NULL,
+    locked_at=NULL
+WHERE job_id=@job_id AND status='running';";
+            await conn.ExecuteAsync(new CommandDefinition(supersededSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
+            await tx.CommitAsync(ct);
+            return false;
+        }
+
         const string docSql = @"UPDATE documents
 SET content_hash=@hash,
     file_size=@size,
     file_mtime=@mtime,
     status='indexed',
+    indexed_version=@version,
     last_ingested_at=now(),
-    updated_at=now()
+    updated_at=now(),
+    auto_ingest_paused=false,
+    auto_ingest_paused_at=NULL,
+    auto_ingest_pause_reason=NULL
 WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
         await conn.ExecuteAsync(new CommandDefinition(docSql, new
         {
@@ -241,6 +270,7 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
             doc_path = docPath,
             hash,
             size,
+            version,
             mtime = DateTime.SpecifyKind(mtimeUtc, DateTimeKind.Utc)
         }, transaction: tx, cancellationToken: ct));
 
@@ -262,6 +292,7 @@ WHERE job_id=@job_id AND status='running';";
         Guid tenantId,
         Guid jobId,
         string docPath,
+        int version,
         CancellationToken ct)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
@@ -297,8 +328,36 @@ WHERE job_id=@job_id AND status='running';";
             return false;
         }
 
+        const string versionSql = @"SELECT ingestion_version
+FROM documents
+WHERE tenant_id=@tenant_id AND doc_path=@doc_path
+FOR UPDATE;";
+        var currentVersion = await conn.ExecuteScalarAsync<int?>(new CommandDefinition(versionSql, new
+        {
+            tenant_id = tenantId,
+            doc_path = docPath
+        }, transaction: tx, cancellationToken: ct));
+
+        if (!currentVersion.HasValue || currentVersion.Value != version)
+        {
+            const string supersededSql = @"UPDATE ingestion_jobs
+SET status='canceled',
+    finished_at=COALESCE(finished_at, now()),
+    last_error='superseded_at_commit',
+    locked_by=NULL,
+    locked_at=NULL
+WHERE job_id=@job_id AND status='running';";
+            await conn.ExecuteAsync(new CommandDefinition(supersededSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
+            await tx.CommitAsync(ct);
+            return false;
+        }
+
         const string docSql = @"UPDATE documents
-SET status='deleted', updated_at=now()
+SET status='deleted',
+    updated_at=now(),
+    auto_ingest_paused=false,
+    auto_ingest_paused_at=NULL,
+    auto_ingest_pause_reason=NULL
 WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
         await conn.ExecuteAsync(new CommandDefinition(docSql, new { tenant_id = tenantId, doc_path = docPath }, transaction: tx, cancellationToken: ct));
 

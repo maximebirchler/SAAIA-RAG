@@ -97,13 +97,16 @@ sealed class IngestionWorker : BackgroundService
 
                 try
                 {
+                    bool completed;
                     if (job.Action == "delete")
-                        await ProcessDeleteAsync(ds, httpFactory, rag, ingest, job, workerId, ct);
+                        completed = await ProcessDeleteAsync(ds, httpFactory, rag, ingest, job, workerId, ct);
                     else
-                        await ProcessUpsertAsync(ds, httpFactory, rag, ingest, job, workerId, ct);
+                        completed = await ProcessUpsertAsync(ds, httpFactory, rag, ingest, job, workerId, ct);
 
-                    await JobRepo.MarkDoneAsync(ds, job.JobId, ct);
-                    _log.LogInformation("Ingestion done job={JobId} doc={DocPath}", job.JobId, job.DocPath);
+                    if (completed)
+                        _log.LogInformation("Ingestion done job={JobId} doc={DocPath}", job.JobId, job.DocPath);
+                    else
+                        _log.LogInformation("Ingestion canceled at commit job={JobId} doc={DocPath}", job.JobId, job.DocPath);
                 }
                 catch (JobCanceledException jc)
                 {
@@ -169,7 +172,7 @@ WHERE job_id=@job_id
             throw new JobCanceledException("canceled_by_admin");
     }
 
-    private async Task ProcessDeleteAsync(
+    private async Task<bool> ProcessDeleteAsync(
         NpgsqlDataSource ds,
         IHttpClientFactory httpFactory,
         RagOptions rag,
@@ -192,34 +195,40 @@ WHERE job_id=@job_id
         {
             var ok = await IsCurrentDocVersionAsync(ds, tenantId, relDocPath, job.Version, ct);
             if (!ok)
-            {
-                await JobRepo.MarkCanceledAsync(ds, job.JobId, "superseded_version", ct);
                 throw new JobCanceledException("superseded_version");
-            }
         }
 
         using var qdrantCts = CreateTimeoutCts(ct, ingest.QdrantTimeoutSeconds);
         var qct = qdrantCts?.Token ?? ct;
 
-        // ✅ Bulkhead Qdrant + delete via client (dispose OK)
         await JobRepo.UpdateProgressAsync(ds, job.JobId, "deleting", null, null, ct);
         await ThrowIfJobCanceledAsync(ds, job.JobId, ct);
-        using (await _bulkheads.AcquireQdrantAsync(qct))
+        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+
+        var committed = await JobRepo.CompleteDeleteAsync(
+            ds, tenantId, job.JobId, relDocPath, job.Version, ct);
+
+        if (!committed)
+            return false;
+
+        try
         {
-            await QdrantClient.DeleteByDocAsync(qdrant, rag.QdrantCollection, tenantId, docId, qct);
+            using (await _bulkheads.AcquireQdrantAsync(qct))
+            {
+                await QdrantClient.DeleteByDocAsync(qdrant, rag.QdrantCollection, tenantId, docId, qct);
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex,
+                "Qdrant cleanup failed after delete commit job={JobId} doc={DocPath}. Points are orphaned but filtered by RAG.",
+                job.JobId, job.DocPath);
         }
 
-        await using var conn = await ds.OpenConnectionAsync(ct);
-        const string sql = @"
-UPDATE documents
-SET status='deleted', updated_at=now()
-WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
-        await conn.ExecuteAsync(new CommandDefinition(sql, new { tenant_id = tenantId, doc_path = relDocPath }, cancellationToken: ct));
-
-        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+        return true;
     }
 
-    private async Task ProcessUpsertAsync(
+    private async Task<bool> ProcessUpsertAsync(
         NpgsqlDataSource ds,
         IHttpClientFactory httpFactory,
         RagOptions rag,
@@ -242,17 +251,11 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
         {
             var ok = await IsCurrentDocVersionAsync(ds, tenantId, relDocPath, job.Version, ct);
             if (!ok)
-            {
-                await JobRepo.MarkCanceledAsync(ds, job.JobId, "superseded_version", ct);
                 throw new JobCanceledException("superseded_version");
-            }
         }
 
         if (!File.Exists(absPath))
-        {
-            await JobRepo.MarkCanceledAsync(ds, job.JobId, "file_missing", ct);
             throw new JobCanceledException("file_missing");
-        }
 
         await ThrowIfJobCanceledAsync(ds, job.JobId, ct);
 
@@ -312,14 +315,6 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
         }
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
 
-        // ✅ delete previous points sous bulkhead Qdrant
-        await ThrowIfJobCanceledAsync(ds, job.JobId, ct);
-        using (await _bulkheads.AcquireQdrantAsync(qdrantToken))
-        {
-            await QdrantClient.DeleteByDocAsync(qdrant, rag.QdrantCollection, tenantId, docId, qdrantToken);
-        }
-        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-
         // embed + upsert by batches
         var batchSize = Math.Clamp(ingest.EmbeddingsBatchSize, 1, 256);
         static string ToHex(byte[] bytes) => Convert.ToHexString(bytes).ToLowerInvariant();
@@ -354,7 +349,7 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
             for (int j = 0; j < slice.Count; j++)
             {
                 var c = slice[j];
-                var chunkId = IdUtil.DeterministicGuid($"{docId}:{c.ChunkIndex}");
+                var chunkId = IdUtil.DeterministicGuid($"{docId}:{job.Version}:{c.ChunkIndex}");
 
                 points.Add(new
                 {
@@ -375,7 +370,8 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
                         ["created_at"] = nowIso,
                         ["updated_at"] = nowIso,
                         ["text"] = c.Text,
-                        ["embed_text"] = c.Text
+                        ["embed_text"] = c.Text,
+                        ["ingestion_version"] = job.Version
                     }
                 });
             }
@@ -407,29 +403,30 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
         await ThrowIfJobCanceledAsync(ds, job.JobId, ct);
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
 
-        // Update documents row
-        await using var conn = await ds.OpenConnectionAsync(ct);
-        const string sql = @"
-UPDATE documents
-SET content_hash=@hash,
-    file_size=@size,
-    file_mtime=@mtime,
-    status='indexed',
-    last_ingested_at=now(),
-    updated_at=now()
-WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
         var mtime = File.GetLastWriteTimeUtc(absPath);
+        var committed = await JobRepo.CompleteUpsertAsync(
+            ds, tenantId, job.JobId, relDocPath,
+            hash, size, mtime, job.Version, ct);
 
-        await ThrowIfJobCanceledAsync(ds, job.JobId, ct);
-        await conn.ExecuteAsync(new CommandDefinition(sql, new
+        if (!committed)
+            return false;
+
+        try
         {
-            tenant_id = tenantId,
-            doc_path = relDocPath,
-            hash,
-            size,
-            mtime = DateTime.SpecifyKind(mtime, DateTimeKind.Utc)
-        }, cancellationToken: ct));
+            using (await _bulkheads.AcquireQdrantAsync(qdrantToken))
+            {
+                await QdrantClient.DeleteOtherVersionsByDocAsync(
+                    qdrant, rag.QdrantCollection,
+                    tenantId, docId, job.Version, qdrantToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex,
+                "Failed to cleanup old Qdrant versions job={JobId} doc={DocPath}. Old points filtered by RAG version check.",
+                job.JobId, job.DocPath);
+        }
 
-        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+        return true;
     }
 }

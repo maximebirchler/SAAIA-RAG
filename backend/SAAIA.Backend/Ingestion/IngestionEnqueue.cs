@@ -25,12 +25,14 @@ static class IngestionEnqueue
 INSERT INTO documents(
   tenant_id, doc_id, doc_path, doc_name, category,
   status, updated_at, file_size, file_mtime,
-  last_seen_at, missing_since, ingestion_version, indexed_version
+  last_seen_at, missing_since, ingestion_version, indexed_version,
+  auto_ingest_paused, auto_ingest_paused_at, auto_ingest_pause_reason
 )
 VALUES(
   @tenant_id, @doc_id, @doc_path, @doc_name, @category,
   'pending', now(), @file_size, @file_mtime,
-  now(), NULL, 1, 0
+  now(), NULL, 1, 0,
+  false, NULL, NULL
 )
 ON CONFLICT (tenant_id, doc_path)
 DO UPDATE SET
@@ -45,7 +47,10 @@ DO UPDATE SET
   file_mtime = EXCLUDED.file_mtime,
   last_seen_at = now(),
   missing_since = NULL,
-  ingestion_version = GREATEST(COALESCE(documents.ingestion_version, 0), COALESCE(documents.indexed_version, 0)) + 1
+  ingestion_version = GREATEST(COALESCE(documents.ingestion_version, 0), COALESCE(documents.indexed_version, 0)) + 1,
+  auto_ingest_paused = false,
+  auto_ingest_paused_at = NULL,
+  auto_ingest_pause_reason = NULL
 RETURNING doc_id, ingestion_version;
 """;
 

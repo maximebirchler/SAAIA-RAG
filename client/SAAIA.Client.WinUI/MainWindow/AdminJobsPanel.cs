@@ -51,6 +51,11 @@ public sealed partial class MainWindow
         public int? ProgressCurrent { get; init; }
         public int? ProgressTotal { get; init; }
         public int? ProgressPercent { get; init; }
+        public string? DocumentStatus { get; init; }
+        public int? DocumentIngestionVersion { get; init; }
+        public int? DocumentIndexedVersion { get; init; }
+        public bool? DocumentAutoIngestPaused { get; init; }
+        public string? DocumentAutoIngestPauseReason { get; init; }
 
         public bool IsTerminal => IsTrackedJobTerminalStatus(Status);
         public bool IsRunning
@@ -900,6 +905,18 @@ public sealed partial class MainWindow
             Foreground = light ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE)
         });
 
+        var docStateLine = BuildAdminJobDocumentStateLine(item);
+        if (!string.IsNullOrWhiteSpace(docStateLine))
+        {
+            stack.Children.Add(new TextBlock
+            {
+                Text = docStateLine,
+                FontSize = 12,
+                TextWrapping = TextWrapping.WrapWholeWords,
+                Foreground = light ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE)
+            });
+        }
+
         if (!string.IsNullOrWhiteSpace(item.LastError))
         {
             stack.Children.Add(new Border
@@ -1077,6 +1094,9 @@ public sealed partial class MainWindow
         AddFact(facts, ClientUiText.Get("admin.jobs.details.doc_path", UiLang), item.DocPath);
         AddFact(facts, ClientUiText.Get("admin.jobs.details.phase", UiLang), item.ProgressPhase);
         AddFact(facts, ClientUiText.Get("admin.jobs.details.progress", UiLang), BuildAdminJobProgressLine(item));
+        AddFact(facts, ClientUiText.Get("admin.jobs.details.doc_status", UiLang), item.DocumentStatus);
+        AddFact(facts, ClientUiText.Get("admin.jobs.details.doc_versions", UiLang), BuildAdminJobDocumentVersionsLine(item));
+        AddFact(facts, ClientUiText.Get("admin.jobs.details.auto_pause", UiLang), BuildAdminJobAutoPauseLine(item));
         AddFact(facts, ClientUiText.Get("admin.jobs.details.created", UiLang), item.CreatedAt?.LocalDateTime.ToString("dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture));
         AddFact(facts, ClientUiText.Get("admin.jobs.details.started", UiLang), item.StartedAt?.LocalDateTime.ToString("dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture));
         AddFact(facts, ClientUiText.Get("admin.jobs.details.finished", UiLang), item.FinishedAt?.LocalDateTime.ToString("dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture));
@@ -1265,7 +1285,12 @@ public sealed partial class MainWindow
                     ProgressPhase = TryGetString(item, "ProgressPhase") ?? TryGetString(item, "progressPhase"),
                     ProgressCurrent = TryGetInt(item, "ProgressCurrent") ?? TryGetInt(item, "progressCurrent"),
                     ProgressTotal = TryGetInt(item, "ProgressTotal") ?? TryGetInt(item, "progressTotal"),
-                    ProgressPercent = TryGetInt(item, "ProgressPercent") ?? TryGetInt(item, "progressPercent")
+                    ProgressPercent = TryGetInt(item, "ProgressPercent") ?? TryGetInt(item, "progressPercent"),
+                    DocumentStatus = TryGetString(item, "DocumentStatus") ?? TryGetString(item, "documentStatus"),
+                    DocumentIngestionVersion = TryGetInt(item, "DocumentIngestionVersion") ?? TryGetInt(item, "documentIngestionVersion"),
+                    DocumentIndexedVersion = TryGetInt(item, "DocumentIndexedVersion") ?? TryGetInt(item, "documentIndexedVersion"),
+                    DocumentAutoIngestPaused = TryGetBool(item, "DocumentAutoIngestPaused") ?? TryGetBool(item, "documentAutoIngestPaused"),
+                    DocumentAutoIngestPauseReason = TryGetString(item, "DocumentAutoIngestPauseReason") ?? TryGetString(item, "documentAutoIngestPauseReason")
                 });
             }
             catch (Exception ex)
@@ -1279,6 +1304,21 @@ public sealed partial class MainWindow
 
     private static string ShortenJobId(string jobId)
         => string.IsNullOrWhiteSpace(jobId) || jobId.Length <= 8 ? jobId : jobId[..8] + "…";
+
+    private static bool? TryGetBool(JsonElement element, string propertyName)
+    {
+        if (!TryGetPropertyIgnoreCase(element, propertyName, out var value))
+            return null;
+
+        return value.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.String when bool.TryParse(value.GetString(), out var parsed) => parsed,
+            _ => null
+        };
+    }
+
 
     private string BuildAdminJobProgressLine(AdminJobListItem item)
     {
@@ -1308,6 +1348,45 @@ public sealed partial class MainWindow
         if (item.FinishedAt.HasValue)
             bits.Add(ClientUiText.Format("admin.jobs.date.finished", UiLang, item.FinishedAt.Value.LocalDateTime.ToString("dd.MM HH:mm:ss", CultureInfo.InvariantCulture)));
         return bits.Count == 0 ? ClientUiText.Get("admin.jobs.date.none", UiLang) : string.Join(" • ", bits);
+    }
+
+    private string? BuildAdminJobDocumentStateLine(AdminJobListItem item)
+    {
+        var bits = new List<string>();
+        if (!string.IsNullOrWhiteSpace(item.DocumentStatus))
+            bits.Add($"{ClientUiText.Get("admin.jobs.details.doc_status", UiLang)}: {item.DocumentStatus}");
+
+        var versions = BuildAdminJobDocumentVersionsLine(item);
+        if (!string.IsNullOrWhiteSpace(versions))
+            bits.Add(versions!);
+
+        var pause = BuildAdminJobAutoPauseLine(item);
+        if (!string.IsNullOrWhiteSpace(pause))
+            bits.Add(pause!);
+
+        return bits.Count == 0 ? null : string.Join(" • ", bits);
+    }
+
+    private string? BuildAdminJobDocumentVersionsLine(AdminJobListItem item)
+    {
+        if (!item.DocumentIngestionVersion.HasValue && !item.DocumentIndexedVersion.HasValue)
+            return null;
+
+        return $"v_ing={item.DocumentIngestionVersion?.ToString(CultureInfo.InvariantCulture) ?? "?"} • v_idx={item.DocumentIndexedVersion?.ToString(CultureInfo.InvariantCulture) ?? "?"}";
+    }
+
+    private string? BuildAdminJobAutoPauseLine(AdminJobListItem item)
+    {
+        if (!item.DocumentAutoIngestPaused.HasValue)
+            return null;
+
+        if (!item.DocumentAutoIngestPaused.Value)
+            return ClientUiText.Get("admin.jobs.auto_pause.off", UiLang);
+
+        if (!string.IsNullOrWhiteSpace(item.DocumentAutoIngestPauseReason))
+            return ClientUiText.Format("admin.jobs.auto_pause.on_reason", UiLang, item.DocumentAutoIngestPauseReason);
+
+        return ClientUiText.Get("admin.jobs.auto_pause.on", UiLang);
     }
 
     private Brush GetAdminJobStatusBackground(string status, bool light)

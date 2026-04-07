@@ -121,11 +121,15 @@ sealed class IngestionScanner : BackgroundService
         // 3) load known docs
         const string loadSql = @"
 SELECT
-  doc_path      AS ""DocPath"",
-  file_size     AS ""FileSize"",
-  file_mtime    AS ""FileMtime"",
-  status        AS ""Status"",
-  missing_since AS ""MissingSince""
+  doc_path                           AS ""DocPath"",
+  file_size                          AS ""FileSize"",
+  file_mtime                         AS ""FileMtime"",
+  status                             AS ""Status"",
+  missing_since                      AS ""MissingSince"",
+  COALESCE(indexed_version, 0)       AS ""IndexedVersion"",
+  COALESCE(auto_ingest_paused, false) AS ""AutoIngestPaused"",
+  auto_ingest_pause_reason           AS ""AutoIngestPauseReason"",
+  auto_ingest_paused_at              AS ""AutoIngestPausedAt""
 FROM documents
 WHERE tenant_id = @tenant_id
   AND status <> 'deleted';";
@@ -157,7 +161,7 @@ WHERE tenant_id = @tenant_id
 
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        int enqUpsert = 0, enqDelete = 0, skippedTooFresh = 0, unchanged = 0;
+        int enqUpsert = 0, enqDelete = 0, skippedTooFresh = 0, unchanged = 0, suppressedAuto = 0;
         bool anyTooFresh = false;
 
         // 4) Upserts
@@ -201,17 +205,29 @@ WHERE tenant_id = @tenant_id
 
             var normalizedStatus = (row.Status ?? string.Empty).Trim().ToLowerInvariant();
             var hasActiveJob = await HasActiveJobForDocAsync(conn, tenantId, rel, ct);
+            var autoSuppressed = !hasActiveJob
+                && IngestionAutoUpsertGuard.ShouldSuppressAutoUpsert(row.ToAutoUpsertState(), fi.Length, fi.LastWriteTimeUtc);
+
             var pendingOrBrokenWithoutJob =
                 (normalizedStatus is "pending" or "new" or "error")
-                && !hasActiveJob;
+                && !hasActiveJob
+                && !autoSuppressed;
 
             var needsReindex =
-                (!hasActiveJob && forceReindexAll) ||
-                (!hasActiveJob && changed) ||
-                (!hasActiveJob && string.Equals(normalizedStatus, "missing", StringComparison.OrdinalIgnoreCase)) ||
-                pendingOrBrokenWithoutJob;
+                ((!hasActiveJob && forceReindexAll) ||
+                 (!hasActiveJob && changed) ||
+                 (!hasActiveJob && string.Equals(normalizedStatus, "missing", StringComparison.OrdinalIgnoreCase)) ||
+                 pendingOrBrokenWithoutJob)
+                && !autoSuppressed;
 
-            if (needsReindex)
+            if (autoSuppressed)
+            {
+                suppressedAuto++;
+                _log.LogInformation(
+                    "Scanner: auto-upsert suppressed after admin cancel for {DocPath} (status={Status}, indexed_version={IndexedVersion}, paused_at={PausedAt})",
+                    rel, row.Status, row.IndexedVersion, row.AutoIngestPausedAt);
+            }
+            else if (needsReindex)
             {
                 await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, category, fi, ct);
                 enqUpsert++;
@@ -269,8 +285,8 @@ WHERE tenant_id = @tenant_id
         }
 
         _log.LogInformation(
-            "Scanner: files={Files} unchanged={Unchanged} upsert_enqueued={Upserts} delete_enqueued={Deletes} skipped_too_fresh={TooFresh} force_reindex={Force}",
-            files.Count, unchanged, enqUpsert, enqDelete, skippedTooFresh, forceReindexAll
+            "Scanner: files={Files} unchanged={Unchanged} upsert_enqueued={Upserts} delete_enqueued={Deletes} skipped_too_fresh={TooFresh} suppressed_auto={Suppressed} force_reindex={Force}",
+            files.Count, unchanged, enqUpsert, enqDelete, skippedTooFresh, suppressedAuto, forceReindexAll
         );
     }
 
@@ -428,5 +444,21 @@ WHERE tenant_id=@tenant_id
         public DateTime? FileMtime { get; set; }
         public string Status { get; set; } = "";
         public DateTime? MissingSince { get; set; }
+        public int IndexedVersion { get; set; }
+        public bool AutoIngestPaused { get; set; }
+        public string? AutoIngestPauseReason { get; set; }
+        public DateTime? AutoIngestPausedAt { get; set; }
+
+        public IngestionAutoUpsertGuard.AutoUpsertState ToAutoUpsertState() => new()
+        {
+            DocPath = DocPath,
+            FileSize = FileSize,
+            FileMtime = FileMtime,
+            Status = Status,
+            IndexedVersion = IndexedVersion,
+            AutoIngestPaused = AutoIngestPaused,
+            AutoIngestPauseReason = AutoIngestPauseReason,
+            AutoIngestPausedAt = AutoIngestPausedAt
+        };
     }
 }

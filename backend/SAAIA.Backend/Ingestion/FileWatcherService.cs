@@ -174,10 +174,20 @@ sealed class FileWatcherService : BackgroundService
                 if (!ready)
                     return;
 
+                var fi = new FileInfo(fullPath);
                 var category = DeriveCategory(rel, opt);
 
                 await using var conn = await ds.OpenConnectionAsync(linked.Token);
-                await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, category, new FileInfo(fullPath), linked.Token);
+                var state = await IngestionAutoUpsertGuard.LoadAsync(conn, tenantId, rel, linked.Token);
+                if (IngestionAutoUpsertGuard.ShouldSuppressAutoUpsert(state, fi.Length, fi.LastWriteTimeUtc))
+                {
+                    _log.LogInformation(
+                        "FileWatcher: auto-upsert suppressed after admin cancel ({Reason}) for {Doc}",
+                        reason, rel);
+                    return;
+                }
+
+                await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, category, fi, linked.Token);
 
                 _log.LogInformation("FileWatcher: upsert enqueued ({Reason}) for {Doc}", reason, rel);
             }
