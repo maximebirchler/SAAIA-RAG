@@ -152,6 +152,8 @@ internal static class ClientUiText
         ["admin.jobs.details.doc_path"] = Multi("Chemin", "Path", "Ruta", "Caminho", "Pfad", "Percorso"),
         ["admin.jobs.details.phase"] = Multi("Phase", "Phase", "Fase", "Fase", "Phase", "Fase"),
         ["admin.jobs.details.progress"] = Multi("Progression", "Progress", "Progreso", "Progresso", "Fortschritt", "Avanzamento"),
+        ["admin.jobs.details.cancel_requested_flag"] = Multi("Annulation demandée", "Cancel requested", "Cancelación solicitada", "Cancelamento solicitado", "Abbruch angefordert", "Annullamento richiesto"),
+        ["admin.jobs.details.enqueue_source"] = Multi("Source d'enqueue", "Enqueue source", "Fuente de enqueue", "Origem do enqueue", "Enqueue-Quelle", "Sorgente enqueue"),
         ["admin.jobs.details.doc_status"] = Multi("État document", "Document state", "Estado documento", "Estado do documento", "Dokumentstatus", "Stato documento"),
         ["admin.jobs.details.doc_versions"] = Multi("Versions document", "Document versions", "Versiones documento", "Versões do documento", "Dokumentversionen", "Versioni documento"),
         ["admin.jobs.details.auto_pause"] = Multi("Pause auto-ingestion", "Auto-ingest pause", "Pausa auto-ingesta", "Pausa de auto-ingestão", "Auto-Ingest-Pause", "Pausa auto-ingest"),

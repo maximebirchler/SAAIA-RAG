@@ -51,6 +51,8 @@ public sealed partial class MainWindow
         public int? ProgressCurrent { get; init; }
         public int? ProgressTotal { get; init; }
         public int? ProgressPercent { get; init; }
+        public bool? CancelRequested { get; init; }
+        public string? EnqueueSource { get; init; }
         public string? DocumentStatus { get; init; }
         public int? DocumentIngestionVersion { get; init; }
         public int? DocumentIndexedVersion { get; init; }
@@ -1094,6 +1096,8 @@ public sealed partial class MainWindow
         AddFact(facts, ClientUiText.Get("admin.jobs.details.doc_path", UiLang), item.DocPath);
         AddFact(facts, ClientUiText.Get("admin.jobs.details.phase", UiLang), item.ProgressPhase);
         AddFact(facts, ClientUiText.Get("admin.jobs.details.progress", UiLang), BuildAdminJobProgressLine(item));
+        AddFact(facts, ClientUiText.Get("admin.jobs.details.cancel_requested_flag", UiLang), item.CancelRequested.HasValue ? (item.CancelRequested.Value ? "true" : "false") : null);
+        AddFact(facts, ClientUiText.Get("admin.jobs.details.enqueue_source", UiLang), item.EnqueueSource);
         AddFact(facts, ClientUiText.Get("admin.jobs.details.doc_status", UiLang), item.DocumentStatus);
         AddFact(facts, ClientUiText.Get("admin.jobs.details.doc_versions", UiLang), BuildAdminJobDocumentVersionsLine(item));
         AddFact(facts, ClientUiText.Get("admin.jobs.details.auto_pause", UiLang), BuildAdminJobAutoPauseLine(item));
@@ -1286,6 +1290,8 @@ public sealed partial class MainWindow
                     ProgressCurrent = TryGetInt(item, "ProgressCurrent") ?? TryGetInt(item, "progressCurrent"),
                     ProgressTotal = TryGetInt(item, "ProgressTotal") ?? TryGetInt(item, "progressTotal"),
                     ProgressPercent = TryGetInt(item, "ProgressPercent") ?? TryGetInt(item, "progressPercent"),
+                    CancelRequested = TryGetBool(item, "CancelRequested") ?? TryGetBool(item, "cancelRequested"),
+                    EnqueueSource = TryGetString(item, "EnqueueSource") ?? TryGetString(item, "enqueueSource"),
                     DocumentStatus = TryGetString(item, "DocumentStatus") ?? TryGetString(item, "documentStatus"),
                     DocumentIngestionVersion = TryGetInt(item, "DocumentIngestionVersion") ?? TryGetInt(item, "documentIngestionVersion"),
                     DocumentIndexedVersion = TryGetInt(item, "DocumentIndexedVersion") ?? TryGetInt(item, "documentIndexedVersion"),

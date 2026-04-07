@@ -11,7 +11,8 @@ static class IngestionEnqueue
         string category,
         FileInfo? fi,
         CancellationToken ct,
-        bool isAutomatic = false)
+        bool isAutomatic = false,
+        string? enqueueSource = null)
     {
         docPath = PathUtil.NormalizeRelativePath(docPath);
         category = string.IsNullOrWhiteSpace(category) ? "general" : category.Trim().ToLowerInvariant();
@@ -121,7 +122,12 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path
             doc_path = docPath
         }, cancellationToken: ct));
 
-        var payload = JsonSerializer.Serialize(new { docId = returned.doc_id, version = returned.ingestion_version });
+        var payload = JsonSerializer.Serialize(new
+        {
+            docId = returned.doc_id,
+            version = returned.ingestion_version,
+            source = string.IsNullOrWhiteSpace(enqueueSource) ? (isAutomatic ? "automatic" : "admin") : enqueueSource!.Trim().ToLowerInvariant()
+        });
         var jobId = Guid.NewGuid();
 
         const string jobSql = """
