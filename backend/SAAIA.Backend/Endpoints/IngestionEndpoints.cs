@@ -91,7 +91,7 @@ public static class IngestionEndpoints
             }
             catch { /* ignore */ }
 
-            var r = await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, relDocPath, category, fi, ct);
+            var r = await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, relDocPath, category, fi, ct, enqueueSource: "api");
 
             await AuditWriter.WriteAsync(
                 conn,

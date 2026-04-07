@@ -46,6 +46,7 @@ public static class SummaryEndpoints
         app.MapGet("/admin/jobs/{jobId:guid}", GetAdminJobAsync).RequireAdminKey();
         app.MapPost("/admin/jobs/cancel", CancelAdminJobAsync).RequireAdminKey();
         app.MapPost("/admin/jobs/delete_history", DeleteAdminJobHistoryAsync).RequireAdminKey();
+        app.MapPost("/admin/jobs/purge", PurgeAdminJobHistoryAsync).RequireAdminKey();
         app.MapPost("/admin/ingestion/reindex", ReindexAsync).RequireAdminKey();
 
         app.Logger.LogInformation("Mapped summaries/admin tools endpoints");
@@ -54,6 +55,7 @@ public static class SummaryEndpoints
     public sealed record SummaryCommand(Guid? DocId, string? Level = "medium", Guid? JobId = null, string? DocLanguage = null, string? SourceHash = null, string? SummaryText = null, JsonElement? Meta = null, bool? Force = null, string? DocPath = null);
     public sealed record JobCancelCommand(Guid JobId);
     public sealed record JobDeleteHistoryCommand(string[]? JobIds);
+    public sealed record JobPurgeCommand(string? Scope, string? Type);
 
     private static async Task<IResult> GetSummaryAsync(HttpContext ctx, NpgsqlDataSource ds, Guid docId, string? level)
     {
@@ -814,6 +816,8 @@ SELECT * FROM (
     NULL::int    AS "ProgressCurrent",
     NULL::int    AS "ProgressTotal",
     NULL::int    AS "ProgressPercent",
+    NULL::boolean AS "CancelRequested",
+    NULL::text   AS "EnqueueSource",
     NULL::text   AS "DocumentStatus",
     NULL::int    AS "DocumentIngestionVersion",
     NULL::int    AS "DocumentIndexedVersion",
@@ -843,6 +847,8 @@ SELECT * FROM (
     CASE WHEN jsonb_typeof(i.payload->'progress'->'current')='number' THEN (i.payload->'progress'->>'current')::int ELSE NULL END AS "ProgressCurrent",
     CASE WHEN jsonb_typeof(i.payload->'progress'->'total')='number' THEN (i.payload->'progress'->>'total')::int ELSE NULL END AS "ProgressTotal",
     CASE WHEN jsonb_typeof(i.payload->'progress'->'percent')='number' THEN (i.payload->'progress'->>'percent')::int ELSE NULL END AS "ProgressPercent",
+    COALESCE((i.payload #>> '{control,cancelRequested}')::boolean, false) AS "CancelRequested",
+    i.payload ->> 'source' AS "EnqueueSource",
     d.status AS "DocumentStatus",
     d.ingestion_version AS "DocumentIngestionVersion",
     d.indexed_version AS "DocumentIndexedVersion",
@@ -888,6 +894,8 @@ SELECT * FROM (
     NULL::int    AS "ProgressCurrent",
     NULL::int    AS "ProgressTotal",
     NULL::int    AS "ProgressPercent",
+    NULL::boolean AS "CancelRequested",
+    NULL::text   AS "EnqueueSource",
     NULL::text   AS "DocumentStatus",
     NULL::int    AS "DocumentIngestionVersion",
     NULL::int    AS "DocumentIndexedVersion",
@@ -917,6 +925,8 @@ SELECT * FROM (
     CASE WHEN jsonb_typeof(i.payload->'progress'->'current')='number' THEN (i.payload->'progress'->>'current')::int ELSE NULL END AS "ProgressCurrent",
     CASE WHEN jsonb_typeof(i.payload->'progress'->'total')='number' THEN (i.payload->'progress'->>'total')::int ELSE NULL END AS "ProgressTotal",
     CASE WHEN jsonb_typeof(i.payload->'progress'->'percent')='number' THEN (i.payload->'progress'->>'percent')::int ELSE NULL END AS "ProgressPercent",
+    COALESCE((i.payload #>> '{control,cancelRequested}')::boolean, false) AS "CancelRequested",
+    i.payload ->> 'source' AS "EnqueueSource",
     d.status AS "DocumentStatus",
     d.ingestion_version AS "DocumentIngestionVersion",
     d.indexed_version AS "DocumentIndexedVersion",
@@ -935,7 +945,7 @@ LIMIT 1;
         return row is null ? Results.NotFound(new { error = "job_not_found", jobId }) : Results.Ok(row);
     }
 
-    private static async Task<IResult> CancelAdminJobAsync(HttpContext ctx, NpgsqlDataSource ds, JobCancelCommand cmd)
+    private static async Task<IResult> CancelAdminJobAsync(HttpContext ctx, NpgsqlDataSource ds, IngestionJobCancellationRegistry cancelRegistry, JobCancelCommand cmd)
     {
         AdminAuth.EnsureAdmin(ctx);
         var tenantId = ctx.GetTenantId();
@@ -1054,6 +1064,14 @@ LIMIT 1;
 
         await tx.CommitAsync(ct);
 
+        var canceledInMemory = 0;
+        if (canceledQueued > 0 || runningCancelRequested > 0)
+        {
+            canceledInMemory += cancelRegistry.CancelByDocPath(tenantId, ingestionRef.DocPath);
+            if (runningCancelRequested == 0 && cancelRegistry.TryCancel(cmd.JobId))
+                canceledInMemory++;
+        }
+
         return Results.Ok(new
         {
             canceled = canceledQueued > 0 || runningCancelRequested > 0 || string.Equals(effectiveStatus, "canceled", StringComparison.OrdinalIgnoreCase),
@@ -1064,6 +1082,7 @@ LIMIT 1;
             status = effectiveStatus ?? normalizedPreviousStatus,
             canceledQueued,
             runningCancelRequested,
+            canceledInMemory,
             result
         });
     }
@@ -1183,6 +1202,95 @@ RETURNING job_id;";
         });
     }
 
+    private static async Task<IResult> PurgeAdminJobHistoryAsync(HttpContext ctx, NpgsqlDataSource ds, JobPurgeCommand? cmd)
+    {
+        AdminAuth.EnsureAdmin(ctx);
+        var tenantId = ctx.GetTenantId();
+        var actorApiKeyId = ctx.GetApiKeyIdOrNull();
+        var actorIsAdmin = ctx.IsAdmin();
+        var ct = ctx.RequestAborted;
+
+        var scope = (cmd?.Scope ?? "terminal").Trim().ToLowerInvariant();
+        var type = string.IsNullOrWhiteSpace(cmd?.Type) ? null : cmd!.Type!.Trim().ToLowerInvariant();
+
+        if (scope is not ("terminal" or "all" or "done" or "failed"))
+            return Results.BadRequest(new { error = "invalid_scope", expected = new[] { "terminal", "all", "done", "failed" } });
+        if (type is not null && type is not ("summary" or "ingestion"))
+            return Results.BadRequest(new { error = "invalid_type", expected = new[] { "summary", "ingestion" } });
+
+        static string BuildStatusFilter(string tableAlias, string scopeValue)
+            => scopeValue switch
+            {
+                "done" => $"COALESCE(lower({tableAlias}.status),'') = 'done'",
+                "failed" => $"COALESCE(lower({tableAlias}.status),'') IN ('failed','canceled','cancelled')",
+                _ => $"COALESCE(lower({tableAlias}.status),'') NOT IN ('queued','running')"
+            };
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        await using var tx = await conn.BeginTransactionAsync(ct);
+
+        var adminDeletedIds = Array.Empty<Guid>();
+        var ingestionDeletedIds = Array.Empty<Guid>();
+
+        if (type is null or "summary")
+        {
+            var adminSql = $"""
+DELETE FROM admin_jobs a
+WHERE a.tenant_id=@tenant
+  AND {BuildStatusFilter("a", scope)}
+RETURNING a.job_id;
+""";
+            adminDeletedIds = (await conn.QueryAsync<Guid>(
+                new CommandDefinition(adminSql, new { tenant = tenantId }, transaction: tx, cancellationToken: ct))).ToArray();
+        }
+
+        if (type is null or "ingestion")
+        {
+            var ingestionSql = $"""
+DELETE FROM ingestion_jobs i
+WHERE i.tenant_id=@tenant
+  AND {BuildStatusFilter("i", scope)}
+RETURNING i.job_id;
+""";
+            ingestionDeletedIds = (await conn.QueryAsync<Guid>(
+                new CommandDefinition(ingestionSql, new { tenant = tenantId }, transaction: tx, cancellationToken: ct))).ToArray();
+        }
+
+        await tx.CommitAsync(ct);
+
+        var deletedIds = adminDeletedIds.Concat(ingestionDeletedIds).Distinct().ToArray();
+        var deletedSummary = adminDeletedIds.Length;
+        var deletedIngestion = ingestionDeletedIds.Length;
+        var deleted = deletedIds.Length;
+
+        try
+        {
+            await AuditWriter.WriteAsync(
+                conn,
+                tenantId,
+                actorApiKeyId,
+                actorIsAdmin,
+                action: "admin.jobs.purge",
+                target: "admin.jobs",
+                payload: new { scope, type, deletedIds, deletedSummary, deletedIngestion, deleted },
+                ip: ctx.Connection.RemoteIpAddress?.ToString(),
+                ct: ct);
+        }
+        catch
+        {
+        }
+
+        return Results.Ok(new
+        {
+            scope,
+            type = type ?? "all",
+            deleted,
+            deletedSummary,
+            deletedIngestion,
+            deletedIds
+        });
+    }
+
     private static async Task<IResult> ReindexAsync(HttpContext ctx, NpgsqlDataSource ds, IOptions<IngestionOptions> ingestOpt, SummaryCommand cmd)
     {
         AdminAuth.EnsureAdmin(ctx);
@@ -1244,7 +1352,7 @@ LIMIT 1;
             });
         }
 
-        var enqueued = await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, doc.DocPath, doc.Category, fi, ct: ct);
+        var enqueued = await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, doc.DocPath, doc.Category, fi, ct: ct, enqueueSource: "admin");
         return Results.Ok(new { queued = true, docId = enqueued.DocId, jobId = enqueued.JobId, docPath = doc.DocPath });
     }
 
