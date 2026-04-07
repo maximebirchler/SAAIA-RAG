@@ -45,6 +45,10 @@ sealed class IngestionOptions
     // Auto-heal si Qdrant est vide alors que la DB contient des documents
     public bool ReindexIfQdrantEmpty { get; set; } = true;
 
+    // Backoff auto-upsert après échecs répétés (évite les boucles infinies scanner -> worker failed -> scanner)
+    public int AutoRetryBackoffSeconds { get; set; } = 120;
+    public int AutoRetryFailureStreak { get; set; } = 3;
+
 
     // ==========================
     // Backward compatible aliases
