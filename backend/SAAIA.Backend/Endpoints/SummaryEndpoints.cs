@@ -945,7 +945,7 @@ LIMIT 1;
         return row is null ? Results.NotFound(new { error = "job_not_found", jobId }) : Results.Ok(row);
     }
 
-    private static async Task<IResult> CancelAdminJobAsync(HttpContext ctx, NpgsqlDataSource ds, JobCancelCommand cmd)
+    private static async Task<IResult> CancelAdminJobAsync(HttpContext ctx, NpgsqlDataSource ds, IngestionJobCancellationRegistry cancelRegistry, JobCancelCommand cmd)
     {
         AdminAuth.EnsureAdmin(ctx);
         var tenantId = ctx.GetTenantId();
@@ -1064,6 +1064,14 @@ LIMIT 1;
 
         await tx.CommitAsync(ct);
 
+        var canceledInMemory = 0;
+        if (canceledQueued > 0 || runningCancelRequested > 0)
+        {
+            canceledInMemory += cancelRegistry.CancelByDocPath(tenantId, ingestionRef.DocPath);
+            if (runningCancelRequested == 0 && cancelRegistry.TryCancel(cmd.JobId))
+                canceledInMemory++;
+        }
+
         return Results.Ok(new
         {
             canceled = canceledQueued > 0 || runningCancelRequested > 0 || string.Equals(effectiveStatus, "canceled", StringComparison.OrdinalIgnoreCase),
@@ -1074,6 +1082,7 @@ LIMIT 1;
             status = effectiveStatus ?? normalizedPreviousStatus,
             canceledQueued,
             runningCancelRequested,
+            canceledInMemory,
             result
         });
     }
