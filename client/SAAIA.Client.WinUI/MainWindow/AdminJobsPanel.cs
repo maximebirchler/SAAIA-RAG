@@ -26,6 +26,7 @@ public sealed partial class MainWindow
         public required Border DetailsCard { get; init; }
         public required StackPanel DetailsHost { get; init; }
         public required ColumnDefinition DetailsColumn { get; init; }
+        public required Button CloseDetailsButton { get; init; }
         public List<AdminJobListItem> Items { get; set; } = new();
         public HashSet<string> SelectedTerminalJobIds { get; } = new(StringComparer.OrdinalIgnoreCase);
         public bool IsRefreshing { get; set; }
@@ -66,10 +67,6 @@ public sealed partial class MainWindow
         public bool IsFailedLike
             => string.Equals(NormalizeTrackedJobStatus(Status), "failed", StringComparison.OrdinalIgnoreCase)
                || string.Equals(NormalizeTrackedJobStatus(Status), "canceled", StringComparison.OrdinalIgnoreCase);
-        public bool IsCanceled
-            => string.Equals(NormalizeTrackedJobStatus(Status), "canceled", StringComparison.OrdinalIgnoreCase);
-        public bool IsFailed
-            => string.Equals(NormalizeTrackedJobStatus(Status), "failed", StringComparison.OrdinalIgnoreCase);
 
         public string DisplayTitle
         {
@@ -243,17 +240,14 @@ public sealed partial class MainWindow
         toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         Grid.SetColumn(searchBox, 0);
         Grid.SetColumn(typeCombo, 1);
         Grid.SetColumn(statusCombo, 2);
         Grid.SetColumn(autoRefreshToggle, 3);
-        Grid.SetColumn(refreshButton, 4);
         toolbarGrid.Children.Add(searchBox);
         toolbarGrid.Children.Add(typeCombo);
         toolbarGrid.Children.Add(statusCombo);
         toolbarGrid.Children.Add(autoRefreshToggle);
-        toolbarGrid.Children.Add(refreshButton);
 
         var footerActions = new Grid { ColumnSpacing = 12 };
         footerActions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -282,6 +276,7 @@ public sealed partial class MainWindow
 
         var pageHeaderGrid = new Grid { ColumnSpacing = 16 };
         pageHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        pageHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         var titleBox = new StackPanel { Spacing = 4 };
         titleBox.Children.Add(new TextBlock
@@ -295,6 +290,11 @@ public sealed partial class MainWindow
         Grid.SetColumn(titleBox, 0);
         pageHeaderGrid.Children.Add(titleBox);
 
+        var closeWindowButton = BuildDialogFooterButton(ClientUiText.Get("dialog.close", UiLang));
+        closeWindowButton.MinWidth = 140;
+        closeWindowButton.HorizontalAlignment = HorizontalAlignment.Right;
+        Grid.SetColumn(closeWindowButton, 1);
+        pageHeaderGrid.Children.Add(closeWindowButton);
 
         var pageRoot = new Grid
         {
@@ -432,7 +432,8 @@ public sealed partial class MainWindow
             GroupsHost = groupsHost,
             DetailsCard = detailsCard,
             DetailsHost = detailsHost,
-            DetailsColumn = detailsColumn
+            DetailsColumn = detailsColumn,
+            CloseDetailsButton = closeDetailsButton
         };
 
         closeDetailsButton.Click += (_, __) =>
@@ -449,6 +450,8 @@ public sealed partial class MainWindow
         deleteSelectionButton.Click += async (_, __) => await DeleteSelectedAdminJobsAsync(context).ConfigureAwait(true);
         var purgeFlyout = BuildAdminJobsPurgeFlyout(context);
         purgeButton.Click += (_, __) => purgeFlyout.ShowAt(purgeButton);
+        closeWindowButton.Click += (_, __) => CloseAdminJobsWindow();
+
         window.Closed += (_, __) =>
         {
             try { _adminJobsRefreshTimer?.Stop(); } catch { }
@@ -661,7 +664,7 @@ public sealed partial class MainWindow
         context.MetricsHost.Children.Clear();
 
         var grid = new Grid { ColumnSpacing = 10 };
-        for (var i = 0; i < 6; i++)
+        for (var i = 0; i < 5; i++)
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
         var metrics = new (string Title, int Value, string Accent)[]
@@ -669,8 +672,7 @@ public sealed partial class MainWindow
             (ClientUiText.Get("admin.jobs.metric.active", UiLang), allItems.Count(x => !x.IsTerminal), "running"),
             (ClientUiText.Get("admin.jobs.metric.queued", UiLang), allItems.Count(x => x.IsQueued), "queued"),
             (ClientUiText.Get("admin.jobs.metric.running", UiLang), allItems.Count(x => x.IsRunning), "running"),
-            (ClientUiText.Get("admin.jobs.metric.failed", UiLang), allItems.Count(x => x.IsFailed), "failed"),
-            (ClientUiText.Get("admin.jobs.metric.canceled", UiLang), allItems.Count(x => x.IsCanceled), "canceled"),
+            (ClientUiText.Get("admin.jobs.metric.failed", UiLang), allItems.Count(x => x.IsFailedLike), "failed"),
             (ClientUiText.Get("admin.jobs.metric.done", UiLang), allItems.Count(x => string.Equals(NormalizeTrackedJobStatus(x.Status), "done", StringComparison.OrdinalIgnoreCase)), "done")
         };
 
@@ -730,31 +732,7 @@ public sealed partial class MainWindow
         context.GroupsHost.Children.Clear();
         if (visibleItems.Count == 0)
         {
-            var emptyHost = new StackPanel { Spacing = 10 };
-            emptyHost.Children.Add(BuildDialogInfoBanner(ClientUiText.Get("admin.jobs.empty", UiLang)));
-            var hasFilter = !string.IsNullOrWhiteSpace((context.SearchBox.Text ?? string.Empty).Trim())
-                || (((context.TypeCombo.SelectedItem as ComboBoxItem)?.Tag as string) ?? string.Empty).Length > 0
-                || !string.Equals((((context.StatusCombo.SelectedItem as ComboBoxItem)?.Tag as string) ?? "active").Trim(), "all", StringComparison.OrdinalIgnoreCase);
-            if (hasFilter)
-            {
-                emptyHost.Children.Add(new TextBlock
-                {
-                    Text = ClientUiText.Get("admin.jobs.empty.hint_reset", UiLang),
-                    TextWrapping = TextWrapping.WrapWholeWords,
-                    Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE)
-                });
-                var resetButton = BuildDialogInlineButton(ClientUiText.Get("admin.jobs.reset_filters", UiLang));
-                resetButton.HorizontalAlignment = HorizontalAlignment.Left;
-                resetButton.Click += (_, __) =>
-                {
-                    context.SearchBox.Text = string.Empty;
-                    context.TypeCombo.SelectedIndex = 0;
-                    context.StatusCombo.SelectedIndex = 1;
-                    RenderAdminJobsOverlay(context);
-                };
-                emptyHost.Children.Add(resetButton);
-            }
-            context.GroupsHost.Children.Add(emptyHost);
+            context.GroupsHost.Children.Add(BuildDialogInfoBanner(ClientUiText.Get("admin.jobs.empty", UiLang)));
             return;
         }
 
@@ -1261,26 +1239,18 @@ public sealed partial class MainWindow
         return button;
     }
 
-    private Border BuildAdminJobStatusBadge(string status)
+    private TextBlock BuildAdminJobStatusBadge(string status)
     {
         var light = UseLightPalette();
         var normalized = NormalizeTrackedJobStatus(status);
-        return new Border
+        return new TextBlock
         {
+            Text = ClientUiText.Get("admin.jobs.status." + normalized, UiLang),
+            FontSize = 12,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = GetAdminJobStatusForeground(normalized, light),
             VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(0, 2, 0, 0),
-            CornerRadius = new CornerRadius(999),
-            Padding = new Thickness(10, 4, 10, 4),
-            BorderThickness = new Thickness(1),
-            BorderBrush = GetAdminJobStatusBorder(normalized, light),
-            Background = GetAdminJobStatusBackground(normalized, light),
-            Child = new TextBlock
-            {
-                Text = ClientUiText.Get("admin.jobs.status." + normalized, UiLang),
-                FontSize = 12,
-                FontWeight = FontWeights.SemiBold,
-                Foreground = GetAdminJobStatusForeground(normalized, light)
-            }
+            Margin = new Thickness(0, 2, 0, 0)
         };
     }
 
