@@ -835,6 +835,12 @@ SELECT * FROM (
     'ingestion'    AS "Type",
     i.action       AS "JobType",
     CASE
+      WHEN i.status='paused' THEN 'paused'
+      WHEN i.status='canceled'
+        AND i.action='upsert'
+        AND COALESCE(d.auto_ingest_paused, false)
+        AND COALESCE(d.indexed_version, 0) <= 0
+        THEN 'paused'
       WHEN i.status='running' AND COALESCE((i.payload #>> '{control,cancelRequested}')::boolean, false) THEN 'cancel_requested'
       ELSE i.status
     END            AS "Status",
@@ -913,6 +919,12 @@ SELECT * FROM (
     'ingestion'    AS "Type",
     i.action       AS "JobType",
     CASE
+      WHEN i.status='paused' THEN 'paused'
+      WHEN i.status='canceled'
+        AND i.action='upsert'
+        AND COALESCE(d.auto_ingest_paused, false)
+        AND COALESCE(d.indexed_version, 0) <= 0
+        THEN 'paused'
       WHEN i.status='running' AND COALESCE((i.payload #>> '{control,cancelRequested}')::boolean, false) THEN 'cancel_requested'
       ELSE i.status
     END            AS "Status",
@@ -970,15 +982,20 @@ WHERE tenant_id=@tenant AND job_id=@jobId AND status IN ('queued','running');
             return Results.Ok(new { canceled = true, jobId = cmd.JobId, type = "summary", affected = changed, status = "canceled", result = "canceled" });
         }
 
-        var ingestionRef = await conn.QueryFirstOrDefaultAsync<(Guid JobId, string DocPath, string Status, bool CancelRequested)>(
+        var ingestionRef = await conn.QueryFirstOrDefaultAsync<(Guid JobId, string DocPath, string Status, bool CancelRequested, string Action, int DocumentIndexedVersion)>(
             new CommandDefinition(
                 """
 SELECT
   job_id AS "JobId",
   doc_path AS "DocPath",
   status AS "Status",
-  COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) AS "CancelRequested"
+  COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) AS "CancelRequested",
+  action AS "Action",
+  COALESCE(d.indexed_version, 0) AS "DocumentIndexedVersion"
 FROM ingestion_jobs
+LEFT JOIN documents d
+  ON d.tenant_id=ingestion_jobs.tenant_id
+ AND d.doc_path=ingestion_jobs.doc_path
 WHERE tenant_id=@tenant AND job_id=@jobId
 LIMIT 1;
 """,
@@ -1001,7 +1018,10 @@ SET status='canceled',
     locked_by=NULL,
     locked_at=NULL,
     available_at=now()
-WHERE tenant_id=@tenant AND doc_path=@docPath AND status='queued';
+WHERE tenant_id=@tenant
+  AND doc_path=@docPath
+  AND action='upsert'
+  AND status IN ('queued','paused');
 """,
             new { tenant = tenantId, docPath = ingestionRef.DocPath },
             transaction: tx,
@@ -1011,13 +1031,19 @@ WHERE tenant_id=@tenant AND doc_path=@docPath AND status='queued';
             """
 UPDATE ingestion_jobs
 SET payload = jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,cancelRequested}', 'true'::jsonb, true)
-WHERE tenant_id=@tenant AND doc_path=@docPath AND status='running';
+WHERE tenant_id=@tenant
+  AND doc_path=@docPath
+  AND action='upsert'
+  AND status='running';
 """,
             new { tenant = tenantId, docPath = ingestionRef.DocPath },
             transaction: tx,
             cancellationToken: ct));
 
-        if (canceledQueued > 0 || runningCancelRequested > 0)
+        var shouldPauseInitialIngestion = string.Equals(ingestionRef.Action, "upsert", StringComparison.OrdinalIgnoreCase)
+            && ingestionRef.DocumentIndexedVersion <= 0;
+
+        if ((canceledQueued > 0 || runningCancelRequested > 0) && shouldPauseInitialIngestion)
         {
             await conn.ExecuteAsync(new CommandDefinition(
                 """
@@ -1039,11 +1065,34 @@ WHERE tenant_id=@tenant
                 cancellationToken: ct));
         }
 
+        var pausedQueued = 0;
+        if (shouldPauseInitialIngestion && canceledQueued > 0)
+        {
+            pausedQueued = await conn.ExecuteAsync(new CommandDefinition(
+                """
+UPDATE ingestion_jobs
+SET status='paused',
+    started_at=NULL,
+    finished_at=NULL,
+    last_error=NULL,
+    payload = (COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}')
+WHERE tenant_id=@tenant
+  AND doc_path=@docPath
+  AND action='upsert'
+  AND status='canceled'
+  AND COALESCE(last_error,'')='canceled_by_admin';
+""",
+                new { tenant = tenantId, docPath = ingestionRef.DocPath },
+                transaction: tx,
+                cancellationToken: ct));
+        }
+
         var effectiveStatus = await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
             """
 SELECT CASE
-    WHEN status='running' AND COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) THEN 'cancel_requested'
-    ELSE status
+            WHEN status='paused' THEN 'paused'
+            WHEN status='running' AND COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) THEN 'cancel_requested'
+            ELSE status
 END
 FROM ingestion_jobs
 WHERE tenant_id=@tenant AND job_id=@jobId
@@ -1059,10 +1108,11 @@ LIMIT 1;
 
         var result = effectiveStatus switch
         {
+            "paused" => "paused",
             "canceled" or "cancelled" => "canceled",
             "cancel_requested" => "cancel_requested",
             "done" or "failed" => "already_finished",
-            _ when canceledQueued > 0 || runningCancelRequested > 0 => "accepted",
+            _ when canceledQueued > 0 || runningCancelRequested > 0 || pausedQueued > 0 => "accepted",
             _ => "nothing_changed"
         };
 
@@ -1078,7 +1128,7 @@ LIMIT 1;
 
         return Results.Ok(new
         {
-            canceled = canceledQueued > 0 || runningCancelRequested > 0 || string.Equals(effectiveStatus, "canceled", StringComparison.OrdinalIgnoreCase),
+            canceled = canceledQueued > 0 || runningCancelRequested > 0 || pausedQueued > 0 || string.Equals(effectiveStatus, "canceled", StringComparison.OrdinalIgnoreCase),
             jobId = cmd.JobId,
             type = "ingestion",
             docPath = ingestionRef.DocPath,
@@ -1086,6 +1136,7 @@ LIMIT 1;
             status = effectiveStatus ?? normalizedPreviousStatus,
             canceledQueued,
             runningCancelRequested,
+            pausedQueued,
             canceledInMemory,
             result
         });
@@ -1101,14 +1152,16 @@ LIMIT 1;
 
         await using var conn = await ds.OpenConnectionAsync(ct);
 
-        var row = await conn.QueryFirstOrDefaultAsync<(Guid JobId, string DocPath, string Category, bool AutoIngestPaused)>(
+        var row = await conn.QueryFirstOrDefaultAsync<(Guid JobId, string DocPath, string Category, bool AutoIngestPaused, string Status, string Action)>(
             new CommandDefinition(
                 """
 SELECT
   i.job_id AS "JobId",
   i.doc_path AS "DocPath",
   COALESCE(d.category, i.category, 'general') AS "Category",
-  COALESCE(d.auto_ingest_paused, false) AS "AutoIngestPaused"
+  COALESCE(d.auto_ingest_paused, false) AS "AutoIngestPaused",
+  i.status AS "Status",
+  i.action AS "Action"
 FROM ingestion_jobs i
 LEFT JOIN documents d
   ON d.tenant_id=i.tenant_id
@@ -1125,6 +1178,9 @@ LIMIT 1;
         if (!row.AutoIngestPaused)
             return Results.Ok(new { resumed = false, reason = "not_paused", jobId = cmd.JobId, docPath = row.DocPath });
 
+        if (!string.Equals(row.Action, "upsert", StringComparison.OrdinalIgnoreCase))
+            return Results.Conflict(new { error = "only_upsert_can_resume", jobId = cmd.JobId, docPath = row.DocPath });
+
         var active = await conn.ExecuteScalarAsync<int?>(new CommandDefinition(
             """
 SELECT 1
@@ -1132,9 +1188,10 @@ FROM ingestion_jobs
 WHERE tenant_id=@tenant
   AND doc_path=@docPath
   AND status IN ('queued','running')
+  AND job_id<>@jobId
 LIMIT 1;
 """,
-            new { tenant = tenantId, docPath = row.DocPath },
+            new { tenant = tenantId, docPath = row.DocPath, jobId = row.JobId },
             cancellationToken: ct));
 
         if (active.HasValue)
@@ -1156,9 +1213,30 @@ WHERE tenant_id=@tenant AND doc_path=@docPath;
             new { tenant = tenantId, docPath = row.DocPath },
             cancellationToken: ct));
 
-        var fi = new FileInfo(absPath);
-        var enqueued = await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, row.DocPath, row.Category, fi, ct, isAutomatic: false, enqueueSource: "admin_resume");
-        return Results.Ok(new { resumed = true, docPath = row.DocPath, jobId = enqueued.JobId, docId = enqueued.DocId });
+        var resumedRows = await conn.ExecuteAsync(new CommandDefinition(
+            """
+UPDATE ingestion_jobs
+SET status='queued',
+    attempts=0,
+    locked_by=NULL,
+    locked_at=NULL,
+    available_at=now(),
+    started_at=NULL,
+    finished_at=NULL,
+    last_error=NULL,
+    payload = (COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}')
+WHERE tenant_id=@tenant
+  AND job_id=@jobId
+  AND action='upsert'
+  AND status IN ('paused','canceled');
+""",
+            new { tenant = tenantId, jobId = row.JobId },
+            cancellationToken: ct));
+
+        if (resumedRows <= 0)
+            return Results.Conflict(new { error = "job_not_resumable", jobId = row.JobId, status = row.Status, docPath = row.DocPath });
+
+        return Results.Ok(new { resumed = true, docPath = row.DocPath, jobId = row.JobId });
     }
 
     private static async Task<IResult> DeleteAdminJobHistoryAsync(HttpContext ctx, NpgsqlDataSource ds)
@@ -1221,14 +1299,14 @@ WHERE tenant_id=@tenant AND doc_path=@docPath;
 DELETE FROM admin_jobs
 WHERE tenant_id=@tenant
   AND job_id = ANY(@ids)
-  AND COALESCE(lower(status),'') NOT IN ('queued','running')
+  AND COALESCE(lower(status),'') NOT IN ('queued','running','paused')
 RETURNING job_id;";
 
         const string deleteIngestionSql = @"
 DELETE FROM ingestion_jobs
 WHERE tenant_id=@tenant
   AND job_id = ANY(@ids)
-  AND COALESCE(lower(status),'') NOT IN ('queued','running')
+  AND COALESCE(lower(status),'') NOT IN ('queued','running','paused')
 RETURNING job_id;";
 
         var deletedSummaryIds = (await conn.QueryAsync<Guid>(
@@ -1297,7 +1375,7 @@ RETURNING job_id;";
             {
                 "done" => $"COALESCE(lower({tableAlias}.status),'') = 'done'",
                 "failed" => $"COALESCE(lower({tableAlias}.status),'') IN ('failed','canceled','cancelled')",
-                _ => $"COALESCE(lower({tableAlias}.status),'') NOT IN ('queued','running')"
+                _ => $"COALESCE(lower({tableAlias}.status),'') NOT IN ('queued','running','paused')"
             };
 
         await using var conn = await ds.OpenConnectionAsync(ct);
@@ -1405,7 +1483,7 @@ SELECT
 FROM ingestion_jobs
 WHERE tenant_id=@tenant
   AND doc_path=@docPath
-  AND status IN ('queued','running')
+  AND status IN ('queued','running','paused')
 ORDER BY created_at DESC
 LIMIT 1;
 """,
