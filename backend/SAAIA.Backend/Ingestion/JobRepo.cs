@@ -74,7 +74,7 @@ SET status = CASE
     END,
     locked_by=NULL,
     locked_at=NULL
-WHERE job_id=@job_id AND status='running';";
+WHERE job_id=@job_id AND status IN ('running','paused');";
         await conn.ExecuteAsync(new CommandDefinition(sql, new { job_id = jobId }, cancellationToken: ct));
     }
 
@@ -125,13 +125,22 @@ SET status = CASE
             THEN COALESCE(j.last_error, @err, 'canceled_by_admin')
         ELSE @err
     END,
+    payload = CASE
+        WHEN j.action='upsert'
+             AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.auto_ingest_paused, false)
+             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
+            THEN (COALESCE(j.payload, '{}'::jsonb) #- '{control,cancelRequested}')
+        ELSE COALESCE(j.payload, '{}'::jsonb)
+    END,
     locked_by=NULL,
     locked_at=NULL
 FROM documents d
 WHERE j.job_id=@job_id
   AND d.tenant_id=j.tenant_id
   AND d.doc_path=j.doc_path
-  AND j.status='running';";
+  AND j.status IN ('running','paused');";
         var affected = await conn.ExecuteAsync(new CommandDefinition(sql, new { job_id = jobId, err = error }, cancellationToken: ct));
 
         if (affected > 0)
@@ -154,7 +163,7 @@ SET status = CASE
     END,
     locked_by=NULL,
     locked_at=NULL
-WHERE job_id=@job_id AND status='running';";
+WHERE job_id=@job_id AND status IN ('running','paused');";
         await conn.ExecuteAsync(new CommandDefinition(fallbackSql, new { job_id = jobId, err = error }, cancellationToken: ct));
     }
 
@@ -199,6 +208,15 @@ SET status = CASE
             THEN NULL
         ELSE COALESCE(@reason, j.last_error)
     END,
+    payload = CASE
+        WHEN j.action='upsert'
+             AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.auto_ingest_paused, false)
+             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND COALESCE(@reason, '') LIKE 'canceled_by_admin%'
+            THEN (COALESCE(j.payload, '{}'::jsonb) #- '{control,cancelRequested}')
+        ELSE COALESCE(j.payload, '{}'::jsonb)
+    END,
     locked_by=NULL,
     locked_at=NULL,
     available_at=now()
@@ -228,6 +246,75 @@ WHERE job_id=@job_id
         await using var conn = await ds.OpenConnectionAsync(ct);
 
         const string sql = @"
+UPDATE ingestion_jobs j
+SET status = CASE
+        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+             AND j.action='upsert'
+             AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.auto_ingest_paused, false)
+             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+            THEN 'paused'
+        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false) THEN 'canceled'
+        ELSE 'queued'
+    END,
+    finished_at = CASE
+        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+             AND j.action='upsert'
+             AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.auto_ingest_paused, false)
+             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+            THEN NULL
+        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+            THEN COALESCE(j.finished_at, now())
+        ELSE j.finished_at
+    END,
+    started_at = CASE
+        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+             AND j.action='upsert'
+             AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.auto_ingest_paused, false)
+             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+            THEN NULL
+        ELSE j.started_at
+    END,
+    locked_at=NULL,
+    locked_by=NULL,
+    available_at=now(),
+    last_error = CASE
+        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+             AND j.action='upsert'
+             AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.auto_ingest_paused, false)
+             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+            THEN NULL
+        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+            THEN COALESCE(j.last_error, 'canceled_stale_running')
+        ELSE COALESCE(j.last_error, 'requeued_stale_running')
+    END,
+    payload = CASE
+        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+             AND j.action='upsert'
+             AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.auto_ingest_paused, false)
+             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+            THEN (COALESCE(j.payload, '{}'::jsonb) #- '{control,cancelRequested}')
+        ELSE COALESCE(j.payload, '{}'::jsonb)
+    END
+FROM documents d
+WHERE j.tenant_id=d.tenant_id
+  AND j.doc_path=d.doc_path
+  AND j.status='running'
+  AND (
+      j.locked_at IS NULL
+      OR j.locked_at < now() - (@stale_seconds * interval '1 second')
+  );";
+
+        var affected = await conn.ExecuteAsync(new CommandDefinition(sql, new
+        {
+            stale_seconds = (int)staleAfter.TotalSeconds
+        }, cancellationToken: ct));
+
+        const string fallbackSql = @"
 UPDATE ingestion_jobs
 SET status = CASE
         WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) THEN 'canceled'
@@ -247,15 +334,23 @@ SET status = CASE
         ELSE COALESCE(last_error, 'requeued_stale_running')
     END
 WHERE status='running'
-AND (
-    locked_at IS NULL
-    OR locked_at < now() - (@stale_seconds * interval '1 second')
-);";
+  AND (
+      locked_at IS NULL
+      OR locked_at < now() - (@stale_seconds * interval '1 second')
+  )
+  AND NOT EXISTS (
+      SELECT 1
+      FROM documents d
+      WHERE d.tenant_id=ingestion_jobs.tenant_id
+        AND d.doc_path=ingestion_jobs.doc_path
+  );";
 
-        return await conn.ExecuteAsync(new CommandDefinition(sql, new
+        affected += await conn.ExecuteAsync(new CommandDefinition(fallbackSql, new
         {
             stale_seconds = (int)staleAfter.TotalSeconds
         }, cancellationToken: ct));
+
+        return affected;
     }
 
     public static async Task TouchAsync(NpgsqlDataSource ds, Guid jobId, string workerId, CancellationToken ct)
@@ -322,7 +417,7 @@ LIMIT 1;
                || string.Equals(row.Status, "cancelled", StringComparison.OrdinalIgnoreCase);
     }
 
-    public static async Task<bool> IsCancellationRequestedAsync(NpgsqlDataSource ds, Guid tenantId, string docPath, Guid jobId, CancellationToken ct)
+    public static async Task<bool> IsCancellationRequestedAsync(NpgsqlDataSource ds, Guid tenantId, string docPath, Guid jobId, string action, CancellationToken ct)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
         const string sql = """
@@ -348,8 +443,10 @@ LIMIT 1;
             || string.Equals(row.JobStatus, "cancelled", StringComparison.OrdinalIgnoreCase))
             return true;
 
-        return row.DocumentAutoIngestPaused
-               && string.Equals(row.DocumentAutoIngestPauseReason, "admin_cancel", StringComparison.OrdinalIgnoreCase);
+        return IngestionAdminStatePolicies.ShouldTreatDocumentPauseAsCancellation(
+            action,
+            row.DocumentAutoIngestPaused,
+            row.DocumentAutoIngestPauseReason);
     }
 
     public static async Task<bool> CompleteUpsertAsync(
@@ -421,9 +518,21 @@ SET status=CASE
       ) THEN NULL
       ELSE COALESCE(last_error, 'canceled_by_admin')
     END,
+    payload=CASE
+      WHEN EXISTS (
+          SELECT 1
+          FROM documents d
+          WHERE d.tenant_id=@tenant_id
+            AND d.doc_path=@doc_path
+            AND COALESCE(d.indexed_version, 0) <= 0
+            AND COALESCE(d.auto_ingest_paused, false)
+            AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+      ) THEN (COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}')
+      ELSE COALESCE(payload, '{}'::jsonb)
+    END,
     locked_by=NULL,
     locked_at=NULL
-WHERE job_id=@job_id AND status='running';";
+WHERE job_id=@job_id AND status IN ('running','paused');";
             await conn.ExecuteAsync(new CommandDefinition(cancelSql, new { job_id = jobId, tenant_id = tenantId, doc_path = docPath }, transaction: tx, cancellationToken: ct));
 
             // Stabilize document within the same transaction to prevent scanner race
@@ -466,9 +575,10 @@ FOR UPDATE;";
 SET status='paused',
     finished_at=NULL,
     last_error=NULL,
+    payload=(COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}'),
     locked_by=NULL,
     locked_at=NULL
-WHERE job_id=@job_id AND status='running';";
+WHERE job_id=@job_id AND status IN ('running','paused');";
             await conn.ExecuteAsync(new CommandDefinition(cancelSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
             await tx.CommitAsync(ct);
             return false;

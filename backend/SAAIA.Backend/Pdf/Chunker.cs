@@ -1,6 +1,9 @@
 static class Chunker
 {
     public static List<Chunk> MakeChunks(List<WordToken> tokens, int maxWords, int overlapWords, int minWords)
+        => MakeChunks(tokens, maxWords, overlapWords, minWords, CancellationToken.None);
+
+    public static List<Chunk> MakeChunks(List<WordToken> tokens, int maxWords, int overlapWords, int minWords, CancellationToken ct)
     {
         var chunks = new List<Chunk>();
         int idx = 0;
@@ -8,6 +11,8 @@ static class Chunker
 
         while (idx < tokens.Count)
         {
+            ct.ThrowIfCancellationRequested();
+
             int end = Math.Min(idx + maxWords, tokens.Count);
             var slice = tokens.GetRange(idx, end - idx);
 

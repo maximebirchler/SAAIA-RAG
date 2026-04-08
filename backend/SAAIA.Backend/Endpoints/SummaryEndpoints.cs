@@ -59,6 +59,35 @@ public static class SummaryEndpoints
     public sealed record JobDeleteHistoryCommand(string[]? JobIds);
     public sealed record JobPurgeCommand(string? Scope, string? Type);
 
+    private static string GetAdminVisibleIngestionStatus(
+        string? status,
+        bool cancelRequested,
+        string? action,
+        int? documentIndexedVersion,
+        bool? documentAutoIngestPaused,
+        string? documentAutoIngestPauseReason)
+    {
+        var normalized = (status ?? string.Empty).Trim().ToLowerInvariant();
+        if (normalized == "paused")
+            return "paused";
+
+        if (normalized == "running"
+            && cancelRequested
+            && IngestionAdminStatePolicies.ShouldTreatDocumentPauseAsCancellation(
+                action,
+                documentAutoIngestPaused ?? false,
+                documentAutoIngestPauseReason)
+            && (documentIndexedVersion ?? 0) <= 0)
+        {
+            return "paused";
+        }
+
+        if (normalized == "running" && cancelRequested)
+            return "cancel_requested";
+
+        return normalized;
+    }
+
     private static async Task<IResult> GetSummaryAsync(HttpContext ctx, NpgsqlDataSource ds, Guid docId, string? level)
     {
         var tenantId = ctx.GetTenantId();
@@ -836,6 +865,13 @@ SELECT * FROM (
     i.action       AS "JobType",
     CASE
       WHEN i.status='paused' THEN 'paused'
+      WHEN i.status='running'
+           AND COALESCE((i.payload #>> '{control,cancelRequested}')::boolean, false)
+           AND i.action='upsert'
+           AND COALESCE(d.indexed_version, 0) <= 0
+           AND COALESCE(d.auto_ingest_paused, false)
+           AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+        THEN 'paused'
       WHEN i.status='running' AND COALESCE((i.payload #>> '{control,cancelRequested}')::boolean, false) THEN 'cancel_requested'
       ELSE i.status
     END            AS "Status",
@@ -915,6 +951,13 @@ SELECT * FROM (
     i.action       AS "JobType",
     CASE
       WHEN i.status='paused' THEN 'paused'
+      WHEN i.status='running'
+           AND COALESCE((i.payload #>> '{control,cancelRequested}')::boolean, false)
+           AND i.action='upsert'
+           AND COALESCE(d.indexed_version, 0) <= 0
+           AND COALESCE(d.auto_ingest_paused, false)
+           AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+        THEN 'paused'
       WHEN i.status='running' AND COALESCE((i.payload #>> '{control,cancelRequested}')::boolean, false) THEN 'cancel_requested'
       ELSE i.status
     END            AS "Status",
@@ -972,7 +1015,7 @@ WHERE tenant_id=@tenant AND job_id=@jobId AND status IN ('queued','running');
             return Results.Ok(new { canceled = true, jobId = cmd.JobId, type = "summary", affected = changed, status = "canceled", result = "canceled" });
         }
 
-        var ingestionRef = await conn.QueryFirstOrDefaultAsync<(Guid JobId, string DocPath, string Status, bool CancelRequested, string Action, int DocumentIndexedVersion)>(
+        var ingestionRef = await conn.QueryFirstOrDefaultAsync<(Guid JobId, string DocPath, string Status, bool CancelRequested, string Action, int DocumentIndexedVersion, string? DocumentStatus, bool DocumentAutoIngestPaused, string? DocumentAutoIngestPauseReason)>(
             new CommandDefinition(
                 """
 SELECT
@@ -981,7 +1024,10 @@ SELECT
   status AS "Status",
   COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) AS "CancelRequested",
   action AS "Action",
-  COALESCE(d.indexed_version, 0) AS "DocumentIndexedVersion"
+  COALESCE(d.indexed_version, 0) AS "DocumentIndexedVersion",
+  d.status AS "DocumentStatus",
+  COALESCE(d.auto_ingest_paused, false) AS "DocumentAutoIngestPaused",
+  d.auto_ingest_pause_reason AS "DocumentAutoIngestPauseReason"
 FROM ingestion_jobs
 LEFT JOIN documents d
   ON d.tenant_id=ingestion_jobs.tenant_id
@@ -999,8 +1045,83 @@ LIMIT 1;
             return Results.NotFound(new { error = "job_not_found", jobId = cmd.JobId });
         }
 
-        var canceledQueued = await conn.ExecuteAsync(new CommandDefinition(
-            """
+        var requestedAction = IngestionAdminStatePolicies.GetRequestedAdminAction(ingestionRef.Action, ingestionRef.DocumentIndexedVersion);
+        var shouldPauseInitialIngestion = requestedAction == AdminCancelAction.Pause;
+
+        var terminalStatus = (ingestionRef.Status ?? string.Empty).Trim().ToLowerInvariant();
+        if (terminalStatus is "done" or "failed" or "canceled" or "cancelled")
+        {
+            await tx.CommitAsync(ct);
+            return Results.Ok(new
+            {
+                canceled = false,
+                jobId = cmd.JobId,
+                type = "ingestion",
+                requestedAction = requestedAction.ToString().ToLowerInvariant(),
+                docPath = ingestionRef.DocPath,
+                previousStatus = terminalStatus,
+                status = terminalStatus,
+                queuedStateChanged = 0,
+                runningCancelRequested = 0,
+                canceledInMemory = 0,
+                result = "already_finished"
+            });
+        }
+
+        var runningCancelRequested = shouldPauseInitialIngestion
+            ? await conn.ExecuteAsync(new CommandDefinition(
+                """
+UPDATE ingestion_jobs
+SET status='paused',
+    started_at=NULL,
+    finished_at=NULL,
+    last_error=NULL,
+    locked_by=NULL,
+    locked_at=NULL,
+    available_at=now(),
+    payload = jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,cancelRequested}', 'true'::jsonb, true)
+WHERE tenant_id=@tenant
+  AND job_id=@jobId
+  AND action='upsert'
+  AND status='running';
+""",
+                new { tenant = tenantId, jobId = cmd.JobId },
+                transaction: tx,
+                cancellationToken: ct))
+            : await conn.ExecuteAsync(new CommandDefinition(
+                """
+UPDATE ingestion_jobs
+SET payload = jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,cancelRequested}', 'true'::jsonb, true)
+WHERE tenant_id=@tenant
+  AND job_id=@jobId
+  AND status='running';
+""",
+                new { tenant = tenantId, jobId = cmd.JobId },
+                transaction: tx,
+                cancellationToken: ct));
+
+        var queuedStateChanged = shouldPauseInitialIngestion
+            ? await conn.ExecuteAsync(new CommandDefinition(
+                """
+UPDATE ingestion_jobs
+SET status='paused',
+    attempts=0,
+    started_at=NULL,
+    finished_at=NULL,
+    last_error=NULL,
+    locked_by=NULL,
+    locked_at=NULL,
+    available_at=now(),
+    payload = (COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}')
+WHERE tenant_id=@tenant
+  AND job_id=@jobId
+  AND status IN ('queued','paused');
+""",
+                new { tenant = tenantId, jobId = cmd.JobId },
+                transaction: tx,
+                cancellationToken: ct))
+            : await conn.ExecuteAsync(new CommandDefinition(
+                """
 UPDATE ingestion_jobs
 SET status='canceled',
     finished_at=COALESCE(finished_at, now()),
@@ -1010,40 +1131,24 @@ SET status='canceled',
     available_at=now()
 WHERE tenant_id=@tenant
   AND job_id=@jobId
-  AND action='upsert'
   AND status IN ('queued','paused');
 """,
-            new { tenant = tenantId, jobId = cmd.JobId },
-            transaction: tx,
-            cancellationToken: ct));
+                new { tenant = tenantId, jobId = cmd.JobId },
+                transaction: tx,
+                cancellationToken: ct));
 
-        var runningCancelRequested = await conn.ExecuteAsync(new CommandDefinition(
-            """
-UPDATE ingestion_jobs
-SET payload = jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,cancelRequested}', 'true'::jsonb, true)
-WHERE tenant_id=@tenant
-  AND job_id=@jobId
-  AND action='upsert'
-  AND status='running';
-""",
-            new { tenant = tenantId, jobId = cmd.JobId },
-            transaction: tx,
-            cancellationToken: ct));
-
-        var shouldPauseInitialIngestion = string.Equals(ingestionRef.Action, "upsert", StringComparison.OrdinalIgnoreCase)
-            && ingestionRef.DocumentIndexedVersion <= 0;
-
-        if ((canceledQueued > 0 || runningCancelRequested > 0) && shouldPauseInitialIngestion)
+        if (shouldPauseInitialIngestion && (queuedStateChanged > 0 || runningCancelRequested > 0))
         {
             await conn.ExecuteAsync(new CommandDefinition(
                 """
 UPDATE documents
 SET auto_ingest_paused=true,
-    auto_ingest_paused_at=now(),
+    auto_ingest_paused_at=COALESCE(auto_ingest_paused_at, now()),
     auto_ingest_pause_reason='admin_cancel',
     status = CASE
         WHEN COALESCE(indexed_version, 0) > 0 THEN 'indexed'
-        ELSE status
+        WHEN COALESCE(status, '') IN ('missing','deleted') THEN status
+        ELSE 'pending'
     END,
     updated_at=now()
 WHERE tenant_id=@tenant
@@ -1055,42 +1160,33 @@ WHERE tenant_id=@tenant
                 cancellationToken: ct));
         }
 
-        var pausedQueued = 0;
-        if (shouldPauseInitialIngestion && canceledQueued > 0)
-        {
-            pausedQueued = await conn.ExecuteAsync(new CommandDefinition(
-                """
-UPDATE ingestion_jobs
-SET status='paused',
-    started_at=NULL,
-    finished_at=NULL,
-    last_error=NULL,
-    payload = (COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}')
-WHERE tenant_id=@tenant
-  AND job_id=@jobId
-  AND action='upsert'
-  AND status='canceled'
-  AND COALESCE(last_error,'')='canceled_by_admin';
-""",
-                new { tenant = tenantId, jobId = cmd.JobId },
-                transaction: tx,
-                cancellationToken: ct));
-        }
-
-        var effectiveStatus = await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
+        var effectiveStatusRow = await conn.QueryFirstOrDefaultAsync<(string? Status, bool CancelRequested, string? Action, int DocumentIndexedVersion, bool DocumentAutoIngestPaused, string? DocumentAutoIngestPauseReason)>(new CommandDefinition(
             """
-SELECT CASE
-            WHEN status='paused' THEN 'paused'
-            WHEN status='running' AND COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) THEN 'cancel_requested'
-            ELSE status
-END
-FROM ingestion_jobs
-WHERE tenant_id=@tenant AND job_id=@jobId
+SELECT
+    i.status AS "Status",
+    COALESCE((i.payload #>> '{control,cancelRequested}')::boolean, false) AS "CancelRequested",
+    i.action AS "Action",
+    COALESCE(d.indexed_version, 0) AS "DocumentIndexedVersion",
+    COALESCE(d.auto_ingest_paused, false) AS "DocumentAutoIngestPaused",
+    d.auto_ingest_pause_reason AS "DocumentAutoIngestPauseReason"
+FROM ingestion_jobs i
+LEFT JOIN documents d
+  ON d.tenant_id=i.tenant_id
+ AND d.doc_path=i.doc_path
+WHERE i.tenant_id=@tenant AND i.job_id=@jobId
 LIMIT 1;
 """,
             new { tenant = tenantId, jobId = cmd.JobId },
             transaction: tx,
             cancellationToken: ct));
+
+        var effectiveStatus = GetAdminVisibleIngestionStatus(
+            effectiveStatusRow.Status,
+            effectiveStatusRow.CancelRequested,
+            effectiveStatusRow.Action,
+            effectiveStatusRow.DocumentIndexedVersion,
+            effectiveStatusRow.DocumentAutoIngestPaused,
+            effectiveStatusRow.DocumentAutoIngestPauseReason);
 
         var normalizedPreviousStatus = string.Equals(ingestionRef.Status, "running", StringComparison.OrdinalIgnoreCase) && ingestionRef.CancelRequested
             ? "cancel_requested"
@@ -1102,32 +1198,29 @@ LIMIT 1;
             "canceled" or "cancelled" => "canceled",
             "cancel_requested" => "cancel_requested",
             "done" or "failed" => "already_finished",
-            _ when canceledQueued > 0 || runningCancelRequested > 0 || pausedQueued > 0 => "accepted",
+            _ when queuedStateChanged > 0 || runningCancelRequested > 0 => "accepted",
             _ => "nothing_changed"
         };
 
         await tx.CommitAsync(ct);
 
         var canceledInMemory = 0;
-        if (canceledQueued > 0 || runningCancelRequested > 0)
+        if (runningCancelRequested > 0 && cancelRegistry.TryCancel(cmd.JobId))
         {
-            canceledInMemory += cancelRegistry.CancelByDocPath(tenantId, ingestionRef.DocPath);
-            if (runningCancelRequested == 0 && cancelRegistry.TryCancel(cmd.JobId))
-                canceledInMemory++;
+            canceledInMemory++;
         }
 
         return Results.Ok(new
         {
-            canceled = canceledQueued > 0 || runningCancelRequested > 0 || pausedQueued > 0 || string.Equals(effectiveStatus, "canceled", StringComparison.OrdinalIgnoreCase),
+            canceled = queuedStateChanged > 0 || runningCancelRequested > 0 || string.Equals(effectiveStatus, "canceled", StringComparison.OrdinalIgnoreCase) || string.Equals(effectiveStatus, "paused", StringComparison.OrdinalIgnoreCase),
             jobId = cmd.JobId,
             type = "ingestion",
-            requestedAction = shouldPauseInitialIngestion ? "pause" : "cancel",
+            requestedAction = requestedAction.ToString().ToLowerInvariant(),
             docPath = ingestionRef.DocPath,
             previousStatus = normalizedPreviousStatus,
-            status = effectiveStatus ?? normalizedPreviousStatus,
-            canceledQueued,
+            status = string.IsNullOrWhiteSpace(effectiveStatus) ? normalizedPreviousStatus : effectiveStatus,
+            queuedStateChanged,
             runningCancelRequested,
-            pausedQueued,
             canceledInMemory,
             result
         });
@@ -1142,8 +1235,9 @@ LIMIT 1;
             return Results.BadRequest(new { error = "job_id_required" });
 
         await using var conn = await ds.OpenConnectionAsync(ct);
+        await using var tx = await conn.BeginTransactionAsync(ct);
 
-        var row = await conn.QueryFirstOrDefaultAsync<(Guid JobId, string DocPath, string Category, bool AutoIngestPaused, string Status, string Action)>(
+        var row = await conn.QueryFirstOrDefaultAsync<(Guid JobId, string DocPath, string Category, bool AutoIngestPaused, string? AutoIngestPauseReason, string Status, string Action, string? DocumentStatus, int DocumentIndexedVersion)>(
             new CommandDefinition(
                 """
 SELECT
@@ -1151,8 +1245,11 @@ SELECT
   i.doc_path AS "DocPath",
   COALESCE(d.category, i.category, 'general') AS "Category",
   COALESCE(d.auto_ingest_paused, false) AS "AutoIngestPaused",
+  d.auto_ingest_pause_reason AS "AutoIngestPauseReason",
   i.status AS "Status",
-  i.action AS "Action"
+  i.action AS "Action",
+  d.status AS "DocumentStatus",
+  COALESCE(d.indexed_version, 0) AS "DocumentIndexedVersion"
 FROM ingestion_jobs i
 LEFT JOIN documents d
   ON d.tenant_id=i.tenant_id
@@ -1161,16 +1258,51 @@ WHERE i.tenant_id=@tenant AND i.job_id=@jobId
 LIMIT 1;
 """,
                 new { tenant = tenantId, jobId = cmd.JobId },
+                transaction: tx,
                 cancellationToken: ct));
 
         if (row.JobId == Guid.Empty)
+        {
+            await tx.CommitAsync(ct);
             return Results.NotFound(new { error = "job_not_found", jobId = cmd.JobId });
+        }
 
-        if (!row.AutoIngestPaused)
+        var resumeEligibility = IngestionAdminStatePolicies.EvaluateResumeEligibility(
+            row.Action,
+            row.Status,
+            row.AutoIngestPaused,
+            row.AutoIngestPauseReason,
+            row.DocumentStatus);
+
+        if (resumeEligibility == ResumeEligibility.NotPaused)
+        {
+            await tx.CommitAsync(ct);
             return Results.Ok(new { resumed = false, reason = "not_paused", jobId = cmd.JobId, docPath = row.DocPath });
+        }
 
-        if (!string.Equals(row.Action, "upsert", StringComparison.OrdinalIgnoreCase))
+        if (resumeEligibility == ResumeEligibility.NotUpsert)
+        {
+            await tx.CommitAsync(ct);
             return Results.Conflict(new { error = "only_upsert_can_resume", jobId = cmd.JobId, docPath = row.DocPath });
+        }
+
+        if (resumeEligibility == ResumeEligibility.WrongJobStatus)
+        {
+            await tx.CommitAsync(ct);
+            return Results.Conflict(new { error = "job_not_resumable", jobId = row.JobId, status = row.Status, docPath = row.DocPath });
+        }
+
+        if (resumeEligibility == ResumeEligibility.UnsupportedPauseReason)
+        {
+            await tx.CommitAsync(ct);
+            return Results.Conflict(new { error = "unsupported_pause_reason", jobId = row.JobId, reason = row.AutoIngestPauseReason, docPath = row.DocPath });
+        }
+
+        if (resumeEligibility == ResumeEligibility.DocumentDeleted)
+        {
+            await tx.CommitAsync(ct);
+            return Results.Conflict(new { error = "document_deleted", jobId = row.JobId, docPath = row.DocPath });
+        }
 
         var active = await conn.ExecuteScalarAsync<int?>(new CommandDefinition(
             """
@@ -1183,14 +1315,21 @@ WHERE tenant_id=@tenant
 LIMIT 1;
 """,
             new { tenant = tenantId, docPath = row.DocPath, jobId = row.JobId },
+            transaction: tx,
             cancellationToken: ct));
 
         if (active.HasValue)
+        {
+            await tx.CommitAsync(ct);
             return Results.Conflict(new { error = "active_job_exists", docPath = row.DocPath });
+        }
 
         var absPath = DocPathNormalizer.ToAbsoluteFromRelative(row.DocPath, ingestOpt.Value.DocumentsRoot);
         if (!File.Exists(absPath))
+        {
+            await tx.CommitAsync(ct);
             return Results.Conflict(new { error = "document_file_not_found", docPath = row.DocPath });
+        }
 
         await conn.ExecuteAsync(new CommandDefinition(
             """
@@ -1198,10 +1337,16 @@ UPDATE documents
 SET auto_ingest_paused=false,
     auto_ingest_paused_at=NULL,
     auto_ingest_pause_reason=NULL,
+    status=CASE
+        WHEN COALESCE(indexed_version, 0) > 0 THEN 'indexed'
+        WHEN COALESCE(status, '') IN ('missing','deleted') THEN status
+        ELSE 'pending'
+    END,
     updated_at=now()
 WHERE tenant_id=@tenant AND doc_path=@docPath;
 """,
             new { tenant = tenantId, docPath = row.DocPath },
+            transaction: tx,
             cancellationToken: ct));
 
         var resumedRows = await conn.ExecuteAsync(new CommandDefinition(
@@ -1222,10 +1367,16 @@ WHERE tenant_id=@tenant
   AND status='paused';
 """,
             new { tenant = tenantId, jobId = row.JobId },
+            transaction: tx,
             cancellationToken: ct));
 
         if (resumedRows <= 0)
+        {
+            await tx.CommitAsync(ct);
             return Results.Conflict(new { error = "job_not_resumable", jobId = row.JobId, status = row.Status, docPath = row.DocPath });
+        }
+
+        await tx.CommitAsync(ct);
 
         return Results.Ok(new { resumed = true, docPath = row.DocPath, jobId = row.JobId });
     }

@@ -680,6 +680,116 @@ public sealed partial class MainWindow
         }
     }
 
+    private async Task<string?> WaitForAdminJobCancellationSettlementAsync(
+        AdminJobsOverlayContext context,
+        string jobId,
+        string requestedAction,
+        CancellationToken ct)
+    {
+        const int maxAttempts = 20;
+        const int delayMs = 350;
+
+        string? lastStatus = null;
+        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            if (attempt > 0)
+                await Task.Delay(delayMs, ct).ConfigureAwait(true);
+
+            try
+            {
+                var response = await _api.AdminJobGetAsync(jobId, ct).ConfigureAwait(true);
+                lastStatus = NormalizeTrackedJobStatus(TryGetString(response, "Status") ?? TryGetString(response, "status") ?? string.Empty);
+                var cancelRequested = TryGetBool(response, "CancelRequested") ?? TryGetBool(response, "cancelRequested") ?? false;
+                if (IsAdminJobCancellationSettled(lastStatus, cancelRequested, requestedAction))
+                    break;
+            }
+            catch
+            {
+                break;
+            }
+        }
+
+        await RefreshAdminJobsOverlayAsync(context, ct).ConfigureAwait(true);
+        return lastStatus;
+    }
+
+    private static bool IsAdminJobCancellationSettled(string? status, bool cancelRequested, string requestedAction)
+    {
+        var normalized = NormalizeTrackedJobStatus(status);
+        if (string.Equals(requestedAction, "pause", StringComparison.OrdinalIgnoreCase))
+        {
+            if (normalized == "paused")
+                return !cancelRequested;
+
+            return normalized is "canceled" or "failed" or "done";
+        }
+
+        return normalized is "canceled" or "failed" or "done";
+    }
+
+    private static bool IsAdminPauseTransitionPending(AdminJobListItem item)
+    {
+        var normalizedStatus = NormalizeTrackedJobStatus(item.Status);
+        return normalizedStatus == "paused"
+            && item.CancelRequested == true
+            && string.Equals(item.JobType, "upsert", StringComparison.OrdinalIgnoreCase)
+            && (item.DocumentIndexedVersion ?? 0) <= 0
+            && item.DocumentAutoIngestPaused == true
+            && string.Equals((item.DocumentAutoIngestPauseReason ?? string.Empty).Trim(), "admin_cancel", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void ApplyOptimisticAdminJobAction(AdminJobsOverlayContext context, AdminJobListItem sourceItem, string requestedAction)
+    {
+        var optimisticStatus = requestedAction == "pause"
+            ? "paused"
+            : sourceItem.IsRunning ? "cancel_requested" : "canceled";
+
+        context.Items = context.Items
+            .Select(item => string.Equals(item.JobId, sourceItem.JobId, StringComparison.OrdinalIgnoreCase)
+                ? CloneAdminJobItem(
+                    item,
+                    status: optimisticStatus,
+                    cancelRequested: requestedAction == "pause" || sourceItem.IsRunning,
+                    documentAutoIngestPaused: requestedAction == "pause" ? true : item.DocumentAutoIngestPaused,
+                    documentAutoIngestPauseReason: requestedAction == "pause" ? "admin_cancel" : item.DocumentAutoIngestPauseReason)
+                : item)
+            .ToList();
+
+        RenderAdminJobsOverlay(context);
+    }
+
+    private static AdminJobListItem CloneAdminJobItem(
+        AdminJobListItem item,
+        string? status = null,
+        bool? cancelRequested = null,
+        bool? documentAutoIngestPaused = null,
+        string? documentAutoIngestPauseReason = null)
+        => new()
+        {
+            JobId = item.JobId,
+            Type = item.Type,
+            JobType = item.JobType,
+            Status = status ?? item.Status,
+            DocId = item.DocId,
+            DocPath = item.DocPath,
+            Level = item.Level,
+            LastError = item.LastError,
+            CreatedAt = item.CreatedAt,
+            StartedAt = item.StartedAt,
+            FinishedAt = item.FinishedAt,
+            ProgressPhase = item.ProgressPhase,
+            ProgressCurrent = item.ProgressCurrent,
+            ProgressTotal = item.ProgressTotal,
+            ProgressPercent = item.ProgressPercent,
+            CancelRequested = cancelRequested ?? item.CancelRequested,
+            EnqueueSource = item.EnqueueSource,
+            DocumentStatus = item.DocumentStatus,
+            DocumentIngestionVersion = item.DocumentIngestionVersion,
+            DocumentIndexedVersion = item.DocumentIndexedVersion,
+            DocumentAutoIngestPaused = documentAutoIngestPaused ?? item.DocumentAutoIngestPaused,
+            DocumentAutoIngestPauseReason = documentAutoIngestPauseReason ?? item.DocumentAutoIngestPauseReason
+        };
+
     private void RenderAdminJobsOverlay(AdminJobsOverlayContext context)
     {
         var visibleItems = ApplyAdminJobsFilters(context);
@@ -1120,7 +1230,14 @@ public sealed partial class MainWindow
         actions.Children.Add(copyButton);
 
 
-        if (item.DocumentAutoIngestPaused == true)
+        var normalizedStatus = NormalizeTrackedJobStatus(item.Status);
+        var isInitialIngestion = string.Equals(item.JobType, "upsert", StringComparison.OrdinalIgnoreCase)
+                                 && (item.DocumentIndexedVersion ?? 0) <= 0;
+        var isPauseTransitionPending = IsAdminPauseTransitionPending(item);
+        var isCancelRequested = string.Equals(normalizedStatus, "cancel_requested", StringComparison.OrdinalIgnoreCase)
+                                || isPauseTransitionPending;
+
+        if (item.DocumentAutoIngestPaused == true && !isCancelRequested)
         {
             var resumeButton = BuildDialogInlineButton(ClientUiText.Get("admin.jobs.resume", UiLang));
             resumeButton.Click += async (_, __) =>
@@ -1154,49 +1271,84 @@ public sealed partial class MainWindow
 
         if (!item.IsTerminal)
         {
-            var isInitialIngestion = string.Equals(item.JobType, "upsert", StringComparison.OrdinalIgnoreCase)
-                                     && (item.DocumentIndexedVersion ?? 0) <= 0;
-            var cancelButton = BuildDialogInlineButton(
-                ClientUiText.Get(isInitialIngestion ? "admin.jobs.pause" : "admin.jobs.cancel", UiLang),
-                destructive: true);
-            cancelButton.Click += async (_, __) =>
+            if (isCancelRequested)
             {
-                try
+                var pendingButton = BuildDialogInlineButton(
+                    ClientUiText.Get(isInitialIngestion ? "admin.jobs.pause" : "admin.jobs.cancel", UiLang) + "...",
+                    destructive: !isInitialIngestion);
+                pendingButton.IsEnabled = false;
+                actions.Children.Add(pendingButton);
+            }
+            else
+            {
+                var cancelButton = BuildDialogInlineButton(
+                    ClientUiText.Get(isInitialIngestion ? "admin.jobs.pause" : "admin.jobs.cancel", UiLang),
+                    destructive: true);
+                cancelButton.Click += async (_, __) =>
                 {
-                    cancelButton.IsEnabled = false;
-                    var response = await _api.AdminJobsCancelAsync(item.JobId, CancellationToken.None).ConfigureAwait(true);
-                    await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+                    try
+                    {
+                        cancelButton.IsEnabled = false;
+                        var optimisticRequestedAction = isInitialIngestion ? "pause" : "cancel";
+                        ApplyOptimisticAdminJobAction(context, item, optimisticRequestedAction);
+                        var response = await _api.AdminJobsCancelAsync(item.JobId, CancellationToken.None).ConfigureAwait(true);
 
-                    var result = (TryGetString(response, "result") ?? string.Empty).Trim().ToLowerInvariant();
-                    var status = NormalizeTrackedJobStatus(TryGetString(response, "status") ?? string.Empty);
-                    var cancelRequested = (TryGetInt(response, "runningCancelRequested") ?? 0) > 0 || status == "cancel_requested" || result == "cancel_requested";
-                    var canceled = TryGetPropertyIgnoreCase(response, "canceled", out var canceledEl)
-                        && canceledEl.ValueKind is JsonValueKind.True or JsonValueKind.False
-                        && canceledEl.GetBoolean();
+                        var result = (TryGetString(response, "result") ?? string.Empty).Trim().ToLowerInvariant();
+                        var status = NormalizeTrackedJobStatus(TryGetString(response, "status") ?? string.Empty);
+                        var requestedAction = (TryGetString(response, "requestedAction") ?? string.Empty).Trim().ToLowerInvariant();
+                        var cancelRequested = (TryGetInt(response, "runningCancelRequested") ?? 0) > 0 || status == "cancel_requested" || result == "cancel_requested";
+                        var canceled = TryGetPropertyIgnoreCase(response, "canceled", out var canceledEl)
+                            && canceledEl.ValueKind is JsonValueKind.True or JsonValueKind.False
+                            && canceledEl.GetBoolean();
 
-                    if (cancelRequested)
-                        Status(ClientUiText.Get("admin.jobs.cancel_requested", UiLang));
-                    else if (status == "paused" || result == "paused")
-                        Status(ClientUiText.Get("admin.jobs.cancel_done", UiLang));
-                    else if (status is "canceled" or "cancelled" || result == "canceled")
-                        Status(ClientUiText.Get("admin.jobs.cancel_done", UiLang));
-                    else if (status is "done" or "failed" || result == "already_finished")
-                        Status(ClientUiText.Get("admin.jobs.cancel_already_finished", UiLang));
-                    else if (canceled)
-                        Status(ClientUiText.Get("admin.jobs.cancel_done", UiLang));
-                    else
-                        Status(ClientUiText.Get("admin.jobs.cancel_nothing", UiLang));
-                }
-                catch (Exception ex)
-                {
-                    Status(ClientUiText.Get("admin.jobs.refresh_failed", UiLang) + ex.Message);
-                }
-                finally
-                {
-                    cancelButton.IsEnabled = true;
-                }
-            };
-            actions.Children.Add(cancelButton);
+                        if (cancelRequested && requestedAction == "pause")
+                        {
+                            Status(ClientUiText.Get("admin.jobs.pause", UiLang) + "...");
+                            status = NormalizeTrackedJobStatus(
+                                await WaitForAdminJobCancellationSettlementAsync(context, item.JobId, requestedAction, CancellationToken.None).ConfigureAwait(true)
+                                ?? status);
+                            cancelRequested = status == "cancel_requested";
+                        }
+                        else if (cancelRequested)
+                        {
+                            Status(ClientUiText.Get("admin.jobs.cancel_requested", UiLang));
+                            status = NormalizeTrackedJobStatus(
+                                await WaitForAdminJobCancellationSettlementAsync(context, item.JobId, requestedAction, CancellationToken.None).ConfigureAwait(true)
+                                ?? status);
+                            cancelRequested = status == "cancel_requested";
+                        }
+                        else
+                        {
+                            await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+                        }
+
+                        if (cancelRequested && requestedAction == "pause")
+                            Status(ClientUiText.Get("admin.jobs.pause", UiLang) + "...");
+                        else if (cancelRequested)
+                            Status(ClientUiText.Get("admin.jobs.cancel_requested", UiLang));
+                        else if (status == "paused" || result == "paused")
+                            Status(ClientUiText.Get("admin.jobs.cancel_done", UiLang));
+                        else if (status is "canceled" or "cancelled" || result == "canceled")
+                            Status(ClientUiText.Get("admin.jobs.cancel_done", UiLang));
+                        else if (status is "done" or "failed" || result == "already_finished")
+                            Status(ClientUiText.Get("admin.jobs.cancel_already_finished", UiLang));
+                        else if (canceled)
+                            Status(ClientUiText.Get("admin.jobs.cancel_done", UiLang));
+                        else
+                            Status(ClientUiText.Get("admin.jobs.cancel_nothing", UiLang));
+                    }
+                    catch (Exception ex)
+                    {
+                        await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+                        Status(ClientUiText.Get("admin.jobs.refresh_failed", UiLang) + ex.Message);
+                    }
+                    finally
+                    {
+                        cancelButton.IsEnabled = true;
+                    }
+                };
+                actions.Children.Add(cancelButton);
+            }
         }
 
         stack.Children.Add(actions);
@@ -1563,6 +1715,17 @@ public sealed partial class MainWindow
     private string BuildAdminJobProgressLine(AdminJobListItem item)
     {
         var status = NormalizeTrackedJobStatus(item.Status);
+        if (IsAdminPauseTransitionPending(item))
+            return ClientUiText.Get("admin.jobs.pause", UiLang) + "...";
+
+        if (status == "cancel_requested"
+            && string.Equals(item.JobType, "upsert", StringComparison.OrdinalIgnoreCase)
+            && (item.DocumentIndexedVersion ?? 0) <= 0
+            && item.DocumentAutoIngestPaused == true)
+        {
+            return ClientUiText.Get("admin.jobs.pause", UiLang) + "...";
+        }
+
         if (status == "queued" || status == "paused")
         {
             var action = TranslateAdminJobType(item.JobType)?.ToLowerInvariant();

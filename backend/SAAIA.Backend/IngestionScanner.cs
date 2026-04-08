@@ -459,6 +459,72 @@ FROM (
     private static async Task MarkStaleRunningJobsFailedAsync(NpgsqlConnection conn, Guid tenantId, TimeSpan staleRunningAfter, CancellationToken ct)
     {
         const string sql = @"
+UPDATE ingestion_jobs j
+SET status = CASE
+        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+             AND j.action='upsert'
+             AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.auto_ingest_paused, false)
+             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+            THEN 'paused'
+        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false) THEN 'canceled'
+        ELSE 'failed'
+    END,
+    locked_at=NULL,
+    locked_by=NULL,
+    finished_at=CASE
+        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+             AND j.action='upsert'
+             AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.auto_ingest_paused, false)
+             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+            THEN NULL
+        ELSE now()
+    END,
+    started_at=CASE
+        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+             AND j.action='upsert'
+             AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.auto_ingest_paused, false)
+             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+            THEN NULL
+        ELSE j.started_at
+    END,
+    last_error = CASE
+        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+             AND j.action='upsert'
+             AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.auto_ingest_paused, false)
+             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+            THEN NULL
+        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+            THEN COALESCE(j.last_error,'canceled_stale_scanner')
+        ELSE COALESCE(j.last_error,'stale_running_scanner')
+    END,
+    payload = CASE
+        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+             AND j.action='upsert'
+             AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.auto_ingest_paused, false)
+             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+            THEN (COALESCE(j.payload, '{}'::jsonb) #- '{control,cancelRequested}')
+        ELSE COALESCE(j.payload, '{}'::jsonb)
+    END
+FROM documents d
+WHERE j.tenant_id=@tenant_id
+  AND j.tenant_id=d.tenant_id
+  AND j.doc_path=d.doc_path
+  AND j.status='running'
+  AND j.locked_at IS NOT NULL
+  AND j.locked_at < (now() - @stale);";
+
+        await conn.ExecuteAsync(new CommandDefinition(sql, new
+        {
+            tenant_id = tenantId,
+            stale = staleRunningAfter
+        }, cancellationToken: ct));
+
+        const string fallbackSql = @"
 UPDATE ingestion_jobs
 SET status = CASE
         WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) THEN 'canceled'
@@ -475,9 +541,15 @@ SET status = CASE
 WHERE tenant_id=@tenant_id
   AND status='running'
   AND locked_at IS NOT NULL
-  AND locked_at < (now() - @stale);";
+  AND locked_at < (now() - @stale)
+  AND NOT EXISTS (
+      SELECT 1
+      FROM documents d
+      WHERE d.tenant_id=ingestion_jobs.tenant_id
+        AND d.doc_path=ingestion_jobs.doc_path
+  );";
 
-        await conn.ExecuteAsync(new CommandDefinition(sql, new
+        await conn.ExecuteAsync(new CommandDefinition(fallbackSql, new
         {
             tenant_id = tenantId,
             stale = staleRunningAfter

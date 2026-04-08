@@ -206,7 +206,7 @@ WHERE job_id=@job_id
 
     private static async Task ThrowIfJobCanceledAsync(NpgsqlDataSource ds, IngestionJob job, CancellationToken ct)
     {
-        if (await JobRepo.IsCancellationRequestedAsync(ds, job.TenantId, job.DocPath, job.JobId, ct).ConfigureAwait(false))
+        if (await JobRepo.IsCancellationRequestedAsync(ds, job.TenantId, job.DocPath, job.JobId, job.Action, ct).ConfigureAwait(false))
             throw new JobCanceledException("canceled_by_admin");
     }
 
@@ -316,7 +316,7 @@ WHERE job_id=@job_id
         if (tokens.Count == 0)
             throw new Exception("No text extracted from PDF");
 
-        var chunks = Chunker.MakeChunks(tokens, ingest.ChunkMaxWords, ingest.ChunkOverlapWords, ingest.ChunkMinWords);
+        var chunks = Chunker.MakeChunks(tokens, ingest.ChunkMaxWords, ingest.ChunkOverlapWords, ingest.ChunkMinWords, ct);
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
         await JobRepo.UpdateProgressAsync(ds, job.JobId, "embedding", 0, chunks.Count, ct);
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
