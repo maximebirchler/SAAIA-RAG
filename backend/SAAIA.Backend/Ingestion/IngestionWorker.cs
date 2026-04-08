@@ -441,6 +441,9 @@ WHERE job_id=@job_id
         await ThrowIfJobCanceledAsync(ds, job, ct);
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
 
+        if (!File.Exists(absPath))
+            throw new Exception("source_removed_during_ingestion");
+
         var mtime = File.GetLastWriteTimeUtc(absPath);
         var committed = await JobRepo.CompleteUpsertAsync(
             ds, tenantId, job.JobId, relDocPath,
