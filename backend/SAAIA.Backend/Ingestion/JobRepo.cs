@@ -82,21 +82,80 @@ WHERE job_id=@job_id AND status='running';";
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
         const string sql = @"
+UPDATE ingestion_jobs j
+SET status = CASE
+        WHEN j.action='upsert'
+             AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.auto_ingest_paused, false)
+             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND COALESCE(@err, '') <> 'source_removed_during_ingestion'
+            THEN 'paused'
+        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+             AND COALESCE(@err, '') <> 'source_removed_during_ingestion'
+            THEN 'canceled'
+        ELSE 'failed'
+    END,
+    finished_at = CASE
+        WHEN j.action='upsert'
+             AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.auto_ingest_paused, false)
+             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND COALESCE(@err, '') <> 'source_removed_during_ingestion'
+            THEN NULL
+        ELSE now()
+    END,
+    started_at = CASE
+        WHEN j.action='upsert'
+             AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.auto_ingest_paused, false)
+             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND COALESCE(@err, '') <> 'source_removed_during_ingestion'
+            THEN NULL
+        ELSE j.started_at
+    END,
+    last_error = CASE
+        WHEN j.action='upsert'
+             AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.auto_ingest_paused, false)
+             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND COALESCE(@err, '') <> 'source_removed_during_ingestion'
+            THEN NULL
+        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+             AND COALESCE(@err, '') <> 'source_removed_during_ingestion'
+            THEN COALESCE(j.last_error, @err, 'canceled_by_admin')
+        ELSE @err
+    END,
+    locked_by=NULL,
+    locked_at=NULL
+FROM documents d
+WHERE j.job_id=@job_id
+  AND d.tenant_id=j.tenant_id
+  AND d.doc_path=j.doc_path
+  AND j.status='running';";
+        var affected = await conn.ExecuteAsync(new CommandDefinition(sql, new { job_id = jobId, err = error }, cancellationToken: ct));
+
+        if (affected > 0)
+            return;
+
+        const string fallbackSql = @"
 UPDATE ingestion_jobs
 SET status = CASE
-        WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) THEN 'canceled'
+        WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false)
+             AND COALESCE(@err, '') <> 'source_removed_during_ingestion'
+            THEN 'canceled'
         ELSE 'failed'
     END,
     finished_at=now(),
     last_error = CASE
         WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false)
+             AND COALESCE(@err, '') <> 'source_removed_during_ingestion'
             THEN COALESCE(last_error, @err, 'canceled_by_admin')
         ELSE @err
     END,
     locked_by=NULL,
     locked_at=NULL
 WHERE job_id=@job_id AND status='running';";
-        await conn.ExecuteAsync(new CommandDefinition(sql, new { job_id = jobId, err = error }, cancellationToken: ct));
+        await conn.ExecuteAsync(new CommandDefinition(fallbackSql, new { job_id = jobId, err = error }, cancellationToken: ct));
     }
 
     public static async Task MarkCanceledAsync(NpgsqlDataSource ds, Guid jobId, string reason, CancellationToken ct)

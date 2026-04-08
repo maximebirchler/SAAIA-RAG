@@ -1131,6 +1131,7 @@ LIMIT 1;
             canceled = canceledQueued > 0 || runningCancelRequested > 0 || pausedQueued > 0 || string.Equals(effectiveStatus, "canceled", StringComparison.OrdinalIgnoreCase),
             jobId = cmd.JobId,
             type = "ingestion",
+            requestedAction = shouldPauseInitialIngestion ? "pause" : "cancel",
             docPath = ingestionRef.DocPath,
             previousStatus = normalizedPreviousStatus,
             status = effectiveStatus ?? normalizedPreviousStatus,
