@@ -432,22 +432,6 @@ FOR UPDATE;";
             doc_path = docPath
         }, transaction: tx, cancellationToken: ct));
 
-        if (currentDocState is not null
-            && currentDocState.AutoIngestPaused
-            && string.Equals(currentDocState.AutoIngestPauseReason, "admin_cancel", StringComparison.OrdinalIgnoreCase))
-        {
-            const string cancelSql = @"UPDATE ingestion_jobs
-SET status='canceled',
-    finished_at=COALESCE(finished_at, now()),
-    last_error=COALESCE(last_error, 'canceled_by_admin_document'),
-    locked_by=NULL,
-    locked_at=NULL
-WHERE job_id=@job_id AND status='running';";
-            await conn.ExecuteAsync(new CommandDefinition(cancelSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
-            await tx.CommitAsync(ct);
-            return false;
-        }
-
         var currentVersion = currentDocState?.IngestionVersion;
         if (!currentVersion.HasValue || currentVersion.Value != version)
         {
@@ -463,9 +447,14 @@ WHERE job_id=@job_id AND status='running';";
             return false;
         }
 
-        const string docSql = @"UPDATE documents
+const string docSql = @"UPDATE documents
 SET status='deleted',
     updated_at=now(),
+    content_hash=NULL,
+    file_size=NULL,
+    file_mtime=NULL,
+    missing_since=NULL,
+    indexed_version=0,
     auto_ingest_paused=false,
     auto_ingest_paused_at=NULL,
     auto_ingest_pause_reason=NULL
