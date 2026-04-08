@@ -402,7 +402,7 @@ SELECT 1
 FROM ingestion_jobs
 WHERE tenant_id=@tenant_id
   AND doc_path=@doc_path
-  AND status IN ('queued','running')
+  AND status IN ('queued','running','paused')
 LIMIT 1;";
 
         var exists = await conn.ExecuteScalarAsync<int?>(

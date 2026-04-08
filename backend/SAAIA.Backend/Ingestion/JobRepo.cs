@@ -103,11 +103,65 @@ WHERE job_id=@job_id AND status='running';";
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
         const string sql = @"
+UPDATE ingestion_jobs j
+SET status = CASE
+        WHEN j.action='upsert'
+             AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.auto_ingest_paused, false)
+             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND COALESCE(@reason, '') LIKE 'canceled_by_admin%'
+            THEN 'paused'
+        ELSE 'canceled'
+    END,
+    finished_at = CASE
+        WHEN j.action='upsert'
+             AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.auto_ingest_paused, false)
+             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND COALESCE(@reason, '') LIKE 'canceled_by_admin%'
+            THEN NULL
+        ELSE COALESCE(j.finished_at, now())
+    END,
+    started_at = CASE
+        WHEN j.action='upsert'
+             AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.auto_ingest_paused, false)
+             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND COALESCE(@reason, '') LIKE 'canceled_by_admin%'
+            THEN NULL
+        ELSE j.started_at
+    END,
+    last_error = CASE
+        WHEN j.action='upsert'
+             AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.auto_ingest_paused, false)
+             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND COALESCE(@reason, '') LIKE 'canceled_by_admin%'
+            THEN NULL
+        ELSE COALESCE(@reason, j.last_error)
+    END,
+    locked_by=NULL,
+    locked_at=NULL,
+    available_at=now()
+FROM documents d
+WHERE j.job_id=@job_id
+  AND d.tenant_id=j.tenant_id
+  AND d.doc_path=j.doc_path
+  AND j.status IN ('queued','running','canceled','paused');";
+        var affected = await conn.ExecuteAsync(new CommandDefinition(sql, new { job_id = jobId, reason }, cancellationToken: ct));
+
+        const string fallbackSql = @"
 UPDATE ingestion_jobs
-SET status='canceled', finished_at=COALESCE(finished_at, now()), last_error=COALESCE(@reason, last_error),
-    locked_by=NULL, locked_at=NULL, available_at=now()
-WHERE job_id=@job_id AND status IN ('queued','running','canceled');";
-        await conn.ExecuteAsync(new CommandDefinition(sql, new { job_id = jobId, reason }, cancellationToken: ct));
+SET status='canceled',
+    finished_at=COALESCE(finished_at, now()),
+    last_error=COALESCE(@reason, last_error),
+    locked_by=NULL,
+    locked_at=NULL,
+    available_at=now()
+WHERE job_id=@job_id
+  AND status IN ('queued','running','canceled','paused');";
+        if (affected == 0)
+            await conn.ExecuteAsync(new CommandDefinition(fallbackSql, new { job_id = jobId, reason }, cancellationToken: ct));
     }
 
     public static async Task<int> RequeueStaleRunningAsync(NpgsqlDataSource ds, TimeSpan staleAfter, CancellationToken ct)
@@ -432,22 +486,6 @@ FOR UPDATE;";
             doc_path = docPath
         }, transaction: tx, cancellationToken: ct));
 
-        if (currentDocState is not null
-            && currentDocState.AutoIngestPaused
-            && string.Equals(currentDocState.AutoIngestPauseReason, "admin_cancel", StringComparison.OrdinalIgnoreCase))
-        {
-            const string cancelSql = @"UPDATE ingestion_jobs
-SET status='canceled',
-    finished_at=COALESCE(finished_at, now()),
-    last_error=COALESCE(last_error, 'canceled_by_admin_document'),
-    locked_by=NULL,
-    locked_at=NULL
-WHERE job_id=@job_id AND status='running';";
-            await conn.ExecuteAsync(new CommandDefinition(cancelSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
-            await tx.CommitAsync(ct);
-            return false;
-        }
-
         var currentVersion = currentDocState?.IngestionVersion;
         if (!currentVersion.HasValue || currentVersion.Value != version)
         {
@@ -463,9 +501,14 @@ WHERE job_id=@job_id AND status='running';";
             return false;
         }
 
-        const string docSql = @"UPDATE documents
+const string docSql = @"UPDATE documents
 SET status='deleted',
     updated_at=now(),
+    content_hash=NULL,
+    file_size=NULL,
+    file_mtime=NULL,
+    missing_since=NULL,
+    indexed_version=0,
     auto_ingest_paused=false,
     auto_ingest_paused_at=NULL,
     auto_ingest_pause_reason=NULL

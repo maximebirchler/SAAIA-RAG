@@ -133,7 +133,7 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path
         const string jobSql = """
 INSERT INTO ingestion_jobs(job_id, tenant_id, action, doc_path, category, status, payload, available_at)
 VALUES(@job_id, @tenant_id, 'upsert', @doc_path, @category, 'queued', @payload::jsonb, now())
-ON CONFLICT (tenant_id, doc_path, action) WHERE status='queued'
+ON CONFLICT (tenant_id, doc_path, action) WHERE status IN ('queued','running','paused')
 DO UPDATE SET
   available_at = now(),
   payload = EXCLUDED.payload,
@@ -268,7 +268,7 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path
         const string jobSql = """
 INSERT INTO ingestion_jobs(job_id, tenant_id, action, doc_path, category, status, payload, available_at)
 VALUES(@job_id, @tenant_id, 'delete', @doc_path, NULL, 'queued', @payload::jsonb, now())
-ON CONFLICT (tenant_id, doc_path, action) WHERE status='queued'
+ON CONFLICT (tenant_id, doc_path, action) WHERE status IN ('queued','running','paused')
 DO UPDATE SET
   available_at = now(),
   payload = EXCLUDED.payload,
