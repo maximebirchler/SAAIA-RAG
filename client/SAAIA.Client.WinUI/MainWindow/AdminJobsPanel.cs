@@ -705,10 +705,11 @@ public sealed partial class MainWindow
 
         for (var i = 0; i < metrics.Length; i++)
         {
-            var card = BuildAdminMetricCard(metrics[i].Title, metrics[i].Value, metrics[i].Accent);
+            var metric = metrics[i];
+            var card = BuildAdminMetricCard(metric.Title, metric.Value, metric.Accent);
             card.Tapped += (_, __) =>
             {
-                ApplyAdminJobsStatusFilter(context, metrics[i].FilterTag);
+                ApplyAdminJobsStatusFilter(context, metric.FilterTag);
                 RenderAdminJobsOverlay(context);
             };
             Grid.SetColumn(card, i);
