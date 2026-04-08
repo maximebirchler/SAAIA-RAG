@@ -326,13 +326,46 @@ FOR UPDATE;
         if (!string.Equals(row.Status, "running", StringComparison.OrdinalIgnoreCase) || row.CancelRequested)
         {
             const string cancelSql = @"UPDATE ingestion_jobs
-SET status='canceled',
-    finished_at=COALESCE(finished_at, now()),
-    last_error=COALESCE(last_error, 'canceled_by_admin'),
+SET status=CASE
+      WHEN EXISTS (
+          SELECT 1
+          FROM documents d
+          WHERE d.tenant_id=@tenant_id
+            AND d.doc_path=@doc_path
+            AND COALESCE(d.indexed_version, 0) <= 0
+            AND COALESCE(d.auto_ingest_paused, false)
+            AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+      ) THEN 'paused'
+      ELSE 'canceled'
+    END,
+    finished_at=CASE
+      WHEN EXISTS (
+          SELECT 1
+          FROM documents d
+          WHERE d.tenant_id=@tenant_id
+            AND d.doc_path=@doc_path
+            AND COALESCE(d.indexed_version, 0) <= 0
+            AND COALESCE(d.auto_ingest_paused, false)
+            AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+      ) THEN NULL
+      ELSE COALESCE(finished_at, now())
+    END,
+    last_error=CASE
+      WHEN EXISTS (
+          SELECT 1
+          FROM documents d
+          WHERE d.tenant_id=@tenant_id
+            AND d.doc_path=@doc_path
+            AND COALESCE(d.indexed_version, 0) <= 0
+            AND COALESCE(d.auto_ingest_paused, false)
+            AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+      ) THEN NULL
+      ELSE COALESCE(last_error, 'canceled_by_admin')
+    END,
     locked_by=NULL,
     locked_at=NULL
 WHERE job_id=@job_id AND status='running';";
-            await conn.ExecuteAsync(new CommandDefinition(cancelSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
+            await conn.ExecuteAsync(new CommandDefinition(cancelSql, new { job_id = jobId, tenant_id = tenantId, doc_path = docPath }, transaction: tx, cancellationToken: ct));
 
             // Stabilize document within the same transaction to prevent scanner race
             const string stabilizeSql = @"UPDATE documents
@@ -371,9 +404,9 @@ FOR UPDATE;";
             && string.Equals(currentDocState.AutoIngestPauseReason, "admin_cancel", StringComparison.OrdinalIgnoreCase))
         {
             const string cancelSql = @"UPDATE ingestion_jobs
-SET status='canceled',
-    finished_at=COALESCE(finished_at, now()),
-    last_error=COALESCE(last_error, 'canceled_by_admin_document'),
+SET status='paused',
+    finished_at=NULL,
+    last_error=NULL,
     locked_by=NULL,
     locked_at=NULL
 WHERE job_id=@job_id AND status='running';";

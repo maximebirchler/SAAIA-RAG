@@ -88,7 +88,7 @@ internal static class ClientUiText
         ["admin.jobs.search.placeholder"] = Multi("Rechercher par document, job ID ou erreur…", "Search by document, job ID, or error…", "Buscar por documento, ID o error…", "Pesquisar por documento, ID do job ou erro…", "Nach Dokument, Job-ID oder Fehler suchen…", "Cerca per documento, ID job o errore…"),
         ["admin.jobs.only_active"] = Multi("Actifs uniquement", "Active only", "Solo activos", "Só ativos", "Nur aktiv", "Solo attivi"),
         ["admin.jobs.filter.all"] = Multi("Tous", "All", "Todos", "Todos", "Alle", "Tutti"),
-        ["admin.jobs.filter.ingestion"] = Multi("Réindexation", "Reindexing", "Reindexación", "Reindexação", "Neuindexierung", "Reindicizzazione"),
+        ["admin.jobs.filter.ingestion"] = Multi("Indexation", "Indexing", "Indexación", "Indexação", "Indexierung", "Indicizzazione"),
         ["admin.jobs.filter.summary"] = Multi("Résumés", "Summaries", "Resúmenes", "Resumos", "Zusammenfassungen", "Riepiloghi"),
         ["admin.jobs.status_filter.all"] = Multi("Tous les statuts", "All statuses", "Todos los estados", "Todos os estados", "Alle Status", "Tutti gli stati"),
         ["admin.jobs.status_filter.active"] = Multi("Actifs", "Active", "Activos", "Ativos", "Aktiv", "Attivi"),

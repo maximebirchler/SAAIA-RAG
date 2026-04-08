@@ -18,6 +18,8 @@ public sealed partial class MainWindow
         public required TextBlock SelectionText { get; init; }
         public required TextBox SearchBox { get; init; }
         public required ComboBox TypeCombo { get; init; }
+        public required Button IngestionCategoryButton { get; init; }
+        public required Button SummaryCategoryButton { get; init; }
         public required ComboBox StatusCombo { get; init; }
         public required ToggleSwitch AutoRefreshToggle { get; init; }
         public required Button RefreshButton { get; init; }
@@ -35,6 +37,8 @@ public sealed partial class MainWindow
         public string? SelectedJobId { get; set; }
         public string? LastVisibleRenderSignature { get; set; }
         public string? LastRenderedSelectedJobId { get; set; }
+        public bool IncludeIngestionCategory { get; set; } = true;
+        public bool IncludeSummaryCategory { get; set; } = true;
     }
 
     private sealed class AdminJobListItem
@@ -181,20 +185,12 @@ public sealed partial class MainWindow
         typeCombo.SelectedIndex = 0;
         typeCombo.Visibility = Visibility.Collapsed;
 
-        var ingestionTypeButton = new ToggleButton
-        {
-            Content = ClientUiText.Get("admin.jobs.filter.ingestion", UiLang),
-            IsChecked = true,
-            MinWidth = 130,
-            MinHeight = 36
-        };
-        var summaryTypeButton = new ToggleButton
-        {
-            Content = ClientUiText.Get("admin.jobs.filter.summary", UiLang),
-            IsChecked = true,
-            MinWidth = 130,
-            MinHeight = 36
-        };
+        var ingestionTypeButton = BuildDialogInlineButton(ClientUiText.Get("admin.jobs.filter.ingestion", UiLang));
+        ingestionTypeButton.MinWidth = 130;
+        ingestionTypeButton.MinHeight = 36;
+        var summaryTypeButton = BuildDialogInlineButton(ClientUiText.Get("admin.jobs.filter.summary", UiLang));
+        summaryTypeButton.MinWidth = 130;
+        summaryTypeButton.MinHeight = 36;
 
         var statusCombo = new ComboBox
         {
@@ -240,6 +236,7 @@ public sealed partial class MainWindow
         var summaryText = new TextBlock
         {
             Text = ClientUiText.Get("admin.jobs.loading", UiLang),
+            Visibility = Visibility.Collapsed,
             TextWrapping = TextWrapping.WrapWholeWords,
             Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE)
         };
@@ -270,7 +267,7 @@ public sealed partial class MainWindow
         toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var typeFiltersHost = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        var typeFiltersHost = new StackPanel { Orientation = Orientation.Vertical, Spacing = 8 };
         typeFiltersHost.Children.Add(ingestionTypeButton);
         typeFiltersHost.Children.Add(summaryTypeButton);
         Grid.SetColumn(searchBox, 0);
@@ -456,6 +453,8 @@ public sealed partial class MainWindow
             SelectionText = selectionText,
             SearchBox = searchBox,
             TypeCombo = typeCombo,
+            IngestionCategoryButton = ingestionTypeButton,
+            SummaryCategoryButton = summaryTypeButton,
             StatusCombo = statusCombo,
             AutoRefreshToggle = autoRefreshToggle,
             RefreshButton = refreshButton,
@@ -475,54 +474,40 @@ public sealed partial class MainWindow
         };
 
         searchBox.TextChanged += (_, __) => RenderAdminJobsOverlay(context);
-        void SyncTypeButtonsFromCombo()
+        void ApplyCategoryButtonVisuals()
         {
-            var selectedType = ((typeCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? string.Empty).Trim().ToLowerInvariant();
-            ingestionTypeButton.IsChecked = selectedType is "" or "ingestion";
-            summaryTypeButton.IsChecked = selectedType is "" or "summary";
-        }
-
-        void ApplyTypeComboFromButtons()
-        {
-            var ingestionOn = ingestionTypeButton.IsChecked == true;
-            var summaryOn = summaryTypeButton.IsChecked == true;
-            if (!ingestionOn && !summaryOn)
-            {
-                ingestionTypeButton.IsChecked = true;
-                summaryTypeButton.IsChecked = true;
-                ingestionOn = true;
-                summaryOn = true;
-            }
-
-            var tag = ingestionOn && summaryOn
-                ? string.Empty
-                : ingestionOn ? "ingestion" : "summary";
-
-            for (var i = 0; i < typeCombo.Items.Count; i++)
-            {
-                if (typeCombo.Items[i] is ComboBoxItem cbi
-                    && string.Equals((cbi.Tag as string) ?? string.Empty, tag, StringComparison.OrdinalIgnoreCase))
-                {
-                    typeCombo.SelectedIndex = i;
-                    break;
-                }
-            }
+            var light = UseLightPalette();
+            ingestionTypeButton.BorderThickness = new Thickness(context.IncludeIngestionCategory ? 2 : 1);
+            summaryTypeButton.BorderThickness = new Thickness(context.IncludeSummaryCategory ? 2 : 1);
+            ingestionTypeButton.Opacity = context.IncludeIngestionCategory ? 1d : 0.7d;
+            summaryTypeButton.Opacity = context.IncludeSummaryCategory ? 1d : 0.7d;
+            ingestionTypeButton.BorderBrush = context.IncludeIngestionCategory
+                ? GetAdminJobStatusBorder("running", light)
+                : GetAdminJobStatusBorder("queued", light);
+            summaryTypeButton.BorderBrush = context.IncludeSummaryCategory
+                ? GetAdminJobStatusBorder("running", light)
+                : GetAdminJobStatusBorder("queued", light);
         }
 
         ingestionTypeButton.Click += async (_, __) =>
         {
-            ApplyTypeComboFromButtons();
+            context.IncludeIngestionCategory = !context.IncludeIngestionCategory;
+            if (!context.IncludeIngestionCategory && !context.IncludeSummaryCategory)
+                context.IncludeSummaryCategory = true;
             context.SelectedJobId = null;
+            ApplyCategoryButtonVisuals();
             await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
         };
         summaryTypeButton.Click += async (_, __) =>
         {
-            ApplyTypeComboFromButtons();
+            context.IncludeSummaryCategory = !context.IncludeSummaryCategory;
+            if (!context.IncludeIngestionCategory && !context.IncludeSummaryCategory)
+                context.IncludeIngestionCategory = true;
             context.SelectedJobId = null;
+            ApplyCategoryButtonVisuals();
             await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
         };
-        typeCombo.SelectionChanged += (_, __) => SyncTypeButtonsFromCombo();
-        SyncTypeButtonsFromCombo();
+        ApplyCategoryButtonVisuals();
         statusCombo.SelectionChanged += (_, __) => RenderAdminJobsOverlay(context);
         autoRefreshToggle.Toggled += (_, __) =>
         {
@@ -660,9 +645,7 @@ public sealed partial class MainWindow
 
         try
         {
-            var selected = context.TypeCombo.SelectedItem as ComboBoxItem;
-            var type = (selected?.Tag as string) ?? string.Empty;
-            var root = await _api.AdminJobsListAsync(string.IsNullOrWhiteSpace(type) ? null : type, 250, 0, ct).ConfigureAwait(true);
+            var root = await _api.AdminJobsListAsync(null, 250, 0, ct).ConfigureAwait(true);
             var items = ParseAdminJobs(root)
                 .OrderByDescending(item => GetTrackedJobStatusRank(item.Status))
                 .ThenByDescending(item => item.CreatedAt ?? DateTimeOffset.MinValue)
@@ -739,6 +722,10 @@ public sealed partial class MainWindow
                 || (!string.IsNullOrWhiteSpace(item.LastError) && item.LastError.Contains(term, StringComparison.OrdinalIgnoreCase))
                 || (!string.IsNullOrWhiteSpace(item.JobType) && item.JobType.Contains(term, StringComparison.OrdinalIgnoreCase)));
         }
+
+        items = items.Where(item =>
+            (context.IncludeIngestionCategory && string.Equals(item.Type, "ingestion", StringComparison.OrdinalIgnoreCase))
+            || (context.IncludeSummaryCategory && string.Equals(item.Type, "summary", StringComparison.OrdinalIgnoreCase)));
 
         items = selectedStatus switch
         {
