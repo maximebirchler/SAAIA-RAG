@@ -255,9 +255,17 @@ RETURNING doc_id, ingestion_version;
 
         const string cancelUpsert = """
 UPDATE ingestion_jobs
-SET status='canceled', finished_at=now(), last_error='coalesced_by_delete'
-WHERE tenant_id=@tenant_id AND doc_path=@doc_path
-  AND action='upsert' AND status='queued';
+SET status='failed',
+    finished_at=now(),
+    last_error='source_removed_during_ingestion',
+    locked_by=NULL,
+    locked_at=NULL,
+    available_at=now(),
+    payload = jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,cancelRequested}', 'true'::jsonb, true)
+WHERE tenant_id=@tenant_id
+  AND doc_path=@doc_path
+  AND action='upsert'
+  AND status IN ('queued','running','paused');
 """;
 
         await conn.ExecuteAsync(new CommandDefinition(cancelUpsert, new
