@@ -1009,11 +1009,11 @@ SET status='canceled',
     locked_at=NULL,
     available_at=now()
 WHERE tenant_id=@tenant
-  AND doc_path=@docPath
+  AND job_id=@jobId
   AND action='upsert'
   AND status IN ('queued','paused');
 """,
-            new { tenant = tenantId, docPath = ingestionRef.DocPath },
+            new { tenant = tenantId, jobId = cmd.JobId },
             transaction: tx,
             cancellationToken: ct));
 
@@ -1022,11 +1022,11 @@ WHERE tenant_id=@tenant
 UPDATE ingestion_jobs
 SET payload = jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,cancelRequested}', 'true'::jsonb, true)
 WHERE tenant_id=@tenant
-  AND doc_path=@docPath
+  AND job_id=@jobId
   AND action='upsert'
   AND status='running';
 """,
-            new { tenant = tenantId, docPath = ingestionRef.DocPath },
+            new { tenant = tenantId, jobId = cmd.JobId },
             transaction: tx,
             cancellationToken: ct));
 
@@ -1067,12 +1067,12 @@ SET status='paused',
     last_error=NULL,
     payload = (COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}')
 WHERE tenant_id=@tenant
-  AND doc_path=@docPath
+  AND job_id=@jobId
   AND action='upsert'
   AND status='canceled'
   AND COALESCE(last_error,'')='canceled_by_admin';
 """,
-                new { tenant = tenantId, docPath = ingestionRef.DocPath },
+                new { tenant = tenantId, jobId = cmd.JobId },
                 transaction: tx,
                 cancellationToken: ct));
         }
