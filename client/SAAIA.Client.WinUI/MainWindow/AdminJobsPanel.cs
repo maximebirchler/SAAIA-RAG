@@ -249,17 +249,14 @@ public sealed partial class MainWindow
         toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         Grid.SetColumn(searchBox, 0);
         Grid.SetColumn(typeCombo, 1);
         Grid.SetColumn(statusCombo, 2);
         Grid.SetColumn(autoRefreshToggle, 3);
-        Grid.SetColumn(refreshButton, 4);
         toolbarGrid.Children.Add(searchBox);
         toolbarGrid.Children.Add(typeCombo);
         toolbarGrid.Children.Add(statusCombo);
         toolbarGrid.Children.Add(autoRefreshToggle);
-        toolbarGrid.Children.Add(refreshButton);
 
         var footerActions = new Grid { ColumnSpacing = 12 };
         footerActions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -288,6 +285,7 @@ public sealed partial class MainWindow
 
         var pageHeaderGrid = new Grid { ColumnSpacing = 16 };
         pageHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        pageHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         var titleBox = new StackPanel { Spacing = 4 };
         titleBox.Children.Add(new TextBlock
@@ -301,6 +299,11 @@ public sealed partial class MainWindow
         Grid.SetColumn(titleBox, 0);
         pageHeaderGrid.Children.Add(titleBox);
 
+        refreshButton.MinWidth = 140;
+        refreshButton.HorizontalAlignment = HorizontalAlignment.Right;
+        refreshButton.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(refreshButton, 1);
+        pageHeaderGrid.Children.Add(refreshButton);
 
         var pageRoot = new Grid
         {
@@ -752,31 +755,7 @@ public sealed partial class MainWindow
         context.GroupsHost.Children.Clear();
         if (visibleItems.Count == 0)
         {
-            var emptyHost = new StackPanel { Spacing = 10 };
-            emptyHost.Children.Add(BuildDialogInfoBanner(ClientUiText.Get("admin.jobs.empty", UiLang)));
-            var hasFilter = !string.IsNullOrWhiteSpace((context.SearchBox.Text ?? string.Empty).Trim())
-                || (((context.TypeCombo.SelectedItem as ComboBoxItem)?.Tag as string) ?? string.Empty).Length > 0
-                || !string.Equals((((context.StatusCombo.SelectedItem as ComboBoxItem)?.Tag as string) ?? "active").Trim(), "all", StringComparison.OrdinalIgnoreCase);
-            if (hasFilter)
-            {
-                emptyHost.Children.Add(new TextBlock
-                {
-                    Text = ClientUiText.Get("admin.jobs.empty.hint_reset", UiLang),
-                    TextWrapping = TextWrapping.WrapWholeWords,
-                    Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE)
-                });
-                var resetButton = BuildDialogInlineButton(ClientUiText.Get("admin.jobs.reset_filters", UiLang));
-                resetButton.HorizontalAlignment = HorizontalAlignment.Left;
-                resetButton.Click += (_, __) =>
-                {
-                    context.SearchBox.Text = string.Empty;
-                    context.TypeCombo.SelectedIndex = 0;
-                    context.StatusCombo.SelectedIndex = 1;
-                    RenderAdminJobsOverlay(context);
-                };
-                emptyHost.Children.Add(resetButton);
-            }
-            context.GroupsHost.Children.Add(emptyHost);
+            context.GroupsHost.Children.Add(BuildDialogInfoBanner(ClientUiText.Get("admin.jobs.empty", UiLang)));
             return;
         }
 
@@ -1002,13 +981,6 @@ public sealed partial class MainWindow
         };
         actions.Children.Add(copyButton);
 
-        var detailsButton = BuildDialogInlineButton(ClientUiText.Get("admin.jobs.show_details", UiLang));
-        detailsButton.Click += (_, __) =>
-        {
-            context.SelectedJobId = item.JobId;
-            RenderAdminJobsDetails(context);
-        };
-        actions.Children.Add(detailsButton);
 
         if (item.DocumentAutoIngestPaused == true)
         {
@@ -1183,9 +1155,9 @@ public sealed partial class MainWindow
         AddFact(facts, ClientUiText.Get("admin.jobs.details.doc_path", UiLang), item.DocPath);
         AddFact(facts, ClientUiText.Get("admin.jobs.details.phase", UiLang), TranslateAdminJobPhase(item.ProgressPhase));
         AddFact(facts, ClientUiText.Get("admin.jobs.details.progress", UiLang), BuildAdminJobProgressLine(item));
-        AddFact(facts, ClientUiText.Get("admin.jobs.details.cancel_requested_flag", UiLang), item.CancelRequested.HasValue ? (item.CancelRequested.Value ? "true" : "false") : null);
-        AddFact(facts, ClientUiText.Get("admin.jobs.details.enqueue_source", UiLang), item.EnqueueSource);
-        AddFact(facts, ClientUiText.Get("admin.jobs.details.doc_status", UiLang), item.DocumentStatus);
+        AddFact(facts, ClientUiText.Get("admin.jobs.details.cancel_requested_flag", UiLang), item.CancelRequested.HasValue ? (item.CancelRequested.Value ? ClientUiText.Get("admin.jobs.value.yes", UiLang) : ClientUiText.Get("admin.jobs.value.no", UiLang)) : null);
+        AddFact(facts, ClientUiText.Get("admin.jobs.details.enqueue_source", UiLang), TranslateAdminJobEnqueueSource(item.EnqueueSource));
+        AddFact(facts, ClientUiText.Get("admin.jobs.details.doc_status", UiLang), TranslateAdminJobDocumentStatus(item.DocumentStatus));
         AddFact(facts, ClientUiText.Get("admin.jobs.details.doc_versions", UiLang), BuildAdminJobDocumentVersionsLine(item));
         AddFact(facts, ClientUiText.Get("admin.jobs.details.auto_pause", UiLang), BuildAdminJobAutoPauseLine(item));
         AddFact(facts, ClientUiText.Get("admin.jobs.details.created", UiLang), item.CreatedAt?.LocalDateTime.ToString("dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture));
@@ -1326,29 +1298,6 @@ public sealed partial class MainWindow
         return button;
     }
 
-    private Border BuildAdminJobStatusBadge(string status)
-    {
-        var light = UseLightPalette();
-        var normalized = NormalizeTrackedJobStatus(status);
-        return new Border
-        {
-            VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(0, 2, 0, 0),
-            CornerRadius = new CornerRadius(999),
-            Padding = new Thickness(10, 4, 10, 4),
-            BorderThickness = new Thickness(1),
-            BorderBrush = GetAdminJobStatusBorder(normalized, light),
-            Background = GetAdminJobStatusBackground(normalized, light),
-            Child = new TextBlock
-            {
-                Text = ClientUiText.Get("admin.jobs.status." + normalized, UiLang),
-                FontSize = 12,
-                FontWeight = FontWeights.SemiBold,
-                Foreground = GetAdminJobStatusForeground(normalized, light)
-            }
-        };
-    }
-
     private List<AdminJobListItem> ParseAdminJobs(JsonElement root)
     {
         var items = new List<AdminJobListItem>();
@@ -1470,7 +1419,7 @@ public sealed partial class MainWindow
         var bits = new List<string>();
         var documentStatus = TranslateAdminJobDocumentStatus(item.DocumentStatus);
         if (!string.IsNullOrWhiteSpace(documentStatus))
-            bits.Add($"{ClientUiText.Get("admin.jobs.details.doc_status", UiLang)} : {documentStatus}");
+            bits.Add($"{ClientUiText.Get("admin.jobs.card.document_state", UiLang)} : {documentStatus}");
 
         var versions = BuildAdminJobDocumentVersionsLine(item);
         if (!string.IsNullOrWhiteSpace(versions))
@@ -1489,7 +1438,7 @@ public sealed partial class MainWindow
             return null;
 
         return ClientUiText.Format(
-            "admin.jobs.details.doc_versions.value",
+            "admin.jobs.card.document_versions",
             UiLang,
             item.DocumentIngestionVersion?.ToString(CultureInfo.InvariantCulture) ?? "?",
             item.DocumentIndexedVersion?.ToString(CultureInfo.InvariantCulture) ?? "?");
