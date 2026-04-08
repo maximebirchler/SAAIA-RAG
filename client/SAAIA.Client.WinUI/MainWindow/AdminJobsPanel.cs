@@ -179,6 +179,22 @@ public sealed partial class MainWindow
         typeCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.filter.ingestion", UiLang), Tag = "ingestion" });
         typeCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.filter.summary", UiLang), Tag = "summary" });
         typeCombo.SelectedIndex = 0;
+        typeCombo.Visibility = Visibility.Collapsed;
+
+        var ingestionTypeButton = new ToggleButton
+        {
+            Content = ClientUiText.Get("admin.jobs.filter.ingestion", UiLang),
+            IsChecked = true,
+            MinWidth = 130,
+            MinHeight = 36
+        };
+        var summaryTypeButton = new ToggleButton
+        {
+            Content = ClientUiText.Get("admin.jobs.filter.summary", UiLang),
+            IsChecked = true,
+            MinWidth = 130,
+            MinHeight = 36
+        };
 
         var statusCombo = new ComboBox
         {
@@ -254,13 +270,17 @@ public sealed partial class MainWindow
         toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var typeFiltersHost = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        typeFiltersHost.Children.Add(ingestionTypeButton);
+        typeFiltersHost.Children.Add(summaryTypeButton);
         Grid.SetColumn(searchBox, 0);
-        Grid.SetColumn(typeCombo, 1);
+        Grid.SetColumn(typeFiltersHost, 1);
         Grid.SetColumn(statusCombo, 2);
         Grid.SetColumn(autoRefreshToggle, 3);
         toolbarGrid.Children.Add(searchBox);
-        toolbarGrid.Children.Add(typeCombo);
+        toolbarGrid.Children.Add(typeFiltersHost);
         toolbarGrid.Children.Add(autoRefreshToggle);
+        toolbarGrid.Children.Add(typeCombo);
 
         var footerActions = new Grid { ColumnSpacing = 12 };
         footerActions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -455,7 +475,54 @@ public sealed partial class MainWindow
         };
 
         searchBox.TextChanged += (_, __) => RenderAdminJobsOverlay(context);
-        typeCombo.SelectionChanged += async (_, __) => await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+        void SyncTypeButtonsFromCombo()
+        {
+            var selectedType = ((typeCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? string.Empty).Trim().ToLowerInvariant();
+            ingestionTypeButton.IsChecked = selectedType is "" or "ingestion";
+            summaryTypeButton.IsChecked = selectedType is "" or "summary";
+        }
+
+        void ApplyTypeComboFromButtons()
+        {
+            var ingestionOn = ingestionTypeButton.IsChecked == true;
+            var summaryOn = summaryTypeButton.IsChecked == true;
+            if (!ingestionOn && !summaryOn)
+            {
+                ingestionTypeButton.IsChecked = true;
+                summaryTypeButton.IsChecked = true;
+                ingestionOn = true;
+                summaryOn = true;
+            }
+
+            var tag = ingestionOn && summaryOn
+                ? string.Empty
+                : ingestionOn ? "ingestion" : "summary";
+
+            for (var i = 0; i < typeCombo.Items.Count; i++)
+            {
+                if (typeCombo.Items[i] is ComboBoxItem cbi
+                    && string.Equals((cbi.Tag as string) ?? string.Empty, tag, StringComparison.OrdinalIgnoreCase))
+                {
+                    typeCombo.SelectedIndex = i;
+                    break;
+                }
+            }
+        }
+
+        ingestionTypeButton.Click += async (_, __) =>
+        {
+            ApplyTypeComboFromButtons();
+            context.SelectedJobId = null;
+            await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+        };
+        summaryTypeButton.Click += async (_, __) =>
+        {
+            ApplyTypeComboFromButtons();
+            context.SelectedJobId = null;
+            await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+        };
+        typeCombo.SelectionChanged += (_, __) => SyncTypeButtonsFromCombo();
+        SyncTypeButtonsFromCombo();
         statusCombo.SelectionChanged += (_, __) => RenderAdminJobsOverlay(context);
         autoRefreshToggle.Toggled += (_, __) =>
         {
@@ -636,6 +703,12 @@ public sealed partial class MainWindow
     private void RenderAdminJobsOverlay(AdminJobsOverlayContext context)
     {
         var visibleItems = ApplyAdminJobsFilters(context);
+        if (!string.IsNullOrWhiteSpace(context.SelectedJobId)
+            && !visibleItems.Any(item => string.Equals(item.JobId, context.SelectedJobId, StringComparison.OrdinalIgnoreCase)))
+        {
+            context.SelectedJobId = null;
+        }
+
         var renderSignature = BuildAdminJobsRenderSignature(visibleItems);
         var shouldRebuildGroups =
             !string.Equals(context.LastVisibleRenderSignature, renderSignature, StringComparison.Ordinal)
@@ -1461,6 +1534,7 @@ public sealed partial class MainWindow
             "canceled_by_admin" or "canceled_by_admin_token" or "canceled_by_admin_document" or "canceled_by_worker" => ClientUiText.Get("admin.jobs.error.canceled_by_admin", UiLang),
             "canceled_at_commit" => ClientUiText.Get("admin.jobs.error.canceled_after_commit", UiLang),
             "superseded_version" or "superseded_at_commit" => ClientUiText.Get("admin.jobs.error.superseded", UiLang),
+            "source_removed_during_ingestion" => ClientUiText.Get("admin.jobs.error.source_removed_during_ingestion", UiLang),
             _ => raw
         };
     }
