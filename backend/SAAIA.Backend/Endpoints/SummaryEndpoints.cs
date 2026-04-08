@@ -836,11 +836,6 @@ SELECT * FROM (
     i.action       AS "JobType",
     CASE
       WHEN i.status='paused' THEN 'paused'
-      WHEN i.status='canceled'
-        AND i.action='upsert'
-        AND COALESCE(d.auto_ingest_paused, false)
-        AND COALESCE(d.indexed_version, 0) <= 0
-        THEN 'paused'
       WHEN i.status='running' AND COALESCE((i.payload #>> '{control,cancelRequested}')::boolean, false) THEN 'cancel_requested'
       ELSE i.status
     END            AS "Status",
@@ -920,11 +915,6 @@ SELECT * FROM (
     i.action       AS "JobType",
     CASE
       WHEN i.status='paused' THEN 'paused'
-      WHEN i.status='canceled'
-        AND i.action='upsert'
-        AND COALESCE(d.auto_ingest_paused, false)
-        AND COALESCE(d.indexed_version, 0) <= 0
-        THEN 'paused'
       WHEN i.status='running' AND COALESCE((i.payload #>> '{control,cancelRequested}')::boolean, false) THEN 'cancel_requested'
       ELSE i.status
     END            AS "Status",
@@ -1131,6 +1121,7 @@ LIMIT 1;
             canceled = canceledQueued > 0 || runningCancelRequested > 0 || pausedQueued > 0 || string.Equals(effectiveStatus, "canceled", StringComparison.OrdinalIgnoreCase),
             jobId = cmd.JobId,
             type = "ingestion",
+            requestedAction = shouldPauseInitialIngestion ? "pause" : "cancel",
             docPath = ingestionRef.DocPath,
             previousStatus = normalizedPreviousStatus,
             status = effectiveStatus ?? normalizedPreviousStatus,
@@ -1228,7 +1219,7 @@ SET status='queued',
 WHERE tenant_id=@tenant
   AND job_id=@jobId
   AND action='upsert'
-  AND status IN ('paused','canceled');
+  AND status='paused';
 """,
             new { tenant = tenantId, jobId = row.JobId },
             cancellationToken: ct));
