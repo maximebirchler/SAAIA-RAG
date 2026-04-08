@@ -88,10 +88,10 @@ SET status = CASE
              AND COALESCE(d.indexed_version, 0) <= 0
              AND COALESCE(d.auto_ingest_paused, false)
              AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
-             AND COALESCE(@err, '') <> 'source_removed_during_ingestion'
+             AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
             THEN 'paused'
         WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
-             AND COALESCE(@err, '') <> 'source_removed_during_ingestion'
+             AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
             THEN 'canceled'
         ELSE 'failed'
     END,
@@ -100,7 +100,7 @@ SET status = CASE
              AND COALESCE(d.indexed_version, 0) <= 0
              AND COALESCE(d.auto_ingest_paused, false)
              AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
-             AND COALESCE(@err, '') <> 'source_removed_during_ingestion'
+             AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
             THEN NULL
         ELSE now()
     END,
@@ -109,7 +109,7 @@ SET status = CASE
              AND COALESCE(d.indexed_version, 0) <= 0
              AND COALESCE(d.auto_ingest_paused, false)
              AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
-             AND COALESCE(@err, '') <> 'source_removed_during_ingestion'
+             AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
             THEN NULL
         ELSE j.started_at
     END,
@@ -118,10 +118,10 @@ SET status = CASE
              AND COALESCE(d.indexed_version, 0) <= 0
              AND COALESCE(d.auto_ingest_paused, false)
              AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
-             AND COALESCE(@err, '') <> 'source_removed_during_ingestion'
+             AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
             THEN NULL
         WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
-             AND COALESCE(@err, '') <> 'source_removed_during_ingestion'
+             AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
             THEN COALESCE(j.last_error, @err, 'canceled_by_admin')
         ELSE @err
     END,
@@ -141,14 +141,14 @@ WHERE j.job_id=@job_id
 UPDATE ingestion_jobs
 SET status = CASE
         WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false)
-             AND COALESCE(@err, '') <> 'source_removed_during_ingestion'
+             AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
             THEN 'canceled'
         ELSE 'failed'
     END,
     finished_at=now(),
     last_error = CASE
         WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false)
-             AND COALESCE(@err, '') <> 'source_removed_during_ingestion'
+             AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
             THEN COALESCE(last_error, @err, 'canceled_by_admin')
         ELSE @err
     END,

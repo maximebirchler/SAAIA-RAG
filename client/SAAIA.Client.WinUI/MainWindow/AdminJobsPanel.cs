@@ -39,6 +39,7 @@ public sealed partial class MainWindow
         public string? LastRenderedSelectedJobId { get; set; }
         public bool IncludeIngestionCategory { get; set; } = true;
         public bool IncludeSummaryCategory { get; set; } = true;
+        public HashSet<string> SelectedMetricFilters { get; } = new(StringComparer.OrdinalIgnoreCase);
     }
 
     private sealed class AdminJobListItem
@@ -492,8 +493,6 @@ public sealed partial class MainWindow
         ingestionTypeButton.Click += async (_, __) =>
         {
             context.IncludeIngestionCategory = !context.IncludeIngestionCategory;
-            if (!context.IncludeIngestionCategory && !context.IncludeSummaryCategory)
-                context.IncludeSummaryCategory = true;
             context.SelectedJobId = null;
             ApplyCategoryButtonVisuals();
             await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
@@ -501,8 +500,6 @@ public sealed partial class MainWindow
         summaryTypeButton.Click += async (_, __) =>
         {
             context.IncludeSummaryCategory = !context.IncludeSummaryCategory;
-            if (!context.IncludeIngestionCategory && !context.IncludeSummaryCategory)
-                context.IncludeIngestionCategory = true;
             context.SelectedJobId = null;
             ApplyCategoryButtonVisuals();
             await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
@@ -711,7 +708,7 @@ public sealed partial class MainWindow
     private List<AdminJobListItem> ApplyAdminJobsFilters(AdminJobsOverlayContext context)
     {
         var term = (context.SearchBox.Text ?? string.Empty).Trim();
-        var selectedStatus = ((context.StatusCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "active").Trim().ToLowerInvariant();
+        var selectedStatus = ((context.StatusCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "all").Trim().ToLowerInvariant();
 
         IEnumerable<AdminJobListItem> items = context.Items;
         if (!string.IsNullOrWhiteSpace(term))
@@ -723,22 +720,36 @@ public sealed partial class MainWindow
                 || (!string.IsNullOrWhiteSpace(item.JobType) && item.JobType.Contains(term, StringComparison.OrdinalIgnoreCase)));
         }
 
-        items = items.Where(item =>
-            (context.IncludeIngestionCategory && string.Equals(item.Type, "ingestion", StringComparison.OrdinalIgnoreCase))
-            || (context.IncludeSummaryCategory && string.Equals(item.Type, "summary", StringComparison.OrdinalIgnoreCase)));
-
-        items = selectedStatus switch
+        if (context.IncludeIngestionCategory || context.IncludeSummaryCategory)
         {
-            "active" => items.Where(item => !item.IsTerminal && !item.IsPaused),
-            "queued" => items.Where(item => item.IsQueued),
-            "running" => items.Where(item => item.IsRunning),
-            "cancel_requested" => items.Where(item => string.Equals(NormalizeTrackedJobStatus(item.Status), "cancel_requested", StringComparison.OrdinalIgnoreCase)),
-            "paused" => items.Where(item => item.IsPaused),
-            "done" => items.Where(item => string.Equals(NormalizeTrackedJobStatus(item.Status), "done", StringComparison.OrdinalIgnoreCase)),
-            "failed" => items.Where(item => string.Equals(NormalizeTrackedJobStatus(item.Status), "failed", StringComparison.OrdinalIgnoreCase)),
-            "canceled" => items.Where(item => string.Equals(NormalizeTrackedJobStatus(item.Status), "canceled", StringComparison.OrdinalIgnoreCase)),
-            _ => items
-        };
+            items = items.Where(item =>
+                (context.IncludeIngestionCategory && string.Equals(item.Type, "ingestion", StringComparison.OrdinalIgnoreCase))
+                || (context.IncludeSummaryCategory && string.Equals(item.Type, "summary", StringComparison.OrdinalIgnoreCase)));
+        }
+        else
+        {
+            items = Enumerable.Empty<AdminJobListItem>();
+        }
+
+        if (context.SelectedMetricFilters.Count > 0)
+        {
+            items = items.Where(item => context.SelectedMetricFilters.Any(filterTag => MatchesAdminJobsStatusFilter(item, filterTag)));
+        }
+        else
+        {
+            items = selectedStatus switch
+            {
+                "active" => items.Where(item => !item.IsTerminal && !item.IsPaused),
+                "queued" => items.Where(item => item.IsQueued),
+                "running" => items.Where(item => item.IsRunning),
+                "cancel_requested" => items.Where(item => string.Equals(NormalizeTrackedJobStatus(item.Status), "cancel_requested", StringComparison.OrdinalIgnoreCase)),
+                "paused" => items.Where(item => item.IsPaused),
+                "done" => items.Where(item => string.Equals(NormalizeTrackedJobStatus(item.Status), "done", StringComparison.OrdinalIgnoreCase)),
+                "failed" => items.Where(item => string.Equals(NormalizeTrackedJobStatus(item.Status), "failed", StringComparison.OrdinalIgnoreCase)),
+                "canceled" => items.Where(item => string.Equals(NormalizeTrackedJobStatus(item.Status), "canceled", StringComparison.OrdinalIgnoreCase)),
+                _ => items
+            };
+        }
 
         return items.OrderByDescending(item => item.IsRunning || item.IsQueued)
             .ThenByDescending(item => item.CreatedAt ?? DateTimeOffset.MinValue)
@@ -766,7 +777,8 @@ public sealed partial class MainWindow
         for (var i = 0; i < metrics.Length; i++)
         {
             var metric = metrics[i];
-            var card = BuildAdminMetricCard(metric.Title, metric.Value, metric.Accent);
+            var isSelected = context.SelectedMetricFilters.Contains(metric.FilterTag);
+            var card = BuildAdminMetricCard(metric.Title, metric.Value, metric.Accent, isSelected);
             card.Tapped += (_, __) =>
             {
                 ApplyAdminJobsStatusFilter(context, metric.FilterTag);
@@ -802,16 +814,34 @@ public sealed partial class MainWindow
         return sb.ToString();
     }
 
+    private static bool MatchesAdminJobsStatusFilter(AdminJobListItem item, string filterTag)
+    {
+        var normalized = (filterTag ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "active" => !item.IsTerminal && !item.IsPaused,
+            "queued" => item.IsQueued,
+            "running" => item.IsRunning,
+            "cancel_requested" => string.Equals(NormalizeTrackedJobStatus(item.Status), "cancel_requested", StringComparison.OrdinalIgnoreCase),
+            "paused" => item.IsPaused,
+            "done" => string.Equals(NormalizeTrackedJobStatus(item.Status), "done", StringComparison.OrdinalIgnoreCase),
+            "failed" => string.Equals(NormalizeTrackedJobStatus(item.Status), "failed", StringComparison.OrdinalIgnoreCase),
+            "canceled" => string.Equals(NormalizeTrackedJobStatus(item.Status), "canceled", StringComparison.OrdinalIgnoreCase),
+            _ => false
+        };
+    }
+
     private static void ApplyAdminJobsStatusFilter(AdminJobsOverlayContext context, string filterTag)
     {
-        var currentTag = (context.StatusCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "all";
-        if (string.Equals(currentTag, filterTag, StringComparison.OrdinalIgnoreCase))
-            filterTag = "all";
+        if (context.SelectedMetricFilters.Contains(filterTag))
+            context.SelectedMetricFilters.Remove(filterTag);
+        else
+            context.SelectedMetricFilters.Add(filterTag);
 
         for (var i = 0; i < context.StatusCombo.Items.Count; i++)
         {
             if (context.StatusCombo.Items[i] is ComboBoxItem cbi
-                && string.Equals((cbi.Tag as string) ?? string.Empty, filterTag, StringComparison.OrdinalIgnoreCase))
+                && string.Equals((cbi.Tag as string) ?? string.Empty, "all", StringComparison.OrdinalIgnoreCase))
             {
                 context.StatusCombo.SelectedIndex = i;
                 return;
@@ -819,7 +849,7 @@ public sealed partial class MainWindow
         }
     }
 
-    private Border BuildAdminMetricCard(string title, int value, string accentStatus)
+    private Border BuildAdminMetricCard(string title, int value, string accentStatus, bool isSelected)
     {
         var light = UseLightPalette();
         return new Border
@@ -828,7 +858,7 @@ public sealed partial class MainWindow
             Padding = new Thickness(14, 12, 14, 12),
             Background = light ? UiBrush(0xF7, 0xFA, 0xFD) : UiBrush(0x11, 0x16, 0x1E),
             BorderBrush = GetAdminJobStatusBorder(accentStatus, light),
-            BorderThickness = new Thickness(1),
+            BorderThickness = new Thickness(isSelected ? 3 : 1),
             Child = new StackPanel
             {
                 Spacing = 4,
@@ -1124,7 +1154,11 @@ public sealed partial class MainWindow
 
         if (!item.IsTerminal)
         {
-            var cancelButton = BuildDialogInlineButton(ClientUiText.Get("admin.jobs.cancel", UiLang), destructive: true);
+            var isInitialIngestion = string.Equals(item.JobType, "upsert", StringComparison.OrdinalIgnoreCase)
+                                     && (item.DocumentIndexedVersion ?? 0) <= 0;
+            var cancelButton = BuildDialogInlineButton(
+                ClientUiText.Get(isInitialIngestion ? "admin.jobs.pause" : "admin.jobs.cancel", UiLang),
+                destructive: true);
             cancelButton.Click += async (_, __) =>
             {
                 try
@@ -1599,7 +1633,7 @@ public sealed partial class MainWindow
             return null;
 
         if (!item.DocumentAutoIngestPaused.Value)
-            return ClientUiText.Get("admin.jobs.auto_pause.off", UiLang);
+            return null;
 
         var reason = TranslateAdminJobAutoPauseReason(item.DocumentAutoIngestPauseReason);
         if (!string.IsNullOrWhiteSpace(reason))
@@ -1669,6 +1703,7 @@ public sealed partial class MainWindow
             "pending" => ClientUiText.Get("admin.jobs.document_status.pending", UiLang),
             "outdated" => ClientUiText.Get("admin.jobs.document_status.outdated", UiLang),
             "missing" => ClientUiText.Get("admin.jobs.document_status.missing", UiLang),
+            "deleted" => ClientUiText.Get("admin.jobs.document_status.deleted", UiLang),
             "failed" => ClientUiText.Get("admin.jobs.document_status.failed", UiLang),
             "active" => ClientUiText.Get("admin.jobs.document_status.active", UiLang),
             "inactive" => ClientUiText.Get("admin.jobs.document_status.inactive", UiLang),
