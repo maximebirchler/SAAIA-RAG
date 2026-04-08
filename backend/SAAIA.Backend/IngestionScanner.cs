@@ -194,7 +194,7 @@ WHERE tenant_id = @tenant_id
 
             if (!existing.TryGetValue(rel, out var row))
             {
-                await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, category, fi, ct, isAutomatic: true);
+                await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, category, fi, ct, isAutomatic: true, enqueueSource: "scanner");
                 enqUpsert++;
                 continue;
             }
@@ -229,6 +229,19 @@ WHERE tenant_id = @tenant_id
             }
             else if (needsReindex)
             {
+                var failedBackoff = await GetRecentFailureBackoffStateAsync(conn, tenantId, rel, opt, ct);
+                if (!changed && failedBackoff.ShouldBackoff)
+                {
+                    suppressedAuto++;
+                    _log.LogWarning(
+                        "Scanner: auto-upsert backoff for {DocPath} after {FailureStreak} consecutive failures (last_failed_at={LastFailedAt:u}, backoff={BackoffSeconds}s)",
+                        rel,
+                        failedBackoff.FailureStreak,
+                        failedBackoff.LastFailedAtUtc,
+                        failedBackoff.BackoffSeconds);
+                    continue;
+                }
+
                 // Fresh re-check: close stale batch-load race where admin cancel
                 // set auto_ingest_paused=true after the batch query ran
                 if (await IsFreshAutoIngestPausedAsync(conn, tenantId, rel, ct))
@@ -243,7 +256,7 @@ WHERE tenant_id = @tenant_id
                     _log.LogInformation(
                         "Scanner: enqueue upsert for {DocPath} (status={Status}, changed={Changed}, hasActiveJob={HasActiveJob}, pendingOrBroken={PendingOrBroken}, forceReindex={Force})",
                         rel, row.Status, changed, hasActiveJob, pendingOrBrokenWithoutJob, forceReindexAll);
-                    await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, category, fi, ct, isAutomatic: true);
+                    await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, category, fi, ct, isAutomatic: true, enqueueSource: "scanner");
                     enqUpsert++;
                 }
             }
@@ -399,6 +412,50 @@ LIMIT 1;";
         return exists.HasValue;
     }
 
+    private static async Task<AutoRetryBackoffState> GetRecentFailureBackoffStateAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        string docPath,
+        IngestionOptions opt,
+        CancellationToken ct)
+    {
+        var backoffSeconds = Math.Clamp(opt.AutoRetryBackoffSeconds, 0, 24 * 3600);
+        var streak = Math.Clamp(opt.AutoRetryFailureStreak, 1, 20);
+
+        const string sql = """
+SELECT
+  COUNT(*)::int AS "Total",
+  COUNT(*) FILTER (WHERE lower(status)='failed')::int AS "Failed",
+  MAX(finished_at) FILTER (WHERE lower(status)='failed') AS "LastFailedAtUtc"
+FROM (
+  SELECT status, finished_at
+  FROM ingestion_jobs
+  WHERE tenant_id=@tenant_id
+    AND doc_path=@doc_path
+    AND action='upsert'
+    AND status IN ('failed','done','canceled','cancelled')
+  ORDER BY created_at DESC
+  LIMIT @streak
+) x;
+""";
+
+        var row = await conn.QueryFirstOrDefaultAsync<AutoRetryBackoffStateRow>(
+            new CommandDefinition(sql, new
+            {
+                tenant_id = tenantId,
+                doc_path = docPath,
+                streak
+            }, cancellationToken: ct));
+
+        if (row is null || row.Total < streak || row.Failed < streak || row.LastFailedAtUtc is null)
+            return new AutoRetryBackoffState(false, row?.Failed ?? 0, null, backoffSeconds);
+
+        var lastFailedUtc = DateTime.SpecifyKind(row.LastFailedAtUtc.Value, DateTimeKind.Utc);
+        var elapsed = DateTime.UtcNow - lastFailedUtc;
+        var shouldBackoff = backoffSeconds > 0 && elapsed.TotalSeconds < backoffSeconds;
+        return new AutoRetryBackoffState(shouldBackoff, row.Failed, lastFailedUtc, backoffSeconds);
+    }
+
     private static async Task MarkStaleRunningJobsFailedAsync(NpgsqlConnection conn, Guid tenantId, TimeSpan staleRunningAfter, CancellationToken ct)
     {
         const string sql = @"
@@ -488,4 +545,7 @@ WHERE tenant_id=@tenant_id
             AutoIngestPausedAt = AutoIngestPausedAt
         };
     }
+
+    private sealed record AutoRetryBackoffStateRow(int Total, int Failed, DateTime? LastFailedAtUtc);
+    private sealed record AutoRetryBackoffState(bool ShouldBackoff, int FailureStreak, DateTime? LastFailedAtUtc, int BackoffSeconds);
 }

@@ -92,7 +92,7 @@ public static class IngestionAdminEndpoints
 
             eligible++;
 
-            await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, docCategory, fi, ct);
+            await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, docCategory, fi, ct, enqueueSource: "admin");
             enqueued++;
         }
 

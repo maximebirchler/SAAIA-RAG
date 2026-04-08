@@ -50,10 +50,7 @@ LIMIT 1;
         if (state is null)
             return false;
 
-        if (!state.AutoIngestPaused)
-            return false;
-
-        return SameFile(state.FileSize, state.FileMtime, currentFileSize, currentFileMtimeUtc);
+        return state.AutoIngestPaused;
     }
 
     public static bool SameFile(long? dbFileSize, DateTime? dbFileMtime, long currentFileSize, DateTime currentFileMtimeUtc)
