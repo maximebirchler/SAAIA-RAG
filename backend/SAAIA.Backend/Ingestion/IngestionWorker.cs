@@ -25,12 +25,18 @@ sealed class IngestionWorker : BackgroundService
     private readonly IServiceProvider _sp;
     private readonly ILogger<IngestionWorker> _log;
     private readonly IngestionBulkheads _bulkheads;
+    private readonly IngestionJobCancellationRegistry _cancelRegistry;
 
-    public IngestionWorker(IServiceProvider sp, ILogger<IngestionWorker> log, IngestionBulkheads bulkheads)
+    public IngestionWorker(
+        IServiceProvider sp,
+        ILogger<IngestionWorker> log,
+        IngestionBulkheads bulkheads,
+        IngestionJobCancellationRegistry cancelRegistry)
     {
         _sp = sp;
         _log = log;
         _bulkheads = bulkheads;
+        _cancelRegistry = cancelRegistry;
     }
 
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
@@ -95,47 +101,69 @@ sealed class IngestionWorker : BackgroundService
                     _log.LogInformation("Ingestion start job={JobId} action={Action} doc={DocPath} v={Version}",
                         job.JobId, job.Action, job.DocPath, job.Version);
 
-                try
-                {
-                    bool completed;
-                    if (job.Action == "delete")
-                        completed = await ProcessDeleteAsync(ds, httpFactory, rag, ingest, job, workerId, ct);
-                    else
-                        completed = await ProcessUpsertAsync(ds, httpFactory, rag, ingest, job, workerId, ct);
+                    using var jobCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    using var _reg = _cancelRegistry.Register(job.JobId, job.TenantId, job.DocPath, jobCts);
+                    var jobCt = jobCts.Token;
 
-                    if (completed)
-                        _log.LogInformation("Ingestion done job={JobId} doc={DocPath}", job.JobId, job.DocPath);
-                    else
-                        _log.LogInformation("Ingestion canceled at commit job={JobId} doc={DocPath}", job.JobId, job.DocPath);
-                }
-                catch (JobCanceledException jc)
-                {
-                    _log.LogInformation("Job canceled job={JobId} action={Action} doc={DocPath} reason={Reason}",
-                        job.JobId, job.Action, job.DocPath, jc.Reason);
-                    await JobRepo.MarkCanceledAsync(ds, job.JobId, jc.Reason, ct);
-                    // Safety net: stabilize document to prevent scanner from recreating the job.
-                    // Uses COALESCE so it won't overwrite if cancel endpoint already set the pause.
                     try
                     {
-                        await JobRepo.StabilizeDocumentAfterCancelAsync(ds, job.TenantId, job.DocPath, ct);
+                        bool completed;
+                        if (job.Action == "delete")
+                            completed = await ProcessDeleteAsync(ds, httpFactory, rag, ingest, job, workerId, jobCt);
+                        else
+                            completed = await ProcessUpsertAsync(ds, httpFactory, rag, ingest, job, workerId, jobCt);
+
+                        if (completed)
+                            _log.LogInformation("Ingestion done job={JobId} doc={DocPath}", job.JobId, job.DocPath);
+                        else
+                            _log.LogInformation("Ingestion canceled at commit job={JobId} doc={DocPath}", job.JobId, job.DocPath);
                     }
-                    catch (Exception stabEx)
+                    catch (JobCanceledException jc)
                     {
-                        _log.LogWarning(stabEx, "Failed to stabilize document after cancel job={JobId} doc={DocPath}", job.JobId, job.DocPath);
+                        _log.LogInformation("Job canceled job={JobId} action={Action} doc={DocPath} reason={Reason}",
+                            job.JobId, job.Action, job.DocPath, jc.Reason);
+                        await JobRepo.MarkCanceledAsync(ds, job.JobId, jc.Reason, ct);
+                        // Safety net: stabilize document to prevent scanner from recreating the job.
+                        // Uses COALESCE so it won't overwrite if cancel endpoint already set the pause.
+                        try
+                        {
+                            await JobRepo.StabilizeDocumentAfterCancelAsync(ds, job.TenantId, job.DocPath, ct);
+                        }
+                        catch (Exception stabEx)
+                        {
+                            _log.LogWarning(stabEx, "Failed to stabilize document after cancel job={JobId} doc={DocPath}", job.JobId, job.DocPath);
+                        }
                     }
-                }
-                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-                {
-                    _log.LogWarning("Job timed out/canceled job={JobId} action={Action} doc={DocPath}",
-                        job.JobId, job.Action, job.DocPath);
-                    await JobRepo.MarkFailedAsync(ds, job.JobId, "timeout_or_canceled", ct);
-                }
-                catch (Exception ex)
-                {
-                    _log.LogError(ex, "Job failed job={JobId} action={Action} doc={DocPath}",
-                        job.JobId, job.Action, job.DocPath);
-                    await JobRepo.MarkFailedAsync(ds, job.JobId, ex.Message, ct);
-                }
+                    catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                    {
+                        var canceledByAdmin = await JobRepo.IsCanceledAsync(ds, job.JobId, CancellationToken.None);
+                        if (canceledByAdmin)
+                        {
+                            _log.LogInformation("Job canceled via token job={JobId} action={Action} doc={DocPath}",
+                                job.JobId, job.Action, job.DocPath);
+                            await JobRepo.MarkCanceledAsync(ds, job.JobId, "canceled_by_admin_token", ct);
+                            try
+                            {
+                                await JobRepo.StabilizeDocumentAfterCancelAsync(ds, job.TenantId, job.DocPath, ct);
+                            }
+                            catch (Exception stabEx)
+                            {
+                                _log.LogWarning(stabEx, "Failed to stabilize document after token cancel job={JobId} doc={DocPath}", job.JobId, job.DocPath);
+                            }
+                        }
+                        else
+                        {
+                            _log.LogWarning("Job timed out/canceled job={JobId} action={Action} doc={DocPath}",
+                                job.JobId, job.Action, job.DocPath);
+                            await JobRepo.MarkFailedAsync(ds, job.JobId, "timeout_or_canceled", ct);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _log.LogError(ex, "Job failed job={JobId} action={Action} doc={DocPath}",
+                            job.JobId, job.Action, job.DocPath);
+                        await JobRepo.MarkFailedAsync(ds, job.JobId, ex.Message, ct);
+                    }
                 }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
@@ -265,7 +293,7 @@ WHERE job_id=@job_id
         }
 
         if (!File.Exists(absPath))
-            throw new JobCanceledException("file_missing");
+            throw new Exception("file_missing");
 
         await ThrowIfJobCanceledAsync(ds, job.JobId, ct);
 
