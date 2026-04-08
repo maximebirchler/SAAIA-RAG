@@ -364,6 +364,8 @@ WHERE job_id=@job_id
         for (int i = 0; i < chunks.Count; i += batchSize)
         {
             await ThrowIfJobCanceledAsync(ds, job, ct);
+            if (!File.Exists(absPath))
+                throw new Exception("source_removed_during_ingestion");
             var slice = chunks.Skip(i).Take(batchSize).ToList();
             var inputs = slice.Select(c => c.Text).ToArray();
 

@@ -33,6 +33,7 @@ public sealed partial class MainWindow
         public bool IsRefreshing { get; set; }
         public int HistoryTake { get; set; } = 50;
         public string? SelectedJobId { get; set; }
+        public string? LastVisibleRenderSignature { get; set; }
     }
 
     private sealed class AdminJobListItem
@@ -644,8 +645,14 @@ public sealed partial class MainWindow
     private void RenderAdminJobsOverlay(AdminJobsOverlayContext context)
     {
         var visibleItems = ApplyAdminJobsFilters(context);
+        var renderSignature = BuildAdminJobsRenderSignature(visibleItems);
+        var shouldRebuildGroups = !string.Equals(context.LastVisibleRenderSignature, renderSignature, StringComparison.Ordinal);
         RenderAdminJobsMetrics(context, context.Items, visibleItems);
-        RenderAdminJobsGroups(context, visibleItems);
+        if (shouldRebuildGroups)
+        {
+            RenderAdminJobsGroups(context, visibleItems);
+            context.LastVisibleRenderSignature = renderSignature;
+        }
         RenderAdminJobsDetails(context);
         UpdateAdminJobsSelectionState(context, visibleItems);
         context.SummaryText.Text = ClientUiText.Format("admin.jobs.summary", UiLang, visibleItems.Count, visibleItems.Count(x => !x.IsTerminal && !x.IsPaused), context.Items.Count);
@@ -716,6 +723,23 @@ public sealed partial class MainWindow
             Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
             TextWrapping = TextWrapping.WrapWholeWords
         });
+    }
+
+    private static string BuildAdminJobsRenderSignature(IReadOnlyList<AdminJobListItem> visibleItems)
+    {
+        var sb = new System.Text.StringBuilder(visibleItems.Count * 64);
+        foreach (var item in visibleItems)
+        {
+            sb.Append(item.JobId).Append('|')
+              .Append(item.Status).Append('|')
+              .Append(item.ProgressPhase).Append('|')
+              .Append(item.ProgressPercent?.ToString(CultureInfo.InvariantCulture) ?? "-").Append('|')
+              .Append(item.ProgressCurrent?.ToString(CultureInfo.InvariantCulture) ?? "-").Append('|')
+              .Append(item.ProgressTotal?.ToString(CultureInfo.InvariantCulture) ?? "-").Append('|')
+              .Append(item.LastError).Append(';');
+        }
+
+        return sb.ToString();
     }
 
     private Border BuildAdminMetricCard(string title, int value, string accentStatus)
@@ -1041,6 +1065,8 @@ public sealed partial class MainWindow
 
                     if (cancelRequested)
                         Status(ClientUiText.Get("admin.jobs.cancel_requested", UiLang));
+                    else if (status == "paused" || result == "paused")
+                        Status(ClientUiText.Get("admin.jobs.cancel_done", UiLang));
                     else if (status is "canceled" or "cancelled" || result == "canceled")
                         Status(ClientUiText.Get("admin.jobs.cancel_done", UiLang));
                     else if (status is "done" or "failed" || result == "already_finished")

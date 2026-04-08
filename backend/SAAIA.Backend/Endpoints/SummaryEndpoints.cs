@@ -1018,7 +1018,10 @@ SET status='canceled',
     locked_by=NULL,
     locked_at=NULL,
     available_at=now()
-WHERE tenant_id=@tenant AND doc_path=@docPath AND status='queued';
+WHERE tenant_id=@tenant
+  AND doc_path=@docPath
+  AND action='upsert'
+  AND status IN ('queued','paused');
 """,
             new { tenant = tenantId, docPath = ingestionRef.DocPath },
             transaction: tx,
@@ -1028,7 +1031,10 @@ WHERE tenant_id=@tenant AND doc_path=@docPath AND status='queued';
             """
 UPDATE ingestion_jobs
 SET payload = jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,cancelRequested}', 'true'::jsonb, true)
-WHERE tenant_id=@tenant AND doc_path=@docPath AND status='running';
+WHERE tenant_id=@tenant
+  AND doc_path=@docPath
+  AND action='upsert'
+  AND status='running';
 """,
             new { tenant = tenantId, docPath = ingestionRef.DocPath },
             transaction: tx,
