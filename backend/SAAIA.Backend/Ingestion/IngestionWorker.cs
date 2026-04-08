@@ -136,7 +136,7 @@ sealed class IngestionWorker : BackgroundService
                     }
                     catch (OperationCanceledException) when (!ct.IsCancellationRequested)
                     {
-                        var canceledByAdmin = await JobRepo.IsCancellationRequestedAsync(ds, job.TenantId, job.DocPath, job.JobId, CancellationToken.None);
+                        var canceledByAdmin = await JobRepo.IsCanceledAsync(ds, job.JobId, CancellationToken.None);
                         if (canceledByAdmin)
                         {
                             _log.LogInformation("Job canceled via token job={JobId} action={Action} doc={DocPath}",
@@ -153,9 +153,9 @@ sealed class IngestionWorker : BackgroundService
                         }
                         else
                         {
-                            _log.LogWarning("Job timed out job={JobId} action={Action} doc={DocPath}",
+                            _log.LogWarning("Job timed out/canceled job={JobId} action={Action} doc={DocPath}",
                                 job.JobId, job.Action, job.DocPath);
-                            await JobRepo.MarkFailedAsync(ds, job.JobId, "timeout", ct);
+                            await JobRepo.MarkFailedAsync(ds, job.JobId, "timeout_or_canceled", ct);
                         }
                     }
                     catch (Exception ex)
@@ -293,7 +293,7 @@ WHERE job_id=@job_id
         }
 
         if (!File.Exists(absPath))
-            throw new JobCanceledException("file_missing");
+            throw new Exception("file_missing");
 
         await ThrowIfJobCanceledAsync(ds, job, ct);
 

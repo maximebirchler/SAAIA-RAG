@@ -184,6 +184,7 @@ SET auto_ingest_paused = true,
     updated_at = now()
 WHERE tenant_id = @tenant_id
   AND doc_path = @doc_path
+  AND COALESCE(indexed_version, 0) <= 0
   AND NOT COALESCE(auto_ingest_paused, false);";
         await conn.ExecuteAsync(new CommandDefinition(sql, new { tenant_id = tenantId, doc_path = docPath }, cancellationToken: ct));
     }
@@ -290,6 +291,7 @@ SET auto_ingest_paused = true,
     END,
     updated_at = now()
 WHERE tenant_id=@tenant_id AND doc_path=@doc_path
+  AND COALESCE(indexed_version, 0) <= 0
   AND NOT COALESCE(auto_ingest_paused, false);";
             await conn.ExecuteAsync(new CommandDefinition(stabilizeSql, new { tenant_id = tenantId, doc_path = docPath }, transaction: tx, cancellationToken: ct));
 
