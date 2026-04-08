@@ -1656,6 +1656,7 @@ public sealed partial class MainWindow
             "error" => "failed",
             "cancelled" => "canceled",
             "cancel-requested" or "cancel requested" => "cancel_requested",
+            "pause" => "paused",
             _ => normalized.Length == 0 ? "queued" : normalized
         };
     }
@@ -1674,6 +1675,7 @@ public sealed partial class MainWindow
             "queued" => 0,
             "running" => 1,
             "cancel_requested" => 1,
+            "paused" => 1,
             "done" => 2,
             "failed" => 2,
             "canceled" => 2,

@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS ingestion_jobs (
   doc_path text NOT NULL,      -- RELATIF
   category text,
   priority int NOT NULL DEFAULT 100,
-  status text NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','running','done','failed','canceled')),
+  status text NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','running','paused','done','failed','canceled')),
   attempts int NOT NULL DEFAULT 0,
   locked_by text,
   locked_at timestamptz,
@@ -64,4 +64,4 @@ CREATE INDEX IF NOT EXISTS ix_jobs_pick
 -- Empêche d'empiler 50 jobs identiques
 CREATE UNIQUE INDEX IF NOT EXISTS ux_jobs_active
   ON ingestion_jobs(tenant_id, doc_path, action)
-  WHERE status IN ('queued','running');
+  WHERE status IN ('queued','running','paused');

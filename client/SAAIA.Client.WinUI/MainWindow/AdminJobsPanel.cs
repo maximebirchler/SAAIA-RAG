@@ -18,6 +18,8 @@ public sealed partial class MainWindow
         public required TextBlock SelectionText { get; init; }
         public required TextBox SearchBox { get; init; }
         public required ComboBox TypeCombo { get; init; }
+        public required Button IngestionCategoryButton { get; init; }
+        public required Button SummaryCategoryButton { get; init; }
         public required ComboBox StatusCombo { get; init; }
         public required ToggleSwitch AutoRefreshToggle { get; init; }
         public required Button RefreshButton { get; init; }
@@ -33,6 +35,10 @@ public sealed partial class MainWindow
         public bool IsRefreshing { get; set; }
         public int HistoryTake { get; set; } = 50;
         public string? SelectedJobId { get; set; }
+        public string? LastVisibleRenderSignature { get; set; }
+        public string? LastRenderedSelectedJobId { get; set; }
+        public bool IncludeIngestionCategory { get; set; } = true;
+        public bool IncludeSummaryCategory { get; set; } = true;
     }
 
     private sealed class AdminJobListItem
@@ -65,6 +71,7 @@ public sealed partial class MainWindow
             => string.Equals(NormalizeTrackedJobStatus(Status), "running", StringComparison.OrdinalIgnoreCase)
                || string.Equals(NormalizeTrackedJobStatus(Status), "cancel_requested", StringComparison.OrdinalIgnoreCase);
         public bool IsQueued => string.Equals(NormalizeTrackedJobStatus(Status), "queued", StringComparison.OrdinalIgnoreCase);
+        public bool IsPaused => string.Equals(NormalizeTrackedJobStatus(Status), "paused", StringComparison.OrdinalIgnoreCase);
         public bool IsFailedLike
             => string.Equals(NormalizeTrackedJobStatus(Status), "failed", StringComparison.OrdinalIgnoreCase)
                || string.Equals(NormalizeTrackedJobStatus(Status), "canceled", StringComparison.OrdinalIgnoreCase);
@@ -176,21 +183,31 @@ public sealed partial class MainWindow
         typeCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.filter.ingestion", UiLang), Tag = "ingestion" });
         typeCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.filter.summary", UiLang), Tag = "summary" });
         typeCombo.SelectedIndex = 0;
+        typeCombo.Visibility = Visibility.Collapsed;
+
+        var ingestionTypeButton = BuildDialogInlineButton(ClientUiText.Get("admin.jobs.filter.ingestion", UiLang));
+        ingestionTypeButton.MinWidth = 130;
+        ingestionTypeButton.MinHeight = 36;
+        var summaryTypeButton = BuildDialogInlineButton(ClientUiText.Get("admin.jobs.filter.summary", UiLang));
+        summaryTypeButton.MinWidth = 130;
+        summaryTypeButton.MinHeight = 36;
 
         var statusCombo = new ComboBox
         {
             MinWidth = 170,
-            HorizontalAlignment = HorizontalAlignment.Left
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Visibility = Visibility.Collapsed
         };
         statusCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.status_filter.all", UiLang), Tag = "all" });
         statusCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.status_filter.active", UiLang), Tag = "active" });
         statusCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.status.queued", UiLang), Tag = "queued" });
         statusCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.status.running", UiLang), Tag = "running" });
         statusCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.status.cancel_requested", UiLang), Tag = "cancel_requested" });
+        statusCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.status.paused", UiLang), Tag = "paused" });
         statusCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.status.done", UiLang), Tag = "done" });
         statusCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.status.failed", UiLang), Tag = "failed" });
         statusCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.status.canceled", UiLang), Tag = "canceled" });
-        statusCombo.SelectedIndex = 1;
+        statusCombo.SelectedIndex = 0;
 
         var autoRefreshToggle = new ToggleSwitch
         {
@@ -219,6 +236,7 @@ public sealed partial class MainWindow
         var summaryText = new TextBlock
         {
             Text = ClientUiText.Get("admin.jobs.loading", UiLang),
+            Visibility = Visibility.Collapsed,
             TextWrapping = TextWrapping.WrapWholeWords,
             Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE)
         };
@@ -249,14 +267,17 @@ public sealed partial class MainWindow
         toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var typeFiltersHost = new StackPanel { Orientation = Orientation.Vertical, Spacing = 8 };
+        typeFiltersHost.Children.Add(ingestionTypeButton);
+        typeFiltersHost.Children.Add(summaryTypeButton);
         Grid.SetColumn(searchBox, 0);
-        Grid.SetColumn(typeCombo, 1);
+        Grid.SetColumn(typeFiltersHost, 1);
         Grid.SetColumn(statusCombo, 2);
         Grid.SetColumn(autoRefreshToggle, 3);
         toolbarGrid.Children.Add(searchBox);
-        toolbarGrid.Children.Add(typeCombo);
-        toolbarGrid.Children.Add(statusCombo);
+        toolbarGrid.Children.Add(typeFiltersHost);
         toolbarGrid.Children.Add(autoRefreshToggle);
+        toolbarGrid.Children.Add(typeCombo);
 
         var footerActions = new Grid { ColumnSpacing = 12 };
         footerActions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -432,6 +453,8 @@ public sealed partial class MainWindow
             SelectionText = selectionText,
             SearchBox = searchBox,
             TypeCombo = typeCombo,
+            IngestionCategoryButton = ingestionTypeButton,
+            SummaryCategoryButton = summaryTypeButton,
             StatusCombo = statusCombo,
             AutoRefreshToggle = autoRefreshToggle,
             RefreshButton = refreshButton,
@@ -451,7 +474,40 @@ public sealed partial class MainWindow
         };
 
         searchBox.TextChanged += (_, __) => RenderAdminJobsOverlay(context);
-        typeCombo.SelectionChanged += async (_, __) => await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+        void ApplyCategoryButtonVisuals()
+        {
+            var light = UseLightPalette();
+            ingestionTypeButton.BorderThickness = new Thickness(context.IncludeIngestionCategory ? 2 : 1);
+            summaryTypeButton.BorderThickness = new Thickness(context.IncludeSummaryCategory ? 2 : 1);
+            ingestionTypeButton.Opacity = context.IncludeIngestionCategory ? 1d : 0.7d;
+            summaryTypeButton.Opacity = context.IncludeSummaryCategory ? 1d : 0.7d;
+            ingestionTypeButton.BorderBrush = context.IncludeIngestionCategory
+                ? GetAdminJobStatusBorder("running", light)
+                : GetAdminJobStatusBorder("queued", light);
+            summaryTypeButton.BorderBrush = context.IncludeSummaryCategory
+                ? GetAdminJobStatusBorder("running", light)
+                : GetAdminJobStatusBorder("queued", light);
+        }
+
+        ingestionTypeButton.Click += async (_, __) =>
+        {
+            context.IncludeIngestionCategory = !context.IncludeIngestionCategory;
+            if (!context.IncludeIngestionCategory && !context.IncludeSummaryCategory)
+                context.IncludeSummaryCategory = true;
+            context.SelectedJobId = null;
+            ApplyCategoryButtonVisuals();
+            await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+        };
+        summaryTypeButton.Click += async (_, __) =>
+        {
+            context.IncludeSummaryCategory = !context.IncludeSummaryCategory;
+            if (!context.IncludeIngestionCategory && !context.IncludeSummaryCategory)
+                context.IncludeIngestionCategory = true;
+            context.SelectedJobId = null;
+            ApplyCategoryButtonVisuals();
+            await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+        };
+        ApplyCategoryButtonVisuals();
         statusCombo.SelectionChanged += (_, __) => RenderAdminJobsOverlay(context);
         autoRefreshToggle.Toggled += (_, __) =>
         {
@@ -486,25 +542,15 @@ public sealed partial class MainWindow
     {
         var flyout = new MenuFlyout();
 
-        var visibleDone = new MenuFlyoutItem { Text = ClientUiText.Get("admin.jobs.purge.visible_done", UiLang) };
-        visibleDone.Click += async (_, __) =>
-            await DeleteAdminJobsByPredicateAsync(context, item => item.IsTerminal && !item.IsFailed && !item.IsCanceled).ConfigureAwait(true);
-        flyout.Items.Add(visibleDone);
-
-        var visibleFailed = new MenuFlyoutItem { Text = ClientUiText.Get("admin.jobs.purge.visible_failed", UiLang) };
-        visibleFailed.Click += async (_, __) =>
-            await DeleteAdminJobsByPredicateAsync(context, item => item.IsTerminal && item.IsFailed).ConfigureAwait(true);
-        flyout.Items.Add(visibleFailed);
-
-        var visibleCanceled = new MenuFlyoutItem { Text = ClientUiText.Get("admin.jobs.purge.visible_canceled", UiLang) };
-        visibleCanceled.Click += async (_, __) =>
-            await DeleteAdminJobsByPredicateAsync(context, item => item.IsTerminal && item.IsCanceled).ConfigureAwait(true);
-        flyout.Items.Add(visibleCanceled);
-
         var visibleAll = new MenuFlyoutItem { Text = ClientUiText.Get("admin.jobs.purge.visible_all", UiLang) };
         visibleAll.Click += async (_, __) =>
             await DeleteAdminJobsByPredicateAsync(context, item => item.IsTerminal).ConfigureAwait(true);
         flyout.Items.Add(visibleAll);
+
+        var purgeAllHistory = new MenuFlyoutItem { Text = ClientUiText.Get("admin.jobs.purge.all_history", UiLang) };
+        purgeAllHistory.Click += async (_, __) =>
+            await PurgeAdminJobsHistoryAsync(context, scope: "all").ConfigureAwait(true);
+        flyout.Items.Add(purgeAllHistory);
 
         return flyout;
     }
@@ -599,9 +645,7 @@ public sealed partial class MainWindow
 
         try
         {
-            var selected = context.TypeCombo.SelectedItem as ComboBoxItem;
-            var type = (selected?.Tag as string) ?? string.Empty;
-            var root = await _api.AdminJobsListAsync(string.IsNullOrWhiteSpace(type) ? null : type, 250, 0, ct).ConfigureAwait(true);
+            var root = await _api.AdminJobsListAsync(null, 250, 0, ct).ConfigureAwait(true);
             var items = ParseAdminJobs(root)
                 .OrderByDescending(item => GetTrackedJobStatusRank(item.Status))
                 .ThenByDescending(item => item.CreatedAt ?? DateTimeOffset.MinValue)
@@ -642,11 +686,26 @@ public sealed partial class MainWindow
     private void RenderAdminJobsOverlay(AdminJobsOverlayContext context)
     {
         var visibleItems = ApplyAdminJobsFilters(context);
+        if (!string.IsNullOrWhiteSpace(context.SelectedJobId)
+            && !visibleItems.Any(item => string.Equals(item.JobId, context.SelectedJobId, StringComparison.OrdinalIgnoreCase)))
+        {
+            context.SelectedJobId = null;
+        }
+
+        var renderSignature = BuildAdminJobsRenderSignature(visibleItems);
+        var shouldRebuildGroups =
+            !string.Equals(context.LastVisibleRenderSignature, renderSignature, StringComparison.Ordinal)
+            || !string.Equals(context.SelectedJobId, context.LastRenderedSelectedJobId, StringComparison.OrdinalIgnoreCase);
         RenderAdminJobsMetrics(context, context.Items, visibleItems);
-        RenderAdminJobsGroups(context, visibleItems);
+        if (shouldRebuildGroups)
+        {
+            RenderAdminJobsGroups(context, visibleItems);
+            context.LastVisibleRenderSignature = renderSignature;
+            context.LastRenderedSelectedJobId = context.SelectedJobId;
+        }
         RenderAdminJobsDetails(context);
         UpdateAdminJobsSelectionState(context, visibleItems);
-        context.SummaryText.Text = ClientUiText.Format("admin.jobs.summary", UiLang, visibleItems.Count, visibleItems.Count(x => !x.IsTerminal), context.Items.Count);
+        context.SummaryText.Text = ClientUiText.Format("admin.jobs.summary", UiLang, visibleItems.Count, visibleItems.Count(x => !x.IsTerminal && !x.IsPaused), context.Items.Count);
     }
 
     private List<AdminJobListItem> ApplyAdminJobsFilters(AdminJobsOverlayContext context)
@@ -664,12 +723,17 @@ public sealed partial class MainWindow
                 || (!string.IsNullOrWhiteSpace(item.JobType) && item.JobType.Contains(term, StringComparison.OrdinalIgnoreCase)));
         }
 
+        items = items.Where(item =>
+            (context.IncludeIngestionCategory && string.Equals(item.Type, "ingestion", StringComparison.OrdinalIgnoreCase))
+            || (context.IncludeSummaryCategory && string.Equals(item.Type, "summary", StringComparison.OrdinalIgnoreCase)));
+
         items = selectedStatus switch
         {
-            "active" => items.Where(item => !item.IsTerminal),
+            "active" => items.Where(item => !item.IsTerminal && !item.IsPaused),
             "queued" => items.Where(item => item.IsQueued),
             "running" => items.Where(item => item.IsRunning),
             "cancel_requested" => items.Where(item => string.Equals(NormalizeTrackedJobStatus(item.Status), "cancel_requested", StringComparison.OrdinalIgnoreCase)),
+            "paused" => items.Where(item => item.IsPaused),
             "done" => items.Where(item => string.Equals(NormalizeTrackedJobStatus(item.Status), "done", StringComparison.OrdinalIgnoreCase)),
             "failed" => items.Where(item => string.Equals(NormalizeTrackedJobStatus(item.Status), "failed", StringComparison.OrdinalIgnoreCase)),
             "canceled" => items.Where(item => string.Equals(NormalizeTrackedJobStatus(item.Status), "canceled", StringComparison.OrdinalIgnoreCase)),
@@ -689,19 +753,25 @@ public sealed partial class MainWindow
         for (var i = 0; i < 6; i++)
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-        var metrics = new (string Title, int Value, string Accent)[]
+        var metrics = new (string Title, int Value, string Accent, string FilterTag)[]
         {
-            (ClientUiText.Get("admin.jobs.metric.active", UiLang), allItems.Count(x => !x.IsTerminal), "running"),
-            (ClientUiText.Get("admin.jobs.metric.queued", UiLang), allItems.Count(x => x.IsQueued), "queued"),
-            (ClientUiText.Get("admin.jobs.metric.running", UiLang), allItems.Count(x => x.IsRunning), "running"),
-            (ClientUiText.Get("admin.jobs.metric.failed", UiLang), allItems.Count(x => x.IsFailed), "failed"),
-            (ClientUiText.Get("admin.jobs.metric.canceled", UiLang), allItems.Count(x => x.IsCanceled), "canceled"),
-            (ClientUiText.Get("admin.jobs.metric.done", UiLang), allItems.Count(x => string.Equals(NormalizeTrackedJobStatus(x.Status), "done", StringComparison.OrdinalIgnoreCase)), "done")
+            (ClientUiText.Get("admin.jobs.metric.queued", UiLang), allItems.Count(x => x.IsQueued), "queued", "queued"),
+            (ClientUiText.Get("admin.jobs.metric.running", UiLang), allItems.Count(x => x.IsRunning), "running", "running"),
+            (ClientUiText.Get("admin.jobs.metric.paused", UiLang), allItems.Count(x => x.IsPaused), "paused", "paused"),
+            (ClientUiText.Get("admin.jobs.metric.failed", UiLang), allItems.Count(x => x.IsFailed), "failed", "failed"),
+            (ClientUiText.Get("admin.jobs.metric.canceled", UiLang), allItems.Count(x => x.IsCanceled), "canceled", "canceled"),
+            (ClientUiText.Get("admin.jobs.metric.done", UiLang), allItems.Count(x => string.Equals(NormalizeTrackedJobStatus(x.Status), "done", StringComparison.OrdinalIgnoreCase)), "done", "done")
         };
 
         for (var i = 0; i < metrics.Length; i++)
         {
-            var card = BuildAdminMetricCard(metrics[i].Title, metrics[i].Value, metrics[i].Accent);
+            var metric = metrics[i];
+            var card = BuildAdminMetricCard(metric.Title, metric.Value, metric.Accent);
+            card.Tapped += (_, __) =>
+            {
+                ApplyAdminJobsStatusFilter(context, metric.FilterTag);
+                RenderAdminJobsOverlay(context);
+            };
             Grid.SetColumn(card, i);
             grid.Children.Add(card);
         }
@@ -713,6 +783,40 @@ public sealed partial class MainWindow
             Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
             TextWrapping = TextWrapping.WrapWholeWords
         });
+    }
+
+    private static string BuildAdminJobsRenderSignature(IReadOnlyList<AdminJobListItem> visibleItems)
+    {
+        var sb = new System.Text.StringBuilder(visibleItems.Count * 64);
+        foreach (var item in visibleItems)
+        {
+            sb.Append(item.JobId).Append('|')
+              .Append(item.Status).Append('|')
+              .Append(item.ProgressPhase).Append('|')
+              .Append(item.ProgressPercent?.ToString(CultureInfo.InvariantCulture) ?? "-").Append('|')
+              .Append(item.ProgressCurrent?.ToString(CultureInfo.InvariantCulture) ?? "-").Append('|')
+              .Append(item.ProgressTotal?.ToString(CultureInfo.InvariantCulture) ?? "-").Append('|')
+              .Append(item.LastError).Append(';');
+        }
+
+        return sb.ToString();
+    }
+
+    private static void ApplyAdminJobsStatusFilter(AdminJobsOverlayContext context, string filterTag)
+    {
+        var currentTag = (context.StatusCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "all";
+        if (string.Equals(currentTag, filterTag, StringComparison.OrdinalIgnoreCase))
+            filterTag = "all";
+
+        for (var i = 0; i < context.StatusCombo.Items.Count; i++)
+        {
+            if (context.StatusCombo.Items[i] is ComboBoxItem cbi
+                && string.Equals((cbi.Tag as string) ?? string.Empty, filterTag, StringComparison.OrdinalIgnoreCase))
+            {
+                context.StatusCombo.SelectedIndex = i;
+                return;
+            }
+        }
     }
 
     private Border BuildAdminMetricCard(string title, int value, string accentStatus)
@@ -759,13 +863,16 @@ public sealed partial class MainWindow
             return;
         }
 
-        var active = visibleItems.Where(item => !item.IsTerminal).ToList();
+        var paused = visibleItems.Where(item => item.IsPaused).ToList();
+        var active = visibleItems.Where(item => !item.IsTerminal && !item.IsPaused).ToList();
         var failed = visibleItems.Where(item => item.IsFailed).ToList();
         var canceled = visibleItems.Where(item => item.IsCanceled).ToList();
         var done = visibleItems.Where(item => item.IsTerminal && !item.IsFailed && !item.IsCanceled).ToList();
 
         if (active.Count > 0)
             context.GroupsHost.Children.Add(BuildAdminJobsGroupSection(ClientUiText.Get("admin.jobs.group.active", UiLang), active, context));
+        if (paused.Count > 0)
+            context.GroupsHost.Children.Add(BuildAdminJobsGroupSection(ClientUiText.Get("admin.jobs.group.paused", UiLang), paused, context));
         if (canceled.Count > 0)
             context.GroupsHost.Children.Add(BuildAdminJobsGroupSection(ClientUiText.Get("admin.jobs.group.canceled", UiLang), canceled, context));
         if (failed.Count > 0)
@@ -908,7 +1015,8 @@ public sealed partial class MainWindow
             Height = 6,
             VerticalAlignment = VerticalAlignment.Center,
             Foreground = GetAdminJobStatusForeground(status, light),
-            Background = GetAdminJobStatusBackground(status, light)
+            Background = GetAdminJobStatusBackground(status, light),
+            Transitions = null
         };
         Grid.SetColumn(progressBar, 0);
         progressGrid.Children.Add(progressBar);
@@ -1034,6 +1142,8 @@ public sealed partial class MainWindow
 
                     if (cancelRequested)
                         Status(ClientUiText.Get("admin.jobs.cancel_requested", UiLang));
+                    else if (status == "paused" || result == "paused")
+                        Status(ClientUiText.Get("admin.jobs.cancel_done", UiLang));
                     else if (status is "canceled" or "cancelled" || result == "canceled")
                         Status(ClientUiText.Get("admin.jobs.cancel_done", UiLang));
                     else if (status is "done" or "failed" || result == "already_finished")
@@ -1247,6 +1357,38 @@ public sealed partial class MainWindow
         await DeleteAdminJobsAsync(context, visibleIds).ConfigureAwait(true);
     }
 
+    private async Task PurgeAdminJobsHistoryAsync(AdminJobsOverlayContext context, string scope)
+    {
+        try
+        {
+            context.DeleteSelectionButton.IsEnabled = false;
+            context.PurgeButton.IsEnabled = false;
+
+            var response = await _api.AdminJobsPurgeAsync(scope, null, CancellationToken.None).ConfigureAwait(true);
+            var deleted = TryGetInt(response, "deleted") ?? TryGetInt(response, "Deleted") ?? 0;
+
+            if (deleted > 0)
+            {
+                await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+                Status(ClientUiText.Format("admin.jobs.delete_done", UiLang, deleted));
+            }
+            else
+            {
+                Status(ClientUiText.Get("admin.jobs.delete_nothing", UiLang));
+            }
+        }
+        catch (Exception ex)
+        {
+            ClientLog.Exception("AdminJobs.PurgeHistory", ex);
+            Status(ClientUiText.Get("admin.jobs.delete_failed", UiLang) + ex.Message);
+        }
+        finally
+        {
+            context.DeleteSelectionButton.IsEnabled = context.SelectedTerminalJobIds.Count > 0;
+            context.PurgeButton.IsEnabled = true;
+        }
+    }
+
     private async Task DeleteAdminJobsAsync(AdminJobsOverlayContext context, IReadOnlyList<string> jobIds)
     {
         try
@@ -1379,6 +1521,7 @@ public sealed partial class MainWindow
             "canceled_by_admin" or "canceled_by_admin_token" or "canceled_by_admin_document" or "canceled_by_worker" => ClientUiText.Get("admin.jobs.error.canceled_by_admin", UiLang),
             "canceled_at_commit" => ClientUiText.Get("admin.jobs.error.canceled_after_commit", UiLang),
             "superseded_version" or "superseded_at_commit" => ClientUiText.Get("admin.jobs.error.superseded", UiLang),
+            "source_removed_during_ingestion" => ClientUiText.Get("admin.jobs.error.source_removed_during_ingestion", UiLang),
             _ => raw
         };
     }
@@ -1386,8 +1529,14 @@ public sealed partial class MainWindow
     private string BuildAdminJobProgressLine(AdminJobListItem item)
     {
         var status = NormalizeTrackedJobStatus(item.Status);
-        if (status == "queued")
-            return ClientUiText.Get("admin.jobs.status.queued", UiLang);
+        if (status == "queued" || status == "paused")
+        {
+            var action = TranslateAdminJobType(item.JobType)?.ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(action))
+                return ClientUiText.Get("admin.jobs.status." + status, UiLang);
+
+            return $"{ClientUiText.Get("admin.jobs.status." + status, UiLang)} • {action}";
+        }
 
         var bits = new List<string>();
         var phase = TranslateAdminJobPhase(item.ProgressPhase);
@@ -1576,6 +1725,7 @@ public sealed partial class MainWindow
             "done" => light ? UiBrush(0xEC, 0xF7, 0xF2) : UiBrush(0x12, 0x24, 0x1E),
             "failed" or "canceled" => light ? UiBrush(0xFD, 0xEF, 0xEE) : UiBrush(0x2A, 0x14, 0x16),
             "cancel_requested" => light ? UiBrush(0xF8, 0xF3, 0xE8) : UiBrush(0x2A, 0x22, 0x16),
+            "paused" => light ? UiBrush(0xF3, 0xEE, 0xFB) : UiBrush(0x21, 0x18, 0x2B),
             "running" => light ? UiBrush(0xEC, 0xF3, 0xFB) : UiBrush(0x11, 0x23, 0x33),
             "queued" => light ? UiBrush(0xF8, 0xF3, 0xE8) : UiBrush(0x28, 0x20, 0x14),
             _ => light ? UiBrush(0xF4, 0xF7, 0xFB) : UiBrush(0x14, 0x1B, 0x24)
@@ -1590,6 +1740,7 @@ public sealed partial class MainWindow
             "done" => light ? UiBrush(0xC6, 0xE5, 0xD7) : UiBrush(0x2A, 0x54, 0x43),
             "failed" or "canceled" => light ? UiBrush(0xF1, 0xC7, 0xC3) : UiBrush(0x6A, 0x2C, 0x31),
             "cancel_requested" => light ? UiBrush(0xE9, 0xD8, 0xBA) : UiBrush(0x6A, 0x4F, 0x24),
+            "paused" => light ? UiBrush(0xD7, 0xC8, 0xEE) : UiBrush(0x57, 0x43, 0x72),
             "running" => light ? UiBrush(0xC5, 0xD8, 0xEA) : UiBrush(0x2B, 0x4B, 0x6B),
             "queued" => light ? UiBrush(0xE9, 0xD8, 0xBA) : UiBrush(0x5F, 0x46, 0x24),
             _ => light ? UiBrush(0xC9, 0xD4, 0xE1) : UiBrush(0x2B, 0x35, 0x41)
@@ -1604,6 +1755,7 @@ public sealed partial class MainWindow
             "done" => light ? UiBrush(0x2E, 0x7D, 0x5A) : UiBrush(0x66, 0xD1, 0x9E),
             "failed" or "canceled" => light ? UiBrush(0xB4, 0x23, 0x18) : UiBrush(0xFF, 0x8A, 0x80),
             "cancel_requested" => light ? UiBrush(0x9A, 0x62, 0x00) : UiBrush(0xFF, 0xC7, 0x6A),
+            "paused" => light ? UiBrush(0x6B, 0x46, 0xA7) : UiBrush(0xC4, 0xA7, 0xF2),
             "running" => light ? UiBrush(0x2B, 0x5D, 0x91) : UiBrush(0x78, 0xB4, 0xF0),
             "queued" => light ? UiBrush(0x9A, 0x62, 0x00) : UiBrush(0xFF, 0xC7, 0x6A),
             _ => light ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE)
