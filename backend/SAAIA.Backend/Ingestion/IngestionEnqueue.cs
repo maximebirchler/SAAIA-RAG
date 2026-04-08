@@ -199,14 +199,29 @@ RETURNING doc_id;
             }, cancellationToken: ct)
         );
 
-        const string cancelUpsert = """
+        const string cancelQueuedOrPausedUpsert = """
 UPDATE ingestion_jobs
 SET status='canceled', finished_at=now(), last_error='coalesced_by_missing'
 WHERE tenant_id=@tenant_id AND doc_path=@doc_path
-  AND action='upsert' AND status='queued';
+  AND action='upsert' AND status IN ('queued','paused');
 """;
 
-        await conn.ExecuteAsync(new CommandDefinition(cancelUpsert, new
+        await conn.ExecuteAsync(new CommandDefinition(cancelQueuedOrPausedUpsert, new
+        {
+            tenant_id = tenantId,
+            doc_path = docPath
+        }, cancellationToken: ct));
+
+        const string requestRunningUpsertCancel = """
+UPDATE ingestion_jobs
+SET payload = jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,cancelRequested}', 'true'::jsonb, true)
+WHERE tenant_id=@tenant_id
+  AND doc_path=@doc_path
+  AND action='upsert'
+  AND status='running';
+""";
+
+        await conn.ExecuteAsync(new CommandDefinition(requestRunningUpsertCancel, new
         {
             tenant_id = tenantId,
             doc_path = docPath
