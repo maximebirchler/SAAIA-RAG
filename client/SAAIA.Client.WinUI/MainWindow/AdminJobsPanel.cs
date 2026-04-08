@@ -1297,6 +1297,38 @@ public sealed partial class MainWindow
         await DeleteAdminJobsAsync(context, visibleIds).ConfigureAwait(true);
     }
 
+    private async Task PurgeAdminJobsHistoryAsync(AdminJobsOverlayContext context, string scope)
+    {
+        try
+        {
+            context.DeleteSelectionButton.IsEnabled = false;
+            context.PurgeButton.IsEnabled = false;
+
+            var response = await _api.AdminJobsPurgeAsync(scope, null, CancellationToken.None).ConfigureAwait(true);
+            var deleted = TryGetInt(response, "deleted") ?? TryGetInt(response, "Deleted") ?? 0;
+
+            if (deleted > 0)
+            {
+                await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+                Status(ClientUiText.Format("admin.jobs.delete_done", UiLang, deleted));
+            }
+            else
+            {
+                Status(ClientUiText.Get("admin.jobs.delete_nothing", UiLang));
+            }
+        }
+        catch (Exception ex)
+        {
+            ClientLog.Exception("AdminJobs.PurgeHistory", ex);
+            Status(ClientUiText.Get("admin.jobs.delete_failed", UiLang) + ex.Message);
+        }
+        finally
+        {
+            context.DeleteSelectionButton.IsEnabled = context.SelectedTerminalJobIds.Count > 0;
+            context.PurgeButton.IsEnabled = true;
+        }
+    }
+
     private async Task DeleteAdminJobsAsync(AdminJobsOverlayContext context, IReadOnlyList<string> jobIds)
     {
         try
