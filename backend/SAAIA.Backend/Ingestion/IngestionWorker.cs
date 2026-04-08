@@ -204,9 +204,9 @@ WHERE job_id=@job_id
         return cts;
     }
 
-    private static async Task ThrowIfJobCanceledAsync(NpgsqlDataSource ds, Guid jobId, CancellationToken ct)
+    private static async Task ThrowIfJobCanceledAsync(NpgsqlDataSource ds, IngestionJob job, CancellationToken ct)
     {
-        if (await JobRepo.IsCanceledAsync(ds, jobId, ct).ConfigureAwait(false))
+        if (await JobRepo.IsCancellationRequestedAsync(ds, job.TenantId, job.DocPath, job.JobId, ct).ConfigureAwait(false))
             throw new JobCanceledException("canceled_by_admin");
     }
 
@@ -222,7 +222,7 @@ WHERE job_id=@job_id
         var tenantId = job.TenantId;
         var docId = job.DocId;
 
-        await ThrowIfJobCanceledAsync(ds, job.JobId, ct);
+        await ThrowIfJobCanceledAsync(ds, job, ct);
 
         var qdrant = httpFactory.CreateClient("qdrant");
         qdrant.BaseAddress = new Uri(rag.QdrantBaseUrl);
@@ -240,7 +240,7 @@ WHERE job_id=@job_id
         var qct = qdrantCts?.Token ?? ct;
 
         await JobRepo.UpdateProgressAsync(ds, job.JobId, "deleting", null, null, ct);
-        await ThrowIfJobCanceledAsync(ds, job.JobId, ct);
+        await ThrowIfJobCanceledAsync(ds, job, ct);
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
 
         var committed = await JobRepo.CompleteDeleteAsync(
@@ -282,7 +282,7 @@ WHERE job_id=@job_id
         var absPath = DocPathNormalizer.ToAbsoluteFromRelative(relDocPath, ingest.DocumentsRoot);
 
         await JobRepo.UpdateProgressAsync(ds, job.JobId, "preparing", null, null, ct);
-        await ThrowIfJobCanceledAsync(ds, job.JobId, ct);
+        await ThrowIfJobCanceledAsync(ds, job, ct);
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
 
         if (job.Version > 0)
@@ -295,7 +295,7 @@ WHERE job_id=@job_id
         if (!File.Exists(absPath))
             throw new Exception("file_missing");
 
-        await ThrowIfJobCanceledAsync(ds, job.JobId, ct);
+        await ThrowIfJobCanceledAsync(ds, job, ct);
 
         // Hash + size
         byte[] hash;
@@ -306,13 +306,13 @@ WHERE job_id=@job_id
             hash = await SHA256.HashDataAsync(fs, ct);
         }
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-        await ThrowIfJobCanceledAsync(ds, job.JobId, ct);
+        await ThrowIfJobCanceledAsync(ds, job, ct);
 
         // PDF -> tokens -> chunks
         await JobRepo.UpdateProgressAsync(ds, job.JobId, "extracting", null, null, ct);
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
         var tokens = PdfExtractor.ExtractWordTokens(absPath, ct);
-        await ThrowIfJobCanceledAsync(ds, job.JobId, ct);
+        await ThrowIfJobCanceledAsync(ds, job, ct);
         if (tokens.Count == 0)
             throw new Exception("No text extracted from PDF");
 
@@ -330,7 +330,7 @@ WHERE job_id=@job_id
 
         int dim;
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-        await ThrowIfJobCanceledAsync(ds, job.JobId, ct);
+        await ThrowIfJobCanceledAsync(ds, job, ct);
         using (await _bulkheads.AcquireTeiAsync(teiToken))
         {
             dim = await TeiClient.GetVectorDimAsync(tei, rag.EmbeddingsModel, teiToken);
@@ -346,7 +346,7 @@ WHERE job_id=@job_id
 
         // ✅ EnsureCollection sous bulkhead Qdrant
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-        await ThrowIfJobCanceledAsync(ds, job.JobId, ct);
+        await ThrowIfJobCanceledAsync(ds, job, ct);
         using (await _bulkheads.AcquireQdrantAsync(qdrantToken))
         {
             await QdrantClient.EnsureCollectionAsync(qdrant, rag.QdrantCollection, dim, qdrantToken);
@@ -363,7 +363,7 @@ WHERE job_id=@job_id
 
         for (int i = 0; i < chunks.Count; i += batchSize)
         {
-            await ThrowIfJobCanceledAsync(ds, job.JobId, ct);
+            await ThrowIfJobCanceledAsync(ds, job, ct);
             var slice = chunks.Skip(i).Take(batchSize).ToList();
             var inputs = slice.Select(c => c.Text).ToArray();
 
@@ -375,7 +375,7 @@ WHERE job_id=@job_id
             await TouchJobLockAsync(ds, job.JobId, workerId, ct);
 
             float[][] vectors;
-            await ThrowIfJobCanceledAsync(ds, job.JobId, ct);
+            await ThrowIfJobCanceledAsync(ds, job, ct);
             using (await _bulkheads.AcquireTeiAsync(bTeiToken))
             {
                 vectors = await TeiClient.EmbedAsync(tei, rag.EmbeddingsModel, inputs, bTeiToken);
@@ -419,7 +419,7 @@ WHERE job_id=@job_id
             using var bQdrantCts = CreateTimeoutCts(ct, ingest.QdrantTimeoutSeconds);
             var bQToken = bQdrantCts?.Token ?? ct;
 
-            await ThrowIfJobCanceledAsync(ds, job.JobId, ct);
+            await ThrowIfJobCanceledAsync(ds, job, ct);
             using (await _bulkheads.AcquireQdrantAsync(bQToken))
             {
                 await QdrantClient.UpsertPointsAsync(qdrant, rag.QdrantCollection, points, bQToken);
@@ -438,7 +438,7 @@ WHERE job_id=@job_id
         }
 
         await JobRepo.UpdateProgressAsync(ds, job.JobId, "finalizing", chunks.Count, chunks.Count, ct);
-        await ThrowIfJobCanceledAsync(ds, job.JobId, ct);
+        await ThrowIfJobCanceledAsync(ds, job, ct);
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
 
         var mtime = File.GetLastWriteTimeUtc(absPath);

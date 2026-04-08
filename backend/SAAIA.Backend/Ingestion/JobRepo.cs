@@ -209,6 +209,36 @@ LIMIT 1;
                || string.Equals(row.Status, "cancelled", StringComparison.OrdinalIgnoreCase);
     }
 
+    public static async Task<bool> IsCancellationRequestedAsync(NpgsqlDataSource ds, Guid tenantId, string docPath, Guid jobId, CancellationToken ct)
+    {
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        const string sql = """
+SELECT
+    COALESCE(j.status, '') AS "JobStatus",
+    COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false) AS "JobCancelRequested",
+    COALESCE(d.auto_ingest_paused, false) AS "DocumentAutoIngestPaused",
+    d.auto_ingest_pause_reason AS "DocumentAutoIngestPauseReason"
+FROM ingestion_jobs j
+LEFT JOIN documents d
+  ON d.tenant_id=@tenant_id
+ AND d.doc_path=@doc_path
+WHERE j.job_id=@job_id
+LIMIT 1;
+""";
+        var row = await conn.QueryFirstOrDefaultAsync<JobAndDocumentCancelState>(
+            new CommandDefinition(sql, new { tenant_id = tenantId, doc_path = docPath, job_id = jobId }, cancellationToken: ct));
+        if (row is null)
+            return false;
+
+        if (row.JobCancelRequested
+            || string.Equals(row.JobStatus, "canceled", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(row.JobStatus, "cancelled", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return row.DocumentAutoIngestPaused
+               && string.Equals(row.DocumentAutoIngestPauseReason, "admin_cancel", StringComparison.OrdinalIgnoreCase);
+    }
+
     public static async Task<bool> CompleteUpsertAsync(
         NpgsqlDataSource ds,
         Guid tenantId,
@@ -269,16 +299,36 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path
             return false;
         }
 
-        const string versionSql = @"SELECT ingestion_version
+        const string versionSql = @"SELECT
+    ingestion_version AS ""IngestionVersion"",
+    COALESCE(auto_ingest_paused, false) AS ""AutoIngestPaused"",
+    auto_ingest_pause_reason AS ""AutoIngestPauseReason""
 FROM documents
 WHERE tenant_id=@tenant_id AND doc_path=@doc_path
 FOR UPDATE;";
-        var currentVersion = await conn.ExecuteScalarAsync<int?>(new CommandDefinition(versionSql, new
+        var currentDocState = await conn.QueryFirstOrDefaultAsync<DocumentVersionState>(new CommandDefinition(versionSql, new
         {
             tenant_id = tenantId,
             doc_path = docPath
         }, transaction: tx, cancellationToken: ct));
 
+        if (currentDocState is not null
+            && currentDocState.AutoIngestPaused
+            && string.Equals(currentDocState.AutoIngestPauseReason, "admin_cancel", StringComparison.OrdinalIgnoreCase))
+        {
+            const string cancelSql = @"UPDATE ingestion_jobs
+SET status='canceled',
+    finished_at=COALESCE(finished_at, now()),
+    last_error=COALESCE(last_error, 'canceled_by_admin_document'),
+    locked_by=NULL,
+    locked_at=NULL
+WHERE job_id=@job_id AND status='running';";
+            await conn.ExecuteAsync(new CommandDefinition(cancelSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
+            await tx.CommitAsync(ct);
+            return false;
+        }
+
+        var currentVersion = currentDocState?.IngestionVersion;
         if (!currentVersion.HasValue || currentVersion.Value != version)
         {
             const string supersededSql = @"UPDATE ingestion_jobs
@@ -369,16 +419,36 @@ WHERE job_id=@job_id AND status='running';";
             return false;
         }
 
-        const string versionSql = @"SELECT ingestion_version
+        const string versionSql = @"SELECT
+    ingestion_version AS ""IngestionVersion"",
+    COALESCE(auto_ingest_paused, false) AS ""AutoIngestPaused"",
+    auto_ingest_pause_reason AS ""AutoIngestPauseReason""
 FROM documents
 WHERE tenant_id=@tenant_id AND doc_path=@doc_path
 FOR UPDATE;";
-        var currentVersion = await conn.ExecuteScalarAsync<int?>(new CommandDefinition(versionSql, new
+        var currentDocState = await conn.QueryFirstOrDefaultAsync<DocumentVersionState>(new CommandDefinition(versionSql, new
         {
             tenant_id = tenantId,
             doc_path = docPath
         }, transaction: tx, cancellationToken: ct));
 
+        if (currentDocState is not null
+            && currentDocState.AutoIngestPaused
+            && string.Equals(currentDocState.AutoIngestPauseReason, "admin_cancel", StringComparison.OrdinalIgnoreCase))
+        {
+            const string cancelSql = @"UPDATE ingestion_jobs
+SET status='canceled',
+    finished_at=COALESCE(finished_at, now()),
+    last_error=COALESCE(last_error, 'canceled_by_admin_document'),
+    locked_by=NULL,
+    locked_at=NULL
+WHERE job_id=@job_id AND status='running';";
+            await conn.ExecuteAsync(new CommandDefinition(cancelSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
+            await tx.CommitAsync(ct);
+            return false;
+        }
+
+        var currentVersion = currentDocState?.IngestionVersion;
         if (!currentVersion.HasValue || currentVersion.Value != version)
         {
             const string supersededSql = @"UPDATE ingestion_jobs
@@ -442,6 +512,14 @@ WHERE job_id=@job_id;";
     }
 
     private sealed record JobCancelState(string? Status, bool CancelRequested);
+
+    private sealed record JobAndDocumentCancelState(
+        string? JobStatus,
+        bool JobCancelRequested,
+        bool DocumentAutoIngestPaused,
+        string? DocumentAutoIngestPauseReason);
+
+    private sealed record DocumentVersionState(int? IngestionVersion, bool AutoIngestPaused, string? AutoIngestPauseReason);
 
     private sealed record IngestionJobRow(Guid JobId, Guid TenantId, string Action, string DocPath, string? Category, string Payload)
     {

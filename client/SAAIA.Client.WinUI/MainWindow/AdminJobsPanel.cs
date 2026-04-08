@@ -1,7 +1,9 @@
 using System.Globalization;
 using System.Text.Json;
+using Microsoft.UI.Xaml.Controls.Primitives;
 
 namespace SAAIA.Client.WinUI;
+
 
 public sealed partial class MainWindow
 {
@@ -88,9 +90,12 @@ public sealed partial class MainWindow
             get
             {
                 if (!string.IsNullOrWhiteSpace(DocPath))
-                    return DocPath;
-                if (!string.IsNullOrWhiteSpace(JobType))
-                    return JobType;
+                {
+                    var directory = Path.GetDirectoryName(DocPath!)?.Replace('\\', '/');
+                    if (!string.IsNullOrWhiteSpace(directory) && !string.Equals(directory, ".", StringComparison.Ordinal))
+                        return directory;
+                }
+
                 return null;
             }
         }
@@ -199,7 +204,8 @@ public sealed partial class MainWindow
 
         var refreshButton = BuildDialogFooterButton(ClientUiText.Get("admin.jobs.refresh", UiLang), primary: true);
         refreshButton.MinWidth = 140;
-        refreshButton.HorizontalAlignment = HorizontalAlignment.Left;
+        refreshButton.HorizontalAlignment = HorizontalAlignment.Right;
+        refreshButton.Visibility = Visibility.Visible;
 
         var deleteSelectionButton = BuildDialogFooterButton(ClientUiText.Get("admin.jobs.delete_selection", UiLang), destructive: true);
         deleteSelectionButton.MinWidth = 180;
@@ -444,7 +450,11 @@ public sealed partial class MainWindow
         searchBox.TextChanged += (_, __) => RenderAdminJobsOverlay(context);
         typeCombo.SelectionChanged += async (_, __) => await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
         statusCombo.SelectionChanged += (_, __) => RenderAdminJobsOverlay(context);
-        autoRefreshToggle.Toggled += (_, __) => UpdateAdminJobsRefreshTimer();
+        autoRefreshToggle.Toggled += (_, __) =>
+        {
+            UpdateAdminJobsRefreshTimer();
+            UpdateAdminJobsRefreshControls(context);
+        };
         refreshButton.Click += async (_, __) => await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
         deleteSelectionButton.Click += async (_, __) => await DeleteSelectedAdminJobsAsync(context).ConfigureAwait(true);
         var purgeFlyout = BuildAdminJobsPurgeFlyout(context);
@@ -459,6 +469,7 @@ public sealed partial class MainWindow
 
         _adminJobsWindow = window;
         _adminJobsOverlayContext = context;
+        UpdateAdminJobsRefreshControls(context);
         UpdateAdminJobsRefreshTimer();
 
         if (!string.IsNullOrWhiteSpace(focusJobId))
@@ -474,13 +485,18 @@ public sealed partial class MainWindow
 
         var visibleDone = new MenuFlyoutItem { Text = ClientUiText.Get("admin.jobs.purge.visible_done", UiLang) };
         visibleDone.Click += async (_, __) =>
-            await DeleteAdminJobsByPredicateAsync(context, item => item.IsTerminal && !item.IsFailedLike).ConfigureAwait(true);
+            await DeleteAdminJobsByPredicateAsync(context, item => item.IsTerminal && !item.IsFailed && !item.IsCanceled).ConfigureAwait(true);
         flyout.Items.Add(visibleDone);
 
         var visibleFailed = new MenuFlyoutItem { Text = ClientUiText.Get("admin.jobs.purge.visible_failed", UiLang) };
         visibleFailed.Click += async (_, __) =>
-            await DeleteAdminJobsByPredicateAsync(context, item => item.IsTerminal && item.IsFailedLike).ConfigureAwait(true);
+            await DeleteAdminJobsByPredicateAsync(context, item => item.IsTerminal && item.IsFailed).ConfigureAwait(true);
         flyout.Items.Add(visibleFailed);
+
+        var visibleCanceled = new MenuFlyoutItem { Text = ClientUiText.Get("admin.jobs.purge.visible_canceled", UiLang) };
+        visibleCanceled.Click += async (_, __) =>
+            await DeleteAdminJobsByPredicateAsync(context, item => item.IsTerminal && item.IsCanceled).ConfigureAwait(true);
+        flyout.Items.Add(visibleCanceled);
 
         var visibleAll = new MenuFlyoutItem { Text = ClientUiText.Get("admin.jobs.purge.visible_all", UiLang) };
         visibleAll.Click += async (_, __) =>
@@ -510,6 +526,12 @@ public sealed partial class MainWindow
         }
 
         try { window.AppWindow.Resize(new global::Windows.Graphics.SizeInt32(1360, 900)); } catch { }
+    }
+
+    private void UpdateAdminJobsRefreshControls(AdminJobsOverlayContext context)
+    {
+        context.RefreshButton.Visibility = context.AutoRefreshToggle.IsOn ? Visibility.Collapsed : Visibility.Visible;
+        context.RefreshButton.IsEnabled = !context.IsRefreshing && !context.AutoRefreshToggle.IsOn;
     }
 
     private void UpdateAdminJobsRefreshTimer()
@@ -568,7 +590,7 @@ public sealed partial class MainWindow
             return;
 
         context.IsRefreshing = true;
-        context.RefreshButton.IsEnabled = false;
+        UpdateAdminJobsRefreshControls(context);
         var previousSummary = context.SummaryText.Text;
         context.SummaryText.Text = ClientUiText.Get("admin.jobs.loading", UiLang);
 
@@ -610,7 +632,7 @@ public sealed partial class MainWindow
         finally
         {
             context.IsRefreshing = false;
-            context.RefreshButton.IsEnabled = true;
+            UpdateAdminJobsRefreshControls(context);
         }
     }
 
@@ -759,11 +781,14 @@ public sealed partial class MainWindow
         }
 
         var active = visibleItems.Where(item => !item.IsTerminal).ToList();
-        var failed = visibleItems.Where(item => item.IsFailedLike).ToList();
-        var done = visibleItems.Where(item => item.IsTerminal && !item.IsFailedLike).ToList();
+        var failed = visibleItems.Where(item => item.IsFailed).ToList();
+        var canceled = visibleItems.Where(item => item.IsCanceled).ToList();
+        var done = visibleItems.Where(item => item.IsTerminal && !item.IsFailed && !item.IsCanceled).ToList();
 
         if (active.Count > 0)
             context.GroupsHost.Children.Add(BuildAdminJobsGroupSection(ClientUiText.Get("admin.jobs.group.active", UiLang), active, context));
+        if (canceled.Count > 0)
+            context.GroupsHost.Children.Add(BuildAdminJobsGroupSection(ClientUiText.Get("admin.jobs.group.canceled", UiLang), canceled, context));
         if (failed.Count > 0)
             context.GroupsHost.Children.Add(BuildAdminJobsGroupSection(ClientUiText.Get("admin.jobs.group.failed", UiLang), failed, context));
         if (done.Count > 0)
@@ -820,13 +845,16 @@ public sealed partial class MainWindow
         var progressValue = progressPercent.HasValue ? progressPercent.Value : (status == "done" ? 100d : 0d);
         var progressText = BuildAdminJobProgressLine(item);
 
+        var isSelected = string.Equals(context.SelectedJobId, item.JobId, StringComparison.OrdinalIgnoreCase);
         var outer = new Border
         {
             CornerRadius = new CornerRadius(18),
             Padding = new Thickness(14),
-            Background = light ? UiBrush(0xF7, 0xFA, 0xFD) : UiBrush(0x11, 0x16, 0x1E),
-            BorderBrush = light ? UiBrush(0xCC, 0xD6, 0xE4) : UiBrush(0x2E, 0x38, 0x45),
-            BorderThickness = new Thickness(1)
+            Background = isSelected
+                ? (light ? UiBrush(0xF1, 0xF6, 0xFD) : UiBrush(0x14, 0x1D, 0x28))
+                : (light ? UiBrush(0xF7, 0xFA, 0xFD) : UiBrush(0x11, 0x16, 0x1E)),
+            BorderBrush = isSelected ? GetAdminJobStatusBorder(status, light) : (light ? UiBrush(0xCC, 0xD6, 0xE4) : UiBrush(0x2E, 0x38, 0x45)),
+            BorderThickness = new Thickness(isSelected ? 2 : 1)
         };
 
         var stack = new StackPanel { Spacing = 10 };
@@ -880,13 +908,6 @@ public sealed partial class MainWindow
                 Foreground = light ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE)
             });
         }
-        titleStack.Children.Add(new TextBlock
-        {
-            Text = ClientUiText.Format("admin.jobs.job_id_short", UiLang, ShortenJobId(item.JobId)),
-            FontSize = 12,
-            Foreground = light ? UiBrush(0x5D, 0x6E, 0x82) : UiBrush(0xA8, 0xB5, 0xC7)
-        });
-
         Grid.SetColumn(titleStack, currentColumn++);
         headerGrid.Children.Add(titleStack);
 
@@ -906,7 +927,9 @@ public sealed partial class MainWindow
             Value = progressValue,
             IsIndeterminate = !progressPercent.HasValue && (item.IsRunning || item.IsQueued),
             Height = 6,
-            VerticalAlignment = VerticalAlignment.Center
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = GetAdminJobStatusForeground(status, light),
+            Background = GetAdminJobStatusBackground(status, light)
         };
         Grid.SetColumn(progressBar, 0);
         progressGrid.Children.Add(progressBar);
@@ -952,7 +975,7 @@ public sealed partial class MainWindow
                 BorderThickness = new Thickness(1),
                 Child = new TextBlock
                 {
-                    Text = item.LastError,
+                    Text = BuildAdminJobErrorText(item),
                     TextWrapping = TextWrapping.WrapWholeWords,
                     Foreground = light ? UiBrush(0xB4, 0x23, 0x18) : UiBrush(0xFF, 0x8A, 0x80),
                     FontSize = 12
@@ -1064,6 +1087,16 @@ public sealed partial class MainWindow
 
 
         outer.Child = stack;
+        outer.Tapped += (_, args) =>
+        {
+            if (IsAdminJobsCardInteractiveSource(args.OriginalSource as DependencyObject, outer))
+                return;
+
+            context.SelectedJobId = string.Equals(context.SelectedJobId, item.JobId, StringComparison.OrdinalIgnoreCase)
+                ? null
+                : item.JobId;
+            RenderAdminJobsOverlay(context);
+        };
         return outer;
     }
 
@@ -1126,7 +1159,7 @@ public sealed partial class MainWindow
             }
             context.DetailsHost.Children.Add(BuildAdminJobDetailsPanel(selected));
             if (!string.IsNullOrWhiteSpace(selected.LastError))
-                context.DetailsHost.Children.Add(BuildDialogInfoBanner(selected.LastError!));
+                context.DetailsHost.Children.Add(BuildDialogInfoBanner(BuildAdminJobErrorText(selected)));
         }
         catch (Exception ex)
         {
@@ -1143,12 +1176,12 @@ public sealed partial class MainWindow
         var light = UseLightPalette();
         var facts = new StackPanel { Spacing = 6 };
         AddFact(facts, ClientUiText.Get("admin.jobs.details.job_id", UiLang), item.JobId);
-        AddFact(facts, ClientUiText.Get("admin.jobs.details.type", UiLang), item.Type);
-        AddFact(facts, ClientUiText.Get("admin.jobs.details.job_type", UiLang), item.JobType);
-        AddFact(facts, ClientUiText.Get("admin.jobs.details.status", UiLang), item.Status);
+        AddFact(facts, ClientUiText.Get("admin.jobs.details.type", UiLang), TranslateAdminJobFamily(item.Type));
+        AddFact(facts, ClientUiText.Get("admin.jobs.details.job_type", UiLang), TranslateAdminJobType(item.JobType));
+        AddFact(facts, ClientUiText.Get("admin.jobs.details.status", UiLang), ClientUiText.Get("admin.jobs.status." + NormalizeTrackedJobStatus(item.Status), UiLang));
         AddFact(facts, ClientUiText.Get("admin.jobs.details.doc_id", UiLang), item.DocId);
         AddFact(facts, ClientUiText.Get("admin.jobs.details.doc_path", UiLang), item.DocPath);
-        AddFact(facts, ClientUiText.Get("admin.jobs.details.phase", UiLang), item.ProgressPhase);
+        AddFact(facts, ClientUiText.Get("admin.jobs.details.phase", UiLang), TranslateAdminJobPhase(item.ProgressPhase));
         AddFact(facts, ClientUiText.Get("admin.jobs.details.progress", UiLang), BuildAdminJobProgressLine(item));
         AddFact(facts, ClientUiText.Get("admin.jobs.details.cancel_requested_flag", UiLang), item.CancelRequested.HasValue ? (item.CancelRequested.Value ? "true" : "false") : null);
         AddFact(facts, ClientUiText.Get("admin.jobs.details.enqueue_source", UiLang), item.EnqueueSource);
@@ -1370,9 +1403,6 @@ public sealed partial class MainWindow
         return items;
     }
 
-    private static string ShortenJobId(string jobId)
-        => string.IsNullOrWhiteSpace(jobId) || jobId.Length <= 8 ? jobId : jobId[..8] + "…";
-
     private static bool? TryGetBool(JsonElement element, string propertyName)
     {
         if (!TryGetPropertyIgnoreCase(element, propertyName, out var value))
@@ -1387,6 +1417,22 @@ public sealed partial class MainWindow
         };
     }
 
+    private string BuildAdminJobErrorText(AdminJobListItem item)
+    {
+        var raw = item.LastError?.Trim();
+        if (string.IsNullOrWhiteSpace(raw))
+            return string.Empty;
+
+        return raw.ToLowerInvariant() switch
+        {
+            "timeout" => ClientUiText.Get("admin.jobs.error.timeout", UiLang),
+            "timeout_or_canceled" => ClientUiText.Get("admin.jobs.error.timeout", UiLang),
+            "canceled_by_admin" or "canceled_by_admin_token" or "canceled_by_admin_document" or "canceled_by_worker" => ClientUiText.Get("admin.jobs.error.canceled_by_admin", UiLang),
+            "canceled_at_commit" => ClientUiText.Get("admin.jobs.error.canceled_after_commit", UiLang),
+            "superseded_version" or "superseded_at_commit" => ClientUiText.Get("admin.jobs.error.superseded", UiLang),
+            _ => raw
+        };
+    }
 
     private string BuildAdminJobProgressLine(AdminJobListItem item)
     {
@@ -1395,8 +1441,9 @@ public sealed partial class MainWindow
             return ClientUiText.Get("admin.jobs.status.queued", UiLang);
 
         var bits = new List<string>();
-        if (!string.IsNullOrWhiteSpace(item.ProgressPhase))
-            bits.Add(item.ProgressPhase!);
+        var phase = TranslateAdminJobPhase(item.ProgressPhase);
+        if (!string.IsNullOrWhiteSpace(phase))
+            bits.Add(phase!);
         if (item.ProgressPercent.HasValue)
             bits.Add($"{Math.Clamp(item.ProgressPercent.Value, 0, 100)}%");
         if (item.ProgressCurrent.HasValue || item.ProgressTotal.HasValue)
@@ -1421,8 +1468,9 @@ public sealed partial class MainWindow
     private string? BuildAdminJobDocumentStateLine(AdminJobListItem item)
     {
         var bits = new List<string>();
-        if (!string.IsNullOrWhiteSpace(item.DocumentStatus))
-            bits.Add($"{ClientUiText.Get("admin.jobs.details.doc_status", UiLang)}: {item.DocumentStatus}");
+        var documentStatus = TranslateAdminJobDocumentStatus(item.DocumentStatus);
+        if (!string.IsNullOrWhiteSpace(documentStatus))
+            bits.Add($"{ClientUiText.Get("admin.jobs.details.doc_status", UiLang)} : {documentStatus}");
 
         var versions = BuildAdminJobDocumentVersionsLine(item);
         if (!string.IsNullOrWhiteSpace(versions))
@@ -1440,7 +1488,11 @@ public sealed partial class MainWindow
         if (!item.DocumentIngestionVersion.HasValue && !item.DocumentIndexedVersion.HasValue)
             return null;
 
-        return $"v_ing={item.DocumentIngestionVersion?.ToString(CultureInfo.InvariantCulture) ?? "?"} • v_idx={item.DocumentIndexedVersion?.ToString(CultureInfo.InvariantCulture) ?? "?"}";
+        return ClientUiText.Format(
+            "admin.jobs.details.doc_versions.value",
+            UiLang,
+            item.DocumentIngestionVersion?.ToString(CultureInfo.InvariantCulture) ?? "?",
+            item.DocumentIndexedVersion?.ToString(CultureInfo.InvariantCulture) ?? "?");
     }
 
     private string? BuildAdminJobAutoPauseLine(AdminJobListItem item)
@@ -1451,10 +1503,120 @@ public sealed partial class MainWindow
         if (!item.DocumentAutoIngestPaused.Value)
             return ClientUiText.Get("admin.jobs.auto_pause.off", UiLang);
 
-        if (!string.IsNullOrWhiteSpace(item.DocumentAutoIngestPauseReason))
-            return ClientUiText.Format("admin.jobs.auto_pause.on_reason", UiLang, item.DocumentAutoIngestPauseReason);
+        var reason = TranslateAdminJobAutoPauseReason(item.DocumentAutoIngestPauseReason);
+        if (!string.IsNullOrWhiteSpace(reason))
+            return ClientUiText.Format("admin.jobs.auto_pause.on_reason", UiLang, reason);
 
         return ClientUiText.Get("admin.jobs.auto_pause.on", UiLang);
+    }
+
+    private string TranslateAdminJobFamily(string? type)
+    {
+        var normalized = (type ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "ingestion" => ClientUiText.Get("admin.jobs.type.ingestion", UiLang),
+            "summary" => ClientUiText.Get("admin.jobs.type.summary", UiLang),
+            _ => type ?? string.Empty
+        };
+    }
+
+    private string TranslateAdminJobType(string? jobType)
+    {
+        var normalized = (jobType ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "upsert" => ClientUiText.Get("admin.jobs.job_type.upsert", UiLang),
+            "delete" => ClientUiText.Get("admin.jobs.job_type.delete", UiLang),
+            "summary" => ClientUiText.Get("admin.jobs.job_type.summary", UiLang),
+            _ => jobType ?? string.Empty
+        };
+    }
+
+    private string? TranslateAdminJobPhase(string? phase)
+    {
+        var normalized = (phase ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "extracting" => ClientUiText.Get("admin.jobs.phase.extracting", UiLang),
+            "chunking" => ClientUiText.Get("admin.jobs.phase.chunking", UiLang),
+            "embedding" => ClientUiText.Get("admin.jobs.phase.embedding", UiLang),
+            "upserting" => ClientUiText.Get("admin.jobs.phase.upserting", UiLang),
+            "deleting" => ClientUiText.Get("admin.jobs.phase.deleting", UiLang),
+            "finalizing" or "finalize" => ClientUiText.Get("admin.jobs.phase.finalizing", UiLang),
+            "completed" => ClientUiText.Get("admin.jobs.phase.completed", UiLang),
+            _ => phase
+        };
+    }
+
+    private string? TranslateAdminJobEnqueueSource(string? enqueueSource)
+    {
+        var normalized = (enqueueSource ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "admin" => ClientUiText.Get("admin.jobs.enqueue_source.admin", UiLang),
+            "api" => ClientUiText.Get("admin.jobs.enqueue_source.api", UiLang),
+            "scanner" => ClientUiText.Get("admin.jobs.enqueue_source.scanner", UiLang),
+            "watcher" => ClientUiText.Get("admin.jobs.enqueue_source.watcher", UiLang),
+            _ => enqueueSource
+        };
+    }
+
+    private string? TranslateAdminJobDocumentStatus(string? documentStatus)
+    {
+        var normalized = (documentStatus ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "indexed" => ClientUiText.Get("admin.jobs.document_status.indexed", UiLang),
+            "pending" => ClientUiText.Get("admin.jobs.document_status.pending", UiLang),
+            "outdated" => ClientUiText.Get("admin.jobs.document_status.outdated", UiLang),
+            "missing" => ClientUiText.Get("admin.jobs.document_status.missing", UiLang),
+            "failed" => ClientUiText.Get("admin.jobs.document_status.failed", UiLang),
+            "active" => ClientUiText.Get("admin.jobs.document_status.active", UiLang),
+            "inactive" => ClientUiText.Get("admin.jobs.document_status.inactive", UiLang),
+            _ => documentStatus
+        };
+    }
+
+    private string? TranslateAdminJobAutoPauseReason(string? reason)
+    {
+        var normalized = (reason ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "admin_cancel" => ClientUiText.Get("admin.jobs.auto_pause.reason.admin_cancel", UiLang),
+            "repeated_failures" => ClientUiText.Get("admin.jobs.auto_pause.reason.repeated_failures", UiLang),
+            _ => reason
+        };
+    }
+
+    private bool IsAdminJobsCardInteractiveSource(DependencyObject? source, DependencyObject cardRoot)
+    {
+        var current = source;
+        while (current is not null)
+        {
+            if (ReferenceEquals(current, cardRoot))
+                return false;
+            if (current is ButtonBase)
+                return true;
+            current = global::Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(current);
+        }
+
+        return false;
+    }
+
+    private TextBlock BuildAdminJobStatusBadge(string status)
+    {
+        var light = UseLightPalette();
+        var normalized = NormalizeTrackedJobStatus(status);
+        return new TextBlock
+        {
+            Text = ClientUiText.Get("admin.jobs.status." + normalized, UiLang),
+            FontSize = 12,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = GetAdminJobStatusForeground(normalized, light),
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0, 2, 0, 0)
+        };
     }
 
     private Brush GetAdminJobStatusBackground(string status, bool light)
