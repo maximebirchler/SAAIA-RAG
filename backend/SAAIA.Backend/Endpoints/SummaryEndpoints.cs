@@ -45,6 +45,7 @@ public static class SummaryEndpoints
         app.MapGet("/admin/jobs", ListAdminJobsAsync).RequireAdminKey();
         app.MapGet("/admin/jobs/{jobId:guid}", GetAdminJobAsync).RequireAdminKey();
         app.MapPost("/admin/jobs/cancel", CancelAdminJobAsync).RequireAdminKey();
+        app.MapPost("/admin/jobs/resume", ResumeAdminJobAsync).RequireAdminKey();
         app.MapPost("/admin/jobs/delete_history", DeleteAdminJobHistoryAsync).RequireAdminKey();
         app.MapPost("/admin/jobs/purge", PurgeAdminJobHistoryAsync).RequireAdminKey();
         app.MapPost("/admin/ingestion/reindex", ReindexAsync).RequireAdminKey();
@@ -54,6 +55,7 @@ public static class SummaryEndpoints
 
     public sealed record SummaryCommand(Guid? DocId, string? Level = "medium", Guid? JobId = null, string? DocLanguage = null, string? SourceHash = null, string? SummaryText = null, JsonElement? Meta = null, bool? Force = null, string? DocPath = null);
     public sealed record JobCancelCommand(Guid JobId);
+    public sealed record JobResumeCommand(Guid JobId);
     public sealed record JobDeleteHistoryCommand(string[]? JobIds);
     public sealed record JobPurgeCommand(string? Scope, string? Type);
 
@@ -1087,6 +1089,76 @@ LIMIT 1;
             canceledInMemory,
             result
         });
+    }
+
+    private static async Task<IResult> ResumeAdminJobAsync(HttpContext ctx, NpgsqlDataSource ds, IOptions<IngestionOptions> ingestOpt, JobResumeCommand cmd)
+    {
+        AdminAuth.EnsureAdmin(ctx);
+        var tenantId = ctx.GetTenantId();
+        var ct = ctx.RequestAborted;
+        if (cmd.JobId == Guid.Empty)
+            return Results.BadRequest(new { error = "job_id_required" });
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+
+        var row = await conn.QueryFirstOrDefaultAsync<(Guid JobId, string DocPath, string Category, bool AutoIngestPaused)>(
+            new CommandDefinition(
+                """
+SELECT
+  i.job_id AS "JobId",
+  i.doc_path AS "DocPath",
+  COALESCE(d.category, i.category, 'general') AS "Category",
+  COALESCE(d.auto_ingest_paused, false) AS "AutoIngestPaused"
+FROM ingestion_jobs i
+LEFT JOIN documents d
+  ON d.tenant_id=i.tenant_id
+ AND d.doc_path=i.doc_path
+WHERE i.tenant_id=@tenant AND i.job_id=@jobId
+LIMIT 1;
+""",
+                new { tenant = tenantId, jobId = cmd.JobId },
+                cancellationToken: ct));
+
+        if (row.JobId == Guid.Empty)
+            return Results.NotFound(new { error = "job_not_found", jobId = cmd.JobId });
+
+        if (!row.AutoIngestPaused)
+            return Results.Ok(new { resumed = false, reason = "not_paused", jobId = cmd.JobId, docPath = row.DocPath });
+
+        var active = await conn.ExecuteScalarAsync<int?>(new CommandDefinition(
+            """
+SELECT 1
+FROM ingestion_jobs
+WHERE tenant_id=@tenant
+  AND doc_path=@docPath
+  AND status IN ('queued','running')
+LIMIT 1;
+""",
+            new { tenant = tenantId, docPath = row.DocPath },
+            cancellationToken: ct));
+
+        if (active.HasValue)
+            return Results.Conflict(new { error = "active_job_exists", docPath = row.DocPath });
+
+        var absPath = DocPathNormalizer.ToAbsoluteFromRelative(row.DocPath, ingestOpt.Value.DocumentsRoot);
+        if (!File.Exists(absPath))
+            return Results.Conflict(new { error = "document_file_not_found", docPath = row.DocPath });
+
+        await conn.ExecuteAsync(new CommandDefinition(
+            """
+UPDATE documents
+SET auto_ingest_paused=false,
+    auto_ingest_paused_at=NULL,
+    auto_ingest_pause_reason=NULL,
+    updated_at=now()
+WHERE tenant_id=@tenant AND doc_path=@docPath;
+""",
+            new { tenant = tenantId, docPath = row.DocPath },
+            cancellationToken: ct));
+
+        var fi = new FileInfo(absPath);
+        var enqueued = await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, row.DocPath, row.Category, fi, ct, isAutomatic: false, enqueueSource: "admin_resume");
+        return Results.Ok(new { resumed = true, docPath = row.DocPath, jobId = enqueued.JobId, docId = enqueued.DocId });
     }
 
     private static async Task<IResult> DeleteAdminJobHistoryAsync(HttpContext ctx, NpgsqlDataSource ds)

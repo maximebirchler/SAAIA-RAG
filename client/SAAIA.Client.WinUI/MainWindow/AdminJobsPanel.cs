@@ -987,6 +987,38 @@ public sealed partial class MainWindow
         };
         actions.Children.Add(detailsButton);
 
+        if (item.DocumentAutoIngestPaused == true)
+        {
+            var resumeButton = BuildDialogInlineButton(ClientUiText.Get("admin.jobs.resume", UiLang));
+            resumeButton.Click += async (_, __) =>
+            {
+                try
+                {
+                    resumeButton.IsEnabled = false;
+                    var response = await _api.AdminJobsResumeAsync(item.JobId, CancellationToken.None).ConfigureAwait(true);
+                    var resumed = (TryGetBool(response, "resumed") ?? false);
+                    var reason = (TryGetString(response, "reason") ?? string.Empty).Trim().ToLowerInvariant();
+                    if (resumed)
+                        Status(ClientUiText.Get("admin.jobs.resume_done", UiLang));
+                    else if (reason == "not_paused")
+                        Status(ClientUiText.Get("admin.jobs.resume_not_paused", UiLang));
+                    else
+                        Status(ClientUiText.Get("admin.jobs.resume_failed", UiLang) + reason);
+
+                    await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+                }
+                catch (Exception ex)
+                {
+                    Status(ClientUiText.Get("admin.jobs.resume_failed", UiLang) + ex.Message);
+                }
+                finally
+                {
+                    resumeButton.IsEnabled = true;
+                }
+            };
+            actions.Children.Add(resumeButton);
+        }
+
         if (!item.IsTerminal)
         {
             var cancelButton = BuildDialogInlineButton(ClientUiText.Get("admin.jobs.cancel", UiLang), destructive: true);
