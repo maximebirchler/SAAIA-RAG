@@ -136,7 +136,11 @@ VALUES(@job_id, @tenant_id, 'upsert', @doc_path, @category, 'queued', @payload::
 ON CONFLICT (tenant_id, doc_path, action) WHERE status IN ('queued','running','paused')
 DO UPDATE SET
   available_at = now(),
-  payload = EXCLUDED.payload,
+  payload = CASE
+      WHEN COALESCE((ingestion_jobs.payload #>> '{control,cancelRequested}')::boolean, false)
+          THEN jsonb_set(EXCLUDED.payload, '{control,cancelRequested}', 'true'::jsonb, true)
+      ELSE EXCLUDED.payload
+  END,
   category = EXCLUDED.category,
   last_error = NULL
 RETURNING job_id;
@@ -271,7 +275,11 @@ VALUES(@job_id, @tenant_id, 'delete', @doc_path, NULL, 'queued', @payload::jsonb
 ON CONFLICT (tenant_id, doc_path, action) WHERE status IN ('queued','running','paused')
 DO UPDATE SET
   available_at = now(),
-  payload = EXCLUDED.payload,
+  payload = CASE
+      WHEN COALESCE((ingestion_jobs.payload #>> '{control,cancelRequested}')::boolean, false)
+          THEN jsonb_set(EXCLUDED.payload, '{control,cancelRequested}', 'true'::jsonb, true)
+      ELSE EXCLUDED.payload
+  END,
   last_error = NULL
 RETURNING job_id;
 """;
