@@ -178,6 +178,21 @@ sealed class FileWatcherService : BackgroundService
                 var category = DeriveCategory(rel, opt);
 
                 await using var conn = await ds.OpenConnectionAsync(linked.Token);
+                var restored = await IngestionEnqueue.TryRestoreMissingIndexedDocumentAsync(conn, tenantId, rel, fi, linked.Token);
+                if (restored == IngestionEnqueue.ReturnedMissingIndexedDocumentOutcome.RestoredWithoutReingestion)
+                {
+                    _log.LogInformation(
+                        "FileWatcher: restored indexed document without reingestion ({Reason}) for {Doc}",
+                        reason, rel);
+                    return;
+                }
+                if (restored == IngestionEnqueue.ReturnedMissingIndexedDocumentOutcome.ReactivatedForReindex)
+                {
+                    _log.LogInformation(
+                        "FileWatcher: reactivated indexed document and will enqueue reindex ({Reason}) for changed source {Doc}",
+                        reason, rel);
+                }
+
                 var state = await IngestionAutoUpsertGuard.LoadAsync(conn, tenantId, rel, linked.Token);
                 if (IngestionAutoUpsertGuard.ShouldSuppressAutoUpsert(state, fi.Length, fi.LastWriteTimeUtc))
                 {

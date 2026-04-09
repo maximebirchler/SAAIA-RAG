@@ -908,7 +908,7 @@ public sealed partial class ToolAgentOrchestrator
         var type = GetStringArg(args, "type");
         var limit = GetIntArg(args, "limit") ?? 100;
         var offset = GetIntArg(args, "offset") ?? 0;
-        return await _api.AdminJobsListAsync(type, limit, offset, ct).ConfigureAwait(false);
+        return await _api.AdminJobsListAsync(type, limit, offset, null, null, null, null, ct).ConfigureAwait(false);
     }
 
     private async Task<JsonElement> ExecAdminJobsCancelAsync(JsonElement args, CancellationToken ct)

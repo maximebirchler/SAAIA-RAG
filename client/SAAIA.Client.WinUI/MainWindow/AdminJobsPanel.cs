@@ -17,6 +17,11 @@ public sealed partial class MainWindow
         public required TextBlock SummaryText { get; init; }
         public required TextBlock SelectionText { get; init; }
         public required TextBox SearchBox { get; init; }
+        public required ComboBox DateFieldCombo { get; init; }
+        public required ComboBox DatePresetCombo { get; init; }
+        public required ComboBox SortDirectionCombo { get; init; }
+        public required CalendarDatePicker DateFromPicker { get; init; }
+        public required CalendarDatePicker DateToPicker { get; init; }
         public required ComboBox TypeCombo { get; init; }
         public required Button IngestionCategoryButton { get; init; }
         public required Button SummaryCategoryButton { get; init; }
@@ -40,6 +45,12 @@ public sealed partial class MainWindow
         public bool IncludeIngestionCategory { get; set; } = true;
         public bool IncludeSummaryCategory { get; set; } = true;
         public HashSet<string> SelectedMetricFilters { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public bool HasMetricFilterInteraction { get; set; }
+        public string DateField { get; set; } = "finished";
+        public string DatePreset { get; set; } = "all";
+        public string SortDirection { get; set; } = "desc";
+        public DateTimeOffset? DateFrom { get; set; }
+        public DateTimeOffset? DateTo { get; set; }
     }
 
     private sealed class AdminJobListItem
@@ -109,6 +120,89 @@ public sealed partial class MainWindow
         }
     }
 
+    private static string NormalizeAdminJobsDateField(string? value)
+    {
+        var normalized = (value ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "created" => "created",
+            "started" => "started",
+            _ => "finished"
+        };
+    }
+
+    private static string NormalizeAdminJobsSortDirection(string? value)
+        => string.Equals((value ?? string.Empty).Trim(), "asc", StringComparison.OrdinalIgnoreCase) ? "asc" : "desc";
+
+    private static string? GetSelectedComboTag(ComboBox comboBox)
+        => (comboBox.SelectedItem as ComboBoxItem)?.Tag as string;
+
+    private static DateTimeOffset? BuildAdminJobsDateLowerBound(DateTimeOffset? selectedDate)
+    {
+        if (!selectedDate.HasValue)
+            return null;
+
+        var localDate = selectedDate.Value.ToLocalTime();
+        var localMidnight = new DateTimeOffset(
+            localDate.Year,
+            localDate.Month,
+            localDate.Day,
+            0,
+            0,
+            0,
+            localDate.Offset);
+        return localMidnight.ToUniversalTime();
+    }
+
+    private static DateTimeOffset? BuildAdminJobsDateUpperBound(DateTimeOffset? selectedDate)
+    {
+        var lowerBound = BuildAdminJobsDateLowerBound(selectedDate);
+        return lowerBound?.AddDays(1);
+    }
+
+    private static void SyncAdminJobsDateFilters(AdminJobsOverlayContext context)
+    {
+        context.DateField = NormalizeAdminJobsDateField(GetSelectedComboTag(context.DateFieldCombo));
+        context.DatePreset = (GetSelectedComboTag(context.DatePresetCombo) ?? "all").Trim().ToLowerInvariant();
+        context.SortDirection = NormalizeAdminJobsSortDirection(GetSelectedComboTag(context.SortDirectionCombo));
+
+        var showCustomRange = string.Equals(context.DatePreset, "custom", StringComparison.OrdinalIgnoreCase);
+        context.DateFromPicker.Visibility = showCustomRange ? Visibility.Visible : Visibility.Collapsed;
+        context.DateToPicker.Visibility = showCustomRange ? Visibility.Visible : Visibility.Collapsed;
+
+        if (string.Equals(context.DatePreset, "today", StringComparison.OrdinalIgnoreCase))
+        {
+            var now = DateTimeOffset.Now;
+            var today = new DateTimeOffset(now.Year, now.Month, now.Day, 0, 0, 0, now.Offset).ToUniversalTime();
+            context.DateFrom = today;
+            context.DateTo = today.AddDays(1);
+            return;
+        }
+
+        if (!showCustomRange)
+        {
+            context.DateFrom = null;
+            context.DateTo = null;
+            return;
+        }
+
+        context.DateFrom = BuildAdminJobsDateLowerBound(context.DateFromPicker.Date);
+        context.DateTo = BuildAdminJobsDateUpperBound(context.DateToPicker.Date);
+    }
+
+    private static string? FormatAdminJobsDateQueryValue(DateTimeOffset? value)
+        => value?.ToString("o", CultureInfo.InvariantCulture);
+
+    private static bool HasInvalidAdminJobsDateRange(AdminJobsOverlayContext context)
+        => context.DateFrom.HasValue
+           && context.DateTo.HasValue
+           && context.DateFrom.Value >= context.DateTo.Value;
+
+    private static bool IsAdminJobsDateFilterActive(AdminJobsOverlayContext context)
+        => !string.Equals(context.DatePreset, "all", StringComparison.OrdinalIgnoreCase)
+           || context.DateFrom.HasValue
+           || context.DateTo.HasValue;
+
     private void RefreshAdminJobsUiVisibility()
     {
         if (HeaderJobsButton is not null)
@@ -172,7 +266,12 @@ public sealed partial class MainWindow
         var searchBox = new TextBox
         {
             PlaceholderText = ClientUiText.Get("admin.jobs.search.placeholder", UiLang),
-            MinWidth = 240
+            Width = 360,
+            MinWidth = 280,
+            MaxWidth = 460,
+            MinHeight = 44,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center
         };
 
         var typeCombo = new ComboBox
@@ -187,11 +286,68 @@ public sealed partial class MainWindow
         typeCombo.Visibility = Visibility.Collapsed;
 
         var ingestionTypeButton = BuildDialogInlineButton(ClientUiText.Get("admin.jobs.filter.ingestion", UiLang));
-        ingestionTypeButton.MinWidth = 130;
-        ingestionTypeButton.MinHeight = 36;
+        ingestionTypeButton.MinWidth = 118;
+        ingestionTypeButton.MinHeight = 44;
+        ingestionTypeButton.VerticalAlignment = VerticalAlignment.Center;
         var summaryTypeButton = BuildDialogInlineButton(ClientUiText.Get("admin.jobs.filter.summary", UiLang));
-        summaryTypeButton.MinWidth = 130;
-        summaryTypeButton.MinHeight = 36;
+        summaryTypeButton.MinWidth = 118;
+        summaryTypeButton.MinHeight = 44;
+        summaryTypeButton.VerticalAlignment = VerticalAlignment.Center;
+
+        var dateFieldCombo = new ComboBox
+        {
+            MinWidth = 132,
+            MinHeight = 44,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        dateFieldCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.filter.date.finished", UiLang), Tag = "finished" });
+        dateFieldCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.filter.date.started", UiLang), Tag = "started" });
+        dateFieldCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.filter.date.created", UiLang), Tag = "created" });
+        dateFieldCombo.SelectedIndex = 0;
+
+        var datePresetCombo = new ComboBox
+        {
+            MinWidth = 118,
+            MinHeight = 44,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        datePresetCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.filter.range.all", UiLang), Tag = "all" });
+        datePresetCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.filter.range.today", UiLang), Tag = "today" });
+        datePresetCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.filter.range.custom", UiLang), Tag = "custom" });
+        datePresetCombo.SelectedIndex = 0;
+
+        var sortDirectionCombo = new ComboBox
+        {
+            MinWidth = 128,
+            MinHeight = 44,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        sortDirectionCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.filter.sort.newest", UiLang), Tag = "desc" });
+        sortDirectionCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.filter.sort.oldest", UiLang), Tag = "asc" });
+        sortDirectionCombo.SelectedIndex = 0;
+
+        var dateFromPicker = new CalendarDatePicker
+        {
+            PlaceholderText = ClientUiText.Get("admin.jobs.filter.from", UiLang),
+            MinWidth = 138,
+            MinHeight = 44,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center,
+            Visibility = Visibility.Collapsed
+        };
+
+        var dateToPicker = new CalendarDatePicker
+        {
+            PlaceholderText = ClientUiText.Get("admin.jobs.filter.to", UiLang),
+            MinWidth = 138,
+            MinHeight = 44,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center,
+            Visibility = Visibility.Collapsed
+        };
 
         var statusCombo = new ComboBox
         {
@@ -212,11 +368,11 @@ public sealed partial class MainWindow
 
         var autoRefreshToggle = new ToggleSwitch
         {
-            Header = ClientUiText.Get("admin.jobs.auto_refresh", UiLang),
+            Header = string.Empty,
             IsOn = false,
             OnContent = ClientUiText.Get("admin.jobs.auto_on", UiLang),
             OffContent = ClientUiText.Get("admin.jobs.auto_off", UiLang),
-            MinWidth = 136,
+            MinWidth = 110,
             VerticalAlignment = VerticalAlignment.Center
         };
 
@@ -237,7 +393,7 @@ public sealed partial class MainWindow
         var summaryText = new TextBlock
         {
             Text = ClientUiText.Get("admin.jobs.loading", UiLang),
-            Visibility = Visibility.Collapsed,
+            Visibility = Visibility.Visible,
             TextWrapping = TextWrapping.WrapWholeWords,
             Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE)
         };
@@ -263,22 +419,108 @@ public sealed partial class MainWindow
         detailsCard.MinWidth = 340;
         detailsCard.VerticalAlignment = VerticalAlignment.Stretch;
 
-        var toolbarGrid = new Grid { ColumnSpacing = 12, RowSpacing = 12 };
-        toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.3, GridUnitType.Star) });
-        toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var typeFiltersHost = new StackPanel { Orientation = Orientation.Vertical, Spacing = 8 };
+        var typeFiltersHost = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center };
         typeFiltersHost.Children.Add(ingestionTypeButton);
         typeFiltersHost.Children.Add(summaryTypeButton);
-        Grid.SetColumn(searchBox, 0);
-        Grid.SetColumn(typeFiltersHost, 1);
-        Grid.SetColumn(statusCombo, 2);
-        Grid.SetColumn(autoRefreshToggle, 3);
-        toolbarGrid.Children.Add(searchBox);
-        toolbarGrid.Children.Add(typeFiltersHost);
-        toolbarGrid.Children.Add(autoRefreshToggle);
-        toolbarGrid.Children.Add(typeCombo);
+
+        var toolbarFiltersGrid = new Grid
+        {
+            ColumnSpacing = 10,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        var toolbarSpacerColumns = new List<ColumnDefinition>();
+        void AddToolbarControl(FrameworkElement element)
+        {
+            toolbarFiltersGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            Grid.SetColumn(element, toolbarFiltersGrid.ColumnDefinitions.Count - 1);
+            toolbarFiltersGrid.Children.Add(element);
+        }
+        void AddToolbarSpacer()
+        {
+            var spacer = new ColumnDefinition { Width = GridLength.Auto };
+            toolbarFiltersGrid.ColumnDefinitions.Add(spacer);
+            toolbarSpacerColumns.Add(spacer);
+        }
+
+        AddToolbarControl(typeFiltersHost);
+        AddToolbarSpacer();
+        AddToolbarControl(dateFieldCombo);
+        AddToolbarSpacer();
+        AddToolbarControl(datePresetCombo);
+        AddToolbarSpacer();
+        AddToolbarControl(dateFromPicker);
+        AddToolbarSpacer();
+        AddToolbarControl(dateToPicker);
+        AddToolbarSpacer();
+        AddToolbarControl(sortDirectionCombo);
+
+        var toolbarSearchViewport = new StackPanel
+        {
+            Spacing = 0,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        toolbarSearchViewport.Children.Add(searchBox);
+        toolbarSearchViewport.Children.Add(new Border { Height = 8, Opacity = 0 });
+
+        var toolbarFiltersViewport = new StackPanel
+        {
+            Spacing = 0,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        toolbarFiltersViewport.Children.Add(toolbarFiltersGrid);
+        toolbarFiltersViewport.Children.Add(new Border { Height = 8, Opacity = 0 });
+
+        var toolbarFiltersScrollViewer = new ScrollViewer
+        {
+            Content = toolbarFiltersViewport,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            HorizontalScrollMode = ScrollMode.Enabled,
+            VerticalScrollMode = ScrollMode.Disabled,
+            ZoomMode = ZoomMode.Disabled,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        var toolbarLayoutGrid = new Grid { ColumnSpacing = 12, VerticalAlignment = VerticalAlignment.Center };
+        toolbarLayoutGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        toolbarLayoutGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        Grid.SetColumn(toolbarSearchViewport, 0);
+        Grid.SetColumn(toolbarFiltersScrollViewer, 1);
+        toolbarLayoutGrid.Children.Add(toolbarSearchViewport);
+        toolbarLayoutGrid.Children.Add(toolbarFiltersScrollViewer);
+
+        double ComputeVisibleControlWidth(FrameworkElement control, double fallback)
+            => control.Visibility == Visibility.Visible
+                ? Math.Max(control.ActualWidth, control.MinWidth > 0 ? control.MinWidth : fallback)
+                : 0d;
+
+        void UpdateToolbarFiltersLayout()
+        {
+            var searchWidth = Math.Max(toolbarSearchViewport.ActualWidth, Math.Max(searchBox.ActualWidth, searchBox.Width));
+            var availableWidth = toolbarLayoutGrid.ActualWidth - searchWidth - toolbarLayoutGrid.ColumnSpacing - 24;
+            if (availableWidth <= 0)
+                return;
+
+            var minimumFiltersWidth =
+                ingestionTypeButton.MinWidth +
+                summaryTypeButton.MinWidth +
+                typeFiltersHost.Spacing +
+                ComputeVisibleControlWidth(dateFieldCombo, 132) +
+                ComputeVisibleControlWidth(datePresetCombo, 118) +
+                ComputeVisibleControlWidth(dateFromPicker, 138) +
+                ComputeVisibleControlWidth(dateToPicker, 138) +
+                ComputeVisibleControlWidth(sortDirectionCombo, 128) +
+                (toolbarFiltersGrid.ColumnSpacing * 5);
+
+            var canJustify = availableWidth >= minimumFiltersWidth + 72;
+            foreach (var spacer in toolbarSpacerColumns)
+                spacer.Width = canJustify ? new GridLength(1, GridUnitType.Star) : GridLength.Auto;
+            toolbarFiltersGrid.Width = canJustify ? availableWidth : double.NaN;
+            toolbarFiltersScrollViewer.HorizontalScrollBarVisibility = canJustify ? ScrollBarVisibility.Hidden : ScrollBarVisibility.Auto;
+        }
+
+        toolbarLayoutGrid.SizeChanged += (_, __) => UpdateToolbarFiltersLayout();
 
         var footerActions = new Grid { ColumnSpacing = 12 };
         footerActions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -321,25 +563,48 @@ public sealed partial class MainWindow
         Grid.SetColumn(titleBox, 0);
         pageHeaderGrid.Children.Add(titleBox);
 
-        refreshButton.MinWidth = 140;
+        refreshButton.MinWidth = 124;
         refreshButton.HorizontalAlignment = HorizontalAlignment.Right;
         refreshButton.VerticalAlignment = VerticalAlignment.Center;
-        Grid.SetColumn(refreshButton, 1);
-        pageHeaderGrid.Children.Add(refreshButton);
+
+        var autoRefreshHost = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        autoRefreshHost.Children.Add(new TextBlock
+        {
+            Text = ClientUiText.Get("admin.jobs.auto_refresh", UiLang),
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE)
+        });
+        autoRefreshHost.Children.Add(autoRefreshToggle);
+
+        var headerActions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 12,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        headerActions.Children.Add(refreshButton);
+        headerActions.Children.Add(autoRefreshHost);
+        Grid.SetColumn(headerActions, 1);
+        pageHeaderGrid.Children.Add(headerActions);
 
         var pageRoot = new Grid
         {
             Background = UseLightPalette() ? UiBrush(0xE9, 0xEE, 0xF4) : UiBrush(0x0A, 0x0D, 0x12),
             Padding = new Thickness(18),
-            RowSpacing = 16
+            RowSpacing = 12
         };
         pageRoot.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         pageRoot.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         pageRoot.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         pageRoot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         pageRoot.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        var metricsCard = BuildDialogSurfaceCard(metricsHost, new Thickness(14));
-        var toolbarCard = BuildDialogSurfaceCard(toolbarGrid, new Thickness(14));
+        var metricsCard = BuildDialogSurfaceCard(metricsHost, new Thickness(10));
+        var toolbarCard = BuildDialogSurfaceCard(toolbarLayoutGrid, new Thickness(12));
         var footerCard = BuildDialogSurfaceCard(footer, new Thickness(14));
         Grid.SetRow(pageHeaderGrid, 0);
         Grid.SetRow(metricsCard, 1);
@@ -453,6 +718,11 @@ public sealed partial class MainWindow
             SummaryText = summaryText,
             SelectionText = selectionText,
             SearchBox = searchBox,
+            DateFieldCombo = dateFieldCombo,
+            DatePresetCombo = datePresetCombo,
+            SortDirectionCombo = sortDirectionCombo,
+            DateFromPicker = dateFromPicker,
+            DateToPicker = dateToPicker,
             TypeCombo = typeCombo,
             IngestionCategoryButton = ingestionTypeButton,
             SummaryCategoryButton = summaryTypeButton,
@@ -471,7 +741,7 @@ public sealed partial class MainWindow
         closeDetailsButton.Click += (_, __) =>
         {
             context.SelectedJobId = null;
-            RenderAdminJobsDetails(context);
+            RenderAdminJobsOverlay(context);
         };
 
         searchBox.TextChanged += (_, __) => RenderAdminJobsOverlay(context);
@@ -493,7 +763,6 @@ public sealed partial class MainWindow
         ingestionTypeButton.Click += async (_, __) =>
         {
             context.IncludeIngestionCategory = !context.IncludeIngestionCategory;
-            context.SelectedMetricFilters.Clear();
             context.SelectedJobId = null;
             ApplyCategoryButtonVisuals();
             RenderAdminJobsOverlay(context);
@@ -503,7 +772,6 @@ public sealed partial class MainWindow
         summaryTypeButton.Click += async (_, __) =>
         {
             context.IncludeSummaryCategory = !context.IncludeSummaryCategory;
-            context.SelectedMetricFilters.Clear();
             context.SelectedJobId = null;
             ApplyCategoryButtonVisuals();
             RenderAdminJobsOverlay(context);
@@ -512,6 +780,42 @@ public sealed partial class MainWindow
         };
         ApplyCategoryButtonVisuals();
         statusCombo.SelectionChanged += (_, __) => RenderAdminJobsOverlay(context);
+        dateFieldCombo.SelectionChanged += async (_, __) =>
+        {
+            SyncAdminJobsDateFilters(context);
+            UpdateToolbarFiltersLayout();
+            await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+        };
+        datePresetCombo.SelectionChanged += async (_, __) =>
+        {
+            SyncAdminJobsDateFilters(context);
+            UpdateToolbarFiltersLayout();
+            RenderAdminJobsOverlay(context);
+            await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+        };
+        sortDirectionCombo.SelectionChanged += async (_, __) =>
+        {
+            SyncAdminJobsDateFilters(context);
+            UpdateToolbarFiltersLayout();
+            RenderAdminJobsOverlay(context);
+            await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+        };
+        dateFromPicker.DateChanged += async (_, __) =>
+        {
+            SyncAdminJobsDateFilters(context);
+            UpdateToolbarFiltersLayout();
+            RenderAdminJobsOverlay(context);
+            if (string.Equals(context.DatePreset, "custom", StringComparison.OrdinalIgnoreCase))
+                await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+        };
+        dateToPicker.DateChanged += async (_, __) =>
+        {
+            SyncAdminJobsDateFilters(context);
+            UpdateToolbarFiltersLayout();
+            RenderAdminJobsOverlay(context);
+            if (string.Equals(context.DatePreset, "custom", StringComparison.OrdinalIgnoreCase))
+                await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+        };
         autoRefreshToggle.Toggled += (_, __) =>
         {
             UpdateAdminJobsRefreshTimer();
@@ -531,6 +835,8 @@ public sealed partial class MainWindow
 
         _adminJobsWindow = window;
         _adminJobsOverlayContext = context;
+        SyncAdminJobsDateFilters(context);
+        UpdateToolbarFiltersLayout();
         UpdateAdminJobsRefreshControls(context);
         UpdateAdminJobsRefreshTimer();
 
@@ -654,35 +960,85 @@ public sealed partial class MainWindow
 
         try
         {
-            var root = await _api.AdminJobsListAsync(null, 250, 0, ct).ConfigureAwait(true);
-            var items = ParseAdminJobs(root)
-                .OrderByDescending(item => GetTrackedJobStatusRank(item.Status))
-                .ThenByDescending(item => item.CreatedAt ?? DateTimeOffset.MinValue)
-                .ToList();
+            SyncAdminJobsDateFilters(context);
+            var useClientSideDateFiltering = IsAdminJobsDateFilterActive(context);
+            if (HasInvalidAdminJobsDateRange(context))
+            {
+                context.Items = new List<AdminJobListItem>();
+                context.HasMetricFilterInteraction = context.SelectedMetricFilters.Count == 0;
+                context.SelectedTerminalJobIds.Clear();
+                RenderAdminJobsOverlay(context);
+                return;
+            }
+
+            var root = await _api.AdminJobsListAsync(
+                    null,
+                    500,
+                    0,
+                    context.DateField,
+                    useClientSideDateFiltering ? null : FormatAdminJobsDateQueryValue(context.DateFrom),
+                    useClientSideDateFiltering ? null : FormatAdminJobsDateQueryValue(context.DateTo),
+                    context.SortDirection,
+                    ct)
+                .ConfigureAwait(true);
+            var items = ParseAdminJobs(root);
 
             context.Items = items;
+            context.HasMetricFilterInteraction = context.SelectedMetricFilters.Count == 0;
             context.SelectedTerminalJobIds.IntersectWith(items.Where(x => x.IsTerminal).Select(x => x.JobId));
             RenderAdminJobsOverlay(context);
         }
         catch (Exception ex)
         {
-            if (context.Items.Count > 0)
+            ClientLog.Exception("AdminJobs.Refresh", ex);
+            if (IsAdminJobsDateFilterActive(context))
             {
-                context.SummaryText.Text = previousSummary + " • " + ClientUiText.Get("admin.jobs.refresh_failed_soft", UiLang) + ex.Message;
-                context.AutoRefreshToggle.IsOn = false;
-                try { _adminJobsRefreshTimer?.Stop(); } catch { }
+                try
+                {
+                    var fallbackRoot = await _api.AdminJobsListAsync(
+                            null,
+                            500,
+                            0,
+                            context.DateField,
+                            null,
+                            null,
+                            context.SortDirection,
+                            ct)
+                        .ConfigureAwait(true);
+                    var fallbackItems = ParseAdminJobs(fallbackRoot);
+                    context.Items = fallbackItems;
+                    context.HasMetricFilterInteraction = context.SelectedMetricFilters.Count == 0;
+                    context.SelectedTerminalJobIds.IntersectWith(fallbackItems.Where(x => x.IsTerminal).Select(x => x.JobId));
+                    RenderAdminJobsOverlay(context);
+                }
+                catch
+                {
+                    context.Items = new List<AdminJobListItem>();
+                    context.HasMetricFilterInteraction = context.SelectedMetricFilters.Count == 0;
+                    context.SelectedTerminalJobIds.Clear();
+                    RenderAdminJobsOverlay(context);
+                }
             }
             else
             {
-                context.GroupsHost.Children.Clear();
-                context.GroupsHost.Children.Add(new TextBlock
+                if (context.Items.Count > 0)
                 {
-                    Text = ClientUiText.Get("admin.jobs.refresh_failed", UiLang) + ex.Message,
-                    TextWrapping = TextWrapping.WrapWholeWords,
-                    Foreground = UseLightPalette() ? UiBrush(0xB4, 0x23, 0x18) : UiBrush(0xFF, 0x8A, 0x80)
-                });
-                context.SummaryText.Text = ClientUiText.Get("admin.jobs.refresh_failed", UiLang) + ex.Message;
-                UpdateAdminJobsSelectionState(context, Array.Empty<AdminJobListItem>());
+                    context.SummaryText.Text = previousSummary + " • " + ClientUiText.Get("admin.jobs.refresh_failed_soft", UiLang) + ": " + ex.Message;
+                    context.AutoRefreshToggle.IsOn = false;
+                    try { _adminJobsRefreshTimer?.Stop(); } catch { }
+                }
+                else
+                {
+                    context.GroupsHost.Children.Clear();
+                    context.GroupsHost.Children.Add(new TextBlock
+                    {
+                        Text = ClientUiText.Get("admin.jobs.refresh_failed", UiLang) + ex.Message,
+                        TextWrapping = TextWrapping.WrapWholeWords,
+                        Foreground = UseLightPalette() ? UiBrush(0xB4, 0x23, 0x18) : UiBrush(0xFF, 0x8A, 0x80)
+                    });
+                    context.SummaryText.Text = ClientUiText.Get("admin.jobs.refresh_failed", UiLang) + ex.Message;
+                    UpdateAdminJobsSelectionState(context, Array.Empty<AdminJobListItem>());
+                }
             }
         }
         finally
@@ -843,14 +1199,15 @@ public sealed partial class MainWindow
         RenderAdminJobsDetails(context);
         UpdateAdminJobsSelectionState(context, visibleItems);
         var loadedCount = (context.IncludeIngestionCategory || context.IncludeSummaryCategory) ? context.Items.Count : 0;
-        context.SummaryText.Text = ClientUiText.Format("admin.jobs.summary", UiLang, visibleItems.Count, visibleItems.Count(x => !x.IsTerminal && !x.IsPaused), loadedCount);
+        context.SummaryText.Text = ClientUiText.Format("admin.jobs.visible_summary", UiLang, visibleItems.Count, loadedCount);
     }
 
     private List<AdminJobListItem> ApplyAdminJobsFilters(AdminJobsOverlayContext context)
     {
-        var term = (context.SearchBox.Text ?? string.Empty).Trim();
-        var selectedStatus = ((context.StatusCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "all").Trim().ToLowerInvariant();
+        if (HasInvalidAdminJobsDateRange(context))
+            return new List<AdminJobListItem>();
 
+        var term = (context.SearchBox.Text ?? string.Empty).Trim();
         IEnumerable<AdminJobListItem> items = context.Items;
         if (!string.IsNullOrWhiteSpace(term))
         {
@@ -872,29 +1229,66 @@ public sealed partial class MainWindow
             items = Enumerable.Empty<AdminJobListItem>();
         }
 
+        if (context.DateFrom.HasValue || context.DateTo.HasValue)
+        {
+            items = items.Where(item =>
+            {
+                var timestamp = GetAdminJobSortTimestamp(item, context.DateField);
+                if (!timestamp.HasValue)
+                    return false;
+                if (context.DateFrom.HasValue && timestamp.Value < context.DateFrom.Value)
+                    return false;
+                if (context.DateTo.HasValue && timestamp.Value >= context.DateTo.Value)
+                    return false;
+                return true;
+            });
+        }
+
         if (context.SelectedMetricFilters.Count > 0)
         {
             items = items.Where(item => context.SelectedMetricFilters.Any(filterTag => MatchesAdminJobsStatusFilter(item, filterTag)));
         }
         else
         {
-            items = selectedStatus switch
-            {
-                "active" => items.Where(item => !item.IsTerminal && !item.IsPaused),
-                "queued" => items.Where(item => item.IsQueued),
-                "running" => items.Where(item => item.IsRunning),
-                "cancel_requested" => items.Where(item => string.Equals(NormalizeTrackedJobStatus(item.Status), "cancel_requested", StringComparison.OrdinalIgnoreCase)),
-                "paused" => items.Where(item => item.IsPaused),
-                "done" => items.Where(item => string.Equals(NormalizeTrackedJobStatus(item.Status), "done", StringComparison.OrdinalIgnoreCase)),
-                "failed" => items.Where(item => string.Equals(NormalizeTrackedJobStatus(item.Status), "failed", StringComparison.OrdinalIgnoreCase)),
-                "canceled" => items.Where(item => string.Equals(NormalizeTrackedJobStatus(item.Status), "canceled", StringComparison.OrdinalIgnoreCase)),
-                _ => items
-            };
+            items = Enumerable.Empty<AdminJobListItem>();
         }
 
-        return items.OrderByDescending(item => item.IsRunning || item.IsQueued)
+        return SortAdminJobs(items, context).ToList();
+    }
+
+    private IEnumerable<AdminJobListItem> SortAdminJobs(IEnumerable<AdminJobListItem> items, AdminJobsOverlayContext context)
+    {
+        var sortDirection = NormalizeAdminJobsSortDirection(context.SortDirection);
+        var ascending = string.Equals(sortDirection, "asc", StringComparison.OrdinalIgnoreCase);
+
+        var ordered = items.OrderBy(item => GetAdminJobSortTimestamp(item, context.DateField).HasValue ? 0 : 1);
+        if (ascending)
+        {
+            return ordered
+                .ThenBy(item => GetAdminJobSortTimestamp(item, context.DateField) ?? DateTimeOffset.MaxValue)
+                .ThenBy(item => item.FinishedAt ?? DateTimeOffset.MaxValue)
+                .ThenBy(item => item.StartedAt ?? DateTimeOffset.MaxValue)
+                .ThenBy(item => item.CreatedAt ?? DateTimeOffset.MaxValue)
+                .ThenBy(item => item.JobId, StringComparer.OrdinalIgnoreCase);
+        }
+
+        return ordered
+            .ThenByDescending(item => GetAdminJobSortTimestamp(item, context.DateField) ?? DateTimeOffset.MinValue)
+            .ThenByDescending(item => item.FinishedAt ?? DateTimeOffset.MinValue)
+            .ThenByDescending(item => item.StartedAt ?? DateTimeOffset.MinValue)
             .ThenByDescending(item => item.CreatedAt ?? DateTimeOffset.MinValue)
-            .ToList();
+            .ThenBy(item => item.JobId, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static DateTimeOffset? GetAdminJobSortTimestamp(AdminJobListItem item, string? dateField)
+    {
+        var normalized = NormalizeAdminJobsDateField(dateField);
+        return normalized switch
+        {
+            "created" => item.CreatedAt ?? item.StartedAt ?? item.FinishedAt,
+            "started" => item.StartedAt ?? item.CreatedAt ?? item.FinishedAt,
+            _ => item.FinishedAt ?? item.StartedAt ?? item.CreatedAt
+        };
     }
 
     private void RenderAdminJobsMetrics(AdminJobsOverlayContext context, IReadOnlyList<AdminJobListItem> allItems, IReadOnlyList<AdminJobListItem> visibleItems)
@@ -936,12 +1330,6 @@ public sealed partial class MainWindow
         }
 
         context.MetricsHost.Children.Add(grid);
-        context.MetricsHost.Children.Add(new TextBlock
-        {
-            Text = ClientUiText.Format("admin.jobs.visible_summary", UiLang, visibleItems.Count, metricsSource.Count),
-            Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
-            TextWrapping = TextWrapping.WrapWholeWords
-        });
     }
 
     private static string BuildAdminJobsRenderSignature(IReadOnlyList<AdminJobListItem> visibleItems)
@@ -955,6 +1343,11 @@ public sealed partial class MainWindow
               .Append(item.ProgressPercent?.ToString(CultureInfo.InvariantCulture) ?? "-").Append('|')
               .Append(item.ProgressCurrent?.ToString(CultureInfo.InvariantCulture) ?? "-").Append('|')
               .Append(item.ProgressTotal?.ToString(CultureInfo.InvariantCulture) ?? "-").Append('|')
+              .Append(item.DocumentStatus).Append('|')
+              .Append(item.DocumentIngestionVersion?.ToString(CultureInfo.InvariantCulture) ?? "-").Append('|')
+              .Append(item.DocumentIndexedVersion?.ToString(CultureInfo.InvariantCulture) ?? "-").Append('|')
+              .Append(item.DocumentAutoIngestPaused?.ToString() ?? "-").Append('|')
+              .Append(item.DocumentAutoIngestPauseReason).Append('|')
               .Append(item.LastError).Append(';');
         }
 
@@ -980,6 +1373,7 @@ public sealed partial class MainWindow
 
     private static void ApplyAdminJobsStatusFilter(AdminJobsOverlayContext context, string filterTag)
     {
+        context.HasMetricFilterInteraction = true;
         if (context.SelectedMetricFilters.Contains(filterTag))
             context.SelectedMetricFilters.Remove(filterTag);
         else
@@ -1002,13 +1396,13 @@ public sealed partial class MainWindow
         return new Border
         {
             CornerRadius = new CornerRadius(16),
-            Padding = new Thickness(14, 12, 14, 12),
+            Padding = new Thickness(12, 10, 12, 10),
             Background = light ? UiBrush(0xF7, 0xFA, 0xFD) : UiBrush(0x11, 0x16, 0x1E),
             BorderBrush = GetAdminJobStatusBorder(accentStatus, light),
             BorderThickness = new Thickness(isSelected ? 3 : 1),
             Child = new StackPanel
             {
-                Spacing = 4,
+                Spacing = 2,
                 Children =
                 {
                     new TextBlock
@@ -1016,13 +1410,13 @@ public sealed partial class MainWindow
                         Text = title,
                         Foreground = light ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
                         TextWrapping = TextWrapping.WrapWholeWords,
-                        FontSize = 12,
-                        CharacterSpacing = 20
+                        FontSize = 11,
+                        CharacterSpacing = 10
                     },
                     new TextBlock
                     {
                         Text = value.ToString(CultureInfo.InvariantCulture),
-                        FontSize = 24,
+                        FontSize = 22,
                         FontWeight = FontWeights.SemiBold,
                         Foreground = GetAdminJobStatusForeground(accentStatus, light)
                     }
@@ -1040,25 +1434,28 @@ public sealed partial class MainWindow
             return;
         }
 
+        var queued = visibleItems.Where(item => item.IsQueued).ToList();
+        var running = visibleItems.Where(item => item.IsRunning).ToList();
         var paused = visibleItems.Where(item => item.IsPaused).ToList();
-        var active = visibleItems.Where(item => !item.IsTerminal && !item.IsPaused).ToList();
         var failed = visibleItems.Where(item => item.IsFailed).ToList();
         var canceled = visibleItems.Where(item => item.IsCanceled).ToList();
         var done = visibleItems.Where(item => item.IsTerminal && !item.IsFailed && !item.IsCanceled).ToList();
 
-        if (active.Count > 0)
-            context.GroupsHost.Children.Add(BuildAdminJobsGroupSection(ClientUiText.Get("admin.jobs.group.active", UiLang), active, context));
+        if (queued.Count > 0)
+            context.GroupsHost.Children.Add(BuildAdminJobsGroupSection(ClientUiText.Get("admin.jobs.metric.queued", UiLang), queued, context));
+        if (running.Count > 0)
+            context.GroupsHost.Children.Add(BuildAdminJobsGroupSection(ClientUiText.Get("admin.jobs.metric.running", UiLang), running, context));
         if (paused.Count > 0)
-            context.GroupsHost.Children.Add(BuildAdminJobsGroupSection(ClientUiText.Get("admin.jobs.group.paused", UiLang), paused, context));
-        if (canceled.Count > 0)
-            context.GroupsHost.Children.Add(BuildAdminJobsGroupSection(ClientUiText.Get("admin.jobs.group.canceled", UiLang), canceled, context));
+            context.GroupsHost.Children.Add(BuildAdminJobsGroupSection(ClientUiText.Get("admin.jobs.metric.paused", UiLang), paused, context));
         if (failed.Count > 0)
-            context.GroupsHost.Children.Add(BuildAdminJobsGroupSection(ClientUiText.Get("admin.jobs.group.failed", UiLang), failed, context));
+            context.GroupsHost.Children.Add(BuildAdminJobsGroupSection(ClientUiText.Get("admin.jobs.metric.failed", UiLang), failed, context));
+        if (canceled.Count > 0)
+            context.GroupsHost.Children.Add(BuildAdminJobsGroupSection(ClientUiText.Get("admin.jobs.metric.canceled", UiLang), canceled, context));
         if (done.Count > 0)
         {
             var take = Math.Max(50, context.HistoryTake);
             var shown = done.Take(take).ToList();
-            context.GroupsHost.Children.Add(BuildAdminJobsGroupSection(ClientUiText.Get("admin.jobs.group.history", UiLang), shown, context));
+            context.GroupsHost.Children.Add(BuildAdminJobsGroupSection(ClientUiText.Get("admin.jobs.metric.done", UiLang), shown, context));
             if (done.Count > shown.Count)
             {
                 var loadMore = BuildDialogInlineButton($"{ClientUiText.Get("admin.jobs.show_more", UiLang)} (+50)");
@@ -1104,8 +1501,6 @@ public sealed partial class MainWindow
     {
         var light = UseLightPalette();
         var status = NormalizeTrackedJobStatus(item.Status);
-        var progressPercent = item.ProgressPercent.HasValue ? Math.Clamp(item.ProgressPercent.Value, 0, 100) : (int?)null;
-        var progressValue = progressPercent.HasValue ? progressPercent.Value : (status == "done" ? 100d : 0d);
         var progressText = BuildAdminJobProgressLine(item);
 
         var isSelected = string.Equals(context.SelectedJobId, item.JobId, StringComparison.OrdinalIgnoreCase);
@@ -1183,18 +1578,7 @@ public sealed partial class MainWindow
         progressGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         progressGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        var progressBar = new ProgressBar
-        {
-            Minimum = 0,
-            Maximum = 100,
-            Value = progressValue,
-            IsIndeterminate = !progressPercent.HasValue && (item.IsRunning || item.IsQueued),
-            Height = 6,
-            VerticalAlignment = VerticalAlignment.Center,
-            Foreground = GetAdminJobStatusForeground(status, light),
-            Background = GetAdminJobStatusBackground(status, light),
-            Transitions = null
-        };
+        var progressBar = BuildAdminJobProgressBar(item);
         Grid.SetColumn(progressBar, 0);
         progressGrid.Children.Add(progressBar);
         var progressLabel = new TextBlock
@@ -1429,7 +1813,7 @@ public sealed partial class MainWindow
             closeButton.Click += (_, __) =>
             {
                 context.SelectedJobId = null;
-                RenderAdminJobsDetails(context);
+                RenderAdminJobsOverlay(context);
             };
             Grid.SetColumn(headerTitle, 0);
             Grid.SetColumn(closeButton, 1);
@@ -1762,6 +2146,15 @@ public sealed partial class MainWindow
             return string.Empty;
 
         var normalized = raw.ToLowerInvariant();
+        if (item.IsCanceled
+            && (normalized == "timeout_or_canceled"
+                || normalized == "timeout"
+                || normalized.Contains("timeout", StringComparison.OrdinalIgnoreCase)
+                || normalized.Contains("bulkhead", StringComparison.OrdinalIgnoreCase)))
+        {
+            return ClientUiText.Get("admin.jobs.error.canceled_by_admin", UiLang);
+        }
+
         return normalized switch
         {
             "timeout" => ClientUiText.Get("admin.jobs.error.timeout", UiLang),
@@ -1812,8 +2205,8 @@ public sealed partial class MainWindow
                 if (!string.IsNullOrWhiteSpace(action))
                     pausedBits.Add(action!);
             }
-            bits = pausedBits;
 
+            bits = pausedBits;
             return string.Join(" • ", bits);
         }
 
@@ -1990,6 +2383,127 @@ public sealed partial class MainWindow
         }
 
         return false;
+    }
+
+    private FrameworkElement BuildAdminJobProgressBar(AdminJobListItem item)
+    {
+        var light = UseLightPalette();
+        var normalizedStatus = NormalizeTrackedJobStatus(item.Status);
+        var derivedPercent = item.ProgressPercent;
+        if (!derivedPercent.HasValue && item.ProgressCurrent.HasValue && item.ProgressTotal.HasValue && item.ProgressTotal.Value > 0)
+            derivedPercent = (int)Math.Round((double)item.ProgressCurrent.Value * 100d / item.ProgressTotal.Value);
+
+        var resolvedPercent = derivedPercent.HasValue
+            ? Math.Clamp(derivedPercent.Value, 0, 100)
+            : normalizedStatus == "done"
+                ? 100
+                : 0;
+        var isActiveLoadingState =
+            (item.IsRunning || item.IsQueued || normalizedStatus == "cancel_requested")
+            && resolvedPercent <= 0;
+        var trackBrush = light ? UiBrush(0x22, 0x2C, 0x38) : UiBrush(0x1C, 0x25, 0x31);
+        var accentBrush = GetAdminJobStatusForeground(normalizedStatus, light);
+        const double barHeight = 4d;
+        const double radius = 2d;
+
+        if (isActiveLoadingState)
+        {
+            var loadingHost = new Grid
+            {
+                Height = barHeight,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            loadingHost.Children.Add(new Border
+            {
+                Height = barHeight,
+                CornerRadius = new CornerRadius(radius),
+                Background = trackBrush,
+                Opacity = light ? 0.18 : 0.9
+            });
+
+            var loadingBar = new ProgressBar
+            {
+                IsIndeterminate = true,
+                Height = barHeight,
+                BorderThickness = new Thickness(0),
+                Foreground = accentBrush,
+                Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            loadingHost.Children.Add(loadingBar);
+            return loadingHost;
+        }
+
+        var host = new Grid
+        {
+            Height = barHeight,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        host.Children.Add(new Border
+        {
+            Height = barHeight,
+            CornerRadius = new CornerRadius(radius),
+            Background = trackBrush,
+            Opacity = light ? 0.16 : 0.88
+        });
+
+        if (resolvedPercent <= 0)
+            return host;
+
+        var fill = new Border
+        {
+            Height = barHeight,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center,
+            CornerRadius = new CornerRadius(radius),
+            Background = accentBrush,
+            Opacity = normalizedStatus is "done" or "failed" or "canceled" ? 0.95 : 1d
+        };
+
+        void UpdateFillWidth()
+        {
+            var width = host.ActualWidth * resolvedPercent / 100d;
+            fill.Width = width <= 0 ? 0 : Math.Max(width, resolvedPercent >= 100 ? host.ActualWidth : 10d);
+        }
+
+        host.SizeChanged += (_, __) => UpdateFillWidth();
+        host.Loaded += (_, __) => UpdateFillWidth();
+
+        if (resolvedPercent < 100)
+        {
+            var sheen = new Border
+            {
+                Height = barHeight,
+                Width = 28,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Center,
+                CornerRadius = new CornerRadius(radius),
+                Opacity = light ? 0.18 : 0.12,
+                Background = light ? UiBrush(0xFF, 0xFF, 0xFF) : UiBrush(0xE7, 0xEF, 0xFA),
+                IsHitTestVisible = false
+            };
+
+            void UpdateSheen()
+            {
+                var width = fill.Width;
+                sheen.Visibility = width > 20 ? Visibility.Visible : Visibility.Collapsed;
+                if (width > 20)
+                {
+                    sheen.Margin = new Thickness(Math.Max(2d, width - sheen.Width - 4d), 0, 0, 0);
+                }
+            }
+
+            host.SizeChanged += (_, __) => UpdateSheen();
+            host.Loaded += (_, __) => UpdateSheen();
+            host.Children.Add(fill);
+            host.Children.Add(sheen);
+            return host;
+        }
+
+        host.Children.Add(fill);
+        return host;
     }
 
     private TextBlock BuildAdminJobStatusBadge(string status)

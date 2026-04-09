@@ -10,7 +10,7 @@ using SAAIA.Contracts;
 
 namespace SAAIA.Backend.Endpoints;
 
-public static class DocumentsEndpoints
+public static partial class DocumentsEndpoints
 {
     public static void Map(WebApplication app)
     {
@@ -64,12 +64,12 @@ public static class DocumentsEndpoints
         var off = Math.Max(offset ?? 0, 0);
 
         category = string.IsNullOrWhiteSpace(category) ? null : category.Trim().ToLowerInvariant();
-        categoryPath = NormalizeCategoryPathOrNull(categoryPath);
-        categoryRef = NormalizeCategoryRefOrNull(categoryRef);
+        categoryPath = DocumentsCategoryScopeResolver.NormalizeCategoryPathOrNull(categoryPath);
+        categoryRef = DocumentsCategoryScopeResolver.NormalizeCategoryRefOrNull(categoryRef);
         q = string.IsNullOrWhiteSpace(q) ? null : q.Trim();
 
         await using var conn = await ds.OpenConnectionAsync(ct);
-        categoryPath = await ResolveCategoryScopeAsync(conn, tenantId, categoryPath, categoryRef, ct);
+        categoryPath = await DocumentsCategoryScopeResolver.ResolveCategoryScopeAsync(conn, tenantId, categoryPath, categoryRef, ct);
 
         const string sql = @"
 SELECT
@@ -166,12 +166,12 @@ LIMIT 1;";
         var tenantId = ctx.GetTenantId();
         var ct = ctx.RequestAborted;
 
-        categoryPath = NormalizeCategoryPathOrNull(categoryPath);
-        categoryRef = NormalizeCategoryRefOrNull(categoryRef);
+        categoryPath = DocumentsCategoryScopeResolver.NormalizeCategoryPathOrNull(categoryPath);
+        categoryRef = DocumentsCategoryScopeResolver.NormalizeCategoryRefOrNull(categoryRef);
         q = string.IsNullOrWhiteSpace(q) ? null : q.Trim();
 
         await using var conn = await ds.OpenConnectionAsync(ct);
-        categoryPath = await ResolveCategoryScopeAsync(conn, tenantId, categoryPath, categoryRef, ct);
+        categoryPath = await DocumentsCategoryScopeResolver.ResolveCategoryScopeAsync(conn, tenantId, categoryPath, categoryRef, ct);
 
         const string sql = @"
 SELECT COUNT(*)
@@ -195,13 +195,13 @@ WHERE tenant_id=@tenant
     {
         var tenantId = ctx.GetTenantId();
         var ct = ctx.RequestAborted;
-        path = NormalizeCategoryPathOrNull(path);
-        categoryRef = NormalizeCategoryRefOrNull(categoryRef);
+        path = DocumentsCategoryScopeResolver.NormalizeCategoryPathOrNull(path);
+        categoryRef = DocumentsCategoryScopeResolver.NormalizeCategoryRefOrNull(categoryRef);
         var lim = Math.Clamp(limit ?? 100, 1, 500);
         var off = Math.Max(offset ?? 0, 0);
 
         await using var conn = await ds.OpenConnectionAsync(ct);
-        path = await ResolveCategoryScopeAsync(conn, tenantId, path, categoryRef, ct);
+        path = await DocumentsCategoryScopeResolver.ResolveCategoryScopeAsync(conn, tenantId, path, categoryRef, ct);
 
         if (string.IsNullOrWhiteSpace(path))
         {
@@ -222,7 +222,7 @@ LIMIT @lim OFFSET @off;";
 
             var rows = (await conn.QueryAsync<TopCategoryDto>(new CommandDefinition(sql, new { tenant = tenantId, lim, off }, cancellationToken: ct))).ToList();
             var total = await conn.ExecuteScalarAsync<int>(new CommandDefinition(totalSql, new { tenant = tenantId }, cancellationToken: ct));
-            var aliasesByPath = await LoadTopCategoryAliasesAsync(conn, tenantId, rows.Select(x => x.Path).ToList(), ct);
+        var aliasesByPath = await DocumentsCategoryScopeResolver.LoadTopCategoryAliasesAsync(conn, tenantId, rows.Select(x => x.Path).ToList(), ct);
 
             var items = rows.Select(x => new
             {
@@ -293,13 +293,13 @@ WHERE tenant_id=@tenant AND parent_path=@path;";
         var tenantId = ctx.GetTenantId();
         var ct = ctx.RequestAborted;
 
-        path = NormalizeCategoryPathOrNull(path);
-        categoryRef = NormalizeCategoryRefOrNull(categoryRef);
+        path = DocumentsCategoryScopeResolver.NormalizeCategoryPathOrNull(path);
+        categoryRef = DocumentsCategoryScopeResolver.NormalizeCategoryRefOrNull(categoryRef);
         var maxDepth = depth is null ? (int?)null : Math.Clamp(depth.Value, 0, 20);
         format = string.IsNullOrWhiteSpace(format) ? "json" : format.Trim().ToLowerInvariant();
 
         await using var conn = await ds.OpenConnectionAsync(ct);
-        path = await ResolveCategoryScopeAsync(conn, tenantId, path, categoryRef, ct);
+        path = await DocumentsCategoryScopeResolver.ResolveCategoryScopeAsync(conn, tenantId, path, categoryRef, ct);
 
         // Snapshot-first
         var snapTree = await TryLoadTreeFromSnapshotAsync(conn, tenantId, path, maxDepth, ct);
@@ -397,7 +397,7 @@ WHERE tenant_id=@tenant AND status='indexed';";
         if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
             return (false, null, null, null, Results.BadRequest(new { error = "documents_root_not_found", root }));
 
-        var scopeRel = NormalizeCategoryPathOrNull(path) ?? string.Empty;
+        var scopeRel = DocumentsCategoryScopeResolver.NormalizeCategoryPathOrNull(path) ?? string.Empty;
         var scopeAbs = string.IsNullOrWhiteSpace(scopeRel)
             ? Path.GetFullPath(root)
             : Path.GetFullPath(Path.Combine(root, scopeRel.Replace('/', Path.DirectorySeparatorChar)));
@@ -469,11 +469,11 @@ WHERE tenant_id=@tenant AND status='indexed';";
     {
         var tenantId = ctx.GetTenantId();
         var ct = ctx.RequestAborted;
-        path = NormalizeCategoryPathOrNull(path);
-        categoryRef = NormalizeCategoryRefOrNull(categoryRef);
+        path = DocumentsCategoryScopeResolver.NormalizeCategoryPathOrNull(path);
+        categoryRef = DocumentsCategoryScopeResolver.NormalizeCategoryRefOrNull(categoryRef);
 
         await using var conn = await ds.OpenConnectionAsync(ct);
-        path = await ResolveCategoryScopeAsync(conn, tenantId, path, categoryRef, ct);
+        path = await DocumentsCategoryScopeResolver.ResolveCategoryScopeAsync(conn, tenantId, path, categoryRef, ct);
 
         var snapshotPayload = await TryBuildStatsFromSnapshotAsync(conn, tenantId, path, ct);
         if (snapshotPayload is not null)
@@ -660,7 +660,7 @@ ORDER BY display_order ASC, name ASC;";
 
         var summary = await conn.QueryFirstOrDefaultAsync<SnapshotSummaryRow>(new CommandDefinition(summarySql, new { tenant = tenantId }, cancellationToken: ct));
         var categoryRows = (await conn.QueryAsync<SnapshotCategoryRow>(new CommandDefinition(categoriesSql, new { tenant = tenantId }, cancellationToken: ct))).ToList();
-        var aliasesByPath = await LoadTopCategoryAliasesAsync(conn, tenantId, categoryRows.Select(x => x.Path).ToList(), ct);
+        var aliasesByPath = await DocumentsCategoryScopeResolver.LoadTopCategoryAliasesAsync(conn, tenantId, categoryRows.Select(x => x.Path).ToList(), ct);
 
         var computedAt = summary?.ComputedAt ?? (categoryRows.Count > 0 ? categoryRows.Max(x => x.UpdatedAt) : DateTimeOffset.UtcNow);
         var snapshotId = BuildSnapshotId(computedAt, summary?.TotalDocs ?? categoryRows.Sum(x => x.DocCount));
@@ -704,8 +704,8 @@ ORDER BY display_order ASC, name ASC;";
         var tenantId = ctx.GetTenantId();
         var ct = ctx.RequestAborted;
 
-        var requestedPath = NormalizeCategoryPathOrNull(path);
-        var requestedCategoryRef = NormalizeCategoryRefOrNull(categoryRef);
+        var requestedPath = DocumentsCategoryScopeResolver.NormalizeCategoryPathOrNull(path);
+        var requestedCategoryRef = DocumentsCategoryScopeResolver.NormalizeCategoryRefOrNull(categoryRef);
         var requestedPageSize = Math.Clamp(pageSize ?? maxpagesize ?? 100, 1, 500);
 
         CatalogCategoriesCursor? cursorState = null;
@@ -731,7 +731,7 @@ ORDER BY display_order ASC, name ASC;";
         var offset = cursorState?.Offset ?? 0;
 
         await using var conn = await ds.OpenConnectionAsync(ct);
-        requestedPath = await ResolveCategoryScopeAsync(conn, tenantId, requestedPath, requestedCategoryRef, ct);
+        requestedPath = await DocumentsCategoryScopeResolver.ResolveCategoryScopeAsync(conn, tenantId, requestedPath, requestedCategoryRef, ct);
 
         List<object> value;
         var nextOffset = 0;
@@ -761,7 +761,7 @@ LIMIT 1;";
             }
             else
             {
-                var aliasesByPath = await LoadTopCategoryAliasesAsync(conn, tenantId, new[] { row.Path }, ct);
+        var aliasesByPath = await DocumentsCategoryScopeResolver.LoadTopCategoryAliasesAsync(conn, tenantId, new[] { row.Path }, ct);
                 value = new List<object>
                 {
                     new
@@ -799,7 +799,7 @@ LIMIT @lim OFFSET @off;";
 
             var rows = (await conn.QueryAsync<SnapshotCategoryRow>(new CommandDefinition(sql, new { tenant = tenantId, lim = requestedPageSize, off = offset }, cancellationToken: ct))).ToList();
             total = await conn.ExecuteScalarAsync<int>(new CommandDefinition(totalSql, new { tenant = tenantId }, cancellationToken: ct));
-            var aliasesByPath = await LoadTopCategoryAliasesAsync(conn, tenantId, rows.Select(x => x.Path).ToList(), ct);
+        var aliasesByPath = await DocumentsCategoryScopeResolver.LoadTopCategoryAliasesAsync(conn, tenantId, rows.Select(x => x.Path).ToList(), ct);
 
             value = rows.Select(x => (object)new
             {
@@ -893,7 +893,7 @@ WHERE tenant_id=@tenant AND parent_path=@path;";
         var tenantId = ctx.GetTenantId();
         var ct = ctx.RequestAborted;
 
-        var requestedCategoryRef = NormalizeCategoryRefOrNull(categoryRef);
+        var requestedCategoryRef = DocumentsCategoryScopeResolver.NormalizeCategoryRefOrNull(categoryRef);
         var requestedQuery = string.IsNullOrWhiteSpace(q) ? null : q.Trim();
         var requestedOrderBy = NormalizeCatalogOrderBy(orderby);
         var requestedPageSize = Math.Clamp(pageSize ?? maxpagesize ?? 50, 1, 200);
@@ -923,7 +923,7 @@ WHERE tenant_id=@tenant AND parent_path=@path;";
         var offset = cursorState?.Offset ?? 0;
 
         await using var conn = await ds.OpenConnectionAsync(ct);
-        var resolvedCategoryPath = await ResolveCategoryScopeAsync(conn, tenantId, categoryPath: null, categoryRef: requestedCategoryRef, ct: ct);
+        var resolvedCategoryPath = await DocumentsCategoryScopeResolver.ResolveCategoryScopeAsync(conn, tenantId, categoryPath: null, categoryRef: requestedCategoryRef, ct: ct);
 
         var orderClause = requestedOrderBy switch
         {
@@ -1012,797 +1012,6 @@ WHERE d.tenant_id=@tenant
             NextLink = nextLink
         });
     }
-
-    private static Task<IResult> CatalogStatsAsync(HttpContext ctx, NpgsqlDataSource ds, IOptions<IngestionOptions> ingestOpt, string? path, string? categoryRef)
-        => StatsAsync(ctx, ds, ingestOpt, path, categoryRef);
-
-    private static string BuildCategoryRef(int displayOrder)
-        => $"cat_{displayOrder:000}";
-
-    private static string BuildDocumentRef(Guid docId)
-        => $"doc_{docId:N}";
-
-    private static string BuildSnapshotId(DateTimeOffset computedAtUtc, long totalDocs)
-        => $"snap_{computedAtUtc.ToUniversalTime():yyyy-MM-dd'T'HH:mm:ss'Z'}_{Math.Abs(HashCode.Combine(computedAtUtc.UtcTicks, totalDocs)):x8}";
-
-    private static string BuildSnapshotEtag(DateTimeOffset computedAtUtc, long totalDocs, int categoryCount)
-        => $"\"cat-{computedAtUtc.UtcTicks:x}-{totalDocs:x}-{categoryCount:x}\"";
-
-    private static string BuildAbsoluteNextLink(HttpContext ctx, string path, IReadOnlyDictionary<string, string?> query)
-    {
-        var request = ctx.Request;
-        var builder = new UriBuilder(request.Scheme, request.Host.Host, request.Host.Port ?? -1, path);
-        var parts = new List<string>();
-        foreach (var pair in query)
-        {
-            if (string.IsNullOrWhiteSpace(pair.Value))
-                continue;
-            parts.Add($"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value!)}");
-        }
-
-        builder.Query = string.Join("&", parts);
-        return builder.Uri.AbsoluteUri;
-    }
-
-    private static string NormalizeCatalogOrderBy(string? orderBy)
-    {
-        if (string.IsNullOrWhiteSpace(orderBy))
-            return "name_asc";
-
-        return orderBy.Trim().ToLowerInvariant() switch
-        {
-            "name_desc" => "name_desc",
-            "updatedat_desc" => "updatedAt_desc",
-            "updatedat_asc" => "updatedAt_asc",
-            _ => "name_asc"
-        };
-    }
-
-    private static bool CursorMatches(string? cursorValue, string? requestValue)
-        => string.IsNullOrWhiteSpace(requestValue) || string.Equals(cursorValue ?? string.Empty, requestValue ?? string.Empty, StringComparison.OrdinalIgnoreCase);
-
-    private static bool CursorMatches(int cursorValue, int requestValue)
-        => requestValue <= 0 || cursorValue == requestValue;
-
-    private static async Task<object?> TryBuildStatsFromSnapshotAsync(
-        NpgsqlConnection conn,
-        Guid tenantId,
-        string? path,
-        CancellationToken ct)
-    {
-        var scopedNode = await TryLoadTreeFromSnapshotAsync(conn, tenantId, path, maxDepth: null, ct: ct);
-        if (scopedNode is null)
-            return null;
-
-        var scopedDepthBase = string.IsNullOrWhiteSpace(scopedNode.Path)
-            ? 0
-            : scopedNode.Path.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Length;
-
-        var foldersByDepth = new Dictionary<int, int>();
-        var documentsByDepth = new Dictionary<int, int>();
-        var leafFoldersCount = 0;
-        var totalFolders = 0;
-        var topLevelFolderCount = scopedNode.Children.Count;
-
-        void AddDocumentsAtDepth(int depth, int count)
-        {
-            if (count <= 0)
-                return;
-
-            documentsByDepth[depth] = documentsByDepth.TryGetValue(depth, out var existing)
-                ? existing + count
-                : count;
-        }
-
-        void Walk(TreeNode node, bool includeCurrent)
-        {
-            if (includeCurrent && !string.IsNullOrWhiteSpace(node.Path))
-            {
-                totalFolders++;
-                var relativeDepth = Math.Max(0, node.Depth - scopedDepthBase);
-                foldersByDepth[relativeDepth] = foldersByDepth.TryGetValue(relativeDepth, out var existingFolders)
-                    ? existingFolders + 1
-                    : 1;
-
-                if (node.Children.Count == 0)
-                    leafFoldersCount++;
-            }
-
-            var documentDepth = Math.Max(0, node.Depth - scopedDepthBase);
-            AddDocumentsAtDepth(documentDepth, node.DirectDocCount);
-
-            foreach (var child in node.Children.Values)
-                Walk(child, includeCurrent: true);
-        }
-
-        if (string.IsNullOrWhiteSpace(scopedNode.Path))
-        {
-            AddDocumentsAtDepth(0, scopedNode.DirectDocCount);
-            foreach (var child in scopedNode.Children.Values)
-                Walk(child, includeCurrent: true);
-        }
-        else
-        {
-            Walk(scopedNode, includeCurrent: true);
-        }
-
-        var rootFolders = scopedNode.Children.Values
-            .OrderByDescending(n => n.DocCount)
-            .ThenBy(n => n.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(n => new
-            {
-                path = n.Path,
-                name = n.Name,
-                totalDocuments = n.DocCount,
-                directDocuments = n.DirectDocCount,
-                subfolderCount = n.Children.Count
-            })
-            .ToList();
-
-        return new
-        {
-            scopePath = scopedNode.Path,
-            totalDocuments = scopedNode.DocCount,
-            maxDepth = foldersByDepth.Keys.DefaultIfEmpty(0).Max(),
-            totalNonEmptyFolders = totalFolders,
-            topLevelFolderCount = topLevelFolderCount,
-            leafFolderCount = leafFoldersCount,
-            foldersByDepth = foldersByDepth
-                .OrderBy(kv => kv.Key)
-                .Select(kv => new { depth = kv.Key, folderCount = kv.Value })
-                .ToList(),
-            documentsByDepth = documentsByDepth
-                .OrderBy(kv => kv.Key)
-                .Select(kv => new { depth = kv.Key, documentCount = kv.Value })
-                .ToList(),
-            rootFolders,
-            includesEmptyFolders = false,
-            emptyFoldersKnown = false,
-            folderTree = ToDto(scopedNode, maxDepth: null)
-        };
-    }
-
-    private static bool ShouldSkipDirectoryName(string? name)
-    {
-        var n = (name ?? string.Empty).Trim();
-        if (string.IsNullOrWhiteSpace(n))
-            return false;
-        if (n.StartsWith(".", StringComparison.Ordinal) || n.StartsWith("~", StringComparison.Ordinal))
-            return true;
-        return string.Equals(n, "__macosx", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static List<string> GetFolderPaths(string root, string scopeAbs)
-    {
-        var result = new List<string>();
-
-        void Walk(string absDir, bool isScopeRoot)
-        {
-            foreach (var child in Directory.EnumerateDirectories(absDir, "*", SearchOption.TopDirectoryOnly).OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
-            {
-                if (ShouldSkipDirectoryName(Path.GetFileName(child)))
-                    continue;
-
-                var rel = Path.GetRelativePath(root, child).Replace('\\', '/').Trim('/');
-                if (!string.IsNullOrWhiteSpace(rel))
-                    result.Add(rel);
-
-                Walk(child, isScopeRoot: false);
-            }
-        }
-
-        Walk(scopeAbs, isScopeRoot: true);
-        result.Sort(StringComparer.OrdinalIgnoreCase);
-        return result;
-    }
-
-    private static JsonElement ParseJsonOrEmptyObject(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json))
-        {
-            using var doc = JsonDocument.Parse("{}");
-            return doc.RootElement.Clone();
-        }
-
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.ValueKind == JsonValueKind.Object)
-                return doc.RootElement.Clone();
-        }
-        catch { }
-
-        using (var doc = JsonDocument.Parse("{}"))
-            return doc.RootElement.Clone();
-    }
-
-    private static JsonElement ParseJsonOrEmptyArray(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json))
-        {
-            using var doc = JsonDocument.Parse("[]");
-            return doc.RootElement.Clone();
-        }
-
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.ValueKind == JsonValueKind.Array)
-                return doc.RootElement.Clone();
-        }
-        catch { }
-
-        using (var doc = JsonDocument.Parse("[]"))
-            return doc.RootElement.Clone();
-    }
-
-    // -------------------------
-    // Admin listing / details (legacy)
-    // -------------------------
-
-    private static async Task<IResult> ListAsync(
-        HttpContext ctx,
-        NpgsqlDataSource ds,
-        string? category,
-        string? status,
-        string? q,
-        int? limit,
-        int? offset)
-    {
-        AdminAuth.EnsureAdmin(ctx);
-
-        var tenantId = ctx.GetTenantId();
-        var ct = ctx.RequestAborted;
-
-        var lim = Math.Clamp(limit ?? 200, 1, 2000);
-        var off = Math.Max(offset ?? 0, 0);
-
-        category = string.IsNullOrWhiteSpace(category) ? null : category.Trim().ToLowerInvariant();
-        status = string.IsNullOrWhiteSpace(status) ? null : status.Trim().ToLowerInvariant();
-        q = string.IsNullOrWhiteSpace(q) ? null : q.Trim();
-
-        await using var conn = await ds.OpenConnectionAsync(ct);
-
-        const string sql = @"
-SELECT
-  doc_id            AS ""DocId"",
-  doc_path          AS ""DocPath"",
-  doc_name          AS ""DocName"",
-  category          AS ""Category"",
-  status            AS ""Status"",
-  file_size         AS ""FileSize"",
-  file_mtime        AS ""FileMtime"",
-  page_count        AS ""PageCount"",
-  last_ingested_at  AS ""LastIngestedAt"",
-  ingestion_version AS ""IngestionVersion"",
-  last_seen_at      AS ""LastSeenAt"",
-  missing_since     AS ""MissingSince"",
-  created_at        AS ""CreatedAt"",
-  updated_at        AS ""UpdatedAt""
-FROM documents
-WHERE tenant_id=@tenant
-  AND (@category IS NULL OR category=@category)
-  AND (@status IS NULL OR status=@status)
-  AND (@q IS NULL OR (doc_name ILIKE ('%' || @q || '%') OR doc_path ILIKE ('%' || @q || '%')))
-ORDER BY updated_at DESC
-LIMIT @lim OFFSET @off;";
-
-        var rows = await conn.QueryAsync(sql, new { tenant = tenantId, category, status, q, lim, off });
-        return Results.Ok(new { items = rows, limit = lim, offset = off });
-    }
-
-    private static async Task<IResult> GetAsync(
-        HttpContext ctx,
-        NpgsqlDataSource ds,
-        Guid docId)
-    {
-        AdminAuth.EnsureAdmin(ctx);
-
-        var tenantId = ctx.GetTenantId();
-        var actorApiKeyId = ctx.GetApiKeyIdOrNull();
-        var actorIsAdmin = ctx.IsAdmin();
-        var ct = ctx.RequestAborted;
-
-        await using var conn = await ds.OpenConnectionAsync(ct);
-
-        const string sql = @"
-SELECT
-  doc_id            AS ""DocId"",
-  doc_path          AS ""DocPath"",
-  doc_name          AS ""DocName"",
-  category          AS ""Category"",
-  status            AS ""Status"",
-  content_hash      AS ""ContentHash"",
-  file_size         AS ""FileSize"",
-  file_mtime        AS ""FileMtime"",
-  mime_type         AS ""MimeType"",
-  page_count        AS ""PageCount"",
-  last_ingested_at  AS ""LastIngestedAt"",
-  ingestion_version AS ""IngestionVersion"",
-  last_seen_at      AS ""LastSeenAt"",
-  missing_since     AS ""MissingSince"",
-  created_at        AS ""CreatedAt"",
-  updated_at        AS ""UpdatedAt""
-FROM documents
-WHERE tenant_id=@tenant AND doc_id=@docId
-LIMIT 1;";
-
-        var row = await conn.QueryFirstOrDefaultAsync(sql, new { tenant = tenantId, docId });
-        if (row is null) return Results.NotFound();
-
-        await AuditWriter.WriteAsync(
-            conn,
-            tenantId,
-            actorApiKeyId,
-            actorIsAdmin,
-            action: "documents.get",
-            target: docId.ToString(),
-            payload: null,
-            ip: ctx.Connection.RemoteIpAddress?.ToString(),
-            ct: ct);
-
-        return Results.Ok(row);
-    }
-
-    // -------------------------
-    // Snapshot tree loader
-    // -------------------------
-
-    private static async Task<TreeNode?> TryLoadTreeFromSnapshotAsync(
-        NpgsqlConnection conn,
-        Guid tenantId,
-        string? basePath,
-        int? maxDepth,
-        CancellationToken ct)
-    {
-        basePath = NormalizeCategoryPathOrNull(basePath);
-
-        // Determine base depth
-        var baseDepth = string.IsNullOrWhiteSpace(basePath)
-            ? 0
-            : basePath.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Length;
-
-        int? absMaxDepth = maxDepth is null ? null : (baseDepth + maxDepth.Value);
-
-        const string sql = @"
-SELECT
-  path             AS ""Path"",
-  name             AS ""Name"",
-  parent_path      AS ""ParentPath"",
-  depth            AS ""Depth"",
-  doc_count        AS ""DocCount"",
-  direct_doc_count AS ""DirectDocCount""
-FROM documents_category_nodes
-WHERE tenant_id=@tenant
-  AND (@base IS NULL OR path=@base OR path LIKE (@base || '/%'))
-  AND (@absMaxDepth IS NULL OR depth <= @absMaxDepth)
-ORDER BY depth ASC, path ASC;";
-
-        var rows = (await conn.QueryAsync<NodeRow>(new CommandDefinition(
-            sql,
-            new { tenant = tenantId, @base = basePath, absMaxDepth },
-            cancellationToken: ct)))
-            .ToList();
-
-        if (rows.Count == 0)
-            return null;
-
-        // Ensure base node exists
-        var baseKey = basePath ?? "";
-        if (!rows.Any(r => string.Equals(r.Path, baseKey, StringComparison.OrdinalIgnoreCase)))
-            return null;
-
-        var map = new Dictionary<string, TreeNode>(StringComparer.OrdinalIgnoreCase);
-        foreach (var r in rows)
-        {
-            map[r.Path] = new TreeNode
-            {
-                Name = r.Name,
-                Path = r.Path,
-                ParentPath = r.ParentPath,
-                Depth = r.Depth,
-                DocCount = r.DocCount,
-                DirectDocCount = r.DirectDocCount
-            };
-        }
-
-        foreach (var n in map.Values)
-        {
-            // Do not attach the base node to anything (it is the root of the returned subtree).
-            if (string.Equals(n.Path, baseKey, StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            // In the snapshot, top-level nodes may have ParentPath = NULL. We attach those to the real root ("").
-            var parentKey = n.ParentPath ?? "";
-
-            if (map.TryGetValue(parentKey, out var parent))
-                parent.Children[n.Name] = n;
-        }
-return map[baseKey];
-    }
-
-    // -------------------------
-    // Tree helpers
-    // -------------------------
-
-    private sealed class TreeNode
-    {
-        public string Name { get; init; } = "";
-        public string Path { get; init; } = "";
-        public string? ParentPath { get; init; }
-        public int Depth { get; init; }
-        public int DocCount { get; set; }
-        public int DirectDocCount { get; set; }
-        public Dictionary<string, TreeNode> Children { get; } = new(StringComparer.OrdinalIgnoreCase);
-    }
-
-    private static TreeNode BuildTreeFromDocPaths(IEnumerable<string> docPaths)
-    {
-        var root = new TreeNode { Name = "", Path = "", ParentPath = null, Depth = 0 };
-
-        foreach (var docPathRaw in docPaths)
-        {
-            var docPath = (docPathRaw ?? "").Replace('\\', '/').Trim();
-            if (string.IsNullOrWhiteSpace(docPath)) continue;
-
-            var catPath = GetCategoryPath(docPath);
-            var segs = string.IsNullOrWhiteSpace(catPath)
-                ? Array.Empty<string>()
-                : catPath.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-            root.DocCount++;
-
-            if (segs.Length == 0)
-            {
-                root.DirectDocCount++;
-                continue;
-            }
-
-            var cur = root;
-            var accum = "";
-            string? parentPath = null;
-            for (var i = 0; i < segs.Length; i++)
-            {
-                var seg = segs[i];
-                accum = string.IsNullOrWhiteSpace(accum) ? seg : (accum + "/" + seg);
-
-                if (!cur.Children.TryGetValue(seg, out var child))
-                {
-                    child = new TreeNode { Name = seg, Path = accum, ParentPath = parentPath, Depth = i + 1 };
-                    cur.Children[seg] = child;
-                }
-
-                child.DocCount++;
-
-                if (i == segs.Length - 1)
-                    child.DirectDocCount++;
-
-                parentPath = child.Path;
-                cur = child;
-            }
-        }
-
-        return root;
-    }
-
-    private static TreeNode? FindNode(TreeNode root, string categoryPath)
-    {
-        categoryPath = NormalizeCategoryPathOrNull(categoryPath) ?? "";
-        if (string.IsNullOrWhiteSpace(categoryPath)) return root;
-
-        var segs = categoryPath.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var cur = root;
-        foreach (var s in segs)
-        {
-            if (!cur.Children.TryGetValue(s, out var child)) return null;
-            cur = child;
-        }
-        return cur;
-    }
-
-    private static object ToDto(TreeNode node, int? maxDepth)
-    {
-        // maxDepth is relative to the provided node.
-        if (maxDepth is not null && maxDepth.Value == 0)
-            return new { name = node.Name, path = node.Path, docCount = node.DocCount, directDocCount = node.DirectDocCount, children = Array.Empty<object>() };
-
-        var nextDepth = maxDepth is null ? (int?)null : Math.Max(maxDepth.Value - 1, 0);
-
-        var children = node.Children.Values
-            .OrderByDescending(n => n.DocCount)
-            .ThenBy(n => n.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(ch => ToDto(ch, nextDepth))
-            .ToList();
-
-        return new { name = node.Name, path = node.Path, docCount = node.DocCount, directDocCount = node.DirectDocCount, children };
-    }
-
-    private static void RenderMarkdownTree(TreeNode node, StringBuilder sb, int indent, int? maxDepth)
-    {
-        var prefix = new string(' ', indent * 2);
-        if (!string.IsNullOrWhiteSpace(node.Path))
-            sb.AppendLine($"{prefix}- {node.Name} ({node.DocCount})");
-
-        if (maxDepth is not null && maxDepth.Value == 0)
-            return;
-
-        var nextDepth = maxDepth is null ? (int?)null : Math.Max(maxDepth.Value - 1, 0);
-
-        foreach (var child in node.Children.Values
-                     .OrderByDescending(n => n.DocCount)
-                     .ThenBy(n => n.Name, StringComparer.OrdinalIgnoreCase))
-        {
-            RenderMarkdownTree(child, sb, indent + (string.IsNullOrWhiteSpace(node.Path) ? 0 : 1), nextDepth);
-        }
-    }
-
-    private static string GetCategoryPath(string docPath)
-    {
-        docPath = (docPath ?? "").Replace('\\', '/').Trim();
-        if (string.IsNullOrWhiteSpace(docPath)) return "";
-
-        var lastSlash = docPath.LastIndexOf('/');
-        if (lastSlash <= 0) return "";
-
-        return docPath.Substring(0, lastSlash);
-    }
-
-    private static string? NormalizeCategoryPathOrNull(string? raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw)) return null;
-        var s = raw.Trim().Replace('\\', '/');
-        s = s.Trim('/');
-        return string.IsNullOrWhiteSpace(s) ? null : s;
-    }
-
-    private static string? NormalizeCategoryRefOrNull(string? raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw)) return null;
-        var s = raw.Trim();
-        return string.IsNullOrWhiteSpace(s) ? null : s;
-    }
-
-    private static string NormalizeCategoryComparableText(string? raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-            return string.Empty;
-
-        var normalized = raw.Trim().Normalize(System.Text.NormalizationForm.FormD);
-        var sb = new StringBuilder(normalized.Length);
-        foreach (var ch in normalized)
-        {
-            var category = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch);
-            if (category == System.Globalization.UnicodeCategory.NonSpacingMark)
-                continue;
-
-            if (char.IsLetterOrDigit(ch))
-                sb.Append(char.ToLowerInvariant(ch));
-        }
-
-        return sb.ToString();
-    }
-
-    private static bool IsLooseCategoryComparableMatch(string probe, string candidate)
-    {
-        if (string.IsNullOrWhiteSpace(probe) || string.IsNullOrWhiteSpace(candidate))
-            return false;
-
-        if (string.Equals(probe, candidate, StringComparison.Ordinal))
-            return true;
-
-        if (probe.Length >= 5 && candidate.Length >= 5
-            && (probe.StartsWith(candidate, StringComparison.Ordinal) || candidate.StartsWith(probe, StringComparison.Ordinal)))
-        {
-            return true;
-        }
-
-        var sharedPrefix = 0;
-        var max = Math.Min(probe.Length, candidate.Length);
-        while (sharedPrefix < max && probe[sharedPrefix] == candidate[sharedPrefix])
-            sharedPrefix++;
-
-        return sharedPrefix >= 7;
-    }
-
-    private static async Task<Dictionary<string, string[]>> LoadTopCategoryAliasesAsync(
-        NpgsqlConnection conn,
-        Guid tenantId,
-        IReadOnlyCollection<string> paths,
-        CancellationToken ct)
-    {
-        if (paths is null || paths.Count == 0)
-            return new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
-
-        var rows = (await conn.QueryAsync<CategoryAliasDto>(new CommandDefinition(
-            @"SELECT
-  path      AS ""Path"",
-  alias     AS ""Alias"",
-  priority  AS ""Priority""
-FROM documents_catalog_category_aliases
-WHERE tenant_id=@tenant
-  AND path = ANY(@paths)
-  AND source='builtin'
-ORDER BY path ASC, priority ASC, alias ASC;",
-            new { tenant = tenantId, paths = paths.ToArray() },
-            cancellationToken: ct))).ToList();
-
-        return rows
-            .GroupBy(x => x.Path ?? string.Empty, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-                g => g.Key,
-                g => g.Select(x => x.Alias)
-                      .Where(x => !string.IsNullOrWhiteSpace(x))
-                      .Distinct(StringComparer.OrdinalIgnoreCase)
-                      .ToArray(),
-                StringComparer.OrdinalIgnoreCase);
-    }
-
-    private static async Task<string?> ResolveCategoryScopeAsync(
-        NpgsqlConnection conn,
-        Guid tenantId,
-        string? categoryPath,
-        string? categoryRef,
-        CancellationToken ct)
-    {
-        var normalizedPath = NormalizeCategoryPathOrNull(categoryPath);
-        if (!string.IsNullOrWhiteSpace(normalizedPath))
-        {
-            var exactPath = await ResolveExistingCategoryPathAsync(conn, tenantId, normalizedPath!, ct);
-            if (!string.IsNullOrWhiteSpace(exactPath))
-                return exactPath;
-
-            return await ResolveCategoryRefToPathAsync(conn, tenantId, categoryRef ?? normalizedPath!, ct);
-        }
-
-        if (string.IsNullOrWhiteSpace(categoryRef))
-            return null;
-
-        return await ResolveCategoryRefToPathAsync(conn, tenantId, categoryRef!, ct);
-    }
-
-    private static async Task<string?> ResolveExistingCategoryPathAsync(
-        NpgsqlConnection conn,
-        Guid tenantId,
-        string categoryPath,
-        CancellationToken ct)
-    {
-        var normalizedPath = NormalizeCategoryPathOrNull(categoryPath);
-        if (string.IsNullOrWhiteSpace(normalizedPath))
-            return null;
-
-        return await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
-            @"SELECT path
-FROM documents_category_nodes
-WHERE tenant_id=@tenant AND path=@path
-LIMIT 1;",
-            new { tenant = tenantId, path = normalizedPath },
-            cancellationToken: ct));
-    }
-
-    private static async Task<string?> ResolveCategoryRefToPathAsync(
-        NpgsqlConnection conn,
-        Guid tenantId,
-        string categoryRef,
-        CancellationToken ct)
-    {
-        var raw = NormalizeCategoryRefOrNull(categoryRef);
-        if (string.IsNullOrWhiteSpace(raw))
-            return null;
-
-        var normalizedPath = NormalizeCategoryPathOrNull(raw);
-        if (!string.IsNullOrWhiteSpace(normalizedPath))
-        {
-            var exactPath = await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
-                @"SELECT path
-FROM documents_category_nodes
-WHERE tenant_id=@tenant AND path=@path
-LIMIT 1;",
-                new { tenant = tenantId, path = normalizedPath },
-                cancellationToken: ct));
-            if (!string.IsNullOrWhiteSpace(exactPath))
-                return exactPath;
-        }
-
-        var ordinal = TryParseOrdinalCategoryRef(raw);
-        if (ordinal is not null)
-        {
-            var byOrder = await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
-                @"SELECT path
-FROM documents_catalog_categories
-WHERE tenant_id=@tenant AND display_order=@displayOrder
-LIMIT 1;",
-                new { tenant = tenantId, displayOrder = ordinal.Value },
-                cancellationToken: ct));
-            if (!string.IsNullOrWhiteSpace(byOrder))
-                return byOrder;
-        }
-
-        var byName = await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
-            @"SELECT path
-FROM documents_catalog_categories
-WHERE tenant_id=@tenant
-  AND (LOWER(path)=LOWER(@value) OR LOWER(name)=LOWER(@value))
-ORDER BY display_order ASC, name ASC
-LIMIT 1;",
-            new { tenant = tenantId, value = raw.Trim() },
-            cancellationToken: ct));
-        if (!string.IsNullOrWhiteSpace(byName))
-            return byName;
-
-        var probe = NormalizeCategoryComparableText(raw);
-        if (!string.IsNullOrWhiteSpace(probe))
-        {
-            var candidates = (await conn.QueryAsync<TopCategoryDto>(new CommandDefinition(
-                @"SELECT
-  path             AS ""Path"",
-  name             AS ""Name"",
-  display_order    AS ""DisplayOrder"",
-  doc_count        AS ""DocCount"",
-  direct_doc_count AS ""DirectDocCount"",
-  subfolder_count  AS ""SubfolderCount""
-FROM documents_catalog_categories
-WHERE tenant_id=@tenant
-ORDER BY display_order ASC, name ASC;",
-                new { tenant = tenantId },
-                cancellationToken: ct))).ToList();
-
-            var matched = candidates.FirstOrDefault(candidate =>
-            {
-                var candidateName = NormalizeCategoryComparableText(candidate.Name);
-                if (IsLooseCategoryComparableMatch(probe, candidateName))
-                    return true;
-
-                var candidatePath = NormalizeCategoryComparableText(candidate.Path);
-                if (IsLooseCategoryComparableMatch(probe, candidatePath))
-                    return true;
-
-                var topLevelPath = NormalizeCategoryComparableText(candidate.Path.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault());
-                return IsLooseCategoryComparableMatch(probe, topLevelPath);
-            });
-
-            if (matched is not null && !string.IsNullOrWhiteSpace(matched.Path))
-                return matched.Path;
-        }
-
-        return normalizedPath;
-    }
-
-    private static int? TryParseOrdinalCategoryRef(string raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-            return null;
-
-        var trimmed = raw.Trim();
-        if (int.TryParse(trimmed, out var direct) && direct > 0)
-            return direct;
-
-        var compact = trimmed.Replace("-", string.Empty, StringComparison.Ordinal).Replace("_", string.Empty, StringComparison.Ordinal);
-        if (compact.StartsWith("cat", StringComparison.OrdinalIgnoreCase)
-            && int.TryParse(compact.Substring(3), out var catOrdinal)
-            && catOrdinal > 0)
-        {
-            return catOrdinal;
-        }
-
-
-        var match = System.Text.RegularExpressions.Regex.Match(
-            trimmed,
-            @"(?:^|\b)(?:category|categorie|catégorie|cat|rang)\s*(\d+)(?:er|eme|ème|nd|rd|th)?(?:\b|$)",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
-        if (match.Success && int.TryParse(match.Groups[1].Value, out var parsed) && parsed > 0)
-            return parsed;
-
-        match = System.Text.RegularExpressions.Regex.Match(
-            trimmed,
-            @"^(\d+)(?:er|eme|ème|nd|rd|th)?$",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
-        if (match.Success && int.TryParse(match.Groups[1].Value, out parsed) && parsed > 0)
-            return parsed;
-
-        return null;
-    }
-
-
     private sealed class CatalogCategoriesCursor
     {
         public string? Path { get; set; }
@@ -1887,14 +1096,6 @@ ORDER BY display_order ASC, name ASC;",
         public int DirectDocCount { get; set; }
         public int SubfolderCount { get; set; }
     }
-
-    private sealed class CategoryAliasDto
-    {
-        public string Path { get; set; } = "";
-        public string Alias { get; set; } = "";
-        public int Priority { get; set; }
-    }
-
     private sealed class NodeRow
     {
         public string Path { get; set; } = "";

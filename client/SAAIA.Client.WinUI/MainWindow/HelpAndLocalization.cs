@@ -1243,7 +1243,7 @@ public sealed partial class MainWindow
 
         try
         {
-            var listed = await _api.AdminJobsListAsync("ingestion", 100, 0, ct).ConfigureAwait(false);
+        var listed = await _api.AdminJobsListAsync("ingestion", 100, 0, null, null, null, null, ct).ConfigureAwait(false);
             if (listed.ValueKind == JsonValueKind.Object && listed.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
             {
                 foreach (var item in items.EnumerateArray())

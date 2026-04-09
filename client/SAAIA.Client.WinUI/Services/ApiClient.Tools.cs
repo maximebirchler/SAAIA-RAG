@@ -541,13 +541,29 @@ public sealed partial class ApiClient
         return legacyDoc.RootElement.Clone();
     }
 
-    public Task<JsonElement> AdminJobsListAsync(string? type, int limit, int offset, CancellationToken ct)
+    public Task<JsonElement> AdminJobsListAsync(
+        string? type,
+        int limit,
+        int offset,
+        string? dateField,
+        string? dateFrom,
+        string? dateTo,
+        string? sortDirection,
+        CancellationToken ct)
     {
         var lim = Math.Clamp(limit, 1, 500);
         var off = Math.Max(0, offset);
         var qs = new List<string> { $"limit={lim}", $"offset={off}" };
         if (!string.IsNullOrWhiteSpace(type))
             qs.Add($"type={Uri.EscapeDataString(type.Trim())}");
+        if (!string.IsNullOrWhiteSpace(dateField))
+            qs.Add($"dateField={Uri.EscapeDataString(dateField.Trim())}");
+        if (!string.IsNullOrWhiteSpace(dateFrom))
+            qs.Add($"dateFrom={Uri.EscapeDataString(dateFrom.Trim())}");
+        if (!string.IsNullOrWhiteSpace(dateTo))
+            qs.Add($"dateTo={Uri.EscapeDataString(dateTo.Trim())}");
+        if (!string.IsNullOrWhiteSpace(sortDirection))
+            qs.Add($"sortDir={Uri.EscapeDataString(sortDirection.Trim())}");
 
         return SendJsonAsync(HttpMethod.Get, "/admin/jobs?" + string.Join("&", qs), null, admin: true, ct);
     }

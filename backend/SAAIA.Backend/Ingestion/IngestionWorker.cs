@@ -128,6 +128,7 @@ sealed class IngestionWorker : BackgroundService
                         try
                         {
                             await JobRepo.StabilizeDocumentAfterCancelAsync(ds, job.TenantId, job.DocPath, ct);
+                            await JobRepo.FreezeTerminalSnapshotAsync(ds, job.JobId, ct);
                         }
                         catch (Exception stabEx)
                         {
@@ -136,7 +137,8 @@ sealed class IngestionWorker : BackgroundService
                     }
                     catch (OperationCanceledException) when (!ct.IsCancellationRequested)
                     {
-                        var canceledByAdmin = await JobRepo.IsCanceledAsync(ds, job.JobId, CancellationToken.None);
+                        var canceledByAdmin = jobCt.IsCancellationRequested
+                            || await JobRepo.IsCanceledAsync(ds, job.JobId, CancellationToken.None);
                         if (canceledByAdmin)
                         {
                             _log.LogInformation("Job canceled via token job={JobId} action={Action} doc={DocPath}",
@@ -145,6 +147,7 @@ sealed class IngestionWorker : BackgroundService
                             try
                             {
                                 await JobRepo.StabilizeDocumentAfterCancelAsync(ds, job.TenantId, job.DocPath, ct);
+                                await JobRepo.FreezeTerminalSnapshotAsync(ds, job.JobId, ct);
                             }
                             catch (Exception stabEx)
                             {
@@ -160,7 +163,8 @@ sealed class IngestionWorker : BackgroundService
                     }
                     catch (Exception ex)
                     {
-                        var canceledByAdmin = await JobRepo.IsCanceledAsync(ds, job.JobId, CancellationToken.None);
+                        var canceledByAdmin = jobCt.IsCancellationRequested
+                            || await JobRepo.IsCanceledAsync(ds, job.JobId, CancellationToken.None);
                         if (canceledByAdmin)
                         {
                             _log.LogInformation(ex, "Job canceled after exception job={JobId} action={Action} doc={DocPath}",
@@ -169,6 +173,7 @@ sealed class IngestionWorker : BackgroundService
                             try
                             {
                                 await JobRepo.StabilizeDocumentAfterCancelAsync(ds, job.TenantId, job.DocPath, ct);
+                                await JobRepo.FreezeTerminalSnapshotAsync(ds, job.JobId, ct);
                             }
                             catch (Exception stabEx)
                             {

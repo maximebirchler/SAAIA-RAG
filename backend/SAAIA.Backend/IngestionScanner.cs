@@ -199,6 +199,36 @@ WHERE tenant_id = @tenant_id
                 continue;
             }
 
+            if (string.Equals((row.Status ?? string.Empty).Trim(), "missing", StringComparison.OrdinalIgnoreCase)
+                && row.IndexedVersion > 0)
+            {
+                var restored = await IngestionEnqueue.TryRestoreMissingIndexedDocumentAsync(conn, tenantId, rel, fi, ct);
+                if (restored == IngestionEnqueue.ReturnedMissingIndexedDocumentOutcome.RestoredWithoutReingestion)
+                {
+                    row.Status = "indexed";
+                    row.MissingSince = null;
+                    row.FileSize = fi.Length;
+                    row.FileMtime = DateTime.SpecifyKind(fi.LastWriteTimeUtc, DateTimeKind.Utc);
+                    unchanged++;
+                    _log.LogInformation(
+                        "Scanner: restored indexed document without reingestion for {DocPath} after source returned before delete grace expired",
+                        rel);
+                    continue;
+                }
+
+                if (restored == IngestionEnqueue.ReturnedMissingIndexedDocumentOutcome.ReactivatedForReindex)
+                {
+                    row.Status = "indexed";
+                    row.MissingSince = null;
+                    row.AutoIngestPaused = false;
+                    row.AutoIngestPauseReason = null;
+                    row.AutoIngestPausedAt = null;
+                    _log.LogInformation(
+                        "Scanner: reactivated indexed document and will enqueue reindex for changed source {DocPath} after source returned before delete grace expired",
+                        rel);
+                }
+            }
+
             var changed =
                 (row.FileSize ?? -1) != fi.Length ||
                 !SameMtime(row.FileMtime, fi.LastWriteTimeUtc);
