@@ -14,11 +14,12 @@ public sealed class IngestionAdminStatePoliciesTests
     {
         var actual = IngestionAdminStatePolicies.GetRequestedAdminAction(action, indexedVersion);
 
-        Assert.Equal((AdminCancelAction)expected, actual);
+        Assert.Equal((AdminJobControlAction)expected, actual);
     }
 
     [Theory]
     [InlineData("upsert", true, "admin_cancel", true)]
+    [InlineData("upsert", true, "admin_pause", true)]
     [InlineData("upsert", true, "repeated_failures", false)]
     [InlineData("upsert", false, "admin_cancel", false)]
     [InlineData("delete", true, "admin_cancel", false)]
@@ -34,12 +35,25 @@ public sealed class IngestionAdminStatePoliciesTests
     }
 
     [Theory]
+    [InlineData("pause", true)]
+    [InlineData("cancel", false)]
+    [InlineData(null, false)]
+    public void IsPauseRequested_matches_explicit_control_value(string? requestedAction, bool expected)
+    {
+        var actual = IngestionAdminStatePolicies.IsPauseRequested(requestedAction);
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Theory]
     [InlineData("upsert", "paused", true, "admin_cancel", "pending", 0)]
+    [InlineData("upsert", "paused", true, "admin_pause", "pending", 0)]
     [InlineData("upsert", "running", true, "admin_cancel", "pending", 2)]
     [InlineData("delete", "paused", true, "admin_cancel", "pending", 3)]
     [InlineData("upsert", "paused", false, "admin_cancel", "pending", 1)]
     [InlineData("upsert", "paused", true, "repeated_failures", "pending", 4)]
     [InlineData("upsert", "paused", true, "admin_cancel", "deleted", 5)]
+    [InlineData("upsert", "paused", true, "admin_cancel", "missing", 5)]
     public void EvaluateResumeEligibility_enforces_resume_invariants(
         string action,
         string jobStatus,

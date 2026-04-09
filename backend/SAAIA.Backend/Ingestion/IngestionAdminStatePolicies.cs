@@ -1,6 +1,6 @@
 using System;
 
-internal enum AdminCancelAction
+internal enum AdminJobControlAction
 {
     Cancel = 0,
     Pause = 1
@@ -18,17 +18,43 @@ internal enum ResumeEligibility
 
 internal static class IngestionAdminStatePolicies
 {
-    public static AdminCancelAction GetRequestedAdminAction(string? action, int documentIndexedVersion)
-        => IsInitialUpsert(action, documentIndexedVersion) ? AdminCancelAction.Pause : AdminCancelAction.Cancel;
+    public static AdminJobControlAction GetRequestedAdminAction(string? action, int documentIndexedVersion)
+        => IsInitialUpsert(action, documentIndexedVersion) ? AdminJobControlAction.Pause : AdminJobControlAction.Cancel;
 
     public static bool IsInitialUpsert(string? action, int documentIndexedVersion)
         => string.Equals(action, "upsert", StringComparison.OrdinalIgnoreCase)
            && documentIndexedVersion <= 0;
 
+    public static bool CanPause(string? action, int documentIndexedVersion)
+        => IsInitialUpsert(action, documentIndexedVersion);
+
+    public static string ToControlValue(AdminJobControlAction action)
+        => action == AdminJobControlAction.Pause ? "pause" : "cancel";
+
+    public static bool IsPauseRequested(string? requestedAction)
+        => string.Equals(requestedAction, "pause", StringComparison.OrdinalIgnoreCase);
+
+    public static bool IsCancelRequested(string? requestedAction)
+        => string.Equals(requestedAction, "cancel", StringComparison.OrdinalIgnoreCase);
+
+    public static bool IsAdminPauseReason(string? documentAutoIngestPauseReason)
+        => string.Equals(documentAutoIngestPauseReason, "admin_cancel", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(documentAutoIngestPauseReason, "admin_pause", StringComparison.OrdinalIgnoreCase);
+
     public static bool ShouldTreatDocumentPauseAsCancellation(string? action, bool documentAutoIngestPaused, string? documentAutoIngestPauseReason)
         => string.Equals(action, "upsert", StringComparison.OrdinalIgnoreCase)
            && documentAutoIngestPaused
-           && string.Equals(documentAutoIngestPauseReason, "admin_cancel", StringComparison.OrdinalIgnoreCase);
+           && IsAdminPauseReason(documentAutoIngestPauseReason);
+
+    public static bool ShouldPresentAsPaused(
+        string? action,
+        int documentIndexedVersion,
+        string? requestedAction,
+        bool documentAutoIngestPaused,
+        string? documentAutoIngestPauseReason)
+        => IsInitialUpsert(action, documentIndexedVersion)
+           && (IsPauseRequested(requestedAction)
+               || ShouldTreatDocumentPauseAsCancellation(action, documentAutoIngestPaused, documentAutoIngestPauseReason));
 
     public static ResumeEligibility EvaluateResumeEligibility(
         string? action,
@@ -46,10 +72,11 @@ internal static class IngestionAdminStatePolicies
         if (!string.Equals(jobStatus, "paused", StringComparison.OrdinalIgnoreCase))
             return ResumeEligibility.WrongJobStatus;
 
-        if (!string.Equals(documentAutoIngestPauseReason, "admin_cancel", StringComparison.OrdinalIgnoreCase))
+        if (!IsAdminPauseReason(documentAutoIngestPauseReason))
             return ResumeEligibility.UnsupportedPauseReason;
 
-        if (string.Equals(documentStatus, "deleted", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(documentStatus, "deleted", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(documentStatus, "missing", StringComparison.OrdinalIgnoreCase))
             return ResumeEligibility.DocumentDeleted;
 
         return ResumeEligibility.Resumable;

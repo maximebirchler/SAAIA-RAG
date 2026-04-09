@@ -160,9 +160,27 @@ sealed class IngestionWorker : BackgroundService
                     }
                     catch (Exception ex)
                     {
-                        _log.LogError(ex, "Job failed job={JobId} action={Action} doc={DocPath}",
-                            job.JobId, job.Action, job.DocPath);
-                        await JobRepo.MarkFailedAsync(ds, job.JobId, ex.Message, ct);
+                        var canceledByAdmin = await JobRepo.IsCanceledAsync(ds, job.JobId, CancellationToken.None);
+                        if (canceledByAdmin)
+                        {
+                            _log.LogInformation(ex, "Job canceled after exception job={JobId} action={Action} doc={DocPath}",
+                                job.JobId, job.Action, job.DocPath);
+                            await JobRepo.MarkCanceledAsync(ds, job.JobId, "canceled_by_admin_exception", ct);
+                            try
+                            {
+                                await JobRepo.StabilizeDocumentAfterCancelAsync(ds, job.TenantId, job.DocPath, ct);
+                            }
+                            catch (Exception stabEx)
+                            {
+                                _log.LogWarning(stabEx, "Failed to stabilize document after exception cancel job={JobId} doc={DocPath}", job.JobId, job.DocPath);
+                            }
+                        }
+                        else
+                        {
+                            _log.LogError(ex, "Job failed job={JobId} action={Action} doc={DocPath}",
+                                job.JobId, job.Action, job.DocPath);
+                            await JobRepo.MarkFailedAsync(ds, job.JobId, ex.Message, ct);
+                        }
                     }
                 }
             }
@@ -280,8 +298,19 @@ WHERE job_id=@job_id
 
         var relDocPath = DocPathNormalizer.NormalizeToRelative(job.DocPath, ingest.DocumentsRoot);
         var absPath = DocPathNormalizer.ToAbsoluteFromRelative(relDocPath, ingest.DocumentsRoot);
+        var checkpoint = await JobRepo.GetResumeCheckpointAsync(ds, job.JobId, ct);
+        var savedProgressCurrent = checkpoint?.ProgressCurrent;
+        var savedProgressTotal = checkpoint?.ProgressTotal ?? checkpoint?.ChunkTotal;
+        var hasSavedProgress =
+            savedProgressCurrent.HasValue
+            && savedProgressCurrent.Value > 0
+            && savedProgressTotal.HasValue
+            && savedProgressTotal.Value > 0;
 
-        await JobRepo.UpdateProgressAsync(ds, job.JobId, "preparing", null, null, ct);
+        if (hasSavedProgress)
+            await JobRepo.UpdateProgressAsync(ds, job.JobId, "resuming", savedProgressCurrent, savedProgressTotal, ct);
+        else
+            await JobRepo.UpdateProgressAsync(ds, job.JobId, "preparing", null, null, ct);
         await ThrowIfJobCanceledAsync(ds, job, ct);
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
 
@@ -309,7 +338,8 @@ WHERE job_id=@job_id
         await ThrowIfJobCanceledAsync(ds, job, ct);
 
         // PDF -> tokens -> chunks
-        await JobRepo.UpdateProgressAsync(ds, job.JobId, "extracting", null, null, ct);
+        if (!hasSavedProgress)
+            await JobRepo.UpdateProgressAsync(ds, job.JobId, "extracting", null, null, ct);
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
         var tokens = PdfExtractor.ExtractWordTokens(absPath, ct);
         await ThrowIfJobCanceledAsync(ds, job, ct);
@@ -318,8 +348,35 @@ WHERE job_id=@job_id
 
         var chunks = Chunker.MakeChunks(tokens, ingest.ChunkMaxWords, ingest.ChunkOverlapWords, ingest.ChunkMinWords, ct);
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-        await JobRepo.UpdateProgressAsync(ds, job.JobId, "embedding", 0, chunks.Count, ct);
+        static string ToHex(byte[] bytes) => Convert.ToHexString(bytes).ToLowerInvariant();
+
+        var hashHex = ToHex(hash);
+        var canResumeFromCheckpoint =
+            checkpoint is not null
+            && checkpoint.ProgressCurrent.HasValue
+            && checkpoint.ProgressCurrent.Value > 0
+            && string.Equals(checkpoint.SourceHash, hashHex, StringComparison.OrdinalIgnoreCase)
+            && checkpoint.ChunkTotal == chunks.Count;
+        var resumeFromChunk = canResumeFromCheckpoint
+            ? Math.Clamp(checkpoint!.ProgressCurrent!.Value, 0, chunks.Count)
+            : 0;
+
+        await JobRepo.StoreResumeCheckpointAsync(ds, job.JobId, hashHex, size, chunks.Count, ct);
+        await JobRepo.UpdateProgressAsync(ds, job.JobId, "embedding", resumeFromChunk, chunks.Count, ct);
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+
+        if (resumeFromChunk > 0)
+        {
+            _log.LogInformation(
+                "Resuming ingestion job={JobId} doc={DocPath} from chunk {ResumeFrom}/{Total}",
+                job.JobId, relDocPath, resumeFromChunk, chunks.Count);
+        }
+        else if (checkpoint?.ProgressCurrent is > 0)
+        {
+            _log.LogWarning(
+                "Resume checkpoint mismatch job={JobId} doc={DocPath}; restarting from chunk 0 (saved={Saved}, total={Total})",
+                job.JobId, relDocPath, checkpoint.ProgressCurrent, chunks.Count);
+        }
 
         // TEI
         var tei = httpFactory.CreateClient("tei");
@@ -355,13 +412,11 @@ WHERE job_id=@job_id
 
         // embed + upsert by batches
         var batchSize = Math.Clamp(ingest.EmbeddingsBatchSize, 1, 256);
-        static string ToHex(byte[] bytes) => Convert.ToHexString(bytes).ToLowerInvariant();
 
         var nowIso = DateTimeOffset.UtcNow.ToString("O");
-        var hashHex = ToHex(hash);
         var category = (job.Category ?? ingest.DefaultCategory).Trim().ToLowerInvariant();
 
-        for (int i = 0; i < chunks.Count; i += batchSize)
+        for (int i = resumeFromChunk; i < chunks.Count; i += batchSize)
         {
             await ThrowIfJobCanceledAsync(ds, job, ct);
             if (!File.Exists(absPath))

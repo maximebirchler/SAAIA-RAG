@@ -138,7 +138,11 @@ DO UPDATE SET
   available_at = now(),
   payload = CASE
       WHEN COALESCE((ingestion_jobs.payload #>> '{control,cancelRequested}')::boolean, false)
-          THEN jsonb_set(EXCLUDED.payload, '{control,cancelRequested}', 'true'::jsonb, true)
+          THEN jsonb_set(
+              jsonb_set(EXCLUDED.payload, '{control,cancelRequested}', 'true'::jsonb, true),
+              '{control,requestedAction}',
+              to_jsonb(COALESCE(ingestion_jobs.payload #>> '{control,requestedAction}', 'cancel')::text),
+              true)
       ELSE EXCLUDED.payload
   END,
   category = EXCLUDED.category,
@@ -173,17 +177,22 @@ RETURNING job_id;
         const string docSql = """
 INSERT INTO documents(
   tenant_id, doc_id, doc_path, doc_name, category,
-  status, updated_at, missing_since, ingestion_version, indexed_version
+  status, updated_at, missing_since, ingestion_version, indexed_version,
+  auto_ingest_paused, auto_ingest_paused_at, auto_ingest_pause_reason
 )
 VALUES(
   @tenant_id, @doc_id, @doc_path, @doc_name, 'general',
-  'missing', now(), now(), 0, 0
+  'missing', now(), now(), 0, 0,
+  false, NULL, NULL
 )
 ON CONFLICT (tenant_id, doc_path)
 DO UPDATE SET
   status = CASE WHEN documents.status='deleted' THEN documents.status ELSE 'missing' END,
   updated_at = now(),
   missing_since = COALESCE(documents.missing_since, now())
+  , auto_ingest_paused = false
+  , auto_ingest_paused_at = NULL
+  , auto_ingest_pause_reason = NULL
 WHERE documents.status <> 'deleted'
   AND (documents.status <> 'missing' OR documents.missing_since IS NULL)
 RETURNING doc_id;
@@ -199,29 +208,45 @@ RETURNING doc_id;
             }, cancellationToken: ct)
         );
 
-        const string cancelQueuedOrPausedUpsert = """
+        const string failQueuedOrPausedUpsert = """
 UPDATE ingestion_jobs
-SET status='canceled', finished_at=now(), last_error='coalesced_by_missing'
+SET status='failed',
+    finished_at=now(),
+    last_error='file_missing',
+    locked_by=NULL,
+    locked_at=NULL,
+    available_at=now(),
+    payload=((COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}')
 WHERE tenant_id=@tenant_id AND doc_path=@doc_path
   AND action='upsert' AND status IN ('queued','paused');
 """;
 
-        await conn.ExecuteAsync(new CommandDefinition(cancelQueuedOrPausedUpsert, new
+        await conn.ExecuteAsync(new CommandDefinition(failQueuedOrPausedUpsert, new
         {
             tenant_id = tenantId,
             doc_path = docPath
         }, cancellationToken: ct));
 
-        const string requestRunningUpsertCancel = """
+        const string failRunningUpsert = """
 UPDATE ingestion_jobs
-SET payload = jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,cancelRequested}', 'true'::jsonb, true)
+SET status='failed',
+    finished_at=COALESCE(finished_at, now()),
+    last_error=COALESCE(last_error, 'file_missing'),
+    locked_by=NULL,
+    locked_at=NULL,
+    available_at=now(),
+    payload = jsonb_set(
+        jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,cancelRequested}', 'true'::jsonb, true),
+        '{control,requestedAction}',
+        to_jsonb('cancel'::text),
+        true)
 WHERE tenant_id=@tenant_id
   AND doc_path=@doc_path
   AND action='upsert'
   AND status='running';
 """;
 
-        await conn.ExecuteAsync(new CommandDefinition(requestRunningUpsertCancel, new
+        await conn.ExecuteAsync(new CommandDefinition(failRunningUpsert, new
         {
             tenant_id = tenantId,
             doc_path = docPath
@@ -243,18 +268,23 @@ WHERE tenant_id=@tenant_id
         const string docSql = """
 INSERT INTO documents(
   tenant_id, doc_id, doc_path, doc_name, category,
-  status, updated_at, missing_since, ingestion_version, indexed_version
+  status, updated_at, missing_since, ingestion_version, indexed_version,
+  auto_ingest_paused, auto_ingest_paused_at, auto_ingest_pause_reason
 )
 VALUES(
   @tenant_id, @doc_id, @doc_path, @doc_name, 'general',
-  'missing', now(), now(), 1, 0
+  'missing', now(), now(), 1, 0,
+  false, NULL, NULL
 )
 ON CONFLICT (tenant_id, doc_path)
 DO UPDATE SET
   status = 'missing',
   updated_at = now(),
   missing_since = COALESCE(documents.missing_since, now()),
-  ingestion_version = GREATEST(COALESCE(documents.ingestion_version, 0), COALESCE(documents.indexed_version, 0)) + 1
+  ingestion_version = GREATEST(COALESCE(documents.ingestion_version, 0), COALESCE(documents.indexed_version, 0)) + 1,
+  auto_ingest_paused = false,
+  auto_ingest_paused_at = NULL,
+  auto_ingest_pause_reason = NULL
 RETURNING doc_id, ingestion_version;
 """;
 
@@ -276,7 +306,11 @@ SET status='failed',
     locked_by=NULL,
     locked_at=NULL,
     available_at=now(),
-    payload = jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,cancelRequested}', 'true'::jsonb, true)
+    payload = jsonb_set(
+        jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,cancelRequested}', 'true'::jsonb, true),
+        '{control,requestedAction}',
+        to_jsonb('cancel'::text),
+        true)
 WHERE tenant_id=@tenant_id
   AND doc_path=@doc_path
   AND action='upsert'
@@ -300,7 +334,11 @@ DO UPDATE SET
   available_at = now(),
   payload = CASE
       WHEN COALESCE((ingestion_jobs.payload #>> '{control,cancelRequested}')::boolean, false)
-          THEN jsonb_set(EXCLUDED.payload, '{control,cancelRequested}', 'true'::jsonb, true)
+          THEN jsonb_set(
+              jsonb_set(EXCLUDED.payload, '{control,cancelRequested}', 'true'::jsonb, true),
+              '{control,requestedAction}',
+              to_jsonb(COALESCE(ingestion_jobs.payload #>> '{control,requestedAction}', 'cancel')::text),
+              true)
       ELSE EXCLUDED.payload
   END,
   last_error = NULL

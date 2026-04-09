@@ -558,6 +558,12 @@ public sealed partial class ApiClient
         return SendJsonAsync(HttpMethod.Post, "/admin/jobs/cancel", body, admin: true, ct);
     }
 
+    public Task<JsonElement> AdminJobsPauseAsync(string jobId, CancellationToken ct)
+    {
+        var body = JsonSerializer.Serialize(new { jobId }, JsonOpts);
+        return SendJsonAsync(HttpMethod.Post, "/admin/jobs/pause", body, admin: true, ct);
+    }
+
     public Task<JsonElement> AdminJobsResumeAsync(string jobId, CancellationToken ct)
     {
         var body = JsonSerializer.Serialize(new { jobId }, JsonOpts);

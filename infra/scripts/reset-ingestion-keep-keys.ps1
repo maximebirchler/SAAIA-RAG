@@ -40,13 +40,12 @@ function Invoke-PsqlCommand {
         [string]$Sql
     )
 
-    $escapedSql = $Sql.Replace('"', '\"')
     Invoke-Compose -Args @(
         'exec', '-T', $PostgresService,
         'psql', '-v', 'ON_ERROR_STOP=1',
         '-U', $PostgresUser,
         '-d', $PostgresDatabase,
-        '-c', $escapedSql
+        '-c', $Sql
     )
 }
 
@@ -74,19 +73,12 @@ $maxAttempts = 30
 $delaySeconds = 2
 $postgresReady = $false
 for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-    try {
-        Invoke-Compose -Args @(
-            'exec', '-T', $PostgresService,
-            'psql', '-U', $PostgresUser,
-            '-d', $PostgresDatabase,
-            '-c', 'SELECT 1;'
-        ) | Out-Null
+    & docker compose -f $ComposeFile --env-file $EnvFile exec -T $PostgresService pg_isready -U $PostgresUser -d $PostgresDatabase *> $null
+    if ($LASTEXITCODE -eq 0) {
         $postgresReady = $true
         break
     }
-    catch {
-        Start-Sleep -Seconds $delaySeconds
-    }
+    Start-Sleep -Seconds $delaySeconds
 }
 
 if (-not $postgresReady) {
@@ -94,7 +86,7 @@ if (-not $postgresReady) {
 }
 
 Write-Step 'Purge ciblée ingestion/documents/catalogue (sans toucher api_keys/licenses/seats)'
-$sql = @"
+$sql = @'
 DO $$
 DECLARE
     target_tables text[] := ARRAY[
@@ -119,14 +111,14 @@ BEGIN
         EXECUTE 'TRUNCATE TABLE ' || existing_tables || ' RESTART IDENTITY CASCADE';
     END IF;
 END $$;
-"@
+'@
 Invoke-PsqlCommand -Sql $sql
 
 Write-Step 'Contrôle rapide des clés API conservées'
-Invoke-PsqlCommand -Sql 'SELECT api_key_id, label, is_admin, revoked_at FROM api_keys ORDER BY created_at NULLS FIRST, api_key_id;'
+Invoke-PsqlCommand -Sql "SELECT api_key_id, label, is_admin, revoked_at FROM api_keys ORDER BY created_at NULLS FIRST, api_key_id;"
 
 Write-Step 'Contrôle rapide des volumes remis à zéro'
-Invoke-PsqlCommand -Sql @"
+Invoke-PsqlCommand -Sql @'
 SELECT 'documents' AS table_name, COUNT(*) AS count FROM documents
 UNION ALL
 SELECT 'ingestion_jobs', COUNT(*) FROM ingestion_jobs
@@ -135,7 +127,7 @@ SELECT 'admin_jobs', COUNT(*) FROM admin_jobs
 UNION ALL
 SELECT 'document_summaries', COUNT(*) FROM document_summaries
 ORDER BY table_name;
-"@
+'@
 
 if (-not $SkipInstall) {
     Write-Step 'Redéploiement complet'
@@ -147,4 +139,4 @@ if (-not $SkipInstall) {
 
 Write-Step 'Terminé'
 Write-Host 'Reset ingestion terminé. Les clés API ont été conservées.' -ForegroundColor Green
-Write-Host 'Prochaine étape conseillée : relancer le client, puis vérifier qu\'aucun job fantôme ne réapparaît.' -ForegroundColor Green
+Write-Host "Prochaine étape conseillée : relancer le client, puis vérifier qu'aucun job fantôme ne réapparaît." -ForegroundColor Green

@@ -72,6 +72,7 @@ SET status = CASE
             THEN COALESCE(last_error, 'canceled_by_admin')
         ELSE NULL
     END,
+    payload = ((COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}'),
     locked_by=NULL,
     locked_at=NULL
 WHERE job_id=@job_id AND status IN ('running','paused');";
@@ -86,11 +87,20 @@ UPDATE ingestion_jobs j
 SET status = CASE
         WHEN j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
-             AND COALESCE(d.auto_ingest_paused, false)
-             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND COALESCE(d.status, '') NOT IN ('missing','deleted')
+             AND (
+                 COALESCE(j.payload #>> '{control,requestedAction}', '') = 'pause'
+                 OR (
+                     COALESCE(d.auto_ingest_paused, false)
+                     AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+                 )
+             )
              AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
             THEN 'paused'
-        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+        WHEN (
+                 COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+                 OR COALESCE(j.payload #>> '{control,requestedAction}', '') = 'cancel'
+             )
              AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
             THEN 'canceled'
         ELSE 'failed'
@@ -98,8 +108,14 @@ SET status = CASE
     finished_at = CASE
         WHEN j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
-             AND COALESCE(d.auto_ingest_paused, false)
-             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND COALESCE(d.status, '') NOT IN ('missing','deleted')
+             AND (
+                 COALESCE(j.payload #>> '{control,requestedAction}', '') = 'pause'
+                 OR (
+                     COALESCE(d.auto_ingest_paused, false)
+                     AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+                 )
+             )
              AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
             THEN NULL
         ELSE now()
@@ -107,8 +123,14 @@ SET status = CASE
     started_at = CASE
         WHEN j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
-             AND COALESCE(d.auto_ingest_paused, false)
-             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND COALESCE(d.status, '') NOT IN ('missing','deleted')
+             AND (
+                 COALESCE(j.payload #>> '{control,requestedAction}', '') = 'pause'
+                 OR (
+                     COALESCE(d.auto_ingest_paused, false)
+                     AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+                 )
+             )
              AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
             THEN NULL
         ELSE j.started_at
@@ -116,22 +138,45 @@ SET status = CASE
     last_error = CASE
         WHEN j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
-             AND COALESCE(d.auto_ingest_paused, false)
-             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND COALESCE(d.status, '') NOT IN ('missing','deleted')
+             AND (
+                 COALESCE(j.payload #>> '{control,requestedAction}', '') = 'pause'
+                 OR (
+                     COALESCE(d.auto_ingest_paused, false)
+                     AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+                 )
+             )
              AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
             THEN NULL
-        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+        WHEN (
+                 COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+                 OR COALESCE(j.payload #>> '{control,requestedAction}', '') = 'cancel'
+             )
              AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
-            THEN COALESCE(j.last_error, @err, 'canceled_by_admin')
+            THEN COALESCE(j.last_error, 'canceled_by_admin')
         ELSE @err
     END,
     payload = CASE
         WHEN j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
-             AND COALESCE(d.auto_ingest_paused, false)
-             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND COALESCE(d.status, '') NOT IN ('missing','deleted')
+             AND (
+                 COALESCE(j.payload #>> '{control,requestedAction}', '') = 'pause'
+                 OR (
+                     COALESCE(d.auto_ingest_paused, false)
+                     AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+                 )
+             )
              AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
-            THEN (COALESCE(j.payload, '{}'::jsonb) #- '{control,cancelRequested}')
+            THEN ((COALESCE(j.payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}')
+        WHEN COALESCE(@err, '') IN ('source_removed_during_ingestion', 'file_missing')
+            THEN ((COALESCE(j.payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}')
+        WHEN (
+                 COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+                 OR COALESCE(j.payload #>> '{control,requestedAction}', '') = 'cancel'
+             )
+             AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
+            THEN ((COALESCE(j.payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}')
         ELSE COALESCE(j.payload, '{}'::jsonb)
     END,
     locked_by=NULL,
@@ -161,6 +206,13 @@ SET status = CASE
             THEN COALESCE(last_error, @err, 'canceled_by_admin')
         ELSE @err
     END,
+    payload = CASE
+        WHEN COALESCE(@err, '') IN ('source_removed_during_ingestion', 'file_missing')
+            THEN ((COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}')
+        WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false)
+            THEN ((COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}')
+        ELSE COALESCE(payload, '{}'::jsonb)
+    END,
     locked_by=NULL,
     locked_at=NULL
 WHERE job_id=@job_id AND status IN ('running','paused');";
@@ -175,8 +227,14 @@ UPDATE ingestion_jobs j
 SET status = CASE
         WHEN j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
-             AND COALESCE(d.auto_ingest_paused, false)
-             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND COALESCE(d.status, '') NOT IN ('missing','deleted')
+             AND (
+                 COALESCE(j.payload #>> '{control,requestedAction}', '') = 'pause'
+                 OR (
+                     COALESCE(d.auto_ingest_paused, false)
+                     AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+                 )
+             )
              AND COALESCE(@reason, '') LIKE 'canceled_by_admin%'
             THEN 'paused'
         ELSE 'canceled'
@@ -184,8 +242,14 @@ SET status = CASE
     finished_at = CASE
         WHEN j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
-             AND COALESCE(d.auto_ingest_paused, false)
-             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND COALESCE(d.status, '') NOT IN ('missing','deleted')
+             AND (
+                 COALESCE(j.payload #>> '{control,requestedAction}', '') = 'pause'
+                 OR (
+                     COALESCE(d.auto_ingest_paused, false)
+                     AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+                 )
+             )
              AND COALESCE(@reason, '') LIKE 'canceled_by_admin%'
             THEN NULL
         ELSE COALESCE(j.finished_at, now())
@@ -193,8 +257,14 @@ SET status = CASE
     started_at = CASE
         WHEN j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
-             AND COALESCE(d.auto_ingest_paused, false)
-             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND COALESCE(d.status, '') NOT IN ('missing','deleted')
+             AND (
+                 COALESCE(j.payload #>> '{control,requestedAction}', '') = 'pause'
+                 OR (
+                     COALESCE(d.auto_ingest_paused, false)
+                     AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+                 )
+             )
              AND COALESCE(@reason, '') LIKE 'canceled_by_admin%'
             THEN NULL
         ELSE j.started_at
@@ -202,8 +272,14 @@ SET status = CASE
     last_error = CASE
         WHEN j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
-             AND COALESCE(d.auto_ingest_paused, false)
-             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND COALESCE(d.status, '') NOT IN ('missing','deleted')
+             AND (
+                 COALESCE(j.payload #>> '{control,requestedAction}', '') = 'pause'
+                 OR (
+                     COALESCE(d.auto_ingest_paused, false)
+                     AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+                 )
+             )
              AND COALESCE(@reason, '') LIKE 'canceled_by_admin%'
             THEN NULL
         ELSE COALESCE(@reason, j.last_error)
@@ -211,11 +287,16 @@ SET status = CASE
     payload = CASE
         WHEN j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
-             AND COALESCE(d.auto_ingest_paused, false)
-             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND (
+                 COALESCE(j.payload #>> '{control,requestedAction}', '') = 'pause'
+                 OR (
+                     COALESCE(d.auto_ingest_paused, false)
+                     AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+                 )
+             )
              AND COALESCE(@reason, '') LIKE 'canceled_by_admin%'
-            THEN (COALESCE(j.payload, '{}'::jsonb) #- '{control,cancelRequested}')
-        ELSE COALESCE(j.payload, '{}'::jsonb)
+            THEN ((COALESCE(j.payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}')
+        ELSE ((COALESCE(j.payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}')
     END,
     locked_by=NULL,
     locked_at=NULL,
@@ -232,6 +313,7 @@ UPDATE ingestion_jobs
 SET status='canceled',
     finished_at=COALESCE(finished_at, now()),
     last_error=COALESCE(@reason, last_error),
+    payload=((COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}'),
     locked_by=NULL,
     locked_at=NULL,
     available_at=now()
@@ -251,8 +333,14 @@ SET status = CASE
         WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
              AND j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
-             AND COALESCE(d.auto_ingest_paused, false)
-             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND COALESCE(d.status, '') NOT IN ('missing','deleted')
+             AND (
+                 COALESCE(j.payload #>> '{control,requestedAction}', '') = 'pause'
+                 OR (
+                     COALESCE(d.auto_ingest_paused, false)
+                     AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+                 )
+             )
             THEN 'paused'
         WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false) THEN 'canceled'
         ELSE 'queued'
@@ -261,8 +349,14 @@ SET status = CASE
         WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
              AND j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
-             AND COALESCE(d.auto_ingest_paused, false)
-             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND COALESCE(d.status, '') NOT IN ('missing','deleted')
+             AND (
+                 COALESCE(j.payload #>> '{control,requestedAction}', '') = 'pause'
+                 OR (
+                     COALESCE(d.auto_ingest_paused, false)
+                     AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+                 )
+             )
             THEN NULL
         WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
             THEN COALESCE(j.finished_at, now())
@@ -272,8 +366,14 @@ SET status = CASE
         WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
              AND j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
-             AND COALESCE(d.auto_ingest_paused, false)
-             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND COALESCE(d.status, '') NOT IN ('missing','deleted')
+             AND (
+                 COALESCE(j.payload #>> '{control,requestedAction}', '') = 'pause'
+                 OR (
+                     COALESCE(d.auto_ingest_paused, false)
+                     AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+                 )
+             )
             THEN NULL
         ELSE j.started_at
     END,
@@ -284,8 +384,14 @@ SET status = CASE
         WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
              AND j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
-             AND COALESCE(d.auto_ingest_paused, false)
-             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+             AND COALESCE(d.status, '') NOT IN ('missing','deleted')
+             AND (
+                 COALESCE(j.payload #>> '{control,requestedAction}', '') = 'pause'
+                 OR (
+                     COALESCE(d.auto_ingest_paused, false)
+                     AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+                 )
+             )
             THEN NULL
         WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
             THEN COALESCE(j.last_error, 'canceled_stale_running')
@@ -295,9 +401,16 @@ SET status = CASE
         WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
              AND j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
-             AND COALESCE(d.auto_ingest_paused, false)
-             AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
-            THEN (COALESCE(j.payload, '{}'::jsonb) #- '{control,cancelRequested}')
+             AND (
+                 COALESCE(j.payload #>> '{control,requestedAction}', '') = 'pause'
+                 OR (
+                     COALESCE(d.auto_ingest_paused, false)
+                     AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+                 )
+             )
+            THEN ((COALESCE(j.payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}')
+        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+            THEN ((COALESCE(j.payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}')
         ELSE COALESCE(j.payload, '{}'::jsonb)
     END
 FROM documents d
@@ -332,6 +445,11 @@ SET status = CASE
         WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false)
             THEN COALESCE(last_error, 'canceled_stale_running')
         ELSE COALESCE(last_error, 'requeued_stale_running')
+    END,
+    payload = CASE
+        WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false)
+            THEN ((COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}')
+        ELSE COALESCE(payload, '{}'::jsonb)
     END
 WHERE status='running'
   AND (
@@ -393,6 +511,7 @@ SET auto_ingest_paused = true,
 WHERE tenant_id = @tenant_id
   AND doc_path = @doc_path
   AND COALESCE(indexed_version, 0) <= 0
+  AND COALESCE(status, '') NOT IN ('missing','deleted')
   AND NOT COALESCE(auto_ingest_paused, false);";
         await conn.ExecuteAsync(new CommandDefinition(sql, new { tenant_id = tenantId, doc_path = docPath }, cancellationToken: ct));
     }
@@ -403,7 +522,8 @@ WHERE tenant_id = @tenant_id
         const string sql = """
 SELECT
     status AS "Status",
-    COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) AS "CancelRequested"
+    COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) AS "CancelRequested",
+    payload #>> '{control,requestedAction}' AS "RequestedAction"
 FROM ingestion_jobs
 WHERE job_id=@job_id
 LIMIT 1;
@@ -413,6 +533,8 @@ LIMIT 1;
             return false;
 
         return row.CancelRequested
+               || IngestionAdminStatePolicies.IsPauseRequested(row.RequestedAction)
+               || IngestionAdminStatePolicies.IsCancelRequested(row.RequestedAction)
                || string.Equals(row.Status, "canceled", StringComparison.OrdinalIgnoreCase)
                || string.Equals(row.Status, "cancelled", StringComparison.OrdinalIgnoreCase);
     }
@@ -424,6 +546,7 @@ LIMIT 1;
 SELECT
     COALESCE(j.status, '') AS "JobStatus",
     COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false) AS "JobCancelRequested",
+    j.payload #>> '{control,requestedAction}' AS "RequestedAction",
     COALESCE(d.auto_ingest_paused, false) AS "DocumentAutoIngestPaused",
     d.auto_ingest_pause_reason AS "DocumentAutoIngestPauseReason"
 FROM ingestion_jobs j
@@ -441,6 +564,9 @@ LIMIT 1;
         if (row.JobCancelRequested
             || string.Equals(row.JobStatus, "canceled", StringComparison.OrdinalIgnoreCase)
             || string.Equals(row.JobStatus, "cancelled", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (IngestionAdminStatePolicies.IsPauseRequested(row.RequestedAction))
             return true;
 
         return IngestionAdminStatePolicies.ShouldTreatDocumentPauseAsCancellation(
@@ -489,8 +615,14 @@ SET status=CASE
           WHERE d.tenant_id=@tenant_id
             AND d.doc_path=@doc_path
             AND COALESCE(d.indexed_version, 0) <= 0
-            AND COALESCE(d.auto_ingest_paused, false)
-            AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+            AND COALESCE(d.status, '') NOT IN ('missing','deleted')
+            AND (
+                COALESCE(payload #>> '{control,requestedAction}', '') = 'pause'
+                OR (
+                    COALESCE(d.auto_ingest_paused, false)
+                    AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+                )
+            )
       ) THEN 'paused'
       ELSE 'canceled'
     END,
@@ -501,8 +633,14 @@ SET status=CASE
           WHERE d.tenant_id=@tenant_id
             AND d.doc_path=@doc_path
             AND COALESCE(d.indexed_version, 0) <= 0
-            AND COALESCE(d.auto_ingest_paused, false)
-            AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+            AND COALESCE(d.status, '') NOT IN ('missing','deleted')
+            AND (
+                COALESCE(payload #>> '{control,requestedAction}', '') = 'pause'
+                OR (
+                    COALESCE(d.auto_ingest_paused, false)
+                    AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+                )
+            )
       ) THEN NULL
       ELSE COALESCE(finished_at, now())
     END,
@@ -513,8 +651,14 @@ SET status=CASE
           WHERE d.tenant_id=@tenant_id
             AND d.doc_path=@doc_path
             AND COALESCE(d.indexed_version, 0) <= 0
-            AND COALESCE(d.auto_ingest_paused, false)
-            AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+            AND COALESCE(d.status, '') NOT IN ('missing','deleted')
+            AND (
+                COALESCE(payload #>> '{control,requestedAction}', '') = 'pause'
+                OR (
+                    COALESCE(d.auto_ingest_paused, false)
+                    AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+                )
+            )
       ) THEN NULL
       ELSE COALESCE(last_error, 'canceled_by_admin')
     END,
@@ -525,10 +669,16 @@ SET status=CASE
           WHERE d.tenant_id=@tenant_id
             AND d.doc_path=@doc_path
             AND COALESCE(d.indexed_version, 0) <= 0
-            AND COALESCE(d.auto_ingest_paused, false)
-            AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
-      ) THEN (COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}')
-      ELSE COALESCE(payload, '{}'::jsonb)
+            AND COALESCE(d.status, '') NOT IN ('missing','deleted')
+            AND (
+                COALESCE(payload #>> '{control,requestedAction}', '') = 'pause'
+                OR (
+                    COALESCE(d.auto_ingest_paused, false)
+                    AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
+                )
+            )
+      ) THEN ((COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}')
+      ELSE ((COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}')
     END,
     locked_by=NULL,
     locked_at=NULL
@@ -547,6 +697,7 @@ SET auto_ingest_paused = true,
     updated_at = now()
 WHERE tenant_id=@tenant_id AND doc_path=@doc_path
   AND COALESCE(indexed_version, 0) <= 0
+  AND COALESCE(status, '') NOT IN ('missing','deleted')
   AND NOT COALESCE(auto_ingest_paused, false);";
             await conn.ExecuteAsync(new CommandDefinition(stabilizeSql, new { tenant_id = tenantId, doc_path = docPath }, transaction: tx, cancellationToken: ct));
 
@@ -575,7 +726,7 @@ FOR UPDATE;";
 SET status='paused',
     finished_at=NULL,
     last_error=NULL,
-    payload=(COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}'),
+    payload=((COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}'),
     locked_by=NULL,
     locked_at=NULL
 WHERE job_id=@job_id AND status IN ('running','paused');";
@@ -667,6 +818,7 @@ FOR UPDATE;
 SET status='canceled',
     finished_at=COALESCE(finished_at, now()),
     last_error=COALESCE(last_error, 'canceled_by_admin'),
+    payload=((COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}'),
     locked_by=NULL,
     locked_at=NULL
 WHERE job_id=@job_id AND status='running';";
@@ -757,11 +909,77 @@ WHERE job_id=@job_id;";
         await conn.ExecuteAsync(new CommandDefinition(sql, new { job_id = jobId, phase, current, total, percent }, cancellationToken: ct));
     }
 
-    private sealed record JobCancelState(string? Status, bool CancelRequested);
+    public static async Task StoreResumeCheckpointAsync(
+        NpgsqlDataSource ds,
+        Guid jobId,
+        string sourceHash,
+        long fileSize,
+        int chunkTotal,
+        CancellationToken ct)
+    {
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        const string sql = @"
+UPDATE ingestion_jobs
+SET payload = jsonb_set(
+        COALESCE(payload, '{}'::jsonb),
+        '{resume}',
+        jsonb_build_object(
+            'sourceHash', @sourceHash,
+            'fileSize', @fileSize,
+            'chunkTotal', @chunkTotal
+        ),
+        true
+    )
+WHERE job_id=@job_id;";
+
+        await conn.ExecuteAsync(new CommandDefinition(sql, new
+        {
+            job_id = jobId,
+            sourceHash,
+            fileSize,
+            chunkTotal
+        }, cancellationToken: ct));
+    }
+
+    public static async Task<ResumeCheckpointState?> GetResumeCheckpointAsync(NpgsqlDataSource ds, Guid jobId, CancellationToken ct)
+    {
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        const string sql = """
+SELECT
+    CASE WHEN jsonb_typeof(payload->'progress'->'current')='number' THEN (payload->'progress'->>'current')::int ELSE NULL END AS "ProgressCurrent",
+    CASE WHEN jsonb_typeof(payload->'progress'->'total')='number' THEN (payload->'progress'->>'total')::int ELSE NULL END AS "ProgressTotal",
+    payload #>> '{resume,sourceHash}' AS "SourceHash",
+    CASE WHEN jsonb_typeof(payload->'resume'->'fileSize')='number' THEN (payload->'resume'->>'fileSize')::bigint ELSE NULL END AS "FileSize",
+    CASE WHEN jsonb_typeof(payload->'resume'->'chunkTotal')='number' THEN (payload->'resume'->>'chunkTotal')::int ELSE NULL END AS "ChunkTotal"
+FROM ingestion_jobs
+WHERE job_id=@job_id
+LIMIT 1;
+""";
+
+        return await conn.QueryFirstOrDefaultAsync<ResumeCheckpointState>(
+            new CommandDefinition(sql, new { job_id = jobId }, cancellationToken: ct));
+    }
+
+    private sealed class JobCancelState
+    {
+        public string? Status { get; set; }
+        public bool CancelRequested { get; set; }
+        public string? RequestedAction { get; set; }
+    }
+
+    public sealed class ResumeCheckpointState
+    {
+        public int? ProgressCurrent { get; set; }
+        public int? ProgressTotal { get; set; }
+        public string? SourceHash { get; set; }
+        public long? FileSize { get; set; }
+        public int? ChunkTotal { get; set; }
+    }
 
     private sealed record JobAndDocumentCancelState(
         string? JobStatus,
         bool JobCancelRequested,
+        string? RequestedAction,
         bool DocumentAutoIngestPaused,
         string? DocumentAutoIngestPauseReason);
 

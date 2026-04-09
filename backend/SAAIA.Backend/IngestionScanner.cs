@@ -464,6 +464,7 @@ SET status = CASE
         WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
              AND j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.status, '') NOT IN ('missing','deleted')
              AND COALESCE(d.auto_ingest_paused, false)
              AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
             THEN 'paused'
@@ -476,6 +477,7 @@ SET status = CASE
         WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
              AND j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.status, '') NOT IN ('missing','deleted')
              AND COALESCE(d.auto_ingest_paused, false)
              AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
             THEN NULL
@@ -485,6 +487,7 @@ SET status = CASE
         WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
              AND j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.status, '') NOT IN ('missing','deleted')
              AND COALESCE(d.auto_ingest_paused, false)
              AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
             THEN NULL
@@ -505,6 +508,7 @@ SET status = CASE
         WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
              AND j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
+             AND COALESCE(d.status, '') NOT IN ('missing','deleted')
              AND COALESCE(d.auto_ingest_paused, false)
              AND COALESCE(d.auto_ingest_pause_reason, '') = 'admin_cancel'
             THEN (COALESCE(j.payload, '{}'::jsonb) #- '{control,cancelRequested}')
