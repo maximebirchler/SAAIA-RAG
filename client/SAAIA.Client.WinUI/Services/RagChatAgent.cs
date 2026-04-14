@@ -15,9 +15,10 @@ public sealed class RagChatAgent
 {
     private readonly ApiClient _api;
     private readonly OpenAiLlmClient _llm;
+    private readonly UserPrefsStore.UserPrefs _initialPrefs;
 
     private bool _llmEnabled = true;
-    private bool _strictMode = false;
+    private string _activeMode = "auto";
     private double _temperature = 0.2;
     private int _maxTokens = 900;
     private string _ragQualityPreset = "balanced";
@@ -28,12 +29,21 @@ public sealed class RagChatAgent
     {
         _api = api;
         _llm = llm;
+        _initialPrefs = UserPrefsStore.Load();
+        _mem.LastLanguage = _initialPrefs.Language;
+        _mem.LastStyle = _initialPrefs.Style;
+        _mem.LastMode = _initialPrefs.Mode;
+        _activeMode = AppSettings.NormalizeActiveMode(_initialPrefs.Mode);
     }
 
     internal void ApplySettings(AppSettings s)
     {
         _llmEnabled = s.UseLocalLlm;
-        _strictMode = s.StrictMode;
+        var configuredMode = AppSettings.NormalizeActiveMode(s.ActiveMode);
+        _activeMode = string.Equals(configuredMode, "auto", StringComparison.OrdinalIgnoreCase)
+            ? AppSettings.NormalizeActiveMode(_initialPrefs.Mode)
+            : configuredMode;
+        _mem.LastMode = _activeMode;
 
         var t = s.LlmTemperature;
         if (double.IsNaN(t) || double.IsInfinity(t)) t = 0.2;
@@ -61,16 +71,51 @@ public sealed class RagChatAgent
     {
         userText ??= string.Empty;
 
+        if (LocalizedStrings.TryDetectStylePreferenceChange(userText, out var requestedStyle))
+        {
+            var interactionLanguage = LocalizedStrings.DetectLanguage(userText, _mem.LastLanguage);
+            _mem.LastStyle = LocalizedStrings.NormalizeStyle(requestedStyle);
+            UserPrefsStore.SaveStyle(_mem.LastStyle);
+
+            var ack = LocalizedStrings.StyleChanged(_mem.LastStyle, interactionLanguage);
+            await SimulateStreamingAsync(ack, onDelta, ct).ConfigureAwait(false);
+            onProgress?.Invoke(string.Empty);
+            _mem.LastUserMessage = userText;
+            _mem.LastAssistantAnswer = ack;
+            _mem.LastLanguage = interactionLanguage;
+            _mem.LastRouterIntent = "meta.set_style";
+            return (ack, null);
+        }
+
+        if (LocalizedStrings.TryDetectModePreferenceChange(userText, out var requestedMode))
+        {
+            var interactionLanguage = LocalizedStrings.DetectLanguage(userText, _mem.LastLanguage);
+            _activeMode = AppSettings.NormalizeActiveMode(requestedMode);
+            _mem.LastMode = _activeMode;
+            UserPrefsStore.SaveMode(_activeMode);
+
+            var ack = LocalizedStrings.ModeChanged(_activeMode, interactionLanguage);
+            await SimulateStreamingAsync(ack, onDelta, ct).ConfigureAwait(false);
+            onProgress?.Invoke(string.Empty);
+            _mem.LastUserMessage = userText;
+            _mem.LastAssistantAnswer = ack;
+            _mem.LastLanguage = interactionLanguage;
+            _mem.LastRouterIntent = "meta.set_mode";
+            return (ack, null);
+        }
+
         if (!_llmEnabled)
         {
             if (LocalizedStrings.TryDetectLanguagePreferenceChange(userText, out var requestedLanguage))
             {
-                if (!string.IsNullOrWhiteSpace(_mem.LastUserMessage)
-                    && string.Equals(_mem.LastRouterIntent, "rag_search_fallback", StringComparison.OrdinalIgnoreCase))
-                {
-                    var replayCategory = string.IsNullOrWhiteSpace(_mem.LastSearchOnlyCategory) ? category : _mem.LastSearchOnlyCategory;
-                    onPhase?.Invoke(DeterministicAgentText.PhaseRag(requestedLanguage));
-                    onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(requestedLanguage));
+            if (!string.IsNullOrWhiteSpace(_mem.LastUserMessage)
+                && string.Equals(_mem.LastRouterIntent, "rag_search_fallback", StringComparison.OrdinalIgnoreCase))
+            {
+                _mem.LastLanguage = requestedLanguage;
+                UserPrefsStore.SaveLanguage(requestedLanguage);
+                var replayCategory = string.IsNullOrWhiteSpace(_mem.LastSearchOnlyCategory) ? category : _mem.LastSearchOnlyCategory;
+                onPhase?.Invoke(DeterministicAgentText.PhaseRag(requestedLanguage));
+                onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(requestedLanguage));
                     var (replayedAnswer, replayedPayload) = await RunSearchOnlyFallbackAsync(_mem.LastUserMessage, replayCategory, ct, requestedLanguage).ConfigureAwait(false);
                     await SimulateStreamingAsync(replayedAnswer, onDelta, ct).ConfigureAwait(false);
                     onProgress?.Invoke(string.Empty);
@@ -82,7 +127,9 @@ public sealed class RagChatAgent
                 onProgress?.Invoke(string.Empty);
                 _mem.LastUserMessage = userText;
                 _mem.LastAssistantAnswer = ack;
+                _mem.LastLanguage = requestedLanguage;
                 _mem.LastRouterIntent = "meta.set_language";
+                UserPrefsStore.SaveLanguage(requestedLanguage);
                 return (ack, null);
             }
 
@@ -104,7 +151,7 @@ public sealed class RagChatAgent
             .TakeLast(12)
             .ToList();
 
-        if (_strictMode)
+        if (string.Equals(_activeMode, "strict", StringComparison.OrdinalIgnoreCase))
         {
             history.Insert(0, ("system",
                 "User preference: strict documentary mode. Avoid invention. If missing sources, say so and ask 1 clarification question."));
@@ -117,16 +164,20 @@ public sealed class RagChatAgent
         }
 
         var llm = new LlmAdapter(_llm, _temperature, _maxTokens);
-        var orchSettings = new AppSettings { StrictMode = _strictMode };
+        var orchSettings = new AppSettings { ActiveMode = _activeMode };
         var orch = new ToolAgentOrchestrator(_api, llm, _mem, orchSettings);
-
-        return await orch.RunAsync(
+        var result = await orch.RunAsync(
             history,
             userText,
             ct,
             onPhase,
             onDelta,
             onProgress).ConfigureAwait(false);
+
+        _activeMode = AppSettings.NormalizeActiveMode(orchSettings.ActiveMode);
+        _mem.LastMode = _activeMode;
+
+        return result;
     }
 
 
@@ -135,9 +186,12 @@ public sealed class RagChatAgent
         ArgumentNullException.ThrowIfNull(request);
 
         var llm = new LlmAdapter(_llm, _temperature, _maxTokens);
-        var orchSettings = new AppSettings { StrictMode = _strictMode };
+        var orchSettings = new AppSettings { ActiveMode = _activeMode };
         var orch = new ToolAgentOrchestrator(_api, llm, _mem, orchSettings);
-        return await orch.ExecuteDirectCommandAsync(request, ct).ConfigureAwait(false);
+        var result = await orch.ExecuteDirectCommandAsync(request, ct).ConfigureAwait(false);
+        _activeMode = AppSettings.NormalizeActiveMode(orchSettings.ActiveMode);
+        _mem.LastMode = _activeMode;
+        return result;
     }
 
     private async Task<(string finalAnswer, object? sourcesPayload)> RunSearchOnlyFallbackAsync(

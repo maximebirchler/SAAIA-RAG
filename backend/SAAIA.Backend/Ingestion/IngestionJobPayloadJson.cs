@@ -8,13 +8,14 @@ internal static class IngestionJobPayloadJson
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    public static string Serialize(Guid docId, int version, string? source = null)
+    public static string Serialize(Guid docId, int version, string? source = null, int? indexedVersionBefore = null)
     {
         var payload = new IngestionJobPayloadData
         {
             DocId = docId,
             Version = version,
-            Source = NormalizeSource(source)
+            Source = NormalizeSource(source),
+            IndexedVersionBefore = indexedVersionBefore
         };
 
         return JsonSerializer.Serialize(payload, SerializerOptions);
@@ -55,5 +56,8 @@ internal static class IngestionJobPayloadJson
 
         [JsonPropertyName("source")]
         public string? Source { get; init; }
+
+        [JsonPropertyName("indexedVersionBefore")]
+        public int? IndexedVersionBefore { get; init; }
     }
 }

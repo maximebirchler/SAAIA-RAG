@@ -16,6 +16,8 @@ public sealed class ToolMemory
     public DocumentItem? LastFocusedDocument { get; set; } = null;
 
     public string LastLanguage { get; set; } = "fr";
+    public string LastStyle { get; set; } = "auto";
+    public string LastMode { get; set; } = "auto";
     public string? LastUserDetectedLanguage { get; set; } = null;
     public string? LastAnswerLanguage { get; set; } = null;
 
@@ -25,6 +27,7 @@ public sealed class ToolMemory
     public string? LastRouterIntent { get; set; } = null;
     public List<string> LastToolNames { get; set; } = new();
     public List<string> LastReasoningTracePublic { get; set; } = new();
+    public List<string> LastRiskFlags { get; set; } = new();
     public string? LastPlannerMemoryUpdate { get; set; } = null;
     public double? LastRouterConfidence { get; set; } = null;
     public PendingClarificationState? PendingClarification { get; set; } = null;

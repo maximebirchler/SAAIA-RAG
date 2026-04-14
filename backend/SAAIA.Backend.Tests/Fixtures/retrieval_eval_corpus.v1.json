@@ -1,0 +1,31 @@
+{
+  "version": "v1",
+  "exactPositiveCases": [
+    {
+      "query": "Que dit la norme EN 15281 sur la maintenance ?",
+      "expectedTerms": ["en 15281"]
+    },
+    {
+      "query": "Je cherche le code produit IND570 dans la doc.",
+      "expectedTerms": ["ind570"]
+    },
+    {
+      "query": "Peux-tu retrouver EN 60204 et IND570 ?",
+      "expectedTerms": ["en 60204", "ind570"]
+    },
+    {
+      "query": "La reference IEC 61508 est-elle citee avec le code PLC900 ?",
+      "expectedTerms": ["iec 61508", "plc900"]
+    },
+    {
+      "query": "Dans quel document trouve-t-on NFPA 70 et le repere MCC210 ?",
+      "expectedTerms": ["nfpa 70", "mcc210"]
+    }
+  ],
+  "exactNegativeQueries": [
+    "Peux-tu me resumer la procedure de maintenance generale ?",
+    "Je veux comprendre le chapitre sur la securite electrique.",
+    "Quels documents parlent de prevention explosion et d inspection periodique ?",
+    "Fais-moi une synthese executive du dossier ATEX."
+  ]
+}

@@ -12,8 +12,9 @@ public sealed class RouterPlan
     public bool NeedClarification { get; set; } = false;
     public List<string> ClarificationQuestions { get; set; } = new();
     public List<string> ReasoningTracePublic { get; set; } = new();
+    public List<string> RiskFlags { get; set; } = new();
     public string? MemoryUpdate { get; set; } = null;
-    public double? Confidence { get; set; } = null;
+    public double? RouterConfidence { get; set; } = null;
 
     public List<ToolCall> ToolCalls { get; set; } = new();
 

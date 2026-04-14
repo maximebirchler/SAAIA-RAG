@@ -171,6 +171,10 @@ SELECT * FROM (
     CASE
       WHEN jsonb_typeof(i.payload #> '{snapshot,documentIndexedVersion}')='number'
         THEN (i.payload #>> '{snapshot,documentIndexedVersion}')::int
+      WHEN i.status='done'
+        THEN d.indexed_version
+      WHEN jsonb_typeof(i.payload->'indexedVersionBefore')='number'
+        THEN (i.payload->>'indexedVersionBefore')::int
       ELSE d.indexed_version
     END AS "DocumentIndexedVersion",
     CASE
@@ -320,6 +324,10 @@ SELECT * FROM (
     CASE
       WHEN jsonb_typeof(i.payload #> '{snapshot,documentIndexedVersion}')='number'
         THEN (i.payload #>> '{snapshot,documentIndexedVersion}')::int
+      WHEN i.status='done'
+        THEN d.indexed_version
+      WHEN jsonb_typeof(i.payload->'indexedVersionBefore')='number'
+        THEN (i.payload->>'indexedVersionBefore')::int
       ELSE d.indexed_version
     END AS "DocumentIndexedVersion",
     CASE

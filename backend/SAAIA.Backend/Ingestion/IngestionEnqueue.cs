@@ -100,10 +100,10 @@ DO UPDATE SET
   auto_ingest_paused = false,
   auto_ingest_paused_at = NULL,
   auto_ingest_pause_reason = NULL
-RETURNING doc_id, ingestion_version;
+RETURNING doc_id, ingestion_version, COALESCE(indexed_version, 0) AS indexed_version;
 """;
 
-        var returned = await conn.QuerySingleAsync<(Guid doc_id, int ingestion_version)>(
+        var returned = await conn.QuerySingleAsync<(Guid doc_id, int ingestion_version, int indexed_version)>(
             new CommandDefinition(docSql, new
             {
                 tenant_id = tenantId,
@@ -131,7 +131,11 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path
 
         var payloadSource = IngestionJobPayloadJson.NormalizeSource(enqueueSource)
             ?? (isAutomatic ? "automatic" : "admin");
-        var payload = IngestionJobPayloadJson.Serialize(returned.doc_id, returned.ingestion_version, payloadSource);
+        var payload = IngestionJobPayloadJson.Serialize(
+            returned.doc_id,
+            returned.ingestion_version,
+            payloadSource,
+            returned.indexed_version);
         var jobId = Guid.NewGuid();
 
         const string jobSql = """

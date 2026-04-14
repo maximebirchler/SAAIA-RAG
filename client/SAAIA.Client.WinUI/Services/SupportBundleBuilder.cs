@@ -116,7 +116,6 @@ internal static class SupportBundleBuilder
                 ["safeSettings"] = new Dictionary<string, object?>
                 {
                     ["assistantEnabled"] = settings.UseLocalLlm,
-                    ["strictMode"] = settings.StrictMode,
                     ["ragQualityPreset"] = settings.RagQualityPreset,
                     ["answerLengthTokens"] = settings.LlmMaxOutputTokens,
                     ["styleTemperature"] = settings.LlmTemperature

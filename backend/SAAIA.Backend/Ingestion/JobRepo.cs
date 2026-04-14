@@ -530,7 +530,7 @@ WHERE status='running'
         bool DocumentAutoIngestPaused,
         string? DocumentAutoIngestPauseReason);
 
-    private sealed record DocumentVersionState(int? IngestionVersion, bool AutoIngestPaused, string? AutoIngestPauseReason);
+    private sealed record DocumentVersionState(Guid? DocId, int? IngestionVersion, int? IndexedVersion, bool AutoIngestPaused, string? AutoIngestPauseReason);
 
     private sealed record IngestionJobRow(Guid JobId, Guid TenantId, string Action, string DocPath, string? Category, string Payload)
     {

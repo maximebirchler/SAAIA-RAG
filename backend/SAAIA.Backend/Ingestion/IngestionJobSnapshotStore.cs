@@ -38,11 +38,24 @@ SET payload = jsonb_set(
                 END
             ),
             'documentIndexedVersion', (
-                SELECT d.indexed_version
-                FROM documents d
-                WHERE d.tenant_id = j.tenant_id
-                  AND d.doc_path = j.doc_path
-                LIMIT 1
+                CASE
+                    WHEN j.status = 'done' THEN (
+                        SELECT d.indexed_version
+                        FROM documents d
+                        WHERE d.tenant_id = j.tenant_id
+                          AND d.doc_path = j.doc_path
+                        LIMIT 1
+                    )
+                    WHEN jsonb_typeof(j.payload->'indexedVersionBefore') = 'number'
+                        THEN (j.payload->>'indexedVersionBefore')::int
+                    ELSE (
+                        SELECT d.indexed_version
+                        FROM documents d
+                        WHERE d.tenant_id = j.tenant_id
+                          AND d.doc_path = j.doc_path
+                        LIMIT 1
+                    )
+                END
             ),
             'documentAutoIngestPaused', (
                 SELECT COALESCE(d.auto_ingest_paused, false)

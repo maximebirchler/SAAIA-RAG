@@ -15,7 +15,6 @@ internal sealed partial class UserSettingsDialog
         }
 
         _working.UseLocalLlm = _assistantEnabled.IsOn;
-        _working.StrictMode = _strictMode.IsOn;
         _working.RagQualityPreset = MapIndexToRagQuality(_ragQuality.SelectedIndex);
         _working.Temperature = MapIndexToTemp(_style.SelectedIndex);
         _working.MaxOutputTokens = MapIndexToMaxTokens(_length.SelectedIndex);
@@ -40,7 +39,6 @@ internal sealed partial class UserSettingsDialog
         _uiLanguage.IsEnabled = !busy;
         _appearance.IsEnabled = !busy;
         _assistantEnabled.IsEnabled = !busy;
-        _strictMode.IsEnabled = !busy;
         _ragQuality.IsEnabled = !busy;
         _style.IsEnabled = !busy;
         _length.IsEnabled = !busy;

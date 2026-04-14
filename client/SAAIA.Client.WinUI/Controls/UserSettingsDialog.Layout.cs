@@ -76,7 +76,6 @@ internal sealed partial class UserSettingsDialog
 
         _interfaceSectionTitle.Text = T("settings.section.interface");
         _assistantSectionTitle.Text = T("settings.section.assistant");
-        _behaviorSectionTitle.Text = T("settings.section.behavior");
         _repairSectionTitle.Text = T("settings.section.repair");
         _supportSectionTitle.Text = T("settings.section.support");
 
@@ -85,9 +84,6 @@ internal sealed partial class UserSettingsDialog
         _assistantEnabled.Header = T("settings.toggle.assistant");
         _assistantEnabled.OnContent = T("settings.toggle.assistant.on");
         _assistantEnabled.OffContent = T("settings.toggle.assistant.off");
-        _strictMode.Header = T("settings.toggle.strict");
-        _strictMode.OnContent = T("settings.toggle.strict.on");
-        _strictMode.OffContent = T("settings.toggle.strict.off");
         _ragQuality.Header = T("settings.rag_quality");
         _style.Header = T("settings.style");
         _length.Header = T("settings.length");
@@ -113,7 +109,6 @@ internal sealed partial class UserSettingsDialog
         }
 
         _assistantEnabled.HorizontalAlignment = HorizontalAlignment.Stretch;
-        _strictMode.HorizontalAlignment = HorizontalAlignment.Stretch;
         _assistantRepairBtn.HorizontalAlignment = HorizontalAlignment.Left;
         _assistantRepairBtn.Padding = new Thickness(16, 10, 16, 10);
         _exportBtn.HorizontalAlignment = HorizontalAlignment.Left;
@@ -184,15 +179,9 @@ internal sealed partial class UserSettingsDialog
             _length
         });
 
-        var behaviorCard = SectionCard(_behaviorSectionTitle, new UIElement[]
-        {
-            _strictMode
-        });
-
         _generalContent.Children.Clear();
         _generalContent.Children.Add(interfaceCard);
         _generalContent.Children.Add(assistantCard);
-        _generalContent.Children.Add(behaviorCard);
 
         var advancedIntro = new Border
         {

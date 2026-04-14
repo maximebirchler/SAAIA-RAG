@@ -38,7 +38,6 @@ internal sealed partial class UserSettingsDialog : ContentDialog
     private readonly ComboBox _uiLanguage = new();
     private readonly ComboBox _appearance = new();
     private readonly ToggleSwitch _assistantEnabled = new();
-    private readonly ToggleSwitch _strictMode = new();
     private readonly ComboBox _ragQuality = new();
     private readonly ComboBox _style = new();
     private readonly ComboBox _length = new();
@@ -47,7 +46,6 @@ internal sealed partial class UserSettingsDialog : ContentDialog
     private readonly TextBlock _repairSectionTitle = new();
     private readonly TextBlock _supportSectionTitle = new();
     private readonly TextBlock _interfaceSectionTitle = new();
-    private readonly TextBlock _behaviorSectionTitle = new();
     private readonly TextBlock _heroTitle = new();
     private readonly TextBlock _heroSubtitle = new() { Opacity = 0.84, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _advancedSubtitle = new() { Opacity = 0.82, TextWrapping = TextWrapping.Wrap };
@@ -107,8 +105,6 @@ internal sealed partial class UserSettingsDialog : ContentDialog
         };
 
         _assistantEnabled.IsOn = _working.UseLocalLlm;
-        _strictMode.IsOn = _working.StrictMode;
-
         foreach (var option in ClientUiText.GetLanguageOptions())
             _uiLanguage.Items.Add(new UiLanguageChoice(option.Code, option.Label));
 

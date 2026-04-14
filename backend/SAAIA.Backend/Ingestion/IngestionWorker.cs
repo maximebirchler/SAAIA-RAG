@@ -7,6 +7,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Dapper;
 using Microsoft.Extensions.Options;
@@ -346,12 +347,35 @@ WHERE job_id=@job_id
         if (!hasSavedProgress)
             await JobRepo.UpdateProgressAsync(ds, job.JobId, "extracting", null, null, ct);
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-        var tokens = PdfExtractor.ExtractWordTokens(absPath, ct);
+        var extraction = PdfExtractor.Extract(absPath, ct);
+        var tokens = extraction.Tokens;
+        var pages = extraction.Pages;
+        var sections = DocumentSectionExtractor.Extract(pages);
+        var units = DocumentUnitExtractor.Extract(pages, sections);
         await ThrowIfJobCanceledAsync(ds, job, ct);
         if (tokens.Count == 0)
             throw new Exception("No text extracted from PDF");
 
-        var chunks = Chunker.MakeChunks(tokens, ingest.ChunkMaxWords, ingest.ChunkOverlapWords, ingest.ChunkMinWords, ct);
+        var retrievalChunks = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            ingest.ChunkMaxWords,
+            ingest.ChunkOverlapWords,
+            ingest.ChunkMinWords);
+        var chunks = retrievalChunks.Count > 0
+            ? retrievalChunks
+                .Select(chunk => new Chunk(chunk.ChunkIndex, chunk.PageStart, chunk.PageEnd, chunk.Text))
+                .ToList()
+            : Chunker.MakeChunks(tokens, ingest.ChunkMaxWords, ingest.ChunkOverlapWords, ingest.ChunkMinWords, ct);
+        if (retrievalChunks.Count == 0)
+            retrievalChunks = RetrievalChunkProjector.Project(chunks, sections, units);
+        var exactMatchEntries = ExactMatchEntryExtractor.Extract(units);
+        var contextualTextEntries = ContextualTextProjector.Project(relDocPath, sections, units, retrievalChunks);
+        var retrievalChunksByIndex = retrievalChunks.ToDictionary(chunk => chunk.ChunkIndex);
+        var contextualTextByChunkIndex = BuildContextualTextMap(contextualTextEntries);
+        var sectionTitleByOrdinal = sections.ToDictionary(section => section.Ordinal, section => section.Title);
+        var headingPathBySectionOrdinal = ContextualTextProjector.BuildHeadingPathMap(sections);
+        var chunkLinkMap = BuildChunkLinkMap(docId, job.Version, retrievalChunks);
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
         static string ToHex(byte[] bytes) => Convert.ToHexString(bytes).ToLowerInvariant();
 
@@ -427,7 +451,18 @@ WHERE job_id=@job_id
             if (!File.Exists(absPath))
                 throw new Exception("source_removed_during_ingestion");
             var slice = chunks.Skip(i).Take(batchSize).ToList();
-            var inputs = slice.Select(c => c.Text).ToArray();
+            var workItems = slice
+                .Select(chunk =>
+                {
+                    var projectedChunk = ResolveProjectedRetrievalChunk(chunk, retrievalChunksByIndex);
+                    var embeddingText = ResolveEmbeddingText(projectedChunk.ChunkIndex, projectedChunk.Text, contextualTextByChunkIndex);
+                    var sectionTitle = ResolveSectionTitle(projectedChunk.SectionOrdinal, sectionTitleByOrdinal);
+                    var headingPath = ContextualTextProjector.ResolveHeadingPath(projectedChunk.SectionOrdinal, headingPathBySectionOrdinal);
+                    chunkLinkMap.TryGetValue(projectedChunk.ChunkIndex, out var chunkLinks);
+                    return new EmbeddingChunkWorkItem(projectedChunk, embeddingText, sectionTitle, headingPath, chunkLinks);
+                })
+                .ToList();
+            var inputs = workItems.Select(item => item.EmbeddingText).ToArray();
 
             // TEI embeddings
             var swTei = Stopwatch.StartNew();
@@ -448,31 +483,26 @@ WHERE job_id=@job_id
             var points = new List<object>(slice.Count);
             for (int j = 0; j < slice.Count; j++)
             {
-                var c = slice[j];
-                var chunkId = IdUtil.DeterministicGuid($"{docId}:{job.Version}:{c.ChunkIndex}");
+                var item = workItems[j];
+                var chunkId = DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, job.Version, item.ProjectedChunk.ChunkIndex);
 
                 points.Add(new
                 {
                     id = chunkId.ToString(),
                     vector = vectors[j],
-                    payload = new Dictionary<string, object?>
-                    {
-                        ["tenant_id"] = tenantId.ToString(),
-                        ["doc_id"] = docId.ToString(),
-                        ["doc_path"] = relDocPath,
-                        ["doc_name"] = Path.GetFileName(relDocPath),
-                        ["category"] = category,
-                        ["chunk_id"] = chunkId.ToString(),
-                        ["chunk_index"] = c.ChunkIndex,
-                        ["page_start"] = c.PageStart,
-                        ["page_end"] = c.PageEnd,
-                        ["hash_doc"] = hashHex,
-                        ["created_at"] = nowIso,
-                        ["updated_at"] = nowIso,
-                        ["text"] = c.Text,
-                        ["embed_text"] = c.Text,
-                        ["ingestion_version"] = job.Version
-                    }
+                    payload = BuildQdrantChunkPayload(
+                        tenantId,
+                        docId,
+                        relDocPath,
+                        category,
+                        hashHex,
+                        nowIso,
+                        job.Version,
+                        item.ProjectedChunk,
+                        item.EmbeddingText,
+                        item.SectionTitle,
+                        item.HeadingPath,
+                        item.ChunkLinks)
                 });
             }
 
@@ -509,7 +539,8 @@ WHERE job_id=@job_id
         var mtime = File.GetLastWriteTimeUtc(absPath);
         var committed = await JobRepo.CompleteUpsertAsync(
             ds, tenantId, job.JobId, relDocPath,
-            hash, size, mtime, job.Version, ct);
+            hash, size, mtime, job.Version, pages, sections, units, retrievalChunks, exactMatchEntries, contextualTextEntries, ct);
+
 
         if (!committed)
             return false;
@@ -532,4 +563,153 @@ WHERE job_id=@job_id
 
         return true;
     }
+
+    internal static IReadOnlyDictionary<int, ProjectedContextualTextEntry> BuildContextualTextMap(
+        IReadOnlyList<ProjectedContextualTextEntry> contextualTextEntries)
+        => contextualTextEntries
+            .GroupBy(entry => entry.ChunkIndex)
+            .ToDictionary(group => group.Key, group => group.Last());
+
+    internal static string ResolveEmbeddingText(
+        int chunkIndex,
+        string chunkText,
+        IReadOnlyDictionary<int, ProjectedContextualTextEntry> contextualTextByChunkIndex)
+    {
+        if (contextualTextByChunkIndex.TryGetValue(chunkIndex, out var contextual)
+            && !string.IsNullOrWhiteSpace(contextual.Text))
+        {
+            return contextual.Text;
+        }
+
+        return chunkText;
+    }
+
+    internal static Dictionary<string, object?> BuildQdrantChunkPayload(
+        Guid tenantId,
+        Guid docId,
+        string relDocPath,
+        string? category,
+        string hashHex,
+        string nowIso,
+        int ingestionVersion,
+        ProjectedRetrievalChunk projectedChunk,
+        string embeddingText,
+        string? sectionTitle,
+        string? headingPath,
+        ChunkLinkInfo? chunkLinks)
+    {
+        var chunkId = DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, ingestionVersion, projectedChunk.ChunkIndex);
+        var usesContextualText = !string.Equals(projectedChunk.Text, embeddingText, StringComparison.Ordinal);
+
+        return new Dictionary<string, object?>
+        {
+            ["tenant_id"] = tenantId.ToString(),
+            ["doc_id"] = docId.ToString(),
+            ["doc_path"] = relDocPath,
+            ["doc_name"] = Path.GetFileName(relDocPath),
+            ["category"] = category,
+            ["chunk_id"] = chunkId.ToString(),
+            ["chunk_index"] = projectedChunk.ChunkIndex,
+            ["page_start"] = projectedChunk.PageStart,
+            ["page_end"] = projectedChunk.PageEnd,
+            ["hash_doc"] = hashHex,
+            ["created_at"] = nowIso,
+            ["updated_at"] = nowIso,
+            ["text"] = projectedChunk.Text,
+            ["embed_text"] = embeddingText,
+            ["embedding_basis"] = usesContextualText ? "contextual_text_v1" : "chunk_text",
+            ["section_ordinal"] = projectedChunk.SectionOrdinal,
+            ["unit_ordinal"] = projectedChunk.UnitOrdinal,
+            ["chunk_type"] = projectedChunk.ChunkType,
+            ["section_title"] = sectionTitle,
+            ["heading_path"] = headingPath ?? sectionTitle,
+            ["prev_chunk_id"] = chunkLinks?.PreviousChunkId?.ToString(),
+            ["next_chunk_id"] = chunkLinks?.NextChunkId?.ToString(),
+            ["same_section_chunk_id"] = chunkLinks?.SameSectionChunkId?.ToString(),
+            ["ingestion_version"] = ingestionVersion
+        };
+    }
+
+    internal static IReadOnlyDictionary<int, ChunkLinkInfo> BuildChunkLinkMap(
+        Guid docId,
+        int ingestionVersion,
+        IReadOnlyList<ProjectedRetrievalChunk> retrievalChunks)
+    {
+        if (retrievalChunks.Count == 0)
+            return new Dictionary<int, ChunkLinkInfo>();
+
+        var ordered = retrievalChunks.OrderBy(chunk => chunk.ChunkIndex).ToList();
+        var map = new Dictionary<int, ChunkLinkInfo>(ordered.Count);
+
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            var current = ordered[i];
+            Guid? prev = i > 0
+                ? DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, ingestionVersion, ordered[i - 1].ChunkIndex)
+                : null;
+            Guid? next = i + 1 < ordered.Count
+                ? DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, ingestionVersion, ordered[i + 1].ChunkIndex)
+                : null;
+
+            Guid? sameSection = null;
+            if (current.SectionOrdinal.HasValue)
+            {
+                var match = ordered
+                    .Skip(i + 1)
+                    .FirstOrDefault(candidate => candidate.SectionOrdinal == current.SectionOrdinal);
+                if (match is not null)
+                    sameSection = DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, ingestionVersion, match.ChunkIndex);
+            }
+
+            map[current.ChunkIndex] = new ChunkLinkInfo(prev, next, sameSection);
+        }
+
+        return map;
+    }
+
+    internal static ProjectedRetrievalChunk ResolveProjectedRetrievalChunk(
+        Chunk chunk,
+        IReadOnlyDictionary<int, ProjectedRetrievalChunk> retrievalChunksByIndex)
+    {
+        if (retrievalChunksByIndex.TryGetValue(chunk.ChunkIndex, out var projectedChunk))
+            return projectedChunk;
+
+        return new ProjectedRetrievalChunk(
+            ChunkIndex: chunk.ChunkIndex,
+            SectionOrdinal: null,
+            UnitOrdinal: null,
+            PageStart: chunk.PageStart,
+            PageEnd: chunk.PageEnd,
+            Text: chunk.Text,
+            TokenCount: CountWords(chunk.Text),
+            Checksum: SHA256.HashData(Encoding.UTF8.GetBytes(chunk.Text)),
+            ChunkType: "legacy_word_window_v1");
+    }
+
+    internal static string? ResolveSectionTitle(
+        int? sectionOrdinal,
+        IReadOnlyDictionary<int, string> sectionTitleByOrdinal)
+    {
+        if (!sectionOrdinal.HasValue)
+            return null;
+
+        return sectionTitleByOrdinal.TryGetValue(sectionOrdinal.Value, out var title)
+            ? title
+            : null;
+    }
+
+    private static int CountWords(string text)
+        => text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+
+    private sealed record EmbeddingChunkWorkItem(
+        ProjectedRetrievalChunk ProjectedChunk,
+        string EmbeddingText,
+        string? SectionTitle,
+        string? HeadingPath,
+        ChunkLinkInfo? ChunkLinks);
+
+    internal sealed record ChunkLinkInfo(
+        Guid? PreviousChunkId,
+        Guid? NextChunkId,
+        Guid? SameSectionChunkId);
 }

@@ -67,7 +67,7 @@ internal sealed partial class UserSettingsDialog : ContentDialog
     private void LoadFromSettings()
     {
         AssistantEnabledToggle.IsOn = _settings.UseLocalLlm;
-        StrictModeToggle.IsOn = _settings.StrictMode;
+        StrictModeToggle.IsOn = string.Equals(_settings.ActiveMode, "strict", StringComparison.OrdinalIgnoreCase);
 
         // Rag preset
         var preset = (_settings.RagQualityPreset ?? "balanced").Trim().ToLowerInvariant();
@@ -96,7 +96,7 @@ internal sealed partial class UserSettingsDialog : ContentDialog
     {
         // Apply safe settings back to AppSettings.
         _settings.UseLocalLlm = AssistantEnabledToggle.IsOn;
-        _settings.StrictMode = StrictModeToggle.IsOn;
+        _settings.ActiveMode = StrictModeToggle.IsOn ? "strict" : "auto";
 
         _settings.RagQualityPreset = RagQualityCombo.SelectedIndex switch
         {

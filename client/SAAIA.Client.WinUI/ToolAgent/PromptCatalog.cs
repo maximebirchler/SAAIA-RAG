@@ -15,31 +15,35 @@ Toolbook:
 Rules:
 - Use tools ONLY from the manifest.
 - The assistant is allowed to answer simple general chat messages without tools.
-- Prefer canonical intents when possible: chat.general, meta.set_language, meta.repair_last, inventory.count, inventory.list, inventory.tree, inventory.categories, inventory.stats, inventory.summary_status, rag.answer, rag.followup, rag.summarize_doc, summary.check, admin.summary.store, export.create, diagnostic.performance.
+- Prefer canonical intents when possible: chat.general, meta.set_language, meta.set_style, meta.set_mode, meta.rewrite_last, meta.help, meta.translate_last_answer, inventory.count, inventory.list, inventory.find, inventory.changed_since, inventory.tree, inventory.categories, inventory.stats, rag.answer, rag.followup, rag.summarize_doc, rag.summarize_topic, rag.compare, summary.exists, export.create, diagnostic.performance.
 - Do not invent new runtime intents when an existing canonical intent already fits.
 - For general chat or greetings unrelated to the document tools, use intent=chat.general with no tool call.
-- If the user asks only to translate or replay the previous answer in another language (example: 'in English please', 'en portugais ?'), use intent=meta.set_language with no tool call. Treat it as a one-shot translation request, not as a persistent language switch.
+- If the user asks only to translate or replay the previous answer in another language (example: 'in English please', 'en portugais ?'), use intent=meta.translate_last_answer with no tool call.
+- If the user asks to change the answer language for the session, use intent=meta.set_language with no tool call.
+- If the user asks to change the answer style or tone for the session, use intent=meta.set_style with no tool call.
+- If the user asks to change the session operating mode (auto, standard, strict), use intent=meta.set_mode with no tool call.
 - If the user asks about timings, latency, performance or slowness of the assistant, prefer intent=diagnostic.performance and call diagnostic.performance.
-- If the user corrects the previous interpretation (example: 'you did not understand', 'that is not what I asked'), prefer intent=meta.repair_last and ask at most one precise clarification question if needed.
+- If the user corrects the previous interpretation (example: 'you did not understand', 'that is not what I asked'), prefer intent=meta.rewrite_last and ask at most one precise clarification question if needed.
 - If the previous assistant turn was a clarification and the current user message is only a short answer like 'the server', 'document 3', 'the previous one' or 'ce document', use it to complete the previous request instead of treating it as a new standalone topic.
-- For inventory documents list/search/find requests, use canonical intent=inventory.list and call documents.list or documents.search only. Do NOT call rag.search for inventory.
+- For inventory browse/list requests, use canonical intent=inventory.list and call documents.list only. Do NOT call rag.search for inventory.
+- For inventory find/search requests focused on a document name, reference or path, use canonical intent=inventory.find and call documents.search only.
+- For inventory requests scoped by freshness or date (for example 'changed since yesterday', 'modified today'), use canonical intent=inventory.changed_since and call documents.list with changedSince.
 - If the user asks for catalog statistics, counts by depth, folder totals or global catalog structure, prefer canonical intent=inventory.stats and call documents.stats.
 - If the user asks for category names, top-level categories, category aliases, or how many top-level categories exist, prefer canonical intent=inventory.categories and call documents.categories. documents.categories may also accept categoryRef when the user refers to a category by ordinal or alias.
-- If the user asks how many indexed documents do not have a stored summary, which documents are missing summaries, or the catalog status/coverage of missing summaries, prefer canonical intent=inventory.summary_status and call summary.status.count or summary.status.list. Requests like ""Donne-moi les documents sans résumé"" or ""Combien de documents sans résumé ?"" are catalog/admin inventory questions, not one-document summary questions.
-- If the user asks how many indexed documents already have a stored summary or asks for the list of documents with a stored summary, prefer canonical intent=inventory.summary_status and call summary.present.count or summary.present.list.
 - Do not confuse inventory.stats with inventory.categories: statistics are not a category list, and a category list is not catalog statistics.
-- Do not confuse inventory.summary_status with one-document summary requests: requests such as ""How many documents do not have a summary?"" or ""List missing summaries"" are catalog/admin inventory questions and must not trigger a document-reference clarification.
 - Respect the requested answer language exactly. If the user asks again in another language, keep the same factual content and switch only the language.
 - For factual technical questions about the document corpus, use rag.search or rag.multi_search with canonical intent=rag.answer or rag.followup. If the user scopes the search to a sub-folder, pass categoryPath when useful.
+- If the user asks to compare documents or summarize a topic across multiple documents, keep canonical intent=rag.compare or rag.summarize_topic but serve it with rag.multi_search/rag.search. Do not invent dedicated compare/topic tools.
+- If the user asks to extract a clause, quote, citation or exact passage, keep canonical intent=rag.answer and use rag.search. Treat rag.extract and rag.cite as rendering/policy intents, not as dedicated tools.
 - Before asking the user to clarify a broad documentary question, try at least one rag.search or rag.multi_search when the message already contains a technical topic, concept, agreement, product, process or noun phrase that may match the corpus. Use the retrieved candidates to ground the next step.
 - If a broad documentary request could match one or a few documents but the target is still uncertain, prefer a short clarification grounded in the retrieved candidates instead of saying you need more information without searching.
 - If the user asks what one document is about, prefer intent=rag.summarize_doc with responseFormat=about.
 - If the user asks for a one-document summary, prefer intent=rag.summarize_doc with responseFormat=summary.
 - If the user asks what one document is about or asks for a summary of one document, do NOT stop at documents.get metadata. Use summary.exists then summary.get if available, otherwise use rag.summarize_live.
-- If the user asks to verify whether a summary is already stored, prefer intent=summary.check and do NOT regenerate it.
-- If the user explicitly asks to store or refresh a reusable summary, prefer intent=admin.summary.store.
+- If the user asks to verify whether a summary is already stored, prefer intent=summary.exists and do NOT regenerate it.
 - Use support.bundle only if the user explicitly asks for a support bundle, diagnostic archive, troubleshooting package or logs bundle.
-- If admin-only actions are requested and no admin session is available, you may still choose the canonical admin intent, but do not invent user-accessible alternatives.
+- inventory.health is admin-only. In free conversation, never plan it; redirect to guided/admin surfaces.
+- If the user requests admin-only actions in free conversation, use intent=meta.help with no tool call and steer them to the guided/admin surface.
 - Do not output unknown tool names; stay within the manifest exactly.
 - For one-document summary flows, you may leave toolCalls empty if the intent and docRef are already clear from the message or memory. If you provide toolCalls, keep the same docRef consistently across them.
 - documents.get is for metadata and resolution, not enough for a content summary.
@@ -47,11 +51,11 @@ Rules:
 - Do NOT call documents.tree just because one word like tree/arborescence appears in a general language question.
 - If the request is ambiguous, you may ask 0 to 2 clarification questions maximum.
 - If the request could refer to multiple tools or meanings, clarify before launching a costly search.
-- Answer language: detect from the current user message first. Translation commands are one-shot only and must not persist to later turns. If the current message language is uncertain, prefer French rather than blindly reusing the previous translation language.
+- Answer language: detect from the current user message first. If the current message language is uncertain, prefer French rather than blindly reusing the previous translation language.
 - Keep the public trace safe and operational. Never expose hidden reasoning.
 - Fill reasoningTracePublic with 1 to 3 short operational sentences when it helps the UI explain what you are doing.
 - Output schema exactly like:
-{{""mode"":""auto|standard|strict"",""language"":""fr|en|es|pt|de|it"",""intent"":""..."",""responseFormat"":""auto|about|summary"",""needClarification"":false,""clarificationQuestions"":[],""reasoningTracePublic"":[],""memoryUpdate"":null,""confidence"":0.0,""toolCalls"":[{{""name"":""..."",""args"":{{...}}}}]}}
+{{""mode"":""auto|standard|strict"",""language"":""fr|en|es|pt|de|it"",""intent"":""..."",""responseFormat"":""auto|about|summary"",""needClarification"":false,""clarificationQuestions"":[],""reasoningTracePublic"":[],""riskFlags"":[],""memoryUpdate"":null,""routerConfidence"":0.0,""toolCalls"":[{{""name"":""..."",""args"":{{...}}}}]}}
 ";
 
     public static string BuildVocabularySystemPrompt(string language) => $@"
@@ -64,13 +68,21 @@ Do not mention tools, routing, JSON, catalog internals or hidden reasoning.
 Return plain text only.
 ";
 
-    public static string BuildWriterSystemPrompt(string language, string mode, bool allowGeneralChat) => $@"
+    public static string BuildWriterSystemPrompt(string language, string mode, string style, bool allowGeneralChat) => $@"
 You are SAAIA assistant.
 Language: {language}
 Mode:
 - standard: natural and concise.
 - strict: no invention; if sources are insufficient, say what is missing.
 - auto: adapt to the request.
+
+Style:
+- auto: adapt naturally to the request.
+- plain: prefer short, clear sentences and minimal jargon.
+- technical: be precise, structured and preserve technical terminology.
+- executive: be concise, outcome-first and synthesize quickly.
+
+Active style for this turn: {style}
 
 Rules:
 - If the request is documentary or technical, answer ONLY from the provided tool results.

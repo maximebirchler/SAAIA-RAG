@@ -30,6 +30,24 @@ internal static class LocalizedStrings
                 ["de"] = "Alles klar, ich mache auf Deutsch weiter.",
                 ["it"] = "Va bene, continuerò in italiano."
             },
+            ["style_changed"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "D'accord, j'adopte maintenant un style {0}.",
+                ["en"] = "Got it, I'll use a {0} style from now on.",
+                ["es"] = "De acuerdo, usarÃ© un estilo {0} a partir de ahora.",
+                ["pt"] = "Certo, vou usar um estilo {0} a partir de agora.",
+                ["de"] = "Alles klar, ich verwende ab jetzt einen {0} Stil.",
+                ["it"] = "Va bene, d'ora in poi userÃ² uno stile {0}."
+            },
+            ["mode_changed"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "D'accord, je passe maintenant en mode {0}.",
+                ["en"] = "Got it, I'll use {0} mode from now on.",
+                ["es"] = "De acuerdo, ahora usarÃ© el modo {0}.",
+                ["pt"] = "Certo, vou usar o modo {0} a partir de agora.",
+                ["de"] = "Alles klar, ich verwende ab jetzt den Modus {0}.",
+                ["it"] = "Va bene, d'ora in poi userÃ² la modalitÃ  {0}."
+            },
             ["no_documents_found"] = new(StringComparer.OrdinalIgnoreCase)
             {
                 ["fr"] = "Aucun document trouvé.",
@@ -224,6 +242,10 @@ internal static class LocalizedStrings
 
     public static string Greeting(string? language) => Get("greeting", language);
     public static string LanguageChanged(string? language) => Get("language_changed", language);
+    public static string StyleChanged(string? style, string? language)
+        => Format("style_changed", language, LocalizedStyleName(style, language));
+    public static string ModeChanged(string? mode, string? language)
+        => Format("mode_changed", language, LocalizedModeName(mode, language));
     public static string NoDocumentsFound(string? language) => Get("no_documents_found", language);
     public static string DocumentListError(string? language) => Get("document_list_error", language);
     public static string DocumentTreeError(string? language) => Get("document_tree_error", language);
@@ -307,8 +329,129 @@ internal static class LocalizedStrings
         };
     }
 
+    public static string LocalizedStyleName(string? style, string? uiLanguage)
+    {
+        var target = NormalizeStyle(style);
+        var ui = NormalizeLanguage(uiLanguage);
+
+        return ui switch
+        {
+            "en" => target switch
+            {
+                "plain" => "plain",
+                "technical" => "technical",
+                "executive" => "executive",
+                _ => "automatic"
+            },
+            "es" => target switch
+            {
+                "plain" => "claro",
+                "technical" => "tÃ©cnico",
+                "executive" => "ejecutivo",
+                _ => "automÃ¡tico"
+            },
+            "pt" => target switch
+            {
+                "plain" => "claro",
+                "technical" => "tÃ©cnico",
+                "executive" => "executivo",
+                _ => "automÃ¡tico"
+            },
+            "de" => target switch
+            {
+                "plain" => "klaren",
+                "technical" => "technischen",
+                "executive" => "managementorientierten",
+                _ => "automatischen"
+            },
+            "it" => target switch
+            {
+                "plain" => "chiaro",
+                "technical" => "tecnico",
+                "executive" => "executive",
+                _ => "automatico"
+            },
+            _ => target switch
+            {
+                "plain" => "clair",
+                "technical" => "technique",
+                "executive" => "exÃ©cutif",
+                _ => "automatique"
+            }
+        };
+    }
+
+    public static string LocalizedModeName(string? mode, string? uiLanguage)
+    {
+        var target = NormalizeMode(mode);
+        var ui = NormalizeLanguage(uiLanguage);
+
+        return ui switch
+        {
+            "en" => target switch
+            {
+                "standard" => "standard",
+                "strict" => "strict",
+                _ => "automatic"
+            },
+            "es" => target switch
+            {
+                "standard" => "estÃ¡ndar",
+                "strict" => "estricto",
+                _ => "automÃ¡tico"
+            },
+            "pt" => target switch
+            {
+                "standard" => "padrÃ£o",
+                "strict" => "estrito",
+                _ => "automÃ¡tico"
+            },
+            "de" => target switch
+            {
+                "standard" => "Standard",
+                "strict" => "streng",
+                _ => "automatisch"
+            },
+            "it" => target switch
+            {
+                "standard" => "standard",
+                "strict" => "rigorosa",
+                _ => "automatica"
+            },
+            _ => target switch
+            {
+                "standard" => "standard",
+                "strict" => "strict",
+                _ => "automatique"
+            }
+        };
+    }
+
     public static string NoPreviousAnswerToTranslate(string? language)
         => Get("no_previous_answer_to_translate", language);
+
+    public static string NormalizeStyle(string? style)
+    {
+        var s = StripDiacritics(style ?? "auto").Trim().ToLowerInvariant();
+        return s switch
+        {
+            "plain" or "simple" or "clear" or "clair" or "sobre" => "plain",
+            "technical" or "technique" or "tech" or "detailed" or "detaille" => "technical",
+            "executive" or "executif" or "exec" or "management" => "executive",
+            _ => "auto"
+        };
+    }
+
+    public static string NormalizeMode(string? mode)
+    {
+        var s = StripDiacritics(mode ?? "auto").Trim().ToLowerInvariant();
+        return s switch
+        {
+            "standard" or "normal" or "balanced" or "equilibre" or "equilibrio" or "padrao" or "padrão" => "standard",
+            "strict" or "stricte" or "rigoureux" or "rigoureuse" or "estricto" or "estrito" or "streng" => "strict",
+            _ => "auto"
+        };
+    }
 
     public static string DetectLanguage(string? text, string? fallbackLanguage = "fr")
     {
@@ -345,6 +488,77 @@ internal static class LocalizedStrings
         }
 
         language = string.Empty;
+        return false;
+    }
+
+    public static bool TryDetectStylePreferenceChange(string? text, out string style)
+    {
+        var s = StripDiacritics(text ?? string.Empty).Trim();
+        if (s.Length == 0)
+        {
+            style = string.Empty;
+            return false;
+        }
+
+        var patterns = new[]
+        {
+            @"^(?:reponds|repond|ecris|continue|parle|answer|reply|write|continue|respond|responde|escribe|contesta|fale|responda|antworte|schreibe|rispondi|scrivi)\s+(?:avec\s+un\s+style|dans\s+un\s+style|de\s+maniere|de\s+facon|in\s+a|with\s+a|en\s+modo|em\s+estilo|im\s+stil|con\s+uno\s+stile)\s+(?<style>[\p{L}\-_ ]+)\s*[!.?]*$",
+            @"^(?:style|tone|ton|mode|stil|estilo)\s+(?<style>[\p{L}\-_ ]+)\s*[!.?]*$",
+            @"^(?<style>plain|simple|clear|clair|sobre|technical|technique|tech|executive|executif|exec|management)\s+(?:style|tone|mode|stil|estilo)?\s*[!.?]*$",
+            @"^(?:pour\s+la\s+suite|dorenavant|desormais|from\s+now\s+on|a\s+partir\s+de\s+maintenant)\s+(?:style|tone|mode)?\s*(?<style>[\p{L}\-_ ]+)\s*[!.?]*$"
+        };
+
+        foreach (var pattern in patterns)
+        {
+            var match = Regex.Match(s, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            if (!match.Success)
+                continue;
+
+            var candidate = NormalizeStyle(match.Groups["style"].Value);
+            if (candidate != "auto")
+            {
+                style = candidate;
+                return true;
+            }
+        }
+
+        style = string.Empty;
+        return false;
+    }
+
+    public static bool TryDetectModePreferenceChange(string? text, out string mode)
+    {
+        var s = StripDiacritics(text ?? string.Empty).Trim();
+        if (s.Length == 0)
+        {
+            mode = string.Empty;
+            return false;
+        }
+
+        var patterns = new[]
+        {
+            @"^(?:passe|mets|met|laisse|garde|continue|travaille|set|switch|use|keep|work|stay|pon|usa|mantieni|wechsel|nutze)\s+(?:en|to|in|em|im)?\s*(?:le|la|the|el|o|il|den)?\s*(?:mode\s+)?(?<mode>[\p{L}\-_ ]+)\s*[!.?]*$",
+            @"^(?:mode|working\s+mode|modo|modus)\s+(?<mode>[\p{L}\-_ ]+)\s*[!.?]*$",
+            @"^(?<mode>auto|automatic|automatique|automatica|automático|automatisch|standard|normal|balanced|equilibre|equilibrio|strict|stricte|rigoureux|rigoureuse|estricto|estrito|streng)\s+(?:mode|modo|modus)?\s*[!.?]*$",
+            @"^(?:pour\s+la\s+suite|dorenavant|desormais|from\s+now\s+on|a\s+partir\s+de\s+maintenant)\s+(?:mode)?\s*(?<mode>[\p{L}\-_ ]+)\s*[!.?]*$"
+        };
+
+        foreach (var pattern in patterns)
+        {
+            var match = Regex.Match(s, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            if (!match.Success)
+                continue;
+
+            var rawMode = match.Groups["mode"].Value;
+            var candidate = NormalizeMode(rawMode);
+            if (candidate != "auto" || Regex.IsMatch(rawMode, @"(?i)\b(auto|automatic|automatique|automatica|automático|automatisch)\b"))
+            {
+                mode = candidate;
+                return true;
+            }
+        }
+
+        mode = string.Empty;
         return false;
     }
 

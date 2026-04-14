@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using System.Text;
 using System.Text.Json;
+using System.Security.Cryptography;
 using Dapper;
 using Npgsql;
 using SAAIA.Backend.Audit;
@@ -22,11 +23,12 @@ public static partial class DocumentsEndpoints
         app.MapGet("/documents/catalog", CatalogAsync);
         app.MapGet("/documents/catalog/{docId:guid}", CatalogGetAsync);
 
-        // Inventory helpers (CDC v2.8.1)
+        // Inventory helpers (CDC v3.0)
         app.MapGet("/documents/count", CountAsync);
         app.MapGet("/documents/categories", CategoriesAsync);
         app.MapGet("/documents/tree", TreeAsync);
         app.MapGet("/documents/stats", StatsAsync);
+        app.MapPost("/documents/resolve-category", ResolveCategoryAsync);
 
         // Contract-aligned catalog surface (transition to snapshot + capabilities)
         app.MapGet("/catalog/snapshot", SnapshotAsync);
@@ -52,6 +54,7 @@ public static partial class DocumentsEndpoints
         string? categoryPath,
         string? categoryRef,
         string? q,
+        DateTimeOffset? changedSince,
         int? limit,
         int? offset)
     {
@@ -87,11 +90,12 @@ WHERE tenant_id=@tenant
   AND status='indexed'
   AND (@category IS NULL OR category=@category)
   AND (@categoryPath IS NULL OR doc_path LIKE (@categoryPath || '/%'))
+  AND (@changedSince IS NULL OR updated_at >= @changedSince)
   AND (@q IS NULL OR (doc_name ILIKE ('%' || @q || '%') OR doc_path ILIKE ('%' || @q || '%')))
 ORDER BY category ASC, doc_path ASC
 LIMIT @lim OFFSET @off;";
 
-        var rows = await conn.QueryAsync(sql, new { tenant = tenantId, category, categoryPath, q, lim, off });
+        var rows = await conn.QueryAsync(sql, new { tenant = tenantId, category, categoryPath, changedSince, q, lim, off });
 
         await AuditWriter.WriteAsync(
             conn,
@@ -100,7 +104,7 @@ LIMIT @lim OFFSET @off;";
             actorIsAdmin,
             action: "documents.catalog",
             target: null,
-            payload: new { category, categoryPath, categoryRef, q, limit = lim, offset = off },
+            payload: new { category, categoryPath, categoryRef, q, changedSince, limit = lim, offset = off },
             ip: ctx.Connection.RemoteIpAddress?.ToString(),
             ct: ct);
 
@@ -152,7 +156,7 @@ LIMIT 1;";
     }
 
     // -------------------------
-    // Inventory endpoints (CDC v2.8.1)
+    // Inventory endpoints (CDC v3.0)
     // Snapshot-first (M1.4) with safe fallbacks.
     // -------------------------
 
@@ -305,15 +309,7 @@ WHERE tenant_id=@tenant AND parent_path=@path;";
         var snapTree = await TryLoadTreeFromSnapshotAsync(conn, tenantId, path, maxDepth, ct);
         if (snapTree is not null)
         {
-            if (format is "markdown" or "md")
-            {
-                var sb = new StringBuilder();
-                RenderMarkdownTree(snapTree, sb, indent: 0, maxDepth: maxDepth);
-                return Results.Ok(new { path = snapTree.Path, markdown = sb.ToString(), source = "snapshot" });
-            }
-
-            var dto = ToDto(snapTree, maxDepth);
-            return Results.Ok(new { path = snapTree.Path, tree = dto, source = "snapshot" });
+            return BuildTreeResponse(ctx, format, maxDepth, snapTree.Path, "snapshot", snapTree);
         }
 
         // Fallback (no snapshot yet)
@@ -336,15 +332,41 @@ WHERE tenant_id=@tenant AND status='indexed';";
             node = found;
         }
 
+        return BuildTreeResponse(ctx, format, maxDepth, node.Path, "documents", node);
+    }
+
+    private static IResult BuildTreeResponse(HttpContext ctx, string format, int? maxDepth, string path, string source, TreeNode node)
+    {
+        object payload;
         if (format is "markdown" or "md")
         {
             var sb = new StringBuilder();
             RenderMarkdownTree(node, sb, indent: 0, maxDepth: maxDepth);
-            return Results.Ok(new { path = node.Path, markdown = sb.ToString(), source = "documents" });
+            payload = new { path, markdown = sb.ToString(), source };
+        }
+        else
+        {
+            payload = new { path, tree = ToDto(node, maxDepth), source };
         }
 
-        var dto2 = ToDto(node, maxDepth);
-        return Results.Ok(new { path = node.Path, tree = dto2, source = "documents" });
+        var json = JsonSerializer.Serialize(payload);
+        var etag = BuildTreeEtag(json);
+        ctx.Response.Headers.ETag = etag;
+
+        var ifNoneMatch = ctx.Request.Headers.IfNoneMatch.ToString();
+        if (!string.IsNullOrWhiteSpace(ifNoneMatch)
+            && string.Equals(ifNoneMatch.Trim(), etag, StringComparison.Ordinal))
+        {
+            return Results.StatusCode(StatusCodes.Status304NotModified);
+        }
+
+        return Results.Text(json, "application/json");
+    }
+
+    private static string BuildTreeEtag(string json)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(json));
+        return $"\"tree-{Convert.ToHexString(hash).ToLowerInvariant()}\"";
     }
 
 
@@ -885,6 +907,7 @@ WHERE tenant_id=@tenant AND parent_path=@path;";
         NpgsqlDataSource ds,
         string? categoryRef,
         string? q,
+        DateTimeOffset? changedSince,
         string? orderby,
         int? pageSize,
         int? maxpagesize,
@@ -908,6 +931,7 @@ WHERE tenant_id=@tenant AND parent_path=@path;";
 
             if (!CursorMatches(cursorState.CategoryRef, requestedCategoryRef)
                 || !CursorMatches(cursorState.Query, requestedQuery)
+                || !CursorMatches(cursorState.ChangedSince, changedSince)
                 || !CursorMatches(cursorState.OrderBy, requestedOrderBy)
                 || !CursorMatches(cursorState.PageSize, requestedPageSize))
             {
@@ -916,6 +940,7 @@ WHERE tenant_id=@tenant AND parent_path=@path;";
 
             requestedCategoryRef = cursorState.CategoryRef;
             requestedQuery = cursorState.Query;
+            changedSince = cursorState.ChangedSince;
             requestedOrderBy = cursorState.OrderBy;
             requestedPageSize = cursorState.PageSize;
         }
@@ -944,6 +969,7 @@ FROM documents d
 WHERE d.tenant_id=@tenant
   AND d.status='indexed'
   AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
+  AND (@changedSince IS NULL OR d.updated_at >= @changedSince)
   AND (@q IS NULL OR (d.doc_name ILIKE ('%' || @q || '%') OR d.doc_path ILIKE ('%' || @q || '%')))
 ORDER BY {orderClause}
 LIMIT @lim OFFSET @off;";
@@ -954,10 +980,11 @@ FROM documents d
 WHERE d.tenant_id=@tenant
   AND d.status='indexed'
   AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
+  AND (@changedSince IS NULL OR d.updated_at >= @changedSince)
   AND (@q IS NULL OR (d.doc_name ILIKE ('%' || @q || '%') OR d.doc_path ILIKE ('%' || @q || '%')));";
 
-        var rows = (await conn.QueryAsync<CatalogDocumentRow>(new CommandDefinition(sql, new { tenant = tenantId, categoryPath = resolvedCategoryPath, q = requestedQuery, lim = requestedPageSize, off = offset }, cancellationToken: ct))).ToList();
-        var total = await conn.ExecuteScalarAsync<int>(new CommandDefinition(countSql, new { tenant = tenantId, categoryPath = resolvedCategoryPath, q = requestedQuery }, cancellationToken: ct));
+        var rows = (await conn.QueryAsync<CatalogDocumentRow>(new CommandDefinition(sql, new { tenant = tenantId, categoryPath = resolvedCategoryPath, changedSince, q = requestedQuery, lim = requestedPageSize, off = offset }, cancellationToken: ct))).ToList();
+        var total = await conn.ExecuteScalarAsync<int>(new CommandDefinition(countSql, new { tenant = tenantId, categoryPath = resolvedCategoryPath, changedSince, q = requestedQuery }, cancellationToken: ct));
 
         var topCategories = (await conn.QueryAsync<SnapshotCategoryRow>(new CommandDefinition(
             @"SELECT path AS ""Path"", name AS ""Name"", display_order AS ""DisplayOrder"", doc_count AS ""DocCount"", direct_doc_count AS ""DirectDocCount"", subfolder_count AS ""SubfolderCount"", updated_at AS ""UpdatedAt"" FROM documents_catalog_categories WHERE tenant_id=@tenant ORDER BY display_order ASC, name ASC;",
@@ -991,6 +1018,7 @@ WHERE d.tenant_id=@tenant
             {
                 CategoryRef = requestedCategoryRef,
                 Query = requestedQuery,
+                ChangedSince = changedSince,
                 OrderBy = requestedOrderBy,
                 PageSize = requestedPageSize,
                 Offset = nextOffset
@@ -1000,6 +1028,7 @@ WHERE d.tenant_id=@tenant
             {
                 ["categoryRef"] = requestedCategoryRef,
                 ["q"] = requestedQuery,
+                ["changedSince"] = changedSince?.ToString("O"),
                 ["orderby"] = requestedOrderBy,
                 ["pageSize"] = requestedPageSize.ToString(),
                 ["cursor"] = nextCursor
@@ -1024,6 +1053,7 @@ WHERE d.tenant_id=@tenant
     {
         public string? CategoryRef { get; set; }
         public string? Query { get; set; }
+        public DateTimeOffset? ChangedSince { get; set; }
         public string? OrderBy { get; set; }
         public int PageSize { get; set; }
         public int Offset { get; set; }

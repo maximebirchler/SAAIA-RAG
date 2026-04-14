@@ -37,7 +37,7 @@ public static class ToolManifest
 
     private static readonly ToolDefinition[] _definitions =
     {
-        new("documents.list", "user", "List indexed documents with pagination and optional filters.", Schema(("q", "string|null"), ("categoryPath", "string|null"), ("categoryRef", "string|null"), ("limit", "int"), ("offset", "int"))),
+        new("documents.list", "user", "List indexed documents with pagination and optional filters.", Schema(("q", "string|null"), ("categoryPath", "string|null"), ("categoryRef", "string|null"), ("changedSince", "string|null"), ("limit", "int"), ("offset", "int"))),
         new("documents.search", "user", "Search documents by name/path. Paginated.", Schema(("q", "string"), ("categoryPath", "string|null"), ("categoryRef", "string|null"), ("limit", "int"), ("offset", "int"))),
         new("documents.get", "user", "Get document metadata for a document reference (PDFxx, index, docId, docPath or exact file name).", Schema(("docRef", "string"))),
         new("documents.count", "user", "Count indexed documents globally or with filters.", Schema(("categoryPath", "string|null"), ("categoryRef", "string|null"), ("q", "string|null"))),
@@ -69,10 +69,15 @@ public static class ToolManifest
         new("admin.catalog.health", "admin", "Get catalog/index health information.", EmptySchema),
         new("admin.jobs.list", "admin", "List admin jobs with status and errors.", Schema(("type", "string|null"), ("limit", "int"), ("offset", "int"))),
         new("admin.jobs.cancel", "admin", "Cancel an admin job.", Schema(("jobId", "string"))),
+        new("admin.audit", "admin", "List recent audit events for admin diagnostics.", Schema(("action", "string|null"), ("target", "string|null"), ("since", "string|null"), ("until", "string|null"), ("limit", "int"), ("offset", "int"))),
         new("admin.summary.generate", "admin", "Generate or queue an admin summary generation for a document.", Schema(("docRef", "string"), ("level", "medium"), ("force", "bool|null"))),
         new("rag.debug.scroll", "admin", "Scroll/paginate raw chunks for debugging RAG ingestion.", Schema(("docRef", "string|null"), ("docPath", "string|null"), ("cursor", "string|null"), ("limit", "int|null"))),
         new("admin.qdrant.health", "admin", "Qdrant health checks (if available on deployment).", EmptySchema)
     };
+
+    private static readonly ToolDefinition[] _conversationDefinitions = _definitions
+        .Where(x => string.Equals(x.Access, "user", StringComparison.OrdinalIgnoreCase))
+        .ToArray();
 
 
     private static readonly IReadOnlySet<string> _knownToolNames = new HashSet<string>(_definitions.Select(x => x.Name), StringComparer.OrdinalIgnoreCase);
@@ -83,11 +88,17 @@ public static class ToolManifest
     public static IReadOnlySet<string> AdminToolNames => _adminToolNames;
 
     public static string BuildManifestJson()
+        => BuildManifestJson(_definitions, "v3.0");
+
+    public static string BuildConversationManifestJson()
+        => BuildManifestJson(_conversationDefinitions, "v3.0");
+
+    private static string BuildManifestJson(IEnumerable<ToolDefinition> definitions, string version)
     {
         var manifest = new
         {
-            version = "v2.8.1",
-            tools = _definitions.Select(x => new
+            version,
+            tools = definitions.Select(x => new
             {
                 name = x.Name,
                 access = x.Access,
@@ -119,13 +130,14 @@ public static class ToolManifest
 
     public static string ToolbookText => string.Join("\n", new[]
     {
-        "SAAIA tools rules v2.8.1",
+        "SAAIA tools rules v3.0",
         "- Be flexible but grounded: use tools to obtain data, do not invent document metadata or source links.",
+        "- The session mode is controlled by meta.set_mode; use it only for explicit requests to switch auto/standard/strict behavior.",
         "- For one-document content questions, documents.get only resolves metadata. Prefer rag.summarize_live (or summary.get if a stored summary is explicitly needed).",
         "- If the user asks to verify whether a summary is already stored, use summary.exists and summary.get only. Do not regenerate.",
         "- If the user explicitly asks to store or refresh a reusable summary, use admin.summary.* with admin access.",
         "- Use sources.resolve only for explicit source requests, PDF references, open-file actions or 'where is document N' style questions.",
-        "- Inventory requests (count/categories/list/tree/stats) are answered from indexed documents/catalog data, not from RAG chunks. Empty-folder checks are separate admin/server diagnostics.",
+        "- Inventory requests (count/categories/list/find/tree/stats/changed-since) are answered from indexed documents/catalog data, not from RAG chunks. Empty-folder checks are separate admin/server diagnostics.",
         "- For one-document content questions ('de quoi parle le document 2 ?', 'résume le document 2'), do not stop at sources.resolve/documents.get. Use summary.exists/summary.get or rag.summarize_live.",
         "- For explicit content questions or factual questions inside documents, use rag.search or rag.multi_search.",
         "- For stored summary administration, use admin.summary.*.",
@@ -134,6 +146,18 @@ public static class ToolManifest
         "- Empty-folder tools are admin/health filesystem diagnostics, not nominal user inventory tools.",
         "- Never call admin tools without an active admin session.",
         "- Do not invent tools: stay strictly inside the manifest."
+    });
+
+    public static string ConversationToolbookText => string.Join("\n", new[]
+    {
+        "SAAIA conversation tools rules v3.0",
+        "- The free conversation rail is strictly user-only, even if an admin session exists.",
+        "- Never plan or call admin tools in free conversation. Redirect to guided/admin surfaces instead.",
+        "- Use tools ONLY from the manifest.",
+        "- Use meta.set_mode only for explicit session-mode changes (auto/standard/strict).",
+        "- Use sources.resolve only for explicit source, link, opening or PDF-reference requests.",
+        "- Inventory requests stay on count/list/find/tree/categories/stats tools, never on RAG tools.",
+        "- Do not invent tools or admin-only alternatives."
     });
 
     private static IReadOnlyDictionary<string, string> Schema(params (string Name, string Type)[] entries)

@@ -274,10 +274,35 @@ public sealed partial class ToolAgentOrchestrator
                 if (!LooksLikeReindexableDocumentPath(resolved.DocPath))
                     return BuildDirectCommandFailure(language, displayText, "admin.ingestion.reindex", DeterministicAgentText.AdminReindexDocumentTargetIsCategory(language, referenceLabel), "admin.ingestion.reindex");
 
-                var result = await _api.AdminIngestionReindexAsync(resolved.DocPath, ct).ConfigureAwait(false);
                 var label = Path.GetFileName((resolved.DocPath ?? string.Empty).Replace('\\', '/'));
                 if (string.IsNullOrWhiteSpace(label))
                     label = string.IsNullOrWhiteSpace(resolved.DocName) ? referenceLabel : resolved.DocName;
+                var result = await _api.AdminIngestionReindexAsync(resolved.DocPath!, ct).ConfigureAwait(false);
+                var apiError = TryGetString(result, "error") ?? TryGetString(result, "Error");
+                if (string.Equals(apiError, "active_job_exists", StringComparison.OrdinalIgnoreCase))
+                {
+                    var existingJobId = TryGetString(result, "jobId") ?? TryGetString(result, "JobId") ?? string.Empty;
+                    var existingStatus = (TryGetString(result, "status") ?? TryGetString(result, "Status") ?? "running").Trim().ToLowerInvariant();
+                    var activeAnswer = DeterministicAgentText.AdminReindexAlreadyActive(language, label);
+                    RememberDirectCommandState(activeAnswer, language, displayText, "admin.ingestion.reindex", new[] { "admin.ingestion.reindex" });
+                    if (string.IsNullOrWhiteSpace(existingJobId))
+                        return BuildDirectCommandResult(activeAnswer, "admin.ingestion.reindex", "admin.ingestion.reindex");
+
+                    return BuildDirectCommandResult(
+                        activeAnswer,
+                        "admin.ingestion.reindex",
+                        new DirectCommandTrackedJob
+                        {
+                            JobId = existingJobId,
+                            JobType = "ingestion",
+                            DisplayLabel = label,
+                            Status = existingStatus,
+                            DocId = resolved.DocId,
+                            DocPath = resolved.DocPath
+                        },
+                        "admin.ingestion.reindex");
+                }
+
                 var jobId = TryGetString(result, "jobId") ?? TryGetString(result, "JobId");
                 var statusFromApi = TryGetString(result, "status") ?? TryGetString(result, "Status");
                 var queued = false;

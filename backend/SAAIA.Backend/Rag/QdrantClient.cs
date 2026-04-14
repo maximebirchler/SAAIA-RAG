@@ -148,7 +148,17 @@ static class QdrantClient
                 ChunkIndex: GetInt("chunk_index"),
                 Text: GetStr("text"),
                 IngestionVersion: GetInt("ingestion_version"),
-                HashDoc: GetStr("hash_doc")
+                HashDoc: GetStr("hash_doc"),
+                EmbedText: GetStr("embed_text"),
+                EmbeddingBasis: GetStr("embedding_basis"),
+                SectionOrdinal: GetInt("section_ordinal"),
+                UnitOrdinal: GetInt("unit_ordinal"),
+                SectionTitle: GetStr("section_title"),
+                HeadingPath: GetStr("heading_path"),
+                ChunkType: GetStr("chunk_type"),
+                PrevChunkId: GetStr("prev_chunk_id"),
+                NextChunkId: GetStr("next_chunk_id"),
+                SameSectionChunkId: GetStr("same_section_chunk_id")
             );
 
             list.Add(m);
@@ -184,5 +194,15 @@ public sealed record RagMatch(
     int? ChunkIndex,
     string? Text,
     int? IngestionVersion,
-    string? HashDoc
+    string? HashDoc,
+    string? EmbedText,
+    string? EmbeddingBasis,
+    int? SectionOrdinal,
+    int? UnitOrdinal,
+    string? SectionTitle,
+    string? HeadingPath,
+    string? ChunkType,
+    string? PrevChunkId,
+    string? NextChunkId,
+    string? SameSectionChunkId
 );

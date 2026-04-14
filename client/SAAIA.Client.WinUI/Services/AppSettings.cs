@@ -37,7 +37,6 @@ internal sealed class AppSettings
     private const string KStartupTimeoutSec = "llm.startupTimeoutSec";
 
     // Safe tuning (must not break RAG)
-    private const string KStrictMode = "llm.strictMode";
     private const string KLlmTemperature = "llm.temperature";
     private const string KLlmMaxOutputTokens = "llm.maxOutputTokens";
     private const string KRagQualityPreset = "rag.qualityPreset";
@@ -103,8 +102,8 @@ internal sealed class AppSettings
 
     public int StartupTimeoutSeconds { get; set; } = 60;
 
-    /// <summary>Safe tuning: strict mode reduces non-sourced content.</summary>
-    public bool StrictMode { get; set; } = false;
+    /// <summary>Session operating mode. Not persisted.</summary>
+    public string ActiveMode { get; set; } = "auto";
 
     /// <summary>Safe tuning: temperature (0..1). Higher => more creative.</summary>
     public double LlmTemperature { get; set; } = 0.2;
@@ -150,7 +149,6 @@ internal sealed class AppSettings
         string ModelId,
         string ExtraArgs,
         int StartupTimeoutSeconds,
-        bool StrictMode,
         double LlmTemperature,
         int LlmMaxOutputTokens,
         string RagQualityPreset,
@@ -188,7 +186,9 @@ internal sealed class AppSettings
             s.ExtraArgs = (ls.Values[KExtraArgs] as string) ?? s.ExtraArgs;
             s.StartupTimeoutSeconds = (ls.Values[KStartupTimeoutSec] as int?) ?? s.StartupTimeoutSeconds;
 
-            s.StrictMode = (ls.Values[KStrictMode] as bool?) ?? s.StrictMode;
+            var legacyStrict = (ls.Values["llm.strictMode"] as bool?) ?? false;
+            if (legacyStrict)
+                s.ActiveMode = "strict";
             s.LlmTemperature = (ls.Values[KLlmTemperature] as double?) ?? s.LlmTemperature;
             s.LlmMaxOutputTokens = (ls.Values[KLlmMaxOutputTokens] as int?) ?? s.LlmMaxOutputTokens;
             s.RagQualityPreset = (ls.Values[KRagQualityPreset] as string) ?? s.RagQualityPreset;
@@ -252,8 +252,11 @@ internal sealed class AppSettings
             s.ExtraArgs = dto.ExtraArgs ?? "";
             s.StartupTimeoutSeconds = dto.StartupTimeoutSeconds <= 0 ? 60 : dto.StartupTimeoutSeconds;
 
-            if (Has(nameof(FileDto.StrictMode)))
-                s.StrictMode = dto.StrictMode;
+            using (var legacyDoc = JsonDocument.Parse(json))
+            {
+                if (legacyDoc.RootElement.TryGetProperty("StrictMode", out var strictEl) && strictEl.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                    s.ActiveMode = strictEl.GetBoolean() ? "strict" : "auto";
+            }
             if (Has(nameof(FileDto.LlmTemperature)))
                 s.LlmTemperature = dto.LlmTemperature;
             if (Has(nameof(FileDto.LlmMaxOutputTokens)))
@@ -279,6 +282,17 @@ internal sealed class AppSettings
             "system" => "system",
             "light" => "light",
             _ => "dark"
+        };
+    }
+
+    public static string NormalizeActiveMode(string? mode)
+    {
+        var value = (mode ?? string.Empty).Trim().ToLowerInvariant();
+        return value switch
+        {
+            "standard" => "standard",
+            "strict" => "strict",
+            _ => "auto"
         };
     }
 
@@ -316,7 +330,7 @@ internal sealed class AppSettings
             ls.Values[KExtraArgs] = ExtraArgs ?? "";
             ls.Values[KStartupTimeoutSec] = StartupTimeoutSeconds;
 
-            ls.Values[KStrictMode] = StrictMode;
+            ls.Values.Remove("llm.strictMode");
             ls.Values[KLlmTemperature] = LlmTemperature;
             ls.Values[KLlmMaxOutputTokens] = LlmMaxOutputTokens;
             ls.Values[KRagQualityPreset] = RagQualityPreset ?? "balanced";
@@ -358,7 +372,6 @@ internal sealed class AppSettings
                 ModelId ?? ClientDefaults.LlmModel,
                 ExtraArgs ?? "",
                 StartupTimeoutSeconds,
-                StrictMode,
                 LlmTemperature,
                 LlmMaxOutputTokens,
                 RagQualityPreset ?? "balanced",
@@ -401,7 +414,7 @@ internal sealed class AppSettings
         ExtraArgs = this.ExtraArgs,
         StartupTimeoutSeconds = this.StartupTimeoutSeconds,
 
-        StrictMode = this.StrictMode,
+        ActiveMode = this.ActiveMode,
         LlmTemperature = this.LlmTemperature,
         LlmMaxOutputTokens = this.LlmMaxOutputTokens,
         RagQualityPreset = this.RagQualityPreset,
@@ -433,7 +446,7 @@ internal sealed class AppSettings
         ExtraArgs = other.ExtraArgs;
         StartupTimeoutSeconds = other.StartupTimeoutSeconds;
 
-        StrictMode = other.StrictMode;
+        ActiveMode = NormalizeActiveMode(other.ActiveMode);
         LlmTemperature = other.LlmTemperature;
         LlmMaxOutputTokens = other.LlmMaxOutputTokens;
         RagQualityPreset = other.RagQualityPreset;

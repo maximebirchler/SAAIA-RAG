@@ -4,6 +4,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace SAAIA.Client.WinUI.Services;
 
@@ -37,7 +38,8 @@ internal static class Provisioning
         string? ModelId,
         bool? Enabled,
         bool? ManageProcess,
-        bool? StrictMode,
+        string? ActiveMode,
+        [property: JsonPropertyName("StrictMode")] bool? LegacyStrictMode,
         string? RagQualityPreset,
         double? Temperature,
         int? MaxOutputTokens,
@@ -147,8 +149,10 @@ internal static class Provisioning
             if (dto.Llm?.MaxOutputTokens is int mt)
                 settings.LlmMaxOutputTokens = mt;
 
-            if (dto.Llm?.StrictMode is bool sm)
-                settings.StrictMode = sm;
+            if (!string.IsNullOrWhiteSpace(dto.Llm?.ActiveMode))
+                settings.ActiveMode = AppSettings.NormalizeActiveMode(dto.Llm.ActiveMode);
+            else if (dto.Llm?.LegacyStrictMode is bool sm)
+                settings.ActiveMode = sm ? "strict" : "auto";
 
             if (!string.IsNullOrWhiteSpace(dto.Llm?.RagQualityPreset))
                 settings.RagQualityPreset = dto.Llm!.RagQualityPreset!.Trim();

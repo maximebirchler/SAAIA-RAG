@@ -46,7 +46,7 @@ public sealed class ApiKeyAuthMiddleware
             return;
         }
 
-        // Admin endpoints are protected by a dedicated header (architecture v2.8.1).
+        // Admin endpoints are protected by a dedicated header (architecture v3.0).
         // Some legacy admin-only endpoints may not be under /admin; they must opt-in via endpoint metadata.
         var endpoint = ctx.GetEndpoint();
         var isAdminRoute = path.StartsWith("/admin", StringComparison.OrdinalIgnoreCase)

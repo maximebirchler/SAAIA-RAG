@@ -248,3 +248,88 @@ public sealed class AuthCapabilityCommand
     [JsonPropertyName("argsSchema")]
     public JsonElement ArgsSchema { get; set; }
 }
+
+// ---------------------
+// Resolve contracts
+// ---------------------
+
+public sealed class SourceResolveRequest
+{
+    [JsonPropertyName("ref")]
+    public string? Ref { get; set; }
+
+    [JsonPropertyName("pdfRef")]
+    public string? PdfRef { get; set; }
+}
+
+public sealed class ResolvedSourceDto
+{
+    [JsonPropertyName("docId")]
+    public Guid? DocId { get; set; }
+
+    [JsonPropertyName("docPath")]
+    public string DocPath { get; set; } = "";
+
+    [JsonPropertyName("docName")]
+    public string DocName { get; set; } = "";
+
+    [JsonPropertyName("pageStart")]
+    public int PageStart { get; set; } = 1;
+
+    [JsonPropertyName("pageEnd")]
+    public int PageEnd { get; set; } = 1;
+
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = "";
+}
+
+public sealed class SourceResolveResponse
+{
+    [JsonPropertyName("source")]
+    public ResolvedSourceDto? Source { get; set; }
+
+    [JsonPropertyName("error")]
+    public string? Error { get; set; }
+
+    [JsonPropertyName("requestedRef")]
+    public string? RequestedRef { get; set; }
+}
+
+public sealed class ResolveCategoryRequest
+{
+    [JsonPropertyName("path")]
+    public string? Path { get; set; }
+
+    [JsonPropertyName("categoryPath")]
+    public string? CategoryPath { get; set; }
+
+    [JsonPropertyName("categoryRef")]
+    public string? CategoryRef { get; set; }
+}
+
+public sealed class ResolvedCategoryItem
+{
+    [JsonPropertyName("categoryRef")]
+    public string CategoryRef { get; set; } = "";
+
+    [JsonPropertyName("categoryPath")]
+    public string CategoryPath { get; set; } = "";
+
+    [JsonPropertyName("displayName")]
+    public string DisplayName { get; set; } = "";
+
+    [JsonPropertyName("ordinal")]
+    public int? Ordinal { get; set; }
+
+    [JsonPropertyName("totalDocuments")]
+    public int? TotalDocuments { get; set; }
+
+    [JsonPropertyName("aliases")]
+    public List<string> Aliases { get; set; } = new();
+}
+
+public sealed class ResolveCategoryResponse
+{
+    [JsonPropertyName("items")]
+    public List<ResolvedCategoryItem> Items { get; set; } = new();
+}

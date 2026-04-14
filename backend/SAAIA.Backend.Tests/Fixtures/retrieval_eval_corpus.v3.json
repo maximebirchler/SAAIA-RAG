@@ -1,0 +1,142 @@
+{
+  "version": "v3",
+  "exactPositiveCases": [
+    {
+      "query": "Dans quel document trouve-t-on la norme EN 15281 ?",
+      "expectedTerms": ["en 15281"]
+    },
+    {
+      "query": "Retrouve le code IND570 et la reference IEC 61508.",
+      "expectedTerms": ["ind570", "iec 61508"]
+    },
+    {
+      "query": "Le rapport cite-t-il NFPA 70 avec le repere MCC210 ?",
+      "expectedTerms": ["nfpa 70", "mcc210"]
+    },
+    {
+      "query": "Montre-moi ou apparait ISO 13849 avec le code PLC410.",
+      "expectedTerms": ["iso 13849", "plc410"]
+    }
+  ],
+  "exactNegativeQueries": [
+    "Resume la procedure d inspection et de remise en service.",
+    "Quels documents parlent de prevention d explosion en zone ATEX ?",
+    "Fais une synthese executive du dossier de maintenance.",
+    "Compare les mesures de mitigation entre les chapitres securite et maintenance."
+  ],
+  "dominantRetrieverCases": [
+    {
+      "query": "Que dit EN 15281 sur la maintenance ?",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": ["en 15281"],
+      "allowExactNoise": false
+    },
+    {
+      "query": "Ou voit-on le code produit IND570 ?",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": ["ind570"],
+      "allowExactNoise": false
+    },
+    {
+      "query": "Resume la procedure de consignation electrique.",
+      "expectedDominantRetriever": "dense_qdrant",
+      "expectedExactTerms": [],
+      "allowExactNoise": false
+    },
+    {
+      "query": "Compare les consignes de securite entre les documents ATEX.",
+      "expectedDominantRetriever": "dense_qdrant",
+      "expectedExactTerms": [],
+      "allowExactNoise": false
+    },
+    {
+      "query": "Quelles consignes entourent la section sur le controle de vanne ?",
+      "expectedDominantRetriever": "dense_qdrant",
+      "expectedExactTerms": [],
+      "allowExactNoise": false
+    }
+  ],
+  "linkedContextCases": [
+    {
+      "name": "same_section_from_dense_anchor_should_help",
+      "anchorRetriever": "dense_qdrant",
+      "anchorScore": 0.84,
+      "linkType": "same_section",
+      "expectedShouldHelp": true
+    },
+    {
+      "name": "next_from_dense_anchor_can_help_but_stays_below_anchor",
+      "anchorRetriever": "dense_qdrant",
+      "anchorScore": 0.81,
+      "linkType": "next",
+      "expectedShouldHelp": true
+    },
+    {
+      "name": "prev_from_dense_anchor_should_remain_secondary",
+      "anchorRetriever": "dense_qdrant",
+      "anchorScore": 0.62,
+      "linkType": "prev",
+      "expectedShouldHelp": false
+    },
+    {
+      "name": "same_section_from_linked_anchor_stays_more_conservative",
+      "anchorRetriever": "linked_context",
+      "anchorScore": 0.82,
+      "linkType": "same_section",
+      "expectedShouldHelp": true
+    }
+  ],
+  "rankingExpectationCases": [
+    {
+      "name": "exact_reference_should_beat_dense_and_linked",
+      "exactKind": "standard_ref",
+      "matchedTerm": "en 15281",
+      "exactText": "EN 15281",
+      "denseLegacyScore": 0.50,
+      "densePreciseScore": 0.49,
+      "linkedAnchorScore": 0.515,
+      "linkedType": "same_section",
+      "expectedOrder": ["exact_match", "dense_qdrant", "linked_context"]
+    },
+    {
+      "name": "precise_dense_should_beat_legacy_dense_before_linked",
+      "exactKind": "verbatim_excerpt",
+      "matchedTerm": "maintenance procedure",
+      "exactText": "maintenance procedure and safeguards",
+      "denseLegacyScore": 0.50,
+      "densePreciseScore": 0.49,
+      "linkedAnchorScore": 0.515,
+      "linkedType": "next",
+      "expectedOrder": ["exact_match", "dense_qdrant", "linked_context"]
+    }
+  ],
+  "decisionCases": [
+    {
+      "name": "exact_reference_query_prefers_exact_and_forbids_noise",
+      "query": "Montre la section qui parle de EN 15281.",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": ["en 15281"],
+      "allowExactNoise": false,
+      "linkedExpectation": "secondary",
+      "expectedDocHint": "CEN"
+    },
+    {
+      "name": "procedure_query_prefers_dense_without_exact_noise",
+      "query": "Explique la procedure de requalification du circuit hydraulique.",
+      "expectedDominantRetriever": "dense_qdrant",
+      "expectedExactTerms": [],
+      "allowExactNoise": false,
+      "linkedExpectation": "helpful",
+      "expectedDocHint": "maintenance"
+    },
+    {
+      "name": "comparison_query_prefers_dense_and_keeps_linked_secondary",
+      "query": "Compare les consignes de securite entre les notices ATEX et CEN.",
+      "expectedDominantRetriever": "dense_qdrant",
+      "expectedExactTerms": [],
+      "allowExactNoise": false,
+      "linkedExpectation": "secondary",
+      "expectedDocHint": "ATEX"
+    }
+  ]
+}

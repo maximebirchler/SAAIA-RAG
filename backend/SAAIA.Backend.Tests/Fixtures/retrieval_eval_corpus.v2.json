@@ -1,0 +1,77 @@
+{
+  "version": "v2",
+  "exactPositiveCases": [
+    {
+      "query": "Dans quel document trouve-t-on la norme EN 15281 ?",
+      "expectedTerms": ["en 15281"]
+    },
+    {
+      "query": "Retrouve le code IND570 et la référence IEC 61508.",
+      "expectedTerms": ["ind570", "iec 61508"]
+    },
+    {
+      "query": "Le rapport cite-t-il NFPA 70 avec le repère MCC210 ?",
+      "expectedTerms": ["nfpa 70", "mcc210"]
+    }
+  ],
+  "exactNegativeQueries": [
+    "Resume la procedure d inspection et de remise en service.",
+    "Quels documents parlent de prevention d explosion en zone ATEX ?",
+    "Fais une synthese executive du dossier de maintenance."
+  ],
+  "dominantRetrieverCases": [
+    {
+      "query": "Que dit EN 15281 sur la maintenance ?",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": ["en 15281"],
+      "allowExactNoise": false
+    },
+    {
+      "query": "Ou voit-on le code produit IND570 ?",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": ["ind570"],
+      "allowExactNoise": false
+    },
+    {
+      "query": "Resume la procedure de consignation electrique.",
+      "expectedDominantRetriever": "dense_qdrant",
+      "expectedExactTerms": [],
+      "allowExactNoise": false
+    },
+    {
+      "query": "Compare les consignes de securite entre les documents ATEX.",
+      "expectedDominantRetriever": "dense_qdrant",
+      "expectedExactTerms": [],
+      "allowExactNoise": false
+    },
+    {
+      "query": "Ou se trouvent les consignes juste avant et apres la section securite ?",
+      "expectedDominantRetriever": "dense_qdrant",
+      "expectedExactTerms": [],
+      "allowExactNoise": false
+    }
+  ],
+  "linkedContextCases": [
+    {
+      "name": "same_section_can_help_but_stays_below_dense_anchor",
+      "anchorRetriever": "dense_qdrant",
+      "anchorScore": 0.82,
+      "linkType": "same_section",
+      "expectedShouldHelp": true
+    },
+    {
+      "name": "linked_to_linked_expansion_stays_more_conservative",
+      "anchorRetriever": "linked_context",
+      "anchorScore": 0.82,
+      "linkType": "same_section",
+      "expectedShouldHelp": true
+    },
+    {
+      "name": "prev_link_should_remain_secondary",
+      "anchorRetriever": "dense_qdrant",
+      "anchorScore": 0.62,
+      "linkType": "prev",
+      "expectedShouldHelp": false
+    }
+  ]
+}

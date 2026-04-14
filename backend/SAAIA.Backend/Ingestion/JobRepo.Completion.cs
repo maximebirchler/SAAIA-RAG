@@ -12,6 +12,12 @@ static partial class JobRepo
         long size,
         DateTime mtimeUtc,
         int version,
+        IReadOnlyList<ExtractedPdfPage> pages,
+        IReadOnlyList<ExtractedDocumentSection> sections,
+        IReadOnlyList<ExtractedDocumentUnit> units,
+        IReadOnlyList<ProjectedRetrievalChunk> retrievalChunks,
+        IReadOnlyList<ExtractedExactMatchEntry> exactMatchEntries,
+        IReadOnlyList<ProjectedContextualTextEntry> contextualTextEntries,
         CancellationToken ct)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
@@ -142,7 +148,9 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path
         }
 
         const string versionSql = @"SELECT
+    doc_id AS ""DocId"",
     ingestion_version AS ""IngestionVersion"",
+    indexed_version AS ""IndexedVersion"",
     COALESCE(auto_ingest_paused, false) AS ""AutoIngestPaused"",
     auto_ingest_pause_reason AS ""AutoIngestPauseReason""
 FROM documents
@@ -187,12 +195,17 @@ WHERE job_id=@job_id AND status='running';";
             return false;
         }
 
+        var nextIndexedVersion = Math.Max(0, currentDocState?.IndexedVersion ?? 0) + 1;
+        var docId = currentDocState?.DocId ?? IdUtil.DeterministicGuid($"{tenantId}:{docPath}");
+        var indexedVersionBefore = Math.Max(0, currentDocState?.IndexedVersion ?? 0);
+
         const string docSql = @"UPDATE documents
 SET content_hash=@hash,
     file_size=@size,
     file_mtime=@mtime,
+    page_count=@page_count,
     status='indexed',
-    indexed_version=@version,
+    indexed_version=@indexed_version,
     last_ingested_at=now(),
     updated_at=now(),
     auto_ingest_paused=false,
@@ -206,6 +219,8 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
             hash,
             size,
             version,
+            page_count = pages.Count,
+            indexed_version = nextIndexedVersion,
             mtime = DateTime.SpecifyKind(mtimeUtc, DateTimeKind.Utc)
         }, transaction: tx, cancellationToken: ct));
 
@@ -217,6 +232,26 @@ SET status='done',
     locked_at=NULL
 WHERE job_id=@job_id AND status='running';";
         await conn.ExecuteAsync(new CommandDefinition(doneSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
+        await DocumentFoundationRepo.PublishUpsertCompletionAsync(
+            conn,
+            tx,
+            tenantId,
+            docId,
+            jobId,
+            docPath,
+            hash,
+            size,
+            mtimeUtc,
+            ingestionVersion: version,
+            indexedVersionBefore,
+            indexedVersionAfter: nextIndexedVersion,
+            pages,
+            sections,
+            units,
+            retrievalChunks,
+            exactMatchEntries,
+            contextualTextEntries,
+            ct);
         await FreezeTerminalSnapshotAsync(conn, jobId, tx, ct);
 
         await tx.CommitAsync(ct);
@@ -267,7 +302,9 @@ WHERE job_id=@job_id AND status='running';";
         }
 
         const string versionSql = @"SELECT
+    doc_id AS ""DocId"",
     ingestion_version AS ""IngestionVersion"",
+    indexed_version AS ""IndexedVersion"",
     COALESCE(auto_ingest_paused, false) AS ""AutoIngestPaused"",
     auto_ingest_pause_reason AS ""AutoIngestPauseReason""
 FROM documents
@@ -295,6 +332,9 @@ WHERE job_id=@job_id AND status='running';";
             return false;
         }
 
+        var docId = currentDocState?.DocId ?? IdUtil.DeterministicGuid($"{tenantId}:{docPath}");
+        var indexedVersionBefore = Math.Max(0, currentDocState?.IndexedVersion ?? 0);
+
         const string docSql = @"UPDATE documents
 SET status='deleted',
     updated_at=now(),
@@ -318,6 +358,16 @@ SET status='done',
     locked_at=NULL
 WHERE job_id=@job_id AND status='running';";
         await conn.ExecuteAsync(new CommandDefinition(doneSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
+        await DocumentFoundationRepo.PublishDeleteCompletionAsync(
+            conn,
+            tx,
+            tenantId,
+            docId,
+            jobId,
+            docPath,
+            ingestionVersion: version,
+            indexedVersionBefore,
+            ct);
         await FreezeTerminalSnapshotAsync(conn, jobId, tx, ct);
 
         await tx.CommitAsync(ct);

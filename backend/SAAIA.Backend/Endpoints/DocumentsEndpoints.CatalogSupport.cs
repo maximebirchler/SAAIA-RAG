@@ -56,6 +56,9 @@ public static partial class DocumentsEndpoints
     private static bool CursorMatches(string? cursorValue, string? requestValue)
         => string.IsNullOrWhiteSpace(requestValue) || string.Equals(cursorValue ?? string.Empty, requestValue ?? string.Empty, StringComparison.OrdinalIgnoreCase);
 
+    private static bool CursorMatches(DateTimeOffset? cursorValue, DateTimeOffset? requestValue)
+        => requestValue is null || cursorValue == requestValue;
+
     private static bool CursorMatches(int cursorValue, int requestValue)
         => requestValue <= 0 || cursorValue == requestValue;
 

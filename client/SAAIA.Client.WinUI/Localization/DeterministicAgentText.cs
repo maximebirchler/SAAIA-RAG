@@ -575,6 +575,15 @@ internal static class DeterministicAgentText
             $"Die Neuindexierung des Dokuments {documentLabel} ist abgeschlossen.",
             $"La reindicizzazione del documento {documentLabel} è completata.");
 
+    public static string AdminReindexAlreadyActive(string? language, string documentLabel)
+        => Pick(language,
+            $"Une ingestion ou réindexation est déjà active pour le document {documentLabel}. Ouvre le centre des jobs admin pour suivre l'avancement.",
+            $"An ingestion or reindexing job is already active for document {documentLabel}. Open the admin jobs center to follow the progress.",
+            $"Ya hay una ingestión o reindexación activa para el documento {documentLabel}. Abre el centro de trabajos admin para seguir el avance.",
+            $"Já existe uma ingestão ou reindexação ativa para o documento {documentLabel}. Abre o centro de jobs admin para acompanhar o progresso.",
+            $"Für das Dokument {documentLabel} läuft bereits eine Ingestion oder Neuindexierung. Öffne das Admin-Job-Center, um den Fortschritt zu verfolgen.",
+            $"Per il documento {documentLabel} è già attiva un'ingestione o reindicizzazione. Apri il centro job admin per seguire l'avanzamento.");
+
     public static string DocumentTargetNotFound(string? language, string? documentRef)
     {
         var label = string.IsNullOrWhiteSpace(documentRef) ? Pick(language, "ce document", "this document", "este documento", "este documento", "dieses Dokument", "questo documento") : documentRef.Trim();
