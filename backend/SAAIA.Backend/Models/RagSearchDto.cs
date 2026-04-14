@@ -28,7 +28,7 @@ public sealed record RagSearchRequestDto(
 
 /// <summary>
 /// Structured retrieval provenance returned by POST /rag/search.
-/// This remains retrieval-oriented metadata, not yet a full CDC evidence-pack provenance object.
+/// CDC v3.0 §11.6: provenance with optional character-level offsets.
 /// </summary>
 public sealed record RagItemProvenanceDto(
     string Channel,
@@ -36,7 +36,9 @@ public sealed record RagItemProvenanceDto(
     string? SourceHash = null,
     string? ChunkId = null,
     int? PageStart = null,
-    int? PageEnd = null
+    int? PageEnd = null,
+    int? OffsetStart = null,
+    int? OffsetEnd = null
 );
 
 /// <summary>
@@ -79,7 +81,14 @@ public sealed record RagItemDto(
     string? NextChunkId = null,
     string? SameSectionChunkId = null,
     RagItemProvenanceDto? ProvenanceInfo = null,
-    RagItemContextDto? Context = null
+    RagItemContextDto? Context = null,
+    // --- CDC v3.0 §11.6 enrichment fields ---
+    string? CategoryPath = null,
+    string? Snippet = null,
+    double? RerankScore = null,
+    bool? HasTable = null,
+    bool? HasWarning = null,
+    string? ContextualSnippet = null
 );
 
 /// <summary>
@@ -93,7 +102,10 @@ public sealed record RagMetricsDto(
     int LinkedReturned = 0,
     IReadOnlyList<string>? RetrieversUsed = null,
     string? DataHash = null,
-    int? TtlSeconds = null
+    int? TtlSeconds = 600,
+    long? TeiMs = null,
+    long? QdrantMs = null,
+    int? CandidatesEvaluated = null
 );
 
 /// <summary>

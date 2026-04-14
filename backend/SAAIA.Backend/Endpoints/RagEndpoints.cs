@@ -88,7 +88,10 @@ ORDER BY category;
                     .Distinct(StringComparer.Ordinal)
                     .ToArray(),
                 DataHash: ComputeDataHash(resp.Matches),
-                TtlSeconds: null
+                TtlSeconds: 600,
+                TeiMs: resp.Timings.TeiMs,
+                QdrantMs: resp.Timings.QdrantMs,
+                CandidatesEvaluated: resp.Candidates
             ),
             Items: resp.Matches
                 .Select(m => new RagItemDto(
@@ -114,7 +117,13 @@ ORDER BY category;
                     NextChunkId: m.NextChunkId,
                     SameSectionChunkId: m.SameSectionChunkId,
                     ProvenanceInfo: BuildProvenanceInfo(m),
-                    Context: BuildContextInfo(m)
+                    Context: BuildContextInfo(m),
+                    CategoryPath: resp.Category,
+                    Snippet: BuildSnippet(m.Text),
+                    RerankScore: null,
+                    HasTable: DetectHasTable(m.Text),
+                    HasWarning: DetectHasWarning(m.Text, m.ChunkType),
+                    ContextualSnippet: m.EmbedText
                 ))
                 .ToList()
         );
@@ -156,11 +165,12 @@ ORDER BY category;
             "broad" => topK * 12,
             _ => topK * 6
         };
+        // CDC v3.0 §11.3: max 3 chunks per document default
         int defMaxPerDoc = mode switch
         {
-            "focused" => topK,
+            "focused" => Math.Min(topK, 3),
             "broad" => 2,
-            _ => Math.Max(2, topK / 2)
+            _ => Math.Min(3, Math.Max(2, topK / 2))
         };
 
         var minScore = Math.Clamp(req.MinScore ?? defMinScore, 0.0, 1.0);
@@ -238,6 +248,9 @@ ORDER BY category;
 
             AddRankedMatches(selected, selectedKeys, secondWaveLinkedMatches, topK, minScore: 0.0, maxPerDoc, Math.Max(maxPerPage, 2));
         }
+
+        // CDC v3.0 §11.3: autocut — remove trailing results after largest relative score drop
+        ApplyAutocut(selected, minScore);
 
         swTotal.Stop();
 
@@ -558,10 +571,12 @@ WHERE tenant_id=@tenant_id
         int topK,
         double minScore,
         int maxPerDoc,
-        int maxPerPage)
+        int maxPerPage,
+        int maxPerSection = 2)
     {
         var perDoc = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var perPage = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var perSection = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var selectedMatch in selected)
         {
@@ -572,6 +587,9 @@ WHERE tenant_id=@tenant_id
             perDoc[docKey] = perDoc.TryGetValue(docKey, out var docCount) ? docCount + 1 : 1;
             var pageKey = $"{docKey}:{selectedMatch.PageStart ?? -1}:{selectedMatch.PageEnd ?? -1}";
             perPage[pageKey] = perPage.TryGetValue(pageKey, out var pageCount) ? pageCount + 1 : 1;
+            var sectionKey = BuildSectionKey(selectedMatch);
+            if (sectionKey != null)
+                perSection[sectionKey] = perSection.TryGetValue(sectionKey, out var secCount) ? secCount + 1 : 1;
         }
 
         foreach (var match in matches)
@@ -603,10 +621,36 @@ WHERE tenant_id=@tenant_id
                 continue;
             }
 
+            // CDC v3.0 §11.3: max 2 chunks per section
+            var sectionKey = BuildSectionKey(match);
+            if (sectionKey != null)
+            {
+                perSection.TryGetValue(sectionKey, out var secCountCurrent);
+                if (secCountCurrent >= maxPerSection)
+                {
+                    selectedKeys.Remove(dedupKey);
+                    continue;
+                }
+            }
+
             selected.Add(match);
             perDoc[docKey] = docCountCurrent + 1;
             perPage[pageKey] = pageCountCurrent + 1;
+            if (sectionKey != null)
+                perSection[sectionKey] = perSection.TryGetValue(sectionKey, out var secUpdated) ? secUpdated + 1 : 1;
         }
+    }
+
+    private static string? BuildSectionKey(RagMatch match)
+    {
+        if (string.IsNullOrWhiteSpace(match.DocPath))
+            return null;
+        // Use SectionOrdinal if available, fallback to SectionTitle
+        if (match.SectionOrdinal.HasValue)
+            return $"{match.DocPath}:sec:{match.SectionOrdinal.Value}";
+        if (!string.IsNullOrWhiteSpace(match.SectionTitle))
+            return $"{match.DocPath}:sec:{match.SectionTitle}";
+        return null;
     }
 
     internal static async Task<List<RagMatch>> SearchLinkedMatchesAsync(
@@ -804,6 +848,44 @@ LIMIT @top_k;
         }).ToList();
     }
 
+    /// <summary>
+    /// CDC v3.0 §11.3: autocut — detect the largest relative score drop between consecutive
+    /// results and trim everything after the gap, provided the absolute threshold is also met.
+    /// Keeps at least 1 result. Only cuts if the gap is significant (>= 15% relative drop).
+    /// </summary>
+    internal static void ApplyAutocut(List<RagMatch> matches, double absoluteMinScore)
+    {
+        if (matches.Count <= 2)
+            return;
+
+        var bestGapIndex = -1;
+        var bestGapRatio = 0.0;
+        const double minRelativeDrop = 0.15;
+
+        for (var i = 1; i < matches.Count; i++)
+        {
+            var prev = matches[i - 1].Score;
+            var curr = matches[i].Score;
+            if (prev <= 0.0)
+                continue;
+
+            var drop = (prev - curr) / prev;
+            if (drop > bestGapRatio)
+            {
+                bestGapRatio = drop;
+                bestGapIndex = i;
+            }
+        }
+
+        if (bestGapRatio >= minRelativeDrop && bestGapIndex > 0)
+            matches.RemoveRange(bestGapIndex, matches.Count - bestGapIndex);
+
+        // Also enforce absolute minimum on remaining items (skip exact_match which always passes)
+        matches.RemoveAll(m =>
+            m.Score < absoluteMinScore
+            && !string.Equals(m.EmbeddingBasis, "exact_match_v1", StringComparison.Ordinal));
+    }
+
     internal static string BuildMatchDedupKey(RagMatch match)
         => $"{match.DocId}|{match.PageStart}|{match.PageEnd}|{ExactMatchEntryExtractor.NormalizeForLookup(match.Text ?? string.Empty)}";
 
@@ -905,6 +987,49 @@ LIMIT @top_k;
             PrevChunkId: match.PrevChunkId,
             NextChunkId: match.NextChunkId,
             SameSectionChunkId: match.SameSectionChunkId);
+
+    internal static string? BuildSnippet(string? text, int maxLength = 500)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        var normalized = text.Trim();
+        if (normalized.Length <= maxLength)
+            return normalized;
+
+        // Cut at last sentence boundary within limit
+        var cutoff = normalized.LastIndexOf('.', maxLength - 1);
+        if (cutoff < maxLength / 2)
+            cutoff = normalized.LastIndexOf(' ', maxLength - 1);
+        if (cutoff < maxLength / 2)
+            cutoff = maxLength;
+
+        return normalized[..(cutoff + 1)].TrimEnd();
+    }
+
+    internal static bool DetectHasTable(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+        // Heuristic: rows with pipe separators or tab-separated columns
+        var lines = text.Split('\n');
+        var pipeLines = lines.Count(l => l.Contains('|') && l.Count(c => c == '|') >= 2);
+        return pipeLines >= 2;
+    }
+
+    internal static bool DetectHasWarning(string? text, string? chunkType)
+    {
+        if (string.Equals(chunkType, "warning", StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+        var upper = text.AsSpan();
+        return upper.Contains("WARNING", StringComparison.OrdinalIgnoreCase)
+            || upper.Contains("DANGER", StringComparison.OrdinalIgnoreCase)
+            || upper.Contains("CAUTION", StringComparison.OrdinalIgnoreCase)
+            || upper.Contains("AVERTISSEMENT", StringComparison.OrdinalIgnoreCase)
+            || upper.Contains("ATTENTION", StringComparison.OrdinalIgnoreCase);
+    }
 
     internal static string? ComputeDataHash(IReadOnlyList<RagMatch> matches)
     {
