@@ -214,7 +214,16 @@ public sealed partial class MainWindow
         };
 
         var detailsHost = new StackPanel { Spacing = 8 };
-        var detailsCard = BuildDialogSurfaceCard(detailsHost, new Thickness(16));
+        var detailsScrollViewer = new ScrollViewer
+        {
+            Content = detailsHost,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollMode = ScrollMode.Enabled,
+            HorizontalScrollMode = ScrollMode.Disabled,
+            ZoomMode = ZoomMode.Disabled
+        };
+        var detailsCard = BuildDialogSurfaceCard(detailsScrollViewer, new Thickness(16));
         detailsCard.MinWidth = 340;
         detailsCard.VerticalAlignment = VerticalAlignment.Stretch;
 
@@ -533,6 +542,7 @@ public sealed partial class MainWindow
             MetricsHost = metricsHost,
             GroupsHost = groupsHost,
             DetailsCard = detailsCard,
+            DetailsScrollViewer = detailsScrollViewer,
             DetailsHost = detailsHost,
             DetailsColumn = detailsColumn
         };

@@ -18,8 +18,15 @@ internal static partial class ExactMatchEntryExtractor
             if (string.IsNullOrWhiteSpace(normalizedUnit))
                 continue;
 
+            var references = ExtractTargetedReferences(normalizedUnit).ToList();
+            var referenceVariants = references
+                .SelectMany(ExpandReferenceVariants)
+                .Select(NormalizeWhitespace)
+                .Where(static v => !string.IsNullOrWhiteSpace(v));
+
             var candidates = SplitCandidates(normalizedUnit)
-                .Concat(ExtractTargetedReferences(normalizedUnit))
+                .Concat(references)
+                .Concat(referenceVariants)
                 .Select(NormalizeWhitespace)
                 .Where(static candidate => !string.IsNullOrWhiteSpace(candidate))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -73,11 +80,43 @@ internal static partial class ExactMatchEntryExtractor
             var normalizedReference = NormalizeForLookup(reference);
             if (!string.IsNullOrWhiteSpace(normalizedReference))
                 terms.Add(normalizedReference);
+
+            // Generate sub-variants for composite references:
+            // "EN 15281" → also produce "15281"
+            // "CEN TR 15281" → also produce "tr 15281", "15281"
+            foreach (var variant in ExpandReferenceVariants(reference))
+            {
+                var normalizedVariant = NormalizeForLookup(variant);
+                if (!string.IsNullOrWhiteSpace(normalizedVariant))
+                    terms.Add(normalizedVariant);
+            }
         }
 
         return terms
             .Distinct(StringComparer.Ordinal)
             .OrderByDescending(term => term.Length)
+            .ToArray();
+    }
+
+    internal static IReadOnlyList<string> ExtractReferenceKeys(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return Array.Empty<string>();
+
+        var keys = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var reference in ExtractTargetedReferences(text))
+        {
+            foreach (Match match in ReferenceKeyRegex().Matches(reference))
+            {
+                var key = NormalizeWhitespace(match.Value).ToLowerInvariant();
+                if (!string.IsNullOrWhiteSpace(key))
+                    keys.Add(key);
+            }
+        }
+
+        return keys
+            .OrderByDescending(static key => key.Length)
             .ToArray();
     }
 
@@ -127,6 +166,47 @@ internal static partial class ExactMatchEntryExtractor
         }
     }
 
+    /// <summary>
+    /// For a composite reference like "CEN TR 15281" or "EN 15281", produce sub-variants:
+    /// - Strip known prefixes progressively (EN/ISO/IEC/CEN/TR/etc.)
+    /// - Extract bare numeric core (e.g., "15281")
+    /// This allows cross-matching between "EN 15281" (query) and "CEN TR 15281" (doc).
+    /// </summary>
+    internal static IEnumerable<string> ExpandReferenceVariants(string reference)
+    {
+        var normalized = NormalizeWhitespace(reference);
+        if (string.IsNullOrWhiteSpace(normalized))
+            yield break;
+
+        var parts = normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length <= 1)
+            yield break;
+
+        // Progressively strip leading prefix tokens
+        // "CEN TR 15281" → "TR 15281" → "15281"
+        var prefixes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            { "EN", "ISO", "IEC", "ASTM", "DIN", "NFPA", "API", "ANSI", "CEN", "TR", "TS", "PD", "BS" };
+
+        for (var i = 1; i < parts.Length; i++)
+        {
+            if (!prefixes.Contains(parts[i - 1]))
+                break;
+            var sub = string.Join(" ", parts[i..]);
+            if (!string.IsNullOrWhiteSpace(sub))
+                yield return sub;
+        }
+
+        // Also extract bare numeric core if present
+        foreach (var part in parts)
+        {
+            if (part.Length >= 4 && part.All(char.IsDigit))
+            {
+                yield return part;
+                break; // Only first numeric core
+            }
+        }
+    }
+
     private static string InferEntryKind(string candidate)
     {
         if (StandardReferenceRegex().IsMatch(candidate))
@@ -152,6 +232,9 @@ internal static partial class ExactMatchEntryExtractor
 
     [GeneratedRegex(@"\b(?=[A-Z0-9._/\-]{4,40}\b)(?=[A-Z0-9._/\-]*[A-Z])(?=[A-Z0-9._/\-]*\d)[A-Z0-9][A-Z0-9._/\-]{2,39}\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex CodeReferenceRegex();
+
+    [GeneratedRegex(@"\b\d{4,}\b", RegexOptions.CultureInvariant)]
+    private static partial Regex ReferenceKeyRegex();
 }
 
 internal sealed record ExtractedExactMatchEntry(

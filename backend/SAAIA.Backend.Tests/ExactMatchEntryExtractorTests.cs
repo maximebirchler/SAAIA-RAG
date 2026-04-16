@@ -84,6 +84,15 @@ public sealed class ExactMatchEntryExtractorTests
     }
 
     [Fact]
+    public void ExtractReferenceKeys_pulls_numeric_reference_keys_for_metadata_matching()
+    {
+        var keys = ExactMatchEntryExtractor.ExtractReferenceKeys("CEN TR 15281 2006 Guidance on inerting and IEC 61508");
+
+        Assert.Contains("15281", keys);
+        Assert.Contains("61508", keys);
+    }
+
+    [Fact]
     public void Stable_exact_match_entry_id_is_deterministic_for_same_revision_and_index()
     {
         var revisionId = Guid.Parse("abababab-abab-abab-abab-abababababab");

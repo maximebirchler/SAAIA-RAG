@@ -281,6 +281,68 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void ComputeMetadataReferenceScore_prefers_direct_term_overlap_over_numeric_key_overlap()
+    {
+        var exactReference = RagEndpoints.ComputeMetadataReferenceScore(
+            exactReferenceMatches: 1,
+            keyBackedReferenceMatches: 1,
+            genericDirectMatches: 0,
+            keyMatches: 1);
+        var keyBacked = RagEndpoints.ComputeMetadataReferenceScore(
+            exactReferenceMatches: 0,
+            keyBackedReferenceMatches: 1,
+            genericDirectMatches: 0,
+            keyMatches: 1);
+        var numericOnly = RagEndpoints.ComputeMetadataReferenceScore(
+            exactReferenceMatches: 0,
+            keyBackedReferenceMatches: 0,
+            genericDirectMatches: 0,
+            keyMatches: 1);
+
+        Assert.True(exactReference > keyBacked);
+        Assert.True(keyBacked > numericOnly);
+        Assert.True(numericOnly >= 0.95);
+    }
+
+    [Fact]
+    public void ShouldShortCircuitAfterExact_prefers_single_strong_reference_hit()
+    {
+        var exact = new RagMatch(
+            0.98,
+            "doc-1",
+            "ATEX/CEN TR 15281 2006.pdf",
+            "CEN TR 15281 2006.pdf",
+            null,
+            null,
+            "docmeta:1",
+            -1,
+            "CEN TR 15281 2006.pdf [cen tr 15281 2006]",
+            1,
+            "hash",
+            "CEN TR 15281 2006.pdf [cen tr 15281 2006]",
+            "exact_match_v1",
+            null,
+            null,
+            null,
+            null,
+            "document_metadata_ref",
+            null,
+            null,
+            null);
+
+        Assert.True(RagEndpoints.ShouldShortCircuitAfterExact([exact]));
+    }
+
+    [Fact]
+    public void ShouldShortCircuitAfterExact_keeps_search_open_when_exact_results_are_ambiguous()
+    {
+        var top = new RagMatch(0.98, "doc-1", "ATEX/CEN TR 15281 2006.pdf", "CEN TR 15281 2006.pdf", null, null, "docmeta:1", -1, "CEN TR 15281 2006.pdf", 1, "hash1", "CEN TR 15281 2006.pdf", "exact_match_v1", null, null, null, null, "document_metadata_ref", null, null, null);
+        var second = new RagMatch(0.955, "doc-2", "ATEX/Other 15281.pdf", "Other 15281.pdf", null, null, "docmeta:2", -1, "Other 15281.pdf", 1, "hash2", "Other 15281.pdf", "exact_match_v1", null, null, null, null, "document_metadata_ref", null, null, null);
+
+        Assert.False(RagEndpoints.ShouldShortCircuitAfterExact([top, second]));
+    }
+
+    [Fact]
     public void ComputeDataHash_is_stable_and_sensitive_to_match_changes()
     {
         var left = new[]

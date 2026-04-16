@@ -635,6 +635,13 @@ SET section_id = EXCLUDED.section_id,
         var headingPathBySectionOrdinal = ContextualTextProjector.BuildHeadingPathMap(sections);
         var chunkLinkMap = IngestionWorker.BuildChunkLinkMap(docId, ingestionVersion, retrievalChunks);
 
+        // FK fix: delete existing chunks for this revision before re-inserting.
+        // This prevents the ON CONFLICT from preserving a stale retrieval_chunk_id (PK)
+        // when the same (revision_id, chunk_index) is re-used with a different ingestionVersion.
+        // Cascade: retrieval_chunk_links are deleted; contextual_text_entries.retrieval_chunk_id is SET NULL.
+        const string purgeSql = "DELETE FROM retrieval_chunks WHERE revision_id = @revision_id;";
+        await conn.ExecuteAsync(new CommandDefinition(purgeSql, new { revision_id = revisionId }, transaction: tx, cancellationToken: ct));
+
         const string sql = @"
 INSERT INTO retrieval_chunks(
     retrieval_chunk_id,
@@ -663,7 +670,8 @@ VALUES(
     @checksum,
     CAST(@metadata AS jsonb))
 ON CONFLICT (revision_id, chunk_index) DO UPDATE
-SET section_id = EXCLUDED.section_id,
+SET retrieval_chunk_id = EXCLUDED.retrieval_chunk_id,
+    section_id = EXCLUDED.section_id,
     unit_id = EXCLUDED.unit_id,
     page_start = EXCLUDED.page_start,
     page_end = EXCLUDED.page_end,

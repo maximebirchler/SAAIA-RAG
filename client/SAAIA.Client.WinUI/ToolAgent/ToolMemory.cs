@@ -160,4 +160,49 @@ public sealed class ToolMemory
         public string Source { get; set; } = "text_shortcut";
         public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
     }
+
+    /// <summary>
+    /// Resets all per-conversation state while preserving user preferences
+    /// (language, style, mode). Call this when switching to a new session.
+    /// </summary>
+    public void ResetConversationState()
+    {
+        LastListedDocuments = new();
+        PdfMap = new(StringComparer.OrdinalIgnoreCase);
+        LastListOffset = 0;
+        LastListLimit = 80;
+        LastListCategoryPath = null;
+        LastListQuery = null;
+        LastListTotal = null;
+        LastListEndOfList = false;
+
+        LastSourcesUsed = new();
+        LastFocusedDocument = null;
+
+        LastUserMessage = null;
+        LastAssistantAnswer = null;
+        LastRequestedDocumentRef = null;
+        LastRouterIntent = null;
+        LastToolNames = new();
+        LastReasoningTracePublic = new();
+        LastRiskFlags = new();
+        LastPlannerMemoryUpdate = null;
+        LastRouterConfidence = null;
+        PendingClarification = null;
+        LastDeterministicRender = null;
+        LastSearchOnlyCategory = null;
+        LastInventoryAction = null;
+        LastResolvedCategory = null;
+        LastPresentedCategories = new();
+        LastSummaryStatusSnapshot = null;
+        SummaryTranslationCache = new(StringComparer.OrdinalIgnoreCase);
+
+        CatalogSnapshotCache = null;
+        CapabilitiesCache = null;
+        StagedDirectCommand = null;
+        LastAdminOperation = null;
+
+        // Preserved: LastLanguage, LastStyle, LastMode,
+        //            LastUserDetectedLanguage, LastAnswerLanguage
+    }
 }

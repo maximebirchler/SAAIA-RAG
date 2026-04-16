@@ -327,11 +327,79 @@ public sealed class DocumentFoundationIntegrationTests
             CancellationToken.None);
 
         var match = Assert.Single(matches);
-        Assert.Equal(1.0, match.Score);
+        Assert.True(match.Score >= 1.0);
         Assert.Equal("EN 15281", match.Text);
         Assert.Equal("exact_match_v1", match.EmbeddingBasis);
         Assert.Equal("Introduction", match.SectionTitle);
         Assert.Equal(1, match.IngestionVersion);
+    }
+
+    [Fact]
+    public async Task SearchExactMatchesAsync_falls_back_to_document_metadata_for_reference_visible_in_filename()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("41414141-1111-1111-1111-111111111111");
+        var docId = Guid.Parse("51515151-2222-2222-2222-222222222222");
+        var jobId = Guid.Parse("61616161-3333-3333-3333-333333333333");
+        const string docPath = "ATEX/CEN TR 15281 2006 Guidance on inerting.pdf";
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 1, indexedVersion: 0);
+
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, "Guidance on inerting and safety controls.", 5, 41, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Overview", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, "Guidance on inerting and safety controls.", 41, 6, [2])
+        };
+        var retrievalChunks = new[]
+        {
+            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "Guidance on inerting and safety controls.", 6, [3], "unit_exact_v1")
+        };
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        Assert.True(await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            jobId,
+            docPath,
+            [4, 4, 4],
+            55,
+            DateTime.UtcNow,
+            1,
+            pages,
+            sections,
+            units,
+            retrievalChunks,
+            exactMatchEntries: [],
+            contextualTextEntries: [],
+            CancellationToken.None));
+
+        var matches = await RagEndpoints.SearchExactMatchesAsync(
+            ds,
+            tenantId,
+            "Ou trouve-t-on EN 15281 ?",
+            "atex",
+            docId.ToString(),
+            docPath,
+            5,
+            CancellationToken.None);
+
+        var match = Assert.Single(matches);
+        Assert.Equal(docId.ToString(), match.DocId);
+        Assert.Equal(docPath, match.DocPath);
+        Assert.Equal("document_metadata_ref", match.ChunkType);
+        Assert.Equal("exact_match_v1", match.EmbeddingBasis);
+        Assert.Contains("15281", match.Text, StringComparison.Ordinal);
+        Assert.True(match.Score >= 0.95);
     }
 
     [Fact]

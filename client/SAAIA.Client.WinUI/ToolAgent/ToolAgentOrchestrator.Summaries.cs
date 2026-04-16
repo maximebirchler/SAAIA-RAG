@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -306,7 +306,7 @@ Rules:
             return false;
 
         return Regex.IsMatch(s, @"\b(?:verify|check|confirm|exists?|available|availability)\b", RegexOptions.IgnoreCase)
-            || Regex.IsMatch(s, @"\b(?:v[Ã©e]rif(?:ie|ier)|disponible|existe|existence)\b", RegexOptions.IgnoreCase)
+            || Regex.IsMatch(s, @"\b(?:v[ée]rif(?:ie|ier)|disponible|existe|existence)\b", RegexOptions.IgnoreCase)
             || Regex.IsMatch(s, @"\b(?:est-ce\s+que|is\s+there|does\s+the\s+document\s+have|has\s+the\s+document\s+got)\b", RegexOptions.IgnoreCase);
     }
 
@@ -319,7 +319,7 @@ Rules:
         if (s.Length == 0)
             return false;
 
-        var hasStoredCue = Regex.IsMatch(s, @"\b(?:stock[Ã©e]?|stored|saved|cached|enregistr[Ã©e]?|sauvegard[Ã©e]?)\b", RegexOptions.IgnoreCase);
+        var hasStoredCue = Regex.IsMatch(s, @"\b(?:stock[ée]?|stored|saved|cached|enregistr[ée]?|sauvegard[ée]?)\b", RegexOptions.IgnoreCase);
         if (!hasStoredCue)
             return false;
 
@@ -625,7 +625,7 @@ Rules:
             return false;
 
         return Regex.IsMatch(s, @"\b(?:refresh|regenerate|rebuild|update)\b", RegexOptions.IgnoreCase)
-               || Regex.IsMatch(s, @"\b(?:regenere|regÃ©nÃ¨re|met\s+a\s+jour|mise\s+a\s+jour|recr[eÃ©]e)\b", RegexOptions.IgnoreCase);
+               || Regex.IsMatch(s, @"\b(?:regenere|regénère|met\s+a\s+jour|mise\s+a\s+jour|recr[eé]e)\b", RegexOptions.IgnoreCase);
     }
 
     private static string PrefixSummaryMessage(string prefix, string summaryText)

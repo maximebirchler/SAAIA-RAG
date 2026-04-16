@@ -31,6 +31,7 @@ public sealed partial class MainWindow
         public required StackPanel MetricsHost { get; init; }
         public required StackPanel GroupsHost { get; init; }
         public required Border DetailsCard { get; init; }
+        public required ScrollViewer DetailsScrollViewer { get; init; }
         public required StackPanel DetailsHost { get; init; }
         public required ColumnDefinition DetailsColumn { get; init; }
         public List<AdminJobListItem> Items { get; set; } = new();
@@ -40,6 +41,7 @@ public sealed partial class MainWindow
         public string? SelectedJobId { get; set; }
         public string? LastVisibleRenderSignature { get; set; }
         public string? LastRenderedSelectedJobId { get; set; }
+        public bool ResetDetailsScrollPending { get; set; }
         public bool IncludeIngestionCategory { get; set; } = true;
         public bool IncludeSummaryCategory { get; set; } = true;
         public HashSet<string> SelectedMetricFilters { get; } = new(StringComparer.OrdinalIgnoreCase);

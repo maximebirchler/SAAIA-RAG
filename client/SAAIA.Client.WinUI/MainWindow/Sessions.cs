@@ -119,6 +119,7 @@ public sealed partial class MainWindow
 
             Status(ClientUiText.Get("status.loading_chat", _appSettings.UiLanguage));
 
+            _agent?.ResetConversationState();
             _messages.Clear();
             var msgs = await _api.ListMessagesAsync(_sessionId!, ct);
             await PreRefreshTrackedMessagesAsync(msgs, _sessionId, ct);

@@ -186,7 +186,7 @@ CLARIFICATION_ANSWER:
         if (s.Length == 0)
             return false;
 
-        return Regex.IsMatch(s, @"^(?:yes|yeah|yep|oui|ok|okay|d['â€™]accord|exactly|exact|precisely|exactement|pr[Ã©e]cis[eÃ©]ment|correct|c['â€™]est\s+Ã§a|that['â€™]?s\s+right)$", RegexOptions.IgnoreCase);
+        return Regex.IsMatch(s, @"^(?:yes|yeah|yep|oui|ok|okay|d['\u2019]accord|exactly|exact|precisely|exactement|pr[ée]cis[eé]ment|correct|c['\u2019]est\s+ça|that['\u2019]?s\s+right)$", RegexOptions.IgnoreCase);
     }
 
     private async Task<string> GenerateClarificationResponseAsync(
@@ -459,7 +459,7 @@ CURRENT_USER_MESSAGE:
                         DocPath = docPath.Replace('\\', '/'),
                         PageStart = ps,
                         PageEnd = pe,
-                        Label = $"{label} (p.{ps}{(pe != ps ? $"â€“{pe}" : "")})"
+                        Label = $"{label} (p.{ps}{(pe != ps ? $"–{pe}" : "")})"
                     });
                 }
             }
@@ -506,7 +506,7 @@ CURRENT_USER_MESSAGE:
                 var pe = TryGetInt(it, "pageEnd") ?? ps;
 
                 var text = TryGetString(it, "text") ?? TryGetString(it, "excerpt") ?? "";
-                if (text.Length > 320) text = text.Substring(0, 320) + "â€¦";
+                if (text.Length > 320) text = text.Substring(0, 320) + "…";
 
                 list.Add(new
                 {

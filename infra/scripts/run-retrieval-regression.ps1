@@ -29,11 +29,11 @@ if (-not $NoBuild) {
     dotnet build ".\\backend\\SAAIA.Backend.Tests\\SAAIA.Backend.Tests.csproj" -nologo
   }
 
-  Invoke-Step "Build WinUI client" {
-    dotnet build ".\\client\\SAAIA.Client.WinUI\\SAAIA.Client.WinUI.csproj" -nologo -nodeReuse:false -p:UseSharedCompilation=false
-  }
-
   if (-not $SkipClient) {
+    Invoke-Step "Build WinUI client" {
+      dotnet build ".\\client\\SAAIA.Client.WinUI\\SAAIA.Client.WinUI.csproj" -nologo -nodeReuse:false -p:UseSharedCompilation=false
+    }
+
     Invoke-Step "Build client tool-agent tests" {
       dotnet build ".\\client\\SAAIA.Client.ToolAgent.Tests\\SAAIA.Client.ToolAgent.Tests.csproj" -nologo -nodeReuse:false -p:UseSharedCompilation=false
     }

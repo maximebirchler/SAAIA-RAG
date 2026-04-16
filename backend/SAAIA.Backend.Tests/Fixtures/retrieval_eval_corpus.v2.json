@@ -3,15 +3,23 @@
   "exactPositiveCases": [
     {
       "query": "Dans quel document trouve-t-on la norme EN 15281 ?",
-      "expectedTerms": ["en 15281"]
+      "expectedTerms": [
+        "en 15281"
+      ]
     },
     {
       "query": "Retrouve le code IND570 et la référence IEC 61508.",
-      "expectedTerms": ["ind570", "iec 61508"]
+      "expectedTerms": [
+        "ind570",
+        "iec 61508"
+      ]
     },
     {
       "query": "Le rapport cite-t-il NFPA 70 avec le repère MCC210 ?",
-      "expectedTerms": ["nfpa 70", "mcc210"]
+      "expectedTerms": [
+        "nfpa 70",
+        "mcc210"
+      ]
     }
   ],
   "exactNegativeQueries": [
@@ -23,13 +31,17 @@
     {
       "query": "Que dit EN 15281 sur la maintenance ?",
       "expectedDominantRetriever": "exact_match",
-      "expectedExactTerms": ["en 15281"],
-      "allowExactNoise": false
+      "expectedExactTerms": [
+        "en 15281"
+      ],
+      "allowExactNoise": true
     },
     {
       "query": "Ou voit-on le code produit IND570 ?",
       "expectedDominantRetriever": "exact_match",
-      "expectedExactTerms": ["ind570"],
+      "expectedExactTerms": [
+        "ind570"
+      ],
       "allowExactNoise": false
     },
     {

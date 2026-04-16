@@ -301,6 +301,20 @@ WHERE job_id=@job_id
     {
         var tenantId = job.TenantId;
         var docId = job.DocId;
+        var swTotal = Stopwatch.StartNew();
+        long hashMs = 0;
+        long extractMs = 0;
+        long sectionMs = 0;
+        long unitMs = 0;
+        long chunkingMs = 0;
+        long exactMatchMs = 0;
+        long contextualMs = 0;
+        long teiWarmupMs = 0;
+        long qdrantEnsureMs = 0;
+        long embeddingTotalMs = 0;
+        long qdrantUpsertTotalMs = 0;
+        long publishMs = 0;
+        long cleanupMs = 0;
 
         var relDocPath = DocPathNormalizer.NormalizeToRelative(job.DocPath, ingest.DocumentsRoot);
         var absPath = DocPathNormalizer.ToAbsoluteFromRelative(relDocPath, ingest.DocumentsRoot);
@@ -335,11 +349,14 @@ WHERE job_id=@job_id
         // Hash + size
         byte[] hash;
         long size;
+        var swHash = Stopwatch.StartNew();
         await using (var fs = File.OpenRead(absPath))
         {
             size = fs.Length;
             hash = await SHA256.HashDataAsync(fs, ct);
         }
+        swHash.Stop();
+        hashMs = swHash.ElapsedMilliseconds;
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
         await ThrowIfJobCanceledAsync(ds, job, ct);
 
@@ -347,15 +364,25 @@ WHERE job_id=@job_id
         if (!hasSavedProgress)
             await JobRepo.UpdateProgressAsync(ds, job.JobId, "extracting", null, null, ct);
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+        var swExtract = Stopwatch.StartNew();
         var extraction = PdfExtractor.Extract(absPath, ct);
+        swExtract.Stop();
+        extractMs = swExtract.ElapsedMilliseconds;
         var tokens = extraction.Tokens;
         var pages = extraction.Pages;
+        var swSections = Stopwatch.StartNew();
         var sections = DocumentSectionExtractor.Extract(pages);
+        swSections.Stop();
+        sectionMs = swSections.ElapsedMilliseconds;
+        var swUnits = Stopwatch.StartNew();
         var units = DocumentUnitExtractor.Extract(pages, sections);
+        swUnits.Stop();
+        unitMs = swUnits.ElapsedMilliseconds;
         await ThrowIfJobCanceledAsync(ds, job, ct);
         if (tokens.Count == 0)
             throw new Exception("No text extracted from PDF");
 
+        var swChunking = Stopwatch.StartNew();
         var retrievalChunks = RetrievalChunkProjector.ProjectStructureAware(
             sections,
             units,
@@ -369,8 +396,16 @@ WHERE job_id=@job_id
             : Chunker.MakeChunks(tokens, ingest.ChunkMaxWords, ingest.ChunkOverlapWords, ingest.ChunkMinWords, ct);
         if (retrievalChunks.Count == 0)
             retrievalChunks = RetrievalChunkProjector.Project(chunks, sections, units);
+        swChunking.Stop();
+        chunkingMs = swChunking.ElapsedMilliseconds;
+        var swExact = Stopwatch.StartNew();
         var exactMatchEntries = ExactMatchEntryExtractor.Extract(units);
+        swExact.Stop();
+        exactMatchMs = swExact.ElapsedMilliseconds;
+        var swContextual = Stopwatch.StartNew();
         var contextualTextEntries = ContextualTextProjector.Project(relDocPath, sections, units, retrievalChunks);
+        swContextual.Stop();
+        contextualMs = swContextual.ElapsedMilliseconds;
         var retrievalChunksByIndex = retrievalChunks.ToDictionary(chunk => chunk.ChunkIndex);
         var contextualTextByChunkIndex = BuildContextualTextMap(contextualTextEntries);
         var sectionTitleByOrdinal = sections.ToDictionary(section => section.Ordinal, section => section.Title);
@@ -415,12 +450,15 @@ WHERE job_id=@job_id
         var teiToken = teiCts?.Token ?? ct;
 
         int dim;
+        var swTeiWarmup = Stopwatch.StartNew();
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
         await ThrowIfJobCanceledAsync(ds, job, ct);
         using (await _bulkheads.AcquireTeiAsync(teiToken))
         {
             dim = await TeiClient.GetVectorDimAsync(tei, rag.EmbeddingsModel, teiToken);
         }
+        swTeiWarmup.Stop();
+        teiWarmupMs = swTeiWarmup.ElapsedMilliseconds;
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
 
         // Qdrant
@@ -431,12 +469,15 @@ WHERE job_id=@job_id
         var qdrantToken = qdrantCts?.Token ?? ct;
 
         // ✅ EnsureCollection sous bulkhead Qdrant
+        var swEnsureCollection = Stopwatch.StartNew();
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
         await ThrowIfJobCanceledAsync(ds, job, ct);
         using (await _bulkheads.AcquireQdrantAsync(qdrantToken))
         {
             await QdrantClient.EnsureCollectionAsync(qdrant, rag.QdrantCollection, dim, qdrantToken);
         }
+        swEnsureCollection.Stop();
+        qdrantEnsureMs = swEnsureCollection.ElapsedMilliseconds;
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
 
         // embed + upsert by batches
@@ -478,6 +519,7 @@ WHERE job_id=@job_id
                 vectors = await TeiClient.EmbedAsync(tei, rag.EmbeddingsModel, inputs, bTeiToken);
             }
             swTei.Stop();
+            embeddingTotalMs += swTei.ElapsedMilliseconds;
             await TouchJobLockAsync(ds, job.JobId, workerId, ct);
 
             var points = new List<object>(slice.Count);
@@ -517,6 +559,7 @@ WHERE job_id=@job_id
                 await QdrantClient.UpsertPointsAsync(qdrant, rag.QdrantCollection, points, bQToken);
             }
             swQ.Stop();
+            qdrantUpsertTotalMs += swQ.ElapsedMilliseconds;
 
             // Heartbeat + progression
             await TouchJobLockAsync(ds, job.JobId, workerId, ct);
@@ -537,9 +580,12 @@ WHERE job_id=@job_id
             throw new Exception("source_removed_during_ingestion");
 
         var mtime = File.GetLastWriteTimeUtc(absPath);
+        var swPublish = Stopwatch.StartNew();
         var committed = await JobRepo.CompleteUpsertAsync(
             ds, tenantId, job.JobId, relDocPath,
             hash, size, mtime, job.Version, pages, sections, units, retrievalChunks, exactMatchEntries, contextualTextEntries, ct);
+        swPublish.Stop();
+        publishMs = swPublish.ElapsedMilliseconds;
 
 
         if (!committed)
@@ -547,12 +593,15 @@ WHERE job_id=@job_id
 
         try
         {
+            var swCleanup = Stopwatch.StartNew();
             using (await _bulkheads.AcquireQdrantAsync(qdrantToken))
             {
                 await QdrantClient.DeleteOtherVersionsByDocAsync(
                     qdrant, rag.QdrantCollection,
                     tenantId, docId, job.Version, qdrantToken);
             }
+            swCleanup.Stop();
+            cleanupMs = swCleanup.ElapsedMilliseconds;
         }
         catch (Exception ex)
         {
@@ -560,6 +609,32 @@ WHERE job_id=@job_id
                 "Failed to cleanup old Qdrant versions job={JobId} doc={DocPath}. Old points filtered by RAG version check.",
                 job.JobId, job.DocPath);
         }
+
+        swTotal.Stop();
+        _log.LogInformation(
+            "Ingestion stage timings job={JobId} doc={DocPath} total_ms={TotalMs} hash_ms={HashMs} extract_ms={ExtractMs} sections_ms={SectionsMs} units_ms={UnitsMs} chunking_ms={ChunkingMs} exact_ms={ExactMs} contextual_ms={ContextualMs} tei_warmup_ms={TeiWarmupMs} qdrant_ensure_ms={QdrantEnsureMs} embedding_ms={EmbeddingMs} qdrant_upsert_ms={QdrantUpsertMs} publish_ms={PublishMs} cleanup_ms={CleanupMs} pages={Pages} sections={Sections} units={Units} chunks={Chunks} exact_entries={ExactEntries} contextual_entries={ContextualEntries}",
+            job.JobId,
+            relDocPath,
+            swTotal.ElapsedMilliseconds,
+            hashMs,
+            extractMs,
+            sectionMs,
+            unitMs,
+            chunkingMs,
+            exactMatchMs,
+            contextualMs,
+            teiWarmupMs,
+            qdrantEnsureMs,
+            embeddingTotalMs,
+            qdrantUpsertTotalMs,
+            publishMs,
+            cleanupMs,
+            pages.Count,
+            sections.Count,
+            units.Count,
+            retrievalChunks.Count,
+            exactMatchEntries.Count,
+            contextualTextEntries.Count);
 
         return true;
     }

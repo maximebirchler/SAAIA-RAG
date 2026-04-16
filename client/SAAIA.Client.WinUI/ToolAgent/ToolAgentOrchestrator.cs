@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -41,7 +41,7 @@ public sealed partial class ToolAgentOrchestrator
     private List<string> _lastWriterToolNames = new();
     private List<(string tool, long durationMs, bool ok)> _lastToolDurations = new();
 
-    // limite â€œsÃ©curitÃ© perfâ€ (spec : max 5 RAG/calls par requÃªte)
+    // limite "sécurité perf" (spec : max 5 RAG/calls par requête)
     private const int MaxToolCalls = 8;
     private const int MaxRagToolCalls = 5;
 
@@ -116,9 +116,9 @@ public sealed partial class ToolAgentOrchestrator
     }
 
     /// <summary>
-    /// ExÃ©cute le pipeline Router â†’ Tools â†’ Answer.
+    /// Exécute le pipeline Router → Tools → Answer.
     /// </summary>
-    /// <param name="onPhase">Callback UX (status bar) : "Routeurâ€¦", "Recherche documentsâ€¦", "RÃ©dactionâ€¦", etc.</param>
+    /// <param name="onPhase">Callback UX (status bar) : "Routeur…", "Recherche documents…", "Rédaction…", etc.</param>
     public async Task<(string finalAnswer, object? sourcesPayload)> RunAsync(
         IReadOnlyList<(string role, string content)> chatHistory,
         string userMessage,
@@ -236,6 +236,11 @@ public sealed partial class ToolAgentOrchestrator
         _mem.LastRouterConfidence = plan.RouterConfidence;
         _lastResponseFormat = string.IsNullOrWhiteSpace(plan.ResponseFormat) ? "auto" : plan.ResponseFormat.Trim().ToLowerInvariant();
         _lastEffectiveMode = string.IsNullOrWhiteSpace(plan.Mode) ? "auto" : plan.Mode.Trim().ToLowerInvariant();
+
+        // Clear stale deterministic render when the current turn is NOT inventory.
+        // Prevents old inventory data from leaking into non-inventory turns.
+        if (!IsInventoryIntent(plan.Intent))
+            _mem.LastDeterministicRender = null;
 
         if (string.Equals(plan.Intent, "meta.set_style", StringComparison.OrdinalIgnoreCase)
             && LocalizedStrings.TryDetectStylePreferenceChange(effectiveUserMessage, out var routedStyle))
@@ -470,7 +475,7 @@ public sealed partial class ToolAgentOrchestrator
 
             var tree = DocumentTreeHelper.BuildMarkdownTree(docs);
 
-            // optionnel : petite note si certains fichiers nâ€™ont pas pu Ãªtre rÃ©solus
+            // optionnel : petite note si certains fichiers n'ont pas pu être résolus
             if (dropped > 0)
             {
                 tree += $"\n\n{DeterministicAgentText.TreeSkippedLocalUnresolved(language, dropped)}";
@@ -1077,7 +1082,7 @@ public sealed partial class ToolAgentOrchestrator
         if (Regex.IsMatch(s, @"^(?:hi|hello|bonjour|salut|merci|thanks?|ok|okay)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
             return false;
 
-        return Regex.IsMatch(s, @"\b(?:qu['â€™]est\s*ce\s+que\s+tu\s+peux\s+me\s+dire|que\s+peux\s*tu\s+me\s+dire|parle\s*[- ]?moi|au\s+sujet\s+de|a\s+propos\s+de|Ã \s+propos\s+de|what\s+can\s+you\s+tell\s+me|tell\s+me\s+about|about\s+the|regarding|concerning)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+        return Regex.IsMatch(s, @"\b(?:qu['’]est\s*ce\s+que\s+tu\s+peux\s+me\s+dire|que\s+peux\s*tu\s+me\s+dire|parle\s*[- ]?moi|au\s+sujet\s+de|a\s+propos\s+de|à\s+propos\s+de|what\s+can\s+you\s+tell\s+me|tell\s+me\s+about|about\s+the|regarding|concerning)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
             || s.Contains("?", StringComparison.Ordinal);
     }
 
@@ -1125,7 +1130,7 @@ public sealed partial class ToolAgentOrchestrator
                     label = $"{(x.DocName ?? x.DocPath ?? "document")} (p.{(x.PageStart ?? 1)})",
                     snippet = string.IsNullOrWhiteSpace(x.Text)
                         ? string.Empty
-                        : (x.Text!.Length > 220 ? x.Text[..220] + "â€¦" : x.Text)
+                        : (x.Text!.Length > 220 ? x.Text[..220] + "…" : x.Text)
                 }).ToList()
             };
 
@@ -1150,11 +1155,11 @@ public sealed partial class ToolAgentOrchestrator
             return language switch
             {
                 "en" => $"I found a likely matching document: {firstLabel}. Do you want me to search in this one?",
-                "es" => $"He encontrado un documento que parece coincidir: {firstLabel}. Â¿Quieres que busque en ese documento?",
+                "es" => $"He encontrado un documento que parece coincidir: {firstLabel}. ¿Quieres que busque en ese documento?",
                 "pt" => $"Encontrei um documento que parece corresponder: {firstLabel}. Queres que eu pesquise nesse documento?",
                 "de" => $"Ich habe ein wahrscheinlich passendes Dokument gefunden: {firstLabel}. Soll ich in diesem Dokument suchen?",
                 "it" => $"Ho trovato un documento che sembra corrispondere: {firstLabel}. Vuoi che cerchi in questo documento?",
-                _ => $"J'ai trouvÃ© un document qui semble correspondre : {firstLabel}. Veux-tu que je cherche dans celui-ci ?"
+                _ => $"J'ai trouvé un document qui semble correspondre : {firstLabel}. Veux-tu que je cherche dans celui-ci ?"
             };
         }
 
@@ -1163,11 +1168,11 @@ public sealed partial class ToolAgentOrchestrator
         return language switch
         {
             "en" => $"I found several possible matches: {joined}. Which one should I use?",
-            "es" => $"He encontrado varias coincidencias posibles: {joined}. Â¿CuÃ¡l debo usar?",
-            "pt" => $"Encontrei vÃ¡rias correspondÃªncias possÃ­veis: {joined}. Qual devo usar?",
-            "de" => $"Ich habe mehrere mÃ¶gliche Treffer gefunden: {joined}. Welchen soll ich verwenden?",
+            "es" => $"He encontrado varias coincidencias posibles: {joined}. ¿Cuál debo usar?",
+            "pt" => $"Encontrei várias correspondências possíveis: {joined}. Qual devo usar?",
+            "de" => $"Ich habe mehrere mögliche Treffer gefunden: {joined}. Welchen soll ich verwenden?",
             "it" => $"Ho trovato diverse corrispondenze possibili: {joined}. Quale devo usare?",
-            _ => $"J'ai trouvÃ© plusieurs correspondances possibles : {joined}. Laquelle veux-tu que j'utilise ?"
+            _ => $"J'ai trouvé plusieurs correspondances possibles : {joined}. Laquelle veux-tu que j'utilise ?"
         };
     }
 
@@ -1186,7 +1191,7 @@ private async Task<RouterPlan> RouterAsync(
         var repairHint = DocumentRefResolver.IsRepairMessage(userMessage);
         var resolverHint = DocumentRefResolver.Analyze(userMessage, _mem.LastFocusedDocument, _mem.LastListedDocuments, _mem.LastRequestedDocumentRef);
 
-        // Contexte mÃ©moire minimal (Ã©vite heuristiques hardcodÃ©es)
+        // Contexte mémoire minimal (évite heuristiques hardcodées)
         var memoryCtx = new
         {
             lastLanguage = _mem.LastLanguage,
@@ -2595,7 +2600,7 @@ TOOL_RESULTS (json):
     {
         json = (raw ?? "").Trim();
 
-        // enlever ```json ... ``` si prÃ©sent
+        // enlever ```json ... ``` si présent
         if (json.StartsWith("```"))
         {
             var i = json.IndexOf('\n');

@@ -36,6 +36,16 @@ public sealed class RagChatAgent
         _activeMode = AppSettings.NormalizeActiveMode(_initialPrefs.Mode);
     }
 
+    /// <summary>
+    /// Resets all per-conversation state (turn memory, cached renders, focused
+    /// documents, etc.) while preserving user preferences (language, style, mode).
+    /// Call when switching to a new session or creating a new chat.
+    /// </summary>
+    internal void ResetConversationState()
+    {
+        _mem.ResetConversationState();
+    }
+
     internal void ApplySettings(AppSettings s)
     {
         _llmEnabled = s.UseLocalLlm;

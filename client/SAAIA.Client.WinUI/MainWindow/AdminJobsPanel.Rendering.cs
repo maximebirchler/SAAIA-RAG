@@ -16,9 +16,11 @@ public sealed partial class MainWindow
         }
 
         var renderSignature = BuildAdminJobsRenderSignature(visibleItems);
+        var selectedJobChanged = !string.Equals(context.SelectedJobId, context.LastRenderedSelectedJobId, StringComparison.OrdinalIgnoreCase);
         var shouldRebuildGroups =
             !string.Equals(context.LastVisibleRenderSignature, renderSignature, StringComparison.Ordinal)
-            || !string.Equals(context.SelectedJobId, context.LastRenderedSelectedJobId, StringComparison.OrdinalIgnoreCase);
+            || selectedJobChanged;
+        context.ResetDetailsScrollPending = selectedJobChanged;
         RenderAdminJobsMetrics(context, context.Items, visibleItems);
         if (shouldRebuildGroups)
         {
@@ -662,6 +664,12 @@ public sealed partial class MainWindow
             context.DetailsColumn.Width = new GridLength(380);
             context.DetailsCard.Visibility = Visibility.Visible;
 
+            if (context.ResetDetailsScrollPending)
+            {
+                context.DetailsScrollViewer.ChangeView(null, 0d, null, true);
+                context.ResetDetailsScrollPending = false;
+            }
+
             context.DetailsHost.Children.Add(new TextBlock
             {
                 Text = selected.DisplayTitle,
@@ -690,6 +698,7 @@ public sealed partial class MainWindow
             context.DetailsHost.Children.Clear();
             context.DetailsColumn.Width = new GridLength(380);
             context.DetailsCard.Visibility = Visibility.Visible;
+            context.DetailsScrollViewer.ChangeView(null, 0d, null, true);
             context.DetailsHost.Children.Add(BuildDialogInfoBanner(ClientUiText.Get("admin.jobs.detail_error", UiLang)));
         }
     }

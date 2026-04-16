@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -34,19 +34,19 @@ internal static class LocalizedStrings
             {
                 ["fr"] = "D'accord, j'adopte maintenant un style {0}.",
                 ["en"] = "Got it, I'll use a {0} style from now on.",
-                ["es"] = "De acuerdo, usarÃ© un estilo {0} a partir de ahora.",
+                ["es"] = "De acuerdo, usaré un estilo {0} a partir de ahora.",
                 ["pt"] = "Certo, vou usar um estilo {0} a partir de agora.",
                 ["de"] = "Alles klar, ich verwende ab jetzt einen {0} Stil.",
-                ["it"] = "Va bene, d'ora in poi userÃ² uno stile {0}."
+                ["it"] = "Va bene, d'ora in poi userò uno stile {0}."
             },
             ["mode_changed"] = new(StringComparer.OrdinalIgnoreCase)
             {
                 ["fr"] = "D'accord, je passe maintenant en mode {0}.",
                 ["en"] = "Got it, I'll use {0} mode from now on.",
-                ["es"] = "De acuerdo, ahora usarÃ© el modo {0}.",
+                ["es"] = "De acuerdo, ahora usaré el modo {0}.",
                 ["pt"] = "Certo, vou usar o modo {0} a partir de agora.",
                 ["de"] = "Alles klar, ich verwende ab jetzt den Modus {0}.",
-                ["it"] = "Va bene, d'ora in poi userÃ² la modalitÃ  {0}."
+                ["it"] = "Va bene, d'ora in poi userò la modalità {0}."
             },
             ["no_documents_found"] = new(StringComparer.OrdinalIgnoreCase)
             {
@@ -346,16 +346,16 @@ internal static class LocalizedStrings
             "es" => target switch
             {
                 "plain" => "claro",
-                "technical" => "tÃ©cnico",
+                "technical" => "técnico",
                 "executive" => "ejecutivo",
-                _ => "automÃ¡tico"
+                _ => "automático"
             },
             "pt" => target switch
             {
                 "plain" => "claro",
-                "technical" => "tÃ©cnico",
+                "technical" => "técnico",
                 "executive" => "executivo",
-                _ => "automÃ¡tico"
+                _ => "automático"
             },
             "de" => target switch
             {
@@ -375,7 +375,7 @@ internal static class LocalizedStrings
             {
                 "plain" => "clair",
                 "technical" => "technique",
-                "executive" => "exÃ©cutif",
+                "executive" => "exécutif",
                 _ => "automatique"
             }
         };
@@ -396,15 +396,15 @@ internal static class LocalizedStrings
             },
             "es" => target switch
             {
-                "standard" => "estÃ¡ndar",
+                "standard" => "estándar",
                 "strict" => "estricto",
-                _ => "automÃ¡tico"
+                _ => "automático"
             },
             "pt" => target switch
             {
-                "standard" => "padrÃ£o",
+                "standard" => "padrão",
                 "strict" => "estrito",
-                _ => "automÃ¡tico"
+                _ => "automático"
             },
             "de" => target switch
             {

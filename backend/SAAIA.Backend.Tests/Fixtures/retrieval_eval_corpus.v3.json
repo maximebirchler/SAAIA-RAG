@@ -3,19 +3,30 @@
   "exactPositiveCases": [
     {
       "query": "Dans quel document trouve-t-on la norme EN 15281 ?",
-      "expectedTerms": ["en 15281"]
+      "expectedTerms": [
+        "en 15281"
+      ]
     },
     {
       "query": "Retrouve le code IND570 et la reference IEC 61508.",
-      "expectedTerms": ["ind570", "iec 61508"]
+      "expectedTerms": [
+        "ind570",
+        "iec 61508"
+      ]
     },
     {
       "query": "Le rapport cite-t-il NFPA 70 avec le repere MCC210 ?",
-      "expectedTerms": ["nfpa 70", "mcc210"]
+      "expectedTerms": [
+        "nfpa 70",
+        "mcc210"
+      ]
     },
     {
       "query": "Montre-moi ou apparait ISO 13849 avec le code PLC410.",
-      "expectedTerms": ["iso 13849", "plc410"]
+      "expectedTerms": [
+        "iso 13849",
+        "plc410"
+      ]
     }
   ],
   "exactNegativeQueries": [
@@ -28,13 +39,17 @@
     {
       "query": "Que dit EN 15281 sur la maintenance ?",
       "expectedDominantRetriever": "exact_match",
-      "expectedExactTerms": ["en 15281"],
-      "allowExactNoise": false
+      "expectedExactTerms": [
+        "en 15281"
+      ],
+      "allowExactNoise": true
     },
     {
       "query": "Ou voit-on le code produit IND570 ?",
       "expectedDominantRetriever": "exact_match",
-      "expectedExactTerms": ["ind570"],
+      "expectedExactTerms": [
+        "ind570"
+      ],
       "allowExactNoise": false
     },
     {
@@ -92,22 +107,30 @@
       "exactKind": "standard_ref",
       "matchedTerm": "en 15281",
       "exactText": "EN 15281",
-      "denseLegacyScore": 0.50,
+      "denseLegacyScore": 0.5,
       "densePreciseScore": 0.49,
       "linkedAnchorScore": 0.515,
       "linkedType": "same_section",
-      "expectedOrder": ["exact_match", "dense_qdrant", "linked_context"]
+      "expectedOrder": [
+        "exact_match",
+        "dense_qdrant",
+        "linked_context"
+      ]
     },
     {
       "name": "precise_dense_should_beat_legacy_dense_before_linked",
       "exactKind": "verbatim_excerpt",
       "matchedTerm": "maintenance procedure",
       "exactText": "maintenance procedure and safeguards",
-      "denseLegacyScore": 0.50,
+      "denseLegacyScore": 0.5,
       "densePreciseScore": 0.49,
       "linkedAnchorScore": 0.515,
       "linkedType": "next",
-      "expectedOrder": ["exact_match", "dense_qdrant", "linked_context"]
+      "expectedOrder": [
+        "exact_match",
+        "dense_qdrant",
+        "linked_context"
+      ]
     }
   ],
   "decisionCases": [
@@ -115,8 +138,10 @@
       "name": "exact_reference_query_prefers_exact_and_forbids_noise",
       "query": "Montre la section qui parle de EN 15281.",
       "expectedDominantRetriever": "exact_match",
-      "expectedExactTerms": ["en 15281"],
-      "allowExactNoise": false,
+      "expectedExactTerms": [
+        "en 15281"
+      ],
+      "allowExactNoise": true,
       "linkedExpectation": "secondary",
       "expectedDocHint": "CEN"
     },

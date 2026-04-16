@@ -180,7 +180,7 @@ public sealed partial class MainWindow
                     var categoryLabel = GetCategoryLabel(category);
                     var subtitle = string.IsNullOrWhiteSpace(category.CategoryPath)
                         ? ClientUiText.Format("help.meta.documents", lang, category.DocumentCount)
-                        : $"{category.CategoryPath} â€¢ {ClientUiText.Format("help.meta.documents", lang, category.DocumentCount)}";
+                        : $"{category.CategoryPath} • {ClientUiText.Format("help.meta.documents", lang, category.DocumentCount)}";
 
                     resultsPanel.Children.Add(CreateActionButton(
                         categoryLabel,

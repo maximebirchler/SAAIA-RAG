@@ -194,12 +194,13 @@ ORDER BY category;
 
         var exactMatches = await SearchExactMatchesAsync(ds, tenantId, req.Query, category, req.DocId, req.DocPath, topK, ct);
         AddRankedMatches(selected, selectedKeys, exactMatches, topK, minScore: 0.0, maxPerDoc, maxPerPage);
+        var shortCircuitAfterExact = ShouldShortCircuitAfterExact(selected);
 
         long teiMs = 0;
         long qdrantMs = 0;
         int qdrantStatus = 0;
 
-        if (selected.Count < topK)
+        if (!shortCircuitAfterExact && selected.Count < topK)
         {
             var denseMatches = await SearchDenseMatchesAsync(
                 ds,
@@ -219,7 +220,7 @@ ORDER BY category;
             AddRankedMatches(selected, selectedKeys, denseMatches, topK, minScore, maxPerDoc, maxPerPage);
         }
 
-        if (selected.Count < topK)
+        if (!shortCircuitAfterExact && selected.Count < topK)
         {
             var linkedMatches = await SearchLinkedMatchesAsync(
                 ds,
@@ -234,7 +235,7 @@ ORDER BY category;
             AddRankedMatches(selected, selectedKeys, linkedMatches, topK, minScore: 0.0, maxPerDoc, Math.Max(maxPerPage, 2));
         }
 
-        if (selected.Count < topK)
+        if (!shortCircuitAfterExact && selected.Count < topK)
         {
             var secondWaveLinkedMatches = await SearchLinkedMatchesAsync(
                 ds,
@@ -285,6 +286,8 @@ ORDER BY category;
         var normalizedTerms = ExactMatchEntryExtractor.ExtractLookupTerms(query);
         if (normalizedTerms.Count == 0)
             return [];
+
+        var referenceKeys = ExactMatchEntryExtractor.ExtractReferenceKeys(query);
 
         await using var conn = await ds.OpenConnectionAsync(ct);
         const string sql = """
@@ -353,7 +356,7 @@ LIMIT @top_k;
             top_k = topK
         }, cancellationToken: ct));
 
-        return rows.Select(row => new RagMatch(
+        var matches = rows.Select(row => new RagMatch(
             Score: ComputeExactMatchScore(row.MatchKind, row.MatchedTerm, row.Text),
             DocId: row.DocId.ToString(),
             DocPath: row.DocPath,
@@ -375,6 +378,35 @@ LIMIT @top_k;
             PrevChunkId: null,
             NextChunkId: null,
             SameSectionChunkId: null)).ToList();
+
+        if (matches.Count < topK)
+        {
+            var metadataMatches = await SearchDocumentMetadataMatchesAsync(
+                conn,
+                tenantId,
+                normalizedTerms,
+                referenceKeys,
+                category,
+                normalizedDocId,
+                normalizedDocPath,
+                topK - matches.Count,
+                ct);
+
+            foreach (var metadataMatch in metadataMatches)
+            {
+                if (matches.Count >= topK)
+                    break;
+
+                if (!matches.Any(existing =>
+                        string.Equals(existing.DocId, metadataMatch.DocId, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(existing.Text, metadataMatch.Text, StringComparison.Ordinal)))
+                {
+                    matches.Add(metadataMatch);
+                }
+            }
+        }
+
+        return matches;
     }
 
     private static async Task<List<RagMatch>> SearchDenseMatchesAsync(
@@ -542,6 +574,13 @@ WHERE tenant_id=@tenant_id
         string MatchKind,
         string? SectionTitle,
         string? MatchedTerm);
+
+    private sealed record MetadataReferenceRow(
+        Guid DocId,
+        string DocPath,
+        string DocName,
+        int IngestionVersion,
+        string? HashDoc);
 
     private sealed record LinkedMatchRow(
         Guid DocId,
@@ -959,6 +998,29 @@ LIMIT @top_k;
         return Math.Min(1.02, score);
     }
 
+    internal static bool ShouldShortCircuitAfterExact(IReadOnlyList<RagMatch> exactMatches)
+    {
+        if (exactMatches.Count == 0)
+            return false;
+
+        var top = exactMatches[0];
+        if (!string.Equals(top.EmbeddingBasis, "exact_match_v1", StringComparison.Ordinal))
+            return false;
+
+        var isStrongReferenceHit =
+            string.Equals(top.ChunkType, "exact_match_entry", StringComparison.Ordinal)
+            || string.Equals(top.ChunkType, "document_metadata_ref", StringComparison.Ordinal);
+
+        if (!isStrongReferenceHit || top.Score < 0.97)
+            return false;
+
+        if (exactMatches.Count == 1)
+            return true;
+
+        var second = exactMatches[1];
+        return top.Score - second.Score >= 0.04;
+    }
+
     private static string ResolveRetriever(RagMatch match)
         => match.EmbeddingBasis switch
         {
@@ -1074,6 +1136,164 @@ LIMIT @top_k;
         }
 
         return sb.ToString();
+    }
+
+    private static async Task<List<RagMatch>> SearchDocumentMetadataMatchesAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        IReadOnlyList<string> normalizedTerms,
+        IReadOnlyList<string> referenceKeys,
+        string? category,
+        Guid? docId,
+        string? docPath,
+        int topK,
+        CancellationToken ct)
+    {
+        if (topK <= 0)
+            return [];
+
+        const string sql = """
+SELECT
+    d.doc_id AS "DocId",
+    d.doc_path AS "DocPath",
+    d.doc_name AS "DocName",
+    d.indexed_version AS "IngestionVersion",
+    LOWER(ENCODE(d.content_hash, 'hex')) AS "HashDoc"
+FROM documents d
+WHERE d.tenant_id = @tenant_id
+  AND d.status = 'indexed'
+  AND d.indexed_version > 0
+  AND (@category IS NULL OR LOWER(d.category) = @category)
+  AND (@doc_id IS NULL OR d.doc_id = @doc_id)
+  AND (@doc_path IS NULL OR d.doc_path = @doc_path)
+ORDER BY d.updated_at DESC
+LIMIT 500;
+""";
+
+        var rows = await conn.QueryAsync<MetadataReferenceRow>(new CommandDefinition(sql, new
+        {
+            tenant_id = tenantId,
+            category,
+            doc_id = docId,
+            doc_path = docPath
+        }, cancellationToken: ct));
+
+        return rows
+            .Select(row => BuildMetadataReferenceMatch(row, normalizedTerms, referenceKeys))
+            .Where(static match => match is not null)
+            .Select(static match => match!)
+            .OrderByDescending(static match => match.Score)
+            .ThenBy(static match => match.DocPath, StringComparer.OrdinalIgnoreCase)
+            .Take(topK)
+            .ToList();
+    }
+
+    private static RagMatch? BuildMetadataReferenceMatch(
+        MetadataReferenceRow row,
+        IReadOnlyList<string> queryTerms,
+        IReadOnlyList<string> queryReferenceKeys)
+    {
+        var metadataText = $"{row.DocName} {row.DocPath}";
+        var metadataTerms = ExactMatchEntryExtractor.ExtractLookupTerms(metadataText);
+        var metadataKeys = ExactMatchEntryExtractor.ExtractReferenceKeys(metadataText);
+        var metadataReferenceTerms = ExactMatchEntryExtractor.ExtractTargetedReferences(metadataText)
+            .Select(ExactMatchEntryExtractor.NormalizeForLookup)
+            .Where(static term => IsReferenceLikeLookupTerm(term))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var queryReferenceTerms = queryTerms
+            .Where(static term => IsReferenceLikeLookupTerm(term))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        var exactReferenceMatches = queryReferenceTerms
+            .Intersect(metadataReferenceTerms, StringComparer.Ordinal)
+            .ToArray();
+        var keyBackedReferenceMatches = metadataReferenceTerms
+            .Where(term => QueryKeysFullyMatchTerm(queryReferenceKeys, term))
+            .ToArray();
+        var genericDirectMatches = queryTerms
+            .Intersect(metadataTerms, StringComparer.Ordinal)
+            .Except(exactReferenceMatches, StringComparer.Ordinal)
+            .ToArray();
+        var keyMatches = queryReferenceKeys
+            .Intersect(metadataKeys, StringComparer.Ordinal)
+            .ToArray();
+
+        if (exactReferenceMatches.Length == 0
+            && keyBackedReferenceMatches.Length == 0
+            && genericDirectMatches.Length == 0
+            && keyMatches.Length == 0)
+            return null;
+
+        var score = ComputeMetadataReferenceScore(
+            exactReferenceMatches.Length,
+            keyBackedReferenceMatches.Length,
+            genericDirectMatches.Length,
+            keyMatches.Length);
+        var strongestReference = exactReferenceMatches.FirstOrDefault()
+            ?? keyBackedReferenceMatches.FirstOrDefault();
+        var text = strongestReference is not null
+            ? $"{row.DocName} [{strongestReference}]"
+            : keyMatches.Length > 0
+                ? $"{row.DocName} [{string.Join(", ", keyMatches)}]"
+                : row.DocName;
+
+        return new RagMatch(
+            Score: score,
+            DocId: row.DocId.ToString(),
+            DocPath: row.DocPath,
+            DocName: row.DocName,
+            PageStart: null,
+            PageEnd: null,
+            ChunkId: $"docmeta:{row.DocId}",
+            ChunkIndex: -1,
+            Text: text,
+            IngestionVersion: row.IngestionVersion,
+            HashDoc: row.HashDoc,
+            EmbedText: text,
+            EmbeddingBasis: "exact_match_v1",
+            SectionOrdinal: null,
+            UnitOrdinal: null,
+            SectionTitle: null,
+            HeadingPath: null,
+            ChunkType: "document_metadata_ref",
+            PrevChunkId: null,
+            NextChunkId: null,
+            SameSectionChunkId: null);
+    }
+
+    internal static double ComputeMetadataReferenceScore(int exactReferenceMatches, int keyBackedReferenceMatches, int genericDirectMatches, int keyMatches)
+    {
+        var score = 0.90;
+        if (exactReferenceMatches > 0)
+            score += 0.09 + Math.Min(0.01, exactReferenceMatches * 0.004);
+        else if (keyBackedReferenceMatches > 0)
+            score += 0.07 + Math.Min(0.01, keyBackedReferenceMatches * 0.004);
+        else if (keyMatches > 0)
+            score += 0.05 + Math.Min(0.01, keyMatches * 0.004);
+
+        if (genericDirectMatches > 0)
+            score += Math.Min(0.01, genericDirectMatches * 0.0025);
+
+        return Math.Min(1.01, score);
+    }
+
+    private static bool QueryKeysFullyMatchTerm(IReadOnlyList<string> queryReferenceKeys, string metadataReferenceTerm)
+    {
+        if (queryReferenceKeys.Count == 0 || string.IsNullOrWhiteSpace(metadataReferenceTerm))
+            return false;
+
+        return queryReferenceKeys.All(key =>
+            metadataReferenceTerm.Contains(key, StringComparison.Ordinal));
+    }
+
+    private static bool IsReferenceLikeLookupTerm(string term)
+    {
+        if (string.IsNullOrWhiteSpace(term))
+            return false;
+
+        return term.Length >= 6 && term.Any(char.IsDigit);
     }
 
     private static async Task<IResult> ScrollAsync(
