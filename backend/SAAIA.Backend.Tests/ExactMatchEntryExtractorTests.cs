@@ -80,7 +80,120 @@ public sealed class ExactMatchEntryExtractorTests
         var terms = ExactMatchEntryExtractor.ExtractLookupTerms("Que dit la norme EN 15281 sur le code IND570 ?");
 
         Assert.Contains("en 15281", terms);
+        Assert.Contains("15281", terms);
         Assert.Contains("ind570", terms);
+    }
+
+    [Fact]
+    public void ExpandReferenceVariants_bridges_composite_standard_references_to_numeric_core()
+    {
+        var variants = ExactMatchEntryExtractor.ExpandReferenceVariants("CEN TR 15281").ToArray();
+
+        Assert.Contains("TR 15281", variants);
+        Assert.Contains("15281", variants);
+    }
+
+    [Fact]
+    public void ExtractLookupTerms_bridges_en_reference_to_numeric_variant_for_doc_metadata_matching()
+    {
+        var terms = ExactMatchEntryExtractor.ExtractLookupTerms("Ou trouve-t-on EN 15281 ?");
+
+        Assert.Contains("en 15281", terms);
+        Assert.Contains("15281", terms);
+    }
+
+    [Fact]
+    public void ExtractLookupTerms_keeps_standalone_numeric_reference_keys_for_real_queries()
+    {
+        var terms = ExactMatchEntryExtractor.ExtractLookupTerms("Ou trouve-t-on 15281 ?");
+
+        Assert.Contains("15281", terms);
+    }
+
+    [Fact]
+    public void ExtractLookupTerms_bridges_compact_standard_reference_without_space()
+    {
+        var terms = ExactMatchEntryExtractor.ExtractLookupTerms("Ou trouve-t-on EN15281 ?");
+
+        Assert.Contains("en15281", terms);
+        Assert.Contains("en 15281", terms);
+        Assert.Contains("15281", terms);
+    }
+
+    [Fact]
+    public void ExtractLookupTerms_bridges_hyphenated_standard_reference()
+    {
+        var terms = ExactMatchEntryExtractor.ExtractLookupTerms("Ou trouve-t-on EN-15281 ?");
+
+        Assert.Contains("en 15281", terms);
+        Assert.Contains("15281", terms);
+    }
+
+    [Fact]
+    public void ExtractLookupTerms_bridges_cen_tr_reference_with_slash_separator()
+    {
+        var terms = ExactMatchEntryExtractor.ExtractLookupTerms("Ou trouve-t-on CEN/TR 15281 ?");
+
+        Assert.Contains("cen tr 15281", terms);
+        Assert.Contains("tr 15281", terms);
+        Assert.Contains("15281", terms);
+    }
+
+    [Fact]
+    public void ExtractLookupTerms_bridges_split_code_reference_variants_to_compact_form()
+    {
+        var spaced = ExactMatchEntryExtractor.ExtractLookupTerms("Ou trouve-t-on IND 570 ?");
+        var hyphenated = ExactMatchEntryExtractor.ExtractLookupTerms("Ou trouve-t-on IND-570 ?");
+
+        Assert.Contains("ind 570", spaced);
+        Assert.Contains("ind570", spaced);
+        Assert.Contains("ind 570", hyphenated);
+        Assert.Contains("ind570", hyphenated);
+    }
+
+    [Fact]
+    public void ExtractLookupTerms_keeps_product_code_when_vendor_name_is_present()
+    {
+        var terms = ExactMatchEntryExtractor.ExtractLookupTerms("Montre le manuel Mettler Toledo IND-570.");
+
+        Assert.Contains("ind 570", terms);
+        Assert.Contains("ind570", terms);
+    }
+
+    [Fact]
+    public void ExtractLookupTerms_handles_noisy_user_query_for_cen_document()
+    {
+        var terms = ExactMatchEntryExtractor.ExtractLookupTerms("stp je cherche le pdf inerting EN-15281");
+
+        Assert.Contains("en 15281", terms);
+        Assert.Contains("15281", terms);
+    }
+
+    [Fact]
+    public void ExtractLookupTerms_does_not_keep_pdf_prefixed_numeric_noise()
+    {
+        var terms = ExactMatchEntryExtractor.ExtractLookupTerms("Ouvre-moi le pdf 15281 inerting stp.");
+
+        Assert.Contains("15281", terms);
+        Assert.DoesNotContain("pdf 15281", terms);
+        Assert.DoesNotContain("pdf15281", terms);
+    }
+
+    [Fact]
+    public void ExtractLookupTerms_handles_noisy_user_query_for_ind570_manual()
+    {
+        var terms = ExactMatchEntryExtractor.ExtractLookupTerms("need the Mettler Toledo IND570 manual pdf please");
+
+        Assert.Contains("ind570", terms);
+    }
+
+    [Fact]
+    public void ExtractLookupTerms_does_not_keep_terminal_prefixed_numeric_noise()
+    {
+        var terms = ExactMatchEntryExtractor.ExtractLookupTerms("Est-ce que tu as le manuel du terminal IND570 ?");
+
+        Assert.Contains("ind570", terms);
+        Assert.DoesNotContain("terminal ind570", terms);
     }
 
     [Fact]

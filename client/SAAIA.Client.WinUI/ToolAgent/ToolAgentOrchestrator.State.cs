@@ -38,6 +38,7 @@ public sealed partial class ToolAgentOrchestrator
         _lastEffectiveMode = "auto";
         _lastWriterToolNames = new List<string>();
         _lastToolDurations = new List<(string tool, long durationMs, bool ok)>();
+        _lastAnswerSource = "unknown";
     }
 
     private Dictionary<string, object?> BuildAgentRuntimeSnapshot()
@@ -85,7 +86,8 @@ public sealed partial class ToolAgentOrchestrator
             {
                 ["usedGeneralChatPrompt"] = _lastUsedGeneralChatPrompt,
                 ["usedInventoryRendered"] = _lastUsedInventoryRendered,
-                ["usedSummaryFlow"] = _lastUsedSummaryFlow
+                ["usedSummaryFlow"] = _lastUsedSummaryFlow,
+                ["answerSource"] = _lastAnswerSource
             },
             ["memory"] = new Dictionary<string, object?>
             {

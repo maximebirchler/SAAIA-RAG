@@ -99,13 +99,29 @@ public sealed record RagMetricsDto(
     int Returned,
     int ExactMatchReturned = 0,
     int DenseReturned = 0,
+    int SparseReturned = 0,
     int LinkedReturned = 0,
     IReadOnlyList<string>? RetrieversUsed = null,
     string? DataHash = null,
     int? TtlSeconds = 600,
     long? TeiMs = null,
+    long? RerankMs = null,
+    long? SparseMs = null,
     long? QdrantMs = null,
     int? CandidatesEvaluated = null
+);
+
+/// <summary>
+/// Guidance for how a downstream writer or UI should frame the answer for the current question.
+/// This is a lightweight bridge toward CDC v3.0 answer-quality behavior without pretending to be full evidence-pack reasoning.
+/// </summary>
+public sealed record RagAnswerGuidanceDto(
+    string Behavior,
+    string Reason,
+    string? ResponseShape = null,
+    string? ClarifyingQuestion = null,
+    string? QualificationNote = null,
+    IReadOnlyList<string>? MatchedDocHints = null
 );
 
 /// <summary>
@@ -122,5 +138,6 @@ public sealed record RagSearchResponseDto(
     int MaxPerDoc,
     int MaxPerPage,
     RagMetricsDto Metrics,
-    IReadOnlyList<RagItemDto> Items
+    IReadOnlyList<RagItemDto> Items,
+    RagAnswerGuidanceDto? Guidance = null
 );

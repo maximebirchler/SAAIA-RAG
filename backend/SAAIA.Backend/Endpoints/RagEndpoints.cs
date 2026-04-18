@@ -82,6 +82,7 @@ ORDER BY category;
                 Returned: resp.Matches.Count,
                 ExactMatchReturned: resp.Matches.Count(m => string.Equals(m.EmbeddingBasis, "exact_match_v1", StringComparison.Ordinal)),
                 DenseReturned: resp.Matches.Count(m => string.Equals(ResolveRetriever(m), "dense_qdrant", StringComparison.Ordinal)),
+                SparseReturned: resp.Matches.Count(m => string.Equals(ResolveRetriever(m), "sparse_bm25", StringComparison.Ordinal)),
                 LinkedReturned: resp.Matches.Count(m => string.Equals(m.EmbeddingBasis, "linked_context_v1", StringComparison.Ordinal)),
                 RetrieversUsed: resp.Matches
                     .Select(ResolveRetriever)
@@ -90,6 +91,8 @@ ORDER BY category;
                 DataHash: ComputeDataHash(resp.Matches),
                 TtlSeconds: 600,
                 TeiMs: resp.Timings.TeiMs,
+                RerankMs: resp.Timings.RerankMs,
+                SparseMs: resp.Timings.SparseMs,
                 QdrantMs: resp.Timings.QdrantMs,
                 CandidatesEvaluated: resp.Candidates
             ),
@@ -120,18 +123,19 @@ ORDER BY category;
                     Context: BuildContextInfo(m),
                     CategoryPath: resp.Category,
                     Snippet: BuildSnippet(m.Text),
-                    RerankScore: null,
+                    RerankScore: m.RerankScore,
                     HasTable: DetectHasTable(m.Text),
                     HasWarning: DetectHasWarning(m.Text, m.ChunkType),
                     ContextualSnippet: m.EmbedText
                 ))
-                .ToList()
+                .ToList(),
+            Guidance: BuildAnswerGuidance(resp.Query, resp.Matches)
         );
 
         return Results.Ok(responseDto);
     }
 
-    private static async Task<RagSearchResponse> SearchCoreAsync(
+    internal static async Task<RagSearchResponse> SearchCoreAsync(
         HttpContext ctx,
         NpgsqlDataSource ds,
         RagOptions rag,
@@ -189,20 +193,34 @@ ORDER BY category;
         var ct = ctx.RequestAborted;
         var swTotal = Stopwatch.StartNew();
 
+        var exactMatches = await SearchExactMatchesAsync(ds, tenantId, req.Query, category, req.DocId, req.DocPath, topK, ct);
+        var shortCircuitAfterExact = ShouldShortCircuitAfterExact(exactMatches);
         var selected = new List<RagMatch>(capacity: topK);
         var selectedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        var exactMatches = await SearchExactMatchesAsync(ds, tenantId, req.Query, category, req.DocId, req.DocPath, topK, ct);
-        AddRankedMatches(selected, selectedKeys, exactMatches, topK, minScore: 0.0, maxPerDoc, maxPerPage);
-        var shortCircuitAfterExact = ShouldShortCircuitAfterExact(selected);
-
         long teiMs = 0;
+        long rerankMs = 0;
+        long sparseMs = 0;
         long qdrantMs = 0;
         int qdrantStatus = 0;
 
-        if (!shortCircuitAfterExact && selected.Count < topK)
+        if (shortCircuitAfterExact)
         {
-            var denseMatches = await SearchDenseMatchesAsync(
+            AddRankedMatches(selected, selectedKeys, exactMatches, topK, minScore: 0.0, maxPerDoc, maxPerPage);
+        }
+        else
+        {
+            var sparseMatchesTask = SearchSparseMatchesAsync(
+                ds,
+                tenantId,
+                req.Query,
+                category,
+                req.DocId,
+                req.DocPath,
+                candidates,
+                ct,
+                sparseMsRef: value => sparseMs = value);
+            var denseMatchesTask = SearchDenseMatchesAsync(
                 ds,
                 httpFactory,
                 rag,
@@ -217,37 +235,51 @@ ORDER BY category;
                 qdrantMsRef: value => qdrantMs = value,
                 qdrantStatusRef: value => qdrantStatus = value);
 
-            AddRankedMatches(selected, selectedKeys, denseMatches, topK, minScore, maxPerDoc, maxPerPage);
-        }
+            await Task.WhenAll(sparseMatchesTask, denseMatchesTask);
 
-        if (!shortCircuitAfterExact && selected.Count < topK)
-        {
-            var linkedMatches = await SearchLinkedMatchesAsync(
-                ds,
-                tenantId,
-                selected,
-                category,
-                req.DocId,
-                req.DocPath,
-                topK - selected.Count,
-                ct);
+            var sparseMatches = await sparseMatchesTask;
+            var denseMatches = await denseMatchesTask;
+            var fusedMatches = FuseWithRrf(exactMatches, sparseMatches, denseMatches);
+            fusedMatches = CalibrateFusedMatches(req.Query, fusedMatches);
+            fusedMatches = await TryRerankWithTeiAsync(
+                httpFactory,
+                rag,
+                req.Query,
+                fusedMatches,
+                ct,
+                rerankMsRef: value => rerankMs = value);
 
-            AddRankedMatches(selected, selectedKeys, linkedMatches, topK, minScore: 0.0, maxPerDoc, Math.Max(maxPerPage, 2));
-        }
+            AddRankedMatches(selected, selectedKeys, fusedMatches, topK, minScore, maxPerDoc, maxPerPage);
 
-        if (!shortCircuitAfterExact && selected.Count < topK)
-        {
-            var secondWaveLinkedMatches = await SearchLinkedMatchesAsync(
-                ds,
-                tenantId,
-                selected,
-                category,
-                req.DocId,
-                req.DocPath,
-                topK - selected.Count,
-                ct);
+            if (selected.Count < topK)
+            {
+                var linkedMatches = await SearchLinkedMatchesAsync(
+                    ds,
+                    tenantId,
+                    selected,
+                    category,
+                    req.DocId,
+                    req.DocPath,
+                    topK - selected.Count,
+                    ct);
 
-            AddRankedMatches(selected, selectedKeys, secondWaveLinkedMatches, topK, minScore: 0.0, maxPerDoc, Math.Max(maxPerPage, 2));
+                AddRankedMatches(selected, selectedKeys, linkedMatches, topK, minScore: 0.0, maxPerDoc, Math.Max(maxPerPage, 2));
+            }
+
+            if (selected.Count < topK)
+            {
+                var secondWaveLinkedMatches = await SearchLinkedMatchesAsync(
+                    ds,
+                    tenantId,
+                    selected,
+                    category,
+                    req.DocId,
+                    req.DocPath,
+                    topK - selected.Count,
+                    ct);
+
+                AddRankedMatches(selected, selectedKeys, secondWaveLinkedMatches, topK, minScore: 0.0, maxPerDoc, Math.Max(maxPerPage, 2));
+            }
         }
 
         // CDC v3.0 §11.3: autocut — remove trailing results after largest relative score drop
@@ -269,6 +301,8 @@ ORDER BY category;
             Timings: new RagSearchTimings(
                 TotalMs: swTotal.ElapsedMilliseconds,
                 TeiMs: teiMs,
+                RerankMs: rerankMs,
+                SparseMs: sparseMs,
                 QdrantMs: qdrantMs),
             Matches: selected);
     }
@@ -496,6 +530,171 @@ LIMIT @top_k;
         }
     }
 
+    private static async Task<List<RagMatch>> TryRerankWithTeiAsync(
+        IHttpClientFactory httpFactory,
+        RagOptions rag,
+        string query,
+        IReadOnlyList<RagMatch> candidates,
+        CancellationToken ct,
+        Action<long> rerankMsRef)
+    {
+        if (!rag.EnableRerank || candidates.Count <= 1)
+        {
+            rerankMsRef(0);
+            return candidates.ToList();
+        }
+
+        var rerankBaseUrl = string.IsNullOrWhiteSpace(rag.RerankBaseUrl)
+            ? rag.EmbeddingsBaseUrl
+            : rag.RerankBaseUrl!;
+        var maxCandidates = Math.Clamp(rag.RerankMaxCandidates, 2, Math.Max(2, candidates.Count));
+        var rerankSlice = candidates.Take(maxCandidates).ToList();
+        var texts = rerankSlice
+            .Select(match => string.IsNullOrWhiteSpace(match.EmbedText) ? (match.Text ?? string.Empty) : match.EmbedText!)
+            .ToArray();
+
+        var tei = httpFactory.CreateClient("tei");
+        tei.BaseAddress = new Uri(rerankBaseUrl);
+
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            var reranked = await TeiClient.RerankAsync(tei, rag.RerankModel, query, texts, ct);
+            return ApplyRerankScores(candidates, reranked, rerankSlice.Count);
+        }
+        catch
+        {
+            return candidates.ToList();
+        }
+        finally
+        {
+            sw.Stop();
+            rerankMsRef(sw.ElapsedMilliseconds);
+        }
+    }
+
+    internal static async Task<List<RagMatch>> SearchSparseMatchesAsync(
+        NpgsqlDataSource ds,
+        Guid tenantId,
+        string query,
+        string? category,
+        string? docId,
+        string? docPath,
+        int topK,
+        CancellationToken ct,
+        Action<long> sparseMsRef)
+    {
+        if (string.IsNullOrWhiteSpace(query) || topK <= 0)
+        {
+            sparseMsRef(0);
+            return [];
+        }
+
+        var normalizedDocPath = string.IsNullOrWhiteSpace(docPath)
+            ? null
+            : docPath.Trim().Replace('\\', '/').TrimStart('/');
+        Guid? normalizedDocId = Guid.TryParse(docId, out var parsedDocId) ? parsedDocId : null;
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        const string sql = """
+WITH sparse_query AS (
+    SELECT websearch_to_tsquery('simple', @query_text) AS q
+)
+SELECT
+    d.doc_id AS "DocId",
+    d.doc_path AS "DocPath",
+    d.doc_name AS "DocName",
+    rc.page_start AS "PageStart",
+    rc.page_end AS "PageEnd",
+    rc.retrieval_chunk_id AS "ChunkId",
+    rc.chunk_index AS "ChunkIndex",
+    rc.text_content AS "Text",
+    d.indexed_version AS "IngestionVersion",
+    LOWER(ENCODE(d.content_hash, 'hex')) AS "HashDoc",
+    cte.text_content AS "EmbedText",
+    rc.section_id AS "SectionOrdinalPlaceholder",
+    COALESCE(rc.metadata->>'sectionTitle', s.title) AS "SectionTitle",
+    COALESCE(rc.metadata->>'headingPath', s.title) AS "HeadingPath",
+    COALESCE(rc.metadata->>'chunkType', 'contextual_text_v1') AS "ChunkType",
+    rc.metadata->>'prevChunkId' AS "PrevChunkId",
+    rc.metadata->>'nextChunkId' AS "NextChunkId",
+    rc.metadata->>'sameSectionChunkId' AS "SameSectionChunkId",
+    ts_rank_cd(
+        to_tsvector('simple', cte.text_content),
+        sparse_query.q,
+        32
+    ) AS "SparseRank"
+FROM sparse_query
+JOIN documents d
+  ON d.tenant_id = @tenant_id
+ AND d.status = 'indexed'
+ AND d.indexed_version > 0
+JOIN document_revisions r
+  ON r.tenant_id = d.tenant_id
+ AND r.doc_id = d.doc_id
+ AND r.indexed_version = d.indexed_version
+JOIN contextual_text_entries cte
+  ON cte.tenant_id = r.tenant_id
+ AND cte.revision_id = r.revision_id
+JOIN retrieval_chunks rc
+  ON rc.retrieval_chunk_id = cte.retrieval_chunk_id
+LEFT JOIN document_sections s
+  ON s.section_id = rc.section_id
+WHERE to_tsvector('simple', cte.text_content) @@ sparse_query.q
+  AND (@category IS NULL OR LOWER(d.category) = @category)
+  AND (@doc_id IS NULL OR d.doc_id = @doc_id)
+  AND (@doc_path IS NULL OR d.doc_path = @doc_path)
+ORDER BY "SparseRank" DESC, rc.chunk_index ASC
+LIMIT @top_k;
+""";
+
+        var swSparse = Stopwatch.StartNew();
+        try
+        {
+            var rows = await conn.QueryAsync<SparseMatchRow>(new CommandDefinition(sql, new
+            {
+                tenant_id = tenantId,
+                query_text = query.Trim(),
+                category,
+                doc_id = normalizedDocId,
+                doc_path = normalizedDocPath,
+                top_k = topK
+            }, cancellationToken: ct));
+
+            return rows.Select(row => new RagMatch(
+                Score: NormalizeSparseScore(row.SparseRank),
+                DocId: row.DocId.ToString(),
+                DocPath: row.DocPath,
+                DocName: row.DocName,
+                PageStart: row.PageStart,
+                PageEnd: row.PageEnd,
+                ChunkId: row.ChunkId.ToString(),
+                ChunkIndex: row.ChunkIndex,
+                Text: row.Text,
+                IngestionVersion: row.IngestionVersion,
+                HashDoc: row.HashDoc,
+                EmbedText: row.EmbedText,
+                EmbeddingBasis: "sparse_bm25_v1",
+                SectionOrdinal: null,
+                UnitOrdinal: null,
+                SectionTitle: row.SectionTitle,
+                HeadingPath: row.HeadingPath,
+                ChunkType: row.ChunkType,
+                PrevChunkId: row.PrevChunkId,
+                NextChunkId: row.NextChunkId,
+                SameSectionChunkId: row.SameSectionChunkId)).ToList();
+        }
+        catch (PostgresException)
+        {
+            return [];
+        }
+        finally
+        {
+            swSparse.Stop();
+            sparseMsRef(swSparse.ElapsedMilliseconds);
+        }
+    }
+
     private static async Task<List<RagMatch>> FilterMatchesAgainstActiveDocumentVersionsAsync(
         NpgsqlDataSource ds,
         Guid tenantId,
@@ -581,6 +780,26 @@ WHERE tenant_id=@tenant_id
         string DocName,
         int IngestionVersion,
         string? HashDoc);
+
+    private sealed record SparseMatchRow(
+        Guid DocId,
+        string DocPath,
+        string DocName,
+        int PageStart,
+        int PageEnd,
+        Guid ChunkId,
+        int ChunkIndex,
+        string Text,
+        int IngestionVersion,
+        string? HashDoc,
+        string EmbedText,
+        string? SectionTitle,
+        string? HeadingPath,
+        string ChunkType,
+        string? PrevChunkId,
+        string? NextChunkId,
+        string? SameSectionChunkId,
+        double SparseRank);
 
     private sealed record LinkedMatchRow(
         Guid DocId,
@@ -928,6 +1147,102 @@ LIMIT @top_k;
     internal static string BuildMatchDedupKey(RagMatch match)
         => $"{match.DocId}|{match.PageStart}|{match.PageEnd}|{ExactMatchEntryExtractor.NormalizeForLookup(match.Text ?? string.Empty)}";
 
+    internal static List<RagMatch> FuseWithRrf(
+        IReadOnlyList<RagMatch> exactMatches,
+        IReadOnlyList<RagMatch> sparseMatches,
+        IReadOnlyList<RagMatch> denseMatches,
+        int rrfK = 60)
+    {
+        var accumulators = new Dictionary<string, RrfAccumulator>(StringComparer.OrdinalIgnoreCase);
+
+        AccumulateRrf(accumulators, exactMatches, rrfK);
+        AccumulateRrf(accumulators, sparseMatches, rrfK);
+        AccumulateRrf(accumulators, denseMatches, rrfK);
+
+        if (accumulators.Count == 0)
+            return [];
+
+        var maxRrf = accumulators.Values.Max(item => item.Score);
+        return accumulators
+            .Values
+            .Select(item =>
+            {
+                var normalizedRrf = maxRrf > 0 ? item.Score / maxRrf : 0.0;
+                var baseScore = Math.Clamp(item.Representative.Score, 0.0, 1.02);
+                var blendedScore = Math.Min(1.02, (normalizedRrf * 0.65) + (baseScore * 0.35));
+                return item.Representative with { Score = blendedScore };
+            })
+            .OrderByDescending(item => item.Score)
+            .ThenBy(item => item.DocPath, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.ChunkIndex)
+            .ToList();
+    }
+
+    internal static List<RagMatch> CalibrateFusedMatches(string query, IReadOnlyList<RagMatch> candidates)
+    {
+        if (candidates.Count <= 1)
+            return candidates.ToList();
+
+        var normalizedWhole = ExactMatchEntryExtractor.NormalizeForLookup(query);
+        var referenceTerms = ExactMatchEntryExtractor.ExtractLookupTerms(query)
+            .Where(term => !string.Equals(term, normalizedWhole, StringComparison.Ordinal))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var lexicalTokens = ExtractLexicalQueryTokens(query);
+
+        return candidates
+            .Select(match =>
+            {
+                var retriever = ResolveRetriever(match);
+                var adjusted = match.Score;
+
+                if (referenceTerms.Length > 0)
+                {
+                    if (string.Equals(retriever, "exact_match", StringComparison.Ordinal))
+                    {
+                        adjusted += string.Equals(match.ChunkType, "document_metadata_ref", StringComparison.Ordinal)
+                            ? 0.03
+                            : 0.02;
+                    }
+                    else if (!string.Equals(retriever, "sparse_bm25", StringComparison.Ordinal))
+                    {
+                        adjusted -= 0.01;
+                    }
+                }
+                else if (lexicalTokens.Count > 0)
+                {
+                    var lexicalCoverage = ComputeLexicalCoverage(lexicalTokens, match.EmbedText ?? match.Text);
+                    if (string.Equals(retriever, "sparse_bm25", StringComparison.Ordinal))
+                    {
+                        adjusted += lexicalCoverage switch
+                        {
+                            >= 0.80 => 0.06,
+                            >= 0.50 => 0.035,
+                            >= 0.34 => 0.015,
+                            _ when lexicalTokens.Count >= 3 => -0.02,
+                            _ => 0.0
+                        };
+                    }
+                    else if (string.Equals(retriever, "dense_qdrant", StringComparison.Ordinal))
+                    {
+                        adjusted += lexicalCoverage switch
+                        {
+                            >= 0.80 => 0.025,
+                            >= 0.50 => 0.012,
+                            < 0.20 when lexicalTokens.Count >= 3 => -0.01,
+                            _ => 0.0
+                        };
+                    }
+                }
+
+                return match with { Score = Math.Clamp(adjusted, 0.0, 1.02) };
+            })
+            .OrderByDescending(item => item.Score)
+            .ThenBy(item => item.DocPath, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.ChunkIndex)
+            .ToList();
+    }
+
     internal static List<RagMatch> RerankDenseMatches(IReadOnlyList<RagMatch> matches)
         => matches
             .Select(match => new
@@ -940,6 +1255,61 @@ LIMIT @top_k;
             .ToList()
             .Select(item => item.Match with { Score = item.Score })
             .ToList();
+
+    internal static List<RagMatch> ApplyRerankScores(
+        IReadOnlyList<RagMatch> originalCandidates,
+        IReadOnlyList<TeiClient.RerankItem> rerankedItems,
+        int rerankedPrefixCount)
+    {
+        if (originalCandidates.Count == 0 || rerankedItems.Count == 0 || rerankedPrefixCount <= 0)
+            return originalCandidates.ToList();
+
+        var limitedPrefixCount = Math.Min(rerankedPrefixCount, originalCandidates.Count);
+        var prefix = originalCandidates.Take(limitedPrefixCount).ToArray();
+        var suffix = originalCandidates.Skip(limitedPrefixCount).ToArray();
+        var byIndex = rerankedItems
+            .Where(item => item.Index >= 0 && item.Index < prefix.Length)
+            .GroupBy(item => item.Index)
+            .ToDictionary(group => group.Key, group => group.OrderByDescending(x => x.Score).First().Score);
+
+        if (byIndex.Count == 0)
+            return originalCandidates.ToList();
+
+        var orderedScores = rerankedItems
+            .Where(item => item.Index >= 0 && item.Index < prefix.Length)
+            .Select(item => item.Score)
+            .OrderBy(score => score)
+            .ToArray();
+        var minScore = orderedScores.Length == 0 ? 0.0 : orderedScores.First();
+        var maxScore = orderedScores.Length == 0 ? 0.0 : orderedScores.Last();
+
+        var rerankedPrefix = byIndex
+            .Select(pair =>
+            {
+                var match = prefix[pair.Key];
+                var normalizedRerank = NormalizeRerankScore(pair.Value, minScore, maxScore);
+                var blended = Math.Min(1.02, (match.Score * 0.35) + (normalizedRerank * 0.65));
+                return match with
+                {
+                    Score = blended,
+                    RerankScore = pair.Value
+                };
+            })
+            .OrderByDescending(item => item.Score)
+            .ThenByDescending(item => item.RerankScore)
+            .ToList();
+
+        var untouchedPrefix = Enumerable.Range(0, prefix.Length)
+            .Where(index => !byIndex.ContainsKey(index))
+            .Select(index => prefix[index])
+            .ToList();
+
+        var finalList = new List<RagMatch>(originalCandidates.Count);
+        finalList.AddRange(rerankedPrefix);
+        finalList.AddRange(untouchedPrefix);
+        finalList.AddRange(suffix);
+        return finalList;
+    }
 
     private static double ComputeDenseBoost(RagMatch match)
     {
@@ -955,6 +1325,57 @@ LIMIT @top_k;
             boost += 0.005;
 
         return boost;
+    }
+
+    internal static double NormalizeRerankScore(double rawScore, double minScore, double maxScore)
+    {
+        if (double.IsNaN(rawScore) || double.IsInfinity(rawScore))
+            return 0.0;
+        if (maxScore <= minScore)
+            return 1.0;
+
+        var normalized = (rawScore - minScore) / (maxScore - minScore);
+        return Math.Clamp(normalized, 0.0, 1.0);
+    }
+
+    internal static double NormalizeSparseScore(double rawScore)
+    {
+        if (rawScore <= 0.0 || double.IsNaN(rawScore) || double.IsInfinity(rawScore))
+            return 0.0;
+
+        var normalized = 0.45 + Math.Min(0.42, Math.Log10(1 + (rawScore * 1000.0)) * 0.24);
+        return Math.Min(0.92, normalized);
+    }
+
+    internal static IReadOnlyList<string> ExtractLexicalQueryTokens(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return Array.Empty<string>();
+
+        var normalized = ExactMatchEntryExtractor.NormalizeForLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return Array.Empty<string>();
+
+        return normalized
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(static token => token.Length >= 4)
+            .Where(static token => token.Any(char.IsLetter))
+            .Where(static token => !LexicalStopwords.Contains(token))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    internal static double ComputeLexicalCoverage(IReadOnlyList<string> queryTokens, string? candidateText)
+    {
+        if (queryTokens.Count == 0 || string.IsNullOrWhiteSpace(candidateText))
+            return 0.0;
+
+        var normalizedCandidate = ExactMatchEntryExtractor.NormalizeForLookup(candidateText);
+        if (string.IsNullOrWhiteSpace(normalizedCandidate))
+            return 0.0;
+
+        var matched = queryTokens.Count(token => normalizedCandidate.Contains(token, StringComparison.Ordinal));
+        return matched == 0 ? 0.0 : (double)matched / queryTokens.Count;
     }
 
     internal static double ComputeLinkedMatchScore(double anchorScore, string linkType, string? anchorRetriever = null)
@@ -1025,12 +1446,186 @@ LIMIT @top_k;
         => match.EmbeddingBasis switch
         {
             "exact_match_v1" => "exact_match",
+            "sparse_bm25_v1" => "sparse_bm25",
             "linked_context_v1" => "linked_context",
             _ => "dense_qdrant"
         };
 
+    private static void AccumulateRrf(
+        Dictionary<string, RrfAccumulator> accumulators,
+        IReadOnlyList<RagMatch> matches,
+        int rrfK)
+    {
+        for (var i = 0; i < matches.Count; i++)
+        {
+            var match = matches[i];
+            var key = BuildMatchDedupKey(match);
+            var contribution = 1.0 / (rrfK + i + 1);
+            if (accumulators.TryGetValue(key, out var existing))
+            {
+                accumulators[key] = existing with
+                {
+                    Score = existing.Score + contribution,
+                    Representative = SelectRepresentative(existing.Representative, match)
+                };
+            }
+            else
+            {
+                accumulators[key] = new RrfAccumulator(contribution, match);
+            }
+        }
+    }
+
+    private static RagMatch SelectRepresentative(RagMatch left, RagMatch right)
+    {
+        var leftPriority = GetRetrieverPriority(left);
+        var rightPriority = GetRetrieverPriority(right);
+        if (rightPriority != leftPriority)
+            return rightPriority > leftPriority ? right : left;
+
+        return right.Score > left.Score ? right : left;
+    }
+
+    private static int GetRetrieverPriority(RagMatch match)
+        => ResolveRetriever(match) switch
+        {
+            "exact_match" => 3,
+            "sparse_bm25" => 2,
+            _ => 1
+        };
+
+    private static readonly HashSet<string> LexicalStopwords = new(StringComparer.Ordinal)
+    {
+        "dans", "avec", "sans", "pour", "vers", "entre", "apres", "avant",
+        "quel", "quelle", "quels", "quelles", "trouve", "trouver", "montre",
+        "montrez", "ou", "sont", "sous", "plus", "moins", "comme", "cela",
+        "cette", "cet", "ces", "leurs", "leur", "par", "sur", "des", "une",
+        "les", "que", "quoi", "dont", "when", "where", "which", "with", "from",
+        "this", "that", "those", "these", "what", "into", "pdf", "doc", "document",
+        "manuel", "manual", "guide", "please", "stp", "svp", "cherche", "show",
+        "need", "have", "has", "just", "juste", "moi", "peux", "avoir"
+    };
+
+    private static readonly HashSet<string> DocumentHintStopwords = new(StringComparer.Ordinal)
+    {
+        "PDF", "DOC", "DOCUMENT", "GUIDE", "GUIDANCE", "MANUAL", "MANUEL", "NOTICE",
+        "TERMINAL", "INTERFACE", "PROGRAMMATION", "PROGRAMMING", "COMMUNICATION",
+        "COMMUNICATIONS", "SYSTEM", "SYSTEMS", "PROCESS", "PROCESSUS", "PROCEDURE",
+        "PREVENTION", "EXPLOSION", "EXPLOSIONS", "INERTING", "INERTAGE", "WEIGHING",
+        "PESAGE", "TOLEDO", "METTLER", "GENERAL", "THE", "FOR", "AND", "WITH", "SUR",
+        "POUR", "DES", "LES", "UNE", "UN", "DU", "DE", "LA", "LE", "ET", "ON", "OF"
+    };
+
+    private static readonly string[] ProcessSafetyKeywords =
+    [
+        "inert", "oxygen", "oxygene", "explosion", "flammability", "flammabilite",
+        "loc", "maoc", "hybrid", "dust", "poussier", "purge", "nitrogen", "azote",
+        "carbon dioxide", "co2", "flue gas", "gaz de combustion"
+    ];
+
+    private static readonly string[] ControlIntegrationKeywords =
+    [
+        "plc", "automate", "profinet", "profibus", "modbus", "ethernet/ip",
+        "ethernet ip", "device", "controlnet", "devicenet", "class 1", "class 3",
+        "analog", "analogique", "calibration", "tare", "tolerance", "siemens",
+        "rockwell", "shared data", "donnees partagees", "sortie analogique"
+    ];
+
+    private static readonly string[] HazardousAreaKeywords =
+    [
+        "hazardous", "zone dangereuse", "zone class", "zone 2", "zone 22",
+        "division 2", "explosive atmosphere", "atmosphere explosive", "atex"
+    ];
+
+    private static readonly string[] FunctionalSafetyKeywords =
+    [
+        "sil", "61508", "61511", "safety instrumented", "instrumented function",
+        "fonction de securite", "safety lifecycle"
+    ];
+
+    private sealed record RrfAccumulator(double Score, RagMatch Representative);
+    internal sealed record MatchedRetrievalContext(
+        IReadOnlyList<string> DocHints,
+        bool HasProcessSafetyDomain,
+        bool HasControlIntegrationDomain,
+        bool HasHazardousAreaDomain,
+        bool HasFunctionalSafetyDomain);
+
     internal static string ResolveProvenance(RagMatch match)
         => $"retriever:{ResolveRetriever(match)}";
+
+    internal static RagAnswerGuidanceDto BuildAnswerGuidance(string query, IReadOnlyList<RagMatch> matches)
+    {
+        var normalized = NormalizeQueryForGuidance(query);
+        var matchedContext = BuildMatchedRetrievalContext(matches);
+        var matchedDocHints = matchedContext.DocHints;
+
+        if (ContainsPlaceholderStandard(normalized))
+        {
+            return new RagAnswerGuidanceDto(
+                Behavior: "ask_clarification",
+                Reason: "missing_standard_identifier",
+                ResponseShape: "clarify",
+                ClarifyingQuestion: BuildClarifyingQuestion(normalized, matchedContext, "missing_standard_identifier"),
+                MatchedDocHints: matchedDocHints);
+        }
+
+        if (ContainsSilCertificationQuery(normalized))
+        {
+            return new RagAnswerGuidanceDto(
+                Behavior: "ask_clarification",
+                Reason: "safety_certification_requires_precise_scope",
+                ResponseShape: "clarify",
+                ClarifyingQuestion: BuildClarifyingQuestion(normalized, matchedContext, "safety_certification_requires_precise_scope"),
+                MatchedDocHints: matchedDocHints);
+        }
+
+        if (ContainsBroadAtexComplianceQuery(normalized))
+        {
+            return new RagAnswerGuidanceDto(
+                Behavior: "ask_clarification",
+                Reason: "broad_atex_compliance_requires_scope",
+                ResponseShape: "clarify",
+                ClarifyingQuestion: BuildClarifyingQuestion(normalized, matchedContext, "broad_atex_compliance_requires_scope"),
+                MatchedDocHints: matchedDocHints);
+        }
+
+        if (ContainsSufficiencyQuestion(normalized))
+        {
+            return new RagAnswerGuidanceDto(
+                Behavior: "answer",
+                Reason: "document_scope_limit_can_be_answered_directly",
+                ResponseShape: "qualified_answer",
+                MatchedDocHints: matchedDocHints);
+        }
+
+        var simpleDocumentSelection = ContainsSimpleDocumentSelectionQuestion(normalized);
+        var needsQualification =
+            ContainsOperationalRiskRecommendationQuestion(normalized)
+            || ContainsQuickCustomerReplySelectionQuestion(normalized)
+            || (!simpleDocumentSelection && (
+                ContainsComplianceLanguage(normalized)
+                || ContainsCustomerReplyLanguage(normalized)
+                || ContainsProjectAssessmentLanguage(normalized)
+                || ContainsCrossDomainSafetyIntegrationQuestion(normalized)
+                || ContainsFireProtectionClaimQuestion(normalized)));
+
+        if (needsQualification)
+        {
+            return new RagAnswerGuidanceDto(
+                Behavior: "answer_with_caveat",
+                Reason: "project_or_compliance_answer_requires_qualification",
+                ResponseShape: DetermineResponseShape(normalized, behavior: "answer_with_caveat"),
+                QualificationNote: BuildQualificationNote(normalized, matchedContext, simpleDocumentSelection),
+                MatchedDocHints: matchedDocHints);
+        }
+
+        return new RagAnswerGuidanceDto(
+            Behavior: "answer",
+            Reason: "documented_question_with_relevant_sources",
+            ResponseShape: DetermineResponseShape(normalized, behavior: "answer"),
+            MatchedDocHints: matchedDocHints);
+    }
 
     internal static RagItemProvenanceDto BuildProvenanceInfo(RagMatch match)
         => new(
@@ -1109,6 +1704,348 @@ LIMIT @top_k;
         sha.TransformFinalBlock([], 0, 0);
         return Convert.ToHexString(sha.Hash!).ToLowerInvariant();
     }
+
+    internal static IReadOnlyList<string> ExtractMatchedDocHints(IReadOnlyList<RagMatch> matches)
+    {
+        var hints = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var match in matches)
+        {
+            CollectDocumentHints(match.DocName, hints);
+            CollectDocumentHints(match.DocPath, hints);
+        }
+
+        if (hints.Count == 0)
+            return Array.Empty<string>();
+
+        var ordered = hints.OrderBy(static h => h, StringComparer.Ordinal).ToArray();
+        var filtered = ordered
+            .Where(hint => !ordered.Any(other =>
+                !string.Equals(other, hint, StringComparison.Ordinal)
+                && other.Length < hint.Length
+                && hint.EndsWith(other, StringComparison.Ordinal)))
+            .ToArray();
+
+        return filtered.Length == 0 ? ordered : filtered;
+    }
+
+    internal static MatchedRetrievalContext BuildMatchedRetrievalContext(IReadOnlyList<RagMatch> matches)
+    {
+        var hints = ExtractMatchedDocHints(matches);
+        var hasProcessSafetyDomain = false;
+        var hasControlIntegrationDomain = false;
+        var hasHazardousAreaDomain = false;
+        var hasFunctionalSafetyDomain = false;
+
+        foreach (var match in matches)
+        {
+            var searchable = $"{match.DocName} {match.DocPath} {match.SectionTitle} {match.HeadingPath} {match.Text} {match.EmbedText}";
+            hasProcessSafetyDomain |= ContainsAny(searchable, ProcessSafetyKeywords);
+            hasControlIntegrationDomain |= ContainsAny(searchable, ControlIntegrationKeywords);
+            hasHazardousAreaDomain |= ContainsAny(searchable, HazardousAreaKeywords);
+            hasFunctionalSafetyDomain |= ContainsAny(searchable, FunctionalSafetyKeywords);
+        }
+
+        return new MatchedRetrievalContext(
+            hints,
+            hasProcessSafetyDomain,
+            hasControlIntegrationDomain,
+            hasHazardousAreaDomain,
+            hasFunctionalSafetyDomain);
+    }
+
+    private static bool ContainsPlaceholderStandard(string normalizedQuery)
+        => normalizedQuery.Contains("norme xxx", StringComparison.Ordinal)
+           || normalizedQuery.Contains("standard xxx", StringComparison.Ordinal);
+
+    private static bool ContainsSilCertificationQuery(string normalizedQuery)
+        => normalizedQuery.Contains(" sil ", StringComparison.Ordinal)
+           || normalizedQuery.StartsWith("sil ", StringComparison.Ordinal)
+           || normalizedQuery.EndsWith(" sil", StringComparison.Ordinal)
+           || normalizedQuery.Contains("certification sil", StringComparison.Ordinal);
+
+    private static bool ContainsBroadAtexComplianceQuery(string normalizedQuery)
+        => normalizedQuery.Contains("atex", StringComparison.Ordinal)
+           && ContainsComplianceLanguage(normalizedQuery)
+           && !HasSpecificReferenceLookup(normalizedQuery);
+
+    private static bool ContainsComplianceLanguage(string normalizedQuery)
+        => normalizedQuery.Contains("respecte", StringComparison.Ordinal)
+           || normalizedQuery.Contains("conforme", StringComparison.Ordinal)
+           || normalizedQuery.Contains("conformite", StringComparison.Ordinal)
+           || normalizedQuery.Contains("compliance", StringComparison.Ordinal);
+
+    private static bool ContainsCustomerReplyLanguage(string normalizedQuery)
+        => normalizedQuery.Contains("on lui repond", StringComparison.Ordinal)
+           || normalizedQuery.Contains("tu repondrais", StringComparison.Ordinal)
+           || normalizedQuery.Contains("reponse prudente", StringComparison.Ordinal)
+           || normalizedQuery.Contains("qu est ce qu il faut lui demander", StringComparison.Ordinal)
+           || normalizedQuery.Contains("qu'est ce qu'il faut lui demander", StringComparison.Ordinal);
+
+    private static bool ContainsProjectAssessmentLanguage(string normalizedQuery)
+        => normalizedQuery.Contains("projet", StringComparison.Ordinal)
+           || normalizedQuery.Contains("notre systeme", StringComparison.Ordinal)
+           || normalizedQuery.Contains("notre installation", StringComparison.Ordinal);
+
+    private static bool ContainsCrossDomainSafetyIntegrationQuestion(string normalizedQuery)
+        => normalizedQuery.Contains("surveillance oxygene", StringComparison.Ordinal)
+           && normalizedQuery.Contains("plc", StringComparison.Ordinal);
+
+    private static bool ContainsSufficiencyQuestion(string normalizedQuery)
+        => normalizedQuery.Contains("suffit a lui seul", StringComparison.Ordinal)
+           || normalizedQuery.Contains("suffit a elle seule", StringComparison.Ordinal);
+
+    private static bool ContainsSimpleDocumentSelectionQuestion(string normalizedQuery)
+        => normalizedQuery.Contains("quel document faut il citer", StringComparison.Ordinal)
+           || normalizedQuery.Contains("quel document faut-il citer", StringComparison.Ordinal)
+           || normalizedQuery.Contains("lequel pour parler", StringComparison.Ordinal)
+           || normalizedQuery.Contains("quel document", StringComparison.Ordinal) && normalizedQuery.Contains("integration plc", StringComparison.Ordinal);
+
+    private static bool ContainsFireProtectionClaimQuestion(string normalizedQuery)
+        => (normalizedQuery.Contains("peut dire", StringComparison.Ordinal)
+            || normalizedQuery.Contains("on peut dire", StringComparison.Ordinal)
+            || normalizedQuery.Contains("est protege", StringComparison.Ordinal))
+           && (normalizedQuery.Contains("feu", StringComparison.Ordinal)
+               || normalizedQuery.Contains("incendie", StringComparison.Ordinal));
+
+    private static bool ContainsOperationalRiskRecommendationQuestion(string normalizedQuery)
+        => (normalizedQuery.Contains("vapeur", StringComparison.Ordinal)
+            || normalizedQuery.Contains("gaz de combustion", StringComparison.Ordinal)
+            || normalizedQuery.Contains("niveau de fiabilite", StringComparison.Ordinal)
+            || normalizedQuery.Contains("zone potentiellement explosive", StringComparison.Ordinal)
+            || normalizedQuery.Contains("zone dangereuse", StringComparison.Ordinal))
+           && (normalizedQuery.Contains("client", StringComparison.Ordinal)
+               || normalizedQuery.Contains("on peut", StringComparison.Ordinal)
+               || normalizedQuery.Contains("utiliser", StringComparison.Ordinal)
+               || normalizedQuery.Contains("dit quoi", StringComparison.Ordinal)
+               || normalizedQuery.Contains("demande", StringComparison.Ordinal));
+
+    private static bool ContainsQuickCustomerReplySelectionQuestion(string normalizedQuery)
+        => normalizedQuery.Contains("repondre vite au client", StringComparison.Ordinal)
+           || (normalizedQuery.Contains("par lequel", StringComparison.Ordinal)
+               && normalizedQuery.Contains("client", StringComparison.Ordinal));
+
+    private static string BuildClarifyingQuestion(string normalizedQuery, MatchedRetrievalContext matchedContext, string reason)
+    {
+        if (string.Equals(reason, "safety_certification_requires_precise_scope", StringComparison.Ordinal))
+            return "Tu parles d'une exigence SIL pour quel composant, quelle fonction de securite et quel niveau attendu ?";
+
+        if (string.Equals(reason, "broad_atex_compliance_requires_scope", StringComparison.Ordinal))
+        {
+            if (matchedContext.HasControlIntegrationDomain || matchedContext.HasHazardousAreaDomain)
+                return "Tu vises quelle exigence ATEX precise, sur quelle zone, pour quelle version d'equipement et avec quelles options installees ?";
+
+            return "Tu vises quelle exigence ATEX precise, sur quelle zone et pour quelle partie de l'installation ou du process ?";
+        }
+
+        if (matchedContext.HasProcessSafetyDomain && matchedContext.HasControlIntegrationDomain)
+            return "Tu parles de quelle norme exactement, et est-ce que tu vises plutot le process/inertage, le terminal/PLC, ou la zone ATEX autour de l'installation ?";
+
+        if (matchedContext.HasControlIntegrationDomain)
+            return "Tu parles de quelle norme exactement et sur quelle partie de l'equipement ou de l'integration automatisme ?";
+
+        if (matchedContext.HasProcessSafetyDomain)
+            return "Tu parles de quelle norme exactement et sur quelle partie du process ou de l'inertage ?";
+
+        return "Tu parles de quelle norme exactement et sur quelle partie du projet ou de l'equipement ?";
+    }
+
+    private static string BuildQualificationNote(string normalizedQuery, MatchedRetrievalContext matchedContext, bool simpleDocumentSelection)
+    {
+        var hintLabel = FormatHintLabel(matchedContext.DocHints);
+
+        if (matchedContext.HasProcessSafetyDomain && matchedContext.HasControlIntegrationDomain)
+        {
+            if (ContainsQuickCustomerReplySelectionQuestion(normalizedQuery) || simpleDocumentSelection)
+                return $"Commence par la documentation process/safety{hintLabel} pour cadrer le sujet et la conformite process, puis utilise la documentation terminal/PLC pour l'equipement et l'integration; cela ne suffit pas a affirmer la conformite complete du projet.";
+
+            return $"Les documents retrouves{hintLabel} couvrent a la fois le process/safety et le terminal ou l'integration PLC. Il faut encore cadrer le perimetre, les equipements concernes et le contexte projet avant d'affirmer une conformite complete du projet.";
+        }
+
+        if (matchedContext.HasControlIntegrationDomain && (matchedContext.HasHazardousAreaDomain
+            || normalizedQuery.Contains("zone potentiellement explosive", StringComparison.Ordinal)
+            || normalizedQuery.Contains("zone dangereuse", StringComparison.Ordinal)))
+        {
+            return $"La documentation equipement{hintLabel} aide a cadrer le terminal, mais il faut verifier la version exacte, la zone dangereuse visee et les options installees avant toute affirmation de conformite.";
+        }
+
+        if (matchedContext.HasProcessSafetyDomain && (ContainsComplianceLanguage(normalizedQuery)
+            || ContainsCustomerReplyLanguage(normalizedQuery)
+            || ContainsProjectAssessmentLanguage(normalizedQuery)))
+        {
+            return $"La documentation process{hintLabel} eclaire l'inertage, les sauvegardes et le contexte technique, mais il faut encore cadrer le perimetre, les equipements concernes et le contexte projet avant d'affirmer une conformite.";
+        }
+
+        return "Les documents peuvent eclairer le sujet, mais ils ne suffisent pas seuls a affirmer la conformite complete du projet sans contexte supplementaire.";
+    }
+
+    private static string DetermineResponseShape(string normalizedQuery, string behavior)
+    {
+        if (string.Equals(behavior, "ask_clarification", StringComparison.Ordinal))
+            return "clarify";
+
+        if (normalizedQuery.Contains("compare", StringComparison.Ordinal)
+            || normalizedQuery.Contains("difference", StringComparison.Ordinal)
+            || normalizedQuery.Contains("comparer", StringComparison.Ordinal))
+            return "comparison";
+
+        if (normalizedQuery.Contains("montre", StringComparison.Ordinal)
+            || normalizedQuery.Contains("passage", StringComparison.Ordinal)
+            || normalizedQuery.Contains("ou dans le document", StringComparison.Ordinal))
+            return "locate_passage";
+
+        if (normalizedQuery.Contains("quel document", StringComparison.Ordinal)
+            || normalizedQuery.Contains("manuel", StringComparison.Ordinal)
+            || normalizedQuery.Contains("ouvrir", StringComparison.Ordinal)
+            || normalizedQuery.Contains("commencer", StringComparison.Ordinal))
+            return "locate_document";
+
+        if (normalizedQuery.Contains("resumer", StringComparison.Ordinal)
+            || normalizedQuery.Contains("resume", StringComparison.Ordinal)
+            || normalizedQuery.Contains("reponse courte", StringComparison.Ordinal)
+            || normalizedQuery.Contains("expliquer simplement", StringComparison.Ordinal))
+            return "summary";
+
+        if (string.Equals(behavior, "answer_with_caveat", StringComparison.Ordinal))
+            return "qualified_answer";
+
+        return "direct_answer";
+    }
+
+    private static void CollectDocumentHints(string? rawText, HashSet<string> hints)
+    {
+        if (string.IsNullOrWhiteSpace(rawText))
+            return;
+
+        var stem = ExtractDocumentStem(rawText);
+        if (string.IsNullOrWhiteSpace(stem))
+            return;
+
+        var localHints = new HashSet<string>(StringComparer.Ordinal);
+        string? fallbackAlpha = null;
+        string? previousAlpha = null;
+
+        foreach (var part in stem.Split([' ', '-', '_', '/', '\\', '.', ',', ';', ':', '(', ')', '[', ']'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            var compact = CompactDocumentHintToken(part);
+            if (string.IsNullOrEmpty(compact))
+            {
+                previousAlpha = null;
+                continue;
+            }
+
+            if (compact.All(char.IsDigit))
+            {
+                if (!string.IsNullOrWhiteSpace(previousAlpha) && compact.Length is >= 2 and <= 6)
+                    localHints.Add($"{previousAlpha}{compact}");
+
+                if (compact.Length >= 4)
+                    localHints.Add(compact);
+
+                previousAlpha = null;
+                continue;
+            }
+
+            if (compact.Any(char.IsDigit))
+            {
+                if (compact.Length is >= 4 and <= 16)
+                    localHints.Add(compact);
+
+                previousAlpha = null;
+                continue;
+            }
+
+            if (IsMeaningfulDocumentHint(compact))
+            {
+                fallbackAlpha ??= compact;
+                previousAlpha = compact.Length <= 5 ? compact : null;
+                continue;
+            }
+
+            if (IsShortReferencePrefix(compact))
+            {
+                previousAlpha = compact;
+                continue;
+            }
+
+            previousAlpha = null;
+        }
+
+        if (localHints.Count == 0)
+        {
+            if (!string.IsNullOrWhiteSpace(fallbackAlpha))
+                hints.Add(fallbackAlpha);
+            return;
+        }
+
+        foreach (var hint in localHints)
+            hints.Add(hint);
+    }
+
+    private static string ExtractDocumentStem(string rawText)
+    {
+        var normalized = rawText.Replace('\\', '/');
+        var tail = normalized[(normalized.LastIndexOf('/') + 1)..];
+        var dotIndex = tail.LastIndexOf('.');
+        return dotIndex > 0 ? tail[..dotIndex] : tail;
+    }
+
+    private static string CompactDocumentHintToken(string token)
+    {
+        Span<char> buffer = stackalloc char[token.Length];
+        var length = 0;
+
+        foreach (var ch in token)
+        {
+            if (char.IsLetterOrDigit(ch))
+                buffer[length++] = char.ToUpperInvariant(ch);
+        }
+
+        return length == 0 ? string.Empty : new string(buffer[..length]);
+    }
+
+    private static bool IsMeaningfulDocumentHint(string token)
+        => token.Length >= 4
+           && token.All(char.IsLetter)
+           && !DocumentHintStopwords.Contains(token);
+
+    private static bool IsShortReferencePrefix(string token)
+        => token.Length is >= 2 and <= 5
+           && token.All(char.IsLetter)
+           && !DocumentHintStopwords.Contains(token);
+
+    private static bool ContainsAny(string? text, IReadOnlyList<string> keywords)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        foreach (var keyword in keywords)
+        {
+            if (text.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static string FormatHintLabel(IReadOnlyList<string> hints)
+        => hints.Count switch
+        {
+            0 => string.Empty,
+            1 => $" ({hints[0]})",
+            2 => $" ({hints[0]} + {hints[1]})",
+            _ => $" ({hints[0]} + {hints[1]} + autres sources)"
+        };
+
+    private static bool HasSpecificReferenceLookup(string normalizedQuery)
+    {
+        var normalizedWhole = ExactMatchEntryExtractor.NormalizeForLookup(normalizedQuery);
+        return ExactMatchEntryExtractor.ExtractLookupTerms(normalizedQuery)
+            .Any(term => !string.Equals(term, normalizedWhole, StringComparison.Ordinal));
+    }
+
+    private static string NormalizeQueryForGuidance(string query)
+        => $" {ExactMatchEntryExtractor.NormalizeForLookup(query)} ";
 
     private static string NormalizeQuery(string s)
     {
@@ -1358,7 +2295,7 @@ public sealed record RagSearchRequest(
     string? Mode = null
 );
 
-public sealed record RagSearchTimings(long TotalMs, long TeiMs, long QdrantMs);
+    public sealed record RagSearchTimings(long TotalMs, long TeiMs, long RerankMs, long SparseMs, long QdrantMs);
 
 public sealed record RagSearchResponse(
     string RequestId,

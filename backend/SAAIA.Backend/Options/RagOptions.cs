@@ -33,6 +33,10 @@ sealed class RagOptions
 
     public string EmbeddingsBaseUrl { get; set; } = "http://localhost:8081/";
     public string EmbeddingsModel { get; set; } = "intfloat/multilingual-e5-base";
+    public bool EnableRerank { get; set; } = false;
+    public string? RerankBaseUrl { get; set; }
+    public string? RerankModel { get; set; }
+    public int RerankMaxCandidates { get; set; } = 12;
 
     public int DefaultTopK { get; set; } = 5;
     public int MaxTopK { get; set; } = 20;

@@ -21,6 +21,10 @@
     "RequireQdrantAuthInProd": __REQUIRE_QDRANT_AUTH__,
     "EmbeddingsBaseUrl": "http://tei",
     "EmbeddingsModel": "__TEI_MODEL_ID__",
+    "EnableRerank": false,
+    "RerankBaseUrl": "",
+    "RerankModel": "",
+    "RerankMaxCandidates": 12,
     "DefaultTopK": 5,
     "MaxTopK": 20
   },

@@ -1,8 +1,12 @@
 using System.Text.Json;
 using Dapper;
+using Microsoft.AspNetCore.Http;
 using Npgsql;
+using SAAIA.Backend.Auth;
 using SAAIA.Backend.Db;
 using SAAIA.Backend.Endpoints;
+using SAAIA.Backend.Middleware;
+using SAAIA.Backend.Models;
 using Xunit;
 namespace SAAIA.Backend.Tests;
 
@@ -400,6 +404,90 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal("exact_match_v1", match.EmbeddingBasis);
         Assert.Contains("15281", match.Text, StringComparison.Ordinal);
         Assert.True(match.Score >= 0.95);
+    }
+
+    [Fact]
+    public async Task SearchSparseMatchesAsync_returns_contextual_chunk_hits_for_business_query()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("71717171-1111-1111-1111-111111111111");
+        var docId = Guid.Parse("72727272-2222-2222-2222-222222222222");
+        var jobId = Guid.Parse("73737373-3333-3333-3333-333333333333");
+        const string docPath = "ATEX/CEN TR 15281 2006 Guidance on inerting.pdf";
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 1, indexedVersion: 0);
+
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, "Guidance on inerting and safety controls.", 5, 41, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Overview", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, "Guidance on inerting and safety controls.", 41, 6, [2])
+        };
+        var retrievalChunks = new[]
+        {
+            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "Guidance on inerting and safety controls.", 6, [3], "unit_exact_v1")
+        };
+        var contextualTextEntries = new[]
+        {
+            new ProjectedContextualTextEntry(
+                0,
+                0,
+                0,
+                0,
+                1,
+                1,
+                "Document: CEN TR 15281 2006 Guidance on inerting.pdf\nHeading Path: Overview\nExcerpt:\nGuidance on inerting and safety controls.",
+                124,
+                17,
+                [4])
+        };
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        Assert.True(await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            jobId,
+            docPath,
+            [5, 5, 5],
+            55,
+            DateTime.UtcNow,
+            1,
+            pages,
+            sections,
+            units,
+            retrievalChunks,
+            exactMatchEntries: [],
+            contextualTextEntries,
+            CancellationToken.None));
+
+        long measuredSparseMs = -1;
+        var matches = await RagEndpoints.SearchSparseMatchesAsync(
+            ds,
+            tenantId,
+            "inerting safety controls",
+            "atex",
+            docId.ToString(),
+            docPath,
+            5,
+            CancellationToken.None,
+            value => measuredSparseMs = value);
+
+        var match = Assert.Single(matches);
+        Assert.Equal("sparse_bm25_v1", match.EmbeddingBasis);
+        Assert.Equal(docId.ToString(), match.DocId);
+        Assert.Contains("inerting and safety controls", match.Text!, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Heading Path", match.EmbedText!, StringComparison.OrdinalIgnoreCase);
+        Assert.True(match.Score > 0.0);
+        Assert.True(measuredSparseMs >= 0);
     }
 
     [Fact]
@@ -808,6 +896,612 @@ public sealed class DocumentFoundationIntegrationTests
             CancellationToken.None);
 
         Assert.Contains(secondWave, item => item.ChunkId == DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 4, 2).ToString());
+    }
+
+    [Fact]
+    public async Task SearchCoreAsync_returns_answer_with_caveat_for_customer_compliance_question_on_en_15281()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("aaaa1111-1111-1111-1111-111111111111");
+        var docId = Guid.Parse("bbbb2222-2222-2222-2222-222222222222");
+        var jobId = Guid.Parse("cccc3333-3333-3333-3333-333333333333");
+        const string docPath = "ATEX/CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf";
+
+        await PublishIndexedDocumentAsync(
+            db,
+            tenantId,
+            docId,
+            jobId,
+            docPath,
+            version: 1,
+            sectionTitle: "Scope",
+            chunkText: "EN 15281 guidance on inerting for the prevention of explosion.",
+            contextualText: "Document: CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf\nSection: Scope\nExcerpt:\nEN 15281 guidance on inerting for the prevention of explosion.",
+            exactMatchEntries:
+            [
+                BuildExactMatchEntry("EN 15281", "en 15281", "standard_ref")
+            ]);
+
+        var response = await RagEndpoints.SearchCoreAsync(
+            BuildRagHttpContext(tenantId),
+            NpgsqlDataSource.Create(db.ConnectionString),
+            CreateTestRagOptions(),
+            new StubHttpClientFactory(),
+            new RagSearchRequestDto("J ai une discussion avec un client qui me demande si le projet respecte EN 15281, tu peux m en dire plus ?", TopK: 3));
+
+        var guidance = RagEndpoints.BuildAnswerGuidance(response.Query, response.Matches);
+
+        Assert.NotEmpty(response.Matches);
+        Assert.Equal("answer_with_caveat", guidance.Behavior);
+        Assert.Contains("15281", guidance.MatchedDocHints ?? Array.Empty<string>());
+        Assert.Contains(response.Matches, match => (match.DocPath ?? string.Empty).Contains("15281", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task SearchCoreAsync_uses_sparse_matches_for_cross_document_customer_selection_question()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("dddd4444-4444-4444-4444-444444444444");
+
+        await PublishIndexedDocumentAsync(
+            db,
+            tenantId,
+            Guid.Parse("eeee5555-5555-5555-5555-555555555555"),
+            Guid.Parse("ffff6666-6666-6666-6666-666666666666"),
+            "ATEX/CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf",
+            version: 1,
+            sectionTitle: "Inerting",
+            chunkText: "Inerting guidance covers oxygen concentration monitoring and explosion prevention.",
+            contextualText: "Document: CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf\nSection: Inerting\nExcerpt:\nInerting guidance covers oxygen concentration monitoring and explosion prevention.",
+            exactMatchEntries:
+            [
+                BuildExactMatchEntry("EN 15281", "en 15281", "standard_ref")
+            ]);
+
+        await PublishIndexedDocumentAsync(
+            db,
+            tenantId,
+            Guid.Parse("11117777-7777-7777-7777-777777777777"),
+            Guid.Parse("22228888-8888-8888-8888-888888888888"),
+            "Programmation/Mettler/MettlerToledo_IND570.pdf",
+            version: 1,
+            sectionTitle: "PLC integration",
+            chunkText: "IND570 manual explains PLC integration, PROFINET, EtherNet/IP and Modbus TCP.",
+            contextualText: "Document: MettlerToledo_IND570.pdf\nSection: PLC integration\nExcerpt:\nIND570 manual explains PLC integration, PROFINET, EtherNet/IP and Modbus TCP.",
+            exactMatchEntries:
+            [
+                BuildExactMatchEntry("IND570", "ind570", "code_ref")
+            ]);
+
+        var response = await RagEndpoints.SearchCoreAsync(
+            BuildRagHttpContext(tenantId),
+            NpgsqlDataSource.Create(db.ConnectionString),
+            CreateTestRagOptions(),
+            new StubHttpClientFactory(),
+            new RagSearchRequestDto("Quel document faut il citer au client pour parler d inerting et d integration plc ?", TopK: 4));
+
+        var guidance = RagEndpoints.BuildAnswerGuidance(response.Query, response.Matches);
+        var docPaths = response.Matches.Select(m => m.DocPath ?? string.Empty).ToArray();
+
+        Assert.Equal("answer", guidance.Behavior);
+        Assert.Contains("15281", guidance.MatchedDocHints ?? Array.Empty<string>());
+        Assert.Contains("IND570", guidance.MatchedDocHints ?? Array.Empty<string>());
+        Assert.Contains(docPaths, path => path.Contains("15281", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(docPaths, path => path.Contains("IND570", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task SearchCoreAsync_returns_ask_clarification_for_placeholder_standard_question()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("33339999-9999-9999-9999-999999999999");
+
+        await PublishIndexedDocumentAsync(
+            db,
+            tenantId,
+            Guid.Parse("4444aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+            Guid.Parse("5555bbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+            "ATEX/CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf",
+            version: 1,
+            sectionTitle: "Reliability",
+            chunkText: "Reliability of inerting systems depends on monitoring and maintenance.",
+            contextualText: "Document: CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf\nSection: Reliability\nExcerpt:\nReliability of inerting systems depends on monitoring and maintenance.");
+
+        var response = await RagEndpoints.SearchCoreAsync(
+            BuildRagHttpContext(tenantId),
+            NpgsqlDataSource.Create(db.ConnectionString),
+            CreateTestRagOptions(),
+            new StubHttpClientFactory(),
+            new RagSearchRequestDto("J ai une discussion avec un client qui me demande si le projet respecte la norme xxx.", TopK: 3));
+
+        var guidance = RagEndpoints.BuildAnswerGuidance(response.Query, response.Matches);
+
+        Assert.Equal("ask_clarification", guidance.Behavior);
+        Assert.False(string.IsNullOrWhiteSpace(guidance.ClarifyingQuestion));
+    }
+
+    [Fact]
+    public async Task SearchCoreAsync_returns_exact_ind570_document_for_manual_lookup()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("6666cccc-cccc-cccc-cccc-cccccccccccc");
+
+        await PublishIndexedDocumentAsync(
+            db,
+            tenantId,
+            Guid.Parse("7777dddd-dddd-dddd-dddd-dddddddddddd"),
+            Guid.Parse("8888eeee-eeee-eeee-eeee-eeeeeeeeeeee"),
+            "Programmation/Mettler/MettlerToledo_IND570.pdf",
+            version: 1,
+            sectionTitle: "Manual",
+            chunkText: "The IND570 terminal manual includes installation, configuration and diagnostics.",
+            contextualText: "Document: MettlerToledo_IND570.pdf\nSection: Manual\nExcerpt:\nThe IND570 terminal manual includes installation, configuration and diagnostics.",
+            exactMatchEntries:
+            [
+                BuildExactMatchEntry("IND570", "ind570", "code_ref")
+            ]);
+
+        var response = await RagEndpoints.SearchCoreAsync(
+            BuildRagHttpContext(tenantId),
+            NpgsqlDataSource.Create(db.ConnectionString),
+            CreateTestRagOptions(),
+            new StubHttpClientFactory(),
+            new RagSearchRequestDto("Est ce que tu as le manuel du terminal IND570 ?", TopK: 3));
+
+        var guidance = RagEndpoints.BuildAnswerGuidance(response.Query, response.Matches);
+        Assert.NotEmpty(response.Matches);
+        var first = response.Matches[0];
+
+        Assert.Equal("answer", guidance.Behavior);
+        Assert.Contains("IND570", guidance.MatchedDocHints ?? Array.Empty<string>());
+        Assert.Contains("IND570", $"{first.DocName} {first.DocPath}", StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("exact_match_v1", first.EmbeddingBasis);
+    }
+
+    [Fact]
+    public async Task SearchCoreAsync_runtime_ready_v5_cases_match_expected_behavior_and_primary_document()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("9999ffff-ffff-ffff-ffff-ffffffffffff");
+        await PublishRuntimeReadyQuestionBankDocumentsAsync(db, tenantId);
+
+        var cases = RetrievalQuestionBankFixture.LoadV5().QuestionCases
+            .Where(static testCase => testCase.RuntimeReady)
+            .ToArray();
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var failures = new List<string>();
+
+        foreach (var testCase in cases)
+        {
+            var response = await RagEndpoints.SearchCoreAsync(
+                BuildRagHttpContext(tenantId),
+                ds,
+                CreateTestRagOptions(),
+                new StubHttpClientFactory(),
+                new RagSearchRequestDto(testCase.Query, TopK: 4));
+
+            var guidance = RagEndpoints.BuildAnswerGuidance(response.Query, response.Matches);
+
+            if (!string.Equals(testCase.ExpectedBehavior, guidance.Behavior, StringComparison.Ordinal))
+            {
+                failures.Add($"{testCase.Name}: expected behavior '{testCase.ExpectedBehavior}' but got '{guidance.Behavior}'.");
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(testCase.ExpectedResponseShape)
+                && !string.Equals(testCase.ExpectedResponseShape, guidance.ResponseShape, StringComparison.Ordinal))
+            {
+                failures.Add($"{testCase.Name}: expected response shape '{testCase.ExpectedResponseShape}' but got '{guidance.ResponseShape ?? "<null>"}'.");
+            }
+
+            if (response.Matches.Count == 0)
+            {
+                failures.Add($"{testCase.Name}: expected at least one match.");
+                continue;
+            }
+
+            var primary = response.Matches[0];
+            var primaryDocHint = ResolveDocHint(primary);
+            if (!string.Equals(testCase.ExpectedPrimaryDocHint, primaryDocHint, StringComparison.Ordinal))
+            {
+                failures.Add($"{testCase.Name}: expected primary doc '{testCase.ExpectedPrimaryDocHint}' but got '{primaryDocHint ?? "<none>"}'.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(testCase.ExpectedPrimarySectionHint))
+            {
+                var primaryText = $"{primary.SectionTitle} {primary.HeadingPath} {primary.Text} {primary.EmbedText}";
+                if (!primaryText.Contains(testCase.ExpectedPrimarySectionHint, StringComparison.OrdinalIgnoreCase))
+                {
+                    failures.Add($"{testCase.Name}: expected primary section hint '{testCase.ExpectedPrimarySectionHint}' but top match was '{primary.SectionTitle ?? "<no-section>"}'.");
+                }
+            }
+
+            Assert.NotEmpty(guidance.MatchedDocHints ?? Array.Empty<string>());
+            Assert.Contains(testCase.ExpectedPrimaryDocHint!, guidance.MatchedDocHints!, StringComparer.Ordinal);
+        }
+
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
+    }
+
+    [Fact]
+    public async Task SearchCoreAsync_runtime_ready_writer_cases_keep_prudent_guidance_shape()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("ababffff-ffff-ffff-ffff-ffffffffffff");
+        await PublishRuntimeReadyQuestionBankDocumentsAsync(db, tenantId);
+
+        var cases = RetrievalQuestionBankFixture.LoadV5().QuestionCases
+            .Where(static testCase => testCase.RuntimeReady)
+            .Where(static testCase =>
+                string.Equals(testCase.ExpectedBehavior, "answer_with_caveat", StringComparison.Ordinal)
+                || string.Equals(testCase.ExpectedBehavior, "ask_clarification", StringComparison.Ordinal))
+            .ToArray();
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var failures = new List<string>();
+
+        foreach (var testCase in cases)
+        {
+            var response = await RagEndpoints.SearchCoreAsync(
+                BuildRagHttpContext(tenantId),
+                ds,
+                CreateTestRagOptions(),
+                new StubHttpClientFactory(),
+                new RagSearchRequestDto(testCase.Query, TopK: 4));
+
+            var guidance = RagEndpoints.BuildAnswerGuidance(response.Query, response.Matches);
+
+            if (string.Equals(testCase.ExpectedBehavior, "answer_with_caveat", StringComparison.Ordinal))
+            {
+                if (string.IsNullOrWhiteSpace(guidance.QualificationNote)
+                    || (!guidance.QualificationNote.Contains("contexte", StringComparison.OrdinalIgnoreCase)
+                        && !guidance.QualificationNote.Contains("conformite", StringComparison.OrdinalIgnoreCase)))
+                {
+                    failures.Add($"{testCase.Name}: expected a prudent qualification note, got '{guidance.QualificationNote ?? "<null>"}'.");
+                }
+
+                foreach (var token in testCase.ExpectedQualificationTokens ?? Array.Empty<string>())
+                {
+                    if (!guidance.QualificationNote!.Contains(token, StringComparison.OrdinalIgnoreCase))
+                        failures.Add($"{testCase.Name}: qualification note should contain '{token}', got '{guidance.QualificationNote}'.");
+                }
+            }
+
+            if (string.Equals(testCase.ExpectedBehavior, "ask_clarification", StringComparison.Ordinal))
+            {
+                if (string.IsNullOrWhiteSpace(guidance.ClarifyingQuestion)
+                    || !guidance.ClarifyingQuestion.Contains('?', StringComparison.Ordinal)
+                    || (!guidance.ClarifyingQuestion.Contains("quelle", StringComparison.OrdinalIgnoreCase)
+                        && !guidance.ClarifyingQuestion.Contains("quel", StringComparison.OrdinalIgnoreCase)))
+                {
+                    failures.Add($"{testCase.Name}: expected a useful clarification question, got '{guidance.ClarifyingQuestion ?? "<null>"}'.");
+                }
+
+                foreach (var token in testCase.ExpectedClarificationTokens ?? Array.Empty<string>())
+                {
+                    if (!guidance.ClarifyingQuestion!.Contains(token, StringComparison.OrdinalIgnoreCase))
+                        failures.Add($"{testCase.Name}: clarifying question should contain '{token}', got '{guidance.ClarifyingQuestion}'.");
+                }
+            }
+        }
+
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
+    }
+
+    private static DefaultHttpContext BuildRagHttpContext(Guid tenantId)
+    {
+        var ctx = new DefaultHttpContext();
+        ctx.Items[ApiKeyAuth.TenantIdItemKey] = tenantId;
+        ctx.Items[RequestIdMiddleware.RequestIdItemKey] = $"it-{tenantId:N}";
+        return ctx;
+    }
+
+    private static RagOptions CreateTestRagOptions()
+        => new()
+        {
+            EmbeddingsBaseUrl = "http://tei.test/",
+            QdrantBaseUrl = "http://qdrant.test/",
+            QdrantCollection = "knowledge_base",
+            DefaultTopK = 5,
+            MaxTopK = 20,
+            EnableRerank = false
+        };
+
+    private static ExtractedExactMatchEntry BuildExactMatchEntry(string text, string normalizedText, string kind)
+        => BuildExactMatchEntry(0, text, normalizedText, kind);
+
+    private static ExtractedExactMatchEntry BuildExactMatchEntry(int entryIndex, string text, string normalizedText, string kind)
+        => new(
+            EntryIndex: entryIndex,
+            SectionOrdinal: 0,
+            UnitOrdinal: 0,
+            PageStart: 1,
+            PageEnd: 1,
+            Text: text,
+            NormalizedText: normalizedText,
+            CharCount: text.Length,
+            TokenCount: Math.Max(1, text.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length),
+            Checksum: [1, 2, 3],
+            Kind: kind);
+
+    private static string? ResolveDocHint(RagMatch match)
+    {
+        var docText = $"{match.DocName} {match.DocPath}";
+        if (docText.Contains("15281", StringComparison.OrdinalIgnoreCase))
+            return "15281";
+        if (docText.Contains("ind570", StringComparison.OrdinalIgnoreCase))
+            return "IND570";
+        if (docText.Contains("accord", StringComparison.OrdinalIgnoreCase))
+            return "ACCORD";
+        return null;
+    }
+
+    private sealed record RuntimeSeedSection(string Title, string Text);
+
+    private static async Task PublishIndexedDocumentAsync(
+        PostgresIntegrationDb db,
+        Guid tenantId,
+        Guid docId,
+        Guid jobId,
+        string docPath,
+        int version,
+        string sectionTitle,
+        string chunkText,
+        string contextualText,
+        ExtractedExactMatchEntry[]? exactMatchEntries = null)
+    {
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: version, indexedVersion: Math.Max(0, version - 1));
+
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, chunkText, Math.Max(1, chunkText.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length), chunkText.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, sectionTitle, 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, chunkText, chunkText.Length, Math.Max(1, chunkText.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length), [2])
+        };
+        var retrievalChunks = new[]
+        {
+            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, chunkText, Math.Max(1, chunkText.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length), [3], "unit_exact_v1")
+        };
+        var contextualEntries = new[]
+        {
+            new ProjectedContextualTextEntry(0, 0, 0, 0, 1, 1, contextualText, contextualText.Length, Math.Max(1, contextualText.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length), [4])
+        };
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var committed = await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            jobId,
+            docPath,
+            hash: [9, 9, 9],
+            size: chunkText.Length,
+            mtimeUtc: DateTime.UtcNow,
+            version: version,
+            pages,
+            sections,
+            units,
+            retrievalChunks,
+            exactMatchEntries ?? [],
+            contextualEntries,
+            CancellationToken.None);
+
+        Assert.True(committed);
+    }
+
+    private static async Task PublishIndexedDocumentAsync(
+        PostgresIntegrationDb db,
+        Guid tenantId,
+        Guid docId,
+        Guid jobId,
+        string docPath,
+        int version,
+        RuntimeSeedSection[] sections,
+        ExtractedExactMatchEntry[]? exactMatchEntries = null)
+    {
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: version, indexedVersion: Math.Max(0, version - 1));
+
+        var pages = sections
+            .Select((section, index) => new ExtractedPdfPage(
+                index + 1,
+                section.Text,
+                Math.Max(1, section.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length),
+                section.Text.Length,
+                [(byte)(10 + index)]))
+            .ToArray();
+        var extractedSections = sections
+            .Select((section, index) => new ExtractedDocumentSection(index, section.Title, index + 1, index + 1, index + 1, index + 1, null))
+            .ToArray();
+        var units = sections
+            .Select((section, index) => new ExtractedDocumentUnit(
+                index,
+                index,
+                index + 1,
+                index + 1,
+                section.Text,
+                section.Text.Length,
+                Math.Max(1, section.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length),
+                [(byte)(20 + index)]))
+            .ToArray();
+        var retrievalChunks = sections
+            .Select((section, index) => new ProjectedRetrievalChunk(
+                index,
+                index,
+                index,
+                index + 1,
+                index + 1,
+                section.Text,
+                Math.Max(1, section.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length),
+                [(byte)(30 + index)],
+                "unit_exact_v1"))
+            .ToArray();
+        var contextualEntries = sections
+            .Select((section, index) =>
+            {
+                var contextualText = $"Document: {Path.GetFileName(docPath)}\nSection: {section.Title}\nHeading Path: {section.Title}\nExcerpt:\n{section.Text}";
+                return new ProjectedContextualTextEntry(
+                    index,
+                    index,
+                    index,
+                    index,
+                    index + 1,
+                    index + 1,
+                    contextualText,
+                    contextualText.Length,
+                    Math.Max(1, contextualText.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length),
+                    [(byte)(40 + index)]);
+            })
+            .ToArray();
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var committed = await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            jobId,
+            docPath,
+            hash: [8, 8, 8],
+            size: sections.Sum(static section => section.Text.Length),
+            mtimeUtc: DateTime.UtcNow,
+            version: version,
+            pages,
+            extractedSections,
+            units,
+            retrievalChunks,
+            exactMatchEntries ?? [],
+            contextualEntries,
+            CancellationToken.None);
+
+        Assert.True(committed);
+    }
+
+    private static async Task PublishRuntimeReadyQuestionBankDocumentsAsync(PostgresIntegrationDb db, Guid tenantId)
+    {
+        await PublishIndexedDocumentAsync(
+            db,
+            tenantId,
+            Guid.Parse("1212aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+            Guid.Parse("1313bbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+            "ATEX/CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf",
+            1,
+            [
+                new RuntimeSeedSection("Definitions", "Absolute inerting means replacing air with an inert gas and maintaining oxygen concentration below the limiting oxygen concentration. LOC and MAOC are used to describe the safe oxygen threshold below which the mixture should no longer explode."),
+                new RuntimeSeedSection("Normative references", "Normative references around inerting include EN 61508 and EN 61511 for safety instrumented functions and safety lifecycle context."),
+                new RuntimeSeedSection("Inert gases", "Nitrogen, carbon dioxide, steam, flue gases and noble gases are discussed as inerting media with different practical constraints."),
+                new RuntimeSeedSection("Inerting methods", "Pressure-swing, vacuum-swing, flow-through and displacement inerting are compared for explosion prevention and process safety. Flow-through inerting is useful for long pipelines or vessels when gas feed and venting are remote from each other."),
+                new RuntimeSeedSection("Process scope", "The guide covers gas, vapour, dust, mist and hybrid mixtures when assessing inerting and explosion prevention."),
+                new RuntimeSeedSection("Process parameters", "Limiting oxygen concentration depends on temperature, pressure, fuel concentration, particle size and process conditions."),
+                new RuntimeSeedSection("System components", "The inerting system includes inert gas supply, monitoring, control, alarms, shutdown logic and protective devices."),
+                new RuntimeSeedSection("Reliability", "Reliability of inerting systems depends on monitoring, alarms, maintenance, trip point definition and equipment performance. The guide distinguishes direct oxygen measurement from inferential approaches based on purge flow, pressure or time."),
+                new RuntimeSeedSection("Oxygen monitoring", "Oxygen monitoring technologies, oxygen analyzers, set point and trip point strategy are described for inerting systems.")
+            ],
+            [
+                BuildExactMatchEntry(0, "EN 15281", "en 15281", "standard_ref")
+            ]);
+
+        await PublishIndexedDocumentAsync(
+            db,
+            tenantId,
+            Guid.Parse("1414cccc-cccc-cccc-cccc-cccccccccccc"),
+            Guid.Parse("1515dddd-dddd-dddd-dddd-dddddddddddd"),
+            "Programmation/Mettler/MettlerToledo_IND570.pdf",
+            1,
+            [
+                new RuntimeSeedSection("PLC integration", "The IND570 terminal communicates with PLC systems and supports integration through industrial network interfaces so the scale can exchange data with the automate."),
+                new RuntimeSeedSection("PROFINET", "The PROFINET interface supports Siemens environments, unique IP assignment and topology considerations for the IND570 terminal."),
+                new RuntimeSeedSection("Supported protocols", "Supported protocols include EtherNet/IP, PROFINET, PROFIBUS, Modbus TCP, Modbus RTU, ControlNet and DeviceNet."),
+                new RuntimeSeedSection("EtherNet/IP", "The IND570 guide documents EtherNet/IP Class 1 and Class 3 messaging for PLC integration scenarios."),
+                new RuntimeSeedSection("Hazardous area", "Not all IND570 versions are approved for hazardous areas and relay options are not intended for hazardous zone use."),
+                new RuntimeSeedSection("Analog output", "Analog output options include current and voltage outputs such as 4-20 mA and 0-10 V with installation guidance for sending weight or rate information."),
+                new RuntimeSeedSection("Analog calibration", "Analog calibration of the IND570 output is performed through setup steps that define range, scaling and verification."),
+                new RuntimeSeedSection("Programming examples", "The guide includes programming examples with Siemens S7-300 and explains shared data access, integer format and floating point exchanges for PLC integration."),
+                new RuntimeSeedSection("PLC commands", "The PLC interface can exchange tare, target values and tolerances with the IND570 in supported integration profiles.")
+            ],
+            [
+                BuildExactMatchEntry(0, "IND570", "ind570", "code_ref")
+            ]);
+    }
+
+    private sealed class StubHttpClientFactory : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name)
+            => new(new StubHttpMessageHandler())
+            {
+                BaseAddress = name switch
+                {
+                    "tei" => new Uri("http://tei.test/"),
+                    "qdrant" => new Uri("http://qdrant.test/"),
+                    _ => new Uri("http://stub.test/")
+                }
+            };
+    }
+
+    private sealed class StubHttpMessageHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri?.AbsolutePath ?? string.Empty;
+
+            if (path.EndsWith("/v1/embeddings", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(JsonResponse("""
+                {
+                  "data": [
+                    { "embedding": [0.1, 0.2, 0.3, 0.4] }
+                  ]
+                }
+                """));
+            }
+
+            if (path.EndsWith("/points/search", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(JsonResponse("""
+                {
+                  "result": []
+                }
+                """));
+            }
+
+            if (path.EndsWith("/rerank", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(JsonResponse("""
+                {
+                  "results": []
+                }
+                """));
+            }
+
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.NotFound));
+        }
+
+        private static HttpResponseMessage JsonResponse(string json)
+            => new(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
+            };
     }
 
     private sealed class PostgresIntegrationDb : IAsyncDisposable

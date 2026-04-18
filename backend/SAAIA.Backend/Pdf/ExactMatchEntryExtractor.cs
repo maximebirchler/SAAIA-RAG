@@ -92,6 +92,13 @@ internal static partial class ExactMatchEntryExtractor
             }
         }
 
+        foreach (Match match in ReferenceKeyRegex().Matches(text))
+        {
+            var normalizedKey = NormalizeForLookup(match.Value);
+            if (!string.IsNullOrWhiteSpace(normalizedKey))
+                terms.Add(normalizedKey);
+        }
+
         return terms
             .Distinct(StringComparer.Ordinal)
             .OrderByDescending(term => term.Length)
@@ -154,14 +161,21 @@ internal static partial class ExactMatchEntryExtractor
         foreach (Match match in StandardReferenceRegex().Matches(text))
         {
             var value = NormalizeWhitespace(match.Value);
-            if (!string.IsNullOrWhiteSpace(value))
+            if (!string.IsNullOrWhiteSpace(value) && !HasGenericReferenceLeadToken(value))
+                yield return value;
+        }
+
+        foreach (Match match in SpacedCodeReferenceRegex().Matches(text))
+        {
+            var value = NormalizeWhitespace(match.Value);
+            if (!string.IsNullOrWhiteSpace(value) && !HasGenericReferenceLeadToken(value))
                 yield return value;
         }
 
         foreach (Match match in CodeReferenceRegex().Matches(text))
         {
             var value = NormalizeWhitespace(match.Value);
-            if (!string.IsNullOrWhiteSpace(value))
+            if (!string.IsNullOrWhiteSpace(value) && !HasGenericReferenceLeadToken(value))
                 yield return value;
         }
     }
@@ -178,7 +192,31 @@ internal static partial class ExactMatchEntryExtractor
         if (string.IsNullOrWhiteSpace(normalized))
             yield break;
 
-        var parts = normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var compactAlphaNum = RemoveReferenceSeparators(normalized);
+        if (!string.Equals(compactAlphaNum, normalized, StringComparison.OrdinalIgnoreCase)
+            && compactAlphaNum.Any(char.IsLetter)
+            && compactAlphaNum.Any(char.IsDigit))
+        {
+            yield return compactAlphaNum;
+        }
+
+        var compactStandardMatch = CompactStandardReferenceRegex().Match(compactAlphaNum);
+        if (compactStandardMatch.Success)
+        {
+            var prefix = compactStandardMatch.Groups["prefix"].Value.ToUpperInvariant();
+            var suffix = compactStandardMatch.Groups["suffix"].Value;
+            var spaced = $"{prefix} {suffix}";
+            if (!string.Equals(spaced, normalized, StringComparison.OrdinalIgnoreCase))
+                yield return spaced;
+
+            var numericCore = LeadingDigitsRegex().Match(suffix);
+            if (numericCore.Success)
+                yield return numericCore.Value;
+        }
+
+        var parts = Regex.Split(normalized, @"[\s._/\-]+")
+            .Where(static part => !string.IsNullOrWhiteSpace(part))
+            .ToArray();
         if (parts.Length <= 1)
             yield break;
 
@@ -227,14 +265,51 @@ internal static partial class ExactMatchEntryExtractor
     [GeneratedRegex(@"[^\p{L}\p{Nd}\s]", RegexOptions.CultureInvariant)]
     private static partial Regex ExactPunctuationRegex();
 
-    [GeneratedRegex(@"\b(?:EN|ISO|IEC|ASTM|DIN|NFPA|API|ANSI|CEN|TR)\s*(?:[A-Z]{1,4}\s*)?\d[\w\-\/\.:]*\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(?:EN|ISO|IEC|ASTM|DIN|NFPA|API|ANSI|CEN|TR)[\s._/\-]*(?:[A-Z]{1,4}[\s._/\-]*)?\d[\w\-\/\.:]*\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex StandardReferenceRegex();
+
+    [GeneratedRegex(@"\b(?!(?:EN|ISO|IEC|ASTM|DIN|NFPA|API|ANSI|CEN|TR|TS|PD|BS)\b)(?=[A-Z][A-Z0-9\s._/\-]{4,40}\b)(?=[A-Z0-9\s._/\-]*[A-Z])(?=[A-Z0-9\s._/\-]*\d)[A-Z]{3,10}(?:[\s._/\-]+\d[\w\-\/\.:]*)+\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex SpacedCodeReferenceRegex();
 
     [GeneratedRegex(@"\b(?=[A-Z0-9._/\-]{4,40}\b)(?=[A-Z0-9._/\-]*[A-Z])(?=[A-Z0-9._/\-]*\d)[A-Z0-9][A-Z0-9._/\-]{2,39}\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex CodeReferenceRegex();
 
+    [GeneratedRegex(@"^(?<prefix>EN|ISO|IEC|ASTM|DIN|NFPA|API|ANSI|CEN|TR|TS|PD|BS)(?<suffix>\d[\w\-\/\.:]*)$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex CompactStandardReferenceRegex();
+
     [GeneratedRegex(@"\b\d{4,}\b", RegexOptions.CultureInvariant)]
     private static partial Regex ReferenceKeyRegex();
+
+    [GeneratedRegex(@"^\d{4,}", RegexOptions.CultureInvariant)]
+    private static partial Regex LeadingDigitsRegex();
+
+    private static string RemoveReferenceSeparators(string text)
+        => Regex.Replace(text, @"[\s._/\-]+", string.Empty);
+
+    private static bool HasGenericReferenceLeadToken(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var firstToken = Regex.Split(NormalizeWhitespace(value), @"[\s._/\-]+")
+            .FirstOrDefault(static token => !string.IsNullOrWhiteSpace(token));
+        if (string.IsNullOrWhiteSpace(firstToken))
+            return false;
+
+        return GenericReferenceLeadTokens.Contains(firstToken.ToLowerInvariant());
+    }
+
+    private static readonly HashSet<string> GenericReferenceLeadTokens = new(StringComparer.Ordinal)
+    {
+        "pdf",
+        "doc",
+        "document",
+        "manuel",
+        "manual",
+        "notice",
+        "terminal",
+        "guide"
+    };
 }
 
 internal sealed record ExtractedExactMatchEntry(

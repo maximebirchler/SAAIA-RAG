@@ -66,6 +66,12 @@ public sealed partial class MainWindow
             InputBox.Text = _pendingOutboundDisplayText ?? _pendingOutboundWireText ?? string.Empty;
     }
 
+    private void ClearStagedOutboundMessage()
+    {
+        _pendingOutboundWireText = null;
+        _pendingOutboundDisplayText = null;
+    }
+
 
     private void ClearStatus()
     {

@@ -1,0 +1,1106 @@
+{
+  "version": "v5",
+  "questionCases": [
+    {
+      "name": "client_en15281_project_compliance",
+      "query": "J'ai une discussion avec un client qui me demande si le projet respecte la norme EN 15281. Tu peux m'en dire plus ?",
+      "intent": "compliance_assessment",
+      "expectedBehavior": "answer_with_caveat",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedQualificationTokens": [
+        "perimetre",
+        "equipements",
+        "conformite"
+      ],
+      "notes": "Should explain scope of EN 15281 and avoid claiming compliance without project details.",
+      "expectedResponseShape": "qualified_answer"
+    },
+    {
+      "name": "client_what_is_en15281",
+      "query": "Un client me parle de EN 15281, c'est quoi exactement dans nos documents ?",
+      "intent": "definition",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ]
+    },
+    {
+      "name": "client_en15281_fire_or_explosion",
+      "query": "Le client veut savoir si EN 15281 couvre aussi la prevention incendie ou seulement les explosions.",
+      "intent": "scope",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ]
+    },
+    {
+      "name": "client_inerting_is_not_fire_protection",
+      "query": "Si on inertise, est-ce qu'on peut dire au client qu'on est protege contre le feu ?",
+      "intent": "limitations",
+      "expectedBehavior": "answer_with_caveat",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ]
+    },
+    {
+      "name": "client_absolute_inerting",
+      "query": "Tu peux m'expliquer simplement ce que le document appelle l'inertage absolu ?",
+      "intent": "definition",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Definitions",
+      "expectedResponseShape": "summary"
+    },
+    {
+      "name": "client_loc_vs_maoc",
+      "query": "Le client me demande la difference entre LOC et MAOC. On peut lui repondre quoi ?",
+      "intent": "comparison",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ]
+    },
+    {
+      "name": "client_trip_point_vs_set_point",
+      "query": "Quelle difference entre set point et trip point dans la logique de surveillance oxygene ?",
+      "intent": "comparison",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ]
+    },
+    {
+      "name": "client_which_normative_refs_support_safety",
+      "query": "Quelles normes de securite instrumentee sont citees autour de l'inertage dans ce document ?",
+      "intent": "document_locate",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Normative references",
+      "expectedResponseShape": "locate_passage"
+    },
+    {
+      "name": "client_nitrogen_vs_carbon_dioxide",
+      "query": "Pour un client, comment tu presenterais la difference entre azote et CO2 comme gaz d'inertage ?",
+      "intent": "comparison",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Inert gases",
+      "expectedResponseShape": "comparison"
+    },
+    {
+      "name": "client_can_use_steam",
+      "query": "Le client parle d'utiliser la vapeur pour inertiser, est-ce que le document en dit quelque chose ?",
+      "intent": "scope",
+      "expectedBehavior": "answer_with_caveat",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ]
+    },
+    {
+      "name": "client_can_use_flue_gas",
+      "query": "On peut repondre quoi si le client veut utiliser des gaz de combustion comme gaz inerte ?",
+      "intent": "scope",
+      "expectedBehavior": "answer_with_caveat",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Inert gases",
+      "expectedResponseShape": "qualified_answer",
+      "expectedQualificationTokens": [
+        "inertage",
+        "contexte",
+        "conformite"
+      ]
+    },
+    {
+      "name": "client_argon_or_helium",
+      "query": "Est-ce que le document parle de l'argon ou de l'helium comme alternatives d'inertage ?",
+      "intent": "document_locate",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ]
+    },
+    {
+      "name": "client_dust_and_hybrid_mixtures",
+      "query": "Le client a des poussieres et des melanges hybrides, est-ce que ce guide couvre aussi ces cas-la ?",
+      "intent": "scope",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Process scope",
+      "expectedResponseShape": "summary"
+    },
+    {
+      "name": "client_process_parameters_influence",
+      "query": "Quels parametres de process peuvent faire varier la concentration limite en oxygene d'apres le document ?",
+      "intent": "document_locate",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Process parameters",
+      "expectedResponseShape": "locate_passage"
+    },
+    {
+      "name": "client_compare_inerting_methods",
+      "query": "Tu peux comparer simplement pressure-swing, vacuum-swing et flow-through inerting pour un client ?",
+      "intent": "comparison",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Inerting methods",
+      "expectedResponseShape": "comparison"
+    },
+    {
+      "name": "client_displacement_inerting",
+      "query": "Le client demande quand on utiliserait plutot un inertage par deplacement.",
+      "intent": "scope",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ]
+    },
+    {
+      "name": "client_inerting_system_components",
+      "query": "Pour resumer a un client, quels sont les grands composants d'un systeme d'inertage selon le guide ?",
+      "intent": "summary",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "System components",
+      "expectedResponseShape": "summary"
+    },
+    {
+      "name": "client_reliability_expectations",
+      "query": "Le client demande quel niveau de fiabilite il faut viser pour les equipements critiques de l'inertage.",
+      "intent": "safety",
+      "expectedBehavior": "answer_with_caveat",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Reliability",
+      "expectedResponseShape": "qualified_answer"
+    },
+    {
+      "name": "client_personnel_environmental_protection",
+      "query": "Qu'est-ce que le guide dit sur la protection du personnel et de l'environnement ?",
+      "intent": "safety",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ]
+    },
+    {
+      "name": "client_information_for_use",
+      "query": "Si on doit preparer une notice pour l'exploitant, qu'est-ce que le document attend comme informations d'utilisation ?",
+      "intent": "document_locate",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ]
+    },
+    {
+      "name": "client_oxygen_monitoring_technology",
+      "query": "Le client veut comprendre comment on surveille l'oxygene, on a quelque chose la-dessus dans le document ?",
+      "intent": "document_locate",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Oxygen monitoring",
+      "expectedResponseShape": "locate_passage"
+    },
+    {
+      "name": "client_norme_xxx_ambiguous",
+      "query": "J'ai un client qui me demande si le projet respecte la norme xxx sur l'inertage. Tu peux m'aider ?",
+      "intent": "followup_required",
+      "expectedBehavior": "ask_clarification",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedClarificationTokens": [
+        "quelle norme",
+        "partie du projet",
+        "equipement"
+      ],
+      "notes": "Should ask which standard and what part of the project is being assessed.",
+      "expectedResponseShape": "clarify"
+    },
+    {
+      "name": "client_atex_compliance_too_broad",
+      "query": "Le client dit juste qu'il veut etre conforme ATEX avec de l'azote partout. On lui repond quoi ?",
+      "intent": "compliance_assessment",
+      "expectedBehavior": "ask_clarification",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "notes": "Should not collapse ATEX compliance into inerting guidance only."
+    },
+    {
+      "name": "client_what_to_ask_before_yes",
+      "query": "Avant de dire au client que son inertage respecte EN 15281, qu'est-ce qu'il faut lui demander ?",
+      "intent": "followup_required",
+      "expectedBehavior": "answer_with_caveat",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedQualificationTokens": [
+        "perimetre",
+        "inertage",
+        "equipements"
+      ],
+      "expectedResponseShape": "qualified_answer"
+    },
+    {
+      "name": "client_locate_en15281_passage",
+      "query": "Montre-moi ou dans le document ils parlent de la concentration limite en oxygene.",
+      "intent": "document_locate",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Oxygen monitoring",
+      "expectedResponseShape": "locate_passage"
+    },
+    {
+      "name": "client_ind570_plc_support",
+      "query": "Un client me demande si l'IND570 sait dialoguer avec un PLC. Tu peux me faire une reponse courte ?",
+      "intent": "integration",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "PLC integration",
+      "expectedResponseShape": "summary"
+    },
+    {
+      "name": "client_ind570_supported_protocols",
+      "query": "Quels protocoles PLC sont vraiment couverts par le manuel IND570 ?",
+      "intent": "summary",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "Supported protocols",
+      "expectedResponseShape": "summary"
+    },
+    {
+      "name": "client_ind570_siemens_profinet",
+      "query": "Le client a du Siemens, est-ce qu'on peut lui dire que l'IND570 se connecte en PROFINET ?",
+      "intent": "integration",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "PROFINET",
+      "expectedResponseShape": "summary"
+    },
+    {
+      "name": "client_ind570_rockwell_ethernetip",
+      "query": "Le client est en environnement Rockwell, est-ce que l'IND570 supporte EtherNet/IP ou ControlNet ?",
+      "intent": "integration",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ]
+    },
+    {
+      "name": "client_ind570_modbus_support",
+      "query": "On peut annoncer Modbus TCP et Modbus RTU pour l'IND570 ?",
+      "intent": "integration",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "Supported protocols",
+      "expectedResponseShape": "summary"
+    },
+    {
+      "name": "client_ind570_profibus_support",
+      "query": "Le client travaille en PROFIBUS, tu me confirmes ce que couvre le guide IND570 ?",
+      "intent": "integration",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ]
+    },
+    {
+      "name": "client_ind570_hazardous_area_warning",
+      "query": "Le client veut installer un IND570 en zone potentiellement explosive. Le manuel dit quoi au juste ?",
+      "intent": "safety",
+      "expectedBehavior": "answer_with_caveat",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "Hazardous area",
+      "expectedQualificationTokens": [
+        "version",
+        "zone dangereuse",
+        "options"
+      ],
+      "expectedResponseShape": "qualified_answer"
+    },
+    {
+      "name": "client_ind570_not_all_versions_hazardous",
+      "query": "Est-ce qu'on peut dire que toutes les versions IND570 sont approuvees pour zones dangereuses ?",
+      "intent": "limitations",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ]
+    },
+    {
+      "name": "client_ind570_relay_hazardous_zone",
+      "query": "Le client veut utiliser les relais E/S internes dans une zone explosive, c'est autorise ?",
+      "intent": "safety",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ]
+    },
+    {
+      "name": "client_ind570_analog_output_types",
+      "query": "L'IND570 propose quoi comme sortie analogique exactement ?",
+      "intent": "configuration",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "Analog output",
+      "expectedResponseShape": "summary"
+    },
+    {
+      "name": "client_ind570_analog_output_cable_lengths",
+      "query": "Pour l'IND570, quelles sont les longueurs de cable recommandees pour 4-20 mA et 0-10 V ?",
+      "intent": "document_locate",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ]
+    },
+    {
+      "name": "client_ind570_load_resistance",
+      "query": "Le client me demande les contraintes de resistance de charge sur la sortie analogique de l'IND570.",
+      "intent": "document_locate",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ]
+    },
+    {
+      "name": "client_ind570_rate_as_analog_source",
+      "query": "Est-ce qu'on peut utiliser le taux comme source de la sortie analogique sur l'IND570 ?",
+      "intent": "configuration",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ]
+    },
+    {
+      "name": "client_ind570_negative_zero_value",
+      "query": "Le client veut une valeur zero negative sur la sortie analogique. Le manuel prevoit ce cas ?",
+      "intent": "configuration",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ]
+    },
+    {
+      "name": "client_ind570_external_power",
+      "query": "On a besoin d'une alimentation externe pour la sortie analogique de l'IND570 ?",
+      "intent": "configuration",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ]
+    },
+    {
+      "name": "client_ind570_analog_calibration_steps",
+      "query": "Tu peux me resumer comment on calibre la sortie analogique de l'IND570 ?",
+      "intent": "summary",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "Analog calibration",
+      "expectedResponseShape": "summary"
+    },
+    {
+      "name": "client_ind570_qualified_personnel",
+      "query": "Quelles precautions le manuel impose avant installation ou maintenance sur un IND570 ?",
+      "intent": "safety",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ]
+    },
+    {
+      "name": "client_ind570_ethernetip_specifics",
+      "query": "Si je dois expliquer l'EtherNet/IP de l'IND570 a un client, quels sont les points vraiment importants ?",
+      "intent": "summary",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ]
+    },
+    {
+      "name": "client_ind570_ethernetip_dip_switches",
+      "query": "Les commutateurs DIP du module EtherNet/IP de l'IND570, on en fait quoi ?",
+      "intent": "document_locate",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ]
+    },
+    {
+      "name": "client_ind570_class1_class3",
+      "query": "Le client me parle de messagerie classe 1 et classe 3 sur EtherNet/IP. Le guide IND570 couvre ca ?",
+      "intent": "integration",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "EtherNet/IP",
+      "expectedResponseShape": "summary"
+    },
+    {
+      "name": "client_ind570_profinet_ip_uniqueness",
+      "query": "Chaque IND570 doit-il avoir une adresse IP PROFINET unique ?",
+      "intent": "configuration",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "PROFINET",
+      "expectedResponseShape": "summary"
+    },
+    {
+      "name": "client_ind570_profinet_topology",
+      "query": "On peut expliquer au client les topologies reseau PROFINET supportees par l'IND570 ?",
+      "intent": "integration",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ]
+    },
+    {
+      "name": "client_ind570_modbus_mapping",
+      "query": "Pour Modbus TCP, tu peux me dire ce que le guide raconte sur les adresses et longueurs de lecture/ecriture ?",
+      "intent": "document_locate",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ]
+    },
+    {
+      "name": "client_ind570_shared_data_access",
+      "query": "Pour acceder aux donnees partagees de l'IND570 depuis le PLC, il faut quoi comme informations ?",
+      "intent": "document_locate",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ]
+    },
+    {
+      "name": "client_ind570_program_examples",
+      "query": "On a des exemples de programmation PLC dans le manuel IND570 ?",
+      "intent": "document_locate",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ]
+    },
+    {
+      "name": "client_ind570_s7_example",
+      "query": "Est-ce qu'il y a un exemple Siemens S7-300 dans le guide PROFINET IND570 ?",
+      "intent": "document_locate",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "Programming examples",
+      "expectedResponseShape": "locate_passage"
+    },
+    {
+      "name": "client_ind570_devicenet_data_filtering",
+      "query": "Le client veut securiser la lecture PLC DeviceNet. Le manuel conseille quoi sur le filtrage ou l'integrite des donnees ?",
+      "intent": "troubleshooting",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ]
+    },
+    {
+      "name": "client_ind570_hazardous_area_compliance",
+      "query": "Le client me demande si l'IND570 est conforme pour une installation en zone dangereuse. Tu repondrais quoi ?",
+      "intent": "compliance_assessment",
+      "expectedBehavior": "answer_with_caveat",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ]
+    },
+    {
+      "name": "client_ind570_sil_question",
+      "query": "Le client me demande si l'IND570 est SIL ou adapte a une fonction de securite instrumentee. On peut l'affirmer ?",
+      "intent": "followup_required",
+      "expectedBehavior": "ask_clarification",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedClarificationTokens": [
+        "fonction de securite",
+        "niveau attendu"
+      ],
+      "notes": "Should not infer SIL approval from generic manual references alone.",
+      "expectedResponseShape": "clarify"
+    },
+    {
+      "name": "client_ind570_target_tare_tolerance",
+      "query": "Est-ce que le PLC peut envoyer une tare, une cible ou des tolerances a l'IND570 d'apres le guide ?",
+      "intent": "integration",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "PLC commands",
+      "expectedResponseShape": "summary"
+    },
+    {
+      "name": "client_ind570_programming_pdf",
+      "query": "Je veux repondre a un client qui cherche le manuel de programmation IND570. On a bien ce document ?",
+      "intent": "document_locate",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedResponseShape": "locate_document"
+    },
+    {
+      "name": "client_ind570_format_integer_vs_float",
+      "query": "Le client hesite entre format entier et virgule flottante pour son PLC. Le guide aide a comparer ?",
+      "intent": "comparison",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "Programming examples",
+      "expectedResponseShape": "comparison"
+    },
+    {
+      "name": "client_replace_air_with_inert_gas_principle",
+      "query": "Si je l'explique simplement a un client, l'idee c'est bien de remplacer l'air par un gaz neutre pour sortir de la zone explosive ?",
+      "intent": "definition",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Definitions",
+      "expectedResponseShape": "summary"
+    },
+    {
+      "name": "client_lower_oxygen_below_critical_threshold",
+      "query": "Le principe, c'est bien d'abaisser le taux d'oxygene sous un seuil critique pour que le melange ne puisse plus exploser ?",
+      "intent": "definition",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Definitions",
+      "expectedResponseShape": "summary"
+    },
+    {
+      "name": "client_choose_direct_oxygen_or_inferential_method",
+      "query": "Comment on choisit entre mesurer directement l'oxygene et deduire l'etat a partir du debit ou du temps de purge ?",
+      "intent": "comparison",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Reliability",
+      "expectedResponseShape": "comparison"
+    },
+    {
+      "name": "client_long_pipeline_gas_sweeping",
+      "query": "Pour une conduite longue, on est plutot dans une logique de balayage avec arrivee et evacuation a distance que de mise en pression ?",
+      "intent": "comparison",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Inerting methods",
+      "expectedResponseShape": "comparison"
+    },
+    {
+      "name": "client_make_scale_talk_to_plc",
+      "query": "Si je le dis simplement au client, ce manuel explique comment faire parler la balance avec l'automate ?",
+      "intent": "integration",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "PLC integration",
+      "expectedResponseShape": "summary"
+    },
+    {
+      "name": "client_send_setpoints_from_plc",
+      "query": "On peut envoyer depuis l'automate les consignes de tare, cible et tolerances vers le terminal ?",
+      "intent": "integration",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "PLC commands",
+      "expectedResponseShape": "locate_passage"
+    },
+    {
+      "name": "client_weight_on_analog_loop",
+      "query": "Si le client veut remonter le poids sur une boucle 4-20 mA ou 0-10 V, le guide en parle ou pas ?",
+      "intent": "document_locate",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "Analog output",
+      "expectedResponseShape": "locate_passage"
+    },
+    {
+      "name": "client_realtime_siemens_network",
+      "query": "Pour un client Siemens qui parle de reseau temps reel industriel, on pense bien a PROFINET ici ?",
+      "intent": "integration",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "PROFINET",
+      "expectedResponseShape": "summary"
+    },
+    {
+      "name": "cross_project_compliance_with_standard_and_terminal",
+      "query": "Le client me demande si le projet respecte EN 15281 alors qu'on utilise un IND570 dans l'installation. Tu repondrais comment ?",
+      "intent": "compliance_assessment",
+      "expectedBehavior": "answer_with_caveat",
+      "sourceDocHints": [
+        "15281",
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "15281",
+        "IND570"
+      ],
+      "notes": "Should separate process guidance from equipment manual."
+    },
+    {
+      "name": "cross_which_doc_for_what",
+      "query": "Quel document faut-il citer pour parler de conformite inertage, et lequel pour parler d'integration PLC ?",
+      "intent": "comparison",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281",
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "15281",
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedQualificationTokens": [
+        "EN 15281",
+        "IND570",
+        "perimetre"
+      ],
+      "expectedResponseShape": "locate_document"
+    },
+    {
+      "name": "cross_oxygen_monitoring_and_plc",
+      "query": "Si le client veut relier une surveillance oxygene a un PLC, lequel de nos documents aide le plus et sur quoi chacun parle ?",
+      "intent": "comparison",
+      "expectedBehavior": "answer_with_caveat",
+      "sourceDocHints": [
+        "15281",
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "15281",
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Oxygen monitoring",
+      "expectedResponseShape": "comparison",
+      "expectedQualificationTokens": [
+        "EN 15281",
+        "IND570",
+        "contexte"
+      ]
+    },
+    {
+      "name": "cross_ind570_not_enough_for_explosion_compliance",
+      "query": "Est-ce que le manuel IND570 suffit a lui seul pour dire qu'on est conforme sur la prevention des explosions ?",
+      "intent": "limitations",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281",
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "15281",
+        "IND570"
+      ]
+    },
+    {
+      "name": "cross_compare_safety_caveats",
+      "query": "Tu peux comparer les mises en garde securite du guide d'inertage et celles du manuel IND570 ?",
+      "intent": "comparison",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281",
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "15281",
+        "IND570"
+      ]
+    },
+    {
+      "name": "cross_ask_for_missing_project_details",
+      "query": "Le client me demande juste si notre projet est conforme a la norme sur l'inertage avec l'IND570. Qu'est-ce que tu lui demanderais avant de repondre ?",
+      "intent": "followup_required",
+      "expectedBehavior": "answer_with_caveat",
+      "sourceDocHints": [
+        "15281",
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "15281",
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedQualificationTokens": [
+        "EN 15281",
+        "IND570",
+        "conformite complete du projet"
+      ],
+      "expectedResponseShape": "qualified_answer"
+    },
+    {
+      "name": "cross_draft_cautious_customer_reply",
+      "query": "Tu peux me formuler une reponse prudente pour un client qui demande si notre installation avec IND570 respecte EN 15281 ?",
+      "intent": "compliance_assessment",
+      "expectedBehavior": "answer_with_caveat",
+      "sourceDocHints": [
+        "15281",
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "15281",
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedQualificationTokens": [
+        "commence",
+        "EN 15281",
+        "IND570"
+      ],
+      "expectedResponseShape": "qualified_answer"
+    },
+    {
+      "name": "cross_which_passage_to_open_first",
+      "query": "Si je dois ouvrir un document pour repondre vite au client, tu commencerais par lequel entre le guide CEN et le manuel IND570 ?",
+      "intent": "document_locate",
+      "expectedBehavior": "answer_with_caveat",
+      "sourceDocHints": [
+        "15281",
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "15281",
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedResponseShape": "locate_document"
+    }
+  ]
+}

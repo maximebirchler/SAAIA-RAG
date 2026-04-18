@@ -40,6 +40,7 @@ public sealed partial class ToolAgentOrchestrator
     private string _lastEffectiveMode = "auto";
     private List<string> _lastWriterToolNames = new();
     private List<(string tool, long durationMs, bool ok)> _lastToolDurations = new();
+    private string _lastAnswerSource = "unknown";
 
     // limite "sécurité perf" (spec : max 5 RAG/calls par requête)
     private const int MaxToolCalls = 8;
@@ -206,6 +207,7 @@ public sealed partial class ToolAgentOrchestrator
             swTotalPipeline).ConfigureAwait(false);
         if (shortcut.handled)
         {
+            _lastAnswerSource = $"shortcut:{shortcut.routerIntent}";
             onProgress?.Invoke(string.Empty);
             return FinalizeAndReturn(swTotalPipeline, userMessage, shortcut.finalAnswer, shortcut.sourcesPayload, shortcut.routerIntent, shortcut.toolNames, Array.Empty<string>());
         }
@@ -308,6 +310,7 @@ public sealed partial class ToolAgentOrchestrator
             onProgress).ConfigureAwait(false);
         if (documentaryProbe.handled)
         {
+            _lastAnswerSource = $"documentary_probe:{documentaryProbe.routerIntent}";
             return FinalizeAndReturn(swTotalPipeline, userMessage, documentaryProbe.finalAnswer, documentaryProbe.sourcesPayload, documentaryProbe.routerIntent, documentaryProbe.toolNames, _mem.LastReasoningTracePublic, clearPendingClarification: documentaryProbe.clearPendingClarification);
         }
 
@@ -386,6 +389,9 @@ public sealed partial class ToolAgentOrchestrator
             };
         }
 
+        _lastAnswerSource = _lastUsedInventoryRendered
+            ? $"router+tools+inventory_bypass:{plan.Intent}"
+            : $"router+tools+writer:{plan.Intent}";
         onProgress?.Invoke(string.Empty);
         return FinalizeAndReturn(swTotalPipeline, userMessage, answer, sourcesPayload, plan.Intent, _mem.LastToolNames, _mem.LastReasoningTracePublic);
     }
@@ -1473,7 +1479,10 @@ USER_MESSAGE:
         {
             var deterministicAnswer = (inventoryRenderedText ?? string.Empty).Trim();
             if (!string.IsNullOrWhiteSpace(deterministicAnswer))
+            {
+                _lastAnswerSource = $"writer_bypass_deterministic_inventory:{plan.Intent}";
                 return (deterministicAnswer, null);
+            }
         }
 
         var user = $@"

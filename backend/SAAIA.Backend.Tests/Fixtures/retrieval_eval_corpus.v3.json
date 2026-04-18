@@ -4,7 +4,37 @@
     {
       "query": "Dans quel document trouve-t-on la norme EN 15281 ?",
       "expectedTerms": [
-        "en 15281"
+        "en 15281",
+        "15281"
+      ]
+    },
+    {
+      "query": "Ou trouve-t-on 15281 ?",
+      "expectedTerms": [
+        "15281"
+      ]
+    },
+    {
+      "query": "Ou trouve-t-on EN15281 ?",
+      "expectedTerms": [
+        "en15281",
+        "en 15281",
+        "15281"
+      ]
+    },
+    {
+      "query": "Ou trouve-t-on EN-15281 ?",
+      "expectedTerms": [
+        "en 15281",
+        "15281"
+      ]
+    },
+    {
+      "query": "Ou trouve-t-on CEN/TR 15281 ?",
+      "expectedTerms": [
+        "cen tr 15281",
+        "tr 15281",
+        "15281"
       ]
     },
     {
@@ -12,6 +42,40 @@
       "expectedTerms": [
         "ind570",
         "iec 61508"
+      ]
+    },
+    {
+      "query": "Ou trouve-t-on IND 570 ?",
+      "expectedTerms": [
+        "ind 570",
+        "ind570"
+      ]
+    },
+    {
+      "query": "Ou trouve-t-on IND-570 ?",
+      "expectedTerms": [
+        "ind 570",
+        "ind570"
+      ]
+    },
+    {
+      "query": "Montre le manuel Mettler Toledo IND-570.",
+      "expectedTerms": [
+        "ind 570",
+        "ind570"
+      ]
+    },
+    {
+      "query": "stp je cherche le pdf inerting EN-15281",
+      "expectedTerms": [
+        "en 15281",
+        "15281"
+      ]
+    },
+    {
+      "query": "need the Mettler Toledo IND570 manual pdf please",
+      "expectedTerms": [
+        "ind570"
       ]
     },
     {
@@ -53,6 +117,96 @@
       "allowExactNoise": false
     },
     {
+      "query": "Ou trouve-t-on EN 15281 ?",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": [
+        "en 15281",
+        "15281"
+      ],
+      "allowExactNoise": true
+    },
+    {
+      "query": "Ou trouve-t-on 15281 ?",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": [
+        "15281"
+      ],
+      "allowExactNoise": false
+    },
+    {
+      "query": "Ou trouve-t-on EN15281 ?",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": [
+        "en15281",
+        "en 15281",
+        "15281"
+      ],
+      "allowExactNoise": true
+    },
+    {
+      "query": "Ou trouve-t-on EN-15281 ?",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": [
+        "en 15281",
+        "15281"
+      ],
+      "allowExactNoise": true
+    },
+    {
+      "query": "Ou trouve-t-on CEN/TR 15281 ?",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": [
+        "cen tr 15281",
+        "tr 15281",
+        "15281"
+      ],
+      "allowExactNoise": true
+    },
+    {
+      "query": "Ou trouve-t-on IND 570 ?",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": [
+        "ind 570",
+        "ind570"
+      ],
+      "allowExactNoise": true
+    },
+    {
+      "query": "Montre le manuel Mettler Toledo IND-570.",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": [
+        "ind 570",
+        "ind570"
+      ],
+      "allowExactNoise": true
+    },
+    {
+      "query": "stp je cherche le pdf inerting EN-15281",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": [
+        "en 15281",
+        "15281"
+      ],
+      "allowExactNoise": true
+    },
+    {
+      "query": "need the Mettler Toledo IND570 manual pdf please",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": [
+        "ind570"
+      ],
+      "allowExactNoise": true
+    },
+    {
+      "query": "Ou trouve-t-on IND-570 ?",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": [
+        "ind 570",
+        "ind570"
+      ],
+      "allowExactNoise": true
+    },
+    {
       "query": "Resume la procedure de consignation electrique.",
       "expectedDominantRetriever": "dense_qdrant",
       "expectedExactTerms": [],
@@ -69,6 +223,31 @@
       "expectedDominantRetriever": "dense_qdrant",
       "expectedExactTerms": [],
       "allowExactNoise": false
+    },
+    {
+      "query": "Quels documents parlent d inerting safety controls en zone ATEX ?",
+      "expectedDominantRetriever": "sparse_bm25",
+      "expectedExactTerms": [],
+      "allowExactNoise": false,
+      "expectedLexicalTerms": [
+        "inerting",
+        "safety",
+        "controls",
+        "atex"
+      ]
+    },
+    {
+      "query": "Montre les passages sur preventive maintenance scheduling et inspection interval.",
+      "expectedDominantRetriever": "sparse_bm25",
+      "expectedExactTerms": [],
+      "allowExactNoise": false,
+      "expectedLexicalTerms": [
+        "preventive",
+        "maintenance",
+        "scheduling",
+        "inspection",
+        "interval"
+      ]
     }
   ],
   "linkedContextCases": [
@@ -139,11 +318,119 @@
       "query": "Montre la section qui parle de EN 15281.",
       "expectedDominantRetriever": "exact_match",
       "expectedExactTerms": [
-        "en 15281"
+        "en 15281",
+        "15281"
       ],
       "allowExactNoise": true,
       "linkedExpectation": "secondary",
       "expectedDocHint": "CEN"
+    },
+    {
+      "name": "ind570_reference_query_prefers_exact_and_points_to_product_doc",
+      "query": "Ou trouve-t-on IND570 ?",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": [
+        "ind570"
+      ],
+      "allowExactNoise": false,
+      "linkedExpectation": "secondary",
+      "expectedDocHint": "IND570"
+    },
+    {
+      "name": "numeric_reference_query_prefers_exact_and_points_to_cen_doc",
+      "query": "Ou trouve-t-on 15281 ?",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": [
+        "15281"
+      ],
+      "allowExactNoise": false,
+      "linkedExpectation": "secondary",
+      "expectedDocHint": "15281"
+    },
+    {
+      "name": "compact_reference_query_prefers_exact_and_points_to_cen_doc",
+      "query": "Ou trouve-t-on EN15281 ?",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": [
+        "en15281",
+        "en 15281",
+        "15281"
+      ],
+      "allowExactNoise": true,
+      "linkedExpectation": "secondary",
+      "expectedDocHint": "15281"
+    },
+    {
+      "name": "hyphenated_reference_query_prefers_exact_and_points_to_cen_doc",
+      "query": "Ou trouve-t-on EN-15281 ?",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": [
+        "en 15281",
+        "15281"
+      ],
+      "allowExactNoise": true,
+      "linkedExpectation": "secondary",
+      "expectedDocHint": "15281"
+    },
+    {
+      "name": "slashed_cen_reference_query_prefers_exact_and_points_to_cen_doc",
+      "query": "Ou trouve-t-on CEN/TR 15281 ?",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": [
+        "cen tr 15281",
+        "tr 15281",
+        "15281"
+      ],
+      "allowExactNoise": true,
+      "linkedExpectation": "secondary",
+      "expectedDocHint": "15281"
+    },
+    {
+      "name": "split_ind570_query_prefers_exact_and_points_to_product_doc",
+      "query": "Ou trouve-t-on IND 570 ?",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": [
+        "ind 570",
+        "ind570"
+      ],
+      "allowExactNoise": true,
+      "linkedExpectation": "secondary",
+      "expectedDocHint": "IND570"
+    },
+    {
+      "name": "vendor_prefixed_ind570_query_prefers_exact_and_points_to_product_doc",
+      "query": "Montre le manuel Mettler Toledo IND-570.",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": [
+        "ind 570",
+        "ind570"
+      ],
+      "allowExactNoise": true,
+      "linkedExpectation": "secondary",
+      "expectedDocHint": "IND570"
+    },
+    {
+      "name": "noisy_cen_pdf_query_prefers_exact_and_points_to_cen_doc",
+      "query": "stp je cherche le pdf inerting EN-15281",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": [
+        "en 15281",
+        "15281"
+      ],
+      "allowExactNoise": true,
+      "linkedExpectation": "secondary",
+      "expectedDocHint": "15281"
+    },
+    {
+      "name": "english_vendor_query_prefers_exact_and_points_to_product_doc",
+      "query": "need the Mettler Toledo IND570 manual pdf please",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": [
+        "ind570"
+      ],
+      "allowExactNoise": true,
+      "linkedExpectation": "secondary",
+      "expectedDocHint": "IND570"
     },
     {
       "name": "procedure_query_prefers_dense_without_exact_noise",
@@ -162,6 +449,435 @@
       "allowExactNoise": false,
       "linkedExpectation": "secondary",
       "expectedDocHint": "ATEX"
+    },
+    {
+      "name": "lexical_query_prefers_sparse_without_exact_noise",
+      "query": "Quels documents parlent d inerting safety controls en zone ATEX ?",
+      "expectedDominantRetriever": "sparse_bm25",
+      "expectedExactTerms": [],
+      "allowExactNoise": false,
+      "linkedExpectation": "secondary",
+      "expectedDocHint": "ATEX",
+      "expectedLexicalTerms": [
+        "inerting",
+        "safety",
+        "controls",
+        "atex"
+      ]
+    }
+  ],
+  "calibrationCases": [
+    {
+      "name": "sparse_lexical_query_should_beat_generic_dense_after_calibration",
+      "query": "Quels documents parlent d inerting safety controls en zone ATEX ?",
+      "candidates": [
+        {
+          "chunkId": "sparse-1",
+          "baseScore": 0.74,
+          "embeddingBasis": "sparse_bm25_v1",
+          "text": "Inerting safety controls and gas flow monitoring requirements",
+          "embedText": "Inerting safety controls and gas flow monitoring requirements",
+          "chunkType": "unit_exact_v1",
+          "docPath": "ATEX/CEN.pdf",
+          "docName": "CEN.pdf",
+          "headingPath": "Chapter 2 > Inerting"
+        },
+        {
+          "chunkId": "dense-1",
+          "baseScore": 0.76,
+          "embeddingBasis": "contextual_text_v1",
+          "text": "General safety guidance overview",
+          "embedText": "General safety guidance overview",
+          "chunkType": "section_window_v1",
+          "docPath": "ATEX/General.pdf",
+          "docName": "General.pdf",
+          "headingPath": "Chapter 1 > Overview"
+        }
+      ],
+      "expectedTopChunkId": "sparse-1",
+      "expectedTopRetriever": "sparse_bm25"
+    },
+    {
+      "name": "reference_query_keeps_exact_match_on_top",
+      "query": "Ou trouve-t-on EN 15281 ?",
+      "candidates": [
+        {
+          "chunkId": "exact-1",
+          "baseScore": 0.96,
+          "embeddingBasis": "exact_match_v1",
+          "text": "EN 15281",
+          "embedText": "EN 15281",
+          "chunkType": "exact_match_entry",
+          "docPath": "ATEX/CEN TR 15281 2006.pdf",
+          "docName": "CEN TR 15281 2006.pdf",
+          "headingPath": "Chapter 1 > References"
+        },
+        {
+          "chunkId": "dense-1",
+          "baseScore": 0.98,
+          "embeddingBasis": "contextual_text_v1",
+          "text": "Maintenance guidance around EN 15281",
+          "embedText": "Maintenance guidance around EN 15281",
+          "chunkType": "unit_exact_v1",
+          "docPath": "ATEX/CEN TR 15281 2006.pdf",
+          "docName": "CEN TR 15281 2006.pdf",
+          "headingPath": "Chapter 3 > Maintenance"
+        }
+      ],
+      "expectedTopChunkId": "exact-1",
+      "expectedTopRetriever": "exact_match",
+      "expectedDocHint": "15281"
+    },
+    {
+      "name": "ind570_reference_query_keeps_exact_match_on_product_document",
+      "query": "Ou trouve-t-on IND570 ?",
+      "candidates": [
+        {
+          "chunkId": "exact-ind570",
+          "baseScore": 0.97,
+          "embeddingBasis": "exact_match_v1",
+          "text": "IND570",
+          "embedText": "IND570",
+          "chunkType": "document_metadata_ref",
+          "docPath": "Programmation/MettlerToledo_IND570.pdf",
+          "docName": "MettlerToledo_IND570.pdf",
+          "headingPath": "Chapter 1 > References"
+        },
+        {
+          "chunkId": "dense-ind570",
+          "baseScore": 0.98,
+          "embeddingBasis": "contextual_text_v1",
+          "text": "general product integration around IND570",
+          "embedText": "general product integration around IND570",
+          "chunkType": "unit_exact_v1",
+          "docPath": "General/Accord sur le transfert du code source.pdf",
+          "docName": "Accord sur le transfert du code source.pdf",
+          "headingPath": "Chapter 2 > Integration"
+        }
+      ],
+      "expectedTopChunkId": "exact-ind570",
+      "expectedTopRetriever": "exact_match",
+      "expectedDocHint": "IND570"
+    },
+    {
+      "name": "numeric_reference_query_keeps_exact_match_on_cen_document",
+      "query": "Ou trouve-t-on 15281 ?",
+      "candidates": [
+        {
+          "chunkId": "exact-15281",
+          "baseScore": 0.965,
+          "embeddingBasis": "exact_match_v1",
+          "text": "15281",
+          "embedText": "15281",
+          "chunkType": "document_metadata_ref",
+          "docPath": "ATEX/CEN TR 15281 2006 Guidance on inerting.pdf",
+          "docName": "CEN TR 15281 2006 Guidance on inerting.pdf",
+          "headingPath": "Chapter 1 > References"
+        },
+        {
+          "chunkId": "dense-15281-noise",
+          "baseScore": 0.985,
+          "embeddingBasis": "contextual_text_v1",
+          "text": "general maintenance guidance around standard references",
+          "embedText": "general maintenance guidance around standard references",
+          "chunkType": "unit_exact_v1",
+          "docPath": "General/Accord sur le transfert du code source.pdf",
+          "docName": "Accord sur le transfert du code source.pdf",
+          "headingPath": "Chapter 2 > Integration"
+        }
+      ],
+      "expectedTopChunkId": "exact-15281",
+      "expectedTopRetriever": "exact_match",
+      "expectedDocHint": "15281"
+    },
+    {
+      "name": "compact_reference_query_keeps_exact_match_on_cen_document",
+      "query": "Ou trouve-t-on EN15281 ?",
+      "candidates": [
+        {
+          "chunkId": "exact-en15281",
+          "baseScore": 0.965,
+          "embeddingBasis": "exact_match_v1",
+          "text": "EN 15281",
+          "embedText": "EN 15281",
+          "chunkType": "document_metadata_ref",
+          "docPath": "ATEX/CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf",
+          "docName": "CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf",
+          "headingPath": "Chapter 1 > References"
+        },
+        {
+          "chunkId": "dense-en15281-noise",
+          "baseScore": 0.986,
+          "embeddingBasis": "contextual_text_v1",
+          "text": "generic maintenance discussion around standards",
+          "embedText": "generic maintenance discussion around standards",
+          "chunkType": "unit_exact_v1",
+          "docPath": "General/Accord sur le transfert du code source.pdf",
+          "docName": "Accord sur le transfert du code source.pdf",
+          "headingPath": "Chapter 2 > Integration"
+        }
+      ],
+      "expectedTopChunkId": "exact-en15281",
+      "expectedTopRetriever": "exact_match",
+      "expectedDocHint": "15281"
+    },
+    {
+      "name": "hyphenated_reference_query_keeps_exact_match_on_cen_document",
+      "query": "Ou trouve-t-on EN-15281 ?",
+      "candidates": [
+        {
+          "chunkId": "exact-en-15281",
+          "baseScore": 0.965,
+          "embeddingBasis": "exact_match_v1",
+          "text": "EN 15281",
+          "embedText": "EN 15281",
+          "chunkType": "document_metadata_ref",
+          "docPath": "ATEX/CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf",
+          "docName": "CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf",
+          "headingPath": "Chapter 1 > References"
+        },
+        {
+          "chunkId": "dense-en-15281-noise",
+          "baseScore": 0.986,
+          "embeddingBasis": "contextual_text_v1",
+          "text": "generic maintenance discussion around standards",
+          "embedText": "generic maintenance discussion around standards",
+          "chunkType": "unit_exact_v1",
+          "docPath": "General/Accord sur le transfert du code source.pdf",
+          "docName": "Accord sur le transfert du code source.pdf",
+          "headingPath": "Chapter 2 > Integration"
+        }
+      ],
+      "expectedTopChunkId": "exact-en-15281",
+      "expectedTopRetriever": "exact_match",
+      "expectedDocHint": "15281"
+    },
+    {
+      "name": "slashed_cen_reference_query_keeps_exact_match_on_cen_document",
+      "query": "Ou trouve-t-on CEN/TR 15281 ?",
+      "candidates": [
+        {
+          "chunkId": "exact-cen-tr-15281",
+          "baseScore": 0.968,
+          "embeddingBasis": "exact_match_v1",
+          "text": "CEN TR 15281",
+          "embedText": "CEN TR 15281",
+          "chunkType": "document_metadata_ref",
+          "docPath": "ATEX/CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf",
+          "docName": "CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf",
+          "headingPath": "Chapter 1 > References"
+        },
+        {
+          "chunkId": "dense-cen-tr-15281-noise",
+          "baseScore": 0.987,
+          "embeddingBasis": "contextual_text_v1",
+          "text": "generic maintenance discussion around standards",
+          "embedText": "generic maintenance discussion around standards",
+          "chunkType": "unit_exact_v1",
+          "docPath": "General/Accord sur le transfert du code source.pdf",
+          "docName": "Accord sur le transfert du code source.pdf",
+          "headingPath": "Chapter 2 > Integration"
+        }
+      ],
+      "expectedTopChunkId": "exact-cen-tr-15281",
+      "expectedTopRetriever": "exact_match",
+      "expectedDocHint": "15281"
+    },
+    {
+      "name": "split_ind570_query_keeps_exact_match_on_product_document",
+      "query": "Ou trouve-t-on IND 570 ?",
+      "candidates": [
+        {
+          "chunkId": "exact-ind-570",
+          "baseScore": 0.97,
+          "embeddingBasis": "exact_match_v1",
+          "text": "IND570",
+          "embedText": "IND570",
+          "chunkType": "document_metadata_ref",
+          "docPath": "Programmation/Mettler/MettlerToledo_IND570.pdf",
+          "docName": "MettlerToledo_IND570.pdf",
+          "headingPath": "Chapter 1 > References"
+        },
+        {
+          "chunkId": "dense-ind-570-noise",
+          "baseScore": 0.985,
+          "embeddingBasis": "contextual_text_v1",
+          "text": "generic integration checklist for product setup",
+          "embedText": "generic integration checklist for product setup",
+          "chunkType": "unit_exact_v1",
+          "docPath": "General/Accord sur le transfert du code source.pdf",
+          "docName": "Accord sur le transfert du code source.pdf",
+          "headingPath": "Chapter 2 > Integration"
+        }
+      ],
+      "expectedTopChunkId": "exact-ind-570",
+      "expectedTopRetriever": "exact_match",
+      "expectedDocHint": "IND570"
+    },
+    {
+      "name": "vendor_prefixed_ind570_query_keeps_exact_match_on_product_document",
+      "query": "Montre le manuel Mettler Toledo IND-570.",
+      "candidates": [
+        {
+          "chunkId": "exact-vendor-ind-570",
+          "baseScore": 0.971,
+          "embeddingBasis": "exact_match_v1",
+          "text": "IND570",
+          "embedText": "IND570",
+          "chunkType": "document_metadata_ref",
+          "docPath": "Programmation/Mettler/MettlerToledo_IND570.pdf",
+          "docName": "MettlerToledo_IND570.pdf",
+          "headingPath": "Chapter 1 > References"
+        },
+        {
+          "chunkId": "dense-vendor-ind-570-noise",
+          "baseScore": 0.986,
+          "embeddingBasis": "contextual_text_v1",
+          "text": "generic integration checklist for product setup",
+          "embedText": "generic integration checklist for product setup",
+          "chunkType": "unit_exact_v1",
+          "docPath": "General/Accord sur le transfert du code source.pdf",
+          "docName": "Accord sur le transfert du code source.pdf",
+          "headingPath": "Chapter 2 > Integration"
+        }
+      ],
+      "expectedTopChunkId": "exact-vendor-ind-570",
+      "expectedTopRetriever": "exact_match",
+      "expectedDocHint": "IND570"
+    },
+    {
+      "name": "noisy_cen_pdf_query_keeps_exact_match_on_cen_document",
+      "query": "stp je cherche le pdf inerting EN-15281",
+      "candidates": [
+        {
+          "chunkId": "exact-noisy-en-15281",
+          "baseScore": 0.969,
+          "embeddingBasis": "exact_match_v1",
+          "text": "EN 15281",
+          "embedText": "EN 15281",
+          "chunkType": "document_metadata_ref",
+          "docPath": "ATEX/CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf",
+          "docName": "CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf",
+          "headingPath": "Chapter 1 > References"
+        },
+        {
+          "chunkId": "dense-noisy-en-15281",
+          "baseScore": 0.987,
+          "embeddingBasis": "contextual_text_v1",
+          "text": "generic maintenance discussion around standards",
+          "embedText": "generic maintenance discussion around standards",
+          "chunkType": "unit_exact_v1",
+          "docPath": "General/Accord sur le transfert du code source.pdf",
+          "docName": "Accord sur le transfert du code source.pdf",
+          "headingPath": "Chapter 2 > Integration"
+        }
+      ],
+      "expectedTopChunkId": "exact-noisy-en-15281",
+      "expectedTopRetriever": "exact_match",
+      "expectedDocHint": "15281"
+    },
+    {
+      "name": "english_vendor_query_keeps_exact_match_on_product_document",
+      "query": "need the Mettler Toledo IND570 manual pdf please",
+      "candidates": [
+        {
+          "chunkId": "exact-english-ind570",
+          "baseScore": 0.972,
+          "embeddingBasis": "exact_match_v1",
+          "text": "IND570",
+          "embedText": "IND570",
+          "chunkType": "document_metadata_ref",
+          "docPath": "Programmation/Mettler/MettlerToledo_IND570.pdf",
+          "docName": "MettlerToledo_IND570.pdf",
+          "headingPath": "Chapter 1 > References"
+        },
+        {
+          "chunkId": "dense-english-ind570",
+          "baseScore": 0.988,
+          "embeddingBasis": "contextual_text_v1",
+          "text": "generic integration checklist for product setup",
+          "embedText": "generic integration checklist for product setup",
+          "chunkType": "unit_exact_v1",
+          "docPath": "General/Accord sur le transfert du code source.pdf",
+          "docName": "Accord sur le transfert du code source.pdf",
+          "headingPath": "Chapter 2 > Integration"
+        }
+      ],
+      "expectedTopChunkId": "exact-english-ind570",
+      "expectedTopRetriever": "exact_match",
+      "expectedDocHint": "IND570"
+    },
+    {
+      "name": "rerank_can_promote_precise_dense_candidate_over_sparse_leader",
+      "query": "Explique la procedure de requalification du circuit hydraulique.",
+      "candidates": [
+        {
+          "chunkId": "sparse-1",
+          "baseScore": 0.83,
+          "embeddingBasis": "sparse_bm25_v1",
+          "text": "maintenance circuit hydraulique safeguards overview",
+          "embedText": "maintenance circuit hydraulique safeguards overview",
+          "chunkType": "unit_exact_v1",
+          "docPath": "Maintenance/Overview.pdf",
+          "docName": "Overview.pdf",
+          "headingPath": "Chapter 1 > Overview"
+        },
+        {
+          "chunkId": "dense-1",
+          "baseScore": 0.8,
+          "embeddingBasis": "contextual_text_v1",
+          "text": "procedure de requalification du circuit hydraulique",
+          "embedText": "procedure de requalification du circuit hydraulique",
+          "chunkType": "unit_exact_v1",
+          "docPath": "Maintenance/Hydraulique.pdf",
+          "docName": "Hydraulique.pdf",
+          "headingPath": "Chapter 4 > Procedure"
+        }
+      ],
+      "rerankItems": [
+        {
+          "index": 1,
+          "score": 0.93
+        },
+        {
+          "index": 0,
+          "score": 0.41
+        }
+      ],
+      "rerankPrefixCount": 2,
+      "expectedTopChunkId": "dense-1",
+      "expectedTopRetriever": "dense_qdrant",
+      "expectRerankPromotion": true
+    },
+    {
+      "name": "low_overlap_sparse_noise_should_fall_below_relevant_dense_candidate",
+      "query": "Resume la procedure de consignation electrique.",
+      "candidates": [
+        {
+          "chunkId": "sparse-noise",
+          "baseScore": 0.79,
+          "embeddingBasis": "sparse_bm25_v1",
+          "text": "general safety appendix summary",
+          "embedText": "general safety appendix summary",
+          "chunkType": "unit_exact_v1",
+          "docPath": "ATEX/Appendix.pdf",
+          "docName": "Appendix.pdf",
+          "headingPath": "Appendix > Summary"
+        },
+        {
+          "chunkId": "dense-relevant",
+          "baseScore": 0.77,
+          "embeddingBasis": "contextual_text_v1",
+          "text": "procedure de consignation electrique et verrouillage",
+          "embedText": "procedure de consignation electrique et verrouillage",
+          "chunkType": "unit_exact_v1",
+          "docPath": "Maintenance/Consignation.pdf",
+          "docName": "Consignation.pdf",
+          "headingPath": "Chapter 2 > Procedure"
+        }
+      ],
+      "expectedTopChunkId": "dense-relevant",
+      "expectedTopRetriever": "dense_qdrant"
     }
   ]
 }

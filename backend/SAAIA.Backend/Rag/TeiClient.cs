@@ -9,6 +9,8 @@ using System.Net;
 /// </summary>
 static class TeiClient
 {
+    internal sealed record RerankItem(int Index, double Score);
+
     private static readonly ConcurrentDictionary<string, int> _dimCache = new(StringComparer.OrdinalIgnoreCase);
 
     // TEI can be briefly unavailable during startup (model download / warmup) or under load.
@@ -118,6 +120,106 @@ static class TeiClient
                 return list.ToArray();
             }
         }
+    }
+
+    public static async Task<IReadOnlyList<RerankItem>> RerankAsync(
+        HttpClient tei,
+        string? model,
+        string query,
+        IReadOnlyList<string> texts,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(query) || texts.Count == 0)
+            return Array.Empty<RerankItem>();
+
+        var body = new Dictionary<string, object?>
+        {
+            ["query"] = query,
+            ["texts"] = texts
+        };
+        if (!string.IsNullOrWhiteSpace(model))
+            body["model"] = model;
+
+        var payload = JsonSerializer.Serialize(body);
+
+        for (var attempt = 0; ; attempt++)
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, "/rerank");
+            req.Content = new StringContent(payload, Encoding.UTF8);
+            req.Content.Headers.ContentType = new("application/json");
+
+            HttpResponseMessage? resp = null;
+            try
+            {
+                resp = await tei.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+            }
+            catch (HttpRequestException) when (attempt < _retryDelays.Length && !ct.IsCancellationRequested)
+            {
+                await DelayWithJitterAsync(_retryDelays[attempt], ct);
+                continue;
+            }
+            catch (TaskCanceledException) when (attempt < _retryDelays.Length && !ct.IsCancellationRequested)
+            {
+                await DelayWithJitterAsync(_retryDelays[attempt], ct);
+                continue;
+            }
+
+            using (resp)
+            {
+                if (!resp.IsSuccessStatusCode)
+                {
+                    if (IsTransient(resp.StatusCode) && attempt < _retryDelays.Length && !ct.IsCancellationRequested)
+                    {
+                        await DelayWithJitterAsync(_retryDelays[attempt], ct);
+                        continue;
+                    }
+
+                    var err = await TryReadErrorBodyAsync(resp, ct);
+                    throw new Exception($"TEI rerank failed: {(int)resp.StatusCode} {resp.ReasonPhrase} {err}".Trim());
+                }
+
+                await using var stream = await resp.Content.ReadAsStreamAsync(ct);
+                using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+                return ParseRerankResponse(doc.RootElement);
+            }
+        }
+    }
+
+    internal static IReadOnlyList<RerankItem> ParseRerankResponse(JsonElement root)
+    {
+        JsonElement items = root;
+        if (root.ValueKind == JsonValueKind.Object)
+        {
+            if (root.TryGetProperty("results", out var results))
+                items = results;
+            else if (root.TryGetProperty("data", out var data))
+                items = data;
+        }
+
+        if (items.ValueKind != JsonValueKind.Array)
+            throw new Exception("TEI rerank response missing array payload");
+
+        var ranked = new List<RerankItem>(items.GetArrayLength());
+        foreach (var item in items.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object)
+                continue;
+
+            var index = item.TryGetProperty("index", out var indexEl) && indexEl.ValueKind == JsonValueKind.Number
+                ? indexEl.GetInt32()
+                : -1;
+            var score = item.TryGetProperty("score", out var scoreEl) && scoreEl.ValueKind == JsonValueKind.Number
+                ? scoreEl.GetDouble()
+                : 0.0;
+
+            if (index >= 0)
+                ranked.Add(new RerankItem(index, score));
+        }
+
+        return ranked
+            .OrderByDescending(x => x.Score)
+            .ThenBy(x => x.Index)
+            .ToArray();
     }
 
     private static bool IsTransient(HttpStatusCode code)

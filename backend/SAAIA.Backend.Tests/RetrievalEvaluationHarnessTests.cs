@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using SAAIA.Backend.Endpoints;
 using Xunit;
 
@@ -82,7 +83,7 @@ public sealed class RetrievalEvaluationHarnessTests
         var corpus = LoadCorpus("retrieval_eval_corpus.v3.json");
         var cases = Assert.IsAssignableFrom<IReadOnlyList<DominantRetrieverCase>>(corpus.DominantRetrieverCases);
 
-        Assert.True(cases.Count >= 5, "corpus v3 should carry a richer dominant-retriever coverage.");
+        Assert.True(cases.Count >= 7, "corpus v3 should carry a richer dominant-retriever coverage.");
 
         foreach (var testCase in cases)
             AssertDominantRetrieverCase(testCase);
@@ -146,7 +147,8 @@ public sealed class RetrievalEvaluationHarnessTests
                 testCase.Query,
                 testCase.ExpectedDominantRetriever,
                 testCase.ExpectedExactTerms,
-                testCase.AllowExactNoise));
+                testCase.AllowExactNoise,
+                testCase.ExpectedLexicalTerms));
 
             var linkedScore = RagEndpoints.ComputeLinkedMatchScore(0.82, "same_section", "dense_qdrant");
             var linkedFromLinkedScore = RagEndpoints.ComputeLinkedMatchScore(0.82, "same_section", "linked_context");
@@ -163,6 +165,178 @@ public sealed class RetrievalEvaluationHarnessTests
             {
                 throw new InvalidOperationException($"Unsupported linkedExpectation '{testCase.LinkedExpectation}'.");
             }
+        }
+    }
+
+    [Fact]
+    public void Retrieval_v3_decision_harness_reports_expected_fusion_calibration_on_corpus_v3()
+    {
+        var corpus = LoadCorpus("retrieval_eval_corpus.v3.json");
+        var cases = Assert.IsAssignableFrom<IReadOnlyList<CalibrationCase>>(corpus.CalibrationCases);
+
+        Assert.True(cases.Count >= 3, "corpus v3 should include calibration cases for sparse and rerank behavior.");
+
+        foreach (var testCase in cases)
+        {
+            var candidates = testCase.Candidates
+                .Select(candidate => new RagMatch(
+                    Score: candidate.BaseScore,
+                    DocId: candidate.DocId,
+                    DocPath: candidate.DocPath,
+                    DocName: candidate.DocName,
+                    PageStart: candidate.PageStart,
+                    PageEnd: candidate.PageEnd,
+                    ChunkId: candidate.ChunkId,
+                    ChunkIndex: candidate.ChunkIndex,
+                    Text: candidate.Text,
+                    IngestionVersion: 1,
+                    HashDoc: candidate.HashDoc,
+                    EmbedText: candidate.EmbedText,
+                    EmbeddingBasis: candidate.EmbeddingBasis,
+                    SectionOrdinal: candidate.SectionOrdinal,
+                    UnitOrdinal: candidate.UnitOrdinal,
+                    SectionTitle: candidate.SectionTitle,
+                    HeadingPath: candidate.HeadingPath,
+                    ChunkType: candidate.ChunkType,
+                    PrevChunkId: null,
+                    NextChunkId: null,
+                    SameSectionChunkId: null))
+                .ToArray();
+
+            var calibrated = RagEndpoints.CalibrateFusedMatches(testCase.Query, candidates);
+            var final = testCase.RerankItems is { Count: > 0 }
+                ? RagEndpoints.ApplyRerankScores(
+                    calibrated,
+                    testCase.RerankItems.Select(item => new TeiClient.RerankItem(item.Index, item.Score)).ToArray(),
+                    Math.Min(testCase.RerankPrefixCount ?? calibrated.Count, calibrated.Count))
+                : calibrated;
+
+            var top = final[0];
+            Assert.Equal(testCase.ExpectedTopChunkId, top.ChunkId);
+            Assert.Equal(testCase.ExpectedTopRetriever, ResolveRetriever(top));
+            if (!string.IsNullOrWhiteSpace(testCase.ExpectedDocHint))
+            {
+                var docText = $"{top.DocName} {top.DocPath}";
+                Assert.Contains(testCase.ExpectedDocHint, docText, StringComparison.OrdinalIgnoreCase);
+            }
+
+            if (testCase.ExpectRerankPromotion)
+                Assert.True(top.RerankScore.HasValue, $"{testCase.Name}: expected rerank to materially promote the top candidate.");
+        }
+    }
+
+    [Fact]
+    public void Retrieval_v4_exact_lookup_harness_reports_recall_and_low_noise()
+    {
+        var corpus = LoadCorpus("retrieval_eval_corpus.v4.json");
+        var exactMetrics = EvaluateExactLookup(corpus.ExactPositiveCases, corpus.ExactNegativeQueries);
+
+        Assert.True(exactMetrics.Recall >= 1.0, $"exact recall too low: {exactMetrics.Recall:P}");
+        Assert.True(exactMetrics.NoiseRate <= 0.0, $"exact lookup noise too high: {exactMetrics.NoiseRate:P}");
+    }
+
+    [Fact]
+    public void Retrieval_v4_decision_harness_reports_expected_dominant_retrievers()
+    {
+        var corpus = LoadCorpus("retrieval_eval_corpus.v4.json");
+        var cases = Assert.IsAssignableFrom<IReadOnlyList<DominantRetrieverCase>>(corpus.DominantRetrieverCases);
+
+        Assert.True(cases.Count >= 8, "corpus v4 should carry richer conversational dominant-retriever coverage.");
+
+        foreach (var testCase in cases)
+            AssertDominantRetrieverCase(testCase);
+    }
+
+    [Fact]
+    public void Retrieval_v4_decision_harness_reports_expected_business_decisions()
+    {
+        var corpus = LoadCorpus("retrieval_eval_corpus.v4.json");
+        var cases = Assert.IsAssignableFrom<IReadOnlyList<DecisionCase>>(corpus.DecisionCases);
+
+        Assert.True(cases.Count >= 8, "corpus v4 should include richer conversational decision coverage.");
+
+        foreach (var testCase in cases)
+        {
+            Assert.False(string.IsNullOrWhiteSpace(testCase.ExpectedDocHint));
+            AssertDominantRetrieverCase(new DominantRetrieverCase(
+                testCase.Query,
+                testCase.ExpectedDominantRetriever,
+                testCase.ExpectedExactTerms,
+                testCase.AllowExactNoise,
+                testCase.ExpectedLexicalTerms));
+
+            var linkedScore = RagEndpoints.ComputeLinkedMatchScore(0.82, "same_section", "dense_qdrant");
+            var linkedFromLinkedScore = RagEndpoints.ComputeLinkedMatchScore(0.82, "same_section", "linked_context");
+
+            if (string.Equals(testCase.LinkedExpectation, "helpful", StringComparison.Ordinal))
+            {
+                Assert.True(linkedScore >= 0.75);
+            }
+            else if (string.Equals(testCase.LinkedExpectation, "secondary", StringComparison.Ordinal))
+            {
+                Assert.True(linkedFromLinkedScore < linkedScore);
+            }
+            else
+            {
+                throw new InvalidOperationException($"Unsupported linkedExpectation '{testCase.LinkedExpectation}'.");
+            }
+        }
+    }
+
+    [Fact]
+    public void Retrieval_v4_decision_harness_reports_expected_fusion_calibration()
+    {
+        var corpus = LoadCorpus("retrieval_eval_corpus.v4.json");
+        var cases = Assert.IsAssignableFrom<IReadOnlyList<CalibrationCase>>(corpus.CalibrationCases);
+
+        Assert.True(cases.Count >= 4, "corpus v4 should include conversational calibration cases.");
+
+        foreach (var testCase in cases)
+        {
+            var candidates = testCase.Candidates
+                .Select(candidate => new RagMatch(
+                    Score: candidate.BaseScore,
+                    DocId: candidate.DocId,
+                    DocPath: candidate.DocPath,
+                    DocName: candidate.DocName,
+                    PageStart: candidate.PageStart,
+                    PageEnd: candidate.PageEnd,
+                    ChunkId: candidate.ChunkId,
+                    ChunkIndex: candidate.ChunkIndex,
+                    Text: candidate.Text,
+                    IngestionVersion: 1,
+                    HashDoc: candidate.HashDoc,
+                    EmbedText: candidate.EmbedText,
+                    EmbeddingBasis: candidate.EmbeddingBasis,
+                    SectionOrdinal: candidate.SectionOrdinal,
+                    UnitOrdinal: candidate.UnitOrdinal,
+                    SectionTitle: candidate.SectionTitle,
+                    HeadingPath: candidate.HeadingPath,
+                    ChunkType: candidate.ChunkType,
+                    PrevChunkId: null,
+                    NextChunkId: null,
+                    SameSectionChunkId: null))
+                .ToArray();
+
+            var calibrated = RagEndpoints.CalibrateFusedMatches(testCase.Query, candidates);
+            var final = testCase.RerankItems is { Count: > 0 }
+                ? RagEndpoints.ApplyRerankScores(
+                    calibrated,
+                    testCase.RerankItems.Select(item => new TeiClient.RerankItem(item.Index, item.Score)).ToArray(),
+                    Math.Min(testCase.RerankPrefixCount ?? calibrated.Count, calibrated.Count))
+                : calibrated;
+
+            var top = final[0];
+            Assert.Equal(testCase.ExpectedTopChunkId, top.ChunkId);
+            Assert.Equal(testCase.ExpectedTopRetriever, ResolveRetriever(top));
+            if (!string.IsNullOrWhiteSpace(testCase.ExpectedDocHint))
+            {
+                var docText = $"{top.DocName} {top.DocPath}";
+                Assert.Contains(testCase.ExpectedDocHint, docText, StringComparison.OrdinalIgnoreCase);
+            }
+
+            if (testCase.ExpectRerankPromotion)
+                Assert.True(top.RerankScore.HasValue, $"{testCase.Name}: expected rerank to materially promote the top candidate.");
         }
     }
 
@@ -327,6 +501,7 @@ public sealed class RetrievalEvaluationHarnessTests
         var targetedTerms = extracted
             .Where(term => !string.Equals(term, normalizedWhole, StringComparison.Ordinal))
             .ToArray();
+        var lexicalTokens = RagEndpoints.ExtractLexicalQueryTokens(testCase.Query);
 
         if (string.Equals(testCase.ExpectedDominantRetriever, "exact_match", StringComparison.Ordinal))
         {
@@ -334,7 +509,22 @@ public sealed class RetrievalEvaluationHarnessTests
             foreach (var expected in testCase.ExpectedExactTerms)
                 Assert.Contains(expected, targetedTerms, StringComparer.Ordinal);
             if (!testCase.AllowExactNoise)
-                Assert.Equal(testCase.ExpectedExactTerms.Count, targetedTerms.Length);
+            {
+                var expectedFamilies = testCase.ExpectedExactTerms
+                    .Select(CollapseReferenceVariant)
+                    .ToHashSet(StringComparer.Ordinal);
+                Assert.All(targetedTerms, term =>
+                    Assert.Contains(CollapseReferenceVariant(term), expectedFamilies));
+            }
+        }
+        else if (string.Equals(testCase.ExpectedDominantRetriever, "sparse_bm25", StringComparison.Ordinal))
+        {
+            Assert.Empty(targetedTerms);
+            var expectedLexicalTerms = Assert.IsAssignableFrom<IReadOnlyList<string>>(testCase.ExpectedLexicalTerms);
+            Assert.NotEmpty(expectedLexicalTerms);
+            foreach (var expected in expectedLexicalTerms)
+                Assert.Contains(expected, lexicalTokens, StringComparer.Ordinal);
+            Assert.False(testCase.AllowExactNoise);
         }
         else if (string.Equals(testCase.ExpectedDominantRetriever, "dense_qdrant", StringComparison.Ordinal))
         {
@@ -376,12 +566,14 @@ public sealed class RetrievalEvaluationHarnessTests
         IReadOnlyList<DominantRetrieverCase>? DominantRetrieverCases = null,
         IReadOnlyList<LinkedContextCase>? LinkedContextCases = null,
         IReadOnlyList<RankingExpectationCase>? RankingExpectationCases = null,
-        IReadOnlyList<DecisionCase>? DecisionCases = null);
+        IReadOnlyList<DecisionCase>? DecisionCases = null,
+        IReadOnlyList<CalibrationCase>? CalibrationCases = null);
     private sealed record DominantRetrieverCase(
         string Query,
         string ExpectedDominantRetriever,
         IReadOnlyList<string> ExpectedExactTerms,
-        bool AllowExactNoise = false);
+        bool AllowExactNoise = false,
+        IReadOnlyList<string>? ExpectedLexicalTerms = null);
     private sealed record LinkedContextCase(
         string Name,
         string AnchorRetriever,
@@ -405,5 +597,47 @@ public sealed class RetrievalEvaluationHarnessTests
         IReadOnlyList<string> ExpectedExactTerms,
         bool AllowExactNoise,
         string LinkedExpectation,
-        string ExpectedDocHint);
+        string ExpectedDocHint,
+        IReadOnlyList<string>? ExpectedLexicalTerms = null);
+    private sealed record CalibrationCase(
+        string Name,
+        string Query,
+        IReadOnlyList<CalibrationCandidate> Candidates,
+        string ExpectedTopChunkId,
+        string ExpectedTopRetriever,
+        string? ExpectedDocHint = null,
+        IReadOnlyList<CalibrationRerankItem>? RerankItems = null,
+        int? RerankPrefixCount = null,
+        bool ExpectRerankPromotion = false);
+    private sealed record CalibrationCandidate(
+        string ChunkId,
+        double BaseScore,
+        string EmbeddingBasis,
+        string Text,
+        string? EmbedText,
+        string ChunkType,
+        string DocId = "doc-1",
+        string DocPath = "ATEX/CEN.pdf",
+        string DocName = "CEN.pdf",
+        int? PageStart = 1,
+        int? PageEnd = 1,
+        int? ChunkIndex = 0,
+        string HashDoc = "hash",
+        int? SectionOrdinal = 1,
+        int? UnitOrdinal = 1,
+        string? SectionTitle = "Safety",
+        string? HeadingPath = "Chapter 1 > Safety");
+    private sealed record CalibrationRerankItem(int Index, double Score);
+
+    private static string ResolveRetriever(RagMatch match)
+        => match.EmbeddingBasis switch
+        {
+            "exact_match_v1" => "exact_match",
+            "sparse_bm25_v1" => "sparse_bm25",
+            "linked_context_v1" => "linked_context",
+            _ => "dense_qdrant"
+        };
+
+    private static string CollapseReferenceVariant(string value)
+        => Regex.Replace(value ?? string.Empty, @"[\s._/\-]+", string.Empty);
 }

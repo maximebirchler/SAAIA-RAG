@@ -517,8 +517,7 @@ public sealed partial class MainWindow
             UpdateJumpButton();
             UpdateUiState(isGenerating: true);
             InputBox.Text = string.Empty;
-            _pendingOutboundWireText = null;
-            _pendingOutboundDisplayText = null;
+            ClearStagedOutboundMessage();
 
             _cts?.Cancel();
             _cts = new CancellationTokenSource();

@@ -204,5 +204,6 @@ public sealed record RagMatch(
     string? ChunkType,
     string? PrevChunkId,
     string? NextChunkId,
-    string? SameSectionChunkId
+    string? SameSectionChunkId,
+    double? RerankScore = null
 );

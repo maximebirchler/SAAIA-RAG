@@ -21,6 +21,14 @@ public sealed partial class MainWindow
 
     private void InputBox_TextChanged(object sender, TextChangedEventArgs e)
     {
+        if (!Services.StagedOutboundMessageState.ShouldRetainPendingAfterTextChange(
+                _pendingOutboundWireText,
+                _pendingOutboundDisplayText,
+                InputBox?.Text))
+        {
+            ClearStagedOutboundMessage();
+        }
+
         UpdateSendCancelButtonVisualState();
     }
 
@@ -416,14 +424,12 @@ public sealed partial class MainWindow
             return;
         }
 
-        var wireText = _pendingOutboundWireText;
-        var displayText = _pendingOutboundDisplayText;
-        var text = string.IsNullOrWhiteSpace(wireText)
-            ? (InputBox.Text ?? "").Trim()
-            : wireText.Trim();
-        var shownText = string.IsNullOrWhiteSpace(displayText)
-            ? text
-            : displayText!.Trim();
+        var stagedResolution = Services.StagedOutboundMessageState.ResolveForSend(
+            _pendingOutboundWireText,
+            _pendingOutboundDisplayText,
+            InputBox.Text);
+        var text = stagedResolution.EffectiveWireText;
+        var shownText = stagedResolution.EffectiveDisplayText;
         if (text.Length == 0) return;
 
         ChatMessageItem? assistantMsg = null;
@@ -436,8 +442,7 @@ public sealed partial class MainWindow
 
             UpdateUiState(isGenerating: true);
             InputBox.Text = string.Empty;
-            _pendingOutboundWireText = null;
-            _pendingOutboundDisplayText = null;
+            ClearStagedOutboundMessage();
 
             var tailBefore = _messages.ToList();
 
