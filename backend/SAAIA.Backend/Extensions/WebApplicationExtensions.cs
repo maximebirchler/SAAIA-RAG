@@ -74,6 +74,7 @@ public static class WebApplicationExtensions
         // Admin
         AdminEndpoints.Map(app);
         AdminCatalogEndpoints.Map(app);
+        AdminRuntimeEndpoints.Map(app);
         AdminKeysEndpoints.Map(app);
         AdminAuditEndpoints.Map(app);
 

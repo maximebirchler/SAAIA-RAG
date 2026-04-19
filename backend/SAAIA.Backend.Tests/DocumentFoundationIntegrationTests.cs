@@ -1,7 +1,12 @@
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Text.Json;
+using System.Reflection;
 using Dapper;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 using Npgsql;
+using SAAIA.Backend;
 using SAAIA.Backend.Auth;
 using SAAIA.Backend.Db;
 using SAAIA.Backend.Endpoints;
@@ -1071,6 +1076,54 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
+    public async Task SearchCoreAsync_emits_retrieval_metrics_and_phase_activities()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("16161616-1616-1616-1616-161616161616");
+        await PublishRuntimeReadyQuestionBankDocumentsAsync(db, tenantId);
+
+        var metricNames = new List<string>();
+        using var meterListener = new MeterListener
+        {
+            InstrumentPublished = (instrument, listener) =>
+            {
+                if (instrument.Meter.Name == RetrievalTelemetry.MeterName)
+                    listener.EnableMeasurementEvents(instrument);
+            }
+        };
+        meterListener.SetMeasurementEventCallback<long>((instrument, measurement, tags, state) => metricNames.Add(instrument.Name));
+        meterListener.SetMeasurementEventCallback<double>((instrument, measurement, tags, state) => metricNames.Add(instrument.Name));
+        meterListener.Start();
+
+        var stoppedActivities = new List<Activity>();
+        using var activityListener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == RetrievalTelemetry.ActivitySourceName,
+            Sample = static (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = activity => stoppedActivities.Add(activity)
+        };
+        ActivitySource.AddActivityListener(activityListener);
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var response = await RagEndpoints.SearchCoreAsync(
+            BuildRagHttpContext(tenantId),
+            ds,
+            CreateTestRagOptions(),
+            new StubHttpClientFactory(),
+            new RagSearchRequestDto("Ou trouve-t-on EN 15281 ?", Category: "atex", TopK: 4));
+
+        Assert.NotEmpty(response.Matches);
+        Assert.Contains("saaia.retrieval.requests", metricNames);
+        Assert.Contains("saaia.retrieval.duration", metricNames);
+        Assert.Contains("saaia.retrieval.exact_match.duration", metricNames);
+        Assert.Contains(stoppedActivities, activity => activity.OperationName == "rag.search");
+        Assert.Contains(stoppedActivities, activity => activity.OperationName == "retrieval_exact_match");
+    }
+
+    [Fact]
     public async Task SearchCoreAsync_runtime_ready_v5_cases_match_expected_behavior_and_primary_document()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
@@ -1207,12 +1260,118 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }
 
+    [Fact]
+    public async Task SnapshotAsync_returns_304_when_if_none_match_matches_snapshot_etag()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("cdcdffff-ffff-ffff-ffff-ffffffffffff");
+        await PublishRuntimeReadyQuestionBankDocumentsAsync(db, tenantId);
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+
+        var firstContext = BuildRagHttpContext(tenantId);
+        var firstResult = await InvokeDocumentsSnapshotAsync(firstContext, ds);
+        await firstResult.ExecuteAsync(firstContext);
+
+        var etag = firstContext.Response.Headers.ETag.ToString();
+        Assert.False(string.IsNullOrWhiteSpace(etag));
+        Assert.Equal(StatusCodes.Status200OK, firstContext.Response.StatusCode);
+        Assert.Contains("snapshotId", ReadResponseBody(firstContext), StringComparison.Ordinal);
+
+        var secondContext = BuildRagHttpContext(tenantId);
+        secondContext.Request.Headers.IfNoneMatch = etag;
+
+        var secondResult = await InvokeDocumentsSnapshotAsync(secondContext, ds);
+        await secondResult.ExecuteAsync(secondContext);
+
+        Assert.Equal(etag, secondContext.Response.Headers.ETag.ToString());
+        Assert.Equal(StatusCodes.Status304NotModified, secondContext.Response.StatusCode);
+        Assert.Equal(string.Empty, ReadResponseBody(secondContext));
+    }
+
+    [Fact]
+    public async Task SearchAsync_populates_category_ref_and_category_path_from_matched_document()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("dedeffff-ffff-ffff-ffff-ffffffffffff");
+        await PublishRuntimeReadyQuestionBankDocumentsAsync(db, tenantId);
+
+        await using var conn = new NpgsqlConnection(db.ConnectionString);
+        await conn.OpenAsync();
+        var displayOrder = await conn.ExecuteScalarAsync<int>(
+            "SELECT display_order FROM documents_catalog_categories WHERE tenant_id=@tenant AND path='ATEX' LIMIT 1;",
+            new { tenant = tenantId });
+        var expectedCategoryRef = $"cat_{displayOrder:000}";
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var ctx = BuildRagHttpContext(tenantId);
+        var result = await InvokeRagSearchAsync(
+            ctx,
+            ds,
+            Options.Create(CreateTestRagOptions()),
+            new StubHttpClientFactory(),
+            new RagSearchRequestDto("Ou trouve-t-on EN 15281 ?", TopK: 3));
+
+        await result.ExecuteAsync(ctx);
+
+        var payload = ReadResponseBody(ctx);
+        var response = JsonSerializer.Deserialize<RagSearchResponseDto>(payload, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        Assert.NotNull(response);
+        var item = Assert.Single(
+            response!.Items,
+            static match => string.Equals(match.DocPath, "ATEX/CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf", StringComparison.Ordinal));
+
+        Assert.Equal("atex", item.Category);
+        Assert.Equal("ATEX", item.CategoryPath);
+        Assert.Equal(expectedCategoryRef, item.CategoryRef);
+        Assert.Equal("exact_match", item.ProvenanceInfo!.Channel);
+        Assert.Null(item.ProvenanceInfo.OffsetStart);
+        Assert.Null(item.ProvenanceInfo.OffsetEnd);
+    }
+
     private static DefaultHttpContext BuildRagHttpContext(Guid tenantId)
     {
         var ctx = new DefaultHttpContext();
         ctx.Items[ApiKeyAuth.TenantIdItemKey] = tenantId;
         ctx.Items[RequestIdMiddleware.RequestIdItemKey] = $"it-{tenantId:N}";
+        ctx.Response.Body = new MemoryStream();
         return ctx;
+    }
+
+    private static async Task<IResult> InvokeDocumentsSnapshotAsync(HttpContext ctx, NpgsqlDataSource ds)
+    {
+        var method = typeof(DocumentsEndpoints).GetMethod("SnapshotAsync", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+        return await (Task<IResult>)method!.Invoke(null, [ctx, ds])!;
+    }
+
+    private static async Task<IResult> InvokeRagSearchAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        IOptions<RagOptions> ragOptions,
+        IHttpClientFactory httpFactory,
+        RagSearchRequestDto request)
+    {
+        var method = typeof(RagEndpoints).GetMethod("SearchAsync", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+        return await (Task<IResult>)method!.Invoke(null, [ctx, ds, ragOptions, httpFactory, request])!;
+    }
+
+    private static string ReadResponseBody(DefaultHttpContext context)
+    {
+        context.Response.Body.Position = 0;
+        using var reader = new StreamReader(context.Response.Body, leaveOpen: true);
+        return reader.ReadToEnd();
     }
 
     private static RagOptions CreateTestRagOptions()

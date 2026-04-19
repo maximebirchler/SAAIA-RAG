@@ -112,8 +112,8 @@
 
 ### 2.2 Champs manquants ou non conformes
 - [x] **`ttlSeconds`** â€” FAIT 2026-04-14 (Claude). Default = 600 dans `RagMetricsDto` et dans la construction de reponse
-- [x] **`categoryPath`** â€” FAIT 2026-04-14 (Claude). Ajoute en champ additionnel dans `RagItemDto` (peuple avec la meme valeur que `category` pour backward compat). `category` conserve pour ne pas casser le client
-- [ ] **`categoryRef`** â€” Reference ordinale optionnelle. Absente. Necessite resolution backend via `documents_catalog_categories.display_order`
+- [x] **`categoryPath`** â€” FAIT 2026-04-14 (Claude), corrige 2026-04-19. Champ additionnel dans `RagItemDto`, maintenant peuple depuis le document matche plutot que depuis le filtre de requete
+- [x] **`categoryRef`** â€” FAIT 2026-04-19. Reference ordinale optionnelle ajoutee a `/rag/search`, resolue via `documents_catalog_categories.display_order`
 - [x] **`snippet`** â€” FAIT 2026-04-14 (Claude). `BuildSnippet()` dans `RagEndpoints.cs` â€” tronque a 500 chars sur frontiere de phrase ou mot
 - [x] **`rerankScore`** â€” FAIT 2026-04-14 (Claude). Champ present dans le DTO (`RagItemDto.RerankScore`), peuple a `null` en attendant l'integration TEI /rerank (Â§1.3)
 - [x] **`provenance.offsetStart` / `provenance.offsetEnd`** â€” FAIT 2026-04-14 (Claude). Champs ajoutes dans `RagItemProvenanceDto`. Peuples a `null` â€” le calcul d'offset depend du parseur PDF et n'est pas encore implemente
@@ -129,33 +129,33 @@
 
 ## 3. Gouvernance des modeles (CDC Â§9)
 
-> **Statut global : NON COMMENCE**
-> Le CDC v3.0 introduit un systeme complet de gouvernance. Rien n'existe encore dans le code.
+> **Statut global : PARTIELLEMENT FAIT**
+> Un premier socle backend existe maintenant : persistance d'etat runtime, resultats de warmup, endpoints admin runtime et qualification minimale du coeur retrieval. Le lifecycle CDC complet reste a finir.
 
-- [ ] **model_catalog.json** â€” Catalogue approuve de modeles client et serveur (CDC Â§5.8). Non cree
-- [ ] **runtime_catalog.json** â€” Catalogue des runtimes approuves et hard gates (CDC Â§5.8). Non cree
-- [ ] **warmup_profiles.json** â€” Profils de qualification versionnes (CDC Â§5.8). Non cree
-- [ ] **warmup_results.json** â€” Resultats de qualification locale (CDC Â§5.8). Non cree
-- [ ] **capability_state.json** â€” Etat des capacites installees/configurees/healthy/qualifiees/autorisees/selectionnees (CDC Â§5.8). Non cree
-- [ ] **Warmup gate logic** â€” Validation {runtime, modele, quantification, profil materiel} avant activation (CDC Â§9.6). Non implemente
+- [~] **model_catalog.json** â€” Pas de fichier JSON versionne pour l'instant ; catalogue runtime expose via `GET /admin/runtime/catalog`
+- [~] **runtime_catalog.json** â€” Pas de fichier JSON versionne pour l'instant ; catalogue runtime expose via `GET /admin/runtime/catalog`
+- [~] **warmup_profiles.json** â€” Pas de fichier JSON versionne pour l'instant ; profil minimal `default-local` expose via `GET /admin/runtime/catalog`
+- [~] **warmup_results.json** â€” Resultats persistants en base (`runtime_warmup_results`) depuis 2026-04-19 et exposes via `GET /admin/runtime/warmup-results` ; pas encore d'artefact JSON exporte
+- [~] **capability_state.json** â€” Etat persistant en base (`runtime_capability_state`) depuis 2026-04-19 ; pas encore d'artefact JSON exporte
+- [~] **Warmup gate logic** â€” Qualification minimale implemente pour `core.retrieval` (Qdrant + TEI embeddings + rerank si active) avec `warmupPassCount=3` par defaut ; hard gates materiels encore absents
 - [ ] **Hard gates** â€” Filtrage modeles par prerequis materiel (CDC Â§9.3). Non implemente
-- [ ] **Chaine de decision** â€” Installee -> Configuree -> Healthy -> Qualifiee -> Autorisee -> Selectionnee (CDC Â§9.7). Non implementee
+- [~] **Chaine de decision** â€” Etats `installed/configured/healthy/qualified/authorized/selected` exposes et persistants pour `core.retrieval` ; requalification + selection admin implementees, mais politiques multi-capacites et hard gates restent incomplets
 - [ ] **Migration LocalLlmBootstrapper.cs** â€” Actuellement hardcode sur 6 modeles (Qwen Q4_0/Q4_K_S/Q4_K_M/Q6_K + Mistral Q4_K_M/Q6_K). Doit migrer vers catalogue approuve filtre par profil materiel
 - [ ] **Profils client C1/C2/C3/C4** â€” Selection par VRAM detectee dans un catalogue, pas dans du code hardcode (CDC Â§9.3)
-- [ ] **Diagnostics de qualification** â€” Exposer l'etat via `GET /admin/runtime/capabilities`, `GET /admin/runtime/catalog`, `POST /admin/runtime/requalify` (CDC Â§7.3)
+- [x] **Diagnostics de qualification** â€” `GET /admin/runtime/capabilities`, `GET /admin/runtime/catalog`, `POST /admin/runtime/requalify`, `GET /admin/runtime/warmup-results`, `POST /admin/runtime/capabilities/{key}/selection` implementes le 2026-04-19
 
 ---
 
 ## 4. Capacites serveur optionnelles A/B/C (CDC Â§4.4)
 
-> **Statut global : NON COMMENCE**
-> Infrastructure a creer. Le CDC est clair : aucune dependance fonctionnelle sur le coeur.
+> **Statut global : AMORCE**
+> Le backend expose maintenant un catalogue et un etat persistant pour A/B/C, mais les capacités restent explicitement non implementees.
 
-- [ ] **Abstraction Capability** â€” Creer un systeme de capabilities avec etats (installee/configuree/healthy/qualifiee/autorisee/selectionnee)
-- [ ] **Capacite A (CorpusEnrichment)** â€” Contextualisation LLM des chunks, HyPE, enrichissement metadata, scoring qualite, auto-tagging. Actuellement le contextual_text est code-based (conforme si A absente)
-- [ ] **Capacite B (BackofficeGeneration)** â€” Resumes stockes, syntheses multi-docs, exports enrichis, jobs backoffice. Le worker resume admin existe partiellement
-- [ ] **Capacite C (RetrievalIntelligence)** â€” Reformulation, decomposition, HyDE fallback, compression contextuelle. Experimentale, desactivee par defaut
-- [ ] **Politique d'activation** â€” "Installee != activee != selectionnee" (CDC Â§3.3 MOD-003/MOD-004)
+- [~] **Abstraction Capability** â€” Catalogue + etat persistant + API admin runtime en place depuis 2026-04-19 ; selection/politiques encore minimales
+- [ ] **Capacite A (CorpusEnrichment)** â€” Toujours non implemente. Le runtime la presente explicitement comme absente
+- [ ] **Capacite B (BackofficeGeneration)** â€” Toujours non implementee. Le runtime la presente explicitement comme absente
+- [ ] **Capacite C (RetrievalIntelligence)** â€” Toujours non implementee. Le runtime la presente explicitement comme absente
+- [~] **Politique d'activation** â€” `desired_enabled`, `authorized`, `selected` persistants pour `core.retrieval` ; politique A/B/C et separation fine `installed != activee != selectionnee` encore incomplètes
 
 ---
 
@@ -179,9 +179,9 @@
 - [ ] **Faithfulness > 0.85** â€” Non mesuree. Necessite evaluation end-to-end avec LLM
 - [ ] **Answer Relevancy > 0.80** â€” Non mesuree. Necessite evaluation end-to-end avec LLM
 - [ ] **Exact Match Hit Rate > 0.95 sur familles ciblees** â€” Partiellement (recall testee sur corpus synthetique, pas sur vrais documents)
-- [ ] **Retrieval P95 < 800ms** â€” Non mesuree. Ajouter mesure de latence dans le harnais
-- [ ] **Rerank P95 < 300ms** â€” N/A tant que TEI /rerank n'est pas implemente (Â§1.3)
-- [ ] **Zero-result rate < 5%** â€” Non mesuree. Ajouter compteur de requetes sans resultats
+- [~] **Retrieval P95 < 800ms** â€” Histograms OTel retrieval ajoutes le 2026-04-19 (`saaia.retrieval.duration`, `*.exact_match.duration`, `*.sparse.duration`, `*.dense.duration`, `*.linked.duration`) ; seuil CDC pas encore mesure/publie
+- [~] **Rerank P95 < 300ms** â€” Histogram OTel `saaia.retrieval.rerank.duration` ajoute ; seuil CDC pas encore mesure/publie
+- [~] **Zero-result rate < 5%** â€” Compteur OTel `saaia.retrieval.zero_results` ajoute le 2026-04-19 ; taux agrege / dashboard encore manquant
 
 ### 5.3 Familles de tests obligatoires (CDC Â§15.4)
 - [~] **Famille 1 : References exactes** â€” Couverte partiellement par corpus v3 exactPositiveCases
@@ -207,12 +207,12 @@
 
 ## 7. Observabilite OTel (CDC Â§15.2)
 
-> **Statut global : NON VERIFIE**
-> A auditer. docker-compose.otel.yml existe.
+> **Statut global : PARTIELLEMENT FAIT**
+> Le wiring OTel generique existe, et le retrieval expose maintenant des spans/metriques metier. Restent les spans hors retrieval et les agrégats de gouvernance runtime.
 
-- [ ] **Spans CDC requis** â€” pre_router, router_llm, context_builder, tool[N], writer_llm, critic_llm, retrieval_exact_match, retrieval_dense, retrieval_sparse, retrieval_rerank, warmup_check, capability_select
+- [~] **Spans CDC requis** â€” `rag.search`, `retrieval_exact_match`, `retrieval_dense`, `retrieval_sparse`, `retrieval_linked_context`, `retrieval_rerank` ajoutes le 2026-04-19 ; restent `pre_router`, `router_llm`, `context_builder`, `tool[N]`, `writer_llm`, `critic_llm`, `warmup_check`, `capability_select`
 - [ ] **Traces** â€” turn type standard, turn type translate, runs warmup qualifies
-- [ ] **Metriques** â€” tokens, latence, k retrieval/rerank, ctx_ratio, budget_used_pct, load time, TTFT, tok/s, passCount warmup
+- [~] **Metriques** â€” retrieval requests, zero-results, returned-results, candidates, latences `retrieval/exact/sparse/dense/linked/rerank/tei/qdrant` ajoutes le 2026-04-19 ; restent tokens, ctx_ratio, budget_used_pct, load time, TTFT, tok/s, passCount warmup
 
 ---
 

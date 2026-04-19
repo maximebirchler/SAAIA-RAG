@@ -535,6 +535,32 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.Equal("chunk-1", info.ChunkId);
         Assert.Equal(4, info.PageStart);
         Assert.Equal(5, info.PageEnd);
+        Assert.Null(info.OffsetStart);
+        Assert.Null(info.OffsetEnd);
+    }
+
+    [Fact]
+    public void BuildDocumentCategoryPath_and_category_are_derived_from_doc_path()
+    {
+        Assert.Equal("ATEX/Guidance", RagEndpoints.BuildDocumentCategoryPath("ATEX/Guidance/CEN TR 15281.pdf"));
+        Assert.Equal("atex", RagEndpoints.BuildDocumentCategory("ATEX/Guidance/CEN TR 15281.pdf"));
+        Assert.Null(RagEndpoints.BuildDocumentCategoryPath("root-level.pdf"));
+        Assert.Equal("rootlevel", RagEndpoints.BuildDocumentCategory("RootLevel"));
+    }
+
+    [Fact]
+    public void ResolveCategoryRef_uses_top_level_category_path()
+    {
+        var refs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["ATEX"] = "cat_001",
+            ["Programmation"] = "cat_002"
+        };
+
+        Assert.Equal("cat_001", RagEndpoints.ResolveCategoryRef("ATEX/Guidance", refs));
+        Assert.Equal("cat_002", RagEndpoints.ResolveCategoryRef("Programmation/Mettler", refs));
+        Assert.Null(RagEndpoints.ResolveCategoryRef("General", refs));
+        Assert.Null(RagEndpoints.ResolveCategoryRef(null, refs));
     }
 
     [Fact]

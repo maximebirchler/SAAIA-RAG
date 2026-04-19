@@ -688,6 +688,12 @@ ORDER BY display_order ASC, name ASC;";
         var snapshotId = BuildSnapshotId(computedAt, summary?.TotalDocs ?? categoryRows.Sum(x => x.DocCount));
         var etag = BuildSnapshotEtag(computedAt, summary?.TotalDocs ?? categoryRows.Sum(x => x.DocCount), categoryRows.Count);
         ctx.Response.Headers.ETag = etag;
+        var ifNoneMatch = ctx.Request.Headers.IfNoneMatch.ToString();
+        if (!string.IsNullOrWhiteSpace(ifNoneMatch)
+            && string.Equals(ifNoneMatch.Trim(), etag, StringComparison.Ordinal))
+        {
+            return Results.StatusCode(StatusCodes.Status304NotModified);
+        }
 
         var payload = new CatalogSnapshotResponse
         {

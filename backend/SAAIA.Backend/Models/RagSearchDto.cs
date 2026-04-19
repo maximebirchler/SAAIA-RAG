@@ -64,6 +64,7 @@ public sealed record RagItemDto(
     string DocName,
     string? DocPath,
     string? Category,
+    string? CategoryRef,
     int? PageStart,
     int? PageEnd,
     string? ChunkId,

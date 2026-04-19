@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Text.Json;
 using SAAIA.Client.WinUI.Services;
 using Xunit;
 
@@ -86,6 +87,14 @@ public sealed class SupportBundleMemoryDiagnosticsTests
             Assert.Contains("router 11 ms", text);
             Assert.Contains("2 canonical category(ies)", text);
             Assert.Contains("3 known document(s)", text);
+
+            var jsonEntry = archive.GetEntry("diagnostics/agent-memory-summary.json");
+            Assert.NotNull(jsonEntry);
+
+            using var jsonReader = new StreamReader(jsonEntry!.Open());
+            var jsonText = await jsonReader.ReadToEndAsync();
+            using var jsonDoc = JsonDocument.Parse(jsonText);
+            Assert.Equal("cdc-v3-m1lite-m3-m6", jsonDoc.RootElement.GetProperty("profile").GetString());
         }
         finally
         {

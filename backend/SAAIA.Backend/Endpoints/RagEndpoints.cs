@@ -66,6 +66,7 @@ ORDER BY category;
         RagSearchRequestDto req)
     {
         var resp = await SearchCoreAsync(ctx, ds, ragOpt.Value, httpFactory, req);
+        var categoryRefsByTopLevelPath = await LoadTopCategoryRefsAsync(ds, ctx.GetTenantId(), resp.Matches, ctx.RequestAborted);
 
         var responseDto = new RagSearchResponseDto(
             RequestId: resp.RequestId,
@@ -97,37 +98,42 @@ ORDER BY category;
                 CandidatesEvaluated: resp.Candidates
             ),
             Items: resp.Matches
-                .Select(m => new RagItemDto(
-                    Score: m.Score,
-                    DocId: m.DocId,
-                    DocName: m.DocName ?? "Unknown",
-                    DocPath: m.DocPath,
-                    Category: resp.Category,
-                    PageStart: m.PageStart,
-                    PageEnd: m.PageEnd,
-                    ChunkId: m.ChunkId,
-                    ChunkIndex: m.ChunkIndex,
-                    Text: m.Text ?? string.Empty,
-                    Retriever: ResolveRetriever(m),
-                    Provenance: ResolveProvenance(m),
-                    ExactMatchHit: string.Equals(m.EmbeddingBasis, "exact_match_v1", StringComparison.Ordinal),
-                    SourceHash: m.HashDoc,
-                    EmbeddingBasis: m.EmbeddingBasis,
-                    ChunkType: m.ChunkType,
-                    SectionTitle: m.SectionTitle,
-                    HeadingPath: m.HeadingPath,
-                    PrevChunkId: m.PrevChunkId,
-                    NextChunkId: m.NextChunkId,
-                    SameSectionChunkId: m.SameSectionChunkId,
-                    ProvenanceInfo: BuildProvenanceInfo(m),
-                    Context: BuildContextInfo(m),
-                    CategoryPath: resp.Category,
-                    Snippet: BuildSnippet(m.Text),
-                    RerankScore: m.RerankScore,
-                    HasTable: DetectHasTable(m.Text),
-                    HasWarning: DetectHasWarning(m.Text, m.ChunkType),
-                    ContextualSnippet: m.EmbedText
-                ))
+                .Select(m =>
+                {
+                    var categoryPath = BuildDocumentCategoryPath(m.DocPath);
+                    return new RagItemDto(
+                        Score: m.Score,
+                        DocId: m.DocId,
+                        DocName: m.DocName ?? "Unknown",
+                        DocPath: m.DocPath,
+                        Category: BuildDocumentCategory(m.DocPath) ?? resp.Category,
+                        CategoryRef: ResolveCategoryRef(categoryPath, categoryRefsByTopLevelPath),
+                        PageStart: m.PageStart,
+                        PageEnd: m.PageEnd,
+                        ChunkId: m.ChunkId,
+                        ChunkIndex: m.ChunkIndex,
+                        Text: m.Text ?? string.Empty,
+                        Retriever: ResolveRetriever(m),
+                        Provenance: ResolveProvenance(m),
+                        ExactMatchHit: string.Equals(m.EmbeddingBasis, "exact_match_v1", StringComparison.Ordinal),
+                        SourceHash: m.HashDoc,
+                        EmbeddingBasis: m.EmbeddingBasis,
+                        ChunkType: m.ChunkType,
+                        SectionTitle: m.SectionTitle,
+                        HeadingPath: m.HeadingPath,
+                        PrevChunkId: m.PrevChunkId,
+                        NextChunkId: m.NextChunkId,
+                        SameSectionChunkId: m.SameSectionChunkId,
+                        ProvenanceInfo: BuildProvenanceInfo(m),
+                        Context: BuildContextInfo(m),
+                        CategoryPath: categoryPath,
+                        Snippet: BuildSnippet(m.Text),
+                        RerankScore: m.RerankScore,
+                        HasTable: DetectHasTable(m.Text),
+                        HasWarning: DetectHasWarning(m.Text, m.ChunkType),
+                        ContextualSnippet: m.EmbedText
+                    );
+                })
                 .ToList(),
             Guidance: BuildAnswerGuidance(resp.Query, resp.Matches)
         );
@@ -192,8 +198,39 @@ ORDER BY category;
 
         var ct = ctx.RequestAborted;
         var swTotal = Stopwatch.StartNew();
+        var hasCategoryFilter = !string.IsNullOrWhiteSpace(category);
+        var hasDocScope = !string.IsNullOrWhiteSpace(req.DocId) || !string.IsNullOrWhiteSpace(req.DocPath);
+        using var searchActivity = RetrievalTelemetry.StartSearchActivity(mode, hasCategoryFilter, hasDocScope, topK, candidates, req.Query);
 
-        var exactMatches = await SearchExactMatchesAsync(ds, tenantId, req.Query, category, req.DocId, req.DocPath, topK, ct);
+        async Task<(T Result, long DurationMs)> MeasurePhaseAsync<T>(
+            string phaseName,
+            string? retriever,
+            Func<Task<T>> action,
+            Func<T, int>? getReturnedCount = null)
+        {
+            using var phaseActivity = RetrievalTelemetry.StartPhaseActivity(phaseName);
+            var swPhase = Stopwatch.StartNew();
+
+            try
+            {
+                var result = await action();
+                swPhase.Stop();
+                RetrievalTelemetry.CompletePhase(phaseActivity, getReturnedCount?.Invoke(result) ?? 0, swPhase.ElapsedMilliseconds, retriever);
+                return (result, swPhase.ElapsedMilliseconds);
+            }
+            catch (Exception ex)
+            {
+                swPhase.Stop();
+                RetrievalTelemetry.MarkPhaseError(phaseActivity, ex);
+                throw;
+            }
+        }
+
+        var (exactMatches, exactMs) = await MeasurePhaseAsync(
+            phaseName: "retrieval_exact_match",
+            retriever: "exact_match",
+            action: () => SearchExactMatchesAsync(ds, tenantId, req.Query, category, req.DocId, req.DocPath, topK, ct),
+            getReturnedCount: static matches => matches.Count);
         var shortCircuitAfterExact = ShouldShortCircuitAfterExact(exactMatches);
         var selected = new List<RagMatch>(capacity: topK);
         var selectedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -202,6 +239,9 @@ ORDER BY category;
         long rerankMs = 0;
         long sparseMs = 0;
         long qdrantMs = 0;
+        long sparsePhaseMs = 0;
+        long densePhaseMs = 0;
+        long linkedPhaseMs = 0;
         int qdrantStatus = 0;
 
         if (shortCircuitAfterExact)
@@ -210,73 +250,98 @@ ORDER BY category;
         }
         else
         {
-            var sparseMatchesTask = SearchSparseMatchesAsync(
-                ds,
-                tenantId,
-                req.Query,
-                category,
-                req.DocId,
-                req.DocPath,
-                candidates,
-                ct,
-                sparseMsRef: value => sparseMs = value);
-            var denseMatchesTask = SearchDenseMatchesAsync(
-                ds,
-                httpFactory,
-                rag,
-                tenantId,
-                queryNorm,
-                category,
-                req.DocId,
-                req.DocPath,
-                candidates,
-                ct,
-                teiMsRef: value => teiMs = value,
-                qdrantMsRef: value => qdrantMs = value,
-                qdrantStatusRef: value => qdrantStatus = value);
+            var sparseMatchesTask = MeasurePhaseAsync(
+                phaseName: "retrieval_sparse",
+                retriever: "sparse_bm25",
+                action: () => SearchSparseMatchesAsync(
+                    ds,
+                    tenantId,
+                    req.Query,
+                    category,
+                    req.DocId,
+                    req.DocPath,
+                    candidates,
+                    ct,
+                    sparseMsRef: value => sparseMs = value),
+                getReturnedCount: static matches => matches.Count);
+            var denseMatchesTask = MeasurePhaseAsync(
+                phaseName: "retrieval_dense",
+                retriever: "dense_qdrant",
+                action: () => SearchDenseMatchesAsync(
+                    ds,
+                    httpFactory,
+                    rag,
+                    tenantId,
+                    queryNorm,
+                    category,
+                    req.DocId,
+                    req.DocPath,
+                    candidates,
+                    ct,
+                    teiMsRef: value => teiMs = value,
+                    qdrantMsRef: value => qdrantMs = value,
+                    qdrantStatusRef: value => qdrantStatus = value),
+                getReturnedCount: static matches => matches.Count);
 
             await Task.WhenAll(sparseMatchesTask, denseMatchesTask);
 
-            var sparseMatches = await sparseMatchesTask;
-            var denseMatches = await denseMatchesTask;
+            var (sparseMatches, measuredSparsePhaseMs) = await sparseMatchesTask;
+            var (denseMatches, measuredDensePhaseMs) = await denseMatchesTask;
+            sparsePhaseMs = measuredSparsePhaseMs;
+            densePhaseMs = measuredDensePhaseMs;
             var fusedMatches = FuseWithRrf(exactMatches, sparseMatches, denseMatches);
             fusedMatches = CalibrateFusedMatches(req.Query, fusedMatches);
-            fusedMatches = await TryRerankWithTeiAsync(
-                httpFactory,
-                rag,
-                req.Query,
-                fusedMatches,
-                ct,
-                rerankMsRef: value => rerankMs = value);
+            var (rerankedMatches, _) = await MeasurePhaseAsync(
+                phaseName: "retrieval_rerank",
+                retriever: "tei_rerank",
+                action: () => TryRerankWithTeiAsync(
+                    httpFactory,
+                    rag,
+                    req.Query,
+                    fusedMatches,
+                    ct,
+                    rerankMsRef: value => rerankMs = value),
+                getReturnedCount: static matches => matches.Count);
+            fusedMatches = rerankedMatches;
 
             AddRankedMatches(selected, selectedKeys, fusedMatches, topK, minScore, maxPerDoc, maxPerPage);
 
             if (selected.Count < topK)
             {
-                var linkedMatches = await SearchLinkedMatchesAsync(
-                    ds,
-                    tenantId,
-                    selected,
-                    category,
-                    req.DocId,
-                    req.DocPath,
-                    topK - selected.Count,
-                    ct);
+                var (linkedMatches, linkedDurationMs) = await MeasurePhaseAsync(
+                    phaseName: "retrieval_linked_context",
+                    retriever: "linked_context",
+                    action: () => SearchLinkedMatchesAsync(
+                        ds,
+                        tenantId,
+                        selected,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        topK - selected.Count,
+                        ct),
+                    getReturnedCount: static matches => matches.Count);
+                linkedPhaseMs += linkedDurationMs;
 
                 AddRankedMatches(selected, selectedKeys, linkedMatches, topK, minScore: 0.0, maxPerDoc, Math.Max(maxPerPage, 2));
             }
 
             if (selected.Count < topK)
             {
-                var secondWaveLinkedMatches = await SearchLinkedMatchesAsync(
-                    ds,
-                    tenantId,
-                    selected,
-                    category,
-                    req.DocId,
-                    req.DocPath,
-                    topK - selected.Count,
-                    ct);
+                var (secondWaveLinkedMatches, secondWaveLinkedMs) = await MeasurePhaseAsync(
+                    phaseName: "retrieval_linked_context",
+                    retriever: "linked_context",
+                    action: () => SearchLinkedMatchesAsync(
+                        ds,
+                        tenantId,
+                        selected,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        topK - selected.Count,
+                        ct),
+                    getReturnedCount: static matches => matches.Count);
+                linkedPhaseMs += secondWaveLinkedMs;
 
                 AddRankedMatches(selected, selectedKeys, secondWaveLinkedMatches, topK, minScore: 0.0, maxPerDoc, Math.Max(maxPerPage, 2));
             }
@@ -287,7 +352,7 @@ ORDER BY category;
 
         swTotal.Stop();
 
-        return new RagSearchResponse(
+        var response = new RagSearchResponse(
             RequestId: ctx.GetRequestId(),
             Query: req.Query,
             QueryNormalized: queryNorm,
@@ -305,6 +370,11 @@ ORDER BY category;
                 SparseMs: sparseMs,
                 QdrantMs: qdrantMs),
             Matches: selected);
+
+        RetrievalTelemetry.CompleteSearch(searchActivity, response, mode, hasCategoryFilter, hasDocScope);
+        RetrievalTelemetry.RecordSearch(response, mode, hasCategoryFilter, hasDocScope, exactMs, sparsePhaseMs, densePhaseMs, linkedPhaseMs);
+
+        return response;
     }
 
     internal static async Task<List<RagMatch>> SearchExactMatchesAsync(
@@ -780,6 +850,10 @@ WHERE tenant_id=@tenant_id
         string DocName,
         int IngestionVersion,
         string? HashDoc);
+
+    private sealed record TopCategoryOrderRow(
+        string Path,
+        int DisplayOrder);
 
     private sealed record SparseMatchRow(
         Guid DocId,
@@ -1442,7 +1516,7 @@ LIMIT @top_k;
         return top.Score - second.Score >= 0.04;
     }
 
-    private static string ResolveRetriever(RagMatch match)
+    internal static string ResolveRetriever(RagMatch match)
         => match.EmbeddingBasis switch
         {
             "exact_match_v1" => "exact_match",
@@ -1644,6 +1718,74 @@ LIMIT @top_k;
             PrevChunkId: match.PrevChunkId,
             NextChunkId: match.NextChunkId,
             SameSectionChunkId: match.SameSectionChunkId);
+
+    internal static async Task<IReadOnlyDictionary<string, string>> LoadTopCategoryRefsAsync(
+        NpgsqlDataSource ds,
+        Guid tenantId,
+        IReadOnlyList<RagMatch> matches,
+        CancellationToken ct)
+    {
+        var topLevelPaths = matches
+            .Select(match => ExtractTopLevelCategoryPath(match.DocPath))
+            .Where(static path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (topLevelPaths.Length == 0)
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        const string sql = """
+SELECT
+  path          AS "Path",
+  display_order AS "DisplayOrder"
+FROM documents_catalog_categories
+WHERE tenant_id=@tenant
+  AND path = ANY(@paths);
+""";
+
+        var rows = await conn.QueryAsync<TopCategoryOrderRow>(new CommandDefinition(
+            sql,
+            new { tenant = tenantId, paths = topLevelPaths },
+            cancellationToken: ct));
+
+        return rows.ToDictionary(
+            static row => row.Path,
+            static row => BuildCategoryRef(row.DisplayOrder),
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    internal static string? BuildDocumentCategory(string? docPath)
+    {
+        var topLevel = ExtractTopLevelCategoryPath(docPath);
+        return string.IsNullOrWhiteSpace(topLevel)
+            ? null
+            : topLevel.ToLowerInvariant();
+    }
+
+    internal static string? BuildDocumentCategoryPath(string? docPath)
+    {
+        if (string.IsNullOrWhiteSpace(docPath))
+            return null;
+
+        var normalized = docPath.Trim().Replace('\\', '/').Trim('/');
+        var slashIndex = normalized.LastIndexOf('/');
+        if (slashIndex <= 0)
+            return null;
+
+        return normalized[..slashIndex];
+    }
+
+    internal static string? ResolveCategoryRef(string? categoryPath, IReadOnlyDictionary<string, string> categoryRefsByTopLevelPath)
+    {
+        var topLevel = ExtractTopLevelCategoryPath(categoryPath);
+        if (string.IsNullOrWhiteSpace(topLevel))
+            return null;
+
+        return categoryRefsByTopLevelPath.TryGetValue(topLevel, out var categoryRef)
+            ? categoryRef
+            : null;
+    }
 
     internal static string? BuildSnippet(string? text, int maxLength = 500)
     {
@@ -2080,6 +2222,22 @@ LIMIT @top_k;
         }
 
         return sb.ToString();
+    }
+
+    private static string BuildCategoryRef(int displayOrder)
+        => $"cat_{displayOrder:000}";
+
+    private static string? ExtractTopLevelCategoryPath(string? categoryOrDocPath)
+    {
+        if (string.IsNullOrWhiteSpace(categoryOrDocPath))
+            return null;
+
+        var normalized = categoryOrDocPath.Trim().Replace('\\', '/').Trim('/');
+        if (string.IsNullOrWhiteSpace(normalized))
+            return null;
+
+        return normalized.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault();
     }
 
     private static async Task<List<RagMatch>> SearchDocumentMetadataMatchesAsync(

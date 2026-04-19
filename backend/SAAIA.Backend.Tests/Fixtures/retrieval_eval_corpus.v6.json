@@ -1,0 +1,287 @@
+{
+  "version": "v6",
+  "exactPositiveCases": [
+    {
+      "query": "Explique la procedure de verification des fonctions de securite selon ISO 13849.",
+      "expectedTerms": [
+        "iso 13849",
+        "13849"
+      ]
+    },
+    {
+      "query": "Comment verifier une boucle de securite SIL selon IEC 61511 dans une installation ATEX ?",
+      "expectedTerms": [
+        "iec 61511",
+        "61511"
+      ]
+    }
+  ],
+  "exactNegativeQueries": [
+    "Decris les etapes de consignation d une armoire electrique.",
+    "Fais une synthese des exigences de maintenance du document sur la securite fonctionnelle.",
+    "Compare les consignes de securite entre les deux documents.",
+    "Que dit le document sur les intervalles de verification periodique ?",
+    "Resume les obligations de formation du personnel.",
+    "Quels sont les points communs entre la procedure de demarrage et la procedure d arret ?",
+    "Synthetise les mesures de securite applicables en zone ATEX."
+  ],
+  "dominantRetrieverCases": [
+    {
+      "query": "Explique la procedure de verification des fonctions de securite selon ISO 13849.",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": [
+        "iso 13849",
+        "13849"
+      ],
+      "allowExactNoise": true
+    },
+    {
+      "query": "Comment verifier une boucle de securite SIL selon IEC 61511 dans une installation ATEX ?",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": [
+        "iec 61511",
+        "61511"
+      ],
+      "allowExactNoise": true
+    },
+    {
+      "query": "Quels documents decrivent les exigences securite fonctionnelle verification installation ?",
+      "expectedDominantRetriever": "sparse_bm25",
+      "expectedExactTerms": [],
+      "allowExactNoise": false,
+      "expectedLexicalTerms": [
+        "exigences",
+        "securite",
+        "fonctionnelle",
+        "verification"
+      ]
+    },
+    {
+      "query": "Decris les etapes de consignation d une armoire electrique.",
+      "expectedDominantRetriever": "dense_qdrant",
+      "expectedExactTerms": [],
+      "allowExactNoise": false
+    },
+    {
+      "query": "Quelles sont les etapes a suivre avant la remise en service d un equipement ?",
+      "expectedDominantRetriever": "dense_qdrant",
+      "expectedExactTerms": [],
+      "allowExactNoise": false
+    },
+    {
+      "query": "Fais une synthese des mesures de prevention des risques dans ce document.",
+      "expectedDominantRetriever": "dense_qdrant",
+      "expectedExactTerms": [],
+      "allowExactNoise": false
+    },
+    {
+      "query": "Compare les methodes de securite entre les documents ATEX et les procedures de maintenance.",
+      "expectedDominantRetriever": "dense_qdrant",
+      "expectedExactTerms": [],
+      "allowExactNoise": false
+    },
+    {
+      "query": "Quelles differences y a-t-il entre les deux documents sur les intervalles de verification ?",
+      "expectedDominantRetriever": "dense_qdrant",
+      "expectedExactTerms": [],
+      "allowExactNoise": false
+    }
+  ],
+  "linkedContextCases": [
+    {
+      "name": "same_section_from_dense_procedure_anchor_should_help",
+      "anchorRetriever": "dense_qdrant",
+      "anchorScore": 0.84,
+      "linkType": "same_section",
+      "expectedShouldHelp": true
+    },
+    {
+      "name": "next_from_dense_synthesis_anchor_can_help",
+      "anchorRetriever": "dense_qdrant",
+      "anchorScore": 0.80,
+      "linkType": "next",
+      "expectedShouldHelp": true
+    },
+    {
+      "name": "prev_from_dense_comparison_anchor_should_remain_secondary",
+      "anchorRetriever": "dense_qdrant",
+      "anchorScore": 0.61,
+      "linkType": "prev",
+      "expectedShouldHelp": false
+    },
+    {
+      "name": "same_section_from_linked_anchor_stays_conservative_for_synthesis",
+      "anchorRetriever": "linked_context",
+      "anchorScore": 0.83,
+      "linkType": "same_section",
+      "expectedShouldHelp": true
+    }
+  ],
+  "decisionCases": [
+    {
+      "name": "procedure_with_iso13849_ref_prefers_exact_and_points_to_standard_doc",
+      "query": "Explique la procedure de verification des fonctions de securite selon ISO 13849.",
+      "expectedDominantRetriever": "exact_match",
+      "expectedExactTerms": [
+        "iso 13849",
+        "13849"
+      ],
+      "allowExactNoise": true,
+      "linkedExpectation": "secondary",
+      "expectedDocHint": "13849"
+    },
+    {
+      "name": "procedure_consignation_prefers_dense_and_linked_context_helps",
+      "query": "Decris les etapes de consignation d une armoire electrique.",
+      "expectedDominantRetriever": "dense_qdrant",
+      "expectedExactTerms": [],
+      "allowExactNoise": false,
+      "linkedExpectation": "helpful",
+      "expectedDocHint": "procedure"
+    },
+    {
+      "name": "synthesis_query_prefers_dense_and_linked_stays_secondary",
+      "query": "Fais une synthese des mesures de prevention des risques dans ce document.",
+      "expectedDominantRetriever": "dense_qdrant",
+      "expectedExactTerms": [],
+      "allowExactNoise": false,
+      "linkedExpectation": "secondary",
+      "expectedDocHint": "securite"
+    },
+    {
+      "name": "multidoc_comparison_prefers_dense_and_linked_stays_secondary",
+      "query": "Compare les methodes de securite entre les documents ATEX et les procedures de maintenance.",
+      "expectedDominantRetriever": "dense_qdrant",
+      "expectedExactTerms": [],
+      "allowExactNoise": false,
+      "linkedExpectation": "secondary",
+      "expectedDocHint": "ATEX"
+    }
+  ],
+  "calibrationCases": [
+    {
+      "name": "sparse_bm25_wins_keyword_heavy_procedure_query_over_generic_dense",
+      "query": "Quels documents decrivent les exigences securite fonctionnelle verification installation ?",
+      "candidates": [
+        {
+          "chunkId": "sparse-procedure-sil-1",
+          "baseScore": 0.74,
+          "embeddingBasis": "sparse_bm25_v1",
+          "text": "Les documents qui decrivent les exigences de securite fonctionnelle incluent la verification des installations",
+          "embedText": "Les documents qui decrivent les exigences de securite fonctionnelle incluent la verification des installations",
+          "chunkType": "unit_exact_v1",
+          "docPath": "Securite/securite_fonctionnelle_SIL.pdf",
+          "docName": "securite_fonctionnelle_SIL.pdf",
+          "headingPath": "Chapter 2 > Exigences"
+        },
+        {
+          "chunkId": "dense-generic-procedure-1",
+          "baseScore": 0.76,
+          "embeddingBasis": "contextual_text_v1",
+          "text": "general process safety overview for standard compliance",
+          "embedText": "general process safety overview for standard compliance",
+          "chunkType": "section_window_v1",
+          "docPath": "General/Overview.pdf",
+          "docName": "Overview.pdf",
+          "headingPath": "Chapter 1 > Overview"
+        }
+      ],
+      "expectedTopChunkId": "sparse-procedure-sil-1",
+      "expectedTopRetriever": "sparse_bm25",
+      "expectedDocHint": "securite"
+    },
+    {
+      "name": "dense_qdrant_wins_synthesis_query_over_irrelevant_sparse",
+      "query": "Fais une synthese des mesures de prevention des risques dans ce document.",
+      "candidates": [
+        {
+          "chunkId": "dense-synthesis-risk-1",
+          "baseScore": 0.84,
+          "embeddingBasis": "contextual_text_v1",
+          "text": "les mesures de prevention des risques comprennent la synthese des controles",
+          "embedText": "les mesures de prevention des risques comprennent la synthese des controles",
+          "chunkType": "unit_exact_v1",
+          "docPath": "Securite/prevention_risques.pdf",
+          "docName": "prevention_risques.pdf",
+          "headingPath": "Chapter 3 > Prevention"
+        },
+        {
+          "chunkId": "sparse-generic-risk-1",
+          "baseScore": 0.85,
+          "embeddingBasis": "sparse_bm25_v1",
+          "text": "generic checklist overview for process management",
+          "embedText": "generic checklist overview for process management",
+          "chunkType": "section_window_v1",
+          "docPath": "General/Overview.pdf",
+          "docName": "Overview.pdf",
+          "headingPath": "Chapter 1 > Overview"
+        }
+      ],
+      "expectedTopChunkId": "dense-synthesis-risk-1",
+      "expectedTopRetriever": "dense_qdrant",
+      "expectedDocHint": "prevention"
+    },
+    {
+      "name": "dense_qdrant_wins_multidoc_comparison_procedure_query",
+      "query": "Compare les procedures de demarrage entre les deux installations.",
+      "candidates": [
+        {
+          "chunkId": "dense-comparison-startup-1",
+          "baseScore": 0.82,
+          "embeddingBasis": "contextual_text_v1",
+          "text": "les procedures de demarrage comprennent les etapes de verification des deux installations",
+          "embedText": "les procedures de demarrage comprennent les etapes de verification des deux installations",
+          "chunkType": "unit_exact_v1",
+          "docPath": "Maintenance/procedures_demarrage.pdf",
+          "docName": "procedures_demarrage.pdf",
+          "headingPath": "Chapter 4 > Demarrage"
+        },
+        {
+          "chunkId": "sparse-generic-startup-1",
+          "baseScore": 0.84,
+          "embeddingBasis": "sparse_bm25_v1",
+          "text": "general startup and shutdown overview for equipment",
+          "embedText": "general startup and shutdown overview for equipment",
+          "chunkType": "section_window_v1",
+          "docPath": "General/Overview.pdf",
+          "docName": "Overview.pdf",
+          "headingPath": "Chapter 1 > Overview"
+        }
+      ],
+      "expectedTopChunkId": "dense-comparison-startup-1",
+      "expectedTopRetriever": "dense_qdrant",
+      "expectedDocHint": "demarrage"
+    },
+    {
+      "name": "dense_qdrant_wins_multidoc_comparison_safety_rules_query",
+      "query": "Comparez les consignes de securite entre les deux documents de reference.",
+      "candidates": [
+        {
+          "chunkId": "dense-comparison-safety-2",
+          "baseScore": 0.83,
+          "embeddingBasis": "contextual_text_v1",
+          "text": "les consignes de securite de reference pour les deux documents sont evaluees",
+          "embedText": "les consignes de securite de reference pour les deux documents sont evaluees",
+          "chunkType": "unit_exact_v1",
+          "docPath": "Securite/consignes_securite.pdf",
+          "docName": "consignes_securite.pdf",
+          "headingPath": "Chapter 2 > Consignes"
+        },
+        {
+          "chunkId": "sparse-generic-safety-2",
+          "baseScore": 0.85,
+          "embeddingBasis": "sparse_bm25_v1",
+          "text": "process compliance overview and general documentation review",
+          "embedText": "process compliance overview and general documentation review",
+          "chunkType": "section_window_v1",
+          "docPath": "General/Overview.pdf",
+          "docName": "Overview.pdf",
+          "headingPath": "Chapter 1 > Overview"
+        }
+      ],
+      "expectedTopChunkId": "dense-comparison-safety-2",
+      "expectedTopRetriever": "dense_qdrant",
+      "expectedDocHint": "consignes"
+    }
+  ]
+}

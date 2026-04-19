@@ -43,6 +43,7 @@ public static class ServiceCollectionExtensions
         services.Configure<RateLimitOptions>(config.GetSection("RateLimiting"));
         services.Configure<OpenTelemetryOptions>(config.GetSection("OpenTelemetry"));
         services.Configure<CatalogSnapshotOptions>(config.GetSection("CatalogSnapshot"));
+        services.Configure<RuntimeGovernanceOptions>(config.GetSection("RuntimeGovernance"));
 
         // ---------- OpenTelemetry (M2.2) ----------
         services.AddSaaiaOpenTelemetry(config, env);

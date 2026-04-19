@@ -11,6 +11,7 @@ public sealed class RetrievalEvaluationCorpusTests
     [InlineData("retrieval_eval_corpus.v3.json", "v3")]
     [InlineData("retrieval_eval_corpus.v4.json", "v4")]
     [InlineData("retrieval_eval_corpus.v5.json", "v5")]
+    [InlineData("retrieval_eval_corpus.v6.json", "v6")]
     public void Retrieval_eval_corpus_declares_expected_version(string fileName, string expectedVersion)
     {
         using var document = LoadFixture(fileName);
@@ -69,6 +70,36 @@ public sealed class RetrievalEvaluationCorpusTests
             var negativeQueries = document.RootElement.GetProperty("exactNegativeQueries").GetArrayLength();
             Assert.True(negativeQueries > 0, $"{fileName} should keep exactNegativeQueries coverage.");
         }
+    }
+
+    [Fact]
+    public void Retrieval_eval_corpus_v6_covers_procedure_synthesis_and_comparison_families()
+    {
+        using var v6 = LoadFixture("retrieval_eval_corpus.v6.json");
+
+        var v6DominantCases = v6.RootElement.GetProperty("dominantRetrieverCases").GetArrayLength();
+        var v6DecisionCases = v6.RootElement.GetProperty("decisionCases").GetArrayLength();
+        var v6CalibrationCases = v6.RootElement.GetProperty("calibrationCases").GetArrayLength();
+        var v6LinkedCases = v6.RootElement.GetProperty("linkedContextCases").GetArrayLength();
+
+        Assert.True(v6DominantCases >= 8);
+        Assert.True(v6DecisionCases >= 4);
+        Assert.True(v6CalibrationCases >= 4);
+        Assert.True(v6LinkedCases >= 4);
+
+        var hasExactProcedureRef = v6.RootElement.GetProperty("dominantRetrieverCases")
+            .EnumerateArray()
+            .Any(item => item.GetProperty("expectedDominantRetriever").GetString() == "exact_match");
+        var hasSparseKeyword = v6.RootElement.GetProperty("dominantRetrieverCases")
+            .EnumerateArray()
+            .Any(item => item.GetProperty("expectedDominantRetriever").GetString() == "sparse_bm25");
+        var hasDenseSynthesis = v6.RootElement.GetProperty("dominantRetrieverCases")
+            .EnumerateArray()
+            .Any(item => item.GetProperty("expectedDominantRetriever").GetString() == "dense_qdrant");
+
+        Assert.True(hasExactProcedureRef, "v6 should cover exact-match retrieval for standard refs embedded in procedure queries.");
+        Assert.True(hasSparseKeyword, "v6 should cover sparse BM25 for keyword-heavy procedure queries.");
+        Assert.True(hasDenseSynthesis, "v6 should cover dense retrieval for synthesis and multi-doc comparison queries.");
     }
 
     private static JsonDocument LoadFixture(string fileName)
