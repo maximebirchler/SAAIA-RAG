@@ -115,6 +115,7 @@ internal static class DocumentListHelper
         mem.LastListTotal = total;
         mem.LastListEndOfList = endOfList;
         mem.LastListedDocuments = docs;
+        mem.PromoteDocumentsToWorkspace(docs);
 
         return (docs, limit, offset, total, endOfList, dropped);
     }

@@ -8,6 +8,8 @@ namespace SAAIA.Client.WinUI.Services;
 
 internal static class UserPrefsStore
 {
+    // CDC v3.0: only language and style are persisted between conversations.
+    // Mode remains on the runtime side and always falls back to auto.
     internal sealed record UserPrefs(int Version, string Language, string Style, string Mode);
 
     private sealed record UserPrefsDto(int Version, string? Language, string? Style, string? Mode);
@@ -42,7 +44,7 @@ internal static class UserPrefsStore
     public static void Save(UserPrefs prefs)
     {
         var normalized = Normalize(prefs?.Language, prefs?.Style, prefs?.Mode);
-        var dto = new UserPrefsDto(normalized.Version, normalized.Language, normalized.Style, normalized.Mode);
+        var dto = new UserPrefsDto(normalized.Version, normalized.Language, normalized.Style, null);
         var bytes = JsonSerializer.SerializeToUtf8Bytes(dto, new JsonSerializerOptions { WriteIndented = false });
         var encrypted = ProtectedData.Protect(bytes, optionalEntropy: null, scope: DataProtectionScope.CurrentUser);
         Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
@@ -74,9 +76,9 @@ internal static class UserPrefsStore
     }
 
     private static UserPrefs Normalize(string? language, string? style, string? mode)
-        => new(2, NormalizeLanguage(language), NormalizeStyle(style), NormalizeMode(mode));
+        => new(3, NormalizeLanguage(language), NormalizeStyle(style), "auto");
 
-    private static UserPrefs Default() => new(2, "fr", "auto", "auto");
+    private static UserPrefs Default() => new(3, "fr", "auto", "auto");
 
     private static string NormalizeLanguage(string? language)
     {

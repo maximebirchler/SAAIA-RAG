@@ -32,27 +32,26 @@ public sealed class RagChatAgent
         _initialPrefs = UserPrefsStore.Load();
         _mem.LastLanguage = _initialPrefs.Language;
         _mem.LastStyle = _initialPrefs.Style;
-        _mem.LastMode = _initialPrefs.Mode;
-        _activeMode = AppSettings.NormalizeActiveMode(_initialPrefs.Mode);
+        _mem.LastMode = "auto";
+        _activeMode = "auto";
     }
 
     /// <summary>
-    /// Resets all per-conversation state (turn memory, cached renders, focused
-    /// documents, etc.) while preserving user preferences (language, style, mode).
-    /// Call when switching to a new session or creating a new chat.
+    /// Resets per-conversation state while preserving only session-agnostic
+    /// preferences (language and style). Operating mode is conversation-local
+    /// and goes back to auto on every new chat/session.
     /// </summary>
     internal void ResetConversationState()
     {
         _mem.ResetConversationState();
+        _activeMode = "auto";
     }
 
     internal void ApplySettings(AppSettings s)
     {
         _llmEnabled = s.UseLocalLlm;
         var configuredMode = AppSettings.NormalizeActiveMode(s.ActiveMode);
-        _activeMode = string.Equals(configuredMode, "auto", StringComparison.OrdinalIgnoreCase)
-            ? AppSettings.NormalizeActiveMode(_initialPrefs.Mode)
-            : configuredMode;
+        _activeMode = configuredMode;
         _mem.LastMode = _activeMode;
 
         var t = s.LlmTemperature;
@@ -102,7 +101,6 @@ public sealed class RagChatAgent
             var interactionLanguage = LocalizedStrings.DetectLanguage(userText, _mem.LastLanguage);
             _activeMode = AppSettings.NormalizeActiveMode(requestedMode);
             _mem.LastMode = _activeMode;
-            UserPrefsStore.SaveMode(_activeMode);
 
             var ack = LocalizedStrings.ModeChanged(_activeMode, interactionLanguage);
             await SimulateStreamingAsync(ack, onDelta, ct).ConfigureAwait(false);

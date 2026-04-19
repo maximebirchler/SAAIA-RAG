@@ -256,6 +256,83 @@ internal static class DeterministicAgentText
             $"Derzeit gibt es {total} Kategorien der ersten Ebene auf dem Server.",
             $"Attualmente ci sono {total} categorie di primo livello sul server.");
 
+    private static string BoolWord(bool value, string? language)
+        => value
+            ? Pick(language, "oui", "yes", "si", "sim", "ja", "si")
+            : Pick(language, "non", "no", "no", "nao", "nein", "no");
+
+    public static string DiagnosticPerformanceHeader(string? language)
+        => Pick(language,
+            "Diagnostic memoire et performance :",
+            "Memory and performance diagnostics:",
+            "Diagnostico de memoria y rendimiento:",
+            "Diagnostico de memoria e desempenho:",
+            "Speicher- und Leistungsdiagnose:",
+            "Diagnostica memoria e prestazioni:");
+
+    public static string DiagnosticPerformanceProfile(string profile, int schemaVersion, string? cdcAlignment, string? language)
+        => Pick(language,
+            $"- Profil : {profile} (schema v{schemaVersion}, CDC {cdcAlignment})",
+            $"- Profile: {profile} (schema v{schemaVersion}, CDC {cdcAlignment})",
+            $"- Perfil: {profile} (schema v{schemaVersion}, CDC {cdcAlignment})",
+            $"- Perfil: {profile} (schema v{schemaVersion}, CDC {cdcAlignment})",
+            $"- Profil: {profile} (Schema v{schemaVersion}, CDC {cdcAlignment})",
+            $"- Profilo: {profile} (schema v{schemaVersion}, CDC {cdcAlignment})");
+
+    public static string DiagnosticPerformanceTimings(long routerMs, long toolsMs, long writerMs, long totalMs, string? language)
+        => Pick(language,
+            $"- Timings : routeur {routerMs} ms, outils {toolsMs} ms, redaction {writerMs} ms, total {totalMs} ms",
+            $"- Timings: router {routerMs} ms, tools {toolsMs} ms, writer {writerMs} ms, total {totalMs} ms",
+            $"- Tiempos: router {routerMs} ms, herramientas {toolsMs} ms, redaccion {writerMs} ms, total {totalMs} ms",
+            $"- Tempos: roteador {routerMs} ms, ferramentas {toolsMs} ms, redacao {writerMs} ms, total {totalMs} ms",
+            $"- Zeiten: Router {routerMs} ms, Werkzeuge {toolsMs} ms, Schreiben {writerMs} ms, gesamt {totalMs} ms",
+            $"- Tempi: router {routerMs} ms, strumenti {toolsMs} ms, scrittura {writerMs} ms, totale {totalMs} ms");
+
+    public static string DiagnosticPerformanceWorkspace(int categoryCount, int documentCount, bool hasCapabilities, string? language)
+        => Pick(language,
+            $"- Workspace : {categoryCount} categorie(s) canoniques, {documentCount} document(s) connu(s), snapshot capabilities {BoolWord(hasCapabilities, language)}",
+            $"- Workspace: {categoryCount} canonical category(ies), {documentCount} known document(s), capabilities snapshot {BoolWord(hasCapabilities, language)}",
+            $"- Workspace: {categoryCount} categoria(s) canonica(s), {documentCount} documento(s) conocido(s), snapshot de capacidades {BoolWord(hasCapabilities, language)}",
+            $"- Workspace: {categoryCount} categoria(s) canonica(s), {documentCount} documento(s) conhecido(s), snapshot de capacidades {BoolWord(hasCapabilities, language)}",
+            $"- Workspace: {categoryCount} kanonische Kategorie(n), {documentCount} bekannte Dokument(e), Capabilities-Snapshot {BoolWord(hasCapabilities, language)}",
+            $"- Workspace: {categoryCount} categoria/e canonica/che, {documentCount} documento/i noto/i, snapshot capabilities {BoolWord(hasCapabilities, language)}");
+
+    public static string DiagnosticPerformanceSession(bool hasFocusedDocument, int listedDocumentsCount, bool hasResolvedCategory, bool hasPendingClarification, string? language)
+        => Pick(language,
+            $"- Session : document focal {BoolWord(hasFocusedDocument, language)}, listee {listedDocumentsCount} doc(s), categorie resolue {BoolWord(hasResolvedCategory, language)}, clarification en attente {BoolWord(hasPendingClarification, language)}",
+            $"- Session: focused document {BoolWord(hasFocusedDocument, language)}, listed {listedDocumentsCount} doc(s), resolved category {BoolWord(hasResolvedCategory, language)}, pending clarification {BoolWord(hasPendingClarification, language)}",
+            $"- Sesion: documento focal {BoolWord(hasFocusedDocument, language)}, {listedDocumentsCount} doc(s) listados, categoria resuelta {BoolWord(hasResolvedCategory, language)}, aclaracion pendiente {BoolWord(hasPendingClarification, language)}",
+            $"- Sessao: documento focal {BoolWord(hasFocusedDocument, language)}, {listedDocumentsCount} doc(s) listados, categoria resolvida {BoolWord(hasResolvedCategory, language)}, esclarecimento pendente {BoolWord(hasPendingClarification, language)}",
+            $"- Sitzung: fokussiertes Dokument {BoolWord(hasFocusedDocument, language)}, {listedDocumentsCount} gelistete Dok., aufgeloeste Kategorie {BoolWord(hasResolvedCategory, language)}, offene Klaerung {BoolWord(hasPendingClarification, language)}",
+            $"- Sessione: documento focale {BoolWord(hasFocusedDocument, language)}, {listedDocumentsCount} doc elencati, categoria risolta {BoolWord(hasResolvedCategory, language)}, chiarimento in attesa {BoolWord(hasPendingClarification, language)}");
+
+    public static string DiagnosticPerformanceExecution(string? mode, bool hasRouterIntent, int toolNamesCount, bool hasAdminOperation, string? language)
+        => Pick(language,
+            $"- Execution : mode {(string.IsNullOrWhiteSpace(mode) ? "auto" : mode)}, intent routeur {BoolWord(hasRouterIntent, language)}, {toolNamesCount} outil(s), operation admin {BoolWord(hasAdminOperation, language)}",
+            $"- Execution: mode {(string.IsNullOrWhiteSpace(mode) ? "auto" : mode)}, router intent {BoolWord(hasRouterIntent, language)}, {toolNamesCount} tool(s), admin operation {BoolWord(hasAdminOperation, language)}",
+            $"- Ejecucion: modo {(string.IsNullOrWhiteSpace(mode) ? "auto" : mode)}, intent del router {BoolWord(hasRouterIntent, language)}, {toolNamesCount} herramienta(s), operacion admin {BoolWord(hasAdminOperation, language)}",
+            $"- Execucao: modo {(string.IsNullOrWhiteSpace(mode) ? "auto" : mode)}, intent do roteador {BoolWord(hasRouterIntent, language)}, {toolNamesCount} ferramenta(s), operacao admin {BoolWord(hasAdminOperation, language)}",
+            $"- Ausfuehrung: Modus {(string.IsNullOrWhiteSpace(mode) ? "auto" : mode)}, Router-Intent {BoolWord(hasRouterIntent, language)}, {toolNamesCount} Werkzeug(e), Admin-Operation {BoolWord(hasAdminOperation, language)}",
+            $"- Esecuzione: modalita {(string.IsNullOrWhiteSpace(mode) ? "auto" : mode)}, intento router {BoolWord(hasRouterIntent, language)}, {toolNamesCount} strumento/i, operazione admin {BoolWord(hasAdminOperation, language)}");
+
+    public static string DiagnosticPerformancePersistence(bool languagePersisted, bool stylePersisted, bool modePersisted, bool focusedDocumentPersisted, bool resolvedCategoryPersisted, string? language)
+        => Pick(language,
+            $"- Persistance : langue {BoolWord(languagePersisted, language)}, style {BoolWord(stylePersisted, language)}, mode {BoolWord(modePersisted, language)}, document focal {BoolWord(focusedDocumentPersisted, language)}, categorie resolue {BoolWord(resolvedCategoryPersisted, language)}",
+            $"- Persistence: language {BoolWord(languagePersisted, language)}, style {BoolWord(stylePersisted, language)}, mode {BoolWord(modePersisted, language)}, focused document {BoolWord(focusedDocumentPersisted, language)}, resolved category {BoolWord(resolvedCategoryPersisted, language)}",
+            $"- Persistencia: idioma {BoolWord(languagePersisted, language)}, estilo {BoolWord(stylePersisted, language)}, modo {BoolWord(modePersisted, language)}, documento focal {BoolWord(focusedDocumentPersisted, language)}, categoria resuelta {BoolWord(resolvedCategoryPersisted, language)}",
+            $"- Persistencia: idioma {BoolWord(languagePersisted, language)}, estilo {BoolWord(stylePersisted, language)}, modo {BoolWord(modePersisted, language)}, documento focal {BoolWord(focusedDocumentPersisted, language)}, categoria resolvida {BoolWord(resolvedCategoryPersisted, language)}",
+            $"- Persistenz: Sprache {BoolWord(languagePersisted, language)}, Stil {BoolWord(stylePersisted, language)}, Modus {BoolWord(modePersisted, language)}, fokussiertes Dokument {BoolWord(focusedDocumentPersisted, language)}, aufgeloeste Kategorie {BoolWord(resolvedCategoryPersisted, language)}",
+            $"- Persistenza: lingua {BoolWord(languagePersisted, language)}, stile {BoolWord(stylePersisted, language)}, modalita {BoolWord(modePersisted, language)}, documento focale {BoolWord(focusedDocumentPersisted, language)}, categoria risolta {BoolWord(resolvedCategoryPersisted, language)}");
+
+    public static string DiagnosticPerformanceReset(bool preservesM1Lite, bool preservesPreferences, bool clearsM3, bool clearsM6, bool resetsModeToAuto, string? language)
+        => Pick(language,
+            $"- Reset : preserve M1-lite {BoolWord(preservesM1Lite, language)}, preferences {BoolWord(preservesPreferences, language)}, vide M3 {BoolWord(clearsM3, language)}, vide M6 {BoolWord(clearsM6, language)}, remet le mode sur auto {BoolWord(resetsModeToAuto, language)}",
+            $"- Reset: preserves M1-lite {BoolWord(preservesM1Lite, language)}, preferences {BoolWord(preservesPreferences, language)}, clears M3 {BoolWord(clearsM3, language)}, clears M6 {BoolWord(clearsM6, language)}, resets mode to auto {BoolWord(resetsModeToAuto, language)}",
+            $"- Reset: preserva M1-lite {BoolWord(preservesM1Lite, language)}, preferencias {BoolWord(preservesPreferences, language)}, limpia M3 {BoolWord(clearsM3, language)}, limpia M6 {BoolWord(clearsM6, language)}, reinicia el modo a auto {BoolWord(resetsModeToAuto, language)}",
+            $"- Reset: preserva M1-lite {BoolWord(preservesM1Lite, language)}, preferencias {BoolWord(preservesPreferences, language)}, limpa M3 {BoolWord(clearsM3, language)}, limpa M6 {BoolWord(clearsM6, language)}, volta o modo para auto {BoolWord(resetsModeToAuto, language)}",
+            $"- Reset: behaelt M1-lite {BoolWord(preservesM1Lite, language)}, Praeferenzen {BoolWord(preservesPreferences, language)}, leert M3 {BoolWord(clearsM3, language)}, leert M6 {BoolWord(clearsM6, language)}, setzt Modus auf auto {BoolWord(resetsModeToAuto, language)}",
+            $"- Reset: preserva M1-lite {BoolWord(preservesM1Lite, language)}, preferenze {BoolWord(preservesPreferences, language)}, pulisce M3 {BoolWord(clearsM3, language)}, pulisce M6 {BoolWord(clearsM6, language)}, riporta la modalita ad auto {BoolWord(resetsModeToAuto, language)}");
+
     public static string MissingSummariesHeader(string? language)
         => Pick(language,
             "Voici la liste des documents sans résumé stocké :",

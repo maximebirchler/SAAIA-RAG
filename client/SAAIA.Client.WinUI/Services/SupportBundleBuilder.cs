@@ -9,6 +9,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using SAAIA.Client.WinUI.Services.ToolAgent;
 
 namespace SAAIA.Client.WinUI.Services;
 
@@ -21,8 +22,8 @@ internal static class SupportBundleBuilder
     {
         Directory.CreateDirectory(SupportDir);
 
-        var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
-        var zipPath = Path.Combine(SupportDir, $"support-bundle_{stamp}.zip");
+        var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff", CultureInfo.InvariantCulture);
+        var zipPath = Path.Combine(SupportDir, $"support-bundle_{stamp}_{Guid.NewGuid():N}.zip");
 
         var staging = Path.Combine(SupportDir, $"staging_{Guid.NewGuid():N}");
         Directory.CreateDirectory(staging);
@@ -139,6 +140,20 @@ internal static class SupportBundleBuilder
                 Directory.CreateDirectory(diagnosticsDir);
                 File.WriteAllText(Path.Combine(diagnosticsDir, "agent-runtime.json"),
                     JsonSerializer.Serialize(agentRuntimeSnapshot, new JsonSerializerOptions { WriteIndented = true }));
+
+                if (agentRuntimeSnapshot is IReadOnlyDictionary<string, object?> runtimeSnapshot
+                    && runtimeSnapshot.TryGetValue("memorySummary", out var memorySummary)
+                    && memorySummary is not null)
+                {
+                    File.WriteAllText(Path.Combine(diagnosticsDir, "agent-memory-summary.json"),
+                        JsonSerializer.Serialize(memorySummary, new JsonSerializerOptions { WriteIndented = true }));
+
+                    var renderedSummary = TryRenderMemorySummaryText(runtimeSnapshot);
+                    if (!string.IsNullOrWhiteSpace(renderedSummary))
+                    {
+                        File.WriteAllText(Path.Combine(diagnosticsDir, "agent-memory-summary.txt"), renderedSummary, Encoding.UTF8);
+                    }
+                }
             }
 
             // 9) Create zip
@@ -287,5 +302,45 @@ internal static class SupportBundleBuilder
     private static bool SafeHasApiKey()
     {
         try { return !string.IsNullOrWhiteSpace(SecureLocalStore.GetServerApiKey()); } catch { return false; }
+    }
+
+    private static string? TryRenderMemorySummaryText(IReadOnlyDictionary<string, object?> runtimeSnapshot)
+    {
+        try
+        {
+            if (!runtimeSnapshot.TryGetValue("memorySummary", out var memorySummary) || memorySummary is null)
+                return null;
+
+            var payload = new Dictionary<string, object?>
+            {
+                ["memorySummary"] = memorySummary
+            };
+
+            if (runtimeSnapshot.TryGetValue("routerMs", out var routerMs))
+                payload["routerMs"] = routerMs;
+            if (runtimeSnapshot.TryGetValue("toolsMs", out var toolsMs))
+                payload["toolsMs"] = toolsMs;
+            if (runtimeSnapshot.TryGetValue("writerMs", out var writerMs))
+                payload["writerMs"] = writerMs;
+            if (runtimeSnapshot.TryGetValue("totalMs", out var totalMs))
+                payload["totalMs"] = totalMs;
+
+            if (memorySummary is IReadOnlyDictionary<string, object?> summaryMap)
+            {
+                foreach (var key in new[] { "profile", "schemaVersion", "cdcAlignment", "workspace", "session", "execution", "persistence", "resetPolicy" })
+                {
+                    if (summaryMap.TryGetValue(key, out var value))
+                        payload[key] = value;
+                }
+            }
+
+            using var doc = JsonDocument.Parse(JsonSerializer.Serialize(payload));
+            var rendered = ToolAgentOrchestrator.RenderDeterministicInventoryFromData("diagnostic_performance", doc.RootElement, "en");
+            return string.IsNullOrWhiteSpace(rendered) ? null : rendered.Trim();
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

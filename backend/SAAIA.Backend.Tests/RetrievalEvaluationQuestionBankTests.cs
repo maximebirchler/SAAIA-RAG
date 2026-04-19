@@ -11,7 +11,7 @@ public sealed class RetrievalEvaluationQuestionBankTests
         var corpus = RetrievalQuestionBankFixture.LoadV5();
 
         Assert.Equal("v5", corpus.Version);
-        Assert.True(corpus.QuestionCases.Count >= 50, "v5 should be a large customer-style question bank.");
+        Assert.True(corpus.QuestionCases.Count >= 90, "v5 should now be a very large customer-style question bank.");
     }
 
     [Fact]
@@ -69,9 +69,9 @@ public sealed class RetrievalEvaluationQuestionBankTests
         var clarifyCases = corpus.QuestionCases.Count(static q => string.Equals(q.ExpectedBehavior, "ask_clarification", StringComparison.Ordinal));
         var cautiousCases = corpus.QuestionCases.Count(static q => string.Equals(q.ExpectedBehavior, "answer_with_caveat", StringComparison.Ordinal));
 
-        Assert.True(customerStyleCases >= 15, "v5 should feel like real customer/project questions.");
+        Assert.True(customerStyleCases >= 25, "v5 should feel like real customer/project questions.");
         Assert.True(clarifyCases >= 3, "v5 should include genuinely ambiguous questions.");
-        Assert.True(cautiousCases >= 10, "v5 should include cases where the assistant must stay qualified.");
+        Assert.True(cautiousCases >= 15, "v5 should include many cases where the assistant must stay qualified.");
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public sealed class RetrievalEvaluationQuestionBankTests
         var corpus = RetrievalQuestionBankFixture.LoadV5();
         var runtimeReadyCases = corpus.QuestionCases.Where(static q => q.RuntimeReady).ToArray();
 
-        Assert.True(runtimeReadyCases.Length >= 10, "v5 should expose a stable runtime-ready subset.");
+        Assert.True(runtimeReadyCases.Length >= 50, "v5 should expose a large stable runtime-ready subset.");
         Assert.All(runtimeReadyCases, testCase =>
         {
             Assert.False(string.IsNullOrWhiteSpace(testCase.ExpectedPrimaryDocHint));
@@ -170,6 +170,22 @@ public sealed class RetrievalEvaluationQuestionBankTests
         Assert.Contains("locate_passage", shapes);
         Assert.Contains("qualified_answer", shapes);
         Assert.Contains("clarify", shapes);
+    }
+
+    [Fact]
+    public void Retrieval_eval_corpus_v5_contains_many_non_literal_semantic_queries()
+    {
+        var corpus = RetrievalQuestionBankFixture.LoadV5();
+
+        var nonLiteralCases = corpus.QuestionCases.Count(static q =>
+        {
+            var query = q.Query;
+            var mentions15281 = query.Contains("15281", StringComparison.OrdinalIgnoreCase);
+            var mentionsInd570 = query.Contains("ind570", StringComparison.OrdinalIgnoreCase);
+            return !mentions15281 && !mentionsInd570;
+        });
+
+        Assert.True(nonLiteralCases >= 25, "v5 should contain many cases driven by intent and paraphrase rather than literal document identifiers.");
     }
 
     private static IReadOnlyList<RagMatch> BuildSyntheticMatches(IReadOnlyList<string> docHints)

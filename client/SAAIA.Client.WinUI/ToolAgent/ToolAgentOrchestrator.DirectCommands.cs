@@ -33,6 +33,7 @@ public sealed partial class ToolAgentOrchestrator
             {
                 var result = await _api.DocumentsCategoriesAsync(null, null, 100, 0, ct).ConfigureAwait(false);
                 _mem.LastPresentedCategories = ParsePresentedCategories(result);
+                _mem.PromoteCategoriesToWorkspace(_mem.LastPresentedCategories);
                 _mem.LastResolvedCategory = null;
                 _mem.LastSummaryStatusSnapshot = null;
                 _mem.LastInventoryAction = "categories";

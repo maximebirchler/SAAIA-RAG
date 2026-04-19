@@ -19,6 +19,7 @@ namespace SAAIA.Client.WinUI.Services.ToolAgent;
 
 public sealed partial class ToolAgentOrchestrator
 {
+    private const int RouterCanonicalHintsLimit = 6;
     private readonly ApiClient _api;
     private readonly ILlmClient _llm;
     private readonly ToolMemory _mem;
@@ -182,7 +183,6 @@ public sealed partial class ToolAgentOrchestrator
             _mem.LastMode = normalizedMode;
             if (_settings is not null)
                 _settings.ActiveMode = normalizedMode;
-            UserPrefsStore.SaveMode(normalizedMode);
 
             var ack = LocalizedStrings.ModeChanged(normalizedMode, interactionLanguage);
             await EmitDeterministicTextAsync(ack, onDelta, ct).ConfigureAwait(false);
@@ -263,7 +263,6 @@ public sealed partial class ToolAgentOrchestrator
             _mem.LastMode = normalizedMode;
             if (_settings is not null)
                 _settings.ActiveMode = normalizedMode;
-            UserPrefsStore.SaveMode(normalizedMode);
 
             var ack = LocalizedStrings.ModeChanged(normalizedMode, plan.Language);
             await EmitDeterministicTextAsync(ack, onDelta, ct).ConfigureAwait(false);
@@ -546,6 +545,11 @@ public sealed partial class ToolAgentOrchestrator
         {
             kind = "empty_list";
             data = BuildEmptyFoldersInventoryData(toolResults);
+        }
+        else if (toolResults.Items.Any(x => x.ToolName == "diagnostic.performance" && string.IsNullOrWhiteSpace(x.Error)))
+        {
+            kind = "diagnostic_performance";
+            data = BuildDiagnosticPerformanceInventoryData(toolResults);
         }
 
         if (string.IsNullOrWhiteSpace(kind) || data is null)
@@ -867,6 +871,87 @@ public sealed partial class ToolAgentOrchestrator
         }
     }
 
+    private static object? BuildDiagnosticPerformanceInventoryData(ToolResults toolResults)
+    {
+        var item = toolResults.Items.LastOrDefault(x => x.ToolName == "diagnostic.performance" && string.IsNullOrWhiteSpace(x.Error));
+        if (item is null || item.Result.ValueKind != JsonValueKind.Object)
+            return null;
+
+        try
+        {
+            var summary = item.Result.TryGetProperty("memorySummary", out var memorySummary) && memorySummary.ValueKind == JsonValueKind.Object
+                ? memorySummary
+                : item.Result;
+
+            var workspace = summary.TryGetProperty("workspace", out var workspaceEl) && workspaceEl.ValueKind == JsonValueKind.Object
+                ? workspaceEl
+                : default;
+            var session = summary.TryGetProperty("session", out var sessionEl) && sessionEl.ValueKind == JsonValueKind.Object
+                ? sessionEl
+                : default;
+            var execution = summary.TryGetProperty("execution", out var executionEl) && executionEl.ValueKind == JsonValueKind.Object
+                ? executionEl
+                : default;
+            var persistence = summary.TryGetProperty("persistence", out var persistenceEl) && persistenceEl.ValueKind == JsonValueKind.Object
+                ? persistenceEl
+                : default;
+            var resetPolicy = summary.TryGetProperty("resetPolicy", out var resetEl) && resetEl.ValueKind == JsonValueKind.Object
+                ? resetEl
+                : default;
+
+            return new
+            {
+                profile = TryGetString(summary, "profile") ?? "unknown",
+                schemaVersion = TryGetInt(summary, "schemaVersion") ?? 0,
+                cdcAlignment = TryGetString(summary, "cdcAlignment") ?? "v3.0",
+                routerMs = TryGetInt(item.Result, "routerMs") ?? 0,
+                toolsMs = TryGetInt(item.Result, "toolsMs") ?? 0,
+                writerMs = TryGetInt(item.Result, "writerMs") ?? 0,
+                totalMs = TryGetInt(item.Result, "totalMs") ?? 0,
+                workspace = new
+                {
+                    catalogCategoriesCount = TryGetInt(workspace, "catalogCategoriesCount") ?? 0,
+                    knownDocumentsCount = TryGetInt(workspace, "knownDocumentsCount") ?? 0,
+                    hasCapabilitiesSnapshot = TryGetBoolProp(workspace, "hasCapabilitiesSnapshot") ?? false
+                },
+                session = new
+                {
+                    hasFocusedDocument = TryGetBoolProp(session, "hasFocusedDocument") ?? false,
+                    lastListedDocumentsCount = TryGetInt(session, "lastListedDocumentsCount") ?? 0,
+                    hasResolvedCategory = TryGetBoolProp(session, "hasResolvedCategory") ?? false,
+                    hasPendingClarification = TryGetBoolProp(session, "hasPendingClarification") ?? false
+                },
+                execution = new
+                {
+                    mode = TryGetString(execution, "mode") ?? "auto",
+                    hasRouterIntent = TryGetBoolProp(execution, "hasRouterIntent") ?? false,
+                    toolNamesCount = TryGetInt(execution, "toolNamesCount") ?? 0,
+                    hasAdminOperation = TryGetBoolProp(execution, "hasAdminOperation") ?? false
+                },
+                persistence = new
+                {
+                    language = TryGetBoolProp(persistence, "language") ?? false,
+                    style = TryGetBoolProp(persistence, "style") ?? false,
+                    mode = TryGetBoolProp(persistence, "mode") ?? false,
+                    focusedDocument = TryGetBoolProp(persistence, "focusedDocument") ?? false,
+                    resolvedCategory = TryGetBoolProp(persistence, "resolvedCategory") ?? false
+                },
+                resetPolicy = new
+                {
+                    preservesM1Lite = TryGetBoolProp(resetPolicy, "preservesM1Lite") ?? false,
+                    preservesPreferences = TryGetBoolProp(resetPolicy, "preservesPreferences") ?? false,
+                    clearsM3 = TryGetBoolProp(resetPolicy, "clearsM3") ?? false,
+                    clearsM6 = TryGetBoolProp(resetPolicy, "clearsM6") ?? false,
+                    resetsModeToAuto = TryGetBoolProp(resetPolicy, "resetsModeToAuto") ?? false
+                }
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private string BuildStatsFallbackAnswerFromResults(ToolResults toolResults, string language)
     {
         var item = toolResults.Items.LastOrDefault(x => x.ToolName == "documents.stats" && string.IsNullOrWhiteSpace(x.Error));
@@ -1034,6 +1119,71 @@ public sealed partial class ToolAgentOrchestrator
         return sb.ToString().TrimEnd();
     }
 
+    private static string RenderDiagnosticPerformanceFromReplayData(JsonElement data, string language)
+    {
+        language = NormalizeLanguageCode(language);
+        var profile = TryGetString(data, "profile") ?? "unknown";
+        var schemaVersion = TryGetInt(data, "schemaVersion") ?? 0;
+        var cdcAlignment = TryGetString(data, "cdcAlignment") ?? "v3.0";
+        var routerMs = TryGetInt(data, "routerMs") ?? 0;
+        var toolsMs = TryGetInt(data, "toolsMs") ?? 0;
+        var writerMs = TryGetInt(data, "writerMs") ?? 0;
+        var totalMs = TryGetInt(data, "totalMs") ?? 0;
+
+        var workspace = data.TryGetProperty("workspace", out var workspaceEl) && workspaceEl.ValueKind == JsonValueKind.Object
+            ? workspaceEl
+            : default;
+        var session = data.TryGetProperty("session", out var sessionEl) && sessionEl.ValueKind == JsonValueKind.Object
+            ? sessionEl
+            : default;
+        var execution = data.TryGetProperty("execution", out var executionEl) && executionEl.ValueKind == JsonValueKind.Object
+            ? executionEl
+            : default;
+        var persistence = data.TryGetProperty("persistence", out var persistenceEl) && persistenceEl.ValueKind == JsonValueKind.Object
+            ? persistenceEl
+            : default;
+        var resetPolicy = data.TryGetProperty("resetPolicy", out var resetEl) && resetEl.ValueKind == JsonValueKind.Object
+            ? resetEl
+            : default;
+
+        var sb = new StringBuilder();
+        sb.AppendLine(DeterministicAgentText.DiagnosticPerformanceHeader(language));
+        sb.AppendLine(DeterministicAgentText.DiagnosticPerformanceProfile(profile, schemaVersion, cdcAlignment, language));
+        sb.AppendLine(DeterministicAgentText.DiagnosticPerformanceTimings(routerMs, toolsMs, writerMs, totalMs, language));
+        sb.AppendLine(DeterministicAgentText.DiagnosticPerformanceWorkspace(
+            TryGetInt(workspace, "catalogCategoriesCount") ?? 0,
+            TryGetInt(workspace, "knownDocumentsCount") ?? 0,
+            TryGetBoolProp(workspace, "hasCapabilitiesSnapshot") ?? false,
+            language));
+        sb.AppendLine(DeterministicAgentText.DiagnosticPerformanceSession(
+            TryGetBoolProp(session, "hasFocusedDocument") ?? false,
+            TryGetInt(session, "lastListedDocumentsCount") ?? 0,
+            TryGetBoolProp(session, "hasResolvedCategory") ?? false,
+            TryGetBoolProp(session, "hasPendingClarification") ?? false,
+            language));
+        sb.AppendLine(DeterministicAgentText.DiagnosticPerformanceExecution(
+            TryGetString(execution, "mode") ?? "auto",
+            TryGetBoolProp(execution, "hasRouterIntent") ?? false,
+            TryGetInt(execution, "toolNamesCount") ?? 0,
+            TryGetBoolProp(execution, "hasAdminOperation") ?? false,
+            language));
+        sb.AppendLine(DeterministicAgentText.DiagnosticPerformancePersistence(
+            TryGetBoolProp(persistence, "language") ?? false,
+            TryGetBoolProp(persistence, "style") ?? false,
+            TryGetBoolProp(persistence, "mode") ?? false,
+            TryGetBoolProp(persistence, "focusedDocument") ?? false,
+            TryGetBoolProp(persistence, "resolvedCategory") ?? false,
+            language));
+        sb.AppendLine(DeterministicAgentText.DiagnosticPerformanceReset(
+            TryGetBoolProp(resetPolicy, "preservesM1Lite") ?? false,
+            TryGetBoolProp(resetPolicy, "preservesPreferences") ?? false,
+            TryGetBoolProp(resetPolicy, "clearsM3") ?? false,
+            TryGetBoolProp(resetPolicy, "clearsM6") ?? false,
+            TryGetBoolProp(resetPolicy, "resetsModeToAuto") ?? false,
+            language));
+        return sb.ToString().TrimEnd();
+    }
+
     private static string InjectInlineSources(string answer, List<ToolMemory.SourceRef> sources, string language)
     {
         if (sources is null || sources.Count == 0) return answer;
@@ -1186,7 +1336,7 @@ private string GuessLanguage(string userMessage)
 {
     return ResolveInteractionLanguage(userMessage);
 }
-private async Task<RouterPlan> RouterAsync(
+    private async Task<RouterPlan> RouterAsync(
         IReadOnlyList<(string role, string content)> chatHistory,
         string userMessage,
         CancellationToken ct,
@@ -1197,93 +1347,7 @@ private async Task<RouterPlan> RouterAsync(
         var repairHint = DocumentRefResolver.IsRepairMessage(userMessage);
         var resolverHint = DocumentRefResolver.Analyze(userMessage, _mem.LastFocusedDocument, _mem.LastListedDocuments, _mem.LastRequestedDocumentRef);
 
-        // Contexte mémoire minimal (évite heuristiques hardcodées)
-        var memoryCtx = new
-        {
-            lastLanguage = _mem.LastLanguage,
-            lastUserDetectedLanguage = _mem.LastUserDetectedLanguage,
-            lastAnswerLanguage = _mem.LastAnswerLanguage,
-            lastList = new
-            {
-                offset = _mem.LastListOffset,
-                limit = _mem.LastListLimit,
-                categoryPath = _mem.LastListCategoryPath,
-                q = _mem.LastListQuery,
-                total = _mem.LastListTotal
-            },
-            lastFocusedDocument = _mem.LastFocusedDocument is null ? null : new
-            {
-                docId = _mem.LastFocusedDocument.DocId,
-                docPath = _mem.LastFocusedDocument.DocPath,
-                docName = _mem.LastFocusedDocument.DocName,
-                category = _mem.LastFocusedDocument.Category,
-                categoryPath = _mem.LastFocusedDocument.CategoryPath,
-                pdfRef = _mem.LastFocusedDocument.PdfRef
-            },
-            lastTurn = new
-            {
-                user = _mem.LastUserMessage,
-                assistant = _mem.LastAssistantAnswer,
-                routerIntent = _mem.LastRouterIntent,
-                toolNames = _mem.LastToolNames,
-                reasoningTracePublic = _mem.LastReasoningTracePublic,
-                routerConfidence = _mem.LastRouterConfidence,
-                riskFlags = _mem.LastRiskFlags,
-                mode = _mem.LastMode,
-                memoryUpdate = _mem.LastPlannerMemoryUpdate
-            },
-            pendingClarification = _mem.PendingClarification is null ? null : new
-            {
-                kind = _mem.PendingClarification.Kind,
-                originalUserMessage = _mem.PendingClarification.OriginalUserMessage,
-                hint = _mem.PendingClarification.Hint,
-                language = _mem.PendingClarification.Language,
-                createdAtUtc = _mem.PendingClarification.CreatedAtUtc
-            },
-            adminSession = new
-            {
-                hasAdminKey = _api.HasAdminKey
-            },
-            lastResolvedCategory = _mem.LastResolvedCategory is null ? null : new
-            {
-                categoryRef = _mem.LastResolvedCategory.CategoryRef,
-                categoryPath = _mem.LastResolvedCategory.CategoryPath,
-                displayName = _mem.LastResolvedCategory.DisplayName,
-                ordinal = _mem.LastResolvedCategory.Ordinal,
-                totalDocuments = _mem.LastResolvedCategory.TotalDocuments,
-                aliases = _mem.LastResolvedCategory.Aliases
-            },
-            lastPresentedCategories = _mem.LastPresentedCategories?.Select(x => new
-            {
-                categoryRef = x.CategoryRef,
-                categoryPath = x.CategoryPath,
-                displayName = x.DisplayName,
-                ordinal = x.Ordinal,
-                totalDocuments = x.TotalDocuments,
-                aliases = x.Aliases
-            }).ToList(),
-            lastSummaryStatus = _mem.LastSummaryStatusSnapshot is null ? null : new
-            {
-                categoryPath = _mem.LastSummaryStatusSnapshot.CategoryPath,
-                categoryRef = _mem.LastSummaryStatusSnapshot.CategoryRef,
-                mode = _mem.LastSummaryStatusSnapshot.Mode,
-                total = _mem.LastSummaryStatusSnapshot.Total,
-                missingStored = _mem.LastSummaryStatusSnapshot.MissingStored,
-                staleStored = _mem.LastSummaryStatusSnapshot.StaleStored,
-                itemsCount = _mem.LastSummaryStatusSnapshot.Items?.Count ?? 0
-            },
-            resolverHint = new
-            {
-                isContentRequest = resolverHint.IsContentRequest,
-                wantsAbout = resolverHint.WantsAbout,
-                wantsSummary = resolverHint.WantsSummary,
-                wantsStoredSummaryCheck = resolverHint.WantsStoredSummaryCheck,
-                wantsStoredSummaryStore = resolverHint.WantsStoredSummaryStore,
-                resolvedDocRef = resolverHint.ResolvedDocRef,
-                needsClarification = resolverHint.NeedsClarification,
-                clarificationKind = resolverHint.ClarificationKind
-            }
-        };
+        var memoryCtx = BuildRouterMemoryContext(resolverHint);
 
         var detectedMessageLanguage = ResolveInteractionLanguage(userMessage);
         var system = PromptCatalog.BuildRouterSystemPrompt(manifestJson, toolbook) + $@"
@@ -1355,6 +1419,134 @@ USER_MESSAGE:
             return new RouterPlan { Mode = "auto", Language = detectedMessageLanguage, Intent = "chat.general" };
         }
     }
+
+    private Dictionary<string, object?> BuildRouterMemoryContext(DocumentRefResolver.AnalysisResult resolverHint)
+    {
+        return new Dictionary<string, object?>
+        {
+            ["profile"] = _mem.MemoryProfile,
+            ["lastLanguage"] = _mem.LastLanguage,
+            ["lastUserDetectedLanguage"] = _mem.LastUserDetectedLanguage,
+            ["lastAnswerLanguage"] = _mem.LastAnswerLanguage,
+            ["lastList"] = new Dictionary<string, object?>
+            {
+                ["offset"] = _mem.LastListOffset,
+                ["limit"] = _mem.LastListLimit,
+                ["categoryPath"] = _mem.LastListCategoryPath,
+                ["q"] = _mem.LastListQuery,
+                ["total"] = _mem.LastListTotal
+            },
+            ["lastFocusedDocument"] = _mem.LastFocusedDocument is null ? null : new Dictionary<string, object?>
+            {
+                ["docId"] = _mem.LastFocusedDocument.DocId,
+                ["docPath"] = _mem.LastFocusedDocument.DocPath,
+                ["docName"] = _mem.LastFocusedDocument.DocName,
+                ["category"] = _mem.LastFocusedDocument.Category,
+                ["categoryPath"] = _mem.LastFocusedDocument.CategoryPath,
+                ["pdfRef"] = _mem.LastFocusedDocument.PdfRef
+            },
+            ["lastTurn"] = new Dictionary<string, object?>
+            {
+                ["user"] = _mem.LastUserMessage,
+                ["assistant"] = _mem.LastAssistantAnswer,
+                ["routerIntent"] = _mem.LastRouterIntent,
+                ["toolNames"] = _mem.LastToolNames,
+                ["reasoningTracePublic"] = _mem.LastReasoningTracePublic,
+                ["routerConfidence"] = _mem.LastRouterConfidence,
+                ["riskFlags"] = _mem.LastRiskFlags,
+                ["mode"] = _mem.LastMode,
+                ["memoryUpdate"] = _mem.LastPlannerMemoryUpdate
+            },
+            ["pendingClarification"] = _mem.PendingClarification is null ? null : new Dictionary<string, object?>
+            {
+                ["kind"] = _mem.PendingClarification.Kind,
+                ["originalUserMessage"] = _mem.PendingClarification.OriginalUserMessage,
+                ["hint"] = _mem.PendingClarification.Hint,
+                ["language"] = _mem.PendingClarification.Language,
+                ["createdAtUtc"] = _mem.PendingClarification.CreatedAtUtc
+            },
+            ["adminSession"] = new Dictionary<string, object?>
+            {
+                ["hasAdminKey"] = _api.HasAdminKey
+            },
+            ["lastResolvedCategory"] = _mem.LastResolvedCategory is null ? null : new Dictionary<string, object?>
+            {
+                ["categoryRef"] = _mem.LastResolvedCategory.CategoryRef,
+                ["categoryPath"] = _mem.LastResolvedCategory.CategoryPath,
+                ["displayName"] = _mem.LastResolvedCategory.DisplayName,
+                ["ordinal"] = _mem.LastResolvedCategory.Ordinal,
+                ["totalDocuments"] = _mem.LastResolvedCategory.TotalDocuments,
+                ["aliases"] = _mem.LastResolvedCategory.Aliases
+            },
+            ["lastPresentedCategories"] = _mem.LastPresentedCategories?.Select(x => new Dictionary<string, object?>
+            {
+                ["categoryRef"] = x.CategoryRef,
+                ["categoryPath"] = x.CategoryPath,
+                ["displayName"] = x.DisplayName,
+                ["ordinal"] = x.Ordinal,
+                ["totalDocuments"] = x.TotalDocuments,
+                ["aliases"] = x.Aliases
+            }).ToList(),
+            ["m1Lite"] = new Dictionary<string, object?>
+            {
+                ["canonicalCategories"] = BuildRouterCanonicalCategoryHints(),
+                ["canonicalDocuments"] = BuildRouterCanonicalDocumentHints()
+            },
+            ["lastSummaryStatus"] = _mem.LastSummaryStatusSnapshot is null ? null : new Dictionary<string, object?>
+            {
+                ["categoryPath"] = _mem.LastSummaryStatusSnapshot.CategoryPath,
+                ["categoryRef"] = _mem.LastSummaryStatusSnapshot.CategoryRef,
+                ["mode"] = _mem.LastSummaryStatusSnapshot.Mode,
+                ["total"] = _mem.LastSummaryStatusSnapshot.Total,
+                ["missingStored"] = _mem.LastSummaryStatusSnapshot.MissingStored,
+                ["staleStored"] = _mem.LastSummaryStatusSnapshot.StaleStored,
+                ["itemsCount"] = _mem.LastSummaryStatusSnapshot.Items?.Count ?? 0
+            },
+            ["resolverHint"] = new Dictionary<string, object?>
+            {
+                ["isContentRequest"] = resolverHint.IsContentRequest,
+                ["wantsAbout"] = resolverHint.WantsAbout,
+                ["wantsSummary"] = resolverHint.WantsSummary,
+                ["wantsStoredSummaryCheck"] = resolverHint.WantsStoredSummaryCheck,
+                ["wantsStoredSummaryStore"] = resolverHint.WantsStoredSummaryStore,
+                ["resolvedDocRef"] = resolverHint.ResolvedDocRef,
+                ["needsClarification"] = resolverHint.NeedsClarification,
+                ["clarificationKind"] = resolverHint.ClarificationKind
+            }
+        };
+    }
+
+    private List<Dictionary<string, object?>> BuildRouterCanonicalCategoryHints()
+        => (_mem.CatalogSnapshotCache?.Categories ?? new List<ToolMemory.CategorySnapshot>())
+            .Where(x => !string.IsNullOrWhiteSpace(x.DisplayName) || !string.IsNullOrWhiteSpace(x.CategoryPath))
+            .OrderBy(x => x.Ordinal == 0 ? int.MaxValue : x.Ordinal)
+            .ThenBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .Take(RouterCanonicalHintsLimit)
+            .Select(x => new Dictionary<string, object?>
+            {
+                ["categoryRef"] = x.CategoryRef,
+                ["categoryPath"] = x.CategoryPath,
+                ["displayName"] = x.DisplayName,
+                ["ordinal"] = x.Ordinal,
+                ["aliases"] = x.Aliases?.Take(4).ToList()
+            })
+            .ToList();
+
+    private List<Dictionary<string, object?>> BuildRouterCanonicalDocumentHints()
+        => (_mem.WorkspaceKnownDocuments ?? new List<ToolMemory.DocumentItem>())
+            .Where(x => !string.IsNullOrWhiteSpace(x.DocName) || !string.IsNullOrWhiteSpace(x.DocPath))
+            .OrderBy(x => x.DocName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x => x.DocPath, StringComparer.OrdinalIgnoreCase)
+            .Take(RouterCanonicalHintsLimit)
+            .Select(x => new Dictionary<string, object?>
+            {
+                ["docId"] = x.DocId,
+                ["docPath"] = x.DocPath,
+                ["docName"] = x.DocName,
+                ["category"] = x.Category,
+                ["categoryPath"] = x.CategoryPath
+            })
+            .ToList();
 
     private static string DescribeToolAction(string toolName, string userMessage, string language, JsonElement args)
     {

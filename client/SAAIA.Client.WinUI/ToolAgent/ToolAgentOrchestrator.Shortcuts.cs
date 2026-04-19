@@ -109,6 +109,7 @@ public sealed partial class ToolAgentOrchestrator
             var res = await _api.DocumentsCategoriesAsync(path: null, categoryRef: null, limit: 100, offset: 0, ct).ConfigureAwait(false);
             RememberDeterministicRenderFromJson("categories", res, "inventory.categories", displayUserMessage);
             _mem.LastPresentedCategories = ParsePresentedCategories(res);
+            _mem.PromoteCategoriesToWorkspace(_mem.LastPresentedCategories);
             _mem.LastInventoryAction = "categories";
             _mem.LastSummaryStatusSnapshot = null;
 
@@ -407,6 +408,7 @@ public sealed partial class ToolAgentOrchestrator
         if (categories is not null)
         {
             _mem.LastPresentedCategories = ParsePresentedCategories(categories.Result);
+            _mem.PromoteCategoriesToWorkspace(_mem.LastPresentedCategories);
             _mem.LastInventoryAction = "categories";
         }
 
@@ -461,7 +463,10 @@ public sealed partial class ToolAgentOrchestrator
             categoryPath = TryGetString(first, "categoryPath") ?? categoryPath;
         }
 
-        return ResolveCategorySnapshotFromReference(categoryRef, categoryPath);
+        var snapshot = ResolveCategorySnapshotFromReference(categoryRef, categoryPath);
+        if (snapshot is not null)
+            _mem.PromoteCategoriesToWorkspace(new[] { snapshot });
+        return snapshot;
     }
 
     private ToolMemory.SummaryStatusSnapshot BuildSummaryStatusSnapshot(JsonElement result, RouterPlan plan, string toolName)
@@ -569,40 +574,24 @@ public sealed partial class ToolAgentOrchestrator
         var normalizedRef = NormalizeShortcutToken(categoryRef);
         var normalizedPath = NormalizeShortcutToken(categoryPath);
 
-        if (_mem.LastPresentedCategories is { Count: > 0 })
+        foreach (var category in EnumerateKnownCategories())
         {
-            foreach (var category in _mem.LastPresentedCategories)
+            if (!string.IsNullOrWhiteSpace(normalizedRef))
             {
-                if (!string.IsNullOrWhiteSpace(normalizedRef))
-                {
-                    if (NormalizeShortcutToken(category.CategoryRef) == normalizedRef
-                        || NormalizeShortcutToken(category.DisplayName) == normalizedRef
-                        || NormalizeShortcutToken(category.CategoryPath) == normalizedRef
-                        || NormalizeShortcutToken(category.Ordinal.ToString(CultureInfo.InvariantCulture)) == normalizedRef
-                        || category.Aliases.Any(x => NormalizeShortcutToken(x) == normalizedRef))
-                    {
-                        return CloneCategorySnapshot(category);
-                    }
-                }
-
-                if (!string.IsNullOrWhiteSpace(normalizedPath)
-                    && (NormalizeShortcutToken(category.CategoryPath) == normalizedPath || NormalizeShortcutToken(category.DisplayName) == normalizedPath))
+                if (NormalizeShortcutToken(category.CategoryRef) == normalizedRef
+                    || NormalizeShortcutToken(category.DisplayName) == normalizedRef
+                    || NormalizeShortcutToken(category.CategoryPath) == normalizedRef
+                    || NormalizeShortcutToken(category.Ordinal.ToString(CultureInfo.InvariantCulture)) == normalizedRef
+                    || category.Aliases.Any(x => NormalizeShortcutToken(x) == normalizedRef))
                 {
                     return CloneCategorySnapshot(category);
                 }
             }
-        }
 
-        if (_mem.LastResolvedCategory is not null)
-        {
-            if (!string.IsNullOrWhiteSpace(normalizedRef)
-                && (NormalizeShortcutToken(_mem.LastResolvedCategory.CategoryRef) == normalizedRef
-                    || NormalizeShortcutToken(_mem.LastResolvedCategory.DisplayName) == normalizedRef
-                    || NormalizeShortcutToken(_mem.LastResolvedCategory.CategoryPath) == normalizedRef
-                    || NormalizeShortcutToken(_mem.LastResolvedCategory.Ordinal.ToString(CultureInfo.InvariantCulture)) == normalizedRef
-                    || _mem.LastResolvedCategory.Aliases.Any(x => NormalizeShortcutToken(x) == normalizedRef)))
+            if (!string.IsNullOrWhiteSpace(normalizedPath)
+                && (NormalizeShortcutToken(category.CategoryPath) == normalizedPath || NormalizeShortcutToken(category.DisplayName) == normalizedPath))
             {
-                return CloneCategorySnapshot(_mem.LastResolvedCategory);
+                return CloneCategorySnapshot(category);
             }
         }
 

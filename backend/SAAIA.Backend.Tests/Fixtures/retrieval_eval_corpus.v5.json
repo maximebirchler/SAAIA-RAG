@@ -1101,6 +1101,334 @@
       "runtimeReady": true,
       "expectedPrimaryDocHint": "15281",
       "expectedResponseShape": "locate_document"
+    },
+    {
+      "name": "client_absolute_inerting_is_rare",
+      "query": "Si je le vulgarise, on peut dire que l'inertage absolu est un cas assez rare plutot qu'une situation standard ?",
+      "intent": "definition",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Definitions",
+      "expectedResponseShape": "summary"
+    },
+    {
+      "name": "client_setpoint_vs_trip_point_margin",
+      "query": "Pour expliquer le fonctionnement a un client, comment tu distingues le seuil de regulation, le seuil de coupure et la marge de securite ?",
+      "intent": "comparison",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Oxygen monitoring",
+      "expectedResponseShape": "comparison"
+    },
+    {
+      "name": "client_steam_condensation_limits",
+      "query": "Si le client pense a la vapeur comme gaz d'inertage, le point de vigilance c'est bien la condensation et le risque de retour d'air ?",
+      "intent": "scope",
+      "expectedBehavior": "answer_with_caveat",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Inert gases",
+      "expectedResponseShape": "qualified_answer",
+      "expectedQualificationTokens": [
+        "contexte",
+        "process",
+        "conformite"
+      ]
+    },
+    {
+      "name": "client_purge_time_vs_direct_measurement",
+      "query": "En pratique, est-ce qu'on se fie plutot a une vraie mesure d'oxygene ou a un calcul base sur le temps, la pression et le debit de purge ?",
+      "intent": "comparison",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Reliability",
+      "expectedResponseShape": "comparison"
+    },
+    {
+      "name": "client_temperature_pressure_shift_loc",
+      "query": "Si la temperature ou la pression changent, on peut s'attendre a ce que la limite en oxygene bouge aussi ?",
+      "intent": "safety",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Process parameters",
+      "expectedResponseShape": "locate_passage"
+    },
+    {
+      "name": "client_non_literal_inerting_replaces_air",
+      "query": "Le principe, c'est de chasser l'air du volume pour casser la combustibilite du melange, c'est bien ca ?",
+      "intent": "definition",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Definitions",
+      "expectedResponseShape": "summary"
+    },
+    {
+      "name": "client_hybrid_mixtures_customer_scope",
+      "query": "Si le client a des melanges gaz plus poussieres, on reste bien dans un cas couvert par ce guide ?",
+      "intent": "scope",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "15281"
+      ],
+      "expectedDocHints": [
+        "15281"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Process scope",
+      "expectedResponseShape": "summary"
+    },
+    {
+      "name": "client_control_word_tare_target_tolerance",
+      "query": "Si le PLC doit piloter la pesee, est-ce qu'on peut pousser depuis l'automate la tare, la cible et les tolerances ?",
+      "intent": "integration",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "PLC commands",
+      "expectedResponseShape": "locate_passage"
+    },
+    {
+      "name": "client_data_ok_filtering_for_plc",
+      "query": "Quand l'automate lit la valeur, il faut bien filtrer les donnees avec des bits de validite pour eviter de traiter une mesure bancale ?",
+      "intent": "troubleshooting",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "Data integrity",
+      "expectedResponseShape": "locate_passage"
+    },
+    {
+      "name": "client_shared_data_memory_access",
+      "query": "Le guide explique aussi comment aller lire ou ecrire dans la memoire partagee du terminal depuis le PLC ?",
+      "intent": "document_locate",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "Shared data",
+      "expectedResponseShape": "locate_passage"
+    },
+    {
+      "name": "client_modbus_registers_and_ip",
+      "query": "Pour Modbus TCP, on a bien dans le doc la logique d'adresse IP et de registres a configurer ?",
+      "intent": "configuration",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "Modbus TCP",
+      "expectedResponseShape": "locate_passage"
+    },
+    {
+      "name": "client_devicenet_node_speed",
+      "query": "Si le client part sur DeviceNet, le guide couvre bien l'adresse de noeud et le debit reseau a choisir ?",
+      "intent": "configuration",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "DeviceNet",
+      "expectedResponseShape": "locate_passage"
+    },
+    {
+      "name": "client_profinet_name_and_ip",
+      "query": "En PROFINET, il faut bien que chaque terminal ait son identite reseau propre et une IP unique ?",
+      "intent": "configuration",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "PROFINET",
+      "expectedResponseShape": "locate_passage"
+    },
+    {
+      "name": "client_controlnet_explicit_messages",
+      "query": "Si on veut aller chercher des donnees plus riches que les E/S cycliques, on passe bien par des messages explicites de type classe 3 ?",
+      "intent": "integration",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "Shared data",
+      "expectedResponseShape": "locate_passage"
+    },
+    {
+      "name": "client_float_recommended_over_integer",
+      "query": "Si le client n'a pas de contrainte speciale, on conseillerait plutot le format float que l'entier pour limiter les petites erreurs de conversion ?",
+      "intent": "comparison",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "Programming examples",
+      "expectedResponseShape": "comparison"
+    },
+    {
+      "name": "client_byte_order_swap",
+      "query": "Le guide aide aussi a choisir l'ordonnancement des octets si le PLC et le terminal ne rangent pas les mots pareil ?",
+      "intent": "configuration",
+      "expectedBehavior": "answer",
+      "sourceDocHints": [
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "Programming examples",
+      "expectedResponseShape": "locate_passage"
+    },
+    {
+      "name": "cross_client_choose_process_doc_or_plc_doc",
+      "query": "Si le client demande a la fois comment securiser l'atmosphere et comment raccorder le terminal a l'automate, quel document on ouvre en premier et pourquoi ?",
+      "intent": "comparison",
+      "expectedBehavior": "answer_with_caveat",
+      "sourceDocHints": [
+        "15281",
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "15281",
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedResponseShape": "locate_document",
+      "expectedQualificationTokens": [
+        "process",
+        "PLC",
+        "contexte projet"
+      ]
+    },
+    {
+      "name": "cross_client_o2_monitoring_signal_to_plc",
+      "query": "Si on veut surveiller l'oxygene et renvoyer l'etat ou la mesure a l'automate, lequel des deux docs nous aide sur quelle partie ?",
+      "intent": "comparison",
+      "expectedBehavior": "answer_with_caveat",
+      "sourceDocHints": [
+        "15281",
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "15281",
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Oxygen monitoring",
+      "expectedResponseShape": "comparison",
+      "expectedQualificationTokens": [
+        "process",
+        "terminal",
+        "integration"
+      ]
+    },
+    {
+      "name": "cross_client_can_we_claim_full_compliance",
+      "query": "Avec le guide d'inertage d'un cote et le manuel terminal de l'autre, est-ce qu'on peut vraiment promettre au client que toute l'installation est conforme sans rien lui redemander ?",
+      "intent": "followup_required",
+      "expectedBehavior": "answer_with_caveat",
+      "sourceDocHints": [
+        "15281",
+        "IND570"
+      ],
+      "expectedDocHints": [
+        "15281",
+        "IND570"
+      ],
+      "runtimeReady": true,
+      "expectedPrimaryDocHint": "15281",
+      "expectedResponseShape": "qualified_answer",
+      "expectedQualificationTokens": [
+        "perimetre",
+        "equipements",
+        "conformite complete du projet"
+      ]
     }
   ]
 }

@@ -43,6 +43,8 @@ public sealed partial class ToolAgentOrchestrator
 
     private Dictionary<string, object?> BuildAgentRuntimeSnapshot()
     {
+        var memorySummary = BuildAgentMemorySummary();
+
         return new Dictionary<string, object?>
         {
             ["supported"] = true,
@@ -89,8 +91,49 @@ public sealed partial class ToolAgentOrchestrator
                 ["usedSummaryFlow"] = _lastUsedSummaryFlow,
                 ["answerSource"] = _lastAnswerSource
             },
+            ["memorySummary"] = memorySummary,
             ["memory"] = new Dictionary<string, object?>
             {
+                ["profile"] = _mem.MemoryProfile,
+                ["schemaVersion"] = _mem.SchemaVersion,
+                ["m1Lite"] = new Dictionary<string, object?>
+                {
+                ["hasCatalogSnapshot"] = _mem.CatalogSnapshotCache is not null,
+                ["catalogCategoriesCount"] = _mem.CatalogSnapshotCache?.Categories?.Count ?? 0,
+                ["hasCapabilitiesSnapshot"] = _mem.CapabilitiesCache is not null,
+                ["isAdmin"] = _mem.CapabilitiesCache?.IsAdmin,
+                ["knownDocumentsCount"] = _mem.WorkspaceKnownDocuments?.Count ?? 0
+                },
+                ["m3"] = new Dictionary<string, object?>
+                {
+                    ["hasPendingClarification"] = _mem.PendingClarification is not null,
+                    ["pendingClarificationKind"] = _mem.PendingClarification?.Kind,
+                    ["hasFocusedDocument"] = _mem.LastFocusedDocument is not null,
+                    ["lastFocusedDocument"] = _mem.LastFocusedDocument is null ? null : new Dictionary<string, object?>
+                    {
+                        ["docId"] = _mem.LastFocusedDocument.DocId,
+                        ["docPath"] = _mem.LastFocusedDocument.DocPath,
+                        ["docName"] = _mem.LastFocusedDocument.DocName,
+                        ["categoryPath"] = _mem.LastFocusedDocument.CategoryPath,
+                        ["pdfRef"] = _mem.LastFocusedDocument.PdfRef
+                    },
+                    ["lastListedDocumentsCount"] = _mem.LastListedDocuments?.Count ?? 0,
+                    ["pdfMapSize"] = _mem.PdfMap?.Count ?? 0,
+                    ["lastSourcesCount"] = _mem.LastSourcesUsed?.Count ?? 0,
+                    ["hasResolvedCategory"] = _mem.LastResolvedCategory is not null,
+                    ["presentedCategoriesCount"] = _mem.LastPresentedCategories?.Count ?? 0
+                },
+                ["m6"] = new Dictionary<string, object?>
+                {
+                    ["lastMode"] = _mem.LastMode,
+                    ["lastRouterIntent"] = _mem.LastRouterIntent,
+                    ["lastToolNamesCount"] = _mem.LastToolNames?.Count ?? 0,
+                    ["lastRiskFlagsCount"] = _mem.LastRiskFlags?.Count ?? 0,
+                    ["hasPlannerMemoryUpdate"] = !string.IsNullOrWhiteSpace(_mem.LastPlannerMemoryUpdate),
+                    ["routerConfidence"] = _mem.LastRouterConfidence,
+                    ["hasAdminOperation"] = _mem.LastAdminOperation is not null,
+                    ["hasStagedDirectCommand"] = _mem.StagedDirectCommand is not null
+                },
                 ["hasPendingClarification"] = _mem.PendingClarification is not null,
                 ["pendingClarificationKind"] = _mem.PendingClarification?.Kind,
                 ["lastMode"] = _mem.LastMode,
@@ -105,6 +148,52 @@ public sealed partial class ToolAgentOrchestrator
                 ["lastListedDocumentsCount"] = _mem.LastListedDocuments?.Count ?? 0,
                 ["pdfMapSize"] = _mem.PdfMap?.Count ?? 0,
                 ["lastSourcesCount"] = _mem.LastSourcesUsed?.Count ?? 0
+            }
+        };
+    }
+
+    private Dictionary<string, object?> BuildAgentMemorySummary()
+    {
+        return new Dictionary<string, object?>
+        {
+            ["profile"] = _mem.MemoryProfile,
+            ["schemaVersion"] = _mem.SchemaVersion,
+            ["cdcAlignment"] = "v3.0",
+            ["persistence"] = new Dictionary<string, object?>
+            {
+                ["language"] = true,
+                ["style"] = true,
+                ["mode"] = false,
+                ["focusedDocument"] = false,
+                ["resolvedCategory"] = false
+            },
+            ["resetPolicy"] = new Dictionary<string, object?>
+            {
+                ["preservesM1Lite"] = true,
+                ["preservesPreferences"] = true,
+                ["clearsM3"] = true,
+                ["clearsM6"] = true,
+                ["resetsModeToAuto"] = true
+            },
+            ["workspace"] = new Dictionary<string, object?>
+            {
+                ["catalogCategoriesCount"] = _mem.CatalogSnapshotCache?.Categories?.Count ?? 0,
+                ["knownDocumentsCount"] = _mem.WorkspaceKnownDocuments?.Count ?? 0,
+                ["hasCapabilitiesSnapshot"] = _mem.CapabilitiesCache is not null
+            },
+            ["session"] = new Dictionary<string, object?>
+            {
+                ["hasFocusedDocument"] = _mem.LastFocusedDocument is not null,
+                ["lastListedDocumentsCount"] = _mem.LastListedDocuments?.Count ?? 0,
+                ["hasResolvedCategory"] = _mem.LastResolvedCategory is not null,
+                ["hasPendingClarification"] = _mem.PendingClarification is not null
+            },
+            ["execution"] = new Dictionary<string, object?>
+            {
+                ["mode"] = _mem.LastMode,
+                ["hasRouterIntent"] = !string.IsNullOrWhiteSpace(_mem.LastRouterIntent),
+                ["toolNamesCount"] = _mem.LastToolNames?.Count ?? 0,
+                ["hasAdminOperation"] = _mem.LastAdminOperation is not null
             }
         };
     }

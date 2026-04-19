@@ -109,6 +109,8 @@ public sealed partial class ToolAgentOrchestrator
             : !string.IsNullOrWhiteSpace(resolved.DocId)
                 ? resolved.DocId
                 : resolved.DocName;
+
+        _mem.PromoteDocumentsToWorkspace(new[] { _mem.LastFocusedDocument });
     }
 
     private IEnumerable<ToolMemory.DocumentItem> EnumerateKnownDocuments()
@@ -132,6 +134,13 @@ public sealed partial class ToolAgentOrchestrator
         }
 
         foreach (var doc in _mem.PdfMap.Values)
+        {
+            var key = !string.IsNullOrWhiteSpace(doc.DocId) ? doc.DocId : doc.DocPath;
+            if (!string.IsNullOrWhiteSpace(key) && seen.Add(key))
+                yield return doc;
+        }
+
+        foreach (var doc in _mem.WorkspaceKnownDocuments)
         {
             var key = !string.IsNullOrWhiteSpace(doc.DocId) ? doc.DocId : doc.DocPath;
             if (!string.IsNullOrWhiteSpace(key) && seen.Add(key))

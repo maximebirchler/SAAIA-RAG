@@ -69,6 +69,7 @@ public sealed partial class ToolAgentOrchestrator
             "empty_list" => RenderEmptyFoldersListFromReplayData(data, language),
             "summary_status_count" => RenderSummaryStatusCountFromReplayData(data, language),
             "summary_status_list" => RenderSummaryStatusListFromReplayData(data, language),
+            "diagnostic_performance" => RenderDiagnosticPerformanceFromReplayData(data, language),
             _ => string.Empty
         };
     }

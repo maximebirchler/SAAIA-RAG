@@ -1,0 +1,280 @@
+{
+  "version": "v1",
+  "validationCases": [
+    {
+      "name": "client_en15281_project_compliance",
+      "query": "J'ai une discussion avec un client qui me demande si le projet respecte la norme EN 15281. Tu peux m'en dire plus ?",
+      "family": "qualified_customer_answer",
+      "expectedBehavior": "answer_with_caveat",
+      "expectedResponseShape": "qualified_answer",
+      "expectedPrimaryDocHint": "15281",
+      "manualChecks": [
+        "Le bon document process/inertage domine",
+        "La reponse n'affirme pas une conformite complete du projet",
+        "Le texte demande ou rappelle le besoin de perimetre/equipements"
+      ]
+    },
+    {
+      "name": "client_absolute_inerting",
+      "query": "Tu peux m'expliquer simplement ce que le document appelle l'inertage absolu ?",
+      "family": "short_explanation",
+      "expectedBehavior": "answer",
+      "expectedResponseShape": "summary",
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Definitions",
+      "manualChecks": [
+        "La reponse explique simplement le concept",
+        "Le ton reste explicatif et non commercial",
+        "Le passage cite vient bien du guide d'inertage"
+      ]
+    },
+    {
+      "name": "client_nitrogen_vs_carbon_dioxide",
+      "query": "Pour un client, comment tu presenterais la difference entre azote et CO2 comme gaz d'inertage ?",
+      "family": "comparison",
+      "expectedBehavior": "answer",
+      "expectedResponseShape": "comparison",
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Inert gases",
+      "manualChecks": [
+        "La reponse compare vraiment deux options",
+        "Elle ne se contente pas de lister des mots-clefs",
+        "Le document dominant est bien le guide d'inertage"
+      ]
+    },
+    {
+      "name": "client_can_use_flue_gas",
+      "query": "On peut repondre quoi si le client veut utiliser des gaz de combustion comme gaz inerte ?",
+      "family": "qualified_customer_answer",
+      "expectedBehavior": "answer_with_caveat",
+      "expectedResponseShape": "qualified_answer",
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Inert gases",
+      "manualChecks": [
+        "La reponse reste prudente",
+        "Elle n'autorise pas trop vite l'usage",
+        "Elle rappelle le besoin de contexte process"
+      ]
+    },
+    {
+      "name": "client_compare_inerting_methods",
+      "query": "Tu peux comparer simplement pressure-swing, vacuum-swing et flow-through inerting pour un client ?",
+      "family": "comparison",
+      "expectedBehavior": "answer",
+      "expectedResponseShape": "comparison",
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Inerting methods",
+      "manualChecks": [
+        "La reponse distingue clairement les methodes",
+        "Elle aide a choisir plutot qu'a reciter",
+        "Le bon passage est retrouve"
+      ]
+    },
+    {
+      "name": "client_locate_en15281_passage",
+      "query": "Montre-moi ou dans le document ils parlent de la concentration limite en oxygene.",
+      "family": "locate_passage",
+      "expectedBehavior": "answer",
+      "expectedResponseShape": "locate_passage",
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Definitions",
+      "manualChecks": [
+        "La reponse pointe un vrai passage ou une vraie section",
+        "Le document propose un extrait utile",
+        "Le moteur ne deforme pas en reponse generale"
+      ]
+    },
+    {
+      "name": "client_setpoint_vs_trip_point_margin",
+      "query": "Pour expliquer le fonctionnement a un client, comment tu distingues le seuil de regulation, le seuil de coupure et la marge de securite ?",
+      "family": "comparison",
+      "expectedBehavior": "answer",
+      "expectedResponseShape": "comparison",
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Oxygen monitoring",
+      "manualChecks": [
+        "La reponse distingue bien les trois notions",
+        "Le vocabulaire reste comprehensible",
+        "On voit une vraie base documentaire"
+      ]
+    },
+    {
+      "name": "client_purge_time_vs_direct_measurement",
+      "query": "En pratique, est-ce qu'on se fie plutot a une vraie mesure d'oxygene ou a un calcul base sur le temps, la pression et le debit de purge ?",
+      "family": "comparison",
+      "expectedBehavior": "answer",
+      "expectedResponseShape": "comparison",
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Reliability",
+      "manualChecks": [
+        "La reponse oppose bien mesure directe et methode inferentielle",
+        "Elle reste nuancee",
+        "Le guide d'inertage domine clairement"
+      ]
+    },
+    {
+      "name": "client_norme_xxx_ambiguous",
+      "query": "J'ai un client qui me demande si le projet respecte la norme xxx sur l'inertage. Tu peux m'aider ?",
+      "family": "clarification",
+      "expectedBehavior": "ask_clarification",
+      "expectedResponseShape": "clarify",
+      "expectedPrimaryDocHint": "15281",
+      "manualChecks": [
+        "La reponse pose une vraie question de clarification",
+        "Elle ne bluffe pas",
+        "La question demande quelle norme exacte est visee"
+      ]
+    },
+    {
+      "name": "client_ind570_plc_support",
+      "query": "Un client me demande si l'IND570 sait dialoguer avec un PLC. Tu peux me faire une reponse courte ?",
+      "family": "short_explanation",
+      "expectedBehavior": "answer",
+      "expectedResponseShape": "summary",
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "PLC integration",
+      "manualChecks": [
+        "La reponse est courte et claire",
+        "Le bon manuel domine",
+        "Elle parle bien de dialogue terminal/automate"
+      ]
+    },
+    {
+      "name": "client_ind570_supported_protocols",
+      "query": "Quels protocoles PLC sont vraiment couverts par le manuel IND570 ?",
+      "family": "locate_passage",
+      "expectedBehavior": "answer",
+      "expectedResponseShape": "locate_passage",
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "Supported protocols",
+      "manualChecks": [
+        "La reponse liste des protocoles reels",
+        "Elle s'appuie sur le bon passage",
+        "Elle n'invente pas de protocole absent"
+      ]
+    },
+    {
+      "name": "client_ind570_hazardous_area_warning",
+      "query": "Le client veut installer un IND570 en zone potentiellement explosive. Le manuel dit quoi au juste ?",
+      "family": "qualified_customer_answer",
+      "expectedBehavior": "answer_with_caveat",
+      "expectedResponseShape": "qualified_answer",
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "Hazardous area",
+      "manualChecks": [
+        "La reponse reste prudente",
+        "Elle rappelle que toutes les versions ne sont pas approuvees",
+        "Elle ne survend pas une conformite ATEX"
+      ]
+    },
+    {
+      "name": "client_ind570_analog_output_types",
+      "query": "L'IND570 propose quoi comme sortie analogique exactement ?",
+      "family": "locate_passage",
+      "expectedBehavior": "answer",
+      "expectedResponseShape": "locate_passage",
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "Analog output",
+      "manualChecks": [
+        "La reponse mentionne les vraies sorties analogiques",
+        "Le passage cible est utile",
+        "Le ton reste technique et propre"
+      ]
+    },
+    {
+      "name": "client_send_setpoints_from_plc",
+      "query": "On peut envoyer depuis l'automate les consignes de tare, cible et tolerances vers le terminal ?",
+      "family": "locate_passage",
+      "expectedBehavior": "answer",
+      "expectedResponseShape": "locate_passage",
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "PLC commands",
+      "manualChecks": [
+        "La reponse confirme ou infirme clairement",
+        "Le bon passage est retrouve",
+        "Le terminal IND570 reste le document principal"
+      ]
+    },
+    {
+      "name": "client_shared_data_memory_access",
+      "query": "Le guide explique aussi comment aller lire ou ecrire dans la memoire partagee du terminal depuis le PLC ?",
+      "family": "locate_passage",
+      "expectedBehavior": "answer",
+      "expectedResponseShape": "locate_passage",
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "Shared data",
+      "manualChecks": [
+        "La reponse parle bien de donnees partagees",
+        "Elle ne confond pas avec une simple E/S cyclique",
+        "Le passage parait directement exploitable"
+      ]
+    },
+    {
+      "name": "client_modbus_registers_and_ip",
+      "query": "Pour Modbus TCP, on a bien dans le doc la logique d'adresse IP et de registres a configurer ?",
+      "family": "locate_passage",
+      "expectedBehavior": "answer",
+      "expectedResponseShape": "locate_passage",
+      "expectedPrimaryDocHint": "IND570",
+      "expectedPrimarySectionHint": "Modbus TCP",
+      "manualChecks": [
+        "La reponse oriente vers les bons champs de configuration",
+        "Le document dominant est bien le manuel IND570",
+        "La reponse n'est pas hors sujet"
+      ]
+    },
+    {
+      "name": "client_ind570_sil_question",
+      "query": "Le client me demande si l'IND570 est SIL ou adapte a une fonction de securite instrumentee. On peut l'affirmer ?",
+      "family": "clarification",
+      "expectedBehavior": "ask_clarification",
+      "expectedResponseShape": "clarify",
+      "expectedPrimaryDocHint": "IND570",
+      "manualChecks": [
+        "La reponse demande des precisions utiles",
+        "Elle n'affirme pas un niveau SIL",
+        "La question de clarification vise la fonction et le niveau attendu"
+      ]
+    },
+    {
+      "name": "cross_which_doc_for_what",
+      "query": "Quel document faut-il citer pour parler de conformite inertage, et lequel pour parler d'integration PLC ?",
+      "family": "document_selection",
+      "expectedBehavior": "answer",
+      "expectedResponseShape": "locate_document",
+      "expectedPrimaryDocHint": "15281",
+      "manualChecks": [
+        "La reponse separe bien le doc process et le doc terminal",
+        "Elle ne confond pas les perimetres",
+        "Les deux sources sont visibles"
+      ]
+    },
+    {
+      "name": "cross_oxygen_monitoring_and_plc",
+      "query": "Si le client veut relier une surveillance oxygene a un PLC, lequel de nos documents aide le plus et sur quoi chacun parle ?",
+      "family": "document_selection",
+      "expectedBehavior": "answer_with_caveat",
+      "expectedResponseShape": "comparison",
+      "expectedPrimaryDocHint": "15281",
+      "expectedPrimarySectionHint": "Oxygen monitoring",
+      "manualChecks": [
+        "La reponse dit bien quel doc traite le process et quel doc traite l'integration",
+        "Elle reste prudente",
+        "Elle ne promet pas une architecture complete sans contexte"
+      ]
+    },
+    {
+      "name": "cross_client_can_we_claim_full_compliance",
+      "query": "Avec le guide d'inertage d'un cote et le manuel terminal de l'autre, est-ce qu'on peut vraiment promettre au client que toute l'installation est conforme sans rien lui redemander ?",
+      "family": "qualified_customer_answer",
+      "expectedBehavior": "answer_with_caveat",
+      "expectedResponseShape": "qualified_answer",
+      "expectedPrimaryDocHint": "15281",
+      "manualChecks": [
+        "La reponse refuse une promesse trop large",
+        "Elle rappelle le besoin de perimetre et d'equipements",
+        "Elle ne transforme pas deux docs en preuve de conformite globale"
+      ]
+    }
+  ]
+}

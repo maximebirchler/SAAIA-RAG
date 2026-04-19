@@ -1414,6 +1414,7 @@ public sealed class DocumentFoundationIntegrationTests
                 new RuntimeSeedSection("Inerting methods", "Pressure-swing, vacuum-swing, flow-through and displacement inerting are compared for explosion prevention and process safety. Flow-through inerting is useful for long pipelines or vessels when gas feed and venting are remote from each other."),
                 new RuntimeSeedSection("Process scope", "The guide covers gas, vapour, dust, mist and hybrid mixtures when assessing inerting and explosion prevention."),
                 new RuntimeSeedSection("Process parameters", "Limiting oxygen concentration depends on temperature, pressure, fuel concentration, particle size and process conditions."),
+                new RuntimeSeedSection("Safety margin", "The safety margin is the difference between the set point and the trip point so the control system can react before the oxygen concentration becomes unsafe."),
                 new RuntimeSeedSection("System components", "The inerting system includes inert gas supply, monitoring, control, alarms, shutdown logic and protective devices."),
                 new RuntimeSeedSection("Reliability", "Reliability of inerting systems depends on monitoring, alarms, maintenance, trip point definition and equipment performance. The guide distinguishes direct oxygen measurement from inferential approaches based on purge flow, pressure or time."),
                 new RuntimeSeedSection("Oxygen monitoring", "Oxygen monitoring technologies, oxygen analyzers, set point and trip point strategy are described for inerting systems.")
@@ -1434,10 +1435,14 @@ public sealed class DocumentFoundationIntegrationTests
                 new RuntimeSeedSection("PROFINET", "The PROFINET interface supports Siemens environments, unique IP assignment and topology considerations for the IND570 terminal."),
                 new RuntimeSeedSection("Supported protocols", "Supported protocols include EtherNet/IP, PROFINET, PROFIBUS, Modbus TCP, Modbus RTU, ControlNet and DeviceNet."),
                 new RuntimeSeedSection("EtherNet/IP", "The IND570 guide documents EtherNet/IP Class 1 and Class 3 messaging for PLC integration scenarios."),
+                new RuntimeSeedSection("DeviceNet", "DeviceNet configuration requires a unique node address and a suitable network speed such as 125 Kb, 250 Kb or 500 Kb."),
+                new RuntimeSeedSection("Modbus TCP", "Modbus TCP configuration covers the IND570 IP address, master and slave register references, and communication settings."),
                 new RuntimeSeedSection("Hazardous area", "Not all IND570 versions are approved for hazardous areas and relay options are not intended for hazardous zone use."),
                 new RuntimeSeedSection("Analog output", "Analog output options include current and voltage outputs such as 4-20 mA and 0-10 V with installation guidance for sending weight or rate information."),
                 new RuntimeSeedSection("Analog calibration", "Analog calibration of the IND570 output is performed through setup steps that define range, scaling and verification."),
-                new RuntimeSeedSection("Programming examples", "The guide includes programming examples with Siemens S7-300 and explains shared data access, integer format and floating point exchanges for PLC integration."),
+                new RuntimeSeedSection("Programming examples", "The guide includes programming examples with Siemens S7-300 and explains shared data access, integer format, byte ordering and floating point exchanges for PLC integration. Floating point is recommended when possible to avoid small conversion errors."),
+                new RuntimeSeedSection("Shared data", "Shared data access allows read and write operations from the PLC through explicit or Class 3 style messaging using category, instance, attribute and length information."),
+                new RuntimeSeedSection("Data integrity", "PLC programs should filter values with Data_OK, Update_In_Progress and integrity bits before using returned data so invalid values are not consumed."),
                 new RuntimeSeedSection("PLC commands", "The PLC interface can exchange tare, target values and tolerances with the IND570 in supported integration profiles.")
             ],
             [

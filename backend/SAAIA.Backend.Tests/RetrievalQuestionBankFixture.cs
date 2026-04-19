@@ -12,9 +12,21 @@ internal static class RetrievalQuestionBankFixture
             ?? throw new InvalidOperationException("Failed to load retrieval evaluation v5 question bank.");
     }
 
+    public static RetrievalProductValidationCorpus LoadProductValidationV1()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "retrieval_product_validation.v1.json");
+        var json = File.ReadAllText(path);
+        return JsonSerializer.Deserialize<RetrievalProductValidationCorpus>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web))
+            ?? throw new InvalidOperationException("Failed to load retrieval product validation v1 pack.");
+    }
+
     internal sealed record RetrievalQuestionBankCorpus(
         string Version,
         IReadOnlyList<QuestionCase> QuestionCases);
+
+    internal sealed record RetrievalProductValidationCorpus(
+        string Version,
+        IReadOnlyList<ProductValidationCase> ValidationCases);
 
     internal sealed record QuestionCase(
         string Name,
@@ -30,4 +42,15 @@ internal static class RetrievalQuestionBankFixture
         string? ExpectedResponseShape = null,
         IReadOnlyList<string>? ExpectedQualificationTokens = null,
         IReadOnlyList<string>? ExpectedClarificationTokens = null);
+
+    internal sealed record ProductValidationCase(
+        string Name,
+        string Query,
+        string Family,
+        string ExpectedBehavior,
+        string ExpectedResponseShape,
+        string ExpectedPrimaryDocHint,
+        string? ExpectedPrimarySectionHint = null,
+        IReadOnlyList<string>? ManualChecks = null,
+        string? Notes = null);
 }

@@ -1788,8 +1788,12 @@ LIMIT @top_k;
            || normalizedQuery.Contains("notre installation", StringComparison.Ordinal);
 
     private static bool ContainsCrossDomainSafetyIntegrationQuestion(string normalizedQuery)
-        => normalizedQuery.Contains("surveillance oxygene", StringComparison.Ordinal)
-           && normalizedQuery.Contains("plc", StringComparison.Ordinal);
+        => (normalizedQuery.Contains("surveillance oxygene", StringComparison.Ordinal)
+            || normalizedQuery.Contains("oxygene", StringComparison.Ordinal)
+            || normalizedQuery.Contains("atmosphere", StringComparison.Ordinal))
+           && (normalizedQuery.Contains("plc", StringComparison.Ordinal)
+               || normalizedQuery.Contains("automate", StringComparison.Ordinal)
+               || normalizedQuery.Contains("terminal", StringComparison.Ordinal));
 
     private static bool ContainsSufficiencyQuestion(string normalizedQuery)
         => normalizedQuery.Contains("suffit a lui seul", StringComparison.Ordinal)
@@ -1822,6 +1826,9 @@ LIMIT @top_k;
 
     private static bool ContainsQuickCustomerReplySelectionQuestion(string normalizedQuery)
         => normalizedQuery.Contains("repondre vite au client", StringComparison.Ordinal)
+           || normalizedQuery.Contains("ouvrir en premier", StringComparison.Ordinal)
+           || normalizedQuery.Contains("ouvre en premier", StringComparison.Ordinal)
+           || normalizedQuery.Contains("lequel des deux docs", StringComparison.Ordinal)
            || (normalizedQuery.Contains("par lequel", StringComparison.Ordinal)
                && normalizedQuery.Contains("client", StringComparison.Ordinal));
 

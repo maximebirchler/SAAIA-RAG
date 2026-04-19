@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Text.Json;
+using System.Threading;
 using SAAIA.Client.WinUI.Localization;
 using SAAIA.Client.WinUI.Services;
 using SAAIA.Client.WinUI.Services.ToolAgent;
@@ -195,6 +196,135 @@ public sealed class InventoryDeterminismRegressionTests
 
         Assert.Contains("Statistiques de la catégorie ATEX :", rendered);
         Assert.DoesNotContain("Statistiques du catalogue :", rendered);
+    }
+
+    [Fact]
+    public void Diagnostic_performance_render_is_human_readable_and_does_not_leak_raw_json()
+    {
+        using var doc = JsonDocument.Parse("""
+        {
+          "profile": "cdc-v3-m1lite-m3-m6",
+          "schemaVersion": 1,
+          "cdcAlignment": "v3.0",
+          "routerMs": 12,
+          "toolsMs": 34,
+          "writerMs": 7,
+          "totalMs": 53,
+          "workspace": {
+            "catalogCategoriesCount": 2,
+            "knownDocumentsCount": 3,
+            "hasCapabilitiesSnapshot": true
+          },
+          "session": {
+            "hasFocusedDocument": false,
+            "lastListedDocumentsCount": 1,
+            "hasResolvedCategory": true,
+            "hasPendingClarification": false
+          },
+          "execution": {
+            "mode": "auto",
+            "hasRouterIntent": true,
+            "toolNamesCount": 2,
+            "hasAdminOperation": false
+          },
+          "persistence": {
+            "language": true,
+            "style": true,
+            "mode": false,
+            "focusedDocument": false,
+            "resolvedCategory": false
+          },
+          "resetPolicy": {
+            "preservesM1Lite": true,
+            "preservesPreferences": true,
+            "clearsM3": true,
+            "clearsM6": true,
+            "resetsModeToAuto": true
+          }
+        }
+        """);
+
+        var rendered = ToolAgentOrchestrator.RenderDeterministicInventoryFromData("diagnostic_performance", doc.RootElement, "en");
+
+        Assert.Contains("Memory and performance diagnostics:", rendered);
+        Assert.Contains("router 12 ms", rendered);
+        Assert.Contains("Workspace: 2 canonical category(ies), 3 known document(s)", rendered);
+        Assert.Contains("Persistence: language yes, style yes, mode no", rendered);
+        Assert.DoesNotContain("\"workspace\"", rendered);
+        Assert.DoesNotContain("\"memorySummary\"", rendered);
+    }
+
+    [Fact]
+    public void Diagnostic_performance_tool_results_can_generate_inventory_rendered_payload()
+    {
+        using var doc = JsonDocument.Parse("""
+        {
+          "routerMs": 5,
+          "toolsMs": 18,
+          "writerMs": 3,
+          "totalMs": 26,
+          "memorySummary": {
+            "profile": "cdc-v3-m1lite-m3-m6",
+            "schemaVersion": 1,
+            "cdcAlignment": "v3.0",
+            "workspace": {
+              "catalogCategoriesCount": 1,
+              "knownDocumentsCount": 1,
+              "hasCapabilitiesSnapshot": true
+            },
+            "session": {
+              "hasFocusedDocument": false,
+              "lastListedDocumentsCount": 0,
+              "hasResolvedCategory": false,
+              "hasPendingClarification": false
+            },
+            "execution": {
+              "mode": "auto",
+              "hasRouterIntent": true,
+              "toolNamesCount": 1,
+              "hasAdminOperation": false
+            },
+            "persistence": {
+              "language": true,
+              "style": true,
+              "mode": false,
+              "focusedDocument": false,
+              "resolvedCategory": false
+            },
+            "resetPolicy": {
+              "preservesM1Lite": true,
+              "preservesPreferences": true,
+              "clearsM3": true,
+              "clearsM6": true,
+              "resetsModeToAuto": true
+            }
+          }
+        }
+        """);
+
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "diagnostic.performance",
+            Result = doc.RootElement.Clone(),
+            DurationMs = 18
+        });
+
+        var sut = new ToolAgentOrchestrator(new ApiClient(), null!, new ToolMemory());
+        var method = typeof(ToolAgentOrchestrator).GetMethod("TryBuildInventoryRenderedItem", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(method);
+
+        var item = Assert.IsType<ToolResults.Item>(method!.Invoke(sut, new object?[] { toolResults, "en", CancellationToken.None }));
+        Assert.Equal("inventory.rendered", item.ToolName);
+        Assert.Equal("diagnostic_performance", item.Result.GetProperty("kind").GetString());
+
+        var rendered = ToolAgentOrchestrator.RenderDeterministicInventoryFromData(
+            item.Result.GetProperty("kind").GetString() ?? string.Empty,
+            item.Result.GetProperty("data"),
+            "en");
+
+        Assert.Contains("Memory and performance diagnostics:", rendered);
+        Assert.Contains("total 26 ms", rendered);
     }
 
     private static JsonElement InvokeCreateCanonicalDocumentsListJson(JsonElement root, string? scopePath = null, string? searchQuery = null)

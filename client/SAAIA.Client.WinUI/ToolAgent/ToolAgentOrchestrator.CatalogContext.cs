@@ -53,6 +53,7 @@ public sealed partial class ToolAgentOrchestrator
             TotalCategories = json.TryGetProperty("totals", out totals) ? TryGetInt(totals, "categories") : null,
             Categories = ParseCategoriesFromCatalogJson(json)
         };
+        _mem.PromoteCategoriesToWorkspace(_mem.CatalogSnapshotCache.Categories);
     }
 
     private static List<string> ParseCommandIds(JsonElement root, string propertyName)
