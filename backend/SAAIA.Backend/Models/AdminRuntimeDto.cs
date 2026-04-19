@@ -14,14 +14,59 @@ public sealed record AdminRuntimeCatalogRuntimeDto(
     string Kind,
     bool Enabled,
     string? BaseUrl = null,
-    string? Model = null
+    string? Model = null,
+    string? ReadinessStatus = null,
+    string? ConfigurationSource = null,
+    IReadOnlyList<string>? UsedByProfileKeys = null,
+    IReadOnlyList<string>? RequiredByProfileKeys = null,
+    IReadOnlyList<string>? ExpectedCapabilityKeys = null,
+    IReadOnlyList<string>? RequiredSettingKeys = null,
+    IReadOnlyList<string>? MissingSettingKeys = null
 );
 
 public sealed record AdminRuntimeWarmupProfileDto(
     string Key,
     string Label,
     int PassCount,
-    IReadOnlyList<string> Checks
+    IReadOnlyList<string> Checks,
+    AdminRuntimeHardwareRequirementsDto? HardwareRequirements = null,
+    AdminRuntimeWarmupPerformanceBudgetsDto? PerformanceBudgets = null,
+    AdminRuntimeWarmupCheckPolicyDto? CheckPolicy = null,
+    AdminRuntimeWarmupRuntimeRequirementsDto? RuntimeRequirements = null,
+    AdminRuntimeWarmupFreshnessPolicyDto? FreshnessPolicy = null
+);
+
+public sealed record AdminRuntimeHardwareRequirementsDto(
+    int MinCpuCores,
+    long MinAvailableMemoryMb,
+    bool Require64BitProcess
+);
+
+public sealed record AdminRuntimeWarmupPerformanceBudgetsDto(
+    long? MaxPassDurationMs,
+    long? MaxQdrantCheckMs,
+    long? MaxEmbeddingsCheckMs,
+    long? MaxRerankCheckMs
+);
+
+public sealed record AdminRuntimeWarmupCheckPolicyDto(
+    bool RequireRerankEnabled,
+    bool AllowSkippedChecks,
+    bool EnforcePerformanceBudgets
+);
+
+public sealed record AdminRuntimeWarmupRuntimeRequirementsDto(
+    bool RequireQdrant,
+    bool RequireEmbeddings,
+    bool RequireRerank,
+    bool RequireCollection,
+    bool RequireEmbeddingsModel,
+    bool RequireRerankModel
+);
+
+public sealed record AdminRuntimeWarmupFreshnessPolicyDto(
+    long? MaxQualificationAgeHours,
+    bool RequireRequalificationWhenExpired
 );
 
 public sealed record AdminRuntimeCapabilityCatalogDto(
@@ -59,7 +104,16 @@ public sealed record AdminRuntimeCapabilityStateDto(
     DateTimeOffset? LastCheckedAt = null,
     DateTimeOffset? LastQualifiedAt = null,
     string? LastError = null,
-    IReadOnlyDictionary<string, object?>? Details = null
+    IReadOnlyDictionary<string, object?>? Details = null,
+    bool Stale = false,
+    string? QualificationFingerprint = null,
+    string? StaleReason = null,
+    double? QualificationAgeHours = null,
+    DateTimeOffset? QualificationExpiresAt = null,
+    bool PersistedAuthorized = false,
+    bool PersistedSelected = false,
+    bool EffectiveAuthorized = false,
+    bool EffectiveSelected = false
 );
 
 public sealed record AdminRuntimeWarmupResultDto(
@@ -86,6 +140,17 @@ public sealed record AdminRuntimeRequalifyResponseDto(
     IReadOnlyList<AdminRuntimeWarmupResultDto> WarmupResults
 );
 
+public sealed record AdminRuntimeReconcileStaleRequestDto(
+    string? CapabilityKey = null
+);
+
+public sealed record AdminRuntimeReconcileStaleResponseDto(
+    string CdcAlignment,
+    string Environment,
+    int UpdatedCount,
+    IReadOnlyList<AdminRuntimeCapabilityStateDto> Items
+);
+
 public sealed record AdminRuntimeCapabilitySelectionRequestDto(
     bool? DesiredEnabled = null,
     bool? Authorized = null,
@@ -96,4 +161,270 @@ public sealed record AdminRuntimeWarmupResultsResponseDto(
     string CdcAlignment,
     string Environment,
     IReadOnlyList<AdminRuntimeWarmupResultDto> Items
+);
+
+public sealed record AdminRuntimeEventsResponseDto(
+    string CdcAlignment,
+    string Environment,
+    IReadOnlyList<AdminRuntimeCapabilityEventDto> Items
+);
+
+public sealed record AdminRuntimeCapabilityAEnrichmentCandidatesResponseDto(
+    string CdcAlignment,
+    string Environment,
+    string CapabilityKey,
+    string ProfileKey,
+    int TotalCandidates,
+    IReadOnlyList<AdminRuntimeCapabilityAEnrichmentCandidateDto> Items
+);
+
+public sealed record AdminRuntimeCapabilityAEnrichmentCandidatesArtifactDto(
+    string Artifact,
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    string CapabilityKey,
+    string ProfileKey,
+    int TotalCandidates,
+    IReadOnlyList<AdminRuntimeCapabilityAEnrichmentCandidateDto> Items
+);
+
+public sealed record AdminRuntimeCapabilityACampaignsResponseDto(
+    string CdcAlignment,
+    string Environment,
+    string CapabilityKey,
+    IReadOnlyList<AdminRuntimeCapabilityACampaignDto> Items
+);
+
+public sealed record AdminRuntimeCapabilityACampaignsArtifactDto(
+    string Artifact,
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    string CapabilityKey,
+    IReadOnlyList<AdminRuntimeCapabilityACampaignDto> Items
+);
+
+public sealed record AdminRuntimeCapabilityACampaignDetailResponseDto(
+    string CdcAlignment,
+    string Environment,
+    string CapabilityKey,
+    AdminRuntimeCapabilityACampaignDetailDto Item
+);
+
+public sealed record AdminRuntimeCapabilityACampaignDetailArtifactDto(
+    string Artifact,
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    string CapabilityKey,
+    AdminRuntimeCapabilityACampaignDetailDto Item
+);
+
+public sealed record AdminRuntimeCapabilityAEnqueueRequestDto(
+    IReadOnlyList<Guid>? DocIds = null,
+    IReadOnlyList<string>? DocPaths = null,
+    string? Category = null,
+    IReadOnlyList<string>? ReasonFilters = null,
+    int? MaxCandidates = null,
+    bool DryRun = false,
+    bool AllowUnsafeCandidates = false
+);
+
+public sealed record AdminRuntimeCapabilityAEnqueueResponseDto(
+    string CdcAlignment,
+    string Environment,
+    string CapabilityKey,
+    Guid CampaignId,
+    bool DryRun,
+    bool AllowUnsafeCandidates,
+    int CandidateCount,
+    int PlannedCount,
+    int QueuedCount,
+    int SkippedCount,
+    IReadOnlyDictionary<string, int> ReasonCounts,
+    IReadOnlyList<AdminRuntimeCapabilityAEnqueueItemDto> Items
+);
+
+public sealed record AdminRuntimeRuntimeCatalogArtifactDto(
+    string Artifact,
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    IReadOnlyList<AdminRuntimeCatalogRuntimeDto> Runtimes,
+    IReadOnlyList<AdminRuntimeWarmupProfileDto> WarmupProfiles,
+    IReadOnlyList<AdminRuntimeCapabilityCatalogDto> Capabilities
+);
+
+public sealed record AdminRuntimeModelCatalogEntryDto(
+    string Key,
+    string Label,
+    string RuntimeKey,
+    string Kind,
+    bool Enabled,
+    bool Implemented,
+    string? BaseUrl = null,
+    string? Model = null,
+    string? StatusNote = null,
+    string? ReadinessStatus = null,
+    string? ConfigurationSource = null,
+    IReadOnlyList<string>? UsedByProfileKeys = null,
+    IReadOnlyList<string>? RequiredByProfileKeys = null,
+    IReadOnlyList<string>? ExpectedCapabilityKeys = null,
+    IReadOnlyList<string>? RequiredSettingKeys = null,
+    IReadOnlyList<string>? MissingSettingKeys = null
+);
+
+public sealed record AdminRuntimeModelCatalogArtifactDto(
+    string Artifact,
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    IReadOnlyList<AdminRuntimeModelCatalogEntryDto> Items
+);
+
+public sealed record AdminRuntimeCapabilityStateArtifactDto(
+    string Artifact,
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    IReadOnlyList<AdminRuntimeCapabilityStateDto> Items
+);
+
+public sealed record AdminRuntimeWarmupProfilesArtifactDto(
+    string Artifact,
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    IReadOnlyList<AdminRuntimeWarmupProfileDto> Items
+);
+
+public sealed record AdminRuntimeWarmupResultsArtifactDto(
+    string Artifact,
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    IReadOnlyList<AdminRuntimeWarmupResultDto> Items
+);
+
+public sealed record AdminRuntimeEventsArtifactDto(
+    string Artifact,
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    IReadOnlyList<AdminRuntimeCapabilityEventDto> Items
+);
+
+public sealed record AdminRuntimeDiagnosticsResponseDto(
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    AdminRuntimeDiagnosticsSummaryDto Summary,
+    IReadOnlyList<AdminRuntimeCapabilityDiagnosticDto> Items
+);
+
+public sealed record AdminRuntimeDiagnosticsArtifactDto(
+    string Artifact,
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    AdminRuntimeDiagnosticsSummaryDto Summary,
+    IReadOnlyList<AdminRuntimeCapabilityDiagnosticDto> Items
+);
+
+public sealed record AdminRuntimeDiagnosticsSummaryDto(
+    int TotalCapabilities,
+    int ImplementedCapabilities,
+    int QualifiedCapabilities,
+    int SelectedCapabilities,
+    int PersistedSelectedCapabilities,
+    int BlockedCapabilities,
+    int StaleCapabilities
+);
+
+public sealed record AdminRuntimeCapabilityDiagnosticDto(
+    string Key,
+    string DisplayName,
+    string Family,
+    string Status,
+    string ProfileKey,
+    bool Implemented,
+    bool Stale,
+    bool Qualified,
+    bool Authorized,
+    bool Selected,
+    bool PersistedAuthorized,
+    bool PersistedSelected,
+    string? StaleReason,
+    double? QualificationAgeHours,
+    DateTimeOffset? QualificationExpiresAt,
+    IReadOnlyList<string> Blockers,
+    IReadOnlyList<string> Recommendations,
+    DateTimeOffset? LastCheckedAt = null,
+    DateTimeOffset? LastQualifiedAt = null,
+    string? LastError = null
+);
+
+public sealed record AdminRuntimeCapabilityEventDto(
+    Guid EventId,
+    string CapabilityKey,
+    string? ProfileKey,
+    string EventType,
+    string Actor,
+    string? Reason,
+    DateTimeOffset OccurredAt,
+    IReadOnlyDictionary<string, object?>? Details = null
+);
+
+public sealed record AdminRuntimeCapabilityAEnrichmentCandidateDto(
+    Guid DocId,
+    string DocPath,
+    string DocName,
+    string Category,
+    string Status,
+    int IngestionVersion,
+    int IndexedVersion,
+    int PriorityScore,
+    bool FileExists,
+    string? RecommendedAction,
+    IReadOnlyList<string> Reasons
+);
+
+public sealed record AdminRuntimeCapabilityAEnqueueItemDto(
+    Guid? DocId,
+    string? DocPath,
+    bool Queued,
+    Guid? JobId = null,
+    string? Reason = null
+);
+
+public sealed record AdminRuntimeCapabilityACampaignDto(
+    Guid CampaignId,
+    string CapabilityKey,
+    string? ProfileKey,
+    string Status,
+    bool DryRun,
+    bool AllowUnsafeCandidates,
+    int CandidateCount,
+    int PlannedCount,
+    int QueuedCount,
+    int SkippedCount,
+    IReadOnlyDictionary<string, int> ReasonCounts,
+    DateTimeOffset OccurredAt
+);
+
+public sealed record AdminRuntimeCapabilityACampaignDetailDto(
+    Guid CampaignId,
+    string CapabilityKey,
+    string? ProfileKey,
+    string Status,
+    bool DryRun,
+    bool AllowUnsafeCandidates,
+    int CandidateCount,
+    int PlannedCount,
+    int QueuedCount,
+    int SkippedCount,
+    IReadOnlyDictionary<string, int> ReasonCounts,
+    DateTimeOffset OccurredAt,
+    IReadOnlyList<AdminRuntimeCapabilityAEnqueueItemDto> Items
 );

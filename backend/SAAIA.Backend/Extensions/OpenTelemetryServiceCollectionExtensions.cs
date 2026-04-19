@@ -46,8 +46,9 @@ public static class OpenTelemetryServiceCollectionExtensions
         services.AddOpenTelemetry()
             .WithTracing(t =>
             {
-                t.SetResourceBuilder(resource)
+                 t.SetResourceBuilder(resource)
                  .AddSource(RetrievalTelemetry.ActivitySourceName)
+                 .AddSource(RuntimeGovernanceTelemetry.ActivitySourceName)
                  .AddAspNetCoreInstrumentation(o =>
                  {
                      o.RecordException = true;
@@ -83,8 +84,9 @@ public static class OpenTelemetryServiceCollectionExtensions
             })
             .WithMetrics(m =>
             {
-                m.SetResourceBuilder(resource)
+                 m.SetResourceBuilder(resource)
                  .AddMeter(RetrievalTelemetry.MeterName)
+                 .AddMeter(RuntimeGovernanceTelemetry.MeterName)
                  .AddAspNetCoreInstrumentation()
                  .AddHttpClientInstrumentation()
                  .AddRuntimeInstrumentation()

@@ -132,17 +132,18 @@
 > **Statut global : PARTIELLEMENT FAIT**
 > Un premier socle backend existe maintenant : persistance d'etat runtime, resultats de warmup, endpoints admin runtime et qualification minimale du coeur retrieval. Le lifecycle CDC complet reste a finir.
 
-- [~] **model_catalog.json** â€” Pas de fichier JSON versionne pour l'instant ; catalogue runtime expose via `GET /admin/runtime/catalog`
-- [~] **runtime_catalog.json** â€” Pas de fichier JSON versionne pour l'instant ; catalogue runtime expose via `GET /admin/runtime/catalog`
-- [~] **warmup_profiles.json** â€” Pas de fichier JSON versionne pour l'instant ; profil minimal `default-local` expose via `GET /admin/runtime/catalog`
-- [~] **warmup_results.json** â€” Resultats persistants en base (`runtime_warmup_results`) depuis 2026-04-19 et exposes via `GET /admin/runtime/warmup-results` ; pas encore d'artefact JSON exporte
-- [~] **capability_state.json** â€” Etat persistant en base (`runtime_capability_state`) depuis 2026-04-19 ; pas encore d'artefact JSON exporte
-- [~] **Warmup gate logic** â€” Qualification minimale implemente pour `core.retrieval` (Qdrant + TEI embeddings + rerank si active) avec `warmupPassCount=3` par defaut ; hard gates materiels encore absents
-- [ ] **Hard gates** â€” Filtrage modeles par prerequis materiel (CDC Â§9.3). Non implemente
-- [~] **Chaine de decision** â€” Etats `installed/configured/healthy/qualified/authorized/selected` exposes et persistants pour `core.retrieval` ; requalification + selection admin implementees, mais politiques multi-capacites et hard gates restent incomplets
+- [~] **model_catalog.json** â€” Artefact admin expose via `GET /admin/runtime/artifacts/model-catalog.json` depuis 2026-04-19 ; contenu encore derive du runtime retrieval plutot qu'un catalogue modele multi-runtime complet
+- [~] **runtime_catalog.json** â€” Artefact admin expose via `GET /admin/runtime/artifacts/runtime-catalog.json` depuis 2026-04-19 ; pas encore de versionnement/export disque dedie
+- [~] **warmup_profiles.json** â€” Artefact admin expose via `GET /admin/runtime/artifacts/warmup-profiles.json` depuis 2026-04-19 avec hard gates minimaux + budgets de temps + policy de checks + exigences runtime attendues (`default-local`, `strict-local`, `strict-rerank`) ; profils CDC complets encore absents
+- [~] **warmup_results.json** â€” Resultats persistants en base (`runtime_warmup_results`) + artefact admin `GET /admin/runtime/artifacts/warmup-results.json` depuis 2026-04-19 ; pas encore d'export versionne autonome
+- [~] **capability_state.json** â€” Etat persistant en base (`runtime_capability_state`) + artefact admin `GET /admin/runtime/artifacts/capability-state.json` depuis 2026-04-19 ; politique multi-capacites encore simplifiee
+- [~] **Warmup gate logic** â€” Qualification minimale implemente pour `core.retrieval` (Qdrant + TEI embeddings + rerank si active) avec `warmupPassCount=3` par defaut ; hard gates CPU/memoire/process 64-bit + budgets de temps + policy de checks + exigences runtime par profile ajoutes le 2026-04-19, details de checks/durees/mesures exposes dans les resultats, mais la qualification contractuelle reste encore simplifiee
+- [~] **Hard gates** â€” Filtrage materiel minimal implemente (`MinCpuCores`, `MinAvailableMemoryMb`, `Require64BitProcess`) et maintenant applique par profil (`default-local`, `strict-local`, `strict-rerank`) ; budgets de temps de checks/warmup ajoutes (`MaxWarmupPassDurationMs`, `MaxQdrantCheckMs`, `MaxEmbeddingsCheckMs`, `MaxRerankCheckMs`), mais hard gates modeles/profils materiels CDC complets encore absents
+- [~] **Chaine de decision** â€” Etats `installed/configured/healthy/qualified/authorized/selected` exposes et persistants pour `core.retrieval` ; requalification + selection admin implementees, mais politiques multi-capacites et hard gates complets restent incomplets
 - [ ] **Migration LocalLlmBootstrapper.cs** â€” Actuellement hardcode sur 6 modeles (Qwen Q4_0/Q4_K_S/Q4_K_M/Q6_K + Mistral Q4_K_M/Q6_K). Doit migrer vers catalogue approuve filtre par profil materiel
 - [ ] **Profils client C1/C2/C3/C4** â€” Selection par VRAM detectee dans un catalogue, pas dans du code hardcode (CDC Â§9.3)
 - [x] **Diagnostics de qualification** â€” `GET /admin/runtime/capabilities`, `GET /admin/runtime/catalog`, `POST /admin/runtime/requalify`, `GET /admin/runtime/warmup-results`, `POST /admin/runtime/capabilities/{key}/selection` implementes le 2026-04-19
+- [x] **Vue de synthese runtime** â€” `GET /admin/runtime/diagnostics` implemente le 2026-04-19 avec statuts, blockers, recommandations et resume agrege ; artefact exportable `GET /admin/runtime/artifacts/diagnostics.json` ajoute
 
 ---
 
@@ -155,7 +156,7 @@
 - [ ] **Capacite A (CorpusEnrichment)** â€” Toujours non implemente. Le runtime la presente explicitement comme absente
 - [ ] **Capacite B (BackofficeGeneration)** â€” Toujours non implementee. Le runtime la presente explicitement comme absente
 - [ ] **Capacite C (RetrievalIntelligence)** â€” Toujours non implementee. Le runtime la presente explicitement comme absente
-- [~] **Politique d'activation** â€” `desired_enabled`, `authorized`, `selected` persistants pour `core.retrieval` ; politique A/B/C et separation fine `installed != activee != selectionnee` encore incomplètes
+- [~] **Politique d'activation** â€” `desired_enabled`, `authorized`, `selected` persistants pour `core.retrieval` ; diagnostic admin de blocage/recommandation ajoute, mais politique A/B/C et separation fine `installed != activee != selectionnee` encore incomplètes
 
 ---
 
@@ -210,9 +211,9 @@
 > **Statut global : PARTIELLEMENT FAIT**
 > Le wiring OTel generique existe, et le retrieval expose maintenant des spans/metriques metier. Restent les spans hors retrieval et les agrégats de gouvernance runtime.
 
-- [~] **Spans CDC requis** â€” `rag.search`, `retrieval_exact_match`, `retrieval_dense`, `retrieval_sparse`, `retrieval_linked_context`, `retrieval_rerank` ajoutes le 2026-04-19 ; restent `pre_router`, `router_llm`, `context_builder`, `tool[N]`, `writer_llm`, `critic_llm`, `warmup_check`, `capability_select`
+- [~] **Spans CDC requis** â€” `rag.search`, `retrieval_exact_match`, `retrieval_dense`, `retrieval_sparse`, `retrieval_linked_context`, `retrieval_rerank`, `warmup_check`, `capability_select` ajoutes le 2026-04-19 ; restent `pre_router`, `router_llm`, `context_builder`, `tool[N]`, `writer_llm`, `critic_llm`
 - [ ] **Traces** â€” turn type standard, turn type translate, runs warmup qualifies
-- [~] **Metriques** â€” retrieval requests, zero-results, returned-results, candidates, latences `retrieval/exact/sparse/dense/linked/rerank/tei/qdrant` ajoutes le 2026-04-19 ; restent tokens, ctx_ratio, budget_used_pct, load time, TTFT, tok/s, passCount warmup
+- [~] **Metriques** â€” retrieval requests, zero-results, returned-results, candidates, latences `retrieval/exact/sparse/dense/linked/rerank/tei/qdrant`, plus `runtime.requalify.requests`, `runtime.selection.updates`, `runtime.warmup.passes`, `runtime.warmup.failures`, `runtime.warmup.budget_failures`, `runtime.warmup.duration`, `runtime.selection.duration`, `runtime.artifact.reads`, `runtime.artifact.duration` ajoutes le 2026-04-19 ; restent tokens, ctx_ratio, budget_used_pct, load time, TTFT, tok/s, dashboarding/metriques agregees CDC publiees
 
 ---
 
