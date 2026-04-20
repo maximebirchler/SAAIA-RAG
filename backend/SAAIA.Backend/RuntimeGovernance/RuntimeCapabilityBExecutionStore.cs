@@ -49,6 +49,103 @@ RETURNING job_id;
             cancellationToken: ct));
     }
 
+    internal static async Task<bool> TryClaimJobAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        Guid jobId,
+        DateTimeOffset claimedAt,
+        string payloadJson,
+        CancellationToken ct)
+    {
+        const string sql = """
+UPDATE admin_jobs
+SET status='running',
+    started_at=COALESCE(started_at, @claimedAt),
+    payload=@payload::jsonb,
+    last_error=NULL
+WHERE tenant_id=@tenant AND job_id=@jobId AND status='queued';
+""";
+
+        var updated = await conn.ExecuteAsync(new CommandDefinition(
+            sql,
+            new
+            {
+                tenant = tenantId,
+                jobId,
+                claimedAt = claimedAt.UtcDateTime,
+                payload = payloadJson
+            },
+            cancellationToken: ct));
+
+        return updated > 0;
+    }
+
+    internal static async Task<bool> TryCompleteJobAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        Guid jobId,
+        DateTimeOffset finishedAt,
+        string resultJson,
+        CancellationToken ct)
+    {
+        const string sql = """
+UPDATE admin_jobs
+SET status='done',
+    result=@result::jsonb,
+    finished_at=@finishedAt,
+    last_error=NULL
+WHERE tenant_id=@tenant
+  AND job_id=@jobId
+  AND status='running';
+""";
+
+        var updated = await conn.ExecuteAsync(new CommandDefinition(
+            sql,
+            new
+            {
+                tenant = tenantId,
+                jobId,
+                result = resultJson,
+                finishedAt = finishedAt.UtcDateTime
+            },
+            cancellationToken: ct));
+
+        return updated > 0;
+    }
+
+    internal static async Task<bool> TryFailJobAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        Guid jobId,
+        DateTimeOffset failedAt,
+        string resultJson,
+        string lastError,
+        CancellationToken ct)
+    {
+        const string sql = """
+UPDATE admin_jobs
+SET status='failed',
+    result=@result::jsonb,
+    finished_at=@failedAt,
+    last_error=@lastError
+WHERE tenant_id=@tenant AND job_id=@jobId AND status='running';
+""";
+
+        var updated = await conn.ExecuteAsync(new CommandDefinition(
+            sql,
+            new
+            {
+                tenant = tenantId,
+                jobId,
+                result = resultJson,
+                failedAt = failedAt.UtcDateTime,
+                lastError
+            },
+            cancellationToken: ct));
+
+        return updated > 0;
+    }
+
     internal static async Task<CapabilityBExecutionJobRow?> LoadCapabilityBExecutionJobAsync(
         NpgsqlConnection conn,
         Guid tenantId,
@@ -173,6 +270,40 @@ WHERE tenant_id=@tenant
 LIMIT 1;
 """,
             new { tenant = tenantId, docId },
+            cancellationToken: ct));
+
+    internal static Task UpsertDocumentSummaryAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        Guid docId,
+        string level,
+        string? docLanguage,
+        string sourceHash,
+        string summaryText,
+        string? summaryMetaJson,
+        CancellationToken ct)
+        => conn.ExecuteAsync(new CommandDefinition(
+            """
+INSERT INTO document_summaries(tenant_id, doc_id, level, doc_language, source_hash, summary_text, summary_meta, created_at, updated_at)
+VALUES(@tenant, @docId, @level, @docLanguage, @sourceHash, @summaryText, @summaryMeta::jsonb, now(), now())
+ON CONFLICT (tenant_id, doc_id, level)
+DO UPDATE SET
+  doc_language = EXCLUDED.doc_language,
+  source_hash = EXCLUDED.source_hash,
+  summary_text = EXCLUDED.summary_text,
+  summary_meta = EXCLUDED.summary_meta,
+  updated_at = now();
+""",
+            new
+            {
+                tenant = tenantId,
+                docId,
+                level,
+                docLanguage,
+                sourceHash,
+                summaryText,
+                summaryMeta = (object?)summaryMetaJson ?? DBNull.Value
+            },
             cancellationToken: ct));
 
     internal static async Task RecordCapabilityBSummaryCompletedAsync(

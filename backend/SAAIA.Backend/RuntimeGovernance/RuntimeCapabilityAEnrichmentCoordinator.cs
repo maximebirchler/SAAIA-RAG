@@ -95,7 +95,7 @@ internal static class RuntimeCapabilityAEnrichmentCoordinator
 
             items.Add(CreateEnqueueItem(candidate, queued: true, jobId: queued.JobId));
 
-            await RuntimeGovernanceService.InsertCapabilityEventAsync(
+            await RuntimeCapabilityPersistenceStore.InsertCapabilityEventAsync(
                 conn,
                 RuntimeGovernanceService.CreateCapabilityEvent(
                     capabilityKey: capabilityKey,
@@ -121,7 +121,7 @@ internal static class RuntimeCapabilityAEnrichmentCoordinator
         var queuedCount = items.Count(static item => item.Queued);
         var skippedCount = items.Count - queuedCount;
 
-        await RuntimeGovernanceService.InsertCapabilityEventAsync(
+        await RuntimeCapabilityPersistenceStore.InsertCapabilityEventAsync(
             conn,
             RuntimeGovernanceService.CreateCapabilityEvent(
                 capabilityKey: capabilityKey,

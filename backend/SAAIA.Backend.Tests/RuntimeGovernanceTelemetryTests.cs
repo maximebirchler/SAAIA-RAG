@@ -208,7 +208,9 @@ public sealed class RuntimeGovernanceTelemetryTests
         RuntimeGovernanceTelemetry.RecordStaleQualificationReconciled("core.retrieval", "default-local", "qualification_inputs_changed");
         Assert.Contains("saaia.runtime.qualification.stale_reconciled", metricNames);
 
-        var warmupActivity = Assert.Single(stoppedActivities, activity =>
+        var activitySnapshot = stoppedActivities.ToArray();
+
+        var warmupActivity = Assert.Single(activitySnapshot, activity =>
             activity.OperationName == "warmup_check"
             && Equals(activity.GetTagItem("saaia.runtime.profile_key"), "default-local"));
         Assert.Equal("core.retrieval", warmupActivity.GetTagItem("saaia.runtime.capability_key"));
@@ -219,56 +221,56 @@ public sealed class RuntimeGovernanceTelemetryTests
         Assert.Equal(11L, warmupActivity.GetTagItem("saaia.runtime.qdrant_duration_ms"));
         Assert.Equal(21L, warmupActivity.GetTagItem("saaia.runtime.embeddings_duration_ms"));
 
-        var selectionActivity = Assert.Single(stoppedActivities, activity =>
+        var selectionActivity = Assert.Single(activitySnapshot, activity =>
             activity.OperationName == "capability_select"
             && Equals(activity.GetTagItem("saaia.runtime.success"), true));
         Assert.Equal(true, selectionActivity.GetTagItem("saaia.runtime.success"));
         Assert.Equal(true, selectionActivity.GetTagItem("saaia.runtime.selected"));
 
-        var failedSelectionActivity = Assert.Single(stoppedActivities, activity =>
+        var failedSelectionActivity = Assert.Single(activitySnapshot, activity =>
             activity.OperationName == "capability_select"
             && Equals(activity.GetTagItem("saaia.runtime.success"), false));
         Assert.Equal("capability must be desired-enabled before it can be authorized", failedSelectionActivity.GetTagItem("saaia.runtime.error_reason"));
 
-        var artifactActivity = stoppedActivities.First(activity =>
+        var artifactActivity = activitySnapshot.First(activity =>
             activity.OperationName == "runtime_artifact_read"
             && Equals(activity.GetTagItem("saaia.runtime.artifact_name"), "runtime_catalog.json"));
         Assert.Equal("runtime_catalog.json", artifactActivity.GetTagItem("saaia.runtime.artifact_name"));
         Assert.Equal(true, artifactActivity.GetTagItem("saaia.runtime.success"));
 
-        var capabilityAActivity = Assert.Single(stoppedActivities, activity =>
+        var capabilityAActivity = Assert.Single(activitySnapshot, activity =>
             activity.OperationName == "capability_a_candidates"
             && Equals(activity.GetTagItem("saaia.runtime.capability_key"), "capability_a.corpus_enrichment"));
         Assert.Equal(3, capabilityAActivity.GetTagItem("saaia.runtime.candidate_count"));
 
-        var capabilityAEnqueueActivity = Assert.Single(stoppedActivities, activity =>
+        var capabilityAEnqueueActivity = Assert.Single(activitySnapshot, activity =>
             activity.OperationName == "capability_a_enqueue"
             && Equals(activity.GetTagItem("saaia.runtime.capability_key"), "capability_a.corpus_enrichment"));
         Assert.Equal(2, capabilityAEnqueueActivity.GetTagItem("saaia.runtime.queued_count"));
         Assert.Equal(1, capabilityAEnqueueActivity.GetTagItem("saaia.runtime.skipped_count"));
 
-        var capabilityBActivity = Assert.Single(stoppedActivities, activity =>
+        var capabilityBActivity = Assert.Single(activitySnapshot, activity =>
             activity.OperationName == "capability_b_candidates"
             && Equals(activity.GetTagItem("saaia.runtime.capability_key"), "capability_b.backoffice_generation"));
         Assert.Equal(4, capabilityBActivity.GetTagItem("saaia.runtime.candidate_count"));
 
-        var capabilityBEnqueueActivity = Assert.Single(stoppedActivities, activity =>
+        var capabilityBEnqueueActivity = Assert.Single(activitySnapshot, activity =>
             activity.OperationName == "capability_b_enqueue"
             && Equals(activity.GetTagItem("saaia.runtime.capability_key"), "capability_b.backoffice_generation"));
         Assert.Equal(1, capabilityBEnqueueActivity.GetTagItem("saaia.runtime.queued_count"));
         Assert.Equal(3, capabilityBEnqueueActivity.GetTagItem("saaia.runtime.skipped_count"));
 
-        var capabilityBClaimActivity = Assert.Single(stoppedActivities, activity =>
+        var capabilityBClaimActivity = Assert.Single(activitySnapshot, activity =>
             activity.OperationName == "capability_b_claim"
             && Equals(activity.GetTagItem("saaia.runtime.capability_key"), "capability_b.backoffice_generation"));
         Assert.Equal(true, capabilityBClaimActivity.GetTagItem("saaia.runtime.success"));
 
-        var capabilityBFailActivity = Assert.Single(stoppedActivities, activity =>
+        var capabilityBFailActivity = Assert.Single(activitySnapshot, activity =>
             activity.OperationName == "capability_b_fail"
             && Equals(activity.GetTagItem("saaia.runtime.capability_key"), "capability_b.backoffice_generation"));
         Assert.Equal(true, capabilityBFailActivity.GetTagItem("saaia.runtime.success"));
 
-        var capabilityBCompletedActivity = Assert.Single(stoppedActivities, activity =>
+        var capabilityBCompletedActivity = Assert.Single(activitySnapshot, activity =>
             activity.OperationName == "capability_b_summary_completed"
             && Equals(activity.GetTagItem("saaia.runtime.capability_key"), "capability_b.backoffice_generation"));
         Assert.Equal(true, capabilityBCompletedActivity.GetTagItem("saaia.runtime.success"));
