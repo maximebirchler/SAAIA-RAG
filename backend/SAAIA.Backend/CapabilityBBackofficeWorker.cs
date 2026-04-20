@@ -213,7 +213,7 @@ LIMIT 1;
     }
 
     private static string ComposeSummaryText(
-        RuntimeGovernanceService.CapabilityBDocumentRow doc,
+        CapabilityBDocumentRow doc,
         IReadOnlyList<string> sectionTitles,
         IReadOnlyList<string> excerpts)
     {
@@ -239,7 +239,7 @@ LIMIT 1;
         return string.Join(Environment.NewLine, lines);
     }
 
-    private static string BuildOverviewLine(RuntimeGovernanceService.CapabilityBDocumentRow doc)
+    private static string BuildOverviewLine(CapabilityBDocumentRow doc)
     {
         var builder = new StringBuilder();
         builder.Append(doc.DocName);

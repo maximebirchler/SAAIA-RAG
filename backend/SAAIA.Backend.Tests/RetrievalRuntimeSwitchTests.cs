@@ -540,6 +540,32 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void ComputeHypQuestionsMatched_returns_true_when_query_overlaps_hypothetical_questions()
+    {
+        var matched = RagEndpoints.ComputeHypQuestionsMatched(
+            "What does IND570 say about PLC integration?",
+            [
+                "What does MettlerToledo_IND570.pdf say about PLC integration?",
+                "Which requirements from MettlerToledo_IND570.pdf apply to Shared data?"
+            ]);
+
+        Assert.True(matched);
+    }
+
+    [Fact]
+    public void ComputeHypQuestionsMatched_returns_false_when_questions_exist_but_do_not_match_query()
+    {
+        var matched = RagEndpoints.ComputeHypQuestionsMatched(
+            "Ou trouve-t-on EN 15281 ?",
+            [
+                "What does MettlerToledo_IND570.pdf say about PLC integration?",
+                "Which requirements from MettlerToledo_IND570.pdf apply to Shared data?"
+            ]);
+
+        Assert.False(matched);
+    }
+
+    [Fact]
     public void BuildDocumentCategoryPath_and_category_are_derived_from_doc_path()
     {
         Assert.Equal("ATEX/Guidance", RagEndpoints.BuildDocumentCategoryPath("ATEX/Guidance/CEN TR 15281.pdf"));

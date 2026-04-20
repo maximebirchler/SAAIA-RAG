@@ -67,6 +67,7 @@ ORDER BY category;
     {
         var resp = await SearchCoreAsync(ctx, ds, ragOpt.Value, httpFactory, req);
         var categoryRefsByTopLevelPath = await LoadTopCategoryRefsAsync(ds, ctx.GetTenantId(), resp.Matches, ctx.RequestAborted);
+        var hypQuestionsMatchedByDocPath = await LoadHypQuestionsMatchedByDocPathAsync(ds, ctx.GetTenantId(), resp.Query, resp.Matches, ctx.RequestAborted);
 
         var responseDto = new RagSearchResponseDto(
             RequestId: resp.RequestId,
@@ -131,7 +132,8 @@ ORDER BY category;
                         RerankScore: m.RerankScore,
                         HasTable: DetectHasTable(m.Text),
                         HasWarning: DetectHasWarning(m.Text, m.ChunkType),
-                        ContextualSnippet: m.EmbedText
+                        ContextualSnippet: m.EmbedText,
+                        HypQuestionsMatched: ResolveHypQuestionsMatched(m.DocPath, hypQuestionsMatchedByDocPath)
                     );
                 })
                 .ToList(),
@@ -139,6 +141,74 @@ ORDER BY category;
         );
 
         return Results.Ok(responseDto);
+    }
+
+    internal static async Task<IReadOnlyDictionary<string, bool?>> LoadHypQuestionsMatchedByDocPathAsync(
+        NpgsqlDataSource ds,
+        Guid tenantId,
+        string query,
+        IReadOnlyList<RagMatch> matches,
+        CancellationToken ct)
+    {
+        var docPaths = matches
+            .Select(static match => match.DocPath)
+            .Where(static path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Cast<string>()
+            .ToArray();
+
+        if (docPaths.Length == 0)
+            return new Dictionary<string, bool?>(StringComparer.OrdinalIgnoreCase);
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        var docs = (await conn.QueryAsync<CapabilityAHypQuestionDocRow>(new CommandDefinition(
+            """
+SELECT doc_id AS "DocId",
+       doc_path AS "DocPath",
+       doc_name AS "DocName",
+       indexed_version AS "IndexedVersion"
+FROM documents
+WHERE tenant_id=@tenant
+  AND doc_path = ANY(@docPaths)
+  AND indexed_version > 0
+ORDER BY doc_path;
+""",
+            new
+            {
+                tenant = tenantId,
+                docPaths
+            },
+            cancellationToken: ct)))
+            .ToArray();
+
+        var result = new Dictionary<string, bool?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var doc in docs)
+        {
+            var sectionTitles = await RuntimeGovernanceService.LoadCapabilityBSectionTitlesAsync(
+                conn,
+                tenantId,
+                doc.DocId,
+                doc.IndexedVersion,
+                limit: 3,
+                ct);
+            var excerpts = await RuntimeGovernanceService.LoadCapabilityBUnitExcerptsAsync(
+                conn,
+                tenantId,
+                doc.DocId,
+                doc.IndexedVersion,
+                limit: 2,
+                ct);
+            var hypotheticalQuestions = RuntimeGovernanceService.BuildCapabilityAHypotheticalQuestions(
+                doc.DocName,
+                sectionTitles,
+                excerpts);
+
+            result[doc.DocPath] = hypotheticalQuestions.Count == 0
+                ? null
+                : ComputeHypQuestionsMatched(query, hypotheticalQuestions);
+        }
+
+        return result;
     }
 
     internal static async Task<RagSearchResponse> SearchCoreAsync(
@@ -1452,6 +1522,28 @@ LIMIT @top_k;
         return matched == 0 ? 0.0 : (double)matched / queryTokens.Count;
     }
 
+    internal static bool ComputeHypQuestionsMatched(string query, IReadOnlyList<string>? hypotheticalQuestions)
+    {
+        if (hypotheticalQuestions is null || hypotheticalQuestions.Count == 0)
+            return false;
+
+        var queryTokens = ExtractLexicalQueryTokens(query);
+        if (queryTokens.Count == 0)
+            return false;
+
+        return hypotheticalQuestions.Any(question => ComputeLexicalCoverage(queryTokens, question) >= 0.5);
+    }
+
+    internal static bool? ResolveHypQuestionsMatched(string? docPath, IReadOnlyDictionary<string, bool?>? byDocPath)
+    {
+        if (string.IsNullOrWhiteSpace(docPath) || byDocPath is null)
+            return null;
+
+        return byDocPath.TryGetValue(docPath, out var matched)
+            ? matched
+            : null;
+    }
+
     internal static double ComputeLinkedMatchScore(double anchorScore, string linkType, string? anchorRetriever = null)
     {
         var penalty = linkType switch
@@ -2223,6 +2315,12 @@ WHERE tenant_id=@tenant
 
         return sb.ToString();
     }
+
+    private sealed record CapabilityAHypQuestionDocRow(
+        Guid DocId,
+        string DocPath,
+        string DocName,
+        int IndexedVersion);
 
     private static string BuildCategoryRef(int displayOrder)
         => $"cat_{displayOrder:000}";

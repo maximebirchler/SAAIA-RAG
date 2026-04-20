@@ -89,7 +89,8 @@ public sealed record RagItemDto(
     double? RerankScore = null,
     bool? HasTable = null,
     bool? HasWarning = null,
-    string? ContextualSnippet = null
+    string? ContextualSnippet = null,
+    bool? HypQuestionsMatched = null
 );
 
 /// <summary>

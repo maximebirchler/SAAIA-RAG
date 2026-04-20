@@ -1337,6 +1337,42 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal("exact_match", item.ProvenanceInfo!.Channel);
         Assert.Null(item.ProvenanceInfo.OffsetStart);
         Assert.Null(item.ProvenanceInfo.OffsetEnd);
+        Assert.False(item.HypQuestionsMatched);
+    }
+
+    [Fact]
+    public async Task SearchAsync_sets_hyp_questions_matched_when_query_overlaps_capability_a_questions()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("efefffff-ffff-ffff-ffff-ffffffffffff");
+        await PublishRuntimeReadyQuestionBankDocumentsAsync(db, tenantId);
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var ctx = BuildRagHttpContext(tenantId);
+        var result = await InvokeRagSearchAsync(
+            ctx,
+            ds,
+            Options.Create(CreateTestRagOptions()),
+            new StubHttpClientFactory(),
+            new RagSearchRequestDto("What does IND570 say about PLC integration?", Category: "programmation", TopK: 3));
+
+        await result.ExecuteAsync(ctx);
+
+        var payload = ReadResponseBody(ctx);
+        var response = JsonSerializer.Deserialize<RagSearchResponseDto>(payload, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        Assert.NotNull(response);
+        var item = Assert.Single(
+            response!.Items,
+            static match => string.Equals(match.DocPath, "Programmation/Mettler/MettlerToledo_IND570.pdf", StringComparison.Ordinal));
+
+        Assert.True(item.HypQuestionsMatched);
     }
 
     private static DefaultHttpContext BuildRagHttpContext(Guid tenantId)
