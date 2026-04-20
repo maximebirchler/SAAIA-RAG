@@ -26,9 +26,14 @@ internal static class RuntimeGovernanceService
     private const string CapabilityACandidatesJsonArtifact = "capability_a_candidates.json";
     private const string CapabilityACampaignsJsonArtifact = "capability_a_campaigns.json";
     private const string CapabilityACampaignDetailJsonArtifact = "capability_a_campaign_detail.json";
+    private const string CapabilityBCandidatesJsonArtifact = "capability_b_candidates.json";
+    private const string CapabilityBCampaignsJsonArtifact = "capability_b_campaigns.json";
+    private const string CapabilityBCampaignDetailJsonArtifact = "capability_b_campaign_detail.json";
     private const string AdminRuntimeActor = "admin_runtime_endpoint";
     private const string CoreRetrievalCapabilityKey = "core.retrieval";
     private const string CapabilityACorpusEnrichmentKey = "capability_a.corpus_enrichment";
+    private const string CapabilityBBackofficeGenerationKey = "capability_b.backoffice_generation";
+    private static readonly IReadOnlyDictionary<string, int> EmptyReasonCounts = new Dictionary<string, int>(StringComparer.Ordinal);
 
     internal static AdminRuntimeCatalogResponseDto BuildCatalog(
         RuntimeGovernanceOptions options,
@@ -148,11 +153,16 @@ internal static class RuntimeGovernanceService
         {
             await using var conn = await ds.OpenConnectionAsync(ct);
             var persisted = await LoadCapabilityStateRowsAsync(conn, ct);
+            var capabilityBOperationalSummary = await LoadCapabilityBOperationalSummaryAsync(conn, options, ct);
             var items = RuntimeCapabilities
                 .Select(def => persisted.TryGetValue(def.Key, out var row)
                     ? ProjectCapabilityState(def, MapStateRow(row), options, rag)
                     : BuildDefaultState(def, options, rag))
-                .Select(MapCapabilityDiagnostic)
+                .Select(state => MapCapabilityDiagnostic(
+                    state,
+                    string.Equals(state.Key, CapabilityBBackofficeGenerationKey, StringComparison.Ordinal)
+                        ? capabilityBOperationalSummary
+                        : null))
                 .ToArray();
 
             var summary = new AdminRuntimeDiagnosticsSummaryDto(
@@ -611,6 +621,988 @@ internal static class RuntimeGovernanceService
         }
     }
 
+    internal static async Task<RuntimeOperationResult<AdminRuntimeCapabilityBBackofficeCandidatesResponseDto>> GetCapabilityBBackofficeCandidatesAsync(
+        Guid tenantId,
+        NpgsqlDataSource ds,
+        RuntimeGovernanceOptions options,
+        RagOptions rag,
+        IHostEnvironment env,
+        string? category,
+        int limit,
+        CancellationToken ct)
+    {
+        using var activity = RuntimeGovernanceTelemetry.StartCapabilityBOperationActivity("capability_b_candidates");
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            await using var conn = await ds.OpenConnectionAsync(ct);
+            var gate = await EnsureCapabilityReadyAsync(conn, CapabilityBBackofficeGenerationKey, options, rag, ct);
+            if (gate.Error is not null)
+            {
+                sw.Stop();
+                RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                    activity,
+                    "capability_b_candidates",
+                    success: false,
+                    durationMs: sw.ElapsedMilliseconds,
+                    candidateCount: 0,
+                    errorReason: gate.Error);
+                return new RuntimeOperationResult<AdminRuntimeCapabilityBBackofficeCandidatesResponseDto>(null, gate.Error);
+            }
+
+            var candidates = await LoadCapabilityBBackofficeCandidatesAsync(
+                conn,
+                tenantId,
+                category,
+                limit,
+                options,
+                ct);
+
+            sw.Stop();
+            RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                activity,
+                "capability_b_candidates",
+                success: true,
+                durationMs: sw.ElapsedMilliseconds,
+                candidateCount: candidates.Length);
+
+            return new RuntimeOperationResult<AdminRuntimeCapabilityBBackofficeCandidatesResponseDto>(
+                new AdminRuntimeCapabilityBBackofficeCandidatesResponseDto(
+                    CdcAlignment,
+                    env.EnvironmentName,
+                    CapabilityBBackofficeGenerationKey,
+                    gate.State!.ProfileKey,
+                    candidates.Length,
+                    candidates),
+                null);
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            RuntimeGovernanceTelemetry.MarkError(activity, ex);
+            RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                activity,
+                "capability_b_candidates",
+                success: false,
+                durationMs: sw.ElapsedMilliseconds,
+                candidateCount: 0,
+                errorReason: ex.Message);
+            throw;
+        }
+    }
+
+    internal static async Task<RuntimeOperationResult<AdminRuntimeCapabilityBBackofficeCandidatesArtifactDto>> GetCapabilityBBackofficeCandidatesArtifactAsync(
+        Guid tenantId,
+        NpgsqlDataSource ds,
+        RuntimeGovernanceOptions options,
+        RagOptions rag,
+        IHostEnvironment env,
+        string? category,
+        int limit,
+        CancellationToken ct)
+    {
+        using var activity = RuntimeGovernanceTelemetry.StartArtifactReadActivity(CapabilityBCandidatesJsonArtifact);
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            var result = await GetCapabilityBBackofficeCandidatesAsync(
+                tenantId,
+                ds,
+                options,
+                rag,
+                env,
+                category,
+                limit,
+                ct);
+
+            if (result.Error is not null || result.Payload is null)
+            {
+                sw.Stop();
+                RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, CapabilityBCandidatesJsonArtifact, success: false, durationMs: sw.ElapsedMilliseconds);
+                return new RuntimeOperationResult<AdminRuntimeCapabilityBBackofficeCandidatesArtifactDto>(null, result.Error ?? "capability_b_candidates_unavailable");
+            }
+
+            sw.Stop();
+            RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, CapabilityBCandidatesJsonArtifact, success: true, durationMs: sw.ElapsedMilliseconds);
+            return new RuntimeOperationResult<AdminRuntimeCapabilityBBackofficeCandidatesArtifactDto>(
+                new AdminRuntimeCapabilityBBackofficeCandidatesArtifactDto(
+                    CapabilityBCandidatesJsonArtifact,
+                    result.Payload.CdcAlignment,
+                    result.Payload.Environment,
+                    DateTimeOffset.UtcNow,
+                    result.Payload.CapabilityKey,
+                    result.Payload.ProfileKey,
+                    result.Payload.TotalCandidates,
+                    result.Payload.Items),
+                null);
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            RuntimeGovernanceTelemetry.MarkError(activity, ex);
+            RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, CapabilityBCandidatesJsonArtifact, success: false, durationMs: sw.ElapsedMilliseconds);
+            throw;
+        }
+    }
+
+    internal static async Task<AdminRuntimeCapabilityBCampaignsResponseDto> GetCapabilityBCampaignsAsync(
+        NpgsqlDataSource ds,
+        IHostEnvironment env,
+        int limit,
+        CancellationToken ct)
+    {
+        using var activity = RuntimeGovernanceTelemetry.StartArtifactReadActivity("capability_b_campaigns");
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            await using var conn = await ds.OpenConnectionAsync(ct);
+            var items = await LoadCapabilityBCampaignsAsync(conn, Math.Clamp(limit, 1, 100), ct);
+            sw.Stop();
+            RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, "capability_b_campaigns", success: true, durationMs: sw.ElapsedMilliseconds);
+            return new AdminRuntimeCapabilityBCampaignsResponseDto(
+                CdcAlignment,
+                env.EnvironmentName,
+                CapabilityBBackofficeGenerationKey,
+                items);
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            RuntimeGovernanceTelemetry.MarkError(activity, ex);
+            RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, "capability_b_campaigns", success: false, durationMs: sw.ElapsedMilliseconds);
+            throw;
+        }
+    }
+
+    internal static async Task<AdminRuntimeCapabilityBCampaignsArtifactDto> GetCapabilityBCampaignsArtifactAsync(
+        NpgsqlDataSource ds,
+        IHostEnvironment env,
+        int limit,
+        CancellationToken ct)
+    {
+        using var activity = RuntimeGovernanceTelemetry.StartArtifactReadActivity(CapabilityBCampaignsJsonArtifact);
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            var campaigns = await GetCapabilityBCampaignsAsync(ds, env, limit, ct);
+            sw.Stop();
+            RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, CapabilityBCampaignsJsonArtifact, success: true, durationMs: sw.ElapsedMilliseconds);
+            return new AdminRuntimeCapabilityBCampaignsArtifactDto(
+                CapabilityBCampaignsJsonArtifact,
+                campaigns.CdcAlignment,
+                campaigns.Environment,
+                DateTimeOffset.UtcNow,
+                campaigns.CapabilityKey,
+                campaigns.Items);
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            RuntimeGovernanceTelemetry.MarkError(activity, ex);
+            RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, CapabilityBCampaignsJsonArtifact, success: false, durationMs: sw.ElapsedMilliseconds);
+            throw;
+        }
+    }
+
+    internal static async Task<AdminRuntimeCapabilityBCampaignDetailResponseDto?> GetCapabilityBCampaignAsync(
+        NpgsqlDataSource ds,
+        IHostEnvironment env,
+        Guid campaignId,
+        CancellationToken ct)
+    {
+        using var activity = RuntimeGovernanceTelemetry.StartArtifactReadActivity("capability_b_campaign_detail");
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            await using var conn = await ds.OpenConnectionAsync(ct);
+            var row = await LoadCapabilityBCampaignRowAsync(conn, campaignId, ct);
+            if (row is null)
+            {
+                sw.Stop();
+                RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, "capability_b_campaign_detail", success: false, durationMs: sw.ElapsedMilliseconds);
+                return null;
+            }
+
+            var item = await BuildCapabilityBCampaignDetailAsync(conn, row, ct);
+            sw.Stop();
+            RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, "capability_b_campaign_detail", success: true, durationMs: sw.ElapsedMilliseconds);
+            return new AdminRuntimeCapabilityBCampaignDetailResponseDto(
+                CdcAlignment,
+                env.EnvironmentName,
+                CapabilityBBackofficeGenerationKey,
+                item);
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            RuntimeGovernanceTelemetry.MarkError(activity, ex);
+            RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, "capability_b_campaign_detail", success: false, durationMs: sw.ElapsedMilliseconds);
+            throw;
+        }
+    }
+
+    internal static async Task<AdminRuntimeCapabilityBCampaignDetailArtifactDto?> GetCapabilityBCampaignArtifactAsync(
+        NpgsqlDataSource ds,
+        IHostEnvironment env,
+        Guid campaignId,
+        CancellationToken ct)
+    {
+        using var activity = RuntimeGovernanceTelemetry.StartArtifactReadActivity(CapabilityBCampaignDetailJsonArtifact);
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            var campaign = await GetCapabilityBCampaignAsync(ds, env, campaignId, ct);
+            if (campaign is null)
+            {
+                sw.Stop();
+                RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, CapabilityBCampaignDetailJsonArtifact, success: false, durationMs: sw.ElapsedMilliseconds);
+                return null;
+            }
+
+            sw.Stop();
+            RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, CapabilityBCampaignDetailJsonArtifact, success: true, durationMs: sw.ElapsedMilliseconds);
+            return new AdminRuntimeCapabilityBCampaignDetailArtifactDto(
+                CapabilityBCampaignDetailJsonArtifact,
+                campaign.CdcAlignment,
+                campaign.Environment,
+                DateTimeOffset.UtcNow,
+                campaign.CapabilityKey,
+                campaign.Item);
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            RuntimeGovernanceTelemetry.MarkError(activity, ex);
+            RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, CapabilityBCampaignDetailJsonArtifact, success: false, durationMs: sw.ElapsedMilliseconds);
+            throw;
+        }
+    }
+
+    internal static async Task<RuntimeOperationResult<AdminRuntimeCapabilityBEnqueueResponseDto>> EnqueueCapabilityBBackofficeAsync(
+        Guid tenantId,
+        NpgsqlDataSource ds,
+        RuntimeGovernanceOptions options,
+        RagOptions rag,
+        IHostEnvironment env,
+        AdminRuntimeCapabilityBEnqueueRequestDto? req,
+        CancellationToken ct)
+    {
+        using var activity = RuntimeGovernanceTelemetry.StartCapabilityBOperationActivity("capability_b_enqueue");
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            await using var conn = await ds.OpenConnectionAsync(ct);
+            var gate = await EnsureCapabilityReadyAsync(conn, CapabilityBBackofficeGenerationKey, options, rag, ct);
+            if (gate.Error is not null)
+            {
+                sw.Stop();
+                RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                    activity,
+                    "capability_b_enqueue",
+                    success: false,
+                    durationMs: sw.ElapsedMilliseconds,
+                    queuedCount: 0,
+                    skippedCount: 0,
+                    errorReason: gate.Error);
+                return new RuntimeOperationResult<AdminRuntimeCapabilityBEnqueueResponseDto>(null, gate.Error);
+            }
+
+            var selectedDocIds = (req?.DocIds ?? Array.Empty<Guid>())
+                .Where(id => id != Guid.Empty)
+                .Distinct()
+                .ToHashSet();
+            var selectedDocPaths = (req?.DocPaths ?? Array.Empty<string>())
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .Select(path => path.Trim().Replace('\\', '/'))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var candidates = await LoadCapabilityBBackofficeCandidatesAsync(
+                conn,
+                tenantId,
+                req?.Category,
+                Math.Clamp(req?.MaxCandidates ?? 200, 1, 500),
+                options,
+                ct);
+
+            if (selectedDocIds.Count > 0 || selectedDocPaths.Count > 0)
+            {
+                candidates = candidates
+                    .Where(candidate => selectedDocIds.Contains(candidate.DocId) || selectedDocPaths.Contains(candidate.DocPath))
+                    .ToArray();
+            }
+
+            var items = new List<AdminRuntimeCapabilityBEnqueueItemDto>(candidates.Length);
+            var reasonCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+            var campaignId = Guid.NewGuid();
+            var plannedCount = 0;
+
+            foreach (var candidate in candidates)
+            {
+                if (candidate.HasActiveJob)
+                {
+                    items.Add(new AdminRuntimeCapabilityBEnqueueItemDto(candidate.DocId, candidate.DocPath, Queued: false, Reason: "active_summary_job_exists"));
+                    IncrementCapabilityAReasonCounts(reasonCounts, candidate.Reasons);
+                    IncrementCapabilityAReasonCounts(reasonCounts, ["blocked:active_summary_job_exists"]);
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(candidate.PolicyBlockReason) && req?.Force != true)
+                {
+                    items.Add(new AdminRuntimeCapabilityBEnqueueItemDto(candidate.DocId, candidate.DocPath, Queued: false, Reason: candidate.PolicyBlockReason));
+                    IncrementCapabilityAReasonCounts(reasonCounts, candidate.Reasons);
+                    IncrementCapabilityAReasonCounts(reasonCounts, [$"blocked:{candidate.PolicyBlockReason}"]);
+                    continue;
+                }
+
+                plannedCount++;
+                IncrementCapabilityAReasonCounts(reasonCounts, candidate.Reasons);
+
+                if (req?.DryRun == true)
+                {
+                    items.Add(new AdminRuntimeCapabilityBEnqueueItemDto(candidate.DocId, candidate.DocPath, Queued: false, Reason: "dry_run_preview"));
+                    continue;
+                }
+
+                var jobId = await InsertCapabilityBAdminJobAsync(conn, tenantId, candidate.DocId, candidate.DocPath, req?.Force == true, campaignId, gate.State!.ProfileKey, ct);
+                items.Add(new AdminRuntimeCapabilityBEnqueueItemDto(candidate.DocId, candidate.DocPath, Queued: true, JobId: jobId));
+
+                await InsertCapabilityEventAsync(
+                    conn,
+                    CreateCapabilityEvent(
+                        capabilityKey: CapabilityBBackofficeGenerationKey,
+                        profileKey: gate.State!.ProfileKey,
+                        eventType: "capability_b_enqueued",
+                        reason: string.Join(",", candidate.Reasons),
+                        details: new Dictionary<string, object?>
+                        {
+                            ["docId"] = candidate.DocId,
+                            ["docPath"] = candidate.DocPath,
+                            ["category"] = candidate.Category,
+                            ["summaryState"] = candidate.SummaryState,
+                            ["jobId"] = jobId,
+                            ["reasons"] = candidate.Reasons.ToArray(),
+                            ["policyBlocked"] = candidate.PolicyBlocked,
+                            ["policyBlockReason"] = candidate.PolicyBlockReason,
+                            ["campaignId"] = campaignId
+                        }),
+                    ct);
+            }
+
+            var queuedCount = items.Count(item => item.Queued);
+            var skippedCount = items.Count(item => !item.Queued);
+
+            await InsertCapabilityEventAsync(
+                conn,
+                CreateCapabilityEvent(
+                    capabilityKey: CapabilityBBackofficeGenerationKey,
+                    profileKey: gate.State!.ProfileKey,
+                    eventType: req?.DryRun == true ? "capability_b_campaign_dry_run" : "capability_b_campaign_executed",
+                    reason: req?.DryRun == true ? "dry_run_preview" : "campaign_completed",
+                    details: new Dictionary<string, object?>
+                    {
+                        ["campaignId"] = campaignId,
+                        ["candidateCount"] = candidates.Length,
+                        ["plannedCount"] = plannedCount,
+                        ["queuedCount"] = queuedCount,
+                        ["skippedCount"] = skippedCount,
+                        ["dryRun"] = req?.DryRun == true,
+                        ["force"] = req?.Force == true,
+                        ["reasonCounts"] = reasonCounts,
+                        ["items"] = items.Select(static item => new Dictionary<string, object?>
+                        {
+                            ["docId"] = item.DocId,
+                            ["docPath"] = item.DocPath,
+                            ["queued"] = item.Queued,
+                            ["jobId"] = item.JobId,
+                            ["reason"] = item.Reason
+                        }).ToArray(),
+                        ["docIds"] = selectedDocIds.ToArray(),
+                        ["docPaths"] = selectedDocPaths.ToArray()
+                    }),
+                ct);
+
+            sw.Stop();
+            RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                activity,
+                "capability_b_enqueue",
+                success: true,
+                durationMs: sw.ElapsedMilliseconds,
+                candidateCount: candidates.Length,
+                plannedCount: plannedCount,
+                queuedCount: queuedCount,
+                skippedCount: skippedCount,
+                dryRun: req?.DryRun == true);
+
+            return new RuntimeOperationResult<AdminRuntimeCapabilityBEnqueueResponseDto>(
+                new AdminRuntimeCapabilityBEnqueueResponseDto(
+                    CdcAlignment,
+                    env.EnvironmentName,
+                    CapabilityBBackofficeGenerationKey,
+                    campaignId,
+                    req?.DryRun == true,
+                    req?.Force == true,
+                    candidates.Length,
+                    plannedCount,
+                    queuedCount,
+                    skippedCount,
+                    reasonCounts,
+                    items),
+                null);
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            RuntimeGovernanceTelemetry.MarkError(activity, ex);
+            RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                activity,
+                "capability_b_enqueue",
+                success: false,
+                durationMs: sw.ElapsedMilliseconds,
+                queuedCount: 0,
+                skippedCount: 0,
+                dryRun: req?.DryRun == true,
+                errorReason: ex.Message);
+            throw;
+        }
+    }
+
+    internal static async Task<RuntimeOperationResult<AdminRuntimeCapabilityBClaimResponseDto>> ClaimCapabilityBBackofficeExecutionAsync(
+        Guid tenantId,
+        NpgsqlDataSource ds,
+        RuntimeGovernanceOptions options,
+        RagOptions rag,
+        IHostEnvironment env,
+        AdminRuntimeCapabilityBClaimRequestDto? req,
+        CancellationToken ct)
+    {
+        using var activity = RuntimeGovernanceTelemetry.StartCapabilityBOperationActivity("capability_b_claim");
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            await using var conn = await ds.OpenConnectionAsync(ct);
+            var gate = await EnsureCapabilityReadyAsync(conn, CapabilityBBackofficeGenerationKey, options, rag, ct);
+            if (gate.Error is not null)
+            {
+                sw.Stop();
+                RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                    activity,
+                    "capability_b_claim",
+                    success: false,
+                    durationMs: sw.ElapsedMilliseconds,
+                    errorReason: gate.Error);
+                return new RuntimeOperationResult<AdminRuntimeCapabilityBClaimResponseDto>(null, gate.Error);
+            }
+
+            CapabilityBExecutionJobRow? job;
+            if (req?.JobId is Guid requestedJobId && requestedJobId != Guid.Empty)
+            {
+                job = await LoadCapabilityBExecutionJobAsync(conn, tenantId, requestedJobId, ct);
+                if (job is null)
+                {
+                    sw.Stop();
+                    RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                        activity,
+                        "capability_b_claim",
+                        success: false,
+                        durationMs: sw.ElapsedMilliseconds,
+                        errorReason: "capability_b_job_not_found");
+                    return new RuntimeOperationResult<AdminRuntimeCapabilityBClaimResponseDto>(null, "capability_b_job_not_found");
+                }
+
+                if (!string.Equals(job.Status, "queued", StringComparison.Ordinal))
+                {
+                    sw.Stop();
+                    RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                        activity,
+                        "capability_b_claim",
+                        success: false,
+                        durationMs: sw.ElapsedMilliseconds,
+                        errorReason: "capability_b_job_not_claimable");
+                    return new RuntimeOperationResult<AdminRuntimeCapabilityBClaimResponseDto>(null, "capability_b_job_not_claimable");
+                }
+            }
+            else
+            {
+                job = await LoadNextQueuedCapabilityBExecutionJobAsync(conn, tenantId, ct);
+                if (job is null)
+                {
+                    sw.Stop();
+                    RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                        activity,
+                        "capability_b_claim",
+                        success: false,
+                        durationMs: sw.ElapsedMilliseconds,
+                        errorReason: "capability_b_no_queued_jobs");
+                    return new RuntimeOperationResult<AdminRuntimeCapabilityBClaimResponseDto>(null, "capability_b_no_queued_jobs");
+                }
+            }
+
+            if (!job.DocId.HasValue || job.DocId.Value == Guid.Empty || string.IsNullOrWhiteSpace(job.DocPath))
+            {
+                sw.Stop();
+                RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                    activity,
+                    "capability_b_claim",
+                    success: false,
+                    durationMs: sw.ElapsedMilliseconds,
+                    errorReason: "capability_b_job_missing_document_reference");
+                return new RuntimeOperationResult<AdminRuntimeCapabilityBClaimResponseDto>(null, "capability_b_job_missing_document_reference");
+            }
+
+            var claimedAt = DateTimeOffset.UtcNow;
+            var claimedBy = string.IsNullOrWhiteSpace(req?.ExecutorId)
+                ? AdminRuntimeActor
+                : req!.ExecutorId!.Trim();
+            var leaseToken = Guid.NewGuid().ToString("N");
+            var payload = new Dictionary<string, object?>(
+                ParseDetails(job.PayloadJson) ?? new Dictionary<string, object?>(),
+                StringComparer.Ordinal)
+            {
+                ["executionLeaseToken"] = leaseToken,
+                ["executionClaimedAt"] = claimedAt,
+                ["executionClaimedBy"] = claimedBy,
+                ["executionClaimCapabilityStatus"] = job.RuntimeCapabilityStatus ?? "selected",
+                ["executionClaimProfileKey"] = gate.State!.ProfileKey
+            };
+
+            const string claimSql = """
+UPDATE admin_jobs
+SET status='running',
+    started_at=COALESCE(started_at, @claimedAt),
+    payload=@payload::jsonb,
+    last_error=NULL
+WHERE tenant_id=@tenant AND job_id=@jobId AND status='queued';
+""";
+
+            var updated = await conn.ExecuteAsync(new CommandDefinition(
+                claimSql,
+                new
+                {
+                    tenant = tenantId,
+                    jobId = job.JobId,
+                    claimedAt = claimedAt.UtcDateTime,
+                    payload = JsonSerializer.Serialize(payload)
+                },
+                cancellationToken: ct));
+
+            if (updated == 0)
+            {
+                sw.Stop();
+                RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                    activity,
+                    "capability_b_claim",
+                    success: false,
+                    durationMs: sw.ElapsedMilliseconds,
+                    errorReason: "capability_b_job_not_claimable");
+                return new RuntimeOperationResult<AdminRuntimeCapabilityBClaimResponseDto>(null, "capability_b_job_not_claimable");
+            }
+
+            await InsertCapabilityEventAsync(
+                conn,
+                CreateCapabilityEvent(
+                    capabilityKey: CapabilityBBackofficeGenerationKey,
+                    profileKey: gate.State!.ProfileKey,
+                    eventType: "capability_b_job_claimed",
+                    reason: "execution_claimed",
+                    details: new Dictionary<string, object?>
+                    {
+                        ["jobId"] = job.JobId,
+                        ["docId"] = job.DocId,
+                        ["docPath"] = job.DocPath,
+                        ["level"] = job.Level,
+                        ["campaignId"] = job.CampaignId,
+                        ["claimedBy"] = claimedBy,
+                        ["claimedAt"] = claimedAt,
+                        ["leaseToken"] = leaseToken,
+                        ["runtimeCapabilityStatus"] = job.RuntimeCapabilityStatus ?? "selected",
+                        ["runtimeProfileKey"] = gate.State!.ProfileKey
+                    }),
+                ct);
+
+            sw.Stop();
+            RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                activity,
+                "capability_b_claim",
+                success: true,
+                durationMs: sw.ElapsedMilliseconds);
+
+            return new RuntimeOperationResult<AdminRuntimeCapabilityBClaimResponseDto>(
+                new AdminRuntimeCapabilityBClaimResponseDto(
+                    CdcAlignment,
+                    env.EnvironmentName,
+                    CapabilityBBackofficeGenerationKey,
+                    job.JobId,
+                    job.DocId.Value,
+                    job.DocPath!,
+                    job.Level ?? "medium",
+                    job.ExecutionMode ?? "server_backoffice",
+                    job.RuntimeCapabilityKey ?? CapabilityBBackofficeGenerationKey,
+                    job.RuntimeCapabilityStatus ?? "selected",
+                    gate.State!.ProfileKey,
+                    job.CampaignId,
+                    leaseToken,
+                    claimedBy,
+                    claimedAt),
+                null);
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            RuntimeGovernanceTelemetry.MarkError(activity, ex);
+            RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                activity,
+                "capability_b_claim",
+                success: false,
+                durationMs: sw.ElapsedMilliseconds,
+                errorReason: ex.Message);
+            throw;
+        }
+    }
+
+    internal static async Task<RuntimeOperationResult<CapabilityBExecutionContext>> ValidateCapabilityBExecutionLeaseAsync(
+        Guid tenantId,
+        NpgsqlConnection conn,
+        Guid jobId,
+        string? leaseToken,
+        CancellationToken ct)
+    {
+        if (jobId == Guid.Empty)
+            return new RuntimeOperationResult<CapabilityBExecutionContext>(null, "job_id_required");
+        if (string.IsNullOrWhiteSpace(leaseToken))
+            return new RuntimeOperationResult<CapabilityBExecutionContext>(null, "execution_lease_token_required");
+
+        var job = await LoadCapabilityBExecutionJobAsync(conn, tenantId, jobId, ct);
+        if (job is null)
+            return new RuntimeOperationResult<CapabilityBExecutionContext>(null, "capability_b_job_not_found");
+        if (!job.DocId.HasValue || job.DocId.Value == Guid.Empty || string.IsNullOrWhiteSpace(job.DocPath))
+            return new RuntimeOperationResult<CapabilityBExecutionContext>(null, "capability_b_job_missing_document_reference");
+        if (!string.Equals(job.Status, "running", StringComparison.Ordinal))
+            return new RuntimeOperationResult<CapabilityBExecutionContext>(null, "capability_b_job_not_running");
+        if (string.IsNullOrWhiteSpace(job.ExecutionLeaseToken))
+            return new RuntimeOperationResult<CapabilityBExecutionContext>(null, "capability_b_execution_not_claimed");
+        if (!string.Equals(job.ExecutionLeaseToken, leaseToken.Trim(), StringComparison.Ordinal))
+            return new RuntimeOperationResult<CapabilityBExecutionContext>(null, "capability_b_invalid_execution_lease");
+
+        return new RuntimeOperationResult<CapabilityBExecutionContext>(
+            new CapabilityBExecutionContext(
+                job.JobId,
+                job.DocId.Value,
+                job.DocPath!,
+                job.Level ?? "medium",
+                job.Status,
+                job.ExecutionMode ?? "server_backoffice",
+                job.RuntimeCapabilityKey ?? CapabilityBBackofficeGenerationKey,
+                job.RuntimeCapabilityStatus,
+                job.RuntimeCapabilitySelected,
+                job.RuntimeProfileKey,
+                job.CampaignId,
+                job.EnqueueSource,
+                job.ExecutionLeaseToken!,
+                job.ExecutionClaimedBy ?? AdminRuntimeActor,
+                job.ExecutionClaimedAt),
+            null);
+    }
+
+    internal static async Task<RuntimeOperationResult<CapabilityBCompletionResult>> CompleteCapabilityBBackofficeExecutionAsync(
+        Guid tenantId,
+        NpgsqlDataSource ds,
+        AdminRuntimeCapabilityBCompleteRequestDto? req,
+        CancellationToken ct)
+    {
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        var validation = await ValidateCapabilityBExecutionLeaseAsync(
+            tenantId,
+            conn,
+            req?.JobId ?? Guid.Empty,
+            req?.LeaseToken,
+            ct);
+        if (validation.Error is not null)
+            return new RuntimeOperationResult<CapabilityBCompletionResult>(null, validation.Error);
+
+        if (string.IsNullOrWhiteSpace(req?.SummaryText))
+            return new RuntimeOperationResult<CapabilityBCompletionResult>(null, "summary_text_required");
+
+        var execution = validation.Payload!;
+        var level = string.IsNullOrWhiteSpace(execution.Level)
+            ? "medium"
+            : execution.Level.Trim();
+        var completedBy = string.IsNullOrWhiteSpace(execution.ClaimedBy)
+            ? AdminRuntimeActor
+            : execution.ClaimedBy.Trim();
+
+        var doc = await LoadCapabilityBDocumentAsync(conn, tenantId, execution.DocId, ct);
+        if (doc is null)
+            return new RuntimeOperationResult<CapabilityBCompletionResult>(null, "document_not_found");
+
+        var sourceHash = string.IsNullOrWhiteSpace(req?.SourceHash)
+            ? await ComputeCapabilityBDocumentSourceHashAsync(conn, tenantId, execution.DocId, ct)
+            : req.SourceHash.Trim();
+        if (string.IsNullOrWhiteSpace(sourceHash))
+            return new RuntimeOperationResult<CapabilityBCompletionResult>(null, "source_hash_unavailable");
+
+        var normalizedSummaryText = req!.SummaryText.Trim();
+        var metaJson = req.Meta.HasValue
+            ? req.Meta.Value.GetRawText()
+            : null;
+
+        const string upsertSummarySql = """
+INSERT INTO document_summaries(tenant_id, doc_id, level, doc_language, source_hash, summary_text, summary_meta, created_at, updated_at)
+VALUES(@tenant, @docId, @level, @docLanguage, @sourceHash, @summaryText, @summaryMeta::jsonb, now(), now())
+ON CONFLICT (tenant_id, doc_id, level)
+DO UPDATE SET
+  doc_language = EXCLUDED.doc_language,
+  source_hash = EXCLUDED.source_hash,
+  summary_text = EXCLUDED.summary_text,
+  summary_meta = EXCLUDED.summary_meta,
+  updated_at = now();
+""";
+
+        await conn.ExecuteAsync(new CommandDefinition(
+            upsertSummarySql,
+            new
+            {
+                tenant = tenantId,
+                docId = execution.DocId,
+                level,
+                docLanguage = string.IsNullOrWhiteSpace(req.DocLanguage) ? null : req.DocLanguage.Trim(),
+                sourceHash,
+                summaryText = normalizedSummaryText,
+                summaryMeta = (object?)metaJson ?? DBNull.Value
+            },
+            cancellationToken: ct));
+
+        var summaryLength = normalizedSummaryText.Length;
+        var finishedAt = DateTimeOffset.UtcNow;
+        var result = JsonSerializer.Serialize(new Dictionary<string, object?>
+        {
+            ["docId"] = execution.DocId,
+            ["docPath"] = doc.DocPath,
+            ["level"] = level,
+            ["stored"] = true,
+            ["sourceHash"] = sourceHash,
+            ["summaryLength"] = summaryLength,
+            ["completedBy"] = completedBy,
+            ["executionMode"] = execution.ExecutionMode,
+            ["runtimeCapabilityKey"] = execution.RuntimeCapabilityKey,
+            ["runtimeCapabilityStatus"] = execution.RuntimeCapabilityStatus,
+            ["runtimeCapabilitySelected"] = execution.RuntimeCapabilitySelected,
+            ["runtimeProfileKey"] = execution.RuntimeProfileKey,
+            ["source"] = execution.EnqueueSource,
+            ["campaignId"] = execution.CampaignId,
+            ["executionLeaseToken"] = execution.LeaseToken
+        });
+
+        const string completeJobSql = """
+UPDATE admin_jobs
+SET status='done',
+    result=@result::jsonb,
+    finished_at=@finishedAt,
+    last_error=NULL
+WHERE tenant_id=@tenant
+  AND job_id=@jobId
+  AND status='running';
+""";
+
+        var updated = await conn.ExecuteAsync(new CommandDefinition(
+            completeJobSql,
+            new
+            {
+                tenant = tenantId,
+                jobId = execution.JobId,
+                result,
+                finishedAt = finishedAt.UtcDateTime
+            },
+            cancellationToken: ct));
+
+        if (updated == 0)
+            return new RuntimeOperationResult<CapabilityBCompletionResult>(null, "capability_b_job_not_running");
+
+        await RecordCapabilityBSummaryCompletedAsync(
+            conn,
+            execution.JobId,
+            execution.DocId,
+            doc.DocPath,
+            level,
+            sourceHash,
+            summaryLength,
+            execution.RuntimeProfileKey,
+            execution.CampaignId,
+            execution.RuntimeCapabilityStatus,
+            ct);
+
+        return new RuntimeOperationResult<CapabilityBCompletionResult>(
+            new CapabilityBCompletionResult(
+                execution.JobId,
+                execution.DocId,
+                doc.DocPath,
+                level,
+                sourceHash,
+                summaryLength,
+                completedBy,
+                execution.CampaignId),
+            null);
+    }
+
+    internal static async Task<RuntimeOperationResult<AdminRuntimeCapabilityBFailResponseDto>> FailCapabilityBBackofficeExecutionAsync(
+        Guid tenantId,
+        NpgsqlDataSource ds,
+        IHostEnvironment env,
+        AdminRuntimeCapabilityBFailRequestDto? req,
+        CancellationToken ct)
+    {
+        using var activity = RuntimeGovernanceTelemetry.StartCapabilityBOperationActivity("capability_b_fail");
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            await using var conn = await ds.OpenConnectionAsync(ct);
+            var validation = await ValidateCapabilityBExecutionLeaseAsync(
+                tenantId,
+                conn,
+                req?.JobId ?? Guid.Empty,
+                req?.LeaseToken,
+                ct);
+            if (validation.Error is not null)
+            {
+                sw.Stop();
+                RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                    activity,
+                    "capability_b_fail",
+                    success: false,
+                    durationMs: sw.ElapsedMilliseconds,
+                    errorReason: validation.Error);
+                return new RuntimeOperationResult<AdminRuntimeCapabilityBFailResponseDto>(null, validation.Error);
+            }
+
+            if (string.IsNullOrWhiteSpace(req?.Error))
+            {
+                sw.Stop();
+                RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                    activity,
+                    "capability_b_fail",
+                    success: false,
+                    durationMs: sw.ElapsedMilliseconds,
+                    errorReason: "summary_job_error_required");
+                return new RuntimeOperationResult<AdminRuntimeCapabilityBFailResponseDto>(null, "summary_job_error_required");
+            }
+
+            var execution = validation.Payload!;
+            var failedAt = DateTimeOffset.UtcNow;
+            var lastError = req!.Error.Trim();
+            var result = JsonSerializer.Serialize(new Dictionary<string, object?>
+            {
+                ["docId"] = execution.DocId,
+                ["docPath"] = execution.DocPath,
+                ["level"] = execution.Level,
+                ["stored"] = false,
+                ["failedBy"] = execution.ClaimedBy,
+                ["executionMode"] = execution.ExecutionMode,
+                ["runtimeCapabilityKey"] = execution.RuntimeCapabilityKey,
+                ["runtimeCapabilityStatus"] = execution.RuntimeCapabilityStatus,
+                ["runtimeCapabilitySelected"] = execution.RuntimeCapabilitySelected,
+                ["runtimeProfileKey"] = execution.RuntimeProfileKey,
+                ["source"] = execution.EnqueueSource,
+                ["campaignId"] = execution.CampaignId,
+                ["executionLeaseToken"] = execution.LeaseToken,
+                ["error"] = lastError,
+                ["details"] = req is not null && req.Details.HasValue
+                    ? req.Details.Value.Clone()
+                    : null
+            });
+
+            const string failSql = """
+UPDATE admin_jobs
+SET status='failed',
+    result=@result::jsonb,
+    finished_at=@failedAt,
+    last_error=@lastError
+WHERE tenant_id=@tenant AND job_id=@jobId AND status='running';
+""";
+
+            var updated = await conn.ExecuteAsync(new CommandDefinition(
+                failSql,
+                new
+                {
+                    tenant = tenantId,
+                    jobId = execution.JobId,
+                    result,
+                    failedAt = failedAt.UtcDateTime,
+                    lastError
+                },
+                cancellationToken: ct));
+
+            if (updated == 0)
+            {
+                sw.Stop();
+                RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                    activity,
+                    "capability_b_fail",
+                    success: false,
+                    durationMs: sw.ElapsedMilliseconds,
+                    errorReason: "capability_b_job_not_running");
+                return new RuntimeOperationResult<AdminRuntimeCapabilityBFailResponseDto>(null, "capability_b_job_not_running");
+            }
+
+            await InsertCapabilityEventAsync(
+                conn,
+                CreateCapabilityEvent(
+                    capabilityKey: CapabilityBBackofficeGenerationKey,
+                    profileKey: execution.RuntimeProfileKey,
+                    eventType: "capability_b_job_failed",
+                    reason: lastError,
+                    details: new Dictionary<string, object?>
+                    {
+                        ["jobId"] = execution.JobId,
+                        ["docId"] = execution.DocId,
+                        ["docPath"] = execution.DocPath,
+                        ["level"] = execution.Level,
+                        ["campaignId"] = execution.CampaignId,
+                        ["failedBy"] = execution.ClaimedBy,
+                        ["failedAt"] = failedAt,
+                        ["leaseToken"] = execution.LeaseToken,
+                        ["runtimeCapabilityStatus"] = execution.RuntimeCapabilityStatus,
+                        ["error"] = lastError
+                    }),
+                ct);
+
+            sw.Stop();
+            RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                activity,
+                "capability_b_fail",
+                success: true,
+                durationMs: sw.ElapsedMilliseconds);
+
+            return new RuntimeOperationResult<AdminRuntimeCapabilityBFailResponseDto>(
+                new AdminRuntimeCapabilityBFailResponseDto(
+                    CdcAlignment,
+                    env.EnvironmentName,
+                    CapabilityBBackofficeGenerationKey,
+                    execution.JobId,
+                    execution.DocId,
+                    execution.DocPath,
+                    execution.Level,
+                    execution.CampaignId,
+                    execution.LeaseToken,
+                    execution.ClaimedBy,
+                    lastError,
+                    "failed",
+                    failedAt),
+                null);
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            RuntimeGovernanceTelemetry.MarkError(activity, ex);
+            RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                activity,
+                "capability_b_fail",
+                success: false,
+                durationMs: sw.ElapsedMilliseconds,
+                errorReason: ex.Message);
+            throw;
+        }
+    }
+
     internal static async Task<RuntimeOperationResult<AdminRuntimeCapabilityAEnqueueResponseDto>> EnqueueCapabilityAEnrichmentAsync(
         Guid tenantId,
         NpgsqlDataSource ds,
@@ -702,7 +1694,7 @@ internal static class RuntimeGovernanceService
                 if (req?.AllowUnsafeCandidates != true && unsafeReasons.Length > 0)
                 {
                     var policyReason = $"policy_blocked:{string.Join(",", unsafeReasons.OrderBy(x => x, StringComparer.OrdinalIgnoreCase))}";
-                    items.Add(new AdminRuntimeCapabilityAEnqueueItemDto(candidate.DocId, candidate.DocPath, Queued: false, Reason: policyReason));
+                    items.Add(CreateCapabilityAEnqueueItem(candidate, Queued: false, Reason: policyReason));
                     IncrementCapabilityAReasonCounts(reasonCounts, candidate.Reasons);
                     IncrementCapabilityAReasonCounts(reasonCounts, unsafeReasons.Select(reason => $"blocked:{reason}"));
                     continue;
@@ -710,7 +1702,7 @@ internal static class RuntimeGovernanceService
 
                 if (!candidate.FileExists)
                 {
-                    items.Add(new AdminRuntimeCapabilityAEnqueueItemDto(candidate.DocId, candidate.DocPath, Queued: false, Reason: "document_file_not_found"));
+                    items.Add(CreateCapabilityAEnqueueItem(candidate, Queued: false, Reason: "document_file_not_found"));
                     IncrementCapabilityAReasonCounts(reasonCounts, candidate.Reasons);
                     IncrementCapabilityAReasonCounts(reasonCounts, ["blocked:document_file_not_found"]);
                     continue;
@@ -731,7 +1723,7 @@ LIMIT 1;
 
                 if (activeJob.HasValue)
                 {
-                    items.Add(new AdminRuntimeCapabilityAEnqueueItemDto(candidate.DocId, candidate.DocPath, Queued: false, JobId: activeJob.Value, Reason: "active_job_exists"));
+                    items.Add(CreateCapabilityAEnqueueItem(candidate, Queued: false, JobId: activeJob.Value, Reason: "active_job_exists"));
                     IncrementCapabilityAReasonCounts(reasonCounts, candidate.Reasons);
                     IncrementCapabilityAReasonCounts(reasonCounts, ["blocked:active_job_exists"]);
                     continue;
@@ -742,21 +1734,21 @@ LIMIT 1;
 
                 if (req?.DryRun == true)
                 {
-                    items.Add(new AdminRuntimeCapabilityAEnqueueItemDto(candidate.DocId, candidate.DocPath, Queued: false, Reason: "dry_run_preview"));
+                    items.Add(CreateCapabilityAEnqueueItem(candidate, Queued: false, Reason: "dry_run_preview"));
                     continue;
                 }
 
                 var absPath = DocPathNormalizer.ToAbsoluteFromRelative(candidate.DocPath, ingest.DocumentsRoot);
                 if (!File.Exists(absPath))
                 {
-                    items.Add(new AdminRuntimeCapabilityAEnqueueItemDto(candidate.DocId, candidate.DocPath, Queued: false, Reason: "document_file_not_found"));
+                    items.Add(CreateCapabilityAEnqueueItem(candidate, Queued: false, Reason: "document_file_not_found"));
                     IncrementCapabilityAReasonCounts(reasonCounts, ["blocked:document_file_not_found"]);
                     continue;
                 }
 
                 var fi = new FileInfo(absPath);
                 var queued = await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, candidate.DocPath, candidate.Category, fi, ct, enqueueSource: "capability_a");
-                items.Add(new AdminRuntimeCapabilityAEnqueueItemDto(candidate.DocId, candidate.DocPath, Queued: true, JobId: queued.JobId));
+                items.Add(CreateCapabilityAEnqueueItem(candidate, Queued: true, JobId: queued.JobId));
 
                 await InsertCapabilityEventAsync(
                     conn,
@@ -771,6 +1763,10 @@ LIMIT 1;
                         ["docPath"] = candidate.DocPath,
                         ["category"] = candidate.Category,
                         ["jobId"] = queued.JobId,
+                        ["previewText"] = candidate.PreviewText,
+                        ["keySectionTitles"] = candidate.KeySectionTitles,
+                        ["suggestedTags"] = candidate.SuggestedTags,
+                        ["hypotheticalQuestions"] = candidate.HypotheticalQuestions,
                         ["reasons"] = candidate.Reasons.ToArray(),
                         ["campaignId"] = campaignId
                     }),
@@ -802,7 +1798,11 @@ LIMIT 1;
                             ["docPath"] = item.DocPath,
                             ["queued"] = item.Queued,
                             ["jobId"] = item.JobId,
-                            ["reason"] = item.Reason
+                            ["reason"] = item.Reason,
+                            ["previewText"] = item.PreviewText,
+                            ["keySectionTitles"] = item.KeySectionTitles,
+                            ["suggestedTags"] = item.SuggestedTags,
+                            ["hypotheticalQuestions"] = item.HypotheticalQuestions
                         }).ToArray(),
                         ["docIds"] = selectedDocIds.ToArray(),
                         ["docPaths"] = selectedDocPaths.ToArray()
@@ -1189,6 +2189,9 @@ LIMIT 1;
         if (string.Equals(definition.Key, CapabilityACorpusEnrichmentKey, StringComparison.Ordinal))
             return await EvaluateCapabilityAAsync(definition, profile, existingState, selectWhenQualified, options, rag, ct);
 
+        if (string.Equals(definition.Key, CapabilityBBackofficeGenerationKey, StringComparison.Ordinal))
+            return await EvaluateCapabilityBAsync(definition, profile, existingState, selectWhenQualified, options, rag, ct);
+
         var installed = !string.IsNullOrWhiteSpace(rag.QdrantBaseUrl)
             && !string.IsNullOrWhiteSpace(rag.EmbeddingsBaseUrl);
         var configured = installed
@@ -1406,6 +2409,114 @@ LIMIT 1;
             LastCheckedAt: lastCheckedAt,
             LastQualifiedAt: qualified ? lastCheckedAt : null,
             LastError: qualified ? null : "capability A requires the retrieval stack to be configured before it can enqueue enrichment jobs",
+            Details: details,
+            Stale: false,
+            QualificationFingerprint: qualificationFingerprint.Hash,
+            StaleReason: null,
+            QualificationAgeHours: 0d,
+            QualificationExpiresAt: profile.FreshnessPolicy?.MaxQualificationAgeHours is long maxAgeHours
+                ? lastCheckedAt.AddHours(maxAgeHours)
+                : null,
+            PersistedAuthorized: authorized,
+            PersistedSelected: selected,
+            EffectiveAuthorized: authorized,
+            EffectiveSelected: selected);
+
+        var warmupResult = new AdminRuntimeWarmupResultDto(
+            WarmupResultId: Guid.NewGuid(),
+            CapabilityKey: definition.Key,
+            ProfileKey: profile.Key,
+            PassCount: 1,
+            Passed: qualified,
+            MeasuredAt: lastCheckedAt,
+            Details: details);
+
+        return Task.FromResult(new CapabilityEvaluation(state, warmupResult));
+    }
+
+    private static Task<CapabilityEvaluation> EvaluateCapabilityBAsync(
+        RuntimeCapabilityDefinition definition,
+        AdminRuntimeWarmupProfileDto profile,
+        AdminRuntimeCapabilityStateDto? existingState,
+        bool? selectWhenQualified,
+        RuntimeGovernanceOptions options,
+        RagOptions rag,
+        CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var backofficeEnabled = IsBackofficeGenerationEnabled();
+        var installed = true;
+        var configured = backofficeEnabled;
+        var healthy = configured;
+        var qualified = configured;
+        var lastCheckedAt = DateTimeOffset.UtcNow;
+        var selectionRequested = selectWhenQualified == true;
+        var desiredEnabled = existingState?.DesiredEnabled ?? definition.DefaultDesiredEnabled;
+        if (selectionRequested)
+            desiredEnabled = true;
+        var authorized = qualified && desiredEnabled && (existingState?.Authorized ?? selectionRequested);
+        var selected = qualified && authorized && desiredEnabled && (existingState?.Selected ?? selectionRequested);
+        var qualificationFingerprint = BuildQualificationFingerprint(definition, profile, options, rag);
+
+        var checks = new Dictionary<string, object?>
+        {
+            ["adminJobsAvailable"] = true,
+            ["summaryEndpointsAvailable"] = true,
+            ["backofficeEnabled"] = backofficeEnabled
+        };
+
+        var details = new Dictionary<string, object?>
+        {
+            ["status"] = qualified ? "qualified" : "configured",
+            ["mode"] = "summary_generation_admin",
+            ["passesRequired"] = 1,
+            ["passesSucceeded"] = qualified ? 1 : 0,
+            ["checks"] = new[]
+            {
+                new Dictionary<string, object?>
+                {
+                    ["pass"] = 1,
+                    ["status"] = qualified ? "passed" : "failed",
+                    ["check"] = CapabilityBBackofficeGenerationKey,
+                    ["measuredAt"] = lastCheckedAt,
+                    ["details"] = checks
+                }
+            },
+            ["qualificationFingerprint"] = qualificationFingerprint.Hash,
+            ["qualificationFingerprintInputs"] = qualificationFingerprint.Inputs,
+            ["qualificationFingerprintGeneratedAt"] = lastCheckedAt,
+            ["qualificationFreshness"] = qualified ? "fresh" : "candidate",
+            ["freshnessPolicy"] = profile.FreshnessPolicy,
+            ["runtimeEnvironment"] = BuildRuntimeEnvironmentSnapshot(),
+            ["capabilityContract"] = new Dictionary<string, object?>
+            {
+                ["adminOnly"] = true,
+                ["planEndpoint"] = "/admin/runtime/capabilities/capability_b.backoffice_generation/candidates",
+                ["enqueueEndpoint"] = "/admin/runtime/capabilities/capability_b.backoffice_generation/enqueue",
+                ["executionMode"] = "server_backoffice_summary_jobs",
+                ["requiresBackofficeLlmEnabled"] = true
+            }
+        };
+
+        var state = new AdminRuntimeCapabilityStateDto(
+            Key: definition.Key,
+            DisplayName: definition.DisplayName,
+            Family: definition.Family,
+            RuntimeKey: definition.RuntimeKey,
+            Implemented: true,
+            DesiredEnabled: desiredEnabled,
+            Installed: installed,
+            Configured: configured,
+            Healthy: healthy,
+            Qualified: qualified,
+            Authorized: authorized,
+            Selected: selected,
+            ProfileKey: profile.Key,
+            PassCount: 1,
+            LastCheckedAt: lastCheckedAt,
+            LastQualifiedAt: qualified ? lastCheckedAt : null,
+            LastError: qualified ? null : "capability B requires BACKOFFICE_LLM_ENABLED=true before it can enqueue server backoffice summary jobs",
             Details: details,
             Stale: false,
             QualificationFingerprint: qualificationFingerprint.Hash,
@@ -1833,6 +2944,288 @@ VALUES(
         RuntimeGovernanceTelemetry.RecordCapabilityEventWritten(evt.CapabilityKey, evt.EventType);
     }
 
+    private static async Task<Guid> InsertCapabilityBAdminJobAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        Guid docId,
+        string docPath,
+        bool force,
+        Guid campaignId,
+        string? profileKey,
+        CancellationToken ct)
+    {
+        var jobId = Guid.NewGuid();
+        var payload = JsonSerializer.Serialize(new Dictionary<string, object?>
+        {
+            ["docId"] = docId,
+            ["docPath"] = docPath,
+            ["level"] = "medium",
+            ["force"] = force,
+            ["executionMode"] = "server_backoffice",
+            ["runtimeCapabilityKey"] = CapabilityBBackofficeGenerationKey,
+            ["runtimeCapabilityStatus"] = "selected",
+            ["runtimeCapabilitySelected"] = true,
+            ["runtimeProfileKey"] = profileKey,
+            ["source"] = "capability_b",
+            ["campaignId"] = campaignId
+        });
+
+        const string sql = """
+INSERT INTO admin_jobs(job_id, tenant_id, job_type, status, doc_id, level, payload, created_at)
+VALUES(@jobId, @tenant, 'summary.generate', 'queued', @docId, 'medium', @payload::jsonb, now())
+RETURNING job_id;
+""";
+
+        return await conn.ExecuteScalarAsync<Guid>(new CommandDefinition(
+            sql,
+            new { jobId, tenant = tenantId, docId, payload },
+            cancellationToken: ct));
+    }
+
+    private static async Task<CapabilityBExecutionJobRow?> LoadCapabilityBExecutionJobAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        Guid jobId,
+        CancellationToken ct)
+        => await conn.QueryFirstOrDefaultAsync<CapabilityBExecutionJobRow>(new CommandDefinition(
+            """
+SELECT
+  job_id AS "JobId",
+  doc_id AS "DocId",
+  COALESCE(payload ->> 'docPath', doc_path) AS "DocPath",
+  COALESCE(level, payload ->> 'level', 'medium') AS "Level",
+  status AS "Status",
+  COALESCE(payload ->> 'executionMode', 'server_backoffice') AS "ExecutionMode",
+  payload ->> 'runtimeCapabilityKey' AS "RuntimeCapabilityKey",
+  payload ->> 'runtimeCapabilityStatus' AS "RuntimeCapabilityStatus",
+  CASE
+    WHEN jsonb_typeof(payload->'runtimeCapabilitySelected')='boolean'
+      THEN (payload->>'runtimeCapabilitySelected')::boolean
+    ELSE NULL::boolean
+  END AS "RuntimeCapabilitySelected",
+  payload ->> 'runtimeProfileKey' AS "RuntimeProfileKey",
+  payload ->> 'source' AS "EnqueueSource",
+  payload ->> 'executionLeaseToken' AS "ExecutionLeaseToken",
+  payload ->> 'executionClaimedBy' AS "ExecutionClaimedBy",
+  CASE
+    WHEN jsonb_typeof(payload->'executionClaimedAt')='string' THEN (payload->>'executionClaimedAt')::timestamptz
+    ELSE NULL::timestamptz
+  END AS "ExecutionClaimedAt",
+  CASE
+    WHEN jsonb_typeof(payload->'campaignId')='string' THEN (payload->>'campaignId')::uuid
+    ELSE NULL::uuid
+  END AS "CampaignId",
+  payload::text AS "PayloadJson"
+FROM admin_jobs
+WHERE tenant_id=@tenant
+  AND job_id=@jobId
+  AND job_type='summary.generate'
+  AND payload ->> 'source' = 'capability_b'
+LIMIT 1;
+""",
+            new { tenant = tenantId, jobId },
+            cancellationToken: ct));
+
+    private static async Task<CapabilityBExecutionJobRow?> LoadNextQueuedCapabilityBExecutionJobAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        CancellationToken ct)
+        => await conn.QueryFirstOrDefaultAsync<CapabilityBExecutionJobRow>(new CommandDefinition(
+            """
+SELECT
+  job_id AS "JobId",
+  doc_id AS "DocId",
+  COALESCE(payload ->> 'docPath', doc_path) AS "DocPath",
+  COALESCE(level, payload ->> 'level', 'medium') AS "Level",
+  status AS "Status",
+  COALESCE(payload ->> 'executionMode', 'server_backoffice') AS "ExecutionMode",
+  payload ->> 'runtimeCapabilityKey' AS "RuntimeCapabilityKey",
+  payload ->> 'runtimeCapabilityStatus' AS "RuntimeCapabilityStatus",
+  CASE
+    WHEN jsonb_typeof(payload->'runtimeCapabilitySelected')='boolean'
+      THEN (payload->>'runtimeCapabilitySelected')::boolean
+    ELSE NULL::boolean
+  END AS "RuntimeCapabilitySelected",
+  payload ->> 'runtimeProfileKey' AS "RuntimeProfileKey",
+  payload ->> 'source' AS "EnqueueSource",
+  payload ->> 'executionLeaseToken' AS "ExecutionLeaseToken",
+  payload ->> 'executionClaimedBy' AS "ExecutionClaimedBy",
+  CASE
+    WHEN jsonb_typeof(payload->'executionClaimedAt')='string' THEN (payload->>'executionClaimedAt')::timestamptz
+    ELSE NULL::timestamptz
+  END AS "ExecutionClaimedAt",
+  CASE
+    WHEN jsonb_typeof(payload->'campaignId')='string' THEN (payload->>'campaignId')::uuid
+    ELSE NULL::uuid
+  END AS "CampaignId",
+  payload::text AS "PayloadJson"
+FROM admin_jobs
+WHERE tenant_id=@tenant
+  AND job_type='summary.generate'
+  AND status='queued'
+  AND payload ->> 'source' = 'capability_b'
+ORDER BY created_at ASC
+LIMIT 1;
+""",
+            new { tenant = tenantId },
+            cancellationToken: ct));
+
+    internal static async Task<CapabilityBDocumentRow?> LoadCapabilityBDocumentAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        Guid docId,
+        CancellationToken ct)
+        => await conn.QueryFirstOrDefaultAsync<CapabilityBDocumentRow>(new CommandDefinition(
+            """
+SELECT
+  doc_id AS "DocId",
+  doc_path AS "DocPath",
+  doc_name AS "DocName",
+  category AS "Category",
+  page_count AS "PageCount",
+  COALESCE(indexed_version, 0) AS "IndexedVersion"
+FROM documents
+WHERE tenant_id=@tenant
+  AND doc_id=@docId
+LIMIT 1;
+""",
+            new { tenant = tenantId, docId },
+            cancellationToken: ct));
+
+    internal static async Task<string?> ComputeCapabilityBDocumentSourceHashAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        Guid docId,
+        CancellationToken ct)
+        => await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
+            """
+SELECT COALESCE(encode(content_hash, 'hex'), md5(COALESCE(doc_path,'') || '|' || COALESCE(file_size::text,'') || '|' || COALESCE(file_mtime::text,'')))
+FROM documents
+WHERE tenant_id=@tenant
+  AND doc_id=@docId
+LIMIT 1;
+""",
+            new { tenant = tenantId, docId },
+            cancellationToken: ct));
+
+    internal static async Task<string[]> LoadCapabilityBSectionTitlesAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        Guid docId,
+        int indexedVersion,
+        int limit,
+        CancellationToken ct)
+        => (await conn.QueryAsync<string>(new CommandDefinition(
+            """
+SELECT ds.title
+FROM document_revisions dr
+JOIN document_sections ds ON ds.revision_id = dr.revision_id
+WHERE dr.tenant_id=@tenant
+  AND dr.doc_id=@docId
+  AND dr.indexed_version=@indexedVersion
+ORDER BY ds.ordinal
+LIMIT @limit;
+""",
+            new
+            {
+                tenant = tenantId,
+                docId,
+                indexedVersion,
+                limit = Math.Clamp(limit, 1, 20)
+            },
+            cancellationToken: ct)))
+            .Where(title => !string.IsNullOrWhiteSpace(title))
+            .Select(title => title.Trim())
+            .ToArray();
+
+    internal static async Task<string[]> LoadCapabilityBUnitExcerptsAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        Guid docId,
+        int indexedVersion,
+        int limit,
+        CancellationToken ct)
+        => (await conn.QueryAsync<string>(new CommandDefinition(
+            """
+SELECT du.text_content
+FROM document_revisions dr
+JOIN document_units du ON du.revision_id = dr.revision_id
+WHERE dr.tenant_id=@tenant
+  AND dr.doc_id=@docId
+  AND dr.indexed_version=@indexedVersion
+ORDER BY du.ordinal
+LIMIT @limit;
+""",
+            new
+            {
+                tenant = tenantId,
+                docId,
+                indexedVersion,
+                limit = Math.Clamp(limit, 1, 20)
+            },
+            cancellationToken: ct)))
+            .Where(text => !string.IsNullOrWhiteSpace(text))
+            .Select(text => text.Trim())
+            .ToArray();
+
+    internal static async Task RecordCapabilityBSummaryCompletedAsync(
+        NpgsqlConnection conn,
+        Guid jobId,
+        Guid docId,
+        string docPath,
+        string level,
+        string sourceHash,
+        int summaryLength,
+        string? profileKey,
+        Guid? campaignId,
+        string? runtimeCapabilityStatus,
+        CancellationToken ct)
+    {
+        using var activity = RuntimeGovernanceTelemetry.StartCapabilityBOperationActivity("capability_b_summary_completed");
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            await InsertCapabilityEventAsync(
+                conn,
+                CreateCapabilityEvent(
+                    capabilityKey: CapabilityBBackofficeGenerationKey,
+                    profileKey: profileKey,
+                    eventType: "capability_b_summary_completed",
+                    reason: "summary_stored",
+                    details: new Dictionary<string, object?>
+                    {
+                        ["jobId"] = jobId,
+                        ["docId"] = docId,
+                        ["docPath"] = docPath,
+                        ["level"] = level,
+                        ["sourceHash"] = sourceHash,
+                        ["summaryLength"] = summaryLength,
+                        ["campaignId"] = campaignId,
+                        ["runtimeCapabilityStatus"] = runtimeCapabilityStatus
+                    }),
+                ct);
+
+            sw.Stop();
+            RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                activity,
+                "capability_b_summary_completed",
+                success: true,
+                durationMs: sw.ElapsedMilliseconds);
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            RuntimeGovernanceTelemetry.MarkError(activity, ex);
+            RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                activity,
+                "capability_b_summary_completed",
+                success: false,
+                durationMs: sw.ElapsedMilliseconds,
+                errorReason: ex.Message);
+            throw;
+        }
+    }
+
     private static AdminRuntimeCapabilityEventDto CreateCapabilityEvent(
         string capabilityKey,
         string? profileKey,
@@ -1882,6 +3275,45 @@ VALUES(
                 {
                     ["status"] = "candidate",
                     ["mode"] = "corpus_enrichment_admin"
+                },
+                Stale: false,
+                QualificationFingerprint: null,
+                StaleReason: null,
+                QualificationAgeHours: null,
+                QualificationExpiresAt: null,
+                PersistedAuthorized: false,
+                PersistedSelected: false,
+                EffectiveAuthorized: false,
+                EffectiveSelected: false);
+        }
+
+        if (definition.Key == CapabilityBBackofficeGenerationKey)
+        {
+            var profile = ResolveProfile(options.DefaultProfileKey, options);
+            var backofficeEnabled = IsBackofficeGenerationEnabled();
+            return new AdminRuntimeCapabilityStateDto(
+                Key: definition.Key,
+                DisplayName: definition.DisplayName,
+                Family: definition.Family,
+                RuntimeKey: definition.RuntimeKey,
+                Implemented: true,
+                DesiredEnabled: definition.DefaultDesiredEnabled,
+                Installed: true,
+                Configured: backofficeEnabled,
+                Healthy: false,
+                Qualified: false,
+                Authorized: false,
+                Selected: false,
+                ProfileKey: profile.Key,
+                PassCount: 0,
+                LastCheckedAt: null,
+                LastQualifiedAt: null,
+                LastError: null,
+                Details: new Dictionary<string, object?>
+                {
+                    ["status"] = backofficeEnabled ? "configured_not_checked" : "backoffice_disabled",
+                    ["mode"] = "summary_generation_admin",
+                    ["backofficeEnabled"] = backofficeEnabled
                 },
                 Stale: false,
                 QualificationFingerprint: null,
@@ -2006,10 +3438,12 @@ VALUES(
             EffectiveSelected: row.Selected);
     }
 
-    private static AdminRuntimeCapabilityDiagnosticDto MapCapabilityDiagnostic(AdminRuntimeCapabilityStateDto state)
+    private static AdminRuntimeCapabilityDiagnosticDto MapCapabilityDiagnostic(
+        AdminRuntimeCapabilityStateDto state,
+        AdminRuntimeCapabilityOperationalSummaryDto? operationalSummary = null)
     {
         var blockers = BuildBlockers(state);
-        var recommendations = BuildRecommendations(state, blockers);
+        var recommendations = BuildRecommendations(state, blockers, operationalSummary);
 
         return new AdminRuntimeCapabilityDiagnosticDto(
             Key: state.Key,
@@ -2031,7 +3465,8 @@ VALUES(
             Recommendations: recommendations,
             LastCheckedAt: state.LastCheckedAt,
             LastQualifiedAt: state.LastQualifiedAt,
-            LastError: state.LastError);
+            LastError: state.LastError,
+            OperationalSummary: operationalSummary);
     }
 
     private static AdminRuntimeCapabilityStateDto ProjectCapabilityState(
@@ -2041,7 +3476,8 @@ VALUES(
         RagOptions rag)
     {
         if (!state.Implemented || (!string.Equals(definition.Key, CoreRetrievalCapabilityKey, StringComparison.Ordinal)
-                                   && !string.Equals(definition.Key, CapabilityACorpusEnrichmentKey, StringComparison.Ordinal)))
+                                   && !string.Equals(definition.Key, CapabilityACorpusEnrichmentKey, StringComparison.Ordinal)
+                                   && !string.Equals(definition.Key, CapabilityBBackofficeGenerationKey, StringComparison.Ordinal)))
             return state with
             {
                 Stale = false,
@@ -2197,6 +3633,19 @@ VALUES(
                 requiredSettingKeys: [],
                 missingSettingKeys: [],
                 profiles: profiles)
+            ,
+            BuildRuntimeDescriptor(
+                runtimeKey: "server-capability-b",
+                label: "Server capability B",
+                kind: "backoffice_generation",
+                enabled: IsBackofficeGenerationEnabled(),
+                baseUrl: null,
+                model: "summary.generate",
+                configurationSource: "environment.BACKOFFICE_LLM_ENABLED",
+                expectedCapabilityKeys: [CapabilityBBackofficeGenerationKey],
+                requiredSettingKeys: ["BACKOFFICE_LLM_ENABLED"],
+                missingSettingKeys: IsBackofficeGenerationEnabled() ? [] : ["BACKOFFICE_LLM_ENABLED"],
+                profiles: profiles)
         ];
 
     private static IReadOnlyList<AdminRuntimeWarmupProfileDto> BuildWarmupProfiles(RuntimeGovernanceOptions options)
@@ -2350,6 +3799,18 @@ VALUES(
             };
         }
 
+        if (string.Equals(definition.Key, CapabilityBBackofficeGenerationKey, StringComparison.Ordinal))
+        {
+            inputs["capabilityB"] = new Dictionary<string, object?>
+            {
+                ["mode"] = "summary_generation_admin",
+                ["backofficeEnabled"] = IsBackofficeGenerationEnabled(),
+                ["planEndpoint"] = "/admin/runtime/capabilities/capability_b.backoffice_generation/candidates",
+                ["enqueueEndpoint"] = "/admin/runtime/capabilities/capability_b.backoffice_generation/enqueue",
+                ["executionMode"] = "server_backoffice_summary_jobs"
+            };
+        }
+
         var json = JsonSerializer.Serialize(inputs);
         using var sha256 = SHA256.Create();
         var hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(json));
@@ -2478,6 +3939,9 @@ VALUES(
             ? "derived_from_rag_options.embeddings_base_url"
             : "rag_options.rerank_base_url";
     }
+
+    private static bool IsBackofficeGenerationEnabled()
+        => string.Equals(Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED"), "true", StringComparison.OrdinalIgnoreCase);
 
     private static string ResolveRuntimeReadinessStatus(
         string runtimeKey,
@@ -2820,7 +4284,10 @@ VALUES(
         return blockers.Distinct(StringComparer.Ordinal).ToArray();
     }
 
-    private static string[] BuildRecommendations(AdminRuntimeCapabilityStateDto state, IReadOnlyList<string> blockers)
+    private static string[] BuildRecommendations(
+        AdminRuntimeCapabilityStateDto state,
+        IReadOnlyList<string> blockers,
+        AdminRuntimeCapabilityOperationalSummaryDto? operationalSummary = null)
     {
         var recommendations = new List<string>();
 
@@ -2850,7 +4317,37 @@ VALUES(
             && state.Selected
             && string.Equals(state.Key, CapabilityACorpusEnrichmentKey, StringComparison.Ordinal))
         {
-            recommendations.Add("review capability A candidates and enqueue controlled reindex jobs when appropriate");
+            recommendations.Add("review capability A semantic previews and enqueue controlled reindex jobs when appropriate");
+        }
+
+        if (recommendations.Count == 0
+            && state.Selected
+            && string.Equals(state.Key, CapabilityBBackofficeGenerationKey, StringComparison.Ordinal))
+        {
+            if (operationalSummary is not null && operationalSummary.CandidateCount > 0)
+            {
+                recommendations.Add(
+                    $"review capability B candidates: {operationalSummary.ReadyToEnqueueCount} ready to enqueue, {operationalSummary.BlockedByActiveJobCount} blocked by active summary jobs, {operationalSummary.BlockedByCooldownCount} blocked by recent failure/cancellation cooldowns");
+            }
+
+            if (operationalSummary is not null && operationalSummary.ActiveCapabilityJobCount > 0)
+            {
+                recommendations.Add("monitor active capability B summary jobs and the latest campaign progress from diagnostics");
+            }
+
+            if (operationalSummary is not null
+                && operationalSummary.CandidateCount == 0
+                && operationalSummary.ActiveCapabilityJobCount == 0)
+            {
+                recommendations.Add("backoffice summary backlog is currently clear");
+            }
+        }
+
+        if (recommendations.Count == 0
+            && state.Selected
+            && string.Equals(state.Key, CapabilityBBackofficeGenerationKey, StringComparison.Ordinal))
+        {
+            recommendations.Add("review capability B candidates and enqueue governed backoffice summary generation jobs when appropriate");
         }
 
         if (recommendations.Count == 0 && state.Selected)
@@ -2955,6 +4452,154 @@ VALUES(
         return reasons;
     }
 
+    private static async Task<CapabilityASemanticPreview> BuildCapabilityASemanticPreviewAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        CapabilityAEnrichmentCandidateRow row,
+        CancellationToken ct)
+    {
+        if (row.IndexedVersion <= 0 || !row.HasRevision)
+        {
+            return new CapabilityASemanticPreview(
+                PreviewText: null,
+                KeySectionTitles: Array.Empty<string>(),
+                SuggestedTags: BuildCapabilityASuggestedTags(row, Array.Empty<string>()),
+                HypotheticalQuestions: Array.Empty<string>());
+        }
+
+        var sectionTitles = await LoadCapabilityBSectionTitlesAsync(
+            conn,
+            tenantId,
+            row.DocId,
+            row.IndexedVersion,
+            limit: 3,
+            ct);
+        var excerpts = await LoadCapabilityBUnitExcerptsAsync(
+            conn,
+            tenantId,
+            row.DocId,
+            row.IndexedVersion,
+            limit: 2,
+            ct);
+
+        var questions = BuildCapabilityAHypotheticalQuestions(row, sectionTitles, excerpts);
+        var previewText = BuildCapabilityAPreviewText(row, sectionTitles, excerpts);
+        var tags = BuildCapabilityASuggestedTags(row, sectionTitles);
+
+        return new CapabilityASemanticPreview(
+            PreviewText: previewText,
+            KeySectionTitles: sectionTitles,
+            SuggestedTags: tags,
+            HypotheticalQuestions: questions);
+    }
+
+    private static string? BuildCapabilityAPreviewText(
+        CapabilityAEnrichmentCandidateRow row,
+        IReadOnlyList<string> sectionTitles,
+        IReadOnlyList<string> excerpts)
+    {
+        if (excerpts.Count > 0)
+        {
+            var normalizedExcerpt = NormalizeCapabilityAPreviewText(excerpts[0]);
+            return normalizedExcerpt.Length <= 240
+                ? normalizedExcerpt
+                : normalizedExcerpt[..237] + "...";
+        }
+
+        if (sectionTitles.Count > 0)
+            return $"{row.DocName} covers {string.Join(", ", sectionTitles.Select(NormalizeCapabilityATitle))}.";
+
+        return null;
+    }
+
+    private static IReadOnlyList<string> BuildCapabilityAHypotheticalQuestions(
+        CapabilityAEnrichmentCandidateRow row,
+        IReadOnlyList<string> sectionTitles,
+        IReadOnlyList<string> excerpts)
+    {
+        var questions = new List<string>();
+
+        foreach (var title in sectionTitles.Take(2))
+        {
+            var normalizedTitle = NormalizeCapabilityATitle(title);
+            if (string.IsNullOrWhiteSpace(normalizedTitle))
+                continue;
+
+            questions.Add($"What does {row.DocName} say about {normalizedTitle}?");
+            questions.Add($"Which requirements from {row.DocName} apply to {normalizedTitle}?");
+        }
+
+        if (questions.Count == 0 && excerpts.Count > 0)
+        {
+            var excerptLead = NormalizeCapabilityAPreviewText(excerpts[0]);
+            if (excerptLead.Length > 80)
+                excerptLead = excerptLead[..80].TrimEnd() + "...";
+            questions.Add($"What are the key operational requirements described in {row.DocName}?");
+            questions.Add($"How does {row.DocName} frame this topic: {excerptLead}");
+        }
+
+        return questions
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(4)
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string> BuildCapabilityASuggestedTags(
+        CapabilityAEnrichmentCandidateRow row,
+        IReadOnlyList<string> sectionTitles)
+    {
+        var tags = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(row.Category))
+            tags.Add(NormalizeCapabilityATag(row.Category));
+
+        foreach (var token in ExtractCapabilityATagTokens(Path.GetFileNameWithoutExtension(row.DocName)))
+            tags.Add(token);
+
+        foreach (var title in sectionTitles)
+        {
+            foreach (var token in ExtractCapabilityATagTokens(title))
+                tags.Add(token);
+        }
+
+        return tags
+            .Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(6)
+            .ToArray();
+    }
+
+    private static IEnumerable<string> ExtractCapabilityATagTokens(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            yield break;
+
+        foreach (var token in value
+            .Split([' ', '-', '_', '/', '\\', ',', ';', ':', '.', '(', ')'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(NormalizeCapabilityATag)
+            .Where(token => token.Length >= 3))
+        {
+            yield return token;
+        }
+    }
+
+    private static string NormalizeCapabilityATag(string value)
+        => new(value
+            .Trim()
+            .ToLowerInvariant()
+            .Where(ch => char.IsLetterOrDigit(ch) || ch == '-')
+            .ToArray());
+
+    private static string NormalizeCapabilityATitle(string value)
+        => string.Join(" ", value
+            .Split(['\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .Trim();
+
+    private static string NormalizeCapabilityAPreviewText(string value)
+        => string.Join(" ", value
+            .Split(['\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .Trim();
+
     private static string[] ResolveCapabilityAUnsafeReasons(AdminRuntimeCapabilityAEnrichmentCandidateDto candidate)
         => candidate.Reasons
             .Where(reason =>
@@ -3042,8 +4687,70 @@ VALUES(
             var queued = itemElement.TryGetProperty("queued", out var queuedElement) && queuedElement.ValueKind is JsonValueKind.True or JsonValueKind.False
                 ? queuedElement.GetBoolean()
                 : false;
+            var previewText = itemElement.TryGetProperty("previewText", out var previewTextElement) && previewTextElement.ValueKind == JsonValueKind.String
+                ? previewTextElement.GetString()
+                : null;
+            var keySectionTitles = TryReadStringArray(itemElement, "keySectionTitles");
+            var suggestedTags = TryReadStringArray(itemElement, "suggestedTags");
+            var hypotheticalQuestions = TryReadStringArray(itemElement, "hypotheticalQuestions");
 
             items.Add(new AdminRuntimeCapabilityAEnqueueItemDto(
+                DocId: docId,
+                DocPath: docPath,
+                Queued: queued,
+                JobId: jobId,
+                Reason: reason,
+                PreviewText: previewText,
+                KeySectionTitles: keySectionTitles,
+                SuggestedTags: suggestedTags,
+                HypotheticalQuestions: hypotheticalQuestions));
+        }
+
+        return items.ToArray();
+    }
+
+    private static AdminRuntimeCapabilityBEnqueueItemDto[] ParseCapabilityBCampaignItems(string? detailsJson)
+    {
+        if (string.IsNullOrWhiteSpace(detailsJson))
+            return [];
+
+        using var doc = JsonDocument.Parse(detailsJson);
+        if (!doc.RootElement.TryGetProperty("items", out var itemsElement) || itemsElement.ValueKind != JsonValueKind.Array)
+            return [];
+
+        var items = new List<AdminRuntimeCapabilityBEnqueueItemDto>();
+        foreach (var itemElement in itemsElement.EnumerateArray())
+        {
+            if (itemElement.ValueKind != JsonValueKind.Object)
+                continue;
+
+            Guid? docId = null;
+            if (itemElement.TryGetProperty("docId", out var docIdElement)
+                && docIdElement.ValueKind == JsonValueKind.String
+                && Guid.TryParse(docIdElement.GetString(), out var parsedDocId))
+            {
+                docId = parsedDocId;
+            }
+
+            Guid? jobId = null;
+            if (itemElement.TryGetProperty("jobId", out var jobIdElement)
+                && jobIdElement.ValueKind == JsonValueKind.String
+                && Guid.TryParse(jobIdElement.GetString(), out var parsedJobId))
+            {
+                jobId = parsedJobId;
+            }
+
+            var docPath = itemElement.TryGetProperty("docPath", out var docPathElement) && docPathElement.ValueKind == JsonValueKind.String
+                ? docPathElement.GetString()
+                : null;
+            var reason = itemElement.TryGetProperty("reason", out var reasonElement) && reasonElement.ValueKind == JsonValueKind.String
+                ? reasonElement.GetString()
+                : null;
+            var queued = itemElement.TryGetProperty("queued", out var queuedElement) && queuedElement.ValueKind is JsonValueKind.True or JsonValueKind.False
+                ? queuedElement.GetBoolean()
+                : false;
+
+            items.Add(new AdminRuntimeCapabilityBEnqueueItemDto(
                 DocId: docId,
                 DocPath: docPath,
                 Queued: queued,
@@ -3070,6 +4777,53 @@ VALUES(
         if (reasons.Contains("document_file_not_found", StringComparer.OrdinalIgnoreCase))
             score += 1;
         return score;
+    }
+
+    private static AdminRuntimeCapabilityAEnqueueItemDto CreateCapabilityAEnqueueItem(
+        AdminRuntimeCapabilityAEnrichmentCandidateDto candidate,
+        bool Queued,
+        Guid? JobId = null,
+        string? Reason = null)
+        => new(
+            DocId: candidate.DocId,
+            DocPath: candidate.DocPath,
+            Queued: Queued,
+            JobId: JobId,
+            Reason: Reason,
+            PreviewText: candidate.PreviewText,
+            KeySectionTitles: candidate.KeySectionTitles,
+            SuggestedTags: candidate.SuggestedTags,
+            HypotheticalQuestions: candidate.HypotheticalQuestions);
+
+    private static string[]? TryReadStringArray(JsonElement itemElement, string propertyName)
+    {
+        if (!itemElement.TryGetProperty(propertyName, out var propertyElement) || propertyElement.ValueKind != JsonValueKind.Array)
+            return null;
+
+        return propertyElement
+            .EnumerateArray()
+            .Where(static value => value.ValueKind == JsonValueKind.String)
+            .Select(static value => value.GetString())
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Cast<string>()
+            .ToArray();
+    }
+
+    private static string[]? ParseStringArray(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.ValueKind != JsonValueKind.Array
+            ? null
+            : doc.RootElement
+                .EnumerateArray()
+                .Where(static value => value.ValueKind == JsonValueKind.String)
+                .Select(static value => value.GetString())
+                .Where(static value => !string.IsNullOrWhiteSpace(value))
+                .Cast<string>()
+                .ToArray();
     }
 
     private static bool ResolveCandidateFileExists(IngestionOptions ingest, string docPath)
@@ -3112,7 +4866,7 @@ VALUES(
     [
         new(CoreRetrievalCapabilityKey, "Core retrieval", "core", "retrieval-stack", true, true, "Dense/sparse/exact retrieval stack qualified against Qdrant and TEI."),
         new(CapabilityACorpusEnrichmentKey, "Capability A - Corpus Enrichment", "A", "server-capability-a", true, false, "Capability A plans corpus enrichment candidates and enqueues controlled reindex jobs through the ingestion pipeline."),
-        new("capability_b.backoffice_generation", "Capability B - Backoffice Generation", "B", "server-capability-b", false, false, "Capability B remains intentionally unimplemented in v3.0 backend."),
+        new(CapabilityBBackofficeGenerationKey, "Capability B - Backoffice Generation", "B", "server-capability-b", true, false, "Capability B plans and enqueues governed backoffice summary generation jobs through the admin summary pipeline."),
         new("capability_c.retrieval_intelligence", "Capability C - Retrieval Intelligence", "C", "server-capability-c", false, false, "Capability C remains intentionally unimplemented in v3.0 backend.")
     ];
 
@@ -3136,6 +4890,41 @@ VALUES(
     internal sealed record RuntimeOperationResult<T>(
         T? Payload,
         string? Error);
+
+    internal sealed record CapabilityBCompletionResult(
+        Guid JobId,
+        Guid DocId,
+        string DocPath,
+        string Level,
+        string SourceHash,
+        int SummaryLength,
+        string CompletedBy,
+        Guid? CampaignId);
+
+    internal sealed record CapabilityBExecutionContext(
+        Guid JobId,
+        Guid DocId,
+        string DocPath,
+        string Level,
+        string Status,
+        string ExecutionMode,
+        string RuntimeCapabilityKey,
+        string? RuntimeCapabilityStatus,
+        bool? RuntimeCapabilitySelected,
+        string? RuntimeProfileKey,
+        Guid? CampaignId,
+        string? EnqueueSource,
+        string LeaseToken,
+        string ClaimedBy,
+        DateTimeOffset? ClaimedAt);
+
+    internal sealed record CapabilityBDocumentRow(
+        Guid DocId,
+        string DocPath,
+        string DocName,
+        string? Category,
+        int? PageCount,
+        int IndexedVersion);
 
     private sealed record CapabilityGateResult(
         AdminRuntimeCapabilityStateDto? State,
@@ -3219,6 +5008,12 @@ VALUES(
         bool HasExactMatchEntries,
         bool HasContextualTextEntries);
 
+    private sealed record CapabilityASemanticPreview(
+        string? PreviewText,
+        IReadOnlyList<string> KeySectionTitles,
+        IReadOnlyList<string> SuggestedTags,
+        IReadOnlyList<string> HypotheticalQuestions);
+
     private sealed record CapabilityACampaignRow(
         Guid CampaignId,
         string CapabilityKey,
@@ -3237,7 +5032,72 @@ VALUES(
         Guid? DocId,
         string? DocPath,
         Guid? JobId,
+        string? PreviewText,
+        string? KeySectionTitlesJson,
+        string? SuggestedTagsJson,
+        string? HypotheticalQuestionsJson,
         DateTimeOffset OccurredAt);
+
+    private sealed record CapabilityBBackofficeCandidateRow(
+        Guid DocId,
+        string DocPath,
+        string DocName,
+        string Category,
+        string SummaryState,
+        bool HasActiveJob,
+        string? LastJobStatus,
+        DateTimeOffset? LastJobFinishedAt,
+        string? LastJobError);
+
+    private sealed record CapabilityBCampaignRow(
+        Guid CampaignId,
+        string CapabilityKey,
+        string? ProfileKey,
+        string EventType,
+        bool DryRun,
+        bool Force,
+        int CandidateCount,
+        int PlannedCount,
+        int QueuedCount,
+        int SkippedCount,
+        DateTimeOffset OccurredAt,
+        string? DetailsJson);
+
+    private sealed record CapabilityBCampaignItemRow(
+        Guid? DocId,
+        string? DocPath,
+        Guid? JobId,
+        DateTimeOffset OccurredAt);
+
+    private sealed record CapabilityBCampaignProgress(
+        int TrackedJobCount,
+        int ActiveJobCount,
+        int TerminalJobCount,
+        int StoredSummaryCount,
+        int? ProgressPercent);
+
+    private sealed record CapabilityBJobStateRow(
+        Guid JobId,
+        string? JobStatus,
+        bool? ResultStored,
+        DateTimeOffset? FinishedAt,
+        string? StoredSummaryFreshness);
+
+    private sealed record CapabilityBCampaignJobStatusCountRow(
+        Guid CampaignId,
+        string JobStatus,
+        int Count);
+
+    private sealed record CapabilityBCampaignOperationalRow(
+        Guid CampaignId,
+        string EventType,
+        DateTimeOffset OccurredAt);
+
+    private sealed record CapabilityBCampaignJobAggregateRow(
+        Guid CampaignId,
+        int ActiveJobCount,
+        int TerminalJobCount,
+        int StoredSummaryCount);
 
     internal static HardwareGateResult EvaluateHardwareGate(RuntimeGovernanceOptions options)
         => EvaluateHardwareGate(null, options);
@@ -3450,6 +5310,11 @@ LIMIT @limit;
 
             var recommendedAction = fileExists ? "enqueue_reindex" : "inspect_document_source";
             var priorityScore = BuildCapabilityAPriorityScore(reasons, row);
+            var semanticPreview = await BuildCapabilityASemanticPreviewAsync(
+                conn,
+                tenantId,
+                row,
+                ct);
 
             candidates.Add(new AdminRuntimeCapabilityAEnrichmentCandidateDto(
                 DocId: row.DocId,
@@ -3466,7 +5331,11 @@ LIMIT @limit;
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .OrderByDescending(reason => reason.Equals("document_file_not_found", StringComparison.OrdinalIgnoreCase))
                     .ThenBy(reason => reason, StringComparer.OrdinalIgnoreCase)
-                    .ToArray()));
+                    .ToArray(),
+                PreviewText: semanticPreview.PreviewText,
+                KeySectionTitles: semanticPreview.KeySectionTitles,
+                SuggestedTags: semanticPreview.SuggestedTags,
+                HypotheticalQuestions: semanticPreview.HypotheticalQuestions));
         }
 
         return candidates
@@ -3529,6 +5398,509 @@ LIMIT @limit;
             cancellationToken: ct)))
             .Select(MapCapabilityACampaignRow)
             .ToArray();
+
+    private static async Task<AdminRuntimeCapabilityBBackofficeCandidateDto[]> LoadCapabilityBBackofficeCandidatesAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        string? category,
+        int limit,
+        RuntimeGovernanceOptions options,
+        CancellationToken ct)
+    {
+        var categoryPath = await Endpoints.SummaryCategoryScopeResolver.ResolveScopeAsync(
+            conn,
+            tenantId,
+            Endpoints.SummaryCategoryScopeResolver.NormalizeCategoryPathOrNull(category),
+            Endpoints.SummaryCategoryScopeResolver.NormalizeCategoryRefOrNull(category),
+            ct);
+
+        var rows = await LoadCapabilityBBackofficeCandidateRowsAsync(
+            conn,
+            tenantId,
+            categoryPath,
+            Math.Clamp(limit, 1, 500),
+            ct);
+
+        return rows
+            .Select(row => MapCapabilityBBackofficeCandidate(row, options))
+            .OrderByDescending(candidate => candidate.PriorityScore)
+            .ThenBy(candidate => candidate.Category, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(candidate => candidate.DocPath, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    internal static async Task<IReadOnlyDictionary<Guid, AdminRuntimeCapabilityBBackofficeCandidateDto>> LoadCapabilityBBackofficeCandidateLookupAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        string? categoryPath,
+        RuntimeGovernanceOptions options,
+        CancellationToken ct)
+    {
+        var rows = await LoadCapabilityBBackofficeCandidateRowsAsync(
+            conn,
+            tenantId,
+            categoryPath,
+            limit: null,
+            ct);
+
+        return rows
+            .Select(row => MapCapabilityBBackofficeCandidate(row, options))
+            .GroupBy(candidate => candidate.DocId)
+            .ToDictionary(group => group.Key, group => group.First());
+    }
+
+    private static async Task<CapabilityBBackofficeCandidateRow[]> LoadCapabilityBBackofficeCandidateRowsAsync(
+        NpgsqlConnection conn,
+        Guid? tenantId,
+        string? categoryPath,
+        int? limit,
+        CancellationToken ct)
+        => (await conn.QueryAsync<CapabilityBBackofficeCandidateRow>(new CommandDefinition(
+            $"""
+SELECT
+  d.doc_id AS "DocId",
+  d.doc_path AS "DocPath",
+  d.doc_name AS "DocName",
+  d.category AS "Category",
+  CASE
+    WHEN s.source_hash IS NULL THEN 'missing'
+    WHEN s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,''))) THEN 'stale'
+    ELSE 'fresh'
+  END AS "SummaryState",
+  EXISTS (
+    SELECT 1
+    FROM admin_jobs a
+    WHERE a.tenant_id = d.tenant_id
+      AND a.doc_id = d.doc_id
+      AND a.job_type IN ('summary.request','summary.generate')
+      AND a.status IN ('queued','running','paused')
+  ) AS "HasActiveJob",
+  latest.status AS "LastJobStatus",
+  latest.last_job_finished_at AS "LastJobFinishedAt",
+  latest.last_error AS "LastJobError"
+FROM documents d
+LEFT JOIN document_summaries s
+  ON s.tenant_id = d.tenant_id
+ AND s.doc_id = d.doc_id
+ AND s.level = 'medium'
+LEFT JOIN LATERAL (
+  SELECT
+    a.status,
+    COALESCE(a.finished_at, a.canceled_at, a.created_at) AS last_job_finished_at,
+    a.last_error
+  FROM admin_jobs a
+  WHERE a.tenant_id = d.tenant_id
+    AND a.doc_id = d.doc_id
+    AND a.job_type IN ('summary.request','summary.generate')
+  ORDER BY COALESCE(a.finished_at, a.canceled_at, a.created_at) DESC, a.created_at DESC
+  LIMIT 1
+) latest ON TRUE
+WHERE (@tenant IS NULL OR d.tenant_id = @tenant)
+  AND d.status='indexed'
+  AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
+  AND (
+    s.source_hash IS NULL
+    OR s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')))
+  )
+ORDER BY d.updated_at DESC
+{(limit.HasValue ? "LIMIT @limit;" : ";")}
+""",
+            new { tenant = tenantId, categoryPath, limit },
+            cancellationToken: ct))).ToArray();
+
+    private static AdminRuntimeCapabilityBBackofficeCandidateDto MapCapabilityBBackofficeCandidate(
+        CapabilityBBackofficeCandidateRow row,
+        RuntimeGovernanceOptions options)
+    {
+        var reasons = new List<string>();
+        if (string.Equals(row.SummaryState, "missing", StringComparison.OrdinalIgnoreCase))
+            reasons.Add("summary_missing");
+        if (string.Equals(row.SummaryState, "stale", StringComparison.OrdinalIgnoreCase))
+            reasons.Add("summary_stale");
+        if (row.HasActiveJob)
+            reasons.Add("summary_job_active");
+
+        var cooldownReason = ResolveCapabilityBCooldownReason(row, options);
+        if (string.Equals(cooldownReason, "recent_summary_job_failure", StringComparison.Ordinal))
+            reasons.Add("recent_summary_failure");
+        else if (string.Equals(cooldownReason, "recent_summary_job_cancellation", StringComparison.Ordinal))
+            reasons.Add("recent_summary_cancellation");
+
+        var recommendedAction = row.HasActiveJob
+            ? "review_active_summary_job"
+            : string.Equals(cooldownReason, "recent_summary_job_failure", StringComparison.Ordinal)
+                ? "inspect_recent_summary_failure"
+                : string.Equals(cooldownReason, "recent_summary_job_cancellation", StringComparison.Ordinal)
+                    ? "review_recent_summary_cancellation"
+                    : "enqueue_summary_generation";
+
+        return new AdminRuntimeCapabilityBBackofficeCandidateDto(
+            row.DocId,
+            row.DocPath,
+            row.DocName,
+            row.Category,
+            row.SummaryState,
+            row.HasActiveJob,
+            recommendedAction,
+            reasons.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+            PriorityScore: BuildCapabilityBPriorityScore(row, cooldownReason),
+            PolicyBlocked: row.HasActiveJob || !string.IsNullOrWhiteSpace(cooldownReason),
+            PolicyBlockReason: row.HasActiveJob ? "active_summary_job_exists" : cooldownReason,
+            LastJobStatus: row.LastJobStatus,
+            LastJobFinishedAt: row.LastJobFinishedAt,
+            LastJobError: row.LastJobError);
+    }
+
+    private static string? ResolveCapabilityBCooldownReason(
+        CapabilityBBackofficeCandidateRow row,
+        RuntimeGovernanceOptions options)
+    {
+        if (!row.LastJobFinishedAt.HasValue || string.IsNullOrWhiteSpace(row.LastJobStatus))
+            return null;
+
+        var status = row.LastJobStatus.Trim();
+        if (string.Equals(status, "failed", StringComparison.OrdinalIgnoreCase)
+            && row.LastJobFinishedAt.Value >= DateTimeOffset.UtcNow.AddHours(-Math.Abs(options.CapabilityBRecentFailureCooldownHours)))
+        {
+            return "recent_summary_job_failure";
+        }
+
+        if ((string.Equals(status, "canceled", StringComparison.OrdinalIgnoreCase)
+             || string.Equals(status, "cancelled", StringComparison.OrdinalIgnoreCase))
+            && row.LastJobFinishedAt.Value >= DateTimeOffset.UtcNow.AddHours(-Math.Abs(options.CapabilityBRecentCancellationCooldownHours)))
+        {
+            return "recent_summary_job_cancellation";
+        }
+
+        return null;
+    }
+
+    private static int BuildCapabilityBPriorityScore(
+        CapabilityBBackofficeCandidateRow row,
+        string? cooldownReason)
+    {
+        var score = string.Equals(row.SummaryState, "missing", StringComparison.OrdinalIgnoreCase) ? 200 : 120;
+
+        if (row.HasActiveJob)
+            score -= 180;
+
+        if (string.Equals(cooldownReason, "recent_summary_job_failure", StringComparison.Ordinal))
+            score -= 120;
+        else if (string.Equals(cooldownReason, "recent_summary_job_cancellation", StringComparison.Ordinal))
+            score -= 80;
+
+        return score;
+    }
+
+    private static async Task<AdminRuntimeCapabilityBCampaignDto[]> LoadCapabilityBCampaignsAsync(
+        NpgsqlConnection conn,
+        int limit,
+        CancellationToken ct)
+    {
+        var rows = (await conn.QueryAsync<CapabilityBCampaignRow>(new CommandDefinition(
+            """
+SELECT
+  CAST(details ->> 'campaignId' AS uuid) AS "CampaignId",
+  capability_key AS "CapabilityKey",
+  profile_key AS "ProfileKey",
+  event_type AS "EventType",
+  COALESCE((details ->> 'dryRun')::boolean, false) AS "DryRun",
+  COALESCE((details ->> 'force')::boolean, false) AS "Force",
+  COALESCE((details ->> 'candidateCount')::integer, 0) AS "CandidateCount",
+  COALESCE((details ->> 'plannedCount')::integer, 0) AS "PlannedCount",
+  COALESCE((details ->> 'queuedCount')::integer, 0) AS "QueuedCount",
+  COALESCE((details ->> 'skippedCount')::integer, 0) AS "SkippedCount",
+  occurred_at AS "OccurredAt",
+  details AS "DetailsJson"
+FROM runtime_capability_events
+WHERE capability_key = @capabilityKey
+  AND event_type IN ('capability_b_campaign_dry_run', 'capability_b_campaign_executed')
+  AND details ? 'campaignId'
+ORDER BY occurred_at DESC
+LIMIT @limit;
+""",
+            new { capabilityKey = CapabilityBBackofficeGenerationKey, limit },
+            cancellationToken: ct))).ToArray();
+
+        var statusCounts = await LoadCapabilityBCampaignJobStatusCountsAsync(conn, rows.Select(static row => row.CampaignId).ToArray(), ct);
+        return rows.Select(row => MapCapabilityBCampaignRow(
+            row,
+            statusCounts.TryGetValue(row.CampaignId, out var counts) ? counts : EmptyReasonCounts))
+            .ToArray();
+    }
+
+    private static async Task<CapabilityBCampaignRow?> LoadCapabilityBCampaignRowAsync(
+        NpgsqlConnection conn,
+        Guid campaignId,
+        CancellationToken ct)
+        => await conn.QueryFirstOrDefaultAsync<CapabilityBCampaignRow>(new CommandDefinition(
+            """
+SELECT
+  CAST(details ->> 'campaignId' AS uuid) AS "CampaignId",
+  capability_key AS "CapabilityKey",
+  profile_key AS "ProfileKey",
+  event_type AS "EventType",
+  COALESCE((details ->> 'dryRun')::boolean, false) AS "DryRun",
+  COALESCE((details ->> 'force')::boolean, false) AS "Force",
+  COALESCE((details ->> 'candidateCount')::integer, 0) AS "CandidateCount",
+  COALESCE((details ->> 'plannedCount')::integer, 0) AS "PlannedCount",
+  COALESCE((details ->> 'queuedCount')::integer, 0) AS "QueuedCount",
+  COALESCE((details ->> 'skippedCount')::integer, 0) AS "SkippedCount",
+  occurred_at AS "OccurredAt",
+  details AS "DetailsJson"
+FROM runtime_capability_events
+WHERE capability_key = @capabilityKey
+  AND event_type IN ('capability_b_campaign_dry_run', 'capability_b_campaign_executed')
+  AND details ->> 'campaignId' = @campaignId
+LIMIT 1;
+""",
+            new { capabilityKey = CapabilityBBackofficeGenerationKey, campaignId = campaignId.ToString() },
+            cancellationToken: ct));
+
+    private static async Task<AdminRuntimeCapabilityBCampaignDetailDto> BuildCapabilityBCampaignDetailAsync(
+        NpgsqlConnection conn,
+        CapabilityBCampaignRow row,
+        CancellationToken ct)
+    {
+        var items = await LoadCapabilityBCampaignItemsAsync(conn, row.CampaignId, row.DetailsJson, ct);
+        items = await EnrichCapabilityBCampaignItemsAsync(conn, items, ct);
+        var summary = MapCapabilityBCampaignRow(row, BuildCapabilityBJobStatusCounts(items), items);
+        return new AdminRuntimeCapabilityBCampaignDetailDto(
+            summary.CampaignId,
+            summary.CapabilityKey,
+            summary.ProfileKey,
+            summary.Status,
+            summary.DryRun,
+            summary.Force,
+            summary.CandidateCount,
+            summary.PlannedCount,
+            summary.QueuedCount,
+            summary.SkippedCount,
+            summary.ReasonCounts,
+            summary.JobStatusCounts,
+            summary.TrackedJobCount,
+            summary.ActiveJobCount,
+            summary.TerminalJobCount,
+            summary.StoredSummaryCount,
+            summary.ProgressPercent,
+            summary.OccurredAt,
+            items);
+    }
+
+    private static AdminRuntimeCapabilityBCampaignDto MapCapabilityBCampaignRow(
+        CapabilityBCampaignRow row,
+        IReadOnlyDictionary<string, int> jobStatusCounts,
+        IReadOnlyCollection<AdminRuntimeCapabilityBEnqueueItemDto>? items = null)
+    {
+        var progress = BuildCapabilityBCampaignProgress(jobStatusCounts, items, row.QueuedCount);
+        return new(
+            row.CampaignId,
+            row.CapabilityKey,
+            row.ProfileKey,
+            string.Equals(row.EventType, "capability_b_campaign_dry_run", StringComparison.Ordinal) ? "dry_run" : "executed",
+            row.DryRun,
+            row.Force,
+            row.CandidateCount,
+            row.PlannedCount,
+            row.QueuedCount,
+            row.SkippedCount,
+            ParseCapabilityAReasonCounts(row.DetailsJson),
+            jobStatusCounts,
+            progress.TrackedJobCount,
+            progress.ActiveJobCount,
+            progress.TerminalJobCount,
+            progress.StoredSummaryCount,
+            progress.ProgressPercent,
+            row.OccurredAt);
+    }
+
+    private static async Task<AdminRuntimeCapabilityBEnqueueItemDto[]> LoadCapabilityBCampaignItemsAsync(
+        NpgsqlConnection conn,
+        Guid campaignId,
+        string? detailsJson,
+        CancellationToken ct)
+    {
+        var items = ParseCapabilityBCampaignItems(detailsJson);
+        if (items.Length > 0)
+            return items;
+
+        return (await conn.QueryAsync<CapabilityBCampaignItemRow>(new CommandDefinition(
+            """
+SELECT
+  CASE
+    WHEN details ? 'docId' AND NULLIF(details ->> 'docId', '') IS NOT NULL
+      THEN CAST(details ->> 'docId' AS uuid)
+    ELSE NULL
+  END AS "DocId",
+  details ->> 'docPath' AS "DocPath",
+  CASE
+    WHEN details ? 'jobId' AND NULLIF(details ->> 'jobId', '') IS NOT NULL
+      THEN CAST(details ->> 'jobId' AS uuid)
+    ELSE NULL
+  END AS "JobId",
+  occurred_at AS "OccurredAt"
+FROM runtime_capability_events
+WHERE capability_key = @capabilityKey
+  AND event_type = 'capability_b_enqueued'
+  AND details ->> 'campaignId' = @campaignId
+ORDER BY occurred_at ASC;
+""",
+            new { capabilityKey = CapabilityBBackofficeGenerationKey, campaignId = campaignId.ToString() },
+            cancellationToken: ct)))
+            .Select(static row => new AdminRuntimeCapabilityBEnqueueItemDto(
+                row.DocId,
+                row.DocPath,
+                true,
+                row.JobId))
+            .ToArray();
+    }
+
+    private static async Task<AdminRuntimeCapabilityBEnqueueItemDto[]> EnrichCapabilityBCampaignItemsAsync(
+        NpgsqlConnection conn,
+        AdminRuntimeCapabilityBEnqueueItemDto[] items,
+        CancellationToken ct)
+    {
+        var jobIds = items
+            .Where(static item => item.Queued && item.JobId.HasValue)
+            .Select(static item => item.JobId!.Value)
+            .Distinct()
+            .ToArray();
+        if (jobIds.Length == 0)
+            return items;
+
+        var rows = await conn.QueryAsync<CapabilityBJobStateRow>(new CommandDefinition(
+            """
+SELECT
+  a.job_id AS "JobId",
+  a.status AS "JobStatus",
+  CASE
+    WHEN jsonb_typeof(a.result->'stored')='boolean' THEN (a.result->>'stored')::boolean
+    ELSE NULL::boolean
+  END AS "ResultStored",
+  a.finished_at AS "FinishedAt",
+  CASE
+    WHEN a.doc_id IS NULL OR d.doc_id IS NULL THEN NULL
+    WHEN s.doc_id IS NULL THEN 'missing'
+    WHEN s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,''))) THEN 'stale'
+    ELSE 'fresh'
+  END AS "StoredSummaryFreshness"
+FROM admin_jobs a
+LEFT JOIN documents d
+  ON d.tenant_id = a.tenant_id
+ AND d.doc_id = a.doc_id
+LEFT JOIN document_summaries s
+  ON s.tenant_id = a.tenant_id
+ AND s.doc_id = a.doc_id
+ AND s.level = a.level
+WHERE a.job_id = ANY(@jobIds);
+""",
+            new { jobIds },
+            cancellationToken: ct));
+
+        var lookup = rows.ToDictionary(static row => row.JobId);
+        return items.Select(item =>
+        {
+            if (!item.JobId.HasValue || !lookup.TryGetValue(item.JobId.Value, out var row))
+                return item;
+
+            return item with
+            {
+                JobStatus = row.JobStatus,
+                JobResultStored = row.ResultStored,
+                JobFinishedAt = row.FinishedAt,
+                StoredSummaryFreshness = row.StoredSummaryFreshness
+            };
+        }).ToArray();
+    }
+
+    private static IReadOnlyDictionary<string, int> BuildCapabilityBJobStatusCounts(IReadOnlyCollection<AdminRuntimeCapabilityBEnqueueItemDto> items)
+    {
+        if (items.Count == 0)
+            return EmptyReasonCounts;
+
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var item in items)
+        {
+            if (!item.Queued)
+                continue;
+
+            var key = string.IsNullOrWhiteSpace(item.JobStatus) ? "unknown" : item.JobStatus!;
+            counts[key] = counts.TryGetValue(key, out var current) ? current + 1 : 1;
+        }
+
+        return counts;
+    }
+
+    private static CapabilityBCampaignProgress BuildCapabilityBCampaignProgress(
+        IReadOnlyDictionary<string, int> jobStatusCounts,
+        IReadOnlyCollection<AdminRuntimeCapabilityBEnqueueItemDto>? items,
+        int expectedQueuedCount)
+    {
+        var trackedJobCount = jobStatusCounts.Values.Sum();
+        var activeJobCount = SumJobStatuses(jobStatusCounts, "queued", "running", "paused");
+        var terminalJobCount = SumJobStatuses(jobStatusCounts, "done", "failed", "canceled", "cancelled");
+        var storedSummaryCount = items?.Count(static item => item.JobResultStored == true) ?? 0;
+
+        int? progressPercent = null;
+        var denominator = Math.Max(expectedQueuedCount, trackedJobCount);
+        if (denominator > 0)
+        {
+            progressPercent = Math.Clamp((int)Math.Round((terminalJobCount * 100.0) / denominator, MidpointRounding.AwayFromZero), 0, 100);
+        }
+
+        return new CapabilityBCampaignProgress(
+            trackedJobCount,
+            activeJobCount,
+            terminalJobCount,
+            storedSummaryCount,
+            progressPercent);
+    }
+
+    private static int SumJobStatuses(IReadOnlyDictionary<string, int> jobStatusCounts, params string[] statuses)
+    {
+        var sum = 0;
+        foreach (var status in statuses)
+        {
+            if (jobStatusCounts.TryGetValue(status, out var count))
+                sum += count;
+        }
+
+        return sum;
+    }
+
+    private static async Task<IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, int>>> LoadCapabilityBCampaignJobStatusCountsAsync(
+        NpgsqlConnection conn,
+        IReadOnlyCollection<Guid> campaignIds,
+        CancellationToken ct)
+    {
+        if (campaignIds.Count == 0)
+            return new Dictionary<Guid, IReadOnlyDictionary<string, int>>();
+
+        var keys = campaignIds.Select(static id => id.ToString()).ToArray();
+        var rows = await conn.QueryAsync<CapabilityBCampaignJobStatusCountRow>(new CommandDefinition(
+            """
+SELECT
+  CAST(a.payload ->> 'campaignId' AS uuid) AS "CampaignId",
+  a.status AS "JobStatus",
+  COUNT(*)::int AS "Count"
+FROM admin_jobs a
+WHERE a.payload ->> 'source' = 'capability_b'
+  AND a.payload ? 'campaignId'
+  AND a.payload ->> 'campaignId' = ANY(@campaignIds)
+GROUP BY CAST(a.payload ->> 'campaignId' AS uuid), a.status;
+""",
+            new { campaignIds = keys },
+            cancellationToken: ct));
+
+        return rows
+            .GroupBy(static row => row.CampaignId)
+            .ToDictionary(
+                static group => group.Key,
+                static group => (IReadOnlyDictionary<string, int>)group.ToDictionary(
+                    static row => row.JobStatus,
+                    static row => row.Count,
+                    StringComparer.Ordinal));
+    }
 
     private static async Task<CapabilityACampaignRow?> LoadCapabilityACampaignRowAsync(
         NpgsqlConnection conn,
@@ -3626,6 +5998,19 @@ SELECT
       THEN CAST(details ->> 'jobId' AS uuid)
     ELSE NULL
   END AS "JobId",
+  details ->> 'previewText' AS "PreviewText",
+  CASE
+    WHEN details ? 'keySectionTitles' THEN (details -> 'keySectionTitles')::text
+    ELSE NULL
+  END AS "KeySectionTitlesJson",
+  CASE
+    WHEN details ? 'suggestedTags' THEN (details -> 'suggestedTags')::text
+    ELSE NULL
+  END AS "SuggestedTagsJson",
+  CASE
+    WHEN details ? 'hypotheticalQuestions' THEN (details -> 'hypotheticalQuestions')::text
+    ELSE NULL
+  END AS "HypotheticalQuestionsJson",
   occurred_at AS "OccurredAt"
 FROM runtime_capability_events
 WHERE capability_key = @capabilityKey
@@ -3643,8 +6028,122 @@ ORDER BY occurred_at ASC;
                 DocId: row.DocId,
                 DocPath: row.DocPath,
                 Queued: true,
-                JobId: row.JobId))
+                JobId: row.JobId,
+                PreviewText: row.PreviewText,
+                KeySectionTitles: ParseStringArray(row.KeySectionTitlesJson),
+                SuggestedTags: ParseStringArray(row.SuggestedTagsJson),
+                HypotheticalQuestions: ParseStringArray(row.HypotheticalQuestionsJson)))
             .ToArray();
+    }
+
+    private static async Task<AdminRuntimeCapabilityOperationalSummaryDto> LoadCapabilityBOperationalSummaryAsync(
+        NpgsqlConnection conn,
+        RuntimeGovernanceOptions options,
+        CancellationToken ct)
+    {
+        var candidateRows = await LoadCapabilityBBackofficeCandidateRowsAsync(
+            conn,
+            tenantId: null,
+            categoryPath: null,
+            limit: null,
+            ct);
+        var candidates = candidateRows.Select(row => MapCapabilityBBackofficeCandidate(row, options)).ToArray();
+
+        var candidateCount = candidates.Length;
+        var readyToEnqueueCount = candidates.Count(static candidate => !candidate.HasActiveJob && string.IsNullOrWhiteSpace(candidate.PolicyBlockReason));
+        var blockedByActiveJobCount = candidates.Count(static candidate => candidate.HasActiveJob);
+        var blockedByCooldownCount = candidates.Count(static candidate =>
+            string.Equals(candidate.PolicyBlockReason, "recent_summary_job_failure", StringComparison.Ordinal)
+            || string.Equals(candidate.PolicyBlockReason, "recent_summary_job_cancellation", StringComparison.Ordinal));
+
+        var activeCapabilityJobCount = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            """
+SELECT COUNT(*)::int
+FROM admin_jobs
+WHERE payload ->> 'source' = 'capability_b'
+  AND job_type = 'summary.generate'
+  AND status IN ('queued', 'running', 'paused');
+""",
+            cancellationToken: ct));
+
+        var campaignRows = (await conn.QueryAsync<CapabilityBCampaignOperationalRow>(new CommandDefinition(
+            """
+SELECT
+  CAST(details ->> 'campaignId' AS uuid) AS "CampaignId",
+  event_type AS "EventType",
+  occurred_at AS "OccurredAt"
+FROM runtime_capability_events
+WHERE capability_key = @capabilityKey
+  AND event_type IN ('capability_b_campaign_dry_run', 'capability_b_campaign_executed')
+  AND details ? 'campaignId'
+ORDER BY occurred_at DESC;
+""",
+            new { capabilityKey = CapabilityBBackofficeGenerationKey },
+            cancellationToken: ct))).ToArray();
+
+        var latestCampaignRow = campaignRows.FirstOrDefault();
+        var totalCampaignCount = campaignRows.Length;
+
+        var campaignStates = campaignRows.Length == 0
+            ? Array.Empty<CapabilityBCampaignJobAggregateRow>()
+            : (await conn.QueryAsync<CapabilityBCampaignJobAggregateRow>(new CommandDefinition(
+                """
+SELECT
+  CAST(a.payload ->> 'campaignId' AS uuid) AS "CampaignId",
+  SUM(CASE WHEN a.status IN ('queued', 'running', 'paused') THEN 1 ELSE 0 END)::int AS "ActiveJobCount",
+  SUM(CASE WHEN a.status IN ('done', 'failed', 'canceled', 'cancelled') THEN 1 ELSE 0 END)::int AS "TerminalJobCount",
+  SUM(
+    CASE
+      WHEN jsonb_typeof(a.result->'stored')='boolean' AND (a.result->>'stored')::boolean THEN 1
+      ELSE 0
+    END
+  )::int AS "StoredSummaryCount"
+FROM admin_jobs a
+WHERE a.payload ->> 'source' = 'capability_b'
+  AND a.payload ? 'campaignId'
+GROUP BY CAST(a.payload ->> 'campaignId' AS uuid);
+""",
+                cancellationToken: ct))).ToArray();
+
+        var campaignStateLookup = campaignStates.ToDictionary(static row => row.CampaignId);
+        var activeCampaignCount = campaignStates.Count(static row => row.ActiveJobCount > 0);
+        var terminalCapabilityJobCount = campaignStates.Sum(static row => row.TerminalJobCount);
+        var storedSummaryCount = campaignStates.Sum(static row => row.StoredSummaryCount);
+
+        int? latestCampaignProgressPercent = null;
+        string? latestCampaignStatus = null;
+        Guid? latestCampaignId = latestCampaignRow?.CampaignId;
+        DateTimeOffset? latestCampaignOccurredAt = latestCampaignRow?.OccurredAt;
+        if (latestCampaignRow is not null)
+        {
+            latestCampaignStatus = string.Equals(latestCampaignRow.EventType, "capability_b_campaign_dry_run", StringComparison.Ordinal)
+                ? "dry_run"
+                : "executed";
+
+            var latestCampaign = await LoadCapabilityBCampaignRowAsync(conn, latestCampaignRow.CampaignId, ct);
+            if (latestCampaign is not null)
+            {
+                var latestCampaignItems = await LoadCapabilityBCampaignItemsAsync(conn, latestCampaign.CampaignId, latestCampaign.DetailsJson, ct);
+                latestCampaignItems = await EnrichCapabilityBCampaignItemsAsync(conn, latestCampaignItems, ct);
+                var latestCounts = BuildCapabilityBJobStatusCounts(latestCampaignItems);
+                latestCampaignProgressPercent = MapCapabilityBCampaignRow(latestCampaign, latestCounts, latestCampaignItems).ProgressPercent;
+            }
+        }
+
+        return new AdminRuntimeCapabilityOperationalSummaryDto(
+            CandidateCount: candidateCount,
+            ReadyToEnqueueCount: readyToEnqueueCount,
+            BlockedByActiveJobCount: blockedByActiveJobCount,
+            BlockedByCooldownCount: blockedByCooldownCount,
+            ActiveCapabilityJobCount: activeCapabilityJobCount,
+            TotalCampaignCount: totalCampaignCount,
+            ActiveCampaignCount: activeCampaignCount,
+            TerminalCapabilityJobCount: terminalCapabilityJobCount,
+            StoredSummaryCount: storedSummaryCount,
+            LatestCampaignProgressPercent: latestCampaignProgressPercent,
+            LatestCampaignId: latestCampaignId,
+            LatestCampaignStatus: latestCampaignStatus,
+            LatestCampaignOccurredAt: latestCampaignOccurredAt);
     }
 
     internal sealed record HardwareGateResult(
@@ -3656,6 +6155,24 @@ ORDER BY occurred_at ASC;
         bool Passed,
         IReadOnlyDictionary<string, object?> Details,
         string? Error);
+
+    private sealed record CapabilityBExecutionJobRow(
+        Guid JobId,
+        Guid? DocId,
+        string? DocPath,
+        string? Level,
+        string Status,
+        string? ExecutionMode,
+        string? RuntimeCapabilityKey,
+        string? RuntimeCapabilityStatus,
+        bool? RuntimeCapabilitySelected,
+        string? RuntimeProfileKey,
+        string? EnqueueSource,
+        string? ExecutionLeaseToken,
+        string? ExecutionClaimedBy,
+        DateTimeOffset? ExecutionClaimedAt,
+        Guid? CampaignId,
+        string PayloadJson);
 
     private sealed record QualificationFingerprint(
         string Hash,

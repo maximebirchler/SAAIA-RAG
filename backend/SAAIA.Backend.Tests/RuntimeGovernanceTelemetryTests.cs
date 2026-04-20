@@ -122,6 +122,54 @@ public sealed class RuntimeGovernanceTelemetryTests
                 skippedCount: 1);
         }
 
+        using (var capabilityBCandidates = RuntimeGovernanceTelemetry.StartCapabilityBOperationActivity("capability_b_candidates"))
+        {
+            RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                capabilityBCandidates,
+                "capability_b_candidates",
+                success: true,
+                durationMs: 8,
+                candidateCount: 4);
+        }
+
+        using (var capabilityBEnqueue = RuntimeGovernanceTelemetry.StartCapabilityBOperationActivity("capability_b_enqueue"))
+        {
+            RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                capabilityBEnqueue,
+                "capability_b_enqueue",
+                success: true,
+                durationMs: 15,
+                queuedCount: 1,
+                skippedCount: 3);
+        }
+
+        using (var capabilityBClaim = RuntimeGovernanceTelemetry.StartCapabilityBOperationActivity("capability_b_claim"))
+        {
+            RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                capabilityBClaim,
+                "capability_b_claim",
+                success: true,
+                durationMs: 4);
+        }
+
+        using (var capabilityBFail = RuntimeGovernanceTelemetry.StartCapabilityBOperationActivity("capability_b_fail"))
+        {
+            RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                capabilityBFail,
+                "capability_b_fail",
+                success: true,
+                durationMs: 5);
+        }
+
+        using (var capabilityBCompleted = RuntimeGovernanceTelemetry.StartCapabilityBOperationActivity("capability_b_summary_completed"))
+        {
+            RuntimeGovernanceTelemetry.CompleteCapabilityBOperation(
+                capabilityBCompleted,
+                "capability_b_summary_completed",
+                success: true,
+                durationMs: 6);
+        }
+
         RuntimeGovernanceTelemetry.RecordRequalifyRequest("core.retrieval", "default-local", 1);
         RuntimeGovernanceTelemetry.RecordStaleQualificationDetected("core.retrieval", "default-local", "qualification_inputs_changed");
         RuntimeGovernanceTelemetry.RecordCapabilityEventWritten("core.retrieval", "requalified");
@@ -144,6 +192,15 @@ public sealed class RuntimeGovernanceTelemetryTests
         Assert.Contains("saaia.runtime.capability_a.skipped_docs", metricNames);
         Assert.Contains("saaia.runtime.capability_a.duration", metricNames);
         Assert.Contains("saaia.runtime.capability_a.candidate_count", metricNames);
+        Assert.Contains("saaia.runtime.capability_b.candidate_reads", metricNames);
+        Assert.Contains("saaia.runtime.capability_b.enqueue.requests", metricNames);
+        Assert.Contains("saaia.runtime.capability_b.claim.requests", metricNames);
+        Assert.Contains("saaia.runtime.capability_b.queued_docs", metricNames);
+        Assert.Contains("saaia.runtime.capability_b.failed_docs", metricNames);
+        Assert.Contains("saaia.runtime.capability_b.completed_docs", metricNames);
+        Assert.Contains("saaia.runtime.capability_b.skipped_docs", metricNames);
+        Assert.Contains("saaia.runtime.capability_b.duration", metricNames);
+        Assert.Contains("saaia.runtime.capability_b.candidate_count", metricNames);
         Assert.Contains("saaia.runtime.requalify.requests", metricNames);
         Assert.Contains("saaia.runtime.qualification.stale_detected", metricNames);
         Assert.Contains("saaia.runtime.event.writes", metricNames);
@@ -189,6 +246,32 @@ public sealed class RuntimeGovernanceTelemetryTests
             && Equals(activity.GetTagItem("saaia.runtime.capability_key"), "capability_a.corpus_enrichment"));
         Assert.Equal(2, capabilityAEnqueueActivity.GetTagItem("saaia.runtime.queued_count"));
         Assert.Equal(1, capabilityAEnqueueActivity.GetTagItem("saaia.runtime.skipped_count"));
+
+        var capabilityBActivity = Assert.Single(stoppedActivities, activity =>
+            activity.OperationName == "capability_b_candidates"
+            && Equals(activity.GetTagItem("saaia.runtime.capability_key"), "capability_b.backoffice_generation"));
+        Assert.Equal(4, capabilityBActivity.GetTagItem("saaia.runtime.candidate_count"));
+
+        var capabilityBEnqueueActivity = Assert.Single(stoppedActivities, activity =>
+            activity.OperationName == "capability_b_enqueue"
+            && Equals(activity.GetTagItem("saaia.runtime.capability_key"), "capability_b.backoffice_generation"));
+        Assert.Equal(1, capabilityBEnqueueActivity.GetTagItem("saaia.runtime.queued_count"));
+        Assert.Equal(3, capabilityBEnqueueActivity.GetTagItem("saaia.runtime.skipped_count"));
+
+        var capabilityBClaimActivity = Assert.Single(stoppedActivities, activity =>
+            activity.OperationName == "capability_b_claim"
+            && Equals(activity.GetTagItem("saaia.runtime.capability_key"), "capability_b.backoffice_generation"));
+        Assert.Equal(true, capabilityBClaimActivity.GetTagItem("saaia.runtime.success"));
+
+        var capabilityBFailActivity = Assert.Single(stoppedActivities, activity =>
+            activity.OperationName == "capability_b_fail"
+            && Equals(activity.GetTagItem("saaia.runtime.capability_key"), "capability_b.backoffice_generation"));
+        Assert.Equal(true, capabilityBFailActivity.GetTagItem("saaia.runtime.success"));
+
+        var capabilityBCompletedActivity = Assert.Single(stoppedActivities, activity =>
+            activity.OperationName == "capability_b_summary_completed"
+            && Equals(activity.GetTagItem("saaia.runtime.capability_key"), "capability_b.backoffice_generation"));
+        Assert.Equal(true, capabilityBCompletedActivity.GetTagItem("saaia.runtime.success"));
     }
 
     [Fact]

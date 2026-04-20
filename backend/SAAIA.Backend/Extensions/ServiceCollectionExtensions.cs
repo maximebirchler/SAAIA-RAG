@@ -169,6 +169,7 @@ public static class ServiceCollectionExtensions
         // ---------- Worker ----------
         services.AddHostedService<IngestionWorker>();
         services.AddHostedService<IngestionScanner>();
+        services.AddHostedService<CapabilityBBackofficeWorker>();
         services.AddHostedService<FileWatcherService>();
         services.AddHostedService<CatalogSnapshotService>();
 

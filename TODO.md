@@ -153,8 +153,8 @@
 > Le backend expose maintenant un catalogue et un etat persistant pour A/B/C, mais les capacités restent explicitement non implementees.
 
 - [~] **Abstraction Capability** â€” Catalogue + etat persistant + API admin runtime en place depuis 2026-04-19 ; selection/politiques encore minimales
-- [ ] **Capacite A (CorpusEnrichment)** â€” Toujours non implemente. Le runtime la presente explicitement comme absente
-- [ ] **Capacite B (BackofficeGeneration)** â€” Toujours non implementee. Le runtime la presente explicitement comme absente
+- [~] **Capacite A (CorpusEnrichment)** â€” Gouvernance runtime/admin implementees, candidats et campagnes exposes, et apercus semantiques deterministes (preview texte, sections, tags, questions) ajoutes sur les candidats ; enrichissement HyPE complet / auto-tagging metier encore absents
+- [~] **Capacite B (BackofficeGeneration)** â€” Gouvernance runtime/admin implementees, candidats/campagnes/detail de campagne exposes, contrat d'execution `claim/complete/fail` en place et worker backend deterministe de resumés backoffice ajoute ; runtime generatif serveur complet encore absent
 - [ ] **Capacite C (RetrievalIntelligence)** â€” Toujours non implementee. Le runtime la presente explicitement comme absente
 - [~] **Politique d'activation** â€” `desired_enabled`, `authorized`, `selected` persistants pour `core.retrieval` ; diagnostic admin de blocage/recommandation ajoute, mais politique A/B/C et separation fine `installed != activee != selectionnee` encore incomplètes
 

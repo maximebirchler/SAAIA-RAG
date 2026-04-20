@@ -1,0 +1,291 @@
+using System.Text;
+using System.Text.Json;
+using Dapper;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Npgsql;
+using SAAIA.Backend.Models;
+
+namespace SAAIA.Backend;
+
+internal sealed class CapabilityBBackofficeWorker : BackgroundService
+{
+    private const string ExecutorId = "capability_b_worker";
+
+    private readonly IServiceProvider _serviceProvider;
+    private readonly ILogger<CapabilityBBackofficeWorker> _logger;
+
+    public CapabilityBBackofficeWorker(
+        IServiceProvider serviceProvider,
+        ILogger<CapabilityBBackofficeWorker> logger)
+    {
+        _serviceProvider = serviceProvider;
+        _logger = logger;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        using var startupScope = _serviceProvider.CreateScope();
+        var startupOptions = startupScope.ServiceProvider.GetRequiredService<IOptions<RuntimeGovernanceOptions>>().Value;
+        if (!startupOptions.CapabilityBWorkerEnabled)
+        {
+            _logger.LogInformation("Capability B backoffice worker is disabled");
+            return;
+        }
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                var processed = await ProcessNextJobOnceAsync(stoppingToken);
+                if (!processed)
+                    await Task.Delay(Math.Max(100, startupOptions.CapabilityBWorkerEmptyDelayMs), stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Capability B worker loop failed");
+                await Task.Delay(Math.Max(100, startupOptions.CapabilityBWorkerErrorDelayMs), stoppingToken);
+            }
+        }
+    }
+
+    internal async Task<bool> ProcessNextJobOnceAsync(CancellationToken ct)
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var services = scope.ServiceProvider;
+        var ds = services.GetRequiredService<NpgsqlDataSource>();
+        var options = services.GetRequiredService<IOptions<RuntimeGovernanceOptions>>().Value;
+        var rag = services.GetRequiredService<IOptions<RagOptions>>().Value;
+        var env = services.GetRequiredService<IHostEnvironment>();
+
+        if (!options.CapabilityBWorkerEnabled)
+            return false;
+
+        CapabilityBQueuedJobLocator? locator;
+        await using (var conn = await ds.OpenConnectionAsync(ct))
+        {
+            locator = await LoadNextQueuedCapabilityBJobLocatorAsync(conn, ct);
+        }
+
+        if (locator is null)
+            return false;
+
+        var claim = await RuntimeGovernanceService.ClaimCapabilityBBackofficeExecutionAsync(
+            locator.TenantId,
+            ds,
+            options,
+            rag,
+            env,
+            new AdminRuntimeCapabilityBClaimRequestDto(JobId: locator.JobId, ExecutorId: ExecutorId),
+            ct);
+
+        if (claim.Error is not null)
+        {
+            _logger.LogDebug(
+                "Capability B worker skipped job {JobId} for tenant {TenantId}: {Error}",
+                locator.JobId,
+                locator.TenantId,
+                claim.Error);
+            return false;
+        }
+
+        var execution = claim.Payload!;
+
+        try
+        {
+            CapabilityBGeneratedSummary generatedSummary;
+            await using (var conn = await ds.OpenConnectionAsync(ct))
+            {
+                generatedSummary = await BuildGeneratedSummaryAsync(conn, locator.TenantId, execution, ct);
+            }
+
+            var completion = await RuntimeGovernanceService.CompleteCapabilityBBackofficeExecutionAsync(
+                locator.TenantId,
+                ds,
+                new AdminRuntimeCapabilityBCompleteRequestDto(
+                    JobId: execution.JobId,
+                    LeaseToken: execution.LeaseToken,
+                    SummaryText: generatedSummary.SummaryText,
+                    DocLanguage: null,
+                    SourceHash: null,
+                    Meta: generatedSummary.Meta),
+                ct);
+
+            if (completion.Error is not null)
+            {
+                _logger.LogWarning(
+                    "Capability B worker could not complete job {JobId}: {Error}",
+                    execution.JobId,
+                    completion.Error);
+                await TryFailClaimedJobAsync(locator.TenantId, ds, execution, completion.Error, ct);
+                return true;
+            }
+
+            _logger.LogInformation(
+                "Capability B worker stored summary for job {JobId} doc {DocPath}",
+                execution.JobId,
+                execution.DocPath);
+            return true;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Capability B worker failed job {JobId} doc {DocPath}", execution.JobId, execution.DocPath);
+            await TryFailClaimedJobAsync(locator.TenantId, ds, execution, ex.Message, ct);
+            return true;
+        }
+    }
+
+    private static async Task TryFailClaimedJobAsync(
+        Guid tenantId,
+        NpgsqlDataSource ds,
+        AdminRuntimeCapabilityBClaimResponseDto execution,
+        string error,
+        CancellationToken ct)
+    {
+        await RuntimeGovernanceService.FailCapabilityBBackofficeExecutionAsync(
+            tenantId,
+            ds,
+            new StubWorkerHostEnvironment(),
+            new AdminRuntimeCapabilityBFailRequestDto(
+                JobId: execution.JobId,
+                LeaseToken: execution.LeaseToken,
+                Error: string.IsNullOrWhiteSpace(error) ? "capability_b_worker_failed" : error),
+            ct);
+    }
+
+    private static async Task<CapabilityBQueuedJobLocator?> LoadNextQueuedCapabilityBJobLocatorAsync(
+        NpgsqlConnection conn,
+        CancellationToken ct)
+        => await conn.QueryFirstOrDefaultAsync<CapabilityBQueuedJobLocator>(new CommandDefinition(
+            """
+SELECT
+  tenant_id AS "TenantId",
+  job_id AS "JobId"
+FROM admin_jobs
+WHERE job_type='summary.generate'
+  AND status='queued'
+  AND payload ->> 'source' = 'capability_b'
+ORDER BY created_at ASC
+LIMIT 1;
+""",
+            cancellationToken: ct));
+
+    private static async Task<CapabilityBGeneratedSummary> BuildGeneratedSummaryAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        AdminRuntimeCapabilityBClaimResponseDto execution,
+        CancellationToken ct)
+    {
+        var doc = await RuntimeGovernanceService.LoadCapabilityBDocumentAsync(conn, tenantId, execution.DocId, ct);
+        if (doc is null)
+            throw new InvalidOperationException("capability_b_document_not_found");
+
+        var sectionTitles = doc.IndexedVersion > 0
+            ? await RuntimeGovernanceService.LoadCapabilityBSectionTitlesAsync(conn, tenantId, doc.DocId, doc.IndexedVersion, limit: 5, ct)
+            : Array.Empty<string>();
+        var excerpts = doc.IndexedVersion > 0
+            ? await RuntimeGovernanceService.LoadCapabilityBUnitExcerptsAsync(conn, tenantId, doc.DocId, doc.IndexedVersion, limit: 3, ct)
+            : Array.Empty<string>();
+
+        var summaryText = ComposeSummaryText(doc, sectionTitles, excerpts);
+        var meta = JsonSerializer.SerializeToElement(new Dictionary<string, object?>
+        {
+            ["generator"] = "capability_b_worker_v1",
+            ["strategy"] = "deterministic_document_foundation",
+            ["docPath"] = doc.DocPath,
+            ["indexedVersion"] = doc.IndexedVersion,
+            ["sectionCount"] = sectionTitles.Length,
+            ["excerptCount"] = excerpts.Length,
+            ["generatedAt"] = DateTimeOffset.UtcNow
+        });
+
+        return new CapabilityBGeneratedSummary(summaryText, meta);
+    }
+
+    private static string ComposeSummaryText(
+        RuntimeGovernanceService.CapabilityBDocumentRow doc,
+        IReadOnlyList<string> sectionTitles,
+        IReadOnlyList<string> excerpts)
+    {
+        var lines = new List<string>
+        {
+            BuildOverviewLine(doc)
+        };
+
+        if (sectionTitles.Count > 0)
+            lines.Add("Key sections: " + string.Join("; ", sectionTitles.Select(NormalizeInlineText)) + ".");
+
+        if (excerpts.Count > 0)
+        {
+            lines.Add("Highlights:");
+            foreach (var excerpt in excerpts.Select(TrimExcerpt))
+                lines.Add($"- {excerpt}");
+        }
+        else
+        {
+            lines.Add("No extracted unit excerpts were available, so this summary relies on the indexed document metadata.");
+        }
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static string BuildOverviewLine(RuntimeGovernanceService.CapabilityBDocumentRow doc)
+    {
+        var builder = new StringBuilder();
+        builder.Append(doc.DocName);
+        builder.Append(" is an indexed");
+        if (!string.IsNullOrWhiteSpace(doc.Category))
+        {
+            builder.Append(' ');
+            builder.Append(doc.Category!.Trim());
+        }
+
+        builder.Append(" document");
+        if (doc.PageCount is > 0)
+        {
+            builder.Append(" with ");
+            builder.Append(doc.PageCount.Value);
+            builder.Append(doc.PageCount.Value == 1 ? " page" : " pages");
+        }
+
+        builder.Append(" at ");
+        builder.Append(doc.DocPath);
+        builder.Append('.');
+        return builder.ToString();
+    }
+
+    private static string TrimExcerpt(string text)
+    {
+        var normalized = NormalizeInlineText(text);
+        return normalized.Length <= 220
+            ? normalized
+            : normalized[..217] + "...";
+    }
+
+    private static string NormalizeInlineText(string text)
+        => string.Join(" ", text
+            .Split(['\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .Trim();
+
+    private sealed record CapabilityBQueuedJobLocator(Guid TenantId, Guid JobId);
+
+    private sealed record CapabilityBGeneratedSummary(string SummaryText, JsonElement Meta);
+
+    private sealed class StubWorkerHostEnvironment : IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = "BackgroundWorker";
+        public string ApplicationName { get; set; } = "SAAIA.Backend";
+        public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
+        public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } = new Microsoft.Extensions.FileProviders.NullFileProvider();
+    }
+}

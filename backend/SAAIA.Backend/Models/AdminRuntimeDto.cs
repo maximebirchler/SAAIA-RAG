@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace SAAIA.Backend.Models;
 
 public sealed record AdminRuntimeCatalogResponseDto(
@@ -221,6 +223,58 @@ public sealed record AdminRuntimeCapabilityACampaignDetailArtifactDto(
     AdminRuntimeCapabilityACampaignDetailDto Item
 );
 
+public sealed record AdminRuntimeCapabilityBBackofficeCandidatesResponseDto(
+    string CdcAlignment,
+    string Environment,
+    string CapabilityKey,
+    string ProfileKey,
+    int TotalCandidates,
+    IReadOnlyList<AdminRuntimeCapabilityBBackofficeCandidateDto> Items
+);
+
+public sealed record AdminRuntimeCapabilityBBackofficeCandidatesArtifactDto(
+    string Artifact,
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    string CapabilityKey,
+    string ProfileKey,
+    int TotalCandidates,
+    IReadOnlyList<AdminRuntimeCapabilityBBackofficeCandidateDto> Items
+);
+
+public sealed record AdminRuntimeCapabilityBCampaignsResponseDto(
+    string CdcAlignment,
+    string Environment,
+    string CapabilityKey,
+    IReadOnlyList<AdminRuntimeCapabilityBCampaignDto> Items
+);
+
+public sealed record AdminRuntimeCapabilityBCampaignsArtifactDto(
+    string Artifact,
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    string CapabilityKey,
+    IReadOnlyList<AdminRuntimeCapabilityBCampaignDto> Items
+);
+
+public sealed record AdminRuntimeCapabilityBCampaignDetailResponseDto(
+    string CdcAlignment,
+    string Environment,
+    string CapabilityKey,
+    AdminRuntimeCapabilityBCampaignDetailDto Item
+);
+
+public sealed record AdminRuntimeCapabilityBCampaignDetailArtifactDto(
+    string Artifact,
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    string CapabilityKey,
+    AdminRuntimeCapabilityBCampaignDetailDto Item
+);
+
 public sealed record AdminRuntimeCapabilityAEnqueueRequestDto(
     IReadOnlyList<Guid>? DocIds = null,
     IReadOnlyList<string>? DocPaths = null,
@@ -244,6 +298,85 @@ public sealed record AdminRuntimeCapabilityAEnqueueResponseDto(
     int SkippedCount,
     IReadOnlyDictionary<string, int> ReasonCounts,
     IReadOnlyList<AdminRuntimeCapabilityAEnqueueItemDto> Items
+);
+
+public sealed record AdminRuntimeCapabilityBEnqueueRequestDto(
+    IReadOnlyList<Guid>? DocIds = null,
+    IReadOnlyList<string>? DocPaths = null,
+    string? Category = null,
+    int? MaxCandidates = null,
+    bool DryRun = false,
+    bool Force = false
+);
+
+public sealed record AdminRuntimeCapabilityBEnqueueResponseDto(
+    string CdcAlignment,
+    string Environment,
+    string CapabilityKey,
+    Guid CampaignId,
+    bool DryRun,
+    bool Force,
+    int CandidateCount,
+    int PlannedCount,
+    int QueuedCount,
+    int SkippedCount,
+    IReadOnlyDictionary<string, int> ReasonCounts,
+    IReadOnlyList<AdminRuntimeCapabilityBEnqueueItemDto> Items
+);
+
+public sealed record AdminRuntimeCapabilityBClaimRequestDto(
+    Guid? JobId = null,
+    string? ExecutorId = null
+);
+
+public sealed record AdminRuntimeCapabilityBClaimResponseDto(
+    string CdcAlignment,
+    string Environment,
+    string CapabilityKey,
+    Guid JobId,
+    Guid DocId,
+    string DocPath,
+    string Level,
+    string ExecutionMode,
+    string RuntimeCapabilityKey,
+    string? RuntimeCapabilityStatus,
+    string? RuntimeProfileKey,
+    Guid? CampaignId,
+    string LeaseToken,
+    string ClaimedBy,
+    DateTimeOffset ClaimedAt
+);
+
+public sealed record AdminRuntimeCapabilityBCompleteRequestDto(
+    Guid JobId,
+    string LeaseToken,
+    string SummaryText,
+    string? DocLanguage = null,
+    string? SourceHash = null,
+    JsonElement? Meta = null
+);
+
+public sealed record AdminRuntimeCapabilityBFailRequestDto(
+    Guid JobId,
+    string LeaseToken,
+    string Error,
+    JsonElement? Details = null
+);
+
+public sealed record AdminRuntimeCapabilityBFailResponseDto(
+    string CdcAlignment,
+    string Environment,
+    string CapabilityKey,
+    Guid JobId,
+    Guid DocId,
+    string DocPath,
+    string Level,
+    Guid? CampaignId,
+    string LeaseToken,
+    string FailedBy,
+    string LastError,
+    string Status,
+    DateTimeOffset FailedAt
 );
 
 public sealed record AdminRuntimeRuntimeCatalogArtifactDto(
@@ -342,6 +475,22 @@ public sealed record AdminRuntimeDiagnosticsSummaryDto(
     int StaleCapabilities
 );
 
+public sealed record AdminRuntimeCapabilityOperationalSummaryDto(
+    int CandidateCount,
+    int ReadyToEnqueueCount,
+    int BlockedByActiveJobCount,
+    int BlockedByCooldownCount,
+    int ActiveCapabilityJobCount,
+    int TotalCampaignCount,
+    int ActiveCampaignCount,
+    int TerminalCapabilityJobCount,
+    int StoredSummaryCount,
+    int? LatestCampaignProgressPercent = null,
+    Guid? LatestCampaignId = null,
+    string? LatestCampaignStatus = null,
+    DateTimeOffset? LatestCampaignOccurredAt = null
+);
+
 public sealed record AdminRuntimeCapabilityDiagnosticDto(
     string Key,
     string DisplayName,
@@ -362,7 +511,8 @@ public sealed record AdminRuntimeCapabilityDiagnosticDto(
     IReadOnlyList<string> Recommendations,
     DateTimeOffset? LastCheckedAt = null,
     DateTimeOffset? LastQualifiedAt = null,
-    string? LastError = null
+    string? LastError = null,
+    AdminRuntimeCapabilityOperationalSummaryDto? OperationalSummary = null
 );
 
 public sealed record AdminRuntimeCapabilityEventDto(
@@ -387,7 +537,28 @@ public sealed record AdminRuntimeCapabilityAEnrichmentCandidateDto(
     int PriorityScore,
     bool FileExists,
     string? RecommendedAction,
-    IReadOnlyList<string> Reasons
+    IReadOnlyList<string> Reasons,
+    string? PreviewText = null,
+    IReadOnlyList<string>? KeySectionTitles = null,
+    IReadOnlyList<string>? SuggestedTags = null,
+    IReadOnlyList<string>? HypotheticalQuestions = null
+);
+
+public sealed record AdminRuntimeCapabilityBBackofficeCandidateDto(
+    Guid DocId,
+    string DocPath,
+    string DocName,
+    string Category,
+    string SummaryState,
+    bool HasActiveJob,
+    string? RecommendedAction,
+    IReadOnlyList<string> Reasons,
+    int PriorityScore = 0,
+    bool PolicyBlocked = false,
+    string? PolicyBlockReason = null,
+    string? LastJobStatus = null,
+    DateTimeOffset? LastJobFinishedAt = null,
+    string? LastJobError = null
 );
 
 public sealed record AdminRuntimeCapabilityAEnqueueItemDto(
@@ -395,7 +566,23 @@ public sealed record AdminRuntimeCapabilityAEnqueueItemDto(
     string? DocPath,
     bool Queued,
     Guid? JobId = null,
-    string? Reason = null
+    string? Reason = null,
+    string? PreviewText = null,
+    IReadOnlyList<string>? KeySectionTitles = null,
+    IReadOnlyList<string>? SuggestedTags = null,
+    IReadOnlyList<string>? HypotheticalQuestions = null
+);
+
+public sealed record AdminRuntimeCapabilityBEnqueueItemDto(
+    Guid? DocId,
+    string? DocPath,
+    bool Queued,
+    Guid? JobId = null,
+    string? Reason = null,
+    string? JobStatus = null,
+    bool? JobResultStored = null,
+    DateTimeOffset? JobFinishedAt = null,
+    string? StoredSummaryFreshness = null
 );
 
 public sealed record AdminRuntimeCapabilityACampaignDto(
@@ -427,4 +614,47 @@ public sealed record AdminRuntimeCapabilityACampaignDetailDto(
     IReadOnlyDictionary<string, int> ReasonCounts,
     DateTimeOffset OccurredAt,
     IReadOnlyList<AdminRuntimeCapabilityAEnqueueItemDto> Items
+);
+
+public sealed record AdminRuntimeCapabilityBCampaignDto(
+    Guid CampaignId,
+    string CapabilityKey,
+    string? ProfileKey,
+    string Status,
+    bool DryRun,
+    bool Force,
+    int CandidateCount,
+    int PlannedCount,
+    int QueuedCount,
+    int SkippedCount,
+    IReadOnlyDictionary<string, int> ReasonCounts,
+    IReadOnlyDictionary<string, int> JobStatusCounts,
+    int TrackedJobCount,
+    int ActiveJobCount,
+    int TerminalJobCount,
+    int StoredSummaryCount,
+    int? ProgressPercent,
+    DateTimeOffset OccurredAt
+);
+
+public sealed record AdminRuntimeCapabilityBCampaignDetailDto(
+    Guid CampaignId,
+    string CapabilityKey,
+    string? ProfileKey,
+    string Status,
+    bool DryRun,
+    bool Force,
+    int CandidateCount,
+    int PlannedCount,
+    int QueuedCount,
+    int SkippedCount,
+    IReadOnlyDictionary<string, int> ReasonCounts,
+    IReadOnlyDictionary<string, int> JobStatusCounts,
+    int TrackedJobCount,
+    int ActiveJobCount,
+    int TerminalJobCount,
+    int StoredSummaryCount,
+    int? ProgressPercent,
+    DateTimeOffset OccurredAt,
+    IReadOnlyList<AdminRuntimeCapabilityBEnqueueItemDto> Items
 );

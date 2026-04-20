@@ -423,7 +423,7 @@ public sealed class AdminRuntimeEndpointsTests
         Assert.Equal("selected", capabilityA.Status);
         Assert.Contains(
             capabilityA.Recommendations,
-            item => item.Contains("review capability A candidates", StringComparison.OrdinalIgnoreCase));
+            item => item.Contains("review capability A semantic previews", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -451,6 +451,8 @@ public sealed class AdminRuntimeEndpointsTests
             var firstDocId = Guid.NewGuid();
             var secondDocId = Guid.NewGuid();
             var revisionId = Guid.NewGuid();
+            var sectionId = Guid.NewGuid();
+            var unitId = Guid.NewGuid();
 
             await using (var conn = new NpgsqlConnection(db.ConnectionString))
             {
@@ -473,6 +475,23 @@ INSERT INTO document_revisions(
 VALUES(
   @revision_id, @tenant, @doc2, @path2, decode(repeat('ab', 32), 'hex'), 4, now(), 1, 1, now(), now()
 );
+
+INSERT INTO document_sections(
+  section_id, tenant_id, revision_id, ordinal, title, section_level, page_start, page_end, metadata, created_at
+)
+VALUES(
+  @section_id, @tenant, @revision_id, 0, 'Control Loop Overview', 1, 1, 2, '{}'::jsonb, now()
+);
+
+INSERT INTO document_units(
+  unit_id, tenant_id, revision_id, section_id, ordinal, page_start, page_end, text_content,
+  char_count, token_count, metadata, created_at
+)
+VALUES(
+  @unit_id, @tenant, @revision_id, @section_id, 0, 1, 1,
+  'This unit explains how the control loop is configured, supervised and recovered during runtime incidents.',
+  108, 17, '{}'::jsonb, now()
+);
 """,
                     new
                     {
@@ -481,7 +500,9 @@ VALUES(
                         doc2 = secondDocId,
                         path1 = firstRel.Replace('\\', '/'),
                         path2 = secondRel.Replace('\\', '/'),
-                        revision_id = revisionId
+                        revision_id = revisionId,
+                        section_id = sectionId,
+                        unit_id = unitId
                     });
             }
 
@@ -514,6 +535,16 @@ VALUES(
             Assert.Contains(candidates.Items, item => item.DocPath == firstRel.Replace('\\', '/') && item.Reasons.Contains("never_indexed"));
             Assert.Contains(candidates.Items, item => item.DocPath == secondRel.Replace('\\', '/') && item.Reasons.Contains("retrieval_chunks_missing"));
             Assert.Contains(candidates.Items, item => item.DocPath == secondRel.Replace('\\', '/') && item.Reasons.Contains("auto_ingest_paused"));
+            var semanticCandidate = Assert.Single(candidates.Items, item => item.DocPath == secondRel.Replace('\\', '/'));
+            Assert.NotNull(semanticCandidate.PreviewText);
+            Assert.Contains("control loop", semanticCandidate.PreviewText!, StringComparison.OrdinalIgnoreCase);
+            Assert.NotNull(semanticCandidate.KeySectionTitles);
+            Assert.Contains("Control Loop Overview", semanticCandidate.KeySectionTitles!);
+            Assert.NotNull(semanticCandidate.SuggestedTags);
+            Assert.Contains("programmation", semanticCandidate.SuggestedTags!);
+            Assert.Contains("control", semanticCandidate.SuggestedTags!);
+            Assert.NotNull(semanticCandidate.HypotheticalQuestions);
+            Assert.Contains(semanticCandidate.HypotheticalQuestions!, item => item.Contains("Control Loop Overview", StringComparison.OrdinalIgnoreCase));
 
             var candidatesArtifactCtx = BuildAdminContext();
             var candidatesArtifactResult = await AdminRuntimeEndpoints.CapabilityACandidatesArtifactAsync(
@@ -531,6 +562,7 @@ VALUES(
             Assert.Equal(candidates.CapabilityKey, candidatesArtifact.CapabilityKey);
             Assert.Equal(candidates.TotalCandidates, candidatesArtifact.TotalCandidates);
             Assert.Contains(candidatesArtifact.Items, item => item.DocPath == firstRel.Replace('\\', '/') && item.Reasons.Contains("never_indexed"));
+            Assert.Contains(candidatesArtifact.Items, item => item.DocPath == secondRel.Replace('\\', '/') && item.HypotheticalQuestions is not null && item.HypotheticalQuestions.Count > 0);
 
             var dryRunCtx = BuildAdminContext();
             var dryRunResult = await AdminRuntimeEndpoints.CapabilityAEnqueueAsync(
@@ -554,6 +586,13 @@ VALUES(
             Assert.Equal(2, dryRun.SkippedCount);
             Assert.Contains(dryRun.Items, item => item.DocPath == firstRel.Replace('\\', '/') && item.Reason == "dry_run_preview");
             Assert.Contains(dryRun.Items, item => item.DocPath == secondRel.Replace('\\', '/') && item.Reason == "policy_blocked:auto_ingest_paused");
+            Assert.Contains(dryRun.Items, item =>
+                item.DocPath == secondRel.Replace('\\', '/')
+                && item.PreviewText is not null
+                && item.KeySectionTitles is not null
+                && item.KeySectionTitles.Contains("Control Loop Overview")
+                && item.HypotheticalQuestions is not null
+                && item.HypotheticalQuestions.Any(question => question.Contains("Control Loop Overview", StringComparison.OrdinalIgnoreCase)));
             Assert.Equal(1, dryRun.ReasonCounts["never_indexed"]);
             Assert.Equal(1, dryRun.ReasonCounts["retrieval_chunks_missing"]);
             Assert.Equal(1, dryRun.ReasonCounts["auto_ingest_paused"]);
@@ -579,7 +618,13 @@ VALUES(
             Assert.Equal(1, enqueue.QueuedCount);
             Assert.Equal(1, enqueue.SkippedCount);
             Assert.Contains(enqueue.Items, item => item.DocPath == firstRel.Replace('\\', '/') && item.Queued && item.JobId is not null);
-            Assert.Contains(enqueue.Items, item => item.DocPath == secondRel.Replace('\\', '/') && !item.Queued && item.Reason == "policy_blocked:auto_ingest_paused");
+            Assert.Contains(enqueue.Items, item =>
+                item.DocPath == secondRel.Replace('\\', '/')
+                && !item.Queued
+                && item.Reason == "policy_blocked:auto_ingest_paused"
+                && item.PreviewText is not null
+                && item.SuggestedTags is not null
+                && item.SuggestedTags.Contains("control"));
 
             await using (var conn = new NpgsqlConnection(db.ConnectionString))
             {
@@ -652,7 +697,14 @@ VALUES(
             Assert.False(campaignDetail.Item.DryRun);
             Assert.Equal(2, campaignDetail.Item.Items.Count);
             Assert.Contains(campaignDetail.Item.Items, item => item.DocPath == firstRel.Replace('\\', '/') && item.Queued && item.JobId is not null);
-            Assert.Contains(campaignDetail.Item.Items, item => item.DocPath == secondRel.Replace('\\', '/') && !item.Queued && item.Reason == "policy_blocked:auto_ingest_paused");
+            Assert.Contains(campaignDetail.Item.Items, item =>
+                item.DocPath == secondRel.Replace('\\', '/')
+                && !item.Queued
+                && item.Reason == "policy_blocked:auto_ingest_paused"
+                && item.KeySectionTitles is not null
+                && item.KeySectionTitles.Contains("Control Loop Overview")
+                && item.HypotheticalQuestions is not null
+                && item.HypotheticalQuestions.Any(question => question.Contains("Control Loop Overview", StringComparison.OrdinalIgnoreCase)));
 
             var campaignArtifactCtx = BuildAdminContext();
             var campaignArtifactResult = await AdminRuntimeEndpoints.CapabilityACampaignArtifactAsync(
@@ -665,6 +717,13 @@ VALUES(
             Assert.Equal("capability_a_campaign_detail.json", campaignArtifact.Artifact);
             Assert.Equal(campaignDetail.Item.CampaignId, campaignArtifact.Item.CampaignId);
             Assert.Equal(campaignDetail.Item.Items.Count, campaignArtifact.Item.Items.Count);
+            Assert.Contains(campaignArtifact.Item.Items, item =>
+                item.DocPath == secondRel.Replace('\\', '/')
+                && item.PreviewText is not null
+                && item.SuggestedTags is not null
+                && item.SuggestedTags.Contains("control")
+                && item.HypotheticalQuestions is not null
+                && item.HypotheticalQuestions.Count > 0);
         }
         finally
         {
@@ -676,6 +735,316 @@ VALUES(
             catch
             {
             }
+        }
+    }
+
+    [Fact]
+    public async Task CapabilityB_candidates_and_enqueue_flow_use_runtime_governance_and_summary_jobs()
+    {
+        var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
+        Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", "true");
+
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+        {
+            Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
+            return;
+        }
+
+        try
+        {
+            var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+            var firstDocId = Guid.NewGuid();
+            var secondDocId = Guid.NewGuid();
+            var thirdDocId = Guid.NewGuid();
+            var existingJobId = Guid.NewGuid();
+            var failedJobId = Guid.NewGuid();
+
+            await using (var conn = new NpgsqlConnection(db.ConnectionString))
+            {
+                await conn.OpenAsync();
+                await conn.ExecuteAsync(
+                    """
+INSERT INTO documents(
+  tenant_id, doc_id, doc_path, doc_name, category, status,
+  updated_at, created_at, ingestion_version, indexed_version,
+  auto_ingest_paused
+)
+VALUES
+  (@tenant, @doc1, 'ATEX/missing-summary.pdf', 'missing-summary.pdf', 'atex', 'indexed', now(), now(), 1, 1, false),
+  (@tenant, @doc2, 'Programmation/stale-summary.pdf', 'stale-summary.pdf', 'programmation', 'indexed', now(), now(), 1, 1, false),
+  (@tenant, @doc3, 'PLC/recent-failure-summary.pdf', 'recent-failure-summary.pdf', 'plc', 'indexed', now(), now(), 1, 1, false);
+
+INSERT INTO document_summaries(
+  tenant_id, doc_id, level, doc_language, source_hash, summary_text, summary_meta, created_at, updated_at
+)
+VALUES(
+  @tenant, @doc2, 'medium', 'fr', 'deadbeef', 'stale summary', '{}'::jsonb, now(), now()
+);
+
+INSERT INTO admin_jobs(
+  job_id, tenant_id, job_type, status, doc_id, level, payload, created_at, finished_at, last_error
+)
+VALUES(
+  @jobId, @tenant, 'summary.generate', 'queued', @doc2, 'medium',
+  '{"executionMode":"server_backoffice","source":"test_seed"}'::jsonb, now(), NULL, NULL
+),
+(
+  @failedJobId, @tenant, 'summary.generate', 'failed', @doc3, 'medium',
+  '{"executionMode":"server_backoffice","source":"capability_b"}'::jsonb, now(), now(), 'tei timeout'
+);
+""",
+                    new
+                    {
+                        tenant = tenantId,
+                        doc1 = firstDocId,
+                        doc2 = secondDocId,
+                        doc3 = thirdDocId,
+                        jobId = existingJobId,
+                        failedJobId
+                    });
+            }
+
+            await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+            var requalifyCtx = BuildAdminContext();
+            var requalifyResult = await AdminRuntimeEndpoints.RequalifyAsync(
+                requalifyCtx,
+                ds,
+                new RuntimeGovernanceHttpClientFactory(),
+                Options.Create(new RuntimeGovernanceOptions()),
+                Options.Create(CreateRagOptions()),
+                new StubHostEnvironment(),
+                new AdminRuntimeRequalifyRequestDto(
+                    CapabilityKey: "capability_b.backoffice_generation",
+                    SelectWhenQualified: true));
+            var requalify = await ExecuteResultAsync<AdminRuntimeRequalifyResponseDto>(requalifyResult, requalifyCtx);
+            var capabilityBState = Assert.Single(requalify.Items);
+
+            Assert.Equal("capability_b.backoffice_generation", capabilityBState.Key);
+            Assert.True(capabilityBState.Implemented);
+            Assert.True(capabilityBState.Configured);
+            Assert.True(capabilityBState.Qualified);
+            Assert.True(capabilityBState.Selected);
+            Assert.Equal("server-capability-b", capabilityBState.RuntimeKey);
+
+            var diagnosticsCtx = BuildAdminContext();
+            var diagnosticsResult = await AdminRuntimeEndpoints.DiagnosticsAsync(
+                diagnosticsCtx,
+                ds,
+                Options.Create(new RuntimeGovernanceOptions()),
+                Options.Create(CreateRagOptions()),
+                new StubHostEnvironment());
+            var diagnostics = await ExecuteResultAsync<AdminRuntimeDiagnosticsResponseDto>(diagnosticsResult, diagnosticsCtx);
+            var capabilityB = Assert.Single(diagnostics.Items, item => item.Key == "capability_b.backoffice_generation");
+            Assert.Equal("selected", capabilityB.Status);
+            Assert.Contains(capabilityB.Recommendations, item => item.Contains("review capability B candidates", StringComparison.OrdinalIgnoreCase));
+            Assert.NotNull(capabilityB.OperationalSummary);
+            Assert.Equal(3, capabilityB.OperationalSummary!.CandidateCount);
+            Assert.Equal(1, capabilityB.OperationalSummary.ReadyToEnqueueCount);
+            Assert.Equal(1, capabilityB.OperationalSummary.BlockedByActiveJobCount);
+            Assert.Equal(1, capabilityB.OperationalSummary.BlockedByCooldownCount);
+            Assert.Equal(0, capabilityB.OperationalSummary.ActiveCapabilityJobCount);
+            Assert.Equal(0, capabilityB.OperationalSummary.TotalCampaignCount);
+            Assert.Equal(0, capabilityB.OperationalSummary.ActiveCampaignCount);
+            Assert.Equal(0, capabilityB.OperationalSummary.StoredSummaryCount);
+
+            var candidatesCtx = BuildAdminContext();
+            var candidatesResult = await AdminRuntimeEndpoints.CapabilityBBackofficeCandidatesAsync(
+                candidatesCtx,
+                ds,
+                Options.Create(new RuntimeGovernanceOptions()),
+                Options.Create(CreateRagOptions()),
+                new StubHostEnvironment(),
+                category: null,
+                limit: 20);
+            var candidates = await ExecuteResultAsync<AdminRuntimeCapabilityBBackofficeCandidatesResponseDto>(candidatesResult, candidatesCtx);
+
+            Assert.Equal("capability_b.backoffice_generation", candidates.CapabilityKey);
+            Assert.Equal(3, candidates.TotalCandidates);
+            Assert.Contains(candidates.Items, item =>
+                item.DocPath == "ATEX/missing-summary.pdf"
+                && item.Reasons.Contains("summary_missing")
+                && item.RecommendedAction == "enqueue_summary_generation"
+                && !item.PolicyBlocked);
+            Assert.Contains(candidates.Items, item => item.DocPath == "Programmation/stale-summary.pdf" && item.Reasons.Contains("summary_stale") && item.HasActiveJob);
+            Assert.Contains(candidates.Items, item =>
+                item.DocPath == "PLC/recent-failure-summary.pdf"
+                && item.Reasons.Contains("summary_missing")
+                && item.Reasons.Contains("recent_summary_failure")
+                && item.RecommendedAction == "inspect_recent_summary_failure"
+                && item.PolicyBlocked
+                && item.PolicyBlockReason == "recent_summary_job_failure"
+                && item.LastJobStatus == "failed"
+                && item.LastJobError == "tei timeout");
+            Assert.Equal("ATEX/missing-summary.pdf", candidates.Items[0].DocPath);
+
+            var candidatesArtifactCtx = BuildAdminContext();
+            var candidatesArtifactResult = await AdminRuntimeEndpoints.CapabilityBCandidatesArtifactAsync(
+                candidatesArtifactCtx,
+                ds,
+                Options.Create(new RuntimeGovernanceOptions()),
+                Options.Create(CreateRagOptions()),
+                new StubHostEnvironment(),
+                category: null,
+                limit: 20);
+            var candidatesArtifact = await ExecuteResultAsync<AdminRuntimeCapabilityBBackofficeCandidatesArtifactDto>(candidatesArtifactResult, candidatesArtifactCtx);
+
+            Assert.Equal("capability_b_candidates.json", candidatesArtifact.Artifact);
+            Assert.Equal(candidates.TotalCandidates, candidatesArtifact.TotalCandidates);
+
+            var dryRunCtx = BuildAdminContext();
+            var dryRunResult = await AdminRuntimeEndpoints.CapabilityBEnqueueAsync(
+                dryRunCtx,
+                ds,
+                Options.Create(new RuntimeGovernanceOptions()),
+                Options.Create(CreateRagOptions()),
+                new StubHostEnvironment(),
+                new AdminRuntimeCapabilityBEnqueueRequestDto(
+                    DocPaths: ["ATEX/missing-summary.pdf", "Programmation/stale-summary.pdf", "PLC/recent-failure-summary.pdf"],
+                    DryRun: true));
+            var dryRun = await ExecuteResultAsync<AdminRuntimeCapabilityBEnqueueResponseDto>(dryRunResult, dryRunCtx);
+
+            Assert.True(dryRun.DryRun);
+            Assert.Equal(3, dryRun.CandidateCount);
+            Assert.Equal(1, dryRun.PlannedCount);
+            Assert.Equal(0, dryRun.QueuedCount);
+            Assert.Equal(3, dryRun.SkippedCount);
+            Assert.Contains(dryRun.Items, item => item.DocPath == "ATEX/missing-summary.pdf" && item.Reason == "dry_run_preview");
+            Assert.Contains(dryRun.Items, item => item.DocPath == "Programmation/stale-summary.pdf" && item.Reason == "active_summary_job_exists");
+            Assert.Contains(dryRun.Items, item => item.DocPath == "PLC/recent-failure-summary.pdf" && item.Reason == "recent_summary_job_failure");
+            Assert.Equal(2, dryRun.ReasonCounts["summary_missing"]);
+            Assert.Equal(1, dryRun.ReasonCounts["summary_stale"]);
+            Assert.Equal(1, dryRun.ReasonCounts["recent_summary_failure"]);
+            Assert.Equal(1, dryRun.ReasonCounts["summary_job_active"]);
+            Assert.Equal(1, dryRun.ReasonCounts["blocked:active_summary_job_exists"]);
+            Assert.Equal(1, dryRun.ReasonCounts["blocked:recent_summary_job_failure"]);
+
+            var enqueueCtx = BuildAdminContext();
+            var enqueueResult = await AdminRuntimeEndpoints.CapabilityBEnqueueAsync(
+                enqueueCtx,
+                ds,
+                Options.Create(new RuntimeGovernanceOptions()),
+                Options.Create(CreateRagOptions()),
+                new StubHostEnvironment(),
+                new AdminRuntimeCapabilityBEnqueueRequestDto(
+                    DocPaths: ["ATEX/missing-summary.pdf", "Programmation/stale-summary.pdf", "PLC/recent-failure-summary.pdf"]));
+            var enqueue = await ExecuteResultAsync<AdminRuntimeCapabilityBEnqueueResponseDto>(enqueueResult, enqueueCtx);
+
+            Assert.False(enqueue.DryRun);
+            Assert.Equal(3, enqueue.CandidateCount);
+            Assert.Equal(1, enqueue.PlannedCount);
+            Assert.Equal(1, enqueue.QueuedCount);
+            Assert.Equal(2, enqueue.SkippedCount);
+            Assert.Contains(enqueue.Items, item => item.DocPath == "ATEX/missing-summary.pdf" && item.Queued && item.JobId is not null);
+            Assert.Contains(enqueue.Items, item => item.DocPath == "Programmation/stale-summary.pdf" && !item.Queued && item.Reason == "active_summary_job_exists");
+            Assert.Contains(enqueue.Items, item => item.DocPath == "PLC/recent-failure-summary.pdf" && !item.Queued && item.Reason == "recent_summary_job_failure");
+
+            var forceCtx = BuildAdminContext();
+            var forceResult = await AdminRuntimeEndpoints.CapabilityBEnqueueAsync(
+                forceCtx,
+                ds,
+                Options.Create(new RuntimeGovernanceOptions()),
+                Options.Create(CreateRagOptions()),
+                new StubHostEnvironment(),
+                new AdminRuntimeCapabilityBEnqueueRequestDto(
+                    DocPaths: ["PLC/recent-failure-summary.pdf"],
+                    Force: true));
+            var forceEnqueue = await ExecuteResultAsync<AdminRuntimeCapabilityBEnqueueResponseDto>(forceResult, forceCtx);
+            Assert.True(forceEnqueue.Force);
+            Assert.Equal(1, forceEnqueue.CandidateCount);
+            Assert.Equal(1, forceEnqueue.PlannedCount);
+            Assert.Equal(1, forceEnqueue.QueuedCount);
+            Assert.Equal(0, forceEnqueue.SkippedCount);
+            Assert.Contains(forceEnqueue.Items, item => item.DocPath == "PLC/recent-failure-summary.pdf" && item.Queued && item.JobId is not null);
+
+            var postEnqueueDiagnosticsCtx = BuildAdminContext();
+            var postEnqueueDiagnosticsResult = await AdminRuntimeEndpoints.DiagnosticsAsync(
+                postEnqueueDiagnosticsCtx,
+                ds,
+                Options.Create(new RuntimeGovernanceOptions()),
+                Options.Create(CreateRagOptions()),
+                new StubHostEnvironment());
+            var postEnqueueDiagnostics = await ExecuteResultAsync<AdminRuntimeDiagnosticsResponseDto>(postEnqueueDiagnosticsResult, postEnqueueDiagnosticsCtx);
+            var postEnqueueCapabilityB = Assert.Single(postEnqueueDiagnostics.Items, item => item.Key == "capability_b.backoffice_generation");
+            Assert.NotNull(postEnqueueCapabilityB.OperationalSummary);
+            Assert.Equal(3, postEnqueueCapabilityB.OperationalSummary!.CandidateCount);
+            Assert.Equal(0, postEnqueueCapabilityB.OperationalSummary.ReadyToEnqueueCount);
+            Assert.Equal(2, postEnqueueCapabilityB.OperationalSummary.BlockedByActiveJobCount);
+            Assert.Equal(0, postEnqueueCapabilityB.OperationalSummary.BlockedByCooldownCount);
+            Assert.Equal(3, postEnqueueCapabilityB.OperationalSummary.ActiveCapabilityJobCount);
+            Assert.Equal(3, postEnqueueCapabilityB.OperationalSummary.BlockedByActiveJobCount);
+            Assert.True(postEnqueueCapabilityB.OperationalSummary.TotalCampaignCount >= 2);
+            Assert.True(postEnqueueCapabilityB.OperationalSummary.ActiveCampaignCount >= 1);
+            Assert.Equal(0, postEnqueueCapabilityB.OperationalSummary.LatestCampaignProgressPercent);
+
+            await using (var conn = new NpgsqlConnection(db.ConnectionString))
+            {
+                await conn.OpenAsync();
+                var queuedJobs = await conn.ExecuteScalarAsync<int>(
+                    """
+SELECT COUNT(*)
+FROM admin_jobs
+WHERE tenant_id=@tenant
+  AND job_type='summary.generate'
+  AND status='queued'
+  AND payload ->> 'source' = 'capability_b';
+""",
+                    new { tenant = tenantId });
+                Assert.Equal(2, queuedJobs);
+            }
+
+            var eventsCtx = BuildAdminContext();
+            var eventsResult = await AdminRuntimeEndpoints.EventsAsync(
+                eventsCtx,
+                ds,
+                new StubHostEnvironment(),
+                capabilityKey: "capability_b.backoffice_generation",
+                limit: 20);
+            var events = await ExecuteResultAsync<AdminRuntimeEventsResponseDto>(eventsResult, eventsCtx);
+            Assert.Contains(events.Items, item => item.EventType == "requalified");
+            Assert.Contains(events.Items, item => item.EventType == "capability_b_enqueued");
+            Assert.Contains(events.Items, item => item.EventType == "capability_b_campaign_dry_run");
+            Assert.Contains(events.Items, item => item.EventType == "capability_b_campaign_executed");
+
+            var campaignsCtx = BuildAdminContext();
+            var campaignsResult = await AdminRuntimeEndpoints.CapabilityBCampaignsAsync(
+                campaignsCtx,
+                ds,
+                new StubHostEnvironment(),
+                limit: 10);
+            var campaigns = await ExecuteResultAsync<AdminRuntimeCapabilityBCampaignsResponseDto>(campaignsResult, campaignsCtx);
+            Assert.Equal("capability_b.backoffice_generation", campaigns.CapabilityKey);
+            Assert.True(campaigns.Items.Count >= 3);
+            Assert.Contains(campaigns.Items, item => item.DryRun && item.Status == "dry_run" && item.QueuedCount == 0);
+            Assert.Contains(campaigns.Items, item => !item.DryRun && item.Status == "executed" && item.QueuedCount == 1);
+            Assert.Contains(campaigns.Items, item => item.Force && item.Status == "executed" && item.QueuedCount == 1);
+
+            var campaignDetailCtx = BuildAdminContext();
+            var campaignDetailResult = await AdminRuntimeEndpoints.CapabilityBCampaignAsync(
+                campaignDetailCtx,
+                ds,
+                new StubHostEnvironment(),
+                enqueue.CampaignId);
+            var campaignDetail = await ExecuteResultAsync<AdminRuntimeCapabilityBCampaignDetailResponseDto>(campaignDetailResult, campaignDetailCtx);
+            Assert.Equal(enqueue.CampaignId, campaignDetail.Item.CampaignId);
+            Assert.Equal(3, campaignDetail.Item.Items.Count);
+            Assert.Contains(campaignDetail.Item.Items, item => item.DocPath == "ATEX/missing-summary.pdf" && item.Queued && item.JobId is not null);
+            Assert.Contains(campaignDetail.Item.Items, item => item.DocPath == "Programmation/stale-summary.pdf" && !item.Queued && item.Reason == "active_summary_job_exists");
+            Assert.Contains(campaignDetail.Item.Items, item => item.DocPath == "PLC/recent-failure-summary.pdf" && !item.Queued && item.Reason == "recent_summary_job_failure");
+
+            var campaignArtifactCtx = BuildAdminContext();
+            var campaignArtifactResult = await AdminRuntimeEndpoints.CapabilityBCampaignArtifactAsync(
+                campaignArtifactCtx,
+                ds,
+                new StubHostEnvironment(),
+                enqueue.CampaignId);
+            var campaignArtifact = await ExecuteResultAsync<AdminRuntimeCapabilityBCampaignDetailArtifactDto>(campaignArtifactResult, campaignArtifactCtx);
+            Assert.Equal("capability_b_campaign_detail.json", campaignArtifact.Artifact);
+            Assert.Equal(campaignDetail.Item.CampaignId, campaignArtifact.Item.CampaignId);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
         }
     }
 

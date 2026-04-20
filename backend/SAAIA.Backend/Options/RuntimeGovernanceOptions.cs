@@ -27,4 +27,9 @@ sealed class RuntimeGovernanceOptions
     public long MaxQdrantCheckMs { get; set; } = 1000;
     public long MaxEmbeddingsCheckMs { get; set; } = 2000;
     public long MaxRerankCheckMs { get; set; } = 1500;
+    public long CapabilityBRecentFailureCooldownHours { get; set; } = 24;
+    public long CapabilityBRecentCancellationCooldownHours { get; set; } = 6;
+    public bool CapabilityBWorkerEnabled { get; set; } = true;
+    public int CapabilityBWorkerEmptyDelayMs { get; set; } = 5000;
+    public int CapabilityBWorkerErrorDelayMs { get; set; } = 1000;
 }

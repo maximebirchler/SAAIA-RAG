@@ -16,7 +16,7 @@ public static partial class SummaryEndpoints
         return Results.Ok(new { refreshed = true, snapshot = result });
     }
 
-    private static async Task<IResult> ListAdminJobsAsync(
+    internal static async Task<IResult> ListAdminJobsAsync(
         HttpContext ctx,
         NpgsqlDataSource ds,
         string? type,
@@ -77,7 +77,7 @@ SELECT * FROM (
     job_type     AS "JobType",
     status       AS "Status",
     doc_id       AS "DocId",
-    NULL::text   AS "DocPath",
+    payload ->> 'docPath' AS "DocPath",
     level        AS "Level",
     last_error   AS "LastError",
     created_at   AS "CreatedAt",
@@ -88,12 +88,38 @@ SELECT * FROM (
     NULL::int    AS "ProgressTotal",
     NULL::int    AS "ProgressPercent",
     NULL::boolean AS "CancelRequested",
-    NULL::text   AS "EnqueueSource",
+    payload ->> 'source' AS "EnqueueSource",
     NULL::text   AS "DocumentStatus",
     NULL::int    AS "DocumentIngestionVersion",
     NULL::int    AS "DocumentIndexedVersion",
     NULL::boolean AS "DocumentAutoIngestPaused",
-    NULL::text   AS "DocumentAutoIngestPauseReason"
+    NULL::text   AS "DocumentAutoIngestPauseReason",
+    COALESCE(payload ->> 'executionMode', 'client_admin') AS "ExecutionMode",
+    payload ->> 'runtimeCapabilityKey' AS "RuntimeCapabilityKey",
+    payload ->> 'runtimeCapabilityStatus' AS "RuntimeCapabilityStatus",
+    CASE
+      WHEN jsonb_typeof(payload->'runtimeCapabilitySelected')='boolean'
+        THEN (payload->>'runtimeCapabilitySelected')::boolean
+      ELSE NULL::boolean
+    END AS "RuntimeCapabilitySelected",
+    CASE
+      WHEN jsonb_typeof(payload->'campaignId')='string' THEN (payload->>'campaignId')::uuid
+      ELSE NULL::uuid
+    END AS "CampaignId",
+    CASE
+      WHEN jsonb_typeof(payload->'force')='boolean' THEN (payload->>'force')::boolean
+      ELSE NULL::boolean
+    END AS "Force",
+    CASE
+      WHEN jsonb_typeof(result->'stored')='boolean' THEN (result->>'stored')::boolean
+      ELSE NULL::boolean
+    END AS "ResultStored",
+    result ->> 'sourceHash' AS "ResultSourceHash",
+    CASE
+      WHEN jsonb_typeof(result->'summaryLength')='number' THEN (result->>'summaryLength')::int
+      ELSE NULL::int
+    END AS "ResultSummaryLength",
+    result ->> 'completedBy' AS "ResultCompletedBy"
   FROM admin_jobs
   WHERE tenant_id=@tenant
 
@@ -182,7 +208,17 @@ SELECT * FROM (
         THEN (i.payload #>> '{snapshot,documentAutoIngestPaused}')::boolean
       ELSE COALESCE(d.auto_ingest_paused, false)
     END AS "DocumentAutoIngestPaused",
-    COALESCE(i.payload #>> '{snapshot,documentAutoIngestPauseReason}', d.auto_ingest_pause_reason) AS "DocumentAutoIngestPauseReason"
+    COALESCE(i.payload #>> '{snapshot,documentAutoIngestPauseReason}', d.auto_ingest_pause_reason) AS "DocumentAutoIngestPauseReason",
+    NULL::text AS "ExecutionMode",
+    NULL::text AS "RuntimeCapabilityKey",
+    NULL::text AS "RuntimeCapabilityStatus",
+    NULL::boolean AS "RuntimeCapabilitySelected",
+    NULL::uuid AS "CampaignId",
+    NULL::boolean AS "Force",
+    NULL::boolean AS "ResultStored",
+    NULL::text AS "ResultSourceHash",
+    NULL::int AS "ResultSummaryLength",
+    NULL::text AS "ResultCompletedBy"
   FROM ingestion_jobs i
   LEFT JOIN documents d
     ON d.tenant_id = i.tenant_id
@@ -215,7 +251,7 @@ LIMIT @lim OFFSET @off;
         });
     }
 
-    private static async Task<IResult> GetAdminJobAsync(HttpContext ctx, NpgsqlDataSource ds, Guid jobId)
+    internal static async Task<IResult> GetAdminJobAsync(HttpContext ctx, NpgsqlDataSource ds, Guid jobId)
     {
         AdminAuth.EnsureAdmin(ctx);
         var tenantId = ctx.GetTenantId();
@@ -230,7 +266,7 @@ SELECT * FROM (
     job_type     AS "JobType",
     status       AS "Status",
     doc_id       AS "DocId",
-    NULL::text   AS "DocPath",
+    payload ->> 'docPath' AS "DocPath",
     level        AS "Level",
     last_error   AS "LastError",
     created_at   AS "CreatedAt",
@@ -241,12 +277,38 @@ SELECT * FROM (
     NULL::int    AS "ProgressTotal",
     NULL::int    AS "ProgressPercent",
     NULL::boolean AS "CancelRequested",
-    NULL::text   AS "EnqueueSource",
+    payload ->> 'source' AS "EnqueueSource",
     NULL::text   AS "DocumentStatus",
     NULL::int    AS "DocumentIngestionVersion",
     NULL::int    AS "DocumentIndexedVersion",
     NULL::boolean AS "DocumentAutoIngestPaused",
-    NULL::text   AS "DocumentAutoIngestPauseReason"
+    NULL::text   AS "DocumentAutoIngestPauseReason",
+    COALESCE(payload ->> 'executionMode', 'client_admin') AS "ExecutionMode",
+    payload ->> 'runtimeCapabilityKey' AS "RuntimeCapabilityKey",
+    payload ->> 'runtimeCapabilityStatus' AS "RuntimeCapabilityStatus",
+    CASE
+      WHEN jsonb_typeof(payload->'runtimeCapabilitySelected')='boolean'
+        THEN (payload->>'runtimeCapabilitySelected')::boolean
+      ELSE NULL::boolean
+    END AS "RuntimeCapabilitySelected",
+    CASE
+      WHEN jsonb_typeof(payload->'campaignId')='string' THEN (payload->>'campaignId')::uuid
+      ELSE NULL::uuid
+    END AS "CampaignId",
+    CASE
+      WHEN jsonb_typeof(payload->'force')='boolean' THEN (payload->>'force')::boolean
+      ELSE NULL::boolean
+    END AS "Force",
+    CASE
+      WHEN jsonb_typeof(result->'stored')='boolean' THEN (result->>'stored')::boolean
+      ELSE NULL::boolean
+    END AS "ResultStored",
+    result ->> 'sourceHash' AS "ResultSourceHash",
+    CASE
+      WHEN jsonb_typeof(result->'summaryLength')='number' THEN (result->>'summaryLength')::int
+      ELSE NULL::int
+    END AS "ResultSummaryLength",
+    result ->> 'completedBy' AS "ResultCompletedBy"
   FROM admin_jobs
   WHERE tenant_id=@tenant AND job_id=@jobId
 
@@ -335,7 +397,17 @@ SELECT * FROM (
         THEN (i.payload #>> '{snapshot,documentAutoIngestPaused}')::boolean
       ELSE COALESCE(d.auto_ingest_paused, false)
     END AS "DocumentAutoIngestPaused",
-    COALESCE(i.payload #>> '{snapshot,documentAutoIngestPauseReason}', d.auto_ingest_pause_reason) AS "DocumentAutoIngestPauseReason"
+    COALESCE(i.payload #>> '{snapshot,documentAutoIngestPauseReason}', d.auto_ingest_pause_reason) AS "DocumentAutoIngestPauseReason",
+    NULL::text AS "ExecutionMode",
+    NULL::text AS "RuntimeCapabilityKey",
+    NULL::text AS "RuntimeCapabilityStatus",
+    NULL::boolean AS "RuntimeCapabilitySelected",
+    NULL::uuid AS "CampaignId",
+    NULL::boolean AS "Force",
+    NULL::boolean AS "ResultStored",
+    NULL::text AS "ResultSourceHash",
+    NULL::int AS "ResultSummaryLength",
+    NULL::text AS "ResultCompletedBy"
   FROM ingestion_jobs i
   LEFT JOIN documents d
     ON d.tenant_id = i.tenant_id

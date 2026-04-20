@@ -126,6 +126,51 @@ internal static class RuntimeGovernanceTelemetry
         unit: "{document}",
         description: "Number of candidates returned by capability A plan operations.");
 
+    private static readonly Counter<long> CapabilityBCandidateReads = Meter.CreateCounter<long>(
+        "saaia.runtime.capability_b.candidate_reads",
+        unit: "{request}",
+        description: "Number of capability B candidate read requests.");
+
+    private static readonly Counter<long> CapabilityBEnqueueRequests = Meter.CreateCounter<long>(
+        "saaia.runtime.capability_b.enqueue.requests",
+        unit: "{request}",
+        description: "Number of capability B enqueue requests.");
+
+    private static readonly Counter<long> CapabilityBClaimRequests = Meter.CreateCounter<long>(
+        "saaia.runtime.capability_b.claim.requests",
+        unit: "{request}",
+        description: "Number of capability B execution claim requests.");
+
+    private static readonly Counter<long> CapabilityBQueuedDocs = Meter.CreateCounter<long>(
+        "saaia.runtime.capability_b.queued_docs",
+        unit: "{document}",
+        description: "Number of documents queued through capability B.");
+
+    private static readonly Counter<long> CapabilityBCompletedDocs = Meter.CreateCounter<long>(
+        "saaia.runtime.capability_b.completed_docs",
+        unit: "{document}",
+        description: "Number of documents completed through capability B.");
+
+    private static readonly Counter<long> CapabilityBSkippedDocs = Meter.CreateCounter<long>(
+        "saaia.runtime.capability_b.skipped_docs",
+        unit: "{document}",
+        description: "Number of documents skipped during capability B enqueue requests.");
+
+    private static readonly Counter<long> CapabilityBFailedDocs = Meter.CreateCounter<long>(
+        "saaia.runtime.capability_b.failed_docs",
+        unit: "{document}",
+        description: "Number of documents failed during capability B execution.");
+
+    private static readonly Histogram<double> CapabilityBOperationDurationMs = Meter.CreateHistogram<double>(
+        "saaia.runtime.capability_b.duration",
+        unit: "ms",
+        description: "Capability B operation duration in milliseconds.");
+
+    private static readonly Histogram<double> CapabilityBCandidateCount = Meter.CreateHistogram<double>(
+        "saaia.runtime.capability_b.candidate_count",
+        unit: "{document}",
+        description: "Number of candidates returned by capability B plan operations.");
+
     internal static Activity? StartWarmupCheckActivity(string capabilityKey, string profileKey)
     {
         var activity = ActivitySource.StartActivity("warmup_check", ActivityKind.Internal);
@@ -319,6 +364,88 @@ internal static class RuntimeGovernanceTelemetry
                 CapabilityAQueuedDocs.Add(queued, tags);
             if (skipped > 0)
                 CapabilityASkippedDocs.Add(skipped, tags);
+        }
+    }
+
+    internal static Activity? StartCapabilityBOperationActivity(string operationName)
+    {
+        var activity = ActivitySource.StartActivity(operationName, ActivityKind.Internal);
+        if (activity is null)
+            return null;
+
+        activity.SetTag("saaia.runtime.capability_key", "capability_b.backoffice_generation");
+        activity.SetTag("saaia.runtime.operation_name", operationName);
+        return activity;
+    }
+
+    internal static void CompleteCapabilityBOperation(
+        Activity? activity,
+        string operationName,
+        bool success,
+        long durationMs,
+        int? candidateCount = null,
+        int? plannedCount = null,
+        int? queuedCount = null,
+        int? skippedCount = null,
+        bool? dryRun = null,
+        string? errorReason = null)
+    {
+        activity?.SetTag("saaia.runtime.success", success);
+        activity?.SetTag("saaia.runtime.duration_ms", durationMs);
+        if (candidateCount.HasValue)
+            activity?.SetTag("saaia.runtime.candidate_count", candidateCount.Value);
+        if (plannedCount.HasValue)
+            activity?.SetTag("saaia.runtime.planned_count", plannedCount.Value);
+        if (queuedCount.HasValue)
+            activity?.SetTag("saaia.runtime.queued_count", queuedCount.Value);
+        if (skippedCount.HasValue)
+            activity?.SetTag("saaia.runtime.skipped_count", skippedCount.Value);
+        if (dryRun.HasValue)
+            activity?.SetTag("saaia.runtime.dry_run", dryRun.Value);
+        if (!string.IsNullOrWhiteSpace(errorReason))
+            activity?.SetTag("saaia.runtime.error_reason", errorReason);
+
+        var tags = new TagList
+        {
+            { "saaia.runtime.capability_key", "capability_b.backoffice_generation" },
+            { "saaia.runtime.operation_name", operationName },
+            { "saaia.runtime.success", success }
+        };
+        if (dryRun.HasValue)
+            tags.Add("saaia.runtime.dry_run", dryRun.Value);
+
+        CapabilityBOperationDurationMs.Record(durationMs, tags);
+
+        if (string.Equals(operationName, "capability_b_candidates", StringComparison.Ordinal))
+        {
+            CapabilityBCandidateReads.Add(1, tags);
+            if (candidateCount.HasValue)
+                CapabilityBCandidateCount.Record(candidateCount.Value, tags);
+        }
+        else if (string.Equals(operationName, "capability_b_enqueue", StringComparison.Ordinal))
+        {
+            CapabilityBEnqueueRequests.Add(1, tags);
+            var planned = plannedCount.GetValueOrDefault();
+            if (planned > 0)
+                CapabilityBCandidateCount.Record(planned, tags);
+            var queued = queuedCount.GetValueOrDefault();
+            var skipped = skippedCount.GetValueOrDefault();
+            if (queued > 0)
+                CapabilityBQueuedDocs.Add(queued, tags);
+            if (skipped > 0)
+                CapabilityBSkippedDocs.Add(skipped, tags);
+        }
+        else if (string.Equals(operationName, "capability_b_claim", StringComparison.Ordinal))
+        {
+            CapabilityBClaimRequests.Add(1, tags);
+        }
+        else if (string.Equals(operationName, "capability_b_fail", StringComparison.Ordinal))
+        {
+            CapabilityBFailedDocs.Add(1, tags);
+        }
+        else if (string.Equals(operationName, "capability_b_summary_completed", StringComparison.Ordinal))
+        {
+            CapabilityBCompletedDocs.Add(1, tags);
         }
     }
 
