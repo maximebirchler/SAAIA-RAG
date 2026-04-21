@@ -6,6 +6,172 @@ namespace SAAIA.Backend;
 
 internal static class RuntimeCapabilityDiagnosticsBuilder
 {
+    internal static async Task<AdminRuntimeCapabilityOperationalSummaryDto> LoadCapabilityAOperationalSummaryAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        string capabilityAKey,
+        CancellationToken ct)
+    {
+        var rows = (await conn.QueryAsync<CapabilityAOperationalRow>(new CommandDefinition(
+            """
+WITH current_docs AS (
+  SELECT
+    d.doc_id AS "DocId",
+    d.doc_path AS "DocPath",
+    d.status AS "Status",
+    COALESCE(d.ingestion_version, 0) AS "IngestionVersion",
+    COALESCE(d.indexed_version, 0) AS "IndexedVersion",
+    COALESCE(d.auto_ingest_paused, false) AS "AutoIngestPaused"
+  FROM documents d
+  WHERE d.tenant_id = @tenant
+    AND COALESCE(d.status, '') NOT IN ('missing', 'deleted')
+)
+SELECT
+  cd."DocId",
+  cd."DocPath",
+  cd."Status",
+  cd."IngestionVersion",
+  cd."IndexedVersion",
+  cd."AutoIngestPaused",
+  EXISTS(
+    SELECT 1
+    FROM document_revisions dr
+    WHERE dr.tenant_id = @tenant
+      AND dr.doc_id = cd."DocId"
+      AND dr.indexed_version = cd."IndexedVersion") AS "HasRevision",
+  EXISTS(
+    SELECT 1
+    FROM document_revisions dr
+    JOIN retrieval_chunks rc ON rc.revision_id = dr.revision_id
+    WHERE dr.tenant_id = @tenant
+      AND dr.doc_id = cd."DocId"
+      AND dr.indexed_version = cd."IndexedVersion") AS "HasRetrievalChunks",
+  EXISTS(
+    SELECT 1
+    FROM document_revisions dr
+    JOIN retrieval_chunks rc ON rc.revision_id = dr.revision_id
+    WHERE dr.tenant_id = @tenant
+      AND dr.doc_id = cd."DocId"
+      AND dr.indexed_version = cd."IndexedVersion"
+      AND (
+        NOT (rc.metadata ? 'offsetStart')
+        OR NOT (rc.metadata ? 'offsetEnd')
+        OR jsonb_typeof(rc.metadata->'offsetStart') <> 'number'
+        OR jsonb_typeof(rc.metadata->'offsetEnd') <> 'number')) AS "HasRetrievalChunkOffsetsMissing",
+  EXISTS(
+    SELECT 1
+    FROM document_revisions dr
+    JOIN exact_match_entries eme ON eme.revision_id = dr.revision_id
+    WHERE dr.tenant_id = @tenant
+      AND dr.doc_id = cd."DocId"
+      AND dr.indexed_version = cd."IndexedVersion") AS "HasExactMatchEntries",
+  EXISTS(
+    SELECT 1
+    FROM document_revisions dr
+    JOIN exact_match_entries eme ON eme.revision_id = dr.revision_id
+    WHERE dr.tenant_id = @tenant
+      AND dr.doc_id = cd."DocId"
+      AND dr.indexed_version = cd."IndexedVersion"
+      AND (
+        NOT (eme.metadata ? 'offsetStart')
+        OR NOT (eme.metadata ? 'offsetEnd')
+        OR jsonb_typeof(eme.metadata->'offsetStart') <> 'number'
+        OR jsonb_typeof(eme.metadata->'offsetEnd') <> 'number')) AS "HasExactMatchOffsetsMissing",
+  EXISTS(
+    SELECT 1
+    FROM document_revisions dr
+    JOIN contextual_text_entries cte ON cte.revision_id = dr.revision_id
+    WHERE dr.tenant_id = @tenant
+      AND dr.doc_id = cd."DocId"
+      AND dr.indexed_version = cd."IndexedVersion") AS "HasContextualTextEntries",
+  EXISTS(
+    SELECT 1
+    FROM ingestion_jobs i
+    WHERE i.tenant_id = @tenant
+      AND i.doc_path = cd."DocPath"
+      AND i.action = 'upsert'
+      AND i.status IN ('queued', 'running', 'paused')) AS "HasActiveUpsertJob"
+FROM current_docs cd;
+""",
+            new { tenant = tenantId },
+            cancellationToken: ct))).ToArray();
+
+        var candidateRows = rows
+            .Where(static row => BuildCapabilityAReasons(row).Count > 0)
+            .ToArray();
+        var reasonCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in candidateRows)
+        {
+            foreach (var reason in BuildCapabilityAReasons(row))
+            {
+                reasonCounts[reason] = reasonCounts.TryGetValue(reason, out var count) ? count + 1 : 1;
+            }
+        }
+
+        var campaignRows = (await conn.QueryAsync<CapabilityACampaignOperationalRow>(new CommandDefinition(
+            """
+SELECT
+  CAST(details ->> 'campaignId' AS uuid) AS "CampaignId",
+  event_type AS "EventType",
+  occurred_at AS "OccurredAt"
+FROM runtime_capability_events
+WHERE capability_key = @capabilityKey
+  AND event_type IN ('capability_a_campaign_dry_run', 'capability_a_campaign_executed')
+  AND details ? 'campaignId'
+ORDER BY occurred_at DESC;
+""",
+            new { capabilityKey = capabilityAKey },
+            cancellationToken: ct))).ToArray();
+
+        var latestCampaign = campaignRows.FirstOrDefault();
+        var activeCapabilityJobCount = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            """
+SELECT COUNT(*)::int
+FROM ingestion_jobs
+WHERE payload ->> 'source' = 'capability_a'
+  AND action = 'upsert'
+  AND status IN ('queued', 'running', 'paused');
+""",
+            cancellationToken: ct));
+
+        var terminalCapabilityJobCount = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            """
+SELECT COUNT(*)::int
+FROM ingestion_jobs
+WHERE payload ->> 'source' = 'capability_a'
+  AND action = 'upsert'
+  AND status IN ('done', 'failed', 'canceled', 'cancelled');
+""",
+            cancellationToken: ct));
+
+        var blockedByActiveJobCount = candidateRows.Count(static row => row.HasActiveUpsertJob);
+        var blockedByPolicyCount = candidateRows.Count(static row => row.AutoIngestPaused);
+        var readyToEnqueueCount = candidateRows.Count(row => !row.AutoIngestPaused && !row.HasActiveUpsertJob);
+        var offsetBackfillCandidateCount = candidateRows.Count(static row =>
+            row.HasRetrievalChunkOffsetsMissing || row.HasExactMatchOffsetsMissing);
+
+        return new AdminRuntimeCapabilityOperationalSummaryDto(
+            CandidateCount: candidateRows.Length,
+            ReadyToEnqueueCount: readyToEnqueueCount,
+            BlockedByActiveJobCount: blockedByActiveJobCount,
+            BlockedByCooldownCount: blockedByPolicyCount,
+            ActiveCapabilityJobCount: activeCapabilityJobCount,
+            TotalCampaignCount: campaignRows.Length,
+            ActiveCampaignCount: 0,
+            TerminalCapabilityJobCount: terminalCapabilityJobCount,
+            StoredSummaryCount: 0,
+            ReasonCounts: reasonCounts,
+            OffsetBackfillCandidateCount: offsetBackfillCandidateCount,
+            LatestCampaignProgressPercent: null,
+            LatestCampaignId: latestCampaign?.CampaignId,
+            LatestCampaignStatus: latestCampaign is null
+                ? null
+                : string.Equals(latestCampaign.EventType, "capability_a_campaign_dry_run", StringComparison.Ordinal)
+                    ? "dry_run"
+                    : "executed",
+            LatestCampaignOccurredAt: latestCampaign?.OccurredAt);
+    }
+
     internal static AdminRuntimeCapabilityDiagnosticDto BuildCapabilityDiagnostic(
         AdminRuntimeCapabilityStateDto state,
         string capabilityAKey,
@@ -39,7 +205,10 @@ internal static class RuntimeCapabilityDiagnosticsBuilder
             OperationalSummary: operationalSummary);
     }
 
-    internal static AdminRuntimeDiagnosticsSummaryDto BuildDiagnosticsSummary(IReadOnlyList<AdminRuntimeCapabilityDiagnosticDto> items)
+    internal static AdminRuntimeDiagnosticsSummaryDto BuildDiagnosticsSummary(
+        IReadOnlyList<AdminRuntimeCapabilityDiagnosticDto> items,
+        string capabilityAKey,
+        string capabilityBKey)
         => new(
             TotalCapabilities: items.Count,
             ImplementedCapabilities: items.Count(item => item.Implemented),
@@ -47,7 +216,25 @@ internal static class RuntimeCapabilityDiagnosticsBuilder
             SelectedCapabilities: items.Count(item => item.Selected && !item.Stale),
             PersistedSelectedCapabilities: items.Count(item => item.PersistedSelected),
             BlockedCapabilities: items.Count(item => item.Blockers.Count > 0),
-            StaleCapabilities: items.Count(item => item.Stale));
+            StaleCapabilities: items.Count(item => item.Stale),
+            Operational: BuildOperationalSummary(items, capabilityAKey, capabilityBKey));
+
+    internal static IReadOnlyList<AdminRuntimeOperationalCapabilitySummaryDto> BuildOperationalItems(
+        IReadOnlyList<AdminRuntimeCapabilityDiagnosticDto> items)
+        => items
+            .Where(static item => item.OperationalSummary is not null)
+            .Select(static item => new AdminRuntimeOperationalCapabilitySummaryDto(
+                Key: item.Key,
+                DisplayName: item.DisplayName,
+                Family: item.Family,
+                Status: item.Status,
+                Implemented: item.Implemented,
+                Qualified: item.Qualified,
+                Selected: item.Selected,
+                Stale: item.Stale,
+                Summary: item.OperationalSummary!,
+                Recommendations: item.Recommendations))
+            .ToArray();
 
     internal static async Task<AdminRuntimeCapabilityOperationalSummaryDto> LoadCapabilityBOperationalSummaryAsync(
         NpgsqlConnection conn,
@@ -142,10 +329,35 @@ GROUP BY CAST(a.payload ->> 'campaignId' AS uuid);
             ActiveCampaignCount: activeCampaignCount,
             TerminalCapabilityJobCount: terminalCapabilityJobCount,
             StoredSummaryCount: storedSummaryCount,
+            ReasonCounts: candidates
+                .SelectMany(static candidate => candidate.Reasons)
+                .GroupBy(static reason => reason, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(static group => group.Key, static group => group.Count(), StringComparer.OrdinalIgnoreCase),
+            OffsetBackfillCandidateCount: null,
             LatestCampaignProgressPercent: latestCampaignProgressPercent,
             LatestCampaignId: latestCampaignId,
             LatestCampaignStatus: latestCampaignStatus,
             LatestCampaignOccurredAt: latestCampaignOccurredAt);
+    }
+
+    private static AdminRuntimeDiagnosticsOperationalSummaryDto BuildOperationalSummary(
+        IReadOnlyList<AdminRuntimeCapabilityDiagnosticDto> items,
+        string capabilityAKey,
+        string capabilityBKey)
+    {
+        var capabilityA = items.FirstOrDefault(item => string.Equals(item.Key, capabilityAKey, StringComparison.Ordinal));
+        var capabilityB = items.FirstOrDefault(item => string.Equals(item.Key, capabilityBKey, StringComparison.Ordinal));
+        var aSummary = capabilityA?.OperationalSummary;
+        var bSummary = capabilityB?.OperationalSummary;
+
+        return new AdminRuntimeDiagnosticsOperationalSummaryDto(
+            CapabilityACandidateCount: aSummary?.CandidateCount ?? 0,
+            CapabilityAReadyToEnqueueCount: aSummary?.ReadyToEnqueueCount ?? 0,
+            CapabilityAOffsetBackfillCandidateCount: aSummary?.OffsetBackfillCandidateCount ?? 0,
+            CapabilityBBacklogCount: bSummary?.CandidateCount ?? 0,
+            CapabilityBReadyToEnqueueCount: bSummary?.ReadyToEnqueueCount ?? 0,
+            CapabilityBActiveJobCount: bSummary?.ActiveCapabilityJobCount ?? 0,
+            CapabilityBLatestCampaignProgressPercent: bSummary?.LatestCampaignProgressPercent);
     }
 
     private static string ResolveDiagnosticStatus(AdminRuntimeCapabilityStateDto state)
@@ -234,6 +446,26 @@ GROUP BY CAST(a.payload ->> 'campaignId' AS uuid);
             && state.Selected
             && string.Equals(state.Key, capabilityAKey, StringComparison.Ordinal))
         {
+            var retrievalOffsetBackfillCount = 0;
+            var exactOffsetBackfillCount = 0;
+            if (operationalSummary?.ReasonCounts is not null)
+            {
+                operationalSummary.ReasonCounts.TryGetValue("retrieval_chunk_offsets_missing", out retrievalOffsetBackfillCount);
+                operationalSummary.ReasonCounts.TryGetValue("exact_match_offsets_missing", out exactOffsetBackfillCount);
+            }
+
+            if (retrievalOffsetBackfillCount > 0 || exactOffsetBackfillCount > 0)
+            {
+                recommendations.Add(
+                    $"capability A backlog includes {retrievalOffsetBackfillCount} retrieval chunk offset backfill candidates and {exactOffsetBackfillCount} exact-match offset backfill candidates; enqueue governed reindex jobs to backfill legacy evidence-pack offsets");
+            }
+
+            if (operationalSummary is not null && operationalSummary.CandidateCount > 0)
+            {
+                recommendations.Add(
+                    $"review capability A candidates: {operationalSummary.ReadyToEnqueueCount} ready to enqueue, {operationalSummary.BlockedByActiveJobCount} blocked by active ingestion jobs, {operationalSummary.BlockedByCooldownCount} blocked by admin policy");
+            }
+
             recommendations.Add("review capability A semantic previews and enqueue controlled reindex jobs when appropriate");
         }
 
@@ -276,6 +508,52 @@ GROUP BY CAST(a.payload ->> 'campaignId' AS uuid);
     private static bool ContainsError(AdminRuntimeCapabilityStateDto state, string fragment)
         => !string.IsNullOrWhiteSpace(state.LastError)
            && state.LastError.Contains(fragment, StringComparison.OrdinalIgnoreCase);
+
+    private static List<string> BuildCapabilityAReasons(CapabilityAOperationalRow row)
+    {
+        var reasons = new List<string>();
+
+        if (row.IndexedVersion <= 0)
+            reasons.Add("never_indexed");
+        if (row.IngestionVersion > row.IndexedVersion)
+            reasons.Add("indexed_version_outdated");
+        if (row.IndexedVersion > 0 && !row.HasRevision)
+            reasons.Add("revision_missing");
+        if (row.IndexedVersion > 0 && row.HasRevision && !row.HasRetrievalChunks)
+            reasons.Add("retrieval_chunks_missing");
+        if (row.IndexedVersion > 0 && row.HasRevision && row.HasRetrievalChunks && row.HasRetrievalChunkOffsetsMissing)
+            reasons.Add("retrieval_chunk_offsets_missing");
+        if (row.IndexedVersion > 0 && row.HasRevision && !row.HasExactMatchEntries)
+            reasons.Add("exact_match_entries_missing");
+        if (row.IndexedVersion > 0 && row.HasRevision && row.HasExactMatchEntries && row.HasExactMatchOffsetsMissing)
+            reasons.Add("exact_match_offsets_missing");
+        if (row.IndexedVersion > 0 && row.HasRevision && !row.HasContextualTextEntries)
+            reasons.Add("contextual_text_entries_missing");
+        if (row.AutoIngestPaused)
+            reasons.Add("auto_ingest_paused");
+
+        return reasons;
+    }
+
+    private sealed record CapabilityAOperationalRow(
+        Guid DocId,
+        string DocPath,
+        string Status,
+        int IngestionVersion,
+        int IndexedVersion,
+        bool AutoIngestPaused,
+        bool HasRevision,
+        bool HasRetrievalChunks,
+        bool HasRetrievalChunkOffsetsMissing,
+        bool HasExactMatchEntries,
+        bool HasExactMatchOffsetsMissing,
+        bool HasContextualTextEntries,
+        bool HasActiveUpsertJob);
+
+    private sealed record CapabilityACampaignOperationalRow(
+        Guid CampaignId,
+        string EventType,
+        DateTimeOffset OccurredAt);
 
     private sealed record CapabilityBCampaignOperationalRow(
         Guid CampaignId,

@@ -1292,6 +1292,46 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal(string.Empty, ReadResponseBody(secondContext));
     }
 
+    [Theory]
+    [InlineData("catalog_categories", "value")]
+    [InlineData("catalog_documents", "value")]
+    [InlineData("documents_stats", "totalDocuments")]
+    [InlineData("catalog_stats", "totalDocuments")]
+    public async Task Catalog_cache_endpoints_return_304_when_if_none_match_matches_etag(string endpoint, string expectedBodyToken)
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("cdceffff-ffff-ffff-ffff-ffffffffffff");
+        await PublishRuntimeReadyQuestionBankDocumentsAsync(db, tenantId);
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var ingestionOptions = Options.Create(new IngestionOptions
+        {
+            DocumentsRoot = AppContext.BaseDirectory
+        });
+
+        var firstContext = BuildRagHttpContext(tenantId);
+        var firstResult = await InvokeCatalogCacheEndpointAsync(endpoint, firstContext, ds, ingestionOptions);
+        await firstResult.ExecuteAsync(firstContext);
+
+        var etag = firstContext.Response.Headers.ETag.ToString();
+        Assert.False(string.IsNullOrWhiteSpace(etag));
+        Assert.Equal(StatusCodes.Status200OK, firstContext.Response.StatusCode);
+        Assert.Contains(expectedBodyToken, ReadResponseBody(firstContext), StringComparison.Ordinal);
+
+        var secondContext = BuildRagHttpContext(tenantId);
+        secondContext.Request.Headers.IfNoneMatch = etag;
+
+        var secondResult = await InvokeCatalogCacheEndpointAsync(endpoint, secondContext, ds, ingestionOptions);
+        await secondResult.ExecuteAsync(secondContext);
+
+        Assert.Equal(etag, secondContext.Response.Headers.ETag.ToString());
+        Assert.Equal(StatusCodes.Status304NotModified, secondContext.Response.StatusCode);
+        Assert.Equal(string.Empty, ReadResponseBody(secondContext));
+    }
+
     [Fact]
     public async Task SearchAsync_populates_category_ref_and_category_path_from_matched_document()
     {
@@ -1335,8 +1375,9 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal("ATEX", item.CategoryPath);
         Assert.Equal(expectedCategoryRef, item.CategoryRef);
         Assert.Equal("exact_match", item.ProvenanceInfo!.Channel);
-        Assert.Null(item.ProvenanceInfo.OffsetStart);
-        Assert.Null(item.ProvenanceInfo.OffsetEnd);
+        Assert.NotNull(item.ProvenanceInfo.OffsetStart);
+        Assert.NotNull(item.ProvenanceInfo.OffsetEnd);
+        Assert.True(item.ProvenanceInfo.OffsetEnd > item.ProvenanceInfo.OffsetStart);
         Assert.False(item.HypQuestionsMatched);
     }
 
@@ -1389,6 +1430,34 @@ public sealed class DocumentFoundationIntegrationTests
         var method = typeof(DocumentsEndpoints).GetMethod("SnapshotAsync", BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
         return await (Task<IResult>)method!.Invoke(null, [ctx, ds])!;
+    }
+
+    private static async Task<IResult> InvokeCatalogCacheEndpointAsync(
+        string endpoint,
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        IOptions<IngestionOptions> ingestionOptions)
+    {
+        var (methodName, args) = endpoint switch
+        {
+            "catalog_categories" => (
+                "CatalogCategoriesAsync",
+                new object?[] { ctx, ds, null, null, 100, null, null }),
+            "catalog_documents" => (
+                "CatalogDocumentsAsync",
+                new object?[] { ctx, ds, null, null, null, null, 50, null, null }),
+            "documents_stats" => (
+                "StatsAsync",
+                new object?[] { ctx, ds, ingestionOptions, null, null }),
+            "catalog_stats" => (
+                "CatalogStatsAsync",
+                new object?[] { ctx, ds, ingestionOptions, null, null }),
+            _ => throw new ArgumentOutOfRangeException(nameof(endpoint), endpoint, "Unknown catalog cache endpoint.")
+        };
+
+        var method = typeof(DocumentsEndpoints).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+        return await (Task<IResult>)method!.Invoke(null, args)!;
     }
 
     private static async Task<IResult> InvokeRagSearchAsync(

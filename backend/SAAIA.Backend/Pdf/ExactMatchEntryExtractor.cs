@@ -58,7 +58,9 @@ internal static partial class ExactMatchEntryExtractor
                     CharCount: candidate.Length,
                     TokenCount: tokenCount,
                     Checksum: SHA256.HashData(Encoding.UTF8.GetBytes(normalizedText)),
-                    Kind: kind));
+                    Kind: kind,
+                    OffsetStart: ResolveOffsetStart(unit, candidate),
+                    OffsetEnd: ResolveOffsetEnd(unit, candidate)));
             }
         }
 
@@ -259,6 +261,25 @@ internal static partial class ExactMatchEntryExtractor
     private static int CountTokens(string text)
         => text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
 
+    private static int? ResolveOffsetStart(ExtractedDocumentUnit unit, string candidate)
+    {
+        if (unit.OffsetStart is null || string.IsNullOrWhiteSpace(candidate))
+            return null;
+
+        var index = unit.Text.IndexOf(candidate, StringComparison.Ordinal);
+        return index >= 0
+            ? unit.OffsetStart.Value + index
+            : null;
+    }
+
+    private static int? ResolveOffsetEnd(ExtractedDocumentUnit unit, string candidate)
+    {
+        var start = ResolveOffsetStart(unit, candidate);
+        return start is null
+            ? null
+            : start.Value + candidate.Length;
+    }
+
     [GeneratedRegex(@"(?<=[\.\!\?\;\:])\s+", RegexOptions.CultureInvariant)]
     private static partial Regex SentenceSplitRegex();
 
@@ -323,4 +344,6 @@ internal sealed record ExtractedExactMatchEntry(
     int CharCount,
     int TokenCount,
     byte[] Checksum,
-    string Kind);
+    string Kind,
+    int? OffsetStart = null,
+    int? OffsetEnd = null);

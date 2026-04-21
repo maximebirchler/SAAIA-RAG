@@ -158,7 +158,9 @@ static class QdrantClient
                 ChunkType: GetStr("chunk_type"),
                 PrevChunkId: GetStr("prev_chunk_id"),
                 NextChunkId: GetStr("next_chunk_id"),
-                SameSectionChunkId: GetStr("same_section_chunk_id")
+                SameSectionChunkId: GetStr("same_section_chunk_id"),
+                OffsetStart: GetInt("offset_start"),
+                OffsetEnd: GetInt("offset_end")
             );
 
             list.Add(m);
@@ -205,5 +207,7 @@ public sealed record RagMatch(
     string? PrevChunkId,
     string? NextChunkId,
     string? SameSectionChunkId,
-    double? RerankScore = null
+    double? RerankScore = null,
+    int? OffsetStart = null,
+    int? OffsetEnd = null
 );

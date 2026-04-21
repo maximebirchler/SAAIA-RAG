@@ -12,6 +12,7 @@ public static class AdminRuntimeEndpoints
         app.MapGet("/admin/runtime/catalog", CatalogAsync);
         app.MapGet("/admin/runtime/capabilities", CapabilitiesAsync);
         app.MapGet("/admin/runtime/diagnostics", DiagnosticsAsync);
+        app.MapGet("/admin/runtime/operational-summary", OperationalSummaryAsync);
         app.MapGet("/admin/runtime/events", EventsAsync);
         app.MapGet("/admin/runtime/warmup-results", WarmupResultsAsync);
         app.MapGet("/admin/runtime/capabilities/capability_a.corpus_enrichment/candidates", CapabilityAEnrichmentCandidatesAsync);
@@ -30,6 +31,7 @@ public static class AdminRuntimeEndpoints
         app.MapGet("/admin/runtime/artifacts/capability-b-campaigns.json", CapabilityBCampaignsArtifactAsync);
         app.MapGet("/admin/runtime/artifacts/capability-b-campaigns/{campaignId:guid}.json", CapabilityBCampaignArtifactAsync);
         app.MapGet("/admin/runtime/artifacts/diagnostics.json", DiagnosticsArtifactAsync);
+        app.MapGet("/admin/runtime/artifacts/operational-summary.json", OperationalSummaryArtifactAsync);
         app.MapGet("/admin/runtime/artifacts/runtime-events.json", EventsArtifactAsync);
         app.MapGet("/admin/runtime/artifacts/runtime-catalog.json", RuntimeCatalogArtifactAsync);
         app.MapGet("/admin/runtime/artifacts/model-catalog.json", ModelCatalogArtifactAsync);
@@ -50,7 +52,7 @@ public static class AdminRuntimeEndpoints
         IHostEnvironment env)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = RuntimeGovernanceService.BuildCatalog(options.Value, ragOptions.Value, env);
+        var response = RuntimeGovernanceCatalogService.BuildCatalog(options.Value, ragOptions.Value, env);
         return Task.FromResult(Results.Ok(response));
     }
 
@@ -62,7 +64,7 @@ public static class AdminRuntimeEndpoints
         IHostEnvironment env)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.GetCapabilitiesAsync(ds, options.Value, ragOptions.Value, env, ctx.RequestAborted);
+        var response = await RuntimeGovernanceReadService.GetCapabilitiesAsync(ds, options.Value, ragOptions.Value, env, ctx.RequestAborted);
         return Results.Ok(response);
     }
 
@@ -74,7 +76,19 @@ public static class AdminRuntimeEndpoints
         IHostEnvironment env)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.GetDiagnosticsAsync(ds, options.Value, ragOptions.Value, env, ctx.RequestAborted);
+        var response = await RuntimeGovernanceReadService.GetDiagnosticsAsync(ctx.GetTenantId(), ds, options.Value, ragOptions.Value, env, ctx.RequestAborted);
+        return Results.Ok(response);
+    }
+
+    internal static async Task<IResult> OperationalSummaryAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        IOptions<RuntimeGovernanceOptions> options,
+        IOptions<RagOptions> ragOptions,
+        IHostEnvironment env)
+    {
+        AdminAuth.EnsureAdmin(ctx);
+        var response = await RuntimeGovernanceReadService.GetOperationalSummaryAsync(ctx.GetTenantId(), ds, options.Value, ragOptions.Value, env, ctx.RequestAborted);
         return Results.Ok(response);
     }
 
@@ -86,7 +100,7 @@ public static class AdminRuntimeEndpoints
         int? limit)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.GetEventsAsync(
+        var response = await RuntimeGovernanceReadService.GetEventsAsync(
             ds,
             env,
             capabilityKey,
@@ -103,7 +117,19 @@ public static class AdminRuntimeEndpoints
         IHostEnvironment env)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.GetDiagnosticsArtifactAsync(ds, options.Value, ragOptions.Value, env, ctx.RequestAborted);
+        var response = await RuntimeGovernanceReadService.GetDiagnosticsArtifactAsync(ctx.GetTenantId(), ds, options.Value, ragOptions.Value, env, ctx.RequestAborted);
+        return Results.Ok(response);
+    }
+
+    internal static async Task<IResult> OperationalSummaryArtifactAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        IOptions<RuntimeGovernanceOptions> options,
+        IOptions<RagOptions> ragOptions,
+        IHostEnvironment env)
+    {
+        AdminAuth.EnsureAdmin(ctx);
+        var response = await RuntimeGovernanceReadService.GetOperationalSummaryArtifactAsync(ctx.GetTenantId(), ds, options.Value, ragOptions.Value, env, ctx.RequestAborted);
         return Results.Ok(response);
     }
 
@@ -115,7 +141,7 @@ public static class AdminRuntimeEndpoints
         int? limit)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.GetEventsArtifactAsync(
+        var response = await RuntimeGovernanceReadService.GetEventsArtifactAsync(
             ds,
             env,
             capabilityKey,
@@ -134,7 +160,7 @@ public static class AdminRuntimeEndpoints
         AdminRuntimeRequalifyRequestDto? req)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.RequalifyAsync(
+        var response = await RuntimeGovernanceCommandService.RequalifyAsync(
             ds,
             httpFactory,
             options.Value,
@@ -155,7 +181,7 @@ public static class AdminRuntimeEndpoints
         AdminRuntimeReconcileStaleRequestDto? req)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.ReconcileStaleAsync(
+        var response = await RuntimeGovernanceCommandService.ReconcileStaleAsync(
             ds,
             options.Value,
             ragOptions.Value,
@@ -174,7 +200,7 @@ public static class AdminRuntimeEndpoints
         int? limit)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.GetWarmupResultsAsync(
+        var response = await RuntimeGovernanceReadService.GetWarmupResultsAsync(
             ds,
             env,
             capabilityKey,
@@ -194,7 +220,7 @@ public static class AdminRuntimeEndpoints
         int? limit)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.GetCapabilityAEnrichmentCandidatesAsync(
+        var response = await RuntimeCapabilityAdminReadService.GetCapabilityAEnrichmentCandidatesAsync(
             ctx.GetTenantId(),
             ds,
             options.Value,
@@ -220,7 +246,7 @@ public static class AdminRuntimeEndpoints
         int? limit)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.GetCapabilityAEnrichmentCandidatesArtifactAsync(
+        var response = await RuntimeCapabilityAdminReadService.GetCapabilityAEnrichmentCandidatesArtifactAsync(
             ctx.GetTenantId(),
             ds,
             options.Value,
@@ -242,7 +268,7 @@ public static class AdminRuntimeEndpoints
         int? limit)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.GetCapabilityACampaignsAsync(
+        var response = await RuntimeCapabilityAdminReadService.GetCapabilityACampaignsAsync(
             ds,
             env,
             limit ?? 20,
@@ -257,7 +283,7 @@ public static class AdminRuntimeEndpoints
         int? limit)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.GetCapabilityACampaignsArtifactAsync(
+        var response = await RuntimeCapabilityAdminReadService.GetCapabilityACampaignsArtifactAsync(
             ds,
             env,
             limit ?? 20,
@@ -272,7 +298,7 @@ public static class AdminRuntimeEndpoints
         Guid campaignId)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.GetCapabilityACampaignAsync(
+        var response = await RuntimeCapabilityAdminReadService.GetCapabilityACampaignAsync(
             ds,
             env,
             campaignId,
@@ -289,7 +315,7 @@ public static class AdminRuntimeEndpoints
         Guid campaignId)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.GetCapabilityACampaignArtifactAsync(
+        var response = await RuntimeCapabilityAdminReadService.GetCapabilityACampaignArtifactAsync(
             ds,
             env,
             campaignId,
@@ -309,7 +335,7 @@ public static class AdminRuntimeEndpoints
         int? limit)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.GetCapabilityBBackofficeCandidatesAsync(
+        var response = await RuntimeCapabilityAdminReadService.GetCapabilityBBackofficeCandidatesAsync(
             ctx.GetTenantId(),
             ds,
             options.Value,
@@ -333,7 +359,7 @@ public static class AdminRuntimeEndpoints
         int? limit)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.GetCapabilityBBackofficeCandidatesArtifactAsync(
+        var response = await RuntimeCapabilityAdminReadService.GetCapabilityBBackofficeCandidatesArtifactAsync(
             ctx.GetTenantId(),
             ds,
             options.Value,
@@ -354,7 +380,7 @@ public static class AdminRuntimeEndpoints
         int? limit)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.GetCapabilityBCampaignsAsync(
+        var response = await RuntimeCapabilityAdminReadService.GetCapabilityBCampaignsAsync(
             ds,
             env,
             limit ?? 20,
@@ -369,7 +395,7 @@ public static class AdminRuntimeEndpoints
         int? limit)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.GetCapabilityBCampaignsArtifactAsync(
+        var response = await RuntimeCapabilityAdminReadService.GetCapabilityBCampaignsArtifactAsync(
             ds,
             env,
             limit ?? 20,
@@ -384,7 +410,7 @@ public static class AdminRuntimeEndpoints
         Guid campaignId)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.GetCapabilityBCampaignAsync(
+        var response = await RuntimeCapabilityAdminReadService.GetCapabilityBCampaignAsync(
             ds,
             env,
             campaignId,
@@ -401,7 +427,7 @@ public static class AdminRuntimeEndpoints
         Guid campaignId)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.GetCapabilityBCampaignArtifactAsync(
+        var response = await RuntimeCapabilityAdminReadService.GetCapabilityBCampaignArtifactAsync(
             ds,
             env,
             campaignId,
@@ -418,7 +444,7 @@ public static class AdminRuntimeEndpoints
         IHostEnvironment env)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = RuntimeGovernanceService.BuildRuntimeCatalogArtifact(options.Value, ragOptions.Value, env);
+        var response = RuntimeGovernanceCatalogService.BuildRuntimeCatalogArtifact(options.Value, ragOptions.Value, env);
         return Task.FromResult(Results.Ok(response));
     }
 
@@ -429,7 +455,7 @@ public static class AdminRuntimeEndpoints
         IHostEnvironment env)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = RuntimeGovernanceService.BuildModelCatalogArtifact(options.Value, ragOptions.Value, env);
+        var response = RuntimeGovernanceCatalogService.BuildModelCatalogArtifact(options.Value, ragOptions.Value, env);
         return Task.FromResult(Results.Ok(response));
     }
 
@@ -439,7 +465,7 @@ public static class AdminRuntimeEndpoints
         IHostEnvironment env)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = RuntimeGovernanceService.BuildWarmupProfilesArtifact(options.Value, env);
+        var response = RuntimeGovernanceCatalogService.BuildWarmupProfilesArtifact(options.Value, env);
         return Task.FromResult(Results.Ok(response));
     }
 
@@ -451,7 +477,7 @@ public static class AdminRuntimeEndpoints
         IHostEnvironment env)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.GetCapabilityStateArtifactAsync(
+        var response = await RuntimeGovernanceReadService.GetCapabilityStateArtifactAsync(
             ds,
             options.Value,
             ragOptions.Value,
@@ -468,7 +494,7 @@ public static class AdminRuntimeEndpoints
         int? limit)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.GetWarmupResultsArtifactAsync(
+        var response = await RuntimeGovernanceReadService.GetWarmupResultsArtifactAsync(
             ds,
             env,
             capabilityKey,
@@ -486,7 +512,7 @@ public static class AdminRuntimeEndpoints
         AdminRuntimeCapabilitySelectionRequestDto? req)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var result = await RuntimeGovernanceService.UpdateSelectionAsync(
+        var result = await RuntimeGovernanceCommandService.UpdateSelectionAsync(
             ds,
             options.Value,
             ragOptions.Value,
@@ -509,7 +535,7 @@ public static class AdminRuntimeEndpoints
         AdminRuntimeCapabilityAEnqueueRequestDto? req)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.EnqueueCapabilityAEnrichmentAsync(
+        var response = await RuntimeCapabilityAEnrichmentCommandService.EnqueueCapabilityAEnrichmentAsync(
             ctx.GetTenantId(),
             ds,
             options.Value,
@@ -532,7 +558,7 @@ public static class AdminRuntimeEndpoints
         AdminRuntimeCapabilityBEnqueueRequestDto? req)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.EnqueueCapabilityBBackofficeAsync(
+        var response = await RuntimeCapabilityBBackofficeCommandService.EnqueueCapabilityBBackofficeAsync(
             ctx.GetTenantId(),
             ds,
             options.Value,
@@ -554,7 +580,7 @@ public static class AdminRuntimeEndpoints
         AdminRuntimeCapabilityBClaimRequestDto? req)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.ClaimCapabilityBBackofficeExecutionAsync(
+        var response = await RuntimeCapabilityBExecutionCommandService.ClaimCapabilityBBackofficeExecutionAsync(
             ctx.GetTenantId(),
             ds,
             options.Value,
@@ -573,7 +599,7 @@ public static class AdminRuntimeEndpoints
         AdminRuntimeCapabilityBCompleteRequestDto? req)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var completion = await RuntimeGovernanceService.CompleteCapabilityBBackofficeExecutionAsync(
+        var completion = await RuntimeCapabilityBExecutionCommandService.CompleteCapabilityBBackofficeExecutionAsync(
             ctx.GetTenantId(),
             ds,
             req,
@@ -599,7 +625,7 @@ public static class AdminRuntimeEndpoints
         AdminRuntimeCapabilityBFailRequestDto? req)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceService.FailCapabilityBBackofficeExecutionAsync(
+        var response = await RuntimeCapabilityBExecutionCommandService.FailCapabilityBBackofficeExecutionAsync(
             ctx.GetTenantId(),
             ds,
             env,

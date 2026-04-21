@@ -279,7 +279,7 @@ public sealed class RuntimeGovernanceTelemetryTests
     [Fact]
     public void EvaluateHardwareGate_returns_failure_when_thresholds_are_unreachable()
     {
-        var result = RuntimeGovernanceService.EvaluateHardwareGate(new RuntimeGovernanceOptions
+        var result = RuntimeCapabilityGateService.EvaluateHardwareGate(new RuntimeGovernanceOptions
         {
             MinCpuCores = Environment.ProcessorCount + 1000,
             MinAvailableMemoryMb = (GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / (1024 * 1024)) + 1024,

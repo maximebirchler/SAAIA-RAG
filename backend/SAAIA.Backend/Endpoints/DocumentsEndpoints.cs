@@ -30,7 +30,7 @@ public static partial class DocumentsEndpoints
         app.MapGet("/documents/stats", StatsAsync);
         app.MapPost("/documents/resolve-category", ResolveCategoryAsync);
 
-        // Contract-aligned catalog surface (transition to snapshot + capabilities)
+        // Public read-only catalog context used by the client runtime; snapshot mutations stay admin-only.
         app.MapGet("/catalog/snapshot", SnapshotAsync);
         app.MapGet("/catalog/categories", CatalogCategoriesAsync);
         app.MapGet("/catalog/documents", CatalogDocumentsAsync);
@@ -353,9 +353,7 @@ WHERE tenant_id=@tenant AND status='indexed';";
         var etag = BuildTreeEtag(json);
         ctx.Response.Headers.ETag = etag;
 
-        var ifNoneMatch = ctx.Request.Headers.IfNoneMatch.ToString();
-        if (!string.IsNullOrWhiteSpace(ifNoneMatch)
-            && string.Equals(ifNoneMatch.Trim(), etag, StringComparison.Ordinal))
+        if (RequestIfNoneMatchMatches(ctx, etag))
         {
             return Results.StatusCode(StatusCodes.Status304NotModified);
         }
@@ -499,7 +497,7 @@ WHERE tenant_id=@tenant AND status='indexed';";
 
         var snapshotPayload = await TryBuildStatsFromSnapshotAsync(conn, tenantId, path, ct);
         if (snapshotPayload is not null)
-            return Results.Ok(snapshotPayload);
+            return BuildCachedJsonResponse(ctx, "stats", snapshotPayload);
 
         // Fallback only when the snapshot is absent or incomplete.
         const string sql = @"
@@ -630,7 +628,7 @@ WHERE tenant_id=@tenant AND status='indexed';";
             documentsByDepth[relativeDepth] = documentsByDepth.TryGetValue(relativeDepth, out var c) ? c + 1 : 1;
         }
 
-        return Results.Ok(new
+        return BuildCachedJsonResponse(ctx, "stats", new
         {
             scopePath = scopedNode.Path,
             totalDocuments = scopedNode.DocCount,
@@ -688,9 +686,7 @@ ORDER BY display_order ASC, name ASC;";
         var snapshotId = BuildSnapshotId(computedAt, summary?.TotalDocs ?? categoryRows.Sum(x => x.DocCount));
         var etag = BuildSnapshotEtag(computedAt, summary?.TotalDocs ?? categoryRows.Sum(x => x.DocCount), categoryRows.Count);
         ctx.Response.Headers.ETag = etag;
-        var ifNoneMatch = ctx.Request.Headers.IfNoneMatch.ToString();
-        if (!string.IsNullOrWhiteSpace(ifNoneMatch)
-            && string.Equals(ifNoneMatch.Trim(), etag, StringComparison.Ordinal))
+        if (RequestIfNoneMatchMatches(ctx, etag))
         {
             return Results.StatusCode(StatusCodes.Status304NotModified);
         }
@@ -905,7 +901,7 @@ WHERE tenant_id=@tenant AND parent_path=@path;";
             });
         }
 
-        return Results.Ok(new { value, nextLink });
+        return BuildCachedJsonResponse(ctx, "catalog-categories", new { value, nextLink });
     }
 
     private static async Task<IResult> CatalogDocumentsAsync(
@@ -1041,7 +1037,7 @@ WHERE d.tenant_id=@tenant
             });
         }
 
-        return Results.Ok(new CatalogDocumentListResponse
+        return BuildCachedJsonResponse(ctx, "catalog-documents", new CatalogDocumentListResponse
         {
             Value = value,
             NextLink = nextLink

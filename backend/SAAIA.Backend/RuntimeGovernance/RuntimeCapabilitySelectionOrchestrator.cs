@@ -3,8 +3,6 @@ using SAAIA.Backend.Models;
 
 namespace SAAIA.Backend;
 
-using CapabilitySelectionUpdateResult = RuntimeGovernanceService.CapabilitySelectionUpdateResult;
-
 internal static class RuntimeCapabilitySelectionOrchestrator
 {
     internal static async Task<CapabilitySelectionUpdateResult> UpdateSelectionAsync(

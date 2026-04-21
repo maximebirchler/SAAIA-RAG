@@ -687,6 +687,8 @@ WHERE job_id=@job_id
             ["chunk_index"] = projectedChunk.ChunkIndex,
             ["page_start"] = projectedChunk.PageStart,
             ["page_end"] = projectedChunk.PageEnd,
+            ["offset_start"] = projectedChunk.OffsetStart,
+            ["offset_end"] = projectedChunk.OffsetEnd,
             ["hash_doc"] = hashHex,
             ["created_at"] = nowIso,
             ["updated_at"] = nowIso,
@@ -758,7 +760,9 @@ WHERE job_id=@job_id
             Text: chunk.Text,
             TokenCount: CountWords(chunk.Text),
             Checksum: SHA256.HashData(Encoding.UTF8.GetBytes(chunk.Text)),
-            ChunkType: "legacy_word_window_v1");
+            ChunkType: "legacy_word_window_v1",
+            OffsetStart: null,
+            OffsetEnd: null);
     }
 
     internal static string? ResolveSectionTitle(

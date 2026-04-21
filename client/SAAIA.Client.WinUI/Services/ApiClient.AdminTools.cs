@@ -206,4 +206,30 @@ public sealed partial class ApiClient
 
     public Task<JsonElement> AdminQdrantHealthAsync(CancellationToken ct)
         => SendJsonAsync(HttpMethod.Get, "/admin/qdrant/health", null, admin: true, ct);
+
+    public Task<JsonElement> AdminRuntimeOperationalSummaryAsync(CancellationToken ct)
+        => SendJsonAsync(HttpMethod.Get, "/admin/runtime/operational-summary", null, admin: true, ct);
+
+    public Task<JsonElement> AdminRuntimeCapabilityAEnqueueAsync(
+        IReadOnlyList<string>? reasonFilters,
+        bool dryRun,
+        bool allowUnsafeCandidates,
+        int? maxCandidates,
+        CancellationToken ct)
+    {
+        var body = JsonSerializer.Serialize(new
+        {
+            reasonFilters,
+            dryRun,
+            allowUnsafeCandidates,
+            maxCandidates
+        }, JsonOpts);
+
+        return SendJsonAsync(
+            HttpMethod.Post,
+            "/admin/runtime/capabilities/capability_a.corpus_enrichment/enqueue",
+            body,
+            admin: true,
+            ct);
+    }
 }

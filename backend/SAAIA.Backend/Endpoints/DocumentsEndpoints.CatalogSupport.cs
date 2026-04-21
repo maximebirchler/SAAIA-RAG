@@ -1,4 +1,6 @@
+using System.Text;
 using System.Text.Json;
+using System.Security.Cryptography;
 using Dapper;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -22,6 +24,42 @@ public static partial class DocumentsEndpoints
 
     private static string BuildSnapshotEtag(DateTimeOffset computedAtUtc, long totalDocs, int categoryCount)
         => $"\"cat-{computedAtUtc.UtcTicks:x}-{totalDocs:x}-{categoryCount:x}\"";
+
+    private static string BuildJsonEtag(string prefix, string json)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(json));
+        return $"\"{prefix}-{Convert.ToHexString(hash).ToLowerInvariant()}\"";
+    }
+
+    private static bool RequestIfNoneMatchMatches(HttpContext ctx, string etag)
+    {
+        var ifNoneMatch = ctx.Request.Headers.IfNoneMatch.ToString();
+        if (string.IsNullOrWhiteSpace(ifNoneMatch))
+            return false;
+
+        foreach (var candidate in ifNoneMatch.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (string.Equals(candidate, "*", StringComparison.Ordinal)
+                || string.Equals(candidate, etag, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static IResult BuildCachedJsonResponse(HttpContext ctx, string etagPrefix, object payload)
+    {
+        var json = JsonSerializer.Serialize(payload);
+        var etag = BuildJsonEtag(etagPrefix, json);
+        ctx.Response.Headers.ETag = etag;
+
+        if (RequestIfNoneMatchMatches(ctx, etag))
+            return Results.StatusCode(StatusCodes.Status304NotModified);
+
+        return Results.Text(json, "application/json");
+    }
 
     private static string BuildAbsoluteNextLink(HttpContext ctx, string path, IReadOnlyDictionary<string, string?> query)
     {

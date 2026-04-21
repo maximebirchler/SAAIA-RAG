@@ -294,6 +294,21 @@
                     <FontIcon Glyph="&#xE821;" FontSize="18" />
                 </Button>
 
+                <Button x:Name="HeaderRuntimeButton"
+                        Width="40"
+                        Height="40"
+                        Margin="0,0,0,0"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Padding="0"
+                        Click="HeaderRuntimeButton_Click"
+                        ToolTipService.ToolTip="Pilotage runtime"
+                        Style="{StaticResource AppIconButtonStyle}"
+                        Visibility="Collapsed"
+                        IsTabStop="False">
+                    <FontIcon Glyph="&#xE9CE;" FontSize="18" />
+                </Button>
+
                 <Button x:Name="HeaderHelpButton"
                         Width="40"
                         Height="40"

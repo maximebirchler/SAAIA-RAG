@@ -3,6 +3,8 @@ using System.Text;
 
 internal static class RetrievalChunkProjector
 {
+    private static readonly string ChunkSeparator = Environment.NewLine + Environment.NewLine;
+
     public static IReadOnlyList<ProjectedRetrievalChunk> Project(
         IReadOnlyList<Chunk> chunks,
         IReadOnlyList<ExtractedDocumentSection> sections,
@@ -33,6 +35,8 @@ internal static class RetrievalChunkProjector
                 chunk.PageStart,
                 chunk.PageEnd,
                 chunk.Text,
+                ResolveExcerptOffsetStart(unit, chunk.Text),
+                ResolveExcerptOffsetEnd(unit, chunk.Text),
                 chunkType: "legacy_word_window_v1"));
         }
 
@@ -103,7 +107,7 @@ internal static class RetrievalChunkProjector
                 {
                     var first = window[0];
                     var last = window[^1];
-                    var chunkText = string.Join(Environment.NewLine + Environment.NewLine, window.Select(unit => unit.Text));
+                    var chunkText = string.Join(ChunkSeparator, window.Select(unit => unit.Text));
                     int? representativeUnit = window.Count == 1
                         ? first.Ordinal
                         : null;
@@ -115,6 +119,8 @@ internal static class RetrievalChunkProjector
                         first.PageStart,
                         last.PageEnd,
                         chunkText,
+                        first.OffsetStart,
+                        last.OffsetEnd,
                         chunkType: window.Count == 1 ? "unit_exact_v1" : "section_window_v1"));
                 }
 
@@ -128,7 +134,7 @@ internal static class RetrievalChunkProjector
         if (chunks.Count == 0)
         {
             var fallback = orderedUnits;
-            var text = string.Join(Environment.NewLine + Environment.NewLine, fallback.Select(unit => unit.Text));
+            var text = string.Join(ChunkSeparator, fallback.Select(unit => unit.Text));
             var first = fallback[0];
             var last = fallback[^1];
             chunks.Add(CreateProjectedChunk(
@@ -138,6 +144,8 @@ internal static class RetrievalChunkProjector
                 first.PageStart,
                 last.PageEnd,
                 text,
+                first.OffsetStart,
+                last.OffsetEnd,
                 chunkType: "document_window_v1"));
         }
 
@@ -175,6 +183,8 @@ internal static class RetrievalChunkProjector
         int pageStart,
         int pageEnd,
         string text,
+        int? offsetStart,
+        int? offsetEnd,
         string chunkType)
         => new(
             ChunkIndex: chunkIndex,
@@ -185,7 +195,28 @@ internal static class RetrievalChunkProjector
             Text: text,
             TokenCount: CountTokens(text),
             Checksum: SHA256.HashData(Encoding.UTF8.GetBytes(text)),
-            ChunkType: chunkType);
+            ChunkType: chunkType,
+            OffsetStart: offsetStart,
+            OffsetEnd: offsetEnd);
+
+    private static int? ResolveExcerptOffsetStart(ExtractedDocumentUnit? unit, string excerpt)
+    {
+        if (unit?.OffsetStart is null || string.IsNullOrWhiteSpace(unit.Text) || string.IsNullOrWhiteSpace(excerpt))
+            return null;
+
+        var index = unit.Text.IndexOf(excerpt, StringComparison.Ordinal);
+        return index >= 0
+            ? unit.OffsetStart.Value + index
+            : null;
+    }
+
+    private static int? ResolveExcerptOffsetEnd(ExtractedDocumentUnit? unit, string excerpt)
+    {
+        var start = ResolveExcerptOffsetStart(unit, excerpt);
+        return start is null
+            ? null
+            : start.Value + excerpt.Length;
+    }
 
     private static bool Overlaps(int startA, int endA, int startB, int endB)
         => startA <= endB && startB <= endA;
@@ -209,4 +240,6 @@ internal sealed record ProjectedRetrievalChunk(
     string Text,
     int TokenCount,
     byte[] Checksum,
-    string ChunkType);
+    string ChunkType,
+    int? OffsetStart = null,
+    int? OffsetEnd = null);

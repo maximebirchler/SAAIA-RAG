@@ -5,6 +5,13 @@ namespace SAAIA.Client.WinUI;
 
 public sealed partial class MainWindow
 {
+    private enum AdminJobsLaunchMode
+    {
+        Default = 0,
+        CapabilityAEnrichment = 1,
+        CapabilityBBackoffice = 2
+    }
+
     private Window? _adminJobsWindow;
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _adminJobsRefreshTimer;
     private AdminJobsOverlayContext? _adminJobsOverlayContext;
@@ -34,6 +41,7 @@ public sealed partial class MainWindow
         public required ScrollViewer DetailsScrollViewer { get; init; }
         public required StackPanel DetailsHost { get; init; }
         public required ColumnDefinition DetailsColumn { get; init; }
+        public AdminJobsLaunchMode LaunchMode { get; set; }
         public List<AdminJobListItem> Items { get; set; } = new();
         public HashSet<string> SelectedTerminalJobIds { get; } = new(StringComparer.OrdinalIgnoreCase);
         public bool IsRefreshing { get; set; }
@@ -72,6 +80,8 @@ public sealed partial class MainWindow
         public int? ProgressPercent { get; init; }
         public bool? CancelRequested { get; init; }
         public string? EnqueueSource { get; init; }
+        public string? RuntimeCapabilityKey { get; init; }
+        public string? ExecutionMode { get; init; }
         public string? DocumentStatus { get; init; }
         public int? DocumentIngestionVersion { get; init; }
         public int? DocumentIndexedVersion { get; init; }

@@ -4,14 +4,6 @@ using SAAIA.Backend.Shared;
 
 namespace SAAIA.Backend;
 
-using CapabilityEvaluation = RuntimeGovernanceService.CapabilityEvaluation;
-using HardwareGateResult = RuntimeGovernanceService.HardwareGateResult;
-using PerformanceBudgetResult = RuntimeGovernanceService.PerformanceBudgetResult;
-using ProfilePolicyResult = RuntimeGovernanceService.ProfilePolicyResult;
-using RuntimeSpecificGateResult = RuntimeGovernanceService.RuntimeSpecificGateResult;
-using WarmupCheckResult = RuntimeGovernanceService.WarmupCheckResult;
-using WarmupPassResult = RuntimeGovernanceService.WarmupPassResult;
-
 internal static class RuntimeCoreRetrievalWarmupEvaluator
 {
     internal static async Task<CapabilityEvaluation> EvaluateAsync(
@@ -29,7 +21,7 @@ internal static class RuntimeCoreRetrievalWarmupEvaluator
         var configured = installed
             && !string.IsNullOrWhiteSpace(rag.QdrantCollection)
             && !string.IsNullOrWhiteSpace(rag.EmbeddingsModel);
-        var hardwareGate = RuntimeGovernanceService.EvaluateHardwareGate(profile.HardwareRequirements, options);
+        var hardwareGate = RuntimeCapabilityGateService.EvaluateHardwareGate(profile.HardwareRequirements, options);
         var runtimeGates = EvaluateRuntimeSpecificGates(profile, options, rag);
         var profilePolicy = EvaluateProfilePolicy(profile, rag);
 
@@ -534,10 +526,10 @@ internal static class RuntimeCoreRetrievalWarmupEvaluator
             options.RerankRuntimeMinAvailableMemoryMb,
             options.Require64BitProcess);
 
-        var qdrantGate = RuntimeGovernanceService.EvaluateHardwareGate(qdrantRequirements, options);
-        var embeddingsGate = RuntimeGovernanceService.EvaluateHardwareGate(embeddingsRequirements, options);
+        var qdrantGate = RuntimeCapabilityGateService.EvaluateHardwareGate(qdrantRequirements, options);
+        var embeddingsGate = RuntimeCapabilityGateService.EvaluateHardwareGate(embeddingsRequirements, options);
         var rerankGate = activeRerank
-            ? RuntimeGovernanceService.EvaluateHardwareGate(rerankRequirements, options)
+            ? RuntimeCapabilityGateService.EvaluateHardwareGate(rerankRequirements, options)
             : new HardwareGateResult(
                 true,
                 new Dictionary<string, object?>

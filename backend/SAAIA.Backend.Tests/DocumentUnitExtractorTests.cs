@@ -22,6 +22,9 @@ public sealed class DocumentUnitExtractorTests
         Assert.True(units.Count >= 2);
         Assert.All(units, u => Assert.Equal(0, u.SectionOrdinal));
         Assert.Contains(units, u => u.Text.Contains("Premier paragraphe.", StringComparison.Ordinal));
+        Assert.Equal(0, units[0].OffsetStart);
+        Assert.True(units[0].OffsetEnd > units[0].OffsetStart);
+        Assert.True(units[1].OffsetStart > units[0].OffsetEnd);
     }
 
     [Fact]
@@ -41,6 +44,8 @@ public sealed class DocumentUnitExtractorTests
         var unit = Assert.Single(units);
         Assert.Equal(0, unit.Ordinal);
         Assert.Equal(1, unit.PageStart);
+        Assert.Equal(0, unit.OffsetStart);
+        Assert.Equal(unit.Text.Length, unit.OffsetEnd);
     }
 
     [Fact]

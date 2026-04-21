@@ -17,7 +17,9 @@ public sealed class ExactMatchEntryExtractorTests
                 "Premiere phrase avec assez de contenu pour etre conservee dans l index d exact match et rester utile lors des recherches precises. Deuxieme phrase elle aussi suffisamment longue pour l exact match et pour verifier une vraie segmentation deterministe.",
                 250,
                 34,
-                [1])
+                [1],
+                0,
+                250)
         };
 
         var entries = ExactMatchEntryExtractor.Extract(units);
@@ -27,6 +29,8 @@ public sealed class ExactMatchEntryExtractorTests
         Assert.All(entries, entry => Assert.Equal(2, entry.SectionOrdinal));
         Assert.All(entries, entry => Assert.Equal(3, entry.PageStart));
         Assert.All(entries, entry => Assert.Equal("verbatim_excerpt", entry.Kind));
+        Assert.All(entries, entry => Assert.NotNull(entry.OffsetStart));
+        Assert.All(entries, entry => Assert.True(entry.OffsetEnd > entry.OffsetStart));
     }
 
     [Fact]
@@ -34,7 +38,7 @@ public sealed class ExactMatchEntryExtractorTests
     {
         var units = new[]
         {
-            new ExtractedDocumentUnit(0, null, 1, 1, "Court paragraphe sans vraie segmentation", 38, 5, [1])
+            new ExtractedDocumentUnit(0, null, 1, 1, "Court paragraphe sans vraie segmentation", 38, 5, [1], 0, 38)
         };
 
         var entries = ExactMatchEntryExtractor.Extract(units);
@@ -42,6 +46,8 @@ public sealed class ExactMatchEntryExtractorTests
         var entry = Assert.Single(entries);
         Assert.Equal("court paragraphe sans vraie segmentation", entry.NormalizedText);
         Assert.Equal("verbatim_excerpt", entry.Kind);
+        Assert.Equal(0, entry.OffsetStart);
+        Assert.Equal(entry.Text.Length, entry.OffsetEnd);
     }
 
     [Fact]
@@ -57,13 +63,16 @@ public sealed class ExactMatchEntryExtractorTests
                 "La norme EN 15281 doit etre appliquee avec le code IND570 pendant le controle.",
                 76,
                 12,
-                [1])
+                [1],
+                0,
+                76)
         };
 
         var entries = ExactMatchEntryExtractor.Extract(units);
 
         Assert.Contains(entries, entry => entry.Text == "EN 15281" && entry.Kind == "standard_ref");
         Assert.Contains(entries, entry => entry.Text == "IND570" && entry.Kind == "code_ref");
+        Assert.Contains(entries, entry => entry.Text == "EN 15281" && entry.OffsetStart is not null);
     }
 
     [Fact]

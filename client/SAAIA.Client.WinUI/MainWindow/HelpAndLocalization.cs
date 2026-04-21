@@ -31,6 +31,7 @@ public sealed partial class MainWindow
         TrySoftUi("ApplyUiLanguage.Tooltip.ChatsToggleButton", () => ToolTipService.SetToolTip(ChatsToggleButton, ClientUiText.Get("header.chats", lang)));
         TrySoftUi("ApplyUiLanguage.Tooltip.SetupButton", () => ToolTipService.SetToolTip(SetupButton, ClientUiText.Get("button.setup", lang)));
         TrySoftUi("ApplyUiLanguage.Tooltip.HeaderJobsButton", () => ToolTipService.SetToolTip(HeaderJobsButton, ClientUiText.Get("header.jobs", lang)));
+        TrySoftUi("ApplyUiLanguage.Tooltip.HeaderRuntimeButton", () => ToolTipService.SetToolTip(HeaderRuntimeButton, ClientUiText.Get("header.runtime", lang)));
         TrySoftUi("ApplyUiLanguage.Tooltip.HeaderHelpButton", () => ToolTipService.SetToolTip(HeaderHelpButton, ClientUiText.Get("header.help", lang)));
         TrySoftUi("ApplyUiLanguage.Tooltip.HeaderSettingsButton", () => ToolTipService.SetToolTip(HeaderSettingsButton, ClientUiText.Get("header.settings", lang)));
         TrySoftUi("ApplyUiLanguage.ChatsHeaderText", () => ChatsHeaderText.Text = ClientUiText.Get("panel.chats", lang));

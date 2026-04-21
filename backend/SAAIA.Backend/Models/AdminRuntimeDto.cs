@@ -465,6 +465,23 @@ public sealed record AdminRuntimeDiagnosticsArtifactDto(
     IReadOnlyList<AdminRuntimeCapabilityDiagnosticDto> Items
 );
 
+public sealed record AdminRuntimeOperationalSummaryResponseDto(
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    AdminRuntimeDiagnosticsOperationalSummaryDto Summary,
+    IReadOnlyList<AdminRuntimeOperationalCapabilitySummaryDto> Items
+);
+
+public sealed record AdminRuntimeOperationalSummaryArtifactDto(
+    string Artifact,
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    AdminRuntimeDiagnosticsOperationalSummaryDto Summary,
+    IReadOnlyList<AdminRuntimeOperationalCapabilitySummaryDto> Items
+);
+
 public sealed record AdminRuntimeDiagnosticsSummaryDto(
     int TotalCapabilities,
     int ImplementedCapabilities,
@@ -472,7 +489,18 @@ public sealed record AdminRuntimeDiagnosticsSummaryDto(
     int SelectedCapabilities,
     int PersistedSelectedCapabilities,
     int BlockedCapabilities,
-    int StaleCapabilities
+    int StaleCapabilities,
+    AdminRuntimeDiagnosticsOperationalSummaryDto? Operational = null
+);
+
+public sealed record AdminRuntimeDiagnosticsOperationalSummaryDto(
+    int CapabilityACandidateCount,
+    int CapabilityAReadyToEnqueueCount,
+    int CapabilityAOffsetBackfillCandidateCount,
+    int CapabilityBBacklogCount,
+    int CapabilityBReadyToEnqueueCount,
+    int CapabilityBActiveJobCount,
+    int? CapabilityBLatestCampaignProgressPercent = null
 );
 
 public sealed record AdminRuntimeCapabilityOperationalSummaryDto(
@@ -485,10 +513,25 @@ public sealed record AdminRuntimeCapabilityOperationalSummaryDto(
     int ActiveCampaignCount,
     int TerminalCapabilityJobCount,
     int StoredSummaryCount,
+    IReadOnlyDictionary<string, int>? ReasonCounts = null,
+    int? OffsetBackfillCandidateCount = null,
     int? LatestCampaignProgressPercent = null,
     Guid? LatestCampaignId = null,
     string? LatestCampaignStatus = null,
     DateTimeOffset? LatestCampaignOccurredAt = null
+);
+
+public sealed record AdminRuntimeOperationalCapabilitySummaryDto(
+    string Key,
+    string DisplayName,
+    string Family,
+    string Status,
+    bool Implemented,
+    bool Qualified,
+    bool Selected,
+    bool Stale,
+    AdminRuntimeCapabilityOperationalSummaryDto Summary,
+    IReadOnlyList<string> Recommendations
 );
 
 public sealed record AdminRuntimeCapabilityDiagnosticDto(

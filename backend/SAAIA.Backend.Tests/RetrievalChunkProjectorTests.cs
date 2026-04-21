@@ -19,8 +19,8 @@ public sealed class RetrievalChunkProjectorTests
         };
         var units = new[]
         {
-            new ExtractedDocumentUnit(0, 0, 1, 1, "hello world", 11, 2, [1]),
-            new ExtractedDocumentUnit(1, 1, 2, 2, "next chunk", 10, 2, [2])
+            new ExtractedDocumentUnit(0, 0, 1, 1, "hello world", 11, 2, [1], 0, 11),
+            new ExtractedDocumentUnit(1, 1, 2, 2, "next chunk", 10, 2, [2], 13, 23)
         };
 
         var projected = RetrievalChunkProjector.Project(chunks, sections, units);
@@ -28,8 +28,12 @@ public sealed class RetrievalChunkProjectorTests
         Assert.Equal(2, projected.Count);
         Assert.Equal(0, projected[0].SectionOrdinal);
         Assert.Equal(0, projected[0].UnitOrdinal);
+        Assert.Equal(0, projected[0].OffsetStart);
+        Assert.Equal(11, projected[0].OffsetEnd);
         Assert.Equal(1, projected[1].SectionOrdinal);
         Assert.Equal(1, projected[1].UnitOrdinal);
+        Assert.Equal(13, projected[1].OffsetStart);
+        Assert.Equal(23, projected[1].OffsetEnd);
     }
 
     [Fact]
@@ -61,10 +65,10 @@ public sealed class RetrievalChunkProjectorTests
         };
         var units = new[]
         {
-            new ExtractedDocumentUnit(0, 0, 1, 1, "alpha beta gamma", 16, 3, [1]),
-            new ExtractedDocumentUnit(1, 0, 1, 1, "delta epsilon zeta", 18, 3, [2]),
-            new ExtractedDocumentUnit(2, 1, 2, 2, "theta iota kappa", 16, 3, [3]),
-            new ExtractedDocumentUnit(3, 1, 2, 2, "lambda mu nu", 12, 3, [4])
+            new ExtractedDocumentUnit(0, 0, 1, 1, "alpha beta gamma", 16, 3, [1], 0, 16),
+            new ExtractedDocumentUnit(1, 0, 1, 1, "delta epsilon zeta", 18, 3, [2], 20, 38),
+            new ExtractedDocumentUnit(2, 1, 2, 2, "theta iota kappa", 16, 3, [3], 42, 58),
+            new ExtractedDocumentUnit(3, 1, 2, 2, "lambda mu nu", 12, 3, [4], 62, 74)
         };
 
         var projected = RetrievalChunkProjector.ProjectStructureAware(
@@ -78,5 +82,6 @@ public sealed class RetrievalChunkProjectorTests
         Assert.All(projected.Take(2), chunk => Assert.Equal(0, chunk.SectionOrdinal));
         Assert.All(projected.Skip(2), chunk => Assert.Equal(1, chunk.SectionOrdinal));
         Assert.All(projected, chunk => Assert.NotEqual("legacy_word_window_v1", chunk.ChunkType));
+        Assert.All(projected, chunk => Assert.True(chunk.OffsetEnd > chunk.OffsetStart));
     }
 }

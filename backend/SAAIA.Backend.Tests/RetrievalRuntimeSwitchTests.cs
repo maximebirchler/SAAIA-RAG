@@ -45,7 +45,9 @@ public sealed class RetrievalRuntimeSwitchTests
             Text: "Chunk snippet",
             TokenCount: 2,
             Checksum: [5],
-            ChunkType: "section_window_v1");
+            ChunkType: "section_window_v1",
+            OffsetStart: 120,
+            OffsetEnd: 133);
 
         var payload = IngestionWorker.BuildQdrantChunkPayload(
             tenantId,
@@ -69,6 +71,8 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.Equal("contextual_text_v1", payload["embedding_basis"]);
         Assert.Equal(2, payload["section_ordinal"]);
         Assert.Equal(9, payload["unit_ordinal"]);
+        Assert.Equal(120, payload["offset_start"]);
+        Assert.Equal(133, payload["offset_end"]);
         Assert.Equal("Introduction", payload["section_title"]);
         Assert.Equal("Chapter 1 > Introduction", payload["heading_path"]);
         Assert.Equal("section_window_v1", payload["chunk_type"]);
@@ -525,7 +529,30 @@ public sealed class RetrievalRuntimeSwitchTests
     [Fact]
     public void BuildProvenanceInfo_returns_structured_retrieval_metadata()
     {
-        var match = new RagMatch(0.9, "doc", "path", "doc.pdf", 4, 5, "chunk-1", 0, "text", 1, "hash", "embed", "linked_context_v1", 1, 1, "Intro", "Chapter 1 > Intro", "unit_exact_v1", null, null, null);
+        var match = new RagMatch(
+            0.9,
+            "doc",
+            "path",
+            "doc.pdf",
+            4,
+            5,
+            "chunk-1",
+            0,
+            "text",
+            1,
+            "hash",
+            "embed",
+            "linked_context_v1",
+            1,
+            1,
+            "Intro",
+            "Chapter 1 > Intro",
+            "unit_exact_v1",
+            null,
+            null,
+            null,
+            OffsetStart: 120,
+            OffsetEnd: 133);
 
         var info = RagEndpoints.BuildProvenanceInfo(match);
 
@@ -535,8 +562,8 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.Equal("chunk-1", info.ChunkId);
         Assert.Equal(4, info.PageStart);
         Assert.Equal(5, info.PageEnd);
-        Assert.Null(info.OffsetStart);
-        Assert.Null(info.OffsetEnd);
+        Assert.Equal(120, info.OffsetStart);
+        Assert.Equal(133, info.OffsetEnd);
     }
 
     [Fact]

@@ -60,10 +60,34 @@ SELECT
   EXISTS(
     SELECT 1
     FROM document_revisions dr
+    JOIN retrieval_chunks rc ON rc.revision_id = dr.revision_id
+    WHERE dr.tenant_id = @tenant
+      AND dr.doc_id = cd."DocId"
+      AND dr.indexed_version = cd."IndexedVersion"
+      AND (
+        NOT (rc.metadata ? 'offsetStart')
+        OR NOT (rc.metadata ? 'offsetEnd')
+        OR jsonb_typeof(rc.metadata->'offsetStart') <> 'number'
+        OR jsonb_typeof(rc.metadata->'offsetEnd') <> 'number')) AS "HasRetrievalChunkOffsetsMissing",
+  EXISTS(
+    SELECT 1
+    FROM document_revisions dr
     JOIN exact_match_entries eme ON eme.revision_id = dr.revision_id
     WHERE dr.tenant_id = @tenant
       AND dr.doc_id = cd."DocId"
       AND dr.indexed_version = cd."IndexedVersion") AS "HasExactMatchEntries",
+  EXISTS(
+    SELECT 1
+    FROM document_revisions dr
+    JOIN exact_match_entries eme ON eme.revision_id = dr.revision_id
+    WHERE dr.tenant_id = @tenant
+      AND dr.doc_id = cd."DocId"
+      AND dr.indexed_version = cd."IndexedVersion"
+      AND (
+        NOT (eme.metadata ? 'offsetStart')
+        OR NOT (eme.metadata ? 'offsetEnd')
+        OR jsonb_typeof(eme.metadata->'offsetStart') <> 'number'
+        OR jsonb_typeof(eme.metadata->'offsetEnd') <> 'number')) AS "HasExactMatchOffsetsMissing",
   EXISTS(
     SELECT 1
     FROM document_revisions dr
@@ -174,8 +198,12 @@ LIMIT @limit;
             reasons.Add("revision_missing");
         if (row.IndexedVersion > 0 && row.HasRevision && !row.HasRetrievalChunks)
             reasons.Add("retrieval_chunks_missing");
+        if (row.IndexedVersion > 0 && row.HasRevision && row.HasRetrievalChunks && row.HasRetrievalChunkOffsetsMissing)
+            reasons.Add("retrieval_chunk_offsets_missing");
         if (row.IndexedVersion > 0 && row.HasRevision && !row.HasExactMatchEntries)
             reasons.Add("exact_match_entries_missing");
+        if (row.IndexedVersion > 0 && row.HasRevision && row.HasExactMatchEntries && row.HasExactMatchOffsetsMissing)
+            reasons.Add("exact_match_offsets_missing");
         if (row.IndexedVersion > 0 && row.HasRevision && !row.HasContextualTextEntries)
             reasons.Add("contextual_text_entries_missing");
         if (row.AutoIngestPaused)
@@ -309,7 +337,11 @@ LIMIT @limit;
             score += 3;
         if (reasons.Contains("retrieval_chunks_missing", StringComparer.OrdinalIgnoreCase))
             score += 3;
+        if (reasons.Contains("retrieval_chunk_offsets_missing", StringComparer.OrdinalIgnoreCase))
+            score += 2;
         if (reasons.Contains("exact_match_entries_missing", StringComparer.OrdinalIgnoreCase))
+            score += 2;
+        if (reasons.Contains("exact_match_offsets_missing", StringComparer.OrdinalIgnoreCase))
             score += 2;
         if (reasons.Contains("contextual_text_entries_missing", StringComparer.OrdinalIgnoreCase))
             score += 2;
@@ -346,7 +378,9 @@ LIMIT @limit;
         string? AutoIngestPauseReason,
         bool HasRevision,
         bool HasRetrievalChunks,
+        bool HasRetrievalChunkOffsetsMissing,
         bool HasExactMatchEntries,
+        bool HasExactMatchOffsetsMissing,
         bool HasContextualTextEntries);
 
     private sealed record CapabilityASemanticPreview(

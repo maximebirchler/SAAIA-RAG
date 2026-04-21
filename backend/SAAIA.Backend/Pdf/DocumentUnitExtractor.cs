@@ -4,6 +4,8 @@ using System.Text.RegularExpressions;
 
 internal static partial class DocumentUnitExtractor
 {
+    private static readonly string UnitSeparator = Environment.NewLine + Environment.NewLine;
+
     public static IReadOnlyList<ExtractedDocumentUnit> Extract(
         IReadOnlyList<ExtractedPdfPage> pages,
         IReadOnlyList<ExtractedDocumentSection> sections)
@@ -18,6 +20,7 @@ internal static partial class DocumentUnitExtractor
 
         var units = new List<ExtractedDocumentUnit>();
         var ordinal = 0;
+        var offsetCursor = 0;
 
         foreach (var page in pages.OrderBy(p => p.PageNumber))
         {
@@ -52,7 +55,11 @@ internal static partial class DocumentUnitExtractor
                     Text: normalized,
                     CharCount: normalized.Length,
                     TokenCount: tokenCount,
-                    Checksum: SHA256.HashData(Encoding.UTF8.GetBytes(normalized))));
+                    Checksum: SHA256.HashData(Encoding.UTF8.GetBytes(normalized)),
+                    OffsetStart: offsetCursor,
+                    OffsetEnd: offsetCursor + normalized.Length));
+
+                offsetCursor += normalized.Length + UnitSeparator.Length;
             }
         }
 
@@ -76,7 +83,9 @@ internal static partial class DocumentUnitExtractor
                     Text: fullText,
                     CharCount: fullText.Length,
                     TokenCount: CountTokens(fullText),
-                    Checksum: SHA256.HashData(Encoding.UTF8.GetBytes(fullText)))
+                    Checksum: SHA256.HashData(Encoding.UTF8.GetBytes(fullText)),
+                    OffsetStart: 0,
+                    OffsetEnd: fullText.Length)
             };
         }
 
@@ -145,4 +154,6 @@ internal sealed record ExtractedDocumentUnit(
     string Text,
     int CharCount,
     int TokenCount,
-    byte[] Checksum);
+    byte[] Checksum,
+    int? OffsetStart = null,
+    int? OffsetEnd = null);

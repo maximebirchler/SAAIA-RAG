@@ -4,8 +4,6 @@ using SAAIA.Backend.Models;
 
 namespace SAAIA.Backend;
 
-using CapabilityEvaluation = RuntimeGovernanceService.CapabilityEvaluation;
-
 internal static class RuntimeCapabilityLifecycleCoordinator
 {
     internal static async Task<RuntimeCapabilityRequalifyBatchResult> RequalifyAsync(

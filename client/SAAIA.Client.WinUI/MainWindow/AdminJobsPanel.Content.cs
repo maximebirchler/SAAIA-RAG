@@ -44,6 +44,8 @@ public sealed partial class MainWindow
                     ProgressPercent = TryGetInt(item, "ProgressPercent") ?? TryGetInt(item, "progressPercent"),
                     CancelRequested = TryGetBool(item, "CancelRequested") ?? TryGetBool(item, "cancelRequested"),
                     EnqueueSource = TryGetString(item, "EnqueueSource") ?? TryGetString(item, "enqueueSource"),
+                    RuntimeCapabilityKey = TryGetString(item, "RuntimeCapabilityKey") ?? TryGetString(item, "runtimeCapabilityKey"),
+                    ExecutionMode = TryGetString(item, "ExecutionMode") ?? TryGetString(item, "executionMode"),
                     DocumentStatus = TryGetString(item, "DocumentStatus") ?? TryGetString(item, "documentStatus"),
                     DocumentIngestionVersion = TryGetInt(item, "DocumentIngestionVersion") ?? TryGetInt(item, "documentIngestionVersion"),
                     DocumentIndexedVersion = TryGetInt(item, "DocumentIndexedVersion") ?? TryGetInt(item, "documentIndexedVersion"),

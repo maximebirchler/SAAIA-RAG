@@ -14,8 +14,22 @@ public sealed partial class MainWindow
             try { DispatcherQueue.TryEnqueue(() => { try { ApplyHeaderButtonChrome(HeaderJobsButton); } catch { } try { HeaderJobsButton.UpdateLayout(); } catch { } }); } catch { }
         }
 
+        if (HeaderRuntimeButton is not null)
+        {
+            HeaderRuntimeButton.Visibility = _api.HasAdminKey ? Visibility.Visible : Visibility.Collapsed;
+            HeaderRuntimeButton.IsEnabled = _api.HasAdminKey && !_isGenerating;
+            TrySoftUi("RefreshAdminJobsUiVisibility.ApplyHeaderChrome.Runtime", () => ApplyHeaderButtonChrome(HeaderRuntimeButton));
+            HeaderRuntimeButton.Opacity = _api.HasAdminKey ? 1d : 0d;
+            TrySoftUi("RefreshAdminJobsUiVisibility.UpdateLayout.Runtime", () => HeaderRuntimeButton.UpdateLayout());
+            try { DispatcherQueue.TryEnqueue(() => { try { ApplyHeaderButtonChrome(HeaderRuntimeButton); } catch { } try { HeaderRuntimeButton.UpdateLayout(); } catch { } }); } catch { }
+        }
+
         if (!_api.HasAdminKey)
+        {
             CloseAdminJobsWindow();
+            _activeAdminRuntimeOverlay?.Close();
+            _activeAdminRuntimeOverlay = null;
+        }
     }
 
     private static bool ShouldDetachTrackedJobToAdminJobsPanel(Services.ToolAgent.DirectCommandTrackedJob? trackedJob)
@@ -36,7 +50,46 @@ public sealed partial class MainWindow
         await ShowAdminJobsOverlayAsync();
     }
 
-    private async Task ShowAdminJobsOverlayAsync(string? focusJobId = null)
+    private static string GetAdminJobsLaunchSearchTerm(AdminJobsLaunchMode launchMode, string? focusJobId)
+    {
+        if (!string.IsNullOrWhiteSpace(focusJobId))
+            return focusJobId!;
+
+        return launchMode switch
+        {
+            AdminJobsLaunchMode.CapabilityAEnrichment => "capability_a",
+            AdminJobsLaunchMode.CapabilityBBackoffice => "capability_b",
+            _ => string.Empty
+        };
+    }
+
+    private static void ApplyAdminJobsLaunchMode(AdminJobsOverlayContext context, AdminJobsLaunchMode launchMode, string? focusJobId)
+    {
+        context.LaunchMode = launchMode;
+
+        if (launchMode is AdminJobsLaunchMode.CapabilityAEnrichment or AdminJobsLaunchMode.CapabilityBBackoffice)
+        {
+            context.SelectedJobId = null;
+            context.SelectedTerminalJobIds.Clear();
+            context.SelectedMetricFilters.Clear();
+            context.HasMetricFilterInteraction = false;
+
+            if (launchMode == AdminJobsLaunchMode.CapabilityAEnrichment)
+            {
+                context.IncludeIngestionCategory = true;
+                context.IncludeSummaryCategory = false;
+            }
+            else
+            {
+                context.IncludeIngestionCategory = false;
+                context.IncludeSummaryCategory = true;
+            }
+        }
+
+        context.SearchBox.Text = GetAdminJobsLaunchSearchTerm(launchMode, focusJobId);
+    }
+
+    private async Task ShowAdminJobsOverlayAsync(string? focusJobId = null, AdminJobsLaunchMode launchMode = AdminJobsLaunchMode.Default)
     {
         if (!_api.HasAdminKey)
         {
@@ -46,11 +99,8 @@ public sealed partial class MainWindow
 
         if (_adminJobsWindow is not null && _adminJobsOverlayContext is not null)
         {
-            if (!string.IsNullOrWhiteSpace(focusJobId))
-            {
-                _adminJobsOverlayContext.SearchBox.Text = focusJobId!;
-                await RefreshAdminJobsOverlayAsync(_adminJobsOverlayContext, CancellationToken.None).ConfigureAwait(true);
-            }
+            ApplyAdminJobsLaunchMode(_adminJobsOverlayContext, launchMode, focusJobId);
+            await RefreshAdminJobsOverlayAsync(_adminJobsOverlayContext, CancellationToken.None).ConfigureAwait(true);
 
             try
             {
@@ -587,6 +637,7 @@ public sealed partial class MainWindow
             if (context.IncludeIngestionCategory || context.IncludeSummaryCategory)
                 await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
         };
+        ApplyAdminJobsLaunchMode(context, launchMode, focusJobId);
         ApplyCategoryButtonVisuals();
         statusCombo.SelectionChanged += (_, __) => RenderAdminJobsOverlay(context);
         dateFieldCombo.SelectionChanged += async (_, __) =>
@@ -648,9 +699,6 @@ public sealed partial class MainWindow
         UpdateToolbarFiltersLayout();
         UpdateAdminJobsRefreshControls(context);
         UpdateAdminJobsRefreshTimer();
-
-        if (!string.IsNullOrWhiteSpace(focusJobId))
-            searchBox.Text = focusJobId!;
 
         window.Activate();
         await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
@@ -978,6 +1026,8 @@ public sealed partial class MainWindow
             ProgressPercent = item.ProgressPercent,
             CancelRequested = cancelRequested ?? item.CancelRequested,
             EnqueueSource = item.EnqueueSource,
+            RuntimeCapabilityKey = item.RuntimeCapabilityKey,
+            ExecutionMode = item.ExecutionMode,
             DocumentStatus = item.DocumentStatus,
             DocumentIngestionVersion = item.DocumentIngestionVersion,
             DocumentIndexedVersion = item.DocumentIndexedVersion,

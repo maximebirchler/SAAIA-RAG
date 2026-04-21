@@ -858,7 +858,7 @@ WHERE tenant_id=@tenant AND job_id=@jobId;
 
             if (string.Equals(jobContext?.RuntimeCapabilityKey, "capability_b.backoffice_generation", StringComparison.Ordinal))
             {
-                await RuntimeGovernanceService.RecordCapabilityBSummaryCompletedAsync(
+                await RuntimeCapabilityBExecutionCommandService.RecordCapabilityBSummaryCompletedAsync(
                     conn,
                     cmd.JobId.Value,
                     cmd.DocId.Value,
@@ -1173,7 +1173,7 @@ LIMIT 1;
         if (!IsBackofficeEnabled(ctx))
             return new SummaryGenerationExecutionDecision("client_admin", null, "backoffice_disabled", false);
 
-        var capabilities = await RuntimeGovernanceService.GetCapabilitiesAsync(ds, runtimeOptions, ragOptions, env, ct);
+        var capabilities = await RuntimeGovernanceReadService.GetCapabilitiesAsync(ds, runtimeOptions, ragOptions, env, ct);
         var capabilityB = capabilities.Items.FirstOrDefault(item => string.Equals(item.Key, "capability_b.backoffice_generation", StringComparison.Ordinal));
         if (capabilityB is not null && capabilityB.Selected && capabilityB.Authorized && capabilityB.Qualified && !capabilityB.Stale)
             return new SummaryGenerationExecutionDecision("server_backoffice", capabilityB.Key, "selected", true);

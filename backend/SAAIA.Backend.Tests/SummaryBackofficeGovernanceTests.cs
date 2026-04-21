@@ -92,7 +92,7 @@ public sealed class SummaryBackofficeGovernanceTests
         try
         {
             await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-            await RuntimeGovernanceService.RequalifyAsync(
+            await RuntimeGovernanceCommandService.RequalifyAsync(
                 ds,
                 new RuntimeGovernanceHttpClientFactory(),
                 new RuntimeGovernanceOptions(),
@@ -160,7 +160,7 @@ VALUES(
             }
 
             await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-            await RuntimeGovernanceService.RequalifyAsync(
+            await RuntimeGovernanceCommandService.RequalifyAsync(
                 ds,
                 new RuntimeGovernanceHttpClientFactory(),
                 new RuntimeGovernanceOptions(),
@@ -171,7 +171,7 @@ VALUES(
                     SelectWhenQualified: true),
                 CancellationToken.None);
 
-            var enqueue = await RuntimeGovernanceService.EnqueueCapabilityBBackofficeAsync(
+            var enqueue = await RuntimeCapabilityBBackofficeCommandService.EnqueueCapabilityBBackofficeAsync(
                 tenantId,
                 ds,
                 new RuntimeGovernanceOptions(),
@@ -281,7 +281,7 @@ VALUES(
             }
 
             await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-            await RuntimeGovernanceService.RequalifyAsync(
+            await RuntimeGovernanceCommandService.RequalifyAsync(
                 ds,
                 new RuntimeGovernanceHttpClientFactory(),
                 new RuntimeGovernanceOptions(),
@@ -292,7 +292,7 @@ VALUES(
                     SelectWhenQualified: true),
                 CancellationToken.None);
 
-            var enqueue = await RuntimeGovernanceService.EnqueueCapabilityBBackofficeAsync(
+            var enqueue = await RuntimeCapabilityBBackofficeCommandService.EnqueueCapabilityBBackofficeAsync(
                 tenantId,
                 ds,
                 new RuntimeGovernanceOptions(),
@@ -518,7 +518,7 @@ VALUES(
             }
 
             await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-            await RuntimeGovernanceService.RequalifyAsync(
+            await RuntimeGovernanceCommandService.RequalifyAsync(
                 ds,
                 new RuntimeGovernanceHttpClientFactory(),
                 new RuntimeGovernanceOptions(),
@@ -529,7 +529,7 @@ VALUES(
                     SelectWhenQualified: true),
                 CancellationToken.None);
 
-            var enqueue = await RuntimeGovernanceService.EnqueueCapabilityBBackofficeAsync(
+            var enqueue = await RuntimeCapabilityBBackofficeCommandService.EnqueueCapabilityBBackofficeAsync(
                 tenantId,
                 ds,
                 new RuntimeGovernanceOptions(),
@@ -661,7 +661,7 @@ VALUES(
             }
 
             await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-            await RuntimeGovernanceService.RequalifyAsync(
+            await RuntimeGovernanceCommandService.RequalifyAsync(
                 ds,
                 new RuntimeGovernanceHttpClientFactory(),
                 new RuntimeGovernanceOptions(),
@@ -672,7 +672,7 @@ VALUES(
                     SelectWhenQualified: true),
                 CancellationToken.None);
 
-            var enqueue = await RuntimeGovernanceService.EnqueueCapabilityBBackofficeAsync(
+            var enqueue = await RuntimeCapabilityBBackofficeCommandService.EnqueueCapabilityBBackofficeAsync(
                 tenantId,
                 ds,
                 new RuntimeGovernanceOptions(),
@@ -819,7 +819,7 @@ VALUES(
             }
 
             await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-            await RuntimeGovernanceService.RequalifyAsync(
+            await RuntimeGovernanceCommandService.RequalifyAsync(
                 ds,
                 new RuntimeGovernanceHttpClientFactory(),
                 new RuntimeGovernanceOptions(),
@@ -830,7 +830,7 @@ VALUES(
                     SelectWhenQualified: true),
                 CancellationToken.None);
 
-            var enqueue = await RuntimeGovernanceService.EnqueueCapabilityBBackofficeAsync(
+            var enqueue = await RuntimeCapabilityBBackofficeCommandService.EnqueueCapabilityBBackofficeAsync(
                 tenantId,
                 ds,
                 new RuntimeGovernanceOptions(),
@@ -941,7 +941,7 @@ VALUES(
             }
 
             await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-            await RuntimeGovernanceService.RequalifyAsync(
+            await RuntimeGovernanceCommandService.RequalifyAsync(
                 ds,
                 new RuntimeGovernanceHttpClientFactory(),
                 new RuntimeGovernanceOptions(),
@@ -952,7 +952,7 @@ VALUES(
                     SelectWhenQualified: true),
                 CancellationToken.None);
 
-            var enqueue = await RuntimeGovernanceService.EnqueueCapabilityBBackofficeAsync(
+            var enqueue = await RuntimeCapabilityBBackofficeCommandService.EnqueueCapabilityBBackofficeAsync(
                 tenantId,
                 ds,
                 new RuntimeGovernanceOptions(),

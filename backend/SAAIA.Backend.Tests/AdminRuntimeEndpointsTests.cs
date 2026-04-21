@@ -189,7 +189,7 @@ public sealed class AdminRuntimeEndpointsTests
             return;
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await RuntimeGovernanceService.RequalifyAsync(
+        await RuntimeGovernanceCommandService.RequalifyAsync(
             ds,
             new RuntimeGovernanceHttpClientFactory(),
             new RuntimeGovernanceOptions(),
@@ -222,7 +222,7 @@ public sealed class AdminRuntimeEndpointsTests
             return;
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await RuntimeGovernanceService.RequalifyAsync(
+        await RuntimeGovernanceCommandService.RequalifyAsync(
             ds,
             new RuntimeGovernanceHttpClientFactory(),
             new RuntimeGovernanceOptions(),
@@ -245,10 +245,28 @@ public sealed class AdminRuntimeEndpointsTests
         Assert.True(payload.Summary.SelectedCapabilities >= 1);
         Assert.True(payload.Summary.PersistedSelectedCapabilities >= 1);
         Assert.Equal(0, payload.Summary.StaleCapabilities);
+        Assert.NotNull(payload.Summary.Operational);
+        Assert.Equal(0, payload.Summary.Operational!.CapabilityACandidateCount);
+        Assert.Equal(0, payload.Summary.Operational.CapabilityAOffsetBackfillCandidateCount);
+        Assert.Equal(0, payload.Summary.Operational.CapabilityBBacklogCount);
 
         var retrieval = Assert.Single(payload.Items, item => item.Key == "core.retrieval");
         Assert.Equal("selected", retrieval.Status);
         Assert.Contains("runtime is ready for the nominal path", retrieval.Recommendations);
+
+        var operationalCtx = BuildAdminContext();
+        var operationalResult = await AdminRuntimeEndpoints.OperationalSummaryAsync(
+            operationalCtx,
+            ds,
+            Options.Create(new RuntimeGovernanceOptions()),
+            Options.Create(CreateRagOptions()),
+            new StubHostEnvironment());
+        var operational = await ExecuteResultAsync<AdminRuntimeOperationalSummaryResponseDto>(operationalResult, operationalCtx);
+        Assert.Equal(0, operational.Summary.CapabilityACandidateCount);
+        Assert.Equal(0, operational.Summary.CapabilityAOffsetBackfillCandidateCount);
+        Assert.Equal(0, operational.Summary.CapabilityBBacklogCount);
+        Assert.Contains(operational.Items, item => item.Key == "capability_a.corpus_enrichment");
+        Assert.Contains(operational.Items, item => item.Key == "capability_b.backoffice_generation");
     }
 
     [Fact]
@@ -259,7 +277,7 @@ public sealed class AdminRuntimeEndpointsTests
             return;
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await RuntimeGovernanceService.RequalifyAsync(
+        await RuntimeGovernanceCommandService.RequalifyAsync(
             ds,
             new RuntimeGovernanceHttpClientFactory(),
             new RuntimeGovernanceOptions(),
@@ -319,7 +337,7 @@ public sealed class AdminRuntimeEndpointsTests
             return;
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await RuntimeGovernanceService.RequalifyAsync(
+        await RuntimeGovernanceCommandService.RequalifyAsync(
             ds,
             new RuntimeGovernanceHttpClientFactory(),
             new RuntimeGovernanceOptions(),
@@ -441,18 +459,29 @@ public sealed class AdminRuntimeEndpointsTests
         {
             var firstRel = "ATEX/never-indexed.pdf";
             var secondRel = "Programmation/missing-artifacts.pdf";
+            var thirdRel = "Programmation/legacy-offsets.pdf";
             var firstAbs = Path.Combine(tempRoot, "ATEX", "never-indexed.pdf");
             var secondAbs = Path.Combine(tempRoot, "Programmation", "missing-artifacts.pdf");
+            var thirdAbs = Path.Combine(tempRoot, "Programmation", "legacy-offsets.pdf");
             Directory.CreateDirectory(Path.GetDirectoryName(firstAbs)!);
             Directory.CreateDirectory(Path.GetDirectoryName(secondAbs)!);
+            Directory.CreateDirectory(Path.GetDirectoryName(thirdAbs)!);
             await File.WriteAllBytesAsync(firstAbs, [1, 2, 3, 4]);
             await File.WriteAllBytesAsync(secondAbs, [5, 6, 7, 8]);
+            await File.WriteAllBytesAsync(thirdAbs, [9, 10, 11, 12]);
 
             var firstDocId = Guid.NewGuid();
             var secondDocId = Guid.NewGuid();
+            var thirdDocId = Guid.NewGuid();
             var revisionId = Guid.NewGuid();
+            var legacyRevisionId = Guid.NewGuid();
             var sectionId = Guid.NewGuid();
             var unitId = Guid.NewGuid();
+            var legacySectionId = Guid.NewGuid();
+            var legacyUnitId = Guid.NewGuid();
+            var legacyChunkId = Guid.NewGuid();
+            var legacyExactId = Guid.NewGuid();
+            var legacyContextualId = Guid.NewGuid();
 
             await using (var conn = new NpgsqlConnection(db.ConnectionString))
             {
@@ -466,7 +495,8 @@ INSERT INTO documents(
 )
 VALUES
   (@tenant, @doc1, @path1, 'never-indexed.pdf', 'atex', 'pending', now(), now(), 1, 0, false, NULL),
-  (@tenant, @doc2, @path2, 'missing-artifacts.pdf', 'programmation', 'indexed', now(), now(), 1, 1, true, 'manual_review');
+  (@tenant, @doc2, @path2, 'missing-artifacts.pdf', 'programmation', 'indexed', now(), now(), 1, 1, true, 'manual_review'),
+  (@tenant, @doc3, @path3, 'legacy-offsets.pdf', 'programmation', 'indexed', now(), now(), 1, 1, false, NULL);
 
 INSERT INTO document_revisions(
   revision_id, tenant_id, doc_id, doc_path, source_hash, source_size, source_mtime,
@@ -474,6 +504,8 @@ INSERT INTO document_revisions(
 )
 VALUES(
   @revision_id, @tenant, @doc2, @path2, decode(repeat('ab', 32), 'hex'), 4, now(), 1, 1, now(), now()
+),(
+  @legacy_revision_id, @tenant, @doc3, @path3, decode(repeat('cd', 32), 'hex'), 4, now(), 1, 1, now(), now()
 );
 
 INSERT INTO document_sections(
@@ -481,6 +513,8 @@ INSERT INTO document_sections(
 )
 VALUES(
   @section_id, @tenant, @revision_id, 0, 'Control Loop Overview', 1, 1, 2, '{}'::jsonb, now()
+),(
+  @legacy_section_id, @tenant, @legacy_revision_id, 0, 'Legacy Offsets', 1, 1, 1, '{}'::jsonb, now()
 );
 
 INSERT INTO document_units(
@@ -491,6 +525,41 @@ VALUES(
   @unit_id, @tenant, @revision_id, @section_id, 0, 1, 1,
   'This unit explains how the control loop is configured, supervised and recovered during runtime incidents.',
   108, 17, '{}'::jsonb, now()
+),(
+  @legacy_unit_id, @tenant, @legacy_revision_id, @legacy_section_id, 0, 1, 1,
+  'Legacy chunk text with no stored offsets yet.',
+  41, 8, '{}'::jsonb, now()
+);
+
+INSERT INTO retrieval_chunks(
+  retrieval_chunk_id, tenant_id, revision_id, section_id, unit_id, chunk_index, page_start, page_end,
+  text_content, token_count, checksum, metadata, created_at
+)
+VALUES(
+  @legacy_chunk_id, @tenant, @legacy_revision_id, @legacy_section_id, @legacy_unit_id, 0, 1, 1,
+  'Legacy chunk text with no stored offsets yet.',
+  8, decode(repeat('11', 32), 'hex'), '{"chunkType":"unit_exact_v1"}'::jsonb, now()
+);
+
+INSERT INTO exact_match_entries(
+  exact_match_entry_id, tenant_id, revision_id, section_id, unit_id, entry_index, page_start, page_end,
+  text_content, normalized_text, char_count, token_count, checksum, metadata, created_at
+)
+VALUES(
+  @legacy_exact_id, @tenant, @legacy_revision_id, @legacy_section_id, @legacy_unit_id, 0, 1, 1,
+  'Legacy chunk text with no stored offsets yet.',
+  'legacy chunk text with no stored offsets yet',
+  41, 8, decode(repeat('22', 32), 'hex'), '{"kind":"verbatim_excerpt"}'::jsonb, now()
+);
+
+INSERT INTO contextual_text_entries(
+  contextual_text_entry_id, tenant_id, revision_id, section_id, unit_id, retrieval_chunk_id, entry_index, page_start, page_end,
+  text_content, char_count, token_count, checksum, metadata, created_at
+)
+VALUES(
+  @legacy_contextual_id, @tenant, @legacy_revision_id, @legacy_section_id, @legacy_unit_id, @legacy_chunk_id, 0, 1, 1,
+  'Document: legacy-offsets.pdf\nExcerpt:\nLegacy chunk text with no stored offsets yet.',
+  78, 10, decode(repeat('33', 32), 'hex'), '{}'::jsonb, now()
 );
 """,
                     new
@@ -498,16 +567,24 @@ VALUES(
                         tenant = tenantId,
                         doc1 = firstDocId,
                         doc2 = secondDocId,
+                        doc3 = thirdDocId,
                         path1 = firstRel.Replace('\\', '/'),
                         path2 = secondRel.Replace('\\', '/'),
+                        path3 = thirdRel.Replace('\\', '/'),
                         revision_id = revisionId,
+                        legacy_revision_id = legacyRevisionId,
                         section_id = sectionId,
-                        unit_id = unitId
+                        unit_id = unitId,
+                        legacy_section_id = legacySectionId,
+                        legacy_unit_id = legacyUnitId,
+                        legacy_chunk_id = legacyChunkId,
+                        legacy_exact_id = legacyExactId,
+                        legacy_contextual_id = legacyContextualId
                     });
             }
 
             await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-            await RuntimeGovernanceService.RequalifyAsync(
+            await RuntimeGovernanceCommandService.RequalifyAsync(
                 ds,
                 new RuntimeGovernanceHttpClientFactory(),
                 new RuntimeGovernanceOptions(),
@@ -531,10 +608,12 @@ VALUES(
             var candidates = await ExecuteResultAsync<AdminRuntimeCapabilityAEnrichmentCandidatesResponseDto>(candidatesResult, candidatesCtx);
 
             Assert.Equal("capability_a.corpus_enrichment", candidates.CapabilityKey);
-            Assert.True(candidates.TotalCandidates >= 2);
+            Assert.True(candidates.TotalCandidates >= 3);
             Assert.Contains(candidates.Items, item => item.DocPath == firstRel.Replace('\\', '/') && item.Reasons.Contains("never_indexed"));
             Assert.Contains(candidates.Items, item => item.DocPath == secondRel.Replace('\\', '/') && item.Reasons.Contains("retrieval_chunks_missing"));
             Assert.Contains(candidates.Items, item => item.DocPath == secondRel.Replace('\\', '/') && item.Reasons.Contains("auto_ingest_paused"));
+            Assert.Contains(candidates.Items, item => item.DocPath == thirdRel.Replace('\\', '/') && item.Reasons.Contains("retrieval_chunk_offsets_missing"));
+            Assert.Contains(candidates.Items, item => item.DocPath == thirdRel.Replace('\\', '/') && item.Reasons.Contains("exact_match_offsets_missing"));
             var semanticCandidate = Assert.Single(candidates.Items, item => item.DocPath == secondRel.Replace('\\', '/'));
             Assert.NotNull(semanticCandidate.PreviewText);
             Assert.Contains("control loop", semanticCandidate.PreviewText!, StringComparison.OrdinalIgnoreCase);
@@ -545,6 +624,48 @@ VALUES(
             Assert.Contains("control", semanticCandidate.SuggestedTags!);
             Assert.NotNull(semanticCandidate.HypotheticalQuestions);
             Assert.Contains(semanticCandidate.HypotheticalQuestions!, item => item.Contains("Control Loop Overview", StringComparison.OrdinalIgnoreCase));
+
+            var diagnosticsCtx = BuildAdminContext(tenantId);
+            var diagnosticsResult = await AdminRuntimeEndpoints.DiagnosticsAsync(
+                diagnosticsCtx,
+                ds,
+                Options.Create(new RuntimeGovernanceOptions()),
+                Options.Create(CreateRagOptions()),
+                new StubHostEnvironment());
+            var diagnostics = await ExecuteResultAsync<AdminRuntimeDiagnosticsResponseDto>(diagnosticsResult, diagnosticsCtx);
+            var capabilityA = Assert.Single(diagnostics.Items, item => item.Key == "capability_a.corpus_enrichment");
+            Assert.NotNull(capabilityA.OperationalSummary);
+            Assert.Equal(3, capabilityA.OperationalSummary!.CandidateCount);
+            Assert.Equal(2, capabilityA.OperationalSummary.ReadyToEnqueueCount);
+            Assert.Equal(1, capabilityA.OperationalSummary.OffsetBackfillCandidateCount);
+            Assert.Equal(0, capabilityA.OperationalSummary.BlockedByActiveJobCount);
+            Assert.Equal(1, capabilityA.OperationalSummary.BlockedByCooldownCount);
+            Assert.NotNull(capabilityA.OperationalSummary.ReasonCounts);
+            Assert.Equal(1, capabilityA.OperationalSummary.ReasonCounts!["retrieval_chunk_offsets_missing"]);
+            Assert.Equal(1, capabilityA.OperationalSummary.ReasonCounts["exact_match_offsets_missing"]);
+            Assert.NotNull(diagnostics.Summary.Operational);
+            Assert.Equal(3, diagnostics.Summary.Operational!.CapabilityACandidateCount);
+            Assert.Equal(2, diagnostics.Summary.Operational.CapabilityAReadyToEnqueueCount);
+            Assert.Equal(1, diagnostics.Summary.Operational.CapabilityAOffsetBackfillCandidateCount);
+            Assert.Contains(
+                capabilityA.Recommendations,
+                item => item.Contains("legacy evidence-pack offsets", StringComparison.OrdinalIgnoreCase));
+
+            var operationalCtx = BuildAdminContext(tenantId);
+            var operationalResult = await AdminRuntimeEndpoints.OperationalSummaryAsync(
+                operationalCtx,
+                ds,
+                Options.Create(new RuntimeGovernanceOptions()),
+                Options.Create(CreateRagOptions()),
+                new StubHostEnvironment());
+            var operational = await ExecuteResultAsync<AdminRuntimeOperationalSummaryResponseDto>(operationalResult, operationalCtx);
+            Assert.Equal(3, operational.Summary.CapabilityACandidateCount);
+            Assert.Equal(2, operational.Summary.CapabilityAReadyToEnqueueCount);
+            Assert.Equal(1, operational.Summary.CapabilityAOffsetBackfillCandidateCount);
+            var operationalA = Assert.Single(operational.Items, item => item.Key == "capability_a.corpus_enrichment");
+            Assert.Equal("selected", operationalA.Status);
+            Assert.Equal(1, operationalA.Summary.OffsetBackfillCandidateCount);
+            Assert.Contains(operationalA.Recommendations, item => item.Contains("legacy evidence-pack offsets", StringComparison.OrdinalIgnoreCase));
 
             var candidatesArtifactCtx = BuildAdminContext();
             var candidatesArtifactResult = await AdminRuntimeEndpoints.CapabilityACandidatesArtifactAsync(
@@ -563,6 +684,7 @@ VALUES(
             Assert.Equal(candidates.TotalCandidates, candidatesArtifact.TotalCandidates);
             Assert.Contains(candidatesArtifact.Items, item => item.DocPath == firstRel.Replace('\\', '/') && item.Reasons.Contains("never_indexed"));
             Assert.Contains(candidatesArtifact.Items, item => item.DocPath == secondRel.Replace('\\', '/') && item.HypotheticalQuestions is not null && item.HypotheticalQuestions.Count > 0);
+            Assert.Contains(candidatesArtifact.Items, item => item.DocPath == thirdRel.Replace('\\', '/') && item.Reasons.Contains("retrieval_chunk_offsets_missing"));
 
             var dryRunCtx = BuildAdminContext();
             var dryRunResult = await AdminRuntimeEndpoints.CapabilityAEnqueueAsync(
@@ -573,19 +695,20 @@ VALUES(
                 Options.Create(new IngestionOptions { DocumentsRoot = tempRoot }),
                 new StubHostEnvironment(),
                 new AdminRuntimeCapabilityAEnqueueRequestDto(
-                    DocPaths: [firstRel.Replace('\\', '/'), secondRel.Replace('\\', '/')],
+                    DocPaths: [firstRel.Replace('\\', '/'), secondRel.Replace('\\', '/'), thirdRel.Replace('\\', '/')],
                     DryRun: true));
             var dryRun = await ExecuteResultAsync<AdminRuntimeCapabilityAEnqueueResponseDto>(dryRunResult, dryRunCtx);
 
             Assert.NotEqual(Guid.Empty, dryRun.CampaignId);
             Assert.True(dryRun.DryRun);
             Assert.False(dryRun.AllowUnsafeCandidates);
-            Assert.Equal(2, dryRun.CandidateCount);
-            Assert.Equal(1, dryRun.PlannedCount);
+            Assert.Equal(3, dryRun.CandidateCount);
+            Assert.Equal(2, dryRun.PlannedCount);
             Assert.Equal(0, dryRun.QueuedCount);
-            Assert.Equal(2, dryRun.SkippedCount);
+            Assert.Equal(3, dryRun.SkippedCount);
             Assert.Contains(dryRun.Items, item => item.DocPath == firstRel.Replace('\\', '/') && item.Reason == "dry_run_preview");
             Assert.Contains(dryRun.Items, item => item.DocPath == secondRel.Replace('\\', '/') && item.Reason == "policy_blocked:auto_ingest_paused");
+            Assert.Contains(dryRun.Items, item => item.DocPath == thirdRel.Replace('\\', '/') && item.Reason == "dry_run_preview");
             Assert.Contains(dryRun.Items, item =>
                 item.DocPath == secondRel.Replace('\\', '/')
                 && item.PreviewText is not null
@@ -596,6 +719,8 @@ VALUES(
             Assert.Equal(1, dryRun.ReasonCounts["never_indexed"]);
             Assert.Equal(1, dryRun.ReasonCounts["retrieval_chunks_missing"]);
             Assert.Equal(1, dryRun.ReasonCounts["auto_ingest_paused"]);
+            Assert.Equal(1, dryRun.ReasonCounts["retrieval_chunk_offsets_missing"]);
+            Assert.Equal(1, dryRun.ReasonCounts["exact_match_offsets_missing"]);
             Assert.Equal(1, dryRun.ReasonCounts["blocked:auto_ingest_paused"]);
 
             var enqueueCtx = BuildAdminContext();
@@ -607,17 +732,18 @@ VALUES(
                 Options.Create(new IngestionOptions { DocumentsRoot = tempRoot }),
                 new StubHostEnvironment(),
                 new AdminRuntimeCapabilityAEnqueueRequestDto(
-                    DocPaths: [firstRel.Replace('\\', '/'), secondRel.Replace('\\', '/')]));
+                    DocPaths: [firstRel.Replace('\\', '/'), secondRel.Replace('\\', '/'), thirdRel.Replace('\\', '/')]));
             var enqueue = await ExecuteResultAsync<AdminRuntimeCapabilityAEnqueueResponseDto>(enqueueResult, enqueueCtx);
 
             Assert.NotEqual(Guid.Empty, enqueue.CampaignId);
             Assert.False(enqueue.DryRun);
             Assert.False(enqueue.AllowUnsafeCandidates);
-            Assert.Equal(2, enqueue.CandidateCount);
-            Assert.Equal(1, enqueue.PlannedCount);
-            Assert.Equal(1, enqueue.QueuedCount);
+            Assert.Equal(3, enqueue.CandidateCount);
+            Assert.Equal(2, enqueue.PlannedCount);
+            Assert.Equal(2, enqueue.QueuedCount);
             Assert.Equal(1, enqueue.SkippedCount);
             Assert.Contains(enqueue.Items, item => item.DocPath == firstRel.Replace('\\', '/') && item.Queued && item.JobId is not null);
+            Assert.Contains(enqueue.Items, item => item.DocPath == thirdRel.Replace('\\', '/') && item.Queued && item.JobId is not null);
             Assert.Contains(enqueue.Items, item =>
                 item.DocPath == secondRel.Replace('\\', '/')
                 && !item.Queued
@@ -630,9 +756,9 @@ VALUES(
             {
                 await conn.OpenAsync();
                 var queuedJobs = await conn.ExecuteScalarAsync<int>(
-                    "SELECT COUNT(*) FROM ingestion_jobs WHERE tenant_id=@tenant AND doc_path=@doc_path AND status='queued';",
-                    new { tenant = tenantId, doc_path = firstRel.Replace('\\', '/') });
-                Assert.Equal(1, queuedJobs);
+                    "SELECT COUNT(*) FROM ingestion_jobs WHERE tenant_id=@tenant AND doc_path IN (@doc_path_1, @doc_path_2) AND status='queued';",
+                    new { tenant = tenantId, doc_path_1 = firstRel.Replace('\\', '/'), doc_path_2 = thirdRel.Replace('\\', '/') });
+                Assert.Equal(2, queuedJobs);
             }
 
             var eventsCtx = BuildAdminContext();
@@ -662,16 +788,16 @@ VALUES(
             Assert.Contains(campaigns.Items, item =>
                 item.DryRun
                 && item.Status == "dry_run"
-                && item.CandidateCount == 2
-                && item.PlannedCount == 1
+                && item.CandidateCount == 3
+                && item.PlannedCount == 2
                 && item.QueuedCount == 0
                 && item.ReasonCounts["blocked:auto_ingest_paused"] == 1);
             Assert.Contains(campaigns.Items, item =>
                 !item.DryRun
                 && item.Status == "executed"
-                && item.CandidateCount == 2
-                && item.PlannedCount == 1
-                && item.QueuedCount == 1
+                && item.CandidateCount == 3
+                && item.PlannedCount == 2
+                && item.QueuedCount == 2
                 && item.SkippedCount == 1);
 
             var campaignsArtifactCtx = BuildAdminContext();
@@ -695,8 +821,13 @@ VALUES(
 
             Assert.Equal(enqueue.CampaignId, campaignDetail.Item.CampaignId);
             Assert.False(campaignDetail.Item.DryRun);
-            Assert.Equal(2, campaignDetail.Item.Items.Count);
+            Assert.Equal(3, campaignDetail.Item.Items.Count);
             Assert.Contains(campaignDetail.Item.Items, item => item.DocPath == firstRel.Replace('\\', '/') && item.Queued && item.JobId is not null);
+            Assert.Contains(campaignDetail.Item.Items, item =>
+                item.DocPath == thirdRel.Replace('\\', '/')
+                && item.Queued
+                && item.JobId is not null
+                && item.PreviewText is not null);
             Assert.Contains(campaignDetail.Item.Items, item =>
                 item.DocPath == secondRel.Replace('\\', '/')
                 && !item.Queued
@@ -847,6 +978,10 @@ VALUES(
             Assert.Equal(0, capabilityB.OperationalSummary.TotalCampaignCount);
             Assert.Equal(0, capabilityB.OperationalSummary.ActiveCampaignCount);
             Assert.Equal(0, capabilityB.OperationalSummary.StoredSummaryCount);
+            Assert.NotNull(diagnostics.Summary.Operational);
+            Assert.Equal(3, diagnostics.Summary.Operational!.CapabilityBBacklogCount);
+            Assert.Equal(1, diagnostics.Summary.Operational.CapabilityBReadyToEnqueueCount);
+            Assert.Equal(0, diagnostics.Summary.Operational.CapabilityBActiveJobCount);
 
             var candidatesCtx = BuildAdminContext();
             var candidatesResult = await AdminRuntimeEndpoints.CapabilityBBackofficeCandidatesAsync(
@@ -976,6 +1111,28 @@ VALUES(
             Assert.True(postEnqueueCapabilityB.OperationalSummary.TotalCampaignCount >= 2);
             Assert.True(postEnqueueCapabilityB.OperationalSummary.ActiveCampaignCount >= 1);
             Assert.Equal(0, postEnqueueCapabilityB.OperationalSummary.LatestCampaignProgressPercent);
+            Assert.NotNull(postEnqueueDiagnostics.Summary.Operational);
+            Assert.Equal(3, postEnqueueDiagnostics.Summary.Operational!.CapabilityBBacklogCount);
+            Assert.Equal(0, postEnqueueDiagnostics.Summary.Operational.CapabilityBReadyToEnqueueCount);
+            Assert.Equal(3, postEnqueueDiagnostics.Summary.Operational.CapabilityBActiveJobCount);
+            Assert.Equal(0, postEnqueueDiagnostics.Summary.Operational.CapabilityBLatestCampaignProgressPercent);
+
+            var operationalCtx = BuildAdminContext();
+            var operationalResult = await AdminRuntimeEndpoints.OperationalSummaryAsync(
+                operationalCtx,
+                ds,
+                Options.Create(new RuntimeGovernanceOptions()),
+                Options.Create(CreateRagOptions()),
+                new StubHostEnvironment());
+            var operational = await ExecuteResultAsync<AdminRuntimeOperationalSummaryResponseDto>(operationalResult, operationalCtx);
+            Assert.Equal(3, operational.Summary.CapabilityBBacklogCount);
+            Assert.Equal(0, operational.Summary.CapabilityBReadyToEnqueueCount);
+            Assert.Equal(3, operational.Summary.CapabilityBActiveJobCount);
+            Assert.Equal(0, operational.Summary.CapabilityBLatestCampaignProgressPercent);
+            var operationalB = Assert.Single(operational.Items, item => item.Key == "capability_b.backoffice_generation");
+            Assert.Equal("selected", operationalB.Status);
+            Assert.Equal(3, operationalB.Summary.ActiveCapabilityJobCount);
+            Assert.Contains(operationalB.Recommendations, item => item.Contains("review capability B candidates", StringComparison.OrdinalIgnoreCase));
 
             await using (var conn = new NpgsqlConnection(db.ConnectionString))
             {
@@ -1056,7 +1213,7 @@ WHERE tenant_id=@tenant
             return;
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await RuntimeGovernanceService.RequalifyAsync(
+        await RuntimeGovernanceCommandService.RequalifyAsync(
             ds,
             new RuntimeGovernanceHttpClientFactory(),
             new RuntimeGovernanceOptions(),
@@ -1108,7 +1265,7 @@ WHERE tenant_id=@tenant
         };
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await RuntimeGovernanceService.RequalifyAsync(
+        await RuntimeGovernanceCommandService.RequalifyAsync(
             ds,
             new RuntimeGovernanceHttpClientFactory(),
             options,
@@ -1154,7 +1311,7 @@ WHERE tenant_id=@tenant
             return;
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await RuntimeGovernanceService.RequalifyAsync(
+        await RuntimeGovernanceCommandService.RequalifyAsync(
             ds,
             new RuntimeGovernanceHttpClientFactory(),
             new RuntimeGovernanceOptions(),
@@ -1191,7 +1348,7 @@ WHERE tenant_id=@tenant
             return;
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await RuntimeGovernanceService.RequalifyAsync(
+        await RuntimeGovernanceCommandService.RequalifyAsync(
             ds,
             new RuntimeGovernanceHttpClientFactory(),
             new RuntimeGovernanceOptions(),
@@ -1251,7 +1408,7 @@ WHERE tenant_id=@tenant
             return;
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await RuntimeGovernanceService.RequalifyAsync(
+        await RuntimeGovernanceCommandService.RequalifyAsync(
             ds,
             new RuntimeGovernanceHttpClientFactory(),
             new RuntimeGovernanceOptions(),
@@ -1281,7 +1438,7 @@ WHERE tenant_id=@tenant
             return;
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await RuntimeGovernanceService.RequalifyAsync(
+        await RuntimeGovernanceCommandService.RequalifyAsync(
             ds,
             new RuntimeGovernanceHttpClientFactory(),
             new RuntimeGovernanceOptions(),
@@ -1314,7 +1471,7 @@ WHERE tenant_id=@tenant
             return;
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await RuntimeGovernanceService.RequalifyAsync(
+        await RuntimeGovernanceCommandService.RequalifyAsync(
             ds,
             new RuntimeGovernanceHttpClientFactory(),
             new RuntimeGovernanceOptions(),
@@ -1345,7 +1502,7 @@ WHERE tenant_id=@tenant
             return;
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await RuntimeGovernanceService.RequalifyAsync(
+        await RuntimeGovernanceCommandService.RequalifyAsync(
             ds,
             new RuntimeGovernanceHttpClientFactory(),
             new RuntimeGovernanceOptions(),
@@ -1375,7 +1532,7 @@ WHERE tenant_id=@tenant
             return;
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await RuntimeGovernanceService.RequalifyAsync(
+        await RuntimeGovernanceCommandService.RequalifyAsync(
             ds,
             new RuntimeGovernanceHttpClientFactory(),
             new RuntimeGovernanceOptions(),
@@ -1406,7 +1563,7 @@ WHERE tenant_id=@tenant
             return;
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await RuntimeGovernanceService.RequalifyAsync(
+        await RuntimeGovernanceCommandService.RequalifyAsync(
             ds,
             new RuntimeGovernanceHttpClientFactory(),
             new RuntimeGovernanceOptions(),
@@ -1427,6 +1584,39 @@ WHERE tenant_id=@tenant
         Assert.Equal("diagnostics.json", payload.Artifact);
         Assert.True(payload.Summary.TotalCapabilities >= 4);
         Assert.Contains(payload.Items, item => item.Key == "core.retrieval");
+    }
+
+    [Fact]
+    public async Task OperationalSummaryArtifactAsync_returns_runtime_operational_snapshot()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        await RuntimeGovernanceCommandService.RequalifyAsync(
+            ds,
+            new RuntimeGovernanceHttpClientFactory(),
+            new RuntimeGovernanceOptions(),
+            CreateRagOptions(),
+            new StubHostEnvironment(),
+            new AdminRuntimeRequalifyRequestDto(CapabilityKey: "core.retrieval"),
+            CancellationToken.None);
+
+        var ctx = BuildAdminContext();
+        var result = await AdminRuntimeEndpoints.OperationalSummaryArtifactAsync(
+            ctx,
+            ds,
+            Options.Create(new RuntimeGovernanceOptions()),
+            Options.Create(CreateRagOptions()),
+            new StubHostEnvironment());
+
+        var payload = await ExecuteResultAsync<AdminRuntimeOperationalSummaryArtifactDto>(result, ctx);
+        Assert.Equal("operational_summary.json", payload.Artifact);
+        Assert.Equal(0, payload.Summary.CapabilityACandidateCount);
+        Assert.Equal(0, payload.Summary.CapabilityBBacklogCount);
+        Assert.Contains(payload.Items, item => item.Key == "capability_a.corpus_enrichment");
+        Assert.Contains(payload.Items, item => item.Key == "capability_b.backoffice_generation");
     }
 
     [Fact]
@@ -1698,7 +1888,7 @@ WHERE tenant_id=@tenant
             return;
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await RuntimeGovernanceService.RequalifyAsync(
+        await RuntimeGovernanceCommandService.RequalifyAsync(
             ds,
             new RuntimeGovernanceHttpClientFactory(),
             new RuntimeGovernanceOptions(),
@@ -1746,7 +1936,7 @@ WHERE tenant_id=@tenant
         };
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await RuntimeGovernanceService.RequalifyAsync(
+        await RuntimeGovernanceCommandService.RequalifyAsync(
             ds,
             new RuntimeGovernanceHttpClientFactory(),
             options,
@@ -1790,7 +1980,7 @@ WHERE tenant_id=@tenant
             return;
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await RuntimeGovernanceService.RequalifyAsync(
+        await RuntimeGovernanceCommandService.RequalifyAsync(
             ds,
             new RuntimeGovernanceHttpClientFactory(),
             new RuntimeGovernanceOptions(),
@@ -1880,7 +2070,7 @@ WHERE tenant_id=@tenant
             RerankModel = rerankModel
         };
 
-    private static DefaultHttpContext BuildAdminContext()
+    private static DefaultHttpContext BuildAdminContext(Guid? tenantId = null)
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -1890,7 +2080,7 @@ WHERE tenant_id=@tenant
         ctx.Response.Body = new MemoryStream();
         ctx.RequestServices = services.BuildServiceProvider();
         ctx.Items[ApiKeyAuth.IsAdminItemKey] = true;
-        ctx.Items[ApiKeyAuth.TenantIdItemKey] = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        ctx.Items[ApiKeyAuth.TenantIdItemKey] = tenantId ?? Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         return ctx;
     }
 

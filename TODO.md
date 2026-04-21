@@ -1,6 +1,6 @@
 # SAAIA — Backend TODO — Document de suivi vivant
 
-> **Derniere mise a jour :** 2026-04-20
+> **Derniere mise a jour :** 2026-04-21
 > **Base CDC :** v3.0 (2026-04-10)
 > **Branch :** SAAIA_V3.0
 > **Auteurs :** Maxime Birchler, Claude, ChatGPT/Codex
@@ -19,15 +19,15 @@
 
 ---
 
-## Etat global au 2026-04-20 (issu de l'audit)
+## Etat global au 2026-04-21 (issu de l'audit)
 
 | Bloc | Etat | Note |
 |---|---|---|
 | Architecture globale | ✅ Solide | |
 | Catalogue / inventaire / endpoints | ✅ Solide | Toutes surfaces mappees |
 | Pipeline retrieval | ✅ Excellent | Exact → BM25 → Dense → RRF → Calibration → Rerank → Linked |
-| Evidence pack `/rag/search` | ✅ Bon | Deux gaps ouverts (voir Sprint 1) |
-| Cache HTTP ETag/304 | ✅ Solide | tree + snapshot complets ; 3 endpoints catalog restants |
+| Evidence pack `/rag/search` | ✅ Tres bon | `hypQuestionsMatched` + offsets derives implementes ; backfill legacy branche via Cap A |
+| Cache HTTP ETag/304 | ✅ Solide | tree + snapshot + endpoints catalog complets |
 | Chat store | ✅ Implemente | 12 routes, migrations 005-008 |
 | Admin keys / audit | ✅ Implemente | Attention : rotate sans transaction (voir P2) |
 | Observabilite retrieval + governance | ✅ Solide | Spans, metriques, telemetrie |
@@ -37,7 +37,7 @@
 | Capacite C | N/A | Absente par design |
 | Tests | ✅ 477 passent | 23 fichiers ; 3 surfaces sans test (voir P2) |
 | Migrations SQL | ~ 28 fichiers | ⚠️ Doublons 004 et 008 (voir P1) |
-| `RuntimeGovernanceService` | ⚠️ 6 185 lignes | Dette principale — refactor avant tout ajout LLM |
+| `RuntimeGovernanceService` | ✅ 112 lignes non vides | Ancien monolithe reduit a des helpers transverses ; commandes et lectures extraites |
 
 ---
 
@@ -65,8 +65,10 @@
 ## Sprint 1 — P0 + quick wins (environ 4-6h)
 
 ### 1.1 offsetStart / offsetEnd non peuples
-- [ ] Evaluer si les offsets PDF caractere sont calculables dans le pipeline d'extraction actuel (`Pdf/`)
-- [ ] Soit implementer le peuplement de `RagItemProvenanceDto.OffsetStart` / `OffsetEnd`, soit formaliser comme TODO contractuel v3.0.1 dans le CDC
+- [x] Evaluer si les offsets PDF caractere sont calculables dans le pipeline d'extraction actuel (`Pdf/`)
+- [x] Implementer le peuplement derive de `RagItemProvenanceDto.OffsetStart` / `OffsetEnd` via les `metadata` des units/chunks/exact entries
+- [x] Documenter explicitement la base choisie : offsets derives sur le texte documentaire normalise, avec reindex requis pour backfill des documents deja indexes
+- [x] Faire remonter les documents indexes legacy sans offsets comme candidats Cap A pour reindex controle
 - **Fichiers concernes :** `Pdf/`, `RagEndpoints.cs`, `RagSearchDto.cs`
 
 ### 1.2 hypQuestionsMatched non branche
@@ -76,51 +78,59 @@
 
 ### 1.3 Tests Sprint 1
 - [x] Ajouter un test contractuel sur la presence / absence de `hypQuestionsMatched`
-- [ ] Ajouter ou ajuster un test sur les offsets si implementes
-- [ ] Si offsets non implementes : ajouter / garder un test explicite de stub propre (`null`) jusqu’a implementation
+- [x] Ajouter ou ajuster un test sur les offsets si implementes
+- [x] Remplacer le stub `null` par des assertions de presence / coherence quand l’indexation produit les offsets
 
 ---
 
 ## Sprint 2 — ETag coherence (environ 2h)
 
 ### 2.1 ETag/304 manquants sur 3 endpoints catalog
-- [ ] `GET /catalog/categories` — ajouter ETag calcule + If-None-Match → 304
-- [ ] `GET /catalog/documents` — ajouter ETag calcule + If-None-Match → 304
-- [ ] `GET /documents/stats` — ajouter ETag calcule + If-None-Match → 304
+- [x] `GET /catalog/categories` — ajouter ETag calcule + If-None-Match → 304
+- [x] `GET /catalog/documents` — ajouter ETag calcule + If-None-Match → 304
+- [x] `GET /documents/stats` — ajouter ETag calcule + If-None-Match → 304
 - **Modele a suivre :** `/documents/tree` (`DocumentsEndpoints.TreeSupport.cs`) et `/catalog/snapshot` (`DocumentsEndpoints.cs`)
 
 ### 2.2 Visibilite contractuelle de `/catalog/snapshot`
-- [ ] Decider si `/catalog/snapshot` reste publiquement expose par compatibilite runtime ou redevient admin-only conformement au CDC §7.5
-- [ ] Si maintien public : documenter explicitement l’ecart dans le CDC / audit / docs runtime
-- [ ] Si retour admin-only : prevoir alias / migration coordonnee cote clients
+- [x] Decider si `/catalog/snapshot` reste publiquement expose par compatibilite runtime ou redevient admin-only conformement au CDC §7.5
+- [x] Si maintien public : documenter explicitement l’ecart dans le CDC / audit / docs runtime
+- [N/A] Si retour admin-only : prevoir alias / migration coordonnee cote clients
 - **Risque :** drift doc/runtime persistant sur une surface catalogue structurante
 
 ### 2.3 Tests Sprint 2
-- [ ] Ajouter tests contractuels ETag/304 pour `catalog/categories`
-- [ ] Ajouter tests contractuels ETag/304 pour `catalog/documents`
-- [ ] Ajouter tests contractuels ETag/304 pour `documents/stats`
+- [x] Ajouter tests contractuels ETag/304 pour `catalog/categories`
+- [x] Ajouter tests contractuels ETag/304 pour `catalog/documents`
+- [x] Ajouter tests contractuels ETag/304 pour `documents/stats`
 
 ---
 
 ## Sprint 3 — Dette architecturale (environ 20h) ← AVANT tout ajout LLM
 
-### 3.1 Refactoring RuntimeGovernanceService (6 185 lignes)
-- [ ] Creer `RuntimeCatalogBuilder` — artefacts catalog/model/warmup profiles
-- [ ] Creer `CapabilityQualificationService` — `RequalifyAsync()`, `ReconcileStaleAsync()`
-- [ ] Creer `CapabilityStateRepository` — toutes les requetes DB sur `runtime_capability_state`
-- [ ] Creer `CapabilityAOrchestrator` — candidats, campagnes, enqueue A
-- [ ] Creer `CapabilityBOrchestrator` — candidats, campagnes, claim/complete/fail B
-- [ ] Creer `RuntimeDiagnosticsService` — diagnostics, events, recommendations
-- [ ] Isoler les helpers de mapping / serialisation / artefacts dans des composants dedies
-- [ ] Conserver les contrats HTTP et JSON inchanges pendant le refactor
-- **Fichier source :** `RuntimeGovernance/RuntimeGovernanceService.cs` (6 185 lignes)
+### 3.1 Refactoring RuntimeGovernanceService (112 lignes non vides au 2026-04-21)
+- [x] Creer `RuntimeCatalogBuilder` — artefacts catalog/model/warmup profiles
+- [x] Creer `RuntimeGovernanceCatalogService` — catalog runtime + artefacts catalog/model/warmup profiles extraits
+- [~] Creer `CapabilityQualificationService` — couvert aujourd'hui par `RuntimeCapabilityLifecycleCoordinator` (`RequalifyAsync()`, `ReconcileStaleAsync()`)
+- [x] Creer `RuntimeCapabilityGateService` — hard gates materiels + gate `capability ready`
+- [x] Creer `CapabilityStateRepository` — couvert par `RuntimeCapabilityStateStore`
+- [x] Creer `CapabilityAOrchestrator` — couvert par `RuntimeCapabilityAEnrichmentCoordinator` + stores/campaigns
+- [x] Creer `CapabilityBOrchestrator` — couvert par `RuntimeCapabilityBExecutionCoordinator` + stores/campaigns
+- [x] Creer `RuntimeGovernanceReadService` — capabilities, diagnostics, operational summary, warmup results, events et artefacts read-only extraits
+- [x] Creer `RuntimeCapabilityAdminReadService` — candidats, campagnes et artefacts A/B read-only extraits
+- [x] Creer `RuntimeGovernanceCommandService` — requalify, reconcile stale et selection extraits
+- [x] Creer `RuntimeCapabilityAEnrichmentCommandService` — enqueue A extrait
+- [x] Creer `RuntimeCapabilityBBackofficeCommandService` — enqueue B extrait
+- [x] Creer `RuntimeCapabilityBExecutionCommandService` — claim, complete, fail et completion summary B extraits
+- [~] Creer `RuntimeDiagnosticsService` — diagnostics principaux extraits dans `RuntimeCapabilityDiagnosticsBuilder` + exposes via `RuntimeGovernanceReadService`, service injectable encore a finaliser si besoin
+- [~] Isoler les helpers de mapping / serialisation / artefacts dans des composants dedies — `RuntimeGovernanceJson`, `RuntimeGovernanceGateModels` et helper async read-only deplace dans `RuntimeGovernanceReadService`
+- [~] Conserver les contrats HTTP et JSON inchanges pendant le refactor — valide sur les slices testees, a maintenir sur les prochains decoupages
+- **Fichier source :** `RuntimeGovernance/RuntimeGovernanceService.cs` (112 lignes non vides / 121 physiques) + `RuntimeGovernance/RuntimeGovernanceCommandService.cs` (108 / 117) + `RuntimeGovernance/RuntimeGovernanceCatalogService.cs` (90 / 97) + `RuntimeGovernance/RuntimeGovernanceReadService.cs` (294 / 313) + `RuntimeGovernance/RuntimeCapabilityAdminReadService.cs` (523 / 551) + `RuntimeGovernance/RuntimeCapabilityAEnrichmentCommandService.cs` (116 / 124) + `RuntimeGovernance/RuntimeCapabilityBBackofficeCommandService.cs` (204 / 223) + `RuntimeGovernance/RuntimeCapabilityBExecutionCommandService.cs` (160 / 172)
 
 ### 3.2 Validation Sprint 3
-- [ ] Verifier que tous les tests backend passent apres refactor
+- [x] Verifier que tous les tests backend passent apres refactor
 - [ ] Verifier qu’aucun artefact runtime JSON ne change involontairement
 - [ ] Verifier que les endpoints admin runtime gardent les memes contrats
-- [ ] Rejouer les tests telemetry runtime governance
-- [ ] Verifier que les routes A/B conservent le meme comportement fonctionnel
+- [x] Rejouer les tests telemetry runtime governance
+- [x] Verifier que les routes A/B conservent le meme comportement fonctionnel via la suite backend
 
 ---
 
@@ -242,4 +252,13 @@
 | 2026-04-20 | Claude | Corpus v6 (familles CDC §15.4 — 2/3/4). 4 tests harness v6. 477 tests. |
 | 2026-04-20 | Claude + ChatGPT | Audit canonique backend v3.0 complet. Rapport fige : `documents/cdc/SAAIA_Backend_Audit_CDC_v3.0_Complet.md`. TODO.md reecrit depuis l'audit. |
 | 2026-04-20 | ChatGPT | TODO enrichi : arbitrage `/catalog/snapshot`, decision produit v3.0 complet vs lite, validation obligatoire par sprint, sous-items de tests explicites pour A/B. |
-Visible: 0% - 100%
+| 2026-04-21 | Codex | Sprint 2 cache HTTP : ETag/304 ajoutes sur `/catalog/categories`, `/catalog/documents`, `/documents/stats` et `/catalog/stats` + tests contractuels d'integration. |
+| 2026-04-21 | Codex | Decision snapshot : `/catalog/snapshot` reste public read-only pour le contexte runtime client ; operations de statut/refresh reservees a `/admin/catalog/*`. |
+| 2026-04-21 | Codex | Sprint 3 refactor runtime : etat TODO realigne sur le service a 1 656 lignes ; helper `ExecuteArtifactReadAsync` ajoute pour centraliser la telemetrie async des artefacts. |
+| 2026-04-21 | Codex | Sprint 3 refactor runtime : `RuntimeCapabilityGateService` extrait (hard gates + gate capability ready) ; service principal a 1 598 lignes. |
+| 2026-04-21 | Codex | Sprint 3 refactor runtime : `RuntimeGovernanceGateModels` extrait ; le warmup evaluator ne depend plus des types imbriques du service principal, descendu a 1 555 lignes. |
+| 2026-04-21 | Codex | Sprint 3 refactor runtime : `RuntimeGovernanceReadService` extrait (capabilities, diagnostics, operational summary, warmup results, events, artefacts read-only) ; service principal descendu a 1 272 lignes. |
+| 2026-04-21 | Codex | Sprint 3 refactor runtime : `RuntimeCapabilityAdminReadService` extrait (candidats/campagnes/artefacts A/B read-only) ; service principal descendu a 760 lignes non vides. |
+| 2026-04-21 | Codex | Sprint 3 refactor runtime : `RuntimeGovernanceCatalogService` extrait (catalog runtime + artefacts catalog/model/warmup profiles) ; service principal descendu a 679 lignes non vides. |
+| 2026-04-21 | Codex | Sprint 3 refactor runtime : `RuntimeGovernanceCommandService` extrait (requalify, reconcile stale, selection) ; service principal descendu a 580 lignes non vides. |
+| 2026-04-21 | Codex | Sprint 3 refactor runtime : commandes A/B extraites (`RuntimeCapabilityAEnrichmentCommandService`, `RuntimeCapabilityBBackofficeCommandService`, `RuntimeCapabilityBExecutionCommandService`) ; service principal descendu a 112 lignes non vides. |

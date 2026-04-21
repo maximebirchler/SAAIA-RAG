@@ -47,7 +47,10 @@ public sealed partial class MainWindow
                 item.JobId.Contains(term, StringComparison.OrdinalIgnoreCase)
                 || (!string.IsNullOrWhiteSpace(item.DocPath) && item.DocPath.Contains(term, StringComparison.OrdinalIgnoreCase))
                 || (!string.IsNullOrWhiteSpace(item.LastError) && item.LastError.Contains(term, StringComparison.OrdinalIgnoreCase))
-                || (!string.IsNullOrWhiteSpace(item.JobType) && item.JobType.Contains(term, StringComparison.OrdinalIgnoreCase)));
+                || (!string.IsNullOrWhiteSpace(item.JobType) && item.JobType.Contains(term, StringComparison.OrdinalIgnoreCase))
+                || (!string.IsNullOrWhiteSpace(item.EnqueueSource) && item.EnqueueSource.Contains(term, StringComparison.OrdinalIgnoreCase))
+                || (!string.IsNullOrWhiteSpace(item.RuntimeCapabilityKey) && item.RuntimeCapabilityKey.Contains(term, StringComparison.OrdinalIgnoreCase))
+                || (!string.IsNullOrWhiteSpace(item.ExecutionMode) && item.ExecutionMode.Contains(term, StringComparison.OrdinalIgnoreCase)));
         }
 
         if (context.IncludeIngestionCategory || context.IncludeSummaryCategory)
@@ -717,6 +720,8 @@ public sealed partial class MainWindow
         AddFact(facts, ClientUiText.Get("admin.jobs.details.progress", UiLang), BuildAdminJobProgressLine(item));
         AddFact(facts, ClientUiText.Get("admin.jobs.details.cancel_requested_flag", UiLang), item.CancelRequested.HasValue ? (item.CancelRequested.Value ? ClientUiText.Get("admin.jobs.value.yes", UiLang) : ClientUiText.Get("admin.jobs.value.no", UiLang)) : null);
         AddFact(facts, ClientUiText.Get("admin.jobs.details.enqueue_source", UiLang), TranslateAdminJobEnqueueSource(item.EnqueueSource));
+        AddFact(facts, ClientUiText.Get("admin.jobs.details.runtime_capability", UiLang), item.RuntimeCapabilityKey);
+        AddFact(facts, ClientUiText.Get("admin.jobs.details.execution_mode", UiLang), item.ExecutionMode);
         AddFact(facts, ClientUiText.Get("admin.jobs.details.doc_status", UiLang), TranslateAdminJobDocumentStatus(item.DocumentStatus));
         AddFact(facts, ClientUiText.Get("admin.jobs.details.doc_versions", UiLang), BuildAdminJobDocumentVersionsLine(item));
         AddFact(facts, ClientUiText.Get("admin.jobs.details.auto_pause", UiLang), BuildAdminJobAutoPauseLine(item));

@@ -2,8 +2,6 @@ using SAAIA.Backend.Models;
 
 namespace SAAIA.Backend;
 
-using CapabilityEvaluation = RuntimeGovernanceService.CapabilityEvaluation;
-
 internal static class RuntimeCapabilityAdminEvaluators
 {
     internal static Task<CapabilityEvaluation> EvaluateCapabilityAAsync(

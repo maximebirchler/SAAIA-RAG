@@ -586,7 +586,9 @@ SET section_id = EXCLUDED.section_id,
         {
             var metadata = JsonSerializer.Serialize(new
             {
-                inferred = true
+                inferred = true,
+                offsetStart = unit.OffsetStart,
+                offsetEnd = unit.OffsetEnd
             });
 
             sectionIdsByOrdinal.TryGetValue(unit.SectionOrdinal ?? -1, out var sectionId);
@@ -696,6 +698,8 @@ SET retrieval_chunk_id = EXCLUDED.retrieval_chunk_id,
                 chunkType = chunk.ChunkType,
                 sectionTitle,
                 headingPath,
+                offsetStart = chunk.OffsetStart,
+                offsetEnd = chunk.OffsetEnd,
                 prevChunkId = chunkLinks?.PreviousChunkId?.ToString(),
                 nextChunkId = chunkLinks?.NextChunkId?.ToString(),
                 sameSectionChunkId = chunkLinks?.SameSectionChunkId?.ToString()
@@ -792,7 +796,9 @@ SET section_id = EXCLUDED.section_id,
             var metadata = JsonSerializer.Serialize(new
             {
                 inferred = true,
-                kind = entry.Kind
+                kind = entry.Kind,
+                offsetStart = entry.OffsetStart,
+                offsetEnd = entry.OffsetEnd
             });
 
             await conn.ExecuteAsync(new CommandDefinition(sql, new

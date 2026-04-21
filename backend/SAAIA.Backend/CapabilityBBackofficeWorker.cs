@@ -76,7 +76,7 @@ internal sealed class CapabilityBBackofficeWorker : BackgroundService
         if (locator is null)
             return false;
 
-        var claim = await RuntimeGovernanceService.ClaimCapabilityBBackofficeExecutionAsync(
+        var claim = await RuntimeCapabilityBExecutionCommandService.ClaimCapabilityBBackofficeExecutionAsync(
             locator.TenantId,
             ds,
             options,
@@ -105,7 +105,7 @@ internal sealed class CapabilityBBackofficeWorker : BackgroundService
                 generatedSummary = await BuildGeneratedSummaryAsync(conn, locator.TenantId, execution, ct);
             }
 
-            var completion = await RuntimeGovernanceService.CompleteCapabilityBBackofficeExecutionAsync(
+            var completion = await RuntimeCapabilityBExecutionCommandService.CompleteCapabilityBBackofficeExecutionAsync(
                 locator.TenantId,
                 ds,
                 new AdminRuntimeCapabilityBCompleteRequestDto(
@@ -152,7 +152,7 @@ internal sealed class CapabilityBBackofficeWorker : BackgroundService
         string error,
         CancellationToken ct)
     {
-        await RuntimeGovernanceService.FailCapabilityBBackofficeExecutionAsync(
+        await RuntimeCapabilityBExecutionCommandService.FailCapabilityBBackofficeExecutionAsync(
             tenantId,
             ds,
             new StubWorkerHostEnvironment(),
@@ -186,7 +186,7 @@ LIMIT 1;
         AdminRuntimeCapabilityBClaimResponseDto execution,
         CancellationToken ct)
     {
-        var doc = await RuntimeGovernanceService.LoadCapabilityBDocumentAsync(conn, tenantId, execution.DocId, ct);
+        var doc = await RuntimeCapabilityBExecutionStore.LoadCapabilityBDocumentAsync(conn, tenantId, execution.DocId, ct);
         if (doc is null)
             throw new InvalidOperationException("capability_b_document_not_found");
 
