@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Security.Cryptography;
 using Dapper;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using SAAIA.Backend.Auth;
@@ -67,7 +68,14 @@ ORDER BY category;
     {
         var resp = await SearchCoreAsync(ctx, ds, ragOpt.Value, httpFactory, req);
         var categoryRefsByTopLevelPath = await LoadTopCategoryRefsAsync(ds, ctx.GetTenantId(), resp.Matches, ctx.RequestAborted);
-        var hypQuestionsMatchedByDocPath = await LoadHypQuestionsMatchedByDocPathAsync(ds, ctx.GetTenantId(), resp.Query, resp.Matches, ctx.RequestAborted);
+        var capabilityAQuestionService = ctx.RequestServices.GetService<CapabilityAHypotheticalQuestionService>();
+        var hypQuestionsMatchedByDocPath = await LoadHypQuestionsMatchedByDocPathAsync(
+            ds,
+            ctx.GetTenantId(),
+            resp.Query,
+            resp.Matches,
+            capabilityAQuestionService,
+            ctx.RequestAborted);
 
         var responseDto = new RagSearchResponseDto(
             RequestId: resp.RequestId,
@@ -148,6 +156,7 @@ ORDER BY category;
         Guid tenantId,
         string query,
         IReadOnlyList<RagMatch> matches,
+        CapabilityAHypotheticalQuestionService? hypotheticalQuestionService,
         CancellationToken ct)
     {
         var docPaths = matches
@@ -198,10 +207,16 @@ ORDER BY doc_path;
                 doc.IndexedVersion,
                 limit: 2,
                 ct);
-            var hypotheticalQuestions = RuntimeGovernanceService.BuildCapabilityAHypotheticalQuestions(
-                doc.DocName,
-                sectionTitles,
-                excerpts);
+            var hypotheticalQuestions = hypotheticalQuestionService is null
+                ? RuntimeGovernanceService.BuildCapabilityAHypotheticalQuestions(
+                    doc.DocName,
+                    sectionTitles,
+                    excerpts)
+                : await hypotheticalQuestionService.BuildQuestionsAsync(
+                    doc.DocName,
+                    sectionTitles,
+                    excerpts,
+                    ct);
 
             result[doc.DocPath] = hypotheticalQuestions.Count == 0
                 ? null

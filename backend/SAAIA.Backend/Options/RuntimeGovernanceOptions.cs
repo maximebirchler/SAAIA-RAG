@@ -32,4 +32,8 @@ sealed class RuntimeGovernanceOptions
     public bool CapabilityBWorkerEnabled { get; set; } = true;
     public int CapabilityBWorkerEmptyDelayMs { get; set; } = 5000;
     public int CapabilityBWorkerErrorDelayMs { get; set; } = 1000;
+    public int RetrievalKpiObservationWindowMinutes { get; set; } = 15;
+    public double RetrievalP95TargetMs { get; set; } = 800;
+    public double RerankP95TargetMs { get; set; } = 300;
+    public double ZeroResultRateTargetPercent { get; set; } = 5;
 }

@@ -15,6 +15,7 @@ internal static class RuntimeCapabilityAEnrichmentCommandService
         RuntimeGovernanceOptions options,
         RagOptions rag,
         IngestionOptions ingest,
+        CapabilityAHypotheticalQuestionService hypotheticalQuestionService,
         IHostEnvironment env,
         AdminRuntimeCapabilityAEnqueueRequestDto? req,
         CancellationToken ct)
@@ -71,6 +72,7 @@ internal static class RuntimeCapabilityAEnrichmentCommandService
                 conn,
                 tenantId,
                 ingest,
+                hypotheticalQuestionService,
                 req?.Category,
                 req?.MaxCandidates ?? 50,
                 req?.ReasonFilters,

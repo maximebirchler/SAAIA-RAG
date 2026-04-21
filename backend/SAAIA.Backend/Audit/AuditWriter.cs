@@ -15,7 +15,8 @@ public static class AuditWriter
         string? target,
         object? payload,
         string? ip,
-        CancellationToken ct)
+        CancellationToken ct,
+        NpgsqlTransaction? tx = null)
     {
         const string sql = @"
 INSERT INTO audit_events(audit_id, tenant_id, actor_api_key_id, actor_is_admin, action, target, payload_json, ip)
@@ -33,6 +34,6 @@ VALUES (@id, @tenant_id, @actor_api_key_id, @actor_is_admin, @action, @target, @
             target,
             payload_json = payloadJson,
             ip
-        }, cancellationToken: ct));
+        }, transaction: tx, cancellationToken: ct));
     }
 }

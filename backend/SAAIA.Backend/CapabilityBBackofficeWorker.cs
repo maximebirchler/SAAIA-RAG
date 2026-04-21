@@ -1,5 +1,3 @@
-using System.Text;
-using System.Text.Json;
 using Dapper;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -63,6 +61,7 @@ internal sealed class CapabilityBBackofficeWorker : BackgroundService
         var options = services.GetRequiredService<IOptions<RuntimeGovernanceOptions>>().Value;
         var rag = services.GetRequiredService<IOptions<RagOptions>>().Value;
         var env = services.GetRequiredService<IHostEnvironment>();
+        var summaryService = services.GetService<CapabilityBBackofficeSummaryService>();
 
         if (!options.CapabilityBWorkerEnabled)
             return false;
@@ -99,10 +98,10 @@ internal sealed class CapabilityBBackofficeWorker : BackgroundService
 
         try
         {
-            CapabilityBGeneratedSummary generatedSummary;
+            CapabilityBGeneratedSummaryPayload generatedSummary;
             await using (var conn = await ds.OpenConnectionAsync(ct))
             {
-                generatedSummary = await BuildGeneratedSummaryAsync(conn, locator.TenantId, execution, ct);
+                generatedSummary = await BuildGeneratedSummaryAsync(conn, locator.TenantId, execution, summaryService, ct);
             }
 
             var completion = await RuntimeCapabilityBExecutionCommandService.CompleteCapabilityBBackofficeExecutionAsync(
@@ -180,10 +179,11 @@ LIMIT 1;
 """,
             cancellationToken: ct));
 
-    private static async Task<CapabilityBGeneratedSummary> BuildGeneratedSummaryAsync(
+    private static async Task<CapabilityBGeneratedSummaryPayload> BuildGeneratedSummaryAsync(
         NpgsqlConnection conn,
         Guid tenantId,
         AdminRuntimeCapabilityBClaimResponseDto execution,
+        CapabilityBBackofficeSummaryService? summaryService,
         CancellationToken ct)
     {
         var doc = await RuntimeCapabilityBExecutionStore.LoadCapabilityBDocumentAsync(conn, tenantId, execution.DocId, ct);
@@ -197,89 +197,13 @@ LIMIT 1;
             ? await RuntimeGovernanceService.LoadCapabilityBUnitExcerptsAsync(conn, tenantId, doc.DocId, doc.IndexedVersion, limit: 3, ct)
             : Array.Empty<string>();
 
-        var summaryText = ComposeSummaryText(doc, sectionTitles, excerpts);
-        var meta = JsonSerializer.SerializeToElement(new Dictionary<string, object?>
-        {
-            ["generator"] = "capability_b_worker_v1",
-            ["strategy"] = "deterministic_document_foundation",
-            ["docPath"] = doc.DocPath,
-            ["indexedVersion"] = doc.IndexedVersion,
-            ["sectionCount"] = sectionTitles.Length,
-            ["excerptCount"] = excerpts.Length,
-            ["generatedAt"] = DateTimeOffset.UtcNow
-        });
+        if (summaryService is not null)
+            return await summaryService.BuildSummaryAsync(doc, sectionTitles, excerpts, ct);
 
-        return new CapabilityBGeneratedSummary(summaryText, meta);
+        return CapabilityBBackofficeSummaryService.BuildDeterministicSummary(doc, sectionTitles, excerpts, "summary_service_unavailable");
     }
-
-    private static string ComposeSummaryText(
-        CapabilityBDocumentRow doc,
-        IReadOnlyList<string> sectionTitles,
-        IReadOnlyList<string> excerpts)
-    {
-        var lines = new List<string>
-        {
-            BuildOverviewLine(doc)
-        };
-
-        if (sectionTitles.Count > 0)
-            lines.Add("Key sections: " + string.Join("; ", sectionTitles.Select(NormalizeInlineText)) + ".");
-
-        if (excerpts.Count > 0)
-        {
-            lines.Add("Highlights:");
-            foreach (var excerpt in excerpts.Select(TrimExcerpt))
-                lines.Add($"- {excerpt}");
-        }
-        else
-        {
-            lines.Add("No extracted unit excerpts were available, so this summary relies on the indexed document metadata.");
-        }
-
-        return string.Join(Environment.NewLine, lines);
-    }
-
-    private static string BuildOverviewLine(CapabilityBDocumentRow doc)
-    {
-        var builder = new StringBuilder();
-        builder.Append(doc.DocName);
-        builder.Append(" is an indexed");
-        if (!string.IsNullOrWhiteSpace(doc.Category))
-        {
-            builder.Append(' ');
-            builder.Append(doc.Category!.Trim());
-        }
-
-        builder.Append(" document");
-        if (doc.PageCount is > 0)
-        {
-            builder.Append(" with ");
-            builder.Append(doc.PageCount.Value);
-            builder.Append(doc.PageCount.Value == 1 ? " page" : " pages");
-        }
-
-        builder.Append(" at ");
-        builder.Append(doc.DocPath);
-        builder.Append('.');
-        return builder.ToString();
-    }
-
-    private static string TrimExcerpt(string text)
-    {
-        var normalized = NormalizeInlineText(text);
-        return normalized.Length <= 220
-            ? normalized
-            : normalized[..217] + "...";
-    }
-
-    private static string NormalizeInlineText(string text)
-        => string.Join(" ", text
-            .Split(['\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-            .Trim();
 
     private sealed record CapabilityBQueuedJobLocator(Guid TenantId, Guid JobId);
-
-    private sealed record CapabilityBGeneratedSummary(string SummaryText, JsonElement Meta);
 
     private sealed class StubWorkerHostEnvironment : IHostEnvironment
     {

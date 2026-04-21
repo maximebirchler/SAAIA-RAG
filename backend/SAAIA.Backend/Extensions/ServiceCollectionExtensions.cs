@@ -40,6 +40,7 @@ public static class ServiceCollectionExtensions
         services.Configure<DatabaseOptions>(config.GetSection("Database"));
         services.Configure<RagOptions>(config.GetSection("Rag"));
         services.Configure<IngestionOptions>(config.GetSection("Ingestion"));
+        services.Configure<ChatOptions>(config.GetSection("Chat"));
         services.Configure<RateLimitOptions>(config.GetSection("RateLimiting"));
         services.Configure<OpenTelemetryOptions>(config.GetSection("OpenTelemetry"));
         services.Configure<CatalogSnapshotOptions>(config.GetSection("CatalogSnapshot"));
@@ -161,10 +162,27 @@ public static class ServiceCollectionExtensions
             }
         });
         services.AddHttpClient("tei", c => c.Timeout = TimeSpan.FromMinutes(5));
+        services.AddHttpClient("llm", (sp, c) =>
+        {
+            var chat = sp.GetRequiredService<IOptions<ChatOptions>>().Value;
+            c.Timeout = TimeSpan.FromSeconds(Math.Max(5, chat.LlmTimeoutSeconds));
+
+            if (!string.IsNullOrWhiteSpace(chat.LlmBaseUrl))
+                c.BaseAddress = new Uri(chat.LlmBaseUrl);
+        });
 
         // ---------- Bulkheads / job runtime state ----------
         services.AddSingleton<IngestionBulkheads>();
         services.AddSingleton<IngestionJobCancellationRegistry>();
+        services.AddSingleton(sp => new LocalLlmChatClient(
+            sp.GetRequiredService<IHttpClientFactory>(),
+            sp.GetRequiredService<IOptions<ChatOptions>>().Value));
+        services.AddSingleton<CapabilityAHypotheticalQuestionService>();
+        services.AddSingleton(sp => new CapabilityBBackofficeSummaryService(
+            sp.GetRequiredService<LocalLlmChatClient>(),
+            sp.GetRequiredService<IOptions<ChatOptions>>().Value));
+        services.AddSingleton<RuntimeDiagnosticsService>();
+        services.AddSingleton<RuntimeRetrievalKpiService>();
 
         // ---------- Worker ----------
         services.AddHostedService<IngestionWorker>();

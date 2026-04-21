@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Reflection;
 using Dapper;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using SAAIA.Backend;
@@ -1416,12 +1417,49 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.True(item.HypQuestionsMatched);
     }
 
-    private static DefaultHttpContext BuildRagHttpContext(Guid tenantId)
+    [Fact]
+    public async Task SearchAsync_uses_capability_a_llm_questions_when_request_services_provides_runtime()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("faf0ffff-ffff-ffff-ffff-ffffffffffff");
+        await PublishRuntimeReadyQuestionBankDocumentsAsync(db, tenantId);
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var ctx = BuildRagHttpContext(tenantId, BuildCapabilityARequestServices());
+        var result = await InvokeRagSearchAsync(
+            ctx,
+            ds,
+            Options.Create(CreateTestRagOptions()),
+            new StubHttpClientFactory(),
+            new RagSearchRequestDto("When should the IND570 PLC integration guidance be retrieved?", Category: "programmation", TopK: 3));
+
+        await result.ExecuteAsync(ctx);
+
+        var payload = ReadResponseBody(ctx);
+        var response = JsonSerializer.Deserialize<RagSearchResponseDto>(payload, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        Assert.NotNull(response);
+        var item = Assert.Single(
+            response!.Items,
+            static match => string.Equals(match.DocPath, "Programmation/Mettler/MettlerToledo_IND570.pdf", StringComparison.Ordinal));
+
+        Assert.True(item.HypQuestionsMatched);
+    }
+
+    private static DefaultHttpContext BuildRagHttpContext(Guid tenantId, IServiceProvider? requestServices = null)
     {
         var ctx = new DefaultHttpContext();
         ctx.Items[ApiKeyAuth.TenantIdItemKey] = tenantId;
         ctx.Items[RequestIdMiddleware.RequestIdItemKey] = $"it-{tenantId:N}";
         ctx.Response.Body = new MemoryStream();
+        if (requestServices is not null)
+            ctx.RequestServices = requestServices;
         return ctx;
     }
 
@@ -1470,6 +1508,20 @@ public sealed class DocumentFoundationIntegrationTests
         var method = typeof(RagEndpoints).GetMethod("SearchAsync", BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
         return await (Task<IResult>)method!.Invoke(null, [ctx, ds, ragOptions, httpFactory, request])!;
+    }
+
+    private static IServiceProvider BuildCapabilityARequestServices()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(new CapabilityAHypotheticalQuestionService(
+            new LocalLlmChatClient(
+                new StubHttpClientFactory(),
+                new ChatOptions
+                {
+                    LlmBaseUrl = "http://llm.test/",
+                    LlmModel = "local"
+                })));
+        return services.BuildServiceProvider();
     }
 
     private static string ReadResponseBody(DefaultHttpContext context)
@@ -1723,6 +1775,7 @@ public sealed class DocumentFoundationIntegrationTests
                 {
                     "tei" => new Uri("http://tei.test/"),
                     "qdrant" => new Uri("http://qdrant.test/"),
+                    "llm" => new Uri("http://llm.test/"),
                     _ => new Uri("http://stub.test/")
                 }
             };
@@ -1759,6 +1812,21 @@ public sealed class DocumentFoundationIntegrationTests
                 return Task.FromResult(JsonResponse("""
                 {
                   "results": []
+                }
+                """));
+            }
+
+            if (path.EndsWith("/v1/chat/completions", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(JsonResponse("""
+                {
+                  "choices": [
+                    {
+                      "message": {
+                        "content": "{\"questions\":[\"When should the IND570 PLC integration guidance be retrieved?\",\"How should operators apply the Control Loop Overview in IND570?\"]}"
+                      }
+                    }
+                  ]
                 }
                 """));
             }

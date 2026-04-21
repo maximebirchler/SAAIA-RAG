@@ -904,6 +904,153 @@ LIMIT 1;
     }
 
     [Fact]
+    public async Task Capability_b_worker_processes_next_queued_job_and_stores_llm_summary_when_runtime_is_available()
+    {
+        var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
+        Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", "true");
+
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+        {
+            Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
+            return;
+        }
+
+        try
+        {
+            var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+            var docId = Guid.NewGuid();
+            var revisionId = Guid.NewGuid();
+            var sectionId = Guid.NewGuid();
+            var unitId = Guid.NewGuid();
+
+            await using (var conn = new NpgsqlConnection(db.ConnectionString))
+            {
+                await conn.OpenAsync();
+                await conn.ExecuteAsync(
+                    """
+INSERT INTO documents(
+  tenant_id, doc_id, doc_path, doc_name, category, status,
+  page_count, content_hash, updated_at, created_at, ingestion_version, indexed_version,
+  auto_ingest_paused
+)
+VALUES(
+  @tenant, @docId, 'ATEX/b-worker-llm-summary.pdf', 'b-worker-llm-summary.pdf', 'atex', 'indexed',
+  7, decode(repeat('ef', 32), 'hex'), now(), now(), 1, 1, false
+);
+
+INSERT INTO document_revisions(
+  revision_id, tenant_id, doc_id, doc_path, source_hash, source_size, source_mtime,
+  ingestion_version, indexed_version, published_at, created_at
+)
+VALUES(
+  @revisionId, @tenant, @docId, 'ATEX/b-worker-llm-summary.pdf', decode(repeat('ef', 32), 'hex'), 2048, now(),
+  1, 1, now(), now()
+);
+
+INSERT INTO document_sections(
+  section_id, tenant_id, revision_id, ordinal, title, section_level, page_start, page_end, metadata, created_at
+)
+VALUES(
+  @sectionId, @tenant, @revisionId, 0, 'Scope and Purpose', 1, 1, 2, '{}'::jsonb, now()
+);
+
+INSERT INTO document_units(
+  unit_id, tenant_id, revision_id, section_id, ordinal, page_start, page_end, text_content,
+  char_count, token_count, metadata, created_at
+)
+VALUES(
+  @unitId, @tenant, @revisionId, @sectionId, 0, 1, 1,
+  'This document defines the operational perimeter and the required safety controls for classified areas.',
+  98, 18, '{}'::jsonb, now()
+);
+""",
+                    new
+                    {
+                        tenant = tenantId,
+                        docId,
+                        revisionId,
+                        sectionId,
+                        unitId
+                    });
+            }
+
+            await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+            await RuntimeGovernanceCommandService.RequalifyAsync(
+                ds,
+                new RuntimeGovernanceHttpClientFactory(),
+                new RuntimeGovernanceOptions(),
+                CreateRagOptions(),
+                new StubHostEnvironment(),
+                new AdminRuntimeRequalifyRequestDto(
+                    CapabilityKey: "capability_b.backoffice_generation",
+                    SelectWhenQualified: true),
+                CancellationToken.None);
+
+            var enqueue = await RuntimeCapabilityBBackofficeCommandService.EnqueueCapabilityBBackofficeAsync(
+                tenantId,
+                ds,
+                new RuntimeGovernanceOptions(),
+                CreateRagOptions(),
+                new StubHostEnvironment(),
+                new AdminRuntimeCapabilityBEnqueueRequestDto(DocIds: [docId]),
+                CancellationToken.None);
+
+            Assert.Null(enqueue.Error);
+            Assert.NotNull(enqueue.Payload);
+            var jobId = Assert.Single(enqueue.Payload!.Items, item => item.Queued).JobId;
+            Assert.NotNull(jobId);
+
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddSingleton(ds);
+            services.AddSingleton<IOptions<RuntimeGovernanceOptions>>(Options.Create(new RuntimeGovernanceOptions()));
+            services.AddSingleton<IOptions<RagOptions>>(Options.Create(CreateRagOptions()));
+            services.AddSingleton<IOptions<ChatOptions>>(Options.Create(new ChatOptions
+            {
+                LlmBaseUrl = "http://llm.test/",
+                LlmModel = "local"
+            }));
+            services.AddSingleton<IHttpClientFactory>(new RuntimeGovernanceHttpClientFactory());
+            services.AddSingleton<LocalLlmChatClient>(sp => new LocalLlmChatClient(
+                sp.GetRequiredService<IHttpClientFactory>(),
+                sp.GetRequiredService<IOptions<ChatOptions>>().Value));
+            services.AddSingleton<CapabilityBBackofficeSummaryService>(sp => new CapabilityBBackofficeSummaryService(
+                sp.GetRequiredService<LocalLlmChatClient>(),
+                sp.GetRequiredService<IOptions<ChatOptions>>().Value));
+            services.AddSingleton<IHostEnvironment>(new StubHostEnvironment());
+
+            using var provider = services.BuildServiceProvider();
+            var worker = new CapabilityBBackofficeWorker(
+                provider,
+                provider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<CapabilityBBackofficeWorker>>());
+
+            var processed = await worker.ProcessNextJobOnceAsync(CancellationToken.None);
+            Assert.True(processed);
+
+            await using (var conn = new NpgsqlConnection(db.ConnectionString))
+            {
+                await conn.OpenAsync();
+                var storedSummary = await conn.ExecuteScalarAsync<string>(
+                    """
+SELECT summary_text
+FROM document_summaries
+WHERE tenant_id=@tenant AND doc_id=@docId AND level='medium'
+LIMIT 1;
+""",
+                    new { tenant = tenantId, docId });
+
+                Assert.Contains("Operational summary for b-worker-llm-summary.pdf", storedSummary, StringComparison.Ordinal);
+                Assert.Contains("Scope and Purpose", storedSummary, StringComparison.Ordinal);
+            }
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
+        }
+    }
+
+    [Fact]
     public async Task SubmitSummaryAsync_marks_capability_b_job_done_and_emits_completion_result_and_runtime_event()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -1155,6 +1302,7 @@ VALUES(
                 {
                     "qdrant" => new Uri("http://qdrant.test/"),
                     "tei" => new Uri("http://tei.test/"),
+                    "llm" => new Uri("http://llm.test/"),
                     _ => new Uri("http://stub.test/")
                 }
             };
@@ -1177,6 +1325,21 @@ VALUES(
                 {
                   "data": [
                     { "embedding": [0.1, 0.2, 0.3, 0.4] }
+                  ]
+                }
+                """));
+            }
+
+            if (path.EndsWith("/v1/chat/completions", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(JsonResponse("""
+                {
+                  "choices": [
+                    {
+                      "message": {
+                        "content": "Operational summary for b-worker-llm-summary.pdf: Scope and Purpose frames the operational perimeter. Operators should apply the required safety controls before deployment."
+                      }
+                    }
                   ]
                 }
                 """));

@@ -10,6 +10,7 @@ internal static class RuntimeCapabilityAEnrichmentStore
         NpgsqlConnection conn,
         Guid tenantId,
         IngestionOptions ingest,
+        CapabilityAHypotheticalQuestionService? hypotheticalQuestionService,
         string? category,
         int limit,
         IReadOnlyList<string>? reasonFilters,
@@ -123,7 +124,7 @@ LIMIT @limit;
 
             var recommendedAction = fileExists ? "enqueue_reindex" : "inspect_document_source";
             var priorityScore = BuildPriorityScore(reasons, row);
-            var semanticPreview = await BuildSemanticPreviewAsync(conn, tenantId, row, ct);
+            var semanticPreview = await BuildSemanticPreviewAsync(conn, tenantId, row, hypotheticalQuestionService, ct);
 
             candidates.Add(new AdminRuntimeCapabilityAEnrichmentCandidateDto(
                 DocId: row.DocId,
@@ -216,6 +217,7 @@ LIMIT @limit;
         NpgsqlConnection conn,
         Guid tenantId,
         CapabilityAEnrichmentCandidateRow row,
+        CapabilityAHypotheticalQuestionService? hypotheticalQuestionService,
         CancellationToken ct)
     {
         if (row.IndexedVersion <= 0 || !row.HasRevision)
@@ -242,7 +244,9 @@ LIMIT @limit;
             limit: 2,
             ct);
 
-        var questions = BuildHypotheticalQuestions(row.DocName, sectionTitles, excerpts);
+        var questions = hypotheticalQuestionService is null
+            ? BuildHypotheticalQuestions(row.DocName, sectionTitles, excerpts)
+            : await hypotheticalQuestionService.BuildQuestionsAsync(row.DocName, sectionTitles, excerpts, ct);
         var previewText = BuildPreviewText(row, sectionTitles, excerpts);
         var tags = BuildSuggestedTags(row, sectionTitles);
 

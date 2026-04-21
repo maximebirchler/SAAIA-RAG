@@ -602,6 +602,7 @@ VALUES(
                 Options.Create(new RuntimeGovernanceOptions()),
                 Options.Create(CreateRagOptions()),
                 Options.Create(new IngestionOptions { DocumentsRoot = tempRoot }),
+                CreateCapabilityAQuestionService(),
                 new StubHostEnvironment(),
                 category: null,
                 limit: 20);
@@ -674,6 +675,7 @@ VALUES(
                 Options.Create(new RuntimeGovernanceOptions()),
                 Options.Create(CreateRagOptions()),
                 Options.Create(new IngestionOptions { DocumentsRoot = tempRoot }),
+                CreateCapabilityAQuestionService(),
                 new StubHostEnvironment(),
                 category: null,
                 limit: 20);
@@ -693,6 +695,7 @@ VALUES(
                 Options.Create(new RuntimeGovernanceOptions()),
                 Options.Create(CreateRagOptions()),
                 Options.Create(new IngestionOptions { DocumentsRoot = tempRoot }),
+                CreateCapabilityAQuestionService(),
                 new StubHostEnvironment(),
                 new AdminRuntimeCapabilityAEnqueueRequestDto(
                     DocPaths: [firstRel.Replace('\\', '/'), secondRel.Replace('\\', '/'), thirdRel.Replace('\\', '/')],
@@ -730,6 +733,7 @@ VALUES(
                 Options.Create(new RuntimeGovernanceOptions()),
                 Options.Create(CreateRagOptions()),
                 Options.Create(new IngestionOptions { DocumentsRoot = tempRoot }),
+                CreateCapabilityAQuestionService(),
                 new StubHostEnvironment(),
                 new AdminRuntimeCapabilityAEnqueueRequestDto(
                     DocPaths: [firstRel.Replace('\\', '/'), secondRel.Replace('\\', '/'), thirdRel.Replace('\\', '/')]));
@@ -1587,6 +1591,54 @@ WHERE tenant_id=@tenant
     }
 
     [Fact]
+    public async Task RetrievalKpisAsync_returns_cdc_thresholds_and_metric_guide()
+    {
+        var ctx = BuildAdminContext();
+        var options = new RuntimeGovernanceOptions
+        {
+            RetrievalKpiObservationWindowMinutes = 20,
+            RetrievalP95TargetMs = 800,
+            RerankP95TargetMs = 300,
+            ZeroResultRateTargetPercent = 5
+        };
+
+        var result = await AdminRuntimeEndpoints.RetrievalKpisAsync(
+            ctx,
+            new StubHostEnvironment(),
+            Options.Create(options));
+
+        var payload = await ExecuteResultAsync<AdminRuntimeRetrievalKpisResponseDto>(result, ctx);
+        Assert.Equal("v3.0", payload.CdcAlignment);
+        Assert.Equal(20, payload.Policy.ObservationWindowMinutes);
+        Assert.Equal(800, payload.Policy.RetrievalP95TargetMs);
+        Assert.Equal(300, payload.Policy.RerankP95TargetMs);
+        Assert.Equal(5, payload.Policy.ZeroResultRateTargetPercent);
+        Assert.Contains("zero_results", payload.Policy.ZeroResultRateFormula, StringComparison.Ordinal);
+        Assert.Contains(payload.Metrics, item => item.Key == "retrieval_p95" && item.Instrument == "saaia.retrieval.duration" && item.Aggregation == "p95");
+        Assert.Contains(payload.Metrics, item => item.Key == "rerank_p95" && item.Instrument == "saaia.retrieval.rerank.duration");
+        Assert.Contains(payload.Metrics, item => item.Key == "zero_result_rate" && item.Aggregation == "ratio");
+        Assert.Contains(payload.Alerts, item => item.Key == "retrieval_p95_regression" && item.Condition.Contains("800", StringComparison.Ordinal));
+        Assert.Contains(payload.Alerts, item => item.Key == "zero_result_rate_regression" && item.Condition.Contains("5", StringComparison.Ordinal));
+        Assert.Contains(payload.DashboardPanels, item => item.Contains("Retrieval P95", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task RetrievalKpisArtifactAsync_returns_named_artifact_snapshot()
+    {
+        var ctx = BuildAdminContext();
+        var result = await AdminRuntimeEndpoints.RetrievalKpisArtifactAsync(
+            ctx,
+            new StubHostEnvironment(),
+            Options.Create(new RuntimeGovernanceOptions()));
+
+        var payload = await ExecuteResultAsync<AdminRuntimeRetrievalKpisArtifactDto>(result, ctx);
+        Assert.Equal("retrieval-kpis.json", payload.Artifact);
+        Assert.Equal("v3.0", payload.CdcAlignment);
+        Assert.Contains(payload.Metrics, item => item.Instrument == "saaia.retrieval.requests");
+        Assert.Contains(payload.Alerts, item => item.Key == "rerank_p95_regression");
+    }
+
+    [Fact]
     public async Task OperationalSummaryArtifactAsync_returns_runtime_operational_snapshot()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
@@ -1617,6 +1669,202 @@ WHERE tenant_id=@tenant
         Assert.Equal(0, payload.Summary.CapabilityBBacklogCount);
         Assert.Contains(payload.Items, item => item.Key == "capability_a.corpus_enrichment");
         Assert.Contains(payload.Items, item => item.Key == "capability_b.backoffice_generation");
+    }
+
+    [Fact]
+    public void AdminRuntime_dto_contracts_preserve_expected_top_level_json_shape()
+    {
+        AssertDtoJsonPropertyNames<AdminRuntimeCatalogResponseDto>("cdcAlignment", "environment", "runtimes", "warmupProfiles", "capabilities");
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilitiesResponseDto>("cdcAlignment", "environment", "items", "warmupResults");
+        AssertDtoJsonPropertyNames<AdminRuntimeRequalifyResponseDto>("cdcAlignment", "environment", "profileKey", "items", "warmupResults");
+        AssertDtoJsonPropertyNames<AdminRuntimeReconcileStaleResponseDto>("cdcAlignment", "environment", "updatedCount", "items");
+        AssertDtoJsonPropertyNames<AdminRuntimeWarmupResultsResponseDto>("cdcAlignment", "environment", "items");
+        AssertDtoJsonPropertyNames<AdminRuntimeEventsResponseDto>("cdcAlignment", "environment", "items");
+        AssertDtoJsonPropertyNames<AdminRuntimeDiagnosticsResponseDto>("cdcAlignment", "environment", "generatedAt", "summary", "items");
+        AssertDtoJsonPropertyNames<AdminRuntimeRetrievalKpisResponseDto>("cdcAlignment", "environment", "generatedAt", "policy", "metrics", "alerts", "dashboardPanels");
+        AssertDtoJsonPropertyNames<AdminRuntimeOperationalSummaryResponseDto>("cdcAlignment", "environment", "generatedAt", "summary", "items");
+
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityAEnrichmentCandidatesResponseDto>("cdcAlignment", "environment", "capabilityKey", "profileKey", "totalCandidates", "items");
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityAEnrichmentCandidatesArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "capabilityKey", "profileKey", "totalCandidates", "items");
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityACampaignsResponseDto>("cdcAlignment", "environment", "capabilityKey", "items");
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityACampaignsArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "capabilityKey", "items");
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityACampaignDetailResponseDto>("cdcAlignment", "environment", "capabilityKey", "item");
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityACampaignDetailArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "capabilityKey", "item");
+
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityBBackofficeCandidatesResponseDto>("cdcAlignment", "environment", "capabilityKey", "profileKey", "totalCandidates", "items");
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityBBackofficeCandidatesArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "capabilityKey", "profileKey", "totalCandidates", "items");
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityBCampaignsResponseDto>("cdcAlignment", "environment", "capabilityKey", "items");
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityBCampaignsArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "capabilityKey", "items");
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityBCampaignDetailResponseDto>("cdcAlignment", "environment", "capabilityKey", "item");
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityBCampaignDetailArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "capabilityKey", "item");
+
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityAEnqueueResponseDto>("cdcAlignment", "environment", "capabilityKey", "campaignId", "dryRun", "allowUnsafeCandidates", "candidateCount", "plannedCount", "queuedCount", "skippedCount", "reasonCounts", "items");
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityBEnqueueResponseDto>("cdcAlignment", "environment", "capabilityKey", "campaignId", "dryRun", "force", "candidateCount", "plannedCount", "queuedCount", "skippedCount", "reasonCounts", "items");
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityBClaimResponseDto>("cdcAlignment", "environment", "capabilityKey", "jobId", "docId", "docPath", "level", "executionMode", "runtimeCapabilityKey", "runtimeCapabilityStatus", "runtimeProfileKey", "campaignId", "leaseToken", "claimedBy", "claimedAt");
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityBFailResponseDto>("cdcAlignment", "environment", "capabilityKey", "jobId", "docId", "docPath", "level", "campaignId", "leaseToken", "failedBy", "lastError", "status", "failedAt");
+
+        AssertDtoJsonPropertyNames<AdminRuntimeRuntimeCatalogArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "runtimes", "warmupProfiles", "capabilities");
+        AssertDtoJsonPropertyNames<AdminRuntimeModelCatalogArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "items");
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityStateArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "items");
+        AssertDtoJsonPropertyNames<AdminRuntimeWarmupProfilesArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "items");
+        AssertDtoJsonPropertyNames<AdminRuntimeWarmupResultsArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "items");
+        AssertDtoJsonPropertyNames<AdminRuntimeEventsArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "items");
+        AssertDtoJsonPropertyNames<AdminRuntimeDiagnosticsArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "summary", "items");
+        AssertDtoJsonPropertyNames<AdminRuntimeRetrievalKpisArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "policy", "metrics", "alerts", "dashboardPanels");
+        AssertDtoJsonPropertyNames<AdminRuntimeOperationalSummaryArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "summary", "items");
+    }
+
+    [Fact]
+    public async Task AdminRuntime_core_endpoints_and_artifacts_preserve_expected_top_level_json_shape()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        await RuntimeGovernanceCommandService.RequalifyAsync(
+            ds,
+            new RuntimeGovernanceHttpClientFactory(),
+            new RuntimeGovernanceOptions(),
+            CreateRagOptions(),
+            new StubHostEnvironment(),
+            new AdminRuntimeRequalifyRequestDto(CapabilityKey: "core.retrieval"),
+            CancellationToken.None);
+
+        var catalogCtx = BuildAdminContext();
+        var catalogResult = await AdminRuntimeEndpoints.CatalogAsync(
+            catalogCtx,
+            Options.Create(new RuntimeGovernanceOptions()),
+            Options.Create(CreateRagOptions()),
+            new StubHostEnvironment());
+        await AssertTopLevelJsonContractAsync(catalogResult, catalogCtx, "cdcAlignment", "environment", "runtimes", "warmupProfiles", "capabilities");
+
+        var capabilitiesCtx = BuildAdminContext();
+        var capabilitiesResult = await AdminRuntimeEndpoints.CapabilitiesAsync(
+            capabilitiesCtx,
+            ds,
+            Options.Create(new RuntimeGovernanceOptions()),
+            Options.Create(CreateRagOptions()),
+            new StubHostEnvironment());
+        await AssertTopLevelJsonContractAsync(capabilitiesResult, capabilitiesCtx, "cdcAlignment", "environment", "items", "warmupResults");
+
+        var diagnosticsCtx = BuildAdminContext();
+        var diagnosticsResult = await AdminRuntimeEndpoints.DiagnosticsAsync(
+            diagnosticsCtx,
+            ds,
+            Options.Create(new RuntimeGovernanceOptions()),
+            Options.Create(CreateRagOptions()),
+            new StubHostEnvironment());
+        await AssertTopLevelJsonContractAsync(diagnosticsResult, diagnosticsCtx, "cdcAlignment", "environment", "generatedAt", "summary", "items");
+
+        var retrievalKpisCtx = BuildAdminContext();
+        var retrievalKpisResult = await AdminRuntimeEndpoints.RetrievalKpisAsync(
+            retrievalKpisCtx,
+            new StubHostEnvironment(),
+            Options.Create(new RuntimeGovernanceOptions()));
+        await AssertTopLevelJsonContractAsync(retrievalKpisResult, retrievalKpisCtx, "cdcAlignment", "environment", "generatedAt", "policy", "metrics", "alerts", "dashboardPanels");
+
+        var operationalCtx = BuildAdminContext();
+        var operationalResult = await AdminRuntimeEndpoints.OperationalSummaryAsync(
+            operationalCtx,
+            ds,
+            Options.Create(new RuntimeGovernanceOptions()),
+            Options.Create(CreateRagOptions()),
+            new StubHostEnvironment());
+        await AssertTopLevelJsonContractAsync(operationalResult, operationalCtx, "cdcAlignment", "environment", "generatedAt", "summary", "items");
+
+        var eventsCtx = BuildAdminContext();
+        var eventsResult = await AdminRuntimeEndpoints.EventsAsync(
+            eventsCtx,
+            ds,
+            new StubHostEnvironment(),
+            capabilityKey: null,
+            limit: 20);
+        await AssertTopLevelJsonContractAsync(eventsResult, eventsCtx, "cdcAlignment", "environment", "items");
+
+        var warmupCtx = BuildAdminContext();
+        var warmupResult = await AdminRuntimeEndpoints.WarmupResultsAsync(
+            warmupCtx,
+            ds,
+            new StubHostEnvironment(),
+            capabilityKey: null,
+            limit: 20);
+        await AssertTopLevelJsonContractAsync(warmupResult, warmupCtx, "cdcAlignment", "environment", "items");
+
+        var runtimeCatalogArtifactCtx = BuildAdminContext();
+        var runtimeCatalogArtifactResult = await AdminRuntimeEndpoints.RuntimeCatalogArtifactAsync(
+            runtimeCatalogArtifactCtx,
+            Options.Create(new RuntimeGovernanceOptions()),
+            Options.Create(CreateRagOptions()),
+            new StubHostEnvironment());
+        await AssertTopLevelJsonContractAsync(runtimeCatalogArtifactResult, runtimeCatalogArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "runtimes", "warmupProfiles", "capabilities");
+
+        var modelCatalogArtifactCtx = BuildAdminContext();
+        var modelCatalogArtifactResult = await AdminRuntimeEndpoints.ModelCatalogArtifactAsync(
+            modelCatalogArtifactCtx,
+            Options.Create(new RuntimeGovernanceOptions()),
+            Options.Create(CreateRagOptions()),
+            new StubHostEnvironment());
+        await AssertTopLevelJsonContractAsync(modelCatalogArtifactResult, modelCatalogArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "items");
+
+        var warmupProfilesArtifactCtx = BuildAdminContext();
+        var warmupProfilesArtifactResult = await AdminRuntimeEndpoints.WarmupProfilesArtifactAsync(
+            warmupProfilesArtifactCtx,
+            Options.Create(new RuntimeGovernanceOptions()),
+            new StubHostEnvironment());
+        await AssertTopLevelJsonContractAsync(warmupProfilesArtifactResult, warmupProfilesArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "items");
+
+        var capabilityStateArtifactCtx = BuildAdminContext();
+        var capabilityStateArtifactResult = await AdminRuntimeEndpoints.CapabilityStateArtifactAsync(
+            capabilityStateArtifactCtx,
+            ds,
+            Options.Create(new RuntimeGovernanceOptions()),
+            Options.Create(CreateRagOptions()),
+            new StubHostEnvironment());
+        await AssertTopLevelJsonContractAsync(capabilityStateArtifactResult, capabilityStateArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "items");
+
+        var warmupArtifactCtx = BuildAdminContext();
+        var warmupArtifactResult = await AdminRuntimeEndpoints.WarmupResultsArtifactAsync(
+            warmupArtifactCtx,
+            ds,
+            new StubHostEnvironment(),
+            capabilityKey: null,
+            limit: 20);
+        await AssertTopLevelJsonContractAsync(warmupArtifactResult, warmupArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "items");
+
+        var eventsArtifactCtx = BuildAdminContext();
+        var eventsArtifactResult = await AdminRuntimeEndpoints.EventsArtifactAsync(
+            eventsArtifactCtx,
+            ds,
+            new StubHostEnvironment(),
+            capabilityKey: null,
+            limit: 20);
+        await AssertTopLevelJsonContractAsync(eventsArtifactResult, eventsArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "items");
+
+        var diagnosticsArtifactCtx = BuildAdminContext();
+        var diagnosticsArtifactResult = await AdminRuntimeEndpoints.DiagnosticsArtifactAsync(
+            diagnosticsArtifactCtx,
+            ds,
+            Options.Create(new RuntimeGovernanceOptions()),
+            Options.Create(CreateRagOptions()),
+            new StubHostEnvironment());
+        await AssertTopLevelJsonContractAsync(diagnosticsArtifactResult, diagnosticsArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "summary", "items");
+
+        var retrievalKpisArtifactCtx = BuildAdminContext();
+        var retrievalKpisArtifactResult = await AdminRuntimeEndpoints.RetrievalKpisArtifactAsync(
+            retrievalKpisArtifactCtx,
+            new StubHostEnvironment(),
+            Options.Create(new RuntimeGovernanceOptions()));
+        await AssertTopLevelJsonContractAsync(retrievalKpisArtifactResult, retrievalKpisArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "policy", "metrics", "alerts", "dashboardPanels");
+
+        var operationalArtifactCtx = BuildAdminContext();
+        var operationalArtifactResult = await AdminRuntimeEndpoints.OperationalSummaryArtifactAsync(
+            operationalArtifactCtx,
+            ds,
+            Options.Create(new RuntimeGovernanceOptions()),
+            Options.Create(CreateRagOptions()),
+            new StubHostEnvironment());
+        await AssertTopLevelJsonContractAsync(operationalArtifactResult, operationalArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "summary", "items");
     }
 
     [Fact]
@@ -2102,6 +2350,40 @@ WHERE tenant_id=@tenant
         return await JsonDocument.ParseAsync(ctx.Response.Body);
     }
 
+    private static void AssertDtoJsonPropertyNames<T>(params string[] expected)
+    {
+        var actual = typeof(T)
+            .GetProperties()
+            .Select(static property => JsonNamingPolicy.CamelCase.ConvertName(property.Name))
+            .OrderBy(static name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        var expectedOrdered = expected
+            .OrderBy(static name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(expectedOrdered, actual);
+    }
+
+    private static async Task AssertTopLevelJsonContractAsync(IResult result, DefaultHttpContext ctx, params string[] expected)
+    {
+        using var json = await ExecuteAnonymousAsync(result, ctx);
+        var actual = json.RootElement
+            .EnumerateObject()
+            .Select(static property => property.Name)
+            .OrderBy(static name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        var expectedOrdered = expected
+            .OrderBy(static name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(expectedOrdered, actual);
+    }
+
+    private static CapabilityAHypotheticalQuestionService CreateCapabilityAQuestionService()
+        => new(new LocalLlmChatClient(new RuntimeGovernanceHttpClientFactory(), new ChatOptions()));
+
     private sealed class RuntimeGovernanceHttpClientFactory : IHttpClientFactory
     {
         public HttpClient CreateClient(string name)
@@ -2111,6 +2393,7 @@ WHERE tenant_id=@tenant
                 {
                     "qdrant" => new Uri("http://qdrant.test/"),
                     "tei" => new Uri("http://tei.test/"),
+                    "llm" => new Uri("http://llm.test/"),
                     _ => new Uri("http://stub.test/")
                 }
             };
@@ -2125,6 +2408,7 @@ WHERE tenant_id=@tenant
                 {
                     "qdrant" => new Uri("http://qdrant.test/"),
                     "tei" => new Uri("http://tei.test/"),
+                    "llm" => new Uri("http://llm.test/"),
                     _ => new Uri("http://stub.test/")
                 }
             };
@@ -2164,6 +2448,21 @@ WHERE tenant_id=@tenant
                   "results": [
                     { "index": 0, "score": 0.9 },
                     { "index": 1, "score": 0.8 }
+                  ]
+                }
+                """);
+            }
+
+            if (path.EndsWith("/v1/chat/completions", StringComparison.OrdinalIgnoreCase))
+            {
+                return JsonResponse("""
+                {
+                  "choices": [
+                    {
+                      "message": {
+                        "content": "{\"questions\":[\"How should operators apply the Control Loop Overview in IND570?\",\"When should the IND570 PLC integration guidance be retrieved?\"]}"
+                      }
+                    }
                   ]
                 }
                 """);

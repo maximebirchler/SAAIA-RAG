@@ -35,7 +35,7 @@
 | Capacite A | ~ v1 solide | Enrichissement deterministe reel, sans LLM |
 | Capacite B | ~ v1 gouvernee | Worker reel, routing gouverne, generation non-LLM |
 | Capacite C | N/A | Absente par design |
-| Tests | ✅ 477 passent | 23 fichiers ; 3 surfaces sans test (voir P2) |
+| Tests | 297 backend passent | Baseline runtime + surfaces backend critiques couvertes |
 | Migrations SQL | ~ 28 fichiers | ⚠️ Doublons 004 et 008 (voir P1) |
 | `RuntimeGovernanceService` | ✅ 112 lignes non vides | Ancien monolithe reduit a des helpers transverses ; commandes et lectures extraites |
 
@@ -73,7 +73,7 @@
 
 ### 1.2 hypQuestionsMatched non branche
 - [x] Brancher `hypQuestionsMatched` dans la reponse `/rag/search` via `RagItemDto` et son pipeline de mapping
-- [ ] Verifier que la population se fait seulement quand les questions hypothetique A existent reellement pour l’item
+- [x] Verifier que la population se fait seulement quand les questions hypothetique A existent reellement pour l’item — satisfait : `ResolveHypQuestionsMatched()` retourne `null` si `hypotheticalQuestions.Count == 0`
 - **Fichiers concernes :** `RagEndpoints.cs`, `RagSearchDto.cs`, `RuntimeGovernanceService.cs`
 
 ### 1.3 Tests Sprint 1
@@ -120,15 +120,15 @@
 - [x] Creer `RuntimeCapabilityAEnrichmentCommandService` — enqueue A extrait
 - [x] Creer `RuntimeCapabilityBBackofficeCommandService` — enqueue B extrait
 - [x] Creer `RuntimeCapabilityBExecutionCommandService` — claim, complete, fail et completion summary B extraits
-- [~] Creer `RuntimeDiagnosticsService` — diagnostics principaux extraits dans `RuntimeCapabilityDiagnosticsBuilder` + exposes via `RuntimeGovernanceReadService`, service injectable encore a finaliser si besoin
+- [x] Creer `RuntimeDiagnosticsService` — service injectable ajoute ; endpoints runtime branches dessus, wrappers de compatibilite conserves
 - [~] Isoler les helpers de mapping / serialisation / artefacts dans des composants dedies — `RuntimeGovernanceJson`, `RuntimeGovernanceGateModels` et helper async read-only deplace dans `RuntimeGovernanceReadService`
-- [~] Conserver les contrats HTTP et JSON inchanges pendant le refactor — valide sur les slices testees, a maintenir sur les prochains decoupages
+- [x] Conserver les contrats HTTP et JSON inchanges pendant le refactor - baseline DTO + JSON top-level ajoutee sur les endpoints et artefacts runtime
 - **Fichier source :** `RuntimeGovernance/RuntimeGovernanceService.cs` (112 lignes non vides / 121 physiques) + `RuntimeGovernance/RuntimeGovernanceCommandService.cs` (108 / 117) + `RuntimeGovernance/RuntimeGovernanceCatalogService.cs` (90 / 97) + `RuntimeGovernance/RuntimeGovernanceReadService.cs` (294 / 313) + `RuntimeGovernance/RuntimeCapabilityAdminReadService.cs` (523 / 551) + `RuntimeGovernance/RuntimeCapabilityAEnrichmentCommandService.cs` (116 / 124) + `RuntimeGovernance/RuntimeCapabilityBBackofficeCommandService.cs` (204 / 223) + `RuntimeGovernance/RuntimeCapabilityBExecutionCommandService.cs` (160 / 172)
 
 ### 3.2 Validation Sprint 3
 - [x] Verifier que tous les tests backend passent apres refactor
-- [ ] Verifier qu’aucun artefact runtime JSON ne change involontairement
-- [ ] Verifier que les endpoints admin runtime gardent les memes contrats
+- [x] Verifier qu'aucun artefact runtime JSON ne change involontairement - baseline top-level ajoutee sur les artefacts runtime
+- [x] Verifier que les endpoints admin runtime gardent les memes contrats — baseline DTO + serialization JSON ajoutee
 - [x] Rejouer les tests telemetry runtime governance
 - [x] Verifier que les routes A/B conservent le meme comportement fonctionnel via la suite backend
 
@@ -137,7 +137,7 @@
 ## Sprint 4 — Capacite A LLM (environ 20-25h)
 
 ### 4.1 Remplacer l'enrichissement deterministe par un appel LLM
-- [ ] Remplacer `BuildCapabilityAHypotheticalQuestions()` par un appel LLM reel (questions hypothetiques HyPE)
+- [~] Remplacer `BuildCapabilityAHypotheticalQuestions()` par un appel LLM reel (questions hypothetiques HyPE) - generation LLM locale ajoutee pour les candidats/campagnes A avec fallback deterministe ; `/rag/search` consomme aussi le service via DI quand disponible, mais le coeur legacy/fallback reste present
 - [ ] Evaluer si `BuildCapabilityASuggestedTags()` doit aussi passer en LLM ou rester deterministe
 - [ ] Ajouter scoring qualite par chunk (signal de confiance, densite semantique)
 - [ ] Garder un fallback deterministe si le runtime A est indisponible mais la capacite reste installee
@@ -207,24 +207,24 @@
 - [ ] Voir Sprint 3 ci-dessus
 
 ### RotateAsync sans transaction explicite
-- [ ] Wrapper `RotateKeyAsync()` dans une transaction PostgreSQL (`BeginTransactionAsync`)
-- [ ] Passer `transaction: tx` aux deux `CommandDefinition` (revoke + insert)
-- [ ] Ajouter un test du cas de defaillance entre les deux operations
+- [x] Wrapper RotateKeyAsync() dans une transaction PostgreSQL (BeginTransactionAsync)
+- [x] Passer transaction: tx aux deux CommandDefinition (revoke + insert)
+- [x] Ajouter un test du cas de defaillance entre les deux operations
 - **Fichier source :** `Endpoints/AdminKeysEndpoints.cs`
 - **Risque :** si crash entre revoke et create, ancienne cle revoquee et nouvelle absente
 
 ### Surfaces sans tests automatises
-- [ ] `ChatStoreEndpoints.cs` — 12 routes (sessions, messages, tracking, aliases CDC v2.7)
-- [ ] `AdminKeysEndpoints.cs` — 4 routes ; priorite sur le cas de rotation
-- [ ] `AdminAuditEndpoints.cs` — 2 routes
+- [x] ChatStoreEndpoints.cs - sessions, messages, alias CDC et tracking live/fallback couverts
+- [x] AdminKeysEndpoints.cs - 4 routes ; create/list/rotate et rollback de rotation couverts
+- [x] AdminAuditEndpoints.cs - 2 routes ; list/get couverts via les evenements de cles admin
 
 ### Dualite Provenance string / ProvenanceInfo record
-- [ ] Deprecier le champ `Provenance` (string, backward-compat) quand le client sera pret
+- [x] Deprecier le champ `Provenance` (string, backward-compat) - champ marque obsolete + EditorBrowsable(Never), `ProvenanceInfo` devient la forme canonique
 - **Fichier source :** `Models/RagSearchDto.cs`
 
 ### KPI CDC non publies
-- [ ] Definir des seuils CDC sur `zero_result rate` et P95 de duree retrieval
-- [ ] Documenter comment exploiter les metriques en exploitation (Grafana, alertes)
+- [x] Definir des seuils CDC sur `zero_result rate` et P95 de duree retrieval - endpoint/artifact `retrieval-kpis` ajoute avec cibles CDC v3.0
+- [x] Documenter comment exploiter les metriques en exploitation (Grafana, alertes) - guide OTel/Grafana/alerting publie via `retrieval-kpis`
 
 ---
 
@@ -258,7 +258,17 @@
 | 2026-04-21 | Codex | Sprint 3 refactor runtime : `RuntimeCapabilityGateService` extrait (hard gates + gate capability ready) ; service principal a 1 598 lignes. |
 | 2026-04-21 | Codex | Sprint 3 refactor runtime : `RuntimeGovernanceGateModels` extrait ; le warmup evaluator ne depend plus des types imbriques du service principal, descendu a 1 555 lignes. |
 | 2026-04-21 | Codex | Sprint 3 refactor runtime : `RuntimeGovernanceReadService` extrait (capabilities, diagnostics, operational summary, warmup results, events, artefacts read-only) ; service principal descendu a 1 272 lignes. |
+| 2026-04-21 | Codex | Sprint 4 Cap A : `ChatOptions` + client LLM local + `CapabilityAHypotheticalQuestionService` ajoutes ; generation des questions hypothetique A branchee sur LLM avec fallback deterministe et tests dedies. |
+| 2026-04-21 | Codex | Sprint 4 Cap A : `/rag/search` branche le recalcul `hypQuestionsMatched` sur `CapabilityAHypotheticalQuestionService` via `RequestServices` quand present ; test d'integration ajoute sur la voie DI/LLM. |
 | 2026-04-21 | Codex | Sprint 3 refactor runtime : `RuntimeCapabilityAdminReadService` extrait (candidats/campagnes/artefacts A/B read-only) ; service principal descendu a 760 lignes non vides. |
 | 2026-04-21 | Codex | Sprint 3 refactor runtime : `RuntimeGovernanceCatalogService` extrait (catalog runtime + artefacts catalog/model/warmup profiles) ; service principal descendu a 679 lignes non vides. |
 | 2026-04-21 | Codex | Sprint 3 refactor runtime : `RuntimeGovernanceCommandService` extrait (requalify, reconcile stale, selection) ; service principal descendu a 580 lignes non vides. |
 | 2026-04-21 | Codex | Sprint 3 refactor runtime : commandes A/B extraites (`RuntimeCapabilityAEnrichmentCommandService`, `RuntimeCapabilityBBackofficeCommandService`, `RuntimeCapabilityBExecutionCommandService`) ; service principal descendu a 112 lignes non vides. |
+| 2026-04-21 | Codex | Sprint 3.2 : baseline de contrat runtime ajoutee dans `AdminRuntimeEndpointsTests` (DTO + payloads JSON top-level) ; 287 tests backend verts, Sprint 3 clos. |
+| 2026-04-21 | Codex | Rotation de cles admin transactionnalisee (RotateKeyAsync) + couverture AdminKeys/AdminAudit ; rollback sur echec d'audit verifie, suite backend a 290 tests verts. |
+| 2026-04-21 | Codex | Couverture `ChatStoreEndpoints` ajoutee (sessions, messages, alias CDC, tracking live et fallback) ; suite backend a 294 tests verts. |
+| 2026-04-21 | Codex | `RuntimeDiagnosticsService` injectable ajoute et branche sur les endpoints admin runtime ; wrappers de compatibilite conserves, suite backend toujours verte. |
+| 2026-04-21 | Codex | KPI retrieval CDC publies via `GET /admin/runtime/retrieval-kpis` + artefact `retrieval-kpis.json` (seuils P95/zero-result, metriques OTel, alertes, panneaux Grafana) ; suite backend a 296 tests verts. |
+| 2026-04-21 | Codex | `RagItemDto.Provenance` deprecie formellement (Obsolete + EditorBrowsable(Never)) ; `ProvenanceInfo` confirme comme forme canonique, suite backend a 297 tests verts. |
+| 2026-04-21 | Codex | Sprint 5 Cap B : `CapabilityBBackofficeSummaryService` ajoute avec generation LLM locale + fallback deterministe explicite ; `CapabilityBBackofficeWorker` bascule sur le service par DI quand disponible. |
+| 2026-04-21 | Codex | Sprint 5 Cap B : tests dedies ajoutes pour le service de synthese B et pour la persistance/completion d'un job `capability_b` en mode LLM ; suite backend a 303 tests verts. |

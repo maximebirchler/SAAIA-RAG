@@ -145,6 +145,7 @@ WHERE tenant_id=@tenant
         var tenantId = ctx.GetTenantId();
 
         await using var conn = await ds.OpenConnectionAsync(ct);
+        await using var tx = await conn.BeginTransactionAsync(ct);
 
         const string getSql = @"
 SELECT label AS ""Label"", is_admin AS ""IsAdmin""
@@ -153,7 +154,7 @@ WHERE tenant_id=@tenant AND api_key_id=@id
 LIMIT 1;";
 
         var existing = await conn.QueryFirstOrDefaultAsync<ExistingKey>(
-            new CommandDefinition(getSql, new { tenant = tenantId, id = apiKeyId }, cancellationToken: ct));
+            new CommandDefinition(getSql, new { tenant = tenantId, id = apiKeyId }, transaction: tx, cancellationToken: ct));
 
         if (existing is null)
             return Results.NotFound(new { error = "api key not found" });
@@ -163,7 +164,7 @@ LIMIT 1;";
 UPDATE api_keys
 SET revoked_at=now()
 WHERE tenant_id=@tenant AND api_key_id=@id AND revoked_at IS NULL;";
-        await conn.ExecuteAsync(new CommandDefinition(revokeSql, new { tenant = tenantId, id = apiKeyId }, cancellationToken: ct));
+        await conn.ExecuteAsync(new CommandDefinition(revokeSql, new { tenant = tenantId, id = apiKeyId }, transaction: tx, cancellationToken: ct));
 
         // Create new
         var newPlain = ApiKeyGenerator.Generate();
@@ -183,7 +184,7 @@ VALUES (@id, @tenant, @prefix, @hash, @label, @is_admin, now(), NULL, NULL);";
             hash,
             label = existing.Label,
             is_admin = existing.IsAdmin
-        }, cancellationToken: ct));
+        }, transaction: tx, cancellationToken: ct));
 
         await AuditWriter.WriteAsync(
             conn,
@@ -194,8 +195,11 @@ VALUES (@id, @tenant, @prefix, @hash, @label, @is_admin, now(), NULL, NULL);";
             apiKeyId.ToString(),
             new { newApiKeyId = newId },
             ctx.Connection.RemoteIpAddress?.ToString(),
-            ct
+            ct,
+            tx
         );
+
+        await tx.CommitAsync(ct);
 
         return Results.Ok(new
         {

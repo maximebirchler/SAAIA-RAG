@@ -12,13 +12,6 @@ internal static class RuntimeGovernanceReadService
     private const string WarmupResultsArtifact = "warmup_results.json";
     private const string EventsArtifact = "runtime_events";
     private const string EventsJsonArtifact = "runtime_events.json";
-    private const string DiagnosticsArtifact = "runtime_diagnostics";
-    private const string DiagnosticsJsonArtifact = "diagnostics.json";
-    private const string OperationalSummaryArtifact = "runtime_operational_summary";
-    private const string OperationalSummaryJsonArtifact = "operational_summary.json";
-    private const string CapabilityACorpusEnrichmentKey = "capability_a.corpus_enrichment";
-    private const string CapabilityBBackofficeGenerationKey = "capability_b.backoffice_generation";
-
     internal static async Task<AdminRuntimeCapabilitiesResponseDto> GetCapabilitiesAsync(
         NpgsqlDataSource ds,
         RuntimeGovernanceOptions options,
@@ -53,65 +46,7 @@ internal static class RuntimeGovernanceReadService
         RagOptions rag,
         IHostEnvironment env,
         CancellationToken ct)
-    {
-        using var activity = RuntimeGovernanceTelemetry.StartArtifactReadActivity(DiagnosticsArtifact);
-        var sw = Stopwatch.StartNew();
-        try
-        {
-            await using var conn = await ds.OpenConnectionAsync(ct);
-            var persisted = await RuntimeCapabilityStateStore.LoadPersistedStatesAsync(conn, ct);
-            var capabilityAOperationalSummary = await RuntimeCapabilityDiagnosticsBuilder.LoadCapabilityAOperationalSummaryAsync(
-                conn,
-                tenantId,
-                CapabilityACorpusEnrichmentKey,
-                ct);
-            var capabilityBCandidates = await RuntimeCapabilityBBackofficeStore.LoadCandidatesForDiagnosticsAsync(
-                conn,
-                options,
-                ct);
-            var capabilityBOperationalSummary = await RuntimeCapabilityDiagnosticsBuilder.LoadCapabilityBOperationalSummaryAsync(
-                conn,
-                CapabilityBBackofficeGenerationKey,
-                capabilityBCandidates,
-                ct);
-            var items = RuntimeCapabilityRegistry.Definitions
-                .Select(def => RuntimeCapabilityStateResolver.ResolveState(
-                    def,
-                    persisted.TryGetValue(def.Key, out var row) ? row : null,
-                    options,
-                    rag))
-                .Select(state => RuntimeCapabilityDiagnosticsBuilder.BuildCapabilityDiagnostic(
-                    state,
-                    CapabilityACorpusEnrichmentKey,
-                    CapabilityBBackofficeGenerationKey,
-                    string.Equals(state.Key, CapabilityACorpusEnrichmentKey, StringComparison.Ordinal)
-                        ? capabilityAOperationalSummary
-                        : string.Equals(state.Key, CapabilityBBackofficeGenerationKey, StringComparison.Ordinal)
-                            ? capabilityBOperationalSummary
-                            : null))
-                .ToArray();
-            var summary = RuntimeCapabilityDiagnosticsBuilder.BuildDiagnosticsSummary(
-                items,
-                CapabilityACorpusEnrichmentKey,
-                CapabilityBBackofficeGenerationKey);
-
-            sw.Stop();
-            RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, DiagnosticsArtifact, success: true, durationMs: sw.ElapsedMilliseconds);
-            return new AdminRuntimeDiagnosticsResponseDto(
-                CdcAlignment,
-                env.EnvironmentName,
-                DateTimeOffset.UtcNow,
-                summary,
-                items);
-        }
-        catch (Exception ex)
-        {
-            sw.Stop();
-            RuntimeGovernanceTelemetry.MarkError(activity, ex);
-            RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, DiagnosticsArtifact, success: false, durationMs: sw.ElapsedMilliseconds);
-            throw;
-        }
-    }
+        => await new RuntimeDiagnosticsService(ds, env).GetDiagnosticsAsync(tenantId, options, rag, ct);
 
     internal static async Task<AdminRuntimeDiagnosticsArtifactDto> GetDiagnosticsArtifactAsync(
         Guid tenantId,
@@ -120,19 +55,7 @@ internal static class RuntimeGovernanceReadService
         RagOptions rag,
         IHostEnvironment env,
         CancellationToken ct)
-        => await ExecuteArtifactReadAsync(
-            DiagnosticsJsonArtifact,
-            async () =>
-            {
-                var diagnostics = await GetDiagnosticsAsync(tenantId, ds, options, rag, env, ct);
-                return new AdminRuntimeDiagnosticsArtifactDto(
-                    DiagnosticsJsonArtifact,
-                    diagnostics.CdcAlignment,
-                    diagnostics.Environment,
-                    diagnostics.GeneratedAt,
-                    diagnostics.Summary,
-                    diagnostics.Items);
-            });
+        => await new RuntimeDiagnosticsService(ds, env).GetDiagnosticsArtifactAsync(tenantId, options, rag, ct);
 
     internal static async Task<AdminRuntimeOperationalSummaryResponseDto> GetOperationalSummaryAsync(
         Guid tenantId,
@@ -141,39 +64,7 @@ internal static class RuntimeGovernanceReadService
         RagOptions rag,
         IHostEnvironment env,
         CancellationToken ct)
-    {
-        using var activity = RuntimeGovernanceTelemetry.StartArtifactReadActivity(OperationalSummaryArtifact);
-        var sw = Stopwatch.StartNew();
-        try
-        {
-            var diagnostics = await GetDiagnosticsAsync(tenantId, ds, options, rag, env, ct);
-            var summary = diagnostics.Summary.Operational ?? new AdminRuntimeDiagnosticsOperationalSummaryDto(
-                CapabilityACandidateCount: 0,
-                CapabilityAReadyToEnqueueCount: 0,
-                CapabilityAOffsetBackfillCandidateCount: 0,
-                CapabilityBBacklogCount: 0,
-                CapabilityBReadyToEnqueueCount: 0,
-                CapabilityBActiveJobCount: 0,
-                CapabilityBLatestCampaignProgressPercent: null);
-            var items = RuntimeCapabilityDiagnosticsBuilder.BuildOperationalItems(diagnostics.Items);
-
-            sw.Stop();
-            RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, OperationalSummaryArtifact, success: true, durationMs: sw.ElapsedMilliseconds);
-            return new AdminRuntimeOperationalSummaryResponseDto(
-                diagnostics.CdcAlignment,
-                diagnostics.Environment,
-                diagnostics.GeneratedAt,
-                summary,
-                items);
-        }
-        catch (Exception ex)
-        {
-            sw.Stop();
-            RuntimeGovernanceTelemetry.MarkError(activity, ex);
-            RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, OperationalSummaryArtifact, success: false, durationMs: sw.ElapsedMilliseconds);
-            throw;
-        }
-    }
+        => await new RuntimeDiagnosticsService(ds, env).GetOperationalSummaryAsync(tenantId, options, rag, ct);
 
     internal static async Task<AdminRuntimeOperationalSummaryArtifactDto> GetOperationalSummaryArtifactAsync(
         Guid tenantId,
@@ -182,19 +73,7 @@ internal static class RuntimeGovernanceReadService
         RagOptions rag,
         IHostEnvironment env,
         CancellationToken ct)
-        => await ExecuteArtifactReadAsync(
-            OperationalSummaryJsonArtifact,
-            async () =>
-            {
-                var operational = await GetOperationalSummaryAsync(tenantId, ds, options, rag, env, ct);
-                return new AdminRuntimeOperationalSummaryArtifactDto(
-                    OperationalSummaryJsonArtifact,
-                    operational.CdcAlignment,
-                    operational.Environment,
-                    operational.GeneratedAt,
-                    operational.Summary,
-                    operational.Items);
-            });
+        => await new RuntimeDiagnosticsService(ds, env).GetOperationalSummaryArtifactAsync(tenantId, options, rag, ct);
 
     internal static async Task<AdminRuntimeCapabilityStateArtifactDto> GetCapabilityStateArtifactAsync(
         NpgsqlDataSource ds,

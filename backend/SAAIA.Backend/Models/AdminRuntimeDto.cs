@@ -482,6 +482,52 @@ public sealed record AdminRuntimeOperationalSummaryArtifactDto(
     IReadOnlyList<AdminRuntimeOperationalCapabilitySummaryDto> Items
 );
 
+public sealed record AdminRuntimeRetrievalKpisResponseDto(
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    AdminRuntimeRetrievalKpiPolicyDto Policy,
+    IReadOnlyList<AdminRuntimeMetricDefinitionDto> Metrics,
+    IReadOnlyList<AdminRuntimeAlertDefinitionDto> Alerts,
+    IReadOnlyList<string> DashboardPanels
+);
+
+public sealed record AdminRuntimeRetrievalKpisArtifactDto(
+    string Artifact,
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    AdminRuntimeRetrievalKpiPolicyDto Policy,
+    IReadOnlyList<AdminRuntimeMetricDefinitionDto> Metrics,
+    IReadOnlyList<AdminRuntimeAlertDefinitionDto> Alerts,
+    IReadOnlyList<string> DashboardPanels
+);
+
+public sealed record AdminRuntimeRetrievalKpiPolicyDto(
+    int ObservationWindowMinutes,
+    double RetrievalP95TargetMs,
+    double RerankP95TargetMs,
+    double ZeroResultRateTargetPercent,
+    string ZeroResultRateFormula,
+    string Notes
+);
+
+public sealed record AdminRuntimeMetricDefinitionDto(
+    string Key,
+    string Instrument,
+    string Aggregation,
+    string Unit,
+    string Description,
+    IReadOnlyList<string>? Tags = null
+);
+
+public sealed record AdminRuntimeAlertDefinitionDto(
+    string Key,
+    string Severity,
+    string Condition,
+    string RecommendedAction
+);
+
 public sealed record AdminRuntimeDiagnosticsSummaryDto(
     int TotalCapabilities,
     int ImplementedCapabilities,

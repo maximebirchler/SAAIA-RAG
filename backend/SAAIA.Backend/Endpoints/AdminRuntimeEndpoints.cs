@@ -11,8 +11,23 @@ public static class AdminRuntimeEndpoints
     {
         app.MapGet("/admin/runtime/catalog", CatalogAsync);
         app.MapGet("/admin/runtime/capabilities", CapabilitiesAsync);
-        app.MapGet("/admin/runtime/diagnostics", DiagnosticsAsync);
-        app.MapGet("/admin/runtime/operational-summary", OperationalSummaryAsync);
+        app.MapGet("/admin/runtime/diagnostics", (
+            HttpContext ctx,
+            RuntimeDiagnosticsService diagnosticsService,
+            IOptions<RuntimeGovernanceOptions> options,
+            IOptions<RagOptions> ragOptions)
+            => DiagnosticsAsync(ctx, diagnosticsService, options, ragOptions));
+        app.MapGet("/admin/runtime/retrieval-kpis", (
+            HttpContext ctx,
+            RuntimeRetrievalKpiService retrievalKpiService,
+            IOptions<RuntimeGovernanceOptions> options)
+            => RetrievalKpisAsync(ctx, retrievalKpiService, options));
+        app.MapGet("/admin/runtime/operational-summary", (
+            HttpContext ctx,
+            RuntimeDiagnosticsService diagnosticsService,
+            IOptions<RuntimeGovernanceOptions> options,
+            IOptions<RagOptions> ragOptions)
+            => OperationalSummaryAsync(ctx, diagnosticsService, options, ragOptions));
         app.MapGet("/admin/runtime/events", EventsAsync);
         app.MapGet("/admin/runtime/warmup-results", WarmupResultsAsync);
         app.MapGet("/admin/runtime/capabilities/capability_a.corpus_enrichment/candidates", CapabilityAEnrichmentCandidatesAsync);
@@ -30,8 +45,23 @@ public static class AdminRuntimeEndpoints
         app.MapGet("/admin/runtime/artifacts/capability-b-candidates.json", CapabilityBCandidatesArtifactAsync);
         app.MapGet("/admin/runtime/artifacts/capability-b-campaigns.json", CapabilityBCampaignsArtifactAsync);
         app.MapGet("/admin/runtime/artifacts/capability-b-campaigns/{campaignId:guid}.json", CapabilityBCampaignArtifactAsync);
-        app.MapGet("/admin/runtime/artifacts/diagnostics.json", DiagnosticsArtifactAsync);
-        app.MapGet("/admin/runtime/artifacts/operational-summary.json", OperationalSummaryArtifactAsync);
+        app.MapGet("/admin/runtime/artifacts/diagnostics.json", (
+            HttpContext ctx,
+            RuntimeDiagnosticsService diagnosticsService,
+            IOptions<RuntimeGovernanceOptions> options,
+            IOptions<RagOptions> ragOptions)
+            => DiagnosticsArtifactAsync(ctx, diagnosticsService, options, ragOptions));
+        app.MapGet("/admin/runtime/artifacts/retrieval-kpis.json", (
+            HttpContext ctx,
+            RuntimeRetrievalKpiService retrievalKpiService,
+            IOptions<RuntimeGovernanceOptions> options)
+            => RetrievalKpisArtifactAsync(ctx, retrievalKpiService, options));
+        app.MapGet("/admin/runtime/artifacts/operational-summary.json", (
+            HttpContext ctx,
+            RuntimeDiagnosticsService diagnosticsService,
+            IOptions<RuntimeGovernanceOptions> options,
+            IOptions<RagOptions> ragOptions)
+            => OperationalSummaryArtifactAsync(ctx, diagnosticsService, options, ragOptions));
         app.MapGet("/admin/runtime/artifacts/runtime-events.json", EventsArtifactAsync);
         app.MapGet("/admin/runtime/artifacts/runtime-catalog.json", RuntimeCatalogArtifactAsync);
         app.MapGet("/admin/runtime/artifacts/model-catalog.json", ModelCatalogArtifactAsync);
@@ -70,27 +100,57 @@ public static class AdminRuntimeEndpoints
 
     internal static async Task<IResult> DiagnosticsAsync(
         HttpContext ctx,
-        NpgsqlDataSource ds,
+        RuntimeDiagnosticsService diagnosticsService,
         IOptions<RuntimeGovernanceOptions> options,
-        IOptions<RagOptions> ragOptions,
-        IHostEnvironment env)
+        IOptions<RagOptions> ragOptions)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceReadService.GetDiagnosticsAsync(ctx.GetTenantId(), ds, options.Value, ragOptions.Value, env, ctx.RequestAborted);
+        var response = await diagnosticsService.GetDiagnosticsAsync(ctx.GetTenantId(), options.Value, ragOptions.Value, ctx.RequestAborted);
         return Results.Ok(response);
     }
 
-    internal static async Task<IResult> OperationalSummaryAsync(
+    internal static Task<IResult> DiagnosticsAsync(
         HttpContext ctx,
         NpgsqlDataSource ds,
         IOptions<RuntimeGovernanceOptions> options,
         IOptions<RagOptions> ragOptions,
         IHostEnvironment env)
+        => DiagnosticsAsync(ctx, new RuntimeDiagnosticsService(ds, env), options, ragOptions);
+
+    internal static Task<IResult> RetrievalKpisAsync(
+        HttpContext ctx,
+        RuntimeRetrievalKpiService retrievalKpiService,
+        IOptions<RuntimeGovernanceOptions> options)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceReadService.GetOperationalSummaryAsync(ctx.GetTenantId(), ds, options.Value, ragOptions.Value, env, ctx.RequestAborted);
+        var response = retrievalKpiService.GetKpis(options.Value);
+        return Task.FromResult(Results.Ok(response));
+    }
+
+    internal static Task<IResult> RetrievalKpisAsync(
+        HttpContext ctx,
+        IHostEnvironment env,
+        IOptions<RuntimeGovernanceOptions> options)
+        => RetrievalKpisAsync(ctx, new RuntimeRetrievalKpiService(env), options);
+
+    internal static async Task<IResult> OperationalSummaryAsync(
+        HttpContext ctx,
+        RuntimeDiagnosticsService diagnosticsService,
+        IOptions<RuntimeGovernanceOptions> options,
+        IOptions<RagOptions> ragOptions)
+    {
+        AdminAuth.EnsureAdmin(ctx);
+        var response = await diagnosticsService.GetOperationalSummaryAsync(ctx.GetTenantId(), options.Value, ragOptions.Value, ctx.RequestAborted);
         return Results.Ok(response);
     }
+
+    internal static Task<IResult> OperationalSummaryAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        IOptions<RuntimeGovernanceOptions> options,
+        IOptions<RagOptions> ragOptions,
+        IHostEnvironment env)
+        => OperationalSummaryAsync(ctx, new RuntimeDiagnosticsService(ds, env), options, ragOptions);
 
     internal static async Task<IResult> EventsAsync(
         HttpContext ctx,
@@ -111,27 +171,57 @@ public static class AdminRuntimeEndpoints
 
     internal static async Task<IResult> DiagnosticsArtifactAsync(
         HttpContext ctx,
-        NpgsqlDataSource ds,
+        RuntimeDiagnosticsService diagnosticsService,
         IOptions<RuntimeGovernanceOptions> options,
-        IOptions<RagOptions> ragOptions,
-        IHostEnvironment env)
+        IOptions<RagOptions> ragOptions)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceReadService.GetDiagnosticsArtifactAsync(ctx.GetTenantId(), ds, options.Value, ragOptions.Value, env, ctx.RequestAborted);
+        var response = await diagnosticsService.GetDiagnosticsArtifactAsync(ctx.GetTenantId(), options.Value, ragOptions.Value, ctx.RequestAborted);
         return Results.Ok(response);
     }
 
-    internal static async Task<IResult> OperationalSummaryArtifactAsync(
+    internal static Task<IResult> DiagnosticsArtifactAsync(
         HttpContext ctx,
         NpgsqlDataSource ds,
         IOptions<RuntimeGovernanceOptions> options,
         IOptions<RagOptions> ragOptions,
         IHostEnvironment env)
+        => DiagnosticsArtifactAsync(ctx, new RuntimeDiagnosticsService(ds, env), options, ragOptions);
+
+    internal static Task<IResult> RetrievalKpisArtifactAsync(
+        HttpContext ctx,
+        RuntimeRetrievalKpiService retrievalKpiService,
+        IOptions<RuntimeGovernanceOptions> options)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = await RuntimeGovernanceReadService.GetOperationalSummaryArtifactAsync(ctx.GetTenantId(), ds, options.Value, ragOptions.Value, env, ctx.RequestAborted);
+        var response = retrievalKpiService.GetKpisArtifact(options.Value);
+        return Task.FromResult(Results.Ok(response));
+    }
+
+    internal static Task<IResult> RetrievalKpisArtifactAsync(
+        HttpContext ctx,
+        IHostEnvironment env,
+        IOptions<RuntimeGovernanceOptions> options)
+        => RetrievalKpisArtifactAsync(ctx, new RuntimeRetrievalKpiService(env), options);
+
+    internal static async Task<IResult> OperationalSummaryArtifactAsync(
+        HttpContext ctx,
+        RuntimeDiagnosticsService diagnosticsService,
+        IOptions<RuntimeGovernanceOptions> options,
+        IOptions<RagOptions> ragOptions)
+    {
+        AdminAuth.EnsureAdmin(ctx);
+        var response = await diagnosticsService.GetOperationalSummaryArtifactAsync(ctx.GetTenantId(), options.Value, ragOptions.Value, ctx.RequestAborted);
         return Results.Ok(response);
     }
+
+    internal static Task<IResult> OperationalSummaryArtifactAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        IOptions<RuntimeGovernanceOptions> options,
+        IOptions<RagOptions> ragOptions,
+        IHostEnvironment env)
+        => OperationalSummaryArtifactAsync(ctx, new RuntimeDiagnosticsService(ds, env), options, ragOptions);
 
     internal static async Task<IResult> EventsArtifactAsync(
         HttpContext ctx,
@@ -215,6 +305,7 @@ public static class AdminRuntimeEndpoints
         IOptions<RuntimeGovernanceOptions> options,
         IOptions<RagOptions> ragOptions,
         IOptions<IngestionOptions> ingestionOptions,
+        CapabilityAHypotheticalQuestionService hypotheticalQuestionService,
         IHostEnvironment env,
         string? category,
         int? limit)
@@ -226,6 +317,7 @@ public static class AdminRuntimeEndpoints
             options.Value,
             ragOptions.Value,
             ingestionOptions.Value,
+            hypotheticalQuestionService,
             env,
             category,
             limit ?? 50,
@@ -241,6 +333,7 @@ public static class AdminRuntimeEndpoints
         IOptions<RuntimeGovernanceOptions> options,
         IOptions<RagOptions> ragOptions,
         IOptions<IngestionOptions> ingestionOptions,
+        CapabilityAHypotheticalQuestionService hypotheticalQuestionService,
         IHostEnvironment env,
         string? category,
         int? limit)
@@ -252,6 +345,7 @@ public static class AdminRuntimeEndpoints
             options.Value,
             ragOptions.Value,
             ingestionOptions.Value,
+            hypotheticalQuestionService,
             env,
             category,
             limit ?? 50,
@@ -531,6 +625,7 @@ public static class AdminRuntimeEndpoints
         IOptions<RuntimeGovernanceOptions> options,
         IOptions<RagOptions> ragOptions,
         IOptions<IngestionOptions> ingestionOptions,
+        CapabilityAHypotheticalQuestionService hypotheticalQuestionService,
         IHostEnvironment env,
         AdminRuntimeCapabilityAEnqueueRequestDto? req)
     {
@@ -541,6 +636,7 @@ public static class AdminRuntimeEndpoints
             options.Value,
             ragOptions.Value,
             ingestionOptions.Value,
+            hypotheticalQuestionService,
             env,
             req,
             ctx.RequestAborted);

@@ -1,5 +1,8 @@
+using System.ComponentModel;
+using System.Reflection;
 using System.Text.Json;
 using SAAIA.Backend.Endpoints;
+using SAAIA.Backend.Models;
 using Xunit;
 
 namespace SAAIA.Backend.Tests;
@@ -564,6 +567,22 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.Equal(5, info.PageEnd);
         Assert.Equal(120, info.OffsetStart);
         Assert.Equal(133, info.OffsetEnd);
+    }
+
+    [Fact]
+    public void RagItemDto_marks_flat_provenance_as_legacy_backward_compat_field()
+    {
+        var property = typeof(RagItemDto).GetProperty("Provenance", BindingFlags.Instance | BindingFlags.Public);
+
+        Assert.NotNull(property);
+
+        var obsolete = property!.GetCustomAttribute<ObsoleteAttribute>();
+        Assert.NotNull(obsolete);
+        Assert.Contains("Use ProvenanceInfo instead", obsolete!.Message, StringComparison.Ordinal);
+
+        var editorBrowsable = property.GetCustomAttribute<EditorBrowsableAttribute>();
+        Assert.NotNull(editorBrowsable);
+        Assert.Equal(EditorBrowsableState.Never, editorBrowsable!.State);
     }
 
     [Fact]

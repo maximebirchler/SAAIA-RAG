@@ -1,3 +1,5 @@
+using System.ComponentModel;
+
 namespace SAAIA.Backend.Models;
 
 /// <summary>
@@ -71,6 +73,8 @@ public sealed record RagItemDto(
     int? ChunkIndex,
     string Text,
     string? Retriever = null,
+    [property: Obsolete("Use ProvenanceInfo instead. This legacy flat field is retained only for backward compatibility.")]
+    [property: EditorBrowsable(EditorBrowsableState.Never)]
     string? Provenance = null,
     bool? ExactMatchHit = null,
     string? SourceHash = null,
