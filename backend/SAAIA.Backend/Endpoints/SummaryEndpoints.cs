@@ -1171,18 +1171,40 @@ LIMIT 1;
         CancellationToken ct)
     {
         if (!IsBackofficeEnabled(ctx))
-            return new SummaryGenerationExecutionDecision("client_admin", null, "backoffice_disabled", false);
+            return BuildSummaryExecutionDecision("client_admin", null, "backoffice_disabled", false);
 
         var capabilities = await RuntimeGovernanceReadService.GetCapabilitiesAsync(ds, runtimeOptions, ragOptions, env, ct);
         var capabilityB = capabilities.Items.FirstOrDefault(item => string.Equals(item.Key, "capability_b.backoffice_generation", StringComparison.Ordinal));
         if (capabilityB is not null && capabilityB.Selected && capabilityB.Authorized && capabilityB.Qualified && !capabilityB.Stale)
-            return new SummaryGenerationExecutionDecision("server_backoffice", capabilityB.Key, "selected", true);
+        {
+            var runtimeReady = await IsCapabilityBExecutionRuntimeReadyAsync(ctx, ct);
+            if (runtimeReady)
+                return BuildSummaryExecutionDecision("server_backoffice", capabilityB.Key, "selected", true);
 
-        return new SummaryGenerationExecutionDecision(
+            return BuildSummaryExecutionDecision("client_admin", capabilityB.Key, "runtime_unavailable", false);
+        }
+
+        return BuildSummaryExecutionDecision(
             "client_admin",
             capabilityB?.Key,
             capabilityB?.Stale == true ? "stale" : capabilityB?.Qualified == true ? "qualified_not_selected" : "not_ready",
             false);
+    }
+
+    private static async Task<bool> IsCapabilityBExecutionRuntimeReadyAsync(HttpContext ctx, CancellationToken ct)
+    {
+        var httpFactory = ctx.RequestServices.GetService(typeof(IHttpClientFactory)) as IHttpClientFactory;
+        return (await CapabilityBLiveRuntimeProbe.ProbeAsync(httpFactory, ct)).Available;
+    }
+
+    private static SummaryGenerationExecutionDecision BuildSummaryExecutionDecision(
+        string executionMode,
+        string? capabilityKey,
+        string status,
+        bool usesCapabilityB)
+    {
+        RuntimeGovernanceTelemetry.RecordCapabilityBExecutionDecision(executionMode, status, usesCapabilityB);
+        return new SummaryGenerationExecutionDecision(executionMode, capabilityKey, status, usesCapabilityB);
     }
 
     private static object? ParseJsonOrNull(string? raw)

@@ -47,19 +47,25 @@ internal static class RuntimeCapabilityBBackofficeCommandService
                 .Select(path => path.Trim().Replace('\\', '/'))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var hasExplicitSelection = selectedDocIds.Count > 0 || selectedDocPaths.Count > 0;
+            var includeFreshSelectedDocuments = req?.Force == true
+                && hasExplicitSelection;
+            var requestedMaxCandidates = Math.Clamp(req?.MaxCandidates ?? 200, 1, 500);
 
             var candidates = await RuntimeCapabilityBBackofficeStore.LoadCandidatesAsync(
                 conn,
                 tenantId,
                 req?.Category,
-                Math.Clamp(req?.MaxCandidates ?? 200, 1, 500),
+                hasExplicitSelection ? null : requestedMaxCandidates,
                 options,
+                includeFreshSelectedDocuments,
                 ct);
 
-            if (selectedDocIds.Count > 0 || selectedDocPaths.Count > 0)
+            if (hasExplicitSelection)
             {
                 candidates = candidates
                     .Where(candidate => selectedDocIds.Contains(candidate.DocId) || selectedDocPaths.Contains(candidate.DocPath))
+                    .Take(requestedMaxCandidates)
                     .ToArray();
             }
 

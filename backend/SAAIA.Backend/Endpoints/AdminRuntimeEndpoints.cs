@@ -22,6 +22,11 @@ public static class AdminRuntimeEndpoints
             RuntimeRetrievalKpiService retrievalKpiService,
             IOptions<RuntimeGovernanceOptions> options)
             => RetrievalKpisAsync(ctx, retrievalKpiService, options));
+        app.MapGet("/admin/runtime/capability-b-kpis", (
+            HttpContext ctx,
+            RuntimeCapabilityBKpiService capabilityBKpiService,
+            IOptions<RuntimeGovernanceOptions> options)
+            => CapabilityBKpisAsync(ctx, capabilityBKpiService, options));
         app.MapGet("/admin/runtime/operational-summary", (
             HttpContext ctx,
             RuntimeDiagnosticsService diagnosticsService,
@@ -36,6 +41,8 @@ public static class AdminRuntimeEndpoints
         app.MapGet("/admin/runtime/capabilities/capability_b.backoffice_generation/candidates", CapabilityBBackofficeCandidatesAsync);
         app.MapGet("/admin/runtime/capabilities/capability_b.backoffice_generation/campaigns", CapabilityBCampaignsAsync);
         app.MapGet("/admin/runtime/capabilities/capability_b.backoffice_generation/campaigns/{campaignId:guid}", CapabilityBCampaignAsync);
+        app.MapGet("/admin/runtime/capabilities/capability_b.backoffice_generation/quality-review", CapabilityBQualityReviewAsync);
+        app.MapGet("/admin/runtime/capabilities/capability_b.backoffice_generation/quality-review-summary", CapabilityBQualityReviewSummaryAsync);
         app.MapPost("/admin/runtime/capabilities/capability_b.backoffice_generation/claim", CapabilityBClaimAsync);
         app.MapPost("/admin/runtime/capabilities/capability_b.backoffice_generation/complete", CapabilityBCompleteAsync);
         app.MapPost("/admin/runtime/capabilities/capability_b.backoffice_generation/fail", CapabilityBFailAsync);
@@ -45,6 +52,8 @@ public static class AdminRuntimeEndpoints
         app.MapGet("/admin/runtime/artifacts/capability-b-candidates.json", CapabilityBCandidatesArtifactAsync);
         app.MapGet("/admin/runtime/artifacts/capability-b-campaigns.json", CapabilityBCampaignsArtifactAsync);
         app.MapGet("/admin/runtime/artifacts/capability-b-campaigns/{campaignId:guid}.json", CapabilityBCampaignArtifactAsync);
+        app.MapGet("/admin/runtime/artifacts/capability-b-quality-review.json", CapabilityBQualityReviewArtifactAsync);
+        app.MapGet("/admin/runtime/artifacts/capability-b-quality-review-summary.json", CapabilityBQualityReviewSummaryArtifactAsync);
         app.MapGet("/admin/runtime/artifacts/diagnostics.json", (
             HttpContext ctx,
             RuntimeDiagnosticsService diagnosticsService,
@@ -56,6 +65,11 @@ public static class AdminRuntimeEndpoints
             RuntimeRetrievalKpiService retrievalKpiService,
             IOptions<RuntimeGovernanceOptions> options)
             => RetrievalKpisArtifactAsync(ctx, retrievalKpiService, options));
+        app.MapGet("/admin/runtime/artifacts/capability-b-kpis.json", (
+            HttpContext ctx,
+            RuntimeCapabilityBKpiService capabilityBKpiService,
+            IOptions<RuntimeGovernanceOptions> options)
+            => CapabilityBKpisArtifactAsync(ctx, capabilityBKpiService, options));
         app.MapGet("/admin/runtime/artifacts/operational-summary.json", (
             HttpContext ctx,
             RuntimeDiagnosticsService diagnosticsService,
@@ -79,10 +93,11 @@ public static class AdminRuntimeEndpoints
         HttpContext ctx,
         IOptions<RuntimeGovernanceOptions> options,
         IOptions<RagOptions> ragOptions,
+        IOptions<ChatOptions> chatOptions,
         IHostEnvironment env)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = RuntimeGovernanceCatalogService.BuildCatalog(options.Value, ragOptions.Value, env);
+        var response = RuntimeGovernanceCatalogService.BuildCatalog(options.Value, ragOptions.Value, chatOptions.Value, env);
         return Task.FromResult(Results.Ok(response));
     }
 
@@ -115,7 +130,11 @@ public static class AdminRuntimeEndpoints
         IOptions<RuntimeGovernanceOptions> options,
         IOptions<RagOptions> ragOptions,
         IHostEnvironment env)
-        => DiagnosticsAsync(ctx, new RuntimeDiagnosticsService(ds, env), options, ragOptions);
+        => DiagnosticsAsync(
+            ctx,
+            new RuntimeDiagnosticsService(ds, env, ctx.RequestServices.GetService<IHttpClientFactory>()),
+            options,
+            ragOptions);
 
     internal static Task<IResult> RetrievalKpisAsync(
         HttpContext ctx,
@@ -132,6 +151,22 @@ public static class AdminRuntimeEndpoints
         IHostEnvironment env,
         IOptions<RuntimeGovernanceOptions> options)
         => RetrievalKpisAsync(ctx, new RuntimeRetrievalKpiService(env), options);
+
+    internal static Task<IResult> CapabilityBKpisAsync(
+        HttpContext ctx,
+        RuntimeCapabilityBKpiService capabilityBKpiService,
+        IOptions<RuntimeGovernanceOptions> options)
+    {
+        AdminAuth.EnsureAdmin(ctx);
+        var response = capabilityBKpiService.GetKpis(options.Value);
+        return Task.FromResult(Results.Ok(response));
+    }
+
+    internal static Task<IResult> CapabilityBKpisAsync(
+        HttpContext ctx,
+        IHostEnvironment env,
+        IOptions<RuntimeGovernanceOptions> options)
+        => CapabilityBKpisAsync(ctx, new RuntimeCapabilityBKpiService(env), options);
 
     internal static async Task<IResult> OperationalSummaryAsync(
         HttpContext ctx,
@@ -150,7 +185,11 @@ public static class AdminRuntimeEndpoints
         IOptions<RuntimeGovernanceOptions> options,
         IOptions<RagOptions> ragOptions,
         IHostEnvironment env)
-        => OperationalSummaryAsync(ctx, new RuntimeDiagnosticsService(ds, env), options, ragOptions);
+        => OperationalSummaryAsync(
+            ctx,
+            new RuntimeDiagnosticsService(ds, env, ctx.RequestServices.GetService<IHttpClientFactory>()),
+            options,
+            ragOptions);
 
     internal static async Task<IResult> EventsAsync(
         HttpContext ctx,
@@ -186,7 +225,11 @@ public static class AdminRuntimeEndpoints
         IOptions<RuntimeGovernanceOptions> options,
         IOptions<RagOptions> ragOptions,
         IHostEnvironment env)
-        => DiagnosticsArtifactAsync(ctx, new RuntimeDiagnosticsService(ds, env), options, ragOptions);
+        => DiagnosticsArtifactAsync(
+            ctx,
+            new RuntimeDiagnosticsService(ds, env, ctx.RequestServices.GetService<IHttpClientFactory>()),
+            options,
+            ragOptions);
 
     internal static Task<IResult> RetrievalKpisArtifactAsync(
         HttpContext ctx,
@@ -203,6 +246,22 @@ public static class AdminRuntimeEndpoints
         IHostEnvironment env,
         IOptions<RuntimeGovernanceOptions> options)
         => RetrievalKpisArtifactAsync(ctx, new RuntimeRetrievalKpiService(env), options);
+
+    internal static Task<IResult> CapabilityBKpisArtifactAsync(
+        HttpContext ctx,
+        RuntimeCapabilityBKpiService capabilityBKpiService,
+        IOptions<RuntimeGovernanceOptions> options)
+    {
+        AdminAuth.EnsureAdmin(ctx);
+        var response = capabilityBKpiService.GetKpisArtifact(options.Value);
+        return Task.FromResult(Results.Ok(response));
+    }
+
+    internal static Task<IResult> CapabilityBKpisArtifactAsync(
+        HttpContext ctx,
+        IHostEnvironment env,
+        IOptions<RuntimeGovernanceOptions> options)
+        => CapabilityBKpisArtifactAsync(ctx, new RuntimeCapabilityBKpiService(env), options);
 
     internal static async Task<IResult> OperationalSummaryArtifactAsync(
         HttpContext ctx,
@@ -221,7 +280,11 @@ public static class AdminRuntimeEndpoints
         IOptions<RuntimeGovernanceOptions> options,
         IOptions<RagOptions> ragOptions,
         IHostEnvironment env)
-        => OperationalSummaryArtifactAsync(ctx, new RuntimeDiagnosticsService(ds, env), options, ragOptions);
+        => OperationalSummaryArtifactAsync(
+            ctx,
+            new RuntimeDiagnosticsService(ds, env, ctx.RequestServices.GetService<IHttpClientFactory>()),
+            options,
+            ragOptions);
 
     internal static async Task<IResult> EventsArtifactAsync(
         HttpContext ctx,
@@ -531,14 +594,83 @@ public static class AdminRuntimeEndpoints
             : Results.Ok(response);
     }
 
+    internal static async Task<IResult> CapabilityBQualityReviewAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        IOptions<RuntimeGovernanceOptions> options,
+        IHostEnvironment env,
+        int? limit)
+    {
+        AdminAuth.EnsureAdmin(ctx);
+        var response = await RuntimeCapabilityAdminReadService.GetCapabilityBQualityReviewAsync(
+            ctx.GetTenantId(),
+            ds,
+            options.Value,
+            env,
+            limit ?? 50,
+            ctx.RequestAborted);
+        return Results.Ok(response);
+    }
+
+    internal static async Task<IResult> CapabilityBQualityReviewArtifactAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        IOptions<RuntimeGovernanceOptions> options,
+        IHostEnvironment env,
+        int? limit)
+    {
+        AdminAuth.EnsureAdmin(ctx);
+        var response = await RuntimeCapabilityAdminReadService.GetCapabilityBQualityReviewArtifactAsync(
+            ctx.GetTenantId(),
+            ds,
+            options.Value,
+            env,
+            limit ?? 50,
+            ctx.RequestAborted);
+        return Results.Ok(response);
+    }
+
+    internal static async Task<IResult> CapabilityBQualityReviewSummaryAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        IOptions<RuntimeGovernanceOptions> options,
+        IHostEnvironment env)
+    {
+        AdminAuth.EnsureAdmin(ctx);
+        var response = await RuntimeCapabilityAdminReadService.GetCapabilityBQualityReviewSummaryAsync(
+            ctx.GetTenantId(),
+            ds,
+            options.Value,
+            env,
+            ctx.RequestAborted);
+        return Results.Ok(response);
+    }
+
+    internal static async Task<IResult> CapabilityBQualityReviewSummaryArtifactAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        IOptions<RuntimeGovernanceOptions> options,
+        IHostEnvironment env)
+    {
+        AdminAuth.EnsureAdmin(ctx);
+        var response = await RuntimeCapabilityAdminReadService.GetCapabilityBQualityReviewSummaryArtifactAsync(
+            ctx.GetTenantId(),
+            ds,
+            options.Value,
+            env,
+            ctx.RequestAborted);
+        return Results.Ok(response);
+    }
+
     internal static Task<IResult> RuntimeCatalogArtifactAsync(
         HttpContext ctx,
         IOptions<RuntimeGovernanceOptions> options,
         IOptions<RagOptions> ragOptions,
+        IOptions<ChatOptions> chatOptions,
         IHostEnvironment env)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = RuntimeGovernanceCatalogService.BuildRuntimeCatalogArtifact(options.Value, ragOptions.Value, env);
+        var response = RuntimeGovernanceCatalogService.BuildRuntimeCatalogArtifact(options.Value, ragOptions.Value, chatOptions.Value, env);
         return Task.FromResult(Results.Ok(response));
     }
 
@@ -546,10 +678,11 @@ public static class AdminRuntimeEndpoints
         HttpContext ctx,
         IOptions<RuntimeGovernanceOptions> options,
         IOptions<RagOptions> ragOptions,
+        IOptions<ChatOptions> chatOptions,
         IHostEnvironment env)
     {
         AdminAuth.EnsureAdmin(ctx);
-        var response = RuntimeGovernanceCatalogService.BuildModelCatalogArtifact(options.Value, ragOptions.Value, env);
+        var response = RuntimeGovernanceCatalogService.BuildModelCatalogArtifact(options.Value, ragOptions.Value, chatOptions.Value, env);
         return Task.FromResult(Results.Ok(response));
     }
 

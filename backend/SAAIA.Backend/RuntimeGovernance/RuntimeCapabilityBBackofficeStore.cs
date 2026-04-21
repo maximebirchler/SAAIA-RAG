@@ -10,8 +10,9 @@ internal static class RuntimeCapabilityBBackofficeStore
         NpgsqlConnection conn,
         Guid tenantId,
         string? category,
-        int limit,
+        int? limit,
         RuntimeGovernanceOptions options,
+        bool includeFresh,
         CancellationToken ct)
     {
         var categoryPath = await Endpoints.SummaryCategoryScopeResolver.ResolveScopeAsync(
@@ -25,7 +26,8 @@ internal static class RuntimeCapabilityBBackofficeStore
             conn,
             tenantId,
             categoryPath,
-            Math.Clamp(limit, 1, 500),
+            limit.HasValue ? Math.Clamp(limit.Value, 1, 500) : null,
+            includeFresh,
             ct);
 
         return rows
@@ -48,6 +50,7 @@ internal static class RuntimeCapabilityBBackofficeStore
             tenantId,
             categoryPath,
             limit: null,
+            includeFresh: false,
             ct);
 
         return rows
@@ -66,6 +69,7 @@ internal static class RuntimeCapabilityBBackofficeStore
             tenantId: null,
             categoryPath: null,
             limit: null,
+            includeFresh: false,
             ct);
 
         return rows
@@ -81,6 +85,7 @@ internal static class RuntimeCapabilityBBackofficeStore
         Guid? tenantId,
         string? categoryPath,
         int? limit,
+        bool includeFresh,
         CancellationToken ct)
         => (await conn.QueryAsync<CapabilityBBackofficeCandidateRow>(new CommandDefinition(
             $"""
@@ -126,13 +131,15 @@ WHERE (@tenant IS NULL OR d.tenant_id = @tenant)
   AND d.status='indexed'
   AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
   AND (
+    @includeFresh = true
+    OR
     s.source_hash IS NULL
     OR s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')))
   )
 ORDER BY d.updated_at DESC
 {(limit.HasValue ? "LIMIT @limit;" : ";")}
 """,
-            new { tenant = tenantId, categoryPath, limit },
+            new { tenant = tenantId, categoryPath, limit, includeFresh },
             cancellationToken: ct))).ToArray();
 
     private static AdminRuntimeCapabilityBBackofficeCandidateDto MapCandidate(
@@ -144,6 +151,8 @@ ORDER BY d.updated_at DESC
             reasons.Add("summary_missing");
         if (string.Equals(row.SummaryState, "stale", StringComparison.OrdinalIgnoreCase))
             reasons.Add("summary_stale");
+        if (string.Equals(row.SummaryState, "fresh", StringComparison.OrdinalIgnoreCase))
+            reasons.Add("summary_force_refresh");
         if (row.HasActiveJob)
             reasons.Add("summary_job_active");
 

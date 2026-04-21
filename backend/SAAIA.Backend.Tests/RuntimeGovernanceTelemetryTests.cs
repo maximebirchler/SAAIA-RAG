@@ -170,9 +170,40 @@ public sealed class RuntimeGovernanceTelemetryTests
                 durationMs: 6);
         }
 
+        using (var capabilityBSummaryGeneration = RuntimeGovernanceTelemetry.StartCapabilityBSummaryGenerationActivity())
+        {
+            RuntimeGovernanceTelemetry.CompleteCapabilityBSummaryGeneration(
+                capabilityBSummaryGeneration,
+                strategy: "llm_document_foundation",
+                fallbackUsed: false,
+                durationMs: 41,
+                firstResponseMs: 12,
+                qualityScore: 0.82,
+                outputLength: 320,
+                sectionCount: 3,
+                excerptCount: 2);
+        }
+
+        using (var capabilityBSummaryFallback = RuntimeGovernanceTelemetry.StartCapabilityBSummaryGenerationActivity())
+        {
+            RuntimeGovernanceTelemetry.CompleteCapabilityBSummaryGeneration(
+                capabilityBSummaryFallback,
+                strategy: "deterministic_document_foundation",
+                fallbackUsed: true,
+                durationMs: 17,
+                firstResponseMs: 9,
+                qualityScore: 0.64,
+                outputLength: 180,
+                sectionCount: 1,
+                excerptCount: 0,
+                fallbackReason: "llm_empty_response");
+        }
+
         RuntimeGovernanceTelemetry.RecordRequalifyRequest("core.retrieval", "default-local", 1);
         RuntimeGovernanceTelemetry.RecordStaleQualificationDetected("core.retrieval", "default-local", "qualification_inputs_changed");
         RuntimeGovernanceTelemetry.RecordCapabilityEventWritten("core.retrieval", "requalified");
+        RuntimeGovernanceTelemetry.RecordCapabilityBExecutionDecision("server_backoffice", "selected", usesCapabilityB: true);
+        RuntimeGovernanceTelemetry.RecordCapabilityBExecutionDecision("client_admin", "runtime_unavailable", usesCapabilityB: false);
 
         Assert.Contains("saaia.runtime.warmup.passes", metricNames);
         Assert.Contains("saaia.runtime.warmup.duration", metricNames);
@@ -201,6 +232,13 @@ public sealed class RuntimeGovernanceTelemetryTests
         Assert.Contains("saaia.runtime.capability_b.skipped_docs", metricNames);
         Assert.Contains("saaia.runtime.capability_b.duration", metricNames);
         Assert.Contains("saaia.runtime.capability_b.candidate_count", metricNames);
+        Assert.Contains("saaia.runtime.capability_b.execution_decisions", metricNames);
+        Assert.Contains("saaia.runtime.capability_b.summary_generation.requests", metricNames);
+        Assert.Contains("saaia.runtime.capability_b.summary_generation.fallbacks", metricNames);
+        Assert.Contains("saaia.runtime.capability_b.summary_generation.duration", metricNames);
+        Assert.Contains("saaia.runtime.capability_b.summary_generation.first_response", metricNames);
+        Assert.Contains("saaia.runtime.capability_b.summary_generation.quality_score", metricNames);
+        Assert.Contains("saaia.runtime.capability_b.summary_generation.output_length", metricNames);
         Assert.Contains("saaia.runtime.requalify.requests", metricNames);
         Assert.Contains("saaia.runtime.qualification.stale_detected", metricNames);
         Assert.Contains("saaia.runtime.event.writes", metricNames);
@@ -274,6 +312,24 @@ public sealed class RuntimeGovernanceTelemetryTests
             activity.OperationName == "capability_b_summary_completed"
             && Equals(activity.GetTagItem("saaia.runtime.capability_key"), "capability_b.backoffice_generation"));
         Assert.Equal(true, capabilityBCompletedActivity.GetTagItem("saaia.runtime.success"));
+
+        var capabilityBSummaryGenerationActivity = activitySnapshot.First(activity =>
+            activity.OperationName == "capability_b_summary_generation"
+            && Equals(activity.GetTagItem("saaia.runtime.strategy"), "llm_document_foundation")
+            && Equals(activity.GetTagItem("saaia.runtime.first_response_ms"), 12L)
+            && Equals(activity.GetTagItem("saaia.runtime.quality_score"), 0.82d));
+        Assert.Equal(false, capabilityBSummaryGenerationActivity.GetTagItem("saaia.runtime.fallback_used"));
+        Assert.Equal(12L, capabilityBSummaryGenerationActivity.GetTagItem("saaia.runtime.first_response_ms"));
+        Assert.Equal(0.82d, capabilityBSummaryGenerationActivity.GetTagItem("saaia.runtime.quality_score"));
+        Assert.Equal(320, capabilityBSummaryGenerationActivity.GetTagItem("saaia.runtime.output_length"));
+
+        var capabilityBSummaryFallbackActivity = activitySnapshot.First(activity =>
+            activity.OperationName == "capability_b_summary_generation"
+            && Equals(activity.GetTagItem("saaia.runtime.strategy"), "deterministic_document_foundation")
+            && Equals(activity.GetTagItem("saaia.runtime.fallback_reason"), "llm_empty_response"));
+        Assert.Equal(true, capabilityBSummaryFallbackActivity.GetTagItem("saaia.runtime.fallback_used"));
+        Assert.Equal("llm_empty_response", capabilityBSummaryFallbackActivity.GetTagItem("saaia.runtime.fallback_reason"));
+        Assert.Equal(0.64d, capabilityBSummaryFallbackActivity.GetTagItem("saaia.runtime.quality_score"));
     }
 
     [Fact]

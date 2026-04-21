@@ -182,6 +182,8 @@
 
 ### 5.4 Fichiers concernes
 - **Fichiers sources :** `Ingestion/CapabilityBBackofficeWorker.cs`, gouvernance runtime B, warmup profiles, tests `SummaryBackofficeGovernanceTests.cs` et derives
+- **Etat reel au 2026-04-21 :** generation LLM B active avec fallback deterministe, warmup B base sur un probe `llm.chat_completion`, fallback live `server_backoffice -> client_admin` en place, et tests backend verts sur routing, warmup et completion des jobs. Les items encore reellement ouverts sur B sont surtout la mesure TTFT/qualite et un test explicite sur les metadonnees quand le mode d'execution change.
+- **Mise a jour 2026-04-21 (suite) :** le test explicite sur les metadonnees de job quand le mode bascule vers `client_admin` avec statut `runtime_unavailable` est maintenant couvert ; le reliquat realiste de Sprint 5 B se concentre surtout sur TTFT/qualite et l'exploitation de ces mesures.
 
 ---
 
@@ -225,6 +227,7 @@
 ### KPI CDC non publies
 - [x] Definir des seuils CDC sur `zero_result rate` et P95 de duree retrieval - endpoint/artifact `retrieval-kpis` ajoute avec cibles CDC v3.0
 - [x] Documenter comment exploiter les metriques en exploitation (Grafana, alertes) - guide OTel/Grafana/alerting publie via `retrieval-kpis`
+- [x] Publier un socle KPI dedie pour la capacite B - endpoint/artifact `capability-b-kpis` ajoute avec cibles generation/fallback/failure et panneaux ops recommandes
 
 ---
 
@@ -272,3 +275,23 @@
 | 2026-04-21 | Codex | `RagItemDto.Provenance` deprecie formellement (Obsolete + EditorBrowsable(Never)) ; `ProvenanceInfo` confirme comme forme canonique, suite backend a 297 tests verts. |
 | 2026-04-21 | Codex | Sprint 5 Cap B : `CapabilityBBackofficeSummaryService` ajoute avec generation LLM locale + fallback deterministe explicite ; `CapabilityBBackofficeWorker` bascule sur le service par DI quand disponible. |
 | 2026-04-21 | Codex | Sprint 5 Cap B : tests dedies ajoutes pour le service de synthese B et pour la persistance/completion d'un job `capability_b` en mode LLM ; suite backend a 303 tests verts. |
+| 2026-04-21 | Codex | Sprint 5 Cap B : la qualification runtime de `capability_b.backoffice_generation` ne repose plus seulement sur `BACKOFFICE_LLM_ENABLED` ; elle execute maintenant un vrai probe `llm.chat_completion` sur chaque pass de warmup avant autorisation/selection. |
+| 2026-04-21 | Codex | Sprint 5 Cap B : couverture ajoutee pour la requalification B en succes et en echec de probe LLM ; suite backend a 304 tests verts. |
+| 2026-04-21 | Codex | Sprint 5 Cap B : `ResolveSummaryGenerationExecutionAsync()` ajoute un probe runtime live avant de choisir `server_backoffice` ; fallback nominal `client_admin` applique avec statut `runtime_unavailable` si le runtime LLM n'est plus joignable. |
+| 2026-04-21 | Codex | Sprint 5 Cap B : test de fallback live ajoute sur la decision d'execution summary B ; suite backend a 305 tests verts. |
+| 2026-04-21 | Codex | Sprint 5 Cap B : probe live B factorise dans `CapabilityBLiveRuntimeProbe` et reutilise par le warmup B, la decision `summary.generate` et les diagnostics runtime admin. |
+| 2026-04-21 | Codex | Sprint 5 Cap B : `diagnostics` et `operational-summary` ajoutent un blocker `runtime_live_unavailable` sur B selectionnee quand le probe live echoue ; suite backend a 306 tests verts. |
+| 2026-04-21 | Codex | Sprint 5 Cap B : les artefacts `catalog` / `runtime_catalog.json` / `model_catalog.json` exposent maintenant la dependance explicite `server-capability-b -> llm-backoffice-chat`, avec base URL/modele LLM visibles et contrat admin runtime plus litteral cote CDC ; suite backend toujours verte a 306 tests. |
+| 2026-04-21 | Codex | Sprint 5 Cap B : test ajoute sur le fallback live `runtime_unavailable -> client_admin` jusqu'au job termine, avec verification des metadonnees `ExecutionMode` / `RuntimeCapabilityStatus` et absence de `summary_meta` B parasite sur la soumission admin ; suite backend a 307 tests verts. |
+| 2026-04-21 | Codex | Sprint 5 Cap B : endpoint/artifact `capability-b-kpis` ajoutes, avec metriques/alertes/panneaux dedies a la generation B ; telemetrie runtime enrichie pour les decisions d'execution B et la generation de resumes (latence, fallback, longueur de sortie) ; suite backend a 309 tests verts. |
+| 2026-04-21 | Codex | Sprint 5 Cap B : le client LLM local expose maintenant une mesure proxy `first_response` (premier octet lisible, pas un vrai TTFT stream token) ; cette mesure remonte dans la telemetrie/KPI B et dans les metadonnees de generation LLM quand disponibles. |
+| 2026-04-21 | Codex | Sprint 5 Cap B : un score heuristique `qualityScore` est ajoute aux metadonnees de synthese B (structure, longueur, couverture des sections et mots-cles d'extraits) ; il remonte aussi dans la telemetrie/KPI B via `summary_generation.quality_score` et une alerte dediee. |
+| 2026-04-21 | Codex | Sprint 5 Cap B : nouvelle surface read-only `quality-review` ajoutee pour lister uniquement les resumes B stockes sous le seuil qualite configure, avec artefact dedie et recommandations de revue, afin d'eviter de surcharger `diagnostics` ou les vues de campagne. |
+| 2026-04-21 | Codex | Sprint 5 Cap B : `quality-review-summary` ajoute comme vue agregée separee (totaux, fallback, runtime indisponible, pire score, repartitions par strategie/statut) pour piloter la derive qualite sans ouvrir la liste detaillee. |
+| 2026-04-21 | Codex | Client admin : le panneau runtime WinUI expose maintenant une entree dediee vers une vue fille `Revue qualite B`, avec overlay separe, agregats, liste des resumes sous seuil et bouton de bascule vers les jobs B, sans surcharger la vue runtime principale. |
+| 2026-04-21 | Codex | Client admin : le centre des jobs affiche maintenant un raccourci contextuel vers la `Revue qualite B` uniquement en mode jobs B, pour garder la liste lisible tout en reliant les deux vues operationnelles. |
+| 2026-04-21 | Codex | Client admin : la `Revue qualite B` devient corrective avec une action par item `Relancer B`, branchee sur l'enqueue B forcee du document puis rafraichissement de la revue. |
+| 2026-04-21 | Codex | Cap B : l'enqueue force cible (`force=true` + `docId/docPath`) inclut maintenant les resumes `fresh` afin que la revue qualite puisse regenerer un resume faible mais techniquement a jour ; test backend ajoute, suite a 314 tests verts. |
+| 2026-04-21 | Codex | Cap B : l'enqueue cible applique maintenant le filtre `docId/docPath` avant le `maxCandidates`, pour que `maxCandidates=1` ne rate pas un resume faible masque par un document plus recent ; test renforce. |
+| 2026-04-21 | Codex | Cap B : l'enqueue cible ne borne plus le chargement avant filtrage explicite ; test renforce avec 500+ candidats plus recents pour verrouiller la relance qualite ciblee. |
+| 2026-04-21 | Codex | Client admin : l'action `Relancer B` de la revue qualite affiche maintenant un retour operationnel detaille (`queued/candidates/skipped` + job court) apres enqueue force cible. |

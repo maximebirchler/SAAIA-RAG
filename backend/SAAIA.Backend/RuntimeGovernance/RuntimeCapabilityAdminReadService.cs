@@ -14,6 +14,8 @@ internal static class RuntimeCapabilityAdminReadService
     private const string CapabilityBCandidatesJsonArtifact = "capability_b_candidates.json";
     private const string CapabilityBCampaignsJsonArtifact = "capability_b_campaigns.json";
     private const string CapabilityBCampaignDetailJsonArtifact = "capability_b_campaign_detail.json";
+    private const string CapabilityBQualityReviewJsonArtifact = "capability_b_quality_review.json";
+    private const string CapabilityBQualityReviewSummaryJsonArtifact = "capability_b_quality_review_summary.json";
     private const string CapabilityACorpusEnrichmentKey = "capability_a.corpus_enrichment";
     private const string CapabilityBBackofficeGenerationKey = "capability_b.backoffice_generation";
 
@@ -324,6 +326,7 @@ internal static class RuntimeCapabilityAdminReadService
                 category,
                 limit,
                 options,
+                includeFresh: false,
                 ct);
 
             sw.Stop();
@@ -549,6 +552,151 @@ internal static class RuntimeCapabilityAdminReadService
             sw.Stop();
             RuntimeGovernanceTelemetry.MarkError(activity, ex);
             RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, CapabilityBCampaignDetailJsonArtifact, success: false, durationMs: sw.ElapsedMilliseconds);
+            throw;
+        }
+    }
+
+    internal static async Task<AdminRuntimeCapabilityBQualityReviewResponseDto> GetCapabilityBQualityReviewAsync(
+        Guid tenantId,
+        NpgsqlDataSource ds,
+        RuntimeGovernanceOptions options,
+        IHostEnvironment env,
+        int limit,
+        CancellationToken ct)
+    {
+        using var activity = RuntimeGovernanceTelemetry.StartArtifactReadActivity("capability_b_quality_review");
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            await using var conn = await ds.OpenConnectionAsync(ct);
+            var threshold = Math.Clamp(options.CapabilityBQualityScoreTarget, 0d, 1d);
+            var items = await RuntimeCapabilityBQualityReviewStore.LoadLowQualitySummariesAsync(
+                conn,
+                tenantId,
+                threshold,
+                limit,
+                ct);
+
+            sw.Stop();
+            RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, "capability_b_quality_review", success: true, durationMs: sw.ElapsedMilliseconds);
+            return new AdminRuntimeCapabilityBQualityReviewResponseDto(
+                CdcAlignment,
+                env.EnvironmentName,
+                DateTimeOffset.UtcNow,
+                CapabilityBBackofficeGenerationKey,
+                threshold,
+                items.Length,
+                items);
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            RuntimeGovernanceTelemetry.MarkError(activity, ex);
+            RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, "capability_b_quality_review", success: false, durationMs: sw.ElapsedMilliseconds);
+            throw;
+        }
+    }
+
+    internal static async Task<AdminRuntimeCapabilityBQualityReviewArtifactDto> GetCapabilityBQualityReviewArtifactAsync(
+        Guid tenantId,
+        NpgsqlDataSource ds,
+        RuntimeGovernanceOptions options,
+        IHostEnvironment env,
+        int limit,
+        CancellationToken ct)
+    {
+        using var activity = RuntimeGovernanceTelemetry.StartArtifactReadActivity(CapabilityBQualityReviewJsonArtifact);
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            var review = await GetCapabilityBQualityReviewAsync(tenantId, ds, options, env, limit, ct);
+            sw.Stop();
+            RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, CapabilityBQualityReviewJsonArtifact, success: true, durationMs: sw.ElapsedMilliseconds);
+            return new AdminRuntimeCapabilityBQualityReviewArtifactDto(
+                CapabilityBQualityReviewJsonArtifact,
+                review.CdcAlignment,
+                review.Environment,
+                review.GeneratedAt,
+                review.CapabilityKey,
+                review.QualityThreshold,
+                review.TotalItems,
+                review.Items);
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            RuntimeGovernanceTelemetry.MarkError(activity, ex);
+            RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, CapabilityBQualityReviewJsonArtifact, success: false, durationMs: sw.ElapsedMilliseconds);
+            throw;
+        }
+    }
+
+    internal static async Task<AdminRuntimeCapabilityBQualityReviewSummaryResponseDto> GetCapabilityBQualityReviewSummaryAsync(
+        Guid tenantId,
+        NpgsqlDataSource ds,
+        RuntimeGovernanceOptions options,
+        IHostEnvironment env,
+        CancellationToken ct)
+    {
+        using var activity = RuntimeGovernanceTelemetry.StartArtifactReadActivity("capability_b_quality_review_summary");
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            await using var conn = await ds.OpenConnectionAsync(ct);
+            var threshold = Math.Clamp(options.CapabilityBQualityScoreTarget, 0d, 1d);
+            var summary = await RuntimeCapabilityBQualityReviewStore.LoadLowQualitySummarySnapshotAsync(
+                conn,
+                tenantId,
+                threshold,
+                ct);
+
+            sw.Stop();
+            RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, "capability_b_quality_review_summary", success: true, durationMs: sw.ElapsedMilliseconds);
+            return new AdminRuntimeCapabilityBQualityReviewSummaryResponseDto(
+                CdcAlignment,
+                env.EnvironmentName,
+                DateTimeOffset.UtcNow,
+                CapabilityBBackofficeGenerationKey,
+                threshold,
+                summary);
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            RuntimeGovernanceTelemetry.MarkError(activity, ex);
+            RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, "capability_b_quality_review_summary", success: false, durationMs: sw.ElapsedMilliseconds);
+            throw;
+        }
+    }
+
+    internal static async Task<AdminRuntimeCapabilityBQualityReviewSummaryArtifactDto> GetCapabilityBQualityReviewSummaryArtifactAsync(
+        Guid tenantId,
+        NpgsqlDataSource ds,
+        RuntimeGovernanceOptions options,
+        IHostEnvironment env,
+        CancellationToken ct)
+    {
+        using var activity = RuntimeGovernanceTelemetry.StartArtifactReadActivity(CapabilityBQualityReviewSummaryJsonArtifact);
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            var review = await GetCapabilityBQualityReviewSummaryAsync(tenantId, ds, options, env, ct);
+            sw.Stop();
+            RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, CapabilityBQualityReviewSummaryJsonArtifact, success: true, durationMs: sw.ElapsedMilliseconds);
+            return new AdminRuntimeCapabilityBQualityReviewSummaryArtifactDto(
+                CapabilityBQualityReviewSummaryJsonArtifact,
+                review.CdcAlignment,
+                review.Environment,
+                review.GeneratedAt,
+                review.CapabilityKey,
+                review.QualityThreshold,
+                review.Summary);
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            RuntimeGovernanceTelemetry.MarkError(activity, ex);
+            RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, CapabilityBQualityReviewSummaryJsonArtifact, success: false, durationMs: sw.ElapsedMilliseconds);
             throw;
         }
     }

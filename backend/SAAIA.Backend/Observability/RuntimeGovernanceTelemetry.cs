@@ -171,6 +171,41 @@ internal static class RuntimeGovernanceTelemetry
         unit: "{document}",
         description: "Number of candidates returned by capability B plan operations.");
 
+    private static readonly Counter<long> CapabilityBExecutionDecisions = Meter.CreateCounter<long>(
+        "saaia.runtime.capability_b.execution_decisions",
+        unit: "{decision}",
+        description: "Number of execution decisions taken for capability B summary generation.");
+
+    private static readonly Counter<long> CapabilityBSummaryGenerationRequests = Meter.CreateCounter<long>(
+        "saaia.runtime.capability_b.summary_generation.requests",
+        unit: "{request}",
+        description: "Number of capability B summary generation attempts.");
+
+    private static readonly Counter<long> CapabilityBSummaryGenerationFallbacks = Meter.CreateCounter<long>(
+        "saaia.runtime.capability_b.summary_generation.fallbacks",
+        unit: "{request}",
+        description: "Number of capability B summary generation attempts that resolved to a deterministic fallback.");
+
+    private static readonly Histogram<double> CapabilityBSummaryGenerationDurationMs = Meter.CreateHistogram<double>(
+        "saaia.runtime.capability_b.summary_generation.duration",
+        unit: "ms",
+        description: "Capability B summary generation duration in milliseconds.");
+
+    private static readonly Histogram<double> CapabilityBSummaryGenerationFirstResponseMs = Meter.CreateHistogram<double>(
+        "saaia.runtime.capability_b.summary_generation.first_response",
+        unit: "ms",
+        description: "Approximate time-to-first-response for capability B summary generation, measured as first readable response byte.");
+
+    private static readonly Histogram<double> CapabilityBSummaryOutputLength = Meter.CreateHistogram<double>(
+        "saaia.runtime.capability_b.summary_generation.output_length",
+        unit: "{char}",
+        description: "Length of generated capability B summaries in characters.");
+
+    private static readonly Histogram<double> CapabilityBSummaryQualityScore = Meter.CreateHistogram<double>(
+        "saaia.runtime.capability_b.summary_generation.quality_score",
+        unit: "{score}",
+        description: "Heuristic quality score for capability B summaries based on structure, length, section coverage, and keyword coverage.");
+
     internal static Activity? StartWarmupCheckActivity(string capabilityKey, string profileKey)
     {
         var activity = ActivitySource.StartActivity("warmup_check", ActivityKind.Internal);
@@ -447,6 +482,76 @@ internal static class RuntimeGovernanceTelemetry
         {
             CapabilityBCompletedDocs.Add(1, tags);
         }
+    }
+
+    internal static Activity? StartCapabilityBSummaryGenerationActivity()
+    {
+        var activity = ActivitySource.StartActivity("capability_b_summary_generation", ActivityKind.Internal);
+        if (activity is null)
+            return null;
+
+        activity.SetTag("saaia.runtime.capability_key", "capability_b.backoffice_generation");
+        return activity;
+    }
+
+    internal static void CompleteCapabilityBSummaryGeneration(
+        Activity? activity,
+        string strategy,
+        bool fallbackUsed,
+        long durationMs,
+        long? firstResponseMs,
+        double qualityScore,
+        int outputLength,
+        int sectionCount,
+        int excerptCount,
+        string? fallbackReason = null)
+    {
+        activity?.SetTag("saaia.runtime.strategy", strategy);
+        activity?.SetTag("saaia.runtime.fallback_used", fallbackUsed);
+        activity?.SetTag("saaia.runtime.duration_ms", durationMs);
+        if (firstResponseMs.HasValue)
+            activity?.SetTag("saaia.runtime.first_response_ms", firstResponseMs.Value);
+        activity?.SetTag("saaia.runtime.quality_score", qualityScore);
+        activity?.SetTag("saaia.runtime.output_length", outputLength);
+        activity?.SetTag("saaia.runtime.section_count", sectionCount);
+        activity?.SetTag("saaia.runtime.excerpt_count", excerptCount);
+        if (!string.IsNullOrWhiteSpace(fallbackReason))
+            activity?.SetTag("saaia.runtime.fallback_reason", fallbackReason);
+
+        var tags = new TagList
+        {
+            { "saaia.runtime.capability_key", "capability_b.backoffice_generation" },
+            { "saaia.runtime.strategy", strategy },
+            { "saaia.runtime.fallback_used", fallbackUsed }
+        };
+
+        CapabilityBSummaryGenerationRequests.Add(1, tags);
+        CapabilityBSummaryGenerationDurationMs.Record(durationMs, tags);
+        if (firstResponseMs.HasValue)
+            CapabilityBSummaryGenerationFirstResponseMs.Record(firstResponseMs.Value, tags);
+        CapabilityBSummaryQualityScore.Record(qualityScore, tags);
+        CapabilityBSummaryOutputLength.Record(outputLength, tags);
+
+        if (!string.IsNullOrWhiteSpace(fallbackReason))
+            tags.Add("saaia.runtime.fallback_reason", fallbackReason);
+        if (fallbackUsed)
+            CapabilityBSummaryGenerationFallbacks.Add(1, tags);
+    }
+
+    internal static void RecordCapabilityBExecutionDecision(
+        string executionMode,
+        string status,
+        bool usesCapabilityB)
+    {
+        var tags = new TagList
+        {
+            { "saaia.runtime.capability_key", "capability_b.backoffice_generation" },
+            { "saaia.runtime.execution_mode", executionMode },
+            { "saaia.runtime.status", status },
+            { "saaia.runtime.uses_capability_b", usesCapabilityB }
+        };
+
+        CapabilityBExecutionDecisions.Add(1, tags);
     }
 
     internal static void MarkError(Activity? activity, Exception ex)

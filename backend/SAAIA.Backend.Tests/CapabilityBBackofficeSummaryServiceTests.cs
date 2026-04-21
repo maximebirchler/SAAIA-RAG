@@ -40,6 +40,15 @@ public sealed class CapabilityBBackofficeSummaryServiceTests
         Assert.Contains("Operational summary for IND570", payload.SummaryText, StringComparison.Ordinal);
         Assert.False(payload.Meta.GetProperty("fallbackUsed").GetBoolean());
         Assert.Equal("llm_document_foundation", payload.Meta.GetProperty("strategy").GetString());
+        Assert.True(payload.Meta.GetProperty("llmDurationMs").GetInt64() >= 0);
+        Assert.True(payload.Meta.GetProperty("llmResponseHeadersMs").GetInt64() >= 0);
+        Assert.True(payload.Meta.GetProperty("llmFirstResponseMs").GetInt64() >= 0);
+        Assert.True(payload.Meta.GetProperty("llmBytesRead").GetInt64() > 0);
+        Assert.InRange(payload.Meta.GetProperty("qualityScore").GetDouble(), 0.0, 1.0);
+        var qualitySignals = payload.Meta.GetProperty("qualitySignals");
+        Assert.True(qualitySignals.GetProperty("lineCount").GetInt32() >= 1);
+        Assert.True(qualitySignals.GetProperty("sectionCoverageScore").GetDouble() >= 0.0);
+        Assert.True(qualitySignals.GetProperty("keywordCoverageScore").GetDouble() >= 0.0);
     }
 
     [Fact]
@@ -68,6 +77,8 @@ public sealed class CapabilityBBackofficeSummaryServiceTests
         Assert.Contains("IND570.pdf is an indexed atex document", payload.SummaryText, StringComparison.OrdinalIgnoreCase);
         Assert.True(payload.Meta.GetProperty("fallbackUsed").GetBoolean());
         Assert.Equal("llm_empty_response", payload.Meta.GetProperty("fallbackReason").GetString());
+        Assert.InRange(payload.Meta.GetProperty("qualityScore").GetDouble(), 0.0, 1.0);
+        Assert.True(payload.Meta.GetProperty("qualitySignals").GetProperty("matchedSectionCount").GetInt32() >= 1);
     }
 
     private static CapabilityBBackofficeSummaryService CreateService(string body, HttpStatusCode statusCode)

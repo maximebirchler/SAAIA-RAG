@@ -210,6 +210,51 @@ public sealed partial class ApiClient
     public Task<JsonElement> AdminRuntimeOperationalSummaryAsync(CancellationToken ct)
         => SendJsonAsync(HttpMethod.Get, "/admin/runtime/operational-summary", null, admin: true, ct);
 
+    public Task<JsonElement> AdminRuntimeCapabilityBQualityReviewSummaryAsync(CancellationToken ct)
+        => SendJsonAsync(
+            HttpMethod.Get,
+            "/admin/runtime/capabilities/capability_b.backoffice_generation/quality-review-summary",
+            null,
+            admin: true,
+            ct);
+
+    public Task<JsonElement> AdminRuntimeCapabilityBQualityReviewAsync(int limit, CancellationToken ct)
+    {
+        var safeLimit = Math.Clamp(limit, 1, 200);
+        return SendJsonAsync(
+            HttpMethod.Get,
+            $"/admin/runtime/capabilities/capability_b.backoffice_generation/quality-review?limit={safeLimit}",
+            null,
+            admin: true,
+            ct);
+    }
+
+    public Task<JsonElement> AdminRuntimeCapabilityBEnqueueAsync(
+        IReadOnlyList<Guid>? docIds,
+        IReadOnlyList<string>? docPaths,
+        bool dryRun,
+        bool force,
+        int? maxCandidates,
+        CancellationToken ct)
+    {
+        var body = JsonSerializer.Serialize(new
+        {
+            docIds,
+            docPaths,
+            category = (string?)null,
+            maxCandidates,
+            dryRun,
+            force
+        }, JsonOpts);
+
+        return SendJsonAsync(
+            HttpMethod.Post,
+            "/admin/runtime/capabilities/capability_b.backoffice_generation/enqueue",
+            body,
+            admin: true,
+            ct);
+    }
+
     public Task<JsonElement> AdminRuntimeCapabilityAEnqueueAsync(
         IReadOnlyList<string>? reasonFilters,
         bool dryRun,

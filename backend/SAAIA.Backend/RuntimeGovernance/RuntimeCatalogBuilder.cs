@@ -6,6 +6,7 @@ internal static class RuntimeCatalogBuilder
 {
     internal static IReadOnlyList<AdminRuntimeCatalogRuntimeDto> BuildRuntimes(
         RagOptions rag,
+        ChatOptions chat,
         IReadOnlyList<AdminRuntimeWarmupProfileDto> profiles,
         string capabilityAKey,
         string capabilityBKey)
@@ -20,6 +21,7 @@ internal static class RuntimeCatalogBuilder
                 model: rag.QdrantCollection,
                 configurationSource: "rag_options.qdrant_base_url",
                 expectedCapabilityKeys: ["core.retrieval"],
+                dependencyRuntimeKeys: [],
                 requiredSettingKeys: ["qdrant_base_url", "qdrant_collection"],
                 missingSettingKeys: ResolveMissingSettingKeys(
                     ("qdrant_base_url", rag.QdrantBaseUrl),
@@ -34,6 +36,7 @@ internal static class RuntimeCatalogBuilder
                 model: rag.EmbeddingsModel,
                 configurationSource: "rag_options.embeddings_base_url",
                 expectedCapabilityKeys: ["core.retrieval"],
+                dependencyRuntimeKeys: [],
                 requiredSettingKeys: ["embeddings_base_url", "embeddings_model"],
                 missingSettingKeys: ResolveMissingSettingKeys(
                     ("embeddings_base_url", rag.EmbeddingsBaseUrl),
@@ -48,6 +51,7 @@ internal static class RuntimeCatalogBuilder
                 model: rag.RerankModel,
                 configurationSource: ResolveRerankConfigurationSource(rag),
                 expectedCapabilityKeys: ["core.retrieval"],
+                dependencyRuntimeKeys: [],
                 requiredSettingKeys: ["rerank_enabled", "rerank_base_url_or_embeddings_base_url", "rerank_model"],
                 missingSettingKeys: rag.EnableRerank
                     ? ResolveMissingSettingKeys(
@@ -64,6 +68,7 @@ internal static class RuntimeCatalogBuilder
                 model: "corpus_enrichment_admin",
                 configurationSource: "backend_internal",
                 expectedCapabilityKeys: [capabilityAKey],
+                dependencyRuntimeKeys: [],
                 requiredSettingKeys: [],
                 missingSettingKeys: [],
                 profiles: profiles),
@@ -76,8 +81,22 @@ internal static class RuntimeCatalogBuilder
                 model: "summary.generate",
                 configurationSource: "environment.BACKOFFICE_LLM_ENABLED",
                 expectedCapabilityKeys: [capabilityBKey],
+                dependencyRuntimeKeys: ["llm-backoffice-chat"],
                 requiredSettingKeys: ["BACKOFFICE_LLM_ENABLED"],
                 missingSettingKeys: IsBackofficeGenerationEnabled() ? [] : ["BACKOFFICE_LLM_ENABLED"],
+                profiles: profiles),
+            BuildRuntimeDescriptor(
+                runtimeKey: "llm-backoffice-chat",
+                label: "Backoffice LLM chat runtime",
+                kind: "llm_runtime",
+                enabled: IsBackofficeGenerationEnabled(),
+                baseUrl: chat.LlmBaseUrl,
+                model: chat.LlmModel,
+                configurationSource: "environment.BACKOFFICE_LLM_ENABLED + chat_options.llm_base_url",
+                expectedCapabilityKeys: [capabilityBKey],
+                dependencyRuntimeKeys: [],
+                requiredSettingKeys: ["BACKOFFICE_LLM_ENABLED", "chat.llm_base_url", "chat.llm_model"],
+                missingSettingKeys: ResolveBackofficeLlmMissingSettingKeys(chat),
                 profiles: profiles)
         ];
 
@@ -99,6 +118,7 @@ internal static class RuntimeCatalogBuilder
                 UsedByProfileKeys: runtime.UsedByProfileKeys,
                 RequiredByProfileKeys: runtime.RequiredByProfileKeys,
                 ExpectedCapabilityKeys: runtime.ExpectedCapabilityKeys,
+                DependencyRuntimeKeys: runtime.DependencyRuntimeKeys,
                 RequiredSettingKeys: runtime.RequiredSettingKeys,
                 MissingSettingKeys: runtime.MissingSettingKeys))
             .ToArray();
@@ -214,6 +234,7 @@ internal static class RuntimeCatalogBuilder
         string? model,
         string configurationSource,
         IReadOnlyList<string> expectedCapabilityKeys,
+        IReadOnlyList<string> dependencyRuntimeKeys,
         IReadOnlyList<string> requiredSettingKeys,
         IReadOnlyList<string> missingSettingKeys,
         IReadOnlyList<AdminRuntimeWarmupProfileDto> profiles)
@@ -234,6 +255,7 @@ internal static class RuntimeCatalogBuilder
             UsedByProfileKeys: usedByProfiles,
             RequiredByProfileKeys: requiredByProfiles,
             ExpectedCapabilityKeys: expectedCapabilityKeys,
+            DependencyRuntimeKeys: dependencyRuntimeKeys,
             RequiredSettingKeys: requiredSettingKeys,
             MissingSettingKeys: missingSettingKeys);
     }
@@ -295,7 +317,7 @@ internal static class RuntimeCatalogBuilder
         bool enabled,
         IReadOnlyList<string> missingSettingKeys)
     {
-        if (runtimeKey == "tei-rerank" && !enabled)
+        if ((runtimeKey == "tei-rerank" || runtimeKey == "llm-backoffice-chat") && !enabled)
             return "disabled";
 
         if (!enabled)
@@ -322,4 +344,16 @@ internal static class RuntimeCatalogBuilder
 
     private static long TightenBudget(long value)
         => Math.Max(1, (long)Math.Floor(value * 0.75d));
+
+    private static IReadOnlyList<string> ResolveBackofficeLlmMissingSettingKeys(ChatOptions chat)
+    {
+        var missing = new List<string>();
+        if (!IsBackofficeGenerationEnabled())
+            missing.Add("BACKOFFICE_LLM_ENABLED");
+        if (string.IsNullOrWhiteSpace(chat.LlmBaseUrl))
+            missing.Add("chat.llm_base_url");
+        if (string.IsNullOrWhiteSpace(chat.LlmModel))
+            missing.Add("chat.llm_model");
+        return missing;
+    }
 }

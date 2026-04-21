@@ -27,6 +27,7 @@ public sealed class AdminRuntimeEndpointsTests
             ctx,
             Options.Create(new RuntimeGovernanceOptions()),
             Options.Create(CreateRagOptions()),
+            Options.Create(CreateChatOptions()),
             new StubHostEnvironment());
 
         var payload = await ExecuteResultAsync<AdminRuntimeCatalogResponseDto>(result, ctx);
@@ -39,6 +40,15 @@ public sealed class AdminRuntimeEndpointsTests
             && item.UsedByProfileKeys!.Contains("default-local")
             && item.RequiredSettingKeys!.Contains("qdrant_collection"));
         Assert.Contains(payload.Runtimes, item => item.Key == "tei-embeddings");
+        Assert.Contains(payload.Runtimes, item =>
+            item.Key == "server-capability-b"
+            && item.DependencyRuntimeKeys!.Contains("llm-backoffice-chat"));
+        Assert.Contains(payload.Runtimes, item =>
+            item.Key == "llm-backoffice-chat"
+            && item.Kind == "llm_runtime"
+            && item.BaseUrl == "http://llm.test/"
+            && item.Model == "local"
+            && item.ConfigurationSource == "environment.BACKOFFICE_LLM_ENABLED + chat_options.llm_base_url");
         Assert.Contains(payload.WarmupProfiles, item => item.Key == "default-local" && item.PassCount == 3);
         Assert.Contains(payload.WarmupProfiles, item => item.Key == "default-local" && item.HardwareRequirements is not null);
         Assert.Contains(payload.WarmupProfiles, item => item.Key == "default-local" && item.FreshnessPolicy is not null);
@@ -57,6 +67,7 @@ public sealed class AdminRuntimeEndpointsTests
             ctx,
             Options.Create(new RuntimeGovernanceOptions()),
             Options.Create(CreateRagOptions()),
+            Options.Create(CreateChatOptions()),
             new StubHostEnvironment());
 
         var payload = await ExecuteResultAsync<AdminRuntimeRuntimeCatalogArtifactDto>(result, ctx);
@@ -64,6 +75,10 @@ public sealed class AdminRuntimeEndpointsTests
         Assert.Equal("runtime_catalog.json", payload.Artifact);
         Assert.Equal("v3.0", payload.CdcAlignment);
         Assert.Contains(payload.Runtimes, item => item.Key == "tei-embeddings");
+        Assert.Contains(payload.Runtimes, item =>
+            item.Key == "llm-backoffice-chat"
+            && item.ReadinessStatus == "disabled"
+            && item.MissingSettingKeys!.Contains("BACKOFFICE_LLM_ENABLED"));
         Assert.Contains(payload.WarmupProfiles, item => item.HardwareRequirements is not null);
         Assert.Contains(payload.WarmupProfiles, item => item.Key == "strict-local");
         Assert.Contains(payload.WarmupProfiles, item => item.Key == "strict-rerank");
@@ -78,6 +93,7 @@ public sealed class AdminRuntimeEndpointsTests
             ctx,
             Options.Create(new RuntimeGovernanceOptions()),
             Options.Create(CreateRagOptions()),
+            Options.Create(CreateChatOptions()),
             new StubHostEnvironment());
 
         var payload = await ExecuteResultAsync<AdminRuntimeModelCatalogArtifactDto>(result, ctx);
@@ -95,6 +111,14 @@ public sealed class AdminRuntimeEndpointsTests
             && !item.Enabled
             && item.ReadinessStatus == "disabled"
             && item.ConfigurationSource == "rag_options.rerank_disabled");
+        Assert.Contains(payload.Items, item =>
+            item.Key == "server-capability-b"
+            && item.DependencyRuntimeKeys!.Contains("llm-backoffice-chat"));
+        Assert.Contains(payload.Items, item =>
+            item.Key == "llm-backoffice-chat"
+            && !item.Enabled
+            && item.ReadinessStatus == "disabled"
+            && item.ConfigurationSource == "environment.BACKOFFICE_LLM_ENABLED + chat_options.llm_base_url");
     }
 
     [Fact]
@@ -105,6 +129,7 @@ public sealed class AdminRuntimeEndpointsTests
             ctx,
             Options.Create(new RuntimeGovernanceOptions()),
             Options.Create(CreateRagOptions(enableRerank: true, rerankModel: "cross-encoder/ms-marco")),
+            Options.Create(CreateChatOptions()),
             new StubHostEnvironment());
 
         var payload = await ExecuteResultAsync<AdminRuntimeModelCatalogArtifactDto>(result, ctx);
@@ -958,9 +983,20 @@ VALUES(
             Assert.Equal("capability_b.backoffice_generation", capabilityBState.Key);
             Assert.True(capabilityBState.Implemented);
             Assert.True(capabilityBState.Configured);
+            Assert.True(capabilityBState.Healthy);
             Assert.True(capabilityBState.Qualified);
             Assert.True(capabilityBState.Selected);
             Assert.Equal("server-capability-b", capabilityBState.RuntimeKey);
+            Assert.Equal(3, capabilityBState.PassCount);
+            Assert.NotNull(capabilityBState.Details);
+
+            var capabilityBDetails = JsonSerializer.SerializeToElement(capabilityBState.Details);
+            var capabilityBChecks = capabilityBDetails.GetProperty("checks");
+            Assert.Equal(JsonValueKind.Array, capabilityBChecks.ValueKind);
+            Assert.True(capabilityBChecks.GetArrayLength() > 0);
+            Assert.True(capabilityBChecks[0].TryGetProperty("llm", out var llmCheck));
+            Assert.Equal("ok", llmCheck.GetProperty("status").GetString());
+            Assert.True(capabilityBChecks[0].GetProperty("checksSummary").GetProperty("llmPassed").GetBoolean());
 
             var diagnosticsCtx = BuildAdminContext();
             var diagnosticsResult = await AdminRuntimeEndpoints.DiagnosticsAsync(
@@ -1202,6 +1238,59 @@ WHERE tenant_id=@tenant
             var campaignArtifact = await ExecuteResultAsync<AdminRuntimeCapabilityBCampaignDetailArtifactDto>(campaignArtifactResult, campaignArtifactCtx);
             Assert.Equal("capability_b_campaign_detail.json", campaignArtifact.Artifact);
             Assert.Equal(campaignDetail.Item.CampaignId, campaignArtifact.Item.CampaignId);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
+        }
+    }
+
+    [Fact]
+    public async Task RequalifyAsync_marks_capability_b_not_qualified_when_llm_runtime_probe_fails()
+    {
+        var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
+        Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", "true");
+
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+        {
+            Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
+            return;
+        }
+
+        try
+        {
+            var ctx = BuildAdminContext();
+            await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+
+            var result = await AdminRuntimeEndpoints.RequalifyAsync(
+                ctx,
+                ds,
+                new BrokenBackofficeRuntimeGovernanceHttpClientFactory(),
+                Options.Create(new RuntimeGovernanceOptions()),
+                Options.Create(CreateRagOptions()),
+                new StubHostEnvironment(),
+                new AdminRuntimeRequalifyRequestDto(
+                    CapabilityKey: "capability_b.backoffice_generation",
+                    SelectWhenQualified: true));
+
+            var payload = await ExecuteResultAsync<AdminRuntimeRequalifyResponseDto>(result, ctx);
+            var state = Assert.Single(payload.Items);
+
+            Assert.Equal("capability_b.backoffice_generation", state.Key);
+            Assert.True(state.Configured);
+            Assert.False(state.Healthy);
+            Assert.False(state.Qualified);
+            Assert.False(state.Authorized);
+            Assert.False(state.Selected);
+            Assert.Equal(3, state.PassCount);
+            Assert.Contains("llm chat completion check failed", state.LastError, StringComparison.OrdinalIgnoreCase);
+
+            var details = JsonSerializer.SerializeToElement(state.Details);
+            var checks = details.GetProperty("checks");
+            Assert.True(checks.GetArrayLength() > 0);
+            Assert.Equal("http_error", checks[0].GetProperty("llm").GetProperty("status").GetString());
+            Assert.False(checks[0].GetProperty("checksSummary").GetProperty("llmPassed").GetBoolean());
         }
         finally
         {
@@ -1639,6 +1728,371 @@ WHERE tenant_id=@tenant
     }
 
     [Fact]
+    public async Task CapabilityBKpisAsync_returns_ops_thresholds_and_metric_guide()
+    {
+        var ctx = BuildAdminContext();
+        var options = new RuntimeGovernanceOptions
+        {
+            CapabilityBKpiObservationWindowMinutes = 25,
+            CapabilityBGenerationP95TargetMs = 2800,
+            CapabilityBLiveFallbackRateTargetPercent = 4,
+            CapabilityBFailureRateTargetPercent = 6,
+            CapabilityBQualityScoreTarget = 0.72
+        };
+
+        var result = await AdminRuntimeEndpoints.CapabilityBKpisAsync(
+            ctx,
+            new StubHostEnvironment(),
+            Options.Create(options));
+
+        var payload = await ExecuteResultAsync<AdminRuntimeCapabilityBKpisResponseDto>(result, ctx);
+        Assert.Equal("v3.0", payload.CdcAlignment);
+        Assert.Equal(25, payload.Policy.ObservationWindowMinutes);
+        Assert.Equal(2800, payload.Policy.GenerationP95TargetMs);
+        Assert.Equal(4, payload.Policy.LiveFallbackRateTargetPercent);
+        Assert.Equal(6, payload.Policy.FailureRateTargetPercent);
+        Assert.Equal(0.72, payload.Policy.QualityScoreTarget);
+        Assert.Contains("runtime_unavailable", payload.Policy.LiveFallbackRateFormula, StringComparison.Ordinal);
+        Assert.Contains("failed_docs", payload.Policy.FailureRateFormula, StringComparison.Ordinal);
+        Assert.Contains(payload.Metrics, item => item.Key == "capability_b_generation_p95" && item.Instrument == "saaia.runtime.capability_b.summary_generation.duration");
+        Assert.Contains(payload.Metrics, item => item.Key == "capability_b_live_fallback_rate" && item.Instrument == "saaia.runtime.capability_b.execution_decisions");
+        Assert.Contains(payload.Metrics, item => item.Key == "capability_b_first_response_p95" && item.Instrument == "saaia.runtime.capability_b.summary_generation.first_response");
+        Assert.Contains(payload.Metrics, item => item.Key == "capability_b_output_length_p50" && item.Aggregation == "p50");
+        Assert.Contains(payload.Metrics, item => item.Key == "capability_b_quality_score_p50" && item.Instrument == "saaia.runtime.capability_b.summary_generation.quality_score");
+        Assert.Contains(payload.Alerts, item => item.Key == "capability_b_generation_p95_regression" && item.Condition.Contains("2800", StringComparison.Ordinal));
+        Assert.Contains(payload.Alerts, item => item.Key == "capability_b_live_fallback_rate_regression" && item.Condition.Contains("4", StringComparison.Ordinal));
+        Assert.Contains(payload.Alerts, item => item.Key == "capability_b_quality_score_regression" && item.Condition.Contains("quality_score", StringComparison.Ordinal));
+        Assert.Contains(payload.DashboardPanels, item => item.Contains("Capability B generation P95", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task CapabilityBKpisArtifactAsync_returns_named_artifact_snapshot()
+    {
+        var ctx = BuildAdminContext();
+        var result = await AdminRuntimeEndpoints.CapabilityBKpisArtifactAsync(
+            ctx,
+            new StubHostEnvironment(),
+            Options.Create(new RuntimeGovernanceOptions()));
+
+        var payload = await ExecuteResultAsync<AdminRuntimeCapabilityBKpisArtifactDto>(result, ctx);
+        Assert.Equal("capability-b-kpis.json", payload.Artifact);
+        Assert.Equal("v3.0", payload.CdcAlignment);
+        Assert.Contains(payload.Metrics, item => item.Instrument == "saaia.runtime.capability_b.execution_decisions");
+        Assert.Contains(payload.Metrics, item => item.Instrument == "saaia.runtime.capability_b.summary_generation.first_response");
+        Assert.Contains(payload.Metrics, item => item.Instrument == "saaia.runtime.capability_b.summary_generation.quality_score");
+        Assert.Contains(payload.Alerts, item => item.Key == "capability_b_failure_rate_regression");
+        Assert.Contains(payload.Alerts, item => item.Key == "capability_b_quality_score_regression");
+    }
+
+    [Fact]
+    public async Task CapabilityBQualityReviewAsync_returns_only_low_quality_capability_b_summaries()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        var lowDocId = Guid.NewGuid();
+        var highDocId = Guid.NewGuid();
+
+        await using (var conn = new NpgsqlConnection(db.ConnectionString))
+        {
+            await conn.OpenAsync();
+            await conn.ExecuteAsync(
+                """
+INSERT INTO documents(
+  tenant_id, doc_id, doc_path, doc_name, category, status,
+  updated_at, created_at, ingestion_version, indexed_version, auto_ingest_paused
+)
+VALUES
+  (@tenant, @lowDocId, 'ATEX/low-quality.pdf', 'low-quality.pdf', 'atex', 'indexed', now(), now(), 1, 1, false),
+  (@tenant, @highDocId, 'ATEX/high-quality.pdf', 'high-quality.pdf', 'atex', 'indexed', now(), now(), 1, 1, false);
+
+INSERT INTO document_summaries(
+  tenant_id, doc_id, level, doc_language, source_hash, summary_text, summary_meta, created_at, updated_at
+)
+VALUES
+(
+  @tenant,
+  @lowDocId,
+  'medium',
+  'fr',
+  'hash-low',
+  'Summary with thin coverage.',
+  '{
+    "generator":"capability_b_worker_v2",
+    "strategy":"llm_document_foundation",
+    "runtimeCapabilityStatus":"selected",
+    "qualityScore":0.41,
+    "fallbackUsed":false,
+    "qualitySignals":{
+      "lineCount":1,
+      "lengthScore":0.35,
+      "structureScore":0.4,
+      "sectionCoverageScore":0.25,
+      "matchedSectionCount":1,
+      "expectedSectionCount":4,
+      "keywordCoverageScore":0.25,
+      "matchedKeywordCount":1,
+      "expectedKeywordCount":4
+    }
+  }'::jsonb,
+  now(),
+  now()
+),
+(
+  @tenant,
+  @highDocId,
+  'medium',
+  'fr',
+  'hash-high',
+  'High quality summary with better coverage and structure.',
+  '{
+    "generator":"capability_b_worker_v2",
+    "strategy":"llm_document_foundation",
+    "runtimeCapabilityStatus":"selected",
+    "qualityScore":0.88,
+    "fallbackUsed":false,
+    "qualitySignals":{
+      "lineCount":3,
+      "lengthScore":1.0,
+      "structureScore":1.0,
+      "sectionCoverageScore":0.75,
+      "matchedSectionCount":3,
+      "expectedSectionCount":4,
+      "keywordCoverageScore":0.75,
+      "matchedKeywordCount":3,
+      "expectedKeywordCount":4
+    }
+  }'::jsonb,
+  now(),
+  now()
+);
+""",
+                new { tenant = tenantId, lowDocId, highDocId });
+        }
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var options = new RuntimeGovernanceOptions
+        {
+            CapabilityBQualityScoreTarget = 0.60
+        };
+        var ctx = BuildAdminContext();
+
+        var result = await AdminRuntimeEndpoints.CapabilityBQualityReviewAsync(
+            ctx,
+            ds,
+            Options.Create(options),
+            new StubHostEnvironment(),
+            limit: 20);
+
+        var payload = await ExecuteResultAsync<AdminRuntimeCapabilityBQualityReviewResponseDto>(result, ctx);
+        Assert.Equal("capability_b.backoffice_generation", payload.CapabilityKey);
+        Assert.Equal(0.60, payload.QualityThreshold);
+        Assert.Equal(1, payload.TotalItems);
+        var item = Assert.Single(payload.Items);
+        Assert.Equal(lowDocId, item.DocId);
+        Assert.Equal("ATEX/low-quality.pdf", item.DocPath);
+        Assert.Equal(0.41, item.QualityScore);
+        Assert.Equal("llm_document_foundation", item.Strategy);
+        Assert.Contains(item.Recommendations, recommendation => recommendation.Contains("section coverage", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(0.25, item.Signals.SectionCoverageScore);
+    }
+
+    [Fact]
+    public async Task CapabilityBQualityReviewArtifactAsync_returns_named_artifact_snapshot()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        var docId = Guid.NewGuid();
+
+        await using (var conn = new NpgsqlConnection(db.ConnectionString))
+        {
+            await conn.OpenAsync();
+            await conn.ExecuteAsync(
+                """
+INSERT INTO documents(
+  tenant_id, doc_id, doc_path, doc_name, category, status,
+  updated_at, created_at, ingestion_version, indexed_version, auto_ingest_paused
+)
+VALUES(
+  @tenant, @docId, 'ATEX/quality-artifact.pdf', 'quality-artifact.pdf', 'atex', 'indexed', now(), now(), 1, 1, false
+);
+
+INSERT INTO document_summaries(
+  tenant_id, doc_id, level, doc_language, source_hash, summary_text, summary_meta, created_at, updated_at
+)
+VALUES(
+  @tenant,
+  @docId,
+  'medium',
+  'fr',
+  'hash-artifact',
+  'Fallback summary for quality artifact review.',
+  '{
+    "generator":"capability_b_worker_v2",
+    "strategy":"deterministic_document_foundation",
+    "fallbackUsed":true,
+    "fallbackReason":"llm_empty_response",
+    "runtimeCapabilityStatus":"runtime_unavailable",
+    "qualityScore":0.38,
+    "qualitySignals":{
+      "lineCount":1,
+      "lengthScore":0.35,
+      "structureScore":0.4,
+      "sectionCoverageScore":0.2,
+      "matchedSectionCount":1,
+      "expectedSectionCount":5,
+      "keywordCoverageScore":0.2,
+      "matchedKeywordCount":1,
+      "expectedKeywordCount":5
+    }
+  }'::jsonb,
+  now(),
+  now()
+);
+""",
+                new { tenant = tenantId, docId });
+        }
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var ctx = BuildAdminContext();
+        var result = await AdminRuntimeEndpoints.CapabilityBQualityReviewArtifactAsync(
+            ctx,
+            ds,
+            Options.Create(new RuntimeGovernanceOptions()),
+            new StubHostEnvironment(),
+            limit: 20);
+
+        var payload = await ExecuteResultAsync<AdminRuntimeCapabilityBQualityReviewArtifactDto>(result, ctx);
+        Assert.Equal("capability_b_quality_review.json", payload.Artifact);
+        Assert.Equal("capability_b.backoffice_generation", payload.CapabilityKey);
+        Assert.Equal(1, payload.TotalItems);
+        var item = Assert.Single(payload.Items);
+        Assert.True(item.FallbackUsed);
+        Assert.Equal("llm_empty_response", item.FallbackReason);
+        Assert.Contains(item.Recommendations, recommendation => recommendation.Contains("fallback", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task CapabilityBQualityReviewSummaryAsync_returns_aggregate_snapshot_for_low_quality_summaries()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        var docA = Guid.NewGuid();
+        var docB = Guid.NewGuid();
+
+        await using (var conn = new NpgsqlConnection(db.ConnectionString))
+        {
+            await conn.OpenAsync();
+            await conn.ExecuteAsync(
+                """
+INSERT INTO documents(
+  tenant_id, doc_id, doc_path, doc_name, category, status,
+  updated_at, created_at, ingestion_version, indexed_version, auto_ingest_paused
+)
+VALUES
+  (@tenant, @docA, 'ATEX/quality-summary-a.pdf', 'quality-summary-a.pdf', 'atex', 'indexed', now(), now(), 1, 1, false),
+  (@tenant, @docB, 'ATEX/quality-summary-b.pdf', 'quality-summary-b.pdf', 'atex', 'indexed', now(), now(), 1, 1, false);
+
+INSERT INTO document_summaries(
+  tenant_id, doc_id, level, doc_language, source_hash, summary_text, summary_meta, created_at, updated_at
+)
+VALUES
+(
+  @tenant,
+  @docA,
+  'medium',
+  'fr',
+  'hash-a',
+  'Low quality LLM summary.',
+  '{
+    "generator":"capability_b_worker_v2",
+    "strategy":"llm_document_foundation",
+    "runtimeCapabilityStatus":"selected",
+    "fallbackUsed":false,
+    "qualityScore":0.42
+  }'::jsonb,
+  now() - interval ''2 minutes'',
+  now() - interval ''2 minutes''
+),
+(
+  @tenant,
+  @docB,
+  'medium',
+  'fr',
+  'hash-b',
+  'Low quality fallback summary.',
+  '{
+    "generator":"capability_b_worker_v2",
+    "strategy":"deterministic_document_foundation",
+    "runtimeCapabilityStatus":"runtime_unavailable",
+    "fallbackUsed":true,
+    "fallbackReason":"llm_empty_response",
+    "qualityScore":0.31
+  }'::jsonb,
+  now() - interval ''1 minutes'',
+  now() - interval ''1 minutes''
+);
+""",
+                new { tenant = tenantId, docA, docB });
+        }
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var options = new RuntimeGovernanceOptions
+        {
+            CapabilityBQualityScoreTarget = 0.60
+        };
+        var ctx = BuildAdminContext();
+        var result = await AdminRuntimeEndpoints.CapabilityBQualityReviewSummaryAsync(
+            ctx,
+            ds,
+            Options.Create(options),
+            new StubHostEnvironment());
+
+        var payload = await ExecuteResultAsync<AdminRuntimeCapabilityBQualityReviewSummaryResponseDto>(result, ctx);
+        Assert.Equal("capability_b.backoffice_generation", payload.CapabilityKey);
+        Assert.Equal(0.60, payload.QualityThreshold);
+        Assert.Equal(2, payload.Summary.TotalLowQualitySummaries);
+        Assert.Equal(1, payload.Summary.FallbackSummaryCount);
+        Assert.Equal(1, payload.Summary.LiveLlmSummaryCount);
+        Assert.Equal(1, payload.Summary.RuntimeUnavailableCount);
+        Assert.Equal(0.31, payload.Summary.LowestQualityScore);
+        Assert.NotNull(payload.Summary.LatestUpdatedAt);
+        Assert.Contains(payload.Summary.StrategyCounts, item => item.Key == "deterministic_document_foundation" && item.Count == 1);
+        Assert.Contains(payload.Summary.StrategyCounts, item => item.Key == "llm_document_foundation" && item.Count == 1);
+        Assert.Contains(payload.Summary.RuntimeStatusCounts, item => item.Key == "runtime_unavailable" && item.Count == 1);
+        Assert.Contains(payload.Summary.Recommendations, item => item.Contains("runtime availability", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task CapabilityBQualityReviewSummaryArtifactAsync_returns_named_artifact_snapshot()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var ctx = BuildAdminContext();
+        var result = await AdminRuntimeEndpoints.CapabilityBQualityReviewSummaryArtifactAsync(
+            ctx,
+            ds,
+            Options.Create(new RuntimeGovernanceOptions()),
+            new StubHostEnvironment());
+
+        var payload = await ExecuteResultAsync<AdminRuntimeCapabilityBQualityReviewSummaryArtifactDto>(result, ctx);
+        Assert.Equal("capability_b_quality_review_summary.json", payload.Artifact);
+        Assert.Equal("capability_b.backoffice_generation", payload.CapabilityKey);
+        Assert.NotNull(payload.Summary);
+    }
+
+    [Fact]
     public async Task OperationalSummaryArtifactAsync_returns_runtime_operational_snapshot()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
@@ -1682,6 +2136,9 @@ WHERE tenant_id=@tenant
         AssertDtoJsonPropertyNames<AdminRuntimeEventsResponseDto>("cdcAlignment", "environment", "items");
         AssertDtoJsonPropertyNames<AdminRuntimeDiagnosticsResponseDto>("cdcAlignment", "environment", "generatedAt", "summary", "items");
         AssertDtoJsonPropertyNames<AdminRuntimeRetrievalKpisResponseDto>("cdcAlignment", "environment", "generatedAt", "policy", "metrics", "alerts", "dashboardPanels");
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityBKpisResponseDto>("cdcAlignment", "environment", "generatedAt", "policy", "metrics", "alerts", "dashboardPanels");
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityBQualityReviewResponseDto>("cdcAlignment", "environment", "generatedAt", "capabilityKey", "qualityThreshold", "totalItems", "items");
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityBQualityReviewSummaryResponseDto>("cdcAlignment", "environment", "generatedAt", "capabilityKey", "qualityThreshold", "summary");
         AssertDtoJsonPropertyNames<AdminRuntimeOperationalSummaryResponseDto>("cdcAlignment", "environment", "generatedAt", "summary", "items");
 
         AssertDtoJsonPropertyNames<AdminRuntimeCapabilityAEnrichmentCandidatesResponseDto>("cdcAlignment", "environment", "capabilityKey", "profileKey", "totalCandidates", "items");
@@ -1711,6 +2168,9 @@ WHERE tenant_id=@tenant
         AssertDtoJsonPropertyNames<AdminRuntimeEventsArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "items");
         AssertDtoJsonPropertyNames<AdminRuntimeDiagnosticsArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "summary", "items");
         AssertDtoJsonPropertyNames<AdminRuntimeRetrievalKpisArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "policy", "metrics", "alerts", "dashboardPanels");
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityBKpisArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "policy", "metrics", "alerts", "dashboardPanels");
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityBQualityReviewArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "capabilityKey", "qualityThreshold", "totalItems", "items");
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityBQualityReviewSummaryArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "capabilityKey", "qualityThreshold", "summary");
         AssertDtoJsonPropertyNames<AdminRuntimeOperationalSummaryArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "summary", "items");
     }
 
@@ -1736,6 +2196,7 @@ WHERE tenant_id=@tenant
             catalogCtx,
             Options.Create(new RuntimeGovernanceOptions()),
             Options.Create(CreateRagOptions()),
+            Options.Create(CreateChatOptions()),
             new StubHostEnvironment());
         await AssertTopLevelJsonContractAsync(catalogResult, catalogCtx, "cdcAlignment", "environment", "runtimes", "warmupProfiles", "capabilities");
 
@@ -1763,6 +2224,30 @@ WHERE tenant_id=@tenant
             new StubHostEnvironment(),
             Options.Create(new RuntimeGovernanceOptions()));
         await AssertTopLevelJsonContractAsync(retrievalKpisResult, retrievalKpisCtx, "cdcAlignment", "environment", "generatedAt", "policy", "metrics", "alerts", "dashboardPanels");
+
+        var capabilityBKpisCtx = BuildAdminContext();
+        var capabilityBKpisResult = await AdminRuntimeEndpoints.CapabilityBKpisAsync(
+            capabilityBKpisCtx,
+            new StubHostEnvironment(),
+            Options.Create(new RuntimeGovernanceOptions()));
+        await AssertTopLevelJsonContractAsync(capabilityBKpisResult, capabilityBKpisCtx, "cdcAlignment", "environment", "generatedAt", "policy", "metrics", "alerts", "dashboardPanels");
+
+        var capabilityBQualityReviewCtx = BuildAdminContext();
+        var capabilityBQualityReviewResult = await AdminRuntimeEndpoints.CapabilityBQualityReviewAsync(
+            capabilityBQualityReviewCtx,
+            ds,
+            Options.Create(new RuntimeGovernanceOptions()),
+            new StubHostEnvironment(),
+            limit: 20);
+        await AssertTopLevelJsonContractAsync(capabilityBQualityReviewResult, capabilityBQualityReviewCtx, "cdcAlignment", "environment", "generatedAt", "capabilityKey", "qualityThreshold", "totalItems", "items");
+
+        var capabilityBQualityReviewSummaryCtx = BuildAdminContext();
+        var capabilityBQualityReviewSummaryResult = await AdminRuntimeEndpoints.CapabilityBQualityReviewSummaryAsync(
+            capabilityBQualityReviewSummaryCtx,
+            ds,
+            Options.Create(new RuntimeGovernanceOptions()),
+            new StubHostEnvironment());
+        await AssertTopLevelJsonContractAsync(capabilityBQualityReviewSummaryResult, capabilityBQualityReviewSummaryCtx, "cdcAlignment", "environment", "generatedAt", "capabilityKey", "qualityThreshold", "summary");
 
         var operationalCtx = BuildAdminContext();
         var operationalResult = await AdminRuntimeEndpoints.OperationalSummaryAsync(
@@ -1796,6 +2281,7 @@ WHERE tenant_id=@tenant
             runtimeCatalogArtifactCtx,
             Options.Create(new RuntimeGovernanceOptions()),
             Options.Create(CreateRagOptions()),
+            Options.Create(CreateChatOptions()),
             new StubHostEnvironment());
         await AssertTopLevelJsonContractAsync(runtimeCatalogArtifactResult, runtimeCatalogArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "runtimes", "warmupProfiles", "capabilities");
 
@@ -1804,6 +2290,7 @@ WHERE tenant_id=@tenant
             modelCatalogArtifactCtx,
             Options.Create(new RuntimeGovernanceOptions()),
             Options.Create(CreateRagOptions()),
+            Options.Create(CreateChatOptions()),
             new StubHostEnvironment());
         await AssertTopLevelJsonContractAsync(modelCatalogArtifactResult, modelCatalogArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "items");
 
@@ -1856,6 +2343,30 @@ WHERE tenant_id=@tenant
             new StubHostEnvironment(),
             Options.Create(new RuntimeGovernanceOptions()));
         await AssertTopLevelJsonContractAsync(retrievalKpisArtifactResult, retrievalKpisArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "policy", "metrics", "alerts", "dashboardPanels");
+
+        var capabilityBKpisArtifactCtx = BuildAdminContext();
+        var capabilityBKpisArtifactResult = await AdminRuntimeEndpoints.CapabilityBKpisArtifactAsync(
+            capabilityBKpisArtifactCtx,
+            new StubHostEnvironment(),
+            Options.Create(new RuntimeGovernanceOptions()));
+        await AssertTopLevelJsonContractAsync(capabilityBKpisArtifactResult, capabilityBKpisArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "policy", "metrics", "alerts", "dashboardPanels");
+
+        var capabilityBQualityReviewArtifactCtx = BuildAdminContext();
+        var capabilityBQualityReviewArtifactResult = await AdminRuntimeEndpoints.CapabilityBQualityReviewArtifactAsync(
+            capabilityBQualityReviewArtifactCtx,
+            ds,
+            Options.Create(new RuntimeGovernanceOptions()),
+            new StubHostEnvironment(),
+            limit: 20);
+        await AssertTopLevelJsonContractAsync(capabilityBQualityReviewArtifactResult, capabilityBQualityReviewArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "capabilityKey", "qualityThreshold", "totalItems", "items");
+
+        var capabilityBQualityReviewSummaryArtifactCtx = BuildAdminContext();
+        var capabilityBQualityReviewSummaryArtifactResult = await AdminRuntimeEndpoints.CapabilityBQualityReviewSummaryArtifactAsync(
+            capabilityBQualityReviewSummaryArtifactCtx,
+            ds,
+            Options.Create(new RuntimeGovernanceOptions()),
+            new StubHostEnvironment());
+        await AssertTopLevelJsonContractAsync(capabilityBQualityReviewSummaryArtifactResult, capabilityBQualityReviewSummaryArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "capabilityKey", "qualityThreshold", "summary");
 
         var operationalArtifactCtx = BuildAdminContext();
         var operationalArtifactResult = await AdminRuntimeEndpoints.OperationalSummaryArtifactAsync(
@@ -2302,6 +2813,55 @@ WHERE tenant_id=@tenant
         Assert.Contains(retrieval.Recommendations, item => item.Contains("enable the required runtime features", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public async Task DiagnosticsAsync_surfaces_live_runtime_blocker_for_capability_b_when_probe_fails()
+    {
+        var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
+        Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", "true");
+
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+        {
+            Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
+            return;
+        }
+
+        try
+        {
+            await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+            await RuntimeGovernanceCommandService.RequalifyAsync(
+                ds,
+                new RuntimeGovernanceHttpClientFactory(),
+                new RuntimeGovernanceOptions(),
+                CreateRagOptions(),
+                new StubHostEnvironment(),
+                new AdminRuntimeRequalifyRequestDto(
+                    CapabilityKey: "capability_b.backoffice_generation",
+                    SelectWhenQualified: true),
+                CancellationToken.None);
+
+            var ctx = BuildAdminContext(httpClientFactory: new BrokenBackofficeRuntimeGovernanceHttpClientFactory());
+            var diagnostics = await AdminRuntimeEndpoints.DiagnosticsAsync(
+                ctx,
+                ds,
+                Options.Create(new RuntimeGovernanceOptions()),
+                Options.Create(CreateRagOptions()),
+                new StubHostEnvironment());
+
+            var payload = await ExecuteResultAsync<AdminRuntimeDiagnosticsResponseDto>(diagnostics, ctx);
+            var capabilityB = Assert.Single(payload.Items, item => item.Key == "capability_b.backoffice_generation");
+
+            Assert.Equal("selected", capabilityB.Status);
+            Assert.Contains("runtime_live_unavailable", capabilityB.Blockers);
+            Assert.Contains(capabilityB.Recommendations, item => item.Contains("fall back to client_admin", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains("llm chat completion check failed", capabilityB.LastError, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
+        }
+    }
+
     private static RagOptions CreateRagOptions(
         bool enableRerank = false,
         string? rerankBaseUrl = null,
@@ -2318,11 +2878,19 @@ WHERE tenant_id=@tenant
             RerankModel = rerankModel
         };
 
-    private static DefaultHttpContext BuildAdminContext(Guid? tenantId = null)
+    private static ChatOptions CreateChatOptions()
+        => new()
+        {
+            LlmBaseUrl = "http://llm.test/",
+            LlmModel = "local"
+        };
+
+    private static DefaultHttpContext BuildAdminContext(Guid? tenantId = null, IHttpClientFactory? httpClientFactory = null)
     {
         var services = new ServiceCollection();
         services.AddLogging();
         services.Configure<JsonOptions>(_ => { });
+        services.AddSingleton<IHttpClientFactory>(httpClientFactory ?? new RuntimeGovernanceHttpClientFactory());
 
         var ctx = new DefaultHttpContext();
         ctx.Response.Body = new MemoryStream();
@@ -2414,6 +2982,21 @@ WHERE tenant_id=@tenant
             };
     }
 
+    private sealed class BrokenBackofficeRuntimeGovernanceHttpClientFactory : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name)
+            => new(new BrokenBackofficeRuntimeGovernanceHttpMessageHandler())
+            {
+                BaseAddress = name switch
+                {
+                    "qdrant" => new Uri("http://qdrant.test/"),
+                    "tei" => new Uri("http://tei.test/"),
+                    "llm" => new Uri("http://llm.test/"),
+                    _ => new Uri("http://stub.test/")
+                }
+            };
+    }
+
     private sealed class RuntimeGovernanceHttpMessageHandler(int delayMs = 0) : HttpMessageHandler
     {
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -2476,6 +3059,46 @@ WHERE tenant_id=@tenant
             {
                 Content = new StringContent(json, Encoding.UTF8, "application/json")
             };
+    }
+
+    private sealed class BrokenBackofficeRuntimeGovernanceHttpMessageHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri?.AbsolutePath ?? string.Empty;
+
+            if (request.Method == HttpMethod.Get && path.StartsWith("/collections/", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""{ "result": { "status": "green", "points_count": 0 } }""", Encoding.UTF8, "application/json")
+                });
+            }
+
+            if (path.EndsWith("/v1/embeddings", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""
+                    {
+                      "data": [
+                        { "embedding": [0.1, 0.2, 0.3, 0.4] }
+                      ]
+                    }
+                    """, Encoding.UTF8, "application/json")
+                });
+            }
+
+            if (path.EndsWith("/v1/chat/completions", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable)
+                {
+                    Content = new StringContent("""{ "error": "llm_runtime_unavailable" }""", Encoding.UTF8, "application/json")
+                });
+            }
+
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.NotFound));
+        }
     }
 
     private sealed class StubHostEnvironment : IHostEnvironment

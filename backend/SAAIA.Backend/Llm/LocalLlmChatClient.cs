@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Diagnostics;
 
 namespace SAAIA.Backend;
 
@@ -28,9 +29,17 @@ internal sealed class LocalLlmChatClient
         int? maxTokens,
         double? temperature,
         CancellationToken ct)
+        => (await TryCompleteWithTelemetryAsync(systemPrompt, userPrompt, maxTokens, temperature, ct)).Content;
+
+    internal async Task<LocalLlmChatCompletionResult> TryCompleteWithTelemetryAsync(
+        string systemPrompt,
+        string userPrompt,
+        int? maxTokens,
+        double? temperature,
+        CancellationToken ct)
     {
         if (!IsConfigured)
-            return null;
+            return LocalLlmChatCompletionResult.NotConfigured;
 
         using var request = new HttpRequestMessage(HttpMethod.Post, "v1/chat/completions")
         {
@@ -52,26 +61,91 @@ internal sealed class LocalLlmChatClient
 
         try
         {
+            var sw = Stopwatch.StartNew();
             var http = _httpFactory.CreateClient("llm");
-            using var response = await http.SendAsync(request, ct);
+            using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+            var responseHeadersMs = sw.ElapsedMilliseconds;
             if (!response.IsSuccessStatusCode)
-                return null;
+                return new LocalLlmChatCompletionResult(
+                    Content: null,
+                    DurationMs: sw.ElapsedMilliseconds,
+                    ResponseHeadersMs: responseHeadersMs,
+                    FirstByteMs: null,
+                    StatusCode: (int)response.StatusCode,
+                    BytesRead: 0,
+                    Error: $"http_{(int)response.StatusCode}");
 
             await using var stream = await response.Content.ReadAsStreamAsync(ct);
-            using var json = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+            await using var payload = new MemoryStream();
+            var buffer = new byte[4096];
+            long? firstByteMs = null;
+            long bytesRead = 0;
+            while (true)
+            {
+                var read = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), ct);
+                if (read <= 0)
+                    break;
+
+                if (!firstByteMs.HasValue)
+                    firstByteMs = sw.ElapsedMilliseconds;
+
+                bytesRead += read;
+                await payload.WriteAsync(buffer.AsMemory(0, read), ct);
+            }
+
+            if (bytesRead == 0)
+                return new LocalLlmChatCompletionResult(
+                    Content: null,
+                    DurationMs: sw.ElapsedMilliseconds,
+                    ResponseHeadersMs: responseHeadersMs,
+                    FirstByteMs: firstByteMs,
+                    StatusCode: (int)response.StatusCode,
+                    BytesRead: 0,
+                    Error: "empty_body");
+
+            payload.Position = 0;
+            using var json = await JsonDocument.ParseAsync(payload, cancellationToken: ct);
             if (!json.RootElement.TryGetProperty("choices", out var choices) || choices.GetArrayLength() == 0)
-                return null;
+                return new LocalLlmChatCompletionResult(
+                    Content: null,
+                    DurationMs: sw.ElapsedMilliseconds,
+                    ResponseHeadersMs: responseHeadersMs,
+                    FirstByteMs: firstByteMs,
+                    StatusCode: (int)response.StatusCode,
+                    BytesRead: bytesRead,
+                    Error: "choices_missing");
 
             var first = choices[0];
             if (!first.TryGetProperty("message", out var message)
                 || !message.TryGetProperty("content", out var content))
-                return null;
+                return new LocalLlmChatCompletionResult(
+                    Content: null,
+                    DurationMs: sw.ElapsedMilliseconds,
+                    ResponseHeadersMs: responseHeadersMs,
+                    FirstByteMs: firstByteMs,
+                    StatusCode: (int)response.StatusCode,
+                    BytesRead: bytesRead,
+                    Error: "content_missing");
 
-            return ReadContent(content);
+            return new LocalLlmChatCompletionResult(
+                Content: ReadContent(content),
+                DurationMs: sw.ElapsedMilliseconds,
+                ResponseHeadersMs: responseHeadersMs,
+                FirstByteMs: firstByteMs,
+                StatusCode: (int)response.StatusCode,
+                BytesRead: bytesRead,
+                Error: null);
         }
         catch
         {
-            return null;
+            return new LocalLlmChatCompletionResult(
+                Content: null,
+                DurationMs: null,
+                ResponseHeadersMs: null,
+                FirstByteMs: null,
+                StatusCode: null,
+                BytesRead: 0,
+                Error: "exception");
         }
     }
 
@@ -106,4 +180,23 @@ internal sealed class LocalLlmChatClient
 
         return builder.Length == 0 ? null : builder.ToString();
     }
+}
+
+internal sealed record LocalLlmChatCompletionResult(
+    string? Content,
+    long? DurationMs,
+    long? ResponseHeadersMs,
+    long? FirstByteMs,
+    int? StatusCode,
+    long BytesRead,
+    string? Error)
+{
+    internal static LocalLlmChatCompletionResult NotConfigured { get; } = new(
+        Content: null,
+        DurationMs: null,
+        ResponseHeadersMs: null,
+        FirstByteMs: null,
+        StatusCode: null,
+        BytesRead: 0,
+        Error: "not_configured");
 }

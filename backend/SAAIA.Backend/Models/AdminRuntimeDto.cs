@@ -22,6 +22,7 @@ public sealed record AdminRuntimeCatalogRuntimeDto(
     IReadOnlyList<string>? UsedByProfileKeys = null,
     IReadOnlyList<string>? RequiredByProfileKeys = null,
     IReadOnlyList<string>? ExpectedCapabilityKeys = null,
+    IReadOnlyList<string>? DependencyRuntimeKeys = null,
     IReadOnlyList<string>? RequiredSettingKeys = null,
     IReadOnlyList<string>? MissingSettingKeys = null
 );
@@ -275,6 +276,46 @@ public sealed record AdminRuntimeCapabilityBCampaignDetailArtifactDto(
     AdminRuntimeCapabilityBCampaignDetailDto Item
 );
 
+public sealed record AdminRuntimeCapabilityBQualityReviewResponseDto(
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    string CapabilityKey,
+    double QualityThreshold,
+    int TotalItems,
+    IReadOnlyList<AdminRuntimeCapabilityBQualityReviewItemDto> Items
+);
+
+public sealed record AdminRuntimeCapabilityBQualityReviewArtifactDto(
+    string Artifact,
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    string CapabilityKey,
+    double QualityThreshold,
+    int TotalItems,
+    IReadOnlyList<AdminRuntimeCapabilityBQualityReviewItemDto> Items
+);
+
+public sealed record AdminRuntimeCapabilityBQualityReviewSummaryResponseDto(
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    string CapabilityKey,
+    double QualityThreshold,
+    AdminRuntimeCapabilityBQualityReviewSummaryDto Summary
+);
+
+public sealed record AdminRuntimeCapabilityBQualityReviewSummaryArtifactDto(
+    string Artifact,
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    string CapabilityKey,
+    double QualityThreshold,
+    AdminRuntimeCapabilityBQualityReviewSummaryDto Summary
+);
+
 public sealed record AdminRuntimeCapabilityAEnqueueRequestDto(
     IReadOnlyList<Guid>? DocIds = null,
     IReadOnlyList<string>? DocPaths = null,
@@ -404,6 +445,7 @@ public sealed record AdminRuntimeModelCatalogEntryDto(
     IReadOnlyList<string>? UsedByProfileKeys = null,
     IReadOnlyList<string>? RequiredByProfileKeys = null,
     IReadOnlyList<string>? ExpectedCapabilityKeys = null,
+    IReadOnlyList<string>? DependencyRuntimeKeys = null,
     IReadOnlyList<string>? RequiredSettingKeys = null,
     IReadOnlyList<string>? MissingSettingKeys = null
 );
@@ -503,12 +545,44 @@ public sealed record AdminRuntimeRetrievalKpisArtifactDto(
     IReadOnlyList<string> DashboardPanels
 );
 
+public sealed record AdminRuntimeCapabilityBKpisResponseDto(
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    AdminRuntimeCapabilityBKpiPolicyDto Policy,
+    IReadOnlyList<AdminRuntimeMetricDefinitionDto> Metrics,
+    IReadOnlyList<AdminRuntimeAlertDefinitionDto> Alerts,
+    IReadOnlyList<string> DashboardPanels
+);
+
+public sealed record AdminRuntimeCapabilityBKpisArtifactDto(
+    string Artifact,
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    AdminRuntimeCapabilityBKpiPolicyDto Policy,
+    IReadOnlyList<AdminRuntimeMetricDefinitionDto> Metrics,
+    IReadOnlyList<AdminRuntimeAlertDefinitionDto> Alerts,
+    IReadOnlyList<string> DashboardPanels
+);
+
 public sealed record AdminRuntimeRetrievalKpiPolicyDto(
     int ObservationWindowMinutes,
     double RetrievalP95TargetMs,
     double RerankP95TargetMs,
     double ZeroResultRateTargetPercent,
     string ZeroResultRateFormula,
+    string Notes
+);
+
+public sealed record AdminRuntimeCapabilityBKpiPolicyDto(
+    int ObservationWindowMinutes,
+    double GenerationP95TargetMs,
+    double LiveFallbackRateTargetPercent,
+    double FailureRateTargetPercent,
+    double QualityScoreTarget,
+    string LiveFallbackRateFormula,
+    string FailureRateFormula,
     string Notes
 );
 
@@ -672,6 +746,52 @@ public sealed record AdminRuntimeCapabilityBEnqueueItemDto(
     bool? JobResultStored = null,
     DateTimeOffset? JobFinishedAt = null,
     string? StoredSummaryFreshness = null
+);
+
+public sealed record AdminRuntimeCapabilityBQualitySignalsDto(
+    int? LineCount,
+    double? LengthScore,
+    double? StructureScore,
+    double? SectionCoverageScore,
+    int? MatchedSectionCount,
+    int? ExpectedSectionCount,
+    double? KeywordCoverageScore,
+    int? MatchedKeywordCount,
+    int? ExpectedKeywordCount
+);
+
+public sealed record AdminRuntimeCapabilityBQualityReviewItemDto(
+    Guid DocId,
+    string DocPath,
+    string DocName,
+    string? Category,
+    string Level,
+    double QualityScore,
+    string? Strategy,
+    bool FallbackUsed,
+    string? FallbackReason,
+    string? RuntimeCapabilityStatus,
+    int SummaryLength,
+    DateTimeOffset UpdatedAt,
+    AdminRuntimeCapabilityBQualitySignalsDto Signals,
+    IReadOnlyList<string> Recommendations
+);
+
+public sealed record AdminRuntimeNamedCountDto(
+    string Key,
+    int Count
+);
+
+public sealed record AdminRuntimeCapabilityBQualityReviewSummaryDto(
+    int TotalLowQualitySummaries,
+    int FallbackSummaryCount,
+    int LiveLlmSummaryCount,
+    int RuntimeUnavailableCount,
+    double? LowestQualityScore,
+    DateTimeOffset? LatestUpdatedAt,
+    IReadOnlyList<AdminRuntimeNamedCountDto> StrategyCounts,
+    IReadOnlyList<AdminRuntimeNamedCountDto> RuntimeStatusCounts,
+    IReadOnlyList<string> Recommendations
 );
 
 public sealed record AdminRuntimeCapabilityACampaignDto(

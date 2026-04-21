@@ -124,6 +124,178 @@ public sealed class SummaryBackofficeGovernanceTests
     }
 
     [Fact]
+    public async Task ResolveSummaryGenerationExecutionAsync_falls_back_to_client_admin_when_live_runtime_probe_fails()
+    {
+        var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
+        Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", "true");
+
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+        {
+            Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
+            return;
+        }
+
+        try
+        {
+            await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+            await RuntimeGovernanceCommandService.RequalifyAsync(
+                ds,
+                new RuntimeGovernanceHttpClientFactory(),
+                new RuntimeGovernanceOptions(),
+                CreateRagOptions(),
+                new StubHostEnvironment(),
+                new AdminRuntimeRequalifyRequestDto(
+                    CapabilityKey: "capability_b.backoffice_generation",
+                    SelectWhenQualified: true),
+                CancellationToken.None);
+
+            var ctx = BuildAdminContext(backofficeEnabled: true, httpClientFactory: new BrokenRuntimeGovernanceHttpClientFactory());
+            var decision = await SummaryEndpoints.ResolveSummaryGenerationExecutionAsync(
+                ctx,
+                ds,
+                new RuntimeGovernanceOptions(),
+                CreateRagOptions(),
+                new StubHostEnvironment(),
+                CancellationToken.None);
+
+            Assert.Equal("client_admin", decision.ExecutionMode);
+            Assert.Equal("runtime_unavailable", decision.Status);
+            Assert.Equal("capability_b.backoffice_generation", decision.CapabilityKey);
+            Assert.False(decision.UsesCapabilityB);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
+        }
+    }
+
+    [Fact]
+    public async Task Generate_and_submit_summary_preserve_client_admin_runtime_unavailable_metadata_when_b_runtime_falls_back_live()
+    {
+        var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
+        Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", "true");
+
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+        {
+            Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
+            return;
+        }
+
+        try
+        {
+            var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+            var docId = Guid.NewGuid();
+
+            await using (var conn = new NpgsqlConnection(db.ConnectionString))
+            {
+                await conn.OpenAsync();
+                await conn.ExecuteAsync(
+                    """
+INSERT INTO documents(
+  tenant_id, doc_id, doc_path, doc_name, category, status,
+  updated_at, created_at, ingestion_version, indexed_version,
+  auto_ingest_paused
+)
+VALUES(
+  @tenant, @docId, 'ATEX/b-runtime-fallback-metadata.pdf', 'b-runtime-fallback-metadata.pdf', 'atex', 'indexed',
+  now(), now(), 1, 1, false
+);
+""",
+                    new { tenant = tenantId, docId });
+            }
+
+            await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+            await RuntimeGovernanceCommandService.RequalifyAsync(
+                ds,
+                new RuntimeGovernanceHttpClientFactory(),
+                new RuntimeGovernanceOptions(),
+                CreateRagOptions(),
+                new StubHostEnvironment(),
+                new AdminRuntimeRequalifyRequestDto(
+                    CapabilityKey: "capability_b.backoffice_generation",
+                    SelectWhenQualified: true),
+                CancellationToken.None);
+
+            var generateCtx = BuildAdminContext(backofficeEnabled: true, httpClientFactory: new BrokenRuntimeGovernanceHttpClientFactory());
+            var generateResult = await InvokeGenerateSummaryAsync(
+                generateCtx,
+                ds,
+                new RuntimeGovernanceOptions(),
+                CreateRagOptions(),
+                new StubHostEnvironment(),
+                new SummaryEndpoints.SummaryCommand(
+                    DocId: docId,
+                    Level: "medium"));
+            var generatePayload = await ExecuteResultAsync<JsonElement>(generateResult, generateCtx);
+
+            Assert.Equal("queued", generatePayload.GetProperty("status").GetString());
+            Assert.Equal("client_admin", generatePayload.GetProperty("executionMode").GetString());
+            Assert.Equal("capability_b.backoffice_generation", generatePayload.GetProperty("runtimeCapabilityKey").GetString());
+            Assert.Equal("runtime_unavailable", generatePayload.GetProperty("runtimeCapabilityStatus").GetString());
+            var jobId = generatePayload.GetProperty("jobId").GetGuid();
+
+            var submitCtx = BuildAdminContext(backofficeEnabled: true);
+            var submitResult = await SummaryEndpoints.SubmitSummaryAsync(
+                submitCtx,
+                ds,
+                new SummaryEndpoints.SummaryCommand(
+                    DocId: docId,
+                    Level: "medium",
+                    JobId: jobId,
+                    SummaryText: "Fallback summary stored via client admin after runtime probe failure."));
+            var submitPayload = await ExecuteResultAsync<JsonElement>(submitResult, submitCtx);
+
+            Assert.True(submitPayload.GetProperty("stored").GetBoolean());
+            var sourceHash = submitPayload.GetProperty("sourceHash").GetString();
+            Assert.False(string.IsNullOrWhiteSpace(sourceHash));
+
+            var detailCtx = BuildAdminContext(backofficeEnabled: true);
+            var detailResult = await SummaryEndpoints.GetAdminJobAsync(detailCtx, ds, jobId);
+            var detailPayload = await ExecuteResultAsync<JsonElement>(detailResult, detailCtx);
+
+            Assert.Equal("done", detailPayload.GetProperty("Status").GetString());
+            Assert.Equal("client_admin", detailPayload.GetProperty("ExecutionMode").GetString());
+            Assert.Equal("capability_b.backoffice_generation", detailPayload.GetProperty("RuntimeCapabilityKey").GetString());
+            Assert.Equal("runtime_unavailable", detailPayload.GetProperty("RuntimeCapabilityStatus").GetString());
+            Assert.False(detailPayload.GetProperty("RuntimeCapabilitySelected").GetBoolean());
+            Assert.Equal(sourceHash, detailPayload.GetProperty("ResultSourceHash").GetString());
+            Assert.Equal("admin_submit_summary", detailPayload.GetProperty("ResultCompletedBy").GetString());
+
+            var statusCtx = BuildAdminContext(backofficeEnabled: true);
+            var statusResult = await SummaryEndpoints.SummaryStatusAsync(statusCtx, ds, jobId);
+            var statusPayload = await ExecuteResultAsync<JsonElement>(statusResult, statusCtx);
+
+            Assert.Equal("done", statusPayload.GetProperty("Status").GetString());
+            Assert.Equal("client_admin", statusPayload.GetProperty("ExecutionMode").GetString());
+            Assert.Equal("capability_b.backoffice_generation", statusPayload.GetProperty("RuntimeCapabilityKey").GetString());
+            Assert.Equal("runtime_unavailable", statusPayload.GetProperty("RuntimeCapabilityStatus").GetString());
+            Assert.True(statusPayload.GetProperty("StoredSummaryExists").GetBoolean());
+            Assert.Equal("fresh", statusPayload.GetProperty("StoredSummaryFreshness").GetString());
+
+            await using (var conn = new NpgsqlConnection(db.ConnectionString))
+            {
+                await conn.OpenAsync();
+                var summaryMeta = await conn.ExecuteScalarAsync<string?>(
+                    """
+SELECT summary_meta::text
+FROM document_summaries
+WHERE tenant_id=@tenant AND doc_id=@docId AND level='medium'
+LIMIT 1;
+""",
+                    new { tenant = tenantId, docId });
+
+                Assert.True(string.IsNullOrWhiteSpace(summaryMeta) || string.Equals(summaryMeta, "null", StringComparison.OrdinalIgnoreCase));
+            }
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
+        }
+    }
+
+    [Fact]
     public async Task Admin_job_surfaces_project_capability_b_metadata_for_server_backoffice_jobs()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -237,6 +409,150 @@ VALUES(
             Assert.True(statusPayload.GetProperty("RuntimeCapabilitySelected").GetBoolean());
             Assert.Equal(payload.CampaignId, statusPayload.GetProperty("CampaignId").GetGuid());
             Assert.True(statusPayload.TryGetProperty("Payload", out _));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
+        }
+    }
+
+    [Fact]
+    public async Task CapabilityB_force_enqueue_can_regenerate_existing_fresh_summary_for_quality_review()
+    {
+        var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
+        Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", "true");
+
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+        {
+            Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
+            return;
+        }
+
+        try
+        {
+            var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+            var docId = Guid.NewGuid();
+            var newerDistractorDocId = Guid.NewGuid();
+            const string docPath = "ATEX/b-quality-fresh-regenerate.pdf";
+
+            await using (var conn = new NpgsqlConnection(db.ConnectionString))
+            {
+                await conn.OpenAsync();
+                await conn.ExecuteAsync(
+                    """
+INSERT INTO documents(
+  tenant_id, doc_id, doc_path, doc_name, category, status,
+  updated_at, created_at, ingestion_version, indexed_version,
+  auto_ingest_paused
+)
+VALUES(
+  @tenant, @docId, @docPath, 'b-quality-fresh-regenerate.pdf', 'atex', 'indexed',
+  now(), now(), 1, 1, false
+),(
+  @tenant, @newerDistractorDocId, 'ATEX/b-quality-newer-missing.pdf', 'b-quality-newer-missing.pdf', 'atex', 'indexed',
+  now() + interval '5 minutes', now(), 1, 1, false
+);
+
+INSERT INTO documents(
+  tenant_id, doc_id, doc_path, doc_name, category, status,
+  updated_at, created_at, ingestion_version, indexed_version,
+  auto_ingest_paused
+)
+SELECT
+  @tenant,
+  gen_random_uuid(),
+  'ATEX/b-quality-newer-missing-' || gs::text || '.pdf',
+  'b-quality-newer-missing-' || gs::text || '.pdf',
+  'atex',
+  'indexed',
+  now() + interval '10 minutes' + (gs * interval '1 second'),
+  now(),
+  1,
+  1,
+  false
+FROM generate_series(1, 505) AS gs;
+
+INSERT INTO document_summaries(
+  tenant_id, doc_id, level, doc_language, source_hash, summary_text, summary_meta, created_at, updated_at
+)
+VALUES(
+  @tenant,
+  @docId,
+  'medium',
+  'fr',
+  md5(@docPath || '||'),
+  'Too short.',
+  '{"qualityScore":0.20,"strategy":"llm","runtimeCapabilityStatus":"selected"}'::jsonb,
+  now(),
+  now()
+);
+""",
+                    new { tenant = tenantId, docId, newerDistractorDocId, docPath });
+            }
+
+            await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+            await RuntimeGovernanceCommandService.RequalifyAsync(
+                ds,
+                new RuntimeGovernanceHttpClientFactory(),
+                new RuntimeGovernanceOptions(),
+                CreateRagOptions(),
+                new StubHostEnvironment(),
+                new AdminRuntimeRequalifyRequestDto(
+                    CapabilityKey: "capability_b.backoffice_generation",
+                    SelectWhenQualified: true),
+                CancellationToken.None);
+
+            var defaultEnqueue = await RuntimeCapabilityBBackofficeCommandService.EnqueueCapabilityBBackofficeAsync(
+                tenantId,
+                ds,
+                new RuntimeGovernanceOptions(),
+                CreateRagOptions(),
+                new StubHostEnvironment(),
+                new AdminRuntimeCapabilityBEnqueueRequestDto(DocIds: [docId]),
+                CancellationToken.None);
+
+            Assert.Null(defaultEnqueue.Error);
+            Assert.NotNull(defaultEnqueue.Payload);
+            Assert.Equal(0, defaultEnqueue.Payload!.CandidateCount);
+            Assert.Equal(0, defaultEnqueue.Payload.QueuedCount);
+
+            var forcedEnqueue = await RuntimeCapabilityBBackofficeCommandService.EnqueueCapabilityBBackofficeAsync(
+                tenantId,
+                ds,
+                new RuntimeGovernanceOptions(),
+                CreateRagOptions(),
+                new StubHostEnvironment(),
+                new AdminRuntimeCapabilityBEnqueueRequestDto(
+                    DocIds: [docId],
+                    MaxCandidates: 1,
+                    Force: true),
+                CancellationToken.None);
+
+            Assert.Null(forcedEnqueue.Error);
+            Assert.NotNull(forcedEnqueue.Payload);
+            var payload = forcedEnqueue.Payload!;
+            Assert.True(payload.Force);
+            Assert.Equal(1, payload.CandidateCount);
+            Assert.Equal(1, payload.PlannedCount);
+            Assert.Equal(1, payload.QueuedCount);
+            Assert.Equal(0, payload.SkippedCount);
+            Assert.Equal(1, payload.ReasonCounts["summary_force_refresh"]);
+            var queued = Assert.Single(payload.Items, item => item.Queued);
+            Assert.Equal(docId, queued.DocId);
+            Assert.Equal(docPath, queued.DocPath);
+            Assert.NotNull(queued.JobId);
+
+            var detailCtx = BuildAdminContext(backofficeEnabled: true);
+            var detailResult = await SummaryEndpoints.GetAdminJobAsync(detailCtx, ds, queued.JobId!.Value);
+            var detailPayload = await ExecuteResultAsync<JsonElement>(detailResult, detailCtx);
+
+            Assert.Equal(docPath, detailPayload.GetProperty("DocPath").GetString());
+            Assert.Equal("capability_b", detailPayload.GetProperty("EnqueueSource").GetString());
+            Assert.True(detailPayload.GetProperty("Force").GetBoolean());
+            Assert.Equal("server_backoffice", detailPayload.GetProperty("ExecutionMode").GetString());
+            Assert.Equal("capability_b.backoffice_generation", detailPayload.GetProperty("RuntimeCapabilityKey").GetString());
+            Assert.Equal("selected", detailPayload.GetProperty("RuntimeCapabilityStatus").GetString());
         }
         finally
         {
@@ -1257,7 +1573,33 @@ VALUES(
             EmbeddingsModel = "intfloat/multilingual-e5-base"
         };
 
-    private static DefaultHttpContext BuildAdminContext(bool backofficeEnabled)
+    private static async Task<IResult> InvokeGenerateSummaryAsync(
+        DefaultHttpContext ctx,
+        NpgsqlDataSource ds,
+        RuntimeGovernanceOptions runtimeOptions,
+        RagOptions ragOptions,
+        IHostEnvironment env,
+        SummaryEndpoints.SummaryCommand cmd)
+    {
+        var method = typeof(SummaryEndpoints).GetMethod(
+            "GenerateSummaryAsync",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var task = (Task<IResult>)method!.Invoke(null,
+        [
+            ctx,
+            ds,
+            Options.Create(runtimeOptions),
+            Options.Create(ragOptions),
+            env,
+            cmd
+        ])!;
+
+        return await task;
+    }
+
+    private static DefaultHttpContext BuildAdminContext(bool backofficeEnabled, IHttpClientFactory? httpClientFactory = null)
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -1268,6 +1610,7 @@ VALUES(
                 ["BACKOFFICE_LLM_ENABLED"] = backofficeEnabled ? "true" : "false"
             })
             .Build());
+        services.AddSingleton<IHttpClientFactory>(httpClientFactory ?? new RuntimeGovernanceHttpClientFactory());
 
         var ctx = new DefaultHttpContext();
         ctx.Response.Body = new MemoryStream();
@@ -1349,6 +1692,61 @@ VALUES(
         }
 
         private static HttpResponseMessage JsonResponse(string json)
+            => new(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            };
+    }
+
+    private sealed class BrokenRuntimeGovernanceHttpClientFactory : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name)
+            => new(new BrokenRuntimeGovernanceHttpMessageHandler())
+            {
+                BaseAddress = name switch
+                {
+                    "qdrant" => new Uri("http://qdrant.test/"),
+                    "tei" => new Uri("http://tei.test/"),
+                    "llm" => new Uri("http://llm.test/"),
+                    _ => new Uri("http://stub.test/")
+                }
+            };
+    }
+
+    private sealed class BrokenRuntimeGovernanceHttpMessageHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri?.AbsolutePath ?? string.Empty;
+
+            if (request.Method == HttpMethod.Get && path.StartsWith("/collections/", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(BuildJsonResponse("""{ "result": { "status": "green", "points_count": 0 } }"""));
+            }
+
+            if (path.EndsWith("/v1/embeddings", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(BuildJsonResponse("""
+                {
+                  "data": [
+                    { "embedding": [0.1, 0.2, 0.3, 0.4] }
+                  ]
+                }
+                """));
+            }
+
+            if (path.EndsWith("/v1/chat/completions", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable)
+                {
+                    Content = new StringContent("""{ "error": "llm_runtime_unavailable" }""", Encoding.UTF8, "application/json")
+                });
+            }
+
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.NotFound));
+        }
+
+        private static HttpResponseMessage BuildJsonResponse(string json)
             => new(System.Net.HttpStatusCode.OK)
             {
                 Content = new StringContent(json, Encoding.UTF8, "application/json")

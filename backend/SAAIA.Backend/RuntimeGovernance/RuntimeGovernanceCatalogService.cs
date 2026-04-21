@@ -15,13 +15,14 @@ internal static class RuntimeGovernanceCatalogService
     internal static AdminRuntimeCatalogResponseDto BuildCatalog(
         RuntimeGovernanceOptions options,
         RagOptions rag,
+        ChatOptions chat,
         IHostEnvironment env)
     {
         var profiles = RuntimeCatalogBuilder.BuildWarmupProfiles(options);
         return new(
             CdcAlignment,
             env.EnvironmentName,
-            RuntimeCatalogBuilder.BuildRuntimes(rag, profiles, CapabilityACorpusEnrichmentKey, CapabilityBBackofficeGenerationKey),
+            RuntimeCatalogBuilder.BuildRuntimes(rag, chat, profiles, CapabilityACorpusEnrichmentKey, CapabilityBBackofficeGenerationKey),
             profiles,
             RuntimeCapabilityRegistry.GetCapabilityCatalog());
     }
@@ -29,6 +30,7 @@ internal static class RuntimeGovernanceCatalogService
     internal static AdminRuntimeRuntimeCatalogArtifactDto BuildRuntimeCatalogArtifact(
         RuntimeGovernanceOptions options,
         RagOptions rag,
+        ChatOptions chat,
         IHostEnvironment env)
         => ExecuteArtifactRead(
             RuntimeCatalogArtifact,
@@ -40,7 +42,7 @@ internal static class RuntimeGovernanceCatalogService
                     CdcAlignment,
                     env.EnvironmentName,
                     DateTimeOffset.UtcNow,
-                    RuntimeCatalogBuilder.BuildRuntimes(rag, profiles, CapabilityACorpusEnrichmentKey, CapabilityBBackofficeGenerationKey),
+                    RuntimeCatalogBuilder.BuildRuntimes(rag, chat, profiles, CapabilityACorpusEnrichmentKey, CapabilityBBackofficeGenerationKey),
                     profiles,
                     RuntimeCapabilityRegistry.GetCapabilityCatalog());
             });
@@ -48,13 +50,14 @@ internal static class RuntimeGovernanceCatalogService
     internal static AdminRuntimeModelCatalogArtifactDto BuildModelCatalogArtifact(
         RuntimeGovernanceOptions options,
         RagOptions rag,
+        ChatOptions chat,
         IHostEnvironment env)
         => ExecuteArtifactRead(
             ModelCatalogArtifact,
             () =>
             {
                 var profiles = RuntimeCatalogBuilder.BuildWarmupProfiles(options);
-                var runtimes = RuntimeCatalogBuilder.BuildRuntimes(rag, profiles, CapabilityACorpusEnrichmentKey, CapabilityBBackofficeGenerationKey);
+                var runtimes = RuntimeCatalogBuilder.BuildRuntimes(rag, chat, profiles, CapabilityACorpusEnrichmentKey, CapabilityBBackofficeGenerationKey);
                 return new AdminRuntimeModelCatalogArtifactDto(
                     ModelCatalogArtifact,
                     CdcAlignment,

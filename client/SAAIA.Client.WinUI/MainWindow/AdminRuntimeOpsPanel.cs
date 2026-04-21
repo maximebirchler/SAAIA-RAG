@@ -259,6 +259,11 @@ public sealed partial class MainWindow
             await ShowAdminJobsOverlayAsync(launchMode: AdminJobsLaunchMode.CapabilityBBackoffice).ConfigureAwait(true);
         }
 
+        async Task OpenCapabilityBQualityReviewAsync()
+        {
+            await ShowCapabilityBQualityReviewOverlayAsync().ConfigureAwait(true);
+        }
+
         FrameworkElement BuildCapabilityCard(AdminRuntimeOperationalItem item)
         {
             var title = string.Equals(item.Key, "capability_a.corpus_enrichment", StringComparison.Ordinal)
@@ -381,6 +386,14 @@ public sealed partial class MainWindow
 
             if (string.Equals(item.Key, "capability_b.backoffice_generation", StringComparison.Ordinal))
             {
+                var openQualityButton = BuildDialogInlineButton(
+                    ClientUiText.Get("admin.runtime.action.open_b_quality", lang),
+                    accentStatus: item.Implemented ? "running" : null);
+                openQualityButton.Click += async (_, __) =>
+                    await OpenCapabilityBQualityReviewAsync().ConfigureAwait(true);
+                RegisterActionButton(openQualityButton, item.Implemented);
+                actions.Children.Add(openQualityButton);
+
                 var canOpenJobs =
                     item.Implemented
                     && (item.Selected

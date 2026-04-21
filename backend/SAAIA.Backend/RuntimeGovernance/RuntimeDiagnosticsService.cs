@@ -13,6 +13,16 @@ internal sealed class RuntimeDiagnosticsService(NpgsqlDataSource ds, IHostEnviro
     private const string OperationalSummaryJsonArtifact = "operational_summary.json";
     private const string CapabilityACorpusEnrichmentKey = "capability_a.corpus_enrichment";
     private const string CapabilityBBackofficeGenerationKey = "capability_b.backoffice_generation";
+    private readonly IHttpClientFactory? _httpFactory = null;
+
+    internal RuntimeDiagnosticsService(
+        NpgsqlDataSource ds,
+        IHostEnvironment env,
+        IHttpClientFactory? httpFactory)
+        : this(ds, env)
+    {
+        _httpFactory = httpFactory;
+    }
 
     internal async Task<AdminRuntimeDiagnosticsResponseDto> GetDiagnosticsAsync(
         Guid tenantId,
@@ -56,6 +66,7 @@ internal sealed class RuntimeDiagnosticsService(NpgsqlDataSource ds, IHostEnviro
                             ? capabilityBOperationalSummary
                             : null))
                 .ToArray();
+            items = await AnnotateCapabilityBLiveRuntimeAvailabilityAsync(items, ct);
             var summary = RuntimeCapabilityDiagnosticsBuilder.BuildDiagnosticsSummary(
                 items,
                 CapabilityACorpusEnrichmentKey,
@@ -174,5 +185,40 @@ internal sealed class RuntimeDiagnosticsService(NpgsqlDataSource ds, IHostEnviro
             RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, artifactName, success: false, durationMs: sw.ElapsedMilliseconds);
             throw;
         }
+    }
+
+    private async Task<AdminRuntimeCapabilityDiagnosticDto[]> AnnotateCapabilityBLiveRuntimeAvailabilityAsync(
+        AdminRuntimeCapabilityDiagnosticDto[] items,
+        CancellationToken ct)
+    {
+        var capabilityBIndex = Array.FindIndex(items, item => string.Equals(item.Key, CapabilityBBackofficeGenerationKey, StringComparison.Ordinal));
+        if (capabilityBIndex < 0)
+            return items;
+
+        var capabilityB = items[capabilityBIndex];
+        if (!capabilityB.Implemented || !capabilityB.Selected || capabilityB.Stale)
+            return items;
+
+        var probe = await CapabilityBLiveRuntimeProbe.ProbeAsync(_httpFactory, ct);
+        if (probe.Available)
+            return items;
+
+        var blockers = capabilityB.Blockers
+            .Concat(["runtime_live_unavailable"])
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var recommendations = capabilityB.Recommendations
+            .Concat(["live capability B runtime probe failed; server backoffice will fall back to client_admin until the LLM runtime recovers"])
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        items[capabilityBIndex] = capabilityB with
+        {
+            Blockers = blockers,
+            Recommendations = recommendations,
+            LastError = capabilityB.LastError ?? probe.Error
+        };
+
+        return items;
     }
 }

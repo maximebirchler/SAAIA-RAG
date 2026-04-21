@@ -173,6 +173,7 @@ internal static class RuntimeCapabilityLifecycleCoordinator
                 selectWhenQualified,
                 options,
                 rag,
+                httpFactory,
                 "capability_b.backoffice_generation",
                 ct);
 

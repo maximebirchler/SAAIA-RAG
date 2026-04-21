@@ -66,6 +66,9 @@ public sealed partial class MainWindow
     private static void ApplyAdminJobsLaunchMode(AdminJobsOverlayContext context, AdminJobsLaunchMode launchMode, string? focusJobId)
     {
         context.LaunchMode = launchMode;
+        context.CapabilityBQualityButton.Visibility = launchMode == AdminJobsLaunchMode.CapabilityBBackoffice
+            ? Visibility.Visible
+            : Visibility.Collapsed;
 
         if (launchMode is AdminJobsLaunchMode.CapabilityAEnrichment or AdminJobsLaunchMode.CapabilityBBackoffice)
         {
@@ -224,6 +227,13 @@ public sealed partial class MainWindow
             MinWidth = 110,
             VerticalAlignment = VerticalAlignment.Center
         };
+
+        var capabilityBQualityButton = BuildDialogFooterButton(ClientUiText.Get("admin.runtime.action.open_b_quality", UiLang));
+        capabilityBQualityButton.MinWidth = 168;
+        capabilityBQualityButton.HorizontalAlignment = HorizontalAlignment.Right;
+        capabilityBQualityButton.VerticalAlignment = VerticalAlignment.Center;
+        capabilityBQualityButton.Visibility = Visibility.Collapsed;
+        ApplyInlineButtonStatusAccent(capabilityBQualityButton, "running");
 
         var refreshButton = BuildDialogFooterButton(ClientUiText.Get("admin.jobs.refresh", UiLang), primary: true);
         refreshButton.MinWidth = 140;
@@ -445,6 +455,7 @@ public sealed partial class MainWindow
             Spacing = 12,
             VerticalAlignment = VerticalAlignment.Center
         };
+        headerActions.Children.Add(capabilityBQualityButton);
         headerActions.Children.Add(refreshButton);
         headerActions.Children.Add(autoRefreshHost);
         Grid.SetColumn(headerActions, 1);
@@ -586,6 +597,7 @@ public sealed partial class MainWindow
             SummaryCategoryButton = summaryTypeButton,
             StatusCombo = statusCombo,
             AutoRefreshToggle = autoRefreshToggle,
+            CapabilityBQualityButton = capabilityBQualityButton,
             RefreshButton = refreshButton,
             DeleteSelectionButton = deleteSelectionButton,
             PurgeButton = purgeButton,
@@ -596,6 +608,9 @@ public sealed partial class MainWindow
             DetailsHost = detailsHost,
             DetailsColumn = detailsColumn
         };
+
+        capabilityBQualityButton.Click += async (_, __) =>
+            await ShowCapabilityBQualityReviewOverlayAsync().ConfigureAwait(true);
 
         closeDetailsButton.Click += (_, __) =>
         {

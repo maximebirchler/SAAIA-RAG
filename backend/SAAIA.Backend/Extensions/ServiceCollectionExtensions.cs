@@ -183,6 +183,7 @@ public static class ServiceCollectionExtensions
             sp.GetRequiredService<IOptions<ChatOptions>>().Value));
         services.AddSingleton<RuntimeDiagnosticsService>();
         services.AddSingleton<RuntimeRetrievalKpiService>();
+        services.AddSingleton<RuntimeCapabilityBKpiService>();
 
         // ---------- Worker ----------
         services.AddHostedService<IngestionWorker>();
