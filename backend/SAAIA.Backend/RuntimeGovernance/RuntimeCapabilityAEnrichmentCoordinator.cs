@@ -112,6 +112,8 @@ internal static class RuntimeCapabilityAEnrichmentCoordinator
                         ["keySectionTitles"] = candidate.KeySectionTitles,
                         ["suggestedTags"] = candidate.SuggestedTags,
                         ["hypotheticalQuestions"] = candidate.HypotheticalQuestions,
+                        ["qualityScore"] = candidate.QualityScore,
+                        ["qualitySignals"] = candidate.QualitySignals,
                         ["reasons"] = candidate.Reasons.ToArray(),
                         ["campaignId"] = campaignId
                     }),
@@ -148,7 +150,9 @@ internal static class RuntimeCapabilityAEnrichmentCoordinator
                         ["previewText"] = item.PreviewText,
                         ["keySectionTitles"] = item.KeySectionTitles,
                         ["suggestedTags"] = item.SuggestedTags,
-                        ["hypotheticalQuestions"] = item.HypotheticalQuestions
+                        ["hypotheticalQuestions"] = item.HypotheticalQuestions,
+                        ["qualityScore"] = item.QualityScore,
+                        ["qualitySignals"] = item.QualitySignals
                     }).ToArray(),
                     ["docIds"] = selectedDocIds.ToArray(),
                     ["docPaths"] = selectedDocPaths.ToArray()
@@ -222,5 +226,7 @@ LIMIT 1;
             PreviewText: candidate.PreviewText,
             KeySectionTitles: candidate.KeySectionTitles,
             SuggestedTags: candidate.SuggestedTags,
-            HypotheticalQuestions: candidate.HypotheticalQuestions);
+            HypotheticalQuestions: candidate.HypotheticalQuestions,
+            QualityScore: candidate.QualityScore,
+            QualitySignals: candidate.QualitySignals);
 }

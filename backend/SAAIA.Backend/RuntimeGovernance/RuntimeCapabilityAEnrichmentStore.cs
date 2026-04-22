@@ -145,7 +145,9 @@ LIMIT @limit;
                 PreviewText: semanticPreview.PreviewText,
                 KeySectionTitles: semanticPreview.KeySectionTitles,
                 SuggestedTags: semanticPreview.SuggestedTags,
-                HypotheticalQuestions: semanticPreview.HypotheticalQuestions));
+                HypotheticalQuestions: semanticPreview.HypotheticalQuestions,
+                QualityScore: semanticPreview.QualityScore,
+                QualitySignals: semanticPreview.QualitySignals));
         }
 
         return candidates
@@ -222,11 +224,17 @@ LIMIT @limit;
     {
         if (row.IndexedVersion <= 0 || !row.HasRevision)
         {
+            var fallbackTags = hypotheticalQuestionService is null
+                ? BuildSuggestedTags(row, Array.Empty<string>())
+                : await hypotheticalQuestionService.BuildTagsAsync(row.DocName, row.Category, Array.Empty<string>(), Array.Empty<string>(), ct);
+            var fallbackQuality = BuildQualitySignals(null, Array.Empty<string>(), Array.Empty<string>(), fallbackTags, Array.Empty<string>());
             return new CapabilityASemanticPreview(
                 PreviewText: null,
                 KeySectionTitles: Array.Empty<string>(),
-                SuggestedTags: BuildSuggestedTags(row, Array.Empty<string>()),
-                HypotheticalQuestions: Array.Empty<string>());
+                SuggestedTags: fallbackTags,
+                HypotheticalQuestions: Array.Empty<string>(),
+                QualityScore: fallbackQuality.Score,
+                QualitySignals: fallbackQuality.Signals);
         }
 
         var sectionTitles = await RuntimeGovernanceService.LoadCapabilityBSectionTitlesAsync(
@@ -248,13 +256,18 @@ LIMIT @limit;
             ? BuildHypotheticalQuestions(row.DocName, sectionTitles, excerpts)
             : await hypotheticalQuestionService.BuildQuestionsAsync(row.DocName, sectionTitles, excerpts, ct);
         var previewText = BuildPreviewText(row, sectionTitles, excerpts);
-        var tags = BuildSuggestedTags(row, sectionTitles);
+        var tags = hypotheticalQuestionService is null
+            ? BuildSuggestedTags(row, sectionTitles)
+            : await hypotheticalQuestionService.BuildTagsAsync(row.DocName, row.Category, sectionTitles, excerpts, ct);
+        var quality = BuildQualitySignals(previewText, sectionTitles, excerpts, tags, questions);
 
         return new CapabilityASemanticPreview(
             PreviewText: previewText,
             KeySectionTitles: sectionTitles,
             SuggestedTags: tags,
-            HypotheticalQuestions: questions);
+            HypotheticalQuestions: questions,
+            QualityScore: quality.Score,
+            QualitySignals: quality.Signals);
     }
 
     private static string? BuildPreviewText(
@@ -299,6 +312,41 @@ LIMIT @limit;
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(6)
             .ToArray();
+    }
+
+    private static (double Score, AdminRuntimeCapabilityAQualitySignalsDto Signals) BuildQualitySignals(
+        string? previewText,
+        IReadOnlyList<string> sectionTitles,
+        IReadOnlyList<string> excerpts,
+        IReadOnlyList<string> suggestedTags,
+        IReadOnlyList<string> hypotheticalQuestions)
+    {
+        var sectionScore = Math.Min(1d, sectionTitles.Count / 3d);
+        var tagScore = Math.Min(1d, suggestedTags.Count / 4d);
+        var questionScore = Math.Min(1d, hypotheticalQuestions.Count / 2d);
+        var previewScore = string.IsNullOrWhiteSpace(previewText)
+            ? 0d
+            : previewText.Length >= 80
+                ? 1d
+                : 0.5d;
+
+        var score = Math.Round(
+            (sectionScore * 0.30)
+            + (tagScore * 0.25)
+            + (questionScore * 0.30)
+            + (previewScore * 0.15),
+            2,
+            MidpointRounding.AwayFromZero);
+
+        return (score, new AdminRuntimeCapabilityAQualitySignalsDto(
+            SectionTitleCount: sectionTitles.Count,
+            ExcerptCount: excerpts.Count,
+            SuggestedTagCount: suggestedTags.Count,
+            HypotheticalQuestionCount: hypotheticalQuestions.Count,
+            SectionCoverageScore: Math.Round(sectionScore, 2, MidpointRounding.AwayFromZero),
+            TagScore: Math.Round(tagScore, 2, MidpointRounding.AwayFromZero),
+            QuestionScore: Math.Round(questionScore, 2, MidpointRounding.AwayFromZero),
+            PreviewScore: Math.Round(previewScore, 2, MidpointRounding.AwayFromZero)));
     }
 
     private static IEnumerable<string> ExtractTagTokens(string? value)
@@ -391,5 +439,7 @@ LIMIT @limit;
         string? PreviewText,
         IReadOnlyList<string> KeySectionTitles,
         IReadOnlyList<string> SuggestedTags,
-        IReadOnlyList<string> HypotheticalQuestions);
+        IReadOnlyList<string> HypotheticalQuestions,
+        double QualityScore,
+        AdminRuntimeCapabilityAQualitySignalsDto QualitySignals);
 }

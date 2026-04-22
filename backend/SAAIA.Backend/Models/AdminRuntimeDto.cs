@@ -704,7 +704,20 @@ public sealed record AdminRuntimeCapabilityAEnrichmentCandidateDto(
     string? PreviewText = null,
     IReadOnlyList<string>? KeySectionTitles = null,
     IReadOnlyList<string>? SuggestedTags = null,
-    IReadOnlyList<string>? HypotheticalQuestions = null
+    IReadOnlyList<string>? HypotheticalQuestions = null,
+    double? QualityScore = null,
+    AdminRuntimeCapabilityAQualitySignalsDto? QualitySignals = null
+);
+
+public sealed record AdminRuntimeCapabilityAQualitySignalsDto(
+    int SectionTitleCount,
+    int ExcerptCount,
+    int SuggestedTagCount,
+    int HypotheticalQuestionCount,
+    double SectionCoverageScore,
+    double TagScore,
+    double QuestionScore,
+    double PreviewScore
 );
 
 public sealed record AdminRuntimeCapabilityBBackofficeCandidateDto(
@@ -733,7 +746,9 @@ public sealed record AdminRuntimeCapabilityAEnqueueItemDto(
     string? PreviewText = null,
     IReadOnlyList<string>? KeySectionTitles = null,
     IReadOnlyList<string>? SuggestedTags = null,
-    IReadOnlyList<string>? HypotheticalQuestions = null
+    IReadOnlyList<string>? HypotheticalQuestions = null,
+    double? QualityScore = null,
+    AdminRuntimeCapabilityAQualitySignalsDto? QualitySignals = null
 );
 
 public sealed record AdminRuntimeCapabilityBEnqueueItemDto(

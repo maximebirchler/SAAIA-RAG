@@ -665,6 +665,9 @@ VALUES(
             Assert.Contains("control", semanticCandidate.SuggestedTags!);
             Assert.NotNull(semanticCandidate.HypotheticalQuestions);
             Assert.Contains(semanticCandidate.HypotheticalQuestions!, item => item.Contains("Control Loop Overview", StringComparison.OrdinalIgnoreCase));
+            Assert.True(semanticCandidate.QualityScore >= 0.8);
+            Assert.NotNull(semanticCandidate.QualitySignals);
+            Assert.True(semanticCandidate.QualitySignals!.SuggestedTagCount >= 2);
 
             var diagnosticsCtx = BuildAdminContext(tenantId);
             var diagnosticsResult = await AdminRuntimeEndpoints.DiagnosticsAsync(
@@ -758,7 +761,9 @@ VALUES(
                 && item.KeySectionTitles is not null
                 && item.KeySectionTitles.Contains("Control Loop Overview")
                 && item.HypotheticalQuestions is not null
-                && item.HypotheticalQuestions.Any(question => question.Contains("Control Loop Overview", StringComparison.OrdinalIgnoreCase)));
+                && item.HypotheticalQuestions.Any(question => question.Contains("Control Loop Overview", StringComparison.OrdinalIgnoreCase))
+                && item.QualityScore >= 0.8
+                && item.QualitySignals is not null);
             Assert.Equal(1, dryRun.ReasonCounts["never_indexed"]);
             Assert.Equal(1, dryRun.ReasonCounts["retrieval_chunks_missing"]);
             Assert.Equal(1, dryRun.ReasonCounts["auto_ingest_paused"]);
@@ -794,7 +799,8 @@ VALUES(
                 && item.Reason == "policy_blocked:auto_ingest_paused"
                 && item.PreviewText is not null
                 && item.SuggestedTags is not null
-                && item.SuggestedTags.Contains("control"));
+                && item.SuggestedTags.Contains("control")
+                && item.QualityScore >= 0.8);
 
             await using (var conn = new NpgsqlConnection(db.ConnectionString))
             {
@@ -898,7 +904,8 @@ VALUES(
                 && item.SuggestedTags is not null
                 && item.SuggestedTags.Contains("control")
                 && item.HypotheticalQuestions is not null
-                && item.HypotheticalQuestions.Count > 0);
+                && item.HypotheticalQuestions.Count > 0
+                && item.QualitySignals is not null);
         }
         finally
         {

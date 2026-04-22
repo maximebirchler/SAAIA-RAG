@@ -56,6 +56,58 @@ public sealed class CapabilityAHypotheticalQuestionServiceTests
         Assert.Contains("Which requirements from MettlerToledo_IND570.pdf apply to Control Loop Overview?", questions);
     }
 
+    [Fact]
+    public async Task BuildTagsAsync_uses_llm_tags_when_runtime_returns_structured_json()
+    {
+        var service = CreateService(
+            """
+            {
+              "choices": [
+                {
+                  "message": {
+                    "content": "{\"tags\":[\"plc-integration\",\"control-loop\",\"ind570\"]}"
+                  }
+                }
+              ]
+            }
+            """,
+            HttpStatusCode.OK);
+
+        var tags = await service.BuildTagsAsync(
+            "MettlerToledo_IND570.pdf",
+            "programmation",
+            ["Control Loop Overview", "PLC Integration"],
+            ["The control loop overview explains how the PLC exchange should be supervised."],
+            CancellationToken.None);
+
+        Assert.Contains("plc-integration", tags);
+        Assert.Contains("control-loop", tags);
+        Assert.Contains("ind570", tags);
+    }
+
+    [Fact]
+    public async Task BuildTagsAsync_falls_back_to_deterministic_tags_when_runtime_is_unavailable()
+    {
+        var service = CreateService(
+            """
+            {
+              "error": "runtime_unavailable"
+            }
+            """,
+            HttpStatusCode.ServiceUnavailable);
+
+        var tags = await service.BuildTagsAsync(
+            "MettlerToledo_IND570.pdf",
+            "programmation",
+            ["Control Loop Overview"],
+            ["The control loop overview explains how the PLC exchange should be supervised."],
+            CancellationToken.None);
+
+        Assert.Contains("programmation", tags);
+        Assert.Contains("control", tags);
+        Assert.Contains("loop", tags);
+    }
+
     private static CapabilityAHypotheticalQuestionService CreateService(string body, HttpStatusCode statusCode)
         => new(new LocalLlmChatClient(
             new StubHttpClientFactory(body, statusCode),

@@ -269,6 +269,8 @@ LIMIT 1;
             var keySectionTitles = TryReadStringArray(itemElement, "keySectionTitles");
             var suggestedTags = TryReadStringArray(itemElement, "suggestedTags");
             var hypotheticalQuestions = TryReadStringArray(itemElement, "hypotheticalQuestions");
+            var qualityScore = TryReadDouble(itemElement, "qualityScore");
+            var qualitySignals = TryReadCapabilityAQualitySignals(itemElement, "qualitySignals");
 
             items.Add(new AdminRuntimeCapabilityAEnqueueItemDto(
                 DocId: docId,
@@ -279,7 +281,9 @@ LIMIT 1;
                 PreviewText: previewText,
                 KeySectionTitles: keySectionTitles,
                 SuggestedTags: suggestedTags,
-                HypotheticalQuestions: hypotheticalQuestions));
+                HypotheticalQuestions: hypotheticalQuestions,
+                QualityScore: qualityScore,
+                QualitySignals: qualitySignals));
         }
 
         return items.ToArray();
@@ -350,6 +354,36 @@ LIMIT 1;
             .Cast<string>()
             .ToArray();
     }
+
+    private static double? TryReadDouble(JsonElement itemElement, string propertyName)
+        => itemElement.TryGetProperty(propertyName, out var propertyElement)
+           && propertyElement.ValueKind == JsonValueKind.Number
+           && propertyElement.TryGetDouble(out var value)
+            ? value
+            : null;
+
+    private static AdminRuntimeCapabilityAQualitySignalsDto? TryReadCapabilityAQualitySignals(JsonElement itemElement, string propertyName)
+    {
+        if (!itemElement.TryGetProperty(propertyName, out var signals) || signals.ValueKind != JsonValueKind.Object)
+            return null;
+
+        return new AdminRuntimeCapabilityAQualitySignalsDto(
+            SectionTitleCount: TryReadInt(signals, "sectionTitleCount") ?? 0,
+            ExcerptCount: TryReadInt(signals, "excerptCount") ?? 0,
+            SuggestedTagCount: TryReadInt(signals, "suggestedTagCount") ?? 0,
+            HypotheticalQuestionCount: TryReadInt(signals, "hypotheticalQuestionCount") ?? 0,
+            SectionCoverageScore: TryReadDouble(signals, "sectionCoverageScore") ?? 0d,
+            TagScore: TryReadDouble(signals, "tagScore") ?? 0d,
+            QuestionScore: TryReadDouble(signals, "questionScore") ?? 0d,
+            PreviewScore: TryReadDouble(signals, "previewScore") ?? 0d);
+    }
+
+    private static int? TryReadInt(JsonElement itemElement, string propertyName)
+        => itemElement.TryGetProperty(propertyName, out var propertyElement)
+           && propertyElement.ValueKind == JsonValueKind.Number
+           && propertyElement.TryGetInt32(out var value)
+            ? value
+            : null;
 
     private static string[]? ParseStringArray(string? json)
     {
@@ -423,6 +457,15 @@ SELECT
     WHEN details ? 'hypotheticalQuestions' THEN (details -> 'hypotheticalQuestions')::text
     ELSE NULL
   END AS "HypotheticalQuestionsJson",
+  CASE
+    WHEN details ? 'qualityScore' AND jsonb_typeof(details -> 'qualityScore') = 'number'
+      THEN (details ->> 'qualityScore')::double precision
+    ELSE NULL
+  END AS "QualityScore",
+  CASE
+    WHEN details ? 'qualitySignals' THEN (details -> 'qualitySignals')::text
+    ELSE NULL
+  END AS "QualitySignalsJson",
   occurred_at AS "OccurredAt"
 FROM runtime_capability_events
 WHERE capability_key = @capabilityKey
@@ -444,8 +487,30 @@ ORDER BY occurred_at ASC;
                 PreviewText: row.PreviewText,
                 KeySectionTitles: ParseStringArray(row.KeySectionTitlesJson),
                 SuggestedTags: ParseStringArray(row.SuggestedTagsJson),
-                HypotheticalQuestions: ParseStringArray(row.HypotheticalQuestionsJson)))
+                HypotheticalQuestions: ParseStringArray(row.HypotheticalQuestionsJson),
+                QualityScore: row.QualityScore,
+                QualitySignals: ParseCapabilityAQualitySignals(row.QualitySignalsJson)))
             .ToArray();
+    }
+
+    private static AdminRuntimeCapabilityAQualitySignalsDto? ParseCapabilityAQualitySignals(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
+        using var doc = JsonDocument.Parse(json);
+        return TryReadCapabilityAQualitySignals(doc.RootElement, propertyName: string.Empty)
+            ?? (doc.RootElement.ValueKind == JsonValueKind.Object
+                ? new AdminRuntimeCapabilityAQualitySignalsDto(
+                    SectionTitleCount: TryReadInt(doc.RootElement, "sectionTitleCount") ?? 0,
+                    ExcerptCount: TryReadInt(doc.RootElement, "excerptCount") ?? 0,
+                    SuggestedTagCount: TryReadInt(doc.RootElement, "suggestedTagCount") ?? 0,
+                    HypotheticalQuestionCount: TryReadInt(doc.RootElement, "hypotheticalQuestionCount") ?? 0,
+                    SectionCoverageScore: TryReadDouble(doc.RootElement, "sectionCoverageScore") ?? 0d,
+                    TagScore: TryReadDouble(doc.RootElement, "tagScore") ?? 0d,
+                    QuestionScore: TryReadDouble(doc.RootElement, "questionScore") ?? 0d,
+                    PreviewScore: TryReadDouble(doc.RootElement, "previewScore") ?? 0d)
+                : null);
     }
 
     private static AdminRuntimeCapabilityBCampaignDto MapCapabilityBCampaignRow(
@@ -686,6 +751,8 @@ GROUP BY CAST(a.payload ->> 'campaignId' AS uuid), a.status;
         string? KeySectionTitlesJson,
         string? SuggestedTagsJson,
         string? HypotheticalQuestionsJson,
+        double? QualityScore,
+        string? QualitySignalsJson,
         DateTimeOffset OccurredAt);
 
     private sealed record CapabilityBCampaignRow(

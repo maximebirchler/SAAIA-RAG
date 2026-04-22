@@ -138,9 +138,9 @@
 
 ### 4.1 Remplacer l'enrichissement deterministe par un appel LLM
 - [~] Remplacer `BuildCapabilityAHypotheticalQuestions()` par un appel LLM reel (questions hypothetiques HyPE) - generation LLM locale ajoutee pour les candidats/campagnes A avec fallback deterministe ; `/rag/search` consomme aussi le service via DI quand disponible, mais le coeur legacy/fallback reste present
-- [ ] Evaluer si `BuildCapabilityASuggestedTags()` doit aussi passer en LLM ou rester deterministe
-- [ ] Ajouter scoring qualite par chunk (signal de confiance, densite semantique)
-- [ ] Garder un fallback deterministe si le runtime A est indisponible mais la capacite reste installee
+- [x] Evaluer si `BuildCapabilityASuggestedTags()` doit aussi passer en LLM ou rester deterministe - tags A branches sur LLM local avec fallback deterministe
+- [x] Ajouter scoring qualite par chunk (signal de confiance, densite semantique) - score qualite preview A ajoute avec signaux sections/extraits/tags/questions
+- [x] Garder un fallback deterministe si le runtime A est indisponible mais la capacite reste installee
 
 ### 4.2 Qualification Capacite A
 - [ ] Etendre les hard gates du warmup a la Capacite A (sur le meme modele que `core.retrieval`)
@@ -148,10 +148,10 @@
 - [ ] Verifier que A ne casse jamais l’ingestion si elle est absente ou non qualifiee
 
 ### 4.3 Tests Capacite A
-- [ ] Ajouter tests unitaires / integration sur la generation LLM des hypothetical questions
+- [x] Ajouter tests unitaires / integration sur la generation LLM des hypothetical questions
 - [ ] Ajouter tests de non-regression si le runtime A est indisponible
 - [ ] Verifier que l’absence de Capacite A ne casse jamais le retrieval coeur
-- [ ] Verifier que `hypQuestionsMatched` est bien peuple dans `/rag/search` quand applicable
+- [x] Verifier que `hypQuestionsMatched` est bien peuple dans `/rag/search` quand applicable
 - [ ] Mesurer l’impact sur recall / precision via le harness retrieval (v5 + v6)
 
 ### 4.4 Fichiers concernes
@@ -298,3 +298,4 @@
 | 2026-04-21 | Codex | Client admin : l'action `Relancer B` de la revue qualite affiche maintenant un retour operationnel detaille (`queued/candidates/skipped` + job court) apres enqueue force cible. |
 | 2026-04-22 | Codex | Cap B : la revue qualite expose maintenant `severity` et `recommendedAction` par resume faible ; le client les affiche sans nouvelle vue et le test contractuel backend est renforce. |
 | 2026-04-22 | Codex | Sprint 5 Cap B cloture cote backend/client : LLM local, fallback deterministe trace, fallback live client_admin, warmup/probe LLM, KPI, telemetrie, score qualite, revue corrective et relance ciblee sont consideres en place pour le perimetre v3.0 actuel. |
+| 2026-04-22 | Codex | Sprint 4 Cap A : tags suggeres branches sur LLM local avec fallback deterministe ; score qualite preview A ajoute (sections/extraits/tags/questions) et propage aux candidats/campagnes ; tests A cibles verts. |

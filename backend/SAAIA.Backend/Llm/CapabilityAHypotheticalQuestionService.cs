@@ -40,6 +40,35 @@ Constraints:
         return parsed.Count == 0 ? fallback : parsed;
     }
 
+    internal async Task<IReadOnlyList<string>> BuildTagsAsync(
+        string docName,
+        string? category,
+        IReadOnlyList<string> sectionTitles,
+        IReadOnlyList<string> excerpts,
+        CancellationToken ct)
+    {
+        var fallback = BuildDeterministicTags(docName, category, sectionTitles);
+        if (!_llmClient.IsConfigured)
+            return fallback;
+
+        var systemPrompt = """
+You generate compact enterprise metadata tags for document enrichment.
+Return JSON only with the shape {"tags":["..."]}.
+Constraints:
+- 3 to 6 tags
+- lowercase slug-like tags only
+- no markdown
+- no explanations
+- avoid duplicate or overly generic tags
+""";
+
+        var userPrompt = BuildTagsUserPrompt(docName, category, sectionTitles, excerpts);
+        var completion = await _llmClient.TryCompleteAsync(systemPrompt, userPrompt, maxTokens: 160, temperature: 0.1, ct);
+        var parsed = ParseTags(completion);
+
+        return parsed.Count == 0 ? fallback : parsed;
+    }
+
     private static string BuildUserPrompt(
         string docName,
         IReadOnlyList<string> sectionTitles,
@@ -66,6 +95,21 @@ Generate hypothetical user questions that would help retrieve this document.
 """;
     }
 
+    private static string BuildTagsUserPrompt(
+        string docName,
+        string? category,
+        IReadOnlyList<string> sectionTitles,
+        IReadOnlyList<string> excerpts)
+        => $"""
+Document name: {docName}
+Category: {category ?? "unknown"}
+Section titles:
+{string.Join(Environment.NewLine, sectionTitles.Where(static title => !string.IsNullOrWhiteSpace(title)).Take(5).Select(static title => $"- {title.Trim()}"))}
+Excerpt highlights:
+{string.Join(Environment.NewLine, excerpts.Where(static excerpt => !string.IsNullOrWhiteSpace(excerpt)).Select(NormalizeExcerpt).Take(2).Select(static excerpt => $"- {excerpt}"))}
+Generate metadata tags for filtering, review, and retrieval diagnostics.
+""";
+
     private static IReadOnlyList<string> ParseQuestions(string? content)
     {
         if (string.IsNullOrWhiteSpace(content))
@@ -84,6 +128,30 @@ Generate hypothetical user questions that would help retrieve this document.
             .Where(static question => !string.IsNullOrWhiteSpace(question))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(4)
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string> ParseTags(string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+            return Array.Empty<string>();
+
+        var cleaned = StripCodeFence(content.Trim());
+        if (TryParseJsonStringArray(cleaned, "tags", out var jsonTags))
+            return jsonTags
+                .Select(NormalizeTag)
+                .Where(static tag => !string.IsNullOrWhiteSpace(tag))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(6)
+                .ToArray();
+
+        return cleaned
+            .Split(['\r', '\n', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(static line => LeadingBulletRegex().Replace(line, string.Empty).Trim())
+            .Select(NormalizeTag)
+            .Where(static tag => !string.IsNullOrWhiteSpace(tag))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(6)
             .ToArray();
     }
 
@@ -114,6 +182,33 @@ Generate hypothetical user questions that would help retrieve this document.
         return false;
     }
 
+    private static bool TryParseJsonStringArray(string content, string propertyName, out IReadOnlyList<string> values)
+    {
+        values = Array.Empty<string>();
+
+        try
+        {
+            using var json = JsonDocument.Parse(content);
+            var root = json.RootElement;
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty(propertyName, out var arrayElement))
+            {
+                values = ReadJsonStringArray(arrayElement);
+                return true;
+            }
+
+            if (root.ValueKind == JsonValueKind.Array)
+            {
+                values = ReadJsonStringArray(root);
+                return true;
+            }
+        }
+        catch
+        {
+        }
+
+        return false;
+    }
+
     private static IReadOnlyList<string> NormalizeQuestions(JsonElement element)
         => element.ValueKind != JsonValueKind.Array
             ? Array.Empty<string>()
@@ -125,6 +220,16 @@ Generate hypothetical user questions that would help retrieve this document.
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Take(4)
                 .ToArray()!;
+
+    private static IReadOnlyList<string> ReadJsonStringArray(JsonElement element)
+        => element.ValueKind != JsonValueKind.Array
+            ? Array.Empty<string>()
+            : element.EnumerateArray()
+                .Where(static item => item.ValueKind == JsonValueKind.String)
+                .Select(static item => item.GetString())
+                .Where(static value => !string.IsNullOrWhiteSpace(value))
+                .Select(static value => value!)
+                .ToArray();
 
     private static string NormalizeExcerpt(string excerpt)
     {
@@ -152,6 +257,56 @@ Generate hypothetical user questions that would help retrieve this document.
 
         return normalized;
     }
+
+    private static IReadOnlyList<string> BuildDeterministicTags(
+        string docName,
+        string? category,
+        IReadOnlyList<string> sectionTitles)
+    {
+        var tags = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(category))
+            tags.Add(NormalizeTag(category));
+
+        foreach (var token in ExtractTagTokens(Path.GetFileNameWithoutExtension(docName)))
+            tags.Add(token);
+
+        foreach (var title in sectionTitles)
+        {
+            foreach (var token in ExtractTagTokens(title))
+                tags.Add(token);
+        }
+
+        return tags
+            .Where(static tag => !string.IsNullOrWhiteSpace(tag))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(6)
+            .ToArray();
+    }
+
+    private static IEnumerable<string> ExtractTagTokens(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            yield break;
+
+        foreach (var token in value
+            .Split([' ', '-', '_', '/', '\\', ',', ';', ':', '.', '(', ')'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(NormalizeTag)
+            .Where(static token => token.Length >= 3))
+        {
+            yield return token;
+        }
+    }
+
+    private static string NormalizeTag(string? value)
+        => string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : new string(value
+                .Trim()
+                .ToLowerInvariant()
+                .Select(static ch => char.IsLetterOrDigit(ch) ? ch : '-')
+                .ToArray())
+                .Trim('-');
 
     private static string StripCodeFence(string value)
     {
