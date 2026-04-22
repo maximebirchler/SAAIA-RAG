@@ -129,11 +129,19 @@ public sealed class AdminRuntimeEndpointsTests
         Assert.Contains(payload.Items, item =>
             item.Key == "server-capability-b"
             && item.DependencyRuntimeKeys!.Contains("llm-backoffice-chat"));
-        Assert.Contains(payload.Items, item =>
-            item.Key == "llm-backoffice-chat"
-            && !item.Enabled
-            && item.ReadinessStatus == "disabled"
-            && item.ConfigurationSource == "environment.BACKOFFICE_LLM_ENABLED + chat_options.llm_base_url");
+        var llmRuntime = Assert.Single(payload.Items, item => item.Key == "llm-backoffice-chat");
+        Assert.Equal("environment.BACKOFFICE_LLM_ENABLED + chat_options.llm_base_url", llmRuntime.ConfigurationSource);
+        if (llmRuntime.Enabled)
+        {
+            Assert.Equal("configured", llmRuntime.ReadinessStatus);
+            Assert.Equal("http://llm.test/", llmRuntime.BaseUrl);
+            Assert.Equal("local", llmRuntime.Model);
+        }
+        else
+        {
+            Assert.Equal("disabled", llmRuntime.ReadinessStatus);
+            Assert.Contains("BACKOFFICE_LLM_ENABLED", llmRuntime.MissingSettingKeys!);
+        }
     }
 
     [Fact]
@@ -700,6 +708,7 @@ VALUES(
                 new StubHostEnvironment(),
                 category: null,
                 limit: 20);
+            await AssertTopLevelJsonContractAsync(candidatesResult, candidatesCtx, "cdcAlignment", "environment", "capabilityKey", "profileKey", "totalCandidates", "items");
             var candidates = await ExecuteResultAsync<AdminRuntimeCapabilityAEnrichmentCandidatesResponseDto>(candidatesResult, candidatesCtx);
 
             Assert.Equal("capability_a.corpus_enrichment", candidates.CapabilityKey);
@@ -776,6 +785,7 @@ VALUES(
                 new StubHostEnvironment(),
                 category: null,
                 limit: 20);
+            await AssertTopLevelJsonContractAsync(candidatesArtifactResult, candidatesArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "capabilityKey", "profileKey", "totalCandidates", "items");
             var candidatesArtifact = await ExecuteResultAsync<AdminRuntimeCapabilityAEnrichmentCandidatesArtifactDto>(candidatesArtifactResult, candidatesArtifactCtx);
 
             Assert.Equal("capability_a_candidates.json", candidatesArtifact.Artifact);
@@ -797,6 +807,7 @@ VALUES(
                 new AdminRuntimeCapabilityAEnqueueRequestDto(
                     DocPaths: [firstRel.Replace('\\', '/'), secondRel.Replace('\\', '/'), thirdRel.Replace('\\', '/')],
                     DryRun: true));
+            await AssertTopLevelJsonContractAsync(dryRunResult, dryRunCtx, "cdcAlignment", "environment", "capabilityKey", "campaignId", "dryRun", "allowUnsafeCandidates", "candidateCount", "plannedCount", "queuedCount", "skippedCount", "reasonCounts", "items");
             var dryRun = await ExecuteResultAsync<AdminRuntimeCapabilityAEnqueueResponseDto>(dryRunResult, dryRunCtx);
 
             Assert.NotEqual(Guid.Empty, dryRun.CampaignId);
@@ -836,6 +847,7 @@ VALUES(
                 new StubHostEnvironment(),
                 new AdminRuntimeCapabilityAEnqueueRequestDto(
                     DocPaths: [firstRel.Replace('\\', '/'), secondRel.Replace('\\', '/'), thirdRel.Replace('\\', '/')]));
+            await AssertTopLevelJsonContractAsync(enqueueResult, enqueueCtx, "cdcAlignment", "environment", "capabilityKey", "campaignId", "dryRun", "allowUnsafeCandidates", "candidateCount", "plannedCount", "queuedCount", "skippedCount", "reasonCounts", "items");
             var enqueue = await ExecuteResultAsync<AdminRuntimeCapabilityAEnqueueResponseDto>(enqueueResult, enqueueCtx);
 
             Assert.NotEqual(Guid.Empty, enqueue.CampaignId);
@@ -885,6 +897,7 @@ VALUES(
                 ds,
                 new StubHostEnvironment(),
                 limit: 10);
+            await AssertTopLevelJsonContractAsync(campaignsResult, campaignsCtx, "cdcAlignment", "environment", "capabilityKey", "items");
             var campaigns = await ExecuteResultAsync<AdminRuntimeCapabilityACampaignsResponseDto>(campaignsResult, campaignsCtx);
 
             Assert.Equal("capability_a.corpus_enrichment", campaigns.CapabilityKey);
@@ -910,6 +923,7 @@ VALUES(
                 ds,
                 new StubHostEnvironment(),
                 limit: 10);
+            await AssertTopLevelJsonContractAsync(campaignsArtifactResult, campaignsArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "capabilityKey", "items");
             var campaignsArtifact = await ExecuteResultAsync<AdminRuntimeCapabilityACampaignsArtifactDto>(campaignsArtifactResult, campaignsArtifactCtx);
 
             Assert.Equal("capability_a_campaigns.json", campaignsArtifact.Artifact);
@@ -921,6 +935,7 @@ VALUES(
                 ds,
                 new StubHostEnvironment(),
                 enqueue.CampaignId);
+            await AssertTopLevelJsonContractAsync(campaignDetailResult, campaignDetailCtx, "cdcAlignment", "environment", "capabilityKey", "item");
             var campaignDetail = await ExecuteResultAsync<AdminRuntimeCapabilityACampaignDetailResponseDto>(campaignDetailResult, campaignDetailCtx);
 
             Assert.Equal(enqueue.CampaignId, campaignDetail.Item.CampaignId);
@@ -947,6 +962,7 @@ VALUES(
                 ds,
                 new StubHostEnvironment(),
                 enqueue.CampaignId);
+            await AssertTopLevelJsonContractAsync(campaignArtifactResult, campaignArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "capabilityKey", "item");
             var campaignArtifact = await ExecuteResultAsync<AdminRuntimeCapabilityACampaignDetailArtifactDto>(campaignArtifactResult, campaignArtifactCtx);
 
             Assert.Equal("capability_a_campaign_detail.json", campaignArtifact.Artifact);
@@ -1108,6 +1124,7 @@ VALUES(
                 new StubHostEnvironment(),
                 category: null,
                 limit: 20);
+            await AssertTopLevelJsonContractAsync(candidatesResult, candidatesCtx, "cdcAlignment", "environment", "capabilityKey", "profileKey", "totalCandidates", "items");
             var candidates = await ExecuteResultAsync<AdminRuntimeCapabilityBBackofficeCandidatesResponseDto>(candidatesResult, candidatesCtx);
 
             Assert.Equal("capability_b.backoffice_generation", candidates.CapabilityKey);
@@ -1138,6 +1155,7 @@ VALUES(
                 new StubHostEnvironment(),
                 category: null,
                 limit: 20);
+            await AssertTopLevelJsonContractAsync(candidatesArtifactResult, candidatesArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "capabilityKey", "profileKey", "totalCandidates", "items");
             var candidatesArtifact = await ExecuteResultAsync<AdminRuntimeCapabilityBBackofficeCandidatesArtifactDto>(candidatesArtifactResult, candidatesArtifactCtx);
 
             Assert.Equal("capability_b_candidates.json", candidatesArtifact.Artifact);
@@ -1153,6 +1171,7 @@ VALUES(
                 new AdminRuntimeCapabilityBEnqueueRequestDto(
                     DocPaths: ["ATEX/missing-summary.pdf", "Programmation/stale-summary.pdf", "PLC/recent-failure-summary.pdf"],
                     DryRun: true));
+            await AssertTopLevelJsonContractAsync(dryRunResult, dryRunCtx, "cdcAlignment", "environment", "capabilityKey", "campaignId", "dryRun", "force", "candidateCount", "plannedCount", "queuedCount", "skippedCount", "reasonCounts", "items");
             var dryRun = await ExecuteResultAsync<AdminRuntimeCapabilityBEnqueueResponseDto>(dryRunResult, dryRunCtx);
 
             Assert.True(dryRun.DryRun);
@@ -1179,6 +1198,7 @@ VALUES(
                 new StubHostEnvironment(),
                 new AdminRuntimeCapabilityBEnqueueRequestDto(
                     DocPaths: ["ATEX/missing-summary.pdf", "Programmation/stale-summary.pdf", "PLC/recent-failure-summary.pdf"]));
+            await AssertTopLevelJsonContractAsync(enqueueResult, enqueueCtx, "cdcAlignment", "environment", "capabilityKey", "campaignId", "dryRun", "force", "candidateCount", "plannedCount", "queuedCount", "skippedCount", "reasonCounts", "items");
             var enqueue = await ExecuteResultAsync<AdminRuntimeCapabilityBEnqueueResponseDto>(enqueueResult, enqueueCtx);
 
             Assert.False(enqueue.DryRun);
@@ -1200,6 +1220,7 @@ VALUES(
                 new AdminRuntimeCapabilityBEnqueueRequestDto(
                     DocPaths: ["PLC/recent-failure-summary.pdf"],
                     Force: true));
+            await AssertTopLevelJsonContractAsync(forceResult, forceCtx, "cdcAlignment", "environment", "capabilityKey", "campaignId", "dryRun", "force", "candidateCount", "plannedCount", "queuedCount", "skippedCount", "reasonCounts", "items");
             var forceEnqueue = await ExecuteResultAsync<AdminRuntimeCapabilityBEnqueueResponseDto>(forceResult, forceCtx);
             Assert.True(forceEnqueue.Force);
             Assert.Equal(1, forceEnqueue.CandidateCount);
@@ -1285,6 +1306,7 @@ WHERE tenant_id=@tenant
                 ds,
                 new StubHostEnvironment(),
                 limit: 10);
+            await AssertTopLevelJsonContractAsync(campaignsResult, campaignsCtx, "cdcAlignment", "environment", "capabilityKey", "items");
             var campaigns = await ExecuteResultAsync<AdminRuntimeCapabilityBCampaignsResponseDto>(campaignsResult, campaignsCtx);
             Assert.Equal("capability_b.backoffice_generation", campaigns.CapabilityKey);
             Assert.True(campaigns.Items.Count >= 3);
@@ -1292,12 +1314,24 @@ WHERE tenant_id=@tenant
             Assert.Contains(campaigns.Items, item => !item.DryRun && item.Status == "executed" && item.QueuedCount == 1);
             Assert.Contains(campaigns.Items, item => item.Force && item.Status == "executed" && item.QueuedCount == 1);
 
+            var campaignsArtifactCtx = BuildAdminContext();
+            var campaignsArtifactResult = await AdminRuntimeEndpoints.CapabilityBCampaignsArtifactAsync(
+                campaignsArtifactCtx,
+                ds,
+                new StubHostEnvironment(),
+                limit: 10);
+            await AssertTopLevelJsonContractAsync(campaignsArtifactResult, campaignsArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "capabilityKey", "items");
+            var campaignsArtifact = await ExecuteResultAsync<AdminRuntimeCapabilityBCampaignsArtifactDto>(campaignsArtifactResult, campaignsArtifactCtx);
+            Assert.Equal("capability_b_campaigns.json", campaignsArtifact.Artifact);
+            Assert.Equal(campaigns.Items.Count, campaignsArtifact.Items.Count);
+
             var campaignDetailCtx = BuildAdminContext();
             var campaignDetailResult = await AdminRuntimeEndpoints.CapabilityBCampaignAsync(
                 campaignDetailCtx,
                 ds,
                 new StubHostEnvironment(),
                 enqueue.CampaignId);
+            await AssertTopLevelJsonContractAsync(campaignDetailResult, campaignDetailCtx, "cdcAlignment", "environment", "capabilityKey", "item");
             var campaignDetail = await ExecuteResultAsync<AdminRuntimeCapabilityBCampaignDetailResponseDto>(campaignDetailResult, campaignDetailCtx);
             Assert.Equal(enqueue.CampaignId, campaignDetail.Item.CampaignId);
             Assert.Equal(3, campaignDetail.Item.Items.Count);
@@ -1311,6 +1345,7 @@ WHERE tenant_id=@tenant
                 ds,
                 new StubHostEnvironment(),
                 enqueue.CampaignId);
+            await AssertTopLevelJsonContractAsync(campaignArtifactResult, campaignArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "capabilityKey", "item");
             var campaignArtifact = await ExecuteResultAsync<AdminRuntimeCapabilityBCampaignDetailArtifactDto>(campaignArtifactResult, campaignArtifactCtx);
             Assert.Equal("capability_b_campaign_detail.json", campaignArtifact.Artifact);
             Assert.Equal(campaignDetail.Item.CampaignId, campaignArtifact.Item.CampaignId);
@@ -1842,6 +1877,63 @@ WHERE tenant_id=@tenant
     }
 
     [Fact]
+    public async Task CapabilityAKpisAsync_returns_ops_thresholds_and_metric_guide()
+    {
+        var ctx = BuildAdminContext();
+        var options = new RuntimeGovernanceOptions
+        {
+            CapabilityAKpiObservationWindowMinutes = 30,
+            CapabilityAOperationP95TargetMs = 2100,
+            CapabilityASkipRateTargetPercent = 12,
+            CapabilityAReadyToEnqueueRateTargetPercent = 55,
+            CapabilityAOffsetBackfillShareTargetPercent = 8
+        };
+
+        var result = await AdminRuntimeEndpoints.CapabilityAKpisAsync(
+            ctx,
+            new StubHostEnvironment(),
+            Options.Create(options));
+
+        var payload = await ExecuteResultAsync<AdminRuntimeCapabilityAKpisResponseDto>(result, ctx);
+        Assert.Equal("v3.0", payload.CdcAlignment);
+        Assert.Equal(30, payload.Policy.ObservationWindowMinutes);
+        Assert.Equal(2100, payload.Policy.OperationP95TargetMs);
+        Assert.Equal(12, payload.Policy.SkipRateTargetPercent);
+        Assert.Equal(55, payload.Policy.ReadyToEnqueueRateTargetPercent);
+        Assert.Equal(8, payload.Policy.OffsetBackfillShareTargetPercent);
+        Assert.Contains("skipped_docs", payload.Policy.SkipRateFormula, StringComparison.Ordinal);
+        Assert.Contains("ready_to_enqueue_count", payload.Policy.ReadyToEnqueueRateFormula, StringComparison.Ordinal);
+        Assert.Contains("offset_backfill_candidate_count", payload.Policy.OffsetBackfillShareFormula, StringComparison.Ordinal);
+        Assert.Contains(payload.Metrics, item => item.Key == "capability_a_operation_p95" && item.Instrument == "saaia.runtime.capability_a.duration");
+        Assert.Contains(payload.Metrics, item => item.Key == "capability_a_candidate_reads" && item.Instrument == "saaia.runtime.capability_a.candidate_reads");
+        Assert.Contains(payload.Metrics, item => item.Key == "capability_a_skip_rate" && item.Aggregation == "ratio");
+        Assert.Contains(payload.Metrics, item => item.Key == "capability_a_ready_to_enqueue_rate" && item.Instrument == "/admin/runtime/operational-summary");
+        Assert.Contains(payload.Metrics, item => item.Key == "capability_a_offset_backfill_share" && item.Instrument == "/admin/runtime/operational-summary");
+        Assert.Contains(payload.Alerts, item => item.Key == "capability_a_operation_p95_regression" && item.Condition.Contains("2100", StringComparison.Ordinal));
+        Assert.Contains(payload.Alerts, item => item.Key == "capability_a_skip_rate_regression" && item.Condition.Contains("12", StringComparison.Ordinal));
+        Assert.Contains(payload.Alerts, item => item.Key == "capability_a_offset_backfill_share_watch" && item.Condition.Contains("8", StringComparison.Ordinal));
+        Assert.Contains(payload.DashboardPanels, item => item.Contains("Capability A operation P95", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task CapabilityAKpisArtifactAsync_returns_named_artifact_snapshot()
+    {
+        var ctx = BuildAdminContext();
+        var result = await AdminRuntimeEndpoints.CapabilityAKpisArtifactAsync(
+            ctx,
+            new StubHostEnvironment(),
+            Options.Create(new RuntimeGovernanceOptions()));
+
+        var payload = await ExecuteResultAsync<AdminRuntimeCapabilityAKpisArtifactDto>(result, ctx);
+        Assert.Equal("capability-a-kpis.json", payload.Artifact);
+        Assert.Equal("v3.0", payload.CdcAlignment);
+        Assert.Contains(payload.Metrics, item => item.Instrument == "saaia.runtime.capability_a.duration");
+        Assert.Contains(payload.Metrics, item => item.Instrument == "saaia.runtime.capability_a.queued_docs + saaia.runtime.capability_a.skipped_docs");
+        Assert.Contains(payload.Alerts, item => item.Key == "capability_a_ready_to_enqueue_rate_regression");
+        Assert.Contains(payload.Alerts, item => item.Key == "capability_a_offset_backfill_share_watch");
+    }
+
+    [Fact]
     public async Task CapabilityBKpisArtifactAsync_returns_named_artifact_snapshot()
     {
         var ctx = BuildAdminContext();
@@ -2214,6 +2306,7 @@ VALUES
         AssertDtoJsonPropertyNames<AdminRuntimeEventsResponseDto>("cdcAlignment", "environment", "items");
         AssertDtoJsonPropertyNames<AdminRuntimeDiagnosticsResponseDto>("cdcAlignment", "environment", "generatedAt", "summary", "items");
         AssertDtoJsonPropertyNames<AdminRuntimeRetrievalKpisResponseDto>("cdcAlignment", "environment", "generatedAt", "policy", "metrics", "alerts", "dashboardPanels");
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityAKpisResponseDto>("cdcAlignment", "environment", "generatedAt", "policy", "metrics", "alerts", "dashboardPanels");
         AssertDtoJsonPropertyNames<AdminRuntimeCapabilityBKpisResponseDto>("cdcAlignment", "environment", "generatedAt", "policy", "metrics", "alerts", "dashboardPanels");
         AssertDtoJsonPropertyNames<AdminRuntimeCapabilityBQualityReviewResponseDto>("cdcAlignment", "environment", "generatedAt", "capabilityKey", "qualityThreshold", "totalItems", "items");
         AssertDtoJsonPropertyNames<AdminRuntimeCapabilityBQualityReviewSummaryResponseDto>("cdcAlignment", "environment", "generatedAt", "capabilityKey", "qualityThreshold", "summary");
@@ -2246,6 +2339,7 @@ VALUES
         AssertDtoJsonPropertyNames<AdminRuntimeEventsArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "items");
         AssertDtoJsonPropertyNames<AdminRuntimeDiagnosticsArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "summary", "items");
         AssertDtoJsonPropertyNames<AdminRuntimeRetrievalKpisArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "policy", "metrics", "alerts", "dashboardPanels");
+        AssertDtoJsonPropertyNames<AdminRuntimeCapabilityAKpisArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "policy", "metrics", "alerts", "dashboardPanels");
         AssertDtoJsonPropertyNames<AdminRuntimeCapabilityBKpisArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "policy", "metrics", "alerts", "dashboardPanels");
         AssertDtoJsonPropertyNames<AdminRuntimeCapabilityBQualityReviewArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "capabilityKey", "qualityThreshold", "totalItems", "items");
         AssertDtoJsonPropertyNames<AdminRuntimeCapabilityBQualityReviewSummaryArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "capabilityKey", "qualityThreshold", "summary");
@@ -2302,6 +2396,13 @@ VALUES
             new StubHostEnvironment(),
             Options.Create(new RuntimeGovernanceOptions()));
         await AssertTopLevelJsonContractAsync(retrievalKpisResult, retrievalKpisCtx, "cdcAlignment", "environment", "generatedAt", "policy", "metrics", "alerts", "dashboardPanels");
+
+        var capabilityAKpisCtx = BuildAdminContext();
+        var capabilityAKpisResult = await AdminRuntimeEndpoints.CapabilityAKpisAsync(
+            capabilityAKpisCtx,
+            new StubHostEnvironment(),
+            Options.Create(new RuntimeGovernanceOptions()));
+        await AssertTopLevelJsonContractAsync(capabilityAKpisResult, capabilityAKpisCtx, "cdcAlignment", "environment", "generatedAt", "policy", "metrics", "alerts", "dashboardPanels");
 
         var capabilityBKpisCtx = BuildAdminContext();
         var capabilityBKpisResult = await AdminRuntimeEndpoints.CapabilityBKpisAsync(
@@ -2421,6 +2522,13 @@ VALUES
             new StubHostEnvironment(),
             Options.Create(new RuntimeGovernanceOptions()));
         await AssertTopLevelJsonContractAsync(retrievalKpisArtifactResult, retrievalKpisArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "policy", "metrics", "alerts", "dashboardPanels");
+
+        var capabilityAKpisArtifactCtx = BuildAdminContext();
+        var capabilityAKpisArtifactResult = await AdminRuntimeEndpoints.CapabilityAKpisArtifactAsync(
+            capabilityAKpisArtifactCtx,
+            new StubHostEnvironment(),
+            Options.Create(new RuntimeGovernanceOptions()));
+        await AssertTopLevelJsonContractAsync(capabilityAKpisArtifactResult, capabilityAKpisArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "policy", "metrics", "alerts", "dashboardPanels");
 
         var capabilityBKpisArtifactCtx = BuildAdminContext();
         var capabilityBKpisArtifactResult = await AdminRuntimeEndpoints.CapabilityBKpisArtifactAsync(

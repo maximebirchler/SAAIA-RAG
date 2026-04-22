@@ -555,6 +555,27 @@ public sealed record AdminRuntimeCapabilityBKpisResponseDto(
     IReadOnlyList<string> DashboardPanels
 );
 
+public sealed record AdminRuntimeCapabilityAKpisResponseDto(
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    AdminRuntimeCapabilityAKpiPolicyDto Policy,
+    IReadOnlyList<AdminRuntimeMetricDefinitionDto> Metrics,
+    IReadOnlyList<AdminRuntimeAlertDefinitionDto> Alerts,
+    IReadOnlyList<string> DashboardPanels
+);
+
+public sealed record AdminRuntimeCapabilityAKpisArtifactDto(
+    string Artifact,
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    AdminRuntimeCapabilityAKpiPolicyDto Policy,
+    IReadOnlyList<AdminRuntimeMetricDefinitionDto> Metrics,
+    IReadOnlyList<AdminRuntimeAlertDefinitionDto> Alerts,
+    IReadOnlyList<string> DashboardPanels
+);
+
 public sealed record AdminRuntimeCapabilityBKpisArtifactDto(
     string Artifact,
     string CdcAlignment,
@@ -572,6 +593,18 @@ public sealed record AdminRuntimeRetrievalKpiPolicyDto(
     double RerankP95TargetMs,
     double ZeroResultRateTargetPercent,
     string ZeroResultRateFormula,
+    string Notes
+);
+
+public sealed record AdminRuntimeCapabilityAKpiPolicyDto(
+    int ObservationWindowMinutes,
+    double OperationP95TargetMs,
+    double SkipRateTargetPercent,
+    double ReadyToEnqueueRateTargetPercent,
+    double OffsetBackfillShareTargetPercent,
+    string SkipRateFormula,
+    string ReadyToEnqueueRateFormula,
+    string OffsetBackfillShareFormula,
     string Notes
 );
 

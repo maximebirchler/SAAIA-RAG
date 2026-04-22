@@ -36,6 +36,11 @@ sealed class RuntimeGovernanceOptions
     public double RetrievalP95TargetMs { get; set; } = 800;
     public double RerankP95TargetMs { get; set; } = 300;
     public double ZeroResultRateTargetPercent { get; set; } = 5;
+    public int CapabilityAKpiObservationWindowMinutes { get; set; } = 15;
+    public double CapabilityAOperationP95TargetMs { get; set; } = 2000;
+    public double CapabilityASkipRateTargetPercent { get; set; } = 15;
+    public double CapabilityAReadyToEnqueueRateTargetPercent { get; set; } = 50;
+    public double CapabilityAOffsetBackfillShareTargetPercent { get; set; } = 10;
     public int CapabilityBKpiObservationWindowMinutes { get; set; } = 15;
     public double CapabilityBGenerationP95TargetMs { get; set; } = 2500;
     public double CapabilityBLiveFallbackRateTargetPercent { get; set; } = 2;

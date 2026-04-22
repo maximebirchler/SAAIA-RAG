@@ -5,6 +5,19 @@ namespace SAAIA.Backend.Db;
 
 public static class DbMigrator
 {
+    public static IReadOnlyList<string> GetOrderedMigrationVersions(string migrationsDir)
+    {
+        if (!Directory.Exists(migrationsDir))
+            throw new DirectoryNotFoundException($"Migrations dir not found: {migrationsDir}");
+
+        return Directory.GetFiles(migrationsDir, "*.sql")
+            .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+            .Select(Path.GetFileName)
+            .Where(static version => !string.IsNullOrWhiteSpace(version))
+            .Cast<string>()
+            .ToArray();
+    }
+
     public static async Task ApplyMigrationsAsync(string connString, string migrationsDir, CancellationToken ct)
     {
         await using var conn = new NpgsqlConnection(connString);
@@ -20,18 +33,14 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
             await cmd.ExecuteNonQueryAsync(ct);
         }
 
-        if (!Directory.Exists(migrationsDir))
-            throw new DirectoryNotFoundException($"Migrations dir not found: {migrationsDir}");
+        var versions = GetOrderedMigrationVersions(migrationsDir);
 
-        var files = Directory.GetFiles(migrationsDir, "*.sql")
-            .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-
-        foreach (var file in files)
+        foreach (var version in versions)
         {
-            var version = Path.GetFileName(file);
+            var file = Path.Combine(migrationsDir, version);
 
-            // already applied?
+            // The full filename is the migration identity. Legacy 004/008 duplicate numeric prefixes
+            // are therefore safe as long as those files are not renamed after being applied.
             await using (var check = new NpgsqlCommand("SELECT 1 FROM schema_migrations WHERE version = @v", conn))
             {
                 check.Parameters.AddWithValue("v", version);

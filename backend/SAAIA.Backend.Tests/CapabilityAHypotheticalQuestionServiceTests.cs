@@ -108,6 +108,34 @@ public sealed class CapabilityAHypotheticalQuestionServiceTests
         Assert.Contains("loop", tags);
     }
 
+    [Fact]
+    public async Task BuildQuestionsAsync_parses_code_fenced_json_payload_from_llm()
+    {
+        var service = CreateService(
+            """
+            {
+              "choices": [
+                {
+                  "message": {
+                    "content": "```json\n{\"questions\":[\"How is the PLC control loop supervised?\",\"When should operators review the IND570 exchange guardrails?\"]}\n```"
+                  }
+                }
+              ]
+            }
+            """,
+            HttpStatusCode.OK);
+
+        var questions = await service.BuildQuestionsAsync(
+            "MettlerToledo_IND570.pdf",
+            ["Control Loop Overview"],
+            ["The control loop overview explains how the PLC exchange should be supervised."],
+            CancellationToken.None);
+
+        Assert.Equal(2, questions.Count);
+        Assert.Contains(questions, question => question.Contains("PLC control loop", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(questions, question => question.Contains("IND570", StringComparison.OrdinalIgnoreCase));
+    }
+
     private static CapabilityAHypotheticalQuestionService CreateService(string body, HttpStatusCode statusCode)
         => new(new LocalLlmChatClient(
             new StubHttpClientFactory(body, statusCode),

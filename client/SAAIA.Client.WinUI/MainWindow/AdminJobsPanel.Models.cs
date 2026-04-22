@@ -32,6 +32,7 @@ public sealed partial class MainWindow
         public required Button SummaryCategoryButton { get; init; }
         public required ComboBox StatusCombo { get; init; }
         public required ToggleSwitch AutoRefreshToggle { get; init; }
+        public required Button CapabilityAKpiButton { get; init; }
         public required Button CapabilityBQualityButton { get; init; }
         public required Button RefreshButton { get; init; }
         public required Button DeleteSelectionButton { get; init; }

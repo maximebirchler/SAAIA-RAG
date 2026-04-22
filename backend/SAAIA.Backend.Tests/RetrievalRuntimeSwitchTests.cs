@@ -612,6 +612,37 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void ResolveHypQuestionsMatched_returns_non_null_when_hypothetical_questions_exist_for_item()
+    {
+        var byDocPath = new Dictionary<string, bool?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Programmation/Mettler/MettlerToledo_IND570.pdf"] = true
+        };
+
+        var matched = RagEndpoints.ResolveHypQuestionsMatched(
+            "Programmation/Mettler/MettlerToledo_IND570.pdf",
+            byDocPath);
+
+        Assert.True(matched.HasValue);
+        Assert.True(matched.Value);
+    }
+
+    [Fact]
+    public void ResolveHypQuestionsMatched_returns_null_when_item_has_no_hypothetical_questions()
+    {
+        var byDocPath = new Dictionary<string, bool?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["ATEX/CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf"] = null
+        };
+
+        var matched = RagEndpoints.ResolveHypQuestionsMatched(
+            "ATEX/CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf",
+            byDocPath);
+
+        Assert.Null(matched);
+    }
+
+    [Fact]
     public void BuildDocumentCategoryPath_and_category_are_derived_from_doc_path()
     {
         Assert.Equal("ATEX/Guidance", RagEndpoints.BuildDocumentCategoryPath("ATEX/Guidance/CEN TR 15281.pdf"));

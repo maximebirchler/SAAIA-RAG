@@ -210,6 +210,14 @@ public sealed partial class ApiClient
     public Task<JsonElement> AdminRuntimeOperationalSummaryAsync(CancellationToken ct)
         => SendJsonAsync(HttpMethod.Get, "/admin/runtime/operational-summary", null, admin: true, ct);
 
+    public Task<JsonElement> AdminRuntimeCapabilityAKpisAsync(CancellationToken ct)
+        => SendJsonAsync(
+            HttpMethod.Get,
+            "/admin/runtime/capability-a-kpis",
+            null,
+            admin: true,
+            ct);
+
     public Task<JsonElement> AdminRuntimeCapabilityBQualityReviewSummaryAsync(CancellationToken ct)
         => SendJsonAsync(
             HttpMethod.Get,

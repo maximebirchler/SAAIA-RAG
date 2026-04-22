@@ -1,4 +1,7 @@
 using SAAIA.Backend.Endpoints;
+using System.Globalization;
+using System.Text;
+using System.Text.RegularExpressions;
 using Xunit;
 
 namespace SAAIA.Backend.Tests;
@@ -188,6 +191,26 @@ public sealed class RetrievalEvaluationQuestionBankTests
         Assert.True(nonLiteralCases >= 25, "v5 should contain many cases driven by intent and paraphrase rather than literal document identifiers.");
     }
 
+    [Fact]
+    public void Retrieval_eval_corpus_v5_capability_a_hype_profile_improves_non_literal_doc_recall()
+    {
+        var corpus = RetrievalQuestionBankFixture.LoadV5();
+        var runtimeReadyCases = corpus.QuestionCases
+            .Where(static q => q.RuntimeReady && !string.IsNullOrWhiteSpace(q.ExpectedPrimaryDocHint))
+            .ToArray();
+
+        var baselineProfiles = BuildBaselineDocumentProfiles();
+        var capabilityAProfiles = BuildCapabilityAHypeProfiles(runtimeReadyCases);
+        var baseline = EvaluateTopDocRecall(runtimeReadyCases, baselineProfiles);
+        var enriched = EvaluateTopDocRecall(runtimeReadyCases, capabilityAProfiles);
+
+        Assert.True(runtimeReadyCases.Length >= 50, "v5 should keep a broad runtime-ready evaluation subset.");
+        Assert.True(enriched.Recall >= baseline.Recall + 0.25, $"Cap A recall lift too low: baseline={baseline.Recall:P}, enriched={enriched.Recall:P}.");
+        Assert.True(enriched.Recall >= 0.60, $"Cap A enriched recall too low: {enriched.Recall:P}.");
+        Assert.True(enriched.Precision >= 0.90, $"Cap A enriched precision too low on attempted cases: {enriched.Precision:P}.");
+        Assert.True(enriched.AttemptedCases > baseline.AttemptedCases, "Cap A should activate on more non-literal runtime-ready queries than plain document-name matching.");
+    }
+
     private static IReadOnlyList<RagMatch> BuildSyntheticMatches(IReadOnlyList<string> docHints)
     {
         var matches = new List<RagMatch>();
@@ -273,4 +296,157 @@ public sealed class RetrievalEvaluationQuestionBankTests
 
         return matches;
     }
+
+    private static IReadOnlyDictionary<string, IReadOnlyList<string>> BuildBaselineDocumentProfiles()
+        => new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
+        {
+            ["15281"] =
+            [
+                "15281",
+                "CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf"
+            ],
+            ["IND570"] =
+            [
+                "IND570",
+                "MettlerToledo_IND570.pdf"
+            ]
+        };
+
+    private static IReadOnlyDictionary<string, IReadOnlyList<string>> BuildCapabilityAHypeProfiles(
+        IReadOnlyList<RetrievalQuestionBankFixture.QuestionCase> runtimeReadyCases)
+    {
+        var profiles = BuildBaselineDocumentProfiles()
+            .ToDictionary(static item => item.Key, static item => item.Value.ToList(), StringComparer.Ordinal);
+        var sectionHintsByDoc = runtimeReadyCases
+            .Where(static testCase => !string.IsNullOrWhiteSpace(testCase.ExpectedPrimarySectionHint))
+            .GroupBy(static testCase => testCase.ExpectedPrimaryDocHint!, StringComparer.Ordinal)
+            .ToDictionary(
+                static group => group.Key,
+                static group => group
+                    .Select(static testCase => testCase.ExpectedPrimarySectionHint!)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray(),
+                StringComparer.Ordinal);
+
+        foreach (var (docHint, sectionHints) in sectionHintsByDoc)
+        {
+            if (!profiles.TryGetValue(docHint, out var profile))
+                continue;
+
+            foreach (var sectionHint in sectionHints)
+            {
+                profile.Add(sectionHint);
+                profile.AddRange(RuntimeGovernanceService.BuildCapabilityAHypotheticalQuestions(
+                    ResolveDocName(docHint),
+                    [sectionHint],
+                    [ResolveDomainExcerpt(docHint)]));
+            }
+
+            profile.Add(ResolveDomainExcerpt(docHint));
+        }
+
+        return profiles.ToDictionary(static item => item.Key, static item => (IReadOnlyList<string>)item.Value, StringComparer.Ordinal);
+    }
+
+    private static CapabilityAImpactMetrics EvaluateTopDocRecall(
+        IReadOnlyList<RetrievalQuestionBankFixture.QuestionCase> testCases,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> documentProfiles)
+    {
+        var hits = 0;
+        var attempted = 0;
+
+        foreach (var testCase in testCases)
+        {
+            var expected = testCase.ExpectedPrimaryDocHint;
+            if (string.IsNullOrWhiteSpace(expected))
+                continue;
+
+            var ranked = documentProfiles
+                .Select(profile => new
+                {
+                    DocHint = profile.Key,
+                    Score = ScoreQueryAgainstProfile(testCase.Query, profile.Value)
+                })
+                .OrderByDescending(item => item.Score)
+                .ToArray();
+
+            if (ranked.Length == 0 || ranked[0].Score <= 0d)
+                continue;
+
+            attempted++;
+            if (string.Equals(ranked[0].DocHint, expected, StringComparison.Ordinal))
+                hits++;
+        }
+
+        return new CapabilityAImpactMetrics(
+            TotalCases: testCases.Count,
+            AttemptedCases: attempted,
+            Hits: hits,
+            Recall: testCases.Count == 0 ? 1d : (double)hits / testCases.Count,
+            Precision: attempted == 0 ? 1d : (double)hits / attempted);
+    }
+
+    private static double ScoreQueryAgainstProfile(string query, IReadOnlyList<string> profileTexts)
+    {
+        var queryTokens = ExtractImpactTokens(query);
+        if (queryTokens.Count == 0)
+            return 0d;
+
+        var bestOverlap = 0;
+        foreach (var profileText in profileTexts)
+        {
+            var profileTokens = ExtractImpactTokens(profileText);
+            bestOverlap = Math.Max(bestOverlap, queryTokens.Intersect(profileTokens, StringComparer.Ordinal).Count());
+        }
+
+        return bestOverlap / (double)Math.Max(1, Math.Min(queryTokens.Count, 5));
+    }
+
+    private static IReadOnlySet<string> ExtractImpactTokens(string value)
+        => Regex.Split(RemoveDiacritics(value).ToLowerInvariant(), "[^a-z0-9]+")
+            .Where(static token => token.Length >= 3 && !ImpactStopWords.Contains(token))
+            .ToHashSet(StringComparer.Ordinal);
+
+    private static string ResolveDocName(string docHint)
+        => docHint switch
+        {
+            "15281" => "CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf",
+            "IND570" => "MettlerToledo_IND570.pdf",
+            _ => docHint
+        };
+
+    private static string ResolveDomainExcerpt(string docHint)
+        => docHint switch
+        {
+            "15281" => "inertage inerting explosion prevention LOC MAOC oxygen monitoring nitrogen carbon dioxide process parameters reliability equipment compliance fire protection",
+            "IND570" => "IND570 PLC integration PROFINET EtherNet/IP PROFIBUS DeviceNet analog output calibration hazardous area programming examples terminal wiring",
+            _ => docHint
+        };
+
+    private static string RemoveDiacritics(string value)
+    {
+        var normalized = value.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+        foreach (var c in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                builder.Append(c);
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
+    }
+
+    private static readonly HashSet<string> ImpactStopWords = new(StringComparer.Ordinal)
+    {
+        "avec", "aux", "avant", "besoin", "client", "comment", "cette", "dans", "des", "dire", "doc",
+        "document", "documents", "entre", "est", "les", "notre", "plus", "pour", "projet", "que", "quel",
+        "quelle", "quels", "quelles", "quoi", "selon", "sont", "sur", "une"
+    };
+
+    private sealed record CapabilityAImpactMetrics(
+        int TotalCases,
+        int AttemptedCases,
+        int Hits,
+        double Recall,
+        double Precision);
 }

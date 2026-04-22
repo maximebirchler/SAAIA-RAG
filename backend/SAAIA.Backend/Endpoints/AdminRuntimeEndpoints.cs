@@ -22,6 +22,11 @@ public static class AdminRuntimeEndpoints
             RuntimeRetrievalKpiService retrievalKpiService,
             IOptions<RuntimeGovernanceOptions> options)
             => RetrievalKpisAsync(ctx, retrievalKpiService, options));
+        app.MapGet("/admin/runtime/capability-a-kpis", (
+            HttpContext ctx,
+            RuntimeCapabilityAKpiService capabilityAKpiService,
+            IOptions<RuntimeGovernanceOptions> options)
+            => CapabilityAKpisAsync(ctx, capabilityAKpiService, options));
         app.MapGet("/admin/runtime/capability-b-kpis", (
             HttpContext ctx,
             RuntimeCapabilityBKpiService capabilityBKpiService,
@@ -65,6 +70,11 @@ public static class AdminRuntimeEndpoints
             RuntimeRetrievalKpiService retrievalKpiService,
             IOptions<RuntimeGovernanceOptions> options)
             => RetrievalKpisArtifactAsync(ctx, retrievalKpiService, options));
+        app.MapGet("/admin/runtime/artifacts/capability-a-kpis.json", (
+            HttpContext ctx,
+            RuntimeCapabilityAKpiService capabilityAKpiService,
+            IOptions<RuntimeGovernanceOptions> options)
+            => CapabilityAKpisArtifactAsync(ctx, capabilityAKpiService, options));
         app.MapGet("/admin/runtime/artifacts/capability-b-kpis.json", (
             HttpContext ctx,
             RuntimeCapabilityBKpiService capabilityBKpiService,
@@ -168,6 +178,22 @@ public static class AdminRuntimeEndpoints
         IOptions<RuntimeGovernanceOptions> options)
         => CapabilityBKpisAsync(ctx, new RuntimeCapabilityBKpiService(env), options);
 
+    internal static Task<IResult> CapabilityAKpisAsync(
+        HttpContext ctx,
+        RuntimeCapabilityAKpiService capabilityAKpiService,
+        IOptions<RuntimeGovernanceOptions> options)
+    {
+        AdminAuth.EnsureAdmin(ctx);
+        var response = capabilityAKpiService.GetKpis(options.Value);
+        return Task.FromResult(Results.Ok(response));
+    }
+
+    internal static Task<IResult> CapabilityAKpisAsync(
+        HttpContext ctx,
+        IHostEnvironment env,
+        IOptions<RuntimeGovernanceOptions> options)
+        => CapabilityAKpisAsync(ctx, new RuntimeCapabilityAKpiService(env), options);
+
     internal static async Task<IResult> OperationalSummaryAsync(
         HttpContext ctx,
         RuntimeDiagnosticsService diagnosticsService,
@@ -262,6 +288,22 @@ public static class AdminRuntimeEndpoints
         IHostEnvironment env,
         IOptions<RuntimeGovernanceOptions> options)
         => CapabilityBKpisArtifactAsync(ctx, new RuntimeCapabilityBKpiService(env), options);
+
+    internal static Task<IResult> CapabilityAKpisArtifactAsync(
+        HttpContext ctx,
+        RuntimeCapabilityAKpiService capabilityAKpiService,
+        IOptions<RuntimeGovernanceOptions> options)
+    {
+        AdminAuth.EnsureAdmin(ctx);
+        var response = capabilityAKpiService.GetKpisArtifact(options.Value);
+        return Task.FromResult(Results.Ok(response));
+    }
+
+    internal static Task<IResult> CapabilityAKpisArtifactAsync(
+        HttpContext ctx,
+        IHostEnvironment env,
+        IOptions<RuntimeGovernanceOptions> options)
+        => CapabilityAKpisArtifactAsync(ctx, new RuntimeCapabilityAKpiService(env), options);
 
     internal static async Task<IResult> OperationalSummaryArtifactAsync(
         HttpContext ctx,

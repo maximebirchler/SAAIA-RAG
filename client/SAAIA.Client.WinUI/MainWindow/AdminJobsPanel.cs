@@ -66,6 +66,9 @@ public sealed partial class MainWindow
     private static void ApplyAdminJobsLaunchMode(AdminJobsOverlayContext context, AdminJobsLaunchMode launchMode, string? focusJobId)
     {
         context.LaunchMode = launchMode;
+        context.CapabilityAKpiButton.Visibility = launchMode == AdminJobsLaunchMode.CapabilityAEnrichment
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         context.CapabilityBQualityButton.Visibility = launchMode == AdminJobsLaunchMode.CapabilityBBackoffice
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -234,6 +237,13 @@ public sealed partial class MainWindow
         capabilityBQualityButton.VerticalAlignment = VerticalAlignment.Center;
         capabilityBQualityButton.Visibility = Visibility.Collapsed;
         ApplyInlineButtonStatusAccent(capabilityBQualityButton, "running");
+
+        var capabilityAKpiButton = BuildDialogFooterButton(ClientUiText.Get("admin.runtime.action.open_a_kpis", UiLang));
+        capabilityAKpiButton.MinWidth = 148;
+        capabilityAKpiButton.HorizontalAlignment = HorizontalAlignment.Right;
+        capabilityAKpiButton.VerticalAlignment = VerticalAlignment.Center;
+        capabilityAKpiButton.Visibility = Visibility.Collapsed;
+        ApplyInlineButtonStatusAccent(capabilityAKpiButton, "running");
 
         var refreshButton = BuildDialogFooterButton(ClientUiText.Get("admin.jobs.refresh", UiLang), primary: true);
         refreshButton.MinWidth = 140;
@@ -455,6 +465,7 @@ public sealed partial class MainWindow
             Spacing = 12,
             VerticalAlignment = VerticalAlignment.Center
         };
+        headerActions.Children.Add(capabilityAKpiButton);
         headerActions.Children.Add(capabilityBQualityButton);
         headerActions.Children.Add(refreshButton);
         headerActions.Children.Add(autoRefreshHost);
@@ -597,6 +608,7 @@ public sealed partial class MainWindow
             SummaryCategoryButton = summaryTypeButton,
             StatusCombo = statusCombo,
             AutoRefreshToggle = autoRefreshToggle,
+            CapabilityAKpiButton = capabilityAKpiButton,
             CapabilityBQualityButton = capabilityBQualityButton,
             RefreshButton = refreshButton,
             DeleteSelectionButton = deleteSelectionButton,
@@ -608,6 +620,9 @@ public sealed partial class MainWindow
             DetailsHost = detailsHost,
             DetailsColumn = detailsColumn
         };
+
+        capabilityAKpiButton.Click += async (_, __) =>
+            await ShowCapabilityAKpiOverlayAsync().ConfigureAwait(true);
 
         capabilityBQualityButton.Click += async (_, __) =>
             await ShowCapabilityBQualityReviewOverlayAsync().ConfigureAwait(true);
