@@ -43,12 +43,20 @@ public sealed class AdminRuntimeEndpointsTests
         Assert.Contains(payload.Runtimes, item =>
             item.Key == "server-capability-b"
             && item.DependencyRuntimeKeys!.Contains("llm-backoffice-chat"));
-        Assert.Contains(payload.Runtimes, item =>
-            item.Key == "llm-backoffice-chat"
-            && item.Kind == "llm_runtime"
-            && item.BaseUrl == "http://llm.test/"
-            && item.Model == "local"
-            && item.ConfigurationSource == "environment.BACKOFFICE_LLM_ENABLED + chat_options.llm_base_url");
+        var llmRuntime = Assert.Single(payload.Runtimes, item => item.Key == "llm-backoffice-chat");
+        Assert.Equal("llm_runtime", llmRuntime.Kind);
+        Assert.Equal("environment.BACKOFFICE_LLM_ENABLED + chat_options.llm_base_url", llmRuntime.ConfigurationSource);
+        if (llmRuntime.Enabled)
+        {
+            Assert.Equal("http://llm.test/", llmRuntime.BaseUrl);
+            Assert.Equal("local", llmRuntime.Model);
+            Assert.Equal("configured", llmRuntime.ReadinessStatus);
+        }
+        else
+        {
+            Assert.Equal("disabled", llmRuntime.ReadinessStatus);
+            Assert.Contains("BACKOFFICE_LLM_ENABLED", llmRuntime.MissingSettingKeys!);
+        }
         Assert.Contains(payload.WarmupProfiles, item => item.Key == "default-local" && item.PassCount == 3);
         Assert.Contains(payload.WarmupProfiles, item => item.Key == "default-local" && item.HardwareRequirements is not null);
         Assert.Contains(payload.WarmupProfiles, item => item.Key == "default-local" && item.FreshnessPolicy is not null);
@@ -75,10 +83,17 @@ public sealed class AdminRuntimeEndpointsTests
         Assert.Equal("runtime_catalog.json", payload.Artifact);
         Assert.Equal("v3.0", payload.CdcAlignment);
         Assert.Contains(payload.Runtimes, item => item.Key == "tei-embeddings");
-        Assert.Contains(payload.Runtimes, item =>
-            item.Key == "llm-backoffice-chat"
-            && item.ReadinessStatus == "disabled"
-            && item.MissingSettingKeys!.Contains("BACKOFFICE_LLM_ENABLED"));
+        var llmRuntime = Assert.Single(payload.Runtimes, item => item.Key == "llm-backoffice-chat");
+        if (llmRuntime.Enabled)
+        {
+            Assert.Equal("configured", llmRuntime.ReadinessStatus);
+            Assert.Equal("http://llm.test/", llmRuntime.BaseUrl);
+        }
+        else
+        {
+            Assert.Equal("disabled", llmRuntime.ReadinessStatus);
+            Assert.Contains("BACKOFFICE_LLM_ENABLED", llmRuntime.MissingSettingKeys!);
+        }
         Assert.Contains(payload.WarmupProfiles, item => item.HardwareRequirements is not null);
         Assert.Contains(payload.WarmupProfiles, item => item.Key == "strict-local");
         Assert.Contains(payload.WarmupProfiles, item => item.Key == "strict-rerank");

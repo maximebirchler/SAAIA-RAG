@@ -1,6 +1,6 @@
 # SAAIA — Backend TODO — Document de suivi vivant
 
-> **Derniere mise a jour :** 2026-04-21
+> **Derniere mise a jour :** 2026-04-22
 > **Base CDC :** v3.0 (2026-04-10)
 > **Branch :** SAAIA_V3.0
 > **Auteurs :** Maxime Birchler, Claude, ChatGPT/Codex
@@ -33,7 +33,7 @@
 | Observabilite retrieval + governance | ✅ Solide | Spans, metriques, telemetrie |
 | Gouvernance runtime | ✅ Fonctionnel | Inegale core vs A vs B |
 | Capacite A | ~ v1 solide | Enrichissement deterministe reel, sans LLM |
-| Capacite B | ~ v1 gouvernee | Worker reel, routing gouverne, generation non-LLM |
+| Capacite B | ✅ v1 LLM gouvernee close | Worker reel, routing gouverne, generation LLM locale, fallback, KPI et revue qualite corrective |
 | Capacite C | N/A | Absente par design |
 | Tests | 297 backend passent | Baseline runtime + surfaces backend critiques couvertes |
 | Migrations SQL | ~ 28 fichiers | ⚠️ Doublons 004 et 008 (voir P1) |
@@ -163,27 +163,28 @@
 
 ### 5.1 Remplacer BuildDeterministicSummaryAsync par un appel LLM reel
 - [x] Remplacer `BuildDeterministicSummaryAsync()` dans `CapabilityBBackofficeWorker.cs` par un appel a un endpoint LLM configure - `CapabilityBBackofficeSummaryService` branche sur LLM local avec fallback explicite
-- [ ] Conserver le mode deterministe comme fallback explicite ou le retirer si la strategie produit l’exige
+- [x] Conserver le mode deterministe comme fallback explicite ou le retirer si la strategie produit l’exige - fallback deterministe conserve et trace dans `summary_meta`
 - [x] Adapter les warmup profiles de B pour qualifier la connexion au runtime LLM - probe `llm.chat_completion` utilise par warmup / selection / diagnostics
-- [ ] Implementer le fallback `server_backoffice → client_admin` si le LLM est indisponible
+- [x] Implementer le fallback `server_backoffice → client_admin` si le LLM est indisponible - fallback live `runtime_unavailable`
 - [x] Mesurer TTFT et qualite des syntheses - mesure proxy `first_response_ms` + `qualityScore` / signaux qualite / revue corrective B
 
 ### 5.2 Qualification Capacite B
 - [x] Etendre les hard gates du warmup a la Capacite B (connexion LLM comme pre-requis)
 - [x] Definir les checks de qualif B : connectivite runtime, timeouts, passCount, erreurs terminales
-- [ ] Verifier qu’une B non qualifiee n’empeche jamais le mode `client_admin`
+- [x] Verifier qu’une B non qualifiee n’empeche jamais le mode `client_admin`
 
 ### 5.3 Tests Capacite B
-- [ ] Ajouter tests sur le routing `client_admin` → `server_backoffice`
-- [ ] Ajouter test du fallback `server_backoffice → client_admin` si le runtime LLM B est indisponible
+- [x] Ajouter tests sur le routing `client_admin` → `server_backoffice`
+- [x] Ajouter test du fallback `server_backoffice → client_admin` si le runtime LLM B est indisponible
 - [x] Ajouter test de qualification warmup profile B
 - [x] Ajouter test de persistance et completion des jobs `capability_b` en mode LLM
-- [ ] Ajouter test sur les metadonnees de jobs si le mode d’execution change
+- [x] Ajouter test sur les metadonnees de jobs si le mode d’execution change
 
 ### 5.4 Fichiers concernes
 - **Fichiers sources :** `Ingestion/CapabilityBBackofficeWorker.cs`, gouvernance runtime B, warmup profiles, tests `SummaryBackofficeGovernanceTests.cs` et derives
 - **Etat reel au 2026-04-21 :** generation LLM B active avec fallback deterministe, warmup B base sur un probe `llm.chat_completion`, fallback live `server_backoffice -> client_admin` en place, et tests backend verts sur routing, warmup et completion des jobs. Les items encore reellement ouverts sur B sont surtout la mesure TTFT/qualite et un test explicite sur les metadonnees quand le mode d'execution change.
 - **Mise a jour 2026-04-21 (suite) :** le test explicite sur les metadonnees de job quand le mode bascule vers `client_admin` avec statut `runtime_unavailable` est maintenant couvert ; le reliquat realiste de Sprint 5 B se concentre surtout sur TTFT/qualite et l'exploitation de ces mesures.
+- **Cloture 2026-04-22 :** Sprint 5 B est considere clos cote backend/client pour le perimetre v3.0 actuel. La generation LLM locale, le fallback deterministe trace, le fallback live `server_backoffice -> client_admin`, le warmup/probe LLM, les KPI B, la telemetrie de generation, le score qualite, la revue qualite corrective, la relance forcee ciblee et les tests dedies sont en place. Les anciens items non coches ci-dessus sont conserves comme historique d'audit initial mais ne representent plus des gaps ouverts.
 
 ---
 
@@ -296,3 +297,4 @@
 | 2026-04-21 | Codex | Cap B : l'enqueue cible ne borne plus le chargement avant filtrage explicite ; test renforce avec 500+ candidats plus recents pour verrouiller la relance qualite ciblee. |
 | 2026-04-21 | Codex | Client admin : l'action `Relancer B` de la revue qualite affiche maintenant un retour operationnel detaille (`queued/candidates/skipped` + job court) apres enqueue force cible. |
 | 2026-04-22 | Codex | Cap B : la revue qualite expose maintenant `severity` et `recommendedAction` par resume faible ; le client les affiche sans nouvelle vue et le test contractuel backend est renforce. |
+| 2026-04-22 | Codex | Sprint 5 Cap B cloture cote backend/client : LLM local, fallback deterministe trace, fallback live client_admin, warmup/probe LLM, KPI, telemetrie, score qualite, revue corrective et relance ciblee sont consideres en place pour le perimetre v3.0 actuel. |
