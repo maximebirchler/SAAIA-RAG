@@ -34,6 +34,8 @@ public sealed partial class MainWindow
         string? Category,
         string Level,
         double QualityScore,
+        string Severity,
+        string RecommendedAction,
         string? Strategy,
         bool FallbackUsed,
         string? FallbackReason,
@@ -272,6 +274,15 @@ public sealed partial class MainWindow
             facts.Children.Add(new TextBlock
             {
                 Text = ClientUiText.Format("admin.runtime.quality.fact.score", lang, item.QualityScore.ToString("0.00", CultureInfo.InvariantCulture))
+            });
+            facts.Children.Add(new TextBlock
+            {
+                Text = ClientUiText.Format("admin.runtime.quality.fact.severity", lang, item.Severity)
+            });
+            facts.Children.Add(new TextBlock
+            {
+                Text = ClientUiText.Format("admin.runtime.quality.fact.recommended_action", lang, item.RecommendedAction),
+                TextWrapping = TextWrapping.WrapWholeWords
             });
             facts.Children.Add(new TextBlock
             {
@@ -519,6 +530,8 @@ public sealed partial class MainWindow
                     Category: TryGetString(item, "category"),
                     Level: TryGetString(item, "level") ?? string.Empty,
                     QualityScore: TryGetDouble(item, "qualityScore") ?? 0d,
+                    Severity: TryGetString(item, "severity") ?? "unknown",
+                    RecommendedAction: TryGetString(item, "recommendedAction") ?? "manual_review",
                     Strategy: TryGetString(item, "strategy"),
                     FallbackUsed: TryGetBool(item, "fallbackUsed") ?? false,
                     FallbackReason: TryGetString(item, "fallbackReason"),

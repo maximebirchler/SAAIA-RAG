@@ -1894,6 +1894,8 @@ VALUES
         Assert.Equal(lowDocId, item.DocId);
         Assert.Equal("ATEX/low-quality.pdf", item.DocPath);
         Assert.Equal(0.41, item.QualityScore);
+        Assert.Equal("high", item.Severity);
+        Assert.Equal("regenerate_with_context_review", item.RecommendedAction);
         Assert.Equal("llm_document_foundation", item.Strategy);
         Assert.Contains(item.Recommendations, recommendation => recommendation.Contains("section coverage", StringComparison.OrdinalIgnoreCase));
         Assert.Equal(0.25, item.Signals.SectionCoverageScore);

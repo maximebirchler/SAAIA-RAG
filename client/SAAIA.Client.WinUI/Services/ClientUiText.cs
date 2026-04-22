@@ -125,6 +125,8 @@ internal static class ClientUiText
         ["admin.runtime.quality.section.statuses"] = Multi("RÃ©partition par statut runtime", "Breakdown by runtime status", "Desglose por estado runtime", "DistribuiÃ§Ã£o por estado runtime", "Aufteilung nach Runtime-Status", "Ripartizione per stato runtime"),
         ["admin.runtime.quality.empty_distribution"] = Multi("Aucune donnÃ©e", "No data", "Sin datos", "Sem dados", "Keine Daten", "Nessun dato"),
         ["admin.runtime.quality.fact.score"] = Multi("Score qualitÃ© : {0}", "Quality score: {0}", "PuntuaciÃ³n de calidad: {0}", "PontuaÃ§Ã£o de qualidade: {0}", "QualitÃ¤tswert: {0}", "Punteggio qualitÃ : {0}"),
+        ["admin.runtime.quality.fact.severity"] = Multi("Severite : {0}", "Severity: {0}", "Severidad: {0}", "Severidade: {0}", "Schweregrad: {0}", "Gravita: {0}"),
+        ["admin.runtime.quality.fact.recommended_action"] = Multi("Action recommandee : {0}", "Recommended action: {0}", "Accion recomendada: {0}", "Acao recomendada: {0}", "Empfohlene Aktion: {0}", "Azione consigliata: {0}"),
         ["admin.runtime.quality.fact.strategy"] = Multi("StratÃ©gie : {0}", "Strategy: {0}", "Estrategia: {0}", "EstratÃ©gia: {0}", "Strategie: {0}", "Strategia: {0}"),
         ["admin.runtime.quality.fact.runtime_status"] = Multi("Statut runtime : {0}", "Runtime status: {0}", "Estado runtime: {0}", "Estado runtime: {0}", "Runtime-Status: {0}", "Stato runtime: {0}"),
         ["admin.runtime.quality.fact.summary_length"] = Multi("Longueur du rÃ©sumÃ© : {0}", "Summary length: {0}", "Longitud del resumen: {0}", "Comprimento do resumo: {0}", "LÃ¤nge der Zusammenfassung: {0}", "Lunghezza del riepilogo: {0}"),

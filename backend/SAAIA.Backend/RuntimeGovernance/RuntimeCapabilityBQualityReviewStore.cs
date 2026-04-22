@@ -133,6 +133,8 @@ LIMIT @limit;
     {
         var signals = ParseSignals(row.QualitySignalsJson);
         var recommendations = BuildRecommendations(row, signals);
+        var severity = ResolveSeverity(row, signals);
+        var recommendedAction = ResolveRecommendedAction(row, signals);
 
         return new AdminRuntimeCapabilityBQualityReviewItemDto(
             row.DocId,
@@ -141,6 +143,8 @@ LIMIT @limit;
             row.Category,
             row.Level,
             row.QualityScore,
+            severity,
+            recommendedAction,
             row.Strategy,
             row.FallbackUsed,
             row.FallbackReason,
@@ -199,6 +203,48 @@ LIMIT @limit;
             recommendations.Add("review this summary manually because its aggregate quality score is below the configured threshold");
 
         return recommendations.ToArray();
+    }
+
+    private static string ResolveSeverity(
+        CapabilityBQualityReviewRow row,
+        AdminRuntimeCapabilityBQualitySignalsDto signals)
+    {
+        if (row.QualityScore < 0.35
+            || string.Equals(row.RuntimeCapabilityStatus, "runtime_unavailable", StringComparison.OrdinalIgnoreCase)
+            || signals.SectionCoverageScore is < 0.25
+            || signals.KeywordCoverageScore is < 0.25)
+        {
+            return "critical";
+        }
+
+        if (row.QualityScore < 0.50
+            || row.FallbackUsed
+            || signals.SectionCoverageScore is < 0.45
+            || signals.KeywordCoverageScore is < 0.35)
+        {
+            return "high";
+        }
+
+        return "medium";
+    }
+
+    private static string ResolveRecommendedAction(
+        CapabilityBQualityReviewRow row,
+        AdminRuntimeCapabilityBQualitySignalsDto signals)
+    {
+        if (string.Equals(row.RuntimeCapabilityStatus, "runtime_unavailable", StringComparison.OrdinalIgnoreCase)
+            || row.FallbackUsed)
+        {
+            return "stabilize_runtime_then_regenerate";
+        }
+
+        if (signals.SectionCoverageScore is < 0.6 || signals.KeywordCoverageScore is < 0.45)
+            return "regenerate_with_context_review";
+
+        if (signals.StructureScore is < 0.7 || signals.LengthScore is < 0.6 || row.SummaryLength < 140 || row.SummaryLength > 980)
+            return "regenerate_summary";
+
+        return "manual_review";
     }
 
     private static string[] BuildSummaryRecommendations(CapabilityBQualityReviewSummaryRow summary)

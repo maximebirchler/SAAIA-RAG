@@ -767,6 +767,8 @@ public sealed record AdminRuntimeCapabilityBQualityReviewItemDto(
     string? Category,
     string Level,
     double QualityScore,
+    string Severity,
+    string RecommendedAction,
     string? Strategy,
     bool FallbackUsed,
     string? FallbackReason,

@@ -162,22 +162,22 @@
 ## Sprint 5 — Capacite B LLM (environ 12-15h)
 
 ### 5.1 Remplacer BuildDeterministicSummaryAsync par un appel LLM reel
-- [ ] Remplacer `BuildDeterministicSummaryAsync()` dans `CapabilityBBackofficeWorker.cs` par un appel a un endpoint LLM configure
+- [x] Remplacer `BuildDeterministicSummaryAsync()` dans `CapabilityBBackofficeWorker.cs` par un appel a un endpoint LLM configure - `CapabilityBBackofficeSummaryService` branche sur LLM local avec fallback explicite
 - [ ] Conserver le mode deterministe comme fallback explicite ou le retirer si la strategie produit l’exige
-- [ ] Adapter les warmup profiles de B pour qualifier la connexion au runtime LLM
+- [x] Adapter les warmup profiles de B pour qualifier la connexion au runtime LLM - probe `llm.chat_completion` utilise par warmup / selection / diagnostics
 - [ ] Implementer le fallback `server_backoffice → client_admin` si le LLM est indisponible
-- [ ] Mesurer TTFT et qualite des syntheses
+- [x] Mesurer TTFT et qualite des syntheses - mesure proxy `first_response_ms` + `qualityScore` / signaux qualite / revue corrective B
 
 ### 5.2 Qualification Capacite B
-- [ ] Etendre les hard gates du warmup a la Capacite B (connexion LLM comme pre-requis)
-- [ ] Definir les checks de qualif B : connectivite runtime, timeouts, passCount, erreurs terminales
+- [x] Etendre les hard gates du warmup a la Capacite B (connexion LLM comme pre-requis)
+- [x] Definir les checks de qualif B : connectivite runtime, timeouts, passCount, erreurs terminales
 - [ ] Verifier qu’une B non qualifiee n’empeche jamais le mode `client_admin`
 
 ### 5.3 Tests Capacite B
 - [ ] Ajouter tests sur le routing `client_admin` → `server_backoffice`
 - [ ] Ajouter test du fallback `server_backoffice → client_admin` si le runtime LLM B est indisponible
-- [ ] Ajouter test de qualification warmup profile B
-- [ ] Ajouter test de persistance et completion des jobs `capability_b` en mode LLM
+- [x] Ajouter test de qualification warmup profile B
+- [x] Ajouter test de persistance et completion des jobs `capability_b` en mode LLM
 - [ ] Ajouter test sur les metadonnees de jobs si le mode d’execution change
 
 ### 5.4 Fichiers concernes
@@ -295,3 +295,4 @@
 | 2026-04-21 | Codex | Cap B : l'enqueue cible applique maintenant le filtre `docId/docPath` avant le `maxCandidates`, pour que `maxCandidates=1` ne rate pas un resume faible masque par un document plus recent ; test renforce. |
 | 2026-04-21 | Codex | Cap B : l'enqueue cible ne borne plus le chargement avant filtrage explicite ; test renforce avec 500+ candidats plus recents pour verrouiller la relance qualite ciblee. |
 | 2026-04-21 | Codex | Client admin : l'action `Relancer B` de la revue qualite affiche maintenant un retour operationnel detaille (`queued/candidates/skipped` + job court) apres enqueue force cible. |
+| 2026-04-22 | Codex | Cap B : la revue qualite expose maintenant `severity` et `recommendedAction` par resume faible ; le client les affiche sans nouvelle vue et le test contractuel backend est renforce. |
