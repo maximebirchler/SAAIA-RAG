@@ -465,9 +465,19 @@ public sealed class AdminRuntimeEndpointsTests
         Assert.True(state.Authorized);
         Assert.True(state.Selected);
         Assert.Equal("server-capability-a", state.RuntimeKey);
-        Assert.Equal(1, state.PassCount);
+        Assert.Equal(3, state.PassCount);
         Assert.NotNull(state.Details);
         Assert.Equal("corpus_enrichment_admin", state.Details!["mode"]);
+        var details = JsonSerializer.SerializeToElement(state.Details);
+        Assert.True(details.GetProperty("hardGatesPassed").GetBoolean());
+        Assert.True(details.GetProperty("runtimeGatesPassed").GetBoolean());
+        Assert.Equal(3, details.GetProperty("passesRequired").GetInt32());
+        Assert.Equal(3, details.GetProperty("passesSucceeded").GetInt32());
+        var checks = details.GetProperty("checks");
+        Assert.Equal(3, checks.GetArrayLength());
+        Assert.True(checks[0].GetProperty("qdrant").TryGetProperty("durationMs", out _));
+        Assert.True(checks[0].GetProperty("teiEmbeddings").TryGetProperty("durationMs", out _));
+        Assert.True(checks[0].GetProperty("capabilityA").GetProperty("deterministicFallbackAvailable").GetBoolean());
 
         var diagnosticsCtx = BuildAdminContext();
         var diagnosticsResult = await AdminRuntimeEndpoints.DiagnosticsAsync(
@@ -482,6 +492,50 @@ public sealed class AdminRuntimeEndpointsTests
         Assert.Contains(
             capabilityA.Recommendations,
             item => item.Contains("review capability A semantic previews", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task RequalifyAsync_keeps_capability_a_unselected_when_retrieval_runtime_is_unavailable()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var ctx = BuildAdminContext();
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+
+        var result = await AdminRuntimeEndpoints.RequalifyAsync(
+            ctx,
+            ds,
+            new BrokenRetrievalRuntimeGovernanceHttpClientFactory(),
+            Options.Create(new RuntimeGovernanceOptions()),
+            Options.Create(CreateRagOptions()),
+            new StubHostEnvironment(),
+            new AdminRuntimeRequalifyRequestDto(
+                CapabilityKey: "capability_a.corpus_enrichment",
+                SelectWhenQualified: true));
+
+        var payload = await ExecuteResultAsync<AdminRuntimeRequalifyResponseDto>(result, ctx);
+        var state = Assert.Single(payload.Items);
+
+        Assert.Equal("capability_a.corpus_enrichment", state.Key);
+        Assert.True(state.Configured);
+        Assert.False(state.Qualified);
+        Assert.False(state.Authorized);
+        Assert.False(state.Selected);
+        Assert.Equal(3, state.PassCount);
+        Assert.Contains("qdrant", state.LastError, StringComparison.OrdinalIgnoreCase);
+        var warmup = Assert.Single(payload.WarmupResults);
+        Assert.False(warmup.Passed);
+
+        var details = JsonSerializer.SerializeToElement(state.Details);
+        Assert.True(details.GetProperty("hardGatesPassed").GetBoolean());
+        Assert.True(details.GetProperty("runtimeGatesPassed").GetBoolean());
+        Assert.Equal(0, details.GetProperty("passesSucceeded").GetInt32());
+        var checks = details.GetProperty("checks");
+        Assert.Equal(3, checks.GetArrayLength());
+        Assert.Equal("failed", checks[0].GetProperty("status").GetString());
+        Assert.False(checks[0].GetProperty("checksSummary").GetProperty("qdrantPassed").GetBoolean());
     }
 
     [Fact]
@@ -3021,6 +3075,21 @@ VALUES
             };
     }
 
+    private sealed class BrokenRetrievalRuntimeGovernanceHttpClientFactory : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name)
+            => new(new BrokenRetrievalRuntimeGovernanceHttpMessageHandler())
+            {
+                BaseAddress = name switch
+                {
+                    "qdrant" => new Uri("http://qdrant.test/"),
+                    "tei" => new Uri("http://tei.test/"),
+                    "llm" => new Uri("http://llm.test/"),
+                    _ => new Uri("http://stub.test/")
+                }
+            };
+    }
+
     private sealed class RuntimeGovernanceHttpMessageHandler(int delayMs = 0) : HttpMessageHandler
     {
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -3118,6 +3187,40 @@ VALUES
                 return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable)
                 {
                     Content = new StringContent("""{ "error": "llm_runtime_unavailable" }""", Encoding.UTF8, "application/json")
+                });
+            }
+
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.NotFound));
+        }
+    }
+
+    private sealed class BrokenRetrievalRuntimeGovernanceHttpMessageHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri?.AbsolutePath ?? string.Empty;
+
+            if (request.Method == HttpMethod.Get && path.StartsWith("/collections/", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable)
+                {
+                    Content = new StringContent("""{ "error": "qdrant_unavailable" }""", Encoding.UTF8, "application/json")
+                });
+            }
+
+            if (path.EndsWith("/v1/embeddings", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable)
+                {
+                    Content = new StringContent("""{ "error": "tei_unavailable" }""", Encoding.UTF8, "application/json")
+                });
+            }
+
+            if (path.EndsWith("/v1/chat/completions", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""{ "choices": [ { "message": { "content": "{\"questions\":[\"fallback probe\"]}" } } ] }""", Encoding.UTF8, "application/json")
                 });
             }
 

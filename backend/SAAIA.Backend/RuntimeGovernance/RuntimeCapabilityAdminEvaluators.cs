@@ -5,13 +5,14 @@ namespace SAAIA.Backend;
 
 internal static class RuntimeCapabilityAdminEvaluators
 {
-    internal static Task<CapabilityEvaluation> EvaluateCapabilityAAsync(
+    internal static async Task<CapabilityEvaluation> EvaluateCapabilityAAsync(
         RuntimeCapabilityDefinition definition,
         AdminRuntimeWarmupProfileDto profile,
         AdminRuntimeCapabilityStateDto? existingState,
         bool? selectWhenQualified,
         RuntimeGovernanceOptions options,
         RagOptions rag,
+        IHttpClientFactory httpFactory,
         string capabilityKey,
         CancellationToken ct)
     {
@@ -22,9 +23,48 @@ internal static class RuntimeCapabilityAdminEvaluators
             && !string.IsNullOrWhiteSpace(rag.QdrantCollection)
             && !string.IsNullOrWhiteSpace(rag.EmbeddingsBaseUrl)
             && !string.IsNullOrWhiteSpace(rag.EmbeddingsModel);
-        var healthy = configured;
-        var qualified = configured;
+        var hardwareGate = RuntimeCapabilityGateService.EvaluateHardwareGate(profile.HardwareRequirements, options);
+        var passDetails = new List<IReadOnlyDictionary<string, object?>>();
+        var passesSucceeded = 0;
+        string? lastError = null;
         var lastCheckedAt = DateTimeOffset.UtcNow;
+
+        if (configured && hardwareGate.Passed)
+        {
+            for (var pass = 1; pass <= profile.PassCount; pass++)
+            {
+                var passResult = await RunCapabilityAWarmupPassAsync(
+                    capabilityKey,
+                    profile,
+                    hardwareGate,
+                    rag,
+                    httpFactory,
+                    pass,
+                    ct);
+                passDetails.Add(passResult.Details);
+                lastCheckedAt = passResult.MeasuredAt;
+                if (passResult.Passed)
+                {
+                    passesSucceeded++;
+                }
+                else
+                {
+                    lastError = passResult.Error;
+                }
+            }
+        }
+        else if (configured)
+        {
+            lastError = hardwareGate.Error;
+            passDetails.Add(hardwareGate.Details);
+        }
+        else
+        {
+            lastError = "capability A requires the retrieval stack to be configured before it can enqueue enrichment jobs";
+        }
+
+        var healthy = configured && passesSucceeded > 0;
+        var qualified = configured && passesSucceeded == profile.PassCount;
         var selectionRequested = selectWhenQualified == true;
         var desiredEnabled = existingState?.DesiredEnabled ?? definition.DefaultDesiredEnabled;
         if (selectionRequested)
@@ -33,43 +73,33 @@ internal static class RuntimeCapabilityAdminEvaluators
         var selected = qualified && authorized && desiredEnabled && (existingState?.Selected ?? selectionRequested);
         var qualificationFingerprint = RuntimeCapabilityStateProjector.BuildQualificationFingerprint(definition.Key, profile, options, rag);
 
-        var checks = new Dictionary<string, object?>
-        {
-            ["documentsCatalogAccessible"] = true,
-            ["retrievalStackConfigured"] = configured,
-            ["qdrantConfigured"] = !string.IsNullOrWhiteSpace(rag.QdrantBaseUrl) && !string.IsNullOrWhiteSpace(rag.QdrantCollection),
-            ["embeddingsConfigured"] = !string.IsNullOrWhiteSpace(rag.EmbeddingsBaseUrl) && !string.IsNullOrWhiteSpace(rag.EmbeddingsModel)
-        };
-
         var details = new Dictionary<string, object?>
         {
-            ["status"] = qualified ? "qualified" : "configured",
+            ["status"] = qualified ? "qualified" : healthy ? "healthy" : configured ? "configured" : "installed",
             ["mode"] = "corpus_enrichment_admin",
-            ["passesRequired"] = 1,
-            ["passesSucceeded"] = qualified ? 1 : 0,
-            ["checks"] = new[]
-            {
-                new Dictionary<string, object?>
-                {
-                    ["pass"] = 1,
-                    ["status"] = qualified ? "passed" : "failed",
-                    ["check"] = capabilityKey,
-                    ["measuredAt"] = lastCheckedAt,
-                    ["details"] = checks
-                }
-            },
+            ["passesRequired"] = profile.PassCount,
+            ["passesSucceeded"] = passesSucceeded,
+            ["qdrantBaseUrl"] = rag.QdrantBaseUrl,
+            ["qdrantCollection"] = rag.QdrantCollection,
+            ["embeddingsBaseUrl"] = rag.EmbeddingsBaseUrl,
+            ["embeddingsModel"] = rag.EmbeddingsModel,
+            ["hardGatesPassed"] = hardwareGate.Passed,
+            ["hardware"] = hardwareGate.Details,
+            ["runtimeGatesPassed"] = configured,
             ["qualificationFingerprint"] = qualificationFingerprint.Hash,
             ["qualificationFingerprintInputs"] = qualificationFingerprint.Inputs,
             ["qualificationFingerprintGeneratedAt"] = lastCheckedAt,
             ["qualificationFreshness"] = qualified ? "fresh" : "candidate",
             ["freshnessPolicy"] = profile.FreshnessPolicy,
             ["runtimeEnvironment"] = RuntimeGovernanceService.BuildRuntimeEnvironmentSnapshot(),
+            ["checks"] = passDetails,
             ["capabilityContract"] = new Dictionary<string, object?>
             {
                 ["adminOnly"] = true,
                 ["planEndpoint"] = "/admin/runtime/capabilities/capability_a.corpus_enrichment/candidates",
                 ["enqueueEndpoint"] = "/admin/runtime/capabilities/capability_a.corpus_enrichment/enqueue",
-                ["executionMode"] = "reindex_existing_ingestion_pipeline"
+                ["executionMode"] = "reindex_existing_ingestion_pipeline",
+                ["deterministicFallback"] = true
             }
         };
 
@@ -87,10 +117,10 @@ internal static class RuntimeCapabilityAdminEvaluators
             Authorized: authorized,
             Selected: selected,
             ProfileKey: profile.Key,
-            PassCount: 1,
+            PassCount: profile.PassCount,
             LastCheckedAt: lastCheckedAt,
             LastQualifiedAt: qualified ? lastCheckedAt : null,
-            LastError: qualified ? null : "capability A requires the retrieval stack to be configured before it can enqueue enrichment jobs",
+            LastError: qualified ? null : lastError,
             Details: details,
             Stale: false,
             QualificationFingerprint: qualificationFingerprint.Hash,
@@ -108,13 +138,141 @@ internal static class RuntimeCapabilityAdminEvaluators
             WarmupResultId: Guid.NewGuid(),
             CapabilityKey: definition.Key,
             ProfileKey: profile.Key,
-            PassCount: 1,
+            PassCount: profile.PassCount,
             Passed: qualified,
             MeasuredAt: lastCheckedAt,
             Details: details);
 
-        return Task.FromResult(new CapabilityEvaluation(state, warmupResult));
+        return new CapabilityEvaluation(state, warmupResult);
     }
+
+    private static async Task<WarmupPassResult> RunCapabilityAWarmupPassAsync(
+        string capabilityKey,
+        AdminRuntimeWarmupProfileDto profile,
+        HardwareGateResult hardwareGate,
+        RagOptions rag,
+        IHttpClientFactory httpFactory,
+        int passNumber,
+        CancellationToken ct)
+    {
+        using var warmupActivity = RuntimeGovernanceTelemetry.StartWarmupCheckActivity(capabilityKey, profile.Key);
+        var measuredAt = DateTimeOffset.UtcNow;
+        var sw = Stopwatch.StartNew();
+
+        var qdrantCheck = await RuntimeCoreRetrievalWarmupEvaluator.CheckQdrantAsync(rag, httpFactory, ct);
+        var embeddingsCheck = await RuntimeCoreRetrievalWarmupEvaluator.CheckEmbeddingsAsync(rag, httpFactory, ct);
+        sw.Stop();
+
+        var runtimeGatesPassed = qdrantCheck.Passed && embeddingsCheck.Passed;
+        var performanceBudget = EvaluateCapabilityAPerformanceBudget(profile, qdrantCheck, embeddingsCheck, sw.ElapsedMilliseconds);
+        var passed = runtimeGatesPassed && performanceBudget.Passed;
+        var details = new Dictionary<string, object?>
+        {
+            ["pass"] = passNumber,
+            ["measuredAt"] = measuredAt,
+            ["durationMs"] = sw.ElapsedMilliseconds,
+            ["status"] = passed ? "passed" : "failed",
+            ["hardGatesPassed"] = hardwareGate.Passed,
+            ["hardware"] = hardwareGate.Details,
+            ["runtimeGatesPassed"] = runtimeGatesPassed,
+            ["performanceBudgetPassed"] = performanceBudget.Passed,
+            ["performanceBudgets"] = performanceBudget.Budgets,
+            ["performanceBudgetViolations"] = performanceBudget.Violations,
+            ["checksSummary"] = new Dictionary<string, object?>
+            {
+                ["qdrantPassed"] = qdrantCheck.Passed,
+                ["teiEmbeddingsPassed"] = embeddingsCheck.Passed,
+                ["documentsCatalogAccessible"] = true,
+                ["semanticPreviewFallbackAvailable"] = true
+            },
+            ["measurementSemantics"] = BuildCapabilityAMeasurementSemanticsSummary(),
+            ["measurements"] = new Dictionary<string, object?>
+            {
+                ["loadTimeMs"] = sw.ElapsedMilliseconds,
+                ["qdrantLoadTimeMs"] = qdrantCheck.DurationMs,
+                ["embeddingsLoadTimeMs"] = embeddingsCheck.DurationMs,
+                ["llmLoadTimeMs"] = null,
+                ["ttftMs"] = null,
+                ["tokensPerSecond"] = null,
+                ["applicability"] = BuildCapabilityAMeasurementSemanticsSummary()
+            },
+            ["qdrant"] = qdrantCheck.Details,
+            ["teiEmbeddings"] = embeddingsCheck.Details,
+            ["capabilityA"] = new Dictionary<string, object?>
+            {
+                ["check"] = "corpus_enrichment.preview_pipeline",
+                ["status"] = "available",
+                ["documentsCatalogAccessible"] = true,
+                ["semanticPreviewBuilderAvailable"] = true,
+                ["deterministicFallbackAvailable"] = true
+            }
+        };
+
+        var error = passed
+            ? null
+            : qdrantCheck.Error ?? embeddingsCheck.Error ?? performanceBudget.Error ?? "capability A warmup check failed";
+
+        RuntimeGovernanceTelemetry.CompleteWarmupCheck(
+            warmupActivity,
+            capabilityKey,
+            profile.Key,
+            passNumber,
+            passed,
+            hardwareGate.Passed,
+            runtimeGatesPassed,
+            performanceBudget.Passed,
+            sw.ElapsedMilliseconds,
+            qdrantCheck.DurationMs,
+            embeddingsCheck.DurationMs,
+            rerankDurationMs: 0L);
+
+        return new WarmupPassResult(passed, measuredAt, details, error);
+    }
+
+    private static PerformanceBudgetResult EvaluateCapabilityAPerformanceBudget(
+        AdminRuntimeWarmupProfileDto profile,
+        WarmupCheckResult qdrantCheck,
+        WarmupCheckResult embeddingsCheck,
+        long totalDurationMs)
+    {
+        if (profile.CheckPolicy is { EnforcePerformanceBudgets: false })
+            return new PerformanceBudgetResult(true, new Dictionary<string, object?>(), Array.Empty<string>(), null);
+
+        var budgets = profile.PerformanceBudgets;
+        if (budgets is null)
+            return new PerformanceBudgetResult(true, new Dictionary<string, object?>(), Array.Empty<string>(), null);
+
+        var violations = new List<string>();
+        if (budgets.MaxPassDurationMs is long maxPass && totalDurationMs > maxPass)
+            violations.Add($"pass_duration_ms>{maxPass}");
+        if (budgets.MaxQdrantCheckMs is long maxQdrant && qdrantCheck.DurationMs > maxQdrant)
+            violations.Add($"qdrant_duration_ms>{maxQdrant}");
+        if (budgets.MaxEmbeddingsCheckMs is long maxEmbeddings && embeddingsCheck.DurationMs > maxEmbeddings)
+            violations.Add($"tei_embeddings_duration_ms>{maxEmbeddings}");
+
+        var budgetSnapshot = new Dictionary<string, object?>
+        {
+            ["maxPassDurationMs"] = budgets.MaxPassDurationMs,
+            ["maxQdrantCheckMs"] = budgets.MaxQdrantCheckMs,
+            ["maxEmbeddingsCheckMs"] = budgets.MaxEmbeddingsCheckMs,
+            ["maxRerankCheckMs"] = budgets.MaxRerankCheckMs
+        };
+
+        return violations.Count == 0
+            ? new PerformanceBudgetResult(true, budgetSnapshot, Array.Empty<string>(), null)
+            : new PerformanceBudgetResult(false, budgetSnapshot, violations.ToArray(), $"performance budget failed: {string.Join(", ", violations)}");
+    }
+
+    private static IReadOnlyDictionary<string, object?> BuildCapabilityAMeasurementSemanticsSummary()
+        => new Dictionary<string, object?>
+        {
+            ["loadTimeMs"] = "measured",
+            ["qdrantLoadTimeMs"] = "measured",
+            ["embeddingsLoadTimeMs"] = "measured",
+            ["llmLoadTimeMs"] = "not_required_for_capability_a_warmup_due_to_deterministic_fallback",
+            ["ttftMs"] = "not_applicable_for_non_generative_admin_enrichment_gate",
+            ["tokensPerSecond"] = "not_applicable_for_non_generative_admin_enrichment_gate"
+        };
 
     internal static async Task<CapabilityEvaluation> EvaluateCapabilityBAsync(
         RuntimeCapabilityDefinition definition,

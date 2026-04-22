@@ -162,6 +162,7 @@ internal static class RuntimeCapabilityLifecycleCoordinator
                 selectWhenQualified,
                 options,
                 rag,
+                httpFactory,
                 "capability_a.corpus_enrichment",
                 ct);
 

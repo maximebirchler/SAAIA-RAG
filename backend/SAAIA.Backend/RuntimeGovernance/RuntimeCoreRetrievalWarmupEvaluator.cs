@@ -223,7 +223,7 @@ internal static class RuntimeCoreRetrievalWarmupEvaluator
         return new WarmupPassResult(passed, measuredAt, details, error);
     }
 
-    private static async Task<WarmupCheckResult> CheckQdrantAsync(
+    internal static async Task<WarmupCheckResult> CheckQdrantAsync(
         RagOptions rag,
         IHttpClientFactory httpFactory,
         CancellationToken ct)
@@ -279,7 +279,7 @@ internal static class RuntimeCoreRetrievalWarmupEvaluator
         }
     }
 
-    private static async Task<WarmupCheckResult> CheckEmbeddingsAsync(
+    internal static async Task<WarmupCheckResult> CheckEmbeddingsAsync(
         RagOptions rag,
         IHttpClientFactory httpFactory,
         CancellationToken ct)

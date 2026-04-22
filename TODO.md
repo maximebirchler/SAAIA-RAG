@@ -143,14 +143,14 @@
 - [x] Garder un fallback deterministe si le runtime A est indisponible mais la capacite reste installee
 
 ### 4.2 Qualification Capacite A
-- [ ] Etendre les hard gates du warmup a la Capacite A (sur le meme modele que `core.retrieval`)
-- [ ] Definir les warmup checks minimaux de A (connectivite runtime, temps max, passCount, erreurs qualifiantes)
-- [ ] Verifier que A ne casse jamais l’ingestion si elle est absente ou non qualifiee
+- [x] Etendre les hard gates du warmup a la Capacite A (sur le meme modele que `core.retrieval`) - hard gate materiel + checks Qdrant/TEI embeddings branches sur la requalification A
+- [x] Definir les warmup checks minimaux de A (connectivite runtime, temps max, passCount, erreurs qualifiantes) - passCount de profil, budgets pass/Qdrant/embeddings et details de checks persistes
+- [x] Verifier que A ne casse jamais l'ingestion si elle est absente ou non qualifiee - A reste non autorisee/non selectionnee si le runtime retrieval est indisponible
 
 ### 4.3 Tests Capacite A
 - [x] Ajouter tests unitaires / integration sur la generation LLM des hypothetical questions
-- [ ] Ajouter tests de non-regression si le runtime A est indisponible
-- [ ] Verifier que l’absence de Capacite A ne casse jamais le retrieval coeur
+- [x] Ajouter tests de non-regression si le runtime A est indisponible
+- [x] Verifier que l'absence de Capacite A ne casse jamais le retrieval coeur - suite `SearchCoreAsync` executee sans service A requis, backend complet vert
 - [x] Verifier que `hypQuestionsMatched` est bien peuple dans `/rag/search` quand applicable
 - [ ] Mesurer l’impact sur recall / precision via le harness retrieval (v5 + v6)
 
@@ -299,3 +299,4 @@
 | 2026-04-22 | Codex | Cap B : la revue qualite expose maintenant `severity` et `recommendedAction` par resume faible ; le client les affiche sans nouvelle vue et le test contractuel backend est renforce. |
 | 2026-04-22 | Codex | Sprint 5 Cap B cloture cote backend/client : LLM local, fallback deterministe trace, fallback live client_admin, warmup/probe LLM, KPI, telemetrie, score qualite, revue corrective et relance ciblee sont consideres en place pour le perimetre v3.0 actuel. |
 | 2026-04-22 | Codex | Sprint 4 Cap A : tags suggeres branches sur LLM local avec fallback deterministe ; score qualite preview A ajoute (sections/extraits/tags/questions) et propage aux candidats/campagnes ; tests A cibles verts. |
+| 2026-04-22 | Codex | Sprint 4 Cap A : warmup A durci avec hard gate materiel, passCount de profil, checks Qdrant/TEI embeddings, budgets de duree et test de runtime retrieval indisponible ; A reste non selectionnee si le warmup echoue. |
