@@ -434,7 +434,7 @@
                 
                                                 
                                                 <StackPanel Orientation="Horizontal" Spacing="10">
-                                                    <Button Content="Browse…" Click="LocalLlmBrowseExe_Click" MinWidth="90"/>
+                                                    <Button x:Name="LocalLlmBrowseExeButton" Content="Browse…" Click="LocalLlmBrowseExe_Click" MinWidth="90"/>
                                                 </StackPanel>
                 
                                                 <TextBlock Text="Model (.gguf)" FontWeight="SemiBold"/>
@@ -443,9 +443,9 @@
                                                 
                 
                                                 <StackPanel Orientation="Horizontal" Spacing="10">
-                                                    <Button Content="Browse…" Click="LocalLlmBrowseModel_Click" MinWidth="90"/>
-                                                    <Button Content="Import to library" Click="LocalLlmImportModel_Click" MinWidth="150"/>
-                                                    <Button Content="Open folder" Click="LocalLlmOpenModelsFolder_Click" MinWidth="120"/>
+                                                    <Button x:Name="LocalLlmBrowseModelButton" Content="Browse…" Click="LocalLlmBrowseModel_Click" MinWidth="90"/>
+                                                    <Button x:Name="LocalLlmImportModelButton" Content="Import to library" Click="LocalLlmImportModel_Click" MinWidth="150"/>
+                                                    <Button x:Name="LocalLlmOpenModelsFolderButton" Content="Open folder" Click="LocalLlmOpenModelsFolder_Click" MinWidth="120"/>
                                                 </StackPanel>
                 
                                                 <TextBlock x:Name="LocalLlmModelInfoText" Opacity="0.8" TextWrapping="Wrap"/>
@@ -477,10 +477,10 @@
                                                          PlaceholderText="--ctx-size 3072"/>
                 
                                                 <StackPanel Orientation="Horizontal" Spacing="10">
-                                                    <Button Content="Start now" Click="LocalLlmStart_Click" MinWidth="110"/>
-                                                    <Button Content="Stop" Click="LocalLlmStop_Click" MinWidth="80"/>
-                                                    <Button Content="Save" Click="LocalLlmSave_Click" MinWidth="80"/>
-                                                    <Button Content="Diagnostic runtime" Click="LocalLlmRuntimeDiagnostics_Click" MinWidth="160"/>
+                                                    <Button x:Name="LocalLlmStartButton" Content="Start now" Click="LocalLlmStart_Click" MinWidth="110"/>
+                                                    <Button x:Name="LocalLlmStopButton" Content="Stop" Click="LocalLlmStop_Click" MinWidth="80"/>
+                                                    <Button x:Name="LocalLlmSaveButton" Content="Save" Click="LocalLlmSave_Click" MinWidth="80"/>
+                                                    <Button x:Name="LocalLlmRuntimeDiagnosticsButton" Content="Diagnostic runtime" Click="LocalLlmRuntimeDiagnostics_Click" MinWidth="160"/>
                                                 </StackPanel>
                 
                                                 <TextBlock x:Name="LocalLlmStatusText" Opacity="0.8" TextWrapping="Wrap"/>

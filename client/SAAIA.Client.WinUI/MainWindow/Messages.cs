@@ -90,11 +90,11 @@ public sealed partial class MainWindow
 
         _isCancellingGeneration = true;
         UpdateSendCancelButtonVisualState();
-        Status("Cancelling…");
+        Status(LocalRuntimeText("Annulation...", "Cancelling...", "Cancelando...", "A cancelar...", "Abbrechen...", "Annullamento...", UiLang));
         TrySoftUi("CancelGeneration.CancelToken", () => _cts?.Cancel());
     }
 
-    private static void MarkInterrupted(ChatMessageItem? assistantMsg)
+    private void MarkInterrupted(ChatMessageItem? assistantMsg)
     {
         if (assistantMsg is null) return;
 
@@ -103,12 +103,12 @@ public sealed partial class MainWindow
         if (string.IsNullOrWhiteSpace(assistantMsg.Content))
         {
             assistantMsg.Content = "";
-            assistantMsg.StatusNote = "Génération interrompue.";
+            assistantMsg.StatusNote = LocalRuntimeText("Generation interrompue.", "Generation interrupted.", "Generacion interrumpida.", "Geracao interrompida.", "Generierung unterbrochen.", "Generazione interrotta.", UiLang);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(assistantMsg.StatusNote))
-            assistantMsg.StatusNote = "Génération interrompue.";
+            assistantMsg.StatusNote = LocalRuntimeText("Generation interrompue.", "Generation interrupted.", "Generacion interrumpida.", "Geracao interrompida.", "Generierung unterbrochen.", "Generazione interrotta.", UiLang);
     }
 
     private static void SetAssistantProgress(ChatMessageItem? assistantMsg, string? progress)
@@ -131,7 +131,7 @@ public sealed partial class MainWindow
         assistantMsg.CreatedAt = DateTime.UtcNow;
     }
 
-    private static void EnsureAssistantMessageHasFailureText(ChatMessageItem? assistantMsg)
+    private void EnsureAssistantMessageHasFailureText(ChatMessageItem? assistantMsg)
     {
         if (assistantMsg is null)
             return;
@@ -140,7 +140,7 @@ public sealed partial class MainWindow
         assistantMsg.StatusNote = null;
 
         if (string.IsNullOrWhiteSpace(assistantMsg.Content))
-            assistantMsg.Content = "⚠️ La réponse n'a pas pu être générée. Réessaie.";
+            assistantMsg.Content = LocalRuntimeText("La reponse n'a pas pu etre generee. Reessaie.", "The reply could not be generated. Try again.", "No se pudo generar la respuesta. Vuelve a intentarlo.", "Nao foi possivel gerar a resposta. Tenta novamente.", "Die Antwort konnte nicht erzeugt werden. Versuche es erneut.", "Non e stato possibile generare la risposta. Riprova.", UiLang);
     }
 
     private async Task MaybeAutoTitleAsync(string userText)
@@ -262,11 +262,11 @@ public sealed partial class MainWindow
             dp.SetText(text);
             Clipboard.SetContent(dp);
 
-            Status("Copied.");
+            Status(LocalRuntimeText("Copie.", "Copied.", "Copiado.", "Copiado.", "Kopiert.", "Copiato.", UiLang));
         }
         catch (Exception ex)
         {
-            Status("Copy failed: " + ex.Message);
+            Status(LocalRuntimeText("Echec de la copie : ", "Copy failed: ", "Error al copiar: ", "Falha ao copiar: ", "Kopieren fehlgeschlagen: ", "Copia non riuscita: ", UiLang) + ex.Message);
         }
     }
 
@@ -342,9 +342,9 @@ public sealed partial class MainWindow
             var closeButton = BuildDialogFooterButton(ClientUiText.Get("dialog.close", _appSettings.UiLanguage), primary: true);
             var dialogSize = GetDialogMaxSize(920, 720, horizontalMargin: 72, verticalMargin: 96);
             var shell = BuildDialogShell(
-                "Sources",
-                "Sources",
-                cards.Count == 0 ? "Aucune source disponible pour la sélection actuelle." : null,
+                LocalRuntimeText("Sources", "Sources", "Fuentes", "Fontes", "Quellen", "Fonti", UiLang),
+                LocalRuntimeText("Sources", "Sources", "Fuentes", "Fontes", "Quellen", "Fonti", UiLang),
+                cards.Count == 0 ? LocalRuntimeText("Aucune source disponible pour la selection actuelle.", "No source is available for the current selection.", "No hay fuentes disponibles para la seleccion actual.", "Nenhuma fonte disponivel para a selecao atual.", "Keine Quelle fuer die aktuelle Auswahl verfuegbar.", "Nessuna fonte disponibile per la selezione corrente.", UiLang) : null,
                 new UIElement[]
                 {
                     BuildDialogSurfaceCard(ctrl, new Thickness(12))
@@ -386,7 +386,7 @@ public sealed partial class MainWindow
         dp.SetText(text);
         Clipboard.SetContent(dp);
 
-        Status("Copied.");
+        Status(LocalRuntimeText("Copie.", "Copied.", "Copiado.", "Copiado.", "Kopiert.", "Copiato.", UiLang));
     }
 
     private void Bubble_PointerEntered(object sender, PointerRoutedEventArgs e)
@@ -415,12 +415,12 @@ public sealed partial class MainWindow
     {
         if (string.IsNullOrWhiteSpace(_sessionId))
         {
-            Status("Select a chat (or New).");
+            Status(LocalRuntimeText("Selectionne une discussion (ou Nouveau).", "Select a chat (or New).", "Selecciona un chat (o Nuevo).", "Seleciona uma conversa (ou Novo).", "Waehle einen Chat (oder Neu).", "Seleziona una chat (o Nuovo).", UiLang));
             return;
         }
         if (_agent is null)
         {
-            Status("Click Connect first (agent not ready).");
+            Status(LocalRuntimeText("Clique d'abord sur Connecter (agent non pret).", "Click Connect first (agent not ready).", "Haz clic primero en Connect (agente no listo).", "Clica primeiro em Connect (agente nao pronto).", "Klicke zuerst auf Connect (Agent nicht bereit).", "Fai prima clic su Connect (agente non pronto).", UiLang));
             return;
         }
 
@@ -462,7 +462,7 @@ public sealed partial class MainWindow
                 Content = string.Empty,
                 CreatedAt = DateTime.UtcNow,
                 StatusNote = null,
-                ProgressText = "Je prépare la réponse…"
+                ProgressText = LocalRuntimeText("Je prepare la reponse...", "Preparing the reply...", "Preparando la respuesta...", "A preparar a resposta...", "Antwort wird vorbereitet...", "Preparazione della risposta...", UiLang)
             };
             _messages.Add(assistantMsg);
             ScrollToBottom(force: true);
@@ -480,7 +480,7 @@ public sealed partial class MainWindow
             var replyStarted = 0;
 
             if (!await EnsureLocalLlmAwakeForRequestAsync(assistantMsg, _cts.Token))
-                throw new InvalidOperationException("Assistant temporairement indisponible: le modele local n'a pas pu demarrer.");
+                throw new InvalidOperationException(LocalRuntimeText("Assistant temporairement indisponible : le modele local n'a pas pu demarrer.", "Assistant temporarily unavailable: the local model could not start.", "Asistente temporalmente no disponible: el modelo local no pudo iniciarse.", "Assistente temporariamente indisponivel: nao foi possivel iniciar o modelo local.", "Assistent voruebergehend nicht verfuegbar: das lokale Modell konnte nicht gestartet werden.", "Assistente temporaneamente non disponibile: il modello locale non e riuscito ad avviarsi.", UiLang));
 
             assistantMsg.IsStreaming = true;
             var (finalAnswer, sourcesObj) = await _agent.RunAsync(
@@ -533,7 +533,7 @@ public sealed partial class MainWindow
                 }
                 else if (string.IsNullOrWhiteSpace(assistantMsg.Content))
                 {
-                    assistantMsg.Content = "⚠️ Réponse vide côté LLM. Voir les sources à droite.";
+                    assistantMsg.Content = LocalRuntimeText("Reponse vide cote LLM. Voir les sources.", "Empty reply from the LLM. Check the sources.", "Respuesta vacia del LLM. Revisa las fuentes.", "Resposta vazia do LLM. Consulta as fontes.", "Leere Antwort vom LLM. Pruefe die Quellen.", "Risposta vuota dal LLM. Controlla le fonti.", UiLang);
                 }
 
                 assistantMsg.StatusNote = null;
@@ -614,7 +614,7 @@ public sealed partial class MainWindow
             EnsureAssistantMessageHasFailureText(assistantMsg);
             SetTyping(false);
             UpdateJumpButton();
-            Status("Send failed: " + ex.Message);
+            Status(LocalRuntimeText("Echec de l'envoi : ", "Send failed: ", "Error al enviar: ", "Falha ao enviar: ", "Senden fehlgeschlagen: ", "Invio non riuscito: ", UiLang) + ex.Message);
         }
         finally
         {

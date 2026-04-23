@@ -22,18 +22,19 @@ internal static class DocumentLauncher
             return new OpenDocumentResult(
                 Success: false,
                 ResolvedPath: null,
-                ErrorTitle: "Fichier introuvable",
-                ErrorMessage: "docPath vide.");
+                ErrorTitle: DT("Fichier introuvable", "File not found", "Archivo no encontrado", "Ficheiro nao encontrado", "Datei nicht gefunden", "File non trovato"),
+                ErrorMessage: DT("docPath vide.", "Empty docPath.", "docPath vacio.", "docPath vazio.", "Leerer docPath.", "docPath vuoto."));
         }
 
         var resolved = DocumentPathResolver.Resolve(docPath);
         if (string.IsNullOrWhiteSpace(resolved))
         {
+            var details = $"docPath (backend): {docPath}\nDocumentsRoot (client): {DocumentPathResolver.GetDocumentsRoot()}";
             return new OpenDocumentResult(
                 Success: false,
                 ResolvedPath: null,
-                ErrorTitle: "Fichier introuvable",
-                ErrorMessage: $"docPath (backend): {docPath}\nDocumentsRoot (client): {DocumentPathResolver.GetDocumentsRoot()}");
+                ErrorTitle: DT("Fichier introuvable", "File not found", "Archivo no encontrado", "Ficheiro nao encontrado", "Datei nicht gefunden", "File non trovato"),
+                ErrorMessage: details);
         }
 
         try
@@ -68,16 +69,30 @@ internal static class DocumentLauncher
             return new OpenDocumentResult(
                 Success: false,
                 ResolvedPath: resolved,
-                ErrorTitle: "Impossible d'ouvrir le fichier",
-                ErrorMessage: "Aucune application associée n'a pu ouvrir ce fichier.");
+                ErrorTitle: DT("Impossible d'ouvrir le fichier", "Could not open the file", "No se pudo abrir el archivo", "Nao foi possivel abrir o ficheiro", "Datei konnte nicht geoeffnet werden", "Impossibile aprire il file"),
+                ErrorMessage: DT("Aucune application associee n'a pu ouvrir ce fichier.", "No associated application could open this file.", "Ninguna aplicacion asociada pudo abrir este archivo.", "Nenhuma aplicacao associada conseguiu abrir este ficheiro.", "Keine zugeordnete Anwendung konnte diese Datei oeffnen.", "Nessuna applicazione associata ha potuto aprire questo file."));
         }
         catch (Exception ex)
         {
             return new OpenDocumentResult(
                 Success: false,
                 ResolvedPath: resolved,
-                ErrorTitle: "Impossible d'ouvrir le fichier",
+                ErrorTitle: DT("Impossible d'ouvrir le fichier", "Could not open the file", "No se pudo abrir el archivo", "Nao foi possivel abrir o ficheiro", "Datei konnte nicht geoeffnet werden", "Impossibile aprire il file"),
                 ErrorMessage: ex.Message);
         }
+    }
+
+    private static string DT(string fr, string en, string es, string pt, string de, string it)
+    {
+        var lang = ClientUiText.NormalizeLanguage(AppSettings.Load().UiLanguage);
+        return lang switch
+        {
+            "en" => en,
+            "es" => es,
+            "pt" => pt,
+            "de" => de,
+            "it" => it,
+            _ => fr
+        };
     }
 }

@@ -126,9 +126,23 @@ public sealed partial class MainWindow
             static string FormatTimestamp(DateTimeOffset? value)
                 => value?.ToLocalTime().ToString("g") ?? "-";
 
-            var summary = $"{diagnostics.RuntimeLabel} | build {diagnostics.ActiveBuild ?? "inconnu"}";
+            var summary = LocalRuntimeText(
+                $"{diagnostics.RuntimeLabel} | build {diagnostics.ActiveBuild ?? "inconnu"}",
+                $"{diagnostics.RuntimeLabel} | build {diagnostics.ActiveBuild ?? "unknown"}",
+                $"{diagnostics.RuntimeLabel} | build {diagnostics.ActiveBuild ?? "desconocido"}",
+                $"{diagnostics.RuntimeLabel} | build {diagnostics.ActiveBuild ?? "desconhecido"}",
+                $"{diagnostics.RuntimeLabel} | Build {diagnostics.ActiveBuild ?? "unbekannt"}",
+                $"{diagnostics.RuntimeLabel} | build {diagnostics.ActiveBuild ?? "sconosciuto"}",
+                lang);
             if (!string.IsNullOrWhiteSpace(diagnostics.RequiredBuild))
-                summary += $" | requis {diagnostics.RequiredBuild}";
+                summary += " | " + LocalRuntimeText(
+                    $"requis {diagnostics.RequiredBuild}",
+                    $"required {diagnostics.RequiredBuild}",
+                    $"requerido {diagnostics.RequiredBuild}",
+                    $"requerido {diagnostics.RequiredBuild}",
+                    $"erforderlich {diagnostics.RequiredBuild}",
+                    $"richiesto {diagnostics.RequiredBuild}",
+                    lang);
 
             var details = new StackPanel { Spacing = 6 };
             details.Children.Add(new TextBlock
@@ -141,8 +155,14 @@ public sealed partial class MainWindow
             });
             details.Children.Add(new TextBlock
             {
-                Text =
-                    $"Etat {ResolveRuntimeStateLabel(diagnostics.ActiveState)} | Warmup {ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus)} | Flash-attn {ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn)}",
+                Text = LocalRuntimeText(
+                    $"Etat {ResolveRuntimeStateLabel(diagnostics.ActiveState, lang)} | Warmup {ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus, lang)} | Flash-attn {ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn, lang)}",
+                    $"State {ResolveRuntimeStateLabel(diagnostics.ActiveState, lang)} | Warmup {ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus, lang)} | Flash-attn {ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn, lang)}",
+                    $"Estado {ResolveRuntimeStateLabel(diagnostics.ActiveState, lang)} | Warmup {ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus, lang)} | Flash-attn {ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn, lang)}",
+                    $"Estado {ResolveRuntimeStateLabel(diagnostics.ActiveState, lang)} | Warmup {ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus, lang)} | Flash-attn {ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn, lang)}",
+                    $"Status {ResolveRuntimeStateLabel(diagnostics.ActiveState, lang)} | Warmup {ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus, lang)} | Flash-attn {ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn, lang)}",
+                    $"Stato {ResolveRuntimeStateLabel(diagnostics.ActiveState, lang)} | Warmup {ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus, lang)} | Flash-attn {ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn, lang)}",
+                    lang),
                 Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
                 TextWrapping = TextWrapping.WrapWholeWords
             });
@@ -152,8 +172,14 @@ public sealed partial class MainWindow
             {
                 details.Children.Add(new TextBlock
                 {
-                    Text =
+                    Text = LocalRuntimeText(
                         $"Modele {diagnostics.ModelId ?? "-"} | precedent {diagnostics.PreviousBuild ?? "-"} | profil {diagnostics.QualifiedProfileId ?? "-"}",
+                        $"Model {diagnostics.ModelId ?? "-"} | previous {diagnostics.PreviousBuild ?? "-"} | profile {diagnostics.QualifiedProfileId ?? "-"}",
+                        $"Modelo {diagnostics.ModelId ?? "-"} | anterior {diagnostics.PreviousBuild ?? "-"} | perfil {diagnostics.QualifiedProfileId ?? "-"}",
+                        $"Modelo {diagnostics.ModelId ?? "-"} | anterior {diagnostics.PreviousBuild ?? "-"} | perfil {diagnostics.QualifiedProfileId ?? "-"}",
+                        $"Modell {diagnostics.ModelId ?? "-"} | vorher {diagnostics.PreviousBuild ?? "-"} | Profil {diagnostics.QualifiedProfileId ?? "-"}",
+                        $"Modello {diagnostics.ModelId ?? "-"} | precedente {diagnostics.PreviousBuild ?? "-"} | profilo {diagnostics.QualifiedProfileId ?? "-"}",
+                        lang),
                     Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
                     TextWrapping = TextWrapping.WrapWholeWords
                 });
@@ -161,7 +187,14 @@ public sealed partial class MainWindow
 
             details.Children.Add(new TextBlock
             {
-                Text = $"Active depuis {FormatTimestamp(diagnostics.ActivatedAtUtc)} | qualifie le {FormatTimestamp(diagnostics.QualifiedAtUtc)}",
+                Text = LocalRuntimeText(
+                    $"Actif depuis {FormatTimestamp(diagnostics.ActivatedAtUtc)} | qualifie le {FormatTimestamp(diagnostics.QualifiedAtUtc)}",
+                    $"Active since {FormatTimestamp(diagnostics.ActivatedAtUtc)} | qualified at {FormatTimestamp(diagnostics.QualifiedAtUtc)}",
+                    $"Activo desde {FormatTimestamp(diagnostics.ActivatedAtUtc)} | cualificado el {FormatTimestamp(diagnostics.QualifiedAtUtc)}",
+                    $"Ativo desde {FormatTimestamp(diagnostics.ActivatedAtUtc)} | qualificado em {FormatTimestamp(diagnostics.QualifiedAtUtc)}",
+                    $"Aktiv seit {FormatTimestamp(diagnostics.ActivatedAtUtc)} | qualifiziert am {FormatTimestamp(diagnostics.QualifiedAtUtc)}",
+                    $"Attivo da {FormatTimestamp(diagnostics.ActivatedAtUtc)} | qualificato il {FormatTimestamp(diagnostics.QualifiedAtUtc)}",
+                    lang),
                 Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
                 TextWrapping = TextWrapping.WrapWholeWords
             });
@@ -170,7 +203,7 @@ public sealed partial class MainWindow
             {
                 details.Children.Add(new TextBlock
                 {
-                    Text = "Evenements runtime recents :",
+                    Text = LocalRuntimeText("Evenements runtime recents :", "Recent runtime events:", "Eventos runtime recientes:", "Eventos runtime recentes:", "Aktuelle Runtime-Ereignisse:", "Eventi runtime recenti:", lang),
                     FontWeight = FontWeights.SemiBold,
                     Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
                     TextWrapping = TextWrapping.WrapWholeWords
@@ -180,7 +213,14 @@ public sealed partial class MainWindow
                 {
                     details.Children.Add(new TextBlock
                     {
-                        Text = $"{item.At.ToLocalTime():g} | {item.EventKind} | build {item.Build ?? "-"} | prec. {item.PreviousBuild ?? "-"}",
+                        Text = LocalRuntimeText(
+                            $"{item.At.ToLocalTime():g} | {ResolveRuntimeEventLabel(item.EventKind, lang)} | build {item.Build ?? "-"} | prec. {item.PreviousBuild ?? "-"}",
+                            $"{item.At.ToLocalTime():g} | {ResolveRuntimeEventLabel(item.EventKind, lang)} | build {item.Build ?? "-"} | prev {item.PreviousBuild ?? "-"}",
+                            $"{item.At.ToLocalTime():g} | {ResolveRuntimeEventLabel(item.EventKind, lang)} | build {item.Build ?? "-"} | ant. {item.PreviousBuild ?? "-"}",
+                            $"{item.At.ToLocalTime():g} | {ResolveRuntimeEventLabel(item.EventKind, lang)} | build {item.Build ?? "-"} | ant. {item.PreviousBuild ?? "-"}",
+                            $"{item.At.ToLocalTime():g} | {ResolveRuntimeEventLabel(item.EventKind, lang)} | Build {item.Build ?? "-"} | vorher {item.PreviousBuild ?? "-"}",
+                            $"{item.At.ToLocalTime():g} | {ResolveRuntimeEventLabel(item.EventKind, lang)} | build {item.Build ?? "-"} | prec. {item.PreviousBuild ?? "-"}",
+                            lang),
                         Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
                         TextWrapping = TextWrapping.WrapWholeWords
                     });
@@ -190,7 +230,7 @@ public sealed partial class MainWindow
             {
                 details.Children.Add(new TextBlock
                 {
-                    Text = "Evenements runtime recents : aucun",
+                    Text = LocalRuntimeText("Evenements runtime recents : aucun", "Recent runtime events: none", "Eventos runtime recientes: ninguno", "Eventos runtime recentes: nenhum", "Aktuelle Runtime-Ereignisse: keine", "Eventi runtime recenti: nessuno", lang),
                     Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
                     TextWrapping = TextWrapping.WrapWholeWords
                 });
@@ -209,7 +249,7 @@ public sealed partial class MainWindow
             catch (Exception ex)
             {
                 ClientLog.Exception("AdminRuntimeOps.LocalRuntimeSummary", ex);
-                runtimeHost.Content = BuildDialogInfoBanner("Diagnostic runtime local indisponible.");
+                runtimeHost.Content = BuildDialogInfoBanner(LocalRuntimeText("Diagnostic runtime local indisponible.", "Local runtime diagnostics unavailable.", "Diagnostico runtime local no disponible.", "Diagnostico runtime local indisponivel.", "Lokale Runtime-Diagnose nicht verfuegbar.", "Diagnostica runtime locale non disponibile.", lang));
             }
         }
 
@@ -616,7 +656,7 @@ public sealed partial class MainWindow
             {
                 ClientLog.Exception("AdminRuntimeOps.Load", ex);
                 SetStateBanner(ClientUiText.Get("admin.runtime.load_failed", lang));
-                runtimeHost.Content = BuildDialogInfoBanner("Diagnostic runtime local indisponible.");
+                runtimeHost.Content = BuildDialogInfoBanner(LocalRuntimeText("Diagnostic runtime local indisponible.", "Local runtime diagnostics unavailable.", "Diagnostico runtime local no disponible.", "Diagnostico runtime local indisponivel.", "Lokale Runtime-Diagnose nicht verfuegbar.", "Diagnostica runtime locale non disponibile.", lang));
                 capabilitiesHost.Children.Clear();
                 capabilitiesHost.Children.Add(BuildDialogInfoBanner(ex.Message));
             }

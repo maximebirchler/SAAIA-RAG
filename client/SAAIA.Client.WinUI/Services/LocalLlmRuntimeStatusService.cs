@@ -50,7 +50,7 @@ internal static class LocalLlmRuntimeStatusService
         {
             return new LocalLlmRuntimeStatus(
                 "runtime_upgrade_required",
-                "Mise a niveau du runtime requise.",
+                LT(settings.UiLanguage, "Mise a niveau du runtime requise.", "Runtime upgrade required.", "Se requiere actualizar el runtime.", "Atualizacao do runtime necessaria.", "Runtime-Aktualisierung erforderlich.", "Aggiornamento runtime richiesto."),
                 IsError: true);
         }
 
@@ -67,7 +67,7 @@ internal static class LocalLlmRuntimeStatusService
         {
             return new LocalLlmRuntimeStatus(
                 "runtime_unavailable",
-                "Assistant temporairement indisponible.",
+                LT(settings.UiLanguage, "Assistant temporairement indisponible.", "Assistant temporarily unavailable.", "Asistente temporalmente no disponible.", "Assistente temporariamente indisponivel.", "Assistent voruebergehend nicht verfuegbar.", "Assistente temporaneamente non disponibile."),
                 IsError: true);
         }
 
@@ -75,7 +75,7 @@ internal static class LocalLlmRuntimeStatusService
         {
             return new LocalLlmRuntimeStatus(
                 "fallback_required",
-                "Profil de secours requis.",
+                LT(settings.UiLanguage, "Profil de secours requis.", "Fallback profile required.", "Se requiere perfil de respaldo.", "Perfil de contingencia necessario.", "Fallback-Profil erforderlich.", "Profilo di fallback richiesto."),
                 IsWarning: true);
         }
 
@@ -88,7 +88,7 @@ internal static class LocalLlmRuntimeStatusService
             {
                 return new LocalLlmRuntimeStatus(
                     "requalification_required",
-                    "Requalification necessaire.",
+                    LT(settings.UiLanguage, "Requalification necessaire.", "Requalification required.", "Se requiere recalificacion.", "Requalificacao necessaria.", "Neuqualifizierung erforderlich.", "Ririqualificazione richiesta."),
                     IsWarning: true);
             }
         }
@@ -98,7 +98,7 @@ internal static class LocalLlmRuntimeStatusService
         {
             return new LocalLlmRuntimeStatus(
                 "fallback_active",
-                "Profil de secours actif.",
+                LT(settings.UiLanguage, "Profil de secours actif.", "Fallback profile active.", "Perfil de respaldo activo.", "Perfil de contingencia ativo.", "Fallback-Profil aktiv.", "Profilo di fallback attivo."),
                 IsWarning: true);
         }
 
@@ -106,7 +106,7 @@ internal static class LocalLlmRuntimeStatusService
         {
             return new LocalLlmRuntimeStatus(
                 "performance_reduced",
-                "Mode performance reduite actif.",
+                LT(settings.UiLanguage, "Mode performance reduite actif.", "Reduced performance mode active.", "Modo de rendimiento reducido activo.", "Modo de desempenho reduzido ativo.", "Modus mit reduzierter Leistung aktiv.", "Modalita a prestazioni ridotte attiva."),
                 IsWarning: true);
         }
 
@@ -115,7 +115,7 @@ internal static class LocalLlmRuntimeStatusService
         {
             return new LocalLlmRuntimeStatus(
                 "requalification_required",
-                "Requalification necessaire.",
+                LT(settings.UiLanguage, "Requalification necessaire.", "Requalification required.", "Se requiere recalificacion.", "Requalificacao necessaria.", "Neuqualifizierung erforderlich.", "Ririqualificazione richiesta."),
                 IsWarning: true);
         }
 
@@ -124,10 +124,21 @@ internal static class LocalLlmRuntimeStatusService
         {
             return new LocalLlmRuntimeStatus(
                 "battery_policy_warning",
-                "Mode performance reduite recommande sur batterie.",
+                LT(settings.UiLanguage, "Mode performance reduite recommande sur batterie.", "Reduced performance mode recommended on battery.", "Se recomienda modo de rendimiento reducido con bateria.", "Modo de desempenho reduzido recomendado com bateria.", "Bei Akkubetrieb wird ein Modus mit reduzierter Leistung empfohlen.", "Su batteria e consigliata la modalita a prestazioni ridotte."),
                 IsWarning: true);
         }
 
         return null;
     }
+
+    private static string LT(string? language, string fr, string en, string es, string pt, string de, string it)
+        => ClientUiText.NormalizeLanguage(language) switch
+        {
+            "en" => en,
+            "es" => es,
+            "pt" => pt,
+            "de" => de,
+            "it" => it,
+            _ => fr
+        };
 }

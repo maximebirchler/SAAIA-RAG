@@ -13,14 +13,12 @@ public sealed partial class SetupWizardDialog
     {
         var s = AppSettings.Load();
 
-        s.UseLocalLlm = (UseLocalLlmCheck.IsChecked ?? false);
-        s.AutoStartOnConnect = (AutoStartCheck.IsChecked ?? false);
+        s.UseLocalLlm = UseLocalLlmCheck.IsChecked ?? false;
+        s.AutoStartOnConnect = AutoStartCheck.IsChecked ?? false;
 
         s.LlamaExePath = (LlamaExeBox.Text ?? "").Trim();
         s.ModelPath = (ModelPathBox.Text ?? "").Trim();
 
-        // If integrator provided exe+model, enable process management.
-        // Otherwise default stays "endpoint already running".
         if (!string.IsNullOrWhiteSpace(s.LlamaExePath) && !string.IsNullOrWhiteSpace(s.ModelPath))
             s.ManageLocalLlmProcess = true;
 
@@ -47,14 +45,12 @@ public sealed partial class SetupWizardDialog
             if (string.IsNullOrWhiteSpace(apiKey))
             {
                 args.Cancel = true;
-                ApiKeyStatusText.Text = "❌ API key required.";
+                ApiKeyStatusText.Text = SZ("Cle API requise.", "API key required.", "Se requiere clave API.", "Chave API obrigatoria.", "API-Schluessel erforderlich.", "Chiave API richiesta.");
                 return;
             }
 
-            // Save API key to secure store (DPAPI)
             SecureLocalStore.SetServerApiKey(apiKey);
 
-            // Save non-sensitive settings
             var s = ReadSettingsFromUi();
             s.Save();
 
@@ -63,7 +59,7 @@ public sealed partial class SetupWizardDialog
         catch (Exception ex)
         {
             args.Cancel = true;
-            ApiKeyStatusText.Text = "❌ Apply failed: " + ex.Message;
+            ApiKeyStatusText.Text = SZ("Echec de l'application : ", "Apply failed: ", "Error al aplicar: ", "Falha ao aplicar: ", "Anwenden fehlgeschlagen: ", "Applicazione non riuscita: ") + ex.Message;
         }
     }
 }

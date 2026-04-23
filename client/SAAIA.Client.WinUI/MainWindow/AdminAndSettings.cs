@@ -26,7 +26,7 @@ public sealed partial class MainWindow
         }
         catch (Exception ex)
         {
-            Status("Admin popup failed: " + ex.Message);
+            Status(LocalRuntimeText("Echec de la fenetre admin : ", "Admin popup failed: ", "Error al abrir la ventana admin: ", "Falha ao abrir a janela admin: ", "Admin-Fenster konnte nicht geoeffnet werden: ", "Impossibile aprire la finestra admin: ", UiLang) + ex.Message);
         }
     }
 

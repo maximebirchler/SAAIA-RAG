@@ -269,7 +269,7 @@ public sealed partial class MainWindow
         CloseDialogOverlay();
 
         if (_dialogOverlayHost is null || _dialogOverlayPresenter is null)
-            throw new InvalidOperationException("Dialog overlay host is not available.");
+            throw new InvalidOperationException(LocalRuntimeText("L'hote de dialogue n'est pas disponible.", "Dialog overlay host is not available.", "El host del dialogo no esta disponible.", "O anfitriao do dialogo nao esta disponivel.", "Der Dialog-Host ist nicht verfuegbar.", "L'host del dialogo non e disponibile.", UiLang));
 
         _dialogOverlayPresenter.HorizontalAlignment = HorizontalAlignment.Center;
         _dialogOverlayPresenter.VerticalAlignment = VerticalAlignment.Center;
@@ -311,7 +311,7 @@ public sealed partial class MainWindow
         CloseDialogOverlay();
 
         if (_dialogOverlayHost is null || _dialogOverlayPresenter is null)
-            throw new InvalidOperationException("Dialog overlay host is not available.");
+            throw new InvalidOperationException(LocalRuntimeText("L'hote de dialogue n'est pas disponible.", "Dialog overlay host is not available.", "El host del dialogo no esta disponible.", "O anfitriao do dialogo nao esta disponivel.", "Der Dialog-Host ist nicht verfuegbar.", "L'host del dialogo non e disponibile.", UiLang));
 
         _dialogOverlayPresenter.HorizontalAlignment = HorizontalAlignment.Stretch;
         _dialogOverlayPresenter.VerticalAlignment = VerticalAlignment.Stretch;

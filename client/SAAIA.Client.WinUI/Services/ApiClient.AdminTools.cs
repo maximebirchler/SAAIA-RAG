@@ -177,7 +177,7 @@ public sealed partial class ApiClient
     public Task<JsonElement> AdminJobGetAsync(string jobId, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(jobId))
-            throw new ArgumentException("jobId is required.", nameof(jobId));
+            throw new ArgumentException(AT("jobId requis.", "jobId is required.", "jobId es obligatorio.", "jobId e obrigatorio.", "jobId ist erforderlich.", "jobId e obbligatorio."), nameof(jobId));
 
         return SendJsonAsync(HttpMethod.Get, "/admin/jobs/" + Uri.EscapeDataString(jobId.Trim()), null, admin: true, ct);
     }

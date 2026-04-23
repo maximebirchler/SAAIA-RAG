@@ -1,4 +1,4 @@
-namespace SAAIA.Client.WinUI;
+﻿namespace SAAIA.Client.WinUI;
 
 public sealed partial class MainWindow
 {
@@ -27,7 +27,9 @@ public sealed partial class MainWindow
             LocalLlmModelIdBox.Text = _appSettings.ModelId;
             LocalLlmExtraArgsBox.Text = _appSettings.ExtraArgs;
 
-            LocalLlmStatusText.Text = _llmProc.IsRunning ? "Running." : "";
+            LocalLlmStatusText.Text = _llmProc.IsRunning
+                ? LocalLlmText("En cours.", "Running.", "En ejecucion.", "Em execucao.", "Laeuft.", "In esecuzione.", UiLang)
+                : "";
             LocalLlmCmdLineBox.Text = _llmProc.LastCommandLine ?? "";
             RefreshLocalLlmModelInfoText();
             _ = EnsureLocalGovernanceUiInitializedAsync();
@@ -118,7 +120,8 @@ public sealed partial class MainWindow
         if (string.IsNullOrWhiteSpace(_appSettings.LlamaExePath) || string.IsNullOrWhiteSpace(_appSettings.ModelPath))
             return false;
 
-        TrySoftUi("EnsureLocalLlmStartedFromSettingsAsync.StatusText.Starting", () => LocalLlmStatusText.Text = "Starting llama.cpp…");
+        TrySoftUi("EnsureLocalLlmStartedFromSettingsAsync.StatusText.Starting", () =>
+            LocalLlmStatusText.Text = LocalLlmText("Demarrage de llama.cpp...", "Starting llama.cpp...", "Iniciando llama.cpp...", "A iniciar llama.cpp...", "llama.cpp wird gestartet...", "Avvio di llama.cpp...", UiLang));
 
         var (ok, msg) = await _llmProc.StartAsync(_appSettings, ct);
 
@@ -149,8 +152,9 @@ public sealed partial class MainWindow
 
         TrySoftUi("EnsureLocalLlmAwakeForRequestAsync.Progress", () =>
         {
-            SetAssistantProgress(assistantMsg, "Chargement du modele en cours...");
-            LocalLlmStatusText.Text = "Chargement du modele en cours...";
+            var loadingText = LocalLlmText("Chargement du modele en cours...", "Loading model...", "Cargando modelo...", "A carregar o modelo...", "Modell wird geladen...", "Caricamento modello...", UiLang);
+            SetAssistantProgress(assistantMsg, loadingText);
+            LocalLlmStatusText.Text = loadingText;
         });
 
         var ok = await EnsureLocalLlmStartedFromSettingsAsync(ct, assistantMsg);
@@ -183,8 +187,9 @@ public sealed partial class MainWindow
 
         TrySoftUi("RunLocalLlmWarmupQualificationAsync.Progress", () =>
         {
-            SetAssistantProgress(assistantMsg, "Verification de compatibilite en cours...");
-            LocalLlmStatusText.Text = "Verification de compatibilite en cours...";
+            var checkingText = LocalLlmText("Verification de compatibilite en cours...", "Checking compatibility...", "Comprobando compatibilidad...", "A verificar a compatibilidade...", "Kompatibilitaet wird geprueft...", "Verifica compatibilita in corso...", UiLang);
+            SetAssistantProgress(assistantMsg, checkingText);
+            LocalLlmStatusText.Text = checkingText;
         });
 
         var result = await WarmupGate.RunQualificationAsync(
@@ -219,8 +224,22 @@ public sealed partial class MainWindow
                 TrySoftUi("RunLocalLlmWarmupQualificationAsync.RollbackUi", () =>
                 {
                     LocalLlmExePathBox.Text = rollbackExe;
-                    LocalLlmStatusText.Text = $"Qualification echouee. Runtime precedent reactive ({rollbackBuild ?? "rollback"}).";
-                    SetAssistantProgress(assistantMsg, "Compatibilite non validee. Retour au runtime precedent.");
+                    LocalLlmStatusText.Text = LocalLlmText(
+                        $"Qualification echouee. Runtime precedent reactive ({rollbackBuild ?? "rollback"}).",
+                        $"Qualification failed. Previous runtime restored ({rollbackBuild ?? "rollback"}).",
+                        $"La cualificacion fallo. Runtime anterior reactivado ({rollbackBuild ?? "rollback"}).",
+                        $"A qualificacao falhou. Runtime anterior reativado ({rollbackBuild ?? "rollback"}).",
+                        $"Qualifizierung fehlgeschlagen. Vorherige Runtime wiederhergestellt ({rollbackBuild ?? "rollback"}).",
+                        $"Qualificazione non riuscita. Runtime precedente riattivato ({rollbackBuild ?? "rollback"}).",
+                        UiLang);
+                    SetAssistantProgress(assistantMsg, LocalLlmText(
+                        "Compatibilite non validee. Retour au runtime precedent.",
+                        "Compatibility not validated. Returning to the previous runtime.",
+                        "Compatibilidad no validada. Volviendo al runtime anterior.",
+                        "Compatibilidade nao validada. Regresso ao runtime anterior.",
+                        "Kompatibilitaet nicht bestaetigt. Rueckkehr zur vorherigen Runtime.",
+                        "Compatibilita non validata. Ritorno al runtime precedente.",
+                        UiLang));
                 });
 
                 ClientLog.Warn(
@@ -275,7 +294,7 @@ public sealed partial class MainWindow
         _appSettings = ReadLocalLlmSettingsFromUi();
         _appSettings.Save();
 
-        LocalLlmStatusText.Text = "Starting llama.cpp…";
+        LocalLlmStatusText.Text = LocalLlmText("Demarrage de llama.cpp...", "Starting llama.cpp...", "Iniciando llama.cpp...", "A iniciar llama.cpp...", "llama.cpp wird gestartet...", "Avvio di llama.cpp...", UiLang);
         var (ok, msg) = await _llmProc.StartAsync(_appSettings, ct);
 
         LocalLlmCmdLineBox.Text = _llmProc.LastCommandLine ?? "";
@@ -300,7 +319,7 @@ public sealed partial class MainWindow
         }
         catch (Exception ex)
         {
-            LocalLlmStatusText.Text = "Start failed: " + ex.Message;
+            LocalLlmStatusText.Text = LocalLlmText("Echec du demarrage : ", "Start failed: ", "Error al iniciar: ", "Falha ao iniciar: ", "Start fehlgeschlagen: ", "Avvio non riuscito: ", UiLang) + ex.Message;
         }
     }
 
@@ -309,11 +328,11 @@ public sealed partial class MainWindow
         try
         {
             _llmProc.Stop();
-            LocalLlmStatusText.Text = "Stopped.";
+            LocalLlmStatusText.Text = LocalLlmText("Arrete.", "Stopped.", "Detenido.", "Parado.", "Gestoppt.", "Fermato.", UiLang);
         }
         catch (Exception ex)
         {
-            LocalLlmStatusText.Text = "Stop failed: " + ex.Message;
+            LocalLlmStatusText.Text = LocalLlmText("Echec de l'arret : ", "Stop failed: ", "Error al detener: ", "Falha ao parar: ", "Stop fehlgeschlagen: ", "Arresto non riuscito: ", UiLang) + ex.Message;
         }
     }
 
@@ -328,11 +347,11 @@ public sealed partial class MainWindow
             LlmUrlBox.Text = _appSettings.UseLocalLlm ? _appSettings.LlmBaseUrl : ClientDefaults.LlmBaseUrl;
             LlmModelBox.Text = _appSettings.ModelId;
 
-            LocalLlmStatusText.Text = "Saved.";
+            LocalLlmStatusText.Text = LocalLlmText("Enregistre.", "Saved.", "Guardado.", "Guardado.", "Gespeichert.", "Salvato.", UiLang);
         }
         catch (Exception ex)
         {
-            LocalLlmStatusText.Text = "Save failed: " + ex.Message;
+            LocalLlmStatusText.Text = LocalLlmText("Echec de l'enregistrement : ", "Save failed: ", "Error al guardar: ", "Falha ao guardar: ", "Speichern fehlgeschlagen: ", "Salvataggio non riuscito: ", UiLang) + ex.Message;
         }
     }
 
@@ -359,18 +378,25 @@ public sealed partial class MainWindow
                 {
                     var fi = new FileInfo(path);
                     var sizeMb = fi.Length / 1024d / 1024d;
-                    LocalLlmModelInfoText.Text = $"Size: {sizeMb:0.0} MB (not in library)";
+                    LocalLlmModelInfoText.Text = LocalLlmText(
+                        $"Taille : {sizeMb:0.0} MB (hors bibliotheque)",
+                        $"Size: {sizeMb:0.0} MB (not in library)",
+                        $"Tamano: {sizeMb:0.0} MB (fuera de la biblioteca)",
+                        $"Tamanho: {sizeMb:0.0} MB (fora da biblioteca)",
+                        $"Groesse: {sizeMb:0.0} MB (nicht in der Bibliothek)",
+                        $"Dimensione: {sizeMb:0.0} MB (non nella libreria)",
+                        UiLang);
                 }
                 else
                 {
-                    LocalLlmModelInfoText.Text = "File not found.";
+                    LocalLlmModelInfoText.Text = LocalLlmText("Fichier introuvable.", "File not found.", "Archivo no encontrado.", "Ficheiro nao encontrado.", "Datei nicht gefunden.", "File non trovato.", UiLang);
                 }
                 return;
             }
 
             var libSizeMb = info.SizeBytes / 1024d / 1024d;
             var shaShort = info.Sha256.Length > 12 ? info.Sha256.Substring(0, 12) : info.Sha256;
-            LocalLlmModelInfoText.Text = $"Library: {info.Id} | {libSizeMb:0.0} MB | sha256 {shaShort}…";
+            LocalLlmModelInfoText.Text = LocalLlmText($"Bibliotheque : {info.Id} | {libSizeMb:0.0} MB | sha256 {shaShort}...", $"Library: {info.Id} | {libSizeMb:0.0} MB | sha256 {shaShort}...", $"Biblioteca: {info.Id} | {libSizeMb:0.0} MB | sha256 {shaShort}...", $"Biblioteca: {info.Id} | {libSizeMb:0.0} MB | sha256 {shaShort}...", $"Bibliothek: {info.Id} | {libSizeMb:0.0} MB | sha256 {shaShort}...", $"Libreria: {info.Id} | {libSizeMb:0.0} MB | sha256 {shaShort}...", UiLang);
         }
         catch
         {
@@ -400,7 +426,7 @@ public sealed partial class MainWindow
         }
         catch (Exception ex)
         {
-            LocalLlmStatusText.Text = "Browse failed: " + ex.Message;
+            LocalLlmStatusText.Text = LocalLlmText("Echec de la selection : ", "Browse failed: ", "Error al explorar: ", "Falha ao procurar: ", "Auswahl fehlgeschlagen: ", "Sfoglia non riuscita: ", UiLang) + ex.Message;
         }
     }
 
@@ -420,7 +446,7 @@ public sealed partial class MainWindow
         }
         catch (Exception ex)
         {
-            LocalLlmStatusText.Text = "Browse failed: " + ex.Message;
+            LocalLlmStatusText.Text = LocalLlmText("Echec de la selection : ", "Browse failed: ", "Error al explorar: ", "Falha ao procurar: ", "Auswahl fehlgeschlagen: ", "Sfoglia non riuscita: ", UiLang) + ex.Message;
         }
     }
 
@@ -431,11 +457,11 @@ public sealed partial class MainWindow
             var src = (LocalLlmModelPathBox.Text ?? "").Trim();
             if (string.IsNullOrWhiteSpace(src) || !File.Exists(src))
             {
-                LocalLlmStatusText.Text = "Select a .gguf file first.";
+                LocalLlmStatusText.Text = LocalLlmText("Selectionne d'abord un fichier .gguf.", "Select a .gguf file first.", "Selecciona primero un archivo .gguf.", "Seleciona primeiro um ficheiro .gguf.", "Waehle zuerst eine .gguf-Datei aus.", "Seleziona prima un file .gguf.", UiLang);
                 return;
             }
 
-            LocalLlmStatusText.Text = "Importing model…";
+            LocalLlmStatusText.Text = LocalLlmText("Import du modele...", "Importing model...", "Importando modelo...", "A importar o modelo...", "Modell wird importiert...", "Importazione modello...", UiLang);
             var entry = await ModelLibrary.ImportAsync(src, CancellationToken.None);
 
             LocalLlmModelPathBox.Text = entry.FullPath;
@@ -451,11 +477,18 @@ public sealed partial class MainWindow
             LlmModelBox.Text = _appSettings.ModelId;
 
             RefreshLocalLlmModelInfoText();
-            LocalLlmStatusText.Text = $"Imported to {ModelLibrary.ModelsDir}";
+            LocalLlmStatusText.Text = LocalLlmText(
+                $"Importe vers {ModelLibrary.ModelsDir}",
+                $"Imported to {ModelLibrary.ModelsDir}",
+                $"Importado en {ModelLibrary.ModelsDir}",
+                $"Importado para {ModelLibrary.ModelsDir}",
+                $"Importiert nach {ModelLibrary.ModelsDir}",
+                $"Importato in {ModelLibrary.ModelsDir}",
+                UiLang);
         }
         catch (Exception ex)
         {
-            LocalLlmStatusText.Text = "Import failed: " + ex.Message;
+            LocalLlmStatusText.Text = LocalLlmText("Echec de l'import : ", "Import failed: ", "Error de importacion: ", "Falha na importacao: ", "Import fehlgeschlagen: ", "Importazione non riuscita: ", UiLang) + ex.Message;
         }
     }
 
@@ -473,7 +506,7 @@ public sealed partial class MainWindow
         }
         catch (Exception ex)
         {
-            LocalLlmStatusText.Text = "Open folder failed: " + ex.Message;
+            LocalLlmStatusText.Text = LocalLlmText("Impossible d'ouvrir le dossier : ", "Open folder failed: ", "Error al abrir la carpeta: ", "Falha ao abrir a pasta: ", "Ordner konnte nicht geoeffnet werden: ", "Impossibile aprire la cartella: ", UiLang) + ex.Message;
         }
     }
 

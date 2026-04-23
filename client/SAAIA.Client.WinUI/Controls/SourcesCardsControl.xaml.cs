@@ -14,6 +14,7 @@ public sealed partial class SourcesCardsControl : UserControl
     public SourcesCardsControl()
     {
         InitializeComponent();
+        SourcesHeaderText.Text = ST("Sources", "Sources", "Fuentes", "Fontes", "Quellen", "Fonti");
         Visibility = Visibility.Collapsed;
     }
 
@@ -51,8 +52,8 @@ public sealed partial class SourcesCardsControl : UserControl
             return;
 
         await ShowErrorAsync(
-            result.ErrorTitle ?? "Impossible d'ouvrir le fichier",
-            result.ErrorMessage ?? "Erreur inconnue.");
+            result.ErrorTitle ?? ST("Impossible d'ouvrir le fichier", "Could not open the file", "No se pudo abrir el archivo", "Nao foi possivel abrir o ficheiro", "Datei konnte nicht geoeffnet werden", "Impossibile aprire il file"),
+            result.ErrorMessage ?? ST("Erreur inconnue.", "Unknown error.", "Error desconocido.", "Erro desconhecido.", "Unbekannter Fehler.", "Errore sconosciuto."));
     }
 
     private async Task ShowErrorAsync(string title, string message)
@@ -63,7 +64,7 @@ public sealed partial class SourcesCardsControl : UserControl
             {
                 Title = title,
                 Content = message,
-                CloseButtonText = "OK",
+                CloseButtonText = ClientUiText.Get("dialog.close", AppSettings.Load().UiLanguage),
                 XamlRoot = this.XamlRoot
             };
             await dlg.ShowAsync();
@@ -72,5 +73,25 @@ public sealed partial class SourcesCardsControl : UserControl
         {
             // Edge case: no XamlRoot available. Avoid crashing while keeping the UI responsive.
         }
+    }
+
+    private void OpenButton_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button)
+            button.Content = ST("Ouvrir", "Open", "Abrir", "Abrir", "Oeffnen", "Apri");
+    }
+
+    private static string ST(string fr, string en, string es, string pt, string de, string it)
+    {
+        var lang = ClientUiText.NormalizeLanguage(AppSettings.Load().UiLanguage);
+        return lang switch
+        {
+            "en" => en,
+            "es" => es,
+            "pt" => pt,
+            "de" => de,
+            "it" => it,
+            _ => fr
+        };
     }
 }

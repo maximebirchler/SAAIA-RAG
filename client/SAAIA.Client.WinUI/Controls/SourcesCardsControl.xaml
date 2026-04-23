@@ -7,7 +7,7 @@
     mc:Ignorable="d">
 
     <StackPanel Spacing="8">
-        <TextBlock Text="Sources" FontWeight="SemiBold" Opacity="0.85"/>
+        <TextBlock x:Name="SourcesHeaderText" Text="Sources" FontWeight="SemiBold" Opacity="0.85"/>
 
         <ItemsControl x:Name="ItemsHost">
             <ItemsControl.ItemTemplate>
@@ -26,7 +26,6 @@
 
                                 <TextBlock Text="{Binding PagesLabel}" Opacity="0.8"/>
 
-                                <!-- ✅ WinUI: pas de StringFormat -->
                                 <TextBlock Text="{Binding ScoreLabel}" Opacity="0.6"/>
                             </StackPanel>
 
@@ -35,9 +34,10 @@
                                        Opacity="0.9"
                                        MaxLines="4"/>
 
-                            <Button Content="Ouvrir"
+                            <Button Content="Open"
                                     HorizontalAlignment="Left"
                                     Click="Open_Click"
+                                    Loaded="OpenButton_Loaded"
                                     Tag="{Binding}"/>
                         </StackPanel>
                     </Border>

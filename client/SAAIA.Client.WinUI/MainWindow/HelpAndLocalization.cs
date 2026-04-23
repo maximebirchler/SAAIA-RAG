@@ -41,10 +41,32 @@ public sealed partial class MainWindow
         TrySoftUi("ApplyUiLanguage.InputBox.PlaceholderText", () => InputBox.PlaceholderText = ClientUiText.Get("input.placeholder", lang));
         TrySoftUi("ApplyUiLanguage.ConnectButton", () => ConnectButton.Content = ClientUiText.Get("button.connect", lang));
         TrySoftUi("ApplyUiLanguage.UserSettingsButton", () => UserSettingsButton.Content = ClientUiText.Get("header.settings", lang));
+        TrySoftUi("ApplyUiLanguage.LlmSettingsButton", () => LlmSettingsButton.Content = ClientUiText.Get("button.local_llm", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmEnabledCheck", () => LocalLlmEnabledCheck.Content = LocalLlmText("Activer le LLM local (llama.cpp)", "Enable local LLM (llama.cpp)", "Activar LLM local (llama.cpp)", "Ativar LLM local (llama.cpp)", "Lokales LLM aktivieren (llama.cpp)", "Attiva LLM locale (llama.cpp)", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmAutoStartCheck", () => LocalLlmAutoStartCheck.Content = LocalLlmText("Demarrer automatiquement le LLM local a la connexion", "Auto-start local LLM on Connect", "Iniciar automaticamente el LLM local al conectar", "Iniciar automaticamente o LLM local ao ligar", "Lokales LLM beim Verbinden automatisch starten", "Avvia automaticamente il LLM locale alla connessione", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmBrowseExeButton", () => LocalLlmBrowseExeButton.Content = LocalLlmText("Parcourir...", "Browse...", "Examinar...", "Procurar...", "Durchsuchen...", "Sfoglia...", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmBrowseModelButton", () => LocalLlmBrowseModelButton.Content = LocalLlmText("Parcourir...", "Browse...", "Examinar...", "Procurar...", "Durchsuchen...", "Sfoglia...", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmImportModelButton", () => LocalLlmImportModelButton.Content = LocalLlmText("Importer dans la bibliotheque", "Import to library", "Importar a la biblioteca", "Importar para a biblioteca", "In Bibliothek importieren", "Importa nella libreria", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmOpenModelsFolderButton", () => LocalLlmOpenModelsFolderButton.Content = LocalLlmText("Ouvrir le dossier", "Open folder", "Abrir carpeta", "Abrir pasta", "Ordner oeffnen", "Apri cartella", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmStartButton", () => LocalLlmStartButton.Content = LocalLlmText("Demarrer", "Start now", "Iniciar ahora", "Iniciar agora", "Jetzt starten", "Avvia ora", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmStopButton", () => LocalLlmStopButton.Content = LocalLlmText("Arreter", "Stop", "Detener", "Parar", "Stoppen", "Ferma", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmSaveButton", () => LocalLlmSaveButton.Content = ClientUiText.Get("button.save", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmRuntimeDiagnosticsButton", () => LocalLlmRuntimeDiagnosticsButton.Content = ClientUiText.Get("button.runtime_diagnostics", lang));
         TrySoftUi("ApplyUiLanguage.ApplyLocalizedDefaultSessionTitles", ApplyLocalizedDefaultSessionTitles);
 
         UpdateUiState(_isGenerating);
     }
+
+    private static string LocalLlmText(string fr, string en, string es, string pt, string de, string it, string? language)
+        => ClientUiText.NormalizeLanguage(language) switch
+        {
+            "en" => en,
+            "es" => es,
+            "pt" => pt,
+            "de" => de,
+            "it" => it,
+            _ => fr
+        };
 
     private async void HelpButton_Click(object sender, RoutedEventArgs e)
     {

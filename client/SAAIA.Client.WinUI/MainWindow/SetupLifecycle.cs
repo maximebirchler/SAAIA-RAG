@@ -1,4 +1,4 @@
-namespace SAAIA.Client.WinUI;
+﻿namespace SAAIA.Client.WinUI;
 
 public sealed partial class MainWindow
 {
@@ -35,7 +35,7 @@ public sealed partial class MainWindow
                 LoadSettings();
                 LoadLocalLlmUiFromSettings();
                 ApplyUserModeVisibility();
-                Status("Setup saved.");
+                Status(LocalRuntimeText("Configuration enregistree.", "Setup saved.", "Configuracion guardada.", "Configuracao guardada.", "Einrichtung gespeichert.", "Configurazione salvata.", UiLang));
 
                 if (_appSettings.AutoConnect && _agent is null && !NeedsSetupWizard())
                     await ConnectAsync();
@@ -43,7 +43,7 @@ public sealed partial class MainWindow
         }
         catch (Exception ex)
         {
-            Status("Setup wizard failed: " + ex.Message);
+            Status(LocalRuntimeText("Assistant de configuration en echec : ", "Setup wizard failed: ", "Error del asistente de configuracion: ", "Falha no assistente de configuracao: ", "Setup-Assistent fehlgeschlagen: ", "Procedura guidata non riuscita: ", UiLang) + ex.Message);
         }
     }
 
@@ -61,7 +61,7 @@ public sealed partial class MainWindow
             if (xamlRoot is null)
             {
                 ClientLog.Error("LLM bootstrap UI: XamlRoot is null; cannot show progress dialog.");
-                Status("Assistant IA : UI non prête (réessayez).");
+                Status(LocalRuntimeText("Assistant IA : interface non prete (reessaie).", "Assistant: UI not ready (try again).", "Asistente: interfaz no lista (vuelve a intentarlo).", "Assistente: interface nao pronta (tenta novamente).", "Assistent: UI nicht bereit (erneut versuchen).", "Assistente: interfaccia non pronta (riprova).", UiLang));
                 return;
             }
 
@@ -77,7 +77,7 @@ public sealed partial class MainWindow
             // If model is already loading, do not attempt an install (wait for IT/docker).
             if (st == LlmModelsStatus.Loading)
             {
-                Status("Assistant IA : chargement du modèle…");
+                Status(LocalRuntimeText("Assistant IA : chargement du modele...", "Assistant: model loading...", "Asistente: cargando modelo...", "Assistente: a carregar modelo...", "Assistent: Modell wird geladen...", "Assistente: caricamento modello...", UiLang));
                 return;
             }
 
@@ -95,13 +95,13 @@ public sealed partial class MainWindow
 
                     var title = new TextBlock
                     {
-                        Text = "Installation / réparation de l’assistant IA…",
+                        Text = LocalRuntimeText("Installation / reparation de l'assistant IA...", "Installing / repairing the assistant...", "Instalacion / reparacion del asistente...", "Instalacao / reparacao do assistente...", "Installation / Reparatur des Assistenten...", "Installazione / riparazione dell'assistente...", UiLang),
                         TextWrapping = TextWrapping.Wrap
                     };
 
                     var detail = new TextBlock
                     {
-                        Text = "Une fenêtre Windows peut demander une autorisation (UAC).",
+                        Text = LocalRuntimeText("Une fenetre Windows peut demander une autorisation (UAC).", "A Windows prompt may request permission (UAC).", "Una ventana de Windows puede solicitar autorizacion (UAC).", "Uma janela do Windows pode pedir autorizacao (UAC).", "Ein Windows-Fenster kann eine Berechtigung anfordern (UAC).", "Una finestra di Windows puo richiedere un'autorizzazione (UAC).", UiLang),
                         Opacity = 0.85,
                         TextWrapping = TextWrapping.Wrap
                     };
@@ -123,9 +123,9 @@ public sealed partial class MainWindow
 
                     var dlg = new ContentDialog
                     {
-                        Title = "Préparation",
+                        Title = LocalRuntimeText("Preparation", "Preparation", "Preparacion", "Preparacao", "Vorbereitung", "Preparazione", UiLang),
                         Content = panel,
-                        CloseButtonText = "Annuler",
+                        CloseButtonText = ClientUiText.Get("dialog.cancel", UiLang),
                         XamlRoot = xamlRoot
                     };
                     ConfigureDialogChrome(dlg);
@@ -139,18 +139,18 @@ public sealed partial class MainWindow
 
                     try
                     {
-                        detail.Text = "Lancement de l’installation…";
+                        detail.Text = LocalRuntimeText("Lancement de l'installation...", "Starting installation...", "Iniciando la instalacion...", "A iniciar a instalacao...", "Installation wird gestartet...", "Avvio dell'installazione...", UiLang);
                         var (ok, err) = await LlmInstallScriptRunner.RunElevatedAsync(scriptPath, cts.Token);
 
                         if (!ok)
                         {
-                            detail.Text = "Installation annulée ou échouée."
+                            detail.Text = LocalRuntimeText("Installation annulee ou en echec.", "Installation was cancelled or failed.", "La instalacion se cancelo o fallo.", "A instalacao foi cancelada ou falhou.", "Die Installation wurde abgebrochen oder ist fehlgeschlagen.", "L'installazione e stata annullata o non e riuscita.", UiLang)
                                           + (string.IsNullOrWhiteSpace(err) ? "" : ("\n" + err));
                             await Task.Delay(1200);
                             return;
                         }
 
-                        detail.Text = "Démarrage de l’assistant…";
+                        detail.Text = LocalRuntimeText("Demarrage de l'assistant...", "Starting assistant...", "Iniciando el asistente...", "A iniciar o assistente...", "Assistent wird gestartet...", "Avvio dell'assistente...", UiLang);
                         var deadline = DateTime.UtcNow.AddMinutes(10);
 
                         while (!cts.IsCancellationRequested && DateTime.UtcNow < deadline)
@@ -162,7 +162,7 @@ public sealed partial class MainWindow
                             var s2 = probe2.Status;
                             if (s2 == LlmModelsStatus.Ok)
                             {
-                                detail.Text = "Assistant prêt.";
+                                detail.Text = LocalRuntimeText("Assistant pret.", "Assistant ready.", "Asistente listo.", "Assistente pronto.", "Assistent bereit.", "Assistente pronto.", UiLang);
                                 _appSettings.LlmAutoInstallAttemptedHash = _appSettings.ProvisioningHash;
                                 _appSettings.Save();
                                 await Task.Delay(600);
@@ -170,13 +170,13 @@ public sealed partial class MainWindow
                             }
 
                             detail.Text = s2 == LlmModelsStatus.Loading
-                                ? "Chargement du modèle…"
-                                : "Attente de l’assistant…";
+                                ? LocalRuntimeText("Chargement du modele...", "Model loading...", "Cargando modelo...", "A carregar modelo...", "Modell wird geladen...", "Caricamento modello...", UiLang)
+                                : LocalRuntimeText("Attente de l'assistant...", "Waiting for assistant...", "Esperando al asistente...", "A aguardar o assistente...", "Warte auf den Assistenten...", "In attesa dell'assistente...", UiLang);
 
                             await Task.Delay(1500, cts.Token);
                         }
 
-                        detail.Text = "Timeout : l’assistant n’a pas répondu à temps.";
+                        detail.Text = LocalRuntimeText("Delai depasse : l'assistant n'a pas repondu a temps.", "Timeout: the assistant did not respond in time.", "Tiempo agotado: el asistente no respondio a tiempo.", "Tempo esgotado: o assistente nao respondeu a tempo.", "Zeitueberschreitung: der Assistent hat nicht rechtzeitig geantwortet.", "Timeout: l'assistente non ha risposto in tempo.", UiLang);
                         await Task.Delay(1200);
                     }
                     catch
@@ -199,7 +199,7 @@ public sealed partial class MainWindow
 
             var titleDl = new TextBlock
             {
-                Text = "Téléchargement de l’assistant IA…",
+                Text = LocalRuntimeText("Telechargement de l'assistant IA...", "Downloading the assistant...", "Descargando el asistente...", "A transferir o assistente...", "Assistent wird heruntergeladen...", "Download dell'assistente...", UiLang),
                 TextWrapping = TextWrapping.Wrap
             };
 
@@ -227,9 +227,9 @@ public sealed partial class MainWindow
 
             var dlgDl = new ContentDialog
             {
-                Title = "Préparation",
+                Title = LocalRuntimeText("Preparation", "Preparation", "Preparacion", "Preparacao", "Vorbereitung", "Preparazione", UiLang),
                 Content = panelDl,
-                CloseButtonText = "Annuler",
+                CloseButtonText = ClientUiText.Get("dialog.cancel", UiLang),
                 XamlRoot = xamlRoot
             };
             ConfigureDialogChrome(dlgDl);
@@ -258,9 +258,9 @@ public sealed partial class MainWindow
 
                     detailDl.Text = p.Stage switch
                     {
-                        "verify" => $"Vérification : {p.Id}",
-                        "download" => $"Téléchargement : {p.Id}",
-                        "done" => $"OK : {p.Id}",
+                        "verify" => LocalRuntimeText($"Verification : {p.Id}", $"Verification: {p.Id}", $"Verificacion: {p.Id}", $"Verificacao: {p.Id}", $"Pruefung: {p.Id}", $"Verifica: {p.Id}", UiLang),
+                        "download" => LocalRuntimeText($"Telechargement : {p.Id}", $"Download: {p.Id}", $"Descarga: {p.Id}", $"Transferencia: {p.Id}", $"Download: {p.Id}", $"Download: {p.Id}", UiLang),
+                        "done" => LocalRuntimeText($"Pret : {p.Id}", $"Done: {p.Id}", $"Listo: {p.Id}", $"Concluido: {p.Id}", $"Fertig: {p.Id}", $"Pronto: {p.Id}", UiLang),
                         _ => p.Stage
                     };
                 });
@@ -282,7 +282,7 @@ public sealed partial class MainWindow
         catch (Exception ex)
         {
             ClientLog.Exception("EnsureAssistantReadyIfNeededAsync", ex);
-            Status("Assistant IA : erreur au démarrage (voir logs)");
+            Status(LocalRuntimeText("Assistant IA : erreur au demarrage (voir logs).", "Assistant: startup error (see logs).", "Asistente: error al iniciar (ver logs).", "Assistente: erro ao iniciar (ver logs).", "Assistent: Startfehler (siehe Logs).", "Assistente: errore all'avvio (vedi log).", UiLang));
         }
     }
 
@@ -307,7 +307,7 @@ public sealed partial class MainWindow
             if (st3 == LlmModelsStatus.Loading)
             {
                 ClientLog.Info($"LLM endpoint reports Loading (http={http}). Skipping repair.");
-                Status("Assistant IA : chargement du modèle en cours…");
+                Status(LocalRuntimeText("Assistant IA : chargement du modele en cours...", "Assistant: model is still loading...", "Asistente: el modelo sigue cargando...", "Assistente: o modelo ainda esta a carregar...", "Assistent: Modell wird noch geladen...", "Assistente: il modello e ancora in caricamento...", UiLang));
                 return;
             }
             else
@@ -342,7 +342,7 @@ public sealed partial class MainWindow
 
                     if (probe2.Status == LlmModelsStatus.Loading)
                     {
-                        Status("Assistant IA : chargement du modèle en cours…");
+                        Status(LocalRuntimeText("Assistant IA : chargement du modele en cours...", "Assistant: model is still loading...", "Asistente: el modelo sigue cargando...", "Assistente: o modelo ainda esta a carregar...", "Assistent: Modell wird noch geladen...", "Assistente: il modello e ancora in caricamento...", UiLang));
                         return;
                     }
                 }
@@ -366,7 +366,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
                 string.Equals(_appSettings.ProvisioningHash, _appSettings.LlmAutoInstallAttemptedHash, StringComparison.OrdinalIgnoreCase) &&
                 !(hasNvidiaGpuForUpgrade && isCpuRuntimeNow))
             {
-                Status("Assistant IA : réparation requise (Paramètres → Installer / réparer). ");
+                Status(LocalRuntimeText("Assistant IA : reparation requise (Parametres -> Installer / reparer).", "Assistant: repair required (Settings -> Install / repair).", "Asistente: reparacion necesaria (Configuracion -> Instalar / reparar).", "Assistente: reparacao necessaria (Definicoes -> Instalar / reparar).", "Assistent: Reparatur erforderlich (Einstellungen -> Installieren / reparieren).", "Assistente: riparazione richiesta (Impostazioni -> Installa / ripara).", UiLang));
                 return;
             }
             if (mode == "docker")
@@ -381,7 +381,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
         catch (Exception ex)
         {
             ClientLog.Exception("EnsureAssistantReadyIfNeededAsync", ex);
-            Status("Assistant IA : erreur au démarrage (voir logs)");
+            Status(LocalRuntimeText("Assistant IA : erreur au demarrage (voir logs).", "Assistant: startup error (see logs).", "Asistente: error al iniciar (ver logs).", "Assistente: erro ao iniciar (ver logs).", "Assistent: Startfehler (siehe Logs).", "Assistente: errore all'avvio (vedi log).", UiLang));
         }
     }
 
@@ -391,13 +391,13 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
         if (xamlRoot is null)
         {
             ClientLog.Error("LLM bootstrap UI: XamlRoot is null; cannot show embedded progress dialog.");
-            Status("Assistant IA : UI non prête (réessayez).");
+            Status(LocalRuntimeText("Assistant IA : interface non prete (reessaie).", "Assistant: UI not ready (try again).", "Asistente: interfaz no lista (vuelve a intentarlo).", "Assistente: interface nao pronta (tenta novamente).", "Assistent: UI nicht bereit (erneut versuchen).", "Assistente: interfaccia non pronta (riprova).", UiLang));
             return;
         }
 
         // UI dialog with progress; no PowerShell/UAC needed.
-        var title = new TextBlock { Text = "Préparation de l’assistant IA…", TextWrapping = TextWrapping.Wrap };
-        var detail = new TextBlock { Text = "Vérification…", Opacity = 0.85, TextWrapping = TextWrapping.Wrap };
+        var title = new TextBlock { Text = LocalRuntimeText("Preparation de l'assistant IA...", "Preparing the assistant...", "Preparando el asistente...", "A preparar o assistente...", "Assistent wird vorbereitet...", "Preparazione dell'assistente...", UiLang), TextWrapping = TextWrapping.Wrap };
+        var detail = new TextBlock { Text = LocalRuntimeText("Verification...", "Checking...", "Verificando...", "A verificar...", "Pruefung...", "Verifica...", UiLang), Opacity = 0.85, TextWrapping = TextWrapping.Wrap };
         var bar = new ProgressBar { IsIndeterminate = true, Height = 6, Minimum = 0, Maximum = 1 };
 
         var panel = new StackPanel { Spacing = 12 };
@@ -409,9 +409,9 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
 
         var dlg = new ContentDialog
         {
-            Title = "Assistant",
+            Title = LocalRuntimeText("Assistant", "Assistant", "Asistente", "Assistente", "Assistent", "Assistente", UiLang),
             Content = panel,
-            CloseButtonText = "Annuler",
+            CloseButtonText = ClientUiText.Get("dialog.cancel", UiLang),
             XamlRoot = xamlRoot
         };
         ConfigureDialogChrome(dlg);
@@ -440,23 +440,23 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
 
                 detail.Text = p.Stage switch
                 {
-                    "verify" => $"Vérification : {p.Id}",
-                    "download" => $"Téléchargement : {p.Id}",
-                    "done" => $"OK : {p.Id}",
+                    "verify" => LocalRuntimeText($"Verification : {p.Id}", $"Verification: {p.Id}", $"Verificacion: {p.Id}", $"Verificacao: {p.Id}", $"Pruefung: {p.Id}", $"Verifica: {p.Id}", UiLang),
+                    "download" => LocalRuntimeText($"Telechargement : {p.Id}", $"Download: {p.Id}", $"Descarga: {p.Id}", $"Transferencia: {p.Id}", $"Download: {p.Id}", $"Download: {p.Id}", UiLang),
+                    "done" => LocalRuntimeText($"Pret : {p.Id}", $"Done: {p.Id}", $"Listo: {p.Id}", $"Concluido: {p.Id}", $"Fertig: {p.Id}", $"Pronto: {p.Id}", UiLang),
                     _ => p.Stage
                 };
             });
 
-            detail.Text = "Préparation des fichiers…";
+            detail.Text = LocalRuntimeText("Preparation des fichiers...", "Preparing files...", "Preparando archivos...", "A preparar ficheiros...", "Dateien werden vorbereitet...", "Preparazione dei file...", UiLang);
             var (ok, msg, _) = await _llmBootstrapper.EnsureAsync(_appSettings, force, prog, cts.Token);
             if (!ok)
             {
-                detail.Text = "Échec : " + msg;
+                detail.Text = LocalRuntimeText("Echec : ", "Failed: ", "Error: ", "Falha: ", "Fehler: ", "Errore: ", UiLang) + msg;
                 await Task.Delay(1200);
                 return;
             }
 
-            detail.Text = "Démarrage de l’assistant…";
+            detail.Text = LocalRuntimeText("Demarrage de l'assistant...", "Starting assistant...", "Iniciando el asistente...", "A iniciar o assistente...", "Assistent wird gestartet...", "Avvio dell'assistente...", UiLang);
             _appSettings = AppSettings.Load();
             _appSettings.ManageLocalLlmProcess = true;
             _appSettings.LlmMode = "embedded";
@@ -465,7 +465,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
             var (startedOk, startedMsg) = await _llmProc.StartAsync(_appSettings, cts.Token);
             if (!startedOk)
             {
-                detail.Text = "Échec : " + startedMsg;
+                detail.Text = LocalRuntimeText("Echec : ", "Failed: ", "Error: ", "Falha: ", "Fehler: ", "Errore: ", UiLang) + startedMsg;
                 await Task.Delay(1200);
                 return;
             }
@@ -482,8 +482,8 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
                     break;
 
                 detail.Text = probe2.Status == LlmModelsStatus.Loading
-                    ? "Chargement du modèle…"
-                    : "Démarrage de l’assistant…";
+                    ? LocalRuntimeText("Chargement du modele...", "Model loading...", "Cargando modelo...", "A carregar modelo...", "Modell wird geladen...", "Caricamento modello...", UiLang)
+                    : LocalRuntimeText("Demarrage de l'assistant...", "Starting assistant...", "Iniciando el asistente...", "A iniciar o assistente...", "Assistent wird gestartet...", "Avvio dell'assistente...", UiLang);
 
                 await Task.Delay(1000, cts.Token);
             }
@@ -495,12 +495,12 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
 
             if (finalProbe.Status != LlmModelsStatus.Ok)
             {
-                detail.Text = "Assistant démarré, mais le modèle n’est pas prêt. Réessaie dans 1–2 minutes.";
+                detail.Text = LocalRuntimeText("Assistant demarre, mais le modele n'est pas pret. Reessaie dans 1-2 minutes.", "Assistant started, but the model is not ready yet. Try again in 1-2 minutes.", "El asistente se inicio, pero el modelo aun no esta listo. Vuelve a intentarlo en 1-2 minutos.", "O assistente iniciou, mas o modelo ainda nao esta pronto. Tenta novamente em 1-2 minutos.", "Der Assistent wurde gestartet, aber das Modell ist noch nicht bereit. Versuche es in 1-2 Minuten erneut.", "L'assistente e stato avviato, ma il modello non e ancora pronto. Riprova tra 1-2 minuti.", UiLang);
                 await Task.Delay(1600);
                 return;
             }
 
-            detail.Text = "Assistant prêt.";
+            detail.Text = LocalRuntimeText("Assistant pret.", "Assistant ready.", "Asistente listo.", "Assistente pronto.", "Assistent bereit.", "Assistente pronto.", UiLang);
 
             // Mark provisioning as successfully applied ONLY when models are ready.
             if (!string.IsNullOrWhiteSpace(_appSettings.ProvisioningHash))
@@ -518,7 +518,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
         catch (Exception ex)
         {
             ClientLog.Exception("EnsureAssistantReadyIfNeededAsync", ex);
-            Status("Assistant IA : erreur au démarrage (voir logs)");
+            Status(LocalRuntimeText("Assistant IA : erreur au demarrage (voir logs).", "Assistant: startup error (see logs).", "Asistente: error al iniciar (ver logs).", "Assistente: erro ao iniciar (ver logs).", "Assistent: Startfehler (siehe Logs).", "Assistente: errore all'avvio (vedi log).", UiLang));
         }
         finally
         {
@@ -565,7 +565,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
         catch (Exception ex)
         {
             ClientLog.Exception("EnsureAssistantReadyIfNeededAsync", ex);
-            Status("Assistant IA : erreur au démarrage (voir logs)");
+            Status(LocalRuntimeText("Assistant IA : erreur au demarrage (voir logs).", "Assistant: startup error (see logs).", "Asistente: error al iniciar (ver logs).", "Assistente: erro ao iniciar (ver logs).", "Assistent: Startfehler (siehe Logs).", "Assistente: errore all'avvio (vedi log).", UiLang));
         }
     }
     private async void SetupWizard_Click(object sender, RoutedEventArgs e)
@@ -596,7 +596,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
                     ? await EnsureLocalLlmStartedAsync(CancellationToken.None)
                     : await EnsureLocalLlmStartedFromSettingsAsync(CancellationToken.None);
                 if (!started)
-                    Status("Local LLM start failed. Mode dégradé possible.");
+                    Status(LocalRuntimeText("Demarrage du LLM local en echec. Mode degrade possible.", "Local LLM start failed. Fallback mode is possible.", "Error al iniciar el LLM local. Es posible un modo degradado.", "Falha ao iniciar o LLM local. E possivel um modo degradado.", "Lokaler LLM-Start fehlgeschlagen. Ein degradierter Modus ist moeglich.", "Avvio del LLM locale non riuscito. E possibile una modalita degradata.", UiLang));
             }
 
             // Configure LLM (even if disabled; agent will handle degraded mode)
@@ -628,7 +628,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
 
             SaveSettings();
 
-            Status("Connecting…");
+            Status(LocalRuntimeText("Connexion...", "Connecting...", "Conectando...", "A ligar...", "Verbinden...", "Connessione...", UiLang));
 
             await RefreshSessionsAsync(preferSessionId: _sessionId, CancellationToken.None);
 
@@ -636,14 +636,14 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
             if (selectedSession is not null)
                 await LoadSessionAsync(selectedSession, CancellationToken.None);
 
-            Status($"Connected. Session: {_sessionId}");
+            Status(LocalRuntimeText($"Connecte. Session : {_sessionId}", $"Connected. Session: {_sessionId}", $"Conectado. Sesion: {_sessionId}", $"Ligado. Sessao: {_sessionId}", $"Verbunden. Sitzung: {_sessionId}", $"Connesso. Sessione: {_sessionId}", UiLang));
             UpdateUiState(isGenerating: false);
             ApplyResponsiveLayout(Root.ActualWidth);
 
         }
         catch (Exception ex)
         {
-            Status("Connect failed: " + ex.Message);
+            Status(LocalRuntimeText("Connexion en echec : ", "Connect failed: ", "Error de conexion: ", "Falha na ligacao: ", "Verbindung fehlgeschlagen: ", "Connessione non riuscita: ", UiLang) + ex.Message);
             UpdateUiState(isGenerating: false);
             ApplyResponsiveLayout(Root.ActualWidth);
         }
@@ -653,7 +653,7 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
     {
         var list = await _api.ListSessionsAsync(ct, limit: 200, offset: 0);
 
-        // Si aucune session: on en crée une
+        // Si aucune session: on en crÃ©e une
         if (list.Count == 0)
         {
             var created = await _api.CreateSessionAsync(GetDefaultSessionTitle(), Environment.UserName, ct);

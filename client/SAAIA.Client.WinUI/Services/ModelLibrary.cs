@@ -34,6 +34,20 @@ internal static class ModelLibrary
 
     private sealed record ManifestDto(List<LocalModelInfo> Models);
 
+    private static string MT(string fr, string en, string es, string pt, string de, string it)
+    {
+        var lang = ClientUiText.NormalizeLanguage(AppSettings.Load().UiLanguage);
+        return lang switch
+        {
+            "en" => en,
+            "es" => es,
+            "pt" => pt,
+            "de" => de,
+            "it" => it,
+            _ => fr
+        };
+    }
+
     private static List<LocalModelInfo> LoadInternal()
     {
         try
@@ -88,15 +102,15 @@ internal static class ModelLibrary
     public static async Task<LocalModelInfo> ImportAsync(string sourcePath, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(sourcePath))
-            throw new ArgumentException("Missing sourcePath");
+            throw new ArgumentException(MT("Chemin source manquant", "Missing sourcePath", "Falta sourcePath", "Falta sourcePath", "sourcePath fehlt", "sourcePath mancante"));
 
         sourcePath = Path.GetFullPath(sourcePath);
         if (!File.Exists(sourcePath))
-            throw new FileNotFoundException("Model file not found", sourcePath);
+            throw new FileNotFoundException(MT("Fichier modele introuvable", "Model file not found", "Archivo de modelo no encontrado", "Ficheiro de modelo nao encontrado", "Modelldatei nicht gefunden", "File modello non trovato"), sourcePath);
 
         var ext = Path.GetExtension(sourcePath);
         if (!string.Equals(ext, ".gguf", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Only .gguf models are supported.");
+            throw new InvalidOperationException(MT("Seuls les modeles .gguf sont pris en charge.", "Only .gguf models are supported.", "Solo se admiten modelos .gguf.", "Apenas modelos .gguf sao suportados.", "Nur .gguf-Modelle werden unterstuetzt.", "Sono supportati solo i modelli .gguf."));
 
         Directory.CreateDirectory(ModelsDir);
 

@@ -59,6 +59,20 @@ internal static class GovernanceArtifactStore
     public const string RuntimeCompatibilityPolicyFile = "runtime_compatibility_policy.json";
     public const string RuntimeEventLogFile = "runtime_event_log.json";
 
+    private static string GT(string fr, string en, string es, string pt, string de, string it)
+    {
+        var lang = ClientUiText.NormalizeLanguage(AppSettings.Load().UiLanguage);
+        return lang switch
+        {
+            "en" => en,
+            "es" => es,
+            "pt" => pt,
+            "de" => de,
+            "it" => it,
+            _ => fr
+        };
+    }
+
     // Local disk artifacts use snake_case per CDC v3.1 section 5.8.
     // Backend API path segments may remain kebab-case; do not mix both conventions
     // in the same context.
@@ -165,10 +179,10 @@ internal static class GovernanceArtifactStore
     public static string ResolvePath(string fileName, string? root = null)
     {
         if (Path.IsPathRooted(fileName))
-            throw new ArgumentException("Governance artifact names must be relative.", nameof(fileName));
+            throw new ArgumentException(GT("Les noms d'artefacts de gouvernance doivent etre relatifs.", "Governance artifact names must be relative.", "Los nombres de artefactos de gobernanza deben ser relativos.", "Os nomes dos artefactos de governanca devem ser relativos.", "Governance-Artefaktnamen muessen relativ sein.", "I nomi degli artefatti di governance devono essere relativi."), nameof(fileName));
 
         if (fileName.Contains('/') || fileName.Contains('\\'))
-            throw new ArgumentException("Governance artifact names must not contain path separators.", nameof(fileName));
+            throw new ArgumentException(GT("Les noms d'artefacts de gouvernance ne doivent pas contenir de separateurs de chemin.", "Governance artifact names must not contain path separators.", "Los nombres de artefactos de gobernanza no deben contener separadores de ruta.", "Os nomes dos artefactos de governanca nao devem conter separadores de caminho.", "Governance-Artefaktnamen duerfen keine Pfadtrenner enthalten.", "I nomi degli artefatti di governance non devono contenere separatori di percorso."), nameof(fileName));
 
         return Path.Combine(root ?? DefaultRoot, fileName);
     }
