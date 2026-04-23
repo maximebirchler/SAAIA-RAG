@@ -130,6 +130,43 @@ public sealed class GovernanceArtifactStoreTests
     }
 
     [Fact]
+    public async Task EnsureDefaultArtifacts_upgrades_stale_model_catalog_checksum_when_reference_hash_is_now_known()
+    {
+        var root = NewTempRoot();
+        try
+        {
+            var staleCatalog = ModelCatalogStore.CreateDefaultCatalog() with
+            {
+                Items = ModelCatalogStore.CreateDefaultCatalog().Items
+                    .Select(item => item.ModelId == "qwen2.5-3b-instruct-q4-k-m"
+                        ? item with
+                        {
+                            ChecksumSha256 = null,
+                            ChecksumStatus = "pending_reference_hash"
+                        }
+                        : item)
+                    .ToArray()
+            };
+            await GovernanceArtifactStore.WriteAsync(GovernanceArtifactStore.ModelCatalogFile, staleCatalog, root);
+
+            await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(new AppSettings(), root);
+
+            var read = await GovernanceArtifactStore.ReadAsync<ModelCatalogArtifact>(
+                GovernanceArtifactStore.ModelCatalogFile,
+                root);
+            var qwen = Assert.Single(read.Value!.Items, item => item.ModelId == "qwen2.5-3b-instruct-q4-k-m");
+
+            Assert.Equal(GovernanceArtifactReadStatus.Ok, read.Status);
+            Assert.Equal("9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94", qwen.ChecksumSha256);
+            Assert.Equal("verified_reference_hash", qwen.ChecksumStatus);
+        }
+        finally
+        {
+            DeleteTempRoot(root);
+        }
+    }
+
+    [Fact]
     public void HardwareProbeService_create_artifact_includes_observed_dxgi_budget()
     {
         var gpu = new GpuInfo(

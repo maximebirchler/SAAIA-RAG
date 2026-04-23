@@ -139,7 +139,7 @@ internal static class GovernanceArtifactStore
         var governanceRoot = root ?? DefaultRoot;
         Directory.CreateDirectory(governanceRoot);
 
-        await WriteIfMissingAsync(ModelCatalogFile, ModelCatalogStore.CreateDefaultCatalog(), governanceRoot, ct).ConfigureAwait(false);
+        await WriteOrUpgradeModelCatalogAsync(governanceRoot, ct).ConfigureAwait(false);
         await WriteIfMissingAsync(ModelCollectionsFile, ModelCatalogStore.CreateDefaultCollections(), governanceRoot, ct).ConfigureAwait(false);
         await WriteIfMissingAsync(ModelPolicyFile, ModelCatalogStore.CreateDefaultPolicy(), governanceRoot, ct).ConfigureAwait(false);
         await WriteIfMissingAsync(ModelSourcesFile, ModelCatalogStore.CreateDefaultSources(), governanceRoot, ct).ConfigureAwait(false);
@@ -186,6 +186,57 @@ internal static class GovernanceArtifactStore
             return;
 
         await WriteAsync(fileName, value, root, ct).ConfigureAwait(false);
+    }
+
+    private static async Task WriteOrUpgradeModelCatalogAsync(
+        string root,
+        CancellationToken ct)
+    {
+        var defaults = ModelCatalogStore.CreateDefaultCatalog();
+        var read = await ReadAsync<ModelCatalogArtifact>(ModelCatalogFile, root, ct).ConfigureAwait(false);
+        if (read.Status != GovernanceArtifactReadStatus.Ok || read.Value is null)
+        {
+            await WriteAsync(ModelCatalogFile, defaults, root, ct).ConfigureAwait(false);
+            return;
+        }
+
+        var items = read.Value.Items.ToList();
+        var changed = false;
+
+        foreach (var defaultItem in defaults.Items)
+        {
+            var index = items.FindIndex(item =>
+                string.Equals(item.ModelId, defaultItem.ModelId, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(item.FileName, defaultItem.FileName, StringComparison.OrdinalIgnoreCase));
+            if (index < 0)
+                continue;
+
+            var existing = items[index];
+            if (string.IsNullOrWhiteSpace(defaultItem.ChecksumSha256))
+                continue;
+
+            var canUpgradeChecksum =
+                string.IsNullOrWhiteSpace(existing.ChecksumSha256)
+                || string.Equals(existing.ChecksumStatus, "pending_reference_hash", StringComparison.OrdinalIgnoreCase);
+            if (!canUpgradeChecksum)
+                continue;
+
+            items[index] = existing with
+            {
+                ChecksumSha256 = defaultItem.ChecksumSha256,
+                ChecksumStatus = defaultItem.ChecksumStatus
+            };
+            changed = true;
+        }
+
+        if (!changed)
+            return;
+
+        var upgraded = read.Value with
+        {
+            Items = items
+        };
+        await WriteAsync(ModelCatalogFile, upgraded, root, ct).ConfigureAwait(false);
     }
 
     private static async Task WriteHardwareProbeIfMissingAsync(

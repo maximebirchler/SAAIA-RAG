@@ -475,3 +475,4 @@ Ce qui manque pour le contrat CDC :
 | 2026-04-23 | Codex | Reference checksum Qwen2.5 3B Q4_K_M renseignee dans `model_catalog.json`/bootstrap, 294 tests client verts |
 | 2026-04-23 | Codex | Wake-on-demand : `LastStartupLoadMs` mesure le vrai chargement et l'injecte dans `warmup_results.json` via `runtime.observed_start_load_ms` |
 | 2026-04-23 | Codex | Script `tools/compute-model-reference-checksums.ps1` ajoute ; etat machine confirme : 1 modele pack trouve, 5 manquants |
+| 2026-04-23 | Codex | `GovernanceArtifactStore` upgrade maintenant `model_catalog.json` local quand un checksum de reference devient connu ; script checksum sait aussi verifier le catalogue local, 295 tests client verts |

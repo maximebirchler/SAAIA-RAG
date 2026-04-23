@@ -2,7 +2,9 @@
 param(
     [string[]]$SearchRoots,
     [string]$OutputPath,
-    [switch]$IncludeCatalogSnippet
+    [switch]$IncludeCatalogSnippet,
+    [string]$CatalogArtifactPath,
+    [switch]$VerifyAgainstCatalog
 )
 
 Set-StrictMode -Version Latest
@@ -18,6 +20,10 @@ if ($null -eq $SearchRoots -or $SearchRoots.Count -eq 0) {
         (Join-Path $scriptRoot "..\models"),
         (Join-Path $env:LOCALAPPDATA "SAAIA\Models")
     )
+}
+
+if ([string]::IsNullOrWhiteSpace($CatalogArtifactPath)) {
+    $CatalogArtifactPath = Join-Path $env:LOCALAPPDATA "SAAIA\governance\model_catalog.json"
 }
 
 $knownModels = @(
@@ -135,13 +141,62 @@ function Format-MarkdownSummary {
     return ($lines -join [Environment]::NewLine)
 }
 
+function Load-CatalogChecksums {
+    param([string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return @{}
+    }
+
+    $expanded = [Environment]::ExpandEnvironmentVariables($Path)
+    if (-not (Test-Path -LiteralPath $expanded)) {
+        return @{}
+    }
+
+    $json = Get-Content -LiteralPath $expanded -Raw | ConvertFrom-Json
+    $map = @{}
+    foreach ($item in @($json.items)) {
+        if ($null -eq $item) {
+            continue
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($item.modelId)) {
+            $map[$item.modelId.ToLowerInvariant()] = $item.checksumSha256
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($item.fileName)) {
+            $map[$item.fileName.ToLowerInvariant()] = $item.checksumSha256
+        }
+    }
+
+    return $map
+}
+
 $roots = Resolve-SearchRoots -Roots $SearchRoots
 $entries = @()
 $catalogSnippetLines = New-Object System.Collections.Generic.List[string]
+$catalogChecksums = if ($VerifyAgainstCatalog) { Load-CatalogChecksums -Path $CatalogArtifactPath } else { @{} }
+$catalogMatchedCount = 0
+$catalogMismatchCount = 0
+$catalogMissingCount = 0
 
 foreach ($model in $knownModels) {
     $path = Find-ModelPath -FileName $model.FileName -Roots $roots
+    $catalogChecksum = $null
+    $verificationStatus = $null
+    if ($VerifyAgainstCatalog) {
+        $catalogChecksum = $catalogChecksums[$model.ModelId.ToLowerInvariant()]
+        if ([string]::IsNullOrWhiteSpace($catalogChecksum)) {
+            $catalogChecksum = $catalogChecksums[$model.FileName.ToLowerInvariant()]
+        }
+    }
+
     if ($null -eq $path) {
+        if ($VerifyAgainstCatalog) {
+            $verificationStatus = if ([string]::IsNullOrWhiteSpace($catalogChecksum)) { "catalog_missing" } else { "file_missing" }
+            if ($verificationStatus -eq "catalog_missing") { $catalogMissingCount++ }
+        }
+
         $entries += [pscustomobject]@{
             modelId = $model.ModelId
             fileName = $model.FileName
@@ -153,6 +208,8 @@ foreach ($model in $knownModels) {
             sha256 = $null
             csharpConstName = (ConvertTo-CSharpConstName -FileName $model.FileName)
             catalogPatch = $null
+            catalogChecksum = $catalogChecksum
+            verificationStatus = $verificationStatus
         }
         continue
     }
@@ -161,6 +218,21 @@ foreach ($model in $knownModels) {
     $hash = Get-FileHash -LiteralPath $path -Algorithm SHA256
     $constName = ConvertTo-CSharpConstName -FileName $model.FileName
     $catalogPatch = "ChecksumSha256: $constName.ToLowerInvariant(), ChecksumStatus: ""verified_reference_hash"""
+
+    if ($VerifyAgainstCatalog) {
+        if ([string]::IsNullOrWhiteSpace($catalogChecksum)) {
+            $verificationStatus = "catalog_missing"
+            $catalogMissingCount++
+        }
+        elseif ($catalogChecksum.ToLowerInvariant() -eq $hash.Hash.ToLowerInvariant()) {
+            $verificationStatus = "catalog_match"
+            $catalogMatchedCount++
+        }
+        else {
+            $verificationStatus = "catalog_mismatch"
+            $catalogMismatchCount++
+        }
+    }
 
     $entries += [pscustomobject]@{
         modelId = $model.ModelId
@@ -173,6 +245,8 @@ foreach ($model in $knownModels) {
         sha256 = $hash.Hash.ToLowerInvariant()
         csharpConstName = $constName
         catalogPatch = $catalogPatch
+        catalogChecksum = $catalogChecksum
+        verificationStatus = $verificationStatus
     }
 
     if ($IncludeCatalogSnippet) {
@@ -192,6 +266,10 @@ $report = [pscustomobject]@{
     searchRoots = $roots
     foundCount = @($entries | Where-Object { $_.status -eq "found" }).Count
     missingCount = @($entries | Where-Object { $_.status -eq "missing" }).Count
+    catalogArtifactPath = if ($VerifyAgainstCatalog) { [System.IO.Path]::GetFullPath([Environment]::ExpandEnvironmentVariables($CatalogArtifactPath)) } else { $null }
+    catalogMatchedCount = if ($VerifyAgainstCatalog) { $catalogMatchedCount } else { $null }
+    catalogMismatchCount = if ($VerifyAgainstCatalog) { $catalogMismatchCount } else { $null }
+    catalogMissingCount = if ($VerifyAgainstCatalog) { $catalogMissingCount } else { $null }
     items = $entries
     markdownSummary = $markdownSummary
     catalogSnippet = $catalogSnippet
@@ -211,3 +289,7 @@ if (-not [string]::IsNullOrWhiteSpace($OutputPath)) {
 }
 
 $json
+
+if ($VerifyAgainstCatalog -and $catalogMismatchCount -gt 0) {
+    exit 2
+}
