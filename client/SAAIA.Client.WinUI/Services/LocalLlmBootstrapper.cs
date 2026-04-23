@@ -197,6 +197,12 @@ internal sealed class LocalLlmBootstrapper
 
             if (s.QualifiedProfile is not null)
             {
+                var profileDrift = RequalificationTriggerService.EvaluateProfileDrift(s);
+                if (profileDrift.Required)
+                {
+                    ClientLog.Warn($"[Governance] Requalification required: {profileDrift.Reason}.");
+                }
+
                 var batteryPolicy = await BatteryPolicyStore.EvaluateAsync(s.QualifiedProfile, ct: ct).ConfigureAwait(false);
                 if (batteryPolicy.RequiresRequalification)
                 {

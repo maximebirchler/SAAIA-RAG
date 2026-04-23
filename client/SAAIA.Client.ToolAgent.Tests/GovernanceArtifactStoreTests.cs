@@ -219,6 +219,36 @@ public sealed class GovernanceArtifactStoreTests
         }
     }
 
+    [Fact]
+    public void ModelCatalogStore_resolves_canonical_model_id_from_file_name()
+    {
+        var canonical = ModelCatalogStore.ResolveCanonicalModelId("Qwen2.5-3B-Instruct-Q4_K_M.gguf");
+
+        Assert.Equal("qwen2.5-3b-instruct-q4-k-m", canonical);
+    }
+
+    [Fact]
+    public void RequalificationTriggerService_requires_requalification_when_runtime_or_model_drift()
+    {
+        var settings = new AppSettings
+        {
+            QualifiedProfile = WarmupProfileStore.CreateReferenceCudaProfile(),
+            LlamaExePath = @"C:\llm\llama-server-vulkan.exe",
+            ModelId = "Qwen2.5-3B-Instruct-Q4_K_M.gguf"
+        };
+
+        var runtimeDrift = RequalificationTriggerService.EvaluateProfileDrift(settings);
+
+        settings.LlamaExePath = @"C:\llm\llama-server-cuda.exe";
+        settings.ModelId = "mistral-unknown.gguf";
+        var modelDrift = RequalificationTriggerService.EvaluateProfileDrift(settings);
+
+        Assert.True(runtimeDrift.Required);
+        Assert.Contains("runtime_changed", runtimeDrift.Reason);
+        Assert.True(modelDrift.Required);
+        Assert.Contains("model_changed", modelDrift.Reason);
+    }
+
     private static HardwareProbeArtifact CreateHardwareProbe(
         string gpuName,
         int vramMiB,

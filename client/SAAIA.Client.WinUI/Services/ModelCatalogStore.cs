@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SAAIA.Client.WinUI.Services;
 
@@ -78,6 +79,20 @@ internal sealed record ModelSourceItem(
 
 internal static class ModelCatalogStore
 {
+    public static string? ResolveCanonicalModelId(string? modelIdOrFileName)
+    {
+        if (string.IsNullOrWhiteSpace(modelIdOrFileName))
+            return null;
+
+        var probe = modelIdOrFileName.Trim();
+        var catalog = CreateDefaultCatalog();
+        return catalog.Items
+            .FirstOrDefault(item =>
+                string.Equals(item.ModelId, probe, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(item.FileName, probe, StringComparison.OrdinalIgnoreCase))
+            ?.ModelId;
+    }
+
     public static ModelCatalogArtifact CreateDefaultCatalog() => new(
         GovernanceArtifactStore.ModelCatalogFile,
         "v3.1",

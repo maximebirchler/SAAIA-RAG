@@ -53,7 +53,7 @@
 - [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` — OK, 0 Warning
 - [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` — OK, 0 Warning
 - [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` — 335/335 verts
-- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 278/278 verts
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 280/280 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
 
@@ -285,7 +285,7 @@ Ces items constituent la gouvernance LLM complete. Ils peuvent commencer en para
 - Warmup gate decisionnel operationnel, resultats dans warmup_results.json
 - Blacklist consultee avant warmup et lancement gere
 - Rollback automatique fonctionne et est journalise
-- Reste : application UX/runtime des policies batterie, hard gate RAM optionnel et triggers de requalification driver/modele/runtime
+- Reste : application UX/runtime des policies batterie, hard gate RAM optionnel et trigger explicite driver
 
 ---
 
@@ -436,7 +436,8 @@ Ce qui manque pour le contrat CDC :
 - [x] Hard gate memoire GPU : `MinDxgiBudgetMiB` dans les profils warmup + refus `hard_gate_dxgi_budget_insufficient`
 - [x] Trigger requalification hardware : comparaison fingerprint courant vs `hardware_probe.json` au bootstrap
 - [x] Policy batterie : `battery_policies.json` + evaluation `client-balanced` -> fallback stable sur batterie
-- [~] Reste a faire : application UX/runtime des policies + triggers requalification driver/modele/runtime
+- [x] Triggers requalification modele/runtime : derive detectee au bootstrap depuis `QualifiedProfile` vs runtime/modeles courants
+- [~] Reste a faire : application UX/runtime des policies + trigger explicite driver
 
 ### Gaps fermes
 
