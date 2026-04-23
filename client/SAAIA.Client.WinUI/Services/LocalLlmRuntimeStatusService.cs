@@ -32,6 +32,14 @@ internal static class LocalLlmRuntimeStatusService
         if (!settings.UseLocalLlm || !settings.ManageLocalLlmProcess || settings.QualifiedProfile is null)
             return null;
 
+        if (ModelIntegrityService.IsModelQuarantined(settings))
+        {
+            return new LocalLlmRuntimeStatus(
+                "model_quarantined",
+                ModelIntegrityService.QuarantineUserMessage,
+                IsError: true);
+        }
+
         var warmupRead = await GovernanceArtifactStore.ReadAsync<WarmupResultsArtifact>(
             GovernanceArtifactStore.WarmupResultsFile,
             root,

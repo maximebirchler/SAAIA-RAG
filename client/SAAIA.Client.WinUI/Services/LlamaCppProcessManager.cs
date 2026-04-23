@@ -66,6 +66,10 @@ internal sealed class LlamaCppProcessManager
         if (!File.Exists(modelPath))
             return (false, $"Model not found: {modelPath}");
 
+        var modelIntegrity = await ModelIntegrityService.VerifyModelAsync(s, ct: ct).ConfigureAwait(false);
+        if (modelIntegrity.Blocked)
+            return (false, modelIntegrity.UserMessage ?? "Model integrity verification failed.");
+
         if (s.QualifiedProfile is not null)
         {
             var blacklistMatch = await BlacklistPolicy.FindMatchAsync(

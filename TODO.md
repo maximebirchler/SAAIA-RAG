@@ -32,9 +32,9 @@
 | Migrations SQL | Backend | [~] Stables | 28 fichiers, doublons legacy 004/008 documentes safe |
 | Tuning LLM client | Client | [x] Fait Patch 1+2 | GgufMetadataReader, ngl=block_count, batch>=512, ctx=3072, ubatch=256, threads-batch=6, flash-attn CUDA auto |
 | Budget VRAM observe (DXGI) | Client | [~] Enforce v1 | `hardware_probe.json` capture RAM, GPU, fingerprint, secteur/batterie et budget DXGI ; hard gate budget DXGI branche sur `warmup_profiles.json` |
-| Gouvernance llama-server client | Client | [~] Patch 5 avance | Artefacts locaux, `QualifiedProfile`, checksums, warmup gate, harnais TTFT/tok/s multi-scenarios, rollback, blacklist, hardware_probe, policy batterie et triggers hardware/driver/runtime/modele poses ; runtime v1 et statuts UX en place, quarantaine checksum encore ouverte |
+| Gouvernance llama-server client | Client | [~] Patch 5 avance | Artefacts locaux, `QualifiedProfile`, checksums, warmup gate, harnais TTFT/tok/s multi-scenarios, rollback, blacklist, hardware_probe, policy batterie et triggers hardware/driver/runtime/modele poses ; runtime v1, statuts UX et quarantaine checksum modele en place |
 | Cycle de vie runtime (sleep/wake) | Client | [x] Runtime v1 | `EagerLoad` explicite, idle timeout pilote par profil/policy, drain via heartbeat et wake a la demande avant generation |
-| Checksums modeles | Client | [~] Partiel | Infrastructure SHA-256 presente ; warning logge si Sha256Hex=null (Patch 3) ; valeurs reelles non encore calculees (Phase 3) |
+| Checksums modeles | Client | [~] Partiel | Infrastructure SHA-256 presente ; warning logge si Sha256Hex=null (Patch 3) ; mismatch connu -> quarantaine `.quarantine` + journal `acquisition_log.json` ; valeurs reelles de reference encore a calculer |
 | Endpoint support bundle admin | Backend | [x] Fait Patch 3 | `POST /admin/support/bundle` presente — ZIP stagé, artifacts/missingArtifacts, auth X-Admin-Key |
 
 ---
@@ -53,7 +53,7 @@
 - [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` — OK, 0 Warning
 - [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` — OK, 0 Warning
 - [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` — 335/335 verts
-- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 290/290 verts
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 293/293 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
 
@@ -260,7 +260,8 @@ Ces items constituent la gouvernance LLM complete. Ils peuvent commencer en para
 **Travaux — Blacklist et quarantaine (LLM-015, LLM-016, §9.14)** :
 - [x] Consulter `blacklist.json` avant warmup et avant lancement gere par `LlamaCppProcessManager`
 - [x] Refuser sans tentative tout couple blackliste
-- [ ] Quarantaine : checksum mismatch -> marquer `quarantined`, journaliser, bloquer sans fallback implicite
+- [~] Quarantaine : checksum mismatch -> marquer `quarantined`, journaliser, bloquer sans fallback implicite
+  - [x] Implémentation v1 client : renommage `*.quarantine`, journalisation `acquisition_log.json`, blocage explicite avant lancement
 - [ ] Exposer blacklist active en lecture seule dans interface admin
 
 **Travaux — Rollback (LLM-014, §9.15)** :
@@ -328,7 +329,7 @@ Ce qui manque pour le contrat CDC :
   - [x] Fallback actif -> "Profil de secours actif." (Avertissement)
   - [~] Generation en cours -> indicateur streaming visible
   - [x] Erreur warmup -> "Assistant temporairement indisponible." (Erreur)
-  - [ ] Mismatch checksum / quarantaine -> "Modele non disponible — contactez l'administrateur" (Erreur)
+  - [x] Mismatch checksum / quarantaine -> "Modele non disponible — contactez l'administrateur" (Erreur)
   - [x] Requalification necessaire -> ligne de statut LLM existante (sans nouvelle vue surchargee)
 
 ### Telemetrie GPU multi-vendor (§15.2.1)
@@ -439,7 +440,7 @@ Ce qui manque pour le contrat CDC :
 - [x] Triggers requalification modele/runtime : derive detectee au bootstrap depuis `QualifiedProfile` vs runtime/modeles courants
 - [x] Trigger requalification driver : comparaison `gpuDriverVersion` courant vs `hardware_probe.json`
 - [x] Application runtime v1 : `EagerLoad` branche sur le connect/startup et `idleTimeoutSeconds` pilote par profil/policy avec heartbeat d'activite LLM
-- [~] Reste a faire : quarantaine checksum et mesure `LoadMs` dediee wake-on-demand
+- [~] Reste a faire : checksums de reference reels et mesure `LoadMs` dediee wake-on-demand
 
 ### Gaps fermes
 
@@ -468,3 +469,4 @@ Ce qui manque pour le contrat CDC :
 | 2026-04-23 | Codex | Patch 4 socle : artefacts gouvernance client, `QualifiedProfile`, checksums, 262 tests client verts |
 | 2026-04-23 | Codex | Patch 5 socle : warmup gate decisionnel, blacklist, rollback, 267 tests client verts |
 | 2026-04-23 | Codex | Warmup UX/client : demarrage manuel aligne sur le warmup gate, statut nominal transparent, 290 tests client verts |
+| 2026-04-23 | Codex | Quarantaine checksum modele : blocage pre-start, renommage `.quarantine`, journal `acquisition_log.json`, statut UX dedie, 293 tests client verts |

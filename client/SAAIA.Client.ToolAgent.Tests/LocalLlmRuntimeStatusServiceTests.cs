@@ -184,6 +184,39 @@ public sealed class LocalLlmRuntimeStatusServiceTests
         }
     }
 
+    [Fact]
+    public async Task EvaluateAsync_returns_quarantine_message_when_model_is_quarantined()
+    {
+        var root = NewTempRoot();
+        var modelDir = Path.Combine(root, "models");
+        Directory.CreateDirectory(modelDir);
+        var modelPath = Path.Combine(modelDir, "Qwen2.5-3B-Instruct-Q4_K_M.gguf");
+
+        try
+        {
+            await File.WriteAllTextAsync(ModelIntegrityService.QuarantinePath(modelPath), "quarantined");
+            var settings = new AppSettings
+            {
+                UseLocalLlm = true,
+                ManageLocalLlmProcess = true,
+                ModelPath = modelPath,
+                QualifiedProfile = WarmupProfileStore.CreateReferenceCudaProfile()
+            };
+
+            await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(settings, root);
+            var status = await LocalLlmRuntimeStatusService.EvaluateAsync(settings, root);
+
+            Assert.NotNull(status);
+            Assert.Equal("model_quarantined", status!.Code);
+            Assert.Equal(ModelIntegrityService.QuarantineUserMessage, status.Message);
+            Assert.True(status.IsError);
+        }
+        finally
+        {
+            DeleteTempRoot(root);
+        }
+    }
+
     private static string NewTempRoot()
     {
         var root = Path.Combine(Path.GetTempPath(), "saaia-local-status-test-" + Guid.NewGuid().ToString("N"));
