@@ -12,7 +12,7 @@ public sealed class WarmupGateTests
         try
         {
             var profile = WarmupProfileStore.CreateReferenceCudaProfile();
-            await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(new AppSettings(), root);
+            await EnsureDefaultArtifactsWithHardwareAsync(root);
 
             var result = await WarmupGate.EvaluateAsync(
                 new WarmupGateRequest(
@@ -55,7 +55,7 @@ public sealed class WarmupGateTests
         try
         {
             var profile = WarmupProfileStore.CreateReferenceCudaProfile();
-            await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(new AppSettings(), root);
+            await EnsureDefaultArtifactsWithHardwareAsync(root);
 
             var result = await WarmupGate.EvaluateAsync(
                 new WarmupGateRequest(
@@ -86,7 +86,7 @@ public sealed class WarmupGateTests
         {
             var profile = WarmupProfileStore.CreateReferenceCudaProfile();
             var fallback = WarmupProfileStore.CreateReferenceCudaFallbackProfile();
-            await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(new AppSettings(), root);
+            await EnsureDefaultArtifactsWithHardwareAsync(root);
             await RollbackManager.SaveLastKnownGoodAsync(fallback, root);
 
             var result = await WarmupGate.EvaluateAsync(
@@ -124,7 +124,7 @@ public sealed class WarmupGateTests
         try
         {
             var profile = WarmupProfileStore.CreateReferenceCudaProfile();
-            await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(new AppSettings(), root);
+            await EnsureDefaultArtifactsWithHardwareAsync(root);
             await GovernanceArtifactStore.WriteAsync(
                 GovernanceArtifactStore.BlacklistFile,
                 BlacklistPolicy.Create(new BlacklistRule(
@@ -161,7 +161,7 @@ public sealed class WarmupGateTests
         try
         {
             var profile = WarmupProfileStore.CreateReferenceCudaProfile();
-            await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(new AppSettings(), root);
+            await EnsureDefaultArtifactsWithHardwareAsync(root);
 
             var result = await WarmupGate.EvaluateAsync(
                 new WarmupGateRequest(
@@ -191,7 +191,7 @@ public sealed class WarmupGateTests
         try
         {
             var profile = WarmupProfileStore.CreateReferenceCudaProfile();
-            await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(new AppSettings(), root);
+            await EnsureDefaultArtifactsWithHardwareAsync(root);
             var harness = new StubWarmupHarness(new[]
             {
                 new WarmupMeasurement(LoadMs: 21000, TtftMs: 11000, TokPerSec: 6.2),
@@ -223,11 +223,78 @@ public sealed class WarmupGateTests
         }
     }
 
+    [Fact]
+    public async Task WarmupGate_hard_gate_blocks_when_dxgi_budget_is_insufficient()
+    {
+        var root = NewTempRoot();
+        try
+        {
+            var profile = WarmupProfileStore.CreateReferenceCudaProfile();
+            await EnsureDefaultArtifactsWithHardwareAsync(root, dxgiBudgetMiB: 1024);
+
+            var result = await WarmupGate.EvaluateAsync(
+                new WarmupGateRequest(
+                    profile,
+                    new[]
+                    {
+                        new WarmupMeasurement(LoadMs: 21000, TtftMs: 11000, TokPerSec: 6.2),
+                        new WarmupMeasurement(LoadMs: 20800, TtftMs: 11200, TokPerSec: 6.1),
+                        new WarmupMeasurement(LoadMs: 21300, TtftMs: 10900, TokPerSec: 6.3)
+                    }),
+                root);
+
+            Assert.Equal(WarmupGateStatus.FailBlock, result.Status);
+            Assert.Contains(result.Reasons, item => item.StartsWith("hard_gate_dxgi_budget_insufficient", StringComparison.Ordinal));
+        }
+        finally
+        {
+            DeleteTempRoot(root);
+        }
+    }
+
     private static string NewTempRoot()
     {
         var root = Path.Combine(Path.GetTempPath(), "saaia-warmup-test-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         return root;
+    }
+
+    private static async Task EnsureDefaultArtifactsWithHardwareAsync(string root, int dxgiBudgetMiB = 4096)
+    {
+        await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(new AppSettings(), root);
+        await GovernanceArtifactStore.WriteAsync(
+            GovernanceArtifactStore.HardwareProbeFile,
+            CreateHardwareProbe(dxgiBudgetMiB),
+            root);
+    }
+
+    private static HardwareProbeArtifact CreateHardwareProbe(int dxgiBudgetMiB)
+    {
+        var gpu = new GpuInfo(
+            GpuVendor.Nvidia,
+            "Quadro P520",
+            4096L * 1024 * 1024,
+            IsIntegrated: false,
+            DetectionSource: "test");
+        var dxgi = new DxgiVideoMemorySnapshot(
+            (ulong)dxgiBudgetMiB * 1024 * 1024,
+            128UL * 1024 * 1024,
+            (ulong)Math.Max(0, dxgiBudgetMiB - 512) * 1024 * 1024,
+            0,
+            "test");
+        var memory = new SystemMemorySnapshot(
+            16L * 1024 * 1024 * 1024,
+            8L * 1024 * 1024 * 1024,
+            "test");
+
+        return HardwareProbeService.CreateArtifact(
+            gpu,
+            dxgi,
+            memory,
+            "test-machine",
+            processorCount: 8,
+            is64BitOperatingSystem: true,
+            DateTimeOffset.UtcNow);
     }
 
     private static void DeleteTempRoot(string root)

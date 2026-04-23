@@ -147,6 +147,10 @@ public sealed class GovernanceArtifactStoreTests
             TotalRamBytes: 16L * 1024 * 1024 * 1024,
             AvailableRamBytes: 8L * 1024 * 1024 * 1024,
             Source: "test");
+        var power = new PowerStatusSnapshot(
+            IsOnBattery: false,
+            BatteryLifePercent: 88,
+            Source: "test-power");
 
         var artifact = HardwareProbeService.CreateArtifact(
             gpu,
@@ -155,7 +159,8 @@ public sealed class GovernanceArtifactStoreTests
             "machine-a",
             processorCount: 8,
             is64BitOperatingSystem: true,
-            DateTimeOffset.Parse("2026-04-23T10:00:00Z"));
+            DateTimeOffset.Parse("2026-04-23T10:00:00Z"),
+            power);
 
         Assert.Equal("captured", artifact.Status);
         Assert.Equal("v3.1", artifact.CdcAlignment);
@@ -167,6 +172,53 @@ public sealed class GovernanceArtifactStoreTests
         Assert.Equal(512L, artifact.Hardware["dxgiCurrentUsageMiB"]);
         Assert.Equal(16384L, artifact.Hardware["totalRamMiB"]);
         Assert.Equal(8192L, artifact.Hardware["availableRamMiB"]);
+        Assert.Equal(false, artifact.Hardware["isOnBattery"]);
+        Assert.Equal(88, artifact.Hardware["batteryLifePercent"]);
+        Assert.Equal("test-power", artifact.Hardware["powerStatusSource"]);
+    }
+
+    [Fact]
+    public void HardwareProbeService_compare_requests_requalification_on_fingerprint_change()
+    {
+        var stored = CreateHardwareProbe("Quadro P520", 4096, "machine-a");
+        var current = CreateHardwareProbe("RTX A2000", 6144, "machine-a");
+
+        var changed = HardwareProbeService.Compare(stored, current);
+        var unchanged = HardwareProbeService.Compare(stored, stored);
+
+        Assert.True(changed.RequiresRequalification);
+        Assert.Equal("hardware_fingerprint_changed", changed.Reason);
+        Assert.False(unchanged.RequiresRequalification);
+        Assert.Equal("hardware_fingerprint_unchanged", unchanged.Reason);
+    }
+
+    private static HardwareProbeArtifact CreateHardwareProbe(string gpuName, int vramMiB, string machineName)
+    {
+        var gpu = new GpuInfo(
+            GpuVendor.Nvidia,
+            gpuName,
+            (long)vramMiB * 1024 * 1024,
+            IsIntegrated: false,
+            DetectionSource: "test");
+        var dxgi = new DxgiVideoMemorySnapshot(
+            (ulong)vramMiB * 1024 * 1024,
+            128UL * 1024 * 1024,
+            (ulong)Math.Max(0, vramMiB - 512) * 1024 * 1024,
+            0,
+            "test");
+        var memory = new SystemMemorySnapshot(
+            16L * 1024 * 1024 * 1024,
+            8L * 1024 * 1024 * 1024,
+            "test");
+
+        return HardwareProbeService.CreateArtifact(
+            gpu,
+            dxgi,
+            memory,
+            machineName,
+            processorCount: 8,
+            is64BitOperatingSystem: true,
+            DateTimeOffset.UtcNow);
     }
 
     private static string NewTempRoot()

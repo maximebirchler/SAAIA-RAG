@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -153,9 +154,22 @@ internal static class WarmupGate
         }
 
         var thresholds = profile.Thresholds;
+        var reasons = new List<string>();
+        var hardGateReasons = await EvaluateHardGatesAsync(profile, root, ct).ConfigureAwait(false);
+        if (hardGateReasons.Count > 0)
+        {
+            reasons.AddRange(hardGateReasons);
+            return await FailWithOptionalFallbackAsync(
+                request,
+                thresholds,
+                passCount: 0,
+                reasons,
+                root,
+                ct).ConfigureAwait(false);
+        }
+
         var passCount = request.Runs.Count(run => IsNominalPass(run, thresholds));
         var hasEnoughRuns = request.Runs.Count >= thresholds.WarmupPassCount;
-        var reasons = new List<string>();
 
         if (!hasEnoughRuns)
             reasons.Add("insufficient_runs");
@@ -189,6 +203,23 @@ internal static class WarmupGate
             return degraded;
         }
 
+        return await FailWithOptionalFallbackAsync(
+            request,
+            thresholds,
+            passCount,
+            reasons,
+            root,
+            ct).ConfigureAwait(false);
+    }
+
+    private static async Task<WarmupGateResult> FailWithOptionalFallbackAsync(
+        WarmupGateRequest request,
+        WarmupThresholds? thresholds,
+        int passCount,
+        List<string> reasons,
+        string? root,
+        CancellationToken ct)
+    {
         var lastKnownGood = await RollbackManager.ReadLastKnownGoodAsync(root, ct).ConfigureAwait(false);
         if (lastKnownGood is not null)
         {
@@ -213,6 +244,73 @@ internal static class WarmupGate
             reasons);
         await PersistResultAsync(request, block, thresholds, root, ct).ConfigureAwait(false);
         return block;
+    }
+
+    private static async Task<IReadOnlyList<string>> EvaluateHardGatesAsync(
+        WarmupProfileItem profile,
+        string? root,
+        CancellationToken ct)
+    {
+        var reasons = new List<string>();
+        var thresholds = profile.Thresholds;
+        if (thresholds.MinDxgiBudgetMiB is null && thresholds.MinAvailableRamMiB is null)
+            return reasons;
+
+        var read = await GovernanceArtifactStore.ReadAsync<HardwareProbeArtifact>(
+            GovernanceArtifactStore.HardwareProbeFile,
+            root,
+            ct).ConfigureAwait(false);
+
+        if (read.Status != GovernanceArtifactReadStatus.Ok || read.Value is null)
+        {
+            reasons.Add("hard_gate_hardware_probe_unavailable");
+            return reasons;
+        }
+
+        if (thresholds.MinDxgiBudgetMiB is { } minDxgi)
+        {
+            if (!TryGetLong(read.Value.Hardware, "dxgiBudgetMiB", out var dxgiBudgetMiB))
+                reasons.Add("hard_gate_dxgi_budget_missing");
+            else if (dxgiBudgetMiB < minDxgi)
+                reasons.Add($"hard_gate_dxgi_budget_insufficient:{dxgiBudgetMiB}<{minDxgi}");
+        }
+
+        if (thresholds.MinAvailableRamMiB is { } minRam)
+        {
+            if (!TryGetLong(read.Value.Hardware, "availableRamMiB", out var availableRamMiB))
+                reasons.Add("hard_gate_available_ram_missing");
+            else if (availableRamMiB < minRam)
+                reasons.Add($"hard_gate_available_ram_insufficient:{availableRamMiB}<{minRam}");
+        }
+
+        return reasons;
+    }
+
+    private static bool TryGetLong(
+        IReadOnlyDictionary<string, object?> values,
+        string key,
+        out long result)
+    {
+        result = 0;
+        if (!values.TryGetValue(key, out var value) || value is null)
+            return false;
+
+        switch (value)
+        {
+            case long l:
+                result = l;
+                return true;
+            case int i:
+                result = i;
+                return true;
+            case double d when d >= 0:
+                result = (long)d;
+                return true;
+            case JsonElement { ValueKind: JsonValueKind.Number } json:
+                return json.TryGetInt64(out result);
+            default:
+                return false;
+        }
     }
 
     private static bool IsNominalPass(WarmupMeasurement run, WarmupThresholds thresholds)

@@ -23,6 +23,17 @@ internal sealed record DxgiVideoMemorySnapshot(
     ulong CurrentReservationBytes,
     string Source);
 
+internal sealed record PowerStatusSnapshot(
+    bool? IsOnBattery,
+    int? BatteryLifePercent,
+    string Source);
+
+internal sealed record HardwareProbeChange(
+    bool RequiresRequalification,
+    string Reason,
+    string? StoredFingerprint,
+    string? CurrentFingerprint);
+
 internal static class HardwareProbeService
 {
     private static readonly SemaphoreSlim CacheLock = new(1, 1);
@@ -43,6 +54,7 @@ internal static class HardwareProbeService
 
             var gpu = await GpuDetector.TryGetBestGpuAsync(ct).ConfigureAwait(false);
             var memory = CaptureSystemMemory();
+            var power = CapturePowerStatus();
             var dxgi = DxgiVideoMemoryProbe.TryQueryBestAdapter(gpu);
 
             var probe = CreateArtifact(
@@ -52,7 +64,8 @@ internal static class HardwareProbeService
                 Environment.MachineName,
                 Environment.ProcessorCount,
                 Environment.Is64BitOperatingSystem,
-                DateTimeOffset.UtcNow);
+                DateTimeOffset.UtcNow,
+                power);
 
             CachedProbe = probe;
             return probe;
@@ -76,6 +89,57 @@ internal static class HardwareProbeService
         }
     }
 
+    public static async Task<HardwareProbeChange> DetectHardwareChangeAsync(
+        string? root = null,
+        CancellationToken ct = default)
+    {
+        var stored = await GovernanceArtifactStore.ReadAsync<HardwareProbeArtifact>(
+            GovernanceArtifactStore.HardwareProbeFile,
+            root,
+            ct).ConfigureAwait(false);
+        var current = await CaptureAsync(refresh: true, ct).ConfigureAwait(false);
+
+        if (stored.Status != GovernanceArtifactReadStatus.Ok || stored.Value is null)
+        {
+            return new HardwareProbeChange(
+                RequiresRequalification: true,
+                Reason: "hardware_probe_unavailable",
+                StoredFingerprint: null,
+                CurrentFingerprint: current.MachineFingerprint);
+        }
+
+        return Compare(stored.Value, current);
+    }
+
+    internal static HardwareProbeChange Compare(
+        HardwareProbeArtifact stored,
+        HardwareProbeArtifact current)
+    {
+        if (string.IsNullOrWhiteSpace(stored.MachineFingerprint))
+        {
+            return new HardwareProbeChange(
+                true,
+                "hardware_fingerprint_missing",
+                stored.MachineFingerprint,
+                current.MachineFingerprint);
+        }
+
+        if (!string.Equals(stored.MachineFingerprint, current.MachineFingerprint, StringComparison.OrdinalIgnoreCase))
+        {
+            return new HardwareProbeChange(
+                true,
+                "hardware_fingerprint_changed",
+                stored.MachineFingerprint,
+                current.MachineFingerprint);
+        }
+
+        return new HardwareProbeChange(
+            false,
+            "hardware_fingerprint_unchanged",
+            stored.MachineFingerprint,
+            current.MachineFingerprint);
+    }
+
     internal static HardwareProbeArtifact CreateArtifact(
         GpuInfo? gpu,
         DxgiVideoMemorySnapshot? dxgi,
@@ -83,7 +147,8 @@ internal static class HardwareProbeService
         string machineName,
         int processorCount,
         bool is64BitOperatingSystem,
-        DateTimeOffset capturedAt)
+        DateTimeOffset capturedAt,
+        PowerStatusSnapshot? power = null)
     {
         var status = gpu is null
             ? "degraded"
@@ -98,6 +163,9 @@ internal static class HardwareProbeService
             ["totalRamMiB"] = ToMiB(memory.TotalRamBytes),
             ["availableRamMiB"] = ToMiB(memory.AvailableRamBytes),
             ["systemMemorySource"] = memory.Source,
+            ["isOnBattery"] = power?.IsOnBattery,
+            ["batteryLifePercent"] = power?.BatteryLifePercent,
+            ["powerStatusSource"] = power?.Source ?? "unavailable",
             ["gpuVendor"] = gpu?.Vendor.ToString().ToLowerInvariant(),
             ["gpuName"] = gpu?.Name,
             ["gpuDetectionSource"] = gpu?.DetectionSource,
@@ -134,6 +202,34 @@ internal static class HardwareProbeService
         }
     }
 
+    private static PowerStatusSnapshot CapturePowerStatus()
+    {
+        if (!OperatingSystem.IsWindows())
+            return new PowerStatusSnapshot(null, null, "unsupported_os");
+
+        try
+        {
+            if (!GetSystemPowerStatus(out var status))
+                return new PowerStatusSnapshot(null, null, "unavailable");
+
+            var isOnBattery = status.ACLineStatus switch
+            {
+                0 => true,
+                1 => false,
+                _ => (bool?)null
+            };
+            var batteryPercent = status.BatteryLifePercent <= 100
+                ? status.BatteryLifePercent
+                : (int?)null;
+
+            return new PowerStatusSnapshot(isOnBattery, batteryPercent, "GetSystemPowerStatus");
+        }
+        catch
+        {
+            return new PowerStatusSnapshot(null, null, "unavailable");
+        }
+    }
+
     private static long ToMiB(long bytes) => bytes <= 0 ? 0 : bytes / 1024 / 1024;
 
     private static long ClampToInt64(ulong value)
@@ -156,6 +252,20 @@ internal static class HardwareProbeService
             gpu?.IsIntegrated.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
 
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text))).ToLowerInvariant();
+    }
+
+    [DllImport("kernel32.dll")]
+    private static extern bool GetSystemPowerStatus(out SYSTEM_POWER_STATUS lpSystemPowerStatus);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SYSTEM_POWER_STATUS
+    {
+        public byte ACLineStatus;
+        public byte BatteryFlag;
+        public byte BatteryLifePercent;
+        public byte SystemStatusFlag;
+        public int BatteryLifeTime;
+        public int BatteryFullLifeTime;
     }
 }
 

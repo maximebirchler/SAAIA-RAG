@@ -186,6 +186,14 @@ internal sealed class LocalLlmBootstrapper
         try
         {
             await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(s, ct: ct).ConfigureAwait(false);
+            var hardwareChange = await HardwareProbeService.DetectHardwareChangeAsync(ct: ct).ConfigureAwait(false);
+            if (hardwareChange.RequiresRequalification)
+            {
+                ClientLog.Warn(
+                    "[Governance] Requalification required: "
+                    + $"{hardwareChange.Reason} "
+                    + $"(stored={hardwareChange.StoredFingerprint ?? "none"}, current={hardwareChange.CurrentFingerprint ?? "none"}).");
+            }
         }
         catch (Exception ex)
         {

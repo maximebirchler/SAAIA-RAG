@@ -24,7 +24,9 @@ internal sealed record WarmupThresholds(
     int WarmupMaxTtftMs,
     double WarmupMinTokPerSec,
     int WarmupPassCount,
-    int IdleTimeoutSeconds);
+    int IdleTimeoutSeconds,
+    int? MinDxgiBudgetMiB = null,
+    int? MinAvailableRamMiB = null);
 
 internal static class WarmupProfileStore
 {
@@ -45,7 +47,8 @@ internal static class WarmupProfileStore
                     WarmupMaxTtftMs: 12000,
                     WarmupMinTokPerSec: 5.0,
                     WarmupPassCount: 3,
-                    IdleTimeoutSeconds: 120),
+                    IdleTimeoutSeconds: 120,
+                    MinDxgiBudgetMiB: 3000),
                 HardGateRefs: new[]
                 {
                     "checksum_verified",
@@ -65,7 +68,8 @@ internal static class WarmupProfileStore
                     WarmupMaxTtftMs: 14000,
                     WarmupMinTokPerSec: 5.0,
                     WarmupPassCount: 3,
-                    IdleTimeoutSeconds: 120),
+                    IdleTimeoutSeconds: 120,
+                    MinDxgiBudgetMiB: 2800),
                 HardGateRefs: new[]
                 {
                     "checksum_verified",
