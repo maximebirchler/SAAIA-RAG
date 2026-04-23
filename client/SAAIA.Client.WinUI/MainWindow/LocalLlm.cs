@@ -27,11 +27,29 @@ public sealed partial class MainWindow
             LocalLlmStatusText.Text = _llmProc.IsRunning ? "Running." : "";
             LocalLlmCmdLineBox.Text = _llmProc.LastCommandLine ?? "";
             RefreshLocalLlmModelInfoText();
+            _ = EnsureLocalGovernanceArtifactsInitializedAsync();
             _ = RefreshLocalLlmGovernanceStatusAsync();
         }
         catch
         {
             // ignore UI init failures
+        }
+    }
+
+    private async Task EnsureLocalGovernanceArtifactsInitializedAsync()
+    {
+        try
+        {
+            var settings = AppSettings.Load();
+            var hadQualifiedProfile = settings.QualifiedProfile is not null;
+            await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(settings).ConfigureAwait(false);
+
+            if (!hadQualifiedProfile && settings.QualifiedProfile is not null)
+                settings.Save();
+        }
+        catch (Exception ex)
+        {
+            ClientLog.Warn($"Local governance init skipped: {ex.GetType().Name}: {ex.Message}");
         }
     }
 
