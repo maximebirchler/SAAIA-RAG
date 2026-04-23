@@ -85,6 +85,9 @@ backend/SAAIA.Backend/appsettings.*.local.json
 req*.json
 infra/req*.json
 
+# Local CI/runtime reports
+artifacts/runtime-ci/
+
 # Ignore build artifacts anywhere (client included)
 **/.vs/
 **/bin/

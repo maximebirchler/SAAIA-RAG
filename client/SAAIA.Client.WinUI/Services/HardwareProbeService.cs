@@ -29,6 +29,14 @@ internal sealed record PowerStatusSnapshot(
     int? BatteryLifePercent,
     string Source);
 
+internal sealed record VendorGpuTelemetrySnapshot(
+    string Source,
+    long? VramUsedMiB,
+    long? VramTotalMiB,
+    double? TemperatureC,
+    double? CoreClockMHz,
+    double? UtilizationPercent);
+
 internal sealed record HardwareProbeChange(
     bool RequiresRequalification,
     string Reason,
@@ -58,6 +66,7 @@ internal static class HardwareProbeService
             var memory = CaptureSystemMemory();
             var power = CapturePowerStatus();
             var dxgi = DxgiVideoMemoryProbe.TryQueryBestAdapter(gpu);
+            var vendorTelemetry = CaptureVendorTelemetry(gpu);
 
             var probe = CreateArtifact(
                 gpu,
@@ -68,7 +77,8 @@ internal static class HardwareProbeService
                 Environment.ProcessorCount,
                 Environment.Is64BitOperatingSystem,
                 DateTimeOffset.UtcNow,
-                power);
+                power,
+                vendorTelemetry);
 
             CachedProbe = probe;
             return probe;
@@ -169,7 +179,8 @@ internal static class HardwareProbeService
         int processorCount,
         bool is64BitOperatingSystem,
         DateTimeOffset capturedAt,
-        PowerStatusSnapshot? power = null)
+        PowerStatusSnapshot? power = null,
+        VendorGpuTelemetrySnapshot? vendorTelemetry = null)
     {
         var status = gpu is null
             ? "degraded"
@@ -200,7 +211,14 @@ internal static class HardwareProbeService
             ["dxgiCurrentUsageMiB"] = dxgi is null ? null : ToMiB(ClampToInt64(dxgi.CurrentUsageBytes)),
             ["dxgiAvailableForReservationMiB"] = dxgi is null ? null : ToMiB(ClampToInt64(dxgi.AvailableForReservationBytes)),
             ["dxgiCurrentReservationMiB"] = dxgi is null ? null : ToMiB(ClampToInt64(dxgi.CurrentReservationBytes)),
-            ["dxgiSource"] = dxgi?.Source
+            ["dxgiSource"] = dxgi?.Source,
+            ["vendorTelemetryStatus"] = vendorTelemetry is null ? "unavailable" : "captured",
+            ["vendorTelemetrySource"] = vendorTelemetry?.Source,
+            ["gpuVramUsedMiB"] = vendorTelemetry?.VramUsedMiB,
+            ["gpuVramTotalMiB"] = vendorTelemetry?.VramTotalMiB,
+            ["gpuTemperatureC"] = vendorTelemetry?.TemperatureC,
+            ["gpuCoreClockMHz"] = vendorTelemetry?.CoreClockMHz,
+            ["gpuUtilizationPercent"] = vendorTelemetry?.UtilizationPercent
         };
 
         return new HardwareProbeArtifact(
@@ -258,6 +276,194 @@ internal static class HardwareProbeService
 
     private static long ClampToInt64(ulong value)
         => value > long.MaxValue ? long.MaxValue : (long)value;
+
+    private static VendorGpuTelemetrySnapshot? CaptureVendorTelemetry(GpuInfo? gpu)
+    {
+        if (gpu is null)
+            return null;
+
+        if (gpu.Vendor == GpuVendor.Amd)
+        {
+            var amdSmi = TryRunCli("amd-smi", "metric --json", TimeSpan.FromSeconds(3));
+            var amdTelemetry = TryParseVendorTelemetryJson("amd-smi", amdSmi);
+            if (amdTelemetry is not null)
+                return amdTelemetry;
+
+            var rocmSmi = TryRunCli("rocm-smi", "--showmeminfo vram --showtemp --showclocks --json", TimeSpan.FromSeconds(3));
+            return TryParseVendorTelemetryJson("rocm-smi", rocmSmi);
+        }
+
+        if (gpu.Vendor == GpuVendor.Intel)
+        {
+            var xpuSmi = TryRunCli("xpu-smi", "dump -d 0 -m 0,1,2 -n 1 -j", TimeSpan.FromSeconds(3));
+            return TryParseVendorTelemetryJson("intel-level-zero:xpu-smi", xpuSmi);
+        }
+
+        return null;
+    }
+
+    internal static VendorGpuTelemetrySnapshot? TryParseVendorTelemetryJson(string source, string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            long? usedMiB = null;
+            long? totalMiB = null;
+            double? temperatureC = null;
+            double? coreClockMHz = null;
+            double? utilizationPercent = null;
+
+            VisitTelemetryJson(
+                doc.RootElement,
+                ref usedMiB,
+                ref totalMiB,
+                ref temperatureC,
+                ref coreClockMHz,
+                ref utilizationPercent);
+
+            return usedMiB is null
+                   && totalMiB is null
+                   && temperatureC is null
+                   && coreClockMHz is null
+                   && utilizationPercent is null
+                ? null
+                : new VendorGpuTelemetrySnapshot(
+                    source,
+                    usedMiB,
+                    totalMiB,
+                    temperatureC,
+                    coreClockMHz,
+                    utilizationPercent);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void VisitTelemetryJson(
+        JsonElement element,
+        ref long? usedMiB,
+        ref long? totalMiB,
+        ref double? temperatureC,
+        ref double? coreClockMHz,
+        ref double? utilizationPercent)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                CaptureTelemetryValue(
+                    property.Name,
+                    property.Value,
+                    ref usedMiB,
+                    ref totalMiB,
+                    ref temperatureC,
+                    ref coreClockMHz,
+                    ref utilizationPercent);
+                VisitTelemetryJson(
+                    property.Value,
+                    ref usedMiB,
+                    ref totalMiB,
+                    ref temperatureC,
+                    ref coreClockMHz,
+                    ref utilizationPercent);
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+            {
+                VisitTelemetryJson(
+                    item,
+                    ref usedMiB,
+                    ref totalMiB,
+                    ref temperatureC,
+                    ref coreClockMHz,
+                    ref utilizationPercent);
+            }
+        }
+    }
+
+    private static void CaptureTelemetryValue(
+        string key,
+        JsonElement value,
+        ref long? usedMiB,
+        ref long? totalMiB,
+        ref double? temperatureC,
+        ref double? coreClockMHz,
+        ref double? utilizationPercent)
+    {
+        if (!TryGetDouble(value, out var number))
+            return;
+
+        var normalized = NormalizeTelemetryKey(key);
+        if (usedMiB is null && (normalized.Contains("vramusedmib", StringComparison.Ordinal) || normalized.Contains("memoryusedmib", StringComparison.Ordinal)))
+            usedMiB = (long)Math.Round(number);
+        else if (totalMiB is null && (normalized.Contains("vramtotalmib", StringComparison.Ordinal) || normalized.Contains("memorytotalmib", StringComparison.Ordinal)))
+            totalMiB = (long)Math.Round(number);
+        else if (temperatureC is null && (normalized.Contains("temperaturec", StringComparison.Ordinal) || normalized.Contains("tempc", StringComparison.Ordinal) || normalized == "temperature"))
+            temperatureC = number;
+        else if (coreClockMHz is null && (normalized.Contains("coreclockmhz", StringComparison.Ordinal) || normalized.Contains("gfxclockmhz", StringComparison.Ordinal) || normalized.Contains("frequencymhz", StringComparison.Ordinal)))
+            coreClockMHz = number;
+        else if (utilizationPercent is null && (normalized.Contains("utilizationpercent", StringComparison.Ordinal) || normalized.Contains("gpuutil", StringComparison.Ordinal)))
+            utilizationPercent = number;
+    }
+
+    private static bool TryGetDouble(JsonElement value, out double number)
+    {
+        if (value.ValueKind == JsonValueKind.Number)
+            return value.TryGetDouble(out number);
+
+        if (value.ValueKind == JsonValueKind.String)
+            return double.TryParse(value.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out number);
+
+        number = 0;
+        return false;
+    }
+
+    private static string NormalizeTelemetryKey(string key)
+        => new((key ?? string.Empty)
+            .Where(char.IsLetterOrDigit)
+            .Select(char.ToLowerInvariant)
+            .ToArray());
+
+    private static string? TryRunCli(string fileName, string arguments, TimeSpan timeout)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = fileName,
+                Arguments = arguments,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            using var proc = Process.Start(psi);
+            if (proc is null)
+                return null;
+
+            if (!proc.WaitForExit((int)Math.Max(1000, timeout.TotalMilliseconds)))
+            {
+                try { proc.Kill(entireProcessTree: true); } catch { }
+                return null;
+            }
+
+            return proc.ExitCode == 0
+                ? proc.StandardOutput.ReadToEnd()
+                : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
     private static string? TryGetDriverVersion(GpuInfo? gpu)
     {

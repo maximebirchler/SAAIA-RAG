@@ -300,7 +300,7 @@ Ces items dependent des fondations posees dans Patch 4 et 5.
 ### Budget VRAM observe DXGI (§9.11, LLM-008)
 
 - [x] `HardwareProbeService` : DXGI `QueryVideoMemoryInfo` via COM/PInvoke Windows (budget courant observe, pas seulement VRAM installee)
-- [~] Cas UMA Intel Arc (budget partage != VRAM dediee) : capture possible via DXGI, policy de selection encore a calibrer
+- [~] Cas UMA Intel Arc (budget partage != VRAM dediee) : capture possible via DXGI + telemetry Intel `xpu-smi`, policy de selection encore a calibrer
 - [x] Detection eGPU distinct + trigger requalification si debranche
 - [x] Hard gate `dxgi_budget_available` : seuil `MinDxgiBudgetMiB` lu depuis `warmup_profiles.json`, blocage avant qualification si insuffisant
 - [x] Enrichir `hardware_probe.json` : vendor, nom GPU, VRAM dediee, budget DXGI courant, usage courant, RAM totale/disponible, mode batterie/secteur et fingerprint machine presents
@@ -337,8 +337,8 @@ Ce qui manque pour le contrat CDC :
 
 ### Telemetrie GPU multi-vendor (§15.2.1)
 
-- [ ] AMD SMI / ROCm SMI : VRAM, temperature, frequence
-- [ ] Intel Level Zero : budget memoire, utilisation, UMA
+- [x] AMD SMI / ROCm SMI : VRAM, temperature, frequence
+- [x] Intel Level Zero : budget memoire, utilisation, UMA via probe `xpu-smi` opportuniste
 - [~] Endpoint `/metrics` llama.cpp consomme opportunistiquement par `LocalLlmWarmupHarness` ; mapping tokens/KV cache/threads a formaliser
 - [~] Regle : pas de collecte a chaque requete user ; collecte actuelle pendant warmup/qualification, `hardware_probe` reste le snapshot hardware
 
@@ -348,7 +348,7 @@ Ce qui manque pour le contrat CDC :
 
 ### Harnais regression CI (§15.5.2)
 
-- [ ] Harnais CI distinct du harnais qualification : concurrence backend, recovery crash, profil degrade, reproductibilite TTFT/tok/s dans les marges de `warmup_profiles.json`
+- [x] Harnais CI distinct du harnais qualification : concurrence backend, recovery crash, profil degrade, reproductibilite TTFT/tok/s dans les marges de `warmup_profiles.json`
 
 ---
 
@@ -483,3 +483,5 @@ Ce qui manque pour le contrat CDC :
 | 2026-04-23 | Codex | Support bundle admin enrichi avec artefacts gouvernance v3.1 + logs LLM + config redigee ; test ZIP contractuel vert |
 | 2026-04-23 | Codex | Lecteur GGUF corrige pour cles prefixees architecture (`qwen2.*`) et valide sur le modele reel Qwen2.5 3B Q4_K_M ; 300 tests client verts |
 | 2026-04-23 | Codex | Detection eGPU v1 : `gpuIsExternal`/`gpuConnectionHint` dans `hardware_probe.json` et trigger `external_gpu_disconnected` teste |
+| 2026-04-23 | Codex | Harnais CI runtime distinct ajoute (`tools/runtime-ci-harness.ps1`) : tests .NET, probes runtime optionnelles, concurrence/recovery/reproductibilite TTFT/tok/s |
+| 2026-04-23 | Codex | Telemetrie vendor GPU v1 : probes optionnelles AMD `amd-smi`/`rocm-smi` et Intel `xpu-smi`, parsing JSON teste dans `hardware_probe.json` |

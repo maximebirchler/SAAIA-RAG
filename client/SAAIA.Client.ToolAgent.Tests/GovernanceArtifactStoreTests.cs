@@ -218,6 +218,101 @@ public sealed class GovernanceArtifactStoreTests
     }
 
     [Fact]
+    public void HardwareProbeService_create_artifact_includes_vendor_gpu_telemetry()
+    {
+        var gpu = new GpuInfo(
+            GpuVendor.Amd,
+            "Radeon RX 7800 XT",
+            16L * 1024 * 1024 * 1024,
+            IsIntegrated: false,
+            DetectionSource: "test");
+        var memory = new SystemMemorySnapshot(
+            TotalRamBytes: 32L * 1024 * 1024 * 1024,
+            AvailableRamBytes: 16L * 1024 * 1024 * 1024,
+            Source: "test");
+        var telemetry = new VendorGpuTelemetrySnapshot(
+            Source: "amd-smi",
+            VramUsedMiB: 2048,
+            VramTotalMiB: 16384,
+            TemperatureC: 62.5,
+            CoreClockMHz: 2250,
+            UtilizationPercent: 41);
+
+        var artifact = HardwareProbeService.CreateArtifact(
+            gpu,
+            gpuDriverVersion: null,
+            dxgi: null,
+            memory,
+            "machine-a",
+            processorCount: 12,
+            is64BitOperatingSystem: true,
+            DateTimeOffset.Parse("2026-04-23T10:00:00Z"),
+            vendorTelemetry: telemetry);
+
+        Assert.Equal("captured", artifact.Hardware["vendorTelemetryStatus"]);
+        Assert.Equal("amd-smi", artifact.Hardware["vendorTelemetrySource"]);
+        Assert.Equal(2048L, artifact.Hardware["gpuVramUsedMiB"]);
+        Assert.Equal(16384L, artifact.Hardware["gpuVramTotalMiB"]);
+        Assert.Equal(62.5, artifact.Hardware["gpuTemperatureC"]);
+        Assert.Equal(2250d, artifact.Hardware["gpuCoreClockMHz"]);
+        Assert.Equal(41d, artifact.Hardware["gpuUtilizationPercent"]);
+    }
+
+    [Fact]
+    public void HardwareProbeService_parses_vendor_gpu_telemetry_json()
+    {
+        const string json = """
+        {
+          "card0": {
+            "vram_used_mib": 512,
+            "vram_total_mib": 4096,
+            "temperature_c": 63,
+            "gfx_clock_mhz": 1225,
+            "gpu_util": 47
+          }
+        }
+        """;
+
+        var telemetry = HardwareProbeService.TryParseVendorTelemetryJson("amd-smi", json);
+
+        Assert.NotNull(telemetry);
+        Assert.Equal("amd-smi", telemetry!.Source);
+        Assert.Equal(512, telemetry.VramUsedMiB);
+        Assert.Equal(4096, telemetry.VramTotalMiB);
+        Assert.Equal(63, telemetry.TemperatureC);
+        Assert.Equal(1225, telemetry.CoreClockMHz);
+        Assert.Equal(47, telemetry.UtilizationPercent);
+    }
+
+    [Fact]
+    public void HardwareProbeService_parses_intel_level_zero_style_metrics()
+    {
+        const string json = """
+        {
+          "device_level": [
+            {
+              "memory_used_mib": "768",
+              "memory_total_mib": "8192",
+              "temperature": "54",
+              "frequency_mhz": "1450",
+              "utilization_percent": "36"
+            }
+          ]
+        }
+        """;
+
+        var telemetry = HardwareProbeService.TryParseVendorTelemetryJson("intel-level-zero:xpu-smi", json);
+
+        Assert.NotNull(telemetry);
+        Assert.Equal("intel-level-zero:xpu-smi", telemetry!.Source);
+        Assert.Equal(768, telemetry.VramUsedMiB);
+        Assert.Equal(8192, telemetry.VramTotalMiB);
+        Assert.Equal(54, telemetry.TemperatureC);
+        Assert.Equal(1450, telemetry.CoreClockMHz);
+        Assert.Equal(36, telemetry.UtilizationPercent);
+    }
+
+    [Fact]
     public void HardwareProbeService_create_artifact_marks_external_gpu_from_connection_hint()
     {
         var gpu = new GpuInfo(
