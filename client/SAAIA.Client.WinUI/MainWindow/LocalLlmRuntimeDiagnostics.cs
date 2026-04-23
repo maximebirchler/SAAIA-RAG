@@ -63,6 +63,9 @@ public sealed partial class MainWindow
                 }
             }, new Thickness(14));
 
+        static string FormatTimestamp(DateTimeOffset? value)
+            => value?.ToLocalTime().ToString("g") ?? "-";
+
         string bannerText;
         var metricsGrid = new Grid { ColumnSpacing = 12, RowSpacing = 12 };
         for (var i = 0; i < 3; i++)
@@ -73,7 +76,7 @@ public sealed partial class MainWindow
         var detailsGrid = new Grid { ColumnSpacing = 12, RowSpacing = 12 };
         detailsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         detailsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        for (var i = 0; i < 4; i++)
+        for (var i = 0; i < 5; i++)
             detailsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         var bannerHost = new ContentPresenter();
         var progressBar = new ProgressBar
@@ -207,6 +210,8 @@ public sealed partial class MainWindow
                 BuildField("Famille GGUF", diagnostics.ModelFamily),
                 BuildField("Profil qualifie", diagnostics.QualifiedProfileId),
                 BuildField("Policy flash-attn", ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn)),
+                BuildField("Active depuis", FormatTimestamp(diagnostics.ActivatedAtUtc)),
+                BuildField("Qualifie le", FormatTimestamp(diagnostics.QualifiedAtUtc)),
                 BuildField("Exe actif", diagnostics.ActiveExePath),
                 BuildField("Manifest runtime", diagnostics.ActiveManifestPath),
                 BuildField("Derniere raison warmup", diagnostics.LatestWarmupReason),
@@ -229,6 +234,46 @@ public sealed partial class MainWindow
 
         async Task UpgradeRuntimeAsync()
         {
+            if (currentDiagnostics is null)
+                return;
+
+            var confirm = new ContentDialog
+            {
+                Title = "Confirmer la mise a niveau runtime",
+                Content = new StackPanel
+                {
+                    Spacing = 10,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = $"Le modele courant demande un runtime {currentDiagnostics.RequiredBuild ?? "plus recent"}.",
+                            TextWrapping = TextWrapping.WrapWholeWords
+                        },
+                        new TextBlock
+                        {
+                            Text = $"Runtime actuel : {currentDiagnostics.ActiveBuild ?? "inconnu"}",
+                            TextWrapping = TextWrapping.WrapWholeWords,
+                            Opacity = 0.82
+                        },
+                        new TextBlock
+                        {
+                            Text = "Le runtime sera telecharge dans un dossier versionne, puis devra etre qualifie par warmup avant usage nominal.",
+                            TextWrapping = TextWrapping.WrapWholeWords,
+                            Opacity = 0.82
+                        }
+                    }
+                },
+                PrimaryButtonText = "Mettre a niveau",
+                CloseButtonText = ClientUiText.Get("dialog.close", _appSettings.UiLanguage),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = Root.XamlRoot
+            };
+            ConfigureDialogChrome(confirm);
+            var confirmed = await confirm.ShowAsync();
+            if (confirmed != ContentDialogResult.Primary)
+                return;
+
             SetBusy(true);
             try
             {

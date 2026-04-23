@@ -123,6 +123,9 @@ public sealed partial class MainWindow
 
         void SetRuntimeSummary(LocalLlmRuntimeDiagnostics diagnostics)
         {
+            static string FormatTimestamp(DateTimeOffset? value)
+                => value?.ToLocalTime().ToString("g") ?? "-";
+
             var summary = $"{diagnostics.RuntimeLabel} | build {diagnostics.ActiveBuild ?? "inconnu"}";
             if (!string.IsNullOrWhiteSpace(diagnostics.RequiredBuild))
                 summary += $" | requis {diagnostics.RequiredBuild}";
@@ -155,6 +158,13 @@ public sealed partial class MainWindow
                     TextWrapping = TextWrapping.WrapWholeWords
                 });
             }
+
+            details.Children.Add(new TextBlock
+            {
+                Text = $"Active depuis {FormatTimestamp(diagnostics.ActivatedAtUtc)} | qualifie le {FormatTimestamp(diagnostics.QualifiedAtUtc)}",
+                Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
+                TextWrapping = TextWrapping.WrapWholeWords
+            });
 
             runtimeHost.Content = BuildDialogSurfaceCard(details, new Thickness(12));
         }

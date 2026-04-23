@@ -45,6 +45,8 @@ public sealed class LocalLlmRuntimeDiagnosticsServiceTests
             Assert.Equal("b8901", diagnostics.ActiveBuild);
             Assert.Equal("pending_qualification", diagnostics.ActiveState);
             Assert.Equal("b8149", diagnostics.PreviousBuild);
+            Assert.Equal(DateTimeOffset.Parse("2026-04-23T10:00:00Z"), diagnostics.ActivatedAtUtc);
+            Assert.Null(diagnostics.QualifiedAtUtc);
             Assert.False(diagnostics.UpgradeRequired);
             Assert.Equal("gemma4", diagnostics.ModelFamily);
             Assert.False(diagnostics.ForcedFlashAttn);

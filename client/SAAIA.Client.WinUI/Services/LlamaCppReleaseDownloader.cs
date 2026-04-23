@@ -76,7 +76,9 @@ internal sealed class LlamaCppReleaseDownloader
         string Build,
         string ExePath,
         string? Status,
-        string? PreviousBuild);
+        string? PreviousBuild,
+        DateTimeOffset ActivatedAtUtc,
+        DateTimeOffset? QualifiedAtUtc);
 
     public Task<(bool ok, string message, string? exePath)> EnsureWindowsCpuAsync(
         IProgress<DownloadManager.ProgressInfo>? progress,
@@ -506,7 +508,9 @@ internal sealed class LlamaCppReleaseDownloader
                 item.Build,
                 item.ExePath,
                 item.Status,
-                item.Previous?.Build);
+                item.Previous?.Build,
+                item.ActivatedAtUtc,
+                item.QualifiedAtUtc);
     }
 
     internal static bool TryMarkRuntimeQualified(string runtimeId)

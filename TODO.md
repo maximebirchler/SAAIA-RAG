@@ -469,8 +469,8 @@ Ce qui manque pour le contrat CDC :
 - [x] Exposer le diagnostic runtime actif / build requis / upgrade requis dans le support bundle et la vue admin runtime
   - [x] Support bundle : `active-runtime.json` + chemins runtime actifs + tags CPU/CUDA/Vulkan
   - [x] Statut client : message explicite `Mise a niveau du runtime requise.`
-  - [x] Vue runtime locale : overlay dedie avec build actif / requis, etat pending/qualified, warmup, profil qualifie, policy flash-attn et actions `Mettre a niveau` / `Demarrer et qualifier`
-  - [x] Vue admin/runtime : resume runtime local integre dans l'overlay admin sans surcharge de la vue
+  - [x] Vue runtime locale : overlay dedie avec build actif / requis, etat pending/qualified, warmup, profil qualifie, policy flash-attn, historique simple (active/qualifie le) et actions `Mettre a niveau` / `Demarrer et qualifier`
+  - [x] Vue admin/runtime : resume runtime local integre dans l'overlay admin sans surcharge de la vue, avec timestamps d'activation/qualification
 
 **Decision produit** :
 - Gemma 4 reste famille de test tant que le runtime SAAIA embarque officiel n'est pas upgrade et qualifie par warmup.
@@ -530,3 +530,4 @@ Ce qui manque pour le contrat CDC :
 | 2026-04-23 | Codex | Diagnostic runtime local : service dedie + overlay UI avec build actif / requis, etat runtime, warmup et override flash-attn ; 316 tests client verts |
 | 2026-04-23 | Codex | Overlay admin runtime : resume compact du runtime local ajoute (build actif/requis, etat, warmup, flash-attn), sans surcharger la vue existante |
 | 2026-04-23 | Codex | Overlay runtime local actionnable : upgrade runtime declenchable depuis le diagnostic, puis qualification/warmup relancable sans sortir de la vue |
+| 2026-04-23 | Codex | Confirmation avant upgrade runtime + historique simple visible (active/qualifie le) dans les vues locale et admin ; build WinUI 0 warning, 316 tests client verts |
