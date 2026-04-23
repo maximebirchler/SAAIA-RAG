@@ -395,6 +395,7 @@ public sealed partial class MainWindow
 
         if (fe.FindName("CopyBtn") is Button b)
         {
+            ToolTipService.SetToolTip(b, ClientUiText.Get("button.copy", UiLang));
             b.Opacity = 1;
             b.IsHitTestVisible = true;
         }

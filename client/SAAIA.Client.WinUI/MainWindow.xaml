@@ -68,6 +68,7 @@
                                 <Button x:Name="CopyBtn"
                                         Grid.Column="1"
                                         Click="CopyMessage_Click"
+                                        Loaded="CopyButton_Loaded"
                                         CommandParameter="{Binding}"
                                         Background="Transparent"
                                         BorderThickness="0"
@@ -76,7 +77,7 @@
                                         Height="22"
                                         HorizontalAlignment="Right"
                                         VerticalAlignment="Center"
-                                        ToolTipService.ToolTip="Copier"
+                                        ToolTipService.ToolTip="Copy"
                                         IsTabStop="False"
                                         Opacity="0"
                                         IsHitTestVisible="False">
@@ -146,7 +147,9 @@
                                               Height="10"
                                               IsActive="True"
                                               VerticalAlignment="Center"/>
-                                <TextBlock Text="Generation en cours..."
+                                <TextBlock x:Name="StreamingStatusText"
+                                           Loaded="StreamingStatusText_Loaded"
+                                           Text="Streaming..."
                                            Foreground="{ThemeResource AppTextSecondaryBrush}"
                                            FontSize="11"/>
                             </StackPanel>
@@ -168,6 +171,7 @@
                                 <Button x:Name="CopyBtn"
                                         Grid.Column="0"
                                         Click="CopyMessage_Click"
+                                        Loaded="CopyButton_Loaded"
                                         CommandParameter="{Binding}"
                                         Background="Transparent"
                                         BorderThickness="0"
@@ -176,7 +180,7 @@
                                         Height="22"
                                         HorizontalAlignment="Left"
                                         VerticalAlignment="Center"
-                                        ToolTipService.ToolTip="Copier"
+                                        ToolTipService.ToolTip="Copy"
                                         IsTabStop="False"
                                         Opacity="0"
                                         IsHitTestVisible="False">
@@ -378,10 +382,10 @@
                 <ColumnDefinition Width="Auto"/> <!-- Sources -->
             </Grid.ColumnDefinitions>
 
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="Server URL" FontWeight="SemiBold" Visibility="Collapsed"/>
-            <TextBlock Grid.Row="0" Grid.Column="1" Text="API Key (X-Api-Key)" FontWeight="SemiBold" Visibility="Collapsed"/>
-            <TextBlock Grid.Row="0" Grid.Column="2" Text="LLM URL (OpenAI compat)" FontWeight="SemiBold" Visibility="Collapsed"/>
-            <TextBlock Grid.Row="0" Grid.Column="3" Text="LLM Model" FontWeight="SemiBold" Visibility="Collapsed"/>
+            <TextBlock x:Name="ServerUrlLabelText" Grid.Row="0" Grid.Column="0" Text="Server URL" FontWeight="SemiBold" Visibility="Collapsed"/>
+            <TextBlock x:Name="ApiKeyLabelText" Grid.Row="0" Grid.Column="1" Text="API Key (X-Api-Key)" FontWeight="SemiBold" Visibility="Collapsed"/>
+            <TextBlock x:Name="LlmUrlLabelText" Grid.Row="0" Grid.Column="2" Text="LLM URL (OpenAI compat)" FontWeight="SemiBold" Visibility="Collapsed"/>
+            <TextBlock x:Name="LlmModelLabelText" Grid.Row="0" Grid.Column="3" Text="LLM Model" FontWeight="SemiBold" Visibility="Collapsed"/>
 
             <TextBox Grid.Row="1" Grid.Column="0" x:Name="ServerUrlBox" IsReadOnly="True" Visibility="Collapsed"/>
             <PasswordBox Grid.Row="1" Grid.Column="1" x:Name="ApiKeyBox" Visibility="Collapsed"/>
@@ -424,12 +428,12 @@
                                                       VerticalScrollBarVisibility="Auto">
                                             <StackPanel Spacing="10" Padding="12">
                 
-                                                <TextBlock Text="Local LLM (llama.cpp)" FontWeight="SemiBold" FontSize="16"/>
+                                                <TextBlock x:Name="LocalLlmPanelTitleText" Text="Local LLM (llama.cpp)" FontWeight="SemiBold" FontSize="16"/>
                 
                                                 <CheckBox x:Name="LocalLlmEnabledCheck" Content="Enable local LLM (llama.cpp)" />
                                                 <CheckBox x:Name="LocalLlmAutoStartCheck" Content="Auto-start local LLM on Connect" />
                 
-                                                <TextBlock Text="Server executable (llama-server.exe)" FontWeight="SemiBold"/>
+                                                <TextBlock x:Name="LocalLlmExeLabelText" Text="Server executable (llama-server.exe)" FontWeight="SemiBold"/>
                                                 <TextBox x:Name="LocalLlmExePathBox" PlaceholderText="C:\SAAIA\llm\llama-server.exe"/>
                 
                                                 
@@ -437,7 +441,7 @@
                                                     <Button x:Name="LocalLlmBrowseExeButton" Content="Browse…" Click="LocalLlmBrowseExe_Click" MinWidth="90"/>
                                                 </StackPanel>
                 
-                                                <TextBlock Text="Model (.gguf)" FontWeight="SemiBold"/>
+                                                <TextBlock x:Name="LocalLlmModelLabelText" Text="Model (.gguf)" FontWeight="SemiBold"/>
                                                 <TextBox x:Name="LocalLlmModelPathBox" PlaceholderText="C:\SAAIA\models\Mistral-7B-Instruct-v0.3-IQ3_M.gguf"/>
                 
                                                 
@@ -457,20 +461,20 @@
                                                     </Grid.ColumnDefinitions>
                 
                                                     <StackPanel Grid.Column="0" Spacing="4">
-                                                        <TextBlock Text="Host" FontWeight="SemiBold"/>
+                                                        <TextBlock x:Name="LocalLlmHostLabelText" Text="Host" FontWeight="SemiBold"/>
                                                         <TextBox x:Name="LocalLlmHostBox" PlaceholderText="127.0.0.1"/>
                                                     </StackPanel>
                 
                                                     <StackPanel Grid.Column="1" Spacing="4">
-                                                        <TextBlock Text="Port" FontWeight="SemiBold"/>
+                                                        <TextBlock x:Name="LocalLlmPortLabelText" Text="Port" FontWeight="SemiBold"/>
                                                         <TextBox x:Name="LocalLlmPortBox" PlaceholderText="1234"/>
                                                     </StackPanel>
                                                 </Grid>
                 
-                                                <TextBlock Text="Model ID (OpenAI 'model')" FontWeight="SemiBold"/>
+                                                <TextBlock x:Name="LocalLlmModelIdLabelText" Text="Model ID (OpenAI 'model')" FontWeight="SemiBold"/>
                                                 <TextBox x:Name="LocalLlmModelIdBox" PlaceholderText="Mistral-7B-Instruct-v0.3-IQ3_M.gguf"/>
                 
-                                                <TextBlock Text="Extra args (optional)" FontWeight="SemiBold"/>
+                                                <TextBlock x:Name="LocalLlmExtraArgsLabelText" Text="Extra args (optional)" FontWeight="SemiBold"/>
                                                 <TextBox x:Name="LocalLlmExtraArgsBox"
                                                          AcceptsReturn="False"
                                                          TextWrapping="Wrap"
@@ -485,7 +489,7 @@
                 
                                                 <TextBlock x:Name="LocalLlmStatusText" Opacity="0.8" TextWrapping="Wrap"/>
                 
-                                                <TextBlock Text="Command line (for support)" FontWeight="SemiBold"/>
+                                                <TextBlock x:Name="LocalLlmCommandLineLabelText" Text="Command line (for support)" FontWeight="SemiBold"/>
                                                 <TextBox x:Name="LocalLlmCmdLineBox"
                                                          IsReadOnly="True"
                                                          AcceptsReturn="False"
@@ -717,7 +721,7 @@
                               VerticalScrollBarVisibility="Auto">
                     <StackPanel Spacing="12">
 
-                        <TextBlock Text="Sources" FontWeight="SemiBold" FontSize="16" Foreground="{ThemeResource AppTextPrimaryBrush}"/>
+                        <TextBlock x:Name="SourcesPanelTitleText" Text="Sources" FontWeight="SemiBold" FontSize="16" Foreground="{ThemeResource AppTextPrimaryBrush}"/>
 
                         <controls:SourcesCardsControl x:Name="SourcesCards" />
 

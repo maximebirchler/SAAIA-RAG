@@ -535,3 +535,4 @@ Ce qui manque pour le contrat CDC :
 | 2026-04-23 | Codex | Lecture runtime plus exploitable : 3 derniers evenements visibles dans l'overlay admin et resume texte `runtime_event_log.txt` ajoute au support bundle |
 | 2026-04-23 | Codex | Passe multilingue runtime : overlay diagnostic local, resume admin runtime, actions visibles du flyout LLM local et statuts runtime alignes sur `UiLanguage` ; build WinUI 0 warning, 317 tests client verts |
 | 2026-04-23 | Codex | Passe multilingue et audit client elargis : setup wizard, parcours d'installation/connect, sources cards, infos modele local et erreurs techniques ApiClient/ModelLibrary alignes sur `UiLanguage` ; build WinUI 0 warning, 317 tests client verts |
+| 2026-04-23 | Codex | Fenetre principale finalisee cote multilingue : flyout LLM local, copy tooltips, indicateur streaming, titres sources et libelles techniques caches alignes sur `UiLanguage` ; build WinUI 0 warning, 317 tests client verts |

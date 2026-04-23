@@ -40,10 +40,24 @@ public sealed partial class MainWindow
         TrySoftUi("ApplyUiLanguage.TypingText", () => TypingText.Text = ClientUiText.Get("typing", lang));
         TrySoftUi("ApplyUiLanguage.InputBox.PlaceholderText", () => InputBox.PlaceholderText = ClientUiText.Get("input.placeholder", lang));
         TrySoftUi("ApplyUiLanguage.ConnectButton", () => ConnectButton.Content = ClientUiText.Get("button.connect", lang));
+        TrySoftUi("ApplyUiLanguage.ServerUrlLabelText", () => ServerUrlLabelText.Text = LocalLlmText("URL serveur", "Server URL", "URL del servidor", "URL do servidor", "Server-URL", "URL server", lang));
+        TrySoftUi("ApplyUiLanguage.ApiKeyLabelText", () => ApiKeyLabelText.Text = LocalLlmText("Cle API (X-Api-Key)", "API key (X-Api-Key)", "Clave API (X-Api-Key)", "Chave API (X-Api-Key)", "API-Schluessel (X-Api-Key)", "Chiave API (X-Api-Key)", lang));
+        TrySoftUi("ApplyUiLanguage.LlmUrlLabelText", () => LlmUrlLabelText.Text = LocalLlmText("URL LLM (compatible OpenAI)", "LLM URL (OpenAI compatible)", "URL del LLM (compatible OpenAI)", "URL do LLM (compativel OpenAI)", "LLM-URL (OpenAI-kompatibel)", "URL LLM (compatibile OpenAI)", lang));
+        TrySoftUi("ApplyUiLanguage.LlmModelLabelText", () => LlmModelLabelText.Text = LocalLlmText("Modele LLM", "LLM model", "Modelo LLM", "Modelo LLM", "LLM-Modell", "Modello LLM", lang));
         TrySoftUi("ApplyUiLanguage.UserSettingsButton", () => UserSettingsButton.Content = ClientUiText.Get("header.settings", lang));
         TrySoftUi("ApplyUiLanguage.LlmSettingsButton", () => LlmSettingsButton.Content = ClientUiText.Get("button.local_llm", lang));
+        TrySoftUi("ApplyUiLanguage.SourcesToggleButton", () => SourcesToggleButton.Content = ClientUiText.Get("panel.sources", lang));
+        TrySoftUi("ApplyUiLanguage.SourcesPanelTitleText", () => SourcesPanelTitleText.Text = ClientUiText.Get("panel.sources", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmPanelTitleText", () => LocalLlmPanelTitleText.Text = LocalLlmText("LLM local (llama.cpp)", "Local LLM (llama.cpp)", "LLM local (llama.cpp)", "LLM local (llama.cpp)", "Lokales LLM (llama.cpp)", "LLM locale (llama.cpp)", lang));
         TrySoftUi("ApplyUiLanguage.LocalLlmEnabledCheck", () => LocalLlmEnabledCheck.Content = LocalLlmText("Activer le LLM local (llama.cpp)", "Enable local LLM (llama.cpp)", "Activar LLM local (llama.cpp)", "Ativar LLM local (llama.cpp)", "Lokales LLM aktivieren (llama.cpp)", "Attiva LLM locale (llama.cpp)", lang));
         TrySoftUi("ApplyUiLanguage.LocalLlmAutoStartCheck", () => LocalLlmAutoStartCheck.Content = LocalLlmText("Demarrer automatiquement le LLM local a la connexion", "Auto-start local LLM on Connect", "Iniciar automaticamente el LLM local al conectar", "Iniciar automaticamente o LLM local ao ligar", "Lokales LLM beim Verbinden automatisch starten", "Avvia automaticamente il LLM locale alla connessione", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmExeLabelText", () => LocalLlmExeLabelText.Text = LocalLlmText("Executable serveur (llama-server.exe)", "Server executable (llama-server.exe)", "Ejecutable del servidor (llama-server.exe)", "Executavel do servidor (llama-server.exe)", "Server-Executable (llama-server.exe)", "Eseguibile server (llama-server.exe)", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmModelLabelText", () => LocalLlmModelLabelText.Text = LocalLlmText("Modele (.gguf)", "Model (.gguf)", "Modelo (.gguf)", "Modelo (.gguf)", "Modell (.gguf)", "Modello (.gguf)", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmHostLabelText", () => LocalLlmHostLabelText.Text = LocalLlmText("Hote", "Host", "Host", "Host", "Host", "Host", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmPortLabelText", () => LocalLlmPortLabelText.Text = LocalLlmText("Port", "Port", "Puerto", "Porta", "Port", "Porta", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmModelIdLabelText", () => LocalLlmModelIdLabelText.Text = LocalLlmText("ID modele (OpenAI 'model')", "Model ID (OpenAI 'model')", "ID del modelo (OpenAI 'model')", "ID do modelo (OpenAI 'model')", "Modell-ID (OpenAI 'model')", "ID modello (OpenAI 'model')", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmExtraArgsLabelText", () => LocalLlmExtraArgsLabelText.Text = LocalLlmText("Arguments supplementaires (optionnel)", "Extra args (optional)", "Argumentos extra (opcional)", "Argumentos extra (opcional)", "Zusaetzliche Argumente (optional)", "Argomenti extra (opzionale)", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmCommandLineLabelText", () => LocalLlmCommandLineLabelText.Text = LocalLlmText("Ligne de commande (support)", "Command line (for support)", "Linea de comandos (soporte)", "Linha de comandos (suporte)", "Befehlszeile (Support)", "Riga di comando (supporto)", lang));
         TrySoftUi("ApplyUiLanguage.LocalLlmBrowseExeButton", () => LocalLlmBrowseExeButton.Content = LocalLlmText("Parcourir...", "Browse...", "Examinar...", "Procurar...", "Durchsuchen...", "Sfoglia...", lang));
         TrySoftUi("ApplyUiLanguage.LocalLlmBrowseModelButton", () => LocalLlmBrowseModelButton.Content = LocalLlmText("Parcourir...", "Browse...", "Examinar...", "Procurar...", "Durchsuchen...", "Sfoglia...", lang));
         TrySoftUi("ApplyUiLanguage.LocalLlmImportModelButton", () => LocalLlmImportModelButton.Content = LocalLlmText("Importer dans la bibliotheque", "Import to library", "Importar a la biblioteca", "Importar para a biblioteca", "In Bibliothek importieren", "Importa nella libreria", lang));
@@ -55,6 +69,18 @@ public sealed partial class MainWindow
         TrySoftUi("ApplyUiLanguage.ApplyLocalizedDefaultSessionTitles", ApplyLocalizedDefaultSessionTitles);
 
         UpdateUiState(_isGenerating);
+    }
+
+    private void CopyButton_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button)
+            ToolTipService.SetToolTip(button, ClientUiText.Get("button.copy", UiLang));
+    }
+
+    private void StreamingStatusText_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is TextBlock textBlock)
+            textBlock.Text = ClientUiText.Get("status.streaming", UiLang);
     }
 
     private static string LocalLlmText(string fr, string en, string es, string pt, string de, string it, string? language)

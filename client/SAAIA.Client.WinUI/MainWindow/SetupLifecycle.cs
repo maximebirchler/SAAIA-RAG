@@ -125,7 +125,7 @@ public sealed partial class MainWindow
                     {
                         Title = LocalRuntimeText("Preparation", "Preparation", "Preparacion", "Preparacao", "Vorbereitung", "Preparazione", UiLang),
                         Content = panel,
-                        CloseButtonText = ClientUiText.Get("dialog.cancel", UiLang),
+                        CloseButtonText = ClientUiText.Get("dialog.close", UiLang),
                         XamlRoot = xamlRoot
                     };
                     ConfigureDialogChrome(dlg);
@@ -229,7 +229,7 @@ public sealed partial class MainWindow
             {
                 Title = LocalRuntimeText("Preparation", "Preparation", "Preparacion", "Preparacao", "Vorbereitung", "Preparazione", UiLang),
                 Content = panelDl,
-                CloseButtonText = ClientUiText.Get("dialog.cancel", UiLang),
+                CloseButtonText = ClientUiText.Get("dialog.close", UiLang),
                 XamlRoot = xamlRoot
             };
             ConfigureDialogChrome(dlgDl);
@@ -411,7 +411,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
         {
             Title = LocalRuntimeText("Assistant", "Assistant", "Asistente", "Assistente", "Assistent", "Assistente", UiLang),
             Content = panel,
-            CloseButtonText = ClientUiText.Get("dialog.cancel", UiLang),
+            CloseButtonText = ClientUiText.Get("dialog.close", UiLang),
             XamlRoot = xamlRoot
         };
         ConfigureDialogChrome(dlg);
