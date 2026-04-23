@@ -32,7 +32,7 @@
 | Migrations SQL | Backend | [~] Stables | 28 fichiers, doublons legacy 004/008 documentes safe |
 | Tuning LLM client | Client | [x] Fait Patch 1+2 | GgufMetadataReader, ngl=block_count, batch>=512, ctx=3072, ubatch=256, threads-batch=6, flash-attn CUDA auto |
 | Budget VRAM observe (DXGI) | Client | [~] Enforce v1 | `hardware_probe.json` capture RAM, GPU, fingerprint, secteur/batterie et budget DXGI ; hard gate budget DXGI branche sur `warmup_profiles.json` |
-| Gouvernance llama-server client | Client | [~] Patch 5 avance | Artefacts locaux, `QualifiedProfile`, checksums, warmup gate, harnais TTFT/tok/s multi-scenarios, rollback, blacklist et hardware_probe poses ; triggers restent a brancher |
+| Gouvernance llama-server client | Client | [~] Patch 5 avance | Artefacts locaux, `QualifiedProfile`, checksums, warmup gate, harnais TTFT/tok/s multi-scenarios, rollback, blacklist, hardware_probe et policy batterie poses ; triggers driver/modele restent a brancher |
 | Cycle de vie runtime (sleep/wake) | Client | [~] Partiel | ManageLocalLlmProcess + AutoStartOnConnect presents ; idleTimeoutSeconds, EagerLoad, drain avant sleep absents |
 | Checksums modeles | Client | [~] Partiel | Infrastructure SHA-256 presente ; warning logge si Sha256Hex=null (Patch 3) ; valeurs reelles non encore calculees (Phase 3) |
 | Endpoint support bundle admin | Backend | [x] Fait Patch 3 | `POST /admin/support/bundle` presente — ZIP stagé, artifacts/missingArtifacts, auth X-Admin-Key |
@@ -53,7 +53,7 @@
 - [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` — OK, 0 Warning
 - [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` — OK, 0 Warning
 - [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` — 335/335 verts
-- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 277/277 verts
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 278/278 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
 
@@ -285,7 +285,7 @@ Ces items constituent la gouvernance LLM complete. Ils peuvent commencer en para
 - Warmup gate decisionnel operationnel, resultats dans warmup_results.json
 - Blacklist consultee avant warmup et lancement gere
 - Rollback automatique fonctionne et est journalise
-- Reste : policies batterie/energie, hard gate RAM optionnel et triggers de requalification driver/modele/runtime
+- Reste : application UX/runtime des policies batterie, hard gate RAM optionnel et triggers de requalification driver/modele/runtime
 
 ---
 
@@ -303,8 +303,8 @@ Ces items dependent des fondations posees dans Patch 4 et 5.
 
 ### QoS batterie et energie (§9.12, LLM-017)
 
-- [ ] Modes Perf / Balanced / Eco (seuils dans `warmup_profiles.json`, pas dans le code)
-- [ ] Declencheurs : passage batterie, chute tok/s, elevation temperature, eGPU debranche
+- [x] Modes Perf / Balanced / Eco : artefact `battery_policies.json` avec idle timeout AC/batterie et fallback recommande
+- [~] Declencheurs : passage batterie detecte depuis `hardware_probe.json` et signale comme requalification si policy recommande fallback ; chute tok/s, temperature, eGPU debranche restent a faire
 - [ ] `batteryPolicyRef` inscrit dans `QualifiedProfile`
 
 ### Cycle de vie runtime sleep/wake (§9.16)
@@ -435,7 +435,8 @@ Ce qui manque pour le contrat CDC :
 - [x] `hardware_probe.json` : capture RAM/GPU/fingerprint + budget DXGI opportuniste avec fallback degrade
 - [x] Hard gate memoire GPU : `MinDxgiBudgetMiB` dans les profils warmup + refus `hard_gate_dxgi_budget_insufficient`
 - [x] Trigger requalification hardware : comparaison fingerprint courant vs `hardware_probe.json` au bootstrap
-- [~] Reste a faire : policies batterie/energie + triggers requalification driver/modele/runtime
+- [x] Policy batterie : `battery_policies.json` + evaluation `client-balanced` -> fallback stable sur batterie
+- [~] Reste a faire : application UX/runtime des policies + triggers requalification driver/modele/runtime
 
 ### Gaps fermes
 

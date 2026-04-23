@@ -194,6 +194,19 @@ internal sealed class LocalLlmBootstrapper
                     + $"{hardwareChange.Reason} "
                     + $"(stored={hardwareChange.StoredFingerprint ?? "none"}, current={hardwareChange.CurrentFingerprint ?? "none"}).");
             }
+
+            if (s.QualifiedProfile is not null)
+            {
+                var batteryPolicy = await BatteryPolicyStore.EvaluateAsync(s.QualifiedProfile, ct: ct).ConfigureAwait(false);
+                if (batteryPolicy.RequiresRequalification)
+                {
+                    ClientLog.Warn(
+                        "[Governance] Requalification required: "
+                        + $"{batteryPolicy.Reason} "
+                        + $"(recommendedProfile={batteryPolicy.RecommendedProfileRef ?? "none"}, "
+                        + $"idleTimeoutSeconds={batteryPolicy.EffectiveIdleTimeoutSeconds?.ToString() ?? "unknown"}).");
+                }
+            }
         }
         catch (Exception ex)
         {

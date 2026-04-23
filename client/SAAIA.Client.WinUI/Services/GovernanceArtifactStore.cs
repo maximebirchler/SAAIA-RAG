@@ -55,6 +55,7 @@ internal static class GovernanceArtifactStore
     public const string BlacklistAppliedFile = "blacklist_applied.json";
     public const string CapabilityStateFile = "capability_state.json";
     public const string AcquisitionLogFile = "acquisition_log.json";
+    public const string BatteryPoliciesFile = "battery_policies.json";
 
     // Local disk artifacts use snake_case per CDC v3.1 section 5.8.
     // Backend API path segments may remain kebab-case; do not mix both conventions
@@ -143,6 +144,7 @@ internal static class GovernanceArtifactStore
         await WriteIfMissingAsync(ModelPolicyFile, ModelCatalogStore.CreateDefaultPolicy(), governanceRoot, ct).ConfigureAwait(false);
         await WriteIfMissingAsync(ModelSourcesFile, ModelCatalogStore.CreateDefaultSources(), governanceRoot, ct).ConfigureAwait(false);
         await WriteIfMissingAsync(WarmupProfilesFile, WarmupProfileStore.CreateDefaultWarmupProfiles(), governanceRoot, ct).ConfigureAwait(false);
+        await WriteIfMissingAsync(BatteryPoliciesFile, BatteryPolicyStore.CreateDefaultPolicies(), governanceRoot, ct).ConfigureAwait(false);
 
         await WriteIfMissingAsync(WarmupResultsFile, new WarmupResultsArtifact("warmup_results.json", "v3.1", Array.Empty<WarmupResultItem>()), governanceRoot, ct).ConfigureAwait(false);
         await WriteHardwareProbeIfMissingAsync(governanceRoot, ct).ConfigureAwait(false);

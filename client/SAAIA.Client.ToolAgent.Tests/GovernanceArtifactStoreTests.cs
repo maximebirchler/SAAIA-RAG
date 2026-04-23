@@ -101,6 +101,7 @@ public sealed class GovernanceArtifactStoreTests
                 "hardware_probe.json",
                 "last_known_good_profile.json",
                 "blacklist.json",
+                "battery_policies.json",
                 "capability_state.json",
                 "acquisition_log.json"
             };
@@ -192,7 +193,37 @@ public sealed class GovernanceArtifactStoreTests
         Assert.Equal("hardware_fingerprint_unchanged", unchanged.Reason);
     }
 
-    private static HardwareProbeArtifact CreateHardwareProbe(string gpuName, int vramMiB, string machineName)
+    [Fact]
+    public async Task BatteryPolicyStore_recommends_fallback_when_balanced_profile_runs_on_battery()
+    {
+        var root = NewTempRoot();
+        try
+        {
+            var profile = WarmupProfileStore.CreateReferenceCudaProfile();
+            await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(new AppSettings(), root);
+            await GovernanceArtifactStore.WriteAsync(
+                GovernanceArtifactStore.HardwareProbeFile,
+                CreateHardwareProbe("Quadro P520", 4096, "machine-a", isOnBattery: true),
+                root);
+
+            var decision = await BatteryPolicyStore.EvaluateAsync(profile, root);
+
+            Assert.True(decision.RequiresRequalification);
+            Assert.Equal("battery_policy_recommends_fallback", decision.Reason);
+            Assert.Equal(profile.FallbackProfileRef, decision.RecommendedProfileRef);
+            Assert.Equal(60, decision.EffectiveIdleTimeoutSeconds);
+        }
+        finally
+        {
+            DeleteTempRoot(root);
+        }
+    }
+
+    private static HardwareProbeArtifact CreateHardwareProbe(
+        string gpuName,
+        int vramMiB,
+        string machineName,
+        bool isOnBattery = false)
     {
         var gpu = new GpuInfo(
             GpuVendor.Nvidia,
@@ -210,6 +241,10 @@ public sealed class GovernanceArtifactStoreTests
             16L * 1024 * 1024 * 1024,
             8L * 1024 * 1024 * 1024,
             "test");
+        var power = new PowerStatusSnapshot(
+            isOnBattery,
+            BatteryLifePercent: 75,
+            Source: "test-power");
 
         return HardwareProbeService.CreateArtifact(
             gpu,
@@ -218,7 +253,8 @@ public sealed class GovernanceArtifactStoreTests
             machineName,
             processorCount: 8,
             is64BitOperatingSystem: true,
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            power);
     }
 
     private static string NewTempRoot()
