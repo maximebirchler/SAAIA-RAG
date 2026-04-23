@@ -79,6 +79,8 @@ internal sealed record ModelSourceItem(
 
 internal static class ModelCatalogStore
 {
+    private const string Qwen25_3B_Q4KmSha256 = "9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94";
+
     public static string? ResolveCanonicalModelId(string? modelIdOrFileName)
     {
         if (string.IsNullOrWhiteSpace(modelIdOrFileName))
@@ -91,6 +93,20 @@ internal static class ModelCatalogStore
                 string.Equals(item.ModelId, probe, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(item.FileName, probe, StringComparison.OrdinalIgnoreCase))
             ?.ModelId;
+    }
+
+    public static string? TryGetReferenceChecksum(string? modelIdOrFileName)
+    {
+        if (string.IsNullOrWhiteSpace(modelIdOrFileName))
+            return null;
+
+        var probe = modelIdOrFileName.Trim();
+        var catalog = CreateDefaultCatalog();
+        return catalog.Items
+            .FirstOrDefault(item =>
+                string.Equals(item.ModelId, probe, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(item.FileName, probe, StringComparison.OrdinalIgnoreCase))
+            ?.ChecksumSha256;
     }
 
     public static ModelCatalogArtifact CreateDefaultCatalog() => new(
@@ -107,8 +123,8 @@ internal static class ModelCatalogStore
                 Quantization: "Q4_K_M",
                 FileName: "Qwen2.5-3B-Instruct-Q4_K_M.gguf",
                 SourceRef: "hf-bartowski-qwen25-3b",
-                ChecksumSha256: null,
-                ChecksumStatus: "pending_reference_hash",
+                ChecksumSha256: Qwen25_3B_Q4KmSha256,
+                ChecksumStatus: "verified_reference_hash",
                 License: new ModelLicenseInfo(
                     LicenseFamily: "qwen",
                     LicenseDisplayName: "Qwen Research License",

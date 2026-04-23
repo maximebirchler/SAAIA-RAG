@@ -38,6 +38,9 @@ internal sealed class LocalLlmBootstrapper
     private readonly DownloadManager _dl = new();
     private readonly LlamaCppReleaseDownloader _llamaDl = new();
 
+    private static ModelSpec Spec(string repo, string file)
+        => new(repo, file, ModelCatalogStore.TryGetReferenceChecksum(file));
+
     public async Task<(bool ok, string message, IReadOnlyList<string> installedPaths)> EnsureAsync(
         AppSettings s,
         bool force,
@@ -239,18 +242,18 @@ internal sealed class LocalLlmBootstrapper
         {
             var rid = requestedModelId.Trim();
             if (string.Equals(rid, QwenQ4_0, StringComparison.OrdinalIgnoreCase))
-                return new[] { new ModelSpec(QwenRepo, QwenQ4_0, null), new ModelSpec(QwenRepo, QwenQ4_K_S, null), new ModelSpec(QwenRepo, QwenQ4_K_M, null) };
+                return new[] { Spec(QwenRepo, QwenQ4_0), Spec(QwenRepo, QwenQ4_K_S), Spec(QwenRepo, QwenQ4_K_M) };
             if (string.Equals(rid, QwenQ4_K_S, StringComparison.OrdinalIgnoreCase))
-                return new[] { new ModelSpec(QwenRepo, QwenQ4_K_S, null), new ModelSpec(QwenRepo, QwenQ4_K_M, null), new ModelSpec(QwenRepo, QwenQ4_0, null) };
+                return new[] { Spec(QwenRepo, QwenQ4_K_S), Spec(QwenRepo, QwenQ4_K_M), Spec(QwenRepo, QwenQ4_0) };
             if (string.Equals(rid, QwenQ4_K_M, StringComparison.OrdinalIgnoreCase))
-                return new[] { new ModelSpec(QwenRepo, QwenQ4_K_M, null), new ModelSpec(QwenRepo, QwenQ4_K_S, null), new ModelSpec(QwenRepo, QwenQ4_0, null) };
+                return new[] { Spec(QwenRepo, QwenQ4_K_M), Spec(QwenRepo, QwenQ4_K_S), Spec(QwenRepo, QwenQ4_0) };
             if (string.Equals(rid, QwenQ6_K, StringComparison.OrdinalIgnoreCase))
-                return new[] { new ModelSpec(QwenRepo, QwenQ6_K, null), new ModelSpec(QwenRepo, QwenQ4_K_M, null), new ModelSpec(QwenRepo, QwenQ4_K_S, null) };
+                return new[] { Spec(QwenRepo, QwenQ6_K), Spec(QwenRepo, QwenQ4_K_M), Spec(QwenRepo, QwenQ4_K_S) };
 
             if (string.Equals(rid, MistralQ4_K_M, StringComparison.OrdinalIgnoreCase))
-                return new[] { new ModelSpec(MistralRepo, MistralQ4_K_M, null), new ModelSpec(MistralRepo, MistralQ6_K, null) };
+                return new[] { Spec(MistralRepo, MistralQ4_K_M), Spec(MistralRepo, MistralQ6_K) };
             if (string.Equals(rid, MistralQ6_K, StringComparison.OrdinalIgnoreCase))
-                return new[] { new ModelSpec(MistralRepo, MistralQ6_K, null), new ModelSpec(MistralRepo, MistralQ4_K_M, null) };
+                return new[] { Spec(MistralRepo, MistralQ6_K), Spec(MistralRepo, MistralQ4_K_M) };
         }
 
         var vramMiB = gpu?.DedicatedVramMiB ?? 0;
@@ -258,26 +261,26 @@ internal sealed class LocalLlmBootstrapper
 
         // Conservative: iGPU/unknown => small model
         if (integrated || vramMiB <= 0)
-            return new[] { new ModelSpec(QwenRepo, QwenQ4_0, null), new ModelSpec(QwenRepo, QwenQ4_K_S, null), new ModelSpec(QwenRepo, QwenQ4_K_M, null) };
+            return new[] { Spec(QwenRepo, QwenQ4_0), Spec(QwenRepo, QwenQ4_K_S), Spec(QwenRepo, QwenQ4_K_M) };
 
         // User-specified tiers (<= 12GB)
         if (vramMiB <= 2048)
-            return new[] { new ModelSpec(QwenRepo, QwenQ4_0, null), new ModelSpec(QwenRepo, QwenQ4_K_S, null) };
+            return new[] { Spec(QwenRepo, QwenQ4_0), Spec(QwenRepo, QwenQ4_K_S) };
 
         if (vramMiB <= 3584)
-            return new[] { new ModelSpec(QwenRepo, QwenQ4_K_S, null), new ModelSpec(QwenRepo, QwenQ4_0, null), new ModelSpec(QwenRepo, QwenQ4_K_M, null) };
+            return new[] { Spec(QwenRepo, QwenQ4_K_S), Spec(QwenRepo, QwenQ4_0), Spec(QwenRepo, QwenQ4_K_M) };
 
         if (vramMiB <= 6144)
-            return new[] { new ModelSpec(QwenRepo, QwenQ4_K_M, null), new ModelSpec(QwenRepo, QwenQ4_K_S, null) };
+            return new[] { Spec(QwenRepo, QwenQ4_K_M), Spec(QwenRepo, QwenQ4_K_S) };
 
         if (vramMiB <= 8192)
-            return new[] { new ModelSpec(QwenRepo, QwenQ6_K, null), new ModelSpec(QwenRepo, QwenQ4_K_M, null) };
+            return new[] { Spec(QwenRepo, QwenQ6_K), Spec(QwenRepo, QwenQ4_K_M) };
 
         if (vramMiB <= 10240)
-            return new[] { new ModelSpec(MistralRepo, MistralQ4_K_M, null), new ModelSpec(MistralRepo, MistralQ6_K, null) };
+            return new[] { Spec(MistralRepo, MistralQ4_K_M), Spec(MistralRepo, MistralQ6_K) };
 
         // 10-12GB
-        return new[] { new ModelSpec(MistralRepo, MistralQ6_K, null), new ModelSpec(MistralRepo, MistralQ4_K_M, null) };
+        return new[] { Spec(MistralRepo, MistralQ6_K), Spec(MistralRepo, MistralQ4_K_M) };
     }
 
     private static string BuildHfUrl(ModelSpec spec) => $"https://huggingface.co/{spec.Repo}/resolve/main/{spec.File}";

@@ -34,7 +34,7 @@
 | Budget VRAM observe (DXGI) | Client | [~] Enforce v1 | `hardware_probe.json` capture RAM, GPU, fingerprint, secteur/batterie et budget DXGI ; hard gate budget DXGI branche sur `warmup_profiles.json` |
 | Gouvernance llama-server client | Client | [~] Patch 5 avance | Artefacts locaux, `QualifiedProfile`, checksums, warmup gate, harnais TTFT/tok/s multi-scenarios, rollback, blacklist, hardware_probe, policy batterie et triggers hardware/driver/runtime/modele poses ; runtime v1, statuts UX et quarantaine checksum modele en place |
 | Cycle de vie runtime (sleep/wake) | Client | [x] Runtime v1 | `EagerLoad` explicite, idle timeout pilote par profil/policy, drain via heartbeat et wake a la demande avant generation |
-| Checksums modeles | Client | [~] Partiel | Infrastructure SHA-256 presente ; warning logge si Sha256Hex=null (Patch 3) ; mismatch connu -> quarantaine `.quarantine` + journal `acquisition_log.json` ; valeurs reelles de reference encore a calculer |
+| Checksums modeles | Client | [~] Partiel | Infrastructure SHA-256 presente ; warning logge si Sha256Hex=null (Patch 3) ; mismatch connu -> quarantaine `.quarantine` + journal `acquisition_log.json` ; Qwen2.5 3B Q4_K_M reference SHA-256 renseigne, autres modeles pack encore a calculer |
 | Endpoint support bundle admin | Backend | [x] Fait Patch 3 | `POST /admin/support/bundle` presente — ZIP stagé, artifacts/missingArtifacts, auth X-Admin-Key |
 
 ---
@@ -53,7 +53,7 @@
 - [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` — OK, 0 Warning
 - [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` — OK, 0 Warning
 - [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` — 335/335 verts
-- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 293/293 verts
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 294/294 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
 
@@ -168,8 +168,9 @@ Travaux independants de la gouvernance complete, livrable avant Phase 3.
   - [x] Response : `{ "bundlePath": "...", "artifacts": [...], "missingArtifacts": [...] }`
 - [~] CHECKSUMS MODELES :
   - [x] Warning logge si `Sha256Hex = null` (ne bloque pas le telechargement en Phase 0B)
-  - [ ] Renseigner les SHA-256 reels pour Qwen2.5-3B-Instruct-Q4_K_M.gguf et autres modeles du pack
-    > Necessite calcul SHA-256 sur machine de reference apres telechargement — a faire lors du prochain cycle bench
+  - [~] Renseigner les SHA-256 reels pour Qwen2.5-3B-Instruct-Q4_K_M.gguf et autres modeles du pack
+    > Qwen2.5-3B-Instruct-Q4_K_M.gguf renseigne : `9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94`
+    > Restent a calculer sur machine de reference : Q4_0, Q4_K_S, Q6_K, Mistral Q4_K_M, Mistral Q6_K
 - [x] `SupportBundleBuilder` (client leger) : pas de changement en Patch 3 — Phase 3 l'enrichira quand les artefacts governance existeront
 
 **Tests a lancer / a ajouter** :
@@ -440,7 +441,7 @@ Ce qui manque pour le contrat CDC :
 - [x] Triggers requalification modele/runtime : derive detectee au bootstrap depuis `QualifiedProfile` vs runtime/modeles courants
 - [x] Trigger requalification driver : comparaison `gpuDriverVersion` courant vs `hardware_probe.json`
 - [x] Application runtime v1 : `EagerLoad` branche sur le connect/startup et `idleTimeoutSeconds` pilote par profil/policy avec heartbeat d'activite LLM
-- [~] Reste a faire : checksums de reference reels et mesure `LoadMs` dediee wake-on-demand
+- [~] Reste a faire : checksums de reference reels restants et mesure `LoadMs` dediee wake-on-demand
 
 ### Gaps fermes
 
@@ -470,3 +471,4 @@ Ce qui manque pour le contrat CDC :
 | 2026-04-23 | Codex | Patch 5 socle : warmup gate decisionnel, blacklist, rollback, 267 tests client verts |
 | 2026-04-23 | Codex | Warmup UX/client : demarrage manuel aligne sur le warmup gate, statut nominal transparent, 290 tests client verts |
 | 2026-04-23 | Codex | Quarantaine checksum modele : blocage pre-start, renommage `.quarantine`, journal `acquisition_log.json`, statut UX dedie, 293 tests client verts |
+| 2026-04-23 | Codex | Reference checksum Qwen2.5 3B Q4_K_M renseignee dans `model_catalog.json`/bootstrap, 294 tests client verts |

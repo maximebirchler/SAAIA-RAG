@@ -242,6 +242,18 @@ public sealed class GovernanceArtifactStoreTests
     }
 
     [Fact]
+    public void ModelCatalogStore_returns_reference_checksum_for_qwen_q4km()
+    {
+        var checksum = ModelCatalogStore.TryGetReferenceChecksum("Qwen2.5-3B-Instruct-Q4_K_M.gguf");
+        var catalog = ModelCatalogStore.CreateDefaultCatalog();
+        var qwen = Assert.Single(catalog.Items, item => item.ModelId == "qwen2.5-3b-instruct-q4-k-m");
+
+        Assert.Equal("9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94", checksum);
+        Assert.Equal(checksum, qwen.ChecksumSha256);
+        Assert.Equal("verified_reference_hash", qwen.ChecksumStatus);
+    }
+
+    [Fact]
     public void RequalificationTriggerService_requires_requalification_when_runtime_or_model_drift()
     {
         var settings = new AppSettings
