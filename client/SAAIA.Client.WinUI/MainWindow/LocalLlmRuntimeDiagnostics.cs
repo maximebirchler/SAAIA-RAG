@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using SAAIA.Client.WinUI.Services;
@@ -21,9 +22,6 @@ public sealed partial class MainWindow
 
     private async Task ShowLocalLlmRuntimeDiagnosticsAsync()
     {
-        var settings = ReadLocalLlmSettingsFromUi();
-        var diagnostics = await LocalLlmRuntimeDiagnosticsService.EvaluateAsync(settings).ConfigureAwait(true);
-
         FrameworkElement BuildMetricTile(string label, string value)
             => BuildDialogSurfaceCard(new StackPanel
             {
@@ -66,73 +64,35 @@ public sealed partial class MainWindow
             }, new Thickness(14));
 
         string bannerText;
-        var bannerPositive = false;
-        if (diagnostics.UpgradeRequired)
-        {
-            bannerText = $"Le modele courant requiert un runtime plus recent ({diagnostics.RequiredBuild ?? "inconnu"}).";
-        }
-        else if (string.Equals(diagnostics.ActiveState, "pending_qualification", StringComparison.OrdinalIgnoreCase))
-        {
-            bannerText = $"Le runtime actif ({diagnostics.ActiveBuild ?? "inconnu"}) attend encore sa qualification warmup.";
-        }
-        else if (diagnostics.LatestWarmupStatus is WarmupGateStatus.FailBlock or WarmupGateStatus.FailFallback)
-        {
-            bannerText = "Le dernier warmup a echoue. Le runtime local doit etre reverifie.";
-        }
-        else
-        {
-            bannerText = "Le runtime local est compatible avec le modele courant.";
-            bannerPositive = true;
-        }
-
         var metricsGrid = new Grid { ColumnSpacing = 12, RowSpacing = 12 };
         for (var i = 0; i < 3; i++)
             metricsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         metricsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         metricsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-        var metricTiles = new[]
-        {
-            BuildMetricTile("Runtime", diagnostics.RuntimeLabel),
-            BuildMetricTile("Build actif", diagnostics.ActiveBuild ?? "inconnu"),
-            BuildMetricTile("Build requis", diagnostics.RequiredBuild ?? "aucun"),
-            BuildMetricTile("Etat", ResolveRuntimeStateLabel(diagnostics.ActiveState)),
-            BuildMetricTile("Build precedent", diagnostics.PreviousBuild ?? "-"),
-            BuildMetricTile("Warmup", ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus))
-        };
-
-        for (var index = 0; index < metricTiles.Length; index++)
-        {
-            Grid.SetColumn(metricTiles[index], index % 3);
-            Grid.SetRow(metricTiles[index], index / 3);
-            metricsGrid.Children.Add(metricTiles[index]);
-        }
-
         var detailsGrid = new Grid { ColumnSpacing = 12, RowSpacing = 12 };
         detailsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         detailsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         for (var i = 0; i < 4; i++)
             detailsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-        var detailCards = new[]
+        var bannerHost = new ContentPresenter();
+        var progressBar = new ProgressBar
         {
-            BuildField("Modele", diagnostics.ModelId),
-            BuildField("Famille GGUF", diagnostics.ModelFamily),
-            BuildField("Profil qualifie", diagnostics.QualifiedProfileId),
-            BuildField("Policy flash-attn", ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn)),
-            BuildField("Exe actif", diagnostics.ActiveExePath),
-            BuildField("Manifest runtime", diagnostics.ActiveManifestPath),
-            BuildField("Derniere raison warmup", diagnostics.LatestWarmupReason),
-            BuildField("Compatibilite", diagnostics.CompatibilityReason)
+            IsIndeterminate = false,
+            Height = 6,
+            Minimum = 0,
+            Maximum = 1,
+            Visibility = Visibility.Collapsed
+        };
+        var progressText = new TextBlock
+        {
+            Visibility = Visibility.Collapsed,
+            Opacity = 0.84,
+            TextWrapping = TextWrapping.WrapWholeWords
         };
 
-        for (var index = 0; index < detailCards.Length; index++)
-        {
-            Grid.SetColumn(detailCards[index], index % 2);
-            Grid.SetRow(detailCards[index], index / 2);
-            detailsGrid.Children.Add(detailCards[index]);
-        }
-
+        var actionButton = BuildDialogFooterButton("Action", primary: true);
+        var refreshButton = BuildDialogFooterButton("Actualiser");
         var closeButton = BuildDialogFooterButton(ClientUiText.Get("dialog.close", _appSettings.UiLanguage), primary: true);
         var dialogSize = GetDialogMaxSize(900, 760, horizontalMargin: 72, verticalMargin: 96);
         var shell = BuildScrollableDialogShell(
@@ -141,16 +101,222 @@ public sealed partial class MainWindow
             "Etat du runtime actif, compatibilite modele/runtime et dernier warmup.",
             new UIElement[]
             {
-                BuildDialogInfoBanner(bannerText, bannerPositive),
+                bannerHost,
+                progressBar,
+                progressText,
                 BuildDialogSurfaceCard(metricsGrid, new Thickness(12)),
                 BuildDialogSurfaceCard(detailsGrid, new Thickness(12))
             },
-            BuildDialogFooter(closeButton),
+            BuildDialogFooter(actionButton, refreshButton, closeButton),
             dialogSize.Width,
             dialogSize.Height);
 
         OverlayDialogSession? overlay = null;
+        var isBusy = false;
+        LocalLlmRuntimeDiagnostics? currentDiagnostics = null;
+
+        void SetBusy(bool busy)
+        {
+            isBusy = busy;
+            actionButton.IsEnabled = !busy;
+            refreshButton.IsEnabled = !busy;
+            closeButton.IsEnabled = !busy;
+        }
+
+        void ShowProgress(string text, DownloadManager.ProgressInfo? progress = null)
+        {
+            progressText.Text = text;
+            progressText.Visibility = Visibility.Visible;
+            progressBar.Visibility = Visibility.Visible;
+
+            if (progress?.TotalBytes is long total && total > 0)
+            {
+                progressBar.IsIndeterminate = false;
+                progressBar.Maximum = total;
+                progressBar.Value = Math.Min(total, Math.Max(0, progress.DownloadedBytes));
+            }
+            else
+            {
+                progressBar.IsIndeterminate = true;
+                progressBar.Value = 0;
+            }
+        }
+
+        void HideProgress()
+        {
+            progressBar.Visibility = Visibility.Collapsed;
+            progressBar.IsIndeterminate = false;
+            progressBar.Value = 0;
+            progressText.Visibility = Visibility.Collapsed;
+            progressText.Text = string.Empty;
+        }
+
+        void RenderDiagnostics(LocalLlmRuntimeDiagnostics diagnostics)
+        {
+            currentDiagnostics = diagnostics;
+
+            if (diagnostics.UpgradeRequired)
+            {
+                bannerText = $"Le modele courant requiert un runtime plus recent ({diagnostics.RequiredBuild ?? "inconnu"}).";
+                bannerHost.Content = BuildDialogInfoBanner(bannerText);
+                actionButton.Content = "Mettre a niveau";
+                actionButton.Visibility = Visibility.Visible;
+            }
+            else if (string.Equals(diagnostics.ActiveState, "pending_qualification", StringComparison.OrdinalIgnoreCase))
+            {
+                bannerText = $"Le runtime actif ({diagnostics.ActiveBuild ?? "inconnu"}) attend encore sa qualification warmup.";
+                bannerHost.Content = BuildDialogInfoBanner(bannerText);
+                actionButton.Content = "Demarrer et qualifier";
+                actionButton.Visibility = Visibility.Visible;
+            }
+            else if (diagnostics.LatestWarmupStatus is WarmupGateStatus.FailBlock or WarmupGateStatus.FailFallback)
+            {
+                bannerText = "Le dernier warmup a echoue. Le runtime local doit etre reverifie.";
+                bannerHost.Content = BuildDialogInfoBanner(bannerText);
+                actionButton.Content = "Relancer qualification";
+                actionButton.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                bannerText = "Le runtime local est compatible avec le modele courant.";
+                bannerHost.Content = BuildDialogInfoBanner(bannerText, positive: true);
+                actionButton.Visibility = Visibility.Collapsed;
+            }
+
+            metricsGrid.Children.Clear();
+            var metricTiles = new[]
+            {
+                BuildMetricTile("Runtime", diagnostics.RuntimeLabel),
+                BuildMetricTile("Build actif", diagnostics.ActiveBuild ?? "inconnu"),
+                BuildMetricTile("Build requis", diagnostics.RequiredBuild ?? "aucun"),
+                BuildMetricTile("Etat", ResolveRuntimeStateLabel(diagnostics.ActiveState)),
+                BuildMetricTile("Build precedent", diagnostics.PreviousBuild ?? "-"),
+                BuildMetricTile("Warmup", ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus))
+            };
+            for (var index = 0; index < metricTiles.Length; index++)
+            {
+                Grid.SetColumn(metricTiles[index], index % 3);
+                Grid.SetRow(metricTiles[index], index / 3);
+                metricsGrid.Children.Add(metricTiles[index]);
+            }
+
+            detailsGrid.Children.Clear();
+            var detailCards = new[]
+            {
+                BuildField("Modele", diagnostics.ModelId),
+                BuildField("Famille GGUF", diagnostics.ModelFamily),
+                BuildField("Profil qualifie", diagnostics.QualifiedProfileId),
+                BuildField("Policy flash-attn", ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn)),
+                BuildField("Exe actif", diagnostics.ActiveExePath),
+                BuildField("Manifest runtime", diagnostics.ActiveManifestPath),
+                BuildField("Derniere raison warmup", diagnostics.LatestWarmupReason),
+                BuildField("Compatibilite", diagnostics.CompatibilityReason)
+            };
+            for (var index = 0; index < detailCards.Length; index++)
+            {
+                Grid.SetColumn(detailCards[index], index % 2);
+                Grid.SetRow(detailCards[index], index / 2);
+                detailsGrid.Children.Add(detailCards[index]);
+            }
+        }
+
+        async Task RefreshDiagnosticsAsync()
+        {
+            var settings = ReadLocalLlmSettingsFromUi();
+            var diagnostics = await LocalLlmRuntimeDiagnosticsService.EvaluateAsync(settings).ConfigureAwait(true);
+            RenderDiagnostics(diagnostics);
+        }
+
+        async Task UpgradeRuntimeAsync()
+        {
+            SetBusy(true);
+            try
+            {
+                var settings = ReadLocalLlmSettingsFromUi();
+                ShowProgress("Preparation de la mise a niveau runtime...");
+                var progress = new Progress<DownloadManager.ProgressInfo>(p =>
+                {
+                    var label = p.Stage switch
+                    {
+                        "resolve" => "Resolution de la release runtime...",
+                        "verify" => $"Verification : {p.Id}",
+                        "download" => $"Telechargement : {p.Id}",
+                        "extract" => "Extraction du runtime...",
+                        "done" => $"OK : {p.Id}",
+                        _ => $"{p.Stage} : {p.Id}"
+                    };
+                    ShowProgress(label, p);
+                });
+
+                var (ok, msg, _) = await _llmBootstrapper.EnsureAsync(settings, force: false, progress, CancellationToken.None).ConfigureAwait(true);
+                _appSettings = AppSettings.Load();
+                LoadLocalLlmUiFromSettings();
+
+                if (!ok)
+                {
+                    bannerHost.Content = BuildDialogInfoBanner("Mise a niveau runtime impossible : " + msg);
+                    return;
+                }
+
+                bannerHost.Content = BuildDialogInfoBanner(
+                    "Mise a niveau terminee. Qualification warmup requise avant usage nominal.",
+                    positive: true);
+                await RefreshDiagnosticsAsync().ConfigureAwait(true);
+            }
+            finally
+            {
+                HideProgress();
+                SetBusy(false);
+            }
+        }
+
+        async Task RunQualificationAsync()
+        {
+            SetBusy(true);
+            try
+            {
+                ShowProgress("Demarrage du runtime et qualification warmup...");
+                var ok = _llmProc.IsRunning
+                    ? await RunLocalLlmWarmupQualificationAsync(ReadLocalLlmSettingsFromUi(), null, CancellationToken.None).ConfigureAwait(true)
+                    : await EnsureLocalLlmStartedAsync(CancellationToken.None).ConfigureAwait(true);
+
+                _appSettings = AppSettings.Load();
+                LoadLocalLlmUiFromSettings();
+
+                bannerHost.Content = ok
+                    ? BuildDialogInfoBanner("Qualification runtime terminee.", positive: true)
+                    : BuildDialogInfoBanner("La qualification runtime a echoue. Le rollback a ete applique si un runtime sain etait disponible.");
+
+                await RefreshDiagnosticsAsync().ConfigureAwait(true);
+            }
+            finally
+            {
+                HideProgress();
+                SetBusy(false);
+            }
+        }
+
         closeButton.Click += (_, _) => overlay?.Close();
+        refreshButton.Click += async (_, _) =>
+        {
+            if (isBusy)
+                return;
+            await RefreshDiagnosticsAsync().ConfigureAwait(true);
+        };
+        actionButton.Click += async (_, _) =>
+        {
+            if (isBusy || currentDiagnostics is null)
+                return;
+
+            if (currentDiagnostics.UpgradeRequired)
+            {
+                await UpgradeRuntimeAsync().ConfigureAwait(true);
+                return;
+            }
+
+            await RunQualificationAsync().ConfigureAwait(true);
+        };
+
         overlay = ShowOverlayDialog(
             shell,
             resizeHandler: _ =>
@@ -160,6 +326,7 @@ public sealed partial class MainWindow
                 shell.MaxHeight = size.Height;
             });
 
+        await RefreshDiagnosticsAsync().ConfigureAwait(true);
         await overlay.Completion;
     }
 
