@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using SAAIA.Client.WinUI.Services;
 
 namespace SAAIA.Client.WinUI;
 
@@ -77,6 +78,7 @@ public sealed partial class MainWindow
             TextWrapping = TextWrapping.WrapWholeWords
         };
         var stateHost = new ContentPresenter();
+        var blacklistHost = new ContentPresenter();
         var metricsGrid = new Grid { ColumnSpacing = 12, RowSpacing = 12 };
         for (var i = 0; i < 3; i++)
             metricsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -111,6 +113,11 @@ public sealed partial class MainWindow
         void SetStateBanner(string text, bool positive = false)
         {
             stateHost.Content = BuildDialogInfoBanner(text, positive);
+        }
+
+        void SetBlacklistBanner(string text, bool positive = false)
+        {
+            blacklistHost.Content = BuildDialogInfoBanner(text, positive);
         }
 
         void SetBusy(bool busy)
@@ -285,6 +292,27 @@ public sealed partial class MainWindow
             finally
             {
                 SetBusy(false);
+            }
+        }
+
+        async Task RefreshBlacklistBannerAsync()
+        {
+            try
+            {
+                var read = await GovernanceArtifactStore.ReadAsync<BlacklistArtifact>(
+                    GovernanceArtifactStore.BlacklistFile,
+                    ct: overlayCts.Token).ConfigureAwait(true);
+                var activeCount = read.Value?.Items.Count(rule =>
+                    rule.Active
+                    && (rule.ExpiresAt is null || rule.ExpiresAt > DateTimeOffset.UtcNow)) ?? 0;
+                SetBlacklistBanner(
+                    BuildAdminRuntimeBlacklistSummaryMessage(read, lang),
+                    positive: read.Status == GovernanceArtifactReadStatus.Ok && activeCount == 0);
+            }
+            catch (Exception ex)
+            {
+                ClientLog.Exception("AdminRuntimeOps.Blacklist", ex);
+                SetBlacklistBanner(GetAdminRuntimeBlacklistReadFailedMessage(lang));
             }
         }
 
@@ -481,12 +509,14 @@ public sealed partial class MainWindow
             metricsGrid.Children.Clear();
             actionButtons.Clear();
             capabilitiesHost.Children.Clear();
+            SetBlacklistBanner(GetAdminRuntimeBlacklistLoadingMessage(lang));
 
             try
             {
                 var json = await _api.AdminRuntimeOperationalSummaryAsync(overlayCts.Token).ConfigureAwait(true);
                 var snapshot = ParseAdminRuntimeOperationalSnapshot(json);
                 Render(snapshot);
+                await RefreshBlacklistBannerAsync().ConfigureAwait(true);
             }
             catch (Exception ex)
             {
@@ -515,6 +545,7 @@ public sealed partial class MainWindow
                 {
                     generatedText,
                     stateHost,
+                    blacklistHost,
                     BuildDialogSurfaceCard(metricsGrid, new Thickness(12)),
                     BuildDialogSurfaceCard(capabilitiesHost, new Thickness(12))
                 },
@@ -706,5 +737,91 @@ public sealed partial class MainWindow
             "it" => "Impossibile avviare la riconciliazione stale.",
             "pt" => "Nao foi possivel iniciar a reconciliacao stale.",
             _ => "Impossible de lancer la reconciliation stale."
+        };
+
+    private static string BuildAdminRuntimeBlacklistSummaryMessage(
+        GovernanceArtifactReadResult<BlacklistArtifact> read,
+        string lang)
+    {
+        if (read.Status == GovernanceArtifactReadStatus.Missing)
+            return GetAdminRuntimeBlacklistMissingMessage(lang);
+
+        if (read.Status != GovernanceArtifactReadStatus.Ok || read.Value is null)
+            return GetAdminRuntimeBlacklistInvalidMessage(read.Status, lang);
+
+        var now = DateTimeOffset.UtcNow;
+        var activeRules = read.Value.Items
+            .Where(rule => rule.Active && (rule.ExpiresAt is null || rule.ExpiresAt > now))
+            .ToArray();
+
+        if (activeRules.Length == 0)
+            return lang switch
+            {
+                "en" => "Local blacklist: 0 active rule. Read-only.",
+                "de" => "Lokale Blacklist: 0 aktive Regel. Nur Lesen.",
+                "es" => "Blacklist local: 0 regla activa. Solo lectura.",
+                "it" => "Blacklist locale: 0 regole attive. Sola lettura.",
+                "pt" => "Blacklist local: 0 regra ativa. Somente leitura.",
+                _ => "Blacklist locale : 0 regle active. Lecture seule."
+            };
+
+        var preview = string.Join(", ", activeRules
+            .Take(3)
+            .Select(rule => string.IsNullOrWhiteSpace(rule.RuleId) ? "rule" : rule.RuleId.Trim()));
+        var suffix = activeRules.Length > 3 ? $" +{activeRules.Length - 3}" : string.Empty;
+
+        return lang switch
+        {
+            "en" => $"Local blacklist: {activeRules.Length} active rule(s) ({preview}{suffix}). Read-only.",
+            "de" => $"Lokale Blacklist: {activeRules.Length} aktive Regel(n) ({preview}{suffix}). Nur Lesen.",
+            "es" => $"Blacklist local: {activeRules.Length} regla(s) activa(s) ({preview}{suffix}). Solo lectura.",
+            "it" => $"Blacklist locale: {activeRules.Length} regola/e attiva/e ({preview}{suffix}). Sola lettura.",
+            "pt" => $"Blacklist local: {activeRules.Length} regra(s) ativa(s) ({preview}{suffix}). Somente leitura.",
+            _ => $"Blacklist locale : {activeRules.Length} regle(s) active(s) ({preview}{suffix}). Lecture seule."
+        };
+    }
+
+    private static string GetAdminRuntimeBlacklistLoadingMessage(string lang)
+        => lang switch
+        {
+            "en" => "Local blacklist: loading...",
+            "de" => "Lokale Blacklist: wird geladen...",
+            "es" => "Blacklist local: cargando...",
+            "it" => "Blacklist locale: caricamento...",
+            "pt" => "Blacklist local: carregando...",
+            _ => "Blacklist locale : chargement..."
+        };
+
+    private static string GetAdminRuntimeBlacklistMissingMessage(string lang)
+        => lang switch
+        {
+            "en" => "Local blacklist: artifact missing. Read-only.",
+            "de" => "Lokale Blacklist: Artefakt fehlt. Nur Lesen.",
+            "es" => "Blacklist local: artefacto ausente. Solo lectura.",
+            "it" => "Blacklist locale: artefatto assente. Sola lettura.",
+            "pt" => "Blacklist local: artefato ausente. Somente leitura.",
+            _ => "Blacklist locale : artefact absent. Lecture seule."
+        };
+
+    private static string GetAdminRuntimeBlacklistInvalidMessage(GovernanceArtifactReadStatus status, string lang)
+        => lang switch
+        {
+            "en" => $"Local blacklist: unreadable ({status}). Read-only.",
+            "de" => $"Lokale Blacklist: nicht lesbar ({status}). Nur Lesen.",
+            "es" => $"Blacklist local: no legible ({status}). Solo lectura.",
+            "it" => $"Blacklist locale: non leggibile ({status}). Sola lettura.",
+            "pt" => $"Blacklist local: ilegivel ({status}). Somente leitura.",
+            _ => $"Blacklist locale : non lisible ({status}). Lecture seule."
+        };
+
+    private static string GetAdminRuntimeBlacklistReadFailedMessage(string lang)
+        => lang switch
+        {
+            "en" => "Local blacklist: read failed.",
+            "de" => "Lokale Blacklist: Lesen fehlgeschlagen.",
+            "es" => "Blacklist local: error de lectura.",
+            "it" => "Blacklist locale: lettura non riuscita.",
+            "pt" => "Blacklist local: falha de leitura.",
+            _ => "Blacklist locale : lecture impossible."
         };
 }

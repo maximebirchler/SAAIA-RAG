@@ -262,9 +262,9 @@ Ces items constituent la gouvernance LLM complete. Ils peuvent commencer en para
 **Travaux — Blacklist et quarantaine (LLM-015, LLM-016, §9.14)** :
 - [x] Consulter `blacklist.json` avant warmup et avant lancement gere par `LlamaCppProcessManager`
 - [x] Refuser sans tentative tout couple blackliste
-- [~] Quarantaine : checksum mismatch -> marquer `quarantined`, journaliser, bloquer sans fallback implicite
+- [x] Quarantaine : checksum mismatch -> marquer `quarantined`, journaliser, bloquer sans fallback implicite
   - [x] Implémentation v1 client : renommage `*.quarantine`, journalisation `acquisition_log.json`, blocage explicite avant lancement
-- [ ] Exposer blacklist active en lecture seule dans interface admin
+- [x] Exposer blacklist active en lecture seule dans interface admin
 
 **Travaux — Rollback (LLM-014, §9.15)** :
 - [x] Maintenir `last_known_good_profile.json` : dernier profil avec 3 runs consecutifs conformes
@@ -309,7 +309,7 @@ Ces items dependent des fondations posees dans Patch 4 et 5.
 
 - [x] Modes Perf / Balanced / Eco : artefact `battery_policies.json` avec idle timeout AC/batterie et fallback recommande
 - [~] Declencheurs : passage batterie detecte depuis `hardware_probe.json` et signale comme requalification si policy recommande fallback ; chute tok/s, temperature, eGPU debranche restent a faire
-- [ ] `batteryPolicyRef` inscrit dans `QualifiedProfile`
+- [x] `batteryPolicyRef` inscrit dans `QualifiedProfile`
 
 ### Cycle de vie runtime sleep/wake (§9.16)
 
@@ -320,7 +320,7 @@ Ce qui manque pour le contrat CDC :
 - [x] Drain avant sleep : heartbeat `RuntimeActivityStarted/Finished` bloque l'arret tant qu'une requete LLM est active
 - [x] `AppSettings` : flag `EagerLoad` (clarifie l'ancien `AutoStartOnConnect` dans la logique warmup)
 - [x] Wake sur demande : si `EagerLoad = false` ou apres sleep, demarrage du runtime juste avant generation
-- [ ] Eco : `idleTimeoutSeconds` reduit selon politique QoS (§9.12)
+- [~] Eco/Balanced/Perf : `idleTimeoutSeconds` resolu depuis `battery_policies.json` via `BatteryPolicyRef` ; selection/calibration Eco explicite reste a finaliser
 
 ### UX etats runtime LLM (§14.3) — contractuel
 
@@ -339,8 +339,8 @@ Ce qui manque pour le contrat CDC :
 
 - [ ] AMD SMI / ROCm SMI : VRAM, temperature, frequence
 - [ ] Intel Level Zero : budget memoire, utilisation, UMA
-- [ ] Endpoint `/metrics` llama.cpp (tokens, latences, KV cache, threads)
-- [ ] Regle : telemetrie collectee uniquement au hardware_probe (pas a chaque requete)
+- [~] Endpoint `/metrics` llama.cpp consomme opportunistiquement par `LocalLlmWarmupHarness` ; mapping tokens/KV cache/threads a formaliser
+- [~] Regle : pas de collecte a chaque requete user ; collecte actuelle pendant warmup/qualification, `hardware_probe` reste le snapshot hardware
 
 ### Support bundle gouvernance enrichi (§14.2)
 
