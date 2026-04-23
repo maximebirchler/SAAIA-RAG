@@ -33,7 +33,7 @@
 | Tuning LLM client | Client | [x] Fait Patch 1+2 | GgufMetadataReader, ngl=block_count, batch>=512, ctx=3072, ubatch=256, threads-batch=6, flash-attn CUDA auto |
 | Budget VRAM observe (DXGI) | Client | [~] Enforce v1 | `hardware_probe.json` capture RAM, GPU, fingerprint, secteur/batterie et budget DXGI ; hard gate budget DXGI branche sur `warmup_profiles.json` |
 | Gouvernance llama-server client | Client | [~] Patch 5 avance | Artefacts locaux, `QualifiedProfile`, checksums, warmup gate, harnais TTFT/tok/s multi-scenarios, rollback, blacklist, hardware_probe, policy batterie et triggers hardware/driver/runtime/modele poses ; application runtime reste a brancher |
-| Cycle de vie runtime (sleep/wake) | Client | [~] Partiel | ManageLocalLlmProcess + AutoStartOnConnect presents ; idleTimeoutSeconds, EagerLoad, drain avant sleep absents |
+| Cycle de vie runtime (sleep/wake) | Client | [~] En progression | `EagerLoad` explicite, idle timeout pilote par profil/policy et timer d'inactivite present ; drain avant sleep et wake a la demande restent a faire |
 | Checksums modeles | Client | [~] Partiel | Infrastructure SHA-256 presente ; warning logge si Sha256Hex=null (Patch 3) ; valeurs reelles non encore calculees (Phase 3) |
 | Endpoint support bundle admin | Backend | [x] Fait Patch 3 | `POST /admin/support/bundle` presente — ZIP stagé, artifacts/missingArtifacts, auth X-Admin-Key |
 
@@ -53,7 +53,7 @@
 - [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` — OK, 0 Warning
 - [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` — OK, 0 Warning
 - [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` — 335/335 verts
-- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 281/281 verts
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 284/284 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
 
@@ -312,9 +312,9 @@ Ces items dependent des fondations posees dans Patch 4 et 5.
 Base existante : `ManageLocalLlmProcess` + `AutoStartOnConnect` dans `AppSettings` et `SetupLifecycle.cs` gerent le lancement et l'arret manuel. Ce n'est pas un chantier zero — c'est une extension du mecanisme en place.
 
 Ce qui manque pour le contrat CDC :
-- [ ] `LlamaCppProcessManager` : ajouter `idleTimeoutSeconds` (default 120 s, lu dans `warmup_profiles.json`) + timer d'inactivite -> arret propre, liberation VRAM, log du sleep
+- [x] `LlamaCppProcessManager` : `idleTimeoutSeconds` resolu depuis `warmup_profiles.json` / `battery_policies.json` + timer d'inactivite -> arret propre et log du sleep
 - [ ] Drain avant sleep : si une requete est en cours au moment du timeout, attendre sa fin avant d'arreter le processus
-- [ ] `AppSettings` : flag `EagerLoad` (remplace/clarifie l'actuel `AutoStartOnConnect` dans la logique warmup : true = lancer au demarrage, false = wake a la premiere requete)
+- [x] `AppSettings` : flag `EagerLoad` (clarifie l'ancien `AutoStartOnConnect` dans la logique warmup)
 - [ ] Wake sur demande : si `EagerLoad = false`, demarrer le runtime a la premiere requete d'inference apres periode de sleep, mesurer `LoadMs`
 - [ ] Eco : `idleTimeoutSeconds` reduit selon politique QoS (§9.12)
 
@@ -438,7 +438,8 @@ Ce qui manque pour le contrat CDC :
 - [x] Policy batterie : `battery_policies.json` + evaluation `client-balanced` -> fallback stable sur batterie
 - [x] Triggers requalification modele/runtime : derive detectee au bootstrap depuis `QualifiedProfile` vs runtime/modeles courants
 - [x] Trigger requalification driver : comparaison `gpuDriverVersion` courant vs `hardware_probe.json`
-- [~] Reste a faire : application UX/runtime des policies
+- [x] Application runtime v1 : `EagerLoad` branche sur le connect/startup et `idleTimeoutSeconds` pilote par profil/policy avec heartbeat d'activite LLM
+- [~] Reste a faire : wake a la demande + UX des policies
 
 ### Gaps fermes
 

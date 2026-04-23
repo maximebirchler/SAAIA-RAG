@@ -28,6 +28,7 @@ internal sealed class AppSettings
     private const string KUseLocalLlm = "llm.useLocal";
     private const string KManageLocalLlmProcess = "llm.manageProcess";
     private const string KAutoStart = "llm.autoStartOnConnect";
+    private const string KEagerLoad = "llm.eagerLoad";
     private const string KExePath = "llm.llamaExePath";
     private const string KModelPath = "llm.modelPath";
     private const string KHost = "llm.host";
@@ -95,6 +96,7 @@ internal sealed class AppSettings
     public bool ManageLocalLlmProcess { get; set; } = true;
 
     public bool AutoStartOnConnect { get; set; } = true;
+    public bool EagerLoad { get; set; } = true;
 
     public string LlamaExePath { get; set; } = "";
     public string ModelPath { get; set; } = "";
@@ -166,6 +168,7 @@ internal sealed class AppSettings
         bool UseLocalLlm,
         bool ManageLocalLlmProcess,
         bool AutoStartOnConnect,
+        bool EagerLoad,
         string LlamaExePath,
         string ModelPath,
         string Host,
@@ -203,6 +206,7 @@ internal sealed class AppSettings
             s.UseLocalLlm = (ls.Values[KUseLocalLlm] as bool?) ?? s.UseLocalLlm;
             s.ManageLocalLlmProcess = (ls.Values[KManageLocalLlmProcess] as bool?) ?? s.ManageLocalLlmProcess;
             s.AutoStartOnConnect = (ls.Values[KAutoStart] as bool?) ?? s.AutoStartOnConnect;
+            s.EagerLoad = (ls.Values[KEagerLoad] as bool?) ?? s.AutoStartOnConnect;
 
             s.LlamaExePath = (ls.Values[KExePath] as string) ?? s.LlamaExePath;
             s.ModelPath = (ls.Values[KModelPath] as string) ?? s.ModelPath;
@@ -274,6 +278,7 @@ internal sealed class AppSettings
             if (Has(nameof(FileDto.ManageLocalLlmProcess)))
                 s.ManageLocalLlmProcess = dto.ManageLocalLlmProcess;
             s.AutoStartOnConnect = dto.AutoStartOnConnect;
+            s.EagerLoad = Has(nameof(FileDto.EagerLoad)) ? dto.EagerLoad : dto.AutoStartOnConnect;
             s.LlamaExePath = dto.LlamaExePath ?? "";
             s.ModelPath = dto.ModelPath ?? "";
             s.Host = string.IsNullOrWhiteSpace(dto.Host) ? "127.0.0.1" : dto.Host;
@@ -354,6 +359,7 @@ internal sealed class AppSettings
             ls.Values[KUseLocalLlm] = UseLocalLlm;
             ls.Values[KManageLocalLlmProcess] = ManageLocalLlmProcess;
             ls.Values[KAutoStart] = AutoStartOnConnect;
+            ls.Values[KEagerLoad] = EagerLoad;
 
             ls.Values[KExePath] = LlamaExePath ?? "";
             ls.Values[KModelPath] = ModelPath ?? "";
@@ -407,6 +413,7 @@ internal sealed class AppSettings
                 UseLocalLlm,
                 ManageLocalLlmProcess,
                 AutoStartOnConnect,
+                EagerLoad,
                 LlamaExePath ?? "",
                 ModelPath ?? "",
                 Host ?? "127.0.0.1",
@@ -482,6 +489,7 @@ internal sealed class AppSettings
         LlmMode = this.LlmMode,
         ManageLocalLlmProcess = this.ManageLocalLlmProcess,
         AutoStartOnConnect = this.AutoStartOnConnect,
+        EagerLoad = this.EagerLoad,
         LlamaExePath = this.LlamaExePath,
         ModelPath = this.ModelPath,
         Host = this.Host,
@@ -518,6 +526,7 @@ internal sealed class AppSettings
         LlmMode = other.LlmMode;
         ManageLocalLlmProcess = other.ManageLocalLlmProcess;
         AutoStartOnConnect = other.AutoStartOnConnect;
+        EagerLoad = other.EagerLoad;
         LlamaExePath = other.LlamaExePath;
         ModelPath = other.ModelPath;
         Host = other.Host;

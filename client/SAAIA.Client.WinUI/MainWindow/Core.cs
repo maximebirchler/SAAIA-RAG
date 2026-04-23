@@ -5,6 +5,8 @@ public sealed partial class MainWindow
     public MainWindow()
     {
         InitializeComponent();
+        _llm.RuntimeActivityStarted += _llmProc.NotifyActivityStart;
+        _llm.RuntimeActivityFinished += _llmProc.NotifyActivityFinished;
         ApplyAppearanceTheme();
 
         // Option B provisioning: installer/IT can drop a provisioning.json.

@@ -222,6 +222,7 @@ internal sealed class LocalLlmBootstrapper
         // Ensure minimal runtime flags
         s.ManageLocalLlmProcess = true;
         s.AutoStartOnConnect = true;
+        s.EagerLoad = true;
         s.UseLocalLlm = true;
         s.LlmMode = "embedded";
         s.Host = "127.0.0.1";

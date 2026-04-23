@@ -13,7 +13,7 @@ public sealed partial class MainWindow
             _appSettings = AppSettings.Load();
 
             LocalLlmEnabledCheck.IsChecked = _appSettings.UseLocalLlm;
-            LocalLlmAutoStartCheck.IsChecked = _appSettings.AutoStartOnConnect;
+            LocalLlmAutoStartCheck.IsChecked = _appSettings.EagerLoad;
 
             LocalLlmExePathBox.Text = _appSettings.LlamaExePath;
             LocalLlmModelPathBox.Text = _appSettings.ModelPath;
@@ -40,6 +40,7 @@ public sealed partial class MainWindow
 
         s.UseLocalLlm = LocalLlmEnabledCheck.IsChecked == true;
         s.AutoStartOnConnect = LocalLlmAutoStartCheck.IsChecked == true;
+        s.EagerLoad = LocalLlmAutoStartCheck.IsChecked == true;
 
         s.LlamaExePath = (LocalLlmExePathBox.Text ?? "").Trim();
         s.ModelPath = (LocalLlmModelPathBox.Text ?? "").Trim();

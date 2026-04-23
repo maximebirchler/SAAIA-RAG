@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,12 +10,17 @@ namespace SAAIA.Client.WinUI.Services;
 
 internal sealed class LlamaCppProcessManager
 {
+    private readonly object _gate = new();
     private Process? _proc;
+    private Timer? _idleTimer;
+    private int _activeRequests;
+    private int _idleTimeoutSeconds;
 
     public bool IsRunning => _proc is { HasExited: false };
 
     public string? LastCommandLine { get; private set; }
     public string? LastLogFile { get; private set; }
+    public int IdleTimeoutSeconds => _idleTimeoutSeconds;
 
     /// <summary>
     /// Stops the managed llama-server process if running.
@@ -22,6 +28,7 @@ internal sealed class LlamaCppProcessManager
     /// </summary>
     public void Stop()
     {
+        DisposeIdleTimer();
         if (_proc is null) return;
 
         try
@@ -71,6 +78,7 @@ internal sealed class LlamaCppProcessManager
             }
         }
 
+        _idleTimeoutSeconds = await ResolveIdleTimeoutSecondsAsync(s, ct: ct).ConfigureAwait(false);
         var args = BuildArgs(s);
         return await StartAsync(exePath, args, ct).ConfigureAwait(false);
     }
@@ -139,12 +147,94 @@ internal sealed class LlamaCppProcessManager
                 return (false, $"Started but /v1/models did not become ready within timeout. See log: {logPath}");
             }
 
+            ScheduleIdleStop();
+
             return (true, $"LLM ready at {baseUrl} (log: {logPath})");
         }
         catch (Exception ex)
         {
             try { Stop(); } catch { }
             return (false, "Start failed: " + ex.Message);
+        }
+    }
+
+    public void NotifyActivityStart()
+    {
+        lock (_gate)
+        {
+            _activeRequests++;
+            _idleTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+        }
+    }
+
+    public void NotifyActivityFinished()
+    {
+        lock (_gate)
+        {
+            if (_activeRequests > 0)
+                _activeRequests--;
+        }
+
+        ScheduleIdleStop();
+    }
+
+    internal static async Task<int> ResolveIdleTimeoutSecondsAsync(
+        AppSettings settings,
+        string? root = null,
+        CancellationToken ct = default)
+    {
+        var fallback = Math.Max(30, settings.StartupTimeoutSeconds);
+        if (settings.QualifiedProfile is null)
+            return fallback;
+
+        var profileRead = await GovernanceArtifactStore.ReadAsync<WarmupProfilesArtifact>(
+            GovernanceArtifactStore.WarmupProfilesFile,
+            root,
+            ct).ConfigureAwait(false);
+
+        var profileIdleTimeout = profileRead.Status == GovernanceArtifactReadStatus.Ok && profileRead.Value is not null
+            ? profileRead.Value.Items
+                .FirstOrDefault(item => string.Equals(item.ProfileId, settings.QualifiedProfile.ProfileId, StringComparison.OrdinalIgnoreCase))
+                ?.Thresholds.IdleTimeoutSeconds
+            : null;
+
+        var batteryDecision = await BatteryPolicyStore.EvaluateAsync(settings.QualifiedProfile, root, ct).ConfigureAwait(false);
+        return batteryDecision.EffectiveIdleTimeoutSeconds
+            ?? profileIdleTimeout
+            ?? fallback;
+    }
+
+    private void ScheduleIdleStop()
+    {
+        lock (_gate)
+        {
+            if (_activeRequests > 0 || !IsRunning || _idleTimeoutSeconds <= 0)
+                return;
+
+            _idleTimer ??= new Timer(_ => OnIdleTimeout(), null, Timeout.Infinite, Timeout.Infinite);
+            _idleTimer.Change(TimeSpan.FromSeconds(_idleTimeoutSeconds), Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    private void OnIdleTimeout()
+    {
+        lock (_gate)
+        {
+            if (_activeRequests > 0 || !IsRunning)
+                return;
+        }
+
+        ClientLog.Info($"[LlamaCpp] Idle timeout reached ({_idleTimeoutSeconds}s) - stopping managed runtime.");
+        Stop();
+    }
+
+    private void DisposeIdleTimer()
+    {
+        lock (_gate)
+        {
+            try { _idleTimer?.Dispose(); } catch { }
+            _idleTimer = null;
+            _activeRequests = 0;
         }
     }
 

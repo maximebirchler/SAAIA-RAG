@@ -590,7 +590,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
 
             // LLM endpoint (usually already running via Docker/service). In user mode we do NOT manage a process.
             // Advanced mode can manage llama.cpp if ManageLocalLlmProcess is true.
-            if (_appSettings.ManageLocalLlmProcess && _appSettings.UseLocalLlm && _appSettings.AutoStartOnConnect)
+            if (_appSettings.ManageLocalLlmProcess && _appSettings.UseLocalLlm && _appSettings.EagerLoad)
             {
                 var started = _appSettings.ShowAdvancedUi
                     ? await EnsureLocalLlmStartedAsync(CancellationToken.None)
