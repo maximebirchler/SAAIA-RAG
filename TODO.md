@@ -53,7 +53,7 @@
 - [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` — OK, 0 Warning
 - [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` — OK, 0 Warning
 - [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` — 335/335 verts
-- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj` — 310/310 verts
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj` — 312/312 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
 
@@ -461,11 +461,14 @@ Ce qui manque pour le contrat CDC :
 - [x] Ajouter la regle Gemma 4 : `gemma4` exige `llama.cpp-cuda`/`llama.cpp-cpu >= b8901`
 - [x] Ajouter override machine : `gemma4 + llama.cpp-cuda + Pascal => flash-attn=false`
 - [x] Brancher l'override dans `ApplyAutoTuningFlags` pour eviter le crash `flash-attn on` observe sur Quadro P520
-- [ ] Installer les runtimes dans des dossiers versionnes (`win-cuda-x64/b8149`, `win-cuda-x64/b8901`) au lieu d'ecraser le dossier actif
-- [ ] Ajouter un `active-runtime.json` qui pointe vers le runtime actif et conserve le dernier runtime sain
-- [ ] Rendre `LlamaCppReleaseDownloader` version-aware : `present` ne suffit plus, verifier `runtime.tag`, checksum, architecture demandee et build minimal
-- [ ] Ajouter rollback runtime si le warmup gate echoue apres upgrade
-- [ ] Exposer le diagnostic runtime actif / build requis / upgrade requis dans le support bundle et la vue admin runtime
+- [x] Installer les runtimes dans des dossiers versionnes (`win-cuda-x64/b8149`, `win-cuda-x64/b8901`) au lieu d'ecraser le dossier actif
+- [x] Ajouter un `active-runtime.json` qui pointe vers le runtime actif et conserve le dernier runtime sain
+- [x] Rendre `LlamaCppReleaseDownloader` version-aware : `present` ne suffit plus, verifier `runtime.tag`, checksum, architecture demandee et build minimal
+- [x] Ajouter rollback runtime si le warmup gate echoue apres upgrade
+- [~] Exposer le diagnostic runtime actif / build requis / upgrade requis dans le support bundle et la vue admin runtime
+  - [x] Support bundle : `active-runtime.json` + chemins runtime actifs + tags CPU/CUDA/Vulkan
+  - [x] Statut client : message explicite `Mise a niveau du runtime requise.`
+  - [ ] Vue admin/runtime : diagnostic visuel detaille encore absent
 
 **Decision produit** :
 - Gemma 4 reste famille de test tant que le runtime SAAIA embarque officiel n'est pas upgrade et qualifie par warmup.
@@ -520,3 +523,5 @@ Ce qui manque pour le contrat CDC :
 | 2026-04-23 | Codex | Bench Gemma 4 avec runtime llama.cpp b8901 isole : runtime SAAIA b8149 ne supporte pas `gemma4`; E2B Q8_0 OK en `ngl=16`/flash-off (~0.8s TTFT apres warm, ~7.4 tok/s), flash-on plante sur Pascal, E4B Q4_K_M trop lent (~1.65 tok/s) |
 | 2026-04-23 | Codex | Bench Gemma 4 E2B Q4_K_M ajoute : profil `ngl=24`/flash-off recommande sur Quadro P520 (~0.57s TTFT warm, ~12.3 tok/s), meilleur candidat Gemma local mais non retenu par defaut tant que runtime SAAIA embarque ne supporte pas `gemma4` |
 | 2026-04-23 | Codex | Runtime compatibility policy v1 : artefact `runtime_compatibility_policy.json`, regle Gemma4 >= b8901, override Pascal `flash-attn=false`, tests contractuels verts |
+| 2026-04-23 | Codex | Downloader runtime version-aware : installation versionnee sous `llm/runtime/<backend>/<build>`, `active-runtime.json`, support bundle enrichi et statut client `runtime_upgrade_required`, 312 tests client verts |
+| 2026-04-23 | Codex | Rollback runtime apres upgrade : `active-runtime.json` passe en `pending_qualification`, le warmup qualifie le nouveau runtime ou restaure automatiquement le build precedent sain, 314 tests client verts |

@@ -79,7 +79,7 @@ internal sealed class LocalLlmBootstrapper
                 // 1) Try CUDA
                 if (!File.Exists(LlamaCppReleaseDownloader.CudaServerExePath))
                 {
-                    var (okCuda, _, _) = await _llamaDl.EnsureWindowsCudaAsync(progress, ct).ConfigureAwait(false);
+                    var (okCuda, _, _) = await _llamaDl.EnsureWindowsCudaAsync(progress, minBuild: null, ct).ConfigureAwait(false);
                     _ = okCuda; // best-effort
                 }
                 if (File.Exists(LlamaCppReleaseDownloader.CudaServerExePath))
@@ -94,7 +94,7 @@ internal sealed class LocalLlmBootstrapper
             {
                 if (!File.Exists(LlamaCppReleaseDownloader.VulkanServerExePath))
                 {
-                    var (okVk, _, _) = await _llamaDl.EnsureWindowsVulkanAsync(progress, ct).ConfigureAwait(false);
+                    var (okVk, _, _) = await _llamaDl.EnsureWindowsVulkanAsync(progress, minBuild: null, ct).ConfigureAwait(false);
                     _ = okVk;
                 }
                 if (File.Exists(LlamaCppReleaseDownloader.VulkanServerExePath))
@@ -115,7 +115,7 @@ internal sealed class LocalLlmBootstrapper
             {
                 if (hasNvidia)
                 {
-                    var (okCuda, _, cudaPath) = await _llamaDl.EnsureWindowsCudaAsync(progress, ct).ConfigureAwait(false);
+                    var (okCuda, _, cudaPath) = await _llamaDl.EnsureWindowsCudaAsync(progress, minBuild: null, ct).ConfigureAwait(false);
                     if (okCuda && !string.IsNullOrWhiteSpace(cudaPath) && File.Exists(cudaPath))
                     {
                         s.LlamaExePath = cudaPath;
@@ -125,7 +125,7 @@ internal sealed class LocalLlmBootstrapper
 
                 if (string.IsNullOrWhiteSpace(s.LlamaExePath) || !File.Exists(s.LlamaExePath))
                 {
-                    var (okExe, _, exePath) = await _llamaDl.EnsureWindowsCpuAsync(progress, ct).ConfigureAwait(false);
+                    var (okExe, _, exePath) = await _llamaDl.EnsureWindowsCpuAsync(progress, minBuild: null, ct).ConfigureAwait(false);
                     if (okExe && !string.IsNullOrWhiteSpace(exePath) && File.Exists(exePath))
                     {
                         s.LlamaExePath = exePath;
@@ -182,6 +182,21 @@ internal sealed class LocalLlmBootstrapper
 
         if (string.IsNullOrWhiteSpace(s.ModelPath) || !File.Exists(s.ModelPath))
             return (false, "Model file not found (.gguf).", installed);
+
+        var runtimeCompatibility = await EnsureRuntimeCompatibilityAsync(
+            s,
+            bestGpu,
+            hasNvidia,
+            progress,
+            ct).ConfigureAwait(false);
+        if (!runtimeCompatibility.ok)
+            return (false, runtimeCompatibility.message, installed);
+        if (!string.IsNullOrWhiteSpace(runtimeCompatibility.exePath) && File.Exists(runtimeCompatibility.exePath))
+        {
+            s.LlamaExePath = runtimeCompatibility.exePath;
+            if (!installed.Contains(runtimeCompatibility.exePath, StringComparer.OrdinalIgnoreCase))
+                installed.Add(runtimeCompatibility.exePath);
+        }
 
         // Apply conservative auto-tuning based on hardware.
         ApplyAutoTuningFlags(s, bestGpu);
@@ -244,6 +259,45 @@ internal sealed class LocalLlmBootstrapper
         s.Save();
 
         return (true, "OK", installed);
+    }
+
+    private async Task<(bool ok, string message, string? exePath)> EnsureRuntimeCompatibilityAsync(
+        AppSettings s,
+        GpuInfo? gpu,
+        bool hasNvidia,
+        IProgress<DownloadManager.ProgressInfo>? progress,
+        CancellationToken ct)
+    {
+        var model = ResolveCurrentModel(s);
+        if (model is null)
+            return (true, "runtime_compatibility_skipped", s.LlamaExePath);
+
+        var runtimeId = RequalificationTriggerService.DetectRuntimeKey(s.LlamaExePath);
+        var runtimeBuild = RuntimeCompatibilityPolicyStore.ReadRuntimeBuild(s.LlamaExePath);
+        var decision = RuntimeCompatibilityPolicyStore.Evaluate(runtimeId, runtimeBuild, model);
+        if (decision.Compatible)
+            return (true, "compatible", s.LlamaExePath);
+
+        ClientLog.Warn($"[RuntimeCompatibility] {decision.Reason} (model={model.ModelId}, runtime={runtimeId}, currentBuild={decision.CurrentBuild ?? "unknown"}, requiredBuild={decision.RequiredBuild ?? "none"}).");
+
+        if (!decision.RequiresUpgrade || string.IsNullOrWhiteSpace(decision.RequiredBuild))
+            return (false, $"Runtime incompatible for model '{model.DisplayName}' ({decision.Reason}).", null);
+
+        if (string.Equals(runtimeId, "llama.cpp-cuda", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!hasNvidia)
+                return (false, $"Runtime upgrade required for '{model.DisplayName}', but no NVIDIA backend is available.", null);
+
+            return await _llamaDl.EnsureWindowsCudaAsync(progress, decision.RequiredBuild, ct).ConfigureAwait(false);
+        }
+
+        if (string.Equals(runtimeId, "llama.cpp-cpu", StringComparison.OrdinalIgnoreCase))
+            return await _llamaDl.EnsureWindowsCpuAsync(progress, decision.RequiredBuild, ct).ConfigureAwait(false);
+
+        if (string.Equals(runtimeId, "llama.cpp-vulkan", StringComparison.OrdinalIgnoreCase))
+            return await _llamaDl.EnsureWindowsVulkanAsync(progress, decision.RequiredBuild, ct).ConfigureAwait(false);
+
+        return (false, $"Runtime '{runtimeId}' incompatible with '{model.DisplayName}' and cannot be upgraded automatically.", null);
     }
 
     private static IReadOnlyList<ModelSpec> GetModelCandidates(GpuInfo? gpu, string? requestedModelId)

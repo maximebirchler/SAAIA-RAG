@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using SAAIA.Client.WinUI.Services;
 using Xunit;
 
@@ -21,6 +22,21 @@ public sealed class LocalLlmRuntimeStatusServiceTests
             };
 
             await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(settings, root);
+            await GovernanceArtifactStore.WriteAsync(
+                GovernanceArtifactStore.HardwareProbeFile,
+                new HardwareProbeArtifact(
+                    GovernanceArtifactStore.HardwareProbeFile,
+                    "v3.1",
+                    "captured",
+                    DateTimeOffset.UtcNow,
+                    "machine-test",
+                    new Dictionary<string, object?>
+                    {
+                        ["isOnBattery"] = false,
+                        ["batteryLifePercent"] = 100,
+                        ["powerStatusSource"] = "test"
+                    }),
+                root);
             var status = await LocalLlmRuntimeStatusService.EvaluateAsync(settings, root);
 
             Assert.Null(status);
@@ -209,6 +225,42 @@ public sealed class LocalLlmRuntimeStatusServiceTests
             Assert.NotNull(status);
             Assert.Equal("model_quarantined", status!.Code);
             Assert.Equal(ModelIntegrityService.QuarantineUserMessage, status.Message);
+            Assert.True(status.IsError);
+        }
+        finally
+        {
+            DeleteTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_returns_runtime_upgrade_required_for_gemma4_with_legacy_runtime()
+    {
+        var root = NewTempRoot();
+        var runtimeDir = Path.Combine(root, "runtime", "win-cuda-x64");
+        Directory.CreateDirectory(runtimeDir);
+        var exePath = Path.Combine(runtimeDir, "llama-server.exe");
+
+        try
+        {
+            await File.WriteAllTextAsync(exePath, "stub");
+            await File.WriteAllTextAsync(Path.Combine(runtimeDir, "runtime.tag"), "b8149");
+
+            var settings = new AppSettings
+            {
+                UseLocalLlm = true,
+                ManageLocalLlmProcess = true,
+                LlamaExePath = exePath,
+                ModelId = "gemma-4-e2b-it-q4-k-m",
+                QualifiedProfile = WarmupProfileStore.CreateReferenceCudaProfile()
+            };
+
+            await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(settings, root);
+            var status = await LocalLlmRuntimeStatusService.EvaluateAsync(settings, root);
+
+            Assert.NotNull(status);
+            Assert.Equal("runtime_upgrade_required", status!.Code);
+            Assert.Equal("Mise a niveau du runtime requise.", status.Message);
             Assert.True(status.IsError);
         }
         finally

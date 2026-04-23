@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -37,6 +38,19 @@ internal static class LocalLlmRuntimeStatusService
             return new LocalLlmRuntimeStatus(
                 "model_quarantined",
                 ModelIntegrityService.QuarantineUserMessage,
+                IsError: true);
+        }
+
+        var model = ModelCatalogStore.TryGetItem(settings.ModelId)
+            ?? ModelCatalogStore.TryGetItem(settings.ModelPath is null ? null : Path.GetFileName(settings.ModelPath));
+        var runtimeId = RequalificationTriggerService.DetectRuntimeKey(settings.LlamaExePath);
+        var runtimeBuild = RuntimeCompatibilityPolicyStore.ReadRuntimeBuild(settings.LlamaExePath);
+        var compatibility = RuntimeCompatibilityPolicyStore.Evaluate(runtimeId, runtimeBuild, model);
+        if (!compatibility.Compatible)
+        {
+            return new LocalLlmRuntimeStatus(
+                "runtime_upgrade_required",
+                "Mise a niveau du runtime requise.",
                 IsError: true);
         }
 

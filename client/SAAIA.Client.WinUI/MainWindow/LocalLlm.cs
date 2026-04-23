@@ -196,20 +196,43 @@ public sealed partial class MainWindow
             trigger: "client_runtime_start",
             ct: ct).ConfigureAwait(false);
 
+        var runtimeId = RequalificationTriggerService.DetectRuntimeKey(settings.LlamaExePath);
+        if (result.Status is WarmupGateStatus.Pass or WarmupGateStatus.PassDegraded)
+            _ = LlamaCppReleaseDownloader.TryMarkRuntimeQualified(runtimeId);
+
         if (result.SelectedProfile is not null)
         {
             settings.QualifiedProfile = result.SelectedProfile;
             settings.Save();
         }
 
-        await RefreshLocalLlmGovernanceStatusAsync().ConfigureAwait(false);
-
         if (result.Status is WarmupGateStatus.FailBlock or WarmupGateStatus.FailFallback)
         {
             TrySoftUi("RunLocalLlmWarmupQualificationAsync.Stop", _llmProc.Stop);
+
+            if (LlamaCppReleaseDownloader.TryRollbackPendingRuntime(runtimeId, out var rollbackExe, out var rollbackBuild)
+                && !string.IsNullOrWhiteSpace(rollbackExe))
+            {
+                settings.LlamaExePath = rollbackExe;
+                settings.Save();
+
+                TrySoftUi("RunLocalLlmWarmupQualificationAsync.RollbackUi", () =>
+                {
+                    LocalLlmExePathBox.Text = rollbackExe;
+                    LocalLlmStatusText.Text = $"Qualification echouee. Runtime precedent reactive ({rollbackBuild ?? "rollback"}).";
+                    SetAssistantProgress(assistantMsg, "Compatibilite non validee. Retour au runtime precedent.");
+                });
+
+                ClientLog.Warn(
+                    $"[RuntimeCompatibility] Qualification failed for '{runtimeId}'. "
+                    + $"Rolled back active runtime to build '{rollbackBuild ?? "unknown"}'.");
+            }
+
+            await RefreshLocalLlmGovernanceStatusAsync().ConfigureAwait(false);
             return false;
         }
 
+        await RefreshLocalLlmGovernanceStatusAsync().ConfigureAwait(false);
         return true;
     }
 

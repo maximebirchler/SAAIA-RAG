@@ -73,13 +73,21 @@ internal static class SupportBundleBuilder
             // Embedded runtime (M6): include lightweight marker files (not the whole runtime folder)
             try
             {
+                CopyIfExists(LlamaCppReleaseDownloader.ActiveRuntimeManifestPath, Path.Combine(llmDir, "active-runtime.json"));
                 var rtTag = Path.Combine(LlamaCppReleaseDownloader.CpuRuntimeDir, "runtime.tag");
                 CopyIfExists(rtTag, Path.Combine(llmDir, "embedded.runtime.tag"));
+                CopyIfExists(Path.Combine(LlamaCppReleaseDownloader.CudaRuntimeDir, "runtime.tag"), Path.Combine(llmDir, "embedded.cuda.runtime.tag"));
+                CopyIfExists(Path.Combine(LlamaCppReleaseDownloader.VulkanRuntimeDir, "runtime.tag"), Path.Combine(llmDir, "embedded.vulkan.runtime.tag"));
 
                 var rtInfo = new Dictionary<string, object?>
                 {
                     ["cpuExeExists"] = File.Exists(LlamaCppReleaseDownloader.CpuServerExePath),
                     ["cpuExePath"] = LlamaCppReleaseDownloader.CpuServerExePath,
+                    ["cudaExeExists"] = File.Exists(LlamaCppReleaseDownloader.CudaServerExePath),
+                    ["cudaExePath"] = LlamaCppReleaseDownloader.CudaServerExePath,
+                    ["vulkanExeExists"] = File.Exists(LlamaCppReleaseDownloader.VulkanServerExePath),
+                    ["vulkanExePath"] = LlamaCppReleaseDownloader.VulkanServerExePath,
+                    ["activeRuntimeManifestPath"] = LlamaCppReleaseDownloader.ActiveRuntimeManifestPath,
                 };
                 File.WriteAllText(Path.Combine(llmDir, "embedded.runtime.json"),
                     JsonSerializer.Serialize(rtInfo, new JsonSerializerOptions { WriteIndented = true }));
