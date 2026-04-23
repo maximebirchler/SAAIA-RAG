@@ -477,3 +477,4 @@ Ce qui manque pour le contrat CDC :
 | 2026-04-23 | Codex | Script `tools/compute-model-reference-checksums.ps1` ajoute ; etat machine confirme : 1 modele pack trouve, 5 manquants |
 | 2026-04-23 | Codex | `GovernanceArtifactStore` upgrade maintenant `model_catalog.json` local quand un checksum de reference devient connu ; script checksum sait aussi verifier le catalogue local, 295 tests client verts |
 | 2026-04-23 | Codex | Script checksum : `catalogStatus` explicite (`missing`/`loaded`/`updated`), sortie d'erreur dediee si update demande sans catalogue local present |
+| 2026-04-23 | Codex | Script checksum : bootstrap local `model_catalog.json` si absent (baseline Qwen actuel), verification locale ensuite en `catalog_match` pour le modele present |

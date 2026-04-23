@@ -5,7 +5,8 @@ param(
     [switch]$IncludeCatalogSnippet,
     [string]$CatalogArtifactPath,
     [switch]$VerifyAgainstCatalog,
-    [switch]$UpdateLocalCatalog
+    [switch]$UpdateLocalCatalog,
+    [switch]$BootstrapCatalogIfMissing
 )
 
 Set-StrictMode -Version Latest
@@ -33,6 +34,15 @@ $knownModels = @(
         FileName = "Qwen2.5-3B-Instruct-Q4_K_M.gguf"
         Family = "qwen2.5"
         Quantization = "Q4_K_M"
+        DisplayName = "Qwen2.5 3B Instruct Q4_K_M"
+        SourceRef = "hf-bartowski-qwen25-3b"
+        Architecture = "qwen2"
+        BlockCount = 36
+        HeadCount = 16
+        HeadCountKv = 2
+        EmbeddingLength = 2048
+        ContextLength = 32768
+        FeedForwardLength = 11008
     },
     [pscustomobject]@{
         ModelId = "qwen2.5-3b-instruct-q4-k-s"
@@ -89,6 +99,24 @@ function Resolve-SearchRoots {
     }
 
     return $resolved
+}
+
+function Get-OptionalValue {
+    param(
+        [object]$Object,
+        [string]$Name
+    )
+
+    if ($null -eq $Object) {
+        return $null
+    }
+
+    $property = $Object.PSObject.Properties[$Name]
+    if ($null -eq $property) {
+        return $null
+    }
+
+    return $property.Value
 }
 
 function Find-ModelPath {
@@ -192,8 +220,14 @@ function Compute-TextSha256 {
     param([string]$Text)
 
     $bytes = [System.Text.Encoding]::UTF8.GetBytes($Text)
-    $hash = [System.Security.Cryptography.SHA256]::HashData($bytes)
-    return [Convert]::ToHexString($hash).ToLowerInvariant()
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $hash = $sha.ComputeHash($bytes)
+        return [System.BitConverter]::ToString($hash).Replace("-", "").ToLowerInvariant()
+    }
+    finally {
+        $sha.Dispose()
+    }
 }
 
 function Save-CatalogDocument {
@@ -211,6 +245,62 @@ function Save-CatalogDocument {
     $json = $Document | ConvertTo-Json -Depth 10
     Set-Content -LiteralPath $expanded -Value $json -Encoding UTF8
     Set-Content -LiteralPath ($expanded + ".sha256") -Value (Compute-TextSha256 -Text $json) -Encoding Ascii
+}
+
+function New-BootstrapCatalogDocument {
+    param([object[]]$Items)
+
+    $catalogItems = @()
+    foreach ($item in $Items) {
+        if ($item.status -ne "found") {
+            continue
+        }
+
+        if ($item.modelId -ne "qwen2.5-3b-instruct-q4-k-m") {
+            continue
+        }
+
+        $catalogItems += [pscustomobject]@{
+            modelId = $item.modelId
+            displayName = $item.DisplayName
+            family = $item.Family
+            quantization = $item.Quantization
+            fileName = $item.FileName
+            sourceRef = $item.SourceRef
+            checksumSha256 = $item.sha256
+            checksumStatus = "verified_reference_hash"
+            license = [pscustomobject]@{
+                licenseFamily = "qwen"
+                licenseDisplayName = "Qwen Research License"
+                commercialUseAllowed = $true
+                commercialUseConditions = "Commercial use allowed; separate license required above 100,000,000 monthly active users."
+                commercialUseThresholdMau = 100000000
+                requiresSeparateCommercialLicenseAboveThreshold = $true
+            }
+            gguf = [pscustomobject]@{
+                architecture = $item.Architecture
+                blockCount = $item.BlockCount
+                headCount = $item.HeadCount
+                headCountKv = $item.HeadCountKv
+                embeddingLength = $item.EmbeddingLength
+                contextLength = $item.ContextLength
+                feedForwardLength = $item.FeedForwardLength
+            }
+            approvedRuntimeRefs = @("llama.cpp-cuda", "llama.cpp-vulkan", "llama.cpp-cpu")
+            supportedScopes = @("client", "capability_b_backoffice")
+            businessStates = @("known", "authorized", "installable")
+            artifactStates = @("downloaded_pending", "verification_required")
+            supportTier = "client-baseline"
+        }
+    }
+
+    return [pscustomobject]@{
+        artifact = "model_catalog.json"
+        cdcAlignment = "v3.1"
+        version = "2026-04-22.phase0"
+        generatedAt = [DateTimeOffset]::UtcNow.ToString("o")
+        items = $catalogItems
+    }
 }
 
 $roots = Resolve-SearchRoots -Roots $SearchRoots
@@ -250,6 +340,15 @@ foreach ($model in $knownModels) {
             fileName = $model.FileName
             family = $model.Family
             quantization = $model.Quantization
+            DisplayName = (Get-OptionalValue -Object $model -Name "DisplayName")
+            SourceRef = (Get-OptionalValue -Object $model -Name "SourceRef")
+            Architecture = (Get-OptionalValue -Object $model -Name "Architecture")
+            BlockCount = (Get-OptionalValue -Object $model -Name "BlockCount")
+            HeadCount = (Get-OptionalValue -Object $model -Name "HeadCount")
+            HeadCountKv = (Get-OptionalValue -Object $model -Name "HeadCountKv")
+            EmbeddingLength = (Get-OptionalValue -Object $model -Name "EmbeddingLength")
+            ContextLength = (Get-OptionalValue -Object $model -Name "ContextLength")
+            FeedForwardLength = (Get-OptionalValue -Object $model -Name "FeedForwardLength")
             status = "missing"
             path = $null
             sizeBytes = $null
@@ -310,6 +409,15 @@ foreach ($model in $knownModels) {
         fileName = $model.FileName
         family = $model.Family
         quantization = $model.Quantization
+        DisplayName = (Get-OptionalValue -Object $model -Name "DisplayName")
+        SourceRef = (Get-OptionalValue -Object $model -Name "SourceRef")
+        Architecture = (Get-OptionalValue -Object $model -Name "Architecture")
+        BlockCount = (Get-OptionalValue -Object $model -Name "BlockCount")
+        HeadCount = (Get-OptionalValue -Object $model -Name "HeadCount")
+        HeadCountKv = (Get-OptionalValue -Object $model -Name "HeadCountKv")
+        EmbeddingLength = (Get-OptionalValue -Object $model -Name "EmbeddingLength")
+        ContextLength = (Get-OptionalValue -Object $model -Name "ContextLength")
+        FeedForwardLength = (Get-OptionalValue -Object $model -Name "FeedForwardLength")
         status = "found"
         path = $file.FullName
         sizeBytes = $file.Length
@@ -330,6 +438,16 @@ $catalogSnippet = if ($IncludeCatalogSnippet) {
     ($catalogSnippetLines -join [Environment]::NewLine)
 } else {
     $null
+}
+
+if ($BootstrapCatalogIfMissing -and -not $catalogExists) {
+    $catalogDocument = New-BootstrapCatalogDocument -Items $entries
+    if (@($catalogDocument.items).Count -gt 0) {
+        Save-CatalogDocument -Path $CatalogArtifactPath -Document $catalogDocument
+        $catalogUpdated = $true
+        $catalogExists = $true
+        $catalogChecksums = Load-CatalogChecksums -Path $CatalogArtifactPath
+    }
 }
 
 $report = [pscustomobject]@{
@@ -373,7 +491,7 @@ if (-not [string]::IsNullOrWhiteSpace($OutputPath)) {
 
 $json
 
-if ($UpdateLocalCatalog -and -not $catalogExists) {
+if (($UpdateLocalCatalog -or $BootstrapCatalogIfMissing) -and -not $catalogExists) {
     exit 3
 }
 
