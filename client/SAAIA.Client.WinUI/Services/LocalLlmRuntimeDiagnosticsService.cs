@@ -24,7 +24,8 @@ internal sealed record LocalLlmRuntimeDiagnostics(
     string? QualifiedProfileId,
     WarmupGateStatus? LatestWarmupStatus,
     string? LatestWarmupReason,
-    bool? ForcedFlashAttn);
+    bool? ForcedFlashAttn,
+    IReadOnlyList<RuntimeEventLogItem> RecentEvents);
 
 internal static class LocalLlmRuntimeDiagnosticsService
 {
@@ -57,6 +58,8 @@ internal static class LocalLlmRuntimeDiagnosticsService
                 : null;
         }
 
+        var recentEvents = await RuntimeEventLogStore.ReadLatestAsync(5, root, ct).ConfigureAwait(false);
+
         return new LocalLlmRuntimeDiagnostics(
             RuntimeId: runtimeId,
             RuntimeLabel: ResolveRuntimeLabel(runtimeId),
@@ -75,7 +78,10 @@ internal static class LocalLlmRuntimeDiagnosticsService
             QualifiedProfileId: settings.QualifiedProfile?.ProfileId,
             LatestWarmupStatus: latestWarmup?.Status,
             LatestWarmupReason: latestWarmup?.Reasons.FirstOrDefault(),
-            ForcedFlashAttn: forcedFlashAttn);
+            ForcedFlashAttn: forcedFlashAttn,
+            RecentEvents: recentEvents
+                .Where(item => string.Equals(item.RuntimeId, runtimeId, StringComparison.OrdinalIgnoreCase))
+                .ToArray());
     }
 
     private static string ResolveRuntimeLabel(string runtimeId)

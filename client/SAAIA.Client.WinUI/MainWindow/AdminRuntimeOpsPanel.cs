@@ -166,6 +166,17 @@ public sealed partial class MainWindow
                 TextWrapping = TextWrapping.WrapWholeWords
             });
 
+            if (diagnostics.RecentEvents.Count > 0)
+            {
+                var latest = diagnostics.RecentEvents[0];
+                details.Children.Add(new TextBlock
+                {
+                    Text = $"Dernier evenement {latest.At.ToLocalTime():g} | {latest.EventKind} | build {latest.Build ?? "-"}",
+                    Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
+                    TextWrapping = TextWrapping.WrapWholeWords
+                });
+            }
+
             runtimeHost.Content = BuildDialogSurfaceCard(details, new Thickness(12));
         }
 

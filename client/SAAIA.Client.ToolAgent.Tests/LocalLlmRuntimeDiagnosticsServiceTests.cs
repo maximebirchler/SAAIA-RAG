@@ -14,6 +14,7 @@ public sealed class LocalLlmRuntimeDiagnosticsServiceTests
         var root = NewTempRoot();
         var runtimeRoot = Path.Combine(root, "runtime");
         LlamaCppReleaseDownloader.RuntimeRootOverride = runtimeRoot;
+        RuntimeEventLogStore.RootOverride = root;
 
         try
         {
@@ -31,6 +32,14 @@ public sealed class LocalLlmRuntimeDiagnosticsServiceTests
             };
 
             await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(settings, root);
+            await RuntimeEventLogStore.AppendAsync(new RuntimeEventLogItem(
+                DateTimeOffset.Parse("2026-04-23T11:00:00Z"),
+                "llama.cpp-cuda",
+                "runtime_upgrade_activated",
+                "b8901",
+                "b8149",
+                settings.ModelId,
+                "test"), root);
 
             var gpu = new GpuInfo(
                 GpuVendor.Nvidia,
@@ -50,10 +59,13 @@ public sealed class LocalLlmRuntimeDiagnosticsServiceTests
             Assert.False(diagnostics.UpgradeRequired);
             Assert.Equal("gemma4", diagnostics.ModelFamily);
             Assert.False(diagnostics.ForcedFlashAttn);
+            Assert.Single(diagnostics.RecentEvents);
+            Assert.Equal("runtime_upgrade_activated", diagnostics.RecentEvents[0].EventKind);
         }
         finally
         {
             LlamaCppReleaseDownloader.RuntimeRootOverride = null;
+            RuntimeEventLogStore.RootOverride = null;
             DeleteTempRoot(root);
         }
     }
@@ -64,6 +76,7 @@ public sealed class LocalLlmRuntimeDiagnosticsServiceTests
         var root = NewTempRoot();
         var runtimeRoot = Path.Combine(root, "runtime");
         LlamaCppReleaseDownloader.RuntimeRootOverride = runtimeRoot;
+        RuntimeEventLogStore.RootOverride = root;
 
         try
         {
@@ -89,6 +102,7 @@ public sealed class LocalLlmRuntimeDiagnosticsServiceTests
         finally
         {
             LlamaCppReleaseDownloader.RuntimeRootOverride = null;
+            RuntimeEventLogStore.RootOverride = null;
             DeleteTempRoot(root);
         }
     }

@@ -57,6 +57,7 @@ internal static class GovernanceArtifactStore
     public const string AcquisitionLogFile = "acquisition_log.json";
     public const string BatteryPoliciesFile = "battery_policies.json";
     public const string RuntimeCompatibilityPolicyFile = "runtime_compatibility_policy.json";
+    public const string RuntimeEventLogFile = "runtime_event_log.json";
 
     // Local disk artifacts use snake_case per CDC v3.1 section 5.8.
     // Backend API path segments may remain kebab-case; do not mix both conventions
@@ -156,6 +157,7 @@ internal static class GovernanceArtifactStore
         await WriteIfMissingAsync(BlacklistAppliedFile, new GovernanceListArtifact<object>("blacklist_applied.json", "v3.1", Array.Empty<object>()), governanceRoot, ct).ConfigureAwait(false);
         await WriteIfMissingAsync(CapabilityStateFile, new GovernanceListArtifact<object>("capability_state.json", "v3.1", Array.Empty<object>()), governanceRoot, ct).ConfigureAwait(false);
         await WriteIfMissingAsync(AcquisitionLogFile, new GovernanceListArtifact<object>("acquisition_log.json", "v3.1", Array.Empty<object>()), governanceRoot, ct).ConfigureAwait(false);
+        await WriteIfMissingAsync(RuntimeEventLogFile, new RuntimeEventLogArtifact("runtime_event_log.json", "v3.1", Array.Empty<RuntimeEventLogItem>()), governanceRoot, ct).ConfigureAwait(false);
 
         settings.QualifiedProfile ??= WarmupProfileStore.CreateReferenceCudaProfile();
     }

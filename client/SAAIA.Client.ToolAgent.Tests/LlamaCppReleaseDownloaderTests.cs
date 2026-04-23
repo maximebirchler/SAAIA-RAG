@@ -13,6 +13,7 @@ public sealed class LlamaCppReleaseDownloaderTests
     {
         var runtimeRoot = NewTempRoot();
         LlamaCppReleaseDownloader.RuntimeRootOverride = runtimeRoot;
+        RuntimeEventLogStore.RootOverride = runtimeRoot;
 
         try
         {
@@ -39,6 +40,7 @@ public sealed class LlamaCppReleaseDownloaderTests
         finally
         {
             LlamaCppReleaseDownloader.RuntimeRootOverride = null;
+            RuntimeEventLogStore.RootOverride = null;
             DeleteTempRoot(runtimeRoot);
         }
     }
@@ -48,6 +50,7 @@ public sealed class LlamaCppReleaseDownloaderTests
     {
         var runtimeRoot = NewTempRoot();
         LlamaCppReleaseDownloader.RuntimeRootOverride = runtimeRoot;
+        RuntimeEventLogStore.RootOverride = runtimeRoot;
 
         try
         {
@@ -74,6 +77,7 @@ public sealed class LlamaCppReleaseDownloaderTests
         finally
         {
             LlamaCppReleaseDownloader.RuntimeRootOverride = null;
+            RuntimeEventLogStore.RootOverride = null;
             DeleteTempRoot(runtimeRoot);
         }
     }

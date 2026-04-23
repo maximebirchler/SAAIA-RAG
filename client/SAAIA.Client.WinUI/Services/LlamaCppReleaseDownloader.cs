@@ -318,6 +318,15 @@ internal sealed class LlamaCppReleaseDownloader
                     previous.AssetName)
                 : null));
 
+        RuntimeEventLogStore.Append(new RuntimeEventLogItem(
+            At: DateTimeOffset.UtcNow,
+            RuntimeId: runtimeId,
+            EventKind: hasRollbackCandidate ? "runtime_upgrade_activated" : "runtime_installed",
+            Build: tag,
+            PreviousBuild: previous?.Build,
+            ModelId: null,
+            Detail: assetName));
+
         return result;
     }
 
@@ -532,6 +541,14 @@ internal sealed class LlamaCppReleaseDownloader
         };
 
         WriteActiveRuntimeArtifact(artifact!, items);
+        RuntimeEventLogStore.Append(new RuntimeEventLogItem(
+            At: DateTimeOffset.UtcNow,
+            RuntimeId: runtimeId,
+            EventKind: "runtime_qualified",
+            Build: current.Build,
+            PreviousBuild: current.Previous?.Build,
+            ModelId: null,
+            Detail: current.Status));
         return true;
     }
 
@@ -574,6 +591,14 @@ internal sealed class LlamaCppReleaseDownloader
 
         items[index] = rollback;
         WriteActiveRuntimeArtifact(artifact!, items);
+        RuntimeEventLogStore.Append(new RuntimeEventLogItem(
+            At: DateTimeOffset.UtcNow,
+            RuntimeId: runtimeId,
+            EventKind: "runtime_rollback_applied",
+            Build: rollback.Build,
+            PreviousBuild: current.Build,
+            ModelId: null,
+            Detail: current.Status));
 
         exePath = rollback.ExePath;
         build = rollback.Build;

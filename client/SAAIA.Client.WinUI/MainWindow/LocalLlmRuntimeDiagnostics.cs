@@ -66,6 +66,14 @@ public sealed partial class MainWindow
         static string FormatTimestamp(DateTimeOffset? value)
             => value?.ToLocalTime().ToString("g") ?? "-";
 
+        static string FormatEvent(RuntimeEventLogItem item)
+        {
+            var stamp = item.At.ToLocalTime().ToString("g");
+            var build = string.IsNullOrWhiteSpace(item.Build) ? "-" : item.Build;
+            var previous = string.IsNullOrWhiteSpace(item.PreviousBuild) ? string.Empty : $" (prec. {item.PreviousBuild})";
+            return $"{stamp} - {item.EventKind} - {build}{previous}";
+        }
+
         string bannerText;
         var metricsGrid = new Grid { ColumnSpacing = 12, RowSpacing = 12 };
         for (var i = 0; i < 3; i++)
@@ -76,7 +84,7 @@ public sealed partial class MainWindow
         var detailsGrid = new Grid { ColumnSpacing = 12, RowSpacing = 12 };
         detailsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         detailsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        for (var i = 0; i < 5; i++)
+        for (var i = 0; i < 6; i++)
             detailsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         var bannerHost = new ContentPresenter();
         var progressBar = new ProgressBar
@@ -215,7 +223,12 @@ public sealed partial class MainWindow
                 BuildField("Exe actif", diagnostics.ActiveExePath),
                 BuildField("Manifest runtime", diagnostics.ActiveManifestPath),
                 BuildField("Derniere raison warmup", diagnostics.LatestWarmupReason),
-                BuildField("Compatibilite", diagnostics.CompatibilityReason)
+                BuildField("Compatibilite", diagnostics.CompatibilityReason),
+                BuildField(
+                    "Historique runtime",
+                    diagnostics.RecentEvents.Count == 0
+                        ? "Aucun evenement runtime recent."
+                        : string.Join(Environment.NewLine, diagnostics.RecentEvents.Select(FormatEvent)))
             };
             for (var index = 0; index < detailCards.Length; index++)
             {
@@ -273,6 +286,15 @@ public sealed partial class MainWindow
             var confirmed = await confirm.ShowAsync();
             if (confirmed != ContentDialogResult.Primary)
                 return;
+
+            await RuntimeEventLogStore.AppendAsync(new RuntimeEventLogItem(
+                At: DateTimeOffset.UtcNow,
+                RuntimeId: currentDiagnostics.RuntimeId,
+                EventKind: "runtime_upgrade_confirmed",
+                Build: currentDiagnostics.RequiredBuild,
+                PreviousBuild: currentDiagnostics.ActiveBuild,
+                ModelId: currentDiagnostics.ModelId,
+                Detail: currentDiagnostics.CompatibilityReason));
 
             SetBusy(true);
             try

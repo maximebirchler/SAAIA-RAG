@@ -74,6 +74,12 @@ internal static class SupportBundleBuilder
             try
             {
                 CopyIfExists(LlamaCppReleaseDownloader.ActiveRuntimeManifestPath, Path.Combine(llmDir, "active-runtime.json"));
+                CopyIfExists(
+                    GovernanceArtifactStore.ResolvePath(GovernanceArtifactStore.RuntimeEventLogFile),
+                    Path.Combine(llmDir, "runtime_event_log.json"));
+                CopyIfExists(
+                    GovernanceArtifactStore.ResolvePath(GovernanceArtifactStore.RuntimeEventLogFile) + ".sha256",
+                    Path.Combine(llmDir, "runtime_event_log.json.sha256"));
                 var rtTag = Path.Combine(LlamaCppReleaseDownloader.CpuRuntimeDir, "runtime.tag");
                 CopyIfExists(rtTag, Path.Combine(llmDir, "embedded.runtime.tag"));
                 CopyIfExists(Path.Combine(LlamaCppReleaseDownloader.CudaRuntimeDir, "runtime.tag"), Path.Combine(llmDir, "embedded.cuda.runtime.tag"));
