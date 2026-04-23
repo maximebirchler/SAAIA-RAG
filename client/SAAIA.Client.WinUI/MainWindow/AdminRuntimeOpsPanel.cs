@@ -79,6 +79,7 @@ public sealed partial class MainWindow
         };
         var stateHost = new ContentPresenter();
         var blacklistHost = new ContentPresenter();
+        var runtimeHost = new ContentPresenter();
         var metricsGrid = new Grid { ColumnSpacing = 12, RowSpacing = 12 };
         for (var i = 0; i < 3; i++)
             metricsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -118,6 +119,58 @@ public sealed partial class MainWindow
         void SetBlacklistBanner(string text, bool positive = false)
         {
             blacklistHost.Content = BuildDialogInfoBanner(text, positive);
+        }
+
+        void SetRuntimeSummary(LocalLlmRuntimeDiagnostics diagnostics)
+        {
+            var summary = $"{diagnostics.RuntimeLabel} | build {diagnostics.ActiveBuild ?? "inconnu"}";
+            if (!string.IsNullOrWhiteSpace(diagnostics.RequiredBuild))
+                summary += $" | requis {diagnostics.RequiredBuild}";
+
+            var details = new StackPanel { Spacing = 6 };
+            details.Children.Add(new TextBlock
+            {
+                Text = summary,
+                FontSize = 16,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = UseLightPalette() ? UiBrush(0x11, 0x18, 0x27) : UiBrush(0xF5, 0xF7, 0xFB),
+                TextWrapping = TextWrapping.WrapWholeWords
+            });
+            details.Children.Add(new TextBlock
+            {
+                Text =
+                    $"Etat {ResolveRuntimeStateLabel(diagnostics.ActiveState)} | Warmup {ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus)} | Flash-attn {ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn)}",
+                Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
+                TextWrapping = TextWrapping.WrapWholeWords
+            });
+
+            if (!string.IsNullOrWhiteSpace(diagnostics.PreviousBuild)
+                || !string.IsNullOrWhiteSpace(diagnostics.ModelId))
+            {
+                details.Children.Add(new TextBlock
+                {
+                    Text =
+                        $"Modele {diagnostics.ModelId ?? "-"} | precedent {diagnostics.PreviousBuild ?? "-"} | profil {diagnostics.QualifiedProfileId ?? "-"}",
+                    Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
+                    TextWrapping = TextWrapping.WrapWholeWords
+                });
+            }
+
+            runtimeHost.Content = BuildDialogSurfaceCard(details, new Thickness(12));
+        }
+
+        async Task RefreshLocalRuntimeSummaryAsync()
+        {
+            try
+            {
+                var diagnostics = await LocalLlmRuntimeDiagnosticsService.EvaluateAsync(AppSettings.Load(), ct: overlayCts.Token).ConfigureAwait(true);
+                SetRuntimeSummary(diagnostics);
+            }
+            catch (Exception ex)
+            {
+                ClientLog.Exception("AdminRuntimeOps.LocalRuntimeSummary", ex);
+                runtimeHost.Content = BuildDialogInfoBanner("Diagnostic runtime local indisponible.");
+            }
         }
 
         void SetBusy(bool busy)
@@ -516,12 +569,14 @@ public sealed partial class MainWindow
                 var json = await _api.AdminRuntimeOperationalSummaryAsync(overlayCts.Token).ConfigureAwait(true);
                 var snapshot = ParseAdminRuntimeOperationalSnapshot(json);
                 Render(snapshot);
+                await RefreshLocalRuntimeSummaryAsync().ConfigureAwait(true);
                 await RefreshBlacklistBannerAsync().ConfigureAwait(true);
             }
             catch (Exception ex)
             {
                 ClientLog.Exception("AdminRuntimeOps.Load", ex);
                 SetStateBanner(ClientUiText.Get("admin.runtime.load_failed", lang));
+                runtimeHost.Content = BuildDialogInfoBanner("Diagnostic runtime local indisponible.");
                 capabilitiesHost.Children.Clear();
                 capabilitiesHost.Children.Add(BuildDialogInfoBanner(ex.Message));
             }
@@ -546,6 +601,7 @@ public sealed partial class MainWindow
                     generatedText,
                     stateHost,
                     blacklistHost,
+                    runtimeHost,
                     BuildDialogSurfaceCard(metricsGrid, new Thickness(12)),
                     BuildDialogSurfaceCard(capabilitiesHost, new Thickness(12))
                 },

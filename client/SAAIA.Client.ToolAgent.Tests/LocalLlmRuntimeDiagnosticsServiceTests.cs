@@ -6,12 +6,13 @@ using Xunit;
 namespace SAAIA.Client.ToolAgent.Tests;
 
 [Collection("RuntimeRootSerial")]
-public sealed class LlamaCppReleaseDownloaderTests
+public sealed class LocalLlmRuntimeDiagnosticsServiceTests
 {
     [Fact]
-    public void TryMarkRuntimeQualified_clears_pending_upgrade_metadata()
+    public async Task EvaluateAsync_returns_pending_runtime_state_and_pascal_flash_attn_override()
     {
-        var runtimeRoot = NewTempRoot();
+        var root = NewTempRoot();
+        var runtimeRoot = Path.Combine(root, "runtime");
         LlamaCppReleaseDownloader.RuntimeRootOverride = runtimeRoot;
 
         try
@@ -20,61 +21,73 @@ public sealed class LlamaCppReleaseDownloaderTests
             var activeExe = CreateRuntime(runtimeRoot, "win-cuda-x64", "b8901");
             WriteActiveRuntimeManifest(runtimeRoot, activeExe, previousExe);
 
-            var ok = LlamaCppReleaseDownloader.TryMarkRuntimeQualified("llama.cpp-cuda");
+            var settings = new AppSettings
+            {
+                UseLocalLlm = true,
+                ManageLocalLlmProcess = true,
+                LlamaExePath = activeExe,
+                ModelId = "gemma-4-e2b-it-q4-k-m",
+                QualifiedProfile = WarmupProfileStore.CreateReferenceCudaProfile()
+            };
 
-            Assert.True(ok);
+            await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(settings, root);
 
-            var state = LlamaCppReleaseDownloader.TryGetActiveRuntimeState("llama.cpp-cuda");
-            Assert.NotNull(state);
-            Assert.Equal("b8901", state!.Build);
-            Assert.Equal("qualified", state.Status);
-            Assert.Null(state.PreviousBuild);
+            var gpu = new GpuInfo(
+                GpuVendor.Nvidia,
+                "Quadro P520",
+                4L * 1024 * 1024 * 1024,
+                IsIntegrated: false,
+                DetectionSource: "test");
 
-            using var doc = JsonDocument.Parse(File.ReadAllText(LlamaCppReleaseDownloader.ActiveRuntimeManifestPath));
-            var item = doc.RootElement.GetProperty("items")[0];
-            Assert.Equal("qualified", item.GetProperty("status").GetString());
-            Assert.True(item.TryGetProperty("previous", out var previous));
-            Assert.Equal(JsonValueKind.Null, previous.ValueKind);
+            var diagnostics = await LocalLlmRuntimeDiagnosticsService.EvaluateAsync(settings, gpu, root);
+
+            Assert.Equal("llama.cpp-cuda", diagnostics.RuntimeId);
+            Assert.Equal("b8901", diagnostics.ActiveBuild);
+            Assert.Equal("pending_qualification", diagnostics.ActiveState);
+            Assert.Equal("b8149", diagnostics.PreviousBuild);
+            Assert.False(diagnostics.UpgradeRequired);
+            Assert.Equal("gemma4", diagnostics.ModelFamily);
+            Assert.False(diagnostics.ForcedFlashAttn);
         }
         finally
         {
             LlamaCppReleaseDownloader.RuntimeRootOverride = null;
-            DeleteTempRoot(runtimeRoot);
+            DeleteTempRoot(root);
         }
     }
 
     [Fact]
-    public void TryRollbackPendingRuntime_restores_previous_runtime_build()
+    public async Task EvaluateAsync_returns_required_build_for_legacy_gemma_runtime()
     {
-        var runtimeRoot = NewTempRoot();
+        var root = NewTempRoot();
+        var runtimeRoot = Path.Combine(root, "runtime");
         LlamaCppReleaseDownloader.RuntimeRootOverride = runtimeRoot;
 
         try
         {
-            var previousExe = CreateRuntime(runtimeRoot, "win-cuda-x64", "b8149");
-            var activeExe = CreateRuntime(runtimeRoot, "win-cuda-x64", "b8901");
-            WriteActiveRuntimeManifest(runtimeRoot, activeExe, previousExe);
+            var legacyExe = CreateRuntime(runtimeRoot, "win-cuda-x64", "b8149");
+            var settings = new AppSettings
+            {
+                UseLocalLlm = true,
+                ManageLocalLlmProcess = true,
+                LlamaExePath = legacyExe,
+                ModelId = "gemma-4-e2b-it-q4-k-m",
+                QualifiedProfile = WarmupProfileStore.CreateReferenceCudaProfile()
+            };
 
-            var ok = LlamaCppReleaseDownloader.TryRollbackPendingRuntime(
-                "llama.cpp-cuda",
-                out var rollbackExe,
-                out var rollbackBuild);
+            await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(settings, root);
 
-            Assert.True(ok);
-            Assert.Equal(previousExe, rollbackExe);
-            Assert.Equal("b8149", rollbackBuild);
+            var diagnostics = await LocalLlmRuntimeDiagnosticsService.EvaluateAsync(settings, gpu: null, root: root);
 
-            var state = LlamaCppReleaseDownloader.TryGetActiveRuntimeState("llama.cpp-cuda");
-            Assert.NotNull(state);
-            Assert.Equal("b8149", state!.Build);
-            Assert.Equal(previousExe, state.ExePath);
-            Assert.Equal("qualified", state.Status);
-            Assert.Null(state.PreviousBuild);
+            Assert.Equal("b8149", diagnostics.ActiveBuild);
+            Assert.True(diagnostics.UpgradeRequired);
+            Assert.Equal("b8901", diagnostics.RequiredBuild);
+            Assert.Null(diagnostics.ActiveState);
         }
         finally
         {
             LlamaCppReleaseDownloader.RuntimeRootOverride = null;
-            DeleteTempRoot(runtimeRoot);
+            DeleteTempRoot(root);
         }
     }
 
@@ -129,7 +142,7 @@ public sealed class LlamaCppReleaseDownloaderTests
 
     private static string NewTempRoot()
     {
-        var root = Path.Combine(Path.GetTempPath(), "saaia-llama-runtime-test-" + Guid.NewGuid().ToString("N"));
+        var root = Path.Combine(Path.GetTempPath(), "saaia-runtime-diagnostics-test-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         return root;
     }

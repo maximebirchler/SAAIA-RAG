@@ -55,6 +55,7 @@
 - [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` — 335/335 verts
 - [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj` — 312/312 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
+- [x] Revalidation client 2026-04-23 apres diagnostic runtime local : 316/316 verts
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
 
 ---
@@ -465,10 +466,11 @@ Ce qui manque pour le contrat CDC :
 - [x] Ajouter un `active-runtime.json` qui pointe vers le runtime actif et conserve le dernier runtime sain
 - [x] Rendre `LlamaCppReleaseDownloader` version-aware : `present` ne suffit plus, verifier `runtime.tag`, checksum, architecture demandee et build minimal
 - [x] Ajouter rollback runtime si le warmup gate echoue apres upgrade
-- [~] Exposer le diagnostic runtime actif / build requis / upgrade requis dans le support bundle et la vue admin runtime
+- [x] Exposer le diagnostic runtime actif / build requis / upgrade requis dans le support bundle et la vue admin runtime
   - [x] Support bundle : `active-runtime.json` + chemins runtime actifs + tags CPU/CUDA/Vulkan
   - [x] Statut client : message explicite `Mise a niveau du runtime requise.`
-  - [ ] Vue admin/runtime : diagnostic visuel detaille encore absent
+  - [x] Vue runtime locale : overlay dedie avec build actif / requis, etat pending/qualified, warmup, profil qualifie et policy flash-attn
+  - [x] Vue admin/runtime : resume runtime local integre dans l'overlay admin sans surcharge de la vue
 
 **Decision produit** :
 - Gemma 4 reste famille de test tant que le runtime SAAIA embarque officiel n'est pas upgrade et qualifie par warmup.
@@ -525,3 +527,5 @@ Ce qui manque pour le contrat CDC :
 | 2026-04-23 | Codex | Runtime compatibility policy v1 : artefact `runtime_compatibility_policy.json`, regle Gemma4 >= b8901, override Pascal `flash-attn=false`, tests contractuels verts |
 | 2026-04-23 | Codex | Downloader runtime version-aware : installation versionnee sous `llm/runtime/<backend>/<build>`, `active-runtime.json`, support bundle enrichi et statut client `runtime_upgrade_required`, 312 tests client verts |
 | 2026-04-23 | Codex | Rollback runtime apres upgrade : `active-runtime.json` passe en `pending_qualification`, le warmup qualifie le nouveau runtime ou restaure automatiquement le build precedent sain, 314 tests client verts |
+| 2026-04-23 | Codex | Diagnostic runtime local : service dedie + overlay UI avec build actif / requis, etat runtime, warmup et override flash-attn ; 316 tests client verts |
+| 2026-04-23 | Codex | Overlay admin runtime : resume compact du runtime local ajoute (build actif/requis, etat, warmup, flash-attn), sans surcharger la vue existante |

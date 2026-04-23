@@ -480,6 +480,7 @@
                                                     <Button Content="Start now" Click="LocalLlmStart_Click" MinWidth="110"/>
                                                     <Button Content="Stop" Click="LocalLlmStop_Click" MinWidth="80"/>
                                                     <Button Content="Save" Click="LocalLlmSave_Click" MinWidth="80"/>
+                                                    <Button Content="Diagnostic runtime" Click="LocalLlmRuntimeDiagnostics_Click" MinWidth="160"/>
                                                 </StackPanel>
                 
                                                 <TextBlock x:Name="LocalLlmStatusText" Opacity="0.8" TextWrapping="Wrap"/>
