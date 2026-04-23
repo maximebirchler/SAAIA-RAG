@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.IO.Compression;
 using Dapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Json;
@@ -111,6 +112,18 @@ public sealed class AdminRuntimeEndpointsTests
             await File.WriteAllTextAsync(
                 Path.Combine(governanceDir, "warmup_results.json"),
                 "{\"items\":[]}");
+            await File.WriteAllTextAsync(
+                Path.Combine(governanceDir, "rollback_log.json"),
+                "{\"items\":[]}");
+            await File.WriteAllTextAsync(
+                Path.Combine(governanceDir, "blacklist_applied.json"),
+                "{\"items\":[]}");
+
+            var llmLogsDir = Path.Combine(tempRoot, "logs", "llm");
+            Directory.CreateDirectory(llmLogsDir);
+            await File.WriteAllTextAsync(
+                Path.Combine(llmLogsDir, "llama-server.log"),
+                "llm ready");
 
             var ctx = BuildAdminContext();
             var env = new StubHostEnvironment { ContentRootPath = tempRoot };
@@ -128,9 +141,19 @@ public sealed class AdminRuntimeEndpointsTests
             Assert.False(string.IsNullOrWhiteSpace(bundlePath));
             Assert.True(File.Exists(bundlePath));
             Assert.Contains("warmup_results.json", artifacts);
+            Assert.Contains("rollback_log.json", artifacts);
+            Assert.Contains("blacklist_applied.json", artifacts);
+            Assert.Contains("llm-logs/llama-server.log", artifacts);
             Assert.Contains("runtime-config.json", artifacts);
             Assert.Contains("hardware_probe.json", missingArtifacts);
-            Assert.Contains("blacklist.json", missingArtifacts);
+            Assert.Contains("capability_state.json", missingArtifacts);
+            Assert.Contains("last_known_good_profile.json", missingArtifacts);
+            Assert.Contains("acquisition_log.json", missingArtifacts);
+            Assert.DoesNotContain("llm-logs/", missingArtifacts);
+
+            using var zip = ZipFile.OpenRead(bundlePath!);
+            Assert.Contains(zip.Entries, entry => entry.FullName == "runtime-config.json");
+            Assert.Contains(zip.Entries, entry => entry.FullName == "llm-logs/llama-server.log");
         }
         finally
         {

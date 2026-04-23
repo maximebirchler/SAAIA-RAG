@@ -933,17 +933,18 @@ public static class AdminRuntimeEndpoints
         Directory.CreateDirectory(staging);
 
         var artifacts = new List<string>();
-        var missing   = new List<string>();
+        var missing = new List<string>();
 
         // Governance artifact filenames expected in Phase 3 (CDC §9 governance lifecycle).
         // In Phase 0B these files don't exist yet — included in missingArtifacts for transparency.
         var governanceFileNames = new[]
         {
-            "warmup_results.json",
             "hardware_probe.json",
             "capability_state.json",
+            "warmup_results.json",
             "last_known_good_profile.json",
-            "blacklist.json",
+            "rollback_log.json",
+            "blacklist_applied.json",
             "acquisition_log.json"
         };
 
@@ -972,12 +973,69 @@ public static class AdminRuntimeEndpoints
                 }
             }
 
+            // LLM logs (if available)
+            var llmLogSources = new[]
+            {
+                Path.Combine(env.ContentRootPath, "logs", "llm"),
+                Path.Combine(env.ContentRootPath, "llm-logs")
+            };
+            var copiedLlmLogs = 0;
+            foreach (var llmLogSource in llmLogSources)
+            {
+                if (!Directory.Exists(llmLogSource))
+                    continue;
+
+                var outDir = Path.Combine(staging, "llm-logs");
+                Directory.CreateDirectory(outDir);
+                foreach (var file in Directory.EnumerateFiles(llmLogSource)
+                             .OrderByDescending(File.GetLastWriteTimeUtc)
+                             .Take(20))
+                {
+                    var entryName = Path.Combine("llm-logs", Path.GetFileName(file));
+                    File.Copy(file, Path.Combine(staging, entryName), overwrite: true);
+                    artifacts.Add(entryName.Replace('\\', '/'));
+                    copiedLlmLogs++;
+                }
+            }
+
+            if (copiedLlmLogs == 0)
+                missing.Add("llm-logs/");
+
             // Config snapshot (redacted runtime options)
             var configSnapshot = new
             {
-                timestamp       = stamp,
-                governanceRoot  = governanceDir,
-                includedFiles   = artifacts,
+                timestamp = stamp,
+                cdcAlignment = "v3.1",
+                governanceRoot = "contentRoot/governance",
+                runtimeGovernance = new
+                {
+                    options.Value.WarmupPassCount,
+                    options.Value.DefaultProfileKey,
+                    options.Value.SelectQualifiedCoreRetrieval,
+                    options.Value.AutoAuthorizeQualifiedCoreRetrieval,
+                    options.Value.AutoSelectQualifiedCoreRetrieval,
+                    options.Value.MinCpuCores,
+                    options.Value.MinAvailableMemoryMb,
+                    options.Value.Require64BitProcess,
+                    options.Value.StrictProfileMinCpuCores,
+                    options.Value.StrictProfileMinAvailableMemoryMb,
+                    options.Value.StrictRerankProfileMinCpuCores,
+                    options.Value.StrictRerankProfileMinAvailableMemoryMb,
+                    options.Value.MaxQualificationAgeHours,
+                    options.Value.StrictProfileMaxQualificationAgeHours,
+                    options.Value.StrictRerankProfileMaxQualificationAgeHours,
+                    options.Value.MaxWarmupPassDurationMs,
+                    options.Value.MaxQdrantCheckMs,
+                    options.Value.MaxEmbeddingsCheckMs,
+                    options.Value.MaxRerankCheckMs,
+                    options.Value.RetrievalP95TargetMs,
+                    options.Value.RerankP95TargetMs,
+                    options.Value.ZeroResultRateTargetPercent,
+                    options.Value.CapabilityAOperationP95TargetMs,
+                    options.Value.CapabilityBGenerationP95TargetMs,
+                    options.Value.CapabilityBQualityScoreTarget
+                },
+                includedFiles = artifacts,
                 missingArtifacts = missing
             };
             await File.WriteAllTextAsync(

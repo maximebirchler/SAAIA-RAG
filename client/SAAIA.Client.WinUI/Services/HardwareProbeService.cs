@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -126,6 +127,10 @@ internal static class HardwareProbeService
                 current.MachineFingerprint);
         }
 
+        var externalGpuChange = CompareExternalGpu(stored, current);
+        if (externalGpuChange is not null)
+            return externalGpuChange;
+
         if (!string.Equals(stored.MachineFingerprint, current.MachineFingerprint, StringComparison.OrdinalIgnoreCase))
         {
             return new HardwareProbeChange(
@@ -188,6 +193,8 @@ internal static class HardwareProbeService
             ["gpuDriverVersion"] = gpuDriverVersion,
             ["gpuDedicatedVramMiB"] = gpu?.DedicatedVramMiB ?? 0,
             ["gpuIsIntegrated"] = gpu?.IsIntegrated,
+            ["gpuIsExternal"] = IsExternalGpu(gpu),
+            ["gpuConnectionHint"] = GetGpuConnectionHint(gpu),
             ["dxgiStatus"] = dxgi is null ? "unavailable" : "captured",
             ["dxgiBudgetMiB"] = dxgi is null ? null : ToMiB(ClampToInt64(dxgi.BudgetBytes)),
             ["dxgiCurrentUsageMiB"] = dxgi is null ? null : ToMiB(ClampToInt64(dxgi.CurrentUsageBytes)),
@@ -262,6 +269,74 @@ internal static class HardwareProbeService
             : null;
     }
 
+    private static HardwareProbeChange? CompareExternalGpu(
+        HardwareProbeArtifact stored,
+        HardwareProbeArtifact current)
+    {
+        var storedExternal = TryGetBool(stored.Hardware, "gpuIsExternal") == true;
+        var currentExternal = TryGetBool(current.Hardware, "gpuIsExternal") == true;
+
+        if (!storedExternal && !currentExternal)
+            return null;
+
+        var storedName = TryGetString(stored.Hardware, "gpuName");
+        var currentName = TryGetString(current.Hardware, "gpuName");
+
+        if (storedExternal && !currentExternal)
+        {
+            return new HardwareProbeChange(
+                true,
+                "external_gpu_disconnected",
+                stored.MachineFingerprint,
+                current.MachineFingerprint);
+        }
+
+        if (!storedExternal && currentExternal)
+        {
+            return new HardwareProbeChange(
+                true,
+                "external_gpu_connected",
+                stored.MachineFingerprint,
+                current.MachineFingerprint);
+        }
+
+        if (!string.Equals(storedName, currentName, StringComparison.OrdinalIgnoreCase))
+        {
+            return new HardwareProbeChange(
+                true,
+                "external_gpu_changed",
+                stored.MachineFingerprint,
+                current.MachineFingerprint);
+        }
+
+        return null;
+    }
+
+    private static bool IsExternalGpu(GpuInfo? gpu)
+        => string.Equals(GetGpuConnectionHint(gpu), "external", StringComparison.Ordinal);
+
+    private static string GetGpuConnectionHint(GpuInfo? gpu)
+    {
+        if (gpu is null)
+            return "none";
+
+        var pnp = (gpu.PnpDeviceId ?? string.Empty).ToUpperInvariant();
+        var name = (gpu.Name ?? string.Empty).ToUpperInvariant();
+
+        if (name.Contains("EGPU", StringComparison.Ordinal)
+            || pnp.Contains("THUNDERBOLT", StringComparison.Ordinal)
+            || pnp.Contains("USB4", StringComparison.Ordinal)
+            || pnp.StartsWith("USB\\", StringComparison.Ordinal))
+        {
+            return "external";
+        }
+
+        if (pnp.StartsWith("PCI\\", StringComparison.Ordinal))
+            return "pci";
+
+        return "unknown";
+    }
+
     private static string? TryGetString(IReadOnlyDictionary<string, object?> values, string key)
     {
         if (!values.TryGetValue(key, out var value) || value is null)
@@ -270,6 +345,21 @@ internal static class HardwareProbeService
         return value switch
         {
             string s when !string.IsNullOrWhiteSpace(s) => s,
+            JsonElement { ValueKind: JsonValueKind.String } element => element.GetString(),
+            _ => null
+        };
+    }
+
+    private static bool? TryGetBool(IReadOnlyDictionary<string, object?> values, string key)
+    {
+        if (!values.TryGetValue(key, out var value) || value is null)
+            return null;
+
+        return value switch
+        {
+            bool b => b,
+            JsonElement { ValueKind: JsonValueKind.True } => true,
+            JsonElement { ValueKind: JsonValueKind.False } => false,
             _ => null
         };
     }

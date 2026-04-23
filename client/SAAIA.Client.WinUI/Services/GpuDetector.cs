@@ -28,6 +28,7 @@ internal sealed record GpuInfo(
     string DetectionSource)
 {
     public int DedicatedVramMiB => DedicatedVramBytes > 0 ? (int)(DedicatedVramBytes / 1024 / 1024) : 0;
+    public string? PnpDeviceId { get; init; }
 }
 
 /// <summary>
@@ -120,9 +121,9 @@ internal static class GgufMetadataReader
                 var key       = Encoding.UTF8.GetString(keyBytes);
                 var valueType = br.ReadUInt32();
 
-                if (string.Equals(key, "llm.block_count", StringComparison.Ordinal) && valueType == TUint32)
+                if (IsGgufKey(key, "llm.block_count", ".block_count") && valueType == TUint32)
                     blockCount = br.ReadUInt32();
-                else if (string.Equals(key, "llm.attention.head_count_kv", StringComparison.Ordinal) && valueType == TUint32)
+                else if (IsGgufKey(key, "llm.attention.head_count_kv", ".attention.head_count_kv") && valueType == TUint32)
                     headCountKv = br.ReadUInt32();
                 else
                     SkipValue(br, valueType);
@@ -137,6 +138,10 @@ internal static class GgufMetadataReader
             return null;
         }
     }
+
+    private static bool IsGgufKey(string key, string exact, string architectureSuffix)
+        => string.Equals(key, exact, StringComparison.Ordinal)
+           || key.EndsWith(architectureSuffix, StringComparison.Ordinal);
 
     private static void SkipValue(BinaryReader br, uint vType)
     {
@@ -336,7 +341,10 @@ internal static class GpuDetector
 
                 var dedicated = integrated ? 0 : Math.Max(0, adapterRam);
 
-                var info = new GpuInfo(vendor, string.IsNullOrWhiteSpace(name) ? "Unknown GPU" : name, dedicated, integrated, "cim");
+                var info = new GpuInfo(vendor, string.IsNullOrWhiteSpace(name) ? "Unknown GPU" : name, dedicated, integrated, "cim")
+                {
+                    PnpDeviceId = pnp
+                };
 
                 // Choose the controller with highest dedicated VRAM.
                 if (best is null || info.DedicatedVramBytes > best.DedicatedVramBytes)

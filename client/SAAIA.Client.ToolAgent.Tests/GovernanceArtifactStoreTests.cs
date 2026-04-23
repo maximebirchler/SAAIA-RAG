@@ -218,6 +218,37 @@ public sealed class GovernanceArtifactStoreTests
     }
 
     [Fact]
+    public void HardwareProbeService_create_artifact_marks_external_gpu_from_connection_hint()
+    {
+        var gpu = new GpuInfo(
+            GpuVendor.Nvidia,
+            "RTX 3080 eGPU",
+            10L * 1024 * 1024 * 1024,
+            IsIntegrated: false,
+            DetectionSource: "test")
+        {
+            PnpDeviceId = @"USB\VID_1234&PID_5678"
+        };
+        var memory = new SystemMemorySnapshot(
+            TotalRamBytes: 16L * 1024 * 1024 * 1024,
+            AvailableRamBytes: 8L * 1024 * 1024 * 1024,
+            Source: "test");
+
+        var artifact = HardwareProbeService.CreateArtifact(
+            gpu,
+            "573.71",
+            dxgi: null,
+            memory,
+            "machine-a",
+            processorCount: 8,
+            is64BitOperatingSystem: true,
+            DateTimeOffset.Parse("2026-04-23T10:00:00Z"));
+
+        Assert.Equal(true, artifact.Hardware["gpuIsExternal"]);
+        Assert.Equal("external", artifact.Hardware["gpuConnectionHint"]);
+    }
+
+    [Fact]
     public void HardwareProbeService_compare_requests_requalification_on_fingerprint_change()
     {
         var stored = CreateHardwareProbe("Quadro P520", 4096, "machine-a");
@@ -242,6 +273,26 @@ public sealed class GovernanceArtifactStoreTests
 
         Assert.True(changed.RequiresRequalification);
         Assert.Contains("gpu_driver_changed", changed.Reason);
+    }
+
+    [Fact]
+    public void HardwareProbeService_compare_requests_requalification_when_external_gpu_disconnected()
+    {
+        var stored = CreateHardwareProbe(
+            "RTX 3080 eGPU",
+            10240,
+            "machine-a",
+            pnpDeviceId: @"USB\VID_1234&PID_5678");
+        var current = CreateHardwareProbe(
+            "Quadro P520",
+            4096,
+            "machine-a",
+            pnpDeviceId: @"PCI\VEN_10DE&DEV_1C30");
+
+        var changed = HardwareProbeService.Compare(stored, current);
+
+        Assert.True(changed.RequiresRequalification);
+        Assert.Equal("external_gpu_disconnected", changed.Reason);
     }
 
     [Fact]
@@ -317,14 +368,18 @@ public sealed class GovernanceArtifactStoreTests
         int vramMiB,
         string machineName,
         bool isOnBattery = false,
-        string? driverVersion = "573.71")
+        string? driverVersion = "573.71",
+        string? pnpDeviceId = null)
     {
         var gpu = new GpuInfo(
             GpuVendor.Nvidia,
             gpuName,
             (long)vramMiB * 1024 * 1024,
             IsIntegrated: false,
-            DetectionSource: "test");
+            DetectionSource: "test")
+        {
+            PnpDeviceId = pnpDeviceId
+        };
         var dxgi = new DxgiVideoMemorySnapshot(
             (ulong)vramMiB * 1024 * 1024,
             128UL * 1024 * 1024,

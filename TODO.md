@@ -92,9 +92,9 @@ Fixes confirmes par bench machine de reference (Quadro P520, Qwen 2.5 3B Q4_K_M,
   - CDC : 3072 pour GPU < 6 Go ; 4096 seulement si valide par warmup
 
 **Tests a lancer / a ajouter** :
-- [~] Test unitaire `GgufMetadataReader` : lire le modele present sur la machine de dev, verifier `block_count == 36` et `head_count_kv == 2` pour Qwen 2.5 3B Q4_K_M
+- [x] Test unitaire `GgufMetadataReader` : lire le modele present sur la machine de dev, verifier `block_count == 36` et `head_count_kv == 2` pour Qwen 2.5 3B Q4_K_M
   > Squelette fourni dans CODEX-BRIEF-PHASE0.md — necessite le .gguf sur la machine de dev
-- [~] Test `ComputeAutoTuning` : verifier que ngl provient du GGUF, que batch >= 512 sur GPU, que le fallback est safe si GGUF illisible
+- [x] Test `ComputeAutoTuning` : verifier que ngl provient du GGUF, que batch >= 512 sur GPU, que le fallback est safe si GGUF illisible
   > Squelette fourni dans CODEX-BRIEF-PHASE0.md — necessite le .gguf sur la machine de dev
 - [x] `dotnet test backend/SAAIA.Backend.Tests/...` vert (333/333) — passe
 
@@ -102,7 +102,7 @@ Fixes confirmes par bench machine de reference (Quadro P520, Qwen 2.5 3B Q4_K_M,
 - [x] ngl n'est plus une constante, il provient du GGUF
 - [x] batch >= 512 pour tout profil CUDA
 - [x] ctx default = 3072
-- [~] tests GGUF : squelettes fournis, a jouer avec le .gguf reel sur la machine cible
+- [x] tests GGUF : joues avec le .gguf reel Qwen2.5-3B-Instruct-Q4_K_M present sur la machine cible
 
 ---
 
@@ -272,7 +272,7 @@ Ces items constituent la gouvernance LLM complete. Ils peuvent commencer en para
 - [x] Journaliser rollback avec cause et timestamp dans `rollback_log.json`
 
 **Travaux — Requalification (§9.13)** :
-- [~] Implementer les 8 triggers de requalification (driver/runtime/modele/hardware faits ; derive perfs, echecs repetes, timeout, action admin restent a faire)
+- [~] Implementer les 8 triggers de requalification (driver/runtime/modele/hardware/eGPU faits ; derive perfs, echecs repetes, timeout, action admin restent a faire)
 - [x] Capturer `fingerprint` machine dans `hardware_probe.json`
 - [x] Comparer snapshot courant vs `hardware_probe.json` au demarrage et logguer `Requalification required` si fingerprint change
 - [x] Admin UI : bouton "Requalifier" -> `POST /admin/runtime/requalify`
@@ -301,14 +301,14 @@ Ces items dependent des fondations posees dans Patch 4 et 5.
 
 - [x] `HardwareProbeService` : DXGI `QueryVideoMemoryInfo` via COM/PInvoke Windows (budget courant observe, pas seulement VRAM installee)
 - [~] Cas UMA Intel Arc (budget partage != VRAM dediee) : capture possible via DXGI, policy de selection encore a calibrer
-- [ ] Detection eGPU distinct + trigger requalification si debranche
+- [x] Detection eGPU distinct + trigger requalification si debranche
 - [x] Hard gate `dxgi_budget_available` : seuil `MinDxgiBudgetMiB` lu depuis `warmup_profiles.json`, blocage avant qualification si insuffisant
 - [x] Enrichir `hardware_probe.json` : vendor, nom GPU, VRAM dediee, budget DXGI courant, usage courant, RAM totale/disponible, mode batterie/secteur et fingerprint machine presents
 
 ### QoS batterie et energie (§9.12, LLM-017)
 
 - [x] Modes Perf / Balanced / Eco : artefact `battery_policies.json` avec idle timeout AC/batterie et fallback recommande
-- [~] Declencheurs : passage batterie detecte depuis `hardware_probe.json` et signale comme requalification si policy recommande fallback ; chute tok/s, temperature, eGPU debranche restent a faire
+- [~] Declencheurs : passage batterie detecte depuis `hardware_probe.json` et signale comme requalification si policy recommande fallback ; chute tok/s et temperature restent a faire
 - [x] `batteryPolicyRef` inscrit dans `QualifiedProfile`
 
 ### Cycle de vie runtime sleep/wake (§9.16)
@@ -344,7 +344,7 @@ Ce qui manque pour le contrat CDC :
 
 ### Support bundle gouvernance enrichi (§14.2)
 
-- [ ] Quand les artefacts governance existent (Patch 4/5) : enrichir `POST /admin/support/bundle` avec les 9 artefacts contractuels (hardware_probe, capability_state, warmup_results, last_known_good_profile, rollback_log, blacklist_applied, acquisition_log, logs LLM, config redactee)
+- [x] Quand les artefacts governance existent (Patch 4/5) : enrichir `POST /admin/support/bundle` avec les 9 artefacts contractuels (hardware_probe, capability_state, warmup_results, last_known_good_profile, rollback_log, blacklist_applied, acquisition_log, logs LLM, config redactee)
 
 ### Harnais regression CI (§15.5.2)
 
@@ -355,18 +355,18 @@ Ce qui manque pour le contrat CDC :
 ## Validation obligatoire apres chaque patch
 
 **Backend :**
-- [ ] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj`
-- [ ] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false`
+- [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj`
+- [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false`
 
 **Client (obligatoire pour les Patch 1, 2, 4, 5 qui touchent le client WinUI) :**
-- [ ] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug`
-- [ ] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false`
+- [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug`
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false`
 
 **Regles transverses :**
-- [ ] Si retrieval change : rejouer les regressions retrieval / harness
-- [ ] Si endpoint ou artefact change : mettre a jour les tests contractuels associes
-- [ ] Si profil qualifie change : mettre a jour `warmup_profiles.json` + relancer harnais qualification
-- [ ] Mettre a jour ce `TODO.md`
+- [x] Si retrieval change : non applicable a cette passe
+- [x] Si endpoint ou artefact change : tests contractuels associes mis a jour
+- [x] Si profil qualifie change : non applicable a cette passe
+- [x] Mettre a jour ce `TODO.md`
 
 ---
 
@@ -480,3 +480,6 @@ Ce qui manque pour le contrat CDC :
 | 2026-04-23 | Codex | Script checksum : `catalogStatus` explicite (`missing`/`loaded`/`updated`), sortie d'erreur dediee si update demande sans catalogue local present |
 | 2026-04-23 | Codex | Script checksum : bootstrap local `model_catalog.json` si absent (baseline Qwen actuel), verification locale ensuite en `catalog_match` pour le modele present |
 | 2026-04-23 | Codex | Le chargement UI LLM initialise maintenant les artefacts locaux de gouvernance au demarrage, sans attendre warmup/bootstrap ulterieur |
+| 2026-04-23 | Codex | Support bundle admin enrichi avec artefacts gouvernance v3.1 + logs LLM + config redigee ; test ZIP contractuel vert |
+| 2026-04-23 | Codex | Lecteur GGUF corrige pour cles prefixees architecture (`qwen2.*`) et valide sur le modele reel Qwen2.5 3B Q4_K_M ; 300 tests client verts |
+| 2026-04-23 | Codex | Detection eGPU v1 : `gpuIsExternal`/`gpuConnectionHint` dans `hardware_probe.json` et trigger `external_gpu_disconnected` teste |
