@@ -493,6 +493,128 @@ internal sealed class LocalLlmWarmupHarness : ILocalLlmWarmupHarness
                 merged[item.Key + "_delta"] = item.Value - previous;
         }
 
+        AddCanonicalRuntimeMetrics(merged, before, after);
         return merged;
+    }
+
+    private static void AddCanonicalRuntimeMetrics(
+        Dictionary<string, double> merged,
+        IReadOnlyDictionary<string, double>? before,
+        IReadOnlyDictionary<string, double> after)
+    {
+        AddCanonicalMetric(
+            merged,
+            before,
+            after,
+            "runtime.tokens_predicted_total",
+            "runtime.tokens_predicted_delta",
+            "llamacpp_tokens_predicted_total",
+            "llamacpp_decode_tokens_total",
+            "llamacpp_tokens_generated_total");
+
+        AddCanonicalMetric(
+            merged,
+            before,
+            after,
+            "runtime.prompt_tokens_total",
+            "runtime.prompt_tokens_delta",
+            "llamacpp_prompt_tokens_total",
+            "llamacpp_tokens_prompt_total",
+            "llamacpp_tokens_processed_total");
+
+        AddCanonicalMetric(
+            merged,
+            before,
+            after,
+            "runtime.kv_cache_used_bytes",
+            "runtime.kv_cache_used_bytes_delta",
+            "llamacpp_kv_cache_used_bytes",
+            "llamacpp_kv_cache_used");
+
+        AddCanonicalMetric(
+            merged,
+            before,
+            after,
+            "runtime.kv_cache_used_cells",
+            "runtime.kv_cache_used_cells_delta",
+            "llamacpp_kv_cache_used_cells",
+            "llamacpp_kv_cache_tokens");
+
+        AddCanonicalMetric(
+            merged,
+            before,
+            after,
+            "runtime.kv_cache_total_cells",
+            null,
+            "llamacpp_kv_cache_total_cells",
+            "llamacpp_kv_cache_cell_max");
+
+        AddCanonicalMetric(
+            merged,
+            before,
+            after,
+            "runtime.threads",
+            null,
+            "llamacpp_threads",
+            "llamacpp_server_threads");
+
+        AddCanonicalMetric(
+            merged,
+            before,
+            after,
+            "runtime.threads_batch",
+            null,
+            "llamacpp_threads_batch",
+            "llamacpp_server_threads_batch");
+
+        AddCanonicalMetric(
+            merged,
+            before,
+            after,
+            "runtime.slots_processing",
+            null,
+            "llamacpp_server_slots_processing",
+            "llamacpp_slots_processing");
+
+        if (merged.TryGetValue("runtime.kv_cache_used_bytes", out var kvBytes))
+            merged["runtime.kv_cache_used_mib"] = kvBytes / 1024d / 1024d;
+
+        if (merged.TryGetValue("runtime.kv_cache_used_cells", out var usedCells)
+            && merged.TryGetValue("runtime.kv_cache_total_cells", out var totalCells)
+            && totalCells > 0)
+        {
+            merged["runtime.kv_cache_used_percent"] = usedCells / totalCells * 100d;
+        }
+    }
+
+    private static void AddCanonicalMetric(
+        Dictionary<string, double> merged,
+        IReadOnlyDictionary<string, double>? before,
+        IReadOnlyDictionary<string, double> after,
+        string targetKey,
+        string? deltaKey,
+        params string[] sourceKeys)
+    {
+        if (!TryGetMetric(after, out var value, sourceKeys))
+            return;
+
+        merged[targetKey] = value;
+        if (deltaKey is not null && before is not null && TryGetMetric(before, out var previous, sourceKeys))
+            merged[deltaKey] = value - previous;
+    }
+
+    private static bool TryGetMetric(
+        IReadOnlyDictionary<string, double> metrics,
+        out double value,
+        params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            if (metrics.TryGetValue(key, out value))
+                return true;
+        }
+
+        value = 0;
+        return false;
     }
 }

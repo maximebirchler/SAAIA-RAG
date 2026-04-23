@@ -65,6 +65,20 @@ internal static class LocalLlmRuntimeStatusService
                 IsWarning: true);
         }
 
+        if (warmupRead.Status == GovernanceArtifactReadStatus.Ok && warmupRead.Value is not null)
+        {
+            var warmupDrift = RequalificationTriggerService.EvaluateWarmupHistory(
+                warmupRead.Value.Items,
+                settings.QualifiedProfile.ProfileId);
+            if (warmupDrift.Required)
+            {
+                return new LocalLlmRuntimeStatus(
+                    "requalification_required",
+                    "Requalification necessaire.",
+                    IsWarning: true);
+            }
+        }
+
         var profile = WarmupProfileStore.FindProfile(settings.QualifiedProfile.ProfileId);
         if (profile?.Mode == "fallback")
         {

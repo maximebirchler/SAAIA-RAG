@@ -482,6 +482,7 @@ public sealed partial class MainWindow
             if (!await EnsureLocalLlmAwakeForRequestAsync(assistantMsg, _cts.Token))
                 throw new InvalidOperationException("Assistant temporairement indisponible: le modele local n'a pas pu demarrer.");
 
+            assistantMsg.IsStreaming = true;
             var (finalAnswer, sourcesObj) = await _agent.RunAsync(
                 userText: text,
                 category: ClientDefaults.DefaultCategory,
@@ -521,6 +522,7 @@ public sealed partial class MainWindow
 
             if (!wasCancelled)
             {
+                assistantMsg.IsStreaming = false;
                 ClearAssistantProgress(assistantMsg);
 
                 if (!string.IsNullOrWhiteSpace(finalAnswer))
@@ -538,6 +540,7 @@ public sealed partial class MainWindow
             }
             else
             {
+                assistantMsg.IsStreaming = false;
                 MarkInterrupted(assistantMsg);
                 if (string.IsNullOrWhiteSpace(assistantMsg.Content) && !string.IsNullOrWhiteSpace(finalAnswer))
                 {
@@ -576,6 +579,8 @@ public sealed partial class MainWindow
         {
             SetTyping(false);
             UpdateJumpButton();
+            if (assistantMsg is not null)
+                assistantMsg.IsStreaming = false;
             MarkInterrupted(assistantMsg);
 
             try
@@ -604,6 +609,8 @@ public sealed partial class MainWindow
         }
         catch (Exception ex)
         {
+            if (assistantMsg is not null)
+                assistantMsg.IsStreaming = false;
             EnsureAssistantMessageHasFailureText(assistantMsg);
             SetTyping(false);
             UpdateJumpButton();
@@ -611,6 +618,8 @@ public sealed partial class MainWindow
         }
         finally
         {
+            if (assistantMsg is not null)
+                assistantMsg.IsStreaming = false;
             UpdateUiState(isGenerating: false);
             SetTyping(false);
             UpdateJumpButton();

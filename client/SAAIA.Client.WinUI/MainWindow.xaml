@@ -15,6 +15,7 @@
 
             <!-- converters -->
             <conv:NonEmptyStringToVisibilityConverter x:Key="NonEmptyStringToVisibility" />
+            <conv:BooleanToVisibilityConverter x:Key="BooleanToVisibility" />
 
             <!-- =========================
                 MESSAGE TEMPLATES (bulles)
@@ -137,6 +138,18 @@
                             </StackPanel>
 
                             <controls:LinkifiedTextBlock Text="{x:Bind Content, Mode=OneWay}" TextForeground="{ThemeResource AppTextPrimaryBrush}" TextFontSize="14"/>
+
+                            <StackPanel Orientation="Horizontal"
+                                        Spacing="6"
+                                        Visibility="{Binding IsStreaming, Converter={StaticResource BooleanToVisibility}}">
+                                <ProgressRing Width="10"
+                                              Height="10"
+                                              IsActive="True"
+                                              VerticalAlignment="Center"/>
+                                <TextBlock Text="Generation en cours..."
+                                           Foreground="{ThemeResource AppTextSecondaryBrush}"
+                                           FontSize="11"/>
+                            </StackPanel>
 
                             <!-- Status note (ex: Génération interrompue.) -->
                             <TextBlock Text="{Binding StatusNote}"

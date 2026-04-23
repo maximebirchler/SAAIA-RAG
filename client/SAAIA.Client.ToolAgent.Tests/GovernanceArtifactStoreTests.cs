@@ -458,6 +458,35 @@ public sealed class GovernanceArtifactStoreTests
         Assert.Contains("model_changed", modelDrift.Reason);
     }
 
+    [Fact]
+    public void RequalificationTriggerService_detects_perf_drift_repeated_failures_timeout_and_admin_action()
+    {
+        var profileId = "qwen2.5-3b-q4km-cuda-balanced";
+        var baseline = WarmupItem(profileId, WarmupGateStatus.Pass, tokPerSec: 10, ttftMs: 4000, minutesAgo: 20);
+        var drift = WarmupItem(profileId, WarmupGateStatus.Pass, tokPerSec: 5.5, ttftMs: 4100, minutesAgo: 1);
+        var failures = new[]
+        {
+            WarmupItem(profileId, WarmupGateStatus.FailBlock, tokPerSec: 0, ttftMs: 0, minutesAgo: 1, "warmup_run_failed"),
+            WarmupItem(profileId, WarmupGateStatus.FailFallback, tokPerSec: 0, ttftMs: 0, minutesAgo: 2, "warmup_run_failed"),
+            WarmupItem(profileId, WarmupGateStatus.FailBlock, tokPerSec: 0, ttftMs: 0, minutesAgo: 3, "warmup_run_failed")
+        };
+        var timeout = WarmupItem(profileId, WarmupGateStatus.PassDegraded, tokPerSec: 2, ttftMs: 130000, minutesAgo: 1);
+
+        var perfDrift = RequalificationTriggerService.EvaluateWarmupHistory(new[] { drift, baseline }, profileId);
+        var repeatedFailures = RequalificationTriggerService.EvaluateWarmupHistory(failures, profileId);
+        var timeoutDecision = RequalificationTriggerService.EvaluateWarmupHistory(new[] { timeout, baseline }, profileId);
+        var adminAction = RequalificationTriggerService.EvaluateAdminAction(requested: true, requestedBy: "ops");
+
+        Assert.True(perfDrift.Required);
+        Assert.Contains("perf_drift_tok_per_sec", perfDrift.Reason);
+        Assert.True(repeatedFailures.Required);
+        Assert.Contains("repeated_failures", repeatedFailures.Reason);
+        Assert.True(timeoutDecision.Required);
+        Assert.Equal("timeout_threshold_exceeded", timeoutDecision.Reason);
+        Assert.True(adminAction.Required);
+        Assert.Equal("admin_action:ops", adminAction.Reason);
+    }
+
     private static HardwareProbeArtifact CreateHardwareProbe(
         string gpuName,
         int vramMiB,
@@ -501,6 +530,30 @@ public sealed class GovernanceArtifactStoreTests
             DateTimeOffset.UtcNow,
             power);
     }
+
+    private static WarmupResultItem WarmupItem(
+        string profileId,
+        WarmupGateStatus status,
+        double tokPerSec,
+        int ttftMs,
+        int minutesAgo,
+        params string[] reasons)
+        => new(
+            DateTimeOffset.UtcNow.AddMinutes(-minutesAgo),
+            profileId,
+            "llama.cpp-cuda",
+            "qwen2.5-3b-instruct-q4-k-m",
+            status,
+            status == WarmupGateStatus.Pass ? 3 : 0,
+            3,
+            LastLoadMs: 1000,
+            LastTtftMs: ttftMs,
+            LastTokPerSec: tokPerSec,
+            LastMsPerToken: tokPerSec > 0 ? 1000d / tokPerSec : null,
+            RuntimeMetrics: null,
+            Reasons: reasons,
+            HardwareFingerprint: "machine-a",
+            Trigger: "test");
 
     private static string NewTempRoot()
     {

@@ -25,9 +25,19 @@ public sealed class LocalLlmWarmupHarnessTests
             {
                 metricsCalls++;
                 var value = metricsCalls == 1 ? 10 : 14;
+                var promptValue = metricsCalls == 1 ? 20 : 23;
                 return new HttpResponseMessage(HttpStatusCode.OK)
                 {
-                    Content = new StringContent($"llamacpp_tokens_predicted_total {value}\nllamacpp_kv_cache_used_bytes 1048576\n")
+                    Content = new StringContent($"""
+                        llamacpp_tokens_predicted_total {value}
+                        llamacpp_prompt_tokens_total {promptValue}
+                        llamacpp_kv_cache_used_bytes 1048576
+                        llamacpp_kv_cache_used_cells 128
+                        llamacpp_kv_cache_total_cells 512
+                        llamacpp_threads 5
+                        llamacpp_threads_batch 3
+
+                        """)
                 };
             }
 
@@ -59,6 +69,14 @@ public sealed class LocalLlmWarmupHarnessTests
         Assert.NotNull(measurement.RuntimeMetrics);
         Assert.Equal(14, measurement.RuntimeMetrics!["llamacpp_tokens_predicted_total"]);
         Assert.Equal(4, measurement.RuntimeMetrics["llamacpp_tokens_predicted_total_delta"]);
+        Assert.Equal(14, measurement.RuntimeMetrics["runtime.tokens_predicted_total"]);
+        Assert.Equal(4, measurement.RuntimeMetrics["runtime.tokens_predicted_delta"]);
+        Assert.Equal(23, measurement.RuntimeMetrics["runtime.prompt_tokens_total"]);
+        Assert.Equal(3, measurement.RuntimeMetrics["runtime.prompt_tokens_delta"]);
+        Assert.Equal(1, measurement.RuntimeMetrics["runtime.kv_cache_used_mib"]);
+        Assert.Equal(25, measurement.RuntimeMetrics["runtime.kv_cache_used_percent"]);
+        Assert.Equal(5, measurement.RuntimeMetrics["runtime.threads"]);
+        Assert.Equal(3, measurement.RuntimeMetrics["runtime.threads_batch"]);
         Assert.True(measurement.MsPerToken > 0);
     }
 
@@ -132,6 +150,69 @@ public sealed class LocalLlmWarmupHarnessTests
 
         Assert.Equal(12, metrics["llamacpp_prompt_tokens_total"]);
         Assert.Equal(42.5, metrics["llamacpp_decode_ms_sum"]);
+    }
+
+    [Fact]
+    public async Task RunOnceAsync_maps_llamacpp_metric_aliases_to_canonical_runtime_metrics()
+    {
+        var metricsCalls = 0;
+        var handler = new StubHttpHandler(req =>
+        {
+            if (req.RequestUri!.AbsolutePath.EndsWith("/models", StringComparison.OrdinalIgnoreCase))
+                return new HttpResponseMessage(HttpStatusCode.OK);
+
+            if (req.RequestUri.AbsolutePath.EndsWith("/metrics", StringComparison.OrdinalIgnoreCase))
+            {
+                metricsCalls++;
+                var predicted = metricsCalls == 1 ? 30 : 42;
+                var processed = metricsCalls == 1 ? 100 : 116;
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent($"""
+                        llamacpp_decode_tokens_total {predicted}
+                        llamacpp_tokens_processed_total {processed}
+                        llamacpp_kv_cache_tokens 64
+                        llamacpp_kv_cache_cell_max 256
+                        llamacpp_server_threads 4
+                        llamacpp_server_threads_batch 2
+                        llamacpp_server_slots_processing 1
+
+                        """)
+                };
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    "{\"choices\":[{\"message\":{\"content\":\"Reponse stable.\"}}]}",
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+        var harness = new LocalLlmWarmupHarness(new HttpClient(handler));
+
+        var measurement = await harness.RunOnceAsync(
+            "http://127.0.0.1:1234/v1",
+            "local",
+            new LocalLlmWarmupHarnessOptions(
+                TimeSpan.FromSeconds(1),
+                TimeSpan.FromMilliseconds(1),
+                "ping",
+                16,
+                0));
+
+        Assert.True(measurement.Succeeded);
+        Assert.NotNull(measurement.RuntimeMetrics);
+        Assert.Equal(42, measurement.RuntimeMetrics!["runtime.tokens_predicted_total"]);
+        Assert.Equal(12, measurement.RuntimeMetrics["runtime.tokens_predicted_delta"]);
+        Assert.Equal(116, measurement.RuntimeMetrics["runtime.prompt_tokens_total"]);
+        Assert.Equal(16, measurement.RuntimeMetrics["runtime.prompt_tokens_delta"]);
+        Assert.Equal(64, measurement.RuntimeMetrics["runtime.kv_cache_used_cells"]);
+        Assert.Equal(256, measurement.RuntimeMetrics["runtime.kv_cache_total_cells"]);
+        Assert.Equal(25, measurement.RuntimeMetrics["runtime.kv_cache_used_percent"]);
+        Assert.Equal(4, measurement.RuntimeMetrics["runtime.threads"]);
+        Assert.Equal(2, measurement.RuntimeMetrics["runtime.threads_batch"]);
+        Assert.Equal(1, measurement.RuntimeMetrics["runtime.slots_processing"]);
     }
 
     [Fact]

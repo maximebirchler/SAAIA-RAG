@@ -34,6 +34,7 @@ public sealed class ChatMessageItem : INotifyPropertyChanged
     private string? _messageId;
     private string? _statusNote;
     private string? _progressText;
+    private bool _isStreaming;
     private ChatTrackingMeta? _trackingMeta;
 
     // UI-only smoothing state for progress/status updates.
@@ -79,6 +80,12 @@ public sealed class ChatMessageItem : INotifyPropertyChanged
     {
         get => _progressText;
         set { if (_progressText != value) { _progressText = value; OnPropertyChanged(); } }
+    }
+
+    public bool IsStreaming
+    {
+        get => _isStreaming;
+        set { if (_isStreaming != value) { _isStreaming = value; OnPropertyChanged(); } }
     }
 
     public ChatTrackingMeta? TrackingMeta

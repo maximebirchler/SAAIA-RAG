@@ -53,7 +53,7 @@
 - [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` — OK, 0 Warning
 - [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` — OK, 0 Warning
 - [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` — 335/335 verts
-- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 295/295 verts
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 308/308 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
 
@@ -228,7 +228,7 @@ Ces items constituent la gouvernance LLM complete. Ils peuvent commencer en para
   - Persistance atomique avec sidecar `.sha256`
   - Startup integrity check : refus si checksum invalide, mode degrade pas crash
   - Acces ecriture reserve au code interne client
-- [~] `LocalLlmBootstrapper` : initialise un `QualifiedProfile` de reference et les artefacts ; la construction complete des args depuis le profil reste a finir avec le warmup gate Patch 5
+- [x] `LocalLlmBootstrapper` : initialise un `QualifiedProfile` de reference et les artefacts ; construit les args runtime depuis le profil qualifie quand il matche runtime/modele, sans ecraser les args explicites
 
 **Tests a lancer / a ajouter** :
 - [x] Test serialisation/deserialisation `QualifiedProfile` roundtrip
@@ -272,7 +272,7 @@ Ces items constituent la gouvernance LLM complete. Ils peuvent commencer en para
 - [x] Journaliser rollback avec cause et timestamp dans `rollback_log.json`
 
 **Travaux — Requalification (§9.13)** :
-- [~] Implementer les 8 triggers de requalification (driver/runtime/modele/hardware/eGPU faits ; derive perfs, echecs repetes, timeout, action admin restent a faire)
+- [x] Implementer les 8 triggers de requalification (driver/runtime/modele/hardware/eGPU + derive perfs/echecs repetes/timeout/action admin)
 - [x] Capturer `fingerprint` machine dans `hardware_probe.json`
 - [x] Comparer snapshot courant vs `hardware_probe.json` au demarrage et logguer `Requalification required` si fingerprint change
 - [x] Admin UI : bouton "Requalifier" -> `POST /admin/runtime/requalify`
@@ -324,13 +324,13 @@ Ce qui manque pour le contrat CDC :
 
 ### UX etats runtime LLM (§14.3) — contractuel
 
-- [~] Verifier dans `MainWindow/LocalLlm.cs` les etats suivants (absents = bug UX) :
+- [x] Verifier dans `MainWindow/LocalLlm.cs` les etats suivants (absents = bug UX) :
   - [x] Wake en cours -> "Chargement du modele en cours..." (Info)
   - [x] Warmup en cours -> "Verification de compatibilite en cours..." (Info)
   - [x] Pret (profil nominal) -> aucun message (transparent)
   - [x] Profil degrade actif -> "Mode performance reduite actif." (Avertissement)
   - [x] Fallback actif -> "Profil de secours actif." (Avertissement)
-  - [~] Generation en cours -> indicateur streaming visible
+  - [x] Generation en cours -> indicateur streaming visible dans la bulle assistant, sans nouvelle vue surchargee
   - [x] Erreur warmup -> "Assistant temporairement indisponible." (Erreur)
   - [x] Mismatch checksum / quarantaine -> "Modele non disponible — contactez l'administrateur" (Erreur)
   - [x] Requalification necessaire -> ligne de statut LLM existante (sans nouvelle vue surchargee)
@@ -339,8 +339,8 @@ Ce qui manque pour le contrat CDC :
 
 - [x] AMD SMI / ROCm SMI : VRAM, temperature, frequence
 - [x] Intel Level Zero : budget memoire, utilisation, UMA via probe `xpu-smi` opportuniste
-- [~] Endpoint `/metrics` llama.cpp consomme opportunistiquement par `LocalLlmWarmupHarness` ; mapping tokens/KV cache/threads a formaliser
-- [~] Regle : pas de collecte a chaque requete user ; collecte actuelle pendant warmup/qualification, `hardware_probe` reste le snapshot hardware
+- [x] Endpoint `/metrics` llama.cpp consomme opportunistiquement par `LocalLlmWarmupHarness` ; mapping canonique tokens/KV cache/threads formalise en cles `runtime.*`
+- [x] Regle : pas de collecte a chaque requete user ; collecte `/metrics` limitee au warmup/qualification, `hardware_probe` reste le snapshot hardware
 
 ### Support bundle gouvernance enrichi (§14.2)
 
@@ -485,3 +485,7 @@ Ce qui manque pour le contrat CDC :
 | 2026-04-23 | Codex | Detection eGPU v1 : `gpuIsExternal`/`gpuConnectionHint` dans `hardware_probe.json` et trigger `external_gpu_disconnected` teste |
 | 2026-04-23 | Codex | Harnais CI runtime distinct ajoute (`tools/runtime-ci-harness.ps1`) : tests .NET, probes runtime optionnelles, concurrence/recovery/reproductibilite TTFT/tok/s |
 | 2026-04-23 | Codex | Telemetrie vendor GPU v1 : probes optionnelles AMD `amd-smi`/`rocm-smi` et Intel `xpu-smi`, parsing JSON teste dans `hardware_probe.json` |
+| 2026-04-23 | Codex | `LocalLlmBootstrapper` applique les flags depuis `QualifiedProfile` valide (`ctx`, threads, batch, ubatch, ngl, flash-attn, mlock) en preservant les args utilisateur |
+| 2026-04-23 | Codex | Mapping `/metrics` llama.cpp formalise : conservation des cles brutes + projection canonique `runtime.*` pour tokens, KV cache, threads et slots |
+| 2026-04-23 | Codex | UX streaming LLM : indicateur leger `Generation en cours...` dans la bulle assistant, pilote par `ChatMessageItem.IsStreaming` |
+| 2026-04-23 | Codex | Triggers requalification complets : derive perf, echecs repetes, timeout et action admin ajoutes au service decisionnel + statut local |

@@ -125,6 +125,84 @@ public sealed class LocalLlmAutoTuningTests
     }
 
     [Fact]
+    public void ApplyAutoTuningFlags_matching_qualified_profile_drives_runtime_args()
+    {
+        var settings = new AppSettings
+        {
+            LlamaExePath = @"C:\Users\test\AppData\Local\SAAIA\llm\runtime\win-cuda-x64\llama-server.exe",
+            ModelId = "Qwen2.5-3B-Instruct-Q4_K_M.gguf",
+            ExtraArgs = string.Empty,
+            QualifiedProfile = WarmupProfileStore.CreateReferenceCudaProfile() with
+            {
+                CtxSize = 2048,
+                BatchSize = 768,
+                UbatchSize = 192,
+                Threads = 5,
+                ThreadsBatch = 3,
+                Ngl = 36,
+                FlashAttn = false,
+                Mlock = true
+            }
+        };
+        var gpu = new GpuInfo(
+            GpuVendor.Nvidia,
+            "Quadro P520",
+            4L * 1024 * 1024 * 1024,
+            IsIntegrated: false,
+            DetectionSource: "test");
+
+        ApplyAutoTuningFlags(settings, gpu);
+
+        Assert.Contains("--ctx-size 2048", settings.ExtraArgs);
+        Assert.Contains("-t 5", settings.ExtraArgs);
+        Assert.Contains("-b 768", settings.ExtraArgs);
+        Assert.Contains("-ngl 36", settings.ExtraArgs);
+        Assert.Contains("--ubatch-size 192", settings.ExtraArgs);
+        Assert.Contains("--threads-batch 3", settings.ExtraArgs);
+        Assert.Contains("--flash-attn off", settings.ExtraArgs);
+        Assert.Contains("--mlock", settings.ExtraArgs);
+    }
+
+    [Fact]
+    public void ApplyAutoTuningFlags_preserves_explicit_user_args_over_qualified_profile()
+    {
+        var settings = new AppSettings
+        {
+            LlamaExePath = @"C:\Users\test\AppData\Local\SAAIA\llm\runtime\win-cuda-x64\llama-server.exe",
+            ModelId = "Qwen2.5-3B-Instruct-Q4_K_M.gguf",
+            ExtraArgs = "--ctx-size 1024 -t 2 -b 256 -ngl 12 --ubatch-size 64 --threads-batch 1 --flash-attn on",
+            QualifiedProfile = WarmupProfileStore.CreateReferenceCudaProfile() with
+            {
+                CtxSize = 2048,
+                BatchSize = 768,
+                UbatchSize = 192,
+                Threads = 5,
+                ThreadsBatch = 3,
+                Ngl = 36,
+                FlashAttn = false
+            }
+        };
+        var gpu = new GpuInfo(
+            GpuVendor.Nvidia,
+            "Quadro P520",
+            4L * 1024 * 1024 * 1024,
+            IsIntegrated: false,
+            DetectionSource: "test");
+
+        ApplyAutoTuningFlags(settings, gpu);
+
+        Assert.Contains("--ctx-size 1024", settings.ExtraArgs);
+        Assert.Contains("-t 2", settings.ExtraArgs);
+        Assert.Contains("-b 256", settings.ExtraArgs);
+        Assert.Contains("-ngl 12", settings.ExtraArgs);
+        Assert.Contains("--ubatch-size 64", settings.ExtraArgs);
+        Assert.Contains("--threads-batch 1", settings.ExtraArgs);
+        Assert.Contains("--flash-attn on", settings.ExtraArgs);
+        Assert.DoesNotContain("--ctx-size 2048", settings.ExtraArgs);
+        Assert.DoesNotContain("-b 768", settings.ExtraArgs);
+    }
+
+    [Fact]
     public void ApplyAutoTuningFlags_CpuRuntime_does_not_inject_gpu_only_flags()
     {
         var settings = new AppSettings

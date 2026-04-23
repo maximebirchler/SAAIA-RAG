@@ -215,6 +215,18 @@ internal sealed class LocalLlmBootstrapper
                         + $"(recommendedProfile={batteryPolicy.RecommendedProfileRef ?? "none"}, "
                         + $"idleTimeoutSeconds={batteryPolicy.EffectiveIdleTimeoutSeconds?.ToString() ?? "unknown"}).");
                 }
+
+                var warmupRead = await GovernanceArtifactStore.ReadAsync<WarmupResultsArtifact>(
+                    GovernanceArtifactStore.WarmupResultsFile,
+                    ct: ct).ConfigureAwait(false);
+                if (warmupRead.Status == GovernanceArtifactReadStatus.Ok && warmupRead.Value is not null)
+                {
+                    var warmupSignals = RequalificationTriggerService.EvaluateWarmupHistory(
+                        warmupRead.Value.Items,
+                        s.QualifiedProfile.ProfileId);
+                    if (warmupSignals.Required)
+                        ClientLog.Warn($"[Governance] Requalification required: {warmupSignals.Reason}.");
+                }
             }
         }
         catch (Exception ex)
@@ -501,9 +513,25 @@ internal sealed class LocalLlmBootstrapper
             var isGpuRuntime = IsGpuRuntimePath(s.LlamaExePath);
             // Pass ModelPath so ngl is read from llm.block_count in GGUF metadata (CDC v3.1 LLM-005).
             var (threads, batch, ngl) = GpuDetector.ComputeAutoTuning(gpu, s.ModelPath);
+            var profile = GetApplicableQualifiedProfile(s);
+            var ctxSize = profile?.CtxSize;
+            var ubatch = profile?.UbatchSize ?? s.UbatchSize;
+            var threadsBatch = profile?.ThreadsBatch ?? s.ThreadsBatch;
+            var flashAttn = profile?.FlashAttn ?? (s.FlashAttn != false);
+            var mlock = profile?.Mlock == true;
+            if (profile is not null)
+            {
+                threads = profile.Threads;
+                batch = profile.BatchSize;
+                ngl = profile.Ngl;
+            }
+
             if (!isGpuRuntime) ngl = 0;
 
             var extra = (s.ExtraArgs ?? "").Trim();
+
+            if (ctxSize is int ctx && !ContainsArg(extra, "--ctx-size") && !ContainsArg(extra, "-c"))
+                extra = AppendArg(extra, "--ctx-size", ctx.ToString());
 
             if (!ContainsArg(extra, "-t") && !ContainsArg(extra, "--threads"))
                 extra = AppendArg(extra, "-t", threads.ToString());
@@ -516,11 +544,14 @@ internal sealed class LocalLlmBootstrapper
 
             // ubatch-size (CDC v3.1 LLM-010)
             if (!ContainsArg(extra, "--ubatch-size") && !ContainsArg(extra, "-ub"))
-                extra = AppendArg(extra, "--ubatch-size", s.UbatchSize.ToString());
+                extra = AppendArg(extra, "--ubatch-size", ubatch.ToString());
 
             // threads-batch (CDC v3.1 LLM-010)
             if (!ContainsArg(extra, "--threads-batch") && !ContainsArg(extra, "-tb"))
-                extra = AppendArg(extra, "--threads-batch", s.ThreadsBatch.ToString());
+                extra = AppendArg(extra, "--threads-batch", threadsBatch.ToString());
+
+            if (mlock && !ContainsArg(extra, "--mlock"))
+                extra = AppendFlag(extra, "--mlock");
 
             // flash-attn: CUDA builds only. The bundled llama-server build expects an
             // explicit value ("on"/"off"), as confirmed by the local Phase 0 bench.
@@ -529,7 +560,7 @@ internal sealed class LocalLlmBootstrapper
             if (isCuda)
             {
                 if (!ContainsArg(extra, "--flash-attn") && !ContainsArg(extra, "-fa"))
-                    extra = AppendArg(extra, "--flash-attn", s.FlashAttn == false ? "off" : "on");
+                    extra = AppendArg(extra, "--flash-attn", flashAttn ? "on" : "off");
             }
 
             s.ExtraArgs = extra;
@@ -538,6 +569,26 @@ internal sealed class LocalLlmBootstrapper
         {
             // Never fail bootstrap due to tuning.
         }
+    }
+
+    private static QualifiedProfile? GetApplicableQualifiedProfile(AppSettings s)
+    {
+        var profile = s.QualifiedProfile;
+        if (profile is null)
+            return null;
+
+        var runtime = RequalificationTriggerService.DetectRuntimeKey(s.LlamaExePath);
+        if (!string.Equals(runtime, profile.Runtime, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var currentModelId =
+            ModelCatalogStore.ResolveCanonicalModelId(s.ModelId)
+            ?? ModelCatalogStore.ResolveCanonicalModelId(string.IsNullOrWhiteSpace(s.ModelPath) ? null : Path.GetFileName(s.ModelPath))
+            ?? s.ModelId;
+
+        return string.Equals(currentModelId, profile.ModelId, StringComparison.OrdinalIgnoreCase)
+            ? profile
+            : null;
     }
 
     private static bool IsCpuRuntimePath(string exePath)
@@ -558,5 +609,12 @@ internal sealed class LocalLlmBootstrapper
         if (string.IsNullOrWhiteSpace(extra))
             return $"{key} {value}";
         return extra + " " + key + " " + value;
+    }
+
+    private static string AppendFlag(string extra, string key)
+    {
+        if (string.IsNullOrWhiteSpace(extra))
+            return key;
+        return extra + " " + key;
     }
 }
