@@ -4,7 +4,8 @@ param(
     [string]$OutputPath,
     [switch]$IncludeCatalogSnippet,
     [string]$CatalogArtifactPath,
-    [switch]$VerifyAgainstCatalog
+    [switch]$VerifyAgainstCatalog,
+    [switch]$UpdateLocalCatalog
 )
 
 Set-StrictMode -Version Latest
@@ -172,10 +173,57 @@ function Load-CatalogChecksums {
     return $map
 }
 
+function Load-CatalogDocument {
+    param([string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return $null
+    }
+
+    $expanded = [Environment]::ExpandEnvironmentVariables($Path)
+    if (-not (Test-Path -LiteralPath $expanded)) {
+        return $null
+    }
+
+    return Get-Content -LiteralPath $expanded -Raw | ConvertFrom-Json
+}
+
+function Compute-TextSha256 {
+    param([string]$Text)
+
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($Text)
+    $hash = [System.Security.Cryptography.SHA256]::HashData($bytes)
+    return [Convert]::ToHexString($hash).ToLowerInvariant()
+}
+
+function Save-CatalogDocument {
+    param(
+        [string]$Path,
+        [object]$Document
+    )
+
+    $expanded = [Environment]::ExpandEnvironmentVariables($Path)
+    $directory = Split-Path -Parent $expanded
+    if (-not [string]::IsNullOrWhiteSpace($directory)) {
+        New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    }
+
+    $json = $Document | ConvertTo-Json -Depth 10
+    Set-Content -LiteralPath $expanded -Value $json -Encoding UTF8
+    Set-Content -LiteralPath ($expanded + ".sha256") -Value (Compute-TextSha256 -Text $json) -Encoding Ascii
+}
+
 $roots = Resolve-SearchRoots -Roots $SearchRoots
 $entries = @()
 $catalogSnippetLines = New-Object System.Collections.Generic.List[string]
+$catalogArtifactResolvedPath = if ([string]::IsNullOrWhiteSpace($CatalogArtifactPath)) { $null } else { [System.IO.Path]::GetFullPath([Environment]::ExpandEnvironmentVariables($CatalogArtifactPath)) }
 $catalogChecksums = if ($VerifyAgainstCatalog) { Load-CatalogChecksums -Path $CatalogArtifactPath } else { @{} }
+$catalogDocument = if ($UpdateLocalCatalog) { Load-CatalogDocument -Path $CatalogArtifactPath } else { $null }
+$catalogExists = $null
+if ($VerifyAgainstCatalog -or $UpdateLocalCatalog) {
+    $catalogExists = -not [string]::IsNullOrWhiteSpace($catalogArtifactResolvedPath) -and (Test-Path -LiteralPath $catalogArtifactResolvedPath)
+}
+$catalogUpdated = $false
 $catalogMatchedCount = 0
 $catalogMismatchCount = 0
 $catalogMissingCount = 0
@@ -218,6 +266,29 @@ foreach ($model in $knownModels) {
     $hash = Get-FileHash -LiteralPath $path -Algorithm SHA256
     $constName = ConvertTo-CSharpConstName -FileName $model.FileName
     $catalogPatch = "ChecksumSha256: $constName.ToLowerInvariant(), ChecksumStatus: ""verified_reference_hash"""
+
+    if ($UpdateLocalCatalog -and $null -ne $catalogDocument) {
+        foreach ($catalogItem in @($catalogDocument.items)) {
+            if ($null -eq $catalogItem) {
+                continue
+            }
+
+            $matchesModel =
+                ([string]::Equals($catalogItem.modelId, $model.ModelId, [System.StringComparison]::OrdinalIgnoreCase)) -or
+                ([string]::Equals($catalogItem.fileName, $model.FileName, [System.StringComparison]::OrdinalIgnoreCase))
+            if (-not $matchesModel) {
+                continue
+            }
+
+            if ([string]::IsNullOrWhiteSpace($catalogItem.checksumSha256) -or
+                [string]::Equals($catalogItem.checksumStatus, "pending_reference_hash", [System.StringComparison]::OrdinalIgnoreCase))
+            {
+                $catalogItem.checksumSha256 = $hash.Hash.ToLowerInvariant()
+                $catalogItem.checksumStatus = "verified_reference_hash"
+                $catalogUpdated = $true
+            }
+        }
+    }
 
     if ($VerifyAgainstCatalog) {
         if ([string]::IsNullOrWhiteSpace($catalogChecksum)) {
@@ -266,16 +337,28 @@ $report = [pscustomobject]@{
     searchRoots = $roots
     foundCount = @($entries | Where-Object { $_.status -eq "found" }).Count
     missingCount = @($entries | Where-Object { $_.status -eq "missing" }).Count
-    catalogArtifactPath = if ($VerifyAgainstCatalog) { [System.IO.Path]::GetFullPath([Environment]::ExpandEnvironmentVariables($CatalogArtifactPath)) } else { $null }
+    catalogArtifactPath = if ($VerifyAgainstCatalog -or $UpdateLocalCatalog) { $catalogArtifactResolvedPath } else { $null }
+    catalogStatus = if ($VerifyAgainstCatalog -or $UpdateLocalCatalog) {
+        if (-not $catalogExists) { "missing" }
+        elseif ($catalogUpdated) { "updated" }
+        else { "loaded" }
+    } else {
+        $null
+    }
     catalogMatchedCount = if ($VerifyAgainstCatalog) { $catalogMatchedCount } else { $null }
     catalogMismatchCount = if ($VerifyAgainstCatalog) { $catalogMismatchCount } else { $null }
     catalogMissingCount = if ($VerifyAgainstCatalog) { $catalogMissingCount } else { $null }
+    catalogUpdated = if ($UpdateLocalCatalog) { $catalogUpdated } else { $null }
     items = $entries
     markdownSummary = $markdownSummary
     catalogSnippet = $catalogSnippet
 }
 
 $json = $report | ConvertTo-Json -Depth 5
+
+if ($UpdateLocalCatalog -and $catalogUpdated -and $null -ne $catalogDocument) {
+    Save-CatalogDocument -Path $CatalogArtifactPath -Document $catalogDocument
+}
 
 if (-not [string]::IsNullOrWhiteSpace($OutputPath)) {
     $target = [System.IO.Path]::GetFullPath([Environment]::ExpandEnvironmentVariables($OutputPath))
@@ -289,6 +372,10 @@ if (-not [string]::IsNullOrWhiteSpace($OutputPath)) {
 }
 
 $json
+
+if ($UpdateLocalCatalog -and -not $catalogExists) {
+    exit 3
+}
 
 if ($VerifyAgainstCatalog -and $catalogMismatchCount -gt 0) {
     exit 2
