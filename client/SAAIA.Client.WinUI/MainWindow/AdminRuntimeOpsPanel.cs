@@ -168,10 +168,29 @@ public sealed partial class MainWindow
 
             if (diagnostics.RecentEvents.Count > 0)
             {
-                var latest = diagnostics.RecentEvents[0];
                 details.Children.Add(new TextBlock
                 {
-                    Text = $"Dernier evenement {latest.At.ToLocalTime():g} | {latest.EventKind} | build {latest.Build ?? "-"}",
+                    Text = "Evenements runtime recents :",
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
+                    TextWrapping = TextWrapping.WrapWholeWords
+                });
+
+                foreach (var item in diagnostics.RecentEvents.Take(3))
+                {
+                    details.Children.Add(new TextBlock
+                    {
+                        Text = $"{item.At.ToLocalTime():g} | {item.EventKind} | build {item.Build ?? "-"} | prec. {item.PreviousBuild ?? "-"}",
+                        Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
+                        TextWrapping = TextWrapping.WrapWholeWords
+                    });
+                }
+            }
+            else
+            {
+                details.Children.Add(new TextBlock
+                {
+                    Text = "Evenements runtime recents : aucun",
                     Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
                     TextWrapping = TextWrapping.WrapWholeWords
                 });

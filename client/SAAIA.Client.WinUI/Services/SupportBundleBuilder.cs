@@ -80,6 +80,20 @@ internal static class SupportBundleBuilder
                 CopyIfExists(
                     GovernanceArtifactStore.ResolvePath(GovernanceArtifactStore.RuntimeEventLogFile) + ".sha256",
                     Path.Combine(llmDir, "runtime_event_log.json.sha256"));
+                try
+                {
+                    var runtimeEvents = await RuntimeEventLogStore.ReadLatestAsync(10).ConfigureAwait(false);
+                    if (runtimeEvents.Count > 0)
+                    {
+                        var lines = runtimeEvents.Select(item =>
+                            $"{item.At.ToLocalTime():g} | {item.RuntimeId} | {item.EventKind} | build={item.Build ?? "-"} | previous={item.PreviousBuild ?? "-"} | model={item.ModelId ?? "-"} | detail={item.Detail ?? "-"}");
+                        File.WriteAllLines(Path.Combine(llmDir, "runtime_event_log.txt"), lines, Encoding.UTF8);
+                    }
+                }
+                catch
+                {
+                    // ignore
+                }
                 var rtTag = Path.Combine(LlamaCppReleaseDownloader.CpuRuntimeDir, "runtime.tag");
                 CopyIfExists(rtTag, Path.Combine(llmDir, "embedded.runtime.tag"));
                 CopyIfExists(Path.Combine(LlamaCppReleaseDownloader.CudaRuntimeDir, "runtime.tag"), Path.Combine(llmDir, "embedded.cuda.runtime.tag"));
