@@ -111,6 +111,7 @@ internal sealed class LlamaCppProcessManager
 
             LastLogFile = logPath;
             LastCommandLine = $"\"{exePath}\" {args}";
+            ClientLog.Info($"[LlamaCpp] Starting: {LastCommandLine}");
 
             _ = PipeToFileAsync(_proc, logPath, ct);
 

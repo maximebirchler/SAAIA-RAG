@@ -461,7 +461,7 @@
                                                 <TextBox x:Name="LocalLlmExtraArgsBox"
                                                          AcceptsReturn="False"
                                                          TextWrapping="Wrap"
-                                                         PlaceholderText="--ctx-size 4096"/>
+                                                         PlaceholderText="--ctx-size 3072"/>
                 
                                                 <StackPanel Orientation="Horizontal" Spacing="10">
                                                     <Button Content="Start now" Click="LocalLlmStart_Click" MinWidth="110"/>

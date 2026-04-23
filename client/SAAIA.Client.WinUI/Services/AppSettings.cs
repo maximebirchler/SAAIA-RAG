@@ -43,6 +43,11 @@ internal sealed class AppSettings
 
     private const string KLastSessionId = "chat.lastSessionId";
 
+    // Fine-grained LLM tuning (CDC v3.1 LLM-010 / LLM-011)
+    private const string KUbatchSize   = "llm.ubatchSize";
+    private const string KThreadsBatch = "llm.threadsBatch";
+    private const string KFlashAttn    = "llm.flashAttn"; // "auto"|"on"|"off"
+
     public string BackendUrl { get; set; } = ClientDefaults.BackendBaseUrl;
 
     /// <summary>
@@ -98,7 +103,19 @@ internal sealed class AppSettings
     /// <summary>OpenAI-compatible model id (what the client sends as "model").</summary>
     public string ModelId { get; set; } = ClientDefaults.LlmModel;
 
-    public string ExtraArgs { get; set; } = "--ctx-size 4096";
+    public string ExtraArgs { get; set; } = "--ctx-size 3072"; // CDC v3.1 LLM-007: 3072 ctx default
+
+    /// <summary>Micro-batch size for eval scheduling (CDC v3.1 LLM-010). Default 256.</summary>
+    public int UbatchSize { get; set; } = 256;
+
+    /// <summary>Thread count for batch processing (CDC v3.1 LLM-010). Default 6.</summary>
+    public int ThreadsBatch { get; set; } = 6;
+
+    /// <summary>
+    /// Flash attention mode (CDC v3.1 LLM-011).
+    /// null = auto (enabled automatically for CUDA builds), true = always on, false = disabled.
+    /// </summary>
+    public bool? FlashAttn { get; set; } = null;
 
     public int StartupTimeoutSeconds { get; set; } = 60;
 
@@ -148,6 +165,9 @@ internal sealed class AppSettings
         int Port,
         string ModelId,
         string ExtraArgs,
+        int UbatchSize,
+        int ThreadsBatch,
+        bool? FlashAttn,
         int StartupTimeoutSeconds,
         double LlmTemperature,
         int LlmMaxOutputTokens,
@@ -186,9 +206,10 @@ internal sealed class AppSettings
             s.ExtraArgs = (ls.Values[KExtraArgs] as string) ?? s.ExtraArgs;
             s.StartupTimeoutSeconds = (ls.Values[KStartupTimeoutSec] as int?) ?? s.StartupTimeoutSeconds;
 
-            var legacyStrict = (ls.Values["llm.strictMode"] as bool?) ?? false;
-            if (legacyStrict)
-                s.ActiveMode = "strict";
+            s.UbatchSize   = (ls.Values[KUbatchSize]   as int?) ?? s.UbatchSize;
+            s.ThreadsBatch = (ls.Values[KThreadsBatch] as int?) ?? s.ThreadsBatch;
+            s.FlashAttn    = ParseFlashAttn(ls.Values[KFlashAttn] as string);
+
             s.LlmTemperature = (ls.Values[KLlmTemperature] as double?) ?? s.LlmTemperature;
             s.LlmMaxOutputTokens = (ls.Values[KLlmMaxOutputTokens] as int?) ?? s.LlmMaxOutputTokens;
             s.RagQualityPreset = (ls.Values[KRagQualityPreset] as string) ?? s.RagQualityPreset;
@@ -250,13 +271,16 @@ internal sealed class AppSettings
             s.Port = dto.Port <= 0 ? 1234 : dto.Port;
             s.ModelId = string.IsNullOrWhiteSpace(dto.ModelId) ? ClientDefaults.LlmModel : dto.ModelId;
             s.ExtraArgs = dto.ExtraArgs ?? "";
+
+            if (Has(nameof(FileDto.UbatchSize)))
+                s.UbatchSize = dto.UbatchSize > 0 ? dto.UbatchSize : 256;
+            if (Has(nameof(FileDto.ThreadsBatch)))
+                s.ThreadsBatch = dto.ThreadsBatch > 0 ? dto.ThreadsBatch : 6;
+            if (Has(nameof(FileDto.FlashAttn)))
+                s.FlashAttn = dto.FlashAttn;
+
             s.StartupTimeoutSeconds = dto.StartupTimeoutSeconds <= 0 ? 60 : dto.StartupTimeoutSeconds;
 
-            using (var legacyDoc = JsonDocument.Parse(json))
-            {
-                if (legacyDoc.RootElement.TryGetProperty("StrictMode", out var strictEl) && strictEl.ValueKind is JsonValueKind.True or JsonValueKind.False)
-                    s.ActiveMode = strictEl.GetBoolean() ? "strict" : "auto";
-            }
             if (Has(nameof(FileDto.LlmTemperature)))
                 s.LlmTemperature = dto.LlmTemperature;
             if (Has(nameof(FileDto.LlmMaxOutputTokens)))
@@ -330,6 +354,11 @@ internal sealed class AppSettings
             ls.Values[KExtraArgs] = ExtraArgs ?? "";
             ls.Values[KStartupTimeoutSec] = StartupTimeoutSeconds;
 
+            ls.Values[KUbatchSize]   = UbatchSize;
+            ls.Values[KThreadsBatch] = ThreadsBatch;
+            if (FlashAttn is null) ls.Values.Remove(KFlashAttn);
+            else ls.Values[KFlashAttn] = FlashAttn.Value ? "on" : "off";
+
             ls.Values.Remove("llm.strictMode");
             ls.Values[KLlmTemperature] = LlmTemperature;
             ls.Values[KLlmMaxOutputTokens] = LlmMaxOutputTokens;
@@ -371,6 +400,9 @@ internal sealed class AppSettings
                 Port,
                 ModelId ?? ClientDefaults.LlmModel,
                 ExtraArgs ?? "",
+                UbatchSize,
+                ThreadsBatch,
+                FlashAttn,
                 StartupTimeoutSeconds,
                 LlmTemperature,
                 LlmMaxOutputTokens,
@@ -385,6 +417,19 @@ internal sealed class AppSettings
             ClientLog.Exception("AppSettings.Save(file)", ex);
         }
     }
+
+    // --- Internal helpers ---
+
+    /// <summary>
+    /// Parses the persisted flash-attn string back to a nullable bool.
+    /// Returns null (= auto) for any unrecognised value or when the key is absent.
+    /// </summary>
+    private static bool? ParseFlashAttn(string? val) => val switch
+    {
+        "on"  => true,
+        "off" => false,
+        _     => null   // absent or "auto"
+    };
 
     // --- Compatibility helpers (UI / older patches) ---
 
@@ -412,6 +457,9 @@ internal sealed class AppSettings
         Port = this.Port,
         ModelId = this.ModelId,
         ExtraArgs = this.ExtraArgs,
+        UbatchSize = this.UbatchSize,
+        ThreadsBatch = this.ThreadsBatch,
+        FlashAttn = this.FlashAttn,
         StartupTimeoutSeconds = this.StartupTimeoutSeconds,
 
         ActiveMode = this.ActiveMode,
@@ -444,6 +492,9 @@ internal sealed class AppSettings
         Port = other.Port;
         ModelId = other.ModelId;
         ExtraArgs = other.ExtraArgs;
+        UbatchSize = other.UbatchSize;
+        ThreadsBatch = other.ThreadsBatch;
+        FlashAttn = other.FlashAttn;
         StartupTimeoutSeconds = other.StartupTimeoutSeconds;
 
         ActiveMode = NormalizeActiveMode(other.ActiveMode);

@@ -39,7 +39,6 @@ internal static class Provisioning
         bool? Enabled,
         bool? ManageProcess,
         string? ActiveMode,
-        [property: JsonPropertyName("StrictMode")] bool? LegacyStrictMode,
         string? RagQualityPreset,
         double? Temperature,
         int? MaxOutputTokens,
@@ -151,8 +150,6 @@ internal static class Provisioning
 
             if (!string.IsNullOrWhiteSpace(dto.Llm?.ActiveMode))
                 settings.ActiveMode = AppSettings.NormalizeActiveMode(dto.Llm.ActiveMode);
-            else if (dto.Llm?.LegacyStrictMode is bool sm)
-                settings.ActiveMode = sm ? "strict" : "auto";
 
             if (!string.IsNullOrWhiteSpace(dto.Llm?.RagQualityPreset))
                 settings.RagQualityPreset = dto.Llm!.RagQualityPreset!.Trim();

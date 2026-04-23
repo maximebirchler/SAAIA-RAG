@@ -1,0 +1,4 @@
+﻿"Profile","LoadMs","VramUsedMiB","TtftMs","StreamMs","CompletionMs","TokPerSec","CompletionTokens","PromptTokens","Ngl","Batch","UBatch","Ctx","Threads","ThreadsBatch","FlashAttn","Error"
+"A_baseline_ngl24_b192","11596","1501","14861","29131","19737","4,71","93","2072","24","192",,"4096","6",,"False",
+"B_candidate_ngl36_b1024_fa","22244","2083","11295","27518","17738","6,2","110","2072","36","1024","256","3072","6","6","True",
+"C_candidate_ngl36_b1024_nofa","22055","2083","12404","21939","10633","6,87","73","2072","36","1024","256","3072","6","6","False",

@@ -155,6 +155,10 @@ internal sealed class LocalLlmBootstrapper
                     return (false, "No reachable model file found on Hugging Face for the current pack.", installed);
 
                 var url = BuildHfUrl(picked);
+                // CDC v3.1 LLM-008: SHA-256 must be known for all pack models.
+                // Until the checksums are computed and populated, log a warning so it appears in support bundles.
+                if (picked.Sha256Hex is null)
+                    ClientLog.Warn($"[Bootstrap] No SHA-256 known for '{picked.File}' — integrity check skipped.");
                 ClientLog.Info($"LLM bootstrap: downloading model '{picked.File}' from HF repo '{picked.Repo}'.");
 
                 var modelAsset = new DownloadManager.AssetSpec(
@@ -456,7 +460,8 @@ internal sealed class LocalLlmBootstrapper
         try
         {
             var isGpuRuntime = IsGpuRuntimePath(s.LlamaExePath);
-            var (threads, batch, ngl) = GpuDetector.ComputeAutoTuning(gpu);
+            // Pass ModelPath so ngl is read from llm.block_count in GGUF metadata (CDC v3.1 LLM-005).
+            var (threads, batch, ngl) = GpuDetector.ComputeAutoTuning(gpu, s.ModelPath);
             if (!isGpuRuntime) ngl = 0;
 
             var extra = (s.ExtraArgs ?? "").Trim();
@@ -467,8 +472,26 @@ internal sealed class LocalLlmBootstrapper
             if (!ContainsArg(extra, "-b") && !ContainsArg(extra, "--batch") && !ContainsArg(extra, "--batch-size"))
                 extra = AppendArg(extra, "-b", batch.ToString());
 
-            if (!ContainsArg(extra, "-ngl") && !ContainsArg(extra, "--n-gpu-layers"))
+            if (isGpuRuntime && !ContainsArg(extra, "-ngl") && !ContainsArg(extra, "--n-gpu-layers"))
                 extra = AppendArg(extra, "-ngl", ngl.ToString());
+
+            // ubatch-size (CDC v3.1 LLM-010)
+            if (!ContainsArg(extra, "--ubatch-size") && !ContainsArg(extra, "-ub"))
+                extra = AppendArg(extra, "--ubatch-size", s.UbatchSize.ToString());
+
+            // threads-batch (CDC v3.1 LLM-010)
+            if (!ContainsArg(extra, "--threads-batch") && !ContainsArg(extra, "-tb"))
+                extra = AppendArg(extra, "--threads-batch", s.ThreadsBatch.ToString());
+
+            // flash-attn: CUDA builds only. The bundled llama-server build expects an
+            // explicit value ("on"/"off"), as confirmed by the local Phase 0 bench.
+            var isCuda = IsGpuRuntimePath(s.LlamaExePath) &&
+                         s.LlamaExePath.Contains("cuda", StringComparison.OrdinalIgnoreCase);
+            if (isCuda)
+            {
+                if (!ContainsArg(extra, "--flash-attn") && !ContainsArg(extra, "-fa"))
+                    extra = AppendArg(extra, "--flash-attn", s.FlashAttn == false ? "off" : "on");
+            }
 
             s.ExtraArgs = extra;
         }

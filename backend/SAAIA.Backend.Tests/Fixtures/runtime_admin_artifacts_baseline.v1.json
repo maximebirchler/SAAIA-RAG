@@ -1,0 +1,104 @@
+{
+  "version": "v1",
+  "artifacts": {
+    "runtime_catalog.json": {
+      "artifact": "runtime_catalog.json",
+      "cdcAlignment": "v3.0",
+      "runtimeKeys": [
+        "llm-backoffice-chat",
+        "qdrant",
+        "server-capability-a",
+        "server-capability-b",
+        "tei-embeddings",
+        "tei-rerank"
+      ],
+      "warmupProfileKeys": [
+        "default-local",
+        "strict-local",
+        "strict-rerank"
+      ],
+      "capabilityKeys": [
+        "capability_a.corpus_enrichment",
+        "capability_b.backoffice_generation",
+        "capability_c.retrieval_intelligence",
+        "core.retrieval"
+      ],
+      "serverCapabilityBDependencies": [
+        "llm-backoffice-chat"
+      ]
+    },
+    "model_catalog.json": {
+      "artifact": "model_catalog.json",
+      "cdcAlignment": "v3.0",
+      "itemKeys": [
+        "llm-backoffice-chat",
+        "qdrant",
+        "server-capability-a",
+        "server-capability-b",
+        "tei-embeddings",
+        "tei-rerank"
+      ]
+    },
+    "warmup_profiles.json": {
+      "artifact": "warmup_profiles.json",
+      "cdcAlignment": "v3.0",
+      "profileKeys": [
+        "default-local",
+        "strict-local",
+        "strict-rerank"
+      ]
+    },
+    "retrieval-kpis.json": {
+      "artifact": "retrieval-kpis.json",
+      "cdcAlignment": "v3.0",
+      "metricKeys": [
+        "rerank_p95",
+        "retrieval_p95",
+        "retrieval_requests",
+        "zero_result_rate"
+      ],
+      "alertKeys": [
+        "rerank_p95_regression",
+        "retrieval_p95_regression",
+        "zero_result_rate_regression"
+      ]
+    },
+    "capability-a-kpis.json": {
+      "artifact": "capability-a-kpis.json",
+      "cdcAlignment": "v3.0",
+      "metricKeys": [
+        "capability_a_candidate_count",
+        "capability_a_candidate_reads",
+        "capability_a_enqueue_requests",
+        "capability_a_offset_backfill_share",
+        "capability_a_operation_p95",
+        "capability_a_ready_to_enqueue_rate",
+        "capability_a_skip_rate"
+      ],
+      "alertKeys": [
+        "capability_a_offset_backfill_share_watch",
+        "capability_a_operation_p95_regression",
+        "capability_a_ready_to_enqueue_rate_regression",
+        "capability_a_skip_rate_regression"
+      ]
+    },
+    "capability-b-kpis.json": {
+      "artifact": "capability-b-kpis.json",
+      "cdcAlignment": "v3.0",
+      "metricKeys": [
+        "capability_b_failure_rate",
+        "capability_b_first_response_p95",
+        "capability_b_generation_p95",
+        "capability_b_live_fallback_rate",
+        "capability_b_output_length_p50",
+        "capability_b_quality_score_p50"
+      ],
+      "alertKeys": [
+        "capability_b_failure_rate_regression",
+        "capability_b_generation_p95_regression",
+        "capability_b_live_fallback_rate_regression",
+        "capability_b_quality_score_regression"
+      ]
+    }
+  }
+}

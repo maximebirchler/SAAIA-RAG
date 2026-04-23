@@ -101,6 +101,57 @@ public sealed class AdminRuntimeEndpointsTests
     }
 
     [Fact]
+    public async Task SupportBundleAsync_returns_zip_with_present_and_missing_governance_artifacts()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "saaia-support-bundle-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var governanceDir = Path.Combine(tempRoot, "governance");
+            Directory.CreateDirectory(governanceDir);
+            await File.WriteAllTextAsync(
+                Path.Combine(governanceDir, "warmup_results.json"),
+                "{\"items\":[]}");
+
+            var ctx = BuildAdminContext();
+            var env = new StubHostEnvironment { ContentRootPath = tempRoot };
+            var result = await AdminRuntimeEndpoints.SupportBundleAsync(
+                ctx,
+                env,
+                Options.Create(new RuntimeGovernanceOptions()));
+
+            using var json = await ExecuteAnonymousAsync(result, ctx);
+            var root = json.RootElement;
+            var bundlePath = root.GetProperty("bundlePath").GetString();
+            var artifacts = root.GetProperty("artifacts").EnumerateArray().Select(item => item.GetString()).ToArray();
+            var missingArtifacts = root.GetProperty("missingArtifacts").EnumerateArray().Select(item => item.GetString()).ToArray();
+
+            Assert.False(string.IsNullOrWhiteSpace(bundlePath));
+            Assert.True(File.Exists(bundlePath));
+            Assert.Contains("warmup_results.json", artifacts);
+            Assert.Contains("runtime-config.json", artifacts);
+            Assert.Contains("hardware_probe.json", missingArtifacts);
+            Assert.Contains("blacklist.json", missingArtifacts);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task SupportBundleAsync_without_admin_context_rejects_request()
+    {
+        var ctx = new DefaultHttpContext();
+        ctx.Response.Body = new MemoryStream();
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => AdminRuntimeEndpoints.SupportBundleAsync(
+            ctx,
+            new StubHostEnvironment(),
+            Options.Create(new RuntimeGovernanceOptions())));
+    }
+
+    [Fact]
     public async Task ModelCatalogArtifactAsync_returns_runtime_model_entries()
     {
         var ctx = BuildAdminContext();

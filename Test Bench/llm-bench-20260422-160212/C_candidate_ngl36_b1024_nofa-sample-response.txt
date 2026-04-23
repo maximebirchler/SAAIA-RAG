@@ -1,0 +1,5 @@
+﻿Diagnostic :
+Le compromis recommandé est de réduire le batch-size et la threads-batch pour optimiser la marge mémoire et maintenir la stabilité.
+
+Action recommandée :
+Réduire le batch-size et la threads-batch en fonction de la capacité mémoire de la machine, tout en maintenant un niveau de performance acceptable.

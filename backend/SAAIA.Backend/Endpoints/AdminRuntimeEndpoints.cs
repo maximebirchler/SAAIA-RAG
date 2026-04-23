@@ -1,3 +1,5 @@
+using System.IO.Compression;
+using System.Text.Json;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using SAAIA.Backend.Auth;
@@ -97,6 +99,7 @@ public static class AdminRuntimeEndpoints
         app.MapPost("/admin/runtime/capabilities/{capabilityKey}/selection", UpdateSelectionAsync);
         app.MapPost("/admin/runtime/capabilities/capability_a.corpus_enrichment/enqueue", CapabilityAEnqueueAsync);
         app.MapPost("/admin/runtime/capabilities/capability_b.backoffice_generation/enqueue", CapabilityBEnqueueAsync);
+        app.MapPost("/admin/support/bundle", SupportBundleAsync);
     }
 
     internal static Task<IResult> CatalogAsync(
@@ -905,5 +908,105 @@ public static class AdminRuntimeEndpoints
         return response.Error is null
             ? Results.Ok(response.Payload)
             : Results.BadRequest(new { error = response.Error, capabilityKey = "capability_b.backoffice_generation" });
+    }
+
+    /// <summary>
+    /// POST /admin/support/bundle
+    /// Packages available runtime governance artifacts into a timestamped ZIP.
+    /// Phase 0B: most governance files are not yet generated (Phase 3); they are listed in
+    /// <c>missingArtifacts</c> so the caller knows what's expected vs. what exists.
+    /// CDC v3.1 §14.2 — admin governance bundle (distinct from the lightweight client bundle).
+    /// </summary>
+    internal static async Task<IResult> SupportBundleAsync(
+        HttpContext ctx,
+        IHostEnvironment env,
+        IOptions<RuntimeGovernanceOptions> options)
+    {
+        AdminAuth.EnsureAdmin(ctx);
+
+        var stamp = DateTimeOffset.UtcNow.ToString("yyyyMMdd_HHmmss");
+        var bundleDir = Path.Combine(env.ContentRootPath, "support-bundles");
+        Directory.CreateDirectory(bundleDir);
+        var bundlePath = Path.Combine(bundleDir, $"admin-bundle_{stamp}_{Guid.NewGuid():N}.zip");
+
+        var staging = Path.Combine(bundleDir, $"staging_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(staging);
+
+        var artifacts = new List<string>();
+        var missing   = new List<string>();
+
+        // Governance artifact filenames expected in Phase 3 (CDC §9 governance lifecycle).
+        // In Phase 0B these files don't exist yet — included in missingArtifacts for transparency.
+        var governanceFileNames = new[]
+        {
+            "warmup_results.json",
+            "hardware_probe.json",
+            "capability_state.json",
+            "last_known_good_profile.json",
+            "blacklist.json",
+            "acquisition_log.json"
+        };
+
+        try
+        {
+            // README
+            await File.WriteAllTextAsync(Path.Combine(staging, "README.txt"),
+                $"SAAIA admin support bundle — {stamp}\r\n" +
+                "Runtime governance artifacts for support/audit. Sensitive fields are masked.\r\n" +
+                "missingArtifacts = expected but not yet generated (Phase 3).\r\n",
+                ctx.RequestAborted).ConfigureAwait(false);
+
+            // Governance artifacts (if available)
+            var governanceDir = Path.Combine(env.ContentRootPath, "governance");
+            foreach (var fileName in governanceFileNames)
+            {
+                var src = Path.Combine(governanceDir, fileName);
+                if (File.Exists(src))
+                {
+                    File.Copy(src, Path.Combine(staging, fileName), overwrite: true);
+                    artifacts.Add(fileName);
+                }
+                else
+                {
+                    missing.Add(fileName);
+                }
+            }
+
+            // Config snapshot (redacted runtime options)
+            var configSnapshot = new
+            {
+                timestamp       = stamp,
+                governanceRoot  = governanceDir,
+                includedFiles   = artifacts,
+                missingArtifacts = missing
+            };
+            await File.WriteAllTextAsync(
+                Path.Combine(staging, "runtime-config.json"),
+                JsonSerializer.Serialize(configSnapshot, new JsonSerializerOptions { WriteIndented = true }),
+                ctx.RequestAborted).ConfigureAwait(false);
+            artifacts.Add("runtime-config.json");
+
+            // Create ZIP
+            if (File.Exists(bundlePath)) File.Delete(bundlePath);
+            ZipFile.CreateFromDirectory(staging, bundlePath, CompressionLevel.Fastest, includeBaseDirectory: false);
+
+            return Results.Ok(new
+            {
+                bundlePath,
+                artifacts,
+                missingArtifacts = missing
+            });
+        }
+        catch (Exception ex) when (ex is not UnauthorizedAccessException)
+        {
+            return Results.Problem(
+                detail: ex.Message,
+                title: "Failed to build admin support bundle",
+                statusCode: 500);
+        }
+        finally
+        {
+            try { Directory.Delete(staging, recursive: true); } catch { }
+        }
     }
 }

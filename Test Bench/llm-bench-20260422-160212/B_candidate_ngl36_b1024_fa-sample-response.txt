@@ -1,0 +1,5 @@
+﻿Diagnostic :
+Le compromis recommandé est d'utiliser un batch-size réduit (ex : 16) et une n-gpu-layers modérée (ex : 4-8) pour optimiser la marge de mémoire et maintenir la stabilité du système.
+
+Action recommandée :
+Réduire le batch-size à 16 et ajuster la n-gpu-layers entre 4 et 8 pour optimiser la marge de mémoire tout en maintenant la stabilité du système.

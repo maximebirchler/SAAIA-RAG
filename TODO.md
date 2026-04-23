@@ -1,10 +1,11 @@
-# SAAIA - Backend TODO - Document de suivi vivant
+# SAAIA - TODO Produit Client + Backend
 
-> Derniere mise a jour : 2026-04-22
-> Base CDC : v3.0 complet
+> Derniere mise a jour : 2026-04-23
+> Base CDC : v3.1 (remplace v3.0 — document unique de reference)
 > Branche : SAAIA_V3.0
-> Reference locale : `documents/cdc/SAAIA_Backend_Audit_2026-04-22_Complet.md`
+> Reference locale : `documents/cdc/CDC Agent AI - RAG - V3.1.md`
 > Note : `documents/` est ignore par Git dans ce repo. Le TODO ci-dessous est donc la source suivie dans le worktree partage.
+> Scope : client WinUI (LLM local, tuning, governance) + backend RAG (.NET 8, Postgres, Qdrant, endpoints)
 
 ## Legende
 
@@ -13,62 +14,356 @@
 - `[~]` = partiellement fait ou a surveiller
 - `[N/A]` = non applicable a ce stade
 
+---
+
 ## Etat global
 
-| Bloc | Etat | Notes |
-|---|---|---|
-| Architecture backend | [x] Solide | Gouvernance runtime refactoree, service monolithique casse en composants dedies |
-| Catalogue / endpoints documents | [x] Solide | Cache HTTP, ETag/304, surfaces principales alignees |
-| Retrieval | [x] Excellent | Exact -> BM25 -> dense -> fusion -> rerank -> linked context |
-| Evidence pack `/rag/search` | [x] Tres bon | `hypQuestionsMatched` et offsets derives actifs, backfill legacy branche sur A |
-| Gouvernance runtime | [x] Solide | Core / A / B gouvernes, warmup, hard gates, KPI ops |
-| Capacite A | [x] Close v1 | LLM local, fallback, score qualite, KPI A, vue admin dediee |
-| Capacite B | [x] Close v1 | Worker LLM local, fallback, KPI B, revue qualite corrective |
-| Capacite C | [N/A] | Hors perimetre, absente par design |
-| Tests backend | [x] Verts | 332 tests, 28 fichiers `*Tests.cs`, 1 fixture partagee |
-| Migrations SQL | [~] Stables | 28 fichiers, doublons legacy `004` / `008` documentes et testes comme safe |
+| Bloc | Scope | Etat | Notes |
+|---|---|---|---|
+| Architecture backend | Backend | [x] Solide | Gouvernance runtime refactoree, service monolithique decompose |
+| Catalogue / endpoints documents | Backend | [x] Solide | Cache HTTP, ETag/304, surfaces principales alignees |
+| Retrieval | Backend | [x] Excellent | Exact -> BM25 -> dense -> fusion -> rerank -> linked context |
+| Evidence pack `/rag/search` | Backend | [x] Tres bon | `hypQuestionsMatched` et offsets derives actifs |
+| Gouvernance runtime A/B | Backend | [x] Solide | Core / A / B gouvernes, warmup, hard gates, KPI ops — artefacts dynamiques exposes via ~30 endpoints admin |
+| Capacite A | Backend | [x] Close v1 | LLM local, fallback, score qualite, KPI A, vue admin |
+| Capacite B | Backend | [x] Close v1 | Worker LLM local, fallback, KPI B, revue qualite |
+| Capacite C | Backend | [N/A] | Hors perimetre, absente par design |
+| Tests backend | Backend | [x] Verts | 335 tests, 29 fichiers `*Tests.cs`, 1 fixture partagee |
+| Migrations SQL | Backend | [~] Stables | 28 fichiers, doublons legacy 004/008 documentes safe |
+| Tuning LLM client | Client | [x] Fait Patch 1+2 | GgufMetadataReader, ngl=block_count, batch>=512, ctx=3072, ubatch=256, threads-batch=6, flash-attn CUDA auto |
+| Budget VRAM observe (DXGI) | Client | [ ] Absent | Seule la VRAM installee est lue (nvidia-smi / CIM) — budget courant DXGI non implemente |
+| Gouvernance llama-server client | Client | [ ] Absent | Artefacts client (warmup gate local LLM, profil qualifie, blacklist, rollback) absents — a distinguer des artefacts backend A/B qui existent |
+| Cycle de vie runtime (sleep/wake) | Client | [~] Partiel | ManageLocalLlmProcess + AutoStartOnConnect presents ; idleTimeoutSeconds, EagerLoad, drain avant sleep absents |
+| Checksums modeles | Client | [~] Partiel | Infrastructure SHA-256 presente ; warning logge si Sha256Hex=null (Patch 3) ; valeurs reelles non encore calculees (Phase 3) |
+| Endpoint support bundle admin | Backend | [x] Fait Patch 3 | `POST /admin/support/bundle` presente — ZIP stagé, artifacts/missingArtifacts, auth X-Admin-Key |
+
+---
 
 ## Decision produit
 
-- [x] La cible retenue reste `CDC v3.0 complet`
+- [x] La cible retenue est desormais `CDC v3.1 complet` (remplace v3.0)
 - [x] Le scenario `v3.0-lite` est abandonne
 - [x] A et B restent gouvernees avec runtime LLM serveur local + fallback explicite
+- [x] vLLM reste reserve au serveur Linux GPU (Capacite B premium) - jamais runtime universel
+
+---
 
 ## Derniere validation confirmee
 
-- [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1`
-- [x] Suite backend verte : `332 / 332`
+- [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` — OK, 0 Warning
+- [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` — OK, 0 Warning
+- [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` — 335/335 verts
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 258/258 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
 
-## Priorites ouvertes
+---
 
-### P1 - Baseline artefacts runtime versionnee
+## Plan de patchs — Phase 0A (tuning LLM bench-confirmed, §18.4 CDC v3.1)
 
-- [ ] Ajouter une baseline versionnee des artefacts runtime/admin hors du dossier `documents/` ignore
-- [ ] Normaliser les champs volatils (`generatedAt`, ids, timestamps eventuels) pour rendre cette baseline stable
-- [ ] Ajouter un moyen simple de regen ou verifier cette baseline dans les tests
+Fixes confirmes par bench machine de reference (Quadro P520, Qwen 2.5 3B Q4_K_M, build b8149).
+**Ordre d'execution impose** : Patch 1 avant Patch 2 (Patch 2 depend du lecteur GGUF de Patch 1).
 
-### P2 - Maintenance SQL legacy
+---
 
-- [ ] Renommer les migrations legacy `004` / `008` dans une fenetre de maintenance si on veut retrouver une sequence plus lisible
+### Patch 1 — Lecteur GGUF minimal + ngl depuis metadata + ctx par defaut
+
+**Objectif** : sortir les constantes `ngl` du code applicatif, lire le vrai `block_count` depuis le fichier GGUF.
+
+**Fichiers touches** :
+- `client/SAAIA.Client.WinUI/Services/GpuDetector.cs` (nouveau : `GgufMetadataReader` interne ou classe separee)
+- `client/SAAIA.Client.WinUI/Services/AppSettings.cs` (changer default ExtraArgs)
+- `client/SAAIA.Client.WinUI/MainWindow.xaml` (ligne 464 : `PlaceholderText="--ctx-size 4096"` -> `"--ctx-size 3072"`)
+
+**Travaux** :
+- [x] Implémenter `GgufMetadataReader` : lecture binaire minimale du header GGUF (magic, version, metadata key-value) sans charger les poids
+  - Lire `llm.block_count` -> type uint32
+  - Lire `llm.attention.head_count_kv` -> type uint32
+  - Spec GGUF publique disponible sur github.com/ggerganov/ggml
+- [x] `GpuDetector.ComputeAutoTuning(GpuInfo?)` : remplacer le tableau hardcode (24/32/48/72/99) par `ngl = ggufMetadata.BlockCount`
+  - IMPORTANT : cibler l'overload `ComputeAutoTuning(GpuInfo?)` — c'est celui utilise par `LocalLlmBootstrapper` via `bestGpu`
+  - L'overload `ComputeAutoTuning(NvidiaGpuInfo?)` peut rester en compatibilite mais doit aussi etre mis a jour
+  - Convention CDC : `ngl = block_count` (blocs transformer uniquement, pas +1)
+  - Pour Qwen 2.5 3B : `block_count = 36` donc `ngl = 36`
+  - Fallback si lecture GGUF impossible : conserver la logique tier VRAM comme securite (logguer un warning)
+- [x] `GpuDetector.ComputeAutoTuning` : garantir `batch >= 512` dans tout profil CUDA (correction tiers 192/256/384 qui violent LLM-009)
+  - Profil bench Phase 0 reference : `ngl=36 / batch=1024 / ubatch=256 / ctx=3072`
+- [x] `AppSettings.ExtraArgs` default : `"--ctx-size 3072"` (remplace `"--ctx-size 4096"`)
+  - CDC : 3072 pour GPU < 6 Go ; 4096 seulement si valide par warmup
+
+**Tests a lancer / a ajouter** :
+- [~] Test unitaire `GgufMetadataReader` : lire le modele present sur la machine de dev, verifier `block_count == 36` et `head_count_kv == 2` pour Qwen 2.5 3B Q4_K_M
+  > Squelette fourni dans CODEX-BRIEF-PHASE0.md — necessite le .gguf sur la machine de dev
+- [~] Test `ComputeAutoTuning` : verifier que ngl provient du GGUF, que batch >= 512 sur GPU, que le fallback est safe si GGUF illisible
+  > Squelette fourni dans CODEX-BRIEF-PHASE0.md — necessite le .gguf sur la machine de dev
+- [x] `dotnet test backend/SAAIA.Backend.Tests/...` vert (333/333) — passe
+
+**Criteres de sortie** :
+- [x] ngl n'est plus une constante, il provient du GGUF
+- [x] batch >= 512 pour tout profil CUDA
+- [x] ctx default = 3072
+- [~] tests GGUF : squelettes fournis, a jouer avec le .gguf reel sur la machine cible
+
+---
+
+### Patch 2 — ubatch + threads-batch + flash-attn conditionnel + logs runtime
+
+**Objectif** : ajouter les trois parametres manquants dans `ApplyAutoTuningFlags` et activer les logs complets pour les diagnostics bench.
+
+**Fichiers touches** :
+- `client/SAAIA.Client.WinUI/Services/LocalLlmBootstrapper.cs`
+- `client/SAAIA.Client.WinUI/Services/AppSettings.cs` (nouveaux champs structures)
+- `client/SAAIA.Client.WinUI/Services/LlamaCppProcessManager.cs` (logs)
+
+**Travaux** :
+- [x] `AppSettings` : ajouter champs structures `UbatchSize` (int, default 256), `ThreadsBatch` (int, default 6), `FlashAttn` (bool?, default null = auto)
+  - Ces champs remplacent progressivement la chaine libre ExtraArgs pour les parametres de tuning principaux
+- [x] `LocalLlmBootstrapper.ApplyAutoTuningFlags` : injecter `--ubatch-size <UbatchSize>` si absent dans ExtraArgs
+- [x] `LocalLlmBootstrapper.ApplyAutoTuningFlags` : injecter `--threads-batch <ThreadsBatch>` si absent dans ExtraArgs
+- [x] `LocalLlmBootstrapper.ApplyAutoTuningFlags` : logique `flash-attn` conditionnel CUDA
+  - Proposer si runtime detecte comme CUDA et build supporte (pas de seuil compute capability en dur)
+  - Sur build b8149 : confirme disponible SM 6.1 (Pascal) — a noter en commentaire
+- Implementation : `--flash-attn on/off` ajoute si CUDA runtime detecte (bench llama-server local : valeur obligatoire)
+  - Fallback : si warmup echoue avec flash-attn, relancer sans (voir Phase 3 warmup gate)
+- [x] `LlamaCppProcessManager.StartAsync` : ligne de commande complete loggee via `ClientLog.Info` avant demarrage
+- [x] Nettoyage `strictMode` legacy — PERIMETRE EXACT (4 points) :
+  - [x] `AppSettings.cs` : suppression lecture `ls.Values["llm.strictMode"]` (LocalSettings legacy)
+  - [x] `AppSettings.cs` : suppression lecture JSON propriete `StrictMode` (file fallback legacy)
+  - [x] `Provisioning.cs` : suppression propriete `LegacyStrictMode` et son mapping
+  - `UserSettingsDialog.xaml.cs` : NE PAS TOUCHER — et de toute facon non compile
+
+**Tests a lancer / a ajouter** :
+- [x] Test `ApplyAutoTuningFlags` : verifier presence de `--ubatch-size`, `--threads-batch`, `--flash-attn on/off` dans les args produits pour un profil CUDA
+- [x] Test regression : profil CPU ne recoit pas flash-attn ni `-ngl`
+- [x] `dotnet test backend/SAAIA.Backend.Tests/...` vert (335/335) — passe
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/...` vert (258/258) — passe
+
+**Criteres de sortie** :
+- [x] ubatch, threads-batch, flash-attn on/off presents dans les args CUDA
+- [x] AppSettings contient les champs structures (plus seulement ExtraArgs string)
+- [x] Ligne de commande complete loggee au demarrage du runtime
+- [x] strictMode proprement supprime
+
+---
+
+## Plan de patchs — Phase 0B (securisation runtime actuel + endpoint contractuel)
+
+Travaux independants de la gouvernance complete, livrable avant Phase 3.
+
+---
+
+### Patch 3 — POST /admin/support/bundle + checksums minimaux modeles
+
+**Objectif** : creer l'endpoint contractuel du bundle admin (avec ce qui existe), et ajouter les checksums sur les modeles connus.
+
+**Fichiers touches** :
+- `backend/SAAIA.Backend/Endpoints/AdminRuntimeEndpoints.cs` (nouveau endpoint)
+- `client/SAAIA.Client.WinUI/Services/LocalLlmBootstrapper.cs` (Sha256Hex)
+- `client/SAAIA.Client.WinUI/Services/SupportBundleBuilder.cs` (enrichissement progressif)
+
+**Travaux** :
+- [x] `AdminRuntimeEndpoints.cs` : ajouter `POST /admin/support/bundle`
+  - [x] Acces `X-Admin-Key` obligatoire (AdminAuth.EnsureAdmin)
+  - [x] Phase 0B : exporter artefacts governance si presents, lister les manquants dans missingArtifacts
+  - [x] Response : `{ "bundlePath": "...", "artifacts": [...], "missingArtifacts": [...] }`
+- [~] CHECKSUMS MODELES :
+  - [x] Warning logge si `Sha256Hex = null` (ne bloque pas le telechargement en Phase 0B)
+  - [ ] Renseigner les SHA-256 reels pour Qwen2.5-3B-Instruct-Q4_K_M.gguf et autres modeles du pack
+    > Necessite calcul SHA-256 sur machine de reference apres telechargement — a faire lors du prochain cycle bench
+- [x] `SupportBundleBuilder` (client leger) : pas de changement en Patch 3 — Phase 3 l'enrichira quand les artefacts governance existeront
+
+**Tests a lancer / a ajouter** :
+- [x] Test contractuel `POST /admin/support/bundle` : status 200, champ `bundlePath` present, response JSON conforme
+- [x] Test auth : sans contexte admin -> rejet `UnauthorizedAccessException`
+- [x] `dotnet test backend/SAAIA.Backend.Tests/...` vert (335/335) — passe
+
+**Criteres de sortie** :
+- [x] `POST /admin/support/bundle` repond 200 avec bundle (meme partiel)
+- [x] Test contractuel backend ajoute
+- [~] Checksums : warning en place ; valeurs reelles SHA-256 a calculer lors du bench suivant
+- [x] Scope dual bundle documente : bundle leger user (SupportBundleBuilder) != bundle complet admin (AdminRuntimeEndpoints)
+
+---
+
+## Plan de patchs — Phase 0 — Maintenance legacy (P2)
+
+- [ ] Renommer les migrations legacy `004` / `008` dans une fenetre de maintenance
 - [x] Le runner est deja verrouille pour autoriser seulement les doublons legacy connus
+- [~] Surveiller la redensification de `RuntimeCoreRetrievalWarmupEvaluator` ; extraire une couche dediee si necessaire
 
-### P2 - Vigilance architecture warmup
+---
 
-- [~] Surveiller la redensification de `RuntimeCoreRetrievalWarmupEvaluator`
-- [ ] Extraire une couche dediee si de nouvelles logiques LLM ou hardware y arrivent
+## Plan de patchs — Phase 3 (gouvernance modeles LLM complete, §5.8, §9, CDC v3.1)
 
-## Validation obligatoire apres chaque sprint
+Ces items constituent la gouvernance LLM complete. Ils peuvent commencer en parallele des Patch 1-3 mais dependent des squelettes JSON pour le reste.
 
+---
+
+### Patch 4 — Squelettes JSON gouvernance + QualifiedProfile + persistance minimale
+
+**Objectif** : poser la fondation des artefacts de gouvernance sans bloquer les autres chantiers.
+
+**Fichiers touches** :
+- Nouveau repertoire `%LOCALAPPDATA%\SAAIA\governance\` cote client
+- `client/SAAIA.Client.WinUI/Services/` : nouveaux fichiers `ModelCatalogStore.cs`, `WarmupProfileStore.cs`, `GovernanceArtifactStore.cs`
+- `client/SAAIA.Client.WinUI/Services/AppSettings.cs` (champ `QualifiedProfile`)
+
+**Travaux** :
+- [ ] Creer squelette `model_catalog.json` (modelId, version, source, checksum, licenseFamily, commercialUseThresholdMau, etats metier/artefact)
+  - Exemple Qwen : `licenseFamily = "qwen"`, `commercialUseThresholdMau = 100000000`
+  - Ne jamais utiliser `"licenseType": "apache-2.0"` pour Qwen Research
+- [ ] Creer squelette `model_collections.json` (collections client/backend, scope, modelIds, visibleInInstaller)
+- [ ] Creer squelette `model_policy.json` (allowDiscovery=false, requireChecksum=true, maxActiveModelsClient=1, blacklistRef)
+- [ ] Creer squelette `model_sources.json` (huggingface, http-mirror, local-bundle avec requiresChecksum et allowedInAirGap)
+- [ ] Creer squelettes runtime : `warmup_profiles.json`, `warmup_results.json`, `hardware_probe.json`, `last_known_good_profile.json`, `blacklist.json`, `capability_state.json`, `acquisition_log.json`
+- [ ] Creer classe / record `QualifiedProfile` avec champs requis (§9.9 CDC) : `runtime`, `modelId`, `ctxSize`, `batchSize`, `ubatchSize`, `threads`, `threadsBatch`, `ngl`, `flashAttn`, `mlock`, `batteryPolicyRef`, `fallbackProfileRef`
+- [ ] DECISION DE NOMMAGE JSON A TRANCHER EN PATCH 4 — ne pas laisser coexister deux conventions :
+  - Backend API (existant) : `kebab-case` dans les URL (`model-catalog.json`, `warmup-profiles.json`, `capability-state.json`)
+  - CDC §5.8 (spec) : `snake_case` pour les fichiers locaux (`model_catalog.json`, `warmup_profiles.json`)
+  - DECISION RECOMMANDEE : **`snake_case` pour les artefacts disque locaux** (conforme CDC, fichiers locaux client) ; **`kebab-case` conserve pour les segments de path API** (conforme backend existant). Ne jamais melanger les deux dans le meme contexte.
+  - Documenter la decision dans un commentaire de `GovernanceArtifactStore.cs` pour eviter la derive future.
+- [ ] `GovernanceArtifactStore` : lecture/ecriture avec checksum SHA-256 (§5.9)
+  - Persistance avec versioning timestamp
+  - Startup integrity check : refus si checksum invalide, mode degrade pas crash
+  - Acces ecriture reserve aux processus autorises
+- [ ] `LocalLlmBootstrapper` : construire un `QualifiedProfile` structure au lieu de concatener une chaine ExtraArgs
+
+**Tests a lancer / a ajouter** :
+- [ ] Test serialisation/deserialisation `QualifiedProfile` roundtrip
+- [ ] Test `GovernanceArtifactStore` : ecriture + relecture + verification checksum
+- [ ] Test startup integrity : artefact corrompu -> mode degrade (pas exception non geree)
+- [ ] `dotnet test backend/SAAIA.Backend.Tests/...` vert (335/335)
+
+---
+
+### Patch 5 — Warmup gate formel + rollback + blacklist + requalification
+
+**Objectif** : implementer la machine d'etat complete de qualification machine.
+
+**Fichiers touches** :
+- `client/SAAIA.Client.WinUI/Services/WarmupGate.cs` (nouveau)
+- `client/SAAIA.Client.WinUI/Services/BlacklistPolicy.cs` (nouveau)
+- `client/SAAIA.Client.WinUI/Services/RollbackManager.cs` (nouveau)
+- `client/SAAIA.Client.WinUI/MainWindow/LocalLlm.cs` (integration etats UX)
+- `backend/SAAIA.Backend/Endpoints/AdminRuntimeEndpoints.cs` (enrichir requalify)
+
+**Travaux — Warmup gate (§9.6)** :
+- [ ] Implementer warmup gate : mesure TTFT, LoadMs, tok/s, memoire reelle sur N runs (`warmupPassCount`)
+  - Seuils lus depuis `warmup_profiles.json`, jamais hardcodes
+  - Valeur de reference : TTFT < 12 000 ms = nominal GPU interactif
+  - States : PASS / PASS_DEGRADED / FAIL_BLOCK / FAIL_FALLBACK
+- [ ] Persister resultats dans `warmup_results.json` apres chaque qualification
+- [ ] Consommer `/metrics` llama.cpp si expose (tokens, latences, KV cache usage)
+- [ ] Harnais qualification (§15.5.1) : prompts courts/longs/prefill/cold start/warm/batterie, 3 runs, stable
+
+**Travaux — Blacklist et quarantaine (LLM-015, LLM-016, §9.14)** :
+- [ ] Consulter `blacklist.json` avant tout warmup et avant tout lancement
+- [ ] Refuser sans tentative tout couple blackliste
+- [ ] Quarantaine : checksum mismatch -> marquer `quarantined`, journaliser, bloquer sans fallback implicite
+- [ ] Exposer blacklist active en lecture seule dans interface admin
+
+**Travaux — Rollback (LLM-014, §9.15)** :
+- [ ] Maintenir `last_known_good_profile.json` : dernier profil avec 3 runs consecutifs conformes
+- [ ] Rollback automatique vers `lastKnownGoodProfile` si FAIL_BLOCK ou FAIL_FALLBACK
+- [ ] Journaliser rollback avec cause et timestamp
+
+**Travaux — Requalification (§9.13)** :
+- [ ] Implementer les 8 triggers de requalification (driver change, runtime change, modele change, hardware change, derive perfs, echecs repetes, timeout, action admin)
+- [ ] Capturer `fingerprint` machine dans `hardware_probe.json`
+- [ ] Comparer snapshot courant vs `hardware_probe.json` au demarrage
+- [ ] Admin UI : bouton "Requalifier" -> `POST /admin/runtime/requalify`
+
+**Tests a lancer / a ajouter** :
+- [ ] Test warmup gate : PASS avec N runs conformes, FAIL_BLOCK si depassement seuil
+- [ ] Test rollback : apres FAIL_BLOCK, profil actif = lastKnownGoodProfile
+- [ ] Test blacklist : couple blackliste refuse sans tentative de lancement
+- [ ] `dotnet test backend/SAAIA.Backend.Tests/...` vert (335/335)
+
+**Criteres de sortie** :
+- Warmup gate operationnel, resultats dans warmup_results.json
+- Blacklist consultee avant tout lancement
+- Rollback automatique fonctionne et est journalise
+- Au moins un trigger de requalification detecte (changement driver ou modele)
+
+---
+
+## Phase 3 — Suite gouvernance (dependante des Patch 4/5)
+
+Ces items dependent des fondations posees dans Patch 4 et 5.
+
+### Budget VRAM observe DXGI (§9.11, LLM-008)
+
+- [ ] `GpuDetector` : DXGI `QueryVideoMemoryInfo` via P/Invoke Windows (budget courant observe, pas VRAM installee)
+- [ ] Cas UMA Intel Arc (budget partage != VRAM dediee)
+- [ ] Detection eGPU distinct + trigger requalification si debranche
+- [ ] Enrichir `hardware_probe.json` : vendor, nom GPU, VRAM dediee, budget DXGI courant, usage courant, type GPU, RAM totale/disponible, mode batterie/secteur, fingerprint machine
+
+### QoS batterie et energie (§9.12, LLM-017)
+
+- [ ] Modes Perf / Balanced / Eco (seuils dans `warmup_profiles.json`, pas dans le code)
+- [ ] Declencheurs : passage batterie, chute tok/s, elevation temperature, eGPU debranche
+- [ ] `batteryPolicyRef` inscrit dans `QualifiedProfile`
+
+### Cycle de vie runtime sleep/wake (§9.16)
+
+Base existante : `ManageLocalLlmProcess` + `AutoStartOnConnect` dans `AppSettings` et `SetupLifecycle.cs` gerent le lancement et l'arret manuel. Ce n'est pas un chantier zero — c'est une extension du mecanisme en place.
+
+Ce qui manque pour le contrat CDC :
+- [ ] `LlamaCppProcessManager` : ajouter `idleTimeoutSeconds` (default 120 s, lu dans `warmup_profiles.json`) + timer d'inactivite -> arret propre, liberation VRAM, log du sleep
+- [ ] Drain avant sleep : si une requete est en cours au moment du timeout, attendre sa fin avant d'arreter le processus
+- [ ] `AppSettings` : flag `EagerLoad` (remplace/clarifie l'actuel `AutoStartOnConnect` dans la logique warmup : true = lancer au demarrage, false = wake a la premiere requete)
+- [ ] Wake sur demande : si `EagerLoad = false`, demarrer le runtime a la premiere requete d'inference apres periode de sleep, mesurer `LoadMs`
+- [ ] Eco : `idleTimeoutSeconds` reduit selon politique QoS (§9.12)
+
+### UX etats runtime LLM (§14.3) — contractuel
+
+- [~] Verifier dans `MainWindow/LocalLlm.cs` les etats suivants (absents = bug UX) :
+  - [ ] Wake en cours -> "Chargement du modele en cours..." (Info)
+  - [ ] Warmup en cours -> "Verification de compatibilite en cours..." (Info)
+  - [~] Pret (profil nominal) -> aucun message (transparent)
+  - [ ] Profil degrade actif -> "Mode performance reduite actif" (Avertissement)
+  - [ ] Fallback actif -> "Profil de secours actif" (Avertissement)
+  - [~] Generation en cours -> indicateur streaming visible
+  - [ ] Erreur warmup -> "Assistant temporairement indisponible" (Erreur)
+  - [ ] Mismatch checksum / quarantaine -> "Modele non disponible — contactez l'administrateur" (Erreur)
+  - [ ] Requalification necessaire -> notification admin uniquement
+
+### Telemetrie GPU multi-vendor (§15.2.1)
+
+- [ ] AMD SMI / ROCm SMI : VRAM, temperature, frequence
+- [ ] Intel Level Zero : budget memoire, utilisation, UMA
+- [ ] Endpoint `/metrics` llama.cpp (tokens, latences, KV cache, threads)
+- [ ] Regle : telemetrie collectee uniquement au hardware_probe (pas a chaque requete)
+
+### Support bundle gouvernance enrichi (§14.2)
+
+- [ ] Quand les artefacts governance existent (Patch 4/5) : enrichir `POST /admin/support/bundle` avec les 9 artefacts contractuels (hardware_probe, capability_state, warmup_results, last_known_good_profile, rollback_log, blacklist_applied, acquisition_log, logs LLM, config redactee)
+
+### Harnais regression CI (§15.5.2)
+
+- [ ] Harnais CI distinct du harnais qualification : concurrence backend, recovery crash, profil degrade, reproductibilite TTFT/tok/s dans les marges de `warmup_profiles.json`
+
+---
+
+## Validation obligatoire apres chaque patch
+
+**Backend :**
 - [ ] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj`
 - [ ] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false`
-- [ ] Si retrieval change : rejouer les regressions retrieval / harness concernees
-- [ ] Si un endpoint ou un artefact change : mettre a jour les tests contractuels associes
-- [ ] Mettre a jour ce `TODO.md`
-- [ ] Si la note CDC locale change : realigner aussi l'audit date dans `documents/cdc/`
 
-## Sprints clos
+**Client (obligatoire pour les Patch 1, 2, 4, 5 qui touchent le client WinUI) :**
+- [ ] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug`
+- [ ] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false`
+
+**Regles transverses :**
+- [ ] Si retrieval change : rejouer les regressions retrieval / harness
+- [ ] Si endpoint ou artefact change : mettre a jour les tests contractuels associes
+- [ ] Si profil qualifie change : mettre a jour `warmup_profiles.json` + relancer harnais qualification
+- [ ] Mettre a jour ce `TODO.md`
+
+---
+
+## Sprints clos (historique)
 
 ### Sprint 1 - Quick wins evidence pack
 
@@ -78,14 +373,12 @@
 
 ### Sprint 2 - Coherence cache HTTP
 
-- [x] ETag/304 ajoutes sur `catalog/categories`
-- [x] ETag/304 ajoutes sur `catalog/documents`
-- [x] ETag/304 ajoutes sur `documents/stats`
+- [x] ETag/304 ajoutes sur `catalog/categories`, `catalog/documents`, `documents/stats`
 - [x] Statut produit de `/catalog/snapshot` tranche et documente
 
 ### Sprint 3 - Dette architecturale runtime
 
-- [x] Refactor du monolithe `RuntimeGovernanceService`
+- [x] Refactor monolithe `RuntimeGovernanceService`
 - [x] Services read / command / gate / diagnostics extraits
 - [x] Contrats top-level JSON verrouilles sur endpoints et artefacts runtime
 - [x] Validation Sprint 3.2 etendue aux flux A/B operationnels et KPI A
@@ -94,41 +387,51 @@
 
 - [x] Questions hypothetiques LLM + fallback deterministe
 - [x] Tags suggeres LLM + fallback deterministe
-- [x] Scoring qualite A
-- [x] Warmup A, KPI A, pilotage client dedie
-- [x] Vue admin `KPI A` avec live ops et dry-run offsets
+- [x] Scoring qualite A, warmup A, KPI A, pilotage client dedie, vue admin
 
 ### Sprint 5 - Capacite B
 
-- [x] Generation LLM locale cote worker
-- [x] Fallback deterministe trace
-- [x] Fallback live `server_backoffice -> client_admin`
-- [x] Probe warmup / runtime B
-- [x] KPI B, telemetrie, score qualite
-- [x] Revue qualite corrective et relance ciblee
+- [x] Generation LLM locale worker, fallback deterministe, fallback live
+- [x] Probe warmup / runtime B, KPI B, telemetrie, score qualite, revue qualite corrective
 
-## Gaps fermes pendant cette session
+### Phase 0A — Quick fixes LLM bench-confirmed (CDC v3.1 §18.4)
+
+- [x] `GgufMetadataReader` : lecteur binaire GGUF (block_count, head_count_kv), support v1/v2/v3, cap 2 MB
+- [x] `GpuDetector.ComputeAutoTuning` : ngl = llm.block_count depuis GGUF ; fallback tier VRAM avec warning
+- [x] `GpuDetector.ComputeAutoTuning` : batch >= 512 pour tout profil GPU (LLM-009)
+- [x] `AppSettings.ExtraArgs` default : `"--ctx-size 3072"` (CDC LLM-007)
+- [x] `MainWindow.xaml` placeholder : `"--ctx-size 3072"`
+- [x] `AppSettings` : nouveaux champs `UbatchSize=256`, `ThreadsBatch=6`, `FlashAttn=null` (LLM-010/011)
+- [x] `ApplyAutoTuningFlags` : injection `--ubatch-size`, `--threads-batch`, `--flash-attn on/off` (CUDA uniquement)
+- [x] `LlamaCppProcessManager` : ligne de commande complete loggee via ClientLog.Info au demarrage
+- [x] Nettoyage legacy `strictMode` : AppSettings (LocalSettings + JSON) + Provisioning.LegacyStrictMode
+
+### Phase 0B — Securisation runtime (CDC v3.1 §14.2)
+
+- [x] `POST /admin/support/bundle` : endpoint backend ZIP with staging + auth + artifacts/missingArtifacts
+- [x] Warning logge si `Sha256Hex = null` pour un modele connu (LLM-008)
+
+### Gaps fermes
 
 - [x] `hypQuestionsMatched` verrouille par deux tests explicites
-- [x] Vue `KPI A` rendue resiliente si `operational-summary` echoue
-- [x] Labels EN restants retires de la zone `KPI A`
+- [x] Vue `KPI A` resiliente si `operational-summary` echoue
 - [x] Contrats JSON top-level renforces sur les flux runtime A/B
-- [x] Wire LLM durci :
-  - `LocalLlmChatClient` couvre maintenant `content[]`, `choices` manquants, `content` manquant, corps vide, JSON invalide
-  - les services A/B couvrent mieux les payloads code-fenced ou invalides
-  - un test catalogue runtime fragile a ete rendu robuste aux bascules de `BACKOFFICE_LLM_ENABLED`
+- [x] Wire LLM durci : `LocalLlmChatClient` couvre payloads invalides (content[], choices, JSON invalide)
+- [x] Baseline artefacts runtime/admin versionnee : `runtime_admin_artifacts_baseline.v1.json`, 333 tests verts
+- [x] `POST /documents/resolve-category` present (Phase 0 API drift resolu)
+- [x] `POST /sources/resolve` present (Phase 0 API drift resolu)
+- [x] `POST /admin/runtime/requalify` present (surface admin runtime stabilisee)
+
+---
 
 ## Historique recent
 
 | Date | Intervenant | Action |
 |---|---|---|
 | 2026-04-22 | Codex | Cap A ops : endpoint/artifact `capability-a-kpis` + tests contractuels runtime |
-| 2026-04-22 | Codex | Client admin : vue fille `KPI A`, entree runtime, entree jobs A, live ops et dry-run offsets |
-| 2026-04-22 | Codex | Fermeture P3 : tests explicites `hypQuestionsMatched` et degradation partielle de `KPI A` |
-| 2026-04-22 | Codex | Polish P3 : labels admin localises dans `KPI A` et regle documentaire clarifiee |
-| 2026-04-22 | Codex | Sprint 3.2 formel renforce : baseline top-level JSON etendue aux flux runtime A/B operationnels |
-| 2026-04-22 | Codex | Wire LLM durci : nouveaux tests bas niveau `LocalLlmChatClient`, tests A/B renforces, suite backend a 332 tests verts |
-
-## Prochaine etape recommandee
-
-La suite la plus logique est de versionner une baseline d'artefacts runtime/admin hors de `documents/`, afin d'avoir une preuve CDC stable et partageable sans reintroduire de dependance a un dossier ignore par Git.
+| 2026-04-22 | Codex | Client admin : vue fille `KPI A`, live ops et dry-run offsets |
+| 2026-04-22 | Codex | Fermeture P3 : tests `hypQuestionsMatched` et degradation partielle `KPI A` |
+| 2026-04-22 | Codex | Sprint 3.2 : baseline top-level JSON etendue aux flux runtime A/B |
+| 2026-04-22 | Codex | Wire LLM durci + baseline artefacts runtime/admin versionnee (333 tests verts) |
+| 2026-04-23 | Assistant IA | Mise a jour TODO : analyse drift CDC v3.1, LLM-005 a LLM-018, gouvernance modeles |
+| 2026-04-23 | Assistant IA | Restructuration TODO : renommage scope Client+Backend, Phase 0A/0B, 5 patchs atomiques |
