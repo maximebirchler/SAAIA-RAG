@@ -32,9 +32,9 @@
 | Migrations SQL | Backend | [~] Stables | 28 fichiers, doublons legacy 004/008 documentes safe |
 | Tuning LLM client | Client | [x] Fait Patch 1+2 | GgufMetadataReader, ngl=block_count, batch>=512, ctx=3072, ubatch=256, threads-batch=6, flash-attn CUDA auto |
 | Budget VRAM observe (DXGI) | Client | [~] Enforce v1 | `hardware_probe.json` capture RAM, GPU, fingerprint, secteur/batterie et budget DXGI ; hard gate budget DXGI branche sur `warmup_profiles.json` |
-| Gouvernance llama-server client | Client | [~] Patch 5 avance | Artefacts locaux, `QualifiedProfile`, checksums, warmup gate, harnais TTFT/tok/s multi-scenarios, rollback, blacklist, hardware_probe, policy batterie et triggers hardware/driver/runtime/modele poses ; runtime v1, statuts UX et quarantaine checksum modele en place |
+| Gouvernance llama-server client | Client | [~] Patch 5 avance | Artefacts locaux, `QualifiedProfile`, checksums, warmup gate, harnais TTFT/tok/s multi-scenarios, rollback, blacklist, hardware_probe, policy batterie, runtime compatibility policy et triggers hardware/driver/runtime/modele poses ; runtime v1, statuts UX et quarantaine checksum modele en place |
 | Cycle de vie runtime (sleep/wake) | Client | [x] Runtime v1 | `EagerLoad` explicite, idle timeout pilote par profil/policy, drain via heartbeat et wake a la demande avant generation |
-| Checksums modeles | Client | [~] Partiel | Infrastructure SHA-256 presente ; warning logge si Sha256Hex=null (Patch 3) ; mismatch connu -> quarantaine `.quarantine` + journal `acquisition_log.json` ; Qwen2.5 3B Q4_K_M reference SHA-256 renseigne, autres modeles pack encore a calculer |
+| Checksums modeles | Client | [x] Local pack verifie | Infrastructure SHA-256 presente ; mismatch connu -> quarantaine `.quarantine` + journal `acquisition_log.json` ; 8 modeles locaux verifies dans `model_catalog.json` |
 | Endpoint support bundle admin | Backend | [x] Fait Patch 3 | `POST /admin/support/bundle` presente — ZIP stagé, artifacts/missingArtifacts, auth X-Admin-Key |
 
 ---
@@ -53,7 +53,7 @@
 - [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` — OK, 0 Warning
 - [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` — OK, 0 Warning
 - [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` — 335/335 verts
-- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 308/308 verts
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj` — 310/310 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
 
@@ -166,12 +166,18 @@ Travaux independants de la gouvernance complete, livrable avant Phase 3.
   - [x] Acces `X-Admin-Key` obligatoire (AdminAuth.EnsureAdmin)
   - [x] Phase 0B : exporter artefacts governance si presents, lister les manquants dans missingArtifacts
   - [x] Response : `{ "bundlePath": "...", "artifacts": [...], "missingArtifacts": [...] }`
-- [~] CHECKSUMS MODELES :
+- [x] CHECKSUMS MODELES :
   - [x] Warning logge si `Sha256Hex = null` (ne bloque pas le telechargement en Phase 0B)
-  - [~] Renseigner les SHA-256 reels pour Qwen2.5-3B-Instruct-Q4_K_M.gguf et autres modeles du pack
-    > Qwen2.5-3B-Instruct-Q4_K_M.gguf renseigne : `9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94`
-    > Restent a calculer sur machine de reference : Q4_0, Q4_K_S, Q6_K, Mistral Q4_K_M, Mistral Q6_K
-    > Script local ajoute : `tools/compute-model-reference-checksums.ps1` pour scanner `models/` + `%LOCALAPPDATA%\\SAAIA\\Models` et produire l'etat reel des hashes disponibles
+  - [x] Renseigner les SHA-256 reels des modeles locaux disponibles
+    > Qwen2.5-3B-Instruct-Q4_K_M : `9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94`
+    > Qwen2.5-3B-Instruct-Q6_K_L : `930d792ba9cebbb98faaef6755c62b47cb24bb2d16fb10a338ac80d721b81796`
+    > Qwen2.5-3B-Instruct-Q8_0 : `12491ec9f03aab7f0b96cdb7742695e6583d17ee129de48332d04b9cf6acd960`
+    > Mistral-7B-Instruct-v0.3-IQ3_M : `4ea14c5a6c787ac2703505f04a4ee746f746d1ace3ffd907af28f6f179e6b224`
+    > Mistral-7B-Instruct-v0.3-Q4_K_M : `56d2db1ee4e4330338433c3a2d1f98f3d647db9cef785fd6e640061e1c98dde2`
+    > Gemma-4-E2B-it-Q4_K_M : `ac0069ebccd39925d836f24a88c0f0c858d20578c29b21ab7cedce66ee576845`
+    > Gemma-4-E2B-it-Q8_0 : `6db0088e7e2b6459dfb29fa59b0b1d7299d249ef28debc464d4d564caf444511`
+    > Gemma-4-E4B-it-Q4_K_M : `dff0ffba4c90b4082d70214d53ce9504a28d4d8d998276dcb3b8881a656c742a`
+    > Script local mis a jour : `tools/compute-model-reference-checksums.ps1` scanne les variantes locales + legacy
 - [x] `SupportBundleBuilder` (client leger) : pas de changement en Patch 3 — Phase 3 l'enrichira quand les artefacts governance existeront
 
 **Tests a lancer / a ajouter** :
@@ -182,7 +188,7 @@ Travaux independants de la gouvernance complete, livrable avant Phase 3.
 **Criteres de sortie** :
 - [x] `POST /admin/support/bundle` repond 200 avec bundle (meme partiel)
 - [x] Test contractuel backend ajoute
-- [~] Checksums : warning en place ; valeurs reelles SHA-256 a calculer lors du bench suivant
+- [x] Checksums : warning en place ; valeurs reelles SHA-256 renseignees pour les 8 modeles locaux
 - [x] Scope dual bundle documente : bundle leger user (SupportBundleBuilder) != bundle complet admin (AdminRuntimeEndpoints)
 
 ---
@@ -443,7 +449,27 @@ Ce qui manque pour le contrat CDC :
 - [x] Triggers requalification modele/runtime : derive detectee au bootstrap depuis `QualifiedProfile` vs runtime/modeles courants
 - [x] Trigger requalification driver : comparaison `gpuDriverVersion` courant vs `hardware_probe.json`
 - [x] Application runtime v1 : `EagerLoad` branche sur le connect/startup et `idleTimeoutSeconds` pilote par profil/policy avec heartbeat d'activite LLM
-- [~] Reste a faire : checksums de reference reels restants
+- [x] Checksums de reference reels renseignes pour les 8 modeles locaux disponibles
+
+### Phase 3 / Patch 6 — Runtime compatibility policy + upgrade versionne (CDC v3.1 §5.8 / §9)
+
+**Objectif** : traiter `llama.cpp` comme un artefact produit gouverne, pas comme un simple `llama-server.exe` present sur disque.
+
+**Travaux** :
+- [x] Ajouter `runtime_compatibility_policy.json` aux artefacts locaux suivis avec sidecar `.sha256`
+- [x] Decrire les runtimes approuves par `runtimeId`, `build`, backend et architectures GGUF supportees
+- [x] Ajouter la regle Gemma 4 : `gemma4` exige `llama.cpp-cuda`/`llama.cpp-cpu >= b8901`
+- [x] Ajouter override machine : `gemma4 + llama.cpp-cuda + Pascal => flash-attn=false`
+- [x] Brancher l'override dans `ApplyAutoTuningFlags` pour eviter le crash `flash-attn on` observe sur Quadro P520
+- [ ] Installer les runtimes dans des dossiers versionnes (`win-cuda-x64/b8149`, `win-cuda-x64/b8901`) au lieu d'ecraser le dossier actif
+- [ ] Ajouter un `active-runtime.json` qui pointe vers le runtime actif et conserve le dernier runtime sain
+- [ ] Rendre `LlamaCppReleaseDownloader` version-aware : `present` ne suffit plus, verifier `runtime.tag`, checksum, architecture demandee et build minimal
+- [ ] Ajouter rollback runtime si le warmup gate echoue apres upgrade
+- [ ] Exposer le diagnostic runtime actif / build requis / upgrade requis dans le support bundle et la vue admin runtime
+
+**Decision produit** :
+- Gemma 4 reste famille de test tant que le runtime SAAIA embarque officiel n'est pas upgrade et qualifie par warmup.
+- Qwen reste le chemin nominal client tant que son profil qualifie garde le meilleur compromis stabilite / TTFT / tok/s.
 
 ### Gaps fermes
 
@@ -489,3 +515,8 @@ Ce qui manque pour le contrat CDC :
 | 2026-04-23 | Codex | Mapping `/metrics` llama.cpp formalise : conservation des cles brutes + projection canonique `runtime.*` pour tokens, KV cache, threads et slots |
 | 2026-04-23 | Codex | UX streaming LLM : indicateur leger `Generation en cours...` dans la bulle assistant, pilote par `ChatMessageItem.IsStreaming` |
 | 2026-04-23 | Codex | Triggers requalification complets : derive perf, echecs repetes, timeout et action admin ajoutes au service decisionnel + statut local |
+| 2026-04-23 | Codex | Checksums modeles locaux : 8 GGUF verifies, `model_catalog.json` et auto-selection bootstrap alignes sur Qwen Q4/Q6/Q8 + Mistral IQ3/Q4 ; Gemma reste famille de test |
+| 2026-04-23 | Codex | Gemma 4 prepare en famille de test Apache 2.0 : E2B Q4_K_M, E2B Q8_0 et E4B Q4_K_M verifies localement, catalogue/sources/checksums alignes |
+| 2026-04-23 | Codex | Bench Gemma 4 avec runtime llama.cpp b8901 isole : runtime SAAIA b8149 ne supporte pas `gemma4`; E2B Q8_0 OK en `ngl=16`/flash-off (~0.8s TTFT apres warm, ~7.4 tok/s), flash-on plante sur Pascal, E4B Q4_K_M trop lent (~1.65 tok/s) |
+| 2026-04-23 | Codex | Bench Gemma 4 E2B Q4_K_M ajoute : profil `ngl=24`/flash-off recommande sur Quadro P520 (~0.57s TTFT warm, ~12.3 tok/s), meilleur candidat Gemma local mais non retenu par defaut tant que runtime SAAIA embarque ne supporte pas `gemma4` |
+| 2026-04-23 | Codex | Runtime compatibility policy v1 : artefact `runtime_compatibility_policy.json`, regle Gemma4 >= b8901, override Pascal `flash-attn=false`, tests contractuels verts |

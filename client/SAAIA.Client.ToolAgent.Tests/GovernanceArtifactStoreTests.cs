@@ -96,6 +96,7 @@ public sealed class GovernanceArtifactStoreTests
                 "model_collections.json",
                 "model_policy.json",
                 "model_sources.json",
+                "runtime_compatibility_policy.json",
                 "warmup_profiles.json",
                 "warmup_results.json",
                 "hardware_probe.json",
@@ -115,6 +116,15 @@ public sealed class GovernanceArtifactStoreTests
             Assert.False(File.Exists(Path.Combine(root, "model-catalog.json")));
             Assert.NotNull(settings.QualifiedProfile);
             Assert.Equal("qwen25-3b-q4km-cuda-p520-interactive", settings.QualifiedProfile!.ProfileId);
+
+            var runtimePolicy = await GovernanceArtifactStore.ReadAsync<RuntimeCompatibilityPolicyArtifact>(
+                GovernanceArtifactStore.RuntimeCompatibilityPolicyFile,
+                root);
+            Assert.Equal(GovernanceArtifactReadStatus.Ok, runtimePolicy.Status);
+            Assert.Contains(runtimePolicy.Value!.MinModelRules, rule =>
+                rule.ModelFamily == "gemma4"
+                && rule.RuntimeId == "llama.cpp-cuda"
+                && rule.MinBuild == "b8901");
 
             var hardware = await GovernanceArtifactStore.ReadAsync<HardwareProbeArtifact>(
                 GovernanceArtifactStore.HardwareProbeFile,
@@ -434,6 +444,99 @@ public sealed class GovernanceArtifactStoreTests
         Assert.Equal("9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94", checksum);
         Assert.Equal(checksum, qwen.ChecksumSha256);
         Assert.Equal("verified_reference_hash", qwen.ChecksumStatus);
+    }
+
+    [Fact]
+    public void ModelCatalogStore_includes_verified_hashes_for_local_model_pack()
+    {
+        var catalog = ModelCatalogStore.CreateDefaultCatalog();
+
+        Assert.Contains(catalog.Items, item =>
+            item.ModelId == "qwen2.5-3b-instruct-q6-k-l"
+            && item.ChecksumSha256 == "930d792ba9cebbb98faaef6755c62b47cb24bb2d16fb10a338ac80d721b81796"
+            && item.ChecksumStatus == "verified_reference_hash");
+        Assert.Contains(catalog.Items, item =>
+            item.ModelId == "qwen2.5-3b-instruct-q8-0"
+            && item.ChecksumSha256 == "12491ec9f03aab7f0b96cdb7742695e6583d17ee129de48332d04b9cf6acd960"
+            && item.ChecksumStatus == "verified_reference_hash");
+        Assert.Contains(catalog.Items, item =>
+            item.ModelId == "mistral-7b-instruct-v0.3-iq3-m"
+            && item.ChecksumSha256 == "4ea14c5a6c787ac2703505f04a4ee746f746d1ace3ffd907af28f6f179e6b224"
+            && item.License.LicenseFamily == "apache-2.0");
+        Assert.Contains(catalog.Items, item =>
+            item.ModelId == "mistral-7b-instruct-v0.3-q4-k-m"
+            && item.ChecksumSha256 == "56d2db1ee4e4330338433c3a2d1f98f3d647db9cef785fd6e640061e1c98dde2"
+            && item.SourceRef == "hf-bartowski-mistral-7b-v03");
+    }
+
+    [Fact]
+    public void ModelCatalogStore_includes_gemma4_as_apache_test_family_without_bypassing_checksum_policy()
+    {
+        var catalog = ModelCatalogStore.CreateDefaultCatalog();
+        var sources = ModelCatalogStore.CreateDefaultSources();
+        var collections = ModelCatalogStore.CreateDefaultCollections();
+
+        Assert.Contains(catalog.Items, item =>
+            item.ModelId == "gemma-4-e2b-it-q4-k-m"
+            && item.License.LicenseFamily == "apache-2.0"
+            && item.Gguf.Architecture == "gemma4"
+            && item.ChecksumSha256 == "ac0069ebccd39925d836f24a88c0f0c858d20578c29b21ab7cedce66ee576845"
+            && item.ChecksumStatus == "verified_reference_hash");
+        Assert.Contains(catalog.Items, item =>
+            item.ModelId == "gemma-4-e2b-it-q8-0"
+            && item.License.LicenseFamily == "apache-2.0"
+            && item.Gguf.Architecture == "gemma4"
+            && item.ChecksumSha256 == "6db0088e7e2b6459dfb29fa59b0b1d7299d249ef28debc464d4d564caf444511"
+            && item.ChecksumStatus == "verified_reference_hash");
+        Assert.Contains(catalog.Items, item =>
+            item.ModelId == "gemma-4-e4b-it-q4-k-m"
+            && item.License.LicenseFamily == "apache-2.0"
+            && item.Gguf.BlockCount == 42
+            && item.ChecksumSha256 == "dff0ffba4c90b4082d70214d53ce9504a28d4d8d998276dcb3b8881a656c742a"
+            && item.ChecksumStatus == "verified_reference_hash");
+        Assert.Contains(sources.Items, item =>
+            item.Key == "hf-unsloth-gemma4-e2b"
+            && item.RequiresChecksum);
+        Assert.Contains(collections.Items, item =>
+            item.Key == "apache-test-family"
+            && item.ModelIds.Contains("gemma-4-e2b-it-q4-k-m")
+            && item.ModelIds.Contains("gemma-4-e4b-it-q4-k-m"));
+    }
+
+    [Fact]
+    public void RuntimeCompatibilityPolicy_requires_b8901_for_gemma4_and_forces_flash_attn_off_on_pascal()
+    {
+        var policy = RuntimeCompatibilityPolicyStore.CreateDefaultPolicy();
+        var gemma = ModelCatalogStore.TryGetItem("gemma-4-e2b-it-q4-k-m");
+        var gpu = new GpuInfo(
+            GpuVendor.Nvidia,
+            "Quadro P520",
+            4L * 1024 * 1024 * 1024,
+            IsIntegrated: false,
+            DetectionSource: "test");
+
+        var oldRuntime = RuntimeCompatibilityPolicyStore.Evaluate(
+            "llama.cpp-cuda",
+            "b8149",
+            gemma,
+            policy);
+        var newRuntime = RuntimeCompatibilityPolicyStore.Evaluate(
+            "llama.cpp-cuda",
+            "b8901",
+            gemma,
+            policy);
+        var forcedFlashAttn = RuntimeCompatibilityPolicyStore.GetForcedFlashAttn(
+            "llama.cpp-cuda",
+            gemma,
+            gpu,
+            policy);
+
+        Assert.NotNull(gemma);
+        Assert.False(oldRuntime.Compatible);
+        Assert.True(oldRuntime.RequiresUpgrade);
+        Assert.Equal("b8901", oldRuntime.RequiredBuild);
+        Assert.True(newRuntime.Compatible);
+        Assert.False(forcedFlashAttn);
     }
 
     [Fact]

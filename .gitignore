@@ -87,6 +87,8 @@ infra/req*.json
 
 # Local CI/runtime reports
 artifacts/runtime-ci/
+artifacts/llama-*/
+artifacts/llm-bench-*/
 
 # Ignore build artifacts anywhere (client included)
 **/.vs/

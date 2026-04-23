@@ -19,19 +19,18 @@ internal sealed class LocalLlmBootstrapper
 {
     // Model repositories (Hugging Face)
     // Verified file naming patterns:
-    // - Qwen2.5-3B-Instruct-GGUF contains Q4_0 / Q4_K_S / Q4_K_M / Q6_K (etc.).
-    // - Mistral-7B-Instruct-v0.3-GGUF contains Q4_K_M and Q6_K.
+    // - Qwen2.5-3B-Instruct-GGUF contains Q4_K_M / Q6_K_L / Q8_0 (etc.).
+    // - Mistral-7B-Instruct-v0.3-GGUF contains IQ3_M / Q4_K_M (etc.).
     private const string QwenRepo = "bartowski/Qwen2.5-3B-Instruct-GGUF";
     private const string MistralRepo = "bartowski/Mistral-7B-Instruct-v0.3-GGUF";
 
     // Desired pack files (<= 12GB VRAM roadmap)
-    private const string QwenQ4_0 = "Qwen2.5-3B-Instruct-Q4_0.gguf";
-    private const string QwenQ4_K_S = "Qwen2.5-3B-Instruct-Q4_K_S.gguf";
     private const string QwenQ4_K_M = "Qwen2.5-3B-Instruct-Q4_K_M.gguf";
-    private const string QwenQ6_K = "Qwen2.5-3B-Instruct-Q6_K.gguf";
+    private const string QwenQ6_K_L = "Qwen2.5-3B-Instruct-Q6_K_L.gguf";
+    private const string QwenQ8_0 = "Qwen2.5-3B-Instruct-Q8_0.gguf";
 
+    private const string MistralIQ3_M = "Mistral-7B-Instruct-v0.3-IQ3_M.gguf";
     private const string MistralQ4_K_M = "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf";
-    private const string MistralQ6_K = "Mistral-7B-Instruct-v0.3-Q6_K.gguf";
 
     private sealed record ModelSpec(string Repo, string File, string? Sha256Hex);
 
@@ -253,19 +252,17 @@ internal sealed class LocalLlmBootstrapper
         if (!string.IsNullOrWhiteSpace(requestedModelId))
         {
             var rid = requestedModelId.Trim();
-            if (string.Equals(rid, QwenQ4_0, StringComparison.OrdinalIgnoreCase))
-                return new[] { Spec(QwenRepo, QwenQ4_0), Spec(QwenRepo, QwenQ4_K_S), Spec(QwenRepo, QwenQ4_K_M) };
-            if (string.Equals(rid, QwenQ4_K_S, StringComparison.OrdinalIgnoreCase))
-                return new[] { Spec(QwenRepo, QwenQ4_K_S), Spec(QwenRepo, QwenQ4_K_M), Spec(QwenRepo, QwenQ4_0) };
             if (string.Equals(rid, QwenQ4_K_M, StringComparison.OrdinalIgnoreCase))
-                return new[] { Spec(QwenRepo, QwenQ4_K_M), Spec(QwenRepo, QwenQ4_K_S), Spec(QwenRepo, QwenQ4_0) };
-            if (string.Equals(rid, QwenQ6_K, StringComparison.OrdinalIgnoreCase))
-                return new[] { Spec(QwenRepo, QwenQ6_K), Spec(QwenRepo, QwenQ4_K_M), Spec(QwenRepo, QwenQ4_K_S) };
+                return new[] { Spec(QwenRepo, QwenQ4_K_M), Spec(QwenRepo, QwenQ6_K_L), Spec(QwenRepo, QwenQ8_0) };
+            if (string.Equals(rid, QwenQ6_K_L, StringComparison.OrdinalIgnoreCase))
+                return new[] { Spec(QwenRepo, QwenQ6_K_L), Spec(QwenRepo, QwenQ4_K_M), Spec(QwenRepo, QwenQ8_0) };
+            if (string.Equals(rid, QwenQ8_0, StringComparison.OrdinalIgnoreCase))
+                return new[] { Spec(QwenRepo, QwenQ8_0), Spec(QwenRepo, QwenQ6_K_L), Spec(QwenRepo, QwenQ4_K_M) };
 
+            if (string.Equals(rid, MistralIQ3_M, StringComparison.OrdinalIgnoreCase))
+                return new[] { Spec(MistralRepo, MistralIQ3_M), Spec(MistralRepo, MistralQ4_K_M), Spec(QwenRepo, QwenQ8_0) };
             if (string.Equals(rid, MistralQ4_K_M, StringComparison.OrdinalIgnoreCase))
-                return new[] { Spec(MistralRepo, MistralQ4_K_M), Spec(MistralRepo, MistralQ6_K) };
-            if (string.Equals(rid, MistralQ6_K, StringComparison.OrdinalIgnoreCase))
-                return new[] { Spec(MistralRepo, MistralQ6_K), Spec(MistralRepo, MistralQ4_K_M) };
+                return new[] { Spec(MistralRepo, MistralQ4_K_M), Spec(MistralRepo, MistralIQ3_M), Spec(QwenRepo, QwenQ8_0) };
         }
 
         var vramMiB = gpu?.DedicatedVramMiB ?? 0;
@@ -273,26 +270,26 @@ internal sealed class LocalLlmBootstrapper
 
         // Conservative: iGPU/unknown => small model
         if (integrated || vramMiB <= 0)
-            return new[] { Spec(QwenRepo, QwenQ4_0), Spec(QwenRepo, QwenQ4_K_S), Spec(QwenRepo, QwenQ4_K_M) };
+            return new[] { Spec(QwenRepo, QwenQ4_K_M) };
 
         // User-specified tiers (<= 12GB)
         if (vramMiB <= 2048)
-            return new[] { Spec(QwenRepo, QwenQ4_0), Spec(QwenRepo, QwenQ4_K_S) };
+            return new[] { Spec(QwenRepo, QwenQ4_K_M) };
 
         if (vramMiB <= 3584)
-            return new[] { Spec(QwenRepo, QwenQ4_K_S), Spec(QwenRepo, QwenQ4_0), Spec(QwenRepo, QwenQ4_K_M) };
+            return new[] { Spec(QwenRepo, QwenQ4_K_M) };
 
         if (vramMiB <= 6144)
-            return new[] { Spec(QwenRepo, QwenQ4_K_M), Spec(QwenRepo, QwenQ4_K_S) };
+            return new[] { Spec(QwenRepo, QwenQ4_K_M), Spec(QwenRepo, QwenQ6_K_L) };
 
         if (vramMiB <= 8192)
-            return new[] { Spec(QwenRepo, QwenQ6_K), Spec(QwenRepo, QwenQ4_K_M) };
+            return new[] { Spec(QwenRepo, QwenQ6_K_L), Spec(QwenRepo, QwenQ8_0), Spec(QwenRepo, QwenQ4_K_M) };
 
         if (vramMiB <= 10240)
-            return new[] { Spec(MistralRepo, MistralQ4_K_M), Spec(MistralRepo, MistralQ6_K) };
+            return new[] { Spec(QwenRepo, QwenQ8_0), Spec(MistralRepo, MistralIQ3_M), Spec(QwenRepo, QwenQ6_K_L) };
 
         // 10-12GB
-        return new[] { Spec(MistralRepo, MistralQ6_K), Spec(MistralRepo, MistralQ4_K_M) };
+        return new[] { Spec(MistralRepo, MistralQ4_K_M), Spec(MistralRepo, MistralIQ3_M), Spec(QwenRepo, QwenQ8_0) };
     }
 
     private static string BuildHfUrl(ModelSpec spec) => $"https://huggingface.co/{spec.Repo}/resolve/main/{spec.File}";
@@ -371,12 +368,14 @@ internal sealed class LocalLlmBootstrapper
     private static bool IsPackModel(string? modelId)
     {
         if (string.IsNullOrWhiteSpace(modelId)) return false;
-        return string.Equals(modelId, QwenQ4_0, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(modelId, QwenQ4_K_S, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(modelId, QwenQ4_K_M, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(modelId, QwenQ6_K, StringComparison.OrdinalIgnoreCase) ||
+        var canonical = ModelCatalogStore.ResolveCanonicalModelId(modelId);
+        return string.Equals(modelId, QwenQ4_K_M, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(modelId, QwenQ6_K_L, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(modelId, QwenQ8_0, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(modelId, MistralIQ3_M, StringComparison.OrdinalIgnoreCase) ||
                string.Equals(modelId, MistralQ4_K_M, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(modelId, MistralQ6_K, StringComparison.OrdinalIgnoreCase);
+               ModelCatalogStore.CreateDefaultCatalog().Items.Any(item =>
+                   string.Equals(item.ModelId, canonical, StringComparison.OrdinalIgnoreCase));
     }
 
     private static void ResolveExePath(AppSettings s, bool hasNvidiaGpu)
@@ -519,6 +518,10 @@ internal sealed class LocalLlmBootstrapper
             var threadsBatch = profile?.ThreadsBatch ?? s.ThreadsBatch;
             var flashAttn = profile?.FlashAttn ?? (s.FlashAttn != false);
             var mlock = profile?.Mlock == true;
+            var runtimeId = RequalificationTriggerService.DetectRuntimeKey(s.LlamaExePath);
+            var model = ResolveCurrentModel(s);
+            if (RuntimeCompatibilityPolicyStore.GetForcedFlashAttn(runtimeId, model, gpu) is { } forcedFlashAttn)
+                flashAttn = forcedFlashAttn;
             if (profile is not null)
             {
                 threads = profile.Threads;
@@ -589,6 +592,17 @@ internal sealed class LocalLlmBootstrapper
         return string.Equals(currentModelId, profile.ModelId, StringComparison.OrdinalIgnoreCase)
             ? profile
             : null;
+    }
+
+    private static ModelCatalogItem? ResolveCurrentModel(AppSettings s)
+    {
+        var currentModelId =
+            ModelCatalogStore.ResolveCanonicalModelId(s.ModelId)
+            ?? ModelCatalogStore.ResolveCanonicalModelId(string.IsNullOrWhiteSpace(s.ModelPath) ? null : Path.GetFileName(s.ModelPath))
+            ?? s.ModelId;
+
+        return ModelCatalogStore.TryGetItem(currentModelId)
+            ?? ModelCatalogStore.TryGetItem(string.IsNullOrWhiteSpace(s.ModelPath) ? null : Path.GetFileName(s.ModelPath));
     }
 
     private static bool IsCpuRuntimePath(string exePath)

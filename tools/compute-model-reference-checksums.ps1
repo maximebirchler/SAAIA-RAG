@@ -45,6 +45,18 @@ $knownModels = @(
         FeedForwardLength = 11008
     },
     [pscustomobject]@{
+        ModelId = "qwen2.5-3b-instruct-q6-k-l"
+        FileName = "Qwen2.5-3B-Instruct-Q6_K_L.gguf"
+        Family = "qwen2.5"
+        Quantization = "Q6_K_L"
+    },
+    [pscustomobject]@{
+        ModelId = "qwen2.5-3b-instruct-q8-0"
+        FileName = "Qwen2.5-3B-Instruct-Q8_0.gguf"
+        Family = "qwen2.5"
+        Quantization = "Q8_0"
+    },
+    [pscustomobject]@{
         ModelId = "qwen2.5-3b-instruct-q4-k-s"
         FileName = "Qwen2.5-3B-Instruct-Q4_K_S.gguf"
         Family = "qwen2.5"
@@ -69,10 +81,34 @@ $knownModels = @(
         Quantization = "Q4_K_M"
     },
     [pscustomobject]@{
+        ModelId = "mistral-7b-instruct-v0.3-iq3-m"
+        FileName = "Mistral-7B-Instruct-v0.3-IQ3_M.gguf"
+        Family = "mistral"
+        Quantization = "IQ3_M"
+    },
+    [pscustomobject]@{
         ModelId = "mistral-7b-instruct-v0.3-q6-k"
         FileName = "Mistral-7B-Instruct-v0.3-Q6_K.gguf"
         Family = "mistral"
         Quantization = "Q6_K"
+    },
+    [pscustomobject]@{
+        ModelId = "gemma-4-e2b-it-q4-k-m"
+        FileName = "gemma-4-E2B-it-Q4_K_M.gguf"
+        Family = "gemma4-e2b"
+        Quantization = "Q4_K_M"
+    },
+    [pscustomobject]@{
+        ModelId = "gemma-4-e2b-it-q8-0"
+        FileName = "gemma-4-E2B-it-Q8_0.gguf"
+        Family = "gemma4-e2b"
+        Quantization = "Q8_0"
+    },
+    [pscustomobject]@{
+        ModelId = "gemma-4-e4b-it-q4-k-m"
+        FileName = "gemma-4-E4B-it-Q4_K_M.gguf"
+        Family = "gemma4-e4b"
+        Quantization = "Q4_K_M"
     }
 )
 
