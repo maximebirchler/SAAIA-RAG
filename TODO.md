@@ -32,7 +32,7 @@
 | Migrations SQL | Backend | [~] Stables | 28 fichiers, doublons legacy 004/008 documentes safe |
 | Tuning LLM client | Client | [x] Fait Patch 1+2 | GgufMetadataReader, ngl=block_count, batch>=512, ctx=3072, ubatch=256, threads-batch=6, flash-attn CUDA auto |
 | Budget VRAM observe (DXGI) | Client | [ ] Absent | Seule la VRAM installee est lue (nvidia-smi / CIM) — budget courant DXGI non implemente |
-| Gouvernance llama-server client | Client | [~] Socle Patch 5 | Artefacts locaux, `QualifiedProfile`, checksums, warmup gate decisionnel, rollback et blacklist poses ; harnais de mesure TTFT/tok/s reel reste a brancher |
+| Gouvernance llama-server client | Client | [~] Patch 5 avance | Artefacts locaux, `QualifiedProfile`, checksums, warmup gate, harnais TTFT/tok/s, rollback et blacklist poses ; memoire/DXGI et triggers restent a brancher |
 | Cycle de vie runtime (sleep/wake) | Client | [~] Partiel | ManageLocalLlmProcess + AutoStartOnConnect presents ; idleTimeoutSeconds, EagerLoad, drain avant sleep absents |
 | Checksums modeles | Client | [~] Partiel | Infrastructure SHA-256 presente ; warning logge si Sha256Hex=null (Patch 3) ; valeurs reelles non encore calculees (Phase 3) |
 | Endpoint support bundle admin | Backend | [x] Fait Patch 3 | `POST /admin/support/bundle` presente — ZIP stagé, artifacts/missingArtifacts, auth X-Admin-Key |
@@ -53,7 +53,7 @@
 - [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` — OK, 0 Warning
 - [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` — OK, 0 Warning
 - [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` — 335/335 verts
-- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 267/267 verts
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 271/271 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
 
@@ -249,13 +249,13 @@ Ces items constituent la gouvernance LLM complete. Ils peuvent commencer en para
 - `backend/SAAIA.Backend/Endpoints/AdminRuntimeEndpoints.cs` (enrichir requalify)
 
 **Travaux — Warmup gate (§9.6)** :
-- [~] Implementer warmup gate : moteur decisionnel en place ; mesure TTFT, LoadMs, tok/s reelle via harnais llama-server reste a brancher
+- [x] Implementer warmup gate : moteur decisionnel + harnais de mesure `/models` + `/chat/completions` en place
   - Seuils lus depuis `warmup_profiles.json`, jamais hardcodes
   - Valeur de reference : TTFT < 12 000 ms = nominal GPU interactif
   - States : PASS / PASS_DEGRADED / FAIL_BLOCK / FAIL_FALLBACK
 - [x] Persister resultats dans `warmup_results.json` apres chaque qualification
 - [ ] Consommer `/metrics` llama.cpp si expose (tokens, latences, KV cache usage)
-- [ ] Harnais qualification (§15.5.1) : prompts courts/longs/prefill/cold start/warm/batterie, 3 runs, stable
+- [~] Harnais qualification (§15.5.1) : premier harnais 3 runs en place ; prompts multiples / batterie / memoire restent a ajouter
 
 **Travaux — Blacklist et quarantaine (LLM-015, LLM-016, §9.14)** :
 - [x] Consulter `blacklist.json` avant warmup et avant lancement gere par `LlamaCppProcessManager`
@@ -285,7 +285,7 @@ Ces items constituent la gouvernance LLM complete. Ils peuvent commencer en para
 - Warmup gate decisionnel operationnel, resultats dans warmup_results.json
 - Blacklist consultee avant warmup et lancement gere
 - Rollback automatique fonctionne et est journalise
-- Reste : harnais de mesure reel + triggers de requalification hardware/driver/modele
+- Reste : `/metrics`, memoire reelle, prompts multiples, batterie et triggers de requalification hardware/driver/modele
 
 ---
 
@@ -424,11 +424,13 @@ Ce qui manque pour le contrat CDC :
 ### Phase 3 / Patch 5 — Warmup gate decisionnel + rollback + blacklist (CDC v3.1 §9.6 / §9.14 / §9.15)
 
 - [x] `WarmupGate` : PASS / PASS_DEGRADED / FAIL_BLOCK / FAIL_FALLBACK depuis mesures fournies
+- [x] `LocalLlmWarmupHarness` : mesure readiness/load via `/models`, TTFT et tok/s via `/chat/completions`
+- [x] `WarmupGate.RunQualificationAsync` : execute N runs puis applique seuils / rollback / blacklist
 - [x] `BlacklistPolicy` : match runtime/model/profile/driver avant warmup
 - [x] `RollbackManager` : last-known-good + journal `rollback_log.json`
 - [x] `LlamaCppProcessManager` refuse un profil actif blackliste avant lancement
-- [x] Tests client ajoutes : PASS, degraded, block, fallback, blacklist
-- [~] Reste a faire : collecteur de mesures reel via llama-server (`LoadMs`, TTFT, tok/s, memoire) + triggers requalification
+- [x] Tests client ajoutes : PASS, degraded, block, fallback, blacklist, harnais streaming/non-streaming/not-ready
+- [~] Reste a faire : `/metrics` llama.cpp, memoire reelle, prompts multiples + triggers requalification
 
 ### Gaps fermes
 

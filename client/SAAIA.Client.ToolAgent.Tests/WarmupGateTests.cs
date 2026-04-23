@@ -184,6 +184,45 @@ public sealed class WarmupGateTests
         }
     }
 
+    [Fact]
+    public async Task RunQualificationAsync_collects_configured_runs_then_evaluates_gate()
+    {
+        var root = NewTempRoot();
+        try
+        {
+            var profile = WarmupProfileStore.CreateReferenceCudaProfile();
+            await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(new AppSettings(), root);
+            var harness = new StubWarmupHarness(new[]
+            {
+                new WarmupMeasurement(LoadMs: 21000, TtftMs: 11000, TokPerSec: 6.2),
+                new WarmupMeasurement(LoadMs: 20800, TtftMs: 11200, TokPerSec: 6.1),
+                new WarmupMeasurement(LoadMs: 21300, TtftMs: 10900, TokPerSec: 6.3)
+            });
+
+            var result = await WarmupGate.RunQualificationAsync(
+                profile,
+                "http://127.0.0.1:1234/v1",
+                "local",
+                harness,
+                root,
+                driverVersion: "573.71",
+                hardwareFingerprint: "test-fp",
+                trigger: "unit-test");
+
+            Assert.Equal(WarmupGateStatus.Pass, result.Status);
+            Assert.Equal(3, harness.CallCount);
+
+            var warmupResults = await GovernanceArtifactStore.ReadAsync<WarmupResultsArtifact>(
+                GovernanceArtifactStore.WarmupResultsFile,
+                root);
+            Assert.Equal("unit-test", warmupResults.Value!.Items[0].Trigger);
+        }
+        finally
+        {
+            DeleteTempRoot(root);
+        }
+    }
+
     private static string NewTempRoot()
     {
         var root = Path.Combine(Path.GetTempPath(), "saaia-warmup-test-" + Guid.NewGuid().ToString("N"));
@@ -195,5 +234,27 @@ public sealed class WarmupGateTests
     {
         if (Directory.Exists(root))
             Directory.Delete(root, recursive: true);
+    }
+
+    private sealed class StubWarmupHarness : ILocalLlmWarmupHarness
+    {
+        private readonly Queue<WarmupMeasurement> _measurements;
+
+        public StubWarmupHarness(IEnumerable<WarmupMeasurement> measurements)
+            => _measurements = new Queue<WarmupMeasurement>(measurements);
+
+        public int CallCount { get; private set; }
+
+        public Task<WarmupMeasurement> RunOnceAsync(
+            string llmBaseUrl,
+            string model,
+            LocalLlmWarmupHarnessOptions? options = null,
+            CancellationToken ct = default)
+        {
+            CallCount++;
+            Assert.Equal("http://127.0.0.1:1234/v1", llmBaseUrl);
+            Assert.Equal("local", model);
+            return Task.FromResult(_measurements.Dequeue());
+        }
     }
 }

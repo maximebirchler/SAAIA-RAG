@@ -59,6 +59,45 @@ internal sealed record WarmupResultItem(
 
 internal static class WarmupGate
 {
+    public static async Task<WarmupGateResult> RunQualificationAsync(
+        QualifiedProfile profile,
+        string llmBaseUrl,
+        string model,
+        ILocalLlmWarmupHarness? harness = null,
+        string? root = null,
+        string? driverVersion = null,
+        string? hardwareFingerprint = null,
+        string? trigger = null,
+        CancellationToken ct = default)
+    {
+        await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(new AppSettings(), root, ct).ConfigureAwait(false);
+
+        var profileItem = await LoadProfileAsync(profile.ProfileId, root, ct).ConfigureAwait(false);
+        var runCount = profileItem?.Thresholds.WarmupPassCount ?? 3;
+        harness ??= new LocalLlmWarmupHarness();
+
+        var runs = new List<WarmupMeasurement>(capacity: runCount);
+        for (var i = 0; i < runCount; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+            runs.Add(await harness.RunOnceAsync(
+                llmBaseUrl,
+                model,
+                LocalLlmWarmupHarnessOptions.Default,
+                ct).ConfigureAwait(false));
+        }
+
+        return await EvaluateAsync(
+            new WarmupGateRequest(
+                profile,
+                runs,
+                driverVersion,
+                hardwareFingerprint,
+                trigger ?? "warmup_harness"),
+            root,
+            ct).ConfigureAwait(false);
+    }
+
     public static async Task<WarmupGateResult> EvaluateAsync(
         WarmupGateRequest request,
         string? root = null,
