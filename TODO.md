@@ -276,6 +276,7 @@ Ces items constituent la gouvernance LLM complete. Ils peuvent commencer en para
 - [x] Capturer `fingerprint` machine dans `hardware_probe.json`
 - [x] Comparer snapshot courant vs `hardware_probe.json` au demarrage et logguer `Requalification required` si fingerprint change
 - [x] Admin UI : bouton "Requalifier" -> `POST /admin/runtime/requalify`
+- [x] Admin UI : bouton "Reconcile stale" -> `POST /admin/runtime/reconcile-stale`
 
 **Tests a lancer / a ajouter** :
 - [x] Test warmup gate : PASS avec N runs conformes, PASS_DEGRADED, FAIL_BLOCK si depassement seuil

@@ -231,6 +231,23 @@ public sealed partial class ApiClient
             ct);
     }
 
+    public Task<JsonElement> AdminRuntimeReconcileStaleAsync(
+        string? capabilityKey,
+        CancellationToken ct)
+    {
+        var body = JsonSerializer.Serialize(new
+        {
+            capabilityKey = string.IsNullOrWhiteSpace(capabilityKey) ? null : capabilityKey.Trim()
+        }, JsonOpts);
+
+        return SendJsonAsync(
+            HttpMethod.Post,
+            "/admin/runtime/reconcile-stale",
+            body,
+            admin: true,
+            ct);
+    }
+
     public Task<JsonElement> AdminRuntimeCapabilityAKpisAsync(CancellationToken ct)
         => SendJsonAsync(
             HttpMethod.Get,

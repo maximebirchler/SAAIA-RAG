@@ -85,10 +85,11 @@ public sealed partial class MainWindow
 
         var capabilitiesHost = new StackPanel { Spacing = 12 };
 
+        var reconcileStaleButton = BuildDialogFooterButton(GetAdminRuntimeReconcileStaleButtonLabel(lang));
         var requalifyButton = BuildDialogFooterButton(ClientUiText.Get("admin.runtime.requalify", lang));
         var refreshButton = BuildDialogFooterButton(ClientUiText.Get("admin.runtime.refresh", lang), primary: true);
         var closeButton = BuildDialogFooterButton(ClientUiText.Get("dialog.close", lang));
-        var footer = BuildDialogFooter(requalifyButton, refreshButton, closeButton);
+        var footer = BuildDialogFooter(reconcileStaleButton, requalifyButton, refreshButton, closeButton);
 
         OverlayDialogSession? overlay = null;
         using var overlayCts = new CancellationTokenSource();
@@ -115,6 +116,7 @@ public sealed partial class MainWindow
         void SetBusy(bool busy)
         {
             isLoading = busy;
+            reconcileStaleButton.IsEnabled = !busy;
             requalifyButton.IsEnabled = !busy;
             refreshButton.IsEnabled = !busy;
             closeButton.IsEnabled = !busy;
@@ -244,6 +246,39 @@ public sealed partial class MainWindow
             {
                 ClientLog.Exception("AdminRuntimeOps.Requalify", ex);
                 var message = GetAdminRuntimeRequalifyFailedMessage(lang);
+                SetStateBanner(message);
+                Status(message + " " + ex.Message);
+            }
+            finally
+            {
+                SetBusy(false);
+            }
+        }
+
+        async Task ReconcileStaleRuntimeAsync()
+        {
+            if (isLoading)
+                return;
+
+            SetBusy(true);
+            SetStateBanner(GetAdminRuntimeReconcileStaleLoadingMessage(lang));
+
+            try
+            {
+                var response = await _api.AdminRuntimeReconcileStaleAsync(
+                    capabilityKey: null,
+                    overlayCts.Token).ConfigureAwait(true);
+                var message = BuildAdminRuntimeReconcileStaleSummaryMessage(response, lang);
+                SetStateBanner(message, positive: true);
+                Status(message);
+                var snapshot = ParseAdminRuntimeOperationalSnapshot(
+                    await _api.AdminRuntimeOperationalSummaryAsync(overlayCts.Token).ConfigureAwait(true));
+                Render(snapshot);
+            }
+            catch (Exception ex)
+            {
+                ClientLog.Exception("AdminRuntimeOps.ReconcileStale", ex);
+                var message = GetAdminRuntimeReconcileStaleFailedMessage(lang);
                 SetStateBanner(message);
                 Status(message + " " + ex.Message);
             }
@@ -466,6 +501,7 @@ public sealed partial class MainWindow
             }
         }
 
+        reconcileStaleButton.Click += async (_, __) => await ReconcileStaleRuntimeAsync().ConfigureAwait(true);
         requalifyButton.Click += async (_, __) => await RequalifyRuntimeAsync().ConfigureAwait(true);
         refreshButton.Click += async (_, __) => await LoadAsync().ConfigureAwait(true);
         closeButton.Click += (_, __) => overlay?.Close();
@@ -610,5 +646,65 @@ public sealed partial class MainWindow
             "it" => "Impossibile avviare la ririqualificazione runtime.",
             "pt" => "Nao foi possivel iniciar a requalificacao runtime.",
             _ => "Impossible de lancer la requalification runtime."
+        };
+
+    private static string BuildAdminRuntimeReconcileStaleSummaryMessage(JsonElement root, string lang)
+    {
+        var updatedCount = TryGetInt(root, "updatedCount") ?? 0;
+        var itemCount = 0;
+        var staleRemaining = 0;
+
+        if (TryGetPropertyIgnoreCase(root, "items", out var itemsElement) && itemsElement.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in itemsElement.EnumerateArray())
+            {
+                itemCount++;
+                if (TryGetBool(item, "stale") == true)
+                    staleRemaining++;
+            }
+        }
+
+        return lang switch
+        {
+            "en" => $"Stale runtime reconciliation completed: {updatedCount} updated, {itemCount} state item(s), {staleRemaining} stale remaining.",
+            "de" => $"Stale-Runtime-Abgleich abgeschlossen: {updatedCount} aktualisiert, {itemCount} Statuseintrag(e), {staleRemaining} weiter stale.",
+            "es" => $"Reconciliacion stale completada: {updatedCount} actualizado(s), {itemCount} estado(s), {staleRemaining} stale restante(s).",
+            "it" => $"Riconciliazione stale completata: {updatedCount} aggiornato/i, {itemCount} stato/i, {staleRemaining} stale residuo/i.",
+            "pt" => $"Reconciliacao stale concluida: {updatedCount} atualizado(s), {itemCount} estado(s), {staleRemaining} stale restante(s).",
+            _ => $"Reconciliation stale terminee : {updatedCount} mis a jour, {itemCount} etat(s), {staleRemaining} stale restant(s)."
+        };
+    }
+
+    private static string GetAdminRuntimeReconcileStaleButtonLabel(string lang)
+        => lang switch
+        {
+            "en" => "Reconcile stale",
+            "de" => "Stale abgleichen",
+            "es" => "Reconciliar stale",
+            "it" => "Riconcilia stale",
+            "pt" => "Reconciliar stale",
+            _ => "Reconcile stale"
+        };
+
+    private static string GetAdminRuntimeReconcileStaleLoadingMessage(string lang)
+        => lang switch
+        {
+            "en" => "Stale runtime reconciliation in progress...",
+            "de" => "Stale-Runtime-Abgleich laeuft...",
+            "es" => "Reconciliacion stale en curso...",
+            "it" => "Riconciliazione stale in corso...",
+            "pt" => "Reconciliacao stale em curso...",
+            _ => "Reconciliation stale en cours..."
+        };
+
+    private static string GetAdminRuntimeReconcileStaleFailedMessage(string lang)
+        => lang switch
+        {
+            "en" => "Could not start stale runtime reconciliation.",
+            "de" => "Stale-Runtime-Abgleich konnte nicht gestartet werden.",
+            "es" => "No se pudo iniciar la reconciliacion stale.",
+            "it" => "Impossibile avviare la riconciliazione stale.",
+            "pt" => "Nao foi possivel iniciar a reconciliacao stale.",
+            _ => "Impossible de lancer la reconciliation stale."
         };
 }
