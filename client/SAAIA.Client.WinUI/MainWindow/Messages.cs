@@ -479,6 +479,9 @@ public sealed partial class MainWindow
             var finalAnswerCommitted = 0;
             var replyStarted = 0;
 
+            if (!await EnsureLocalLlmAwakeForRequestAsync(assistantMsg, _cts.Token))
+                throw new InvalidOperationException("Assistant temporairement indisponible: le modele local n'a pas pu demarrer.");
+
             var (finalAnswer, sourcesObj) = await _agent.RunAsync(
                 userText: text,
                 category: ClientDefaults.DefaultCategory,

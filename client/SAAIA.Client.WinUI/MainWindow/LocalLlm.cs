@@ -84,6 +84,32 @@ public sealed partial class MainWindow
 
         return ok;
     }
+
+    private async Task<bool> EnsureLocalLlmAwakeForRequestAsync(ChatMessageItem? assistantMsg, CancellationToken ct)
+    {
+        _appSettings = AppSettings.Load();
+        if (!_appSettings.UseLocalLlm || !_appSettings.ManageLocalLlmProcess)
+            return true;
+
+        if (_llmProc.IsRunning)
+            return true;
+
+        TrySoftUi("EnsureLocalLlmAwakeForRequestAsync.Progress", () =>
+        {
+            SetAssistantProgress(assistantMsg, "Chargement du modele en cours...");
+            LocalLlmStatusText.Text = "Chargement du modele en cours...";
+        });
+
+        var ok = await EnsureLocalLlmStartedFromSettingsAsync(ct);
+        TrySoftUi("EnsureLocalLlmAwakeForRequestAsync.Done", () =>
+        {
+            if (ok)
+                SetAssistantProgress(assistantMsg, "Modele pret. Je prepare la reponse...");
+        });
+
+        return ok;
+    }
+
     private async Task<bool> EnsureLocalLlmStartedAsync(CancellationToken ct)
     {
         _appSettings = ReadLocalLlmSettingsFromUi();

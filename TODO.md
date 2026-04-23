@@ -33,7 +33,7 @@
 | Tuning LLM client | Client | [x] Fait Patch 1+2 | GgufMetadataReader, ngl=block_count, batch>=512, ctx=3072, ubatch=256, threads-batch=6, flash-attn CUDA auto |
 | Budget VRAM observe (DXGI) | Client | [~] Enforce v1 | `hardware_probe.json` capture RAM, GPU, fingerprint, secteur/batterie et budget DXGI ; hard gate budget DXGI branche sur `warmup_profiles.json` |
 | Gouvernance llama-server client | Client | [~] Patch 5 avance | Artefacts locaux, `QualifiedProfile`, checksums, warmup gate, harnais TTFT/tok/s multi-scenarios, rollback, blacklist, hardware_probe, policy batterie et triggers hardware/driver/runtime/modele poses ; application runtime reste a brancher |
-| Cycle de vie runtime (sleep/wake) | Client | [~] En progression | `EagerLoad` explicite, idle timeout pilote par profil/policy et timer d'inactivite present ; drain avant sleep et wake a la demande restent a faire |
+| Cycle de vie runtime (sleep/wake) | Client | [x] Runtime v1 | `EagerLoad` explicite, idle timeout pilote par profil/policy, drain via heartbeat et wake a la demande avant generation |
 | Checksums modeles | Client | [~] Partiel | Infrastructure SHA-256 presente ; warning logge si Sha256Hex=null (Patch 3) ; valeurs reelles non encore calculees (Phase 3) |
 | Endpoint support bundle admin | Backend | [x] Fait Patch 3 | `POST /admin/support/bundle` presente — ZIP stagé, artifacts/missingArtifacts, auth X-Admin-Key |
 
@@ -313,9 +313,9 @@ Base existante : `ManageLocalLlmProcess` + `AutoStartOnConnect` dans `AppSetting
 
 Ce qui manque pour le contrat CDC :
 - [x] `LlamaCppProcessManager` : `idleTimeoutSeconds` resolu depuis `warmup_profiles.json` / `battery_policies.json` + timer d'inactivite -> arret propre et log du sleep
-- [ ] Drain avant sleep : si une requete est en cours au moment du timeout, attendre sa fin avant d'arreter le processus
+- [x] Drain avant sleep : heartbeat `RuntimeActivityStarted/Finished` bloque l'arret tant qu'une requete LLM est active
 - [x] `AppSettings` : flag `EagerLoad` (clarifie l'ancien `AutoStartOnConnect` dans la logique warmup)
-- [ ] Wake sur demande : si `EagerLoad = false`, demarrer le runtime a la premiere requete d'inference apres periode de sleep, mesurer `LoadMs`
+- [x] Wake sur demande : si `EagerLoad = false` ou apres sleep, demarrage du runtime juste avant generation
 - [ ] Eco : `idleTimeoutSeconds` reduit selon politique QoS (§9.12)
 
 ### UX etats runtime LLM (§14.3) — contractuel
@@ -439,7 +439,7 @@ Ce qui manque pour le contrat CDC :
 - [x] Triggers requalification modele/runtime : derive detectee au bootstrap depuis `QualifiedProfile` vs runtime/modeles courants
 - [x] Trigger requalification driver : comparaison `gpuDriverVersion` courant vs `hardware_probe.json`
 - [x] Application runtime v1 : `EagerLoad` branche sur le connect/startup et `idleTimeoutSeconds` pilote par profil/policy avec heartbeat d'activite LLM
-- [~] Reste a faire : wake a la demande + UX des policies
+- [~] Reste a faire : UX des policies et mesure `LoadMs` dediee wake-on-demand
 
 ### Gaps fermes
 
