@@ -59,6 +59,18 @@ internal sealed class LlamaCppProcessManager
         if (!File.Exists(modelPath))
             return (false, $"Model not found: {modelPath}");
 
+        if (s.QualifiedProfile is not null)
+        {
+            var blacklistMatch = await BlacklistPolicy.FindMatchAsync(
+                s.QualifiedProfile,
+                driverVersion: null,
+                ct: ct).ConfigureAwait(false);
+            if (blacklistMatch is not null)
+            {
+                return (false, $"LLM profile is blacklisted ({blacklistMatch.RuleId}): {blacklistMatch.Reason}");
+            }
+        }
+
         var args = BuildArgs(s);
         return await StartAsync(exePath, args, ct).ConfigureAwait(false);
     }

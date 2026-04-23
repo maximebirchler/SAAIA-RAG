@@ -32,7 +32,7 @@
 | Migrations SQL | Backend | [~] Stables | 28 fichiers, doublons legacy 004/008 documentes safe |
 | Tuning LLM client | Client | [x] Fait Patch 1+2 | GgufMetadataReader, ngl=block_count, batch>=512, ctx=3072, ubatch=256, threads-batch=6, flash-attn CUDA auto |
 | Budget VRAM observe (DXGI) | Client | [ ] Absent | Seule la VRAM installee est lue (nvidia-smi / CIM) — budget courant DXGI non implemente |
-| Gouvernance llama-server client | Client | [~] Socle Patch 4 | Artefacts locaux `snake_case`, `QualifiedProfile`, checksums sidecar et defaults poses ; warmup gate / rollback / blacklist runtime restent Patch 5 |
+| Gouvernance llama-server client | Client | [~] Socle Patch 5 | Artefacts locaux, `QualifiedProfile`, checksums, warmup gate decisionnel, rollback et blacklist poses ; harnais de mesure TTFT/tok/s reel reste a brancher |
 | Cycle de vie runtime (sleep/wake) | Client | [~] Partiel | ManageLocalLlmProcess + AutoStartOnConnect presents ; idleTimeoutSeconds, EagerLoad, drain avant sleep absents |
 | Checksums modeles | Client | [~] Partiel | Infrastructure SHA-256 presente ; warning logge si Sha256Hex=null (Patch 3) ; valeurs reelles non encore calculees (Phase 3) |
 | Endpoint support bundle admin | Backend | [x] Fait Patch 3 | `POST /admin/support/bundle` presente — ZIP stagé, artifacts/missingArtifacts, auth X-Admin-Key |
@@ -53,7 +53,7 @@
 - [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` — OK, 0 Warning
 - [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` — OK, 0 Warning
 - [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` — 335/335 verts
-- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 262/262 verts
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 267/267 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
 
@@ -249,24 +249,24 @@ Ces items constituent la gouvernance LLM complete. Ils peuvent commencer en para
 - `backend/SAAIA.Backend/Endpoints/AdminRuntimeEndpoints.cs` (enrichir requalify)
 
 **Travaux — Warmup gate (§9.6)** :
-- [ ] Implementer warmup gate : mesure TTFT, LoadMs, tok/s, memoire reelle sur N runs (`warmupPassCount`)
+- [~] Implementer warmup gate : moteur decisionnel en place ; mesure TTFT, LoadMs, tok/s reelle via harnais llama-server reste a brancher
   - Seuils lus depuis `warmup_profiles.json`, jamais hardcodes
   - Valeur de reference : TTFT < 12 000 ms = nominal GPU interactif
   - States : PASS / PASS_DEGRADED / FAIL_BLOCK / FAIL_FALLBACK
-- [ ] Persister resultats dans `warmup_results.json` apres chaque qualification
+- [x] Persister resultats dans `warmup_results.json` apres chaque qualification
 - [ ] Consommer `/metrics` llama.cpp si expose (tokens, latences, KV cache usage)
 - [ ] Harnais qualification (§15.5.1) : prompts courts/longs/prefill/cold start/warm/batterie, 3 runs, stable
 
 **Travaux — Blacklist et quarantaine (LLM-015, LLM-016, §9.14)** :
-- [ ] Consulter `blacklist.json` avant tout warmup et avant tout lancement
-- [ ] Refuser sans tentative tout couple blackliste
+- [x] Consulter `blacklist.json` avant warmup et avant lancement gere par `LlamaCppProcessManager`
+- [x] Refuser sans tentative tout couple blackliste
 - [ ] Quarantaine : checksum mismatch -> marquer `quarantined`, journaliser, bloquer sans fallback implicite
 - [ ] Exposer blacklist active en lecture seule dans interface admin
 
 **Travaux — Rollback (LLM-014, §9.15)** :
-- [ ] Maintenir `last_known_good_profile.json` : dernier profil avec 3 runs consecutifs conformes
-- [ ] Rollback automatique vers `lastKnownGoodProfile` si FAIL_BLOCK ou FAIL_FALLBACK
-- [ ] Journaliser rollback avec cause et timestamp
+- [x] Maintenir `last_known_good_profile.json` : dernier profil avec 3 runs consecutifs conformes
+- [x] Rollback automatique vers `lastKnownGoodProfile` si echec avec profil sain disponible
+- [x] Journaliser rollback avec cause et timestamp dans `rollback_log.json`
 
 **Travaux — Requalification (§9.13)** :
 - [ ] Implementer les 8 triggers de requalification (driver change, runtime change, modele change, hardware change, derive perfs, echecs repetes, timeout, action admin)
@@ -275,16 +275,17 @@ Ces items constituent la gouvernance LLM complete. Ils peuvent commencer en para
 - [ ] Admin UI : bouton "Requalifier" -> `POST /admin/runtime/requalify`
 
 **Tests a lancer / a ajouter** :
-- [ ] Test warmup gate : PASS avec N runs conformes, FAIL_BLOCK si depassement seuil
-- [ ] Test rollback : apres FAIL_BLOCK, profil actif = lastKnownGoodProfile
-- [ ] Test blacklist : couple blackliste refuse sans tentative de lancement
-- [ ] `dotnet test backend/SAAIA.Backend.Tests/...` vert (335/335)
+- [x] Test warmup gate : PASS avec N runs conformes, PASS_DEGRADED, FAIL_BLOCK si depassement seuil
+- [x] Test rollback : apres echec, profil actif = lastKnownGoodProfile si present
+- [x] Test blacklist : couple blackliste refuse sans tentative de warmup
+- [x] `dotnet test backend/SAAIA.Backend.Tests/...` vert (335/335)
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/...` vert (267/267)
 
 **Criteres de sortie** :
-- Warmup gate operationnel, resultats dans warmup_results.json
-- Blacklist consultee avant tout lancement
+- Warmup gate decisionnel operationnel, resultats dans warmup_results.json
+- Blacklist consultee avant warmup et lancement gere
 - Rollback automatique fonctionne et est journalise
-- Au moins un trigger de requalification detecte (changement driver ou modele)
+- Reste : harnais de mesure reel + triggers de requalification hardware/driver/modele
 
 ---
 
@@ -420,6 +421,15 @@ Ce qui manque pour le contrat CDC :
 - [x] Sidecars `.sha256` et lecture degradee si corruption
 - [x] Tests client ajoutes : roundtrip profil, checksum, corruption, creation defaults
 
+### Phase 3 / Patch 5 — Warmup gate decisionnel + rollback + blacklist (CDC v3.1 §9.6 / §9.14 / §9.15)
+
+- [x] `WarmupGate` : PASS / PASS_DEGRADED / FAIL_BLOCK / FAIL_FALLBACK depuis mesures fournies
+- [x] `BlacklistPolicy` : match runtime/model/profile/driver avant warmup
+- [x] `RollbackManager` : last-known-good + journal `rollback_log.json`
+- [x] `LlamaCppProcessManager` refuse un profil actif blackliste avant lancement
+- [x] Tests client ajoutes : PASS, degraded, block, fallback, blacklist
+- [~] Reste a faire : collecteur de mesures reel via llama-server (`LoadMs`, TTFT, tok/s, memoire) + triggers requalification
+
 ### Gaps fermes
 
 - [x] `hypQuestionsMatched` verrouille par deux tests explicites
@@ -445,3 +455,4 @@ Ce qui manque pour le contrat CDC :
 | 2026-04-23 | Assistant IA | Mise a jour TODO : analyse drift CDC v3.1, LLM-005 a LLM-018, gouvernance modeles |
 | 2026-04-23 | Assistant IA | Restructuration TODO : renommage scope Client+Backend, Phase 0A/0B, 5 patchs atomiques |
 | 2026-04-23 | Codex | Patch 4 socle : artefacts gouvernance client, `QualifiedProfile`, checksums, 262 tests client verts |
+| 2026-04-23 | Codex | Patch 5 socle : warmup gate decisionnel, blacklist, rollback, 267 tests client verts |
