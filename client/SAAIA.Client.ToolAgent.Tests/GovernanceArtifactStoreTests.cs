@@ -155,6 +155,7 @@ public sealed class GovernanceArtifactStoreTests
 
         var artifact = HardwareProbeService.CreateArtifact(
             gpu,
+            "573.71",
             dxgi,
             memory,
             "machine-a",
@@ -167,6 +168,7 @@ public sealed class GovernanceArtifactStoreTests
         Assert.Equal("v3.1", artifact.CdcAlignment);
         Assert.False(string.IsNullOrWhiteSpace(artifact.MachineFingerprint));
         Assert.Equal("nvidia", artifact.Hardware["gpuVendor"]);
+        Assert.Equal("573.71", artifact.Hardware["gpuDriverVersion"]);
         Assert.Equal(4096, artifact.Hardware["gpuDedicatedVramMiB"]);
         Assert.Equal("captured", artifact.Hardware["dxgiStatus"]);
         Assert.Equal(3072L, artifact.Hardware["dxgiBudgetMiB"]);
@@ -191,6 +193,18 @@ public sealed class GovernanceArtifactStoreTests
         Assert.Equal("hardware_fingerprint_changed", changed.Reason);
         Assert.False(unchanged.RequiresRequalification);
         Assert.Equal("hardware_fingerprint_unchanged", unchanged.Reason);
+    }
+
+    [Fact]
+    public void HardwareProbeService_compare_requests_requalification_on_driver_change()
+    {
+        var stored = CreateHardwareProbe("Quadro P520", 4096, "machine-a", driverVersion: "573.71");
+        var current = CreateHardwareProbe("Quadro P520", 4096, "machine-a", driverVersion: "574.01");
+
+        var changed = HardwareProbeService.Compare(stored, current);
+
+        Assert.True(changed.RequiresRequalification);
+        Assert.Contains("gpu_driver_changed", changed.Reason);
     }
 
     [Fact]
@@ -253,7 +267,8 @@ public sealed class GovernanceArtifactStoreTests
         string gpuName,
         int vramMiB,
         string machineName,
-        bool isOnBattery = false)
+        bool isOnBattery = false,
+        string? driverVersion = "573.71")
     {
         var gpu = new GpuInfo(
             GpuVendor.Nvidia,
@@ -278,6 +293,7 @@ public sealed class GovernanceArtifactStoreTests
 
         return HardwareProbeService.CreateArtifact(
             gpu,
+            driverVersion,
             dxgi,
             memory,
             machineName,

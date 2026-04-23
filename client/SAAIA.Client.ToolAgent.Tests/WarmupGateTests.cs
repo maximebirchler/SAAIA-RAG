@@ -288,13 +288,14 @@ public sealed class WarmupGateTests
             "test");
 
         return HardwareProbeService.CreateArtifact(
-            gpu,
-            dxgi,
-            memory,
-            "test-machine",
+            gpu: gpu,
+            gpuDriverVersion: "573.71",
+            dxgi: dxgi,
+            memory: memory,
+            machineName: "test-machine",
             processorCount: 8,
             is64BitOperatingSystem: true,
-            DateTimeOffset.UtcNow);
+            capturedAt: DateTimeOffset.UtcNow);
     }
 
     private static void DeleteTempRoot(string root)

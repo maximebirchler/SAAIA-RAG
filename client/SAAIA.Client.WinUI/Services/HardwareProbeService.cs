@@ -53,12 +53,14 @@ internal static class HardwareProbeService
                 return CachedProbe;
 
             var gpu = await GpuDetector.TryGetBestGpuAsync(ct).ConfigureAwait(false);
+            var driverVersion = TryGetDriverVersion(gpu);
             var memory = CaptureSystemMemory();
             var power = CapturePowerStatus();
             var dxgi = DxgiVideoMemoryProbe.TryQueryBestAdapter(gpu);
 
             var probe = CreateArtifact(
                 gpu,
+                driverVersion,
                 dxgi,
                 memory,
                 Environment.MachineName,
@@ -133,6 +135,19 @@ internal static class HardwareProbeService
                 current.MachineFingerprint);
         }
 
+        var storedDriver = TryGetString(stored.Hardware, "gpuDriverVersion");
+        var currentDriver = TryGetString(current.Hardware, "gpuDriverVersion");
+        if (!string.IsNullOrWhiteSpace(storedDriver)
+            && !string.IsNullOrWhiteSpace(currentDriver)
+            && !string.Equals(storedDriver, currentDriver, StringComparison.OrdinalIgnoreCase))
+        {
+            return new HardwareProbeChange(
+                true,
+                $"gpu_driver_changed:{storedDriver}->{currentDriver}",
+                stored.MachineFingerprint,
+                current.MachineFingerprint);
+        }
+
         return new HardwareProbeChange(
             false,
             "hardware_fingerprint_unchanged",
@@ -142,6 +157,7 @@ internal static class HardwareProbeService
 
     internal static HardwareProbeArtifact CreateArtifact(
         GpuInfo? gpu,
+        string? gpuDriverVersion,
         DxgiVideoMemorySnapshot? dxgi,
         SystemMemorySnapshot memory,
         string machineName,
@@ -169,6 +185,7 @@ internal static class HardwareProbeService
             ["gpuVendor"] = gpu?.Vendor.ToString().ToLowerInvariant(),
             ["gpuName"] = gpu?.Name,
             ["gpuDetectionSource"] = gpu?.DetectionSource,
+            ["gpuDriverVersion"] = gpuDriverVersion,
             ["gpuDedicatedVramMiB"] = gpu?.DedicatedVramMiB ?? 0,
             ["gpuIsIntegrated"] = gpu?.IsIntegrated,
             ["dxgiStatus"] = dxgi is null ? "unavailable" : "captured",
@@ -234,6 +251,28 @@ internal static class HardwareProbeService
 
     private static long ClampToInt64(ulong value)
         => value > long.MaxValue ? long.MaxValue : (long)value;
+
+    private static string? TryGetDriverVersion(GpuInfo? gpu)
+    {
+        if (gpu?.Vendor != GpuVendor.Nvidia)
+            return null;
+
+        return GpuDetector.TryGetNvidia(out var nvidia) && !string.IsNullOrWhiteSpace(nvidia.DriverVersion)
+            ? nvidia.DriverVersion
+            : null;
+    }
+
+    private static string? TryGetString(IReadOnlyDictionary<string, object?> values, string key)
+    {
+        if (!values.TryGetValue(key, out var value) || value is null)
+            return null;
+
+        return value switch
+        {
+            string s when !string.IsNullOrWhiteSpace(s) => s,
+            _ => null
+        };
+    }
 
     private static string ComputeFingerprint(
         string machineName,

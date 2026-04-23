@@ -32,7 +32,7 @@
 | Migrations SQL | Backend | [~] Stables | 28 fichiers, doublons legacy 004/008 documentes safe |
 | Tuning LLM client | Client | [x] Fait Patch 1+2 | GgufMetadataReader, ngl=block_count, batch>=512, ctx=3072, ubatch=256, threads-batch=6, flash-attn CUDA auto |
 | Budget VRAM observe (DXGI) | Client | [~] Enforce v1 | `hardware_probe.json` capture RAM, GPU, fingerprint, secteur/batterie et budget DXGI ; hard gate budget DXGI branche sur `warmup_profiles.json` |
-| Gouvernance llama-server client | Client | [~] Patch 5 avance | Artefacts locaux, `QualifiedProfile`, checksums, warmup gate, harnais TTFT/tok/s multi-scenarios, rollback, blacklist, hardware_probe et policy batterie poses ; triggers driver/modele restent a brancher |
+| Gouvernance llama-server client | Client | [~] Patch 5 avance | Artefacts locaux, `QualifiedProfile`, checksums, warmup gate, harnais TTFT/tok/s multi-scenarios, rollback, blacklist, hardware_probe, policy batterie et triggers hardware/driver/runtime/modele poses ; application runtime reste a brancher |
 | Cycle de vie runtime (sleep/wake) | Client | [~] Partiel | ManageLocalLlmProcess + AutoStartOnConnect presents ; idleTimeoutSeconds, EagerLoad, drain avant sleep absents |
 | Checksums modeles | Client | [~] Partiel | Infrastructure SHA-256 presente ; warning logge si Sha256Hex=null (Patch 3) ; valeurs reelles non encore calculees (Phase 3) |
 | Endpoint support bundle admin | Backend | [x] Fait Patch 3 | `POST /admin/support/bundle` presente — ZIP stagé, artifacts/missingArtifacts, auth X-Admin-Key |
@@ -53,7 +53,7 @@
 - [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` — OK, 0 Warning
 - [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` — OK, 0 Warning
 - [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` — 335/335 verts
-- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 280/280 verts
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 281/281 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
 
@@ -269,7 +269,7 @@ Ces items constituent la gouvernance LLM complete. Ils peuvent commencer en para
 - [x] Journaliser rollback avec cause et timestamp dans `rollback_log.json`
 
 **Travaux — Requalification (§9.13)** :
-- [ ] Implementer les 8 triggers de requalification (driver change, runtime change, modele change, hardware change, derive perfs, echecs repetes, timeout, action admin)
+- [~] Implementer les 8 triggers de requalification (driver/runtime/modele/hardware faits ; derive perfs, echecs repetes, timeout, action admin restent a faire)
 - [x] Capturer `fingerprint` machine dans `hardware_probe.json`
 - [x] Comparer snapshot courant vs `hardware_probe.json` au demarrage et logguer `Requalification required` si fingerprint change
 - [ ] Admin UI : bouton "Requalifier" -> `POST /admin/runtime/requalify`
@@ -285,7 +285,7 @@ Ces items constituent la gouvernance LLM complete. Ils peuvent commencer en para
 - Warmup gate decisionnel operationnel, resultats dans warmup_results.json
 - Blacklist consultee avant warmup et lancement gere
 - Rollback automatique fonctionne et est journalise
-- Reste : application UX/runtime des policies batterie, hard gate RAM optionnel et trigger explicite driver
+- Reste : application UX/runtime des policies batterie et hard gate RAM optionnel
 
 ---
 
@@ -437,7 +437,8 @@ Ce qui manque pour le contrat CDC :
 - [x] Trigger requalification hardware : comparaison fingerprint courant vs `hardware_probe.json` au bootstrap
 - [x] Policy batterie : `battery_policies.json` + evaluation `client-balanced` -> fallback stable sur batterie
 - [x] Triggers requalification modele/runtime : derive detectee au bootstrap depuis `QualifiedProfile` vs runtime/modeles courants
-- [~] Reste a faire : application UX/runtime des policies + trigger explicite driver
+- [x] Trigger requalification driver : comparaison `gpuDriverVersion` courant vs `hardware_probe.json`
+- [~] Reste a faire : application UX/runtime des policies
 
 ### Gaps fermes
 
