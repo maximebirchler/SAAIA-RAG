@@ -134,6 +134,75 @@ public sealed class LocalLlmWarmupHarnessTests
         Assert.Equal(42.5, metrics["llamacpp_decode_ms_sum"]);
     }
 
+    [Fact]
+    public async Task RunContractScenariosAsync_runs_all_contract_prompts_and_aggregates_worst_case()
+    {
+        var chatCalls = 0;
+        var requestBodies = new List<string>();
+        var handler = new StubHttpHandler(req =>
+        {
+            if (req.RequestUri!.AbsolutePath.EndsWith("/models", StringComparison.OrdinalIgnoreCase))
+                return new HttpResponseMessage(HttpStatusCode.OK);
+
+            if (req.RequestUri.AbsolutePath.EndsWith("/metrics", StringComparison.OrdinalIgnoreCase))
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+
+            Assert.EndsWith("/chat/completions", req.RequestUri.AbsolutePath);
+            chatCalls++;
+            requestBodies.Add(req.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    "{\"choices\":[{\"message\":{\"content\":\"token suite stable\"}}]}",
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+        var harness = new LocalLlmWarmupHarness(new HttpClient(handler));
+
+        var runs = await harness.RunContractScenariosAsync(
+            "http://127.0.0.1:1234/v1",
+            "local",
+            baseOptions: new LocalLlmWarmupHarnessOptions(
+                TimeSpan.FromSeconds(1),
+                TimeSpan.FromMilliseconds(1),
+                "unused",
+                16,
+                0,
+                TryReadRuntimeMetrics: false));
+
+        Assert.Equal(3, runs.Count);
+        Assert.Equal(3, chatCalls);
+        Assert.Equal(new[] { "short_ttft", "long_prefill", "decode_stable" }, runs.Select(run => run.Scenario));
+        Assert.Contains(requestBodies, body => body.Contains("Contexte SAAIA", StringComparison.Ordinal));
+        Assert.Contains(requestBodies, body => body.Contains("huit points courts", StringComparison.Ordinal));
+        Assert.All(runs, run => Assert.True(run.Succeeded));
+
+        var aggregate = LocalLlmWarmupHarness.AggregateScenarioMeasurements(runs);
+
+        Assert.True(aggregate.Succeeded);
+        Assert.Equal("contract_suite", aggregate.Scenario);
+        Assert.NotNull(aggregate.RuntimeMetrics);
+        Assert.Contains("scenario.short_ttft.ttft_ms", aggregate.RuntimeMetrics!.Keys);
+        Assert.Contains("scenario.long_prefill.tok_per_sec", aggregate.RuntimeMetrics.Keys);
+        Assert.Contains("scenario.decode_stable.ms_per_token", aggregate.RuntimeMetrics.Keys);
+    }
+
+    [Fact]
+    public void AggregateScenarioMeasurements_fails_if_one_contract_prompt_fails()
+    {
+        var aggregate = LocalLlmWarmupHarness.AggregateScenarioMeasurements(new[]
+        {
+            new WarmupMeasurement(10, 20, 8, Scenario: "short_ttft"),
+            new WarmupMeasurement(10, 0, 0, Succeeded: false, Error: "no_tokens", Scenario: "decode_stable")
+        });
+
+        Assert.False(aggregate.Succeeded);
+        Assert.Equal("contract_suite", aggregate.Scenario);
+        Assert.Equal(0, aggregate.TokPerSec);
+        Assert.Contains("decode_stable:no_tokens", aggregate.Error);
+    }
+
     private sealed class StubHttpHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, HttpResponseMessage> _handler;

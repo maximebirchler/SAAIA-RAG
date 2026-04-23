@@ -23,7 +23,8 @@ internal sealed record WarmupMeasurement(
     int? PeakRamMiB = null,
     int? PeakVramMiB = null,
     double? MsPerToken = null,
-    IReadOnlyDictionary<string, double>? RuntimeMetrics = null);
+    IReadOnlyDictionary<string, double>? RuntimeMetrics = null,
+    string? Scenario = null);
 
 internal sealed record WarmupGateRequest(
     QualifiedProfile Profile,
@@ -84,6 +85,17 @@ internal static class WarmupGate
         for (var i = 0; i < runCount; i++)
         {
             ct.ThrowIfCancellationRequested();
+            if (harness is LocalLlmWarmupHarness scenarioHarness)
+            {
+                var scenarioRuns = await scenarioHarness.RunContractScenariosAsync(
+                    llmBaseUrl,
+                    model,
+                    ct: ct).ConfigureAwait(false);
+
+                runs.Add(LocalLlmWarmupHarness.AggregateScenarioMeasurements(scenarioRuns));
+                continue;
+            }
+
             runs.Add(await harness.RunOnceAsync(
                 llmBaseUrl,
                 model,

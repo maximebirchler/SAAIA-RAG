@@ -28,7 +28,8 @@ internal sealed record LocalLlmWarmupHarnessOptions(
     string Prompt,
     int MaxTokens,
     double Temperature,
-    bool TryReadRuntimeMetrics = true)
+    bool TryReadRuntimeMetrics = true,
+    string Scenario = "short_ttft")
 {
     public static LocalLlmWarmupHarnessOptions Default => new(
         ReadinessTimeout: TimeSpan.FromSeconds(120),
@@ -37,6 +38,12 @@ internal sealed record LocalLlmWarmupHarnessOptions(
         MaxTokens: 64,
         Temperature: 0.0);
 }
+
+internal sealed record LocalLlmWarmupScenario(
+    string Key,
+    string Prompt,
+    int MaxTokens,
+    double Temperature = 0.0);
 
 internal sealed class LocalLlmWarmupHarness : ILocalLlmWarmupHarness
 {
@@ -56,10 +63,10 @@ internal sealed class LocalLlmWarmupHarness : ILocalLlmWarmupHarness
         options ??= LocalLlmWarmupHarnessOptions.Default;
 
         if (string.IsNullOrWhiteSpace(llmBaseUrl))
-            return new WarmupMeasurement(0, 0, 0, Succeeded: false, Error: "missing_base_url");
+            return new WarmupMeasurement(0, 0, 0, Succeeded: false, Error: "missing_base_url", Scenario: options.Scenario);
 
         if (string.IsNullOrWhiteSpace(model))
-            return new WarmupMeasurement(0, 0, 0, Succeeded: false, Error: "missing_model");
+            return new WarmupMeasurement(0, 0, 0, Succeeded: false, Error: "missing_model", Scenario: options.Scenario);
 
         var baseUrl = llmBaseUrl.TrimEnd('/');
         var loadSw = Stopwatch.StartNew();
@@ -69,7 +76,7 @@ internal sealed class LocalLlmWarmupHarness : ILocalLlmWarmupHarness
         var loadMs = (int)Math.Min(int.MaxValue, loadSw.ElapsedMilliseconds);
 
         if (!ready.Ok)
-            return new WarmupMeasurement(loadMs, 0, 0, Succeeded: false, Error: ready.Error);
+            return new WarmupMeasurement(loadMs, 0, 0, Succeeded: false, Error: ready.Error, Scenario: options.Scenario);
 
         var beforeMetrics = options.TryReadRuntimeMetrics
             ? await TryReadMetricsAsync(baseUrl, ct).ConfigureAwait(false)
@@ -77,11 +84,129 @@ internal sealed class LocalLlmWarmupHarness : ILocalLlmWarmupHarness
 
         var measurement = await MeasureChatAsync(baseUrl, model, options, loadMs, ct).ConfigureAwait(false);
         if (!options.TryReadRuntimeMetrics)
-            return measurement;
+            return measurement with { Scenario = options.Scenario };
 
         var afterMetrics = await TryReadMetricsAsync(baseUrl, ct).ConfigureAwait(false);
         var mergedMetrics = MergeMetrics(beforeMetrics, afterMetrics);
-        return measurement with { RuntimeMetrics = mergedMetrics.Count == 0 ? null : mergedMetrics };
+        return measurement with
+        {
+            RuntimeMetrics = mergedMetrics.Count == 0 ? null : mergedMetrics,
+            Scenario = options.Scenario
+        };
+    }
+
+    public async Task<IReadOnlyList<WarmupMeasurement>> RunContractScenariosAsync(
+        string llmBaseUrl,
+        string model,
+        IReadOnlyList<LocalLlmWarmupScenario>? scenarios = null,
+        LocalLlmWarmupHarnessOptions? baseOptions = null,
+        CancellationToken ct = default)
+    {
+        var resolvedScenarios = scenarios is { Count: > 0 }
+            ? scenarios
+            : CreateContractScenarios();
+        var options = baseOptions ?? LocalLlmWarmupHarnessOptions.Default;
+        var measurements = new List<WarmupMeasurement>(resolvedScenarios.Count);
+
+        foreach (var scenario in resolvedScenarios)
+        {
+            ct.ThrowIfCancellationRequested();
+            var scenarioOptions = options with
+            {
+                Prompt = scenario.Prompt,
+                MaxTokens = scenario.MaxTokens,
+                Temperature = scenario.Temperature,
+                Scenario = scenario.Key
+            };
+
+            var measurement = await RunOnceAsync(
+                llmBaseUrl,
+                model,
+                scenarioOptions,
+                ct).ConfigureAwait(false);
+
+            measurements.Add(measurement with { Scenario = scenario.Key });
+        }
+
+        return measurements;
+    }
+
+    internal static IReadOnlyList<LocalLlmWarmupScenario> CreateContractScenarios()
+    {
+        var longContext = string.Join(
+            "\n",
+            Enumerable.Repeat(
+                "Contexte SAAIA: document, section, unite, preuve, categorie, source et avertissement doivent rester coherents.",
+                18));
+
+        return new[]
+        {
+            new LocalLlmWarmupScenario(
+                "short_ttft",
+                "Reponds uniquement par: pret.",
+                16),
+            new LocalLlmWarmupScenario(
+                "long_prefill",
+                "Lis ce contexte et reponds par une phrase courte qui confirme la coherence.\n" + longContext,
+                48),
+            new LocalLlmWarmupScenario(
+                "decode_stable",
+                "Redige exactement huit points courts numerotes sur les controles de qualite d'un assistant RAG local.",
+                128)
+        };
+    }
+
+    internal static WarmupMeasurement AggregateScenarioMeasurements(IReadOnlyList<WarmupMeasurement> measurements)
+    {
+        if (measurements.Count == 0)
+            return new WarmupMeasurement(0, 0, 0, Succeeded: false, Error: "no_scenarios", Scenario: "contract_suite");
+
+        var loadMs = measurements.Max(static item => item.LoadMs);
+        var ttftMs = measurements.Max(static item => item.TtftMs);
+        var successful = measurements.Where(static item => item.Succeeded).ToArray();
+        var allSucceeded = successful.Length == measurements.Count;
+        var tokPerSec = allSucceeded ? successful.Min(static item => item.TokPerSec) : 0;
+        var msPerToken = allSucceeded ? successful.Max(static item => item.MsPerToken) : null;
+
+        var metrics = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        foreach (var measurement in measurements)
+        {
+            var scenario = string.IsNullOrWhiteSpace(measurement.Scenario)
+                ? "unknown"
+                : measurement.Scenario;
+            var prefix = "scenario." + scenario + ".";
+            metrics[prefix + "load_ms"] = measurement.LoadMs;
+            metrics[prefix + "ttft_ms"] = measurement.TtftMs;
+            metrics[prefix + "tok_per_sec"] = measurement.TokPerSec;
+            if (measurement.MsPerToken is { } ms)
+                metrics[prefix + "ms_per_token"] = ms;
+
+            if (measurement.RuntimeMetrics is null)
+                continue;
+
+            foreach (var item in measurement.RuntimeMetrics)
+                metrics[prefix + item.Key] = item.Value;
+        }
+
+        var error = allSucceeded
+            ? null
+            : string.Join(
+                ";",
+                measurements
+                    .Where(static item => !item.Succeeded)
+                    .Select(static item => $"{item.Scenario ?? "unknown"}:{item.Error ?? "failed"}"));
+
+        return new WarmupMeasurement(
+            loadMs,
+            ttftMs,
+            tokPerSec,
+            allSucceeded,
+            error,
+            PeakRamMiB: measurements.Max(static item => item.PeakRamMiB),
+            PeakVramMiB: measurements.Max(static item => item.PeakVramMiB),
+            MsPerToken: msPerToken,
+            RuntimeMetrics: metrics.Count == 0 ? null : metrics,
+            Scenario: "contract_suite");
     }
 
     private async Task<(bool Ok, string? Error)> WaitReadyAsync(

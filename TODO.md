@@ -32,7 +32,7 @@
 | Migrations SQL | Backend | [~] Stables | 28 fichiers, doublons legacy 004/008 documentes safe |
 | Tuning LLM client | Client | [x] Fait Patch 1+2 | GgufMetadataReader, ngl=block_count, batch>=512, ctx=3072, ubatch=256, threads-batch=6, flash-attn CUDA auto |
 | Budget VRAM observe (DXGI) | Client | [ ] Absent | Seule la VRAM installee est lue (nvidia-smi / CIM) — budget courant DXGI non implemente |
-| Gouvernance llama-server client | Client | [~] Patch 5 avance | Artefacts locaux, `QualifiedProfile`, checksums, warmup gate, harnais TTFT/tok/s, rollback et blacklist poses ; memoire/DXGI et triggers restent a brancher |
+| Gouvernance llama-server client | Client | [~] Patch 5 avance | Artefacts locaux, `QualifiedProfile`, checksums, warmup gate, harnais TTFT/tok/s multi-scenarios, rollback et blacklist poses ; memoire/DXGI et triggers restent a brancher |
 | Cycle de vie runtime (sleep/wake) | Client | [~] Partiel | ManageLocalLlmProcess + AutoStartOnConnect presents ; idleTimeoutSeconds, EagerLoad, drain avant sleep absents |
 | Checksums modeles | Client | [~] Partiel | Infrastructure SHA-256 presente ; warning logge si Sha256Hex=null (Patch 3) ; valeurs reelles non encore calculees (Phase 3) |
 | Endpoint support bundle admin | Backend | [x] Fait Patch 3 | `POST /admin/support/bundle` presente — ZIP stagé, artifacts/missingArtifacts, auth X-Admin-Key |
@@ -53,7 +53,7 @@
 - [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` — OK, 0 Warning
 - [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` — OK, 0 Warning
 - [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` — 335/335 verts
-- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 272/272 verts
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 274/274 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
 
@@ -255,7 +255,7 @@ Ces items constituent la gouvernance LLM complete. Ils peuvent commencer en para
   - States : PASS / PASS_DEGRADED / FAIL_BLOCK / FAIL_FALLBACK
 - [x] Persister resultats dans `warmup_results.json` apres chaque qualification
 - [x] Consommer `/metrics` llama.cpp si expose (Prometheus opportuniste, non bloquant)
-- [~] Harnais qualification (§15.5.1) : premier harnais 3 runs en place ; prompts multiples / batterie / memoire restent a ajouter
+- [x] Harnais qualification (§15.5.1) : 3 passes de qualification, chacune agregant `short_ttft`, `long_prefill` et `decode_stable`
 
 **Travaux — Blacklist et quarantaine (LLM-015, LLM-016, §9.14)** :
 - [x] Consulter `blacklist.json` avant warmup et avant lancement gere par `LlamaCppProcessManager`
@@ -279,13 +279,13 @@ Ces items constituent la gouvernance LLM complete. Ils peuvent commencer en para
 - [x] Test rollback : apres echec, profil actif = lastKnownGoodProfile si present
 - [x] Test blacklist : couple blackliste refuse sans tentative de warmup
 - [x] `dotnet test backend/SAAIA.Backend.Tests/...` vert (335/335)
-- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/...` vert (267/267)
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/...` vert (274/274)
 
 **Criteres de sortie** :
 - Warmup gate decisionnel operationnel, resultats dans warmup_results.json
 - Blacklist consultee avant warmup et lancement gere
 - Rollback automatique fonctionne et est journalise
-- Reste : memoire reelle, prompts multiples, batterie et triggers de requalification hardware/driver/modele
+- Reste : memoire reelle, batterie et triggers de requalification hardware/driver/modele
 
 ---
 
@@ -430,7 +430,8 @@ Ce qui manque pour le contrat CDC :
 - [x] `RollbackManager` : last-known-good + journal `rollback_log.json`
 - [x] `LlamaCppProcessManager` refuse un profil actif blackliste avant lancement
 - [x] Tests client ajoutes : PASS, degraded, block, fallback, blacklist, harnais streaming/non-streaming/not-ready/metrics
-- [~] Reste a faire : memoire reelle, prompts multiples + triggers requalification
+- [x] Harnais contractuel multi-scenarios : prompt court TTFT, prompt long prefill/contexte, prompt decode stable, avec agregat worst-case
+- [~] Reste a faire : memoire reelle + triggers requalification
 
 ### Gaps fermes
 
