@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [string[]]$SearchRoots,
-    [string]$OutputPath
+    [string]$OutputPath,
+    [switch]$IncludeCatalogSnippet
 )
 
 Set-StrictMode -Version Latest
@@ -99,8 +100,44 @@ function Find-ModelPath {
     return $null
 }
 
+function ConvertTo-CSharpConstName {
+    param(
+        [string]$FileName
+    )
+
+    $stem = [System.IO.Path]::GetFileNameWithoutExtension($FileName)
+    $segments = @($stem) |
+        ForEach-Object { ($_ -replace '[^A-Za-z0-9]+', ' ') } |
+        ForEach-Object { $_.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries) } |
+        ForEach-Object {
+            $_ | ForEach-Object {
+                if ($_.Length -eq 0) { return }
+                $_.Substring(0, 1).ToUpperInvariant() + $_.Substring(1)
+            }
+        }
+
+    return (($segments -join '') + "Sha256")
+}
+
+function Format-MarkdownSummary {
+    param([object[]]$Items)
+
+    $lines = @(
+        "| ModelId | FileName | Status | SHA256 |",
+        "|---|---|---|---|"
+    )
+
+    foreach ($item in $Items) {
+        $sha = if ($item.sha256) { $item.sha256 } else { "-" }
+        $lines += "| $($item.modelId) | $($item.fileName) | $($item.status) | $sha |"
+    }
+
+    return ($lines -join [Environment]::NewLine)
+}
+
 $roots = Resolve-SearchRoots -Roots $SearchRoots
 $entries = @()
+$catalogSnippetLines = New-Object System.Collections.Generic.List[string]
 
 foreach ($model in $knownModels) {
     $path = Find-ModelPath -FileName $model.FileName -Roots $roots
@@ -114,12 +151,17 @@ foreach ($model in $knownModels) {
             path = $null
             sizeBytes = $null
             sha256 = $null
+            csharpConstName = (ConvertTo-CSharpConstName -FileName $model.FileName)
+            catalogPatch = $null
         }
         continue
     }
 
     $file = Get-Item -LiteralPath $path
     $hash = Get-FileHash -LiteralPath $path -Algorithm SHA256
+    $constName = ConvertTo-CSharpConstName -FileName $model.FileName
+    $catalogPatch = "ChecksumSha256: $constName.ToLowerInvariant(), ChecksumStatus: ""verified_reference_hash"""
+
     $entries += [pscustomobject]@{
         modelId = $model.ModelId
         fileName = $model.FileName
@@ -129,7 +171,20 @@ foreach ($model in $knownModels) {
         path = $file.FullName
         sizeBytes = $file.Length
         sha256 = $hash.Hash.ToLowerInvariant()
+        csharpConstName = $constName
+        catalogPatch = $catalogPatch
     }
+
+    if ($IncludeCatalogSnippet) {
+        $catalogSnippetLines.Add("private const string $constName = ""$($hash.Hash.ToLowerInvariant())"";")
+    }
+}
+
+$markdownSummary = Format-MarkdownSummary -Items $entries
+$catalogSnippet = if ($IncludeCatalogSnippet) {
+    ($catalogSnippetLines -join [Environment]::NewLine)
+} else {
+    $null
 }
 
 $report = [pscustomobject]@{
@@ -138,6 +193,8 @@ $report = [pscustomobject]@{
     foundCount = @($entries | Where-Object { $_.status -eq "found" }).Count
     missingCount = @($entries | Where-Object { $_.status -eq "missing" }).Count
     items = $entries
+    markdownSummary = $markdownSummary
+    catalogSnippet = $catalogSnippet
 }
 
 $json = $report | ConvertTo-Json -Depth 5
