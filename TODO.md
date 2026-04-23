@@ -53,7 +53,7 @@
 - [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` — OK, 0 Warning
 - [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` — OK, 0 Warning
 - [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` — 335/335 verts
-- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 294/294 verts
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 295/295 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
 

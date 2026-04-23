@@ -6,6 +6,9 @@ public sealed partial class MainWindow
     // Local LLM (llama.cpp) - M6.1
     // =========================
 
+    private readonly object _localGovernanceInitGate = new();
+    private Task? _localGovernanceInitTask;
+
     private void LoadLocalLlmUiFromSettings()
     {
         try
@@ -27,7 +30,7 @@ public sealed partial class MainWindow
             LocalLlmStatusText.Text = _llmProc.IsRunning ? "Running." : "";
             LocalLlmCmdLineBox.Text = _llmProc.LastCommandLine ?? "";
             RefreshLocalLlmModelInfoText();
-            _ = InitializeLocalGovernanceUiAsync();
+            _ = EnsureLocalGovernanceUiInitializedAsync();
         }
         catch
         {
@@ -35,7 +38,34 @@ public sealed partial class MainWindow
         }
     }
 
-    private async Task InitializeLocalGovernanceUiAsync()
+    private Task EnsureLocalGovernanceUiInitializedAsync()
+    {
+        lock (_localGovernanceInitGate)
+        {
+            if (_localGovernanceInitTask is { IsCompleted: false })
+                return _localGovernanceInitTask;
+
+            var initTask = InitializeLocalGovernanceUiCoreAsync();
+            _localGovernanceInitTask = initTask;
+            _ = initTask.ContinueWith(
+                static (completedTask, state) =>
+                {
+                    var window = (MainWindow)state!;
+                    lock (window._localGovernanceInitGate)
+                    {
+                        if (ReferenceEquals(window._localGovernanceInitTask, completedTask))
+                            window._localGovernanceInitTask = null;
+                    }
+                },
+                this,
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+            return initTask;
+        }
+    }
+
+    private async Task InitializeLocalGovernanceUiCoreAsync()
     {
         try
         {
