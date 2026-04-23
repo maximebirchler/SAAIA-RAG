@@ -13,6 +13,17 @@ internal sealed record LocalLlmRuntimeStatus(
 
 internal static class LocalLlmRuntimeStatusService
 {
+    public static string? ResolveDisplayMessage(
+        LocalLlmRuntimeStatus? status,
+        bool isRunning,
+        string? currentMessage = null)
+    {
+        if (status is not null)
+            return status.Message;
+
+        return isRunning ? string.Empty : currentMessage;
+    }
+
     public static async Task<LocalLlmRuntimeStatus?> EvaluateAsync(
         AppSettings settings,
         string? root = null,
@@ -36,6 +47,14 @@ internal static class LocalLlmRuntimeStatusService
                 "runtime_unavailable",
                 "Assistant temporairement indisponible.",
                 IsError: true);
+        }
+
+        if (latest?.Status == WarmupGateStatus.FailFallback)
+        {
+            return new LocalLlmRuntimeStatus(
+                "fallback_required",
+                "Profil de secours requis.",
+                IsWarning: true);
         }
 
         var profile = WarmupProfileStore.FindProfile(settings.QualifiedProfile.ProfileId);

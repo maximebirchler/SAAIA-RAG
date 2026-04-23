@@ -62,7 +62,7 @@ public sealed partial class MainWindow
     }
 
 
-    private async Task<bool> EnsureLocalLlmStartedFromSettingsAsync(CancellationToken ct)
+    private async Task<bool> EnsureLocalLlmStartedFromSettingsAsync(CancellationToken ct, ChatMessageItem? assistantMsg = null)
     {
         _appSettings = AppSettings.Load();
 
@@ -78,6 +78,9 @@ public sealed partial class MainWindow
             LocalLlmCmdLineBox.Text = _llmProc.LastCommandLine ?? "";
             LocalLlmStatusText.Text = msg;
         });
+
+        if (ok)
+            ok = await RunLocalLlmWarmupQualificationAsync(_appSettings, assistantMsg, ct).ConfigureAwait(false);
 
         // reflect URL/model
         LlmUrlBox.Text = _appSettings.LlmBaseUrl;
@@ -101,7 +104,7 @@ public sealed partial class MainWindow
             LocalLlmStatusText.Text = "Chargement du modele en cours...";
         });
 
-        var ok = await EnsureLocalLlmStartedFromSettingsAsync(ct);
+        var ok = await EnsureLocalLlmStartedFromSettingsAsync(ct, assistantMsg);
         TrySoftUi("EnsureLocalLlmAwakeForRequestAsync.Done", () =>
         {
             if (ok)
@@ -109,6 +112,48 @@ public sealed partial class MainWindow
         });
 
         return ok;
+    }
+
+    private async Task<bool> RunLocalLlmWarmupQualificationAsync(
+        AppSettings settings,
+        ChatMessageItem? assistantMsg,
+        CancellationToken ct)
+    {
+        if (settings.QualifiedProfile is null)
+            return true;
+
+        if (WarmupProfileStore.FindProfile(settings.QualifiedProfile.ProfileId) is null)
+            return true;
+
+        TrySoftUi("RunLocalLlmWarmupQualificationAsync.Progress", () =>
+        {
+            SetAssistantProgress(assistantMsg, "Verification de compatibilite en cours...");
+            LocalLlmStatusText.Text = "Verification de compatibilite en cours...";
+        });
+
+        var result = await WarmupGate.RunQualificationAsync(
+            settings.QualifiedProfile,
+            settings.LlmBaseUrl,
+            settings.ModelId,
+            root: null,
+            trigger: "client_runtime_start",
+            ct: ct).ConfigureAwait(false);
+
+        if (result.SelectedProfile is not null)
+        {
+            settings.QualifiedProfile = result.SelectedProfile;
+            settings.Save();
+        }
+
+        await RefreshLocalLlmGovernanceStatusAsync().ConfigureAwait(false);
+
+        if (result.Status is WarmupGateStatus.FailBlock or WarmupGateStatus.FailFallback)
+        {
+            TrySoftUi("RunLocalLlmWarmupQualificationAsync.Stop", _llmProc.Stop);
+            return false;
+        }
+
+        return true;
     }
 
     private async Task RefreshLocalLlmGovernanceStatusAsync()
@@ -122,8 +167,10 @@ public sealed partial class MainWindow
             {
                 try
                 {
-                    if (status is not null)
-                        LocalLlmStatusText.Text = status.Message;
+                    LocalLlmStatusText.Text = LocalLlmRuntimeStatusService.ResolveDisplayMessage(
+                        status,
+                        _llmProc.IsRunning,
+                        LocalLlmStatusText.Text) ?? "";
                     tcs.SetResult();
                 }
                 catch (Exception ex)
@@ -154,10 +201,13 @@ public sealed partial class MainWindow
         LocalLlmCmdLineBox.Text = _llmProc.LastCommandLine ?? "";
         LocalLlmStatusText.Text = msg;
 
+        if (ok)
+            ok = await RunLocalLlmWarmupQualificationAsync(_appSettings, null, ct).ConfigureAwait(false);
+
         // reflect URL/model
         LlmUrlBox.Text = _appSettings.LlmBaseUrl;
         LlmModelBox.Text = _appSettings.ModelId;
-        await RefreshLocalLlmGovernanceStatusAsync();
+        await RefreshLocalLlmGovernanceStatusAsync().ConfigureAwait(false);
 
         return ok;
     }

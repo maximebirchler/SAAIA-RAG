@@ -6,6 +6,54 @@ namespace SAAIA.Client.ToolAgent.Tests;
 public sealed class LocalLlmRuntimeStatusServiceTests
 {
     [Fact]
+    public async Task EvaluateAsync_returns_null_for_nominal_profile_without_alerts()
+    {
+        var root = NewTempRoot();
+        try
+        {
+            var settings = new AppSettings
+            {
+                UseLocalLlm = true,
+                ManageLocalLlmProcess = true,
+                LlamaExePath = @"C:\runtime\win-cuda-x64\llama-server.exe",
+                ModelId = "qwen2.5-3b-instruct-q4-k-m",
+                QualifiedProfile = WarmupProfileStore.CreateReferenceCudaProfile()
+            };
+
+            await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(settings, root);
+            var status = await LocalLlmRuntimeStatusService.EvaluateAsync(settings, root);
+
+            Assert.Null(status);
+        }
+        finally
+        {
+            DeleteTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public void ResolveDisplayMessage_clears_status_when_runtime_is_running_and_nominal()
+    {
+        var message = LocalLlmRuntimeStatusService.ResolveDisplayMessage(
+            status: null,
+            isRunning: true,
+            currentMessage: "Verification de compatibilite en cours...");
+
+        Assert.Equal(string.Empty, message);
+    }
+
+    [Fact]
+    public void ResolveDisplayMessage_preserves_current_message_when_runtime_is_stopped_and_no_alert_exists()
+    {
+        var message = LocalLlmRuntimeStatusService.ResolveDisplayMessage(
+            status: null,
+            isRunning: false,
+            currentMessage: "Stopped.");
+
+        Assert.Equal("Stopped.", message);
+    }
+
+    [Fact]
     public async Task EvaluateAsync_returns_fallback_message_for_fallback_profile()
     {
         var root = NewTempRoot();
