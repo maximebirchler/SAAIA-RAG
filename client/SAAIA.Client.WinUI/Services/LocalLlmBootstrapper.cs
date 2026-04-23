@@ -183,6 +183,14 @@ internal sealed class LocalLlmBootstrapper
 
         // Apply conservative auto-tuning based on hardware.
         ApplyAutoTuningFlags(s, bestGpu);
+        try
+        {
+            await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(s, ct: ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            ClientLog.Warn($"LLM governance artifacts unavailable: {ex.GetType().Name}: {ex.Message}");
+        }
 
         // Ensure minimal runtime flags
         s.ManageLocalLlmProcess = true;

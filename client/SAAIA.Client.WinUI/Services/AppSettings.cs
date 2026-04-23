@@ -47,6 +47,7 @@ internal sealed class AppSettings
     private const string KUbatchSize   = "llm.ubatchSize";
     private const string KThreadsBatch = "llm.threadsBatch";
     private const string KFlashAttn    = "llm.flashAttn"; // "auto"|"on"|"off"
+    private const string KQualifiedProfile = "llm.qualifiedProfile";
 
     public string BackendUrl { get; set; } = ClientDefaults.BackendBaseUrl;
 
@@ -117,6 +118,12 @@ internal sealed class AppSettings
     /// </summary>
     public bool? FlashAttn { get; set; } = null;
 
+    /// <summary>
+    /// Last locally qualified profile selected by the governance layer.
+    /// Phase 0 keeps this as nullable until the formal warmup gate writes it.
+    /// </summary>
+    public QualifiedProfile? QualifiedProfile { get; set; }
+
     public int StartupTimeoutSeconds { get; set; } = 60;
 
     /// <summary>Session operating mode. Not persisted.</summary>
@@ -168,6 +175,7 @@ internal sealed class AppSettings
         int UbatchSize,
         int ThreadsBatch,
         bool? FlashAttn,
+        QualifiedProfile? QualifiedProfile,
         int StartupTimeoutSeconds,
         double LlmTemperature,
         int LlmMaxOutputTokens,
@@ -209,6 +217,7 @@ internal sealed class AppSettings
             s.UbatchSize   = (ls.Values[KUbatchSize]   as int?) ?? s.UbatchSize;
             s.ThreadsBatch = (ls.Values[KThreadsBatch] as int?) ?? s.ThreadsBatch;
             s.FlashAttn    = ParseFlashAttn(ls.Values[KFlashAttn] as string);
+            s.QualifiedProfile = ParseQualifiedProfile(ls.Values[KQualifiedProfile] as string);
 
             s.LlmTemperature = (ls.Values[KLlmTemperature] as double?) ?? s.LlmTemperature;
             s.LlmMaxOutputTokens = (ls.Values[KLlmMaxOutputTokens] as int?) ?? s.LlmMaxOutputTokens;
@@ -278,6 +287,8 @@ internal sealed class AppSettings
                 s.ThreadsBatch = dto.ThreadsBatch > 0 ? dto.ThreadsBatch : 6;
             if (Has(nameof(FileDto.FlashAttn)))
                 s.FlashAttn = dto.FlashAttn;
+            if (Has(nameof(FileDto.QualifiedProfile)))
+                s.QualifiedProfile = dto.QualifiedProfile;
 
             s.StartupTimeoutSeconds = dto.StartupTimeoutSeconds <= 0 ? 60 : dto.StartupTimeoutSeconds;
 
@@ -358,6 +369,8 @@ internal sealed class AppSettings
             ls.Values[KThreadsBatch] = ThreadsBatch;
             if (FlashAttn is null) ls.Values.Remove(KFlashAttn);
             else ls.Values[KFlashAttn] = FlashAttn.Value ? "on" : "off";
+            if (QualifiedProfile is null) ls.Values.Remove(KQualifiedProfile);
+            else ls.Values[KQualifiedProfile] = JsonSerializer.Serialize(QualifiedProfile, new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
             ls.Values.Remove("llm.strictMode");
             ls.Values[KLlmTemperature] = LlmTemperature;
@@ -403,6 +416,7 @@ internal sealed class AppSettings
                 UbatchSize,
                 ThreadsBatch,
                 FlashAttn,
+                QualifiedProfile,
                 StartupTimeoutSeconds,
                 LlmTemperature,
                 LlmMaxOutputTokens,
@@ -430,6 +444,23 @@ internal sealed class AppSettings
         "off" => false,
         _     => null   // absent or "auto"
     };
+
+    private static QualifiedProfile? ParseQualifiedProfile(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<QualifiedProfile>(
+                json,
+                new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
     // --- Compatibility helpers (UI / older patches) ---
 
@@ -460,6 +491,7 @@ internal sealed class AppSettings
         UbatchSize = this.UbatchSize,
         ThreadsBatch = this.ThreadsBatch,
         FlashAttn = this.FlashAttn,
+        QualifiedProfile = this.QualifiedProfile,
         StartupTimeoutSeconds = this.StartupTimeoutSeconds,
 
         ActiveMode = this.ActiveMode,
@@ -495,6 +527,7 @@ internal sealed class AppSettings
         UbatchSize = other.UbatchSize;
         ThreadsBatch = other.ThreadsBatch;
         FlashAttn = other.FlashAttn;
+        QualifiedProfile = other.QualifiedProfile;
         StartupTimeoutSeconds = other.StartupTimeoutSeconds;
 
         ActiveMode = NormalizeActiveMode(other.ActiveMode);

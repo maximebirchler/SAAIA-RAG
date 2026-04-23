@@ -32,7 +32,7 @@
 | Migrations SQL | Backend | [~] Stables | 28 fichiers, doublons legacy 004/008 documentes safe |
 | Tuning LLM client | Client | [x] Fait Patch 1+2 | GgufMetadataReader, ngl=block_count, batch>=512, ctx=3072, ubatch=256, threads-batch=6, flash-attn CUDA auto |
 | Budget VRAM observe (DXGI) | Client | [ ] Absent | Seule la VRAM installee est lue (nvidia-smi / CIM) — budget courant DXGI non implemente |
-| Gouvernance llama-server client | Client | [ ] Absent | Artefacts client (warmup gate local LLM, profil qualifie, blacklist, rollback) absents — a distinguer des artefacts backend A/B qui existent |
+| Gouvernance llama-server client | Client | [~] Socle Patch 4 | Artefacts locaux `snake_case`, `QualifiedProfile`, checksums sidecar et defaults poses ; warmup gate / rollback / blacklist runtime restent Patch 5 |
 | Cycle de vie runtime (sleep/wake) | Client | [~] Partiel | ManageLocalLlmProcess + AutoStartOnConnect presents ; idleTimeoutSeconds, EagerLoad, drain avant sleep absents |
 | Checksums modeles | Client | [~] Partiel | Infrastructure SHA-256 presente ; warning logge si Sha256Hex=null (Patch 3) ; valeurs reelles non encore calculees (Phase 3) |
 | Endpoint support bundle admin | Backend | [x] Fait Patch 3 | `POST /admin/support/bundle` presente — ZIP stagé, artifacts/missingArtifacts, auth X-Admin-Key |
@@ -53,7 +53,7 @@
 - [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` — OK, 0 Warning
 - [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` — OK, 0 Warning
 - [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` — 335/335 verts
-- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 258/258 verts
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 262/262 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
 
@@ -209,30 +209,31 @@ Ces items constituent la gouvernance LLM complete. Ils peuvent commencer en para
 - `client/SAAIA.Client.WinUI/Services/AppSettings.cs` (champ `QualifiedProfile`)
 
 **Travaux** :
-- [ ] Creer squelette `model_catalog.json` (modelId, version, source, checksum, licenseFamily, commercialUseThresholdMau, etats metier/artefact)
+- [x] Creer squelette `model_catalog.json` (modelId, version, source, checksum, licenseFamily, commercialUseThresholdMau, etats metier/artefact)
   - Exemple Qwen : `licenseFamily = "qwen"`, `commercialUseThresholdMau = 100000000`
   - Ne jamais utiliser `"licenseType": "apache-2.0"` pour Qwen Research
-- [ ] Creer squelette `model_collections.json` (collections client/backend, scope, modelIds, visibleInInstaller)
-- [ ] Creer squelette `model_policy.json` (allowDiscovery=false, requireChecksum=true, maxActiveModelsClient=1, blacklistRef)
-- [ ] Creer squelette `model_sources.json` (huggingface, http-mirror, local-bundle avec requiresChecksum et allowedInAirGap)
-- [ ] Creer squelettes runtime : `warmup_profiles.json`, `warmup_results.json`, `hardware_probe.json`, `last_known_good_profile.json`, `blacklist.json`, `capability_state.json`, `acquisition_log.json`
-- [ ] Creer classe / record `QualifiedProfile` avec champs requis (§9.9 CDC) : `runtime`, `modelId`, `ctxSize`, `batchSize`, `ubatchSize`, `threads`, `threadsBatch`, `ngl`, `flashAttn`, `mlock`, `batteryPolicyRef`, `fallbackProfileRef`
-- [ ] DECISION DE NOMMAGE JSON A TRANCHER EN PATCH 4 — ne pas laisser coexister deux conventions :
+- [x] Creer squelette `model_collections.json` (collections client/backend, scope, modelIds, visibleInInstaller)
+- [x] Creer squelette `model_policy.json` (allowDiscovery=false, requireChecksum=true, maxActiveModelsClient=1, blacklistRef)
+- [x] Creer squelette `model_sources.json` (huggingface, http-mirror, local-bundle avec requiresChecksum et allowedInAirGap)
+- [x] Creer squelettes runtime : `warmup_profiles.json`, `warmup_results.json`, `hardware_probe.json`, `last_known_good_profile.json`, `blacklist.json`, `capability_state.json`, `acquisition_log.json`
+- [x] Creer classe / record `QualifiedProfile` avec champs requis (§9.9 CDC) : `runtime`, `modelId`, `ctxSize`, `batchSize`, `ubatchSize`, `threads`, `threadsBatch`, `ngl`, `flashAttn`, `mlock`, `batteryPolicyRef`, `fallbackProfileRef`
+- [x] DECISION DE NOMMAGE JSON A TRANCHER EN PATCH 4 — ne pas laisser coexister deux conventions :
   - Backend API (existant) : `kebab-case` dans les URL (`model-catalog.json`, `warmup-profiles.json`, `capability-state.json`)
   - CDC §5.8 (spec) : `snake_case` pour les fichiers locaux (`model_catalog.json`, `warmup_profiles.json`)
   - DECISION RECOMMANDEE : **`snake_case` pour les artefacts disque locaux** (conforme CDC, fichiers locaux client) ; **`kebab-case` conserve pour les segments de path API** (conforme backend existant). Ne jamais melanger les deux dans le meme contexte.
   - Documenter la decision dans un commentaire de `GovernanceArtifactStore.cs` pour eviter la derive future.
-- [ ] `GovernanceArtifactStore` : lecture/ecriture avec checksum SHA-256 (§5.9)
-  - Persistance avec versioning timestamp
+- [x] `GovernanceArtifactStore` : lecture/ecriture avec checksum SHA-256 (§5.9)
+  - Persistance atomique avec sidecar `.sha256`
   - Startup integrity check : refus si checksum invalide, mode degrade pas crash
-  - Acces ecriture reserve aux processus autorises
-- [ ] `LocalLlmBootstrapper` : construire un `QualifiedProfile` structure au lieu de concatener une chaine ExtraArgs
+  - Acces ecriture reserve au code interne client
+- [~] `LocalLlmBootstrapper` : initialise un `QualifiedProfile` de reference et les artefacts ; la construction complete des args depuis le profil reste a finir avec le warmup gate Patch 5
 
 **Tests a lancer / a ajouter** :
-- [ ] Test serialisation/deserialisation `QualifiedProfile` roundtrip
-- [ ] Test `GovernanceArtifactStore` : ecriture + relecture + verification checksum
-- [ ] Test startup integrity : artefact corrompu -> mode degrade (pas exception non geree)
-- [ ] `dotnet test backend/SAAIA.Backend.Tests/...` vert (335/335)
+- [x] Test serialisation/deserialisation `QualifiedProfile` roundtrip
+- [x] Test `GovernanceArtifactStore` : ecriture + relecture + verification checksum
+- [x] Test startup integrity : artefact corrompu -> mode degrade (pas exception non geree)
+- [x] `dotnet test backend/SAAIA.Backend.Tests/...` vert (335/335)
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/...` vert (262/262)
 
 ---
 
@@ -411,6 +412,14 @@ Ce qui manque pour le contrat CDC :
 - [x] `POST /admin/support/bundle` : endpoint backend ZIP with staging + auth + artifacts/missingArtifacts
 - [x] Warning logge si `Sha256Hex = null` pour un modele connu (LLM-008)
 
+### Phase 3 / Patch 4 — Socle gouvernance modeles client (CDC v3.1 §5.8 / §9)
+
+- [x] Artefacts locaux `snake_case` sous `%LOCALAPPDATA%\SAAIA\governance`
+- [x] Stores `GovernanceArtifactStore`, `ModelCatalogStore`, `WarmupProfileStore`
+- [x] `QualifiedProfile` de reference : profil B interactif + profil C fallback
+- [x] Sidecars `.sha256` et lecture degradee si corruption
+- [x] Tests client ajoutes : roundtrip profil, checksum, corruption, creation defaults
+
 ### Gaps fermes
 
 - [x] `hypQuestionsMatched` verrouille par deux tests explicites
@@ -435,3 +444,4 @@ Ce qui manque pour le contrat CDC :
 | 2026-04-22 | Codex | Wire LLM durci + baseline artefacts runtime/admin versionnee (333 tests verts) |
 | 2026-04-23 | Assistant IA | Mise a jour TODO : analyse drift CDC v3.1, LLM-005 a LLM-018, gouvernance modeles |
 | 2026-04-23 | Assistant IA | Restructuration TODO : renommage scope Client+Backend, Phase 0A/0B, 5 patchs atomiques |
+| 2026-04-23 | Codex | Patch 4 socle : artefacts gouvernance client, `QualifiedProfile`, checksums, 262 tests client verts |
