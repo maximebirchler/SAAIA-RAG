@@ -171,6 +171,7 @@ Travaux independants de la gouvernance complete, livrable avant Phase 3.
   - [~] Renseigner les SHA-256 reels pour Qwen2.5-3B-Instruct-Q4_K_M.gguf et autres modeles du pack
     > Qwen2.5-3B-Instruct-Q4_K_M.gguf renseigne : `9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94`
     > Restent a calculer sur machine de reference : Q4_0, Q4_K_S, Q6_K, Mistral Q4_K_M, Mistral Q6_K
+    > Script local ajoute : `tools/compute-model-reference-checksums.ps1` pour scanner `models/` + `%LOCALAPPDATA%\\SAAIA\\Models` et produire l'etat reel des hashes disponibles
 - [x] `SupportBundleBuilder` (client leger) : pas de changement en Patch 3 — Phase 3 l'enrichira quand les artefacts governance existeront
 
 **Tests a lancer / a ajouter** :
@@ -473,3 +474,4 @@ Ce qui manque pour le contrat CDC :
 | 2026-04-23 | Codex | Quarantaine checksum modele : blocage pre-start, renommage `.quarantine`, journal `acquisition_log.json`, statut UX dedie, 293 tests client verts |
 | 2026-04-23 | Codex | Reference checksum Qwen2.5 3B Q4_K_M renseignee dans `model_catalog.json`/bootstrap, 294 tests client verts |
 | 2026-04-23 | Codex | Wake-on-demand : `LastStartupLoadMs` mesure le vrai chargement et l'injecte dans `warmup_results.json` via `runtime.observed_start_load_ms` |
+| 2026-04-23 | Codex | Script `tools/compute-model-reference-checksums.ps1` ajoute ; etat machine confirme : 1 modele pack trouve, 5 manquants |
