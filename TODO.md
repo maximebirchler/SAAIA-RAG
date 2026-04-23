@@ -321,15 +321,15 @@ Ce qui manque pour le contrat CDC :
 ### UX etats runtime LLM (§14.3) — contractuel
 
 - [~] Verifier dans `MainWindow/LocalLlm.cs` les etats suivants (absents = bug UX) :
-  - [ ] Wake en cours -> "Chargement du modele en cours..." (Info)
+  - [x] Wake en cours -> "Chargement du modele en cours..." (Info)
   - [ ] Warmup en cours -> "Verification de compatibilite en cours..." (Info)
   - [~] Pret (profil nominal) -> aucun message (transparent)
-  - [ ] Profil degrade actif -> "Mode performance reduite actif" (Avertissement)
-  - [ ] Fallback actif -> "Profil de secours actif" (Avertissement)
+  - [x] Profil degrade actif -> "Mode performance reduite actif." (Avertissement)
+  - [x] Fallback actif -> "Profil de secours actif." (Avertissement)
   - [~] Generation en cours -> indicateur streaming visible
-  - [ ] Erreur warmup -> "Assistant temporairement indisponible" (Erreur)
+  - [x] Erreur warmup -> "Assistant temporairement indisponible." (Erreur)
   - [ ] Mismatch checksum / quarantaine -> "Modele non disponible — contactez l'administrateur" (Erreur)
-  - [ ] Requalification necessaire -> notification admin uniquement
+  - [x] Requalification necessaire -> ligne de statut LLM existante (sans nouvelle vue surchargee)
 
 ### Telemetrie GPU multi-vendor (§15.2.1)
 
@@ -439,7 +439,7 @@ Ce qui manque pour le contrat CDC :
 - [x] Triggers requalification modele/runtime : derive detectee au bootstrap depuis `QualifiedProfile` vs runtime/modeles courants
 - [x] Trigger requalification driver : comparaison `gpuDriverVersion` courant vs `hardware_probe.json`
 - [x] Application runtime v1 : `EagerLoad` branche sur le connect/startup et `idleTimeoutSeconds` pilote par profil/policy avec heartbeat d'activite LLM
-- [~] Reste a faire : UX des policies et mesure `LoadMs` dediee wake-on-demand
+- [~] Reste a faire : warmup explicite, quarantaine checksum et mesure `LoadMs` dediee wake-on-demand
 
 ### Gaps fermes
 

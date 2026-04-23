@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SAAIA.Client.WinUI.Services;
 
@@ -30,6 +31,12 @@ internal sealed record WarmupThresholds(
 
 internal static class WarmupProfileStore
 {
+    public static WarmupProfileItem? FindProfile(string? profileId)
+        => string.IsNullOrWhiteSpace(profileId)
+            ? null
+            : CreateDefaultWarmupProfiles().Items.FirstOrDefault(item =>
+                string.Equals(item.ProfileId, profileId, StringComparison.OrdinalIgnoreCase));
+
     public static WarmupProfilesArtifact CreateDefaultWarmupProfiles() => new(
         GovernanceArtifactStore.WarmupProfilesFile,
         "v3.1",

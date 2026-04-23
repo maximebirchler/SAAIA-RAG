@@ -27,6 +27,7 @@ public sealed partial class MainWindow
             LocalLlmStatusText.Text = _llmProc.IsRunning ? "Running." : "";
             LocalLlmCmdLineBox.Text = _llmProc.LastCommandLine ?? "";
             RefreshLocalLlmModelInfoText();
+            _ = RefreshLocalLlmGovernanceStatusAsync();
         }
         catch
         {
@@ -110,6 +111,38 @@ public sealed partial class MainWindow
         return ok;
     }
 
+    private async Task RefreshLocalLlmGovernanceStatusAsync()
+    {
+        try
+        {
+            var settings = AppSettings.Load();
+            var status = await LocalLlmRuntimeStatusService.EvaluateAsync(settings).ConfigureAwait(false);
+            var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            if (!DispatcherQueue.TryEnqueue(() =>
+            {
+                try
+                {
+                    if (status is not null)
+                        LocalLlmStatusText.Text = status.Message;
+                    tcs.SetResult();
+                }
+                catch (Exception ex)
+                {
+                    tcs.SetException(ex);
+                }
+            }))
+            {
+                return;
+            }
+
+            await tcs.Task.ConfigureAwait(false);
+        }
+        catch
+        {
+            // non bloquant
+        }
+    }
+
     private async Task<bool> EnsureLocalLlmStartedAsync(CancellationToken ct)
     {
         _appSettings = ReadLocalLlmSettingsFromUi();
@@ -124,6 +157,7 @@ public sealed partial class MainWindow
         // reflect URL/model
         LlmUrlBox.Text = _appSettings.LlmBaseUrl;
         LlmModelBox.Text = _appSettings.ModelId;
+        await RefreshLocalLlmGovernanceStatusAsync();
 
         return ok;
     }
