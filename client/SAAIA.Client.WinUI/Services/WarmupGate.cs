@@ -71,6 +71,7 @@ internal static class WarmupGate
         string model,
         ILocalLlmWarmupHarness? harness = null,
         string? root = null,
+        int? observedLoadMs = null,
         string? driverVersion = null,
         string? hardwareFingerprint = null,
         string? trigger = null,
@@ -93,15 +94,19 @@ internal static class WarmupGate
                     model,
                     ct: ct).ConfigureAwait(false);
 
-                runs.Add(LocalLlmWarmupHarness.AggregateScenarioMeasurements(scenarioRuns));
+                runs.Add(ApplyObservedLoad(
+                    LocalLlmWarmupHarness.AggregateScenarioMeasurements(scenarioRuns),
+                    observedLoadMs));
                 continue;
             }
 
-            runs.Add(await harness.RunOnceAsync(
-                llmBaseUrl,
-                model,
-                LocalLlmWarmupHarnessOptions.Default,
-                ct).ConfigureAwait(false));
+            runs.Add(ApplyObservedLoad(
+                await harness.RunOnceAsync(
+                    llmBaseUrl,
+                    model,
+                    LocalLlmWarmupHarnessOptions.Default,
+                    ct).ConfigureAwait(false),
+                observedLoadMs));
         }
 
         return await EvaluateAsync(
@@ -113,6 +118,23 @@ internal static class WarmupGate
                 trigger ?? "warmup_harness"),
             root,
             ct).ConfigureAwait(false);
+    }
+
+    private static WarmupMeasurement ApplyObservedLoad(WarmupMeasurement measurement, int? observedLoadMs)
+    {
+        if (observedLoadMs is null || observedLoadMs.Value <= 0)
+            return measurement;
+
+        var runtimeMetrics = measurement.RuntimeMetrics is null
+            ? new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, double>(measurement.RuntimeMetrics, StringComparer.OrdinalIgnoreCase);
+        runtimeMetrics["runtime.observed_start_load_ms"] = observedLoadMs.Value;
+
+        return measurement with
+        {
+            LoadMs = Math.Max(measurement.LoadMs, observedLoadMs.Value),
+            RuntimeMetrics = runtimeMetrics
+        };
     }
 
     public static async Task<WarmupGateResult> EvaluateAsync(

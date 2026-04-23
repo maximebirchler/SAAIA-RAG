@@ -441,7 +441,7 @@ Ce qui manque pour le contrat CDC :
 - [x] Triggers requalification modele/runtime : derive detectee au bootstrap depuis `QualifiedProfile` vs runtime/modeles courants
 - [x] Trigger requalification driver : comparaison `gpuDriverVersion` courant vs `hardware_probe.json`
 - [x] Application runtime v1 : `EagerLoad` branche sur le connect/startup et `idleTimeoutSeconds` pilote par profil/policy avec heartbeat d'activite LLM
-- [~] Reste a faire : checksums de reference reels restants et mesure `LoadMs` dediee wake-on-demand
+- [~] Reste a faire : checksums de reference reels restants
 
 ### Gaps fermes
 
@@ -472,3 +472,4 @@ Ce qui manque pour le contrat CDC :
 | 2026-04-23 | Codex | Warmup UX/client : demarrage manuel aligne sur le warmup gate, statut nominal transparent, 290 tests client verts |
 | 2026-04-23 | Codex | Quarantaine checksum modele : blocage pre-start, renommage `.quarantine`, journal `acquisition_log.json`, statut UX dedie, 293 tests client verts |
 | 2026-04-23 | Codex | Reference checksum Qwen2.5 3B Q4_K_M renseignee dans `model_catalog.json`/bootstrap, 294 tests client verts |
+| 2026-04-23 | Codex | Wake-on-demand : `LastStartupLoadMs` mesure le vrai chargement et l'injecte dans `warmup_results.json` via `runtime.observed_start_load_ms` |

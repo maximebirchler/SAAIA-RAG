@@ -20,6 +20,7 @@ internal sealed class LlamaCppProcessManager
 
     public string? LastCommandLine { get; private set; }
     public string? LastLogFile { get; private set; }
+    public int? LastStartupLoadMs { get; private set; }
     public int IdleTimeoutSeconds => _idleTimeoutSeconds;
 
     /// <summary>
@@ -29,6 +30,7 @@ internal sealed class LlamaCppProcessManager
     public void Stop()
     {
         DisposeIdleTimer();
+        LastStartupLoadMs = null;
         if (_proc is null) return;
 
         try
@@ -95,6 +97,7 @@ internal sealed class LlamaCppProcessManager
     {
         // Stop any previous instance we manage
         Stop();
+        LastStartupLoadMs = null;
 
         var host = "127.0.0.1";
         var port = 1234;
@@ -129,6 +132,7 @@ internal sealed class LlamaCppProcessManager
 
         try
         {
+            var startupSw = Stopwatch.StartNew();
             _proc = Process.Start(psi);
             if (_proc is null)
                 return (false, "Failed to start llama-server process.");
@@ -144,6 +148,8 @@ internal sealed class LlamaCppProcessManager
             // If args include a known port/host, use that.
             var baseUrl = $"http://{host}:{port}";
             var ok = await WaitModelsReadyAsync(baseUrl, timeoutSeconds: 120, ct).ConfigureAwait(false);
+            startupSw.Stop();
+            LastStartupLoadMs = (int)Math.Min(int.MaxValue, startupSw.ElapsedMilliseconds);
 
             if (!ok)
             {

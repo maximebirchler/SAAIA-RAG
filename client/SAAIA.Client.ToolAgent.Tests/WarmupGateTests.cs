@@ -205,6 +205,7 @@ public sealed class WarmupGateTests
                 "local",
                 harness,
                 root,
+                observedLoadMs: 28000,
                 driverVersion: "573.71",
                 hardwareFingerprint: "test-fp",
                 trigger: "unit-test");
@@ -216,6 +217,9 @@ public sealed class WarmupGateTests
                 GovernanceArtifactStore.WarmupResultsFile,
                 root);
             Assert.Equal("unit-test", warmupResults.Value!.Items[0].Trigger);
+            Assert.Equal(28000, warmupResults.Value.Items[0].LastLoadMs);
+            Assert.NotNull(warmupResults.Value.Items[0].RuntimeMetrics);
+            Assert.Equal(28000, warmupResults.Value.Items[0].RuntimeMetrics!["runtime.observed_start_load_ms"]);
         }
         finally
         {

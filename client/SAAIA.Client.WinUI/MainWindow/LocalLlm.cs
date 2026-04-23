@@ -108,7 +108,14 @@ public sealed partial class MainWindow
         TrySoftUi("EnsureLocalLlmAwakeForRequestAsync.Done", () =>
         {
             if (ok)
-                SetAssistantProgress(assistantMsg, "Modele pret. Je prepare la reponse...");
+            {
+                var loadMs = _llmProc.LastStartupLoadMs;
+                SetAssistantProgress(
+                    assistantMsg,
+                    loadMs is > 0
+                        ? $"Modele pret en {loadMs.Value / 1000d:0.0}s. Je prepare la reponse..."
+                        : "Modele pret. Je prepare la reponse...");
+            }
         });
 
         return ok;
@@ -136,6 +143,7 @@ public sealed partial class MainWindow
             settings.LlmBaseUrl,
             settings.ModelId,
             root: null,
+            observedLoadMs: _llmProc.LastStartupLoadMs,
             trigger: "client_runtime_start",
             ct: ct).ConfigureAwait(false);
 
