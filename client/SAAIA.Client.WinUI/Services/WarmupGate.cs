@@ -21,7 +21,9 @@ internal sealed record WarmupMeasurement(
     bool Succeeded = true,
     string? Error = null,
     int? PeakRamMiB = null,
-    int? PeakVramMiB = null);
+    int? PeakVramMiB = null,
+    double? MsPerToken = null,
+    IReadOnlyDictionary<string, double>? RuntimeMetrics = null);
 
 internal sealed record WarmupGateRequest(
     QualifiedProfile Profile,
@@ -53,6 +55,8 @@ internal sealed record WarmupResultItem(
     int? LastLoadMs,
     int? LastTtftMs,
     double? LastTokPerSec,
+    double? LastMsPerToken,
+    IReadOnlyDictionary<string, double>? RuntimeMetrics,
     IReadOnlyList<string> Reasons,
     string? HardwareFingerprint,
     string? Trigger);
@@ -254,6 +258,8 @@ internal static class WarmupGate
             last?.LoadMs,
             last?.TtftMs,
             last?.TokPerSec,
+            last?.MsPerToken,
+            last?.RuntimeMetrics,
             result.Reasons,
             request.HardwareFingerprint,
             request.Trigger));

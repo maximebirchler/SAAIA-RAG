@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -26,7 +27,8 @@ internal sealed record LocalLlmWarmupHarnessOptions(
     TimeSpan PollInterval,
     string Prompt,
     int MaxTokens,
-    double Temperature)
+    double Temperature,
+    bool TryReadRuntimeMetrics = true)
 {
     public static LocalLlmWarmupHarnessOptions Default => new(
         ReadinessTimeout: TimeSpan.FromSeconds(120),
@@ -69,7 +71,17 @@ internal sealed class LocalLlmWarmupHarness : ILocalLlmWarmupHarness
         if (!ready.Ok)
             return new WarmupMeasurement(loadMs, 0, 0, Succeeded: false, Error: ready.Error);
 
-        return await MeasureChatAsync(baseUrl, model, options, loadMs, ct).ConfigureAwait(false);
+        var beforeMetrics = options.TryReadRuntimeMetrics
+            ? await TryReadMetricsAsync(baseUrl, ct).ConfigureAwait(false)
+            : null;
+
+        var measurement = await MeasureChatAsync(baseUrl, model, options, loadMs, ct).ConfigureAwait(false);
+        if (!options.TryReadRuntimeMetrics)
+            return measurement;
+
+        var afterMetrics = await TryReadMetricsAsync(baseUrl, ct).ConfigureAwait(false);
+        var mergedMetrics = MergeMetrics(beforeMetrics, afterMetrics);
+        return measurement with { RuntimeMetrics = mergedMetrics.Count == 0 ? null : mergedMetrics };
     }
 
     private async Task<(bool Ok, string? Error)> WaitReadyAsync(
@@ -204,7 +216,11 @@ internal sealed class LocalLlmWarmupHarness : ILocalLlmWarmupHarness
         var tokenCount = EstimateTokenCount(generatedText.ToString());
         var decodeMs = Math.Max(1, sw.ElapsedMilliseconds - firstTokenMs);
         var tokPerSec = tokenCount / (decodeMs / 1000.0);
-        return new WarmupMeasurement(loadMs, firstTokenMs, tokPerSec);
+        return new WarmupMeasurement(
+            loadMs,
+            firstTokenMs,
+            tokPerSec,
+            MsPerToken: decodeMs / (double)Math.Max(1, tokenCount));
     }
 
     private static async Task<WarmupMeasurement> ReadJsonMeasurementAsync(
@@ -221,7 +237,11 @@ internal sealed class LocalLlmWarmupHarness : ILocalLlmWarmupHarness
         var elapsedMs = Math.Max(1, (int)Math.Min(int.MaxValue, sw.ElapsedMilliseconds));
         return string.IsNullOrWhiteSpace(text)
             ? new WarmupMeasurement(loadMs, elapsedMs, 0, Succeeded: false, Error: "no_content")
-            : new WarmupMeasurement(loadMs, elapsedMs, tokenCount / (elapsedMs / 1000.0));
+            : new WarmupMeasurement(
+                loadMs,
+                elapsedMs,
+                tokenCount / (elapsedMs / 1000.0),
+                MsPerToken: elapsedMs / (double)Math.Max(1, tokenCount));
     }
 
     private static string TryExtractDelta(string json)
@@ -277,5 +297,77 @@ internal sealed class LocalLlmWarmupHarness : ILocalLlmWarmupHarness
 
         var charEstimate = (int)Math.Ceiling(text.Length / 4.0);
         return Math.Max(1, Math.Max(wordish, charEstimate));
+    }
+
+    private async Task<IReadOnlyDictionary<string, double>?> TryReadMetricsAsync(
+        string baseUrl,
+        CancellationToken ct)
+    {
+        try
+        {
+            var metricsUri = new Uri(new Uri(baseUrl + "/", UriKind.Absolute), "metrics");
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(2));
+
+            using var resp = await _http.GetAsync(metricsUri, cts.Token).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode)
+                return null;
+
+            var text = await resp.Content.ReadAsStringAsync(cts.Token).ConfigureAwait(false);
+            return ParsePrometheusMetrics(text);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    internal static IReadOnlyDictionary<string, double> ParsePrometheusMetrics(string text)
+    {
+        var metrics = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(text))
+            return metrics;
+
+        using var reader = new StringReader(text);
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            line = line.Trim();
+            if (line.Length == 0 || line.StartsWith("#", StringComparison.Ordinal))
+                continue;
+
+            var split = line.LastIndexOf(' ');
+            if (split <= 0 || split >= line.Length - 1)
+                continue;
+
+            var key = line[..split].Trim();
+            var valueText = line[(split + 1)..].Trim();
+            var labelStart = key.IndexOf('{');
+            if (labelStart >= 0)
+                key = key[..labelStart];
+
+            if (double.TryParse(valueText, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+                metrics[key] = value;
+        }
+
+        return metrics;
+    }
+
+    private static IReadOnlyDictionary<string, double> MergeMetrics(
+        IReadOnlyDictionary<string, double>? before,
+        IReadOnlyDictionary<string, double>? after)
+    {
+        var merged = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        if (after is null || after.Count == 0)
+            return merged;
+
+        foreach (var item in after)
+        {
+            merged[item.Key] = item.Value;
+            if (before is not null && before.TryGetValue(item.Key, out var previous))
+                merged[item.Key + "_delta"] = item.Value - previous;
+        }
+
+        return merged;
     }
 }

@@ -10,6 +10,7 @@ public sealed class LocalLlmWarmupHarnessTests
     [Fact]
     public async Task RunOnceAsync_measures_ready_models_and_streaming_first_token()
     {
+        var metricsCalls = 0;
         var handler = new StubHttpHandler(req =>
         {
             if (req.RequestUri!.AbsolutePath.EndsWith("/models", StringComparison.OrdinalIgnoreCase))
@@ -17,6 +18,16 @@ public sealed class LocalLlmWarmupHarnessTests
                 return new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = new StringContent("{\"data\":[{\"id\":\"local\"}]}")
+                };
+            }
+
+            if (req.RequestUri.AbsolutePath.EndsWith("/metrics", StringComparison.OrdinalIgnoreCase))
+            {
+                metricsCalls++;
+                var value = metricsCalls == 1 ? 10 : 14;
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent($"llamacpp_tokens_predicted_total {value}\nllamacpp_kv_cache_used_bytes 1048576\n")
                 };
             }
 
@@ -45,6 +56,10 @@ public sealed class LocalLlmWarmupHarnessTests
         Assert.True(measurement.LoadMs >= 0);
         Assert.True(measurement.TtftMs >= 0);
         Assert.True(measurement.TokPerSec > 0);
+        Assert.NotNull(measurement.RuntimeMetrics);
+        Assert.Equal(14, measurement.RuntimeMetrics!["llamacpp_tokens_predicted_total"]);
+        Assert.Equal(4, measurement.RuntimeMetrics["llamacpp_tokens_predicted_total_delta"]);
+        Assert.True(measurement.MsPerToken > 0);
     }
 
     [Fact]
@@ -78,6 +93,9 @@ public sealed class LocalLlmWarmupHarnessTests
             if (req.RequestUri!.AbsolutePath.EndsWith("/models", StringComparison.OrdinalIgnoreCase))
                 return new HttpResponseMessage(HttpStatusCode.OK);
 
+            if (req.RequestUri.AbsolutePath.EndsWith("/metrics", StringComparison.OrdinalIgnoreCase))
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(
@@ -100,6 +118,20 @@ public sealed class LocalLlmWarmupHarnessTests
 
         Assert.True(measurement.Succeeded);
         Assert.True(measurement.TokPerSec > 0);
+    }
+
+    [Fact]
+    public void ParsePrometheusMetrics_accepts_labels_comments_and_float_values()
+    {
+        var metrics = LocalLlmWarmupHarness.ParsePrometheusMetrics("""
+            # HELP llamacpp metric
+            llamacpp_prompt_tokens_total{slot="0"} 12
+            llamacpp_decode_ms_sum 42.5
+            malformed
+            """);
+
+        Assert.Equal(12, metrics["llamacpp_prompt_tokens_total"]);
+        Assert.Equal(42.5, metrics["llamacpp_decode_ms_sum"]);
     }
 
     private sealed class StubHttpHandler : HttpMessageHandler
