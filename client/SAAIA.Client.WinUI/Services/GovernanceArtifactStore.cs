@@ -145,7 +145,7 @@ internal static class GovernanceArtifactStore
         await WriteIfMissingAsync(WarmupProfilesFile, WarmupProfileStore.CreateDefaultWarmupProfiles(), governanceRoot, ct).ConfigureAwait(false);
 
         await WriteIfMissingAsync(WarmupResultsFile, new WarmupResultsArtifact("warmup_results.json", "v3.1", Array.Empty<WarmupResultItem>()), governanceRoot, ct).ConfigureAwait(false);
-        await WriteIfMissingAsync(HardwareProbeFile, HardwareProbeArtifact.Empty(), governanceRoot, ct).ConfigureAwait(false);
+        await WriteHardwareProbeIfMissingAsync(governanceRoot, ct).ConfigureAwait(false);
         await WriteIfMissingAsync(LastKnownGoodProfileFile, new LastKnownGoodProfileArtifact("last_known_good_profile.json", "v3.1", null, null), governanceRoot, ct).ConfigureAwait(false);
         await WriteIfMissingAsync(BlacklistFile, new BlacklistArtifact("blacklist.json", "v3.1", Array.Empty<BlacklistRule>()), governanceRoot, ct).ConfigureAwait(false);
         await WriteIfMissingAsync(RollbackLogFile, new RollbackLogArtifact("rollback_log.json", "v3.1", Array.Empty<RollbackLogItem>()), governanceRoot, ct).ConfigureAwait(false);
@@ -184,6 +184,18 @@ internal static class GovernanceArtifactStore
             return;
 
         await WriteAsync(fileName, value, root, ct).ConfigureAwait(false);
+    }
+
+    private static async Task WriteHardwareProbeIfMissingAsync(
+        string root,
+        CancellationToken ct)
+    {
+        var path = ResolvePath(HardwareProbeFile, root);
+        if (File.Exists(path) && File.Exists(ChecksumPath(path)))
+            return;
+
+        var probe = await HardwareProbeService.CaptureAsync(ct: ct).ConfigureAwait(false);
+        await WriteAsync(HardwareProbeFile, probe, root, ct).ConfigureAwait(false);
     }
 
     private static string ChecksumPath(string path) => path + ".sha256";

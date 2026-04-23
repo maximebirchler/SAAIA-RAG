@@ -1,0 +1,392 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace SAAIA.Client.WinUI.Services;
+
+internal sealed record SystemMemorySnapshot(
+    long TotalRamBytes,
+    long AvailableRamBytes,
+    string Source);
+
+internal sealed record DxgiVideoMemorySnapshot(
+    ulong BudgetBytes,
+    ulong CurrentUsageBytes,
+    ulong AvailableForReservationBytes,
+    ulong CurrentReservationBytes,
+    string Source);
+
+internal static class HardwareProbeService
+{
+    private static readonly SemaphoreSlim CacheLock = new(1, 1);
+    private static HardwareProbeArtifact? CachedProbe;
+
+    public static async Task<HardwareProbeArtifact> CaptureAsync(
+        bool refresh = false,
+        CancellationToken ct = default)
+    {
+        if (!refresh && CachedProbe is not null)
+            return CachedProbe;
+
+        await CacheLock.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (!refresh && CachedProbe is not null)
+                return CachedProbe;
+
+            var gpu = await GpuDetector.TryGetBestGpuAsync(ct).ConfigureAwait(false);
+            var memory = CaptureSystemMemory();
+            var dxgi = DxgiVideoMemoryProbe.TryQueryBestAdapter(gpu);
+
+            var probe = CreateArtifact(
+                gpu,
+                dxgi,
+                memory,
+                Environment.MachineName,
+                Environment.ProcessorCount,
+                Environment.Is64BitOperatingSystem,
+                DateTimeOffset.UtcNow);
+
+            CachedProbe = probe;
+            return probe;
+        }
+        catch (Exception ex)
+        {
+            return new HardwareProbeArtifact(
+                GovernanceArtifactStore.HardwareProbeFile,
+                "v3.1",
+                "degraded",
+                DateTimeOffset.UtcNow,
+                ComputeFingerprint(Environment.MachineName, Environment.ProcessorCount, Environment.Is64BitOperatingSystem, null),
+                new Dictionary<string, object?>
+                {
+                    ["error"] = ex.GetType().Name
+                });
+        }
+        finally
+        {
+            CacheLock.Release();
+        }
+    }
+
+    internal static HardwareProbeArtifact CreateArtifact(
+        GpuInfo? gpu,
+        DxgiVideoMemorySnapshot? dxgi,
+        SystemMemorySnapshot memory,
+        string machineName,
+        int processorCount,
+        bool is64BitOperatingSystem,
+        DateTimeOffset capturedAt)
+    {
+        var status = gpu is null
+            ? "degraded"
+            : dxgi is null && gpu.DedicatedVramBytes > 0
+                ? "captured_without_dxgi"
+                : "captured";
+
+        var hardware = new Dictionary<string, object?>
+        {
+            ["cpuCount"] = processorCount,
+            ["is64BitOperatingSystem"] = is64BitOperatingSystem,
+            ["totalRamMiB"] = ToMiB(memory.TotalRamBytes),
+            ["availableRamMiB"] = ToMiB(memory.AvailableRamBytes),
+            ["systemMemorySource"] = memory.Source,
+            ["gpuVendor"] = gpu?.Vendor.ToString().ToLowerInvariant(),
+            ["gpuName"] = gpu?.Name,
+            ["gpuDetectionSource"] = gpu?.DetectionSource,
+            ["gpuDedicatedVramMiB"] = gpu?.DedicatedVramMiB ?? 0,
+            ["gpuIsIntegrated"] = gpu?.IsIntegrated,
+            ["dxgiStatus"] = dxgi is null ? "unavailable" : "captured",
+            ["dxgiBudgetMiB"] = dxgi is null ? null : ToMiB(ClampToInt64(dxgi.BudgetBytes)),
+            ["dxgiCurrentUsageMiB"] = dxgi is null ? null : ToMiB(ClampToInt64(dxgi.CurrentUsageBytes)),
+            ["dxgiAvailableForReservationMiB"] = dxgi is null ? null : ToMiB(ClampToInt64(dxgi.AvailableForReservationBytes)),
+            ["dxgiCurrentReservationMiB"] = dxgi is null ? null : ToMiB(ClampToInt64(dxgi.CurrentReservationBytes)),
+            ["dxgiSource"] = dxgi?.Source
+        };
+
+        return new HardwareProbeArtifact(
+            GovernanceArtifactStore.HardwareProbeFile,
+            "v3.1",
+            status,
+            capturedAt,
+            ComputeFingerprint(machineName, processorCount, is64BitOperatingSystem, gpu),
+            hardware);
+    }
+
+    private static SystemMemorySnapshot CaptureSystemMemory()
+    {
+        try
+        {
+            var info = GC.GetGCMemoryInfo();
+            var total = info.TotalAvailableMemoryBytes > 0 ? info.TotalAvailableMemoryBytes : 0;
+            return new SystemMemorySnapshot(total, 0, "gc");
+        }
+        catch
+        {
+            return new SystemMemorySnapshot(0, 0, "unavailable");
+        }
+    }
+
+    private static long ToMiB(long bytes) => bytes <= 0 ? 0 : bytes / 1024 / 1024;
+
+    private static long ClampToInt64(ulong value)
+        => value > long.MaxValue ? long.MaxValue : (long)value;
+
+    private static string ComputeFingerprint(
+        string machineName,
+        int processorCount,
+        bool is64BitOperatingSystem,
+        GpuInfo? gpu)
+    {
+        var text = string.Join(
+            "|",
+            machineName ?? string.Empty,
+            processorCount.ToString(CultureInfo.InvariantCulture),
+            is64BitOperatingSystem ? "x64" : "x86",
+            gpu?.Vendor.ToString() ?? string.Empty,
+            gpu?.Name ?? string.Empty,
+            gpu?.DedicatedVramBytes.ToString(CultureInfo.InvariantCulture) ?? "0",
+            gpu?.IsIntegrated.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
+
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text))).ToLowerInvariant();
+    }
+}
+
+internal static class DxgiVideoMemoryProbe
+{
+    private const int DxgiErrorNotFound = unchecked((int)0x887A0002);
+    private const int SOk = 0;
+
+    public static DxgiVideoMemorySnapshot? TryQueryBestAdapter(GpuInfo? preferredGpu)
+    {
+        if (!OperatingSystem.IsWindows())
+            return null;
+
+        IDXGIFactory1? factory = null;
+        try
+        {
+            var iid = typeof(IDXGIFactory1).GUID;
+            var hr = CreateDXGIFactory1(ref iid, out factory);
+            if (hr != SOk || factory is null)
+                return null;
+
+            IDXGIAdapter1? bestAdapter = null;
+            DXGI_ADAPTER_DESC1 bestDesc = default;
+
+            for (uint index = 0; ; index++)
+            {
+                IDXGIAdapter1? adapter = null;
+                try
+                {
+                    hr = factory.EnumAdapters1(index, out adapter);
+                    if (hr == DxgiErrorNotFound)
+                        break;
+                    if (hr != SOk || adapter is null)
+                        continue;
+
+                    adapter.GetDesc1(out var desc);
+                    if (!IsBetterMatch(preferredGpu, desc, bestAdapter is null, bestDesc))
+                    {
+                        Marshal.FinalReleaseComObject(adapter);
+                        continue;
+                    }
+
+                    if (bestAdapter is not null)
+                        Marshal.FinalReleaseComObject(bestAdapter);
+
+                    bestAdapter = adapter;
+                    bestDesc = desc;
+                }
+                catch
+                {
+                    if (adapter is not null)
+                        Marshal.FinalReleaseComObject(adapter);
+                }
+            }
+
+            if (bestAdapter is null)
+                return null;
+
+            try
+            {
+                return TryQueryAdapter3(bestAdapter);
+            }
+            finally
+            {
+                Marshal.FinalReleaseComObject(bestAdapter);
+            }
+        }
+        catch
+        {
+            return null;
+        }
+        finally
+        {
+            if (factory is not null)
+                Marshal.FinalReleaseComObject(factory);
+        }
+    }
+
+    private static bool IsBetterMatch(
+        GpuInfo? preferredGpu,
+        DXGI_ADAPTER_DESC1 candidate,
+        bool noCurrent,
+        DXGI_ADAPTER_DESC1 current)
+    {
+        if (noCurrent)
+            return true;
+
+        if (preferredGpu is not null)
+        {
+            var preferredName = Normalize(preferredGpu.Name);
+            var candidateName = Normalize(candidate.Description);
+            var currentName = Normalize(current.Description);
+            var candidateMatches = candidateName.Contains(preferredName, StringComparison.Ordinal)
+                || preferredName.Contains(candidateName, StringComparison.Ordinal);
+            var currentMatches = currentName.Contains(preferredName, StringComparison.Ordinal)
+                || preferredName.Contains(currentName, StringComparison.Ordinal);
+
+            if (candidateMatches != currentMatches)
+                return candidateMatches;
+        }
+
+        return candidate.DedicatedVideoMemory.ToUInt64() > current.DedicatedVideoMemory.ToUInt64();
+    }
+
+    private static DxgiVideoMemorySnapshot? TryQueryAdapter3(IDXGIAdapter1 adapter)
+    {
+        var unk = IntPtr.Zero;
+        var adapter3Ptr = IntPtr.Zero;
+        try
+        {
+            unk = Marshal.GetIUnknownForObject(adapter);
+            var iid = typeof(IDXGIAdapter3).GUID;
+            var hr = Marshal.QueryInterface(unk, ref iid, out adapter3Ptr);
+            if (hr != SOk || adapter3Ptr == IntPtr.Zero)
+                return null;
+
+            var adapter3 = (IDXGIAdapter3)Marshal.GetObjectForIUnknown(adapter3Ptr);
+            adapter3.QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP.Local, out var info);
+            return new DxgiVideoMemorySnapshot(
+                info.Budget,
+                info.CurrentUsage,
+                info.AvailableForReservation,
+                info.CurrentReservation,
+                "dxgi_query_video_memory_info");
+        }
+        catch
+        {
+            return null;
+        }
+        finally
+        {
+            if (adapter3Ptr != IntPtr.Zero)
+                Marshal.Release(adapter3Ptr);
+            if (unk != IntPtr.Zero)
+                Marshal.Release(unk);
+        }
+    }
+
+    private static string Normalize(string text)
+        => new((text ?? string.Empty)
+            .Where(static c => !char.IsWhiteSpace(c) && c != '\0')
+            .Select(static c => char.ToUpperInvariant(c))
+            .ToArray());
+
+    [DllImport("dxgi.dll")]
+    private static extern int CreateDXGIFactory1(ref Guid riid, out IDXGIFactory1? ppFactory);
+
+    [ComImport]
+    [Guid("770aae78-f26f-4dba-a829-253c83d1b387")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IDXGIFactory1
+    {
+        void SetPrivateData();
+        void SetPrivateDataInterface();
+        void GetPrivateData();
+        void GetParent();
+        void EnumAdapters(uint adapter, out IntPtr ppAdapter);
+        void MakeWindowAssociation();
+        void GetWindowAssociation();
+        void CreateSwapChain();
+        void CreateSoftwareAdapter();
+        [PreserveSig]
+        int EnumAdapters1(uint adapter, out IDXGIAdapter1? ppAdapter);
+        void IsCurrent();
+    }
+
+    [ComImport]
+    [Guid("29038f61-3839-4626-91fd-086879011a05")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IDXGIAdapter1
+    {
+        void SetPrivateData();
+        void SetPrivateDataInterface();
+        void GetPrivateData();
+        void GetParent();
+        void EnumOutputs();
+        void GetDesc();
+        void CheckInterfaceSupport();
+        void GetDesc1(out DXGI_ADAPTER_DESC1 desc);
+    }
+
+    [ComImport]
+    [Guid("645967A4-1392-4310-A798-8053CE3E93FD")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IDXGIAdapter3
+    {
+        void SetPrivateData();
+        void SetPrivateDataInterface();
+        void GetPrivateData();
+        void GetParent();
+        void EnumOutputs();
+        void GetDesc();
+        void CheckInterfaceSupport();
+        void GetDesc1(out DXGI_ADAPTER_DESC1 desc);
+        void GetDesc2();
+        void RegisterHardwareContentProtectionTeardownStatusEvent();
+        void UnregisterHardwareContentProtectionTeardownStatus();
+        void QueryVideoMemoryInfo(
+            uint nodeIndex,
+            DXGI_MEMORY_SEGMENT_GROUP memorySegmentGroup,
+            out DXGI_QUERY_VIDEO_MEMORY_INFO videoMemoryInfo);
+    }
+
+    private enum DXGI_MEMORY_SEGMENT_GROUP
+    {
+        Local = 0,
+        NonLocal = 1
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct DXGI_ADAPTER_DESC1
+    {
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string Description;
+        public uint VendorId;
+        public uint DeviceId;
+        public uint SubSysId;
+        public uint Revision;
+        public UIntPtr DedicatedVideoMemory;
+        public UIntPtr DedicatedSystemMemory;
+        public UIntPtr SharedSystemMemory;
+        public long AdapterLuid;
+        public uint Flags;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct DXGI_QUERY_VIDEO_MEMORY_INFO
+    {
+        public ulong Budget;
+        public ulong CurrentUsage;
+        public ulong AvailableForReservation;
+        public ulong CurrentReservation;
+    }
+}

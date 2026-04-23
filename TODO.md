@@ -31,8 +31,8 @@
 | Tests backend | Backend | [x] Verts | 335 tests, 29 fichiers `*Tests.cs`, 1 fixture partagee |
 | Migrations SQL | Backend | [~] Stables | 28 fichiers, doublons legacy 004/008 documentes safe |
 | Tuning LLM client | Client | [x] Fait Patch 1+2 | GgufMetadataReader, ngl=block_count, batch>=512, ctx=3072, ubatch=256, threads-batch=6, flash-attn CUDA auto |
-| Budget VRAM observe (DXGI) | Client | [ ] Absent | Seule la VRAM installee est lue (nvidia-smi / CIM) — budget courant DXGI non implemente |
-| Gouvernance llama-server client | Client | [~] Patch 5 avance | Artefacts locaux, `QualifiedProfile`, checksums, warmup gate, harnais TTFT/tok/s multi-scenarios, rollback et blacklist poses ; memoire/DXGI et triggers restent a brancher |
+| Budget VRAM observe (DXGI) | Client | [~] Capture en place | `hardware_probe.json` capture RAM, GPU, fingerprint et budget DXGI opportuniste ; enforcement hard gate a calibrer |
+| Gouvernance llama-server client | Client | [~] Patch 5 avance | Artefacts locaux, `QualifiedProfile`, checksums, warmup gate, harnais TTFT/tok/s multi-scenarios, rollback, blacklist et hardware_probe poses ; triggers restent a brancher |
 | Cycle de vie runtime (sleep/wake) | Client | [~] Partiel | ManageLocalLlmProcess + AutoStartOnConnect presents ; idleTimeoutSeconds, EagerLoad, drain avant sleep absents |
 | Checksums modeles | Client | [~] Partiel | Infrastructure SHA-256 presente ; warning logge si Sha256Hex=null (Patch 3) ; valeurs reelles non encore calculees (Phase 3) |
 | Endpoint support bundle admin | Backend | [x] Fait Patch 3 | `POST /admin/support/bundle` presente — ZIP stagé, artifacts/missingArtifacts, auth X-Admin-Key |
@@ -53,7 +53,7 @@
 - [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` — OK, 0 Warning
 - [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` — OK, 0 Warning
 - [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` — 335/335 verts
-- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 274/274 verts
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj -p:NuGetAudit=false -nologo` — 275/275 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
 
@@ -270,7 +270,7 @@ Ces items constituent la gouvernance LLM complete. Ils peuvent commencer en para
 
 **Travaux — Requalification (§9.13)** :
 - [ ] Implementer les 8 triggers de requalification (driver change, runtime change, modele change, hardware change, derive perfs, echecs repetes, timeout, action admin)
-- [ ] Capturer `fingerprint` machine dans `hardware_probe.json`
+- [x] Capturer `fingerprint` machine dans `hardware_probe.json`
 - [ ] Comparer snapshot courant vs `hardware_probe.json` au demarrage
 - [ ] Admin UI : bouton "Requalifier" -> `POST /admin/runtime/requalify`
 
@@ -285,7 +285,7 @@ Ces items constituent la gouvernance LLM complete. Ils peuvent commencer en para
 - Warmup gate decisionnel operationnel, resultats dans warmup_results.json
 - Blacklist consultee avant warmup et lancement gere
 - Rollback automatique fonctionne et est journalise
-- Reste : memoire reelle, batterie et triggers de requalification hardware/driver/modele
+- Reste : batterie, enforcement hard gate memoire et triggers de requalification hardware/driver/modele
 
 ---
 
@@ -295,10 +295,10 @@ Ces items dependent des fondations posees dans Patch 4 et 5.
 
 ### Budget VRAM observe DXGI (§9.11, LLM-008)
 
-- [ ] `GpuDetector` : DXGI `QueryVideoMemoryInfo` via P/Invoke Windows (budget courant observe, pas VRAM installee)
-- [ ] Cas UMA Intel Arc (budget partage != VRAM dediee)
+- [x] `HardwareProbeService` : DXGI `QueryVideoMemoryInfo` via COM/PInvoke Windows (budget courant observe, pas seulement VRAM installee)
+- [~] Cas UMA Intel Arc (budget partage != VRAM dediee) : capture possible via DXGI, policy de selection encore a calibrer
 - [ ] Detection eGPU distinct + trigger requalification si debranche
-- [ ] Enrichir `hardware_probe.json` : vendor, nom GPU, VRAM dediee, budget DXGI courant, usage courant, type GPU, RAM totale/disponible, mode batterie/secteur, fingerprint machine
+- [~] Enrichir `hardware_probe.json` : vendor, nom GPU, VRAM dediee, budget DXGI courant, usage courant, RAM totale/disponible et fingerprint machine presents ; mode batterie/secteur absent
 
 ### QoS batterie et energie (§9.12, LLM-017)
 
@@ -431,7 +431,8 @@ Ce qui manque pour le contrat CDC :
 - [x] `LlamaCppProcessManager` refuse un profil actif blackliste avant lancement
 - [x] Tests client ajoutes : PASS, degraded, block, fallback, blacklist, harnais streaming/non-streaming/not-ready/metrics
 - [x] Harnais contractuel multi-scenarios : prompt court TTFT, prompt long prefill/contexte, prompt decode stable, avec agregat worst-case
-- [~] Reste a faire : memoire reelle + triggers requalification
+- [x] `hardware_probe.json` : capture RAM/GPU/fingerprint + budget DXGI opportuniste avec fallback degrade
+- [~] Reste a faire : enforcement hard gate memoire + triggers requalification
 
 ### Gaps fermes
 

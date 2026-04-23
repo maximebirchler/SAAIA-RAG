@@ -114,11 +114,59 @@ public sealed class GovernanceArtifactStoreTests
             Assert.False(File.Exists(Path.Combine(root, "model-catalog.json")));
             Assert.NotNull(settings.QualifiedProfile);
             Assert.Equal("qwen25-3b-q4km-cuda-p520-interactive", settings.QualifiedProfile!.ProfileId);
+
+            var hardware = await GovernanceArtifactStore.ReadAsync<HardwareProbeArtifact>(
+                GovernanceArtifactStore.HardwareProbeFile,
+                root);
+            Assert.Equal(GovernanceArtifactReadStatus.Ok, hardware.Status);
+            Assert.NotEqual("not_captured", hardware.Value!.Status);
+            Assert.False(string.IsNullOrWhiteSpace(hardware.Value.MachineFingerprint));
         }
         finally
         {
             DeleteTempRoot(root);
         }
+    }
+
+    [Fact]
+    public void HardwareProbeService_create_artifact_includes_observed_dxgi_budget()
+    {
+        var gpu = new GpuInfo(
+            GpuVendor.Nvidia,
+            "Quadro P520",
+            4L * 1024 * 1024 * 1024,
+            IsIntegrated: false,
+            DetectionSource: "test");
+        var dxgi = new DxgiVideoMemorySnapshot(
+            BudgetBytes: 3UL * 1024 * 1024 * 1024,
+            CurrentUsageBytes: 512UL * 1024 * 1024,
+            AvailableForReservationBytes: 2UL * 1024 * 1024 * 1024,
+            CurrentReservationBytes: 128UL * 1024 * 1024,
+            Source: "test-dxgi");
+        var memory = new SystemMemorySnapshot(
+            TotalRamBytes: 16L * 1024 * 1024 * 1024,
+            AvailableRamBytes: 8L * 1024 * 1024 * 1024,
+            Source: "test");
+
+        var artifact = HardwareProbeService.CreateArtifact(
+            gpu,
+            dxgi,
+            memory,
+            "machine-a",
+            processorCount: 8,
+            is64BitOperatingSystem: true,
+            DateTimeOffset.Parse("2026-04-23T10:00:00Z"));
+
+        Assert.Equal("captured", artifact.Status);
+        Assert.Equal("v3.1", artifact.CdcAlignment);
+        Assert.False(string.IsNullOrWhiteSpace(artifact.MachineFingerprint));
+        Assert.Equal("nvidia", artifact.Hardware["gpuVendor"]);
+        Assert.Equal(4096, artifact.Hardware["gpuDedicatedVramMiB"]);
+        Assert.Equal("captured", artifact.Hardware["dxgiStatus"]);
+        Assert.Equal(3072L, artifact.Hardware["dxgiBudgetMiB"]);
+        Assert.Equal(512L, artifact.Hardware["dxgiCurrentUsageMiB"]);
+        Assert.Equal(16384L, artifact.Hardware["totalRamMiB"]);
+        Assert.Equal(8192L, artifact.Hardware["availableRamMiB"]);
     }
 
     private static string NewTempRoot()
