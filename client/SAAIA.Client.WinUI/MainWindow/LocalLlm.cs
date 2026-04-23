@@ -27,8 +27,7 @@ public sealed partial class MainWindow
             LocalLlmStatusText.Text = _llmProc.IsRunning ? "Running." : "";
             LocalLlmCmdLineBox.Text = _llmProc.LastCommandLine ?? "";
             RefreshLocalLlmModelInfoText();
-            _ = EnsureLocalGovernanceArtifactsInitializedAsync();
-            _ = RefreshLocalLlmGovernanceStatusAsync();
+            _ = InitializeLocalGovernanceUiAsync();
         }
         catch
         {
@@ -36,7 +35,7 @@ public sealed partial class MainWindow
         }
     }
 
-    private async Task EnsureLocalGovernanceArtifactsInitializedAsync()
+    private async Task InitializeLocalGovernanceUiAsync()
     {
         try
         {
@@ -46,6 +45,8 @@ public sealed partial class MainWindow
 
             if (!hadQualifiedProfile && settings.QualifiedProfile is not null)
                 settings.Save();
+
+            await RefreshLocalLlmGovernanceStatusAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {
