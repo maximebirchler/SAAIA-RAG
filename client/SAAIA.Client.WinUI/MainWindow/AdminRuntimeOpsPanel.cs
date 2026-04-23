@@ -85,9 +85,10 @@ public sealed partial class MainWindow
 
         var capabilitiesHost = new StackPanel { Spacing = 12 };
 
+        var requalifyButton = BuildDialogFooterButton(ClientUiText.Get("admin.runtime.requalify", lang));
         var refreshButton = BuildDialogFooterButton(ClientUiText.Get("admin.runtime.refresh", lang), primary: true);
         var closeButton = BuildDialogFooterButton(ClientUiText.Get("dialog.close", lang));
-        var footer = BuildDialogFooter(refreshButton, closeButton);
+        var footer = BuildDialogFooter(requalifyButton, refreshButton, closeButton);
 
         OverlayDialogSession? overlay = null;
         using var overlayCts = new CancellationTokenSource();
@@ -114,6 +115,7 @@ public sealed partial class MainWindow
         void SetBusy(bool busy)
         {
             isLoading = busy;
+            requalifyButton.IsEnabled = !busy;
             refreshButton.IsEnabled = !busy;
             closeButton.IsEnabled = !busy;
             SyncActionButtons();
@@ -214,6 +216,41 @@ public sealed partial class MainWindow
         async Task OpenCapabilityBQualityReviewAsync()
         {
             await ShowCapabilityBQualityReviewOverlayAsync().ConfigureAwait(true);
+        }
+
+        async Task RequalifyRuntimeAsync()
+        {
+            if (isLoading)
+                return;
+
+            SetBusy(true);
+            SetStateBanner(GetAdminRuntimeRequalifyLoadingMessage(lang));
+
+            try
+            {
+                var response = await _api.AdminRuntimeRequalifyAsync(
+                    capabilityKey: null,
+                    profileKey: null,
+                    selectWhenQualified: true,
+                    overlayCts.Token).ConfigureAwait(true);
+                var message = BuildAdminRuntimeRequalifySummaryMessage(response, lang);
+                SetStateBanner(message, positive: true);
+                Status(message);
+                var snapshot = ParseAdminRuntimeOperationalSnapshot(
+                    await _api.AdminRuntimeOperationalSummaryAsync(overlayCts.Token).ConfigureAwait(true));
+                Render(snapshot);
+            }
+            catch (Exception ex)
+            {
+                ClientLog.Exception("AdminRuntimeOps.Requalify", ex);
+                var message = GetAdminRuntimeRequalifyFailedMessage(lang);
+                SetStateBanner(message);
+                Status(message + " " + ex.Message);
+            }
+            finally
+            {
+                SetBusy(false);
+            }
         }
 
         FrameworkElement BuildCapabilityCard(AdminRuntimeOperationalItem item)
@@ -429,6 +466,7 @@ public sealed partial class MainWindow
             }
         }
 
+        requalifyButton.Click += async (_, __) => await RequalifyRuntimeAsync().ConfigureAwait(true);
         refreshButton.Click += async (_, __) => await LoadAsync().ConfigureAwait(true);
         closeButton.Click += (_, __) => overlay?.Close();
 
@@ -515,4 +553,62 @@ public sealed partial class MainWindow
             Summary: summary,
             Items: items);
     }
+
+    private static string BuildAdminRuntimeRequalifySummaryMessage(JsonElement root, string lang)
+    {
+        var itemCount = 0;
+        var qualifiedCount = 0;
+        var selectedCount = 0;
+        var warmupCount = 0;
+
+        if (TryGetPropertyIgnoreCase(root, "items", out var itemsElement) && itemsElement.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in itemsElement.EnumerateArray())
+            {
+                itemCount++;
+                if (TryGetBool(item, "qualified") == true)
+                    qualifiedCount++;
+                if (TryGetBool(item, "selected") == true)
+                    selectedCount++;
+            }
+        }
+
+        if (TryGetPropertyIgnoreCase(root, "warmupResults", out var warmupsElement) && warmupsElement.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var _ in warmupsElement.EnumerateArray())
+                warmupCount++;
+        }
+
+        return lang switch
+        {
+            "en" => $"Requalification completed: {itemCount} capability(ies), {qualifiedCount} qualified, {selectedCount} selected, {warmupCount} warmup result(s).",
+            "de" => $"Neuqualifizierung abgeschlossen: {itemCount} Faehigkeit(en), {qualifiedCount} qualifiziert, {selectedCount} ausgewaehlt, {warmupCount} Warmup-Ergebnis(se).",
+            "es" => $"Recalificacion completada: {itemCount} capacidad(es), {qualifiedCount} cualificada(s), {selectedCount} seleccionada(s), {warmupCount} resultado(s) de warmup.",
+            "it" => $"Ririqualificazione completata: {itemCount} capacita, {qualifiedCount} qualificata/e, {selectedCount} selezionata/e, {warmupCount} risultato/i warmup.",
+            "pt" => $"Requalificacao concluida: {itemCount} capacidade(s), {qualifiedCount} qualificada(s), {selectedCount} selecionada(s), {warmupCount} resultado(s) de warmup.",
+            _ => $"Requalification terminee : {itemCount} capacite(s), {qualifiedCount} qualifiee(s), {selectedCount} selectionnee(s), {warmupCount} warmup result(s)."
+        };
+    }
+
+    private static string GetAdminRuntimeRequalifyLoadingMessage(string lang)
+        => lang switch
+        {
+            "en" => "Runtime requalification in progress...",
+            "de" => "Runtime-Neuqualifizierung laeuft...",
+            "es" => "Recalificacion runtime en curso...",
+            "it" => "Ririqualificazione runtime in corso...",
+            "pt" => "Requalificacao runtime em curso...",
+            _ => "Requalification runtime en cours..."
+        };
+
+    private static string GetAdminRuntimeRequalifyFailedMessage(string lang)
+        => lang switch
+        {
+            "en" => "Could not start runtime requalification.",
+            "de" => "Runtime-Neuqualifizierung konnte nicht gestartet werden.",
+            "es" => "No se pudo iniciar la recalificacion runtime.",
+            "it" => "Impossibile avviare la ririqualificazione runtime.",
+            "pt" => "Nao foi possivel iniciar a requalificacao runtime.",
+            _ => "Impossible de lancer la requalification runtime."
+        };
 }

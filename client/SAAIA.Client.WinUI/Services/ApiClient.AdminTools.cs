@@ -210,6 +210,27 @@ public sealed partial class ApiClient
     public Task<JsonElement> AdminRuntimeOperationalSummaryAsync(CancellationToken ct)
         => SendJsonAsync(HttpMethod.Get, "/admin/runtime/operational-summary", null, admin: true, ct);
 
+    public Task<JsonElement> AdminRuntimeRequalifyAsync(
+        string? capabilityKey,
+        string? profileKey,
+        bool? selectWhenQualified,
+        CancellationToken ct)
+    {
+        var body = JsonSerializer.Serialize(new
+        {
+            capabilityKey = string.IsNullOrWhiteSpace(capabilityKey) ? null : capabilityKey.Trim(),
+            profileKey = string.IsNullOrWhiteSpace(profileKey) ? null : profileKey.Trim(),
+            selectWhenQualified
+        }, JsonOpts);
+
+        return SendJsonAsync(
+            HttpMethod.Post,
+            "/admin/runtime/requalify",
+            body,
+            admin: true,
+            ct);
+    }
+
     public Task<JsonElement> AdminRuntimeCapabilityAKpisAsync(CancellationToken ct)
         => SendJsonAsync(
             HttpMethod.Get,

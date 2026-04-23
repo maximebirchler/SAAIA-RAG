@@ -275,7 +275,7 @@ Ces items constituent la gouvernance LLM complete. Ils peuvent commencer en para
 - [~] Implementer les 8 triggers de requalification (driver/runtime/modele/hardware faits ; derive perfs, echecs repetes, timeout, action admin restent a faire)
 - [x] Capturer `fingerprint` machine dans `hardware_probe.json`
 - [x] Comparer snapshot courant vs `hardware_probe.json` au demarrage et logguer `Requalification required` si fingerprint change
-- [ ] Admin UI : bouton "Requalifier" -> `POST /admin/runtime/requalify`
+- [x] Admin UI : bouton "Requalifier" -> `POST /admin/runtime/requalify`
 
 **Tests a lancer / a ajouter** :
 - [x] Test warmup gate : PASS avec N runs conformes, PASS_DEGRADED, FAIL_BLOCK si depassement seuil
