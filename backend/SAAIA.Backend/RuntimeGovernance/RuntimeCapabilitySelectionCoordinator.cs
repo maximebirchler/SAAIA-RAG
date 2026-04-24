@@ -28,7 +28,11 @@ internal static class RuntimeCapabilitySelectionCoordinator
             Authorized = false,
             Selected = false,
             LastError = "qualification stale: requalify required",
-            Details = details
+            Details = details,
+            PersistedAuthorized = false,
+            PersistedSelected = false,
+            EffectiveAuthorized = false,
+            EffectiveSelected = false
         };
 
         var eventDetails = new Dictionary<string, object?>
@@ -129,7 +133,11 @@ internal static class RuntimeCapabilitySelectionCoordinator
             DesiredEnabled = desiredEnabled,
             Authorized = authorized && current.Qualified,
             Selected = selected && current.Qualified && authorized && desiredEnabled,
-            Details = details
+            Details = details,
+            PersistedAuthorized = authorized && current.Qualified,
+            PersistedSelected = selected && current.Qualified && authorized && desiredEnabled,
+            EffectiveAuthorized = authorized && current.Qualified,
+            EffectiveSelected = selected && current.Qualified && authorized && desiredEnabled
         };
 
         var eventDetails = new Dictionary<string, object?>

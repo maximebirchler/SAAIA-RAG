@@ -371,7 +371,7 @@ Ce qui manque pour le contrat CDC :
 
 - [~] Audit section **Backend API & contrats** : endpoints user/admin, auth, ETag/304, surfaces `/documents`, `/catalog`, `/sources`, `/admin/support/bundle`
 - [~] Audit section **Foundation documentaire & retrieval** : pages/sections/units/chunks/links/exact-match/contextual text, invariants de structure et regressions possibles
-- [ ] Audit section **Governance runtime backend** : A/B, warmup, hard gates, diagnostics, events, endpoints admin runtime, artefacts exposes
+- [~] Audit section **Governance runtime backend** : A/B, warmup, hard gates, diagnostics, events, endpoints admin runtime, artefacts exposes
 - [ ] Audit section **Client runtime LLM** : downloader, runtime compatibility policy, active-runtime, rollback, warmup, blacklist, checksum, quarantaine, sleep/wake
 - [ ] Audit section **UI WinUI** : fenetre principale, flyouts, overlays admin/runtime, setup wizard, panneau jobs, aide, settings actifs
 - [ ] Audit section **Multilingue** : tous les libelles visibles, statuts, erreurs utilisateur, prompts d'aide, overlays, menus, tooltips, placeholders, titres
@@ -650,3 +650,4 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 | 2026-04-24 | Codex | Audit Phase 4 - passe 4 : revue foundation/retrieval confirmee (migrations 016-024 coherentes, 29 fichiers backend `*Tests.cs` confirmes, offsets/HyPE/context structurés couverts), test d'integration `/rag/search` enrichi pour verrouiller `Snippet`/`ContextualSnippet`/`Context` ; 101 tests backend foundation/retrieval verts |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 5 : revue tests automatiques client, ajout de tests de non-regression `ApiClient.Documents` pour la transition `/documents` -> `/documents/catalog`, revalidation complete client `321/321` verte ; rappel confirme que build/test WinUI doivent rester sequentiels pour eviter les verrous XAML |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 6 : verification outils/scripts entamee ; `tools/ConfigSigner` build local OK, `tools/compute-model-reference-checksums.ps1` execute avec succes (8 modeles trouves, 4 manquants), `tools/runtime-ci-harness.ps1` parse OK mais execution reelle repoussee a la phase machine |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 7 : gouvernance runtime backend revue et renforcee ; ajout de tests unitaires sur le coeur de selection/etat, correction d'une incoherence `Persisted*` / `Effective*` apres update de selection acceptee, backend build 0 warning et 73 tests gouvernance verts |
