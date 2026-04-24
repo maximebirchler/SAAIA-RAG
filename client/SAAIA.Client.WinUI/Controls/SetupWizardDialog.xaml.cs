@@ -91,6 +91,7 @@ public sealed partial class SetupWizardDialog : ContentDialog
             "Esta chave e armazenada localmente (DPAPI) e serve para aceder ao chat-store (sessoes/mensagens).",
             "Dieser Schluessel wird lokal gespeichert (DPAPI) und dient fuer den Zugriff auf den Chat-Store (Sitzungen/Nachrichten).",
             "Questa chiave e memorizzata localmente (DPAPI) e serve per accedere al chat-store (sessioni/messaggi).");
+        ApiKeyBox.PlaceholderText = SZ("X-Api-Key", "X-Api-Key", "X-Api-Key", "X-Api-Key", "X-Api-Key", "X-Api-Key");
         TestApiKeyButton.Content = SZ("Tester la cle API", "Test API key", "Probar la clave API", "Testar a chave API", "API-Schluessel testen", "Testa la chiave API");
 
         LlmSectionTitleText.Text = SZ("LLM local (avance)", "Local LLM (advanced)", "LLM local (avanzado)", "LLM local (avancado)", "Lokales LLM (erweitert)", "LLM locale (avanzato)");
@@ -104,10 +105,15 @@ public sealed partial class SetupWizardDialog : ContentDialog
         UseLocalLlmCheck.Content = SZ("Activer l'assistant (LLM)", "Enable assistant (LLM)", "Activar asistente (LLM)", "Ativar assistente (LLM)", "Assistenten aktivieren (LLM)", "Attiva assistente (LLM)");
         AutoStartCheck.Content = SZ("Demarrer automatiquement le processus LLM local a la connexion", "Auto-start local LLM process on Connect", "Iniciar automaticamente el proceso LLM local al conectar", "Iniciar automaticamente o processo LLM local ao ligar", "Lokalen LLM-Prozess beim Verbinden automatisch starten", "Avvia automaticamente il processo LLM locale alla connessione");
         LlamaExeLabelText.Text = SZ("Executable serveur (llama-server.exe)", "Server executable (llama-server.exe)", "Ejecutable del servidor (llama-server.exe)", "Executavel do servidor (llama-server.exe)", "Server-Executable (llama-server.exe)", "Eseguibile server (llama-server.exe)");
+        LlamaExeBox.PlaceholderText = SZ(@"C:\SAAIA\llm\llama-server.exe", @"C:\SAAIA\llm\llama-server.exe", @"C:\SAAIA\llm\llama-server.exe", @"C:\SAAIA\llm\llama-server.exe", @"C:\SAAIA\llm\llama-server.exe", @"C:\SAAIA\llm\llama-server.exe");
         ModelPathLabelText.Text = SZ("Modele (.gguf)", "Model (.gguf)", "Modelo (.gguf)", "Modelo (.gguf)", "Modell (.gguf)", "Modello (.gguf)");
+        ModelPathBox.PlaceholderText = SZ(@"C:\SAAIA\models\model.gguf", @"C:\SAAIA\models\model.gguf", @"C:\SAAIA\models\model.gguf", @"C:\SAAIA\models\model.gguf", @"C:\SAAIA\models\model.gguf", @"C:\SAAIA\models\model.gguf");
         HostLabelText.Text = SZ("Hote", "Host", "Host", "Host", "Host", "Host");
+        HostBox.PlaceholderText = SZ("127.0.0.1", "127.0.0.1", "127.0.0.1", "127.0.0.1", "127.0.0.1", "127.0.0.1");
         PortLabelText.Text = SZ("Port", "Port", "Puerto", "Porta", "Port", "Porta");
+        PortBox.PlaceholderText = SZ("1234", "1234", "1234", "1234", "1234", "1234");
         ModelIdLabelText.Text = SZ("ID modele (OpenAI 'model')", "Model ID (OpenAI 'model')", "ID del modelo (OpenAI 'model')", "ID do modelo (OpenAI 'model')", "Modell-ID (OpenAI 'model')", "ID modello (OpenAI 'model')");
+        ModelIdBox.PlaceholderText = SZ("model-id.gguf", "model-id.gguf", "model-id.gguf", "model-id.gguf", "model-id.gguf", "model-id.gguf");
         ExtraArgsLabelText.Text = SZ("Arguments supplementaires (optionnel)", "Extra args (optional)", "Argumentos extra (opcional)", "Argumentos extra (opcional)", "Zusaetzliche Argumente (optional)", "Argomenti extra (opzionale)");
         TestModelsButton.Content = SZ("Tester /v1/models", "Test /v1/models", "Probar /v1/models", "Testar /v1/models", "Test /v1/models", "Test /v1/models");
         StartLocalLlmButton.Content = SZ("Demarrer le LLM local", "Start local LLM", "Iniciar LLM local", "Iniciar LLM local", "Lokales LLM starten", "Avvia LLM locale");

@@ -227,6 +227,104 @@ public sealed class GovernanceArtifactStoreTests
     }
 
     [Fact]
+    public async Task Effective_model_policy_reads_governance_override_when_checksum_is_valid()
+    {
+        var root = NewTempRoot();
+        try
+        {
+            var custom = new ModelPolicyArtifact(
+                GovernanceArtifactStore.ModelPolicyFile,
+                "v3.1",
+                AllowDiscovery: true,
+                RequireChecksum: false,
+                MaxActiveModelsClient: 2,
+                BlacklistRef: "custom_blacklist.json",
+                Rules: new[] { "custom_rule" });
+
+            await GovernanceArtifactStore.WriteAsync(GovernanceArtifactStore.ModelPolicyFile, custom, root);
+
+            var effective = ModelCatalogStore.GetEffectivePolicy(root);
+
+            Assert.True(effective.AllowDiscovery);
+            Assert.False(effective.RequireChecksum);
+            Assert.Equal(2, effective.MaxActiveModelsClient);
+            Assert.Equal("custom_blacklist.json", effective.BlacklistRef);
+            Assert.Contains("custom_rule", effective.Rules);
+        }
+        finally
+        {
+            DeleteTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task Effective_model_sources_override_is_used_for_download_url_resolution()
+    {
+        var root = NewTempRoot();
+        try
+        {
+            var customSources = new ModelSourcesArtifact(
+                GovernanceArtifactStore.ModelSourcesFile,
+                "v3.1",
+                new[]
+                {
+                    new ModelSourceItem(
+                        Key: "hf-bartowski-qwen25-3b",
+                        Kind: "huggingface",
+                        Uri: "https://huggingface.co/acme/Qwen2.5-3B-Instruct-GGUF",
+                        RequiresChecksum: true,
+                        AllowedInAirGap: false)
+                });
+
+            await GovernanceArtifactStore.WriteAsync(GovernanceArtifactStore.ModelSourcesFile, customSources, root);
+
+            var model = Assert.Single(
+                ModelCatalogStore.GetEffectiveCatalog(root).Items,
+                item => item.ModelId == "qwen2.5-3b-instruct-q4-k-m");
+            var url = ModelCatalogStore.TryBuildDownloadUrl(model, root);
+
+            Assert.Equal(
+                "https://huggingface.co/acme/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_M.gguf",
+                url);
+        }
+        finally
+        {
+            DeleteTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task Effective_installer_visible_models_follow_governance_collections_override()
+    {
+        var root = NewTempRoot();
+        try
+        {
+            var customCollections = new ModelCollectionsArtifact(
+                GovernanceArtifactStore.ModelCollectionsFile,
+                "v3.1",
+                new[]
+                {
+                    new ModelCollectionItem(
+                        Key: "client-baseline",
+                        Scope: "client",
+                        VisibleInInstaller: true,
+                        ModelIds: new[] { "gemma-4-e2b-it-q4-k-m" })
+                });
+
+            await GovernanceArtifactStore.WriteAsync(GovernanceArtifactStore.ModelCollectionsFile, customCollections, root);
+
+            var visible = ModelCatalogStore.GetInstallerVisibleClientModels(root);
+
+            Assert.Single(visible);
+            Assert.Equal("gemma-4-e2b-it-q4-k-m", visible[0].ModelId);
+        }
+        finally
+        {
+            DeleteTempRoot(root);
+        }
+    }
+
+    [Fact]
     public void HardwareProbeService_create_artifact_includes_observed_dxgi_budget()
     {
         var gpu = new GpuInfo(
@@ -494,6 +592,16 @@ public sealed class GovernanceArtifactStoreTests
         Assert.Equal("9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94", checksum);
         Assert.Equal(checksum, qwen.ChecksumSha256);
         Assert.Equal("verified_reference_hash", qwen.ChecksumStatus);
+    }
+
+    [Fact]
+    public void ClientDefaults_default_model_is_governed_and_visible_in_installer()
+    {
+        var item = ModelCatalogStore.TryGetItem(ClientDefaults.LlmModel);
+        var installerVisible = ModelCatalogStore.GetInstallerVisibleClientModels();
+
+        Assert.NotNull(item);
+        Assert.Contains(installerVisible, candidate => string.Equals(candidate.ModelId, item!.ModelId, StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

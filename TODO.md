@@ -28,7 +28,7 @@
 | Capacite A | Backend | [x] Close v1 | LLM local, fallback, score qualite, KPI A, vue admin |
 | Capacite B | Backend | [x] Close v1 | Worker LLM local, fallback, KPI B, revue qualite |
 | Capacite C | Backend | [N/A] | Hors perimetre, absente par design |
-| Tests backend | Backend | [x] Verts | 335 tests, 29 fichiers `*Tests.cs`, 1 fixture partagee |
+| Tests backend | Backend | [x] Verts | 346 tests, 29 fichiers `*Tests.cs`, 1 fixture partagee |
 | Migrations SQL | Backend | [~] Stables | 28 fichiers, doublons legacy 004/008 documentes safe |
 | Tuning LLM client | Client | [x] Fait Patch 1+2 | GgufMetadataReader, ngl=block_count, batch>=512, ctx=3072, ubatch=256, threads-batch=6, flash-attn CUDA auto |
 | Budget VRAM observe (DXGI) | Client | [~] Enforce v1 | `hardware_probe.json` capture RAM, GPU, fingerprint, secteur/batterie et budget DXGI ; hard gate budget DXGI branche sur `warmup_profiles.json` |
@@ -52,8 +52,8 @@
 
 - [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` â€” OK, 0 Warning
 - [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` â€” OK, 0 Warning
-- [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` â€” 335/335 verts
-- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj` â€” 335/335 verts
+- [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` â€” 346/346 verts
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj` â€” 344/344 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
 - [x] Revalidation client 2026-04-23 apres diagnostic runtime local : 316/316 verts
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
@@ -390,7 +390,7 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 - [x] Revalider que `hardware_probe.json` capture bien la RAM systeme observable conformement au CDC v3.1 ; si incomplet, corriger la source de verite
 - [x] Revalider que `WarmupProfileStore` contient bien un vrai fallback CPU exploitable et non une reference orpheline
 - [x] Revalider que `GovernanceArtifactStore` ne pre-seed pas une chaine de qualification qui court-circuite la semantique CDC "Installed -> Configured -> Healthy -> Qualified -> Authorized -> Selected"
-- [ ] Revalider que `model_collections.json`, `model_policy.json`, `model_sources.json` sont bien utilises comme source de decision runtime et pas seulement comme artefacts de facade
+- [~] Revalider que `model_collections.json`, `model_policy.json`, `model_sources.json` sont bien utilises comme source de decision runtime et pas seulement comme artefacts de facade
 - [ ] Revalider que le TODO ne surestime plus l'etat des blocs client/runtime/tests/artefacts
 - [~] Revalider et nettoyer le code mort / bruit repo : fichiers exclus de compilation, `<Compile Remove>` obsoletes, artefacts bench/logs/.vs/swap, docs legacy trompeuses
 
@@ -660,3 +660,7 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 | 2026-04-24 | Codex | Audit Phase 4 - passe 13 : artefacts `model_collections.json` / `model_policy.json` / `model_sources.json` revalides ; coherence contractuelle verrouillee par tests (collections -> modeles, catalog -> sources, policy client v3.1), mais branchement comme vraie source de decision runtime reste encore un point ouvert a traiter ; suite client complete `335/335` verte |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 14 : support bundle admin renforce ; statut `contractComplete` + `contractMissingArtifacts` ajoutes, artefacts runtime client optionnels (active-runtime, runtime_event_log, runtime_compatibility_policy) embarques quand presents, tests backend enrichis et suite backend complete `346/346` verte ; le point reste partiel tant que certains artefacts contractuels peuvent encore manquer selon la machine |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 15 : bundle client leger enrichi avec artefacts de gouvernance locaux (`hardware_probe`, `warmup_results`, `capability_state`, `rollback_log`, `runtime_compatibility_policy`, `active-runtime`, etc.) quand presents ; test dedie ajoute, build WinUI 0 warning et suite client complete `336/336` verte |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 16 : `model_collections.json` / `model_policy.json` / `model_sources.json` commencent a piloter les chemins actifs client ; lecture effective avec fallback checksumme ajoutee dans `ModelCatalogStore`, bootstrap de selection/download branche sur les collections/sources/policy, tests dedies ajoutes, suite client complete `339/339` verte ; le branchement reste partiel tant que tous les chemins runtime ne consomment pas encore ces artefacts |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 17 : fermeture complementaire UI/multilingue sur le `SetupWizard` (placeholders visibles repris par le code localise), ajout d'un safety net structurel sur le `.csproj` pour confirmer que `UserSettingsDialog.xaml(.cs)` reste hors compilation, build WinUI 0 warning et suite client complete `340/340` verte ; rappel confirme que les validations WinUI doivent rester sequentielles |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 18 : reliquat gouvernance modele/client ferme partiellement ; `ClientDefaults.LlmModel` realigne sur le baseline gouverne `Q4_K_M`, retrait du fallback bootstrap hardcode au profit des modeles visibles gouvernes, test de non-regression ajoute sur le modele client par defaut, build WinUI 0 warning et suite client complete `342/342` verte |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 19 : safety net multilingue etendu sur la fenetre principale compilee (libelles coeur `Chats/New/Jump/Typing/Input/Connect/Sources/Runtime diagnostics`) et sur le menu de session `Rename/Delete`, avec suite client complete `344/344` verte ; l'audit UI/multilingue se rapproche d'un etat ferme mais garde encore les verifications transversales finales a documenter |

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 
 namespace SAAIA.Client.WinUI.Services;
 
@@ -79,6 +81,8 @@ internal sealed record ModelSourceItem(
 
 internal static class ModelCatalogStore
 {
+    internal static string? GovernanceRootOverride { get; set; }
+
     private const string Qwen25_3B_Q4KmSha256 = "9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94";
     private const string Qwen25_3B_Q6KlSha256 = "930d792ba9cebbb98faaef6755c62b47cb24bb2d16fb10a338ac80d721b81796";
     private const string Qwen25_3B_Q80Sha256 = "12491ec9f03aab7f0b96cdb7742695e6583d17ee129de48332d04b9cf6acd960";
@@ -94,7 +98,7 @@ internal static class ModelCatalogStore
             return null;
 
         var probe = modelIdOrFileName.Trim();
-        var catalog = CreateDefaultCatalog();
+        var catalog = GetEffectiveCatalog();
         return catalog.Items
             .FirstOrDefault(item =>
                 string.Equals(item.ModelId, probe, StringComparison.OrdinalIgnoreCase)
@@ -108,7 +112,7 @@ internal static class ModelCatalogStore
             return null;
 
         var probe = modelIdOrFileName.Trim();
-        var catalog = CreateDefaultCatalog();
+        var catalog = GetEffectiveCatalog();
         return catalog.Items
             .FirstOrDefault(item =>
                 string.Equals(item.ModelId, probe, StringComparison.OrdinalIgnoreCase)
@@ -122,10 +126,92 @@ internal static class ModelCatalogStore
             return null;
 
         var probe = modelIdOrFileName.Trim();
-        return CreateDefaultCatalog().Items
+        return GetEffectiveCatalog().Items
             .FirstOrDefault(item =>
                 string.Equals(item.ModelId, probe, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(item.FileName, probe, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public static ModelCatalogArtifact GetEffectiveCatalog(string? governanceRoot = null)
+        => ReadEffectiveArtifact(
+            GovernanceArtifactStore.ModelCatalogFile,
+            CreateDefaultCatalog,
+            governanceRoot);
+
+    public static ModelCollectionsArtifact GetEffectiveCollections(string? governanceRoot = null)
+        => ReadEffectiveArtifact(
+            GovernanceArtifactStore.ModelCollectionsFile,
+            CreateDefaultCollections,
+            governanceRoot);
+
+    public static ModelPolicyArtifact GetEffectivePolicy(string? governanceRoot = null)
+        => ReadEffectiveArtifact(
+            GovernanceArtifactStore.ModelPolicyFile,
+            CreateDefaultPolicy,
+            governanceRoot);
+
+    public static ModelSourcesArtifact GetEffectiveSources(string? governanceRoot = null)
+        => ReadEffectiveArtifact(
+            GovernanceArtifactStore.ModelSourcesFile,
+            CreateDefaultSources,
+            governanceRoot);
+
+    internal static IReadOnlyList<ModelCatalogItem> GetCollectionModels(string key, string? governanceRoot = null)
+    {
+        var catalog = GetEffectiveCatalog(governanceRoot);
+        var collections = GetEffectiveCollections(governanceRoot);
+        var modelIds = collections.Items
+            .Where(item => string.Equals(item.Key, key, StringComparison.OrdinalIgnoreCase))
+            .SelectMany(item => item.ModelIds)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return catalog.Items
+            .Where(item => modelIds.Contains(item.ModelId))
+            .ToArray();
+    }
+
+    internal static IReadOnlyList<ModelCatalogItem> GetInstallerVisibleClientModels(string? governanceRoot = null)
+    {
+        var catalog = GetEffectiveCatalog(governanceRoot);
+        var collections = GetEffectiveCollections(governanceRoot);
+        var modelIds = collections.Items
+            .Where(item => string.Equals(item.Scope, "client", StringComparison.OrdinalIgnoreCase) && item.VisibleInInstaller)
+            .SelectMany(item => item.ModelIds)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var selected = catalog.Items
+            .Where(item => item.SupportedScopes.Contains("client", StringComparer.OrdinalIgnoreCase)
+                        && modelIds.Contains(item.ModelId))
+            .ToArray();
+
+        return selected.Length > 0
+            ? selected
+            : catalog.Items.Where(item => item.SupportedScopes.Contains("client", StringComparer.OrdinalIgnoreCase)).ToArray();
+    }
+
+    internal static string? TryBuildDownloadUrl(ModelCatalogItem model, string? governanceRoot = null)
+    {
+        var policy = GetEffectivePolicy(governanceRoot);
+        if (policy.RequireChecksum && string.IsNullOrWhiteSpace(model.ChecksumSha256))
+            return null;
+
+        var source = GetEffectiveSources(governanceRoot).Items.FirstOrDefault(item =>
+            string.Equals(item.Key, model.SourceRef, StringComparison.OrdinalIgnoreCase));
+        if (source is null)
+            return null;
+
+        if (string.Equals(source.Kind, "huggingface", StringComparison.OrdinalIgnoreCase))
+        {
+            var baseUri = (source.Uri ?? string.Empty).Trim().TrimEnd('/');
+            if (!baseUri.StartsWith("https://huggingface.co/", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            return $"{baseUri}/resolve/main/{model.FileName}";
+        }
+
+        return null;
     }
 
     public static ModelCatalogArtifact CreateDefaultCatalog() => new(
@@ -406,4 +492,32 @@ internal static class ModelCatalogStore
             BusinessStates: new[] { "known", "authorized", "installable", "experimental" },
             ArtifactStates: new[] { "download_required", "verification_required" },
             SupportTier: supportTier);
+
+    private static T ReadEffectiveArtifact<T>(
+        string fileName,
+        Func<T> fallback,
+        string? governanceRoot = null)
+    {
+        try
+        {
+            var root = governanceRoot ?? GovernanceRootOverride ?? GovernanceArtifactStore.DefaultRoot;
+            var path = GovernanceArtifactStore.ResolvePath(fileName, root);
+            var checksumPath = path + ".sha256";
+            if (!File.Exists(path) || !File.Exists(checksumPath))
+                return fallback();
+
+            var json = File.ReadAllText(path);
+            var expected = File.ReadAllText(checksumPath).Trim();
+            var actual = GovernanceArtifactStore.ComputeSha256Hex(json);
+            if (!string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase))
+                return fallback();
+
+            var value = JsonSerializer.Deserialize<T>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            return value ?? fallback();
+        }
+        catch
+        {
+            return fallback();
+        }
+    }
 }

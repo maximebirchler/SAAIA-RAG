@@ -14,7 +14,7 @@ internal static class ClientDefaults
 
     // IMPORTANT: doit matcher l'ID renvoyé par /v1/models (dans llama.cpp c'est souvent le nom du fichier GGUF)
     // On met un modèle "safe" et léger par défaut (compatible CPU/iGPU).
-    public const string LlmModel = "Qwen2.5-3B-Instruct-Q4_0.gguf";
+    public const string LlmModel = "Qwen2.5-3B-Instruct-Q4_K_M.gguf";
 
     public const string DefaultCategory = "general";
 }

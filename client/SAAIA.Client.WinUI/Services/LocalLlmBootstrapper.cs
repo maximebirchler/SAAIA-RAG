@@ -17,28 +17,23 @@ namespace SAAIA.Client.WinUI.Services;
 /// </summary>
 internal sealed class LocalLlmBootstrapper
 {
-    // Model repositories (Hugging Face)
-    // Verified file naming patterns:
-    // - Qwen2.5-3B-Instruct-GGUF contains Q4_K_M / Q6_K_L / Q8_0 (etc.).
-    // - Mistral-7B-Instruct-v0.3-GGUF contains IQ3_M / Q4_K_M (etc.).
-    private const string QwenRepo = "bartowski/Qwen2.5-3B-Instruct-GGUF";
-    private const string MistralRepo = "bartowski/Mistral-7B-Instruct-v0.3-GGUF";
-
-    // Desired pack files (<= 12GB VRAM roadmap)
-    private const string QwenQ4_K_M = "Qwen2.5-3B-Instruct-Q4_K_M.gguf";
-    private const string QwenQ6_K_L = "Qwen2.5-3B-Instruct-Q6_K_L.gguf";
-    private const string QwenQ8_0 = "Qwen2.5-3B-Instruct-Q8_0.gguf";
-
-    private const string MistralIQ3_M = "Mistral-7B-Instruct-v0.3-IQ3_M.gguf";
-    private const string MistralQ4_K_M = "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf";
-
-    private sealed record ModelSpec(string Repo, string File, string? Sha256Hex);
+    private sealed record ModelSpec(string ModelId, string SourceRef, string File, string Url, string? Sha256Hex);
 
     private readonly DownloadManager _dl = new();
     private readonly LlamaCppReleaseDownloader _llamaDl = new();
 
-    private static ModelSpec Spec(string repo, string file)
-        => new(repo, file, ModelCatalogStore.TryGetReferenceChecksum(file));
+    private static ModelSpec? Spec(string modelIdOrFileName)
+    {
+        var item = ModelCatalogStore.TryGetItem(modelIdOrFileName);
+        if (item is null)
+            return null;
+
+        var url = ModelCatalogStore.TryBuildDownloadUrl(item);
+        if (string.IsNullOrWhiteSpace(url))
+            return null;
+
+        return new ModelSpec(item.ModelId, item.SourceRef, item.FileName, url, item.ChecksumSha256);
+    }
 
     public async Task<(bool ok, string message, IReadOnlyList<string> installedPaths)> EnsureAsync(
         AppSettings s,
@@ -151,21 +146,22 @@ internal sealed class LocalLlmBootstrapper
             {
                 // Build candidates in priority order
                 var candidates = GetModelCandidates(bestGpu, s.ModelId);
+                if (candidates.Count == 0)
+                    return (false, "No governed model candidate is currently downloadable for the active policy.", installed);
 
                 var picked = await PickFirstReachableSpecAsync(candidates, ct).ConfigureAwait(false);
                 if (picked is null)
                     return (false, "No reachable model file found on Hugging Face for the current pack.", installed);
 
-                var url = BuildHfUrl(picked);
                 // CDC v3.1 LLM-008: SHA-256 must be known for all pack models.
                 // Until the checksums are computed and populated, log a warning so it appears in support bundles.
                 if (picked.Sha256Hex is null)
                     ClientLog.Warn($"[Bootstrap] No SHA-256 known for '{picked.File}' — integrity check skipped.");
-                ClientLog.Info($"LLM bootstrap: downloading model '{picked.File}' from HF repo '{picked.Repo}'.");
+                ClientLog.Info($"LLM bootstrap: downloading model '{picked.File}' from source '{picked.SourceRef}'.");
 
                 var modelAsset = new DownloadManager.AssetSpec(
                     Id: picked.File,
-                    Url: url,
+                    Url: picked.Url,
                     TargetRelativePath: $"Models/{picked.File}",
                     Sha256Hex: picked.Sha256Hex);
 
@@ -302,59 +298,44 @@ internal sealed class LocalLlmBootstrapper
 
     private static IReadOnlyList<ModelSpec> GetModelCandidates(GpuInfo? gpu, string? requestedModelId)
     {
-        // If user requested one of our pack model ids, we try it first.
-        if (!string.IsNullOrWhiteSpace(requestedModelId))
-        {
-            var rid = requestedModelId.Trim();
-            if (string.Equals(rid, QwenQ4_K_M, StringComparison.OrdinalIgnoreCase))
-                return new[] { Spec(QwenRepo, QwenQ4_K_M), Spec(QwenRepo, QwenQ6_K_L), Spec(QwenRepo, QwenQ8_0) };
-            if (string.Equals(rid, QwenQ6_K_L, StringComparison.OrdinalIgnoreCase))
-                return new[] { Spec(QwenRepo, QwenQ6_K_L), Spec(QwenRepo, QwenQ4_K_M), Spec(QwenRepo, QwenQ8_0) };
-            if (string.Equals(rid, QwenQ8_0, StringComparison.OrdinalIgnoreCase))
-                return new[] { Spec(QwenRepo, QwenQ8_0), Spec(QwenRepo, QwenQ6_K_L), Spec(QwenRepo, QwenQ4_K_M) };
+        var candidates = new List<ModelSpec>();
 
-            if (string.Equals(rid, MistralIQ3_M, StringComparison.OrdinalIgnoreCase))
-                return new[] { Spec(MistralRepo, MistralIQ3_M), Spec(MistralRepo, MistralQ4_K_M), Spec(QwenRepo, QwenQ8_0) };
-            if (string.Equals(rid, MistralQ4_K_M, StringComparison.OrdinalIgnoreCase))
-                return new[] { Spec(MistralRepo, MistralQ4_K_M), Spec(MistralRepo, MistralIQ3_M), Spec(QwenRepo, QwenQ8_0) };
+        void AddCandidate(string? modelIdOrFileName)
+        {
+            var spec = Spec(modelIdOrFileName ?? string.Empty);
+            if (spec is null)
+                return;
+
+            if (candidates.Any(existing => string.Equals(existing.File, spec.File, StringComparison.OrdinalIgnoreCase)))
+                return;
+
+            candidates.Add(spec);
         }
 
-        var vramMiB = gpu?.DedicatedVramMiB ?? 0;
-        var integrated = gpu?.IsIntegrated ?? true;
+        if (!string.IsNullOrWhiteSpace(requestedModelId))
+            AddCandidate(requestedModelId);
 
-        // Conservative: iGPU/unknown => small model
-        if (integrated || vramMiB <= 0)
-            return new[] { Spec(QwenRepo, QwenQ4_K_M) };
+        foreach (var collectionKey in GetPreferredCollectionKeys(gpu))
+        {
+            foreach (var item in ModelCatalogStore.GetCollectionModels(collectionKey))
+                AddCandidate(item.ModelId);
+        }
 
-        // User-specified tiers (<= 12GB)
-        if (vramMiB <= 2048)
-            return new[] { Spec(QwenRepo, QwenQ4_K_M) };
+        if (candidates.Count == 0)
+        {
+            foreach (var fallback in ModelCatalogStore.GetInstallerVisibleClientModels())
+                AddCandidate(fallback.ModelId);
+        }
 
-        if (vramMiB <= 3584)
-            return new[] { Spec(QwenRepo, QwenQ4_K_M) };
-
-        if (vramMiB <= 6144)
-            return new[] { Spec(QwenRepo, QwenQ4_K_M), Spec(QwenRepo, QwenQ6_K_L) };
-
-        if (vramMiB <= 8192)
-            return new[] { Spec(QwenRepo, QwenQ6_K_L), Spec(QwenRepo, QwenQ8_0), Spec(QwenRepo, QwenQ4_K_M) };
-
-        if (vramMiB <= 10240)
-            return new[] { Spec(QwenRepo, QwenQ8_0), Spec(MistralRepo, MistralIQ3_M), Spec(QwenRepo, QwenQ6_K_L) };
-
-        // 10-12GB
-        return new[] { Spec(MistralRepo, MistralQ4_K_M), Spec(MistralRepo, MistralIQ3_M), Spec(QwenRepo, QwenQ8_0) };
+        return candidates;
     }
-
-    private static string BuildHfUrl(ModelSpec spec) => $"https://huggingface.co/{spec.Repo}/resolve/main/{spec.File}";
 
     private static async Task<ModelSpec?> PickFirstReachableSpecAsync(IReadOnlyList<ModelSpec> candidates, CancellationToken ct)
     {
         foreach (var c in candidates)
         {
             ct.ThrowIfCancellationRequested();
-            var url = BuildHfUrl(c);
-            if (await UrlExistsAsync(url, ct).ConfigureAwait(false))
+            if (await UrlExistsAsync(c.Url, ct).ConfigureAwait(false))
                 return c;
         }
         return null;
@@ -410,7 +391,7 @@ internal sealed class LocalLlmBootstrapper
             {
                 s.ModelId = picked.File;
                 s.ModelPath = desiredPath;
-                ClientLog.Info($"AutoModel: selected '{picked.File}' (repo={picked.Repo}, vramMiB={(gpu?.DedicatedVramMiB ?? 0)}, integrated={(gpu?.IsIntegrated ?? true)})." );
+                ClientLog.Info($"AutoModel: selected '{picked.File}' (source={picked.SourceRef}, vramMiB={(gpu?.DedicatedVramMiB ?? 0)}, integrated={(gpu?.IsIntegrated ?? true)})." );
             }
         }
         catch
@@ -423,13 +404,41 @@ internal sealed class LocalLlmBootstrapper
     {
         if (string.IsNullOrWhiteSpace(modelId)) return false;
         var canonical = ModelCatalogStore.ResolveCanonicalModelId(modelId);
-        return string.Equals(modelId, QwenQ4_K_M, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(modelId, QwenQ6_K_L, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(modelId, QwenQ8_0, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(modelId, MistralIQ3_M, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(modelId, MistralQ4_K_M, StringComparison.OrdinalIgnoreCase) ||
-               ModelCatalogStore.CreateDefaultCatalog().Items.Any(item =>
-                   string.Equals(item.ModelId, canonical, StringComparison.OrdinalIgnoreCase));
+        return ModelCatalogStore.GetInstallerVisibleClientModels().Any(item =>
+            string.Equals(item.ModelId, canonical, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(item.FileName, modelId, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static IEnumerable<string> GetPreferredCollectionKeys(GpuInfo? gpu)
+    {
+        var vramMiB = gpu?.DedicatedVramMiB ?? 0;
+        var integrated = gpu?.IsIntegrated ?? true;
+
+        if (integrated || vramMiB <= 0)
+        {
+            yield return "4gb-vram";
+            yield return "client-baseline";
+            yield break;
+        }
+
+        if (vramMiB <= 3584)
+        {
+            yield return "4gb-vram";
+            yield return "client-baseline";
+            yield break;
+        }
+
+        if (vramMiB <= 8192)
+        {
+            yield return "8gb-vram";
+            yield return "4gb-vram";
+            yield return "client-baseline";
+            yield break;
+        }
+
+        yield return "10gb-vram";
+        yield return "8gb-vram";
+        yield return "client-baseline";
     }
 
     private static void ResolveExePath(AppSettings s, bool hasNvidiaGpu)
