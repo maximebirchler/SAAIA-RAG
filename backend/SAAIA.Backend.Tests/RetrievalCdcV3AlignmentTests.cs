@@ -4,11 +4,11 @@ using Xunit;
 namespace SAAIA.Backend.Tests;
 
 /// <summary>
-/// Tests for CDC v3.0 retrieval alignment features:
-/// - Autocut (§11.3)
-/// - Section diversity (§11.3)
-/// - Snippet generation (§11.6)
-/// - HasTable / HasWarning detection (§11.6)
+/// Tests for CDC v3.1 retrieval alignment features:
+/// - Autocut (section 11.3)
+/// - Section diversity (section 11.3)
+/// - Snippet generation (section 11.6)
+/// - HasTable / HasWarning detection (section 11.6)
 /// </summary>
 public sealed class RetrievalCdcV3AlignmentTests
 {
@@ -50,7 +50,7 @@ public sealed class RetrievalCdcV3AlignmentTests
 
     #endregion
 
-    #region ApplyAutocut tests (CDC §11.3)
+    #region ApplyAutocut tests (CDC section 11.3)
 
     [Fact]
     public void ApplyAutocut_keeps_all_when_scores_decrease_gradually()
@@ -92,7 +92,7 @@ public sealed class RetrievalCdcV3AlignmentTests
         var matches = new List<RagMatch>
         {
             MakeMatch(0.90),
-            MakeMatch(0.80), // 11% drop — below 15% threshold
+            MakeMatch(0.80), // 11% drop â€” below 15% threshold
             MakeMatch(0.72),
             MakeMatch(0.65)
         };
@@ -161,7 +161,7 @@ public sealed class RetrievalCdcV3AlignmentTests
 
     #endregion
 
-    #region BuildSnippet tests (CDC §11.6)
+    #region BuildSnippet tests (CDC section 11.6)
 
     [Fact]
     public void BuildSnippet_returns_null_for_empty_text()
@@ -202,7 +202,7 @@ public sealed class RetrievalCdcV3AlignmentTests
 
     #endregion
 
-    #region DetectHasTable tests (CDC §11.6)
+    #region DetectHasTable tests (CDC section 11.6)
 
     [Fact]
     public void DetectHasTable_returns_false_for_plain_text()
@@ -228,7 +228,7 @@ public sealed class RetrievalCdcV3AlignmentTests
 
     #endregion
 
-    #region DetectHasWarning tests (CDC §11.6)
+    #region DetectHasWarning tests (CDC section 11.6)
 
     [Fact]
     public void DetectHasWarning_returns_true_for_warning_chunk_type()
@@ -257,7 +257,7 @@ public sealed class RetrievalCdcV3AlignmentTests
 
     #endregion
 
-    #region Section diversity tests (CDC §11.3)
+    #region Section diversity tests (CDC section 11.3)
 
     [Fact]
     public void AddRankedMatches_enforces_max_two_chunks_per_section()
@@ -274,20 +274,20 @@ public sealed class RetrievalCdcV3AlignmentTests
             MakeMatch(0.80, chunkId: "d", sectionOrdinal: 1, sectionTitle: "Safety", text: "text d"),
         };
 
-        // Use reflection or direct call — AddRankedMatches is private, so test via the public helper
+        // Use reflection or direct call â€” AddRankedMatches is private, so test via the public helper
         // Actually it uses internal RagMatch and private method. We test through the harness indirectly.
         // Let's use the internal method access pattern from existing tests.
 
         // Since AddRankedMatches is private, we verify the behavior through the scoring/dedup tests
         // and trust the integration. The section key builder is testable though.
-        Assert.True(true, "Section diversity is enforced in AddRankedMatches — verified via integration.");
+        Assert.True(true, "Section diversity is enforced in AddRankedMatches â€” verified via integration.");
     }
 
     [Fact]
     public void BuildSectionKey_uses_section_ordinal_when_available()
     {
         var match = MakeMatch(0.90, sectionOrdinal: 3, sectionTitle: "Safety");
-        // BuildSectionKey is private — we verify it indirectly through the section diversity behavior.
+        // BuildSectionKey is private â€” we verify it indirectly through the section diversity behavior.
         // The key format is: "{docPath}:sec:{sectionOrdinal}"
         Assert.Equal(3, match.SectionOrdinal);
         Assert.Equal("Safety", match.SectionTitle);
@@ -300,7 +300,7 @@ public sealed class RetrievalCdcV3AlignmentTests
     [Fact]
     public void Default_maxPerDoc_should_be_reasonable_for_typical_topK()
     {
-        // CDC §11.3 says max 3 chunks per document.
+        // CDC section 11.3 says max 3 chunks per document.
         // Balanced mode is now capped with Math.Min(3, Math.Max(2, topK / 2)).
         var topK5 = Math.Min(3, Math.Max(2, 5 / 2));
         var topK8 = Math.Min(3, Math.Max(2, 8 / 2));

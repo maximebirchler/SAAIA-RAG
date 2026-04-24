@@ -1019,47 +1019,9 @@ public static class AdminRuntimeEndpoints
                 }
             }
 
-            var governanceDir = Path.Combine(env.ContentRootPath, "governance");
-            foreach (var fileName in governanceFileNames)
-            {
-                var src = Path.Combine(governanceDir, fileName);
-                if (File.Exists(src))
-                {
-                    File.Copy(src, Path.Combine(staging, fileName), overwrite: true);
-                    artifacts.Add(fileName);
-                }
-                else
-                {
-                    missing.Add(fileName);
-                }
-            }
+            CopyOptionalSupportBundleGovernanceFiles(staging, env, governanceFileNames, artifacts, missing);
 
-            var llmLogSources = new[]
-            {
-                Path.Combine(env.ContentRootPath, "logs", "llm"),
-                Path.Combine(env.ContentRootPath, "llm-logs")
-            };
-            var copiedLlmLogs = 0;
-            foreach (var llmLogSource in llmLogSources)
-            {
-                if (!Directory.Exists(llmLogSource))
-                    continue;
-
-                var outDir = Path.Combine(staging, "llm-logs");
-                Directory.CreateDirectory(outDir);
-                foreach (var file in Directory.EnumerateFiles(llmLogSource)
-                             .OrderByDescending(File.GetLastWriteTimeUtc)
-                             .Take(20))
-                {
-                    var entryName = Path.Combine("llm-logs", Path.GetFileName(file));
-                    File.Copy(file, Path.Combine(staging, entryName), overwrite: true);
-                    artifacts.Add(entryName.Replace('\\', '/'));
-                    copiedLlmLogs++;
-                }
-            }
-
-            if (copiedLlmLogs == 0)
-                missing.Add("llm-logs/");
+            CopyOptionalSupportBundleLlmLogs(staging, env, artifacts, missing);
 
             var configSnapshot = new
             {
@@ -1137,4 +1099,104 @@ public static class AdminRuntimeEndpoints
             Path.Combine(stagingRoot, fileName),
             JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }),
             ct);
+
+    internal static void CopyOptionalSupportBundleGovernanceFiles(
+        string stagingRoot,
+        IHostEnvironment env,
+        IEnumerable<string> fileNames,
+        List<string> artifacts,
+        List<string> missing,
+        string? localAppDataRoot = null)
+    {
+        var sourceRoots = GetOptionalSupportBundleGovernanceRoots(env, localAppDataRoot);
+        foreach (var fileName in fileNames)
+        {
+            var src = sourceRoots
+                .Select(root => Path.Combine(root, fileName))
+                .FirstOrDefault(File.Exists);
+
+            if (src is not null)
+            {
+                File.Copy(src, Path.Combine(stagingRoot, fileName), overwrite: true);
+                artifacts.Add(fileName);
+            }
+            else
+            {
+                missing.Add(fileName);
+            }
+        }
+    }
+
+    internal static void CopyOptionalSupportBundleLlmLogs(
+        string stagingRoot,
+        IHostEnvironment env,
+        List<string> artifacts,
+        List<string> missing,
+        string? localAppDataRoot = null)
+    {
+        var copiedLlmLogs = 0;
+        foreach (var llmLogSource in GetOptionalSupportBundleLlmLogRoots(env, localAppDataRoot))
+        {
+            if (!Directory.Exists(llmLogSource))
+                continue;
+
+            var outDir = Path.Combine(stagingRoot, "llm-logs");
+            Directory.CreateDirectory(outDir);
+            foreach (var file in Directory.EnumerateFiles(llmLogSource)
+                         .OrderByDescending(File.GetLastWriteTimeUtc)
+                         .Take(20))
+            {
+                var entryName = Path.Combine("llm-logs", Path.GetFileName(file));
+                File.Copy(file, Path.Combine(stagingRoot, entryName), overwrite: true);
+                artifacts.Add(entryName.Replace('\\', '/'));
+                copiedLlmLogs++;
+            }
+        }
+
+        if (copiedLlmLogs == 0)
+            missing.Add("llm-logs/");
+    }
+
+    internal static IReadOnlyList<string> GetOptionalSupportBundleGovernanceRoots(
+        IHostEnvironment env,
+        string? localAppDataRoot = null)
+    {
+        var roots = new List<string> { Path.Combine(env.ContentRootPath, "governance") };
+        var resolvedLocalAppData = string.IsNullOrWhiteSpace(localAppDataRoot)
+            ? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
+            : localAppDataRoot;
+        if (!string.IsNullOrWhiteSpace(resolvedLocalAppData))
+        {
+            roots.Add(Path.Combine(resolvedLocalAppData, "SAAIA", "governance"));
+        }
+
+        return roots
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    internal static IReadOnlyList<string> GetOptionalSupportBundleLlmLogRoots(
+        IHostEnvironment env,
+        string? localAppDataRoot = null)
+    {
+        var roots = new List<string>
+        {
+            Path.Combine(env.ContentRootPath, "logs", "llm"),
+            Path.Combine(env.ContentRootPath, "llm-logs")
+        };
+        var resolvedLocalAppData = string.IsNullOrWhiteSpace(localAppDataRoot)
+            ? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
+            : localAppDataRoot;
+        if (!string.IsNullOrWhiteSpace(resolvedLocalAppData))
+        {
+            roots.Add(Path.Combine(resolvedLocalAppData, "SAAIA", "logs", "llm"));
+            roots.Add(Path.Combine(resolvedLocalAppData, "SAAIA", "logs"));
+        }
+
+        return roots
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
 }

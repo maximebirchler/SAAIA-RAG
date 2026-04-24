@@ -199,6 +199,79 @@ public sealed class AdminRuntimeEndpointsTests
     }
 
     [Fact]
+    public void CopyOptionalSupportBundleGovernanceFiles_reads_local_appdata_fallback_when_content_root_missing()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "saaia-support-governance-" + Guid.NewGuid().ToString("N"));
+        var tempLocalAppData = Path.Combine(Path.GetTempPath(), "saaia-localappdata-" + Guid.NewGuid().ToString("N"));
+        var staging = Path.Combine(tempRoot, "staging");
+
+        try
+        {
+            Directory.CreateDirectory(staging);
+            var localGovernance = Path.Combine(tempLocalAppData, "SAAIA", "governance");
+            Directory.CreateDirectory(localGovernance);
+            File.WriteAllText(Path.Combine(localGovernance, "hardware_probe.json"), "{\"artifact\":\"hardware_probe.json\"}");
+
+            var artifacts = new List<string>();
+            var missing = new List<string>();
+            AdminRuntimeEndpoints.CopyOptionalSupportBundleGovernanceFiles(
+                staging,
+                new StubHostEnvironment { ContentRootPath = tempRoot },
+                new[] { "hardware_probe.json", "last_known_good_profile.json" },
+                artifacts,
+                missing,
+                tempLocalAppData);
+
+            Assert.Contains("hardware_probe.json", artifacts);
+            Assert.Contains("last_known_good_profile.json", missing);
+            Assert.True(File.Exists(Path.Combine(staging, "hardware_probe.json")));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+            if (Directory.Exists(tempLocalAppData))
+                Directory.Delete(tempLocalAppData, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void CopyOptionalSupportBundleLlmLogs_reads_local_appdata_fallback_when_content_root_missing()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "saaia-support-logs-" + Guid.NewGuid().ToString("N"));
+        var tempLocalAppData = Path.Combine(Path.GetTempPath(), "saaia-localappdata-" + Guid.NewGuid().ToString("N"));
+        var staging = Path.Combine(tempRoot, "staging");
+
+        try
+        {
+            Directory.CreateDirectory(staging);
+            var localLogs = Path.Combine(tempLocalAppData, "SAAIA", "logs", "llm");
+            Directory.CreateDirectory(localLogs);
+            File.WriteAllText(Path.Combine(localLogs, "llama-server.log"), "ready");
+
+            var artifacts = new List<string>();
+            var missing = new List<string>();
+            AdminRuntimeEndpoints.CopyOptionalSupportBundleLlmLogs(
+                staging,
+                new StubHostEnvironment { ContentRootPath = tempRoot },
+                artifacts,
+                missing,
+                tempLocalAppData);
+
+            Assert.Contains("llm-logs/llama-server.log", artifacts);
+            Assert.DoesNotContain("llm-logs/", missing);
+            Assert.True(File.Exists(Path.Combine(staging, "llm-logs", "llama-server.log")));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+            if (Directory.Exists(tempLocalAppData))
+                Directory.Delete(tempLocalAppData, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ModelCatalogArtifactAsync_returns_runtime_model_entries()
     {
         var ctx = BuildAdminContext();

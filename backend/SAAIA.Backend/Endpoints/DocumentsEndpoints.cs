@@ -25,7 +25,7 @@ public static partial class DocumentsEndpoints
         app.MapGet("/documents/catalog", CatalogAsync);
         app.MapGet("/documents/catalog/{docId:guid}", CatalogGetAsync);
 
-        // Inventory helpers (CDC v3.0)
+    // Inventory helpers (CDC v3.1)
         app.MapGet("/documents/count", CountAsync);
         app.MapGet("/documents/categories", CategoriesAsync);
         app.MapGet("/documents/tree", TreeAsync);
@@ -181,7 +181,7 @@ LIMIT 1;";
     }
 
     // -------------------------
-    // Inventory endpoints (CDC v3.0)
+    // Inventory endpoints (CDC v3.1)
     // Snapshot-first (M1.4) with safe fallbacks.
     // -------------------------
 

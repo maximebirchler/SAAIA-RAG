@@ -30,7 +30,7 @@ public sealed class SupportBundleMemoryDiagnosticsTests
             {
                 ["profile"] = "cdc-v3-m1lite-m3-m6",
                 ["schemaVersion"] = 1,
-                ["cdcAlignment"] = "v3.0",
+                ["cdcAlignment"] = "v3.1",
                 ["workspace"] = new Dictionary<string, object?>
                 {
                     ["catalogCategoriesCount"] = 2,

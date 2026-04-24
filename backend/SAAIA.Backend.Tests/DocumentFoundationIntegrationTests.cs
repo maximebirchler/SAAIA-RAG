@@ -1443,6 +1443,12 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.NotNull(item.ProvenanceInfo.OffsetStart);
         Assert.NotNull(item.ProvenanceInfo.OffsetEnd);
         Assert.True(item.ProvenanceInfo.OffsetEnd > item.ProvenanceInfo.OffsetStart);
+        Assert.False(string.IsNullOrWhiteSpace(item.Snippet));
+        Assert.False(string.IsNullOrWhiteSpace(item.ContextualSnippet));
+        Assert.NotNull(item.Context);
+        Assert.Equal(item.ChunkType, item.Context!.ChunkType);
+        Assert.Equal(item.SectionTitle, item.Context.SectionTitle);
+        Assert.Equal(item.HeadingPath, item.Context.HeadingPath);
         Assert.False(item.HypQuestionsMatched);
     }
 

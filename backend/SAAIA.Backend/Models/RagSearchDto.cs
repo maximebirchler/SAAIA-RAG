@@ -3,7 +3,7 @@ using System.ComponentModel;
 namespace SAAIA.Backend.Models;
 
 /// <summary>
-/// RAG diversity controls for CDC v3.0 search behavior.
+/// RAG diversity controls for CDC v3.1 search behavior.
 /// When present, overrides the default max-per-doc and max-per-page caps.
 /// </summary>
 public sealed record RagDiversityDto(
@@ -12,7 +12,7 @@ public sealed record RagDiversityDto(
 );
 
 /// <summary>
-/// Request contract for POST /rag/search aligned with CDC v3.0.
+/// Request contract for POST /rag/search aligned with CDC v3.1.
 /// </summary>
 public sealed record RagSearchRequestDto(
     string Query,
@@ -30,7 +30,7 @@ public sealed record RagSearchRequestDto(
 
 /// <summary>
 /// Structured retrieval provenance returned by POST /rag/search.
-/// CDC v3.0 §11.6: provenance with optional character-level offsets.
+/// CDC v3.1 section 11.6: provenance with optional character-level offsets.
 /// </summary>
 public sealed record RagItemProvenanceDto(
     string Channel,
@@ -58,7 +58,7 @@ public sealed record RagItemContextDto(
 
 /// <summary>
 /// Retrieval item returned by POST /rag/search.
-/// Flat fields are kept for compatibility while structured fields progressively align the contract with CDC v3.0.
+/// Flat fields are kept for compatibility while structured fields progressively align the contract with CDC v3.1.
 /// </summary>
 public sealed record RagItemDto(
     double Score,
@@ -87,7 +87,7 @@ public sealed record RagItemDto(
     string? SameSectionChunkId = null,
     RagItemProvenanceDto? ProvenanceInfo = null,
     RagItemContextDto? Context = null,
-    // --- CDC v3.0 §11.6 enrichment fields ---
+    // --- CDC v3.1 section 11.6 enrichment fields ---
     string? CategoryPath = null,
     string? Snippet = null,
     double? RerankScore = null,
@@ -98,7 +98,7 @@ public sealed record RagItemDto(
 );
 
 /// <summary>
-/// Aggregate search metrics for CDC v3.0 retrieval diagnostics.
+/// Aggregate search metrics for CDC v3.1 retrieval diagnostics.
 /// </summary>
 public sealed record RagMetricsDto(
     long TookMs,
@@ -119,7 +119,7 @@ public sealed record RagMetricsDto(
 
 /// <summary>
 /// Guidance for how a downstream writer or UI should frame the answer for the current question.
-/// This is a lightweight bridge toward CDC v3.0 answer-quality behavior without pretending to be full evidence-pack reasoning.
+/// This is a lightweight bridge toward CDC v3.1 answer-quality behavior without pretending to be full evidence-pack reasoning.
 /// </summary>
 public sealed record RagAnswerGuidanceDto(
     string Behavior,
@@ -131,7 +131,7 @@ public sealed record RagAnswerGuidanceDto(
 );
 
 /// <summary>
-/// Response contract for POST /rag/search aligned with CDC v3.0 retrieval output.
+/// Response contract for POST /rag/search aligned with CDC v3.1 retrieval output.
 /// </summary>
 public sealed record RagSearchResponseDto(
     string RequestId,

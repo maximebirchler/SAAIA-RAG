@@ -260,7 +260,7 @@ ORDER BY doc_path;
             "broad" => topK * 12,
             _ => topK * 6
         };
-        // CDC v3.0 §11.3: max 3 chunks per document default
+        // CDC v3.1 §11.3: max 3 chunks per document default
         int defMaxPerDoc = mode switch
         {
             "focused" => Math.Min(topK, 3),
@@ -432,7 +432,7 @@ ORDER BY doc_path;
             }
         }
 
-        // CDC v3.0 §11.3: autocut — remove trailing results after largest relative score drop
+        // CDC v3.1 §11.3: autocut - remove trailing results after largest relative score drop
         ApplyAutocut(selected, minScore);
 
         swTotal.Stop();
@@ -1052,7 +1052,7 @@ WHERE tenant_id=@tenant_id
                 continue;
             }
 
-            // CDC v3.0 §11.3: max 2 chunks per section
+        // CDC v3.1 §11.3: max 2 chunks per section
             var sectionKey = BuildSectionKey(match);
             if (sectionKey != null)
             {
@@ -1284,7 +1284,7 @@ LIMIT @top_k;
     }
 
     /// <summary>
-    /// CDC v3.0 §11.3: autocut — detect the largest relative score drop between consecutive
+    /// CDC v3.1 §11.3: autocut - detect the largest relative score drop between consecutive
     /// results and trim everything after the gap, provided the absolute threshold is also met.
     /// Keeps at least 1 result. Only cuts if the gap is significant (>= 15% relative drop).
     /// </summary>

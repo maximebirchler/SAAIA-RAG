@@ -205,7 +205,7 @@ public sealed class InventoryDeterminismRegressionTests
         {
           "profile": "cdc-v3-m1lite-m3-m6",
           "schemaVersion": 1,
-          "cdcAlignment": "v3.0",
+          "cdcAlignment": "v3.1",
           "routerMs": 12,
           "toolsMs": 34,
           "writerMs": 7,
@@ -266,7 +266,7 @@ public sealed class InventoryDeterminismRegressionTests
           "memorySummary": {
             "profile": "cdc-v3-m1lite-m3-m6",
             "schemaVersion": 1,
-            "cdcAlignment": "v3.0",
+            "cdcAlignment": "v3.1",
             "workspace": {
               "catalogCategoriesCount": 1,
               "knownDocumentsCount": 1,

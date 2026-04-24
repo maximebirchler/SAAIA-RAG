@@ -8,7 +8,7 @@ namespace SAAIA.Client.WinUI.Services;
 
 internal static class UserPrefsStore
 {
-    // CDC v3.0: only language and style are persisted between conversations.
+    // CDC v3.1: only language and style are persisted between conversations.
     // Mode remains on the runtime side and always falls back to auto.
     internal sealed record UserPrefs(int Version, string Language, string Style, string Mode);
 
