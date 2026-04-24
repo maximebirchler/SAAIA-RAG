@@ -377,7 +377,7 @@ Ce qui manque pour le contrat CDC :
 - [~] Audit section **Multilingue** : tous les libelles visibles, statuts, erreurs utilisateur, prompts d'aide, overlays, menus, tooltips, placeholders, titres
 - [~] Audit section **Tests automatiques** : couverture utile vs code reel, zones sans test, faux positifs, tests contractuels manquants, tests d'integration utiles manquants
 - [~] Audit section **Outils & scripts** : benchs, checksum, runtime-ci, support bundle, scripts admin, bootstrap, artefacts de gouvernance
-- [~] Audit section **Docs & TODO** : realignement CDC v3.1 / rapport final / TODO / noms de phases / compteurs de tests / historique recent
+- [~] Audit section **Docs & TODO** : realignement CDC v3.1 / rapport final / TODO / noms de phases / compteurs de tests / historique recent ; mentions `v3.0` residuelles nettoyees des sources actives et limitees aux logs / notes historiques explicites
 
 ### 4.2 Points issus de l'audit ChatGPT a revalider explicitement
 
@@ -391,7 +391,7 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 - [x] Revalider que `WarmupProfileStore` contient bien un vrai fallback CPU exploitable et non une reference orpheline
 - [x] Revalider que `GovernanceArtifactStore` ne pre-seed pas une chaine de qualification qui court-circuite la semantique CDC "Installed -> Configured -> Healthy -> Qualified -> Authorized -> Selected"
 - [~] Revalider que `model_collections.json`, `model_policy.json`, `model_sources.json` sont bien utilises comme source de decision runtime et pas seulement comme artefacts de facade
-- [ ] Revalider que le TODO ne surestime plus l'etat des blocs client/runtime/tests/artefacts
+- [x] Revalider que le TODO ne surestime plus l'etat des blocs client/runtime/tests/artefacts
 - [~] Revalider et nettoyer le code mort / bruit repo : fichiers exclus de compilation, `<Compile Remove>` obsoletes, artefacts bench/logs/.vs/swap, docs legacy trompeuses
 
 ### 4.3 Fermeture multilingue a 100 %
@@ -420,6 +420,7 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 - [ ] Verifier que les fichiers/artefacts de gouvernance produits localement sont coherents, checksummes et lisibles
 - [ ] Verifier que les endpoints admin et outils client pointent tous sur les bons artefacts v3.1
 - [ ] Verifier que les scripts/documentations de bench ne referencent plus des hypotheses obsoletes (phase 0, runtime unique, vieux builds, noms legacy)
+- [~] Notes/docs de support requalifiees : les documents encore utiles mais non normatifs doivent afficher explicitement leur statut `historique` ou `note de travail`, pour ne plus etre confondus avec le CDC actif
 
 ### 4.6 Runtime : decision produit finale avant tests machine reels
 
@@ -431,7 +432,8 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 
 ### 4.7 Checklist manuelle complete pour tests UI reels (a generer avant campagne)
 
-- [ ] Produire une **checklist de tests manuels la plus complete possible** en format exploitable par toi
+- [~] Produire une **checklist de tests manuels la plus complete possible** en format exploitable par toi
+- [x] Base source structuree creee : `artifacts/manual-test-checklist/SAAIA_Manual_Test_Checklist_v3.1.tsv`
 - [ ] Generer un fichier **Excel** dedie avec colonnes minimum :
   - [ ] Section
   - [ ] Ecran / fonctionnalite
@@ -455,7 +457,9 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
   - [ ] surfaces admin jobs / runtime / qualite A/B
   - [ ] multilingue (changement de langue + verification transversale)
 - [ ] Pour chaque scenario, inclure des **exemples concrets** de ce qui doit s'afficher et de ce qu'il faut faire dans l'interface
-- [ ] Prevoir une checklist separee "post-correctifs" pour rejouer uniquement les regressions critiques
+- [x] Prevoir une checklist separee "post-correctifs" pour rejouer uniquement les regressions critiques
+  - Base source creee : `artifacts/manual-test-checklist/SAAIA_Manual_Test_Checklist_PostFix_v3.1.tsv`
+- [~] Export `.xlsx` a produire des que le runtime tableur de l'environnement est utilisable (blocage actuel : runtime Node du plugin tableur insuffisant pour `node_repl`)
 
 ### 4.8 Gating avant lancement des tests manuels reels
 
@@ -667,3 +671,6 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 | 2026-04-24 | Codex | Audit Phase 4 - passe 20 : trou de couverture ferme sur `OpenAiLlmClient` ; injection HTTP de test ajoutee et parsing contractuel de `/models` verrouille pour les formats OpenAI (`data[].id`) et llama.cpp (`models[].name/model`) avec deduplication case-insensitive, build WinUI 0 warning et suite client complete `347/347` verte |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 21 : outils/scripts verifies plus loin ; `ConfigSigner` valide en bout-en-bout (`gen-keypair` -> `sign` -> `verify=VALID`), `runtime-ci-harness.ps1` execute en smoke non strict avec rapport JSON propre et skip explicite des probes runtime sans `SAAIA_RUNTIME_CI_BASE_URL` |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 22 : `compute-model-reference-checksums.ps1` nettoye pour distinguer les variantes `approved` vs `legacy_optional`, ce qui supprime un drift de lecture produit (8 approuves trouves, 0 approuve manquant, 4 legacy optionnels manquants) ; commentaire `AppSettings.QualifiedProfile` realigne pour ne plus parler de "Phase 0" |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 23 : bloc `Docs & TODO` revalide ; le TODO est realigne sur l'etat reel (compteurs / partiels / historique) et les notes de support encore utiles sont requalifiees en `historique` ou `note de travail` pour borner les residus `v3.0` aux logs et documents explicitement non normatifs |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 24 : base de checklist manuelle UI creee en format source tabulaire (`artifacts/manual-test-checklist/SAAIA_Manual_Test_Checklist_v3.1.tsv`) avec scenarios, pre-conditions, etapes et resultats attendus ; export `.xlsx` reporte tant que le runtime tableur de l'environnement reste bloque |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 25 : checklist courte `post-correctifs` ajoutee en source tabulaire (`artifacts/manual-test-checklist/SAAIA_Manual_Test_Checklist_PostFix_v3.1.tsv`) pour rejouer rapidement les regressions critiques sans relancer toute la campagne |
