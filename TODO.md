@@ -53,7 +53,7 @@
 - [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` â€” OK, 0 Warning
 - [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` â€” OK, 0 Warning
 - [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` â€” 335/335 verts
-- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj` â€” 318/318 verts
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj` â€” 321/321 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
 - [x] Revalidation client 2026-04-23 apres diagnostic runtime local : 316/316 verts
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
@@ -376,7 +376,7 @@ Ce qui manque pour le contrat CDC :
 - [ ] Audit section **UI WinUI** : fenetre principale, flyouts, overlays admin/runtime, setup wizard, panneau jobs, aide, settings actifs
 - [ ] Audit section **Multilingue** : tous les libelles visibles, statuts, erreurs utilisateur, prompts d'aide, overlays, menus, tooltips, placeholders, titres
 - [~] Audit section **Tests automatiques** : couverture utile vs code reel, zones sans test, faux positifs, tests contractuels manquants, tests d'integration utiles manquants
-- [ ] Audit section **Outils & scripts** : benchs, checksum, runtime-ci, support bundle, scripts admin, bootstrap, artefacts de gouvernance
+- [~] Audit section **Outils & scripts** : benchs, checksum, runtime-ci, support bundle, scripts admin, bootstrap, artefacts de gouvernance
 - [~] Audit section **Docs & TODO** : realignement CDC v3.1 / rapport final / TODO / noms de phases / compteurs de tests / historique recent
 
 ### 4.2 Points issus de l'audit ChatGPT a revalider explicitement
@@ -413,6 +413,9 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 ### 4.5 Outils / scripts / artefacts : verification de fonctionnement reel
 
 - [ ] Verifier tous les scripts `tools/*` utiles un par un : checksum, runtime-ci, bench, export/checklist, support bundle, harness
+- [~] `tools/compute-model-reference-checksums.ps1` : syntaxe OK + execution reelle validee sur la machine (8 modeles trouves, 4 manquants)
+- [~] `tools/runtime-ci-harness.ps1` : syntaxe/structure OK ; execution reelle a faire seulement pendant la phase de tests machine
+- [~] `tools/ConfigSigner` : build local OK ; verifier ensuite le workflow fonctionnel de signature/verification bout-en-bout
 - [ ] Verifier que les fichiers/artefacts de gouvernance produits localement sont coherents, checksummes et lisibles
 - [ ] Verifier que les endpoints admin et outils client pointent tous sur les bons artefacts v3.1
 - [ ] Verifier que les scripts/documentations de bench ne referencent plus des hypotheses obsoletes (phase 0, runtime unique, vieux builds, noms legacy)
@@ -645,3 +648,5 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 | 2026-04-24 | Codex | Audit Phase 4 - passe 2 : gouvernance runtime backend alignee v3.1, support bundle admin enrichi avec artefacts backend generes a la demande, convergence `/documents` user/admin via route unifiee + fallbacks client legacy ; backend build 0 warning, 83 tests backend cibles verts, client build 0 warning, 318 tests client verts |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 3 : sync documentaire/source vers CDC v3.1, snapshots client `cdcAlignment` realignes, support bundle admin capable de recuperer aussi les artefacts compagnons locaux SAAIA (gouvernance + logs) via racines optionnelles, tests backend et client verts ; backend build 0 warning, 105 tests backend cibles verts, client build 0 warning, 318 tests client verts |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 4 : revue foundation/retrieval confirmee (migrations 016-024 coherentes, 29 fichiers backend `*Tests.cs` confirmes, offsets/HyPE/context structurés couverts), test d'integration `/rag/search` enrichi pour verrouiller `Snippet`/`ContextualSnippet`/`Context` ; 101 tests backend foundation/retrieval verts |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 5 : revue tests automatiques client, ajout de tests de non-regression `ApiClient.Documents` pour la transition `/documents` -> `/documents/catalog`, revalidation complete client `321/321` verte ; rappel confirme que build/test WinUI doivent rester sequentiels pour eviter les verrous XAML |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 6 : verification outils/scripts entamee ; `tools/ConfigSigner` build local OK, `tools/compute-model-reference-checksums.ps1` execute avec succes (8 modeles trouves, 4 manquants), `tools/runtime-ci-harness.ps1` parse OK mais execution reelle repoussee a la phase machine |
