@@ -189,6 +189,44 @@ public sealed class GovernanceArtifactStoreTests
     }
 
     [Fact]
+    public void Default_model_collections_reference_known_model_ids_only()
+    {
+        var catalogIds = ModelCatalogStore.CreateDefaultCatalog().Items
+            .Select(item => item.ModelId)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var collections = ModelCatalogStore.CreateDefaultCollections();
+
+        foreach (var modelId in collections.Items.SelectMany(item => item.ModelIds))
+            Assert.Contains(modelId, catalogIds);
+    }
+
+    [Fact]
+    public void Default_model_sources_cover_all_catalog_source_refs()
+    {
+        var sourceKeys = ModelCatalogStore.CreateDefaultSources().Items
+            .Select(item => item.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var catalog = ModelCatalogStore.CreateDefaultCatalog();
+
+        foreach (var item in catalog.Items)
+            Assert.Contains(item.SourceRef, sourceKeys);
+    }
+
+    [Fact]
+    public void Default_model_policy_matches_v31_client_constraints()
+    {
+        var policy = ModelCatalogStore.CreateDefaultPolicy();
+
+        Assert.False(policy.AllowDiscovery);
+        Assert.True(policy.RequireChecksum);
+        Assert.Equal(1, policy.MaxActiveModelsClient);
+        Assert.Equal(GovernanceArtifactStore.BlacklistFile, policy.BlacklistRef);
+        Assert.Contains("one_active_client_model", policy.Rules);
+        Assert.Contains("checksum_required_before_qualification", policy.Rules);
+        Assert.Contains("warmup_required_before_selection", policy.Rules);
+    }
+
+    [Fact]
     public void HardwareProbeService_create_artifact_includes_observed_dxgi_budget()
     {
         var gpu = new GpuInfo(

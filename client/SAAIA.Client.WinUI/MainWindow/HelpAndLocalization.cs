@@ -48,6 +48,7 @@ public sealed partial class MainWindow
         TrySoftUi("ApplyUiLanguage.LlmSettingsButton", () => LlmSettingsButton.Content = ClientUiText.Get("button.local_llm", lang));
         TrySoftUi("ApplyUiLanguage.SourcesToggleButton", () => SourcesToggleButton.Content = ClientUiText.Get("panel.sources", lang));
         TrySoftUi("ApplyUiLanguage.SourcesPanelTitleText", () => SourcesPanelTitleText.Text = ClientUiText.Get("panel.sources", lang));
+        TrySoftUi("ApplyUiLanguage.SourcesCards", () => SourcesCards.ApplyUiLanguage(lang));
         TrySoftUi("ApplyUiLanguage.LocalLlmPanelTitleText", () => LocalLlmPanelTitleText.Text = LocalLlmText("LLM local (llama.cpp)", "Local LLM (llama.cpp)", "LLM local (llama.cpp)", "LLM local (llama.cpp)", "Lokales LLM (llama.cpp)", "LLM locale (llama.cpp)", lang));
         TrySoftUi("ApplyUiLanguage.LocalLlmEnabledCheck", () => LocalLlmEnabledCheck.Content = LocalLlmText("Activer le LLM local (llama.cpp)", "Enable local LLM (llama.cpp)", "Activar LLM local (llama.cpp)", "Ativar LLM local (llama.cpp)", "Lokales LLM aktivieren (llama.cpp)", "Attiva LLM locale (llama.cpp)", lang));
         TrySoftUi("ApplyUiLanguage.LocalLlmAutoStartCheck", () => LocalLlmAutoStartCheck.Content = LocalLlmText("Demarrer automatiquement le LLM local a la connexion", "Auto-start local LLM on Connect", "Iniciar automaticamente el LLM local al conectar", "Iniciar automaticamente o LLM local ao ligar", "Lokales LLM beim Verbinden automatisch starten", "Avvia automaticamente il LLM locale alla connessione", lang));

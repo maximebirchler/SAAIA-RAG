@@ -14,8 +14,14 @@ public sealed partial class SourcesCardsControl : UserControl
     public SourcesCardsControl()
     {
         InitializeComponent();
-        SourcesHeaderText.Text = ST("Sources", "Sources", "Fuentes", "Fontes", "Quellen", "Fonti");
+        ApplyUiLanguage();
         Visibility = Visibility.Collapsed;
+    }
+
+    public void ApplyUiLanguage(string? uiLanguage = null)
+    {
+        SourcesHeaderText.Text = GetSourcesHeaderText(uiLanguage);
+        ApplyButtonLanguage();
     }
 
     public IList<SourceCard> Items
@@ -37,6 +43,7 @@ public sealed partial class SourcesCardsControl : UserControl
 
         var list = e.NewValue as IList<SourceCard> ?? new List<SourceCard>();
         self.ItemsHost.ItemsSource = list;
+        self.ApplyButtonLanguage();
 
         self.Visibility = list.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -78,12 +85,44 @@ public sealed partial class SourcesCardsControl : UserControl
     private void OpenButton_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is Button button)
-            button.Content = ST("Ouvrir", "Open", "Abrir", "Abrir", "Oeffnen", "Apri");
+            button.Content = GetOpenButtonText();
     }
 
-    private static string ST(string fr, string en, string es, string pt, string de, string it)
+    private void ApplyButtonLanguage()
     {
-        var lang = ClientUiText.NormalizeLanguage(AppSettings.Load().UiLanguage);
+        foreach (var button in EnumerateButtons(ItemsHost))
+        {
+            if (button.Tag is SourceCard)
+                button.Content = GetOpenButtonText();
+        }
+    }
+
+    private static IEnumerable<Button> EnumerateButtons(DependencyObject root)
+    {
+        if (root is null)
+            yield break;
+
+        var childCount = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (var i = 0; i < childCount; i++)
+        {
+            var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, i);
+            if (child is Button button)
+                yield return button;
+
+            foreach (var nested in EnumerateButtons(child))
+                yield return nested;
+        }
+    }
+
+    internal static string GetSourcesHeaderText(string? uiLanguage = null)
+        => ST("Sources", "Sources", "Fuentes", "Fontes", "Quellen", "Fonti", uiLanguage);
+
+    internal static string GetOpenButtonText(string? uiLanguage = null)
+        => ST("Ouvrir", "Open", "Abrir", "Abrir", "Oeffnen", "Apri", uiLanguage);
+
+    private static string ST(string fr, string en, string es, string pt, string de, string it, string? uiLanguage = null)
+    {
+        var lang = ClientUiText.NormalizeLanguage(uiLanguage ?? AppSettings.Load().UiLanguage);
         return lang switch
         {
             "en" => en,

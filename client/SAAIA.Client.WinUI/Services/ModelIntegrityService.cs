@@ -38,8 +38,6 @@ internal static class ModelIntegrityService
     public static string GetQuarantineUserMessage(string? uiLanguage = null)
         => ClientUiText.Get("status.model_quarantined", uiLanguage);
 
-    public const string QuarantineUserMessage = "Modele non disponible — contactez l'administrateur.";
-
     public static async Task<ModelIntegrityVerificationResult> VerifyModelAsync(
         AppSettings settings,
         string? root = null,

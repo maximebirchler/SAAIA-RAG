@@ -53,7 +53,7 @@
 - [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` â€” OK, 0 Warning
 - [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` â€” OK, 0 Warning
 - [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` â€” 335/335 verts
-- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj` â€” 322/322 verts
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj` â€” 335/335 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
 - [x] Revalidation client 2026-04-23 apres diagnostic runtime local : 316/316 verts
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
@@ -373,8 +373,8 @@ Ce qui manque pour le contrat CDC :
 - [~] Audit section **Foundation documentaire & retrieval** : pages/sections/units/chunks/links/exact-match/contextual text, invariants de structure et regressions possibles
 - [~] Audit section **Governance runtime backend** : A/B, warmup, hard gates, diagnostics, events, endpoints admin runtime, artefacts exposes
 - [~] Audit section **Client runtime LLM** : downloader, runtime compatibility policy, active-runtime, rollback, warmup, blacklist, checksum, quarantaine, sleep/wake
-- [ ] Audit section **UI WinUI** : fenetre principale, flyouts, overlays admin/runtime, setup wizard, panneau jobs, aide, settings actifs
-- [ ] Audit section **Multilingue** : tous les libelles visibles, statuts, erreurs utilisateur, prompts d'aide, overlays, menus, tooltips, placeholders, titres
+- [~] Audit section **UI WinUI** : fenetre principale, flyouts, overlays admin/runtime, setup wizard, panneau jobs, aide, settings actifs
+- [~] Audit section **Multilingue** : tous les libelles visibles, statuts, erreurs utilisateur, prompts d'aide, overlays, menus, tooltips, placeholders, titres
 - [~] Audit section **Tests automatiques** : couverture utile vs code reel, zones sans test, faux positifs, tests contractuels manquants, tests d'integration utiles manquants
 - [~] Audit section **Outils & scripts** : benchs, checksum, runtime-ci, support bundle, scripts admin, bootstrap, artefacts de gouvernance
 - [~] Audit section **Docs & TODO** : realignement CDC v3.1 / rapport final / TODO / noms de phases / compteurs de tests / historique recent
@@ -396,10 +396,10 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 
 ### 4.3 Fermeture multilingue a 100 %
 
-- [ ] Faire une passe finale "chaine visible utilisateur" sur **tout** le client compile, sans exclure les vues admin/runtime
+- [~] Faire une passe finale "chaine visible utilisateur" sur **tout** le client compile, sans exclure les vues admin/runtime
 - [ ] Verifier que tous les `Content=`, `Text=`, `Header=`, `PlaceholderText=`, `ToolTip`, `Status(...)`, `StatusNote`, `ContentDialog` visibles sont pilotes par `UiLanguage` ou equivalents
-- [ ] Verifier aussi les erreurs de services susceptibles de remonter jusqu'a l'UI : `ApiClient*`, `ModelLibrary`, `DocumentLauncher`, bootstrap, import/export, runtime diagnostics
-- [ ] Verifier que les textes generes a partir des templates / DataTemplate / boutons charges dynamiquement (copy, streaming, sessions, flyouts) sont bien localises
+- [~] Verifier aussi les erreurs de services susceptibles de remonter jusqu'a l'UI : `ApiClient*`, `ModelLibrary`, `DocumentLauncher`, bootstrap, import/export, runtime diagnostics
+- [~] Verifier que les textes generes a partir des templates / DataTemplate / boutons charges dynamiquement (copy, streaming, sessions, flyouts) sont bien localises
 - [ ] Documenter explicitement les zones **non compilees** ou **techniques par design** pour ne plus les confondre avec de la dette active
 
 ### 4.4 Tests automatiques : fermeture maximale avant manuel
@@ -407,7 +407,7 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 - [ ] Refaire une revue complete des tests backend existants vs sections CDC v3.1
 - [ ] Refaire une revue complete des tests client existants vs runtime governance, UI state, checksums, rollback, diagnostics, support bundle
 - [~] Ajouter les tests contractuels manquants identifies pendant l'audit par section
-- [ ] Ajouter les tests de non-regression sur les zones critiques deja touchees : multilingue, runtime policy, support bundle, diagnostics runtime, setup wizard
+- [~] Ajouter les tests de non-regression sur les zones critiques deja touchees : multilingue, runtime policy, support bundle, diagnostics runtime, setup wizard
 - [ ] Verifier que tous les outils/scripts critiques ont au moins un test ou une verification contractuelle minimale
 - [ ] Verifier que les compteurs de tests annonces dans le TODO sont toujours exacts et les realigner apres chaque passe
 
@@ -655,3 +655,6 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 | 2026-04-24 | Codex | Audit Phase 4 - passe 8 : contrats API completes avec tests explicites pour `POST /documents/resolve-category` et `POST /sources/resolve`, revalidation backend API ciblee `107/107` verte ; rappel confirme que build backend et tests doivent aussi rester sequentiels pour eviter les verrous `obj` |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 9 : client runtime LLM audite et durci ; fallback ajoute pour rescanner les runtimes versionnes deja installes si `active-runtime.json` manque/casse, test dedie ajoute, build WinUI 0 warning et suite client complete `322/322` verte |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 10 : nettoyage bruit projet client ; suppression de trois `<Compile Remove>` devenus obsoletes dans le `.csproj`, confirmation que `UserSettingsDialog.xaml(.cs)` reste un legacy non compile volontaire, build WinUI 0 warning et 89 tests client cibles verts |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 11 : passe multilingue services revalidee et fermee sur les messages utilisateur de quarantaine/provisioning ; helpers localises ajoutes, tests dedies ajoutes, suite client complete `328/328` verte ; rappel confirme que build/test doivent rester sequentiels pour eviter les verrous `SAAIA.Contracts` / XAML |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 12 : audit UI WinUI entame avec correctif reel sur `SourcesCardsControl` pour suivre les changements de langue a chaud (titre + boutons dynamiques), filet de securite de localisation ajoute, build WinUI 0 warning et suite client complete `332/332` verte ; rappel confirme que les validations WinUI doivent rester sequentielles |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 13 : artefacts `model_collections.json` / `model_policy.json` / `model_sources.json` revalides ; coherence contractuelle verrouillee par tests (collections -> modeles, catalog -> sources, policy client v3.1), mais branchement comme vraie source de decision runtime reste encore un point ouvert a traiter ; suite client complete `335/335` verte |
