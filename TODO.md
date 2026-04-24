@@ -370,12 +370,12 @@ Ce qui manque pour le contrat CDC :
 ### 4.1 Audit complet par section (obligatoire, sans rien oublier)
 
 - [~] Audit section **Backend API & contrats** : endpoints user/admin, auth, ETag/304, surfaces `/documents`, `/catalog`, `/sources`, `/admin/support/bundle`
-- [ ] Audit section **Foundation documentaire & retrieval** : pages/sections/units/chunks/links/exact-match/contextual text, invariants de structure et regressions possibles
+- [~] Audit section **Foundation documentaire & retrieval** : pages/sections/units/chunks/links/exact-match/contextual text, invariants de structure et regressions possibles
 - [ ] Audit section **Governance runtime backend** : A/B, warmup, hard gates, diagnostics, events, endpoints admin runtime, artefacts exposes
 - [ ] Audit section **Client runtime LLM** : downloader, runtime compatibility policy, active-runtime, rollback, warmup, blacklist, checksum, quarantaine, sleep/wake
 - [ ] Audit section **UI WinUI** : fenetre principale, flyouts, overlays admin/runtime, setup wizard, panneau jobs, aide, settings actifs
 - [ ] Audit section **Multilingue** : tous les libelles visibles, statuts, erreurs utilisateur, prompts d'aide, overlays, menus, tooltips, placeholders, titres
-- [ ] Audit section **Tests automatiques** : couverture utile vs code reel, zones sans test, faux positifs, tests contractuels manquants, tests d'integration utiles manquants
+- [~] Audit section **Tests automatiques** : couverture utile vs code reel, zones sans test, faux positifs, tests contractuels manquants, tests d'integration utiles manquants
 - [ ] Audit section **Outils & scripts** : benchs, checksum, runtime-ci, support bundle, scripts admin, bootstrap, artefacts de gouvernance
 - [~] Audit section **Docs & TODO** : realignement CDC v3.1 / rapport final / TODO / noms de phases / compteurs de tests / historique recent
 
@@ -644,3 +644,4 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 | 2026-04-23 | Codex | Audit Phase 4 - passe 1 : retrait du signal admin dans le rail libre, manifest/tooling v3.1, `hardware_probe.json` complete via `GlobalMemoryStatusEx`, profil `qwen25-3b-q4km-cpu-safe` ajoute et `QualifiedProfile` n'est plus pre-seede ; build WinUI 0 warning, 317 tests client verts |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 2 : gouvernance runtime backend alignee v3.1, support bundle admin enrichi avec artefacts backend generes a la demande, convergence `/documents` user/admin via route unifiee + fallbacks client legacy ; backend build 0 warning, 83 tests backend cibles verts, client build 0 warning, 318 tests client verts |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 3 : sync documentaire/source vers CDC v3.1, snapshots client `cdcAlignment` realignes, support bundle admin capable de recuperer aussi les artefacts compagnons locaux SAAIA (gouvernance + logs) via racines optionnelles, tests backend et client verts ; backend build 0 warning, 105 tests backend cibles verts, client build 0 warning, 318 tests client verts |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 4 : revue foundation/retrieval confirmee (migrations 016-024 coherentes, 29 fichiers backend `*Tests.cs` confirmes, offsets/HyPE/context structurés couverts), test d'integration `/rag/search` enrichi pour verrouiller `Snippet`/`ContextualSnippet`/`Context` ; 101 tests backend foundation/retrieval verts |
