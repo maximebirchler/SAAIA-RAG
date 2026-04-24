@@ -122,7 +122,7 @@ internal sealed class AppSettings
 
     /// <summary>
     /// Last locally qualified profile selected by the governance layer.
-    /// Phase 0 keeps this as nullable until the formal warmup gate writes it.
+    /// Kept nullable until a warmup/qualification pass writes an approved runtime profile.
     /// </summary>
     public QualifiedProfile? QualifiedProfile { get; set; }
 

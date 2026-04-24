@@ -414,7 +414,7 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 ### 4.5 Outils / scripts / artefacts : verification de fonctionnement reel
 
 - [ ] Verifier tous les scripts `tools/*` utiles un par un : checksum, runtime-ci, bench, export/checklist, support bundle, harness
-- [~] `tools/compute-model-reference-checksums.ps1` : syntaxe OK + execution reelle validee sur la machine (8 modeles trouves, 4 manquants)
+- [~] `tools/compute-model-reference-checksums.ps1` : syntaxe OK + execution reelle validee sur la machine ; sortie clarifiee entre `approved` et `legacy_optional` (actuel : 8 approuves trouves, 0 approuve manquant, 4 legacy optionnels manquants)
 - [~] `tools/runtime-ci-harness.ps1` : syntaxe/structure OK + smoke non strict valide (`runtime_probes` skippe si `SAAIA_RUNTIME_CI_BASE_URL` absent) ; execution runtime reelle a faire seulement pendant la phase de tests machine
 - [x] `tools/ConfigSigner` : build local OK + workflow fonctionnel de signature/verification bout-en-bout valide en local
 - [ ] Verifier que les fichiers/artefacts de gouvernance produits localement sont coherents, checksummes et lisibles
@@ -666,3 +666,4 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 | 2026-04-24 | Codex | Audit Phase 4 - passe 19 : safety net multilingue etendu sur la fenetre principale compilee (libelles coeur `Chats/New/Jump/Typing/Input/Connect/Sources/Runtime diagnostics`) et sur le menu de session `Rename/Delete`, avec suite client complete `344/344` verte ; l'audit UI/multilingue se rapproche d'un etat ferme mais garde encore les verifications transversales finales a documenter |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 20 : trou de couverture ferme sur `OpenAiLlmClient` ; injection HTTP de test ajoutee et parsing contractuel de `/models` verrouille pour les formats OpenAI (`data[].id`) et llama.cpp (`models[].name/model`) avec deduplication case-insensitive, build WinUI 0 warning et suite client complete `347/347` verte |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 21 : outils/scripts verifies plus loin ; `ConfigSigner` valide en bout-en-bout (`gen-keypair` -> `sign` -> `verify=VALID`), `runtime-ci-harness.ps1` execute en smoke non strict avec rapport JSON propre et skip explicite des probes runtime sans `SAAIA_RUNTIME_CI_BASE_URL` |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 22 : `compute-model-reference-checksums.ps1` nettoye pour distinguer les variantes `approved` vs `legacy_optional`, ce qui supprime un drift de lecture produit (8 approuves trouves, 0 approuve manquant, 4 legacy optionnels manquants) ; commentaire `AppSettings.QualifiedProfile` realigne pour ne plus parler de "Phase 0" |

@@ -34,6 +34,7 @@ $knownModels = @(
         FileName = "Qwen2.5-3B-Instruct-Q4_K_M.gguf"
         Family = "qwen2.5"
         Quantization = "Q4_K_M"
+        VariantState = "approved"
         DisplayName = "Qwen2.5 3B Instruct Q4_K_M"
         SourceRef = "hf-bartowski-qwen25-3b"
         Architecture = "qwen2"
@@ -49,66 +50,77 @@ $knownModels = @(
         FileName = "Qwen2.5-3B-Instruct-Q6_K_L.gguf"
         Family = "qwen2.5"
         Quantization = "Q6_K_L"
+        VariantState = "approved"
     },
     [pscustomobject]@{
         ModelId = "qwen2.5-3b-instruct-q8-0"
         FileName = "Qwen2.5-3B-Instruct-Q8_0.gguf"
         Family = "qwen2.5"
         Quantization = "Q8_0"
+        VariantState = "approved"
     },
     [pscustomobject]@{
         ModelId = "qwen2.5-3b-instruct-q4-k-s"
         FileName = "Qwen2.5-3B-Instruct-Q4_K_S.gguf"
         Family = "qwen2.5"
         Quantization = "Q4_K_S"
+        VariantState = "legacy_optional"
     },
     [pscustomobject]@{
         ModelId = "qwen2.5-3b-instruct-q4-0"
         FileName = "Qwen2.5-3B-Instruct-Q4_0.gguf"
         Family = "qwen2.5"
         Quantization = "Q4_0"
+        VariantState = "legacy_optional"
     },
     [pscustomobject]@{
         ModelId = "qwen2.5-3b-instruct-q6-k"
         FileName = "Qwen2.5-3B-Instruct-Q6_K.gguf"
         Family = "qwen2.5"
         Quantization = "Q6_K"
+        VariantState = "legacy_optional"
     },
     [pscustomobject]@{
         ModelId = "mistral-7b-instruct-v0.3-q4-k-m"
         FileName = "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf"
         Family = "mistral"
         Quantization = "Q4_K_M"
+        VariantState = "approved"
     },
     [pscustomobject]@{
         ModelId = "mistral-7b-instruct-v0.3-iq3-m"
         FileName = "Mistral-7B-Instruct-v0.3-IQ3_M.gguf"
         Family = "mistral"
         Quantization = "IQ3_M"
+        VariantState = "approved"
     },
     [pscustomobject]@{
         ModelId = "mistral-7b-instruct-v0.3-q6-k"
         FileName = "Mistral-7B-Instruct-v0.3-Q6_K.gguf"
         Family = "mistral"
         Quantization = "Q6_K"
+        VariantState = "legacy_optional"
     },
     [pscustomobject]@{
         ModelId = "gemma-4-e2b-it-q4-k-m"
         FileName = "gemma-4-E2B-it-Q4_K_M.gguf"
         Family = "gemma4-e2b"
         Quantization = "Q4_K_M"
+        VariantState = "approved"
     },
     [pscustomobject]@{
         ModelId = "gemma-4-e2b-it-q8-0"
         FileName = "gemma-4-E2B-it-Q8_0.gguf"
         Family = "gemma4-e2b"
         Quantization = "Q8_0"
+        VariantState = "approved"
     },
     [pscustomobject]@{
         ModelId = "gemma-4-e4b-it-q4-k-m"
         FileName = "gemma-4-E4B-it-Q4_K_M.gguf"
         Family = "gemma4-e4b"
         Quantization = "Q4_K_M"
+        VariantState = "approved"
     }
 )
 
@@ -194,13 +206,13 @@ function Format-MarkdownSummary {
     param([object[]]$Items)
 
     $lines = @(
-        "| ModelId | FileName | Status | SHA256 |",
-        "|---|---|---|---|"
+        "| ModelId | FileName | VariantState | Status | SHA256 |",
+        "|---|---|---|---|---|"
     )
 
     foreach ($item in $Items) {
         $sha = if ($item.sha256) { $item.sha256 } else { "-" }
-        $lines += "| $($item.modelId) | $($item.fileName) | $($item.status) | $sha |"
+        $lines += "| $($item.modelId) | $($item.fileName) | $($item.variantState) | $($item.status) | $sha |"
     }
 
     return ($lines -join [Environment]::NewLine)
@@ -353,9 +365,14 @@ $catalogUpdated = $false
 $catalogMatchedCount = 0
 $catalogMismatchCount = 0
 $catalogMissingCount = 0
+$approvedFoundCount = 0
+$approvedMissingCount = 0
+$legacyFoundCount = 0
+$legacyMissingCount = 0
 
 foreach ($model in $knownModels) {
     $path = Find-ModelPath -FileName $model.FileName -Roots $roots
+    $variantState = if ([string]::IsNullOrWhiteSpace($model.VariantState)) { "approved" } else { $model.VariantState }
     $catalogChecksum = $null
     $verificationStatus = $null
     if ($VerifyAgainstCatalog) {
@@ -366,6 +383,7 @@ foreach ($model in $knownModels) {
     }
 
     if ($null -eq $path) {
+        if ($variantState -eq "approved") { $approvedMissingCount++ } else { $legacyMissingCount++ }
         if ($VerifyAgainstCatalog) {
             $verificationStatus = if ([string]::IsNullOrWhiteSpace($catalogChecksum)) { "catalog_missing" } else { "file_missing" }
             if ($verificationStatus -eq "catalog_missing") { $catalogMissingCount++ }
@@ -376,6 +394,7 @@ foreach ($model in $knownModels) {
             fileName = $model.FileName
             family = $model.Family
             quantization = $model.Quantization
+            variantState = $variantState
             DisplayName = (Get-OptionalValue -Object $model -Name "DisplayName")
             SourceRef = (Get-OptionalValue -Object $model -Name "SourceRef")
             Architecture = (Get-OptionalValue -Object $model -Name "Architecture")
@@ -396,6 +415,8 @@ foreach ($model in $knownModels) {
         }
         continue
     }
+
+    if ($variantState -eq "approved") { $approvedFoundCount++ } else { $legacyFoundCount++ }
 
     $file = Get-Item -LiteralPath $path
     $hash = Get-FileHash -LiteralPath $path -Algorithm SHA256
@@ -445,6 +466,7 @@ foreach ($model in $knownModels) {
         fileName = $model.FileName
         family = $model.Family
         quantization = $model.Quantization
+        variantState = $variantState
         DisplayName = (Get-OptionalValue -Object $model -Name "DisplayName")
         SourceRef = (Get-OptionalValue -Object $model -Name "SourceRef")
         Architecture = (Get-OptionalValue -Object $model -Name "Architecture")
@@ -491,6 +513,10 @@ $report = [pscustomobject]@{
     searchRoots = $roots
     foundCount = @($entries | Where-Object { $_.status -eq "found" }).Count
     missingCount = @($entries | Where-Object { $_.status -eq "missing" }).Count
+    approvedFoundCount = $approvedFoundCount
+    approvedMissingCount = $approvedMissingCount
+    legacyOptionalFoundCount = $legacyFoundCount
+    legacyOptionalMissingCount = $legacyMissingCount
     catalogArtifactPath = if ($VerifyAgainstCatalog -or $UpdateLocalCatalog) { $catalogArtifactResolvedPath } else { $null }
     catalogStatus = if ($VerifyAgainstCatalog -or $UpdateLocalCatalog) {
         if (-not $catalogExists) { "missing" }
