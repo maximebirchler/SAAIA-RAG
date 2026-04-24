@@ -75,13 +75,6 @@
     <ProjectReference Include="..\..\contracts\SAAIA.Contracts\SAAIA.Contracts.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Compile Remove="Services\ApiClient.ToolRuntime.cs" />
-    <Compile Remove="ToolAgent\ToolAgentOrchestrator.ToolRuntime.cs" />
-    <Compile Remove="ToolAgent\ToolAgentOrchestrator.ToolsPhase2.cs" />
-  </ItemGroup>
-
-
   <!--
     UserSettingsDialog source of truth:
     - The compiled dialog implementation is Controls\UserSettingsDialog.cs.

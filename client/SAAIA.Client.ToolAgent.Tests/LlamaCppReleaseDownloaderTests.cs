@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using System.Reflection;
 using SAAIA.Client.WinUI.Services;
 using Xunit;
 
@@ -82,6 +83,34 @@ public sealed class LlamaCppReleaseDownloaderTests
         }
     }
 
+    [Fact]
+    public void TryResolveInstalledRuntime_falls_back_to_best_versioned_runtime_when_manifest_is_missing()
+    {
+        var runtimeRoot = NewTempRoot();
+        LlamaCppReleaseDownloader.RuntimeRootOverride = runtimeRoot;
+
+        try
+        {
+            var oldExe = CreateRuntime(runtimeRoot, "win-cuda-x64", "b8149");
+            var newExe = CreateRuntime(runtimeRoot, "win-cuda-x64", "b8901");
+
+            var ok = InvokeTryResolveInstalledRuntime(
+                "llama.cpp-cuda",
+                Path.Combine(runtimeRoot, "win-cuda-x64"),
+                "b8901",
+                out var exePath);
+
+            Assert.True(ok);
+            Assert.Equal(newExe, exePath);
+            Assert.NotEqual(oldExe, exePath);
+        }
+        finally
+        {
+            LlamaCppReleaseDownloader.RuntimeRootOverride = null;
+            DeleteTempRoot(runtimeRoot);
+        }
+    }
+
     private static string CreateRuntime(string runtimeRoot, string backendDir, string build)
     {
         var runtimeDir = Path.Combine(runtimeRoot, backendDir, build);
@@ -129,6 +158,23 @@ public sealed class LlamaCppReleaseDownloaderTests
         });
 
         File.WriteAllText(Path.Combine(runtimeRoot, "active-runtime.json"), json);
+    }
+
+    private static bool InvokeTryResolveInstalledRuntime(
+        string runtimeId,
+        string runtimeBaseDir,
+        string? minBuild,
+        out string exePath)
+    {
+        var method = typeof(LlamaCppReleaseDownloader).GetMethod(
+            "TryResolveInstalledRuntime",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(method);
+        var args = new object?[] { runtimeId, runtimeBaseDir, minBuild, null };
+        var ok = (bool)method!.Invoke(null, args)!;
+        exePath = (string)args[3]!;
+        return ok;
     }
 
     private static string NewTempRoot()

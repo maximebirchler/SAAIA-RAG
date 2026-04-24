@@ -478,8 +478,43 @@ internal sealed class LlamaCppReleaseDownloader
             return true;
         }
 
+        var bestInstalled = FindBestInstalledVersionedRuntime(runtimeBaseDir, minBuild);
+        if (!string.IsNullOrWhiteSpace(bestInstalled))
+        {
+            exePath = bestInstalled;
+            return true;
+        }
+
         exePath = string.Empty;
         return false;
+    }
+
+    private static string? FindBestInstalledVersionedRuntime(string runtimeBaseDir, string? minBuild)
+    {
+        if (!Directory.Exists(runtimeBaseDir))
+            return null;
+
+        return Directory.GetDirectories(runtimeBaseDir)
+            .Select(dir =>
+            {
+                var exe = Path.Combine(dir, "llama-server.exe");
+                if (!File.Exists(exe))
+                    return null;
+
+                var build = RuntimeCompatibilityPolicyStore.ReadRuntimeBuild(exe)
+                    ?? Path.GetFileName(dir);
+                return new
+                {
+                    Exe = exe,
+                    Build = build,
+                    BuildNumber = ParseBuildNumber(build)
+                };
+            })
+            .Where(item => item is not null && BuildSatisfies(item.Build, minBuild))
+            .OrderByDescending(item => item!.BuildNumber)
+            .ThenByDescending(item => item!.Build, StringComparer.OrdinalIgnoreCase)
+            .Select(item => item!.Exe)
+            .FirstOrDefault();
     }
 
     private static bool BuildSatisfies(string? build, string? minBuild)

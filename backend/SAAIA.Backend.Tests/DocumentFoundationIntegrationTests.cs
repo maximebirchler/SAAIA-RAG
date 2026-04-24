@@ -13,6 +13,7 @@ using SAAIA.Backend.Db;
 using SAAIA.Backend.Endpoints;
 using SAAIA.Backend.Middleware;
 using SAAIA.Backend.Models;
+using SAAIA.Contracts;
 using Xunit;
 namespace SAAIA.Backend.Tests;
 
@@ -1398,6 +1399,118 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
+    public async Task Resolve_category_endpoint_resolves_category_ref_and_returns_aliases()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("cdd2ffff-ffff-ffff-ffff-ffffffffffff");
+        await PublishRuntimeReadyQuestionBankDocumentsAsync(db, tenantId);
+
+        await using var conn = new NpgsqlConnection(db.ConnectionString);
+        await conn.OpenAsync();
+        var displayOrder = await conn.ExecuteScalarAsync<int>(
+            "SELECT display_order FROM documents_catalog_categories WHERE tenant_id=@tenant AND path='ATEX' LIMIT 1;",
+            new { tenant = tenantId });
+        await conn.ExecuteAsync(
+            """
+            INSERT INTO documents_catalog_category_aliases(
+              tenant_id, path, alias, alias_key, language, source, priority
+            )
+            VALUES (@tenant, 'ATEX', @alias, @aliasKey, 'fr', 'test', 1)
+            ON CONFLICT (tenant_id, path, alias_key)
+            DO UPDATE SET alias = EXCLUDED.alias, language = EXCLUDED.language, source = EXCLUDED.source, priority = EXCLUDED.priority;
+            """,
+            new
+            {
+                tenant = tenantId,
+                alias = "Atmospheres explosibles",
+                aliasKey = "atmospheres explosibles"
+            });
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var ctx = BuildRagHttpContext(tenantId);
+        var result = await InvokeResolveCategoryAsync(
+            ctx,
+            ds,
+            new ResolveCategoryRequest
+            {
+                CategoryRef = $"cat_{displayOrder:000}"
+            });
+
+        await result.ExecuteAsync(ctx);
+
+        var payload = ReadResponseBody(ctx);
+        var response = JsonSerializer.Deserialize<ResolveCategoryResponse>(payload, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        Assert.NotNull(response);
+        var item = Assert.Single(response!.Items);
+        Assert.Equal($"cat_{displayOrder:000}", item.CategoryRef);
+        Assert.Equal("ATEX", item.CategoryPath);
+        Assert.Equal("ATEX", item.DisplayName);
+        Assert.Equal(displayOrder, item.Ordinal);
+        Assert.True(item.TotalDocuments > 0);
+        Assert.Contains("Atmospheres explosibles", item.Aliases);
+    }
+
+    [Fact]
+    public async Task Resolve_source_endpoint_matches_filename_reference_to_indexed_document()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("cdd3ffff-ffff-ffff-ffff-ffffffffffff");
+        await PublishRuntimeReadyQuestionBankDocumentsAsync(db, tenantId);
+
+        await using var conn = new NpgsqlConnection(db.ConnectionString);
+        await conn.OpenAsync();
+        var expected = await conn.QuerySingleAsync<(Guid doc_id, string doc_path, string doc_name, int page_count)>(
+            """
+            SELECT doc_id, doc_path, doc_name, page_count
+            FROM documents
+            WHERE tenant_id=@tenant
+              AND status='indexed'
+              AND doc_path='Programmation/Mettler/MettlerToledo_IND570.pdf'
+            LIMIT 1;
+            """,
+            new { tenant = tenantId });
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var ctx = BuildRagHttpContext(tenantId);
+        var result = await InvokeResolveSourceAsync(
+            ctx,
+            ds,
+            new SourceResolveRequest
+            {
+                PdfRef = expected.doc_name
+            });
+
+        await result.ExecuteAsync(ctx);
+
+        var payload = ReadResponseBody(ctx);
+        var response = JsonSerializer.Deserialize<SourceResolveResponse>(payload, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        Assert.NotNull(response);
+        Assert.Null(response!.Error);
+        Assert.Equal(expected.doc_name, response.RequestedRef);
+        Assert.NotNull(response.Source);
+        Assert.Equal(expected.doc_id, response.Source!.DocId);
+        Assert.Equal(expected.doc_path, response.Source.DocPath);
+        Assert.Equal(expected.doc_name, response.Source.DocName);
+        Assert.Equal(1, response.Source.PageStart);
+        Assert.Equal(Math.Max(expected.page_count, 1), response.Source.PageEnd);
+        Assert.Equal(expected.doc_name, response.Source.Label);
+    }
+
+    [Fact]
     public async Task SearchAsync_populates_category_ref_and_category_path_from_matched_document()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
@@ -1566,6 +1679,26 @@ public sealed class DocumentFoundationIntegrationTests
         var method = typeof(DocumentsEndpoints).GetMethod("UnifiedGetAsync", BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
         return await (Task<IResult>)method!.Invoke(null, [ctx, ds, docId])!;
+    }
+
+    private static async Task<IResult> InvokeResolveCategoryAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        ResolveCategoryRequest request)
+    {
+        var method = typeof(DocumentsEndpoints).GetMethod("ResolveCategoryAsync", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+        return await (Task<IResult>)method!.Invoke(null, [ctx, ds, request])!;
+    }
+
+    private static async Task<IResult> InvokeResolveSourceAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        SourceResolveRequest request)
+    {
+        var method = typeof(SourcesEndpoints).GetMethod("ResolveSourceAsync", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+        return await (Task<IResult>)method!.Invoke(null, [ctx, ds, request])!;
     }
 
     private static async Task<IResult> InvokeCatalogCacheEndpointAsync(
