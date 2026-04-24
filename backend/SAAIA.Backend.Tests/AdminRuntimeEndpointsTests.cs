@@ -292,10 +292,14 @@ public sealed class AdminRuntimeEndpointsTests
             var runtimeDir = Path.Combine(tempLocalAppData, "SAAIA", "llm", "runtime");
             Directory.CreateDirectory(runtimeDir);
             File.WriteAllText(Path.Combine(runtimeDir, "active-runtime.json"), "{\"items\":[]}");
+            File.WriteAllText(Path.Combine(runtimeDir, "active-runtime.json.sha256"), "cafebabe");
 
             var governanceDir = Path.Combine(tempLocalAppData, "SAAIA", "governance");
             Directory.CreateDirectory(governanceDir);
             File.WriteAllText(Path.Combine(governanceDir, "runtime_event_log.json"), "{\"items\":[]}");
+            File.WriteAllText(Path.Combine(governanceDir, "runtime_event_log.json.sha256"), "deadbeef");
+            File.WriteAllText(Path.Combine(governanceDir, "runtime_compatibility_policy.json"), "{\"artifact\":\"runtime_compatibility_policy.json\"}");
+            File.WriteAllText(Path.Combine(governanceDir, "runtime_compatibility_policy.json.sha256"), "beadfeed");
 
             var artifacts = new List<string>();
             AdminRuntimeEndpoints.CopyOptionalSupportBundleRuntimeFiles(
@@ -305,9 +309,17 @@ public sealed class AdminRuntimeEndpointsTests
                 tempLocalAppData);
 
             Assert.Contains("llm/active-runtime.json", artifacts);
+            Assert.Contains("llm/active-runtime.json.sha256", artifacts);
             Assert.Contains("llm/runtime_event_log.json", artifacts);
+            Assert.Contains("llm/runtime_event_log.json.sha256", artifacts);
+            Assert.Contains("llm/runtime_compatibility_policy.json", artifacts);
+            Assert.Contains("llm/runtime_compatibility_policy.json.sha256", artifacts);
             Assert.True(File.Exists(Path.Combine(staging, "llm", "active-runtime.json")));
+            Assert.True(File.Exists(Path.Combine(staging, "llm", "active-runtime.json.sha256")));
             Assert.True(File.Exists(Path.Combine(staging, "llm", "runtime_event_log.json")));
+            Assert.True(File.Exists(Path.Combine(staging, "llm", "runtime_event_log.json.sha256")));
+            Assert.True(File.Exists(Path.Combine(staging, "llm", "runtime_compatibility_policy.json")));
+            Assert.True(File.Exists(Path.Combine(staging, "llm", "runtime_compatibility_policy.json.sha256")));
         }
         finally
         {

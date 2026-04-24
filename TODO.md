@@ -423,8 +423,10 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 - [~] Verifier que les fichiers/artefacts de gouvernance produits localement sont coherents, checksummes et lisibles
   - Etat machine apres regeneration reelle : `%LOCALAPPDATA%\\SAAIA\\governance` = `16/16` presents, `16/16` verifies, `0` mismatch
   - Etat machine apres qualification headless : `%LOCALAPPDATA%\\SAAIA\\llm\\runtime\\active-runtime.json` = present, sidecar `.sha256` present, audit local `1/1` runtime verifie
-- [ ] Verifier que les endpoints admin et outils client pointent tous sur les bons artefacts v3.1
-- [ ] Verifier que les scripts/documentations de bench ne referencent plus des hypotheses obsoletes (phase 0, runtime unique, vieux builds, noms legacy)
+- [~] Verifier que les endpoints admin et outils client pointent tous sur les bons artefacts v3.1
+  - Bundles backend/client realignes sur les artefacts runtime et leurs sidecars ; reste la revalidation transversale finale des surfaces admin UI et support bundle en campagne manuelle
+- [~] Verifier que les scripts/documentations de bench ne referencent plus des hypotheses obsoletes (phase 0, runtime unique, vieux builds, noms legacy)
+  - Table CDC active realignee sur les endpoints/runtime deja exposes ; le reliquat concerne surtout les notes historiques et documents de bench a conserver comme archives explicites
 - [~] Notes/docs de support requalifiees : les documents encore utiles mais non normatifs doivent afficher explicitement leur statut `historique` ou `note de travail`, pour ne plus etre confondus avec le CDC actif
 
 ### 4.6 Runtime : decision produit finale avant tests machine reels
@@ -683,3 +685,5 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 | 2026-04-24 | Codex | Audit Phase 4 - passe 27 : helper `tools/repair-governance-artifacts.ps1` ajoute et valide en dry-run ; il repare les sidecars `.sha256` desynchronises sans masquer les JSON manquants, et formalise la marche a suivre avant campagne manuelle (regeneration client puis re-audit) |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 28 : mode maintenance client ajoute (`--governance-init-only`) + script `tools/regenerate-governance-artifacts.ps1` ; regeneration reelle executee avec succes sur la machine, puis audit local confirme `%LOCALAPPDATA%\\SAAIA\\governance = 16/16` artefacts presents et verifies |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 29 : qualification locale headless ajoutee (`--qualify-local-runtime-only`) ; correction du drift `QualifiedProfile` / `ExtraArgs` dans `LlamaCppProcessManager`, runtime CUDA local `b8149` qualifie sur `Qwen2.5-3B-Instruct-Q4_K_M` (`PassCount=3/3`, TTFT ~113 ms, ~9.1 tok/s), `active-runtime.json` + sidecar verifies, suite client complete `355/355` verte |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 30 : support bundles backend/client enrichis avec les sidecars runtime (`active-runtime.json.sha256`, `runtime_event_log.json.sha256`, `runtime_compatibility_policy.json.sha256`) ; doc CDC active realignee sur les endpoints/runtime effectivement exposes, et le rapport LLM du 22.04 est maintenant borne comme referentiel historique |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 31 : coherence bundle/runtime finalisee cote client (`llm/runtime_compatibility_policy.json` copie avec son sidecar) ; les reliquats documentaires restants sont maintenant surtout des notes historiques explicites, plus des constats faux sur l'etat courant |

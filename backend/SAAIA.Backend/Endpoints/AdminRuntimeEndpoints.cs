@@ -1148,11 +1148,18 @@ public static class AdminRuntimeEndpoints
     {
         foreach (var src in GetOptionalSupportBundleRuntimeFiles(env, localAppDataRoot))
         {
-            var fileName = Path.GetFileName(src.relativePath);
             var destination = Path.Combine(stagingRoot, src.relativePath);
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             File.Copy(src.fullPath, destination, overwrite: true);
             artifacts.Add(src.relativePath.Replace('\\', '/'));
+
+            var checksumPath = src.fullPath + ".sha256";
+            if (File.Exists(checksumPath))
+            {
+                var checksumDestination = destination + ".sha256";
+                File.Copy(checksumPath, checksumDestination, overwrite: true);
+                artifacts.Add((src.relativePath + ".sha256").Replace('\\', '/'));
+            }
         }
     }
 

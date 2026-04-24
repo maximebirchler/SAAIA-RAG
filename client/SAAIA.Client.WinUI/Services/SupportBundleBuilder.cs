@@ -84,11 +84,20 @@ internal static class SupportBundleBuilder
                     Path.Combine(GetLocalAppDataRoot(localAppDataRoot), "SAAIA", "llm", "runtime", "active-runtime.json"),
                     Path.Combine(llmDir, "active-runtime.json"));
                 CopyIfExists(
+                    Path.Combine(GetLocalAppDataRoot(localAppDataRoot), "SAAIA", "llm", "runtime", "active-runtime.json.sha256"),
+                    Path.Combine(llmDir, "active-runtime.json.sha256"));
+                CopyIfExists(
                     ResolveGovernancePath(GovernanceArtifactStore.RuntimeEventLogFile, localAppDataRoot),
                     Path.Combine(llmDir, "runtime_event_log.json"));
                 CopyIfExists(
                     ResolveGovernancePath(GovernanceArtifactStore.RuntimeEventLogFile, localAppDataRoot) + ".sha256",
                     Path.Combine(llmDir, "runtime_event_log.json.sha256"));
+                CopyIfExists(
+                    ResolveGovernancePath(GovernanceArtifactStore.RuntimeCompatibilityPolicyFile, localAppDataRoot),
+                    Path.Combine(llmDir, "runtime_compatibility_policy.json"));
+                CopyIfExists(
+                    ResolveGovernancePath(GovernanceArtifactStore.RuntimeCompatibilityPolicyFile, localAppDataRoot) + ".sha256",
+                    Path.Combine(llmDir, "runtime_compatibility_policy.json.sha256"));
                 try
                 {
                     var runtimeEvents = await RuntimeEventLogStore.ReadLatestAsync(10).ConfigureAwait(false);

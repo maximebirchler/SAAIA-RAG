@@ -136,6 +136,9 @@ public sealed class SupportBundleMemoryDiagnosticsTests
         await File.WriteAllTextAsync(
             Path.Combine(tempLocalAppData, "SAAIA", "llm", "runtime", "active-runtime.json"),
             "{\"items\":[]}");
+        await File.WriteAllTextAsync(
+            Path.Combine(tempLocalAppData, "SAAIA", "llm", "runtime", "active-runtime.json.sha256"),
+            "cafebabe");
 
         var settings = new AppSettings
         {
@@ -167,6 +170,10 @@ public sealed class SupportBundleMemoryDiagnosticsTests
             Assert.NotNull(archive.GetEntry("governance/runtime_event_log.json"));
             Assert.NotNull(archive.GetEntry("governance/battery_policies.json"));
             Assert.NotNull(archive.GetEntry("llm/active-runtime.json"));
+            Assert.NotNull(archive.GetEntry("llm/active-runtime.json.sha256"));
+            Assert.NotNull(archive.GetEntry("llm/runtime_compatibility_policy.json"));
+            Assert.NotNull(archive.GetEntry("llm/runtime_event_log.json.sha256"));
+            Assert.NotNull(archive.GetEntry("llm/runtime_compatibility_policy.json.sha256"));
         }
         finally
         {
