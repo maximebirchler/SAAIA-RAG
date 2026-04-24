@@ -31,14 +31,21 @@ public sealed partial class MainWindow
     private void ApplyAppearanceTheme()
     {
         var theme = GetElementTheme();
-        try { Root.RequestedTheme = theme; } catch { }
-        try { AppTitleBar.RequestedTheme = theme; } catch { }
-        try { ChatsPanel.RequestedTheme = theme; } catch { }
-        try { MessagesPanelBorder.RequestedTheme = theme; } catch { }
-        try { SessionsList.RequestedTheme = theme; } catch { }
-        try { MessagesList.RequestedTheme = theme; } catch { }
-        try { InputBox.RequestedTheme = theme; } catch { }
-        try { SendCancelButton.RequestedTheme = theme; } catch { }
+        try
+        {
+            Root.RequestedTheme = theme;
+            AppTitleBar.RequestedTheme = theme;
+            ChatsPanel.RequestedTheme = theme;
+            MessagesPanelBorder.RequestedTheme = theme;
+            SessionsList.RequestedTheme = theme;
+            MessagesList.RequestedTheme = theme;
+            InputBox.RequestedTheme = theme;
+            SendCancelButton.RequestedTheme = theme;
+        }
+        catch (Exception ex)
+        {
+            ClientLog.Warn($"Theme apply failed: {ex.Message}");
+        }
         ConfigureHeaderChrome();
         UpdateSendCancelButtonVisualState();
         RebuildStartupOverlayForTheme();
@@ -53,17 +60,34 @@ public sealed partial class MainWindow
         {
             DispatcherQueue.TryEnqueue(() =>
             {
-                try { UpdateSendCancelButtonVisualState(); } catch { }
-                try { RefreshThemeSensitiveUi(); } catch { }
+                try
+                {
+                    UpdateSendCancelButtonVisualState();
+                    RefreshThemeSensitiveUi();
+                }
+                catch (Exception ex)
+                {
+                    ClientLog.Warn($"Theme refresh failed: {ex.Message}");
+                }
             });
 
             DispatcherQueue.TryEnqueue(() =>
             {
-                try { UpdateSendCancelButtonVisualState(); } catch { }
-                try { SendCancelButton?.UpdateLayout(); } catch { }
+                try
+                {
+                    UpdateSendCancelButtonVisualState();
+                    SendCancelButton?.UpdateLayout();
+                }
+                catch (Exception ex)
+                {
+                    ClientLog.Warn($"Theme post-layout refresh failed: {ex.Message}");
+                }
             });
         }
-        catch { }
+        catch (Exception ex)
+        {
+            ClientLog.Warn($"Theme dispatcher enqueue failed: {ex.Message}");
+        }
     }
 
     private static global::Windows.UI.Color WinColor(byte r, byte g, byte b, byte a = 0xFF)

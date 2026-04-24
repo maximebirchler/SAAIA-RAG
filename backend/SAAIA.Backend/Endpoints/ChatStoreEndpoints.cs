@@ -313,7 +313,7 @@ LIMIT 1;";
         var content = hasContent ? NormalizeContent(contentRaw) : null;
         var statusNote = hasStatusNote ? NormalizeSmall(statusNoteRaw, 200) : null;
         var progressText = hasProgressText ? NormalizeSmall(progressTextRaw, 240) : null;
-        var trackingMetaJson = hasTrackingMeta ? NormalizeJsonText(trackingMetaRaw) : null;
+        var trackingMetaJson = hasTrackingMeta ? NormalizeJsonText(trackingMetaRaw, log) : null;
 
         await using var conn = await ds.OpenConnectionAsync(ct);
 
@@ -614,7 +614,7 @@ WHERE tenant_id=@tenant AND session_id=@sid AND user_id=@user_id;";
         // Petit label UX optionnel (ex: "Génération interrompue.")
         var statusNote = NormalizeSmall(req.StatusNote, 200);
         var progressText = NormalizeSmall(req.ProgressText, 240);
-        var trackingMetaJson = NormalizeJsonText(req.TrackingMetaJson);
+        var trackingMetaJson = NormalizeJsonText(req.TrackingMetaJson, log);
 
         // On accepte un message vide uniquement si un statusNote est fourni (cas: annulation/erreur)
         if (content.Length == 0 && string.IsNullOrWhiteSpace(statusNote))
@@ -629,7 +629,10 @@ WHERE tenant_id=@tenant AND session_id=@sid AND user_id=@user_id;";
         if (sourcesJson is not null)
         {
             try { JsonDocument.Parse(sourcesJson); }
-            catch { /* ignore */ }
+            catch (JsonException ex)
+            {
+                log.LogWarning(ex, "ChatStore: invalid sourcesJson received for session {SessionId}; storing raw payload.", sessionId);
+            }
         }
 
         var messageId = Guid.NewGuid();
@@ -735,12 +738,15 @@ LIMIT @lim;";
         return s;
     }
 
-    private static string? NormalizeJsonText(string? s)
+    private static string? NormalizeJsonText(string? s, ILogger<LogTag>? log = null)
     {
         s = (s ?? string.Empty).Trim();
         if (s.Length == 0) return null;
         try { JsonDocument.Parse(s); }
-        catch { }
+        catch (JsonException ex)
+        {
+            log?.LogWarning(ex, "ChatStore: invalid JSON side payload preserved as raw text.");
+        }
         return s;
     }
 

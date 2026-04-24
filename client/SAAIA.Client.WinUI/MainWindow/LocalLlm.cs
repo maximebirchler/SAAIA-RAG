@@ -358,7 +358,7 @@ public sealed partial class MainWindow
 
 
     // =========================
-    // M6.2 - Model library (import + sha256)
+    // Model library helpers (import + sha256)
     // =========================
 
     private void RefreshLocalLlmModelInfoText()

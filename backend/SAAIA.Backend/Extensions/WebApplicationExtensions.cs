@@ -23,10 +23,10 @@ public static class WebApplicationExtensions
             app.UseStaticFiles(new StaticFileOptions { RequestPath = "/ui" });
         }
 
-        // M2.1: Error handling (doit être AVANT les autres middlewares)
+        // Error handling must run first so every downstream failure gets a consistent API envelope.
         app.UseMiddleware<ErrorHandlingMiddleware>();
 
-        // M2.1: RequestId (génère/récupère X-Request-Id, configure log scopes)
+        // Request IDs are established early so logs and responses share the same correlation id.
         app.UseMiddleware<RequestIdMiddleware>();
 
         // Rate limiting (global)

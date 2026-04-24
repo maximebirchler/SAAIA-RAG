@@ -22,6 +22,7 @@ public sealed partial class ApiClient
 {
     private readonly HttpClient _http = new();
     private readonly object _configGate = new();
+    private string _uiLanguage = ClientUiText.NormalizeLanguage(AppSettings.Load().UiLanguage);
     private string _baseUrl = "http://localhost:5122";
     private string _apiKey = "";
     private string _adminKey = "";
@@ -29,11 +30,7 @@ public sealed partial class ApiClient
     private readonly object _documentsTreeCacheGate = new();
     private readonly Dictionary<string, DocumentsTreeCacheEntry> _documentsTreeCache = new(StringComparer.Ordinal);
 
-    private static readonly JsonSerializerOptions JsonOpts = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true
-    };
+    private static readonly JsonSerializerOptions JsonOpts = ClientJson.CamelCase;
 
     private sealed class DocumentsTreeCacheEntry
     {
@@ -47,13 +44,14 @@ public sealed partial class ApiClient
     {
         lock (_configGate)
         {
+            _uiLanguage = ClientUiText.NormalizeLanguage(AppSettings.Load().UiLanguage);
             _baseUrl = (baseUrl ?? "").Trim().TrimEnd('/');
             if (string.IsNullOrWhiteSpace(_baseUrl)) _baseUrl = "http://localhost:5122";
             _apiKey = (apiKey ?? "").Trim();
             _userId = (userId ?? "").Trim();
 
             if (adminKey is not null)
-                _adminKey = (adminKey ?? "").Trim();
+                _adminKey = adminKey.Trim();
         }
 
         lock (_documentsTreeCacheGate)
@@ -89,30 +87,22 @@ public sealed partial class ApiClient
         }
     }
 
-    public bool HasAdminSessionKey => HasAdminKey;
-
-    private static string AT(string fr, string en, string es, string pt, string de, string it)
-    {
-        var lang = ClientUiText.NormalizeLanguage(AppSettings.Load().UiLanguage);
-        return lang switch
-        {
-            "en" => en,
-            "es" => es,
-            "pt" => pt,
-            "de" => de,
-            "it" => it,
-            _ => fr
-        };
-    }
-
     private string RequireUserId()
         => RequireUserId(GetConfigSnapshot());
 
-    private static string RequireUserId(ApiClientConfigSnapshot snapshot)
+    private string RequireUserId(ApiClientConfigSnapshot snapshot)
     {
         if (string.IsNullOrWhiteSpace(snapshot.UserId))
-            throw new InvalidOperationException(AT("userId non configure", "userId not configured", "userId no configurado", "userId nao configurado", "userId nicht konfiguriert", "userId non configurato"));
+            throw new InvalidOperationException(T("api.error.user_id_not_configured"));
         return snapshot.UserId;
+    }
+
+    private string T(string key)
+    {
+        lock (_configGate)
+        {
+            return ClientUiText.Get(key, _uiLanguage);
+        }
     }
 
     private HttpRequestMessage NewRequest(HttpMethod method, string path, string? jsonBody = null)
@@ -188,7 +178,7 @@ public sealed partial class ApiClient
         }
 
         // unreachable
-        throw new Exception(AT("Fin inattendue de la boucle de renvoi.", "Unexpected send retry loop termination.", "Fin inesperado del bucle de reintentos.", "Fim inesperado do ciclo de reenvio.", "Unerwartetes Ende der Sendewiederholung.", "Terminazione imprevista del ciclo di reinvio."));
+        throw new Exception(T("api.error.retry_loop_unexpected_end"));
     }
 
     private static TimeSpan GetRetryAfterDelay(HttpResponseMessage resp)
@@ -257,7 +247,7 @@ public sealed partial class ApiClient
 
         var json = await resp.Content.ReadAsStringAsync(ct);
         return JsonSerializer.Deserialize<CreateSessionResponse>(json, JsonOpts)
-               ?? throw new Exception(AT("Reponse de creation de session invalide", "Invalid create session response", "Respuesta invalida al crear la sesion", "Resposta invalida ao criar a sessao", "Ungueltige Antwort beim Erstellen der Sitzung", "Risposta non valida alla creazione della sessione"));
+                ?? throw new Exception(T("api.error.invalid_create_session_response"));
     }
 
     public async Task<List<ChatSessionItem>> ListSessionsAsync(CancellationToken ct, int limit = 100, int offset = 0)
@@ -390,7 +380,7 @@ public sealed partial class ApiClient
     public async Task<ChatMessageItem?> PatchMessageAsync(string messageId, string? content, string? statusNote, string? progressText, ChatTrackingMeta? trackingMeta, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(messageId))
-            throw new ArgumentException(AT("messageId requis", "messageId is required", "messageId es obligatorio", "messageId e obrigatorio", "messageId ist erforderlich", "messageId e obbligatorio"), nameof(messageId));
+            throw new ArgumentException(T("api.error.message_id_required"), nameof(messageId));
 
         var snapshot = GetConfigSnapshot();
         var body = JsonSerializer.Serialize(new
@@ -416,7 +406,7 @@ public sealed partial class ApiClient
     public async Task<JsonElement> ChatMessageTrackingAsync(string messageId, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(messageId))
-            throw new ArgumentException(AT("messageId requis", "messageId is required", "messageId es obligatorio", "messageId e obrigatorio", "messageId ist erforderlich", "messageId e obbligatorio"), nameof(messageId));
+            throw new ArgumentException(T("api.error.message_id_required"), nameof(messageId));
 
         var snapshot = GetConfigSnapshot();
         var uid = Uri.EscapeDataString(RequireUserId(snapshot));

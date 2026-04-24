@@ -15,6 +15,8 @@ namespace SAAIA.Backend.Endpoints;
 
 public static class RagEndpoints
 {
+    private const int MaxHypotheticalQuestionConcurrency = 3;
+
     public static void Map(WebApplication app)
     {
         app.MapGet("/rag/categories", CategoriesAsync);
@@ -163,7 +165,6 @@ ORDER BY category;
             .Select(static match => match.DocPath)
             .Where(static path => !string.IsNullOrWhiteSpace(path))
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Cast<string>()
             .ToArray();
 
         if (docPaths.Length == 0)
@@ -190,40 +191,79 @@ ORDER BY doc_path;
             cancellationToken: ct)))
             .ToArray();
 
-        var result = new Dictionary<string, bool?>(StringComparer.OrdinalIgnoreCase);
-        foreach (var doc in docs)
-        {
-            var sectionTitles = await RuntimeGovernanceService.LoadCapabilityBSectionTitlesAsync(
-                conn,
-                tenantId,
-                doc.DocId,
-                doc.IndexedVersion,
-                limit: 3,
-                ct);
-            var excerpts = await RuntimeGovernanceService.LoadCapabilityBUnitExcerptsAsync(
-                conn,
-                tenantId,
-                doc.DocId,
-                doc.IndexedVersion,
-                limit: 2,
-                ct);
-            var hypotheticalQuestions = hypotheticalQuestionService is null
-                ? RuntimeGovernanceService.BuildCapabilityAHypotheticalQuestions(
-                    doc.DocName,
-                    sectionTitles,
-                    excerpts)
-                : await hypotheticalQuestionService.BuildQuestionsAsync(
-                    doc.DocName,
-                    sectionTitles,
-                    excerpts,
-                    ct);
+        var docVersions = docs
+            .Select(static doc => (doc.DocId, doc.IndexedVersion))
+            .ToArray();
+        var sectionTitlesByDocId = await RuntimeGovernanceService.LoadCapabilityBSectionTitlesBatchAsync(
+            conn,
+            tenantId,
+            docVersions,
+            limit: 3,
+            ct);
+        var excerptsByDocId = await RuntimeGovernanceService.LoadCapabilityBUnitExcerptsBatchAsync(
+            conn,
+            tenantId,
+            docVersions,
+            limit: 2,
+            ct);
 
-            result[doc.DocPath] = hypotheticalQuestions.Count == 0
+        using var questionGate = new SemaphoreSlim(MaxHypotheticalQuestionConcurrency, MaxHypotheticalQuestionConcurrency);
+        var docQuestionTasks = docs
+            .Select(doc =>
+            {
+                sectionTitlesByDocId.TryGetValue(doc.DocId, out var sectionTitles);
+                excerptsByDocId.TryGetValue(doc.DocId, out var excerpts);
+                var titles = sectionTitles ?? Array.Empty<string>();
+                var excerptValues = excerpts ?? Array.Empty<string>();
+
+                Task<IReadOnlyList<string>> task = hypotheticalQuestionService is null
+                    ? Task.FromResult<IReadOnlyList<string>>(RuntimeGovernanceService.BuildCapabilityAHypotheticalQuestions(
+                        doc.DocName,
+                        titles,
+                        excerptValues))
+                    : BuildQuestionsWithGateAsync(
+                        hypotheticalQuestionService,
+                        questionGate,
+                        doc.DocName,
+                        titles,
+                        excerptValues,
+                        ct);
+
+                return (doc.DocPath, QuestionsTask: task);
+            })
+            .ToArray();
+
+        await Task.WhenAll(docQuestionTasks.Select(static item => item.QuestionsTask));
+
+        var result = new Dictionary<string, bool?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (docPath, questionsTask) in docQuestionTasks)
+        {
+            var hypotheticalQuestions = questionsTask.Result;
+            result[docPath] = hypotheticalQuestions.Count == 0
                 ? null
                 : ComputeHypQuestionsMatched(query, hypotheticalQuestions);
         }
 
         return result;
+    }
+
+    private static async Task<IReadOnlyList<string>> BuildQuestionsWithGateAsync(
+        CapabilityAHypotheticalQuestionService hypotheticalQuestionService,
+        SemaphoreSlim questionGate,
+        string docName,
+        IReadOnlyList<string> sectionTitles,
+        IReadOnlyList<string> excerpts,
+        CancellationToken ct)
+    {
+        await questionGate.WaitAsync(ct);
+        try
+        {
+            return await hypotheticalQuestionService.BuildQuestionsAsync(docName, sectionTitles, excerpts, ct);
+        }
+        finally
+        {
+            questionGate.Release();
+        }
     }
 
     internal static async Task<RagSearchResponse> SearchCoreAsync(

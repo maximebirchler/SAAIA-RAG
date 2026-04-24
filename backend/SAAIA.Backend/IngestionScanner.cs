@@ -169,7 +169,11 @@ WHERE tenant_id = @tenant_id
         {
             FileInfo fi;
             try { fi = new FileInfo(file); }
-            catch { continue; }
+            catch (Exception ex)
+            {
+                _log.LogWarning(ex, "Scanner: skipping file {Path} during index build", file);
+                continue;
+            }
 
             var rel = PathUtil.NormalizeRelativePath(
                 Path.GetRelativePath(root, file).Replace('\\', '/')
@@ -297,10 +301,9 @@ WHERE tenant_id = @tenant_id
         }
 
         // 5) Deletions
-        // M1.2b: lors d'un copy/move, certains fichiers peuvent être "too fresh".
-        // On doit quand même marquer les documents absents en "missing" pour éviter les doublons/fantômes
-        // dans l'inventaire user. En revanche, on diffère l'enqueue des deletes définitifs tant que
-        // l'on détecte un copy/move en cours (anyTooFresh=true).
+        // During copy/move operations some files can still look "too fresh".
+        // We still mark missing documents to avoid ghost entries in the user inventory,
+        // but we defer destructive delete enqueueing while a transfer may still be in flight.
         foreach (var kv in existing)
         {
             if (files.Count == 0 || !seen.Contains(kv.Key))

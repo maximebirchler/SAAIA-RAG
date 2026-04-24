@@ -4,9 +4,9 @@ namespace SAAIA.Client.WinUI.Services.ToolAgent;
 /// Runtime memory container aligned with the CDC memory model.
 /// We keep the legacy flat property surface for compatibility, but the
 /// underlying state is now grouped by responsibility:
-/// M1-lite = workspace canonical memory,
-/// M3 = session working memory,
-/// M6 = execution / observability memory.
+/// workspace canonical memory,
+/// session working memory,
+/// execution / observability memory.
 /// </summary>
 public sealed class ToolMemory
 {

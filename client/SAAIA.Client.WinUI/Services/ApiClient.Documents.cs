@@ -49,7 +49,7 @@ public sealed partial class ApiClient
 
         var jsonOk = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
         return JsonSerializer.Deserialize<DocumentsCatalogResponse>(jsonOk, JsonOpts)
-               ?? throw new Exception(AT("Reponse invalide du catalogue documentaire", "Invalid documents catalog response", "Respuesta invalida del catalogo documental", "Resposta invalida do catalogo documental", "Ungueltige Antwort des Dokumentkatalogs", "Risposta non valida del catalogo documentale"));
+               ?? throw new Exception(T("api.error.invalid_documents_catalog_response"));
     }
 
     // Fallback alias for older backends.
@@ -64,7 +64,7 @@ public sealed partial class ApiClient
 
     var json = await resp2.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
     return JsonSerializer.Deserialize<DocumentsCatalogResponse>(json, JsonOpts)
-           ?? throw new Exception(AT("Reponse invalide du catalogue documentaire", "Invalid documents catalog response", "Respuesta invalida del catalogo documental", "Resposta invalida do catalogo documental", "Ungueltige Antwort des Dokumentkatalogs", "Risposta non valida del catalogo documentale"));
+           ?? throw new Exception(T("api.error.invalid_documents_catalog_response"));
 }
 
 
@@ -353,7 +353,7 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
     public async Task<JsonElement> DocumentsGetAsync(string docId, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(docId))
-            throw new ArgumentException(AT("docId requis", "docId is required", "docId es obligatorio", "docId e obrigatorio", "docId ist erforderlich", "docId e obbligatorio"), nameof(docId));
+            throw new ArgumentException(T("api.error.doc_id_required"), nameof(docId));
 
         // Prefer unified user-safe detail endpoint.
         var pathUnified = $"/documents/{Uri.EscapeDataString(docId)}";
@@ -501,7 +501,7 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
 
         var json = await resp.Content.ReadAsStringAsync(ct);
         return JsonSerializer.Deserialize<RagSearchResponse>(json, JsonOpts)
-               ?? throw new Exception(AT("Reponse invalide de recherche RAG", "Invalid rag search response", "Respuesta invalida de busqueda RAG", "Resposta invalida da pesquisa RAG", "Ungueltige RAG-Suchantwort", "Risposta non valida della ricerca RAG"));
+               ?? throw new Exception(T("api.error.invalid_rag_search_response"));
     }
 
 }

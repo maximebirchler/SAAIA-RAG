@@ -20,10 +20,12 @@ public static class IngestionAdminEndpoints
         HttpContext ctx,
         NpgsqlDataSource ds,
         IOptions<IngestionOptions> ingestOpt,
+        ILoggerFactory loggerFactory,
         int? max,
         string? category)
     {
         AdminAuth.EnsureAdmin(ctx);
+        var log = loggerFactory.CreateLogger("IngestionAdminEndpoints");
 
         var tenantId = ctx.GetTenantId();
         var actorApiKeyId = ctx.GetApiKeyIdOrNull();
@@ -70,14 +72,22 @@ public static class IngestionAdminEndpoints
         {
             string rel;
             try { rel = DocPathNormalizer.NormalizeToRelative(abs, root); }
-            catch { continue; }
+            catch (Exception ex)
+            {
+                log.LogWarning(ex, "IngestionAdmin: skipping file {Path} because relative normalization failed.", abs);
+                continue;
+            }
 
             if (IngestionPathFilter.ShouldIgnoreRel(rel))
                 continue;
 
             FileInfo fi;
             try { fi = new FileInfo(abs); }
-            catch { continue; }
+            catch (Exception ex)
+            {
+                log.LogWarning(ex, "IngestionAdmin: skipping file {Path} because FileInfo failed.", abs);
+                continue;
+            }
 
             // évite d'ingérer un fichier en cours de copie
             if (minAge > TimeSpan.Zero && (now - fi.LastWriteTimeUtc) < minAge)

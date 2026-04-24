@@ -10,6 +10,7 @@ using System.Net;
 static class TeiClient
 {
     internal sealed record RerankItem(int Index, double Score);
+    private const int DimCacheMaxEntries = 32;
 
     private static readonly ConcurrentDictionary<string, int> _dimCache = new(StringComparer.OrdinalIgnoreCase);
 
@@ -35,7 +36,11 @@ static class TeiClient
             throw new Exception("TEI returned empty embedding dimension");
 
         if (!string.IsNullOrWhiteSpace(model))
+        {
+            if (_dimCache.Count >= DimCacheMaxEntries && !_dimCache.ContainsKey(model))
+                _dimCache.Clear();
             _dimCache[model] = dim;
+        }
 
         return dim;
     }

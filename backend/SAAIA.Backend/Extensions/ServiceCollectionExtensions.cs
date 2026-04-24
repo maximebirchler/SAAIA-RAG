@@ -46,7 +46,7 @@ public static class ServiceCollectionExtensions
         services.Configure<CatalogSnapshotOptions>(config.GetSection("CatalogSnapshot"));
         services.Configure<RuntimeGovernanceOptions>(config.GetSection("RuntimeGovernance"));
 
-        // ---------- OpenTelemetry (M2.2) ----------
+        // ---------- OpenTelemetry ----------
         services.AddSaaiaOpenTelemetry(config, env);
 
         // Stabilise DocumentsRoot si relatif (par rapport au ContentRootPath)
@@ -67,7 +67,7 @@ public static class ServiceCollectionExtensions
         {
             o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-            // M3.2 DoD : 429 + Retry-After (+ payload JSON minimal)
+            // Return a minimal JSON payload with Retry-After so clients can back off deterministically.
             o.OnRejected = async (context, ct) =>
             {
                 var http = context.HttpContext;

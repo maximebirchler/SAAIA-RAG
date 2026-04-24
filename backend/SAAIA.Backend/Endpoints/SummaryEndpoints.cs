@@ -1002,9 +1002,19 @@ LIMIT 1;
         var snapshot = await conn.QueryFirstOrDefaultAsync(new CommandDefinition(snapSql, new { tenant = tenantId }, cancellationToken: ct));
 
         int snapshotTotal = 0;
-        if (snapshot is not null)
+        if (snapshot is IDictionary<string, object> snapshotMap
+            && snapshotMap.TryGetValue("TotalDocs", out var totalDocsRaw)
+            && totalDocsRaw is not null)
         {
-            try { snapshotTotal = (int)snapshot.TotalDocs; } catch { snapshotTotal = 0; }
+            snapshotTotal = totalDocsRaw switch
+            {
+                int value => value,
+                long value => (int)value,
+                short value => value,
+                byte value => value,
+                decimal value => (int)value,
+                _ => 0
+            };
         }
 
         return Results.Ok(new

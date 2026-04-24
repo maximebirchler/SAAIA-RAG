@@ -383,7 +383,7 @@ public sealed partial class MainWindow
             }
         }
 
-        if (_api.HasAdminSessionKey)
+        if (_api.HasAdminKey)
             return await TryLoadTrackedAdminJobSnapshotAsync(state.Job.JobId, ct).ConfigureAwait(false);
 
         if (messageTrackingError is not null)

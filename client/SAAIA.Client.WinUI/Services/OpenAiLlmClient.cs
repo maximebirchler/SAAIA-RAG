@@ -28,10 +28,7 @@ public sealed class OpenAiLlmClient
     private string _baseUrl = "http://127.0.0.1:8080/v1";
     private string _model = "mistral";
 
-    private static readonly JsonSerializerOptions JsonOpts = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
+    private static readonly JsonSerializerOptions JsonOpts = ClientJson.CamelCase;
 
     public OpenAiLlmClient()
         : this(httpClient: null)

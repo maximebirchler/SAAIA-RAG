@@ -414,6 +414,126 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
+    public async Task RuntimeGovernance_batch_loaders_return_per_doc_titles_and_excerpts_without_cross_mix()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("01010101-1111-1111-1111-111111111111");
+        var doc1Id = Guid.Parse("02020202-2222-2222-2222-222222222222");
+        var doc2Id = Guid.Parse("03030303-3333-3333-3333-333333333333");
+        var job1Id = Guid.Parse("04040404-4444-4444-4444-444444444444");
+        var job2Id = Guid.Parse("05050505-5555-5555-5555-555555555555");
+
+        await db.SeedRunningJobAsync(tenantId, doc1Id, job1Id, "ATEX/Doc1.pdf", ingestionVersion: 1, indexedVersion: 0);
+        await db.SeedRunningJobAsync(tenantId, doc2Id, job2Id, "ATEX/Doc2.pdf", ingestionVersion: 1, indexedVersion: 0);
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+
+        await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            job1Id,
+            "ATEX/Doc1.pdf",
+            hash: [1, 2, 3],
+            size: 100,
+            mtimeUtc: DateTime.UtcNow,
+            version: 1,
+            pages:
+            [
+                new ExtractedPdfPage(1, "Doc1 page", 4, 20, [1])
+            ],
+            sections:
+            [
+                new ExtractedDocumentSection(0, "Doc1 Intro", 1, 1, 1, 1, null),
+                new ExtractedDocumentSection(1, "Doc1 Safety", 1, 1, 1, 1, null)
+            ],
+            units:
+            [
+                new ExtractedDocumentUnit(0, 0, 1, 1, "Doc1 excerpt A", 12, 3, [2]),
+                new ExtractedDocumentUnit(1, 1, 1, 1, "Doc1 excerpt B", 12, 3, [3])
+            ],
+            retrievalChunks:
+            [
+                new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "Doc1 excerpt A", 12, [4], "unit_exact_v1")
+            ],
+            exactMatchEntries:
+            [
+                new ExtractedExactMatchEntry(0, 0, 0, 1, 1, "Doc1 excerpt A", "doc1 excerpt a", 12, 3, [5], "verbatim_excerpt")
+            ],
+            contextualTextEntries:
+            [
+                new ProjectedContextualTextEntry(0, 0, 0, 0, 1, 1, "Document: Doc1.pdf\nExcerpt:\nDoc1 excerpt A", 40, 6, [6])
+            ],
+            CancellationToken.None);
+
+        await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            job2Id,
+            "ATEX/Doc2.pdf",
+            hash: [7, 8, 9],
+            size: 100,
+            mtimeUtc: DateTime.UtcNow,
+            version: 1,
+            pages:
+            [
+                new ExtractedPdfPage(1, "Doc2 page", 4, 20, [1])
+            ],
+            sections:
+            [
+                new ExtractedDocumentSection(0, "Doc2 Overview", 1, 1, 1, 1, null),
+                new ExtractedDocumentSection(1, "Doc2 Annex", 1, 1, 1, 1, null)
+            ],
+            units:
+            [
+                new ExtractedDocumentUnit(0, 0, 1, 1, "Doc2 excerpt A", 12, 3, [2]),
+                new ExtractedDocumentUnit(1, 1, 1, 1, "Doc2 excerpt B", 12, 3, [3])
+            ],
+            retrievalChunks:
+            [
+                new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "Doc2 excerpt A", 12, [4], "unit_exact_v1")
+            ],
+            exactMatchEntries:
+            [
+                new ExtractedExactMatchEntry(0, 0, 0, 1, 1, "Doc2 excerpt A", "doc2 excerpt a", 12, 3, [5], "verbatim_excerpt")
+            ],
+            contextualTextEntries:
+            [
+                new ProjectedContextualTextEntry(0, 0, 0, 0, 1, 1, "Document: Doc2.pdf\nExcerpt:\nDoc2 excerpt A", 40, 6, [6])
+            ],
+            CancellationToken.None);
+
+        await using var conn = new NpgsqlConnection(db.ConnectionString);
+        await conn.OpenAsync();
+
+        var docVersions = new[]
+        {
+            (doc1Id, 1),
+            (doc2Id, 1)
+        };
+
+        var sectionTitlesByDocId = await RuntimeGovernanceService.LoadCapabilityBSectionTitlesBatchAsync(
+            conn,
+            tenantId,
+            docVersions,
+            limit: 2,
+            CancellationToken.None);
+        var excerptsByDocId = await RuntimeGovernanceService.LoadCapabilityBUnitExcerptsBatchAsync(
+            conn,
+            tenantId,
+            docVersions,
+            limit: 2,
+            CancellationToken.None);
+
+        Assert.Equal(new[] { "Doc1 Intro", "Doc1 Safety" }, sectionTitlesByDocId[doc1Id]);
+        Assert.Equal(new[] { "Doc2 Overview", "Doc2 Annex" }, sectionTitlesByDocId[doc2Id]);
+        Assert.Equal(new[] { "Doc1 excerpt A", "Doc1 excerpt B" }, excerptsByDocId[doc1Id]);
+        Assert.Equal(new[] { "Doc2 excerpt A", "Doc2 excerpt B" }, excerptsByDocId[doc2Id]);
+    }
+
+    [Fact]
     public async Task SearchSparseMatchesAsync_returns_contextual_chunk_hits_for_business_query()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();

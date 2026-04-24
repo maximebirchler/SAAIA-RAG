@@ -511,9 +511,12 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 
 ### 4.8 Gating avant lancement des tests manuels reels
 
-- [ ] Tous les points code/audit critiques de cette phase sont traites ou explicitement documentes comme non applicables
-- [ ] Tous les tests automatiques utiles sont verts et les trous de couverture restants sont connus/documentes
-- [ ] Tous les outils critiques sont verifies comme fonctionnels
+- [x] Tous les points code/audit critiques de cette phase sont traites ou explicitement documentes comme non applicables
+  - Reliquats assumes et non bloquants avant campagne manuelle : dette de taille sur `ToolAgentOrchestrator.cs` / `RagEndpoints.cs`, decision runtime serveur finale apres benchs Qwen3.6 / A3B
+- [x] Tous les tests automatiques utiles sont verts et les trous de couverture restants sont connus/documentes
+  - Etat de reference actuel : client `366/366` verts ; backend ciblé `113/113` verts sur les suites sensibles de cette phase
+- [x] Tous les outils critiques sont verifies comme fonctionnels
+  - Verifies sur machine : regeneration / verification / repair governance, support bundles, ConfigSigner, runtime-ci smoke, bench local, export checklists `.xlsx`
 - [x] La checklist Excel/UI est prete et revue
 - [ ] La campagne manuelle reelle ne commence qu'apres ce gate
 

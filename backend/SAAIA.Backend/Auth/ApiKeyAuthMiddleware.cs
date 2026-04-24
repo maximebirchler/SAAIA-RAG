@@ -142,7 +142,7 @@ public sealed class ApiKeyAuthMiddleware
         ctx.Items[ApiKeyAuth.ApiKeyIdItemKey] = principal.ApiKeyId;
         ctx.Items[ApiKeyAuth.IsAdminItemKey] = principal.IsAdmin;
 
-        // M2.1: Ajouter tenant_id + api_key_id + actor_is_admin + user_id (si query userId)
+        // Capture the authenticated actor scope once so downstream audit logs stay consistent.
         var userId = ctx.Request.Query.TryGetValue("userId", out var u) ? u.ToString() : null;
 
         var scope = new Dictionary<string, object>

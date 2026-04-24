@@ -119,7 +119,10 @@ sealed class FileWatcherService : BackgroundService
             {
                 await Task.Delay(Timeout.InfiniteTimeSpan, ct);
             }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                _log.LogInformation("FileWatcher: stopping.");
+            }
         }
     }
 
@@ -206,7 +209,10 @@ sealed class FileWatcherService : BackgroundService
 
                 _log.LogInformation("FileWatcher: upsert enqueued ({Reason}) for {Doc}", reason, rel);
             }
-            catch (OperationCanceledException) { }
+            catch (OperationCanceledException) when (appCt.IsCancellationRequested || cts.IsCancellationRequested)
+            {
+                // Normal during shutdown or when a more recent watcher event supersedes the pending work.
+            }
             catch (Exception ex)
             {
                 _log.LogError(ex, "FileWatcher: error scheduling upsert for {Path}", fullPath);
@@ -265,7 +271,10 @@ sealed class FileWatcherService : BackgroundService
 
                 _log.LogInformation("FileWatcher: marked missing ({Reason}) for {Doc}", reason, rel);
             }
-            catch (OperationCanceledException) { }
+            catch (OperationCanceledException) when (appCt.IsCancellationRequested || cts.IsCancellationRequested)
+            {
+                // Normal during shutdown or when a more recent watcher event supersedes the pending work.
+            }
             catch (Exception ex)
             {
                 _log.LogError(ex, "FileWatcher: error scheduling delete/missing for {Path}", fullPath);
@@ -344,6 +353,10 @@ sealed class FileWatcherService : BackgroundService
                 if (wait > TimeSpan.Zero)
                     await Task.Delay(wait, ct);
             }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch { /* ignore */ }
     }
