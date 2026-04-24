@@ -111,6 +111,36 @@ public sealed class LlamaCppReleaseDownloaderTests
         }
     }
 
+    [Fact]
+    public void EnsureRuntimeTrackedForQualification_creates_pending_manifest_for_existing_legacy_runtime()
+    {
+        var runtimeRoot = NewTempRoot();
+        LlamaCppReleaseDownloader.RuntimeRootOverride = runtimeRoot;
+        RuntimeEventLogStore.RootOverride = runtimeRoot;
+
+        try
+        {
+            var exePath = CreateRuntime(runtimeRoot, "win-cuda-x64", "b8149");
+
+            var ok = LlamaCppReleaseDownloader.EnsureRuntimeTrackedForQualification("llama.cpp-cuda", exePath);
+
+            Assert.True(ok);
+
+            var state = LlamaCppReleaseDownloader.TryGetActiveRuntimeState("llama.cpp-cuda");
+            Assert.NotNull(state);
+            Assert.Equal("b8149", state!.Build);
+            Assert.Equal(exePath, state.ExePath);
+            Assert.Equal("pending_qualification", state.Status);
+            Assert.True(File.Exists(LlamaCppReleaseDownloader.ActiveRuntimeManifestPath + ".sha256"));
+        }
+        finally
+        {
+            LlamaCppReleaseDownloader.RuntimeRootOverride = null;
+            RuntimeEventLogStore.RootOverride = null;
+            DeleteTempRoot(runtimeRoot);
+        }
+    }
+
     private static string CreateRuntime(string runtimeRoot, string backendDir, string build)
     {
         var runtimeDir = Path.Combine(runtimeRoot, backendDir, build);

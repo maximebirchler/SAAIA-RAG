@@ -49,6 +49,13 @@ namespace SAAIA.Client.WinUI
             try
             {
                 ClientLog.Info("OnLaunched");
+                if (StartupMaintenanceMode.TryRunAsync(Environment.GetCommandLineArgs()).GetAwaiter().GetResult())
+                {
+                    ClientLog.Info("Maintenance mode completed; exiting without UI.");
+                    Exit();
+                    return;
+                }
+
                 _window = new MainWindow();
                 _window.Activate();
                 ClientLog.Info("MainWindow activated");

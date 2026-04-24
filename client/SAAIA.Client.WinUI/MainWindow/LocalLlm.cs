@@ -202,6 +202,7 @@ public sealed partial class MainWindow
             ct: ct).ConfigureAwait(false);
 
         var runtimeId = RequalificationTriggerService.DetectRuntimeKey(settings.LlamaExePath);
+        _ = LlamaCppReleaseDownloader.EnsureRuntimeTrackedForQualification(runtimeId, settings.LlamaExePath);
         if (result.Status is WarmupGateStatus.Pass or WarmupGateStatus.PassDegraded)
             _ = LlamaCppReleaseDownloader.TryMarkRuntimeQualified(runtimeId);
 

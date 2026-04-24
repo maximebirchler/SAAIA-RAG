@@ -31,6 +31,23 @@ internal sealed record WarmupThresholds(
 
 internal static class WarmupProfileStore
 {
+    public static WarmupProfileItem? ResolveReferenceProfile(string? runtime, string? modelId)
+    {
+        var canonicalModelId = ModelCatalogStore.ResolveCanonicalModelId(modelId) ?? modelId;
+        return CreateDefaultWarmupProfiles().Items
+            .Where(item =>
+                string.Equals(item.Runtime, runtime, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(item.ModelId, canonicalModelId, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(item => item.Mode switch
+            {
+                "nominal" => 0,
+                "fallback" => 1,
+                "safe" => 2,
+                _ => 3
+            })
+            .FirstOrDefault();
+    }
+
     public static WarmupProfileItem? FindProfile(string? profileId)
         => string.IsNullOrWhiteSpace(profileId)
             ? null

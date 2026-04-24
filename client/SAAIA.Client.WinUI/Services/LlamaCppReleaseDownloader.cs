@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -557,6 +558,71 @@ internal sealed class LlamaCppReleaseDownloader
                 item.QualifiedAtUtc);
     }
 
+    internal static bool EnsureRuntimeTrackedForQualification(string runtimeId, string? exePath)
+    {
+        var effectiveExePath = (exePath ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(effectiveExePath) || !File.Exists(effectiveExePath))
+            return false;
+
+        var existing = TryReadActiveRuntime(runtimeId);
+        if (existing is not null
+            && string.Equals(existing.ExePath, effectiveExePath, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var backend = runtimeId switch
+        {
+            "llama.cpp-cuda" => "cuda",
+            "llama.cpp-vulkan" => "vulkan",
+            _ => "cpu"
+        };
+        var runtimeDir = Path.GetDirectoryName(effectiveExePath) ?? RuntimeRoot;
+        var build = RuntimeCompatibilityPolicyStore.ReadRuntimeBuild(effectiveExePath)
+            ?? Path.GetFileName(runtimeDir)
+            ?? "legacy";
+        var assetNamePath = Path.Combine(runtimeDir, "runtime.asset");
+        string? assetName = null;
+        try
+        {
+            if (File.Exists(assetNamePath))
+                assetName = File.ReadAllText(assetNamePath).Trim();
+        }
+        catch
+        {
+            // ignore
+        }
+
+        WriteActiveRuntime(new ActiveRuntimeItem(
+            RuntimeId: runtimeId,
+            Backend: backend,
+            Build: build,
+            DirectoryPath: runtimeDir,
+            ExePath: effectiveExePath,
+            AssetName: string.IsNullOrWhiteSpace(assetName) ? Path.GetFileName(effectiveExePath) : assetName,
+            ActivatedAtUtc: DateTimeOffset.UtcNow,
+            Status: RuntimeStatusPendingQualification,
+            QualifiedAtUtc: null,
+            Previous: existing is null
+                ? null
+                : new RuntimeRollbackCandidate(
+                    existing.Build,
+                    existing.DirectoryPath,
+                    existing.ExePath,
+                    existing.AssetName)));
+
+        RuntimeEventLogStore.Append(new RuntimeEventLogItem(
+            At: DateTimeOffset.UtcNow,
+            RuntimeId: runtimeId,
+            EventKind: "runtime_qualification_tracking_started",
+            Build: build,
+            PreviousBuild: existing?.Build,
+            ModelId: null,
+            Detail: assetName));
+
+        return true;
+    }
+
     internal static bool TryMarkRuntimeQualified(string runtimeId)
     {
         if (!TryReadActiveRuntimeArtifactForUpdate(out var artifact, out var items))
@@ -699,6 +765,9 @@ internal sealed class LlamaCppReleaseDownloader
             WriteIndented = true
         });
         WriteAllTextWithRetry(ActiveRuntimeManifestPath, json);
+        WriteAllTextWithRetry(
+            ActiveRuntimeManifestPath + ".sha256",
+            ComputeSha256Hex(json));
     }
 
     private static void SafeDeleteDirectory(string dir)
@@ -731,5 +800,11 @@ internal sealed class LlamaCppReleaseDownloader
         }
 
         File.WriteAllText(path, content);
+    }
+
+    private static string ComputeSha256Hex(string text)
+    {
+        var bytes = Encoding.UTF8.GetBytes(text ?? string.Empty);
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant();
     }
 }

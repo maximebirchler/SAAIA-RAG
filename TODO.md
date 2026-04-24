@@ -53,7 +53,7 @@
 - [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` â€” OK, 0 Warning
 - [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` â€” OK, 0 Warning
 - [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` â€” 346/346 verts
-- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj` â€” 347/347 verts
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj` â€” 355/355 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
 - [x] Revalidation client 2026-04-23 apres diagnostic runtime local : 316/316 verts
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
@@ -373,6 +373,7 @@ Ce qui manque pour le contrat CDC :
 - [~] Audit section **Foundation documentaire & retrieval** : pages/sections/units/chunks/links/exact-match/contextual text, invariants de structure et regressions possibles
 - [~] Audit section **Governance runtime backend** : A/B, warmup, hard gates, diagnostics, events, endpoints admin runtime, artefacts exposes
 - [~] Audit section **Client runtime LLM** : downloader, runtime compatibility policy, active-runtime, rollback, warmup, blacklist, checksum, quarantaine, sleep/wake
+  - Etat machine reel confirme : runtime CUDA local `b8149` qualifie sur `Qwen2.5-3B-Instruct-Q4_K_M` via maintenance headless, `active-runtime.json` present et verifie
 - [~] Audit section **UI WinUI** : fenetre principale, flyouts, overlays admin/runtime, setup wizard, panneau jobs, aide, settings actifs
 - [~] Audit section **Multilingue** : tous les libelles visibles, statuts, erreurs utilisateur, prompts d'aide, overlays, menus, tooltips, placeholders, titres
 - [~] Audit section **Tests automatiques** : couverture utile vs code reel, zones sans test, faux positifs, tests contractuels manquants, tests d'integration utiles manquants
@@ -418,10 +419,10 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 - [~] `tools/runtime-ci-harness.ps1` : syntaxe/structure OK + smoke non strict valide (`runtime_probes` skippe si `SAAIA_RUNTIME_CI_BASE_URL` absent) ; execution runtime reelle a faire seulement pendant la phase de tests machine
 - [x] `tools/ConfigSigner` : build local OK + workflow fonctionnel de signature/verification bout-en-bout valide en local
 - [~] `tools/verify-governance-artifacts.ps1` : audit local des artefacts de gouvernance ajoute et valide ; rapport JSON genere dans `artifacts/runtime-ci/governance-artifact-audit.json`
-- [~] `tools/repair-governance-artifacts.ps1` : helper de reparation ajoute pour les sidecars `.sha256` desynchronises (dry-run valide) ; ne cree pas les JSON manquants, qui doivent encore etre regeneres par le flux client
+- [x] `tools/repair-governance-artifacts.ps1` : helper de reparation ajoute pour les sidecars `.sha256` desynchronises (dry-run valide) ; ne cree pas les JSON manquants, qui doivent encore etre regeneres par le flux client
 - [~] Verifier que les fichiers/artefacts de gouvernance produits localement sont coherents, checksummes et lisibles
-  - Constat machine actuel : `%LOCALAPPDATA%\\SAAIA\\governance` reste incomplet (`1/16` present, `15` manquants) et `model_catalog.json` a un sidecar `.sha256` desynchronise ; `%LOCALAPPDATA%\\SAAIA\\llm\\runtime\\active-runtime.json` absent
-  - Action restante avant campagne manuelle : regenerer/reparer proprement les artefacts locaux sur la machine reelle, puis rejouer l'audit
+  - Etat machine apres regeneration reelle : `%LOCALAPPDATA%\\SAAIA\\governance` = `16/16` presents, `16/16` verifies, `0` mismatch
+  - Etat machine apres qualification headless : `%LOCALAPPDATA%\\SAAIA\\llm\\runtime\\active-runtime.json` = present, sidecar `.sha256` present, audit local `1/1` runtime verifie
 - [ ] Verifier que les endpoints admin et outils client pointent tous sur les bons artefacts v3.1
 - [ ] Verifier que les scripts/documentations de bench ne referencent plus des hypotheses obsoletes (phase 0, runtime unique, vieux builds, noms legacy)
 - [~] Notes/docs de support requalifiees : les documents encore utiles mais non normatifs doivent afficher explicitement leur statut `historique` ou `note de travail`, pour ne plus etre confondus avec le CDC actif
@@ -680,3 +681,5 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 | 2026-04-24 | Codex | Audit Phase 4 - passe 25 : checklist courte `post-correctifs` ajoutee en source tabulaire (`artifacts/manual-test-checklist/SAAIA_Manual_Test_Checklist_PostFix_v3.1.tsv`) pour rejouer rapidement les regressions critiques sans relancer toute la campagne |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 26 : support bundle client enrichi pour embarquer aussi `model_catalog/model_collections/model_policy/model_sources/warmup_profiles/blacklist` et leurs sidecars `.sha256` quand presents ; script `tools/verify-governance-artifacts.ps1` ajoute et valide, avec constat machine explicite d'artefacts locaux encore incomplets a regenerer avant tests UI reels |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 27 : helper `tools/repair-governance-artifacts.ps1` ajoute et valide en dry-run ; il repare les sidecars `.sha256` desynchronises sans masquer les JSON manquants, et formalise la marche a suivre avant campagne manuelle (regeneration client puis re-audit) |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 28 : mode maintenance client ajoute (`--governance-init-only`) + script `tools/regenerate-governance-artifacts.ps1` ; regeneration reelle executee avec succes sur la machine, puis audit local confirme `%LOCALAPPDATA%\\SAAIA\\governance = 16/16` artefacts presents et verifies |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 29 : qualification locale headless ajoutee (`--qualify-local-runtime-only`) ; correction du drift `QualifiedProfile` / `ExtraArgs` dans `LlamaCppProcessManager`, runtime CUDA local `b8149` qualifie sur `Qwen2.5-3B-Instruct-Q4_K_M` (`PassCount=3/3`, TTFT ~113 ms, ~9.1 tok/s), `active-runtime.json` + sidecar verifies, suite client complete `355/355` verte |

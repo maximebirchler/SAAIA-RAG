@@ -6,6 +6,34 @@ namespace SAAIA.Client.ToolAgent.Tests;
 public sealed class LlamaCppProcessManagerTests
 {
     [Fact]
+    public void BuildArgs_prefers_qualified_profile_over_conflicting_extra_args()
+    {
+        var settings = new AppSettings
+        {
+            Host = "127.0.0.1",
+            Port = 1234,
+            LlamaExePath = @"C:\runtime\win-cuda-x64\llama-server.exe",
+            ModelPath = @"C:\models\Qwen2.5-3B-Instruct-Q4_K_M.gguf",
+            ModelId = "Qwen2.5-3B-Instruct-Q4_K_M.gguf",
+            ExtraArgs = "--ctx-size 4096 -t 6 -b 128 -ngl 16 --ubatch-size 128 --threads-batch 2 --flash-attn on --metrics",
+            QualifiedProfile = WarmupProfileStore.CreateReferenceCudaFallbackProfile()
+        };
+
+        var args = LlamaCppProcessManager.BuildArgs(settings);
+
+        Assert.Contains("--ctx-size 3072", args);
+        Assert.Contains("-b 1024", args);
+        Assert.Contains("-ngl 36", args);
+        Assert.Contains("--ubatch-size 256", args);
+        Assert.Contains("--threads-batch 6", args);
+        Assert.Contains("--flash-attn off", args);
+        Assert.Contains("--metrics", args);
+        Assert.DoesNotContain("--ctx-size 4096", args);
+        Assert.DoesNotContain("-b 128", args);
+        Assert.DoesNotContain("-ngl 16", args);
+    }
+
+    [Fact]
     public async Task ResolveIdleTimeoutSecondsAsync_prefers_battery_policy_when_on_battery()
     {
         var root = NewTempRoot();

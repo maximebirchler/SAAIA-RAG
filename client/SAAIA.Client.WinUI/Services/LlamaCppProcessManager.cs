@@ -248,7 +248,7 @@ internal sealed class LlamaCppProcessManager
         }
     }
 
-    private static string BuildArgs(AppSettings s)
+    internal static string BuildArgs(AppSettings s)
     {
         var host = string.IsNullOrWhiteSpace(s.Host) ? "127.0.0.1" : s.Host.Trim();
         var port = s.Port <= 0 ? 1234 : s.Port;
@@ -257,11 +257,103 @@ internal sealed class LlamaCppProcessManager
 
         var baseArgs = $"--host {host} --port {port} --model \"{model}\"";
 
-        var extra = (s.ExtraArgs ?? "").Trim();
+        var extra = NormalizeExtraArgsForQualifiedProfile(s, (s.ExtraArgs ?? "").Trim());
         if (extra.Length > 0)
             baseArgs += " " + extra;
 
         return baseArgs;
+    }
+
+    private static string NormalizeExtraArgsForQualifiedProfile(AppSettings settings, string extra)
+    {
+        var profile = GetApplicableQualifiedProfile(settings);
+        if (profile is null)
+            return extra;
+
+        extra = RemoveArg(extra, "--ctx-size", 1);
+        extra = RemoveArg(extra, "-c", 1);
+        extra = RemoveArg(extra, "-t", 1);
+        extra = RemoveArg(extra, "--threads", 1);
+        extra = RemoveArg(extra, "-b", 1);
+        extra = RemoveArg(extra, "--batch", 1);
+        extra = RemoveArg(extra, "--batch-size", 1);
+        extra = RemoveArg(extra, "-ngl", 1);
+        extra = RemoveArg(extra, "--n-gpu-layers", 1);
+        extra = RemoveArg(extra, "--ubatch-size", 1);
+        extra = RemoveArg(extra, "-ub", 1);
+        extra = RemoveArg(extra, "--threads-batch", 1);
+        extra = RemoveArg(extra, "-tb", 1);
+        extra = RemoveArg(extra, "--flash-attn", 1);
+        extra = RemoveArg(extra, "-fa", 1);
+        extra = RemoveArg(extra, "--mlock", 0);
+
+        extra = AppendArg(extra, "--ctx-size", profile.CtxSize.ToString());
+        extra = AppendArg(extra, "-t", profile.Threads.ToString());
+        extra = AppendArg(extra, "-b", profile.BatchSize.ToString());
+        if (!string.Equals(profile.Runtime, "llama.cpp-cpu", StringComparison.OrdinalIgnoreCase))
+            extra = AppendArg(extra, "-ngl", profile.Ngl.ToString());
+        extra = AppendArg(extra, "--ubatch-size", profile.UbatchSize.ToString());
+        extra = AppendArg(extra, "--threads-batch", profile.ThreadsBatch.ToString());
+        extra = AppendArg(extra, "--flash-attn", profile.FlashAttn ? "on" : "off");
+        if (profile.Mlock)
+            extra = AppendFlag(extra, "--mlock");
+
+        return extra.Trim();
+    }
+
+    private static QualifiedProfile? GetApplicableQualifiedProfile(AppSettings settings)
+    {
+        var profile = settings.QualifiedProfile;
+        if (profile is null)
+            return null;
+
+        var runtime = RequalificationTriggerService.DetectRuntimeKey(settings.LlamaExePath);
+        if (!string.Equals(runtime, profile.Runtime, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var currentModelId =
+            ModelCatalogStore.ResolveCanonicalModelId(settings.ModelId)
+            ?? ModelCatalogStore.ResolveCanonicalModelId(
+                string.IsNullOrWhiteSpace(settings.ModelPath) ? null : Path.GetFileName(settings.ModelPath))
+            ?? settings.ModelId;
+
+        return string.Equals(currentModelId, profile.ModelId, StringComparison.OrdinalIgnoreCase)
+            ? profile
+            : null;
+    }
+
+    private static string RemoveArg(string args, string key, int valueCount)
+    {
+        if (string.IsNullOrWhiteSpace(args))
+            return string.Empty;
+
+        var tokens = args.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+        for (var i = 0; i < tokens.Count; i++)
+        {
+            if (!string.Equals(tokens[i], key, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            tokens.RemoveAt(i);
+            for (var removed = 0; removed < valueCount && i < tokens.Count; removed++)
+                tokens.RemoveAt(i);
+            i--;
+        }
+
+        return string.Join(" ", tokens);
+    }
+
+    private static string AppendArg(string extra, string key, string value)
+    {
+        if (string.IsNullOrWhiteSpace(extra))
+            return $"{key} {value}";
+        return extra + " " + key + " " + value;
+    }
+
+    private static string AppendFlag(string extra, string key)
+    {
+        if (string.IsNullOrWhiteSpace(extra))
+            return key;
+        return extra + " " + key;
     }
 
     private static async Task PipeToFileAsync(Process proc, string path, CancellationToken ct)
