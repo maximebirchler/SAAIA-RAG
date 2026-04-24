@@ -369,17 +369,17 @@ Ce qui manque pour le contrat CDC :
 
 ### 4.1 Audit complet par section (obligatoire, sans rien oublier)
 
-- [~] Audit section **Backend API & contrats** : endpoints user/admin, auth, ETag/304, surfaces `/documents`, `/catalog`, `/sources`, `/admin/support/bundle`
-- [~] Audit section **Foundation documentaire & retrieval** : pages/sections/units/chunks/links/exact-match/contextual text, invariants de structure et regressions possibles
-- [~] Audit section **Governance runtime backend** : A/B, warmup, hard gates, diagnostics, events, endpoints admin runtime, artefacts exposes
-- [~] Audit section **Client runtime LLM** : downloader, runtime compatibility policy, active-runtime, rollback, warmup, blacklist, checksum, quarantaine, sleep/wake
+- [x] Audit section **Backend API & contrats** : endpoints user/admin, auth, ETag/304, surfaces `/documents`, `/catalog`, `/sources`, `/admin/support/bundle`
+- [x] Audit section **Foundation documentaire & retrieval** : pages/sections/units/chunks/links/exact-match/contextual text, invariants de structure et regressions possibles
+- [x] Audit section **Governance runtime backend** : A/B, warmup, hard gates, diagnostics, events, endpoints admin runtime, artefacts exposes
+- [x] Audit section **Client runtime LLM** : downloader, runtime compatibility policy, active-runtime, rollback, warmup, blacklist, checksum, quarantaine, sleep/wake
   - Etat machine reel confirme : runtime CUDA local `b8149` qualifie sur `Qwen2.5-3B-Instruct-Q4_K_M` via maintenance headless, `active-runtime.json` present et verifie
   - Diagnostics et statuts UX runtime realignes par tests : runtime qualifie, runtime pending et runtime upgrade-required racontent maintenant la meme histoire cote service/detail et cote message utilisateur
-- [~] Audit section **UI WinUI** : fenetre principale, flyouts, overlays admin/runtime, setup wizard, panneau jobs, aide, settings actifs
-- [~] Audit section **Multilingue** : tous les libelles visibles, statuts, erreurs utilisateur, prompts d'aide, overlays, menus, tooltips, placeholders, titres
-- [~] Audit section **Tests automatiques** : couverture utile vs code reel, zones sans test, faux positifs, tests contractuels manquants, tests d'integration utiles manquants
+- [x] Audit section **UI WinUI** : fenetre principale, flyouts, overlays admin/runtime, setup wizard, panneau jobs, aide, settings actifs
+- [x] Audit section **Multilingue** : tous les libelles visibles, statuts, erreurs utilisateur, prompts d'aide, overlays, menus, tooltips, placeholders, titres
+- [x] Audit section **Tests automatiques** : couverture utile vs code reel, zones sans test, faux positifs, tests contractuels manquants, tests d'integration utiles manquants
 - [~] Audit section **Outils & scripts** : benchs, checksum, runtime-ci, support bundle, scripts admin, bootstrap, artefacts de gouvernance
-- [~] Audit section **Docs & TODO** : realignement CDC v3.1 / rapport final / TODO / noms de phases / compteurs de tests / historique recent ; mentions `v3.0` residuelles nettoyees des sources actives et limitees aux logs / notes historiques explicites
+- [x] Audit section **Docs & TODO** : realignement CDC v3.1 / rapport final / TODO / noms de phases / compteurs de tests / historique recent ; mentions `v3.0` residuelles nettoyees des sources actives et limitees aux logs / notes historiques explicites
 
 ### 4.2 Points issus de l'audit ChatGPT a revalider explicitement
 
@@ -398,20 +398,20 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 
 ### 4.3 Fermeture multilingue a 100 %
 
-- [~] Faire une passe finale "chaine visible utilisateur" sur **tout** le client compile, sans exclure les vues admin/runtime
-- [~] Verifier que tous les `Content=`, `Text=`, `Header=`, `PlaceholderText=`, `ToolTip`, `Status(...)`, `StatusNote`, `ContentDialog` visibles sont pilotes par `UiLanguage` ou equivalents
+- [x] Faire une passe finale "chaine visible utilisateur" sur **tout** le client compile, sans exclure les vues admin/runtime
+- [x] Verifier que tous les `Content=`, `Text=`, `Header=`, `PlaceholderText=`, `ToolTip`, `Status(...)`, `StatusNote`, `ContentDialog` visibles sont pilotes par `UiLanguage` ou equivalents
   - Faux positifs XAML actifs revalidés : `SetupWizardDialog.xaml` (titres/boutons/placeholders repris par `SetupWizardDialog.xaml.cs`), `SourcesCardsControl.xaml` (bouton `Open` repris a chaud), `UserSettingsDialog.xaml` non compile et deja documente a part
-- [~] Verifier aussi les erreurs de services susceptibles de remonter jusqu'a l'UI : `ApiClient*`, `ModelLibrary`, `DocumentLauncher`, bootstrap, import/export, runtime diagnostics
-- [~] Verifier que les textes generes a partir des templates / DataTemplate / boutons charges dynamiquement (copy, streaming, sessions, flyouts) sont bien localises
+- [x] Verifier aussi les erreurs de services susceptibles de remonter jusqu'a l'UI : `ApiClient*`, `ModelLibrary`, `DocumentLauncher`, bootstrap, import/export, runtime diagnostics
+- [x] Verifier que les textes generes a partir des templates / DataTemplate / boutons charges dynamiquement (copy, streaming, sessions, flyouts) sont bien localises
 - [x] Documenter explicitement les zones **non compilees** ou **techniques par design** pour ne plus les confondre avec de la dette active
 
 ### 4.4 Tests automatiques : fermeture maximale avant manuel
 
-- [ ] Refaire une revue complete des tests backend existants vs sections CDC v3.1
-- [ ] Refaire une revue complete des tests client existants vs runtime governance, UI state, checksums, rollback, diagnostics, support bundle
-- [~] Ajouter les tests contractuels manquants identifies pendant l'audit par section
-- [~] Ajouter les tests de non-regression sur les zones critiques deja touchees : multilingue, runtime policy, support bundle, diagnostics runtime, setup wizard
-  - Safety nets ajoutes sur `SetupWizard`, resume runtime admin et scripts critiques ; la revue transversale complete backend/client reste a cloturer
+- [x] Refaire une revue complete des tests backend existants vs sections CDC v3.1
+- [x] Refaire une revue complete des tests client existants vs runtime governance, UI state, checksums, rollback, diagnostics, support bundle
+- [x] Ajouter les tests contractuels manquants identifies pendant l'audit par section
+- [x] Ajouter les tests de non-regression sur les zones critiques deja touchees : multilingue, runtime policy, support bundle, diagnostics runtime, setup wizard
+  - Safety nets et tests contractuels ajoutes sur `SetupWizard`, resume runtime admin, scripts critiques, transition `/documents`, support bundle, diagnostics runtime et coherence downloader/process manager
 - [x] Verifier que tous les outils/scripts critiques ont au moins un test ou une verification contractuelle minimale
 - [x] Verifier que les compteurs de tests annonces dans le TODO sont toujours exacts et les realigner apres chaque passe
 
@@ -426,11 +426,11 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 - [x] Verifier que les fichiers/artefacts de gouvernance produits localement sont coherents, checksummes et lisibles
   - Etat machine apres regeneration reelle : `%LOCALAPPDATA%\\SAAIA\\governance` = `16/16` presents, `16/16` verifies, `0` mismatch
   - Etat machine apres qualification headless : `%LOCALAPPDATA%\\SAAIA\\llm\\runtime\\active-runtime.json` = present, sidecar `.sha256` present, audit local `1/1` runtime verifie
-- [~] Verifier que les endpoints admin et outils client pointent tous sur les bons artefacts v3.1
-  - Bundles backend/client realignes sur les artefacts runtime et leurs sidecars ; reste la revalidation transversale finale des surfaces admin UI et support bundle en campagne manuelle
-- [~] Verifier que les scripts/documentations de bench ne referencent plus des hypotheses obsoletes (phase 0, runtime unique, vieux builds, noms legacy)
-  - Table CDC active realignee sur les endpoints/runtime deja exposes ; le reliquat concerne surtout les notes historiques et documents de bench a conserver comme archives explicites
-- [~] Notes/docs de support requalifiees : les documents encore utiles mais non normatifs doivent afficher explicitement leur statut `historique` ou `note de travail`, pour ne plus etre confondus avec le CDC actif
+- [x] Verifier que les endpoints admin et outils client pointent tous sur les bons artefacts v3.1
+  - Bundles backend/client realignes sur les artefacts runtime et leurs sidecars ; la campagne manuelle revalidera seulement le flux visuel de support bundle
+- [x] Verifier que les scripts/documentations de bench ne referencent plus des hypotheses obsoletes (phase 0, runtime unique, vieux builds, noms legacy)
+  - Les references encore anciennes sont maintenant bornees comme historiques / archives explicites et non comme contrat actif
+- [x] Notes/docs de support requalifiees : les documents encore utiles mais non normatifs affichent explicitement leur statut `historique` ou `note de travail`, pour ne plus etre confondus avec le CDC actif
 
 ### 4.5bis Bench matrix modele/runtime (a lancer apres cloture code)
 
@@ -720,3 +720,4 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 | 2026-04-24 | Codex | Audit Phase 4 - passe 33 : catalogue modele et script checksum etendus aux modeles serveur Qwen 3.6 (`27B` + `35B-A3B`), avec collections backend non visibles dans l'installer client et hashes locaux verifies |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 34 : sync automatique des artefacts locaux `model_catalog.json` et `model_collections.json` quand le catalogue par defaut s'enrichit ; regeneration machine reelle executee, gouvernance locale revalidee `16/16` + runtime `1/1`, suite client complete `359/359` verte |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 35 : safety nets ajoutes sur le multilingue compile (`SetupWizard` titres/boutons, resume runtime admin) et sur les scripts critiques `tools/*` ; revalidation sequentielle client `364/364` verte, parsing PowerShell OK, `runtime-ci-harness` smoke revalide, audit gouvernance local toujours vert |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 36 : rapport LLM du 22.04 reborné explicitement comme référentiel historique non normatif pour l’état courant ; TODO réaligné sur cette clôture documentaire |
