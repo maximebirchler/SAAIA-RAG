@@ -88,7 +88,7 @@ internal static class Provisioning
             if (!string.IsNullOrWhiteSpace(settings.ProvisioningHash) &&
                 string.Equals(settings.ProvisioningHash, hash, StringComparison.OrdinalIgnoreCase))
             {
-                message = $"Provisioning already applied ({Path.GetFileName(path)}).";
+                message = FormatAlreadyAppliedMessage(settings.UiLanguage, Path.GetFileName(path));
                 return false;
             }
 
@@ -99,7 +99,7 @@ internal static class Provisioning
 
             if (dto is null)
             {
-                message = "Provisioning file invalid (empty).";
+                message = FormatInvalidEmptyMessage(settings.UiLanguage);
                 return false;
             }
 
@@ -161,12 +161,12 @@ internal static class Provisioning
             settings.ProvisioningHash = hash;
             settings.Save();
 
-            message = $"Provisioning applied from {path}.";
+            message = FormatAppliedMessage(settings.UiLanguage, path);
             return true;
         }
         catch (Exception ex)
         {
-            message = "Provisioning apply failed: " + ex.Message;
+            message = FormatApplyFailedMessage(AppSettings.Load().UiLanguage, ex.Message);
             return false;
         }
     }
@@ -284,5 +284,25 @@ internal static class Provisioning
         {
             return false;
         }
+    }
+
+    internal static string FormatAlreadyAppliedMessage(string? uiLanguage, string fileName)
+        => T(uiLanguage, "status.provisioning.already_applied", fileName);
+
+    internal static string FormatInvalidEmptyMessage(string? uiLanguage)
+        => T(uiLanguage, "status.provisioning.invalid_empty");
+
+    internal static string FormatAppliedMessage(string? uiLanguage, string path)
+        => T(uiLanguage, "status.provisioning.applied", path);
+
+    internal static string FormatApplyFailedMessage(string? uiLanguage, string error)
+        => T(uiLanguage, "status.provisioning.apply_failed") + error;
+
+    private static string T(string? uiLanguage, string key, params object[] args)
+    {
+        var template = ClientUiText.Get(key, uiLanguage);
+        return args.Length == 0
+            ? template
+            : string.Format(template, args);
     }
 }

@@ -19,7 +19,8 @@ public sealed class ModelIntegrityServiceTests
             var settings = new AppSettings
             {
                 ModelPath = modelPath,
-                ModelId = "qwen2.5-3b-instruct-q4-k-m"
+                ModelId = "qwen2.5-3b-instruct-q4-k-m",
+                UiLanguage = "en"
             };
 
             await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(settings, root);
@@ -40,7 +41,7 @@ public sealed class ModelIntegrityServiceTests
 
             Assert.True(result.Blocked);
             Assert.Equal("checksum_mismatch_quarantined", result.Reason);
-            Assert.Equal(ModelIntegrityService.QuarantineUserMessage, result.UserMessage);
+            Assert.Equal(ModelIntegrityService.GetQuarantineUserMessage(settings.UiLanguage), result.UserMessage);
             Assert.False(File.Exists(modelPath));
             Assert.True(File.Exists(ModelIntegrityService.QuarantinePath(modelPath)));
 
@@ -55,6 +56,13 @@ public sealed class ModelIntegrityServiceTests
         {
             DeleteTempRoot(root);
         }
+    }
+
+    [Fact]
+    public void GetQuarantineUserMessage_returns_localized_message()
+    {
+        Assert.Equal("Model unavailable - contact the administrator.", ModelIntegrityService.GetQuarantineUserMessage("en"));
+        Assert.Equal("Modele non disponible - contactez l'administrateur.", ModelIntegrityService.GetQuarantineUserMessage("fr"));
     }
 
     [Fact]

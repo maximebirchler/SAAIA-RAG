@@ -37,7 +37,7 @@ internal static class LocalLlmRuntimeStatusService
         {
             return new LocalLlmRuntimeStatus(
                 "model_quarantined",
-                ModelIntegrityService.QuarantineUserMessage,
+                ModelIntegrityService.GetQuarantineUserMessage(settings.UiLanguage),
                 IsError: true);
         }
 

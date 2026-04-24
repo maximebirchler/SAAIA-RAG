@@ -35,6 +35,9 @@ internal sealed record AcquisitionLogItem(
 
 internal static class ModelIntegrityService
 {
+    public static string GetQuarantineUserMessage(string? uiLanguage = null)
+        => ClientUiText.Get("status.model_quarantined", uiLanguage);
+
     public const string QuarantineUserMessage = "Modele non disponible — contactez l'administrateur.";
 
     public static async Task<ModelIntegrityVerificationResult> VerifyModelAsync(
@@ -87,7 +90,7 @@ internal static class ModelIntegrityService
         return new ModelIntegrityVerificationResult(
             true,
             "checksum_mismatch_quarantined",
-            QuarantineUserMessage,
+            GetQuarantineUserMessage(settings.UiLanguage),
             quarantinedPath,
             expectedSha,
             actualSha);

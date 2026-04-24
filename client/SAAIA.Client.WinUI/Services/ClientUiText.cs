@@ -14,6 +14,12 @@ internal static class ClientUiText
         ["status.help_connect_first"] = Multi("Connecte d'abord l'application.", "Connect the app first.", "Conecta primero la aplicación.", "Liga primeiro a aplicação.", "Verbinde zuerst die Anwendung.", "Collega prima l'applicazione."),
         ["status.help_send_failed"] = Multi("Impossible d'envoyer la commande d'aide : ", "Could not send the help command: ", "No se pudo enviar el comando de ayuda: ", "Não foi possível enviar o comando de ajuda: ", "Der Hilfebefehl konnte nicht gesendet werden: ", "Impossibile inviare il comando di aiuto: "),
 
+        ["status.model_quarantined"] = Multi("Modele non disponible - contactez l'administrateur.", "Model unavailable - contact the administrator.", "Modelo no disponible - contacta con el administrador.", "Modelo indisponivel - contacte o administrador.", "Modell nicht verfuegbar - Administrator kontaktieren.", "Modello non disponibile - contatta l'amministratore."),
+        ["status.provisioning.already_applied"] = Multi("Provisioning deja applique ({0}).", "Provisioning already applied ({0}).", "Provisioning ya aplicado ({0}).", "Provisioning ja aplicado ({0}).", "Provisioning bereits angewendet ({0}).", "Provisioning gia applicato ({0})."),
+        ["status.provisioning.invalid_empty"] = Multi("Fichier de provisioning invalide (vide).", "Provisioning file invalid (empty).", "Archivo de provisioning no valido (vacio).", "Ficheiro de provisioning invalido (vazio).", "Provisioning-Datei ungueltig (leer).", "File di provisioning non valido (vuoto)."),
+        ["status.provisioning.applied"] = Multi("Provisioning applique depuis {0}.", "Provisioning applied from {0}.", "Provisioning aplicado desde {0}.", "Provisioning aplicado a partir de {0}.", "Provisioning angewendet aus {0}.", "Provisioning applicato da {0}."),
+        ["status.provisioning.apply_failed"] = Multi("Echec du provisioning : ", "Provisioning apply failed: ", "Error al aplicar provisioning: ", "Falha ao aplicar provisioning: ", "Provisioning-Anwendung fehlgeschlagen: ", "Applicazione provisioning non riuscita: "),
+
         ["header.chats"] = Multi("Discussions", "Chats", "Chats", "Chats", "Chats", "Chat"),
         ["header.help"] = Multi("Aide", "Help", "Ayuda", "Ajuda", "Hilfe", "Aiuto"),
         ["header.settings"] = Multi("Paramètres", "Settings", "Configuración", "Definições", "Einstellungen", "Impostazioni"),
