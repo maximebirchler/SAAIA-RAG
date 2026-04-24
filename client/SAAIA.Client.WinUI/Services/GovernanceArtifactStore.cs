@@ -172,8 +172,6 @@ internal static class GovernanceArtifactStore
         await WriteIfMissingAsync(CapabilityStateFile, new GovernanceListArtifact<object>("capability_state.json", "v3.1", Array.Empty<object>()), governanceRoot, ct).ConfigureAwait(false);
         await WriteIfMissingAsync(AcquisitionLogFile, new GovernanceListArtifact<object>("acquisition_log.json", "v3.1", Array.Empty<object>()), governanceRoot, ct).ConfigureAwait(false);
         await WriteIfMissingAsync(RuntimeEventLogFile, new RuntimeEventLogArtifact("runtime_event_log.json", "v3.1", Array.Empty<RuntimeEventLogItem>()), governanceRoot, ct).ConfigureAwait(false);
-
-        settings.QualifiedProfile ??= WarmupProfileStore.CreateReferenceCudaProfile();
     }
 
     public static string ResolvePath(string fileName, string? root = null)

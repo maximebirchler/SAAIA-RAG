@@ -7,7 +7,7 @@ namespace SAAIA.Backend;
 
 internal static class RuntimeGovernanceReadService
 {
-    private const string CdcAlignment = "v3.0";
+    private const string CdcAlignment = "v3.1";
     private const string CapabilityStateArtifact = "capability_state.json";
     private const string WarmupResultsArtifact = "warmup_results.json";
     private const string EventsArtifact = "runtime_events";

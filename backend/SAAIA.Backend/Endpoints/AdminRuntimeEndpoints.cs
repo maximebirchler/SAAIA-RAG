@@ -1,4 +1,4 @@
-using System.IO.Compression;
+﻿using System.IO.Compression;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -912,15 +912,19 @@ public static class AdminRuntimeEndpoints
 
     /// <summary>
     /// POST /admin/support/bundle
-    /// Packages available runtime governance artifacts into a timestamped ZIP.
-    /// Phase 0B: most governance files are not yet generated (Phase 3); they are listed in
-    /// <c>missingArtifacts</c> so the caller knows what's expected vs. what exists.
-    /// CDC v3.1 §14.2 — admin governance bundle (distinct from the lightweight client bundle).
+    /// Packages runtime governance artifacts into a timestamped ZIP.
+    /// Canonical backend artifacts are generated on demand from the current runtime state.
+    /// Optional companion files still present on disk are copied when available and reported
+    /// in <c>missingArtifacts</c> when absent.
+    /// CDC v3.1 Â§14.2 â€” admin governance bundle (distinct from the lightweight client bundle).
     /// </summary>
     internal static async Task<IResult> SupportBundleAsync(
         HttpContext ctx,
+        NpgsqlDataSource ds,
         IHostEnvironment env,
-        IOptions<RuntimeGovernanceOptions> options)
+        IOptions<RuntimeGovernanceOptions> options,
+        IOptions<RagOptions> ragOptions,
+        IOptions<ChatOptions> chatOptions)
     {
         AdminAuth.EnsureAdmin(ctx);
 
@@ -934,14 +938,57 @@ public static class AdminRuntimeEndpoints
 
         var artifacts = new List<string>();
         var missing = new List<string>();
+        var artifactErrors = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var tenantId = ctx.GetTenantId();
+        var diagnosticsService = new RuntimeDiagnosticsService(ds, env, ctx.RequestServices.GetService<IHttpClientFactory>());
 
-        // Governance artifact filenames expected in Phase 3 (CDC §9 governance lifecycle).
-        // In Phase 0B these files don't exist yet — included in missingArtifacts for transparency.
+        var generatedArtifacts = new Dictionary<string, Func<CancellationToken, Task<object>>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["runtime-catalog.json"] = _ => Task.FromResult<object>(
+                RuntimeGovernanceCatalogService.BuildRuntimeCatalogArtifact(options.Value, ragOptions.Value, chatOptions.Value, env)),
+            ["model-catalog.json"] = _ => Task.FromResult<object>(
+                RuntimeGovernanceCatalogService.BuildModelCatalogArtifact(options.Value, ragOptions.Value, chatOptions.Value, env)),
+            ["warmup-profiles.json"] = _ => Task.FromResult<object>(
+                RuntimeGovernanceCatalogService.BuildWarmupProfilesArtifact(options.Value, env)),
+            ["capability-state.json"] = async ct => await RuntimeGovernanceReadService.GetCapabilityStateArtifactAsync(
+                ds,
+                options.Value,
+                ragOptions.Value,
+                env,
+                ct).ConfigureAwait(false),
+            ["warmup-results.json"] = async ct => await RuntimeGovernanceReadService.GetWarmupResultsArtifactAsync(
+                ds,
+                env,
+                capabilityKey: null,
+                limit: 50,
+                ct).ConfigureAwait(false),
+            ["runtime-events.json"] = async ct => await RuntimeGovernanceReadService.GetEventsArtifactAsync(
+                ds,
+                env,
+                capabilityKey: null,
+                limit: 50,
+                ct).ConfigureAwait(false),
+            ["diagnostics.json"] = async ct => await diagnosticsService.GetDiagnosticsArtifactAsync(
+                tenantId,
+                options.Value,
+                ragOptions.Value,
+                ct).ConfigureAwait(false),
+            ["operational-summary.json"] = async ct => await diagnosticsService.GetOperationalSummaryArtifactAsync(
+                tenantId,
+                options.Value,
+                ragOptions.Value,
+                ct).ConfigureAwait(false),
+            ["retrieval-kpis.json"] = _ => Task.FromResult<object>(
+                new RuntimeRetrievalKpiService(env).GetKpisArtifact(options.Value)),
+            ["capability-a-kpis.json"] = _ => Task.FromResult<object>(
+                new RuntimeCapabilityAKpiService(env).GetKpisArtifact(options.Value)),
+            ["capability-b-kpis.json"] = _ => Task.FromResult<object>(
+                new RuntimeCapabilityBKpiService(env).GetKpisArtifact(options.Value))
+        };
+
         var governanceFileNames = new[]
         {
             "hardware_probe.json",
-            "capability_state.json",
-            "warmup_results.json",
             "last_known_good_profile.json",
             "rollback_log.json",
             "blacklist_applied.json",
@@ -950,14 +997,28 @@ public static class AdminRuntimeEndpoints
 
         try
         {
-            // README
             await File.WriteAllTextAsync(Path.Combine(staging, "README.txt"),
-                $"SAAIA admin support bundle — {stamp}\r\n" +
+                $"SAAIA admin support bundle -- {stamp}\r\n" +
                 "Runtime governance artifacts for support/audit. Sensitive fields are masked.\r\n" +
-                "missingArtifacts = expected but not yet generated (Phase 3).\r\n",
+                "Canonical backend artifacts are generated from the current runtime state.\r\n" +
+                "missingArtifacts = optional companion files absent on this deployment or artifact generation failures.\r\n",
                 ctx.RequestAborted).ConfigureAwait(false);
 
-            // Governance artifacts (if available)
+            foreach (var artifact in generatedArtifacts)
+            {
+                try
+                {
+                    var payload = await artifact.Value(ctx.RequestAborted).ConfigureAwait(false);
+                    await WriteBundleJsonAsync(staging, artifact.Key, payload, ctx.RequestAborted).ConfigureAwait(false);
+                    artifacts.Add(artifact.Key);
+                }
+                catch (Exception ex)
+                {
+                    missing.Add(artifact.Key);
+                    artifactErrors[artifact.Key] = ex.Message;
+                }
+            }
+
             var governanceDir = Path.Combine(env.ContentRootPath, "governance");
             foreach (var fileName in governanceFileNames)
             {
@@ -973,7 +1034,6 @@ public static class AdminRuntimeEndpoints
                 }
             }
 
-            // LLM logs (if available)
             var llmLogSources = new[]
             {
                 Path.Combine(env.ContentRootPath, "logs", "llm"),
@@ -1001,7 +1061,6 @@ public static class AdminRuntimeEndpoints
             if (copiedLlmLogs == 0)
                 missing.Add("llm-logs/");
 
-            // Config snapshot (redacted runtime options)
             var configSnapshot = new
             {
                 timestamp = stamp,
@@ -1036,7 +1095,8 @@ public static class AdminRuntimeEndpoints
                     options.Value.CapabilityBQualityScoreTarget
                 },
                 includedFiles = artifacts,
-                missingArtifacts = missing
+                missingArtifacts = missing,
+                artifactErrors = artifactErrors.Count == 0 ? null : artifactErrors
             };
             await File.WriteAllTextAsync(
                 Path.Combine(staging, "runtime-config.json"),
@@ -1044,7 +1104,6 @@ public static class AdminRuntimeEndpoints
                 ctx.RequestAborted).ConfigureAwait(false);
             artifacts.Add("runtime-config.json");
 
-            // Create ZIP
             if (File.Exists(bundlePath)) File.Delete(bundlePath);
             ZipFile.CreateFromDirectory(staging, bundlePath, CompressionLevel.Fastest, includeBaseDirectory: false);
 
@@ -1052,7 +1111,8 @@ public static class AdminRuntimeEndpoints
             {
                 bundlePath,
                 artifacts,
-                missingArtifacts = missing
+                missingArtifacts = missing,
+                artifactErrors = artifactErrors.Count == 0 ? null : artifactErrors
             });
         }
         catch (Exception ex) when (ex is not UnauthorizedAccessException)
@@ -1067,4 +1127,14 @@ public static class AdminRuntimeEndpoints
             try { Directory.Delete(staging, recursive: true); } catch { }
         }
     }
+
+    private static Task WriteBundleJsonAsync(
+        string stagingRoot,
+        string fileName,
+        object payload,
+        CancellationToken ct)
+        => File.WriteAllTextAsync(
+            Path.Combine(stagingRoot, fileName),
+            JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }),
+            ct);
 }

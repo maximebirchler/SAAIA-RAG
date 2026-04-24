@@ -116,12 +116,12 @@ public sealed class ToolContractParityTests
     }
 
     [Fact]
-    public void Manifest_version_is_v3_0()
+    public void Manifest_version_is_v3_1()
     {
         using var manifest = JsonDocument.Parse(ToolManifest.BuildManifestJson());
-        Assert.Equal("v3.0", manifest.RootElement.GetProperty("version").GetString());
+        Assert.Equal("v3.1", manifest.RootElement.GetProperty("version").GetString());
 
         using var conversationManifest = JsonDocument.Parse(ToolManifest.BuildConversationManifestJson());
-        Assert.Equal("v3.0", conversationManifest.RootElement.GetProperty("version").GetString());
+        Assert.Equal("v3.1", conversationManifest.RootElement.GetProperty("version").GetString());
     }
 }

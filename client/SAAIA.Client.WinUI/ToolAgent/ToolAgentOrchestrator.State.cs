@@ -158,7 +158,7 @@ public sealed partial class ToolAgentOrchestrator
         {
             ["profile"] = _mem.MemoryProfile,
             ["schemaVersion"] = _mem.SchemaVersion,
-            ["cdcAlignment"] = "v3.0",
+            ["cdcAlignment"] = "v3.1",
             ["persistence"] = new Dictionary<string, object?>
             {
                 ["language"] = true,

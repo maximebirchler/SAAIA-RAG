@@ -6,7 +6,7 @@ namespace SAAIA.Backend;
 
 internal static class RuntimeCapabilityBExecutionCommandService
 {
-    private const string CdcAlignment = "v3.0";
+    private const string CdcAlignment = "v3.1";
     private const string AdminRuntimeActor = "admin_runtime_endpoint";
     private const string CapabilityBBackofficeGenerationKey = "capability_b.backoffice_generation";
 

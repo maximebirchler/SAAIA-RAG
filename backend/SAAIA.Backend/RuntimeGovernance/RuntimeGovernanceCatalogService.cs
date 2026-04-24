@@ -5,7 +5,7 @@ namespace SAAIA.Backend;
 
 internal static class RuntimeGovernanceCatalogService
 {
-    private const string CdcAlignment = "v3.0";
+    private const string CdcAlignment = "v3.1";
     private const string RuntimeCatalogArtifact = "runtime_catalog.json";
     private const string ModelCatalogArtifact = "model_catalog.json";
     private const string WarmupProfilesArtifact = "warmup_profiles.json";

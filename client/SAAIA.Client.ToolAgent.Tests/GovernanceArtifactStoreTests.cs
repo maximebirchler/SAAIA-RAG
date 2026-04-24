@@ -27,6 +27,19 @@ public sealed class GovernanceArtifactStoreTests
     }
 
     [Fact]
+    public void WarmupProfileStore_exposes_explicit_cpu_safe_profile()
+    {
+        var cpuSafe = WarmupProfileStore.FindProfile("qwen25-3b-q4km-cpu-safe");
+
+        Assert.NotNull(cpuSafe);
+        Assert.Equal("llama.cpp-cpu", cpuSafe!.Runtime);
+        Assert.Equal("safe", cpuSafe.Mode);
+        Assert.Equal(0, cpuSafe.Candidate.Ngl);
+        Assert.False(cpuSafe.Candidate.FlashAttn);
+        Assert.Equal(4096, cpuSafe.Thresholds.MinAvailableRamMiB);
+    }
+
+    [Fact]
     public async Task GovernanceArtifactStore_writes_reads_and_verifies_sha256_sidecar()
     {
         var root = NewTempRoot();
@@ -81,7 +94,7 @@ public sealed class GovernanceArtifactStoreTests
     }
 
     [Fact]
-    public async Task EnsureDefaultArtifacts_creates_snake_case_governance_files_and_reference_profile()
+    public async Task EnsureDefaultArtifacts_creates_snake_case_governance_files_without_preseeding_qualified_profile()
     {
         var root = NewTempRoot();
         try
@@ -114,8 +127,7 @@ public sealed class GovernanceArtifactStoreTests
             }
 
             Assert.False(File.Exists(Path.Combine(root, "model-catalog.json")));
-            Assert.NotNull(settings.QualifiedProfile);
-            Assert.Equal("qwen25-3b-q4km-cuda-p520-interactive", settings.QualifiedProfile!.ProfileId);
+            Assert.Null(settings.QualifiedProfile);
 
             var runtimePolicy = await GovernanceArtifactStore.ReadAsync<RuntimeCompatibilityPolicyArtifact>(
                 GovernanceArtifactStore.RuntimeCompatibilityPolicyFile,

@@ -4,7 +4,7 @@ namespace SAAIA.Backend;
 
 internal sealed class RuntimeRetrievalKpiService(IHostEnvironment env)
 {
-    private const string CdcAlignment = "v3.0";
+    private const string CdcAlignment = "v3.1";
     private const string RetrievalKpisArtifact = "retrieval-kpis.json";
 
     internal AdminRuntimeRetrievalKpisResponseDto GetKpis(RuntimeGovernanceOptions options)
@@ -38,7 +38,7 @@ internal sealed class RuntimeRetrievalKpiService(IHostEnvironment env)
             RerankP95TargetMs: options.RerankP95TargetMs,
             ZeroResultRateTargetPercent: options.ZeroResultRateTargetPercent,
             ZeroResultRateFormula: "sum(saaia.retrieval.zero_results) / sum(saaia.retrieval.requests) * 100",
-            Notes: "CDC v3.0 retrieval targets: P95 retrieval < 800 ms, P95 rerank < 300 ms, zero-result rate < 5 %.");
+            Notes: "CDC v3.1 retrieval targets: P95 retrieval < 800 ms, P95 rerank < 300 ms, zero-result rate < 5 %.");
 
     private static AdminRuntimeMetricDefinitionDto[] BuildMetrics()
         =>

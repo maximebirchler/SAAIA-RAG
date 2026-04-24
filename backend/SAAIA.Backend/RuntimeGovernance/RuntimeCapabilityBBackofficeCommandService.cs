@@ -6,7 +6,7 @@ namespace SAAIA.Backend;
 
 internal static class RuntimeCapabilityBBackofficeCommandService
 {
-    private const string CdcAlignment = "v3.0";
+    private const string CdcAlignment = "v3.1";
     private const string CapabilityBBackofficeGenerationKey = "capability_b.backoffice_generation";
 
     internal static async Task<RuntimeOperationResult<AdminRuntimeCapabilityBEnqueueResponseDto>> EnqueueCapabilityBBackofficeAsync(

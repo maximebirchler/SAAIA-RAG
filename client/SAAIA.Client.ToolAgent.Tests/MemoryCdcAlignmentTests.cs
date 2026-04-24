@@ -305,7 +305,7 @@ public sealed class MemoryCdcAlignmentTests
 
         Assert.Equal("cdc-v3-m1lite-m3-m6", summary["profile"]);
         Assert.Equal(1, summary["schemaVersion"]);
-        Assert.Equal("v3.0", summary["cdcAlignment"]);
+        Assert.Equal("v3.1", summary["cdcAlignment"]);
 
         var persistence = Assert.IsAssignableFrom<Dictionary<string, object?>>(summary["persistence"]);
         Assert.True((bool)persistence["language"]!);

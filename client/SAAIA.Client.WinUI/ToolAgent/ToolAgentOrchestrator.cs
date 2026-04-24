@@ -903,7 +903,7 @@ public sealed partial class ToolAgentOrchestrator
             {
                 profile = TryGetString(summary, "profile") ?? "unknown",
                 schemaVersion = TryGetInt(summary, "schemaVersion") ?? 0,
-                cdcAlignment = TryGetString(summary, "cdcAlignment") ?? "v3.0",
+                cdcAlignment = TryGetString(summary, "cdcAlignment") ?? "v3.1",
                 routerMs = TryGetInt(item.Result, "routerMs") ?? 0,
                 toolsMs = TryGetInt(item.Result, "toolsMs") ?? 0,
                 writerMs = TryGetInt(item.Result, "writerMs") ?? 0,
@@ -1124,7 +1124,7 @@ public sealed partial class ToolAgentOrchestrator
         language = NormalizeLanguageCode(language);
         var profile = TryGetString(data, "profile") ?? "unknown";
         var schemaVersion = TryGetInt(data, "schemaVersion") ?? 0;
-        var cdcAlignment = TryGetString(data, "cdcAlignment") ?? "v3.0";
+        var cdcAlignment = TryGetString(data, "cdcAlignment") ?? "v3.1";
         var routerMs = TryGetInt(data, "routerMs") ?? 0;
         var toolsMs = TryGetInt(data, "toolsMs") ?? 0;
         var writerMs = TryGetInt(data, "writerMs") ?? 0;
@@ -1357,7 +1357,6 @@ Additional runtime rules:
 - Current message language hint: {detectedMessageLanguage}
 - Disallow meta.set_language for this turn: {(disallowMetaSetLanguage ? "true" : "false")}
 - The current message looks like a repair/correction turn: {(repairHint ? "true" : "false")}
-- Admin session available right now: {(_api.HasAdminKey ? "true" : "false")}
 - If document resolution hint says clarification is needed, prefer a short clarification over a blind tool call.
 ";
 

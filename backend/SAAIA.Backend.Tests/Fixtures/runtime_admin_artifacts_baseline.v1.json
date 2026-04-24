@@ -3,7 +3,7 @@
   "artifacts": {
     "runtime_catalog.json": {
       "artifact": "runtime_catalog.json",
-      "cdcAlignment": "v3.0",
+      "cdcAlignment": "v3.1",
       "runtimeKeys": [
         "llm-backoffice-chat",
         "qdrant",
@@ -29,7 +29,7 @@
     },
     "model_catalog.json": {
       "artifact": "model_catalog.json",
-      "cdcAlignment": "v3.0",
+      "cdcAlignment": "v3.1",
       "itemKeys": [
         "llm-backoffice-chat",
         "qdrant",
@@ -41,7 +41,7 @@
     },
     "warmup_profiles.json": {
       "artifact": "warmup_profiles.json",
-      "cdcAlignment": "v3.0",
+      "cdcAlignment": "v3.1",
       "profileKeys": [
         "default-local",
         "strict-local",
@@ -50,7 +50,7 @@
     },
     "retrieval-kpis.json": {
       "artifact": "retrieval-kpis.json",
-      "cdcAlignment": "v3.0",
+      "cdcAlignment": "v3.1",
       "metricKeys": [
         "rerank_p95",
         "retrieval_p95",
@@ -65,7 +65,7 @@
     },
     "capability-a-kpis.json": {
       "artifact": "capability-a-kpis.json",
-      "cdcAlignment": "v3.0",
+      "cdcAlignment": "v3.1",
       "metricKeys": [
         "capability_a_candidate_count",
         "capability_a_candidate_reads",
@@ -84,7 +84,7 @@
     },
     "capability-b-kpis.json": {
       "artifact": "capability-b-kpis.json",
-      "cdcAlignment": "v3.0",
+      "cdcAlignment": "v3.1",
       "metricKeys": [
         "capability_b_failure_rate",
         "capability_b_first_response_p95",

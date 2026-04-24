@@ -7,7 +7,7 @@ namespace SAAIA.Backend;
 
 internal static class RuntimeCapabilityAdminReadService
 {
-    private const string CdcAlignment = "v3.0";
+    private const string CdcAlignment = "v3.1";
     private const string CapabilityACandidatesJsonArtifact = "capability_a_candidates.json";
     private const string CapabilityACampaignsJsonArtifact = "capability_a_campaigns.json";
     private const string CapabilityACampaignDetailJsonArtifact = "capability_a_campaign_detail.json";

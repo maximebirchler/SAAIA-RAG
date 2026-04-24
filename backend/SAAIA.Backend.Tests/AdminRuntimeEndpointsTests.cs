@@ -33,7 +33,7 @@ public sealed class AdminRuntimeEndpointsTests
 
         var payload = await ExecuteResultAsync<AdminRuntimeCatalogResponseDto>(result, ctx);
 
-        Assert.Equal("v3.0", payload.CdcAlignment);
+        Assert.Equal("v3.1", payload.CdcAlignment);
         Assert.Contains(payload.Runtimes, item =>
             item.Key == "qdrant"
             && item.ReadinessStatus == "configured"
@@ -82,7 +82,7 @@ public sealed class AdminRuntimeEndpointsTests
         var payload = await ExecuteResultAsync<AdminRuntimeRuntimeCatalogArtifactDto>(result, ctx);
 
         Assert.Equal("runtime_catalog.json", payload.Artifact);
-        Assert.Equal("v3.0", payload.CdcAlignment);
+        Assert.Equal("v3.1", payload.CdcAlignment);
         Assert.Contains(payload.Runtimes, item => item.Key == "tei-embeddings");
         var llmRuntime = Assert.Single(payload.Runtimes, item => item.Key == "llm-backoffice-chat");
         if (llmRuntime.Enabled)
@@ -102,8 +102,12 @@ public sealed class AdminRuntimeEndpointsTests
     }
 
     [Fact]
-    public async Task SupportBundleAsync_returns_zip_with_present_and_missing_governance_artifacts()
+    public async Task SupportBundleAsync_returns_zip_with_generated_backend_artifacts_and_optional_missing_companions()
     {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
         var tempRoot = Path.Combine(Path.GetTempPath(), "saaia-support-bundle-test-" + Guid.NewGuid().ToString("N"));
         try
         {
@@ -127,10 +131,14 @@ public sealed class AdminRuntimeEndpointsTests
 
             var ctx = BuildAdminContext();
             var env = new StubHostEnvironment { ContentRootPath = tempRoot };
+            await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
             var result = await AdminRuntimeEndpoints.SupportBundleAsync(
                 ctx,
+                ds,
                 env,
-                Options.Create(new RuntimeGovernanceOptions()));
+                Options.Create(new RuntimeGovernanceOptions()),
+                Options.Create(CreateRagOptions()),
+                Options.Create(CreateChatOptions()));
 
             using var json = await ExecuteAnonymousAsync(result, ctx);
             var root = json.RootElement;
@@ -140,18 +148,31 @@ public sealed class AdminRuntimeEndpointsTests
 
             Assert.False(string.IsNullOrWhiteSpace(bundlePath));
             Assert.True(File.Exists(bundlePath));
+            Assert.Contains("runtime-catalog.json", artifacts);
+            Assert.Contains("model-catalog.json", artifacts);
+            Assert.Contains("warmup-profiles.json", artifacts);
+            Assert.Contains("capability-state.json", artifacts);
+            Assert.Contains("warmup-results.json", artifacts);
             Assert.Contains("warmup_results.json", artifacts);
+            Assert.Contains("runtime-events.json", artifacts);
+            Assert.Contains("diagnostics.json", artifacts);
+            Assert.Contains("operational-summary.json", artifacts);
+            Assert.Contains("retrieval-kpis.json", artifacts);
+            Assert.Contains("capability-a-kpis.json", artifacts);
+            Assert.Contains("capability-b-kpis.json", artifacts);
             Assert.Contains("rollback_log.json", artifacts);
             Assert.Contains("blacklist_applied.json", artifacts);
             Assert.Contains("llm-logs/llama-server.log", artifacts);
             Assert.Contains("runtime-config.json", artifacts);
             Assert.Contains("hardware_probe.json", missingArtifacts);
-            Assert.Contains("capability_state.json", missingArtifacts);
             Assert.Contains("last_known_good_profile.json", missingArtifacts);
             Assert.Contains("acquisition_log.json", missingArtifacts);
             Assert.DoesNotContain("llm-logs/", missingArtifacts);
 
             using var zip = ZipFile.OpenRead(bundlePath!);
+            Assert.Contains(zip.Entries, entry => entry.FullName == "runtime-catalog.json");
+            Assert.Contains(zip.Entries, entry => entry.FullName == "model-catalog.json");
+            Assert.Contains(zip.Entries, entry => entry.FullName == "capability-state.json");
             Assert.Contains(zip.Entries, entry => entry.FullName == "runtime-config.json");
             Assert.Contains(zip.Entries, entry => entry.FullName == "llm-logs/llama-server.log");
         }
@@ -170,8 +191,11 @@ public sealed class AdminRuntimeEndpointsTests
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => AdminRuntimeEndpoints.SupportBundleAsync(
             ctx,
+            null!,
             new StubHostEnvironment(),
-            Options.Create(new RuntimeGovernanceOptions())));
+            Options.Create(new RuntimeGovernanceOptions()),
+            Options.Create(CreateRagOptions()),
+            Options.Create(CreateChatOptions())));
     }
 
     [Fact]
@@ -362,7 +386,7 @@ public sealed class AdminRuntimeEndpointsTests
             new StubHostEnvironment());
 
         var payload = await ExecuteResultAsync<AdminRuntimeDiagnosticsResponseDto>(result, ctx);
-        Assert.Equal("v3.0", payload.CdcAlignment);
+        Assert.Equal("v3.1", payload.CdcAlignment);
         Assert.True(payload.Summary.TotalCapabilities >= 4);
         Assert.True(payload.Summary.SelectedCapabilities >= 1);
         Assert.True(payload.Summary.PersistedSelectedCapabilities >= 1);
@@ -1882,7 +1906,7 @@ WHERE tenant_id=@tenant
             Options.Create(options));
 
         var payload = await ExecuteResultAsync<AdminRuntimeRetrievalKpisResponseDto>(result, ctx);
-        Assert.Equal("v3.0", payload.CdcAlignment);
+        Assert.Equal("v3.1", payload.CdcAlignment);
         Assert.Equal(20, payload.Policy.ObservationWindowMinutes);
         Assert.Equal(800, payload.Policy.RetrievalP95TargetMs);
         Assert.Equal(300, payload.Policy.RerankP95TargetMs);
@@ -1907,7 +1931,7 @@ WHERE tenant_id=@tenant
 
         var payload = await ExecuteResultAsync<AdminRuntimeRetrievalKpisArtifactDto>(result, ctx);
         Assert.Equal("retrieval-kpis.json", payload.Artifact);
-        Assert.Equal("v3.0", payload.CdcAlignment);
+        Assert.Equal("v3.1", payload.CdcAlignment);
         Assert.Contains(payload.Metrics, item => item.Instrument == "saaia.retrieval.requests");
         Assert.Contains(payload.Alerts, item => item.Key == "rerank_p95_regression");
     }
@@ -1931,7 +1955,7 @@ WHERE tenant_id=@tenant
             Options.Create(options));
 
         var payload = await ExecuteResultAsync<AdminRuntimeCapabilityBKpisResponseDto>(result, ctx);
-        Assert.Equal("v3.0", payload.CdcAlignment);
+        Assert.Equal("v3.1", payload.CdcAlignment);
         Assert.Equal(25, payload.Policy.ObservationWindowMinutes);
         Assert.Equal(2800, payload.Policy.GenerationP95TargetMs);
         Assert.Equal(4, payload.Policy.LiveFallbackRateTargetPercent);
@@ -1969,7 +1993,7 @@ WHERE tenant_id=@tenant
             Options.Create(options));
 
         var payload = await ExecuteResultAsync<AdminRuntimeCapabilityAKpisResponseDto>(result, ctx);
-        Assert.Equal("v3.0", payload.CdcAlignment);
+        Assert.Equal("v3.1", payload.CdcAlignment);
         Assert.Equal(30, payload.Policy.ObservationWindowMinutes);
         Assert.Equal(2100, payload.Policy.OperationP95TargetMs);
         Assert.Equal(12, payload.Policy.SkipRateTargetPercent);
@@ -2000,7 +2024,7 @@ WHERE tenant_id=@tenant
 
         var payload = await ExecuteResultAsync<AdminRuntimeCapabilityAKpisArtifactDto>(result, ctx);
         Assert.Equal("capability-a-kpis.json", payload.Artifact);
-        Assert.Equal("v3.0", payload.CdcAlignment);
+        Assert.Equal("v3.1", payload.CdcAlignment);
         Assert.Contains(payload.Metrics, item => item.Instrument == "saaia.runtime.capability_a.duration");
         Assert.Contains(payload.Metrics, item => item.Instrument == "saaia.runtime.capability_a.queued_docs + saaia.runtime.capability_a.skipped_docs");
         Assert.Contains(payload.Alerts, item => item.Key == "capability_a_ready_to_enqueue_rate_regression");
@@ -2018,7 +2042,7 @@ WHERE tenant_id=@tenant
 
         var payload = await ExecuteResultAsync<AdminRuntimeCapabilityBKpisArtifactDto>(result, ctx);
         Assert.Equal("capability-b-kpis.json", payload.Artifact);
-        Assert.Equal("v3.0", payload.CdcAlignment);
+        Assert.Equal("v3.1", payload.CdcAlignment);
         Assert.Contains(payload.Metrics, item => item.Instrument == "saaia.runtime.capability_b.execution_decisions");
         Assert.Contains(payload.Metrics, item => item.Instrument == "saaia.runtime.capability_b.summary_generation.first_response");
         Assert.Contains(payload.Metrics, item => item.Instrument == "saaia.runtime.capability_b.summary_generation.quality_score");

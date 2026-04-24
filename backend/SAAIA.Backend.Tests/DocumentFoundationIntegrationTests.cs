@@ -1334,6 +1334,70 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
+    public async Task Unified_documents_route_returns_user_safe_catalog_for_user_and_legacy_shape_for_admin()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("cdd0ffff-ffff-ffff-ffff-ffffffffffff");
+        await PublishRuntimeReadyQuestionBankDocumentsAsync(db, tenantId);
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+
+        var userContext = BuildRagHttpContext(tenantId);
+        var userResult = await InvokeUnifiedDocumentsListAsync(userContext, ds, limit: 10, offset: 0);
+        await userResult.ExecuteAsync(userContext);
+        var userBody = ReadResponseBody(userContext);
+
+        Assert.Equal(StatusCodes.Status200OK, userContext.Response.StatusCode);
+        Assert.Contains("categoryPath", userBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("fileSize", userBody, StringComparison.Ordinal);
+
+        var adminContext = BuildAdminDocumentsHttpContext(tenantId);
+        var adminResult = await InvokeUnifiedDocumentsListAsync(adminContext, ds, limit: 10, offset: 0);
+        await adminResult.ExecuteAsync(adminContext);
+        var adminBody = ReadResponseBody(adminContext);
+
+        Assert.Equal(StatusCodes.Status200OK, adminContext.Response.StatusCode);
+        Assert.Contains("fileSize", adminBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Unified_document_detail_route_returns_user_safe_detail_for_user_and_admin_detail_for_admin()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("cdd1ffff-ffff-ffff-ffff-ffffffffffff");
+        await PublishRuntimeReadyQuestionBankDocumentsAsync(db, tenantId);
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+
+        await using var conn = new NpgsqlConnection(db.ConnectionString);
+        await conn.OpenAsync();
+        var docId = await conn.ExecuteScalarAsync<Guid>(
+            "SELECT doc_id FROM documents WHERE tenant_id=@tenant ORDER BY doc_path ASC LIMIT 1;",
+            new { tenant = tenantId });
+
+        var userContext = BuildRagHttpContext(tenantId);
+        var userResult = await InvokeUnifiedDocumentsGetAsync(userContext, ds, docId);
+        await userResult.ExecuteAsync(userContext);
+        var userBody = ReadResponseBody(userContext);
+
+        Assert.Equal(StatusCodes.Status200OK, userContext.Response.StatusCode);
+        Assert.Contains("categoryPath", userBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("contentHash", userBody, StringComparison.Ordinal);
+
+        var adminContext = BuildAdminDocumentsHttpContext(tenantId);
+        var adminResult = await InvokeUnifiedDocumentsGetAsync(adminContext, ds, docId);
+        await adminResult.ExecuteAsync(adminContext);
+        var adminBody = ReadResponseBody(adminContext);
+
+        Assert.Equal(StatusCodes.Status200OK, adminContext.Response.StatusCode);
+        Assert.Contains("contentHash", adminBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task SearchAsync_populates_category_ref_and_category_path_from_matched_document()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
@@ -1463,11 +1527,39 @@ public sealed class DocumentFoundationIntegrationTests
         return ctx;
     }
 
+    private static DefaultHttpContext BuildAdminDocumentsHttpContext(Guid tenantId, IServiceProvider? requestServices = null)
+    {
+        var ctx = BuildRagHttpContext(tenantId, requestServices);
+        ctx.Items[ApiKeyAuth.IsAdminItemKey] = true;
+        return ctx;
+    }
+
     private static async Task<IResult> InvokeDocumentsSnapshotAsync(HttpContext ctx, NpgsqlDataSource ds)
     {
         var method = typeof(DocumentsEndpoints).GetMethod("SnapshotAsync", BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
         return await (Task<IResult>)method!.Invoke(null, [ctx, ds])!;
+    }
+
+    private static async Task<IResult> InvokeUnifiedDocumentsListAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        int limit,
+        int offset)
+    {
+        var method = typeof(DocumentsEndpoints).GetMethod("UnifiedListAsync", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+        return await (Task<IResult>)method!.Invoke(null, [ctx, ds, null, null, null, null, null, null, limit, offset])!;
+    }
+
+    private static async Task<IResult> InvokeUnifiedDocumentsGetAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        Guid docId)
+    {
+        var method = typeof(DocumentsEndpoints).GetMethod("UnifiedGetAsync", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+        return await (Task<IResult>)method!.Invoke(null, [ctx, ds, docId])!;
     }
 
     private static async Task<IResult> InvokeCatalogCacheEndpointAsync(

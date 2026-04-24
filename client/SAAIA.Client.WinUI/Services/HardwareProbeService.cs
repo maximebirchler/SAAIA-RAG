@@ -232,6 +232,29 @@ internal static class HardwareProbeService
 
     private static SystemMemorySnapshot CaptureSystemMemory()
     {
+        if (OperatingSystem.IsWindows())
+        {
+            try
+            {
+                var status = new MEMORYSTATUSEX
+                {
+                    dwLength = (uint)Marshal.SizeOf<MEMORYSTATUSEX>()
+                };
+
+                if (GlobalMemoryStatusEx(ref status))
+                {
+                    return new SystemMemorySnapshot(
+                        ClampToInt64(status.ullTotalPhys),
+                        ClampToInt64(status.ullAvailPhys),
+                        "global_memory_status_ex");
+                }
+            }
+            catch
+            {
+                // Fall through to managed telemetry below.
+            }
+        }
+
         try
         {
             var info = GC.GetGCMemoryInfo();
@@ -592,6 +615,10 @@ internal static class HardwareProbeService
     [DllImport("kernel32.dll")]
     private static extern bool GetSystemPowerStatus(out SYSTEM_POWER_STATUS lpSystemPowerStatus);
 
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX lpBuffer);
+
     [StructLayout(LayoutKind.Sequential)]
     private struct SYSTEM_POWER_STATUS
     {
@@ -601,6 +628,20 @@ internal static class HardwareProbeService
         public byte SystemStatusFlag;
         public int BatteryLifeTime;
         public int BatteryFullLifeTime;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    private struct MEMORYSTATUSEX
+    {
+        public uint dwLength;
+        public uint dwMemoryLoad;
+        public ulong ullTotalPhys;
+        public ulong ullAvailPhys;
+        public ulong ullTotalPageFile;
+        public ulong ullAvailPageFile;
+        public ulong ullTotalVirtual;
+        public ulong ullAvailVirtual;
+        public ulong ullAvailExtendedVirtual;
     }
 }
 

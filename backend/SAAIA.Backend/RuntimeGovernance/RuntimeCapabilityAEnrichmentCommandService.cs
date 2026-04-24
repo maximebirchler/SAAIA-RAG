@@ -6,7 +6,7 @@ namespace SAAIA.Backend;
 
 internal static class RuntimeCapabilityAEnrichmentCommandService
 {
-    private const string CdcAlignment = "v3.0";
+    private const string CdcAlignment = "v3.1";
     private const string CapabilityACorpusEnrichmentKey = "capability_a.corpus_enrichment";
 
     internal static async Task<RuntimeOperationResult<AdminRuntimeCapabilityAEnqueueResponseDto>> EnqueueCapabilityAEnrichmentAsync(

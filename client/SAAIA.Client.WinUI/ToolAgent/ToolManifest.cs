@@ -88,10 +88,10 @@ public static class ToolManifest
     public static IReadOnlySet<string> AdminToolNames => _adminToolNames;
 
     public static string BuildManifestJson()
-        => BuildManifestJson(_definitions, "v3.0");
+        => BuildManifestJson(_definitions, "v3.1");
 
     public static string BuildConversationManifestJson()
-        => BuildManifestJson(_conversationDefinitions, "v3.0");
+        => BuildManifestJson(_conversationDefinitions, "v3.1");
 
     private static string BuildManifestJson(IEnumerable<ToolDefinition> definitions, string version)
     {
@@ -130,7 +130,7 @@ public static class ToolManifest
 
     public static string ToolbookText => string.Join("\n", new[]
     {
-        "SAAIA tools rules v3.0",
+        "SAAIA tools rules v3.1",
         "- Be flexible but grounded: use tools to obtain data, do not invent document metadata or source links.",
         "- The session mode is controlled by meta.set_mode; use it only for explicit requests to switch auto/standard/strict behavior.",
         "- For one-document content questions, documents.get only resolves metadata. Prefer rag.summarize_live (or summary.get if a stored summary is explicitly needed).",
@@ -150,7 +150,7 @@ public static class ToolManifest
 
     public static string ConversationToolbookText => string.Join("\n", new[]
     {
-        "SAAIA conversation tools rules v3.0",
+        "SAAIA conversation tools rules v3.1",
         "- The free conversation rail is strictly user-only, even if an admin session exists.",
         "- Never plan or call admin tools in free conversation. Redirect to guided/admin surfaces instead.",
         "- Use tools ONLY from the manifest.",

@@ -83,6 +83,26 @@ internal static class WarmupProfileStore
                     "not_blacklisted",
                     "dxgi_budget_available"
                 },
+                FallbackProfileRef: "qwen25-3b-q4km-cpu-safe"),
+            new WarmupProfileItem(
+                ProfileId: "qwen25-3b-q4km-cpu-safe",
+                ModelId: "qwen2.5-3b-instruct-q4-k-m",
+                Runtime: "llama.cpp-cpu",
+                Mode: "safe",
+                Candidate: CreateReferenceCpuSafeProfile(),
+                Thresholds: new WarmupThresholds(
+                    WarmupMaxLoadMs: 45000,
+                    WarmupMaxTtftMs: 22000,
+                    WarmupMinTokPerSec: 2.0,
+                    WarmupPassCount: 3,
+                    IdleTimeoutSeconds: 120,
+                    MinAvailableRamMiB: 4096),
+                HardGateRefs: new[]
+                {
+                    "checksum_verified",
+                    "not_blacklisted",
+                    "system_ram_available"
+                },
                 FallbackProfileRef: "qwen25-3b-q4km-cpu-safe")
         });
 
@@ -111,6 +131,21 @@ internal static class WarmupProfileStore
         Threads: 6,
         ThreadsBatch: 6,
         Ngl: 36,
+        FlashAttn: false,
+        Mlock: false,
+        BatteryPolicyRef: "client-balanced",
+        FallbackProfileRef: "qwen25-3b-q4km-cpu-safe");
+
+    public static QualifiedProfile CreateReferenceCpuSafeProfile() => new(
+        ProfileId: "qwen25-3b-q4km-cpu-safe",
+        Runtime: "llama.cpp-cpu",
+        ModelId: "qwen2.5-3b-instruct-q4-k-m",
+        CtxSize: 3072,
+        BatchSize: 512,
+        UbatchSize: 128,
+        Threads: Math.Max(4, Environment.ProcessorCount / 2),
+        ThreadsBatch: Math.Max(2, Environment.ProcessorCount / 2),
+        Ngl: 0,
         FlashAttn: false,
         Mlock: false,
         BatteryPolicyRef: "client-balanced",

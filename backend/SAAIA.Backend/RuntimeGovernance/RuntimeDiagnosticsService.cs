@@ -6,7 +6,7 @@ namespace SAAIA.Backend;
 
 internal sealed class RuntimeDiagnosticsService(NpgsqlDataSource ds, IHostEnvironment env)
 {
-    private const string CdcAlignment = "v3.0";
+    private const string CdcAlignment = "v3.1";
     private const string DiagnosticsArtifact = "runtime_diagnostics";
     private const string DiagnosticsJsonArtifact = "diagnostics.json";
     private const string OperationalSummaryArtifact = "runtime_operational_summary";

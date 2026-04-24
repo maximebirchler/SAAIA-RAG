@@ -31,18 +31,18 @@ public sealed partial class ApiClient
     if (!string.IsNullOrWhiteSpace(q))
         qs.Add($"q={Uri.EscapeDataString(q.Trim())}");
 
-    // Spec tool: documents.list/catalog. Some older backends expose only GET /documents (admin) and not /documents/catalog (user).
-    // We try /documents/catalog first, then fallback to /documents to avoid hard failure.
-    var pathCatalog = "/documents/catalog?" + string.Join("&", qs);
-    using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, pathCatalog), ct).ConfigureAwait(false);
+    // Preferred contract: unified GET /documents for user-safe catalog access.
+    // Older backends may still expose the user-safe alias only on /documents/catalog.
+    var pathPrimary = "/documents?" + string.Join("&", qs);
+    using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, pathPrimary), ct).ConfigureAwait(false);
 
-    if (resp.StatusCode != HttpStatusCode.NotFound)
+    if (resp.StatusCode is not (HttpStatusCode.NotFound or HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden))
     {
         if (!resp.IsSuccessStatusCode)
         {
             var bodyErr = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             throw new HttpRequestException(
-                $"DocumentsCatalog failed: {(int)resp.StatusCode} {resp.ReasonPhrase}. Body: {bodyErr}",
+                $"Documents unified list failed: {(int)resp.StatusCode} {resp.ReasonPhrase}. Body: {bodyErr}",
                 null,
                 resp.StatusCode);
         }
@@ -52,17 +52,14 @@ public sealed partial class ApiClient
                ?? throw new Exception(AT("Reponse invalide du catalogue documentaire", "Invalid documents catalog response", "Respuesta invalida del catalogo documental", "Resposta invalida do catalogo documental", "Ungueltige Antwort des Dokumentkatalogs", "Risposta non valida del catalogo documentale"));
     }
 
-    // Fallback: GET /documents (often admin-only)
-    var pathFallback = "/documents?" + string.Join("&", qs);
+    // Fallback alias for older backends.
+    var pathFallback = "/documents/catalog?" + string.Join("&", qs);
     using var resp2 = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, pathFallback), ct).ConfigureAwait(false);
 
     if (!resp2.IsSuccessStatusCode)
     {
         var bodyErr = await resp2.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-        throw new HttpRequestException(
-            $"Documents fallback failed: {(int)resp2.StatusCode} {resp2.ReasonPhrase}. Body: {bodyErr}",
-            null,
-            resp2.StatusCode);
+        throw new HttpRequestException($"Documents catalog fallback failed: {(int)resp2.StatusCode} {resp2.ReasonPhrase}. Body: {bodyErr}", null, resp2.StatusCode);
     }
 
     var json = await resp2.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
@@ -79,7 +76,17 @@ public sealed partial class ApiClient
         if (!Guid.TryParse(docId, out var parsed))
             return false;
 
-        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, $"/documents/catalog/{parsed}"), ct).ConfigureAwait(false);
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, $"/documents/{parsed}"), ct).ConfigureAwait(false);
+        if (resp.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden or HttpStatusCode.NotFound)
+        {
+            using var fallback = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, $"/documents/catalog/{parsed}"), ct).ConfigureAwait(false);
+            if (fallback.StatusCode == HttpStatusCode.NotFound)
+                return false;
+
+            fallback.EnsureSuccessStatusCode();
+            return true;
+        }
+
         if (resp.StatusCode == HttpStatusCode.NotFound)
             return false;
 
@@ -199,18 +206,18 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
         if (!string.IsNullOrWhiteSpace(changedSinceValue))
             qs.Add($"changedSince={Uri.EscapeDataString(changedSinceValue)}");
 
-        var pathCatalog = "/documents/catalog?" + string.Join("&", qs);
-        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, pathCatalog), ct).ConfigureAwait(false);
+        var pathUnified = "/documents?" + string.Join("&", qs);
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, pathUnified), ct).ConfigureAwait(false);
 
         string json;
-        if (resp.StatusCode != HttpStatusCode.NotFound)
+        if (resp.StatusCode is not (HttpStatusCode.NotFound or HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden))
         {
             resp.EnsureSuccessStatusCode();
             json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
         }
         else
         {
-            var pathFallback = "/documents?" + string.Join("&", qs);
+            var pathFallback = "/documents/catalog?" + string.Join("&", qs);
             using var resp2 = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, pathFallback), ct).ConfigureAwait(false);
             resp2.EnsureSuccessStatusCode();
             json = await resp2.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
@@ -348,21 +355,20 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
         if (string.IsNullOrWhiteSpace(docId))
             throw new ArgumentException(AT("docId requis", "docId is required", "docId es obligatorio", "docId e obrigatorio", "docId ist erforderlich", "docId e obbligatorio"), nameof(docId));
 
-        // Prefer user-safe catalog detail endpoint.
-        var pathCatalog = $"/documents/catalog/{Uri.EscapeDataString(docId)}";
-        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, pathCatalog), ct).ConfigureAwait(false);
+        // Prefer unified user-safe detail endpoint.
+        var pathUnified = $"/documents/{Uri.EscapeDataString(docId)}";
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, pathUnified), ct).ConfigureAwait(false);
 
         string json;
-        if (resp.StatusCode != HttpStatusCode.NotFound)
+        if (resp.StatusCode is not (HttpStatusCode.NotFound or HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden))
         {
             resp.EnsureSuccessStatusCode();
             json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
         }
         else
         {
-            // Fallback: admin-only endpoint (support / older builds)
-            var pathAdmin = $"/documents/{Uri.EscapeDataString(docId)}";
-            using var resp2 = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, pathAdmin), ct).ConfigureAwait(false);
+            var pathAlias = $"/documents/catalog/{Uri.EscapeDataString(docId)}";
+            using var resp2 = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, pathAlias), ct).ConfigureAwait(false);
             resp2.EnsureSuccessStatusCode();
             json = await resp2.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
         }

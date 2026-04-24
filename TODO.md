@@ -359,6 +359,110 @@ Ce qui manque pour le contrat CDC :
 
 ---
 
+## Phase 4 - Audit complet final + fermeture v3.1 avant tests manuels
+
+**Principe directeur**
+
+- [ ] Ne lancer la campagne de tests manuels reels qu'apres fermeture maximale des points code / contrat / outils / multilingue
+- [ ] Considerer cette phase comme un audit final section par section, avec relecture du code reel, des artefacts, des endpoints, des prompts, des tests et du TODO
+- [ ] Refuser tout "ca a l'air bon" non prouve : soit test automatise, soit audit de code explicite, soit item manuel documente dans la checklist UI
+
+### 4.1 Audit complet par section (obligatoire, sans rien oublier)
+
+- [ ] Audit section **Backend API & contrats** : endpoints user/admin, auth, ETag/304, surfaces `/documents`, `/catalog`, `/sources`, `/admin/support/bundle`
+- [ ] Audit section **Foundation documentaire & retrieval** : pages/sections/units/chunks/links/exact-match/contextual text, invariants de structure et regressions possibles
+- [ ] Audit section **Governance runtime backend** : A/B, warmup, hard gates, diagnostics, events, endpoints admin runtime, artefacts exposes
+- [ ] Audit section **Client runtime LLM** : downloader, runtime compatibility policy, active-runtime, rollback, warmup, blacklist, checksum, quarantaine, sleep/wake
+- [ ] Audit section **UI WinUI** : fenetre principale, flyouts, overlays admin/runtime, setup wizard, panneau jobs, aide, settings actifs
+- [ ] Audit section **Multilingue** : tous les libelles visibles, statuts, erreurs utilisateur, prompts d'aide, overlays, menus, tooltips, placeholders, titres
+- [ ] Audit section **Tests automatiques** : couverture utile vs code reel, zones sans test, faux positifs, tests contractuels manquants, tests d'integration utiles manquants
+- [ ] Audit section **Outils & scripts** : benchs, checksum, runtime-ci, support bundle, scripts admin, bootstrap, artefacts de gouvernance
+- [ ] Audit section **Docs & TODO** : realignement CDC v3.1 / rapport final / TODO / noms de phases / compteurs de tests / historique recent
+
+### 4.2 Points issus de l'audit ChatGPT a revalider explicitement
+
+Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **confirmes ou infirmes** sur l'etat actuel du code.
+
+- [x] Revalider la convergence API cible `/documents` user vs legacy `/documents/catalog` et decider le plan final de bascule
+- [x] Revalider si le signal "admin session available right now" fuit encore dans le prompt/rail libre et le supprimer si toujours present
+- [ ] Revalider que `SupportBundleBuilder` + `POST /admin/support/bundle` couvrent bien tous les artefacts CDC attendus ; combler les `missingArtifacts` restants si encore presents
+- [x] Revalider que `hardware_probe.json` capture bien la RAM systeme observable conformement au CDC v3.1 ; si incomplet, corriger la source de verite
+- [x] Revalider que `WarmupProfileStore` contient bien un vrai fallback CPU exploitable et non une reference orpheline
+- [x] Revalider que `GovernanceArtifactStore` ne pre-seed pas une chaine de qualification qui court-circuite la semantique CDC "Installed -> Configured -> Healthy -> Qualified -> Authorized -> Selected"
+- [ ] Revalider que `model_collections.json`, `model_policy.json`, `model_sources.json` sont bien utilises comme source de decision runtime et pas seulement comme artefacts de facade
+- [ ] Revalider que le TODO ne surestime plus l'etat des blocs client/runtime/tests/artefacts
+- [ ] Revalider et nettoyer le code mort / bruit repo : fichiers exclus de compilation, `<Compile Remove>` obsoletes, artefacts bench/logs/.vs/swap, docs legacy trompeuses
+
+### 4.3 Fermeture multilingue a 100 %
+
+- [ ] Faire une passe finale "chaine visible utilisateur" sur **tout** le client compile, sans exclure les vues admin/runtime
+- [ ] Verifier que tous les `Content=`, `Text=`, `Header=`, `PlaceholderText=`, `ToolTip`, `Status(...)`, `StatusNote`, `ContentDialog` visibles sont pilotes par `UiLanguage` ou equivalents
+- [ ] Verifier aussi les erreurs de services susceptibles de remonter jusqu'a l'UI : `ApiClient*`, `ModelLibrary`, `DocumentLauncher`, bootstrap, import/export, runtime diagnostics
+- [ ] Verifier que les textes generes a partir des templates / DataTemplate / boutons charges dynamiquement (copy, streaming, sessions, flyouts) sont bien localises
+- [ ] Documenter explicitement les zones **non compilees** ou **techniques par design** pour ne plus les confondre avec de la dette active
+
+### 4.4 Tests automatiques : fermeture maximale avant manuel
+
+- [ ] Refaire une revue complete des tests backend existants vs sections CDC v3.1
+- [ ] Refaire une revue complete des tests client existants vs runtime governance, UI state, checksums, rollback, diagnostics, support bundle
+- [ ] Ajouter les tests contractuels manquants identifies pendant l'audit par section
+- [ ] Ajouter les tests de non-regression sur les zones critiques deja touchees : multilingue, runtime policy, support bundle, diagnostics runtime, setup wizard
+- [ ] Verifier que tous les outils/scripts critiques ont au moins un test ou une verification contractuelle minimale
+- [ ] Verifier que les compteurs de tests annonces dans le TODO sont toujours exacts et les realigner apres chaque passe
+
+### 4.5 Outils / scripts / artefacts : verification de fonctionnement reel
+
+- [ ] Verifier tous les scripts `tools/*` utiles un par un : checksum, runtime-ci, bench, export/checklist, support bundle, harness
+- [ ] Verifier que les fichiers/artefacts de gouvernance produits localement sont coherents, checksummes et lisibles
+- [ ] Verifier que les endpoints admin et outils client pointent tous sur les bons artefacts v3.1
+- [ ] Verifier que les scripts/documentations de bench ne referencent plus des hypotheses obsoletes (phase 0, runtime unique, vieux builds, noms legacy)
+
+### 4.6 Runtime : decision produit finale avant tests machine reels
+
+- [ ] Comparer proprement le runtime embarque actuel vs le candidat plus recent (ex. `b8901+`) sur compatibilite Qwen / Mistral / Gemma, sans regression de warmup ni de stabilite
+- [ ] Decider s'il faut promouvoir un **runtime officiel unique** plus recent ou conserver une strategie multi-build versionnee
+- [ ] Formaliser la policy produit : runtime approuve par backend (`cpu` / `cuda`), build minimal par famille de modele, overrides materiels connus, rollback autorise
+- [ ] Verifier que la couche runtime version-aware est coherente avec cette decision produit (install, active-runtime, qualification, diagnostics, support bundle)
+- [ ] Documenter clairement les cas "supporte", "supporte mais non qualifie par defaut", "famille de test uniquement"
+
+### 4.7 Checklist manuelle complete pour tests UI reels (a generer avant campagne)
+
+- [ ] Produire une **checklist de tests manuels la plus complete possible** en format exploitable par toi
+- [ ] Generer un fichier **Excel** dedie avec colonnes minimum :
+  - [ ] Section
+  - [ ] Ecran / fonctionnalite
+  - [ ] Pre-conditions
+  - [ ] Etapes exactes a executer
+  - [ ] Resultat attendu precis
+  - [ ] Exemple de resultat attendu visible
+  - [ ] Resultat obtenu
+  - [ ] Case a cocher OK / NOK
+  - [ ] Capture / preuve
+  - [ ] Notes / anomalies
+- [ ] Inclure des scenarios UI pas a pas pour :
+  - [ ] setup wizard
+  - [ ] connexion
+  - [ ] chat user nominal
+  - [ ] sources
+  - [ ] local LLM flyout
+  - [ ] diagnostics runtime
+  - [ ] runtime upgrade / rollback
+  - [ ] support bundle
+  - [ ] surfaces admin jobs / runtime / qualite A/B
+  - [ ] multilingue (changement de langue + verification transversale)
+- [ ] Pour chaque scenario, inclure des **exemples concrets** de ce qui doit s'afficher et de ce qu'il faut faire dans l'interface
+- [ ] Prevoir une checklist separee "post-correctifs" pour rejouer uniquement les regressions critiques
+
+### 4.8 Gating avant lancement des tests manuels reels
+
+- [ ] Tous les points code/audit critiques de cette phase sont traites ou explicitement documentes comme non applicables
+- [ ] Tous les tests automatiques utiles sont verts et les trous de couverture restants sont connus/documentes
+- [ ] Tous les outils critiques sont verifies comme fonctionnels
+- [ ] La checklist Excel/UI est prete et revue
+- [ ] La campagne manuelle reelle ne commence qu'apres ce gate
+
+---
+
 ## Validation obligatoire apres chaque patch
 
 **Backend :**
@@ -429,7 +533,7 @@ Ce qui manque pour le contrat CDC :
 
 - [x] Artefacts locaux `snake_case` sous `%LOCALAPPDATA%\SAAIA\governance`
 - [x] Stores `GovernanceArtifactStore`, `ModelCatalogStore`, `WarmupProfileStore`
-- [x] `QualifiedProfile` de reference : profil B interactif + profil C fallback
+- [x] Profils warmup de reference : CUDA interactif, CUDA stable fallback et CPU safe explicite, sans pre-seeding artificiel du `QualifiedProfile`
 - [x] Sidecars `.sha256` et lecture degradee si corruption
 - [x] Tests client ajoutes : roundtrip profil, checksum, corruption, creation defaults
 
@@ -536,3 +640,6 @@ Ce qui manque pour le contrat CDC :
 | 2026-04-23 | Codex | Passe multilingue runtime : overlay diagnostic local, resume admin runtime, actions visibles du flyout LLM local et statuts runtime alignes sur `UiLanguage` ; build WinUI 0 warning, 317 tests client verts |
 | 2026-04-23 | Codex | Passe multilingue et audit client elargis : setup wizard, parcours d'installation/connect, sources cards, infos modele local et erreurs techniques ApiClient/ModelLibrary alignes sur `UiLanguage` ; build WinUI 0 warning, 317 tests client verts |
 | 2026-04-23 | Codex | Fenetre principale finalisee cote multilingue : flyout LLM local, copy tooltips, indicateur streaming, titres sources et libelles techniques caches alignes sur `UiLanguage` ; build WinUI 0 warning, 317 tests client verts |
+| 2026-04-23 | Codex | TODO etendu avec une Phase 4 de fermeture v3.1 : audit complet par section, revalidation des points ChatGPT, gating avant tests manuels et checklist Excel/UI complete a produire |
+| 2026-04-23 | Codex | Audit Phase 4 - passe 1 : retrait du signal admin dans le rail libre, manifest/tooling v3.1, `hardware_probe.json` complete via `GlobalMemoryStatusEx`, profil `qwen25-3b-q4km-cpu-safe` ajoute et `QualifiedProfile` n'est plus pre-seede ; build WinUI 0 warning, 317 tests client verts |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 2 : gouvernance runtime backend alignee v3.1, support bundle admin enrichi avec artefacts backend generes a la demande, convergence `/documents` user/admin via route unifiee + fallbacks client legacy ; backend build 0 warning, 83 tests backend cibles verts, client build 0 warning, 318 tests client verts |

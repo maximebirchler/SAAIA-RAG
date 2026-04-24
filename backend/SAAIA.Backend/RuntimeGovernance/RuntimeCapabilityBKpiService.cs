@@ -4,7 +4,7 @@ namespace SAAIA.Backend;
 
 internal sealed class RuntimeCapabilityBKpiService(IHostEnvironment env)
 {
-    private const string CdcAlignment = "v3.0";
+    private const string CdcAlignment = "v3.1";
     private const string CapabilityBKpisArtifact = "capability-b-kpis.json";
 
     internal AdminRuntimeCapabilityBKpisResponseDto GetKpis(RuntimeGovernanceOptions options)

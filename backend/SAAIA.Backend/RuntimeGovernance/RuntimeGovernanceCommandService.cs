@@ -6,7 +6,7 @@ namespace SAAIA.Backend;
 
 internal static class RuntimeGovernanceCommandService
 {
-    private const string CdcAlignment = "v3.0";
+    private const string CdcAlignment = "v3.1";
     private const string AdminRuntimeActor = "admin_runtime_endpoint";
 
     internal static async Task<AdminRuntimeRequalifyResponseDto> RequalifyAsync(

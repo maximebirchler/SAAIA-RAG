@@ -15,11 +15,13 @@ public static partial class DocumentsEndpoints
 {
     public static void Map(WebApplication app)
     {
-        // Admin listing / details (legacy)
-        app.MapGet("/documents", ListAsync).RequireAdminKey();
-        app.MapGet("/documents/{docId:guid}", GetAsync).RequireAdminKey();
+        // Unified user/admin documents surface:
+        // - user callers receive the safe indexed catalog contract
+        // - admin callers keep the richer legacy admin contract
+        app.MapGet("/documents", UnifiedListAsync);
+        app.MapGet("/documents/{docId:guid}", UnifiedGetAsync);
 
-        // User-safe catalog (tenant scoped) for "liste des documents" (no chunks)
+        // Transition alias kept for older clients until `/documents` convergence is complete everywhere.
         app.MapGet("/documents/catalog", CatalogAsync);
         app.MapGet("/documents/catalog/{docId:guid}", CatalogGetAsync);
 
@@ -42,6 +44,29 @@ public static partial class DocumentsEndpoints
 
         app.Logger.LogInformation("Mapped documents endpoints (catalog + count/tree/stats + legacy admin list + admin empty-folder diagnostics)");
     }
+
+    private static Task<IResult> UnifiedListAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        string? category,
+        string? status,
+        string? categoryPath,
+        string? categoryRef,
+        string? q,
+        DateTimeOffset? changedSince,
+        int? limit,
+        int? offset)
+        => ctx.IsAdmin()
+            ? ListAsync(ctx, ds, category, status, q, limit, offset)
+            : CatalogAsync(ctx, ds, category, categoryPath, categoryRef, q, changedSince, limit, offset);
+
+    private static Task<IResult> UnifiedGetAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        Guid docId)
+        => ctx.IsAdmin()
+            ? GetAsync(ctx, ds, docId)
+            : CatalogGetAsync(ctx, ds, docId);
 
     // -------------------------
     // User catalog (indexed only)
