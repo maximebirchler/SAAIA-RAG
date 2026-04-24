@@ -49,8 +49,7 @@ public sealed partial class ApiClient
         if (string.IsNullOrWhiteSpace(candidate))
             return (false, "empty");
 
-        var previous = _adminKey;
-        _adminKey = candidate;
+        var previous = SetAdminSessionKeyTemporary(candidate);
 
         try
         {
@@ -59,17 +58,17 @@ public sealed partial class ApiClient
         }
         catch (HttpRequestException ex)
         {
-            _adminKey = previous;
+            SetAdminSessionKey(previous);
             return (false, ClassifyAdminSessionValidationFailure(ex.StatusCode));
         }
         catch (TaskCanceledException)
         {
-            _adminKey = previous;
+            SetAdminSessionKey(previous);
             return (false, ClassifyAdminSessionValidationFailure(null, wasCanceled: true));
         }
         catch
         {
-            _adminKey = previous;
+            SetAdminSessionKey(previous);
             return (false, "unavailable");
         }
     }
@@ -96,13 +95,14 @@ public sealed partial class ApiClient
             return userDoc.RootElement.Clone();
         }
 
+        var snapshot = GetConfigSnapshot();
         using var fallbackDoc = JsonDocument.Parse(JsonSerializer.Serialize(new
         {
             user = new
             {
-                isAuthenticated = !string.IsNullOrWhiteSpace(_apiKey) || !string.IsNullOrWhiteSpace(_adminKey),
+                isAuthenticated = !string.IsNullOrWhiteSpace(snapshot.ApiKey) || !string.IsNullOrWhiteSpace(snapshot.AdminKey),
                 isAdmin = HasAdminKey,
-                displayName = string.IsNullOrWhiteSpace(_userId) ? "local" : _userId
+                displayName = string.IsNullOrWhiteSpace(snapshot.UserId) ? "local" : snapshot.UserId
             },
             ui = new { defaultLocale = "fr-CH" },
             capabilities = new

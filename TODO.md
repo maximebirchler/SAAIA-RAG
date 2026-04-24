@@ -456,20 +456,27 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
   - [x] machine / GPU / RAM / VRAM libre
   - [x] `ngl`, `ctx`, `batch`, `ubatch`, `threads`, `threads-batch`, `flash-attn`
   - [x] `load_ms`, `ttft_ms`, `tok/s`, statut warmup, fallback/rollback, crash ou non
-- [ ] Produire ensuite une decision produit claire par modele :
-  - [ ] `supporte`
-  - [ ] `supporte mais non qualifie par defaut`
+- [~] Produire ensuite une decision produit claire par modele :
+  - Resultats client consolides dans `artifacts/manual-test-checklist/SAAIA_Bench_Results_2026-04-24.tsv`
+  - [x] `supporte`
+  - [x] `supporte mais non qualifie par defaut`
   - [ ] `serveur uniquement`
-  - [ ] `famille de test uniquement`
-- [ ] Ne lancer cette campagne bench complete qu'apres fermeture maximale de l'audit code / contrats / multilingue / outils
+  - [x] `famille de test uniquement`
+- [x] Ne lancer cette campagne bench complete qu'apres fermeture maximale de l'audit code / contrats / multilingue / outils
 
 ### 4.6 Runtime : decision produit finale avant tests machine reels
 
-- [ ] Comparer proprement le runtime embarque actuel vs le candidat plus recent (ex. `b8901+`) sur compatibilite Qwen / Mistral / Gemma, sans regression de warmup ni de stabilite
-- [ ] Decider s'il faut promouvoir un **runtime officiel unique** plus recent ou conserver une strategie multi-build versionnee
-- [ ] Formaliser la policy produit : runtime approuve par backend (`cpu` / `cuda`), build minimal par famille de modele, overrides materiels connus, rollback autorise
-- [ ] Verifier que la couche runtime version-aware est coherente avec cette decision produit (install, active-runtime, qualification, diagnostics, support bundle)
-- [ ] Documenter clairement les cas "supporte", "supporte mais non qualifie par defaut", "famille de test uniquement"
+- [~] Comparer proprement le runtime embarque actuel vs le candidat plus recent (ex. `b8901+`) sur compatibilite Qwen / Mistral / Gemma, sans regression de warmup ni de stabilite
+  - Qwen2.5 3B Q4_K_M : pas de regression evidente sur profil candidat entre `b8149` et `b8901`
+  - Gemma 4 E2B Q4_K_M : `b8149` ne supporte pas `gemma4`, `b8901` bench OK
+  - Mistral 7B Q4_K_M : trop lourd sur P520 pour en faire un critere de promotion runtime client
+- [~] Decider s'il faut promouvoir un **runtime officiel unique** plus recent ou conserver une strategie multi-build versionnee
+  - Candidat fort actuel : `b8901+` comme runtime CUDA unifie si la campagne serveur confirme Qwen3.6 / A3B sans regression
+- [~] Formaliser la policy produit : runtime approuve par backend (`cpu` / `cuda`), build minimal par famille de modele, overrides materiels connus, rollback autorise
+  - Policy deja posee dans le code : `gemma4 -> minBuild b8901`, override Pascal/P520, rollback et `active-runtime.json`
+- [x] Verifier que la couche runtime version-aware est coherente avec cette decision produit (install, active-runtime, qualification, diagnostics, support bundle)
+- [~] Documenter clairement les cas "supporte", "supporte mais non qualifie par defaut", "famille de test uniquement"
+  - Client P520 documente dans la bench matrix ; reste a completer cote modeles serveur
 
 ### 4.7 Checklist manuelle complete pour tests UI reels (a generer avant campagne)
 

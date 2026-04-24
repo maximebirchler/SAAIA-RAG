@@ -14,6 +14,11 @@ namespace SAAIA.Client.WinUI.Services;
 
 public sealed class OpenAiLlmClient
 {
+    private static readonly HttpClient SharedHttpClient = new()
+    {
+        Timeout = Timeout.InfiniteTimeSpan
+    };
+
     private readonly HttpClient _http;
 
     public event Action? RuntimeActivityStarted;
@@ -35,10 +40,7 @@ public sealed class OpenAiLlmClient
 
     internal OpenAiLlmClient(HttpClient? httpClient)
     {
-        _http = httpClient ?? new HttpClient
-        {
-            Timeout = Timeout.InfiniteTimeSpan
-        };
+        _http = httpClient ?? SharedHttpClient;
     }
 
 
@@ -47,7 +49,8 @@ public sealed class OpenAiLlmClient
         if (resp.IsSuccessStatusCode) return;
 
         string body = "";
-        try { body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false); } catch { /* ignore */ }
+        try { body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false); }
+        catch (Exception ex) { ClientLog.Warn($"OpenAI-compatible error body unreadable: {ex.Message}"); }
 
         var msg = $"LLM request failed: {(int)resp.StatusCode} {resp.ReasonPhrase}. Body: {body}";
         throw new HttpRequestException(msg, null, resp.StatusCode);
@@ -188,9 +191,9 @@ public sealed class OpenAiLlmClient
                         }
                     }
                 }
-                catch
+                catch (JsonException ex)
                 {
-                    // ignore malformed chunks
+                    ClientLog.Warn($"OpenAI-compatible SSE chunk ignored: {ex.Message}");
                 }
             }
 
@@ -205,9 +208,9 @@ public sealed class OpenAiLlmClient
                     if (!string.IsNullOrEmpty(full))
                         await SimulateStreamingAsync(full, onDelta, ct).ConfigureAwait(false);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // ignore
+                    ClientLog.Warn($"OpenAI-compatible SSE fallback ignored: {ex.Message}");
                 }
             }
         }
@@ -247,9 +250,9 @@ public sealed class OpenAiLlmClient
                     return dc.GetString() ?? "";
             }
         }
-        catch
+        catch (JsonException ex)
         {
-            // ignore
+            ClientLog.Warn($"OpenAI-compatible JSON payload ignored: {ex.Message}");
         }
 
         return "";

@@ -21,6 +21,7 @@ namespace SAAIA.Client.WinUI.Services;
 public sealed partial class ApiClient
 {
     private readonly HttpClient _http = new();
+    private readonly object _configGate = new();
     private string _baseUrl = "http://localhost:5122";
     private string _apiKey = "";
     private string _adminKey = "";
@@ -40,15 +41,20 @@ public sealed partial class ApiClient
         public JsonElement Payload { get; init; }
     }
 
+    private readonly record struct ApiClientConfigSnapshot(string BaseUrl, string ApiKey, string AdminKey, string UserId);
+
     public void Configure(string baseUrl, string apiKey, string userId, string? adminKey = null)
     {
-        _baseUrl = (baseUrl ?? "").Trim().TrimEnd('/');
-        if (string.IsNullOrWhiteSpace(_baseUrl)) _baseUrl = "http://localhost:5122";
-        _apiKey = (apiKey ?? "").Trim();
-        _userId = (userId ?? "").Trim();
+        lock (_configGate)
+        {
+            _baseUrl = (baseUrl ?? "").Trim().TrimEnd('/');
+            if (string.IsNullOrWhiteSpace(_baseUrl)) _baseUrl = "http://localhost:5122";
+            _apiKey = (apiKey ?? "").Trim();
+            _userId = (userId ?? "").Trim();
 
-        if (adminKey is not null)
-            _adminKey = (adminKey ?? "").Trim();
+            if (adminKey is not null)
+                _adminKey = (adminKey ?? "").Trim();
+        }
 
         lock (_documentsTreeCacheGate)
         {
@@ -57,12 +63,31 @@ public sealed partial class ApiClient
     }
 
     public void SetAdminSessionKey(string? adminKey)
-        => _adminKey = (adminKey ?? "").Trim();
+    {
+        lock (_configGate)
+        {
+            _adminKey = (adminKey ?? "").Trim();
+        }
+    }
 
     public void ClearAdminSessionKey()
-        => _adminKey = string.Empty;
+    {
+        lock (_configGate)
+        {
+            _adminKey = string.Empty;
+        }
+    }
 
-    public bool HasAdminKey => !string.IsNullOrWhiteSpace(_adminKey);
+    public bool HasAdminKey
+    {
+        get
+        {
+            lock (_configGate)
+            {
+                return !string.IsNullOrWhiteSpace(_adminKey);
+            }
+        }
+    }
 
     public bool HasAdminSessionKey => HasAdminKey;
 
@@ -81,19 +106,25 @@ public sealed partial class ApiClient
     }
 
     private string RequireUserId()
+        => RequireUserId(GetConfigSnapshot());
+
+    private static string RequireUserId(ApiClientConfigSnapshot snapshot)
     {
-        if (string.IsNullOrWhiteSpace(_userId))
+        if (string.IsNullOrWhiteSpace(snapshot.UserId))
             throw new InvalidOperationException(AT("userId non configure", "userId not configured", "userId no configurado", "userId nao configurado", "userId nicht konfiguriert", "userId non configurato"));
-        return _userId;
+        return snapshot.UserId;
     }
 
     private HttpRequestMessage NewRequest(HttpMethod method, string path, string? jsonBody = null)
+        => NewRequest(GetConfigSnapshot(), method, path, jsonBody);
+
+    private static HttpRequestMessage NewRequest(ApiClientConfigSnapshot snapshot, HttpMethod method, string path, string? jsonBody = null)
     {
-        var req = new HttpRequestMessage(method, $"{_baseUrl}{path}");
+        var req = new HttpRequestMessage(method, $"{snapshot.BaseUrl}{path}");
         req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-        if (!string.IsNullOrWhiteSpace(_apiKey))
-            req.Headers.Add("X-Api-Key", _apiKey);
+        if (!string.IsNullOrWhiteSpace(snapshot.ApiKey))
+            req.Headers.Add("X-Api-Key", snapshot.ApiKey);
 
         if (jsonBody is not null)
             req.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
@@ -102,17 +133,38 @@ public sealed partial class ApiClient
     }
 
     private HttpRequestMessage NewAdminRequest(HttpMethod method, string path, string? jsonBody = null)
+        => NewAdminRequest(GetConfigSnapshot(), method, path, jsonBody);
+
+    private static HttpRequestMessage NewAdminRequest(ApiClientConfigSnapshot snapshot, HttpMethod method, string path, string? jsonBody = null)
     {
-        var req = new HttpRequestMessage(method, $"{_baseUrl}{path}");
+        var req = new HttpRequestMessage(method, $"{snapshot.BaseUrl}{path}");
         req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-        if (!string.IsNullOrWhiteSpace(_adminKey))
-            req.Headers.Add("X-Admin-Key", _adminKey);
+        if (!string.IsNullOrWhiteSpace(snapshot.AdminKey))
+            req.Headers.Add("X-Admin-Key", snapshot.AdminKey);
 
         if (jsonBody is not null)
             req.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
 
         return req;
+    }
+
+    private ApiClientConfigSnapshot GetConfigSnapshot()
+    {
+        lock (_configGate)
+        {
+            return new ApiClientConfigSnapshot(_baseUrl, _apiKey, _adminKey, _userId);
+        }
+    }
+
+    private string SetAdminSessionKeyTemporary(string? adminKey)
+    {
+        lock (_configGate)
+        {
+            var previous = _adminKey;
+            _adminKey = (adminKey ?? string.Empty).Trim();
+            return previous;
+        }
     }
 
     private async Task<HttpResponseMessage> SendWithRateLimitRetryAsync(Func<HttpRequestMessage> reqFactory, CancellationToken ct)
@@ -192,14 +244,15 @@ public sealed partial class ApiClient
 
     public async Task<CreateSessionResponse> CreateSessionAsync(string? title, string? clientUser, CancellationToken ct)
     {
+        var snapshot = GetConfigSnapshot();
         var body = JsonSerializer.Serialize(new
         {
-            userId = RequireUserId(),
+            userId = RequireUserId(snapshot),
             title,
             clientUser
         }, JsonOpts);
 
-        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Post, "/chat/sessions", body), ct);
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(snapshot, HttpMethod.Post, "/chat/sessions", body), ct);
         resp.EnsureSuccessStatusCode();
 
         var json = await resp.Content.ReadAsStringAsync(ct);
@@ -209,11 +262,12 @@ public sealed partial class ApiClient
 
     public async Task<List<ChatSessionItem>> ListSessionsAsync(CancellationToken ct, int limit = 100, int offset = 0)
     {
-        var uid = Uri.EscapeDataString(RequireUserId());
+        var snapshot = GetConfigSnapshot();
+        var uid = Uri.EscapeDataString(RequireUserId(snapshot));
         var lim = Math.Clamp(limit, 1, 200);
         var off = Math.Max(0, offset);
 
-        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, $"/chat/sessions?userId={uid}&limit={lim}&offset={off}"), ct);
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(snapshot, HttpMethod.Get, $"/chat/sessions?userId={uid}&limit={lim}&offset={off}"), ct);
         resp.EnsureSuccessStatusCode();
 
         var json = await resp.Content.ReadAsStringAsync(ct);
@@ -279,27 +333,30 @@ public sealed partial class ApiClient
 
     public async Task UpdateSessionTitleAsync(string sessionId, string? title, CancellationToken ct)
     {
-        var uid = Uri.EscapeDataString(RequireUserId());
+        var snapshot = GetConfigSnapshot();
+        var uid = Uri.EscapeDataString(RequireUserId(snapshot));
 
         var body = JsonSerializer.Serialize(new
         {
             title
         }, JsonOpts);
 
-        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Patch, $"/chat/sessions/{sessionId}?userId={uid}", body), ct);
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(snapshot, HttpMethod.Patch, $"/chat/sessions/{sessionId}?userId={uid}", body), ct);
         resp.EnsureSuccessStatusCode();
     }
 
     public async Task DeleteSessionAsync(string sessionId, CancellationToken ct)
     {
-        var uid = Uri.EscapeDataString(RequireUserId());
+        var snapshot = GetConfigSnapshot();
+        var uid = Uri.EscapeDataString(RequireUserId(snapshot));
 
-        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Delete, $"/chat/sessions/{sessionId}?userId={uid}"), ct);
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(snapshot, HttpMethod.Delete, $"/chat/sessions/{sessionId}?userId={uid}"), ct);
         resp.EnsureSuccessStatusCode();
     }
 
     public async Task<ChatMessageItem?> AddMessageAsync(string sessionId, string role, string content, object? sources, CancellationToken ct, string? statusNote = null, string? progressText = null, ChatTrackingMeta? trackingMeta = null)
     {
+        var snapshot = GetConfigSnapshot();
         string? sourcesJson = null;
         if (sources is string s)
             sourcesJson = string.IsNullOrWhiteSpace(s) ? null : s;
@@ -310,7 +367,7 @@ public sealed partial class ApiClient
 
         var body = JsonSerializer.Serialize(new
         {
-            userId = RequireUserId(),
+            userId = RequireUserId(snapshot),
             role,
             content,
             sourcesJson,
@@ -319,7 +376,7 @@ public sealed partial class ApiClient
             trackingMetaJson
         }, JsonOpts);
 
-        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Post, $"/chat/sessions/{sessionId}/messages", body), ct);
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(snapshot, HttpMethod.Post, $"/chat/sessions/{sessionId}/messages", body), ct);
         resp.EnsureSuccessStatusCode();
 
         var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
@@ -335,16 +392,17 @@ public sealed partial class ApiClient
         if (string.IsNullOrWhiteSpace(messageId))
             throw new ArgumentException(AT("messageId requis", "messageId is required", "messageId es obligatorio", "messageId e obrigatorio", "messageId ist erforderlich", "messageId e obbligatorio"), nameof(messageId));
 
+        var snapshot = GetConfigSnapshot();
         var body = JsonSerializer.Serialize(new
         {
-            userId = RequireUserId(),
+            userId = RequireUserId(snapshot),
             content,
             statusNote,
             progressText,
             trackingMetaJson = trackingMeta is null ? null : JsonSerializer.Serialize(trackingMeta, JsonOpts)
         }, JsonOpts);
 
-        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Patch, $"/chat/messages/{messageId}" , body), ct);
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(snapshot, HttpMethod.Patch, $"/chat/messages/{messageId}" , body), ct);
         resp.EnsureSuccessStatusCode();
 
         var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
@@ -360,9 +418,10 @@ public sealed partial class ApiClient
         if (string.IsNullOrWhiteSpace(messageId))
             throw new ArgumentException(AT("messageId requis", "messageId is required", "messageId es obligatorio", "messageId e obrigatorio", "messageId ist erforderlich", "messageId e obbligatorio"), nameof(messageId));
 
-        var uid = Uri.EscapeDataString(RequireUserId());
+        var snapshot = GetConfigSnapshot();
+        var uid = Uri.EscapeDataString(RequireUserId(snapshot));
         using var resp = await SendWithRateLimitRetryAsync(
-            () => NewRequest(HttpMethod.Get, $"/chat/messages/{Uri.EscapeDataString(messageId)}/tracking?userId={uid}"),
+            () => NewRequest(snapshot, HttpMethod.Get, $"/chat/messages/{Uri.EscapeDataString(messageId)}/tracking?userId={uid}"),
             ct).ConfigureAwait(false);
 
         resp.EnsureSuccessStatusCode();
@@ -373,10 +432,11 @@ public sealed partial class ApiClient
 
     public async Task<List<ChatMessageItem>> ListMessagesAsync(string sessionId, CancellationToken ct, int limit = 500)
     {
-        var uid = Uri.EscapeDataString(RequireUserId());
+        var snapshot = GetConfigSnapshot();
+        var uid = Uri.EscapeDataString(RequireUserId(snapshot));
         var lim = Math.Clamp(limit, 1, 1000);
 
-        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, $"/chat/sessions/{sessionId}/messages?userId={uid}&limit={lim}"), ct);
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(snapshot, HttpMethod.Get, $"/chat/sessions/{sessionId}/messages?userId={uid}&limit={lim}"), ct);
         resp.EnsureSuccessStatusCode();
 
         var json = await resp.Content.ReadAsStringAsync(ct);

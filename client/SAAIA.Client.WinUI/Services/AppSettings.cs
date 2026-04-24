@@ -14,6 +14,10 @@ namespace SAAIA.Client.WinUI.Services;
 /// </summary>
 internal sealed class AppSettings
 {
+    internal const int DefaultCtxSize = 3072;
+    internal const int DefaultUbatchSize = 256;
+    internal const int DefaultThreadsBatch = 6;
+
     // Core
     private const string KBackendUrl = "backend.url";
     private const string KShowAdvancedUi = "ui.showAdvanced";
@@ -106,13 +110,13 @@ internal sealed class AppSettings
     /// <summary>OpenAI-compatible model id (what the client sends as "model").</summary>
     public string ModelId { get; set; } = ClientDefaults.LlmModel;
 
-    public string ExtraArgs { get; set; } = "--ctx-size 3072"; // CDC v3.1 LLM-007: 3072 ctx default
+    public string ExtraArgs { get; set; } = $"--ctx-size {DefaultCtxSize}"; // CDC v3.1 LLM-007: 3072 ctx default
 
     /// <summary>Micro-batch size for eval scheduling (CDC v3.1 LLM-010). Default 256.</summary>
-    public int UbatchSize { get; set; } = 256;
+    public int UbatchSize { get; set; } = DefaultUbatchSize;
 
     /// <summary>Thread count for batch processing (CDC v3.1 LLM-010). Default 6.</summary>
-    public int ThreadsBatch { get; set; } = 6;
+    public int ThreadsBatch { get; set; } = DefaultThreadsBatch;
 
     /// <summary>
     /// Flash attention mode (CDC v3.1 LLM-011).

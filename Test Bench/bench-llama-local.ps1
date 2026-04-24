@@ -136,18 +136,34 @@ function Invoke-StreamingTtft {
                     $delta = $choice.delta
                     if (-not $delta) { continue }
 
-                    $contentProperty = $delta.PSObject.Properties["content"]
-                    if (-not $contentProperty -or $null -eq $contentProperty.Value) { continue }
-
                     $piece = $null
-                    $contentValue = $contentProperty.Value
-                    if ($contentValue -is [string]) {
-                        $piece = [string]$contentValue
-                    } elseif ($contentValue -is [System.Array]) {
-                        $piece = (($contentValue | ForEach-Object {
-                            $textProperty = $_.PSObject.Properties["text"]
-                            if ($textProperty -and $null -ne $textProperty.Value) { [string]$textProperty.Value }
-                        }) -join "")
+
+                    $contentProperty = $delta.PSObject.Properties["content"]
+                    if ($contentProperty -and $null -ne $contentProperty.Value) {
+                        $contentValue = $contentProperty.Value
+                        if ($contentValue -is [string]) {
+                            $piece = [string]$contentValue
+                        } elseif ($contentValue -is [System.Array]) {
+                            $piece = (($contentValue | ForEach-Object {
+                                $textProperty = $_.PSObject.Properties["text"]
+                                if ($textProperty -and $null -ne $textProperty.Value) { [string]$textProperty.Value }
+                            }) -join "")
+                        }
+                    }
+
+                    if (-not $piece) {
+                        $reasoningProperty = $delta.PSObject.Properties["reasoning_content"]
+                        if ($reasoningProperty -and $null -ne $reasoningProperty.Value) {
+                            $reasoningValue = $reasoningProperty.Value
+                            if ($reasoningValue -is [string]) {
+                                $piece = [string]$reasoningValue
+                            } elseif ($reasoningValue -is [System.Array]) {
+                                $piece = (($reasoningValue | ForEach-Object {
+                                    $textProperty = $_.PSObject.Properties["text"]
+                                    if ($textProperty -and $null -ne $textProperty.Value) { [string]$textProperty.Value }
+                                }) -join "")
+                            }
+                        }
                     }
 
                     if ($piece) {
