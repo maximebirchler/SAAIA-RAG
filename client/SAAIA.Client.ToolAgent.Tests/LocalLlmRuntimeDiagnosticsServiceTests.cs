@@ -107,6 +107,83 @@ public sealed class LocalLlmRuntimeDiagnosticsServiceTests
         }
     }
 
+    [Fact]
+    public async Task EvaluateAsync_returns_qualified_runtime_state_after_successful_local_qualification()
+    {
+        var root = NewTempRoot();
+        var runtimeRoot = Path.Combine(root, "runtime");
+        LlamaCppReleaseDownloader.RuntimeRootOverride = runtimeRoot;
+        RuntimeEventLogStore.RootOverride = root;
+
+        try
+        {
+            var activeExe = CreateRuntime(runtimeRoot, "win-cuda-x64", "b8149");
+            WriteQualifiedActiveRuntimeManifest(runtimeRoot, activeExe);
+
+            var profile = WarmupProfileStore.CreateReferenceCudaProfile();
+            var settings = new AppSettings
+            {
+                UseLocalLlm = true,
+                ManageLocalLlmProcess = true,
+                LlamaExePath = activeExe,
+                ModelId = "qwen2.5-3b-instruct-q4-k-m",
+                QualifiedProfile = profile
+            };
+
+            await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(settings, root);
+            await GovernanceArtifactStore.WriteAsync(
+                GovernanceArtifactStore.WarmupResultsFile,
+                new WarmupResultsArtifact(
+                    GovernanceArtifactStore.WarmupResultsFile,
+                    "v3.1",
+                    new[]
+                    {
+                        new WarmupResultItem(
+                            DateTimeOffset.Parse("2026-04-24T10:01:53Z"),
+                            profile.ProfileId,
+                            profile.Runtime,
+                            profile.ModelId,
+                            WarmupGateStatus.Pass,
+                            3,
+                            3,
+                            10251,
+                            113,
+                            9.09,
+                            110,
+                            null,
+                            new[] { "pass" },
+                            "fp",
+                            "maintenance_runtime_qualification")
+                    }),
+                root);
+
+            await RuntimeEventLogStore.AppendAsync(new RuntimeEventLogItem(
+                DateTimeOffset.Parse("2026-04-24T10:01:53Z"),
+                "llama.cpp-cuda",
+                "runtime_qualified",
+                "b8149",
+                null,
+                settings.ModelId,
+                "qualified"), root);
+
+            var diagnostics = await LocalLlmRuntimeDiagnosticsService.EvaluateAsync(settings, gpu: null, root: root);
+
+            Assert.Equal("b8149", diagnostics.ActiveBuild);
+            Assert.Equal("qualified", diagnostics.ActiveState);
+            Assert.False(diagnostics.UpgradeRequired);
+            Assert.Equal(WarmupGateStatus.Pass, diagnostics.LatestWarmupStatus);
+            Assert.Equal(profile.ProfileId, diagnostics.QualifiedProfileId);
+            Assert.Single(diagnostics.RecentEvents);
+            Assert.Equal("runtime_qualified", diagnostics.RecentEvents[0].EventKind);
+        }
+        finally
+        {
+            LlamaCppReleaseDownloader.RuntimeRootOverride = null;
+            RuntimeEventLogStore.RootOverride = null;
+            DeleteTempRoot(root);
+        }
+    }
+
     private static string CreateRuntime(string runtimeRoot, string backendDir, string build)
     {
         var runtimeDir = Path.Combine(runtimeRoot, backendDir, build);
@@ -146,6 +223,38 @@ public sealed class LocalLlmRuntimeDiagnosticsServiceTests
                         exePath = previousExe,
                         assetName = "llama-b8149-bin-win-cuda-12.4-x64.zip"
                     }
+                }
+            }
+        }, new JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+
+        File.WriteAllText(Path.Combine(runtimeRoot, "active-runtime.json"), json);
+    }
+
+    private static void WriteQualifiedActiveRuntimeManifest(string runtimeRoot, string activeExe)
+    {
+        Directory.CreateDirectory(runtimeRoot);
+
+        var json = JsonSerializer.Serialize(new
+        {
+            artifact = "active-runtime.json",
+            cdcAlignment = "v3.1",
+            items = new[]
+            {
+                new
+                {
+                    runtimeId = "llama.cpp-cuda",
+                    backend = "cuda",
+                    build = "b8149",
+                    directoryPath = Path.GetDirectoryName(activeExe),
+                    exePath = activeExe,
+                    assetName = "llama-b8149-bin-win-cuda-12.4-x64.zip",
+                    activatedAtUtc = "2026-04-24T09:51:52Z",
+                    status = "qualified",
+                    qualifiedAtUtc = "2026-04-24T10:01:53Z",
+                    previous = (object?)null
                 }
             }
         }, new JsonSerializerOptions

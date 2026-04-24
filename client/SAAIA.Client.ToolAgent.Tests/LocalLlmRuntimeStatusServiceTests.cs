@@ -48,6 +48,45 @@ public sealed class LocalLlmRuntimeStatusServiceTests
     }
 
     [Fact]
+    public async Task EvaluateAsync_returns_runtime_upgrade_required_for_legacy_gemma_runtime()
+    {
+        var root = NewTempRoot();
+        var runtimeRoot = Path.Combine(root, "runtime");
+        LlamaCppReleaseDownloader.RuntimeRootOverride = runtimeRoot;
+
+        try
+        {
+            var runtimeDir = Path.Combine(runtimeRoot, "win-cuda-x64", "b8149");
+            Directory.CreateDirectory(runtimeDir);
+            var exePath = Path.Combine(runtimeDir, "llama-server.exe");
+            await File.WriteAllTextAsync(exePath, "stub");
+            await File.WriteAllTextAsync(Path.Combine(runtimeDir, "runtime.tag"), "b8149");
+
+            var settings = new AppSettings
+            {
+                UseLocalLlm = true,
+                ManageLocalLlmProcess = true,
+                LlamaExePath = exePath,
+                ModelId = "gemma-4-e2b-it-q4-k-m",
+                QualifiedProfile = WarmupProfileStore.CreateReferenceCudaProfile()
+            };
+
+            await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(settings, root);
+
+            var status = await LocalLlmRuntimeStatusService.EvaluateAsync(settings, root);
+
+            Assert.NotNull(status);
+            Assert.Equal("runtime_upgrade_required", status!.Code);
+            Assert.True(status.IsError);
+        }
+        finally
+        {
+            LlamaCppReleaseDownloader.RuntimeRootOverride = null;
+            DeleteTempRoot(root);
+        }
+    }
+
+    [Fact]
     public void ResolveDisplayMessage_clears_status_when_runtime_is_running_and_nominal()
     {
         var message = LocalLlmRuntimeStatusService.ResolveDisplayMessage(
