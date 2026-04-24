@@ -992,7 +992,11 @@ public static class AdminRuntimeEndpoints
             "last_known_good_profile.json",
             "rollback_log.json",
             "blacklist_applied.json",
-            "acquisition_log.json"
+            "acquisition_log.json",
+            "runtime_compatibility_policy.json",
+            "runtime_event_log.json",
+            "battery_policies.json",
+            "blacklist.json"
         };
 
         try
@@ -1021,7 +1025,12 @@ public static class AdminRuntimeEndpoints
 
             CopyOptionalSupportBundleGovernanceFiles(staging, env, governanceFileNames, artifacts, missing);
 
+            CopyOptionalSupportBundleRuntimeFiles(staging, env, artifacts);
+
             CopyOptionalSupportBundleLlmLogs(staging, env, artifacts, missing);
+
+            var contractMissingArtifacts = EvaluateSupportBundleContractMissingArtifacts(artifacts);
+            var contractComplete = contractMissingArtifacts.Count == 0;
 
             var configSnapshot = new
             {
@@ -1058,6 +1067,8 @@ public static class AdminRuntimeEndpoints
                 },
                 includedFiles = artifacts,
                 missingArtifacts = missing,
+                contractComplete,
+                contractMissingArtifacts,
                 artifactErrors = artifactErrors.Count == 0 ? null : artifactErrors
             };
             await File.WriteAllTextAsync(
@@ -1074,6 +1085,8 @@ public static class AdminRuntimeEndpoints
                 bundlePath,
                 artifacts,
                 missingArtifacts = missing,
+                contractComplete,
+                contractMissingArtifacts,
                 artifactErrors = artifactErrors.Count == 0 ? null : artifactErrors
             });
         }
@@ -1124,6 +1137,22 @@ public static class AdminRuntimeEndpoints
             {
                 missing.Add(fileName);
             }
+        }
+    }
+
+    internal static void CopyOptionalSupportBundleRuntimeFiles(
+        string stagingRoot,
+        IHostEnvironment env,
+        List<string> artifacts,
+        string? localAppDataRoot = null)
+    {
+        foreach (var src in GetOptionalSupportBundleRuntimeFiles(env, localAppDataRoot))
+        {
+            var fileName = Path.GetFileName(src.relativePath);
+            var destination = Path.Combine(stagingRoot, src.relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            File.Copy(src.fullPath, destination, overwrite: true);
+            artifacts.Add(src.relativePath.Replace('\\', '/'));
         }
     }
 
@@ -1198,5 +1227,61 @@ public static class AdminRuntimeEndpoints
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    internal static IReadOnlyList<(string relativePath, string fullPath)> GetOptionalSupportBundleRuntimeFiles(
+        IHostEnvironment env,
+        string? localAppDataRoot = null)
+    {
+        var resolvedLocalAppData = string.IsNullOrWhiteSpace(localAppDataRoot)
+            ? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
+            : localAppDataRoot;
+        if (string.IsNullOrWhiteSpace(resolvedLocalAppData))
+            return Array.Empty<(string relativePath, string fullPath)>();
+
+        var candidates = new[]
+        {
+            ("llm/active-runtime.json", Path.Combine(resolvedLocalAppData, "SAAIA", "llm", "runtime", "active-runtime.json")),
+            ("llm/runtime_event_log.json", Path.Combine(resolvedLocalAppData, "SAAIA", "governance", "runtime_event_log.json")),
+            ("llm/runtime_compatibility_policy.json", Path.Combine(resolvedLocalAppData, "SAAIA", "governance", "runtime_compatibility_policy.json"))
+        };
+
+        return candidates
+            .Where(item => File.Exists(item.Item2))
+            .Select(item => (item.Item1, item.Item2))
+            .ToArray();
+    }
+
+    internal static IReadOnlyList<string> EvaluateSupportBundleContractMissingArtifacts(
+        IReadOnlyCollection<string> artifacts)
+    {
+        static bool HasArtifact(IReadOnlyCollection<string> items, string expected)
+            => items.Contains(expected, StringComparer.OrdinalIgnoreCase);
+
+        static bool HasRuntimeLogs(IReadOnlyCollection<string> items)
+            => items.Any(item => item.StartsWith("llm-logs/", StringComparison.OrdinalIgnoreCase));
+
+        var missing = new List<string>();
+
+        foreach (var required in new[]
+                 {
+                     "hardware_probe.json",
+                     "capability-state.json",
+                     "warmup-results.json",
+                     "last_known_good_profile.json",
+                     "rollback_log.json",
+                     "blacklist_applied.json",
+                     "acquisition_log.json",
+                     "runtime-config.json"
+                 })
+        {
+            if (!HasArtifact(artifacts, required))
+                missing.Add(required);
+        }
+
+        if (!HasRuntimeLogs(artifacts))
+            missing.Add("llm-logs/");
+
+        return missing;
     }
 }

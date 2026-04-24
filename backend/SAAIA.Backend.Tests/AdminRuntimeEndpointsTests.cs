@@ -145,6 +145,8 @@ public sealed class AdminRuntimeEndpointsTests
             var bundlePath = root.GetProperty("bundlePath").GetString();
             var artifacts = root.GetProperty("artifacts").EnumerateArray().Select(item => item.GetString()).ToArray();
             var missingArtifacts = root.GetProperty("missingArtifacts").EnumerateArray().Select(item => item.GetString()).ToArray();
+            var contractMissingArtifacts = root.GetProperty("contractMissingArtifacts").EnumerateArray().Select(item => item.GetString()).ToArray();
+            var contractComplete = root.GetProperty("contractComplete").GetBoolean();
 
             Assert.False(string.IsNullOrWhiteSpace(bundlePath));
             Assert.True(File.Exists(bundlePath));
@@ -168,6 +170,12 @@ public sealed class AdminRuntimeEndpointsTests
             Assert.Contains("last_known_good_profile.json", missingArtifacts);
             Assert.Contains("acquisition_log.json", missingArtifacts);
             Assert.DoesNotContain("llm-logs/", missingArtifacts);
+            Assert.False(contractComplete);
+            Assert.Contains("hardware_probe.json", contractMissingArtifacts);
+            Assert.Contains("last_known_good_profile.json", contractMissingArtifacts);
+            Assert.Contains("acquisition_log.json", contractMissingArtifacts);
+            Assert.DoesNotContain("capability-state.json", contractMissingArtifacts);
+            Assert.DoesNotContain("warmup-results.json", contractMissingArtifacts);
 
             using var zip = ZipFile.OpenRead(bundlePath!);
             Assert.Contains(zip.Entries, entry => entry.FullName == "runtime-catalog.json");
@@ -269,6 +277,70 @@ public sealed class AdminRuntimeEndpointsTests
             if (Directory.Exists(tempLocalAppData))
                 Directory.Delete(tempLocalAppData, recursive: true);
         }
+    }
+
+    [Fact]
+    public void CopyOptionalSupportBundleRuntimeFiles_reads_local_appdata_runtime_artifacts()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "saaia-support-runtime-" + Guid.NewGuid().ToString("N"));
+        var tempLocalAppData = Path.Combine(Path.GetTempPath(), "saaia-localappdata-" + Guid.NewGuid().ToString("N"));
+        var staging = Path.Combine(tempRoot, "staging");
+
+        try
+        {
+            Directory.CreateDirectory(staging);
+            var runtimeDir = Path.Combine(tempLocalAppData, "SAAIA", "llm", "runtime");
+            Directory.CreateDirectory(runtimeDir);
+            File.WriteAllText(Path.Combine(runtimeDir, "active-runtime.json"), "{\"items\":[]}");
+
+            var governanceDir = Path.Combine(tempLocalAppData, "SAAIA", "governance");
+            Directory.CreateDirectory(governanceDir);
+            File.WriteAllText(Path.Combine(governanceDir, "runtime_event_log.json"), "{\"items\":[]}");
+
+            var artifacts = new List<string>();
+            AdminRuntimeEndpoints.CopyOptionalSupportBundleRuntimeFiles(
+                staging,
+                new StubHostEnvironment { ContentRootPath = tempRoot },
+                artifacts,
+                tempLocalAppData);
+
+            Assert.Contains("llm/active-runtime.json", artifacts);
+            Assert.Contains("llm/runtime_event_log.json", artifacts);
+            Assert.True(File.Exists(Path.Combine(staging, "llm", "active-runtime.json")));
+            Assert.True(File.Exists(Path.Combine(staging, "llm", "runtime_event_log.json")));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+            if (Directory.Exists(tempLocalAppData))
+                Directory.Delete(tempLocalAppData, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void EvaluateSupportBundleContractMissingArtifacts_flags_missing_required_contract_payloads()
+    {
+        var missing = AdminRuntimeEndpoints.EvaluateSupportBundleContractMissingArtifacts(new[]
+        {
+            "runtime-catalog.json",
+            "model-catalog.json",
+            "warmup-profiles.json",
+            "capability-state.json",
+            "warmup-results.json",
+            "runtime-events.json",
+            "runtime-config.json",
+            "llm-logs/llama-server.log"
+        });
+
+        Assert.Contains("hardware_probe.json", missing);
+        Assert.Contains("last_known_good_profile.json", missing);
+        Assert.Contains("rollback_log.json", missing);
+        Assert.Contains("blacklist_applied.json", missing);
+        Assert.Contains("acquisition_log.json", missing);
+        Assert.DoesNotContain("capability-state.json", missing);
+        Assert.DoesNotContain("warmup-results.json", missing);
+        Assert.DoesNotContain("llm-logs/", missing);
     }
 
     [Fact]

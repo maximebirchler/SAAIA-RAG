@@ -102,4 +102,45 @@ public sealed class SupportBundleMemoryDiagnosticsTests
                 File.Delete(zipPath);
         }
     }
+
+    [Fact]
+    public async Task Support_bundle_includes_local_governance_artifacts_when_present()
+    {
+        var tempLocalAppData = Path.Combine(Path.GetTempPath(), "saaia-support-localappdata-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(tempLocalAppData, "SAAIA", "governance"));
+        await File.WriteAllTextAsync(
+            Path.Combine(tempLocalAppData, "SAAIA", "governance", GovernanceArtifactStore.HardwareProbeFile),
+            "{\"artifact\":\"hardware_probe.json\"}");
+        await File.WriteAllTextAsync(
+            Path.Combine(tempLocalAppData, "SAAIA", "governance", GovernanceArtifactStore.RuntimeCompatibilityPolicyFile),
+            "{\"artifact\":\"runtime_compatibility_policy.json\"}");
+        Directory.CreateDirectory(Path.Combine(tempLocalAppData, "SAAIA", "llm", "runtime"));
+        await File.WriteAllTextAsync(
+            Path.Combine(tempLocalAppData, "SAAIA", "llm", "runtime", "active-runtime.json"),
+            "{\"items\":[]}");
+
+        var settings = new AppSettings
+        {
+            BackendUrl = "http://127.0.0.1:9",
+            Host = "127.0.0.1",
+            Port = 9
+        };
+
+        var zipPath = await SupportBundleBuilder.BuildAsync(settings, null, null, tempLocalAppData);
+
+        try
+        {
+            using var archive = ZipFile.OpenRead(zipPath);
+            Assert.NotNull(archive.GetEntry("governance/hardware_probe.json"));
+            Assert.NotNull(archive.GetEntry("governance/runtime_compatibility_policy.json"));
+            Assert.NotNull(archive.GetEntry("llm/active-runtime.json"));
+        }
+        finally
+        {
+            if (File.Exists(zipPath))
+                File.Delete(zipPath);
+            if (Directory.Exists(tempLocalAppData))
+                Directory.Delete(tempLocalAppData, recursive: true);
+        }
+    }
 }

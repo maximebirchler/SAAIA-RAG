@@ -18,7 +18,11 @@ internal static class SupportBundleBuilder
     public static string SupportDir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "support");
 
-    public static async Task<string> BuildAsync(AppSettings settings, object? agentRuntimeSnapshot = null, IReadOnlyCollection<string>? include = null)
+    public static async Task<string> BuildAsync(
+        AppSettings settings,
+        object? agentRuntimeSnapshot = null,
+        IReadOnlyCollection<string>? include = null,
+        string? localAppDataRoot = null)
     {
         Directory.CreateDirectory(SupportDir);
 
@@ -43,7 +47,7 @@ internal static class SupportBundleBuilder
                 "- Contains logs, settings (non-sensitive), environment info, and readiness probes.\r\n");
 
             // 2) Settings (non-sensitive)
-            CopyIfExists(Path.Combine(LocalClientDir(), "settings.json"), Path.Combine(staging, "settings.json"));
+            CopyIfExists(Path.Combine(LocalClientDir(localAppDataRoot), "settings.json"), Path.Combine(staging, "settings.json"));
 
             // 3) Provisioning (redacted)
             var provPath = Provisioning.FindProvisioningPath();
@@ -54,12 +58,15 @@ internal static class SupportBundleBuilder
             }
 
             // 4) Models manifest if exists
-            var modelsJson = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "Models", "models.json");
+            var modelsJson = Path.Combine(GetLocalAppDataRoot(localAppDataRoot), "SAAIA", "Models", "models.json");
             CopyIfExists(modelsJson, Path.Combine(staging, "models.json"));
 
             // 5) Downloads manifest if exists
-            var dlManifest = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "downloads", "manifest.json");
+            var dlManifest = Path.Combine(GetLocalAppDataRoot(localAppDataRoot), "SAAIA", "downloads", "manifest.json");
             CopyIfExists(dlManifest, Path.Combine(staging, "downloads.manifest.json"));
+
+            // 5a) Local governance artifacts when present
+            CopyOptionalGovernanceArtifacts(staging, localAppDataRoot);
 
             // 5b) LLM install artifacts (optional)
             var llmDir = Path.Combine(staging, "llm");
@@ -73,12 +80,14 @@ internal static class SupportBundleBuilder
             // Embedded runtime (M6): include lightweight marker files (not the whole runtime folder)
             try
             {
-                CopyIfExists(LlamaCppReleaseDownloader.ActiveRuntimeManifestPath, Path.Combine(llmDir, "active-runtime.json"));
                 CopyIfExists(
-                    GovernanceArtifactStore.ResolvePath(GovernanceArtifactStore.RuntimeEventLogFile),
+                    Path.Combine(GetLocalAppDataRoot(localAppDataRoot), "SAAIA", "llm", "runtime", "active-runtime.json"),
+                    Path.Combine(llmDir, "active-runtime.json"));
+                CopyIfExists(
+                    ResolveGovernancePath(GovernanceArtifactStore.RuntimeEventLogFile, localAppDataRoot),
                     Path.Combine(llmDir, "runtime_event_log.json"));
                 CopyIfExists(
-                    GovernanceArtifactStore.ResolvePath(GovernanceArtifactStore.RuntimeEventLogFile) + ".sha256",
+                    ResolveGovernancePath(GovernanceArtifactStore.RuntimeEventLogFile, localAppDataRoot) + ".sha256",
                     Path.Combine(llmDir, "runtime_event_log.json.sha256"));
                 try
                 {
@@ -196,8 +205,39 @@ internal static class SupportBundleBuilder
         }
     }
 
-    private static string LocalClientDir() =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "client");
+    private static string LocalClientDir(string? localAppDataRoot = null) =>
+        Path.Combine(GetLocalAppDataRoot(localAppDataRoot), "SAAIA", "client");
+
+    private static string GetLocalAppDataRoot(string? localAppDataRoot = null)
+        => string.IsNullOrWhiteSpace(localAppDataRoot)
+            ? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
+            : localAppDataRoot;
+
+    private static string ResolveGovernancePath(string fileName, string? localAppDataRoot = null)
+        => Path.Combine(GetLocalAppDataRoot(localAppDataRoot), "SAAIA", "governance", fileName);
+
+    private static void CopyOptionalGovernanceArtifacts(string staging, string? localAppDataRoot = null)
+    {
+        var governanceDir = Path.Combine(staging, "governance");
+        Directory.CreateDirectory(governanceDir);
+
+        foreach (var fileName in new[]
+                 {
+                     GovernanceArtifactStore.HardwareProbeFile,
+                     GovernanceArtifactStore.WarmupResultsFile,
+                     GovernanceArtifactStore.CapabilityStateFile,
+                     GovernanceArtifactStore.LastKnownGoodProfileFile,
+                     GovernanceArtifactStore.RollbackLogFile,
+                     GovernanceArtifactStore.BlacklistAppliedFile,
+                     GovernanceArtifactStore.AcquisitionLogFile,
+                     GovernanceArtifactStore.RuntimeCompatibilityPolicyFile,
+                     GovernanceArtifactStore.RuntimeEventLogFile,
+                     GovernanceArtifactStore.BatteryPoliciesFile
+                 })
+        {
+            CopyIfExists(ResolveGovernancePath(fileName, localAppDataRoot), Path.Combine(governanceDir, fileName));
+        }
+    }
 
     private static void CopyIfExists(string src, string dst)
     {
