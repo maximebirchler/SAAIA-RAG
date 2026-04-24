@@ -223,10 +223,16 @@ internal static class SupportBundleBuilder
 
         foreach (var fileName in new[]
                  {
+                     GovernanceArtifactStore.ModelCatalogFile,
+                     GovernanceArtifactStore.ModelCollectionsFile,
+                     GovernanceArtifactStore.ModelPolicyFile,
+                     GovernanceArtifactStore.ModelSourcesFile,
+                     GovernanceArtifactStore.WarmupProfilesFile,
                      GovernanceArtifactStore.HardwareProbeFile,
                      GovernanceArtifactStore.WarmupResultsFile,
                      GovernanceArtifactStore.CapabilityStateFile,
                      GovernanceArtifactStore.LastKnownGoodProfileFile,
+                     GovernanceArtifactStore.BlacklistFile,
                      GovernanceArtifactStore.RollbackLogFile,
                      GovernanceArtifactStore.BlacklistAppliedFile,
                      GovernanceArtifactStore.AcquisitionLogFile,
@@ -235,7 +241,10 @@ internal static class SupportBundleBuilder
                      GovernanceArtifactStore.BatteryPoliciesFile
                  })
         {
-            CopyIfExists(ResolveGovernancePath(fileName, localAppDataRoot), Path.Combine(governanceDir, fileName));
+            var sourcePath = ResolveGovernancePath(fileName, localAppDataRoot);
+            var destinationPath = Path.Combine(governanceDir, fileName);
+            CopyIfExists(sourcePath, destinationPath);
+            CopyIfExists(sourcePath + ".sha256", destinationPath + ".sha256");
         }
     }
 

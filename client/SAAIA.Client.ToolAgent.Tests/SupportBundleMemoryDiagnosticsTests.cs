@@ -108,12 +108,30 @@ public sealed class SupportBundleMemoryDiagnosticsTests
     {
         var tempLocalAppData = Path.Combine(Path.GetTempPath(), "saaia-support-localappdata-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(tempLocalAppData, "SAAIA", "governance"));
-        await File.WriteAllTextAsync(
-            Path.Combine(tempLocalAppData, "SAAIA", "governance", GovernanceArtifactStore.HardwareProbeFile),
-            "{\"artifact\":\"hardware_probe.json\"}");
-        await File.WriteAllTextAsync(
-            Path.Combine(tempLocalAppData, "SAAIA", "governance", GovernanceArtifactStore.RuntimeCompatibilityPolicyFile),
-            "{\"artifact\":\"runtime_compatibility_policy.json\"}");
+        foreach (var fileName in new[]
+                 {
+                     GovernanceArtifactStore.ModelCatalogFile,
+                     GovernanceArtifactStore.ModelCollectionsFile,
+                     GovernanceArtifactStore.ModelPolicyFile,
+                     GovernanceArtifactStore.ModelSourcesFile,
+                     GovernanceArtifactStore.WarmupProfilesFile,
+                     GovernanceArtifactStore.HardwareProbeFile,
+                     GovernanceArtifactStore.WarmupResultsFile,
+                     GovernanceArtifactStore.CapabilityStateFile,
+                     GovernanceArtifactStore.LastKnownGoodProfileFile,
+                     GovernanceArtifactStore.BlacklistFile,
+                     GovernanceArtifactStore.RollbackLogFile,
+                     GovernanceArtifactStore.BlacklistAppliedFile,
+                     GovernanceArtifactStore.AcquisitionLogFile,
+                     GovernanceArtifactStore.RuntimeCompatibilityPolicyFile,
+                     GovernanceArtifactStore.RuntimeEventLogFile,
+                     GovernanceArtifactStore.BatteryPoliciesFile
+                 })
+        {
+            var path = Path.Combine(tempLocalAppData, "SAAIA", "governance", fileName);
+            await File.WriteAllTextAsync(path, $"{{\"artifact\":\"{fileName}\"}}");
+            await File.WriteAllTextAsync(path + ".sha256", "deadbeef");
+        }
         Directory.CreateDirectory(Path.Combine(tempLocalAppData, "SAAIA", "llm", "runtime"));
         await File.WriteAllTextAsync(
             Path.Combine(tempLocalAppData, "SAAIA", "llm", "runtime", "active-runtime.json"),
@@ -131,8 +149,23 @@ public sealed class SupportBundleMemoryDiagnosticsTests
         try
         {
             using var archive = ZipFile.OpenRead(zipPath);
+            Assert.NotNull(archive.GetEntry("governance/model_catalog.json"));
+            Assert.NotNull(archive.GetEntry("governance/model_catalog.json.sha256"));
+            Assert.NotNull(archive.GetEntry("governance/model_collections.json"));
+            Assert.NotNull(archive.GetEntry("governance/model_policy.json"));
+            Assert.NotNull(archive.GetEntry("governance/model_sources.json"));
+            Assert.NotNull(archive.GetEntry("governance/warmup_profiles.json"));
             Assert.NotNull(archive.GetEntry("governance/hardware_probe.json"));
+            Assert.NotNull(archive.GetEntry("governance/warmup_results.json"));
+            Assert.NotNull(archive.GetEntry("governance/capability_state.json"));
+            Assert.NotNull(archive.GetEntry("governance/last_known_good_profile.json"));
+            Assert.NotNull(archive.GetEntry("governance/blacklist.json"));
+            Assert.NotNull(archive.GetEntry("governance/rollback_log.json"));
+            Assert.NotNull(archive.GetEntry("governance/blacklist_applied.json"));
+            Assert.NotNull(archive.GetEntry("governance/acquisition_log.json"));
             Assert.NotNull(archive.GetEntry("governance/runtime_compatibility_policy.json"));
+            Assert.NotNull(archive.GetEntry("governance/runtime_event_log.json"));
+            Assert.NotNull(archive.GetEntry("governance/battery_policies.json"));
             Assert.NotNull(archive.GetEntry("llm/active-runtime.json"));
         }
         finally
