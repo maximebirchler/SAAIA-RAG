@@ -34,7 +34,7 @@
 | Budget VRAM observe (DXGI) | Client | [~] Enforce v1 | `hardware_probe.json` capture RAM, GPU, fingerprint, secteur/batterie et budget DXGI ; hard gate budget DXGI branche sur `warmup_profiles.json` |
 | Gouvernance llama-server client | Client | [~] Patch 5 avance | Artefacts locaux, `QualifiedProfile`, checksums, warmup gate, harnais TTFT/tok/s multi-scenarios, rollback, blacklist, hardware_probe, policy batterie, runtime compatibility policy et triggers hardware/driver/runtime/modele poses ; runtime v1, statuts UX et quarantaine checksum modele en place |
 | Cycle de vie runtime (sleep/wake) | Client | [x] Runtime v1 | `EagerLoad` explicite, idle timeout pilote par profil/policy, drain via heartbeat et wake a la demande avant generation |
-| Checksums modeles | Client | [x] Local pack verifie | Infrastructure SHA-256 presente ; mismatch connu -> quarantaine `.quarantine` + journal `acquisition_log.json` ; 8 modeles locaux verifies dans `model_catalog.json` |
+| Checksums modeles | Client | [x] Local pack verifie | Infrastructure SHA-256 presente ; mismatch connu -> quarantaine `.quarantine` + journal `acquisition_log.json` ; 14 modeles locaux verifies dans `model_catalog.json` |
 | Endpoint support bundle admin | Backend | [x] Fait Patch 3 | `POST /admin/support/bundle` presente â€” ZIP stagÃ©, artifacts/missingArtifacts, auth X-Admin-Key |
 
 ---
@@ -53,7 +53,7 @@
 - [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` â€” OK, 0 Warning
 - [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` â€” OK, 0 Warning
 - [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` â€” 346/346 verts
-- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj` â€” 355/355 verts
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj` â€” 359/359 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
 - [x] Revalidation client 2026-04-23 apres diagnostic runtime local : 316/316 verts
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
@@ -189,7 +189,7 @@ Travaux independants de la gouvernance complete, livrable avant Phase 3.
 **Criteres de sortie** :
 - [x] `POST /admin/support/bundle` repond 200 avec bundle (meme partiel)
 - [x] Test contractuel backend ajoute
-- [x] Checksums : warning en place ; valeurs reelles SHA-256 renseignees pour les 8 modeles locaux
+- [x] Checksums : warning en place ; valeurs reelles SHA-256 renseignees pour les 14 modeles locaux
 - [x] Scope dual bundle documente : bundle leger user (SupportBundleBuilder) != bundle complet admin (AdminRuntimeEndpoints)
 
 ---
@@ -570,7 +570,7 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 - [x] Triggers requalification modele/runtime : derive detectee au bootstrap depuis `QualifiedProfile` vs runtime/modeles courants
 - [x] Trigger requalification driver : comparaison `gpuDriverVersion` courant vs `hardware_probe.json`
 - [x] Application runtime v1 : `EagerLoad` branche sur le connect/startup et `idleTimeoutSeconds` pilote par profil/policy avec heartbeat d'activite LLM
-- [x] Checksums de reference reels renseignes pour les 8 modeles locaux disponibles
+- [x] Checksums de reference reels renseignes pour les 14 modeles locaux disponibles
 
 ### Phase 3 / Patch 6 â€” Runtime compatibility policy + upgrade versionne (CDC v3.1 Â§5.8 / Â§9)
 
@@ -689,3 +689,5 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 | 2026-04-24 | Codex | Audit Phase 4 - passe 30 : support bundles backend/client enrichis avec les sidecars runtime (`active-runtime.json.sha256`, `runtime_event_log.json.sha256`, `runtime_compatibility_policy.json.sha256`) ; doc CDC active realignee sur les endpoints/runtime effectivement exposes, et le rapport LLM du 22.04 est maintenant borne comme referentiel historique |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 31 : coherence bundle/runtime finalisee cote client (`llm/runtime_compatibility_policy.json` copie avec son sidecar) ; les reliquats documentaires restants sont maintenant surtout des notes historiques explicites, plus des constats faux sur l'etat courant |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 32 : filets de securite runtime UX ajoutes ; diagnostics runtime couvrent explicitement l'etat `qualified` reel et le statut utilisateur couvre le cas `runtime_upgrade_required` sur runtime legacy/Gemma, tests client cibles `13/13` verts |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 33 : catalogue modele et script checksum etendus aux modeles serveur Qwen 3.6 (`27B` + `35B-A3B`), avec collections backend non visibles dans l'installer client et hashes locaux verifies |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 34 : sync automatique des artefacts locaux `model_catalog.json` et `model_collections.json` quand le catalogue par defaut s'enrichit ; regeneration machine reelle executee, gouvernance locale revalidee `16/16` + runtime `1/1`, suite client complete `359/359` verte |

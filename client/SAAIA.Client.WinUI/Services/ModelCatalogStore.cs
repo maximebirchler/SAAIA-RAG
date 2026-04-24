@@ -91,6 +91,12 @@ internal static class ModelCatalogStore
     private const string Gemma4_E2B_Q4KmSha256 = "ac0069ebccd39925d836f24a88c0f0c858d20578c29b21ab7cedce66ee576845";
     private const string Gemma4_E2B_Q80Sha256 = "6db0088e7e2b6459dfb29fa59b0b1d7299d249ef28debc464d4d564caf444511";
     private const string Gemma4_E4B_Q4KmSha256 = "dff0ffba4c90b4082d70214d53ce9504a28d4d8d998276dcb3b8881a656c742a";
+    private const string Qwen36_27B_Q4KmSha256 = "5ed60d0af4650a854b1755bd392f9aef4872643dc25a254bc68043fa638392a0";
+    private const string Qwen36_35B_A3B_Q3KsSha256 = "212ccdf37d416167ce8dcd7e3a59bcd45b30ac7531822a1e7bb79bfbacb2d1aa";
+    private const string Qwen36_35B_A3B_Q3KmSha256 = "1b715841683f960bd9a49f008181bd910ee169b78d4cf465b6fde7f4d929ff99";
+    private const string Qwen36_35B_A3B_Iq4XsSha256 = "649d7508507b84638732c4f52c24c8b15843c6dca2f3ff793ae07c14a67ebbb3";
+    private const string Qwen36_35B_A3B_Q4KmSha256 = "ac0e2c1189e055faa36eff361580e79c5bd6f8e76bffb4ce547f167d53e31a61";
+    private const string Qwen36_35B_A3B_Q5KmSha256 = "c13ce26253ea334df472bd8fbd2d6da66d8a41195c17f6fcbf44c4d20ece0932";
 
     public static string? ResolveCanonicalModelId(string? modelIdOrFileName)
     {
@@ -282,7 +288,55 @@ internal static class ModelCatalogStore
                 "gemma-4-E4B-it-Q4_K_M.gguf",
                 "hf-unsloth-gemma4-e4b",
                 checksumSha256: Gemma4_E4B_Q4KmSha256,
-                supportTier: "client-apache-test")
+                supportTier: "client-apache-test"),
+            Qwen36ServerItem(
+                "qwen3.6-27b-q4-k-m",
+                "Qwen3.6 27B Q4_K_M",
+                "qwen3.6",
+                "Q4_K_M",
+                "Qwen3.6-27B-Q4_K_M.gguf",
+                Qwen36_27B_Q4KmSha256,
+                "backend-qwen3.6"),
+            Qwen36ServerItem(
+                "qwen3.6-35b-a3b-ud-q3-k-s",
+                "Qwen3.6 35B A3B UD Q3_K_S",
+                "qwen3.6-a3b",
+                "Q3_K_S",
+                "Qwen3.6-35B-A3B-UD-Q3_K_S.gguf",
+                Qwen36_35B_A3B_Q3KsSha256,
+                "backend-a3b"),
+            Qwen36ServerItem(
+                "qwen3.6-35b-a3b-ud-q3-k-m",
+                "Qwen3.6 35B A3B UD Q3_K_M",
+                "qwen3.6-a3b",
+                "Q3_K_M",
+                "Qwen3.6-35B-A3B-UD-Q3_K_M.gguf",
+                Qwen36_35B_A3B_Q3KmSha256,
+                "backend-a3b"),
+            Qwen36ServerItem(
+                "qwen3.6-35b-a3b-ud-iq4-xs",
+                "Qwen3.6 35B A3B UD IQ4_XS",
+                "qwen3.6-a3b",
+                "IQ4_XS",
+                "Qwen3.6-35B-A3B-UD-IQ4_XS.gguf",
+                Qwen36_35B_A3B_Iq4XsSha256,
+                "backend-a3b"),
+            Qwen36ServerItem(
+                "qwen3.6-35b-a3b-ud-q4-k-m",
+                "Qwen3.6 35B A3B UD Q4_K_M",
+                "qwen3.6-a3b",
+                "Q4_K_M",
+                "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+                Qwen36_35B_A3B_Q4KmSha256,
+                "backend-a3b"),
+            Qwen36ServerItem(
+                "qwen3.6-35b-a3b-ud-q5-k-m",
+                "Qwen3.6 35B A3B UD Q5_K_M",
+                "qwen3.6-a3b",
+                "Q5_K_M",
+                "Qwen3.6-35B-A3B-UD-Q5_K_M.gguf",
+                Qwen36_35B_A3B_Q5KmSha256,
+                "backend-a3b")
         });
 
     public static ModelCollectionsArtifact CreateDefaultCollections() => new(
@@ -324,7 +378,32 @@ internal static class ModelCatalogStore
                 Key: "backend-baseline",
                 Scope: "backend",
                 VisibleInInstaller: false,
-                ModelIds: new[] { "qwen2.5-3b-instruct-q4-k-m", "mistral-7b-instruct-v0.3-q4-k-m" })
+                ModelIds: new[] { "qwen2.5-3b-instruct-q4-k-m", "mistral-7b-instruct-v0.3-q4-k-m" }),
+            new ModelCollectionItem(
+                Key: "backend-qwen3.6",
+                Scope: "backend",
+                VisibleInInstaller: false,
+                ModelIds: new[]
+                {
+                    "qwen3.6-27b-q4-k-m",
+                    "qwen3.6-35b-a3b-ud-q3-k-s",
+                    "qwen3.6-35b-a3b-ud-q3-k-m",
+                    "qwen3.6-35b-a3b-ud-iq4-xs",
+                    "qwen3.6-35b-a3b-ud-q4-k-m",
+                    "qwen3.6-35b-a3b-ud-q5-k-m"
+                }),
+            new ModelCollectionItem(
+                Key: "backend-a3b",
+                Scope: "backend",
+                VisibleInInstaller: false,
+                ModelIds: new[]
+                {
+                    "qwen3.6-35b-a3b-ud-q3-k-s",
+                    "qwen3.6-35b-a3b-ud-q3-k-m",
+                    "qwen3.6-35b-a3b-ud-iq4-xs",
+                    "qwen3.6-35b-a3b-ud-q4-k-m",
+                    "qwen3.6-35b-a3b-ud-q5-k-m"
+                })
         });
 
     public static ModelPolicyArtifact CreateDefaultPolicy() => new(
@@ -491,6 +570,44 @@ internal static class ModelCatalogStore
             SupportedScopes: new[] { "client", "capability_b_backoffice" },
             BusinessStates: new[] { "known", "authorized", "installable", "experimental" },
             ArtifactStates: new[] { "download_required", "verification_required" },
+            SupportTier: supportTier);
+
+    private static ModelCatalogItem Qwen36ServerItem(
+        string modelId,
+        string displayName,
+        string family,
+        string quantization,
+        string fileName,
+        string checksumSha256,
+        string supportTier)
+        => new(
+            ModelId: modelId,
+            DisplayName: displayName,
+            Family: family,
+            Quantization: quantization,
+            FileName: fileName,
+            SourceRef: "local-bundle",
+            ChecksumSha256: checksumSha256,
+            ChecksumStatus: "verified_reference_hash",
+            License: new ModelLicenseInfo(
+                LicenseFamily: "qwen",
+                LicenseDisplayName: "Qwen Research License",
+                CommercialUseAllowed: true,
+                CommercialUseConditions: "Commercial use allowed; separate license required above 100,000,000 monthly active users.",
+                CommercialUseThresholdMau: 100000000,
+                RequiresSeparateCommercialLicenseAboveThreshold: true),
+            Gguf: new ModelGgufMetadata(
+                Architecture: "qwen3",
+                BlockCount: null,
+                HeadCount: null,
+                HeadCountKv: null,
+                EmbeddingLength: null,
+                ContextLength: 40960,
+                FeedForwardLength: null),
+            ApprovedRuntimeRefs: new[] { "llama.cpp-cuda", "llama.cpp-vulkan", "llama.cpp-cpu" },
+            SupportedScopes: new[] { "backend", "capability_b_backoffice" },
+            BusinessStates: new[] { "known", "authorized", "installable" },
+            ArtifactStates: new[] { "downloaded_pending", "verification_required" },
             SupportTier: supportTier);
 
     private static T ReadEffectiveArtifact<T>(

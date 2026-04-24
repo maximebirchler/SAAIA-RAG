@@ -156,7 +156,7 @@ internal static class GovernanceArtifactStore
         Directory.CreateDirectory(governanceRoot);
 
         await WriteOrUpgradeModelCatalogAsync(governanceRoot, ct).ConfigureAwait(false);
-        await WriteIfMissingAsync(ModelCollectionsFile, ModelCatalogStore.CreateDefaultCollections(), governanceRoot, ct).ConfigureAwait(false);
+        await WriteOrUpgradeModelCollectionsAsync(governanceRoot, ct).ConfigureAwait(false);
         await WriteIfMissingAsync(ModelPolicyFile, ModelCatalogStore.CreateDefaultPolicy(), governanceRoot, ct).ConfigureAwait(false);
         await WriteIfMissingAsync(ModelSourcesFile, ModelCatalogStore.CreateDefaultSources(), governanceRoot, ct).ConfigureAwait(false);
         await WriteIfMissingAsync(RuntimeCompatibilityPolicyFile, RuntimeCompatibilityPolicyStore.CreateDefaultPolicy(), governanceRoot, ct).ConfigureAwait(false);
@@ -225,7 +225,11 @@ internal static class GovernanceArtifactStore
                 string.Equals(item.ModelId, defaultItem.ModelId, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(item.FileName, defaultItem.FileName, StringComparison.OrdinalIgnoreCase));
             if (index < 0)
+            {
+                items.Add(defaultItem);
+                changed = true;
                 continue;
+            }
 
             var existing = items[index];
             if (string.IsNullOrWhiteSpace(defaultItem.ChecksumSha256))
@@ -253,6 +257,42 @@ internal static class GovernanceArtifactStore
             Items = items
         };
         await WriteAsync(ModelCatalogFile, upgraded, root, ct).ConfigureAwait(false);
+    }
+
+    private static async Task WriteOrUpgradeModelCollectionsAsync(
+        string root,
+        CancellationToken ct)
+    {
+        var defaults = ModelCatalogStore.CreateDefaultCollections();
+        var read = await ReadAsync<ModelCollectionsArtifact>(ModelCollectionsFile, root, ct).ConfigureAwait(false);
+        if (read.Status != GovernanceArtifactReadStatus.Ok || read.Value is null)
+        {
+            await WriteAsync(ModelCollectionsFile, defaults, root, ct).ConfigureAwait(false);
+            return;
+        }
+
+        var items = read.Value.Items.ToList();
+        var changed = false;
+
+        foreach (var defaultItem in defaults.Items)
+        {
+            var index = items.FindIndex(item =>
+                string.Equals(item.Key, defaultItem.Key, StringComparison.OrdinalIgnoreCase));
+            if (index >= 0)
+                continue;
+
+            items.Add(defaultItem);
+            changed = true;
+        }
+
+        if (!changed)
+            return;
+
+        var upgraded = read.Value with
+        {
+            Items = items
+        };
+        await WriteAsync(ModelCollectionsFile, upgraded, root, ct).ConfigureAwait(false);
     }
 
     private static async Task WriteHardwareProbeIfMissingAsync(

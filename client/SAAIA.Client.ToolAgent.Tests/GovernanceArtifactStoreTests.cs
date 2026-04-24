@@ -189,6 +189,62 @@ public sealed class GovernanceArtifactStoreTests
     }
 
     [Fact]
+    public async Task EnsureDefaultArtifacts_adds_new_default_server_models_and_backend_collections_without_overwriting_existing_entries()
+    {
+        var root = NewTempRoot();
+        try
+        {
+            var staleCatalog = new ModelCatalogArtifact(
+                GovernanceArtifactStore.ModelCatalogFile,
+                "v3.1",
+                "stale",
+                DateTimeOffset.UtcNow,
+                ModelCatalogStore.CreateDefaultCatalog().Items
+                    .Where(item => !item.ModelId.StartsWith("qwen3.6-", StringComparison.OrdinalIgnoreCase))
+                    .ToArray());
+            var staleCollections = new ModelCollectionsArtifact(
+                GovernanceArtifactStore.ModelCollectionsFile,
+                "v3.1",
+                ModelCatalogStore.CreateDefaultCollections().Items
+                    .Where(item => !string.Equals(item.Key, "backend-qwen3.6", StringComparison.OrdinalIgnoreCase)
+                                && !string.Equals(item.Key, "backend-a3b", StringComparison.OrdinalIgnoreCase))
+                    .ToArray());
+
+            await GovernanceArtifactStore.WriteAsync(GovernanceArtifactStore.ModelCatalogFile, staleCatalog, root);
+            await GovernanceArtifactStore.WriteAsync(GovernanceArtifactStore.ModelCollectionsFile, staleCollections, root);
+
+            await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(new AppSettings(), root);
+
+            var catalogRead = await GovernanceArtifactStore.ReadAsync<ModelCatalogArtifact>(
+                GovernanceArtifactStore.ModelCatalogFile,
+                root);
+            var collectionsRead = await GovernanceArtifactStore.ReadAsync<ModelCollectionsArtifact>(
+                GovernanceArtifactStore.ModelCollectionsFile,
+                root);
+
+            Assert.Equal(GovernanceArtifactReadStatus.Ok, catalogRead.Status);
+            Assert.Equal(GovernanceArtifactReadStatus.Ok, collectionsRead.Status);
+            Assert.Contains(catalogRead.Value!.Items, item =>
+                item.ModelId == "qwen3.6-27b-q4-k-m"
+                && item.SourceRef == "local-bundle");
+            Assert.Contains(catalogRead.Value.Items, item =>
+                item.ModelId == "qwen3.6-35b-a3b-ud-q4-k-m"
+                && item.Family == "qwen3.6-a3b");
+            Assert.Contains(collectionsRead.Value!.Items, item =>
+                item.Key == "backend-qwen3.6"
+                && item.ModelIds.Contains("qwen3.6-27b-q4-k-m"));
+            Assert.Contains(collectionsRead.Value.Items, item =>
+                item.Key == "backend-a3b"
+                && item.ModelIds.Contains("qwen3.6-35b-a3b-ud-iq4-xs"));
+            Assert.Contains(collectionsRead.Value.Items, item => item.Key == "client-baseline");
+        }
+        finally
+        {
+            DeleteTempRoot(root);
+        }
+    }
+
+    [Fact]
     public void Default_model_collections_reference_known_model_ids_only()
     {
         var catalogIds = ModelCatalogStore.CreateDefaultCatalog().Items
@@ -659,6 +715,45 @@ public sealed class GovernanceArtifactStoreTests
             item.Key == "apache-test-family"
             && item.ModelIds.Contains("gemma-4-e2b-it-q4-k-m")
             && item.ModelIds.Contains("gemma-4-e4b-it-q4-k-m"));
+    }
+
+    [Fact]
+    public void ModelCatalogStore_includes_qwen36_server_models_in_backend_only_collections()
+    {
+        var catalog = ModelCatalogStore.CreateDefaultCatalog();
+        var collections = ModelCatalogStore.CreateDefaultCollections();
+        var installerVisible = ModelCatalogStore.GetInstallerVisibleClientModels();
+
+        Assert.Contains(catalog.Items, item =>
+            item.ModelId == "qwen3.6-27b-q4-k-m"
+            && item.SourceRef == "local-bundle"
+            && item.License.LicenseFamily == "qwen"
+            && item.SupportedScopes.Contains("backend")
+            && !item.SupportedScopes.Contains("client")
+            && item.ChecksumSha256 == "5ed60d0af4650a854b1755bd392f9aef4872643dc25a254bc68043fa638392a0");
+        Assert.Contains(catalog.Items, item =>
+            item.ModelId == "qwen3.6-35b-a3b-ud-q4-k-m"
+            && item.SourceRef == "local-bundle"
+            && item.Family == "qwen3.6-a3b"
+            && item.Gguf.Architecture == "qwen3"
+            && item.SupportTier == "backend-a3b"
+            && item.ChecksumSha256 == "ac0e2c1189e055faa36eff361580e79c5bd6f8e76bffb4ce547f167d53e31a61");
+        Assert.Contains(catalog.Items, item =>
+            item.ModelId == "qwen3.6-35b-a3b-ud-iq4-xs"
+            && item.SourceRef == "local-bundle"
+            && item.ChecksumSha256 == "649d7508507b84638732c4f52c24c8b15843c6dca2f3ff793ae07c14a67ebbb3");
+        Assert.Contains(collections.Items, item =>
+            item.Key == "backend-qwen3.6"
+            && !item.VisibleInInstaller
+            && item.ModelIds.Contains("qwen3.6-27b-q4-k-m")
+            && item.ModelIds.Contains("qwen3.6-35b-a3b-ud-q5-k-m"));
+        Assert.Contains(collections.Items, item =>
+            item.Key == "backend-a3b"
+            && !item.VisibleInInstaller
+            && item.ModelIds.Contains("qwen3.6-35b-a3b-ud-q3-k-s")
+            && item.ModelIds.Contains("qwen3.6-35b-a3b-ud-iq4-xs"));
+        Assert.DoesNotContain(installerVisible, item =>
+            item.ModelId.StartsWith("qwen3.6-", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

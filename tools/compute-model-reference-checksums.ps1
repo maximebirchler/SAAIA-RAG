@@ -121,6 +121,72 @@ $knownModels = @(
         Family = "gemma4-e4b"
         Quantization = "Q4_K_M"
         VariantState = "approved"
+    },
+    [pscustomobject]@{
+        ModelId = "qwen3.6-27b-q4-k-m"
+        FileName = "Qwen3.6-27B-Q4_K_M.gguf"
+        Family = "qwen3.6"
+        Quantization = "Q4_K_M"
+        VariantState = "approved"
+        DisplayName = "Qwen3.6 27B Q4_K_M"
+        SourceRef = "local-bundle"
+        Architecture = "qwen3"
+        ContextLength = 40960
+    },
+    [pscustomobject]@{
+        ModelId = "qwen3.6-35b-a3b-ud-q3-k-s"
+        FileName = "Qwen3.6-35B-A3B-UD-Q3_K_S.gguf"
+        Family = "qwen3.6-a3b"
+        Quantization = "Q3_K_S"
+        VariantState = "approved"
+        DisplayName = "Qwen3.6 35B A3B UD Q3_K_S"
+        SourceRef = "local-bundle"
+        Architecture = "qwen3"
+        ContextLength = 40960
+    },
+    [pscustomobject]@{
+        ModelId = "qwen3.6-35b-a3b-ud-q3-k-m"
+        FileName = "Qwen3.6-35B-A3B-UD-Q3_K_M.gguf"
+        Family = "qwen3.6-a3b"
+        Quantization = "Q3_K_M"
+        VariantState = "approved"
+        DisplayName = "Qwen3.6 35B A3B UD Q3_K_M"
+        SourceRef = "local-bundle"
+        Architecture = "qwen3"
+        ContextLength = 40960
+    },
+    [pscustomobject]@{
+        ModelId = "qwen3.6-35b-a3b-ud-iq4-xs"
+        FileName = "Qwen3.6-35B-A3B-UD-IQ4_XS.gguf"
+        Family = "qwen3.6-a3b"
+        Quantization = "IQ4_XS"
+        VariantState = "approved"
+        DisplayName = "Qwen3.6 35B A3B UD IQ4_XS"
+        SourceRef = "local-bundle"
+        Architecture = "qwen3"
+        ContextLength = 40960
+    },
+    [pscustomobject]@{
+        ModelId = "qwen3.6-35b-a3b-ud-q4-k-m"
+        FileName = "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf"
+        Family = "qwen3.6-a3b"
+        Quantization = "Q4_K_M"
+        VariantState = "approved"
+        DisplayName = "Qwen3.6 35B A3B UD Q4_K_M"
+        SourceRef = "local-bundle"
+        Architecture = "qwen3"
+        ContextLength = 40960
+    },
+    [pscustomobject]@{
+        ModelId = "qwen3.6-35b-a3b-ud-q5-k-m"
+        FileName = "Qwen3.6-35B-A3B-UD-Q5_K_M.gguf"
+        Family = "qwen3.6-a3b"
+        Quantization = "Q5_K_M"
+        VariantState = "approved"
+        DisplayName = "Qwen3.6 35B A3B UD Q5_K_M"
+        SourceRef = "local-bundle"
+        Architecture = "qwen3"
+        ContextLength = 40960
     }
 )
 
