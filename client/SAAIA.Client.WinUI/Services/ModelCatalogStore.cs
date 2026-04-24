@@ -162,6 +162,12 @@ internal static class ModelCatalogStore
             CreateDefaultSources,
             governanceRoot);
 
+    internal static bool IsDiscoveryAllowed(string? governanceRoot = null)
+        => GetEffectivePolicy(governanceRoot).AllowDiscovery;
+
+    internal static int GetMaxActiveClientModels(string? governanceRoot = null)
+        => Math.Max(1, GetEffectivePolicy(governanceRoot).MaxActiveModelsClient);
+
     internal static IReadOnlyList<ModelCatalogItem> GetCollectionModels(string key, string? governanceRoot = null)
     {
         var catalog = GetEffectiveCatalog(governanceRoot);
@@ -195,6 +201,31 @@ internal static class ModelCatalogStore
         return selected.Length > 0
             ? selected
             : catalog.Items.Where(item => item.SupportedScopes.Contains("client", StringComparer.OrdinalIgnoreCase)).ToArray();
+    }
+
+    internal static bool IsInstallerVisibleClientModel(string? modelIdOrFileName, string? governanceRoot = null)
+    {
+        if (string.IsNullOrWhiteSpace(modelIdOrFileName))
+            return false;
+
+        var probe = modelIdOrFileName.Trim();
+        var canonical = ResolveCanonicalModelId(probe);
+        return GetInstallerVisibleClientModels(governanceRoot).Any(item =>
+            string.Equals(item.ModelId, canonical, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(item.FileName, probe, StringComparison.OrdinalIgnoreCase));
+    }
+
+    internal static string? GetClientCatalogPolicyViolation(string? modelIdOrFileName, string? governanceRoot = null)
+    {
+        if (string.IsNullOrWhiteSpace(modelIdOrFileName))
+            return null;
+
+        if (IsDiscoveryAllowed(governanceRoot))
+            return null;
+
+        return IsInstallerVisibleClientModel(modelIdOrFileName, governanceRoot)
+            ? null
+            : $"Model '{modelIdOrFileName}' is not approved by the governed client catalog.";
     }
 
     internal static string? TryBuildDownloadUrl(ModelCatalogItem model, string? governanceRoot = null)

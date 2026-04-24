@@ -89,6 +89,9 @@ infra/req*.json
 artifacts/runtime-ci/
 artifacts/llama-*/
 artifacts/llm-bench-*/
+artifacts/manual-test-checklist/*.xlsx
+Test Bench/
+support-bundles/
 
 # Ignore build artifacts anywhere (client included)
 **/.vs/

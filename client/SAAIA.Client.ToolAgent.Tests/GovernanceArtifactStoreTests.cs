@@ -381,6 +381,42 @@ public sealed class GovernanceArtifactStoreTests
     }
 
     [Fact]
+    public void Effective_model_policy_blocks_non_catalog_client_models_when_discovery_is_disabled()
+    {
+        Assert.False(ModelCatalogStore.IsDiscoveryAllowed());
+        Assert.Equal(1, ModelCatalogStore.GetMaxActiveClientModels());
+        Assert.Null(ModelCatalogStore.GetClientCatalogPolicyViolation("Qwen2.5-3B-Instruct-Q4_K_M.gguf"));
+        Assert.NotNull(ModelCatalogStore.GetClientCatalogPolicyViolation("custom-experimental-model.gguf"));
+    }
+
+    [Fact]
+    public async Task Effective_model_policy_override_can_allow_non_catalog_client_models()
+    {
+        var root = NewTempRoot();
+        try
+        {
+            var custom = new ModelPolicyArtifact(
+                GovernanceArtifactStore.ModelPolicyFile,
+                "v3.1",
+                AllowDiscovery: true,
+                RequireChecksum: true,
+                MaxActiveModelsClient: 2,
+                BlacklistRef: GovernanceArtifactStore.BlacklistFile,
+                Rules: new[] { "custom_allow_discovery" });
+
+            await GovernanceArtifactStore.WriteAsync(GovernanceArtifactStore.ModelPolicyFile, custom, root);
+
+            Assert.True(ModelCatalogStore.IsDiscoveryAllowed(root));
+            Assert.Equal(2, ModelCatalogStore.GetMaxActiveClientModels(root));
+            Assert.Null(ModelCatalogStore.GetClientCatalogPolicyViolation("custom-experimental-model.gguf", root));
+        }
+        finally
+        {
+            DeleteTempRoot(root);
+        }
+    }
+
+    [Fact]
     public void HardwareProbeService_create_artifact_includes_observed_dxgi_budget()
     {
         var gpu = new GpuInfo(

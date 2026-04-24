@@ -280,6 +280,39 @@ public sealed class AdminRuntimeEndpointsTests
     }
 
     [Fact]
+    public void CopyOptionalSupportBundleLlmLogs_writes_readme_when_no_logs_exist()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "saaia-support-no-logs-" + Guid.NewGuid().ToString("N"));
+        var tempLocalAppData = Path.Combine(Path.GetTempPath(), "saaia-localappdata-" + Guid.NewGuid().ToString("N"));
+        var staging = Path.Combine(tempRoot, "staging");
+
+        try
+        {
+            Directory.CreateDirectory(staging);
+
+            var artifacts = new List<string>();
+            var missing = new List<string>();
+            AdminRuntimeEndpoints.CopyOptionalSupportBundleLlmLogs(
+                staging,
+                new StubHostEnvironment { ContentRootPath = tempRoot },
+                artifacts,
+                missing,
+                tempLocalAppData);
+
+            Assert.Contains("llm-logs/README.txt", artifacts);
+            Assert.DoesNotContain("llm-logs/", missing);
+            Assert.True(File.Exists(Path.Combine(staging, "llm-logs", "README.txt")));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+            if (Directory.Exists(tempLocalAppData))
+                Directory.Delete(tempLocalAppData, recursive: true);
+        }
+    }
+
+    [Fact]
     public void CopyOptionalSupportBundleRuntimeFiles_reads_local_appdata_runtime_artifacts()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), "saaia-support-runtime-" + Guid.NewGuid().ToString("N"));

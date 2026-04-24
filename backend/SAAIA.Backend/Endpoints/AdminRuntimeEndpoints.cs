@@ -1190,7 +1190,14 @@ public static class AdminRuntimeEndpoints
         }
 
         if (copiedLlmLogs == 0)
-            missing.Add("llm-logs/");
+        {
+            var outDir = Path.Combine(stagingRoot, "llm-logs");
+            Directory.CreateDirectory(outDir);
+            File.WriteAllText(
+                Path.Combine(outDir, "README.txt"),
+                "No local llama.cpp logs were present on this deployment at bundle generation time.\r\n");
+            artifacts.Add("llm-logs/README.txt");
+        }
     }
 
     internal static IReadOnlyList<string> GetOptionalSupportBundleGovernanceRoots(

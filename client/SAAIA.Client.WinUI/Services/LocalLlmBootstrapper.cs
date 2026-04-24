@@ -61,6 +61,10 @@ internal sealed class LocalLlmBootstrapper
         // 0) Auto-detect an existing model in %LOCALAPPDATA%\SAAIA\Models (helps after manual copy).
         TryAutoDetectExistingModel(s);
 
+        var catalogPolicyViolation = GetSelectedClientModelPolicyViolation(s);
+        if (!string.IsNullOrWhiteSpace(catalogPolicyViolation))
+            return (false, catalogPolicyViolation, installed);
+
         // 1) Resolve executable (installer should ship it).
         ResolveExePath(s, hasNvidia);
 
@@ -374,7 +378,7 @@ internal sealed class LocalLlmBootstrapper
                 return;
 
             // If the user set a custom ModelId that's not in our pack, keep it.
-            if (!string.IsNullOrWhiteSpace(s.ModelId) && !IsPackModel(s.ModelId))
+            if (!string.IsNullOrWhiteSpace(s.ModelId) && !IsPackModel(s.ModelId) && ModelCatalogStore.IsDiscoveryAllowed())
                 return;
 
             var candidates = GetModelCandidates(gpu, s.ModelId);
@@ -404,9 +408,7 @@ internal sealed class LocalLlmBootstrapper
     {
         if (string.IsNullOrWhiteSpace(modelId)) return false;
         var canonical = ModelCatalogStore.ResolveCanonicalModelId(modelId);
-        return ModelCatalogStore.GetInstallerVisibleClientModels().Any(item =>
-            string.Equals(item.ModelId, canonical, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(item.FileName, modelId, StringComparison.OrdinalIgnoreCase));
+        return ModelCatalogStore.IsInstallerVisibleClientModel(canonical ?? modelId);
     }
 
     private static IEnumerable<string> GetPreferredCollectionKeys(GpuInfo? gpu)
@@ -530,6 +532,9 @@ internal sealed class LocalLlmBootstrapper
                     return;
                 }
             }
+
+            if (!ModelCatalogStore.IsDiscoveryAllowed())
+                return;
 
             // Otherwise keep the largest model (best quality)
             var best = candidates[0];
@@ -666,6 +671,16 @@ internal sealed class LocalLlmBootstrapper
 
         return ModelCatalogStore.TryGetItem(currentModelId)
             ?? ModelCatalogStore.TryGetItem(string.IsNullOrWhiteSpace(s.ModelPath) ? null : Path.GetFileName(s.ModelPath));
+    }
+
+    private static string? GetSelectedClientModelPolicyViolation(AppSettings s)
+    {
+        var selectedModel =
+            ModelCatalogStore.ResolveCanonicalModelId(s.ModelId)
+            ?? ModelCatalogStore.ResolveCanonicalModelId(string.IsNullOrWhiteSpace(s.ModelPath) ? null : Path.GetFileName(s.ModelPath))
+            ?? (string.IsNullOrWhiteSpace(s.ModelPath) ? s.ModelId : Path.GetFileName(s.ModelPath));
+
+        return ModelCatalogStore.GetClientCatalogPolicyViolation(selectedModel);
     }
 
     private static bool IsCpuRuntimePath(string exePath)

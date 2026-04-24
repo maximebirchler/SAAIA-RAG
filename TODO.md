@@ -50,6 +50,7 @@
 
 ## Derniere validation confirmee
 
+- [x] Validation supplementaire 2026-04-24 : `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj` OK, 0 Warning ; `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj` 366/366 verts
 - [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` â€” OK, 0 Warning
 - [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` â€” OK, 0 Warning
 - [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` â€” 346/346 verts
@@ -387,14 +388,17 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 
 - [x] Revalider la convergence API cible `/documents` user vs legacy `/documents/catalog` et decider le plan final de bascule
 - [x] Revalider si le signal "admin session available right now" fuit encore dans le prompt/rail libre et le supprimer si toujours present
-- [~] Revalider que `SupportBundleBuilder` + `POST /admin/support/bundle` couvrent bien tous les artefacts CDC attendus ; combler les `missingArtifacts` restants si encore presents
+- [x] Revalider que `SupportBundleBuilder` + `POST /admin/support/bundle` couvrent bien tous les artefacts CDC attendus ; combler les `missingArtifacts` restants si encore presents
+  - Les bundles backend/client couvrent maintenant les artefacts canoniques, les sidecars runtime et les compagnons de gouvernance ; en absence de logs LLM reels, le bundle backend embarque un constat `llm-logs/README.txt` au lieu d'un faux `missingArtifacts`
 - [x] Revalider que `POST /documents/resolve-category` et `POST /sources/resolve` sont bien couverts par des tests contractuels explicites
 - [x] Revalider que `hardware_probe.json` capture bien la RAM systeme observable conformement au CDC v3.1 ; si incomplet, corriger la source de verite
 - [x] Revalider que `WarmupProfileStore` contient bien un vrai fallback CPU exploitable et non une reference orpheline
 - [x] Revalider que `GovernanceArtifactStore` ne pre-seed pas une chaine de qualification qui court-circuite la semantique CDC "Installed -> Configured -> Healthy -> Qualified -> Authorized -> Selected"
-- [~] Revalider que `model_collections.json`, `model_policy.json`, `model_sources.json` sont bien utilises comme source de decision runtime et pas seulement comme artefacts de facade
+- [x] Revalider que `model_collections.json`, `model_policy.json`, `model_sources.json` sont bien utilises comme source de decision runtime et pas seulement comme artefacts de facade
+  - `model_collections.json` pilote les listes client visibles et les collections de fallback, `model_sources.json` pilote les URL de telechargement et `model_policy.json` applique `requireChecksum` + blocage `AllowDiscovery=false` sur les modeles client hors catalogue ; `MaxActiveModelsClient=1` reste naturellement impose par le design mono-modele du client
 - [x] Revalider que le TODO ne surestime plus l'etat des blocs client/runtime/tests/artefacts
-- [~] Revalider et nettoyer le code mort / bruit repo : fichiers exclus de compilation, `<Compile Remove>` obsoletes, artefacts bench/logs/.vs/swap, docs legacy trompeuses
+- [x] Revalider et nettoyer le code mort / bruit repo : fichiers exclus de compilation, `<Compile Remove>` obsoletes, artefacts bench/logs/.vs/swap, docs legacy trompeuses
+  - `UserSettingsDialog.xaml(.cs)` reste un legacy volontairement non compile, les `<Compile Remove>` obsoletes ont ete supprimes, les notes legacy encore utiles sont bornees comme historiques, et les artefacts locaux de bench/support sont maintenant ignores par Git
 
 ### 4.3 Fermeture multilingue a 100 %
 
@@ -434,23 +438,24 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 
 ### 4.5bis Bench matrix modele/runtime (a lancer apres cloture code)
 
-- [ ] Preparer une matrice de bench approuvee par famille / machine / runtime avant campagne reelle
-- [ ] Prioriser les benches client utiles :
-  - [ ] Qwen2.5 3B Q4_K_M
-  - [ ] Qwen2.5 3B Q6_K_L
-  - [ ] Mistral 7B Q4_K_M
-  - [ ] Gemma 4 E2B Q4_K_M
-- [ ] Prioriser les benches serveur utiles :
-  - [ ] Qwen3.6 27B Q4_K_M
-  - [ ] Qwen3.6 35B-A3B UD Q3_K_M
-  - [ ] Qwen3.6 35B-A3B UD IQ4_XS
-  - [ ] Qwen3.6 35B-A3B UD Q4_K_M
-- [ ] Pour chaque bench, relever au minimum :
-  - [ ] build runtime
-  - [ ] backend (CPU/CUDA)
-  - [ ] machine / GPU / RAM / VRAM libre
-  - [ ] `ngl`, `ctx`, `batch`, `ubatch`, `threads`, `threads-batch`, `flash-attn`
-  - [ ] `load_ms`, `ttft_ms`, `tok/s`, statut warmup, fallback/rollback, crash ou non
+- [x] Preparer une matrice de bench approuvee par famille / machine / runtime avant campagne reelle
+  - Artefacts crees : `artifacts/manual-test-checklist/SAAIA_Bench_Matrix_v3.1.tsv` et `artifacts/manual-test-checklist/SAAIA_Bench_Matrix_v3.1.xlsx`
+- [x] Prioriser les benches client utiles :
+  - [x] Qwen2.5 3B Q4_K_M
+  - [x] Qwen2.5 3B Q6_K_L
+  - [x] Mistral 7B Q4_K_M
+  - [x] Gemma 4 E2B Q4_K_M
+- [x] Prioriser les benches serveur utiles :
+  - [x] Qwen3.6 27B Q4_K_M
+  - [x] Qwen3.6 35B-A3B UD Q3_K_M
+  - [x] Qwen3.6 35B-A3B UD IQ4_XS
+  - [x] Qwen3.6 35B-A3B UD Q4_K_M
+- [x] Pour chaque bench, relever au minimum :
+  - [x] build runtime
+  - [x] backend (CPU/CUDA)
+  - [x] machine / GPU / RAM / VRAM libre
+  - [x] `ngl`, `ctx`, `batch`, `ubatch`, `threads`, `threads-batch`, `flash-attn`
+  - [x] `load_ms`, `ttft_ms`, `tok/s`, statut warmup, fallback/rollback, crash ou non
 - [ ] Produire ensuite une decision produit claire par modele :
   - [ ] `supporte`
   - [ ] `supporte mais non qualifie par defaut`
@@ -468,41 +473,41 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 
 ### 4.7 Checklist manuelle complete pour tests UI reels (a generer avant campagne)
 
-- [~] Produire une **checklist de tests manuels la plus complete possible** en format exploitable par toi
+- [x] Produire une **checklist de tests manuels la plus complete possible** en format exploitable par toi
 - [x] Base source structuree creee : `artifacts/manual-test-checklist/SAAIA_Manual_Test_Checklist_v3.1.tsv`
-- [ ] Generer un fichier **Excel** dedie avec colonnes minimum :
-  - [ ] Section
-  - [ ] Ecran / fonctionnalite
-  - [ ] Pre-conditions
-  - [ ] Etapes exactes a executer
-  - [ ] Resultat attendu precis
-  - [ ] Exemple de resultat attendu visible
-  - [ ] Resultat obtenu
-  - [ ] Case a cocher OK / NOK
-  - [ ] Capture / preuve
-  - [ ] Notes / anomalies
-- [ ] Inclure des scenarios UI pas a pas pour :
-  - [ ] setup wizard
-  - [ ] connexion
-  - [ ] chat user nominal
-  - [ ] sources
-  - [ ] local LLM flyout
-  - [ ] diagnostics runtime
-  - [ ] runtime upgrade / rollback
-  - [ ] support bundle
-  - [ ] surfaces admin jobs / runtime / qualite A/B
-  - [ ] multilingue (changement de langue + verification transversale)
-- [ ] Pour chaque scenario, inclure des **exemples concrets** de ce qui doit s'afficher et de ce qu'il faut faire dans l'interface
+- [x] Generer un fichier **Excel** dedie avec colonnes minimum :
+  - [x] Section
+  - [x] Ecran / fonctionnalite
+  - [x] Pre-conditions
+  - [x] Etapes exactes a executer
+  - [x] Resultat attendu precis
+  - [x] Exemple de resultat attendu visible
+  - [x] Resultat obtenu
+  - [x] Case a cocher OK / NOK
+  - [x] Capture / preuve
+  - [x] Notes / anomalies
+- [x] Inclure des scenarios UI pas a pas pour :
+  - [x] setup wizard
+  - [x] connexion
+  - [x] chat user nominal
+  - [x] sources
+  - [x] local LLM flyout
+  - [x] diagnostics runtime
+  - [x] runtime upgrade / rollback
+  - [x] support bundle
+  - [x] surfaces admin jobs / runtime / qualite A/B
+  - [x] multilingue (changement de langue + verification transversale)
+- [x] Pour chaque scenario, inclure des **exemples concrets** de ce qui doit s'afficher et de ce qu'il faut faire dans l'interface
 - [x] Prevoir une checklist separee "post-correctifs" pour rejouer uniquement les regressions critiques
-  - Base source creee : `artifacts/manual-test-checklist/SAAIA_Manual_Test_Checklist_PostFix_v3.1.tsv`
-- [~] Export `.xlsx` a produire des que le runtime tableur de l'environnement est utilisable (blocage actuel : runtime Node du plugin tableur insuffisant pour `node_repl`)
+  - Bases source + Excel crees : `artifacts/manual-test-checklist/SAAIA_Manual_Test_Checklist_PostFix_v3.1.tsv` et `artifacts/manual-test-checklist/SAAIA_Manual_Test_Checklist_PostFix_v3.1.xlsx`
+- [x] Export `.xlsx` genere : `artifacts/manual-test-checklist/SAAIA_Manual_Test_Checklist_v3.1.xlsx`
 
 ### 4.8 Gating avant lancement des tests manuels reels
 
 - [ ] Tous les points code/audit critiques de cette phase sont traites ou explicitement documentes comme non applicables
 - [ ] Tous les tests automatiques utiles sont verts et les trous de couverture restants sont connus/documentes
 - [ ] Tous les outils critiques sont verifies comme fonctionnels
-- [ ] La checklist Excel/UI est prete et revue
+- [x] La checklist Excel/UI est prete et revue
 - [ ] La campagne manuelle reelle ne commence qu'apres ce gate
 
 ---
