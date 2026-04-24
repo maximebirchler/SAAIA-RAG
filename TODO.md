@@ -53,7 +53,7 @@
 - [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` â€” OK, 0 Warning
 - [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` â€” OK, 0 Warning
 - [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` â€” 346/346 verts
-- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj` â€” 359/359 verts
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj` â€” 364/364 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
 - [x] Revalidation client 2026-04-23 apres diagnostic runtime local : 316/316 verts
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
@@ -399,10 +399,11 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 ### 4.3 Fermeture multilingue a 100 %
 
 - [~] Faire une passe finale "chaine visible utilisateur" sur **tout** le client compile, sans exclure les vues admin/runtime
-- [ ] Verifier que tous les `Content=`, `Text=`, `Header=`, `PlaceholderText=`, `ToolTip`, `Status(...)`, `StatusNote`, `ContentDialog` visibles sont pilotes par `UiLanguage` ou equivalents
+- [~] Verifier que tous les `Content=`, `Text=`, `Header=`, `PlaceholderText=`, `ToolTip`, `Status(...)`, `StatusNote`, `ContentDialog` visibles sont pilotes par `UiLanguage` ou equivalents
+  - Faux positifs XAML actifs revalidés : `SetupWizardDialog.xaml` (titres/boutons/placeholders repris par `SetupWizardDialog.xaml.cs`), `SourcesCardsControl.xaml` (bouton `Open` repris a chaud), `UserSettingsDialog.xaml` non compile et deja documente a part
 - [~] Verifier aussi les erreurs de services susceptibles de remonter jusqu'a l'UI : `ApiClient*`, `ModelLibrary`, `DocumentLauncher`, bootstrap, import/export, runtime diagnostics
 - [~] Verifier que les textes generes a partir des templates / DataTemplate / boutons charges dynamiquement (copy, streaming, sessions, flyouts) sont bien localises
-- [ ] Documenter explicitement les zones **non compilees** ou **techniques par design** pour ne plus les confondre avec de la dette active
+- [x] Documenter explicitement les zones **non compilees** ou **techniques par design** pour ne plus les confondre avec de la dette active
 
 ### 4.4 Tests automatiques : fermeture maximale avant manuel
 
@@ -410,18 +411,19 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 - [ ] Refaire une revue complete des tests client existants vs runtime governance, UI state, checksums, rollback, diagnostics, support bundle
 - [~] Ajouter les tests contractuels manquants identifies pendant l'audit par section
 - [~] Ajouter les tests de non-regression sur les zones critiques deja touchees : multilingue, runtime policy, support bundle, diagnostics runtime, setup wizard
-- [ ] Verifier que tous les outils/scripts critiques ont au moins un test ou une verification contractuelle minimale
-- [ ] Verifier que les compteurs de tests annonces dans le TODO sont toujours exacts et les realigner apres chaque passe
+  - Safety nets ajoutes sur `SetupWizard`, resume runtime admin et scripts critiques ; la revue transversale complete backend/client reste a cloturer
+- [x] Verifier que tous les outils/scripts critiques ont au moins un test ou une verification contractuelle minimale
+- [x] Verifier que les compteurs de tests annonces dans le TODO sont toujours exacts et les realigner apres chaque passe
 
 ### 4.5 Outils / scripts / artefacts : verification de fonctionnement reel
 
-- [ ] Verifier tous les scripts `tools/*` utiles un par un : checksum, runtime-ci, bench, export/checklist, support bundle, harness
-- [~] `tools/compute-model-reference-checksums.ps1` : syntaxe OK + execution reelle validee sur la machine ; sortie clarifiee entre `approved` et `legacy_optional` (actuel : 8 approuves trouves, 0 approuve manquant, 4 legacy optionnels manquants)
-- [~] `tools/runtime-ci-harness.ps1` : syntaxe/structure OK + smoke non strict valide (`runtime_probes` skippe si `SAAIA_RUNTIME_CI_BASE_URL` absent) ; execution runtime reelle a faire seulement pendant la phase de tests machine
+- [x] Verifier tous les scripts `tools/*` utiles un par un : checksum, runtime-ci, bench, export/checklist, support bundle, harness
+- [x] `tools/compute-model-reference-checksums.ps1` : syntaxe OK + execution reelle validee sur la machine ; sortie clarifiee entre `approved` et `legacy_optional` (actuel : 14 approuves trouves, 0 approuve manquant, 4 legacy optionnels manquants)
+- [~] `tools/runtime-ci-harness.ps1` : syntaxe/structure OK + smoke non strict revalide (`runtime_probes` skippe si `SAAIA_RUNTIME_CI_BASE_URL` absent) ; execution runtime reelle a faire seulement pendant la phase de tests machine
 - [x] `tools/ConfigSigner` : build local OK + workflow fonctionnel de signature/verification bout-en-bout valide en local
-- [~] `tools/verify-governance-artifacts.ps1` : audit local des artefacts de gouvernance ajoute et valide ; rapport JSON genere dans `artifacts/runtime-ci/governance-artifact-audit.json`
+- [x] `tools/verify-governance-artifacts.ps1` : audit local des artefacts de gouvernance ajoute et valide ; rapport JSON regenere et vert sur la machine
 - [x] `tools/repair-governance-artifacts.ps1` : helper de reparation ajoute pour les sidecars `.sha256` desynchronises (dry-run valide) ; ne cree pas les JSON manquants, qui doivent encore etre regeneres par le flux client
-- [~] Verifier que les fichiers/artefacts de gouvernance produits localement sont coherents, checksummes et lisibles
+- [x] Verifier que les fichiers/artefacts de gouvernance produits localement sont coherents, checksummes et lisibles
   - Etat machine apres regeneration reelle : `%LOCALAPPDATA%\\SAAIA\\governance` = `16/16` presents, `16/16` verifies, `0` mismatch
   - Etat machine apres qualification headless : `%LOCALAPPDATA%\\SAAIA\\llm\\runtime\\active-runtime.json` = present, sidecar `.sha256` present, audit local `1/1` runtime verifie
 - [~] Verifier que les endpoints admin et outils client pointent tous sur les bons artefacts v3.1
@@ -429,6 +431,32 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 - [~] Verifier que les scripts/documentations de bench ne referencent plus des hypotheses obsoletes (phase 0, runtime unique, vieux builds, noms legacy)
   - Table CDC active realignee sur les endpoints/runtime deja exposes ; le reliquat concerne surtout les notes historiques et documents de bench a conserver comme archives explicites
 - [~] Notes/docs de support requalifiees : les documents encore utiles mais non normatifs doivent afficher explicitement leur statut `historique` ou `note de travail`, pour ne plus etre confondus avec le CDC actif
+
+### 4.5bis Bench matrix modele/runtime (a lancer apres cloture code)
+
+- [ ] Preparer une matrice de bench approuvee par famille / machine / runtime avant campagne reelle
+- [ ] Prioriser les benches client utiles :
+  - [ ] Qwen2.5 3B Q4_K_M
+  - [ ] Qwen2.5 3B Q6_K_L
+  - [ ] Mistral 7B Q4_K_M
+  - [ ] Gemma 4 E2B Q4_K_M
+- [ ] Prioriser les benches serveur utiles :
+  - [ ] Qwen3.6 27B Q4_K_M
+  - [ ] Qwen3.6 35B-A3B UD Q3_K_M
+  - [ ] Qwen3.6 35B-A3B UD IQ4_XS
+  - [ ] Qwen3.6 35B-A3B UD Q4_K_M
+- [ ] Pour chaque bench, relever au minimum :
+  - [ ] build runtime
+  - [ ] backend (CPU/CUDA)
+  - [ ] machine / GPU / RAM / VRAM libre
+  - [ ] `ngl`, `ctx`, `batch`, `ubatch`, `threads`, `threads-batch`, `flash-attn`
+  - [ ] `load_ms`, `ttft_ms`, `tok/s`, statut warmup, fallback/rollback, crash ou non
+- [ ] Produire ensuite une decision produit claire par modele :
+  - [ ] `supporte`
+  - [ ] `supporte mais non qualifie par defaut`
+  - [ ] `serveur uniquement`
+  - [ ] `famille de test uniquement`
+- [ ] Ne lancer cette campagne bench complete qu'apres fermeture maximale de l'audit code / contrats / multilingue / outils
 
 ### 4.6 Runtime : decision produit finale avant tests machine reels
 
@@ -691,3 +719,4 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 | 2026-04-24 | Codex | Audit Phase 4 - passe 32 : filets de securite runtime UX ajoutes ; diagnostics runtime couvrent explicitement l'etat `qualified` reel et le statut utilisateur couvre le cas `runtime_upgrade_required` sur runtime legacy/Gemma, tests client cibles `13/13` verts |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 33 : catalogue modele et script checksum etendus aux modeles serveur Qwen 3.6 (`27B` + `35B-A3B`), avec collections backend non visibles dans l'installer client et hashes locaux verifies |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 34 : sync automatique des artefacts locaux `model_catalog.json` et `model_collections.json` quand le catalogue par defaut s'enrichit ; regeneration machine reelle executee, gouvernance locale revalidee `16/16` + runtime `1/1`, suite client complete `359/359` verte |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 35 : safety nets ajoutes sur le multilingue compile (`SetupWizard` titres/boutons, resume runtime admin) et sur les scripts critiques `tools/*` ; revalidation sequentielle client `364/364` verte, parsing PowerShell OK, `runtime-ci-harness` smoke revalide, audit gouvernance local toujours vert |

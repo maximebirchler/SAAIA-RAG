@@ -71,6 +71,39 @@ public sealed class UiLocalizationSafetyNetTests
         Assert.Contains("ModelIdBox.PlaceholderText = SZ(", source);
     }
 
+    [Fact]
+    public void Setup_wizard_applies_localized_title_buttons_and_advanced_labels_from_code()
+    {
+        var repoRoot = FindRepoRoot();
+        var file = Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "Controls", "SetupWizardDialog.xaml.cs");
+        var source = File.ReadAllText(file);
+
+        Assert.Contains("Title = SZ(", source);
+        Assert.Contains("PrimaryButtonText = SZ(", source);
+        Assert.Contains("CloseButtonText = SZ(", source);
+        Assert.Contains("TestReadyButton.Content = SZ(", source);
+        Assert.Contains("TestApiKeyButton.Content = SZ(", source);
+        Assert.Contains("UseLocalLlmCheck.Content = SZ(", source);
+        Assert.Contains("AutoStartCheck.Content = SZ(", source);
+        Assert.Contains("TestModelsButton.Content = SZ(", source);
+        Assert.Contains("StartLocalLlmButton.Content = SZ(", source);
+        Assert.Contains("StopLocalLlmButton.Content = SZ(", source);
+    }
+
+    [Fact]
+    public void Admin_runtime_overlay_uses_localized_runtime_summary_labels()
+    {
+        var repoRoot = FindRepoRoot();
+        var file = Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "MainWindow", "AdminRuntimeOpsPanel.cs");
+        var source = File.ReadAllText(file);
+
+        Assert.Contains("LocalRuntimeText(\"Evenements runtime recents :\"", source);
+        Assert.Contains("LocalRuntimeText(\"Evenements runtime recents : aucun\"", source);
+        Assert.Contains("ResolveRuntimeStateLabel(diagnostics.ActiveState, lang)", source);
+        Assert.Contains("ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus, lang)", source);
+        Assert.Contains("ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn, lang)", source);
+    }
+
     private static string FindRepoRoot()
     {
         var current = AppContext.BaseDirectory;
