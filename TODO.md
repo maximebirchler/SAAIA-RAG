@@ -53,7 +53,7 @@
 - [x] `dotnet build backend/SAAIA.Backend/SAAIA.Backend.csproj` â€” OK, 0 Warning
 - [x] `dotnet build client/SAAIA.Client.WinUI/SAAIA.Client.WinUI.csproj -p:Platform=x64 -p:Configuration=Debug` â€” OK, 0 Warning
 - [x] `dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj -p:NuGetAudit=false -nologo -m:1` â€” 346/346 verts
-- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj` â€” 344/344 verts
+- [x] `dotnet test client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj` â€” 347/347 verts
 - [x] `git diff --check` sans nouvelle erreur bloquante
 - [x] Revalidation client 2026-04-23 apres diagnostic runtime local : 316/316 verts
 - [x] Warnings CRLF restants connus sur quelques fichiers deja presents dans le repo
@@ -415,8 +415,8 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 
 - [ ] Verifier tous les scripts `tools/*` utiles un par un : checksum, runtime-ci, bench, export/checklist, support bundle, harness
 - [~] `tools/compute-model-reference-checksums.ps1` : syntaxe OK + execution reelle validee sur la machine (8 modeles trouves, 4 manquants)
-- [~] `tools/runtime-ci-harness.ps1` : syntaxe/structure OK ; execution reelle a faire seulement pendant la phase de tests machine
-- [~] `tools/ConfigSigner` : build local OK ; verifier ensuite le workflow fonctionnel de signature/verification bout-en-bout
+- [~] `tools/runtime-ci-harness.ps1` : syntaxe/structure OK + smoke non strict valide (`runtime_probes` skippe si `SAAIA_RUNTIME_CI_BASE_URL` absent) ; execution runtime reelle a faire seulement pendant la phase de tests machine
+- [x] `tools/ConfigSigner` : build local OK + workflow fonctionnel de signature/verification bout-en-bout valide en local
 - [ ] Verifier que les fichiers/artefacts de gouvernance produits localement sont coherents, checksummes et lisibles
 - [ ] Verifier que les endpoints admin et outils client pointent tous sur les bons artefacts v3.1
 - [ ] Verifier que les scripts/documentations de bench ne referencent plus des hypotheses obsoletes (phase 0, runtime unique, vieux builds, noms legacy)
@@ -664,3 +664,5 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 | 2026-04-24 | Codex | Audit Phase 4 - passe 17 : fermeture complementaire UI/multilingue sur le `SetupWizard` (placeholders visibles repris par le code localise), ajout d'un safety net structurel sur le `.csproj` pour confirmer que `UserSettingsDialog.xaml(.cs)` reste hors compilation, build WinUI 0 warning et suite client complete `340/340` verte ; rappel confirme que les validations WinUI doivent rester sequentielles |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 18 : reliquat gouvernance modele/client ferme partiellement ; `ClientDefaults.LlmModel` realigne sur le baseline gouverne `Q4_K_M`, retrait du fallback bootstrap hardcode au profit des modeles visibles gouvernes, test de non-regression ajoute sur le modele client par defaut, build WinUI 0 warning et suite client complete `342/342` verte |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 19 : safety net multilingue etendu sur la fenetre principale compilee (libelles coeur `Chats/New/Jump/Typing/Input/Connect/Sources/Runtime diagnostics`) et sur le menu de session `Rename/Delete`, avec suite client complete `344/344` verte ; l'audit UI/multilingue se rapproche d'un etat ferme mais garde encore les verifications transversales finales a documenter |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 20 : trou de couverture ferme sur `OpenAiLlmClient` ; injection HTTP de test ajoutee et parsing contractuel de `/models` verrouille pour les formats OpenAI (`data[].id`) et llama.cpp (`models[].name/model`) avec deduplication case-insensitive, build WinUI 0 warning et suite client complete `347/347` verte |
+| 2026-04-24 | Codex | Audit Phase 4 - passe 21 : outils/scripts verifies plus loin ; `ConfigSigner` valide en bout-en-bout (`gen-keypair` -> `sign` -> `verify=VALID`), `runtime-ci-harness.ps1` execute en smoke non strict avec rapport JSON propre et skip explicite des probes runtime sans `SAAIA_RUNTIME_CI_BASE_URL` |

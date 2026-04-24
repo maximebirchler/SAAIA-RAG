@@ -14,10 +14,7 @@ namespace SAAIA.Client.WinUI.Services;
 
 public sealed class OpenAiLlmClient
 {
-    private readonly HttpClient _http = new()
-    {
-        Timeout = Timeout.InfiniteTimeSpan
-    };
+    private readonly HttpClient _http;
 
     public event Action? RuntimeActivityStarted;
     public event Action? RuntimeActivityFinished;
@@ -30,6 +27,19 @@ public sealed class OpenAiLlmClient
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
+
+    public OpenAiLlmClient()
+        : this(httpClient: null)
+    {
+    }
+
+    internal OpenAiLlmClient(HttpClient? httpClient)
+    {
+        _http = httpClient ?? new HttpClient
+        {
+            Timeout = Timeout.InfiniteTimeSpan
+        };
+    }
 
 
     private static async Task EnsureSuccessAsync(HttpResponseMessage resp, CancellationToken ct)
