@@ -17,7 +17,7 @@ public sealed class GovernanceArtifactStoreTests
         Assert.NotNull(restored);
         Assert.Equal("llama.cpp-cuda", restored!.Runtime);
         Assert.Equal("qwen2.5-3b-instruct-q4-k-m", restored.ModelId);
-        Assert.Equal(3072, restored.CtxSize);
+        Assert.Equal(4096, restored.CtxSize);
         Assert.Equal(1024, restored.BatchSize);
         Assert.Equal(256, restored.UbatchSize);
         Assert.Equal(6, restored.ThreadsBatch);
@@ -86,6 +86,43 @@ public sealed class GovernanceArtifactStoreTests
 
             Assert.Equal(GovernanceArtifactReadStatus.ChecksumMismatch, read.Status);
             Assert.Null(read.Value);
+        }
+        finally
+        {
+            DeleteTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task EnsureDefaultArtifacts_upgrades_warmup_profiles_when_default_contract_changes()
+    {
+        var root = NewTempRoot();
+        try
+        {
+            var stale = WarmupProfileStore.CreateDefaultWarmupProfiles() with
+            {
+                Items = WarmupProfileStore.CreateDefaultWarmupProfiles().Items
+                    .Select(item => item.ProfileId == "qwen25-3b-q4km-cuda-p520-interactive"
+                        ? item with { Candidate = item.Candidate with { CtxSize = 3072 } }
+                        : item)
+                    .ToArray()
+            };
+
+            await GovernanceArtifactStore.WriteAsync(
+                GovernanceArtifactStore.WarmupProfilesFile,
+                stale,
+                root);
+
+            await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(new AppSettings(), root);
+
+            var upgraded = await GovernanceArtifactStore.ReadAsync<WarmupProfilesArtifact>(
+                GovernanceArtifactStore.WarmupProfilesFile,
+                root);
+            var nominal = upgraded.Value!.Items.Single(item =>
+                item.ProfileId == "qwen25-3b-q4km-cuda-p520-interactive");
+
+            Assert.Equal(GovernanceArtifactReadStatus.Ok, upgraded.Status);
+            Assert.Equal(4096, nominal.Candidate.CtxSize);
         }
         finally
         {

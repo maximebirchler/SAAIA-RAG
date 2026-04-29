@@ -127,7 +127,7 @@ internal static class WarmupProfileStore
         ProfileId: "qwen25-3b-q4km-cuda-p520-interactive",
         Runtime: "llama.cpp-cuda",
         ModelId: "qwen2.5-3b-instruct-q4-k-m",
-        CtxSize: 3072,
+        CtxSize: 4096,
         BatchSize: 1024,
         UbatchSize: 256,
         Threads: 6,

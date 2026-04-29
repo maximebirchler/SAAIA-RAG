@@ -160,7 +160,7 @@ internal static class GovernanceArtifactStore
         await WriteIfMissingAsync(ModelPolicyFile, ModelCatalogStore.CreateDefaultPolicy(), governanceRoot, ct).ConfigureAwait(false);
         await WriteIfMissingAsync(ModelSourcesFile, ModelCatalogStore.CreateDefaultSources(), governanceRoot, ct).ConfigureAwait(false);
         await WriteIfMissingAsync(RuntimeCompatibilityPolicyFile, RuntimeCompatibilityPolicyStore.CreateDefaultPolicy(), governanceRoot, ct).ConfigureAwait(false);
-        await WriteIfMissingAsync(WarmupProfilesFile, WarmupProfileStore.CreateDefaultWarmupProfiles(), governanceRoot, ct).ConfigureAwait(false);
+        await WriteOrUpgradeWarmupProfilesAsync(governanceRoot, ct).ConfigureAwait(false);
         await WriteIfMissingAsync(BatteryPoliciesFile, BatteryPolicyStore.CreateDefaultPolicies(), governanceRoot, ct).ConfigureAwait(false);
 
         await WriteIfMissingAsync(WarmupResultsFile, new WarmupResultsArtifact("warmup_results.json", "v3.1", Array.Empty<WarmupResultItem>()), governanceRoot, ct).ConfigureAwait(false);
@@ -294,6 +294,59 @@ internal static class GovernanceArtifactStore
         };
         await WriteAsync(ModelCollectionsFile, upgraded, root, ct).ConfigureAwait(false);
     }
+
+    private static async Task WriteOrUpgradeWarmupProfilesAsync(
+        string root,
+        CancellationToken ct)
+    {
+        var defaults = WarmupProfileStore.CreateDefaultWarmupProfiles();
+        var read = await ReadAsync<WarmupProfilesArtifact>(WarmupProfilesFile, root, ct).ConfigureAwait(false);
+        if (read.Status != GovernanceArtifactReadStatus.Ok || read.Value is null)
+        {
+            await WriteAsync(WarmupProfilesFile, defaults, root, ct).ConfigureAwait(false);
+            return;
+        }
+
+        var items = read.Value.Items.ToList();
+        var changed = !string.Equals(read.Value.CdcAlignment, defaults.CdcAlignment, StringComparison.OrdinalIgnoreCase)
+            || read.Value.WarmupPassCount != defaults.WarmupPassCount;
+
+        foreach (var defaultItem in defaults.Items)
+        {
+            var index = items.FindIndex(item =>
+                string.Equals(item.ProfileId, defaultItem.ProfileId, StringComparison.OrdinalIgnoreCase));
+            if (index < 0)
+            {
+                items.Add(defaultItem);
+                changed = true;
+                continue;
+            }
+
+            if (JsonEquivalent(items[index], defaultItem))
+                continue;
+
+            items[index] = defaultItem;
+            changed = true;
+        }
+
+        if (!changed)
+            return;
+
+        var upgraded = read.Value with
+        {
+            CdcAlignment = defaults.CdcAlignment,
+            WarmupPassCount = defaults.WarmupPassCount,
+            Items = items
+        };
+
+        await WriteAsync(WarmupProfilesFile, upgraded, root, ct).ConfigureAwait(false);
+    }
+
+    private static bool JsonEquivalent<T>(T left, T right)
+        => string.Equals(
+            JsonSerializer.Serialize(left, JsonOptions),
+            JsonSerializer.Serialize(right, JsonOptions),
+            StringComparison.Ordinal);
 
     private static async Task WriteHardwareProbeIfMissingAsync(
         string root,
