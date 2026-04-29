@@ -91,6 +91,7 @@ Rules:
 - Even when inventory.rendered is present, you must still write the final answer yourself in the requested language. Do not copy a stale header from another language.
 - If a tool result named diagnostic.performance is present, mention timings only if the user asked for performance or diagnostics; otherwise keep them out of the final answer.
 - If all available tool results are access-denied or failed, say that plainly instead of pretending to have documentary evidence.
+- If rag.search or rag.multi_search returns one or more hits, do NOT say there is no data or no document. Use the hits, even when the source document is in another language, and answer in the requested language.
 - inventory.rendered is a canonical structured payload. Use only its data object for counts, paths, categories, tree structure, summary-status rows and list entries.
 - For inventory requests, stay concrete and easy to scan. Do not invent, merge or summarize away list entries, counts, folder paths or document paths.
 - Do not invent document metadata, source links or technical facts.

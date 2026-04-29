@@ -326,7 +326,7 @@ public sealed partial class ToolAgentOrchestrator
 
     private async Task<JsonElement> ExecRagSearchAsync(JsonElement args, CancellationToken ct)
     {
-        var query = args.GetProperty("query").GetString() ?? "";
+        var query = NormalizeRagQueryForRetrieval(args.GetProperty("query").GetString() ?? "");
         var topK = args.TryGetProperty("topK", out var k) ? k.GetInt32() : 8;
         var categoryPath = GetStringArg(args, "categoryPath") ?? GetNestedStringArg(args, "filters", "categoryPath") ?? GetStringArg(args, "category") ?? GetNestedStringArg(args, "filters", "category");
         var category = ExtractTopLevelCategoryForRag(categoryPath);
@@ -350,7 +350,7 @@ public sealed partial class ToolAgentOrchestrator
             foreach (var q in qArr.EnumerateArray())
             {
                 if (q.ValueKind != JsonValueKind.String) continue;
-                var s = (q.GetString() ?? "").Trim();
+                var s = NormalizeRagQueryForRetrieval(q.GetString() ?? "");
                 if (!string.IsNullOrWhiteSpace(s)) queries.Add(s);
             }
         }
@@ -358,10 +358,11 @@ public sealed partial class ToolAgentOrchestrator
         // fallback: single query
         if (queries.Count == 0 && args.TryGetProperty("query", out var q1) && q1.ValueKind == JsonValueKind.String)
         {
-            var s = (q1.GetString() ?? "").Trim();
+            var s = NormalizeRagQueryForRetrieval(q1.GetString() ?? "");
             if (!string.IsNullOrWhiteSpace(s)) queries.Add(s);
         }
 
+        queries = queries.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         if (queries.Count == 0)
             return JsonDocument.Parse("{\"hits\":[]}").RootElement;
 

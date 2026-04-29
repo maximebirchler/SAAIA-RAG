@@ -36,4 +36,10 @@ public sealed partial class ToolAgentOrchestrator
         var prepared = sut.PrepareUserMessageForPendingClarification(chatHistory, userMessage);
         return (prepared.EffectiveUserMessage, prepared.Consumed);
     }
+
+    internal static string NormalizeRagQueryForTests(string query)
+        => NormalizeRagQueryForRetrieval(query);
+
+    internal static bool LooksLikeStandaloneDocumentaryTopicForTests(string query)
+        => LooksLikeStandaloneDocumentaryTopic(query);
 }

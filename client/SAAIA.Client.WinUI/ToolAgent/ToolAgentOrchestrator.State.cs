@@ -676,6 +676,145 @@ CURRENT_USER_MESSAGE:
         }
     }
 
+    private static bool HasRagHits(JsonElement result)
+    {
+        return result.ValueKind == JsonValueKind.Object
+            && result.TryGetProperty("hits", out var hits)
+            && hits.ValueKind == JsonValueKind.Array
+            && hits.GetArrayLength() > 0;
+    }
+
+    private static object BuildSourcesPayload(List<ToolMemory.SourceRef> sources)
+        => new
+        {
+            sources = sources.Select(x => new { docPath = x.DocPath, pageStart = x.PageStart, pageEnd = x.PageEnd, label = x.Label }).ToList()
+        };
+
+    private static bool LooksLikeNoRagDataAnswer(string? answer)
+    {
+        var s = (answer ?? string.Empty).Trim();
+        if (s.Length == 0)
+            return false;
+
+        return Regex.IsMatch(
+            s,
+            @"(?i)\b(?:je\s+n['’]ai\s+pas|aucun(?:e)?|pas\s+de|no\s+(?:specific\s+)?(?:data|document|source|information)|nothing\s+specific)\b.{0,120}\b(?:donn[ée]es?|documents?|sources?|information|data)\b");
+    }
+
+    private static string BuildRagEvidenceFallbackAnswer(ToolResults toolResults, string query, string language)
+    {
+        language = NormalizeLanguageCode(language);
+        var hits = EnumerateRagHitSummaries(toolResults).Take(3).ToList();
+        if (hits.Count == 0)
+            return DeterministicAgentText.AnswerNotEnoughUsableInfo(language);
+
+        var first = hits[0];
+        var topic = NormalizeRagQueryForRetrieval(query);
+        topic = string.IsNullOrWhiteSpace(topic) ? "ce sujet" : topic;
+        var docLabel = string.IsNullOrWhiteSpace(first.DocName) ? first.DocPath : first.DocName;
+        var excerpt = CollapseWhitespace(first.Excerpt);
+        if (excerpt.Length > 260)
+            excerpt = excerpt[..260].TrimEnd() + "...";
+
+        return language switch
+        {
+            "en" => $"I did find document evidence about {topic}. The strongest hit is {docLabel}, page {first.PageStart}; its excerpt mentions {excerpt}",
+            "es" => $"Sí, he encontrado elementos documentales sobre {topic}. El mejor resultado es {docLabel}, página {first.PageStart}; el fragmento menciona {excerpt}",
+            "pt" => $"Sim, encontrei elementos documentais sobre {topic}. O melhor resultado é {docLabel}, página {first.PageStart}; o excerto menciona {excerpt}",
+            "de" => $"Ja, ich habe Dokumentbelege zu {topic} gefunden. Der stärkste Treffer ist {docLabel}, Seite {first.PageStart}; der Auszug erwähnt {excerpt}",
+            "it" => $"Sì, ho trovato elementi documentali su {topic}. Il risultato più forte è {docLabel}, pagina {first.PageStart}; l'estratto menziona {excerpt}",
+            _ => $"Oui, j’ai bien trouvé des éléments documentaires sur {topic}. Le meilleur résultat est {docLabel}, page {first.PageStart}; l’extrait mentionne {excerpt}"
+        };
+    }
+
+    private sealed record RagHitSummary(string DocPath, string DocName, int PageStart, string Excerpt);
+
+    private static IEnumerable<RagHitSummary> EnumerateRagHitSummaries(ToolResults toolResults)
+    {
+        foreach (var item in toolResults.Items.Where(x => x.ToolName is "rag.search" or "rag.multi_search"))
+        {
+            if (item.Result.ValueKind != JsonValueKind.Object
+                || !item.Result.TryGetProperty("hits", out var hits)
+                || hits.ValueKind != JsonValueKind.Array)
+            {
+                continue;
+            }
+
+            foreach (var h in hits.EnumerateArray())
+            {
+                if (h.ValueKind != JsonValueKind.Object)
+                    continue;
+
+                var docPath = TryGetString(h, "docPath") ?? string.Empty;
+                var docName = TryGetString(h, "docName") ?? Path.GetFileName(docPath);
+                var pageStart = TryGetInt(h, "pageStart") ?? 1;
+                var excerpt = TryGetString(h, "excerpt") ?? TryGetString(h, "text") ?? string.Empty;
+                yield return new RagHitSummary(docPath, docName, pageStart, excerpt);
+            }
+        }
+    }
+
+    private static string NormalizeRagQueryForRetrieval(string? query)
+    {
+        var s = CollapseWhitespace(query ?? string.Empty);
+        if (s.Length == 0)
+            return string.Empty;
+
+        var clarification = Regex.Match(s, @"(?is)\bUSER_CLARIFICATION:\s*(?<topic>.+?)(?:\s+RESOLVED_REQUEST:|$)");
+        if (clarification.Success)
+            s = clarification.Groups["topic"].Value.Trim();
+
+        var topicPatterns = new[]
+        {
+            @"(?i)\b(?:document|documents?|source|sources?)\s+(?:qui\s+)?(?:parle|parlent|mentionne|mentionnent|traite|traitent)\s+(?:de|du|des|d['’])?\s*(?<topic>[^?.!;]+)",
+            @"(?i)\b(?:parle|parlent|mentionne|mentionnent|traite|traitent)\s+(?:de|du|des|d['’])?\s*(?<topic>[^?.!;]+)",
+            @"(?i)\b(?:about|regarding|concerning)\s+(?<topic>[^?.!;]+)"
+        };
+
+        foreach (var pattern in topicPatterns)
+        {
+            var match = Regex.Match(s, pattern);
+            if (match.Success)
+            {
+                var topic = CleanupStandaloneTopic(match.Groups["topic"].Value);
+                if (!string.IsNullOrWhiteSpace(topic))
+                    return topic;
+            }
+        }
+
+        return CleanupStandaloneTopic(s);
+    }
+
+    private static bool LooksLikeStandaloneDocumentaryTopic(string? userMessage)
+    {
+        var s = NormalizeRagQueryForRetrieval(userMessage);
+        if (s.Length < 3 || s.Length > 80)
+            return false;
+        if (s.Contains('?', StringComparison.Ordinal))
+            return false;
+        if (Regex.IsMatch(s, @"(?i)^(?:hi|hello|bonjour|salut|merci|thanks?|ok|okay|oui|non|qui\s+es[- ]?tu|comment\s+vas[- ]?tu)$"))
+            return false;
+        if (!Regex.IsMatch(s, @"\p{L}"))
+            return false;
+
+        var tokenCount = Regex.Matches(s, @"[\p{L}\p{N}]+").Count;
+        if (tokenCount is < 1 or > 6)
+            return false;
+
+        return true;
+    }
+
+    private static string CleanupStandaloneTopic(string? value)
+    {
+        var s = CollapseWhitespace(value ?? string.Empty).Trim(' ', '.', '?', '!', ':', ';', '"', '\'');
+        s = Regex.Replace(s, @"(?i)^(?:l['’]|d['’]|de\s+l['’]|de\s+la\s+|du\s+|des\s+|le\s+|la\s+|les\s+|un\s+|une\s+)", string.Empty).Trim();
+        s = Regex.Replace(s, @"(?i)\s+(?:pr[ée]cis[ée]ment|exactement)$", string.Empty).Trim();
+        return s;
+    }
+
+    private static string CollapseWhitespace(string value)
+        => Regex.Replace(value ?? string.Empty, @"\s+", " ").Trim();
+
     private static JsonElement NormalizeRagHits(JsonElement raw)
     {
         try

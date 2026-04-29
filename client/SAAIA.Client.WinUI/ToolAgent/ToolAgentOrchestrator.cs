@@ -274,6 +274,19 @@ public sealed partial class ToolAgentOrchestrator
         if (!string.IsNullOrWhiteSpace(routerTrace))
             onProgress?.Invoke(routerTrace);
 
+        var standaloneTopicRag = await TryHandleStandaloneTopicRagAsync(
+            chatHistory,
+            userMessage,
+            effectiveUserMessage,
+            plan,
+            ct,
+            onPhase,
+            onDelta,
+            onProgress,
+            swTotalPipeline).ConfigureAwait(false);
+        if (standaloneTopicRag.handled)
+            return (standaloneTopicRag.finalAnswer, standaloneTopicRag.sourcesPayload);
+
         if (repairMessage && string.Equals(plan.Intent, "meta.rewrite_last", StringComparison.OrdinalIgnoreCase) && !plan.NeedClarification && plan.ToolCalls.Count == 0)
         {
             onPhase?.Invoke(DeterministicAgentText.PhaseClarification(plan.Language));
@@ -1301,6 +1314,97 @@ public sealed partial class ToolAgentOrchestrator
         }
     }
 
+    private async Task<(bool handled, string finalAnswer, object? sourcesPayload)> TryHandleStandaloneTopicRagAsync(
+        IReadOnlyList<(string role, string content)> chatHistory,
+        string displayUserMessage,
+        string effectiveUserMessage,
+        RouterPlan plan,
+        CancellationToken ct,
+        Action<string>? onPhase,
+        Action<string>? onDelta,
+        Action<string>? onProgress,
+        Stopwatch swTotalPipeline)
+    {
+        if (!ShouldForceRagForStandaloneTopic(effectiveUserMessage, plan))
+            return (false, string.Empty, null);
+
+        var retrievalQuery = NormalizeRagQueryForRetrieval(effectiveUserMessage);
+        if (string.IsNullOrWhiteSpace(retrievalQuery))
+            return (false, string.Empty, null);
+
+        try
+        {
+            onPhase?.Invoke(DeterministicAgentText.PhaseRag(plan.Language));
+            onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(plan.Language));
+
+            var args = CreateJsonArgs(new
+            {
+                query = retrievalQuery,
+                topK = 8,
+                mode = "balanced"
+            });
+            var ragResult = await ExecRagSearchAsync(args, ct).ConfigureAwait(false);
+            if (!HasRagHits(ragResult))
+                return (false, string.Empty, null);
+
+            var ragPlan = new RouterPlan
+            {
+                Intent = "rag.answer",
+                Language = plan.Language,
+                Mode = plan.Mode,
+                ResponseFormat = "auto",
+                ToolCalls = new List<RouterPlan.ToolCall>
+                {
+                    new()
+                    {
+                        Name = "rag.search",
+                        Args = args
+                    }
+                },
+                ReasoningTracePublic = plan.ReasoningTracePublic ?? new List<string>(),
+                RiskFlags = plan.RiskFlags ?? new List<string>(),
+                RouterConfidence = plan.RouterConfidence
+            };
+
+            var toolResults = new ToolResults();
+            toolResults.Items.Add(new ToolResults.Item
+            {
+                ToolName = "rag.search",
+                Result = ragResult
+            });
+
+            onPhase?.Invoke(DeterministicAgentText.PhaseWriting(plan.Language));
+            onProgress?.Invoke(DeterministicAgentText.ProgressDraftFinalAnswer(plan.Language));
+
+            var (answer, sources) = await AnswerAsync(chatHistory, effectiveUserMessage, ragPlan, toolResults, ct, onDelta, onProgress).ConfigureAwait(false);
+            answer = (answer ?? string.Empty).Replace("**", string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(answer) || LooksLikeNoRagDataAnswer(answer))
+                answer = BuildRagEvidenceFallbackAnswer(toolResults, retrievalQuery, plan.Language);
+
+            object? sourcesPayload = null;
+            if (sources is { Count: > 0 })
+            {
+                _mem.LastSourcesUsed = sources;
+                answer = InjectInlineSources(answer, sources, plan.Language);
+                sourcesPayload = BuildSourcesPayload(sources);
+            }
+
+            _lastAnswerSource = $"standalone_topic_rag:{ragPlan.Intent}";
+            _lastToolDurations = new List<(string tool, long durationMs, bool ok)> { ("rag.search", 0, true) };
+            _lastToolsMs = 0;
+            _lastWriterMs = 0;
+            _mem.LastToolNames = new List<string> { "rag.search" };
+            onProgress?.Invoke(string.Empty);
+
+            var finalized = FinalizeAndReturn(swTotalPipeline, displayUserMessage, answer, sourcesPayload, ragPlan.Intent, _mem.LastToolNames, _mem.LastReasoningTracePublic);
+            return (true, finalized.finalAnswer, sourcesPayload);
+        }
+        catch
+        {
+            return (false, string.Empty, null);
+        }
+    }
+
     private static string BuildDocumentaryProbeClarification(IReadOnlyList<RagItem> hits, string language)
     {
         language = NormalizeLanguageCode(language);
@@ -1716,6 +1820,8 @@ AUTHORITATIVE_INVENTORY_DATA (json):
         if (usedRagSearch)
         {
             sources = DeriveSourcesFromRagHits(toolResults);
+            if (sources.Count > 0 && LooksLikeNoRagDataAnswer(finalAnswer))
+                finalAnswer = BuildRagEvidenceFallbackAnswer(toolResults, userMessage, plan.Language);
         }
         else if (usedSourcesResolve)
         {
@@ -2415,6 +2521,18 @@ TOOL_RESULTS (json):
 
     private static bool IsRagToolName(string toolName)
         => toolName.StartsWith("rag.", StringComparison.OrdinalIgnoreCase);
+
+    private static bool ShouldForceRagForStandaloneTopic(string effectiveUserMessage, RouterPlan plan)
+    {
+        if (plan is null)
+            return false;
+        if (!string.Equals(plan.Intent, "chat.general", StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (plan.ToolCalls.Count > 0 || plan.NeedClarification)
+            return false;
+
+        return LooksLikeStandaloneDocumentaryTopic(effectiveUserMessage);
+    }
 
     private static string NormalizePlanMode(string? mode)
     {
