@@ -140,9 +140,10 @@ public static class ReadyEndpoints
                 details["qdrant_error"] = ex.Message;
             }
 
-            var llmOk = await ProbeLlmReadinessAsync(httpFactory, chatOpt.Value, details, ct);
-            if (!llmOk)
-                ok = false;
+            // Backend LLM is an optional server capability for backoffice jobs/corpus enrichment.
+            // It is deliberately not part of user chat readiness: the nominal chat writer runs
+            // on the client-side LLM per CDC v3.1.
+            await ProbeLlmReadinessAsync(httpFactory, chatOpt.Value, details, ct);
 
             // Signed deployment config status
             if (cfgStatus is not null)
