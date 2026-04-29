@@ -223,6 +223,37 @@ public sealed partial class ToolAgentOrchestrator
             return (true, answer, null, "inventory.list", new[] { "documents.list", "inventory.rendered" });
         }
 
+        if (TryExtractDocumentContentSearchTopic(effectiveUserMessage, out var documentContentTopic))
+        {
+            onPhase?.Invoke(DeterministicAgentText.PhaseRag(interactionLanguage));
+            onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(interactionLanguage));
+
+            var args = CreateJsonArgs(new
+            {
+                query = documentContentTopic,
+                topK = 12,
+                mode = "balanced"
+            });
+            var ragResult = await ExecRagSearchAsync(args, ct).ConfigureAwait(false);
+            var toolResults = new ToolResults();
+            toolResults.Items.Add(new ToolResults.Item
+            {
+                ToolName = "rag.search",
+                Result = ragResult
+            });
+
+            var sources = DeriveSourcesFromRagHits(toolResults);
+            var answer = BuildDocumentContentSearchAnswer(toolResults, documentContentTopic, interactionLanguage);
+            _mem.LastSourcesUsed = sources;
+            _mem.LastToolNames = new List<string> { "rag.search" };
+            _lastAnswerSource = "shortcut:rag.document_content_search";
+            onProgress?.Invoke(string.Empty);
+            await EmitDeterministicTextAsync(answer, onDelta, ct).ConfigureAwait(false);
+
+            var sourcesPayload = sources.Count > 0 ? BuildSourcesPayload(sources) : null;
+            return (true, answer, sourcesPayload, "rag.search", new[] { "rag.search" });
+        }
+
         if (TryExtractExactDocumentSearchQuery(effectiveUserMessage, out var exactDocumentSearchQuery))
         {
             onPhase?.Invoke(DeterministicAgentText.PhaseTools(interactionLanguage));
@@ -1447,6 +1478,95 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
 
     private static bool TryExtractExactDocumentSearchQuery(string? message, out string query)
         => TryMatchCanonicalDynamicPrompt(message, ClientUiText.BuildPromptSearchDocuments, out query);
+
+    private static bool TryExtractDocumentContentSearchTopic(string? message, out string topic)
+    {
+        topic = string.Empty;
+        var raw = CollapseWhitespace(message ?? string.Empty);
+        if (raw.Length == 0)
+            return false;
+
+        var asksForDocuments = Regex.IsMatch(
+            raw,
+            @"(?i)\b(?:trouve\w*|cherche\w*|liste\w*|donne\w*|montre\w*|affiche\w*|find|search|list|show|give)\b.{0,140}\b(?:documents?|sources?|fichiers?|files?)\b",
+            RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                raw,
+                @"(?i)\b(?:documents?|sources?|fichiers?|files?)\s+(?:qui\s+)?(?:parle\w*|mentionne\w*|traite\w*|contien\w*|about|regarding|concerning)\b",
+                RegexOptions.CultureInvariant);
+
+        if (!asksForDocuments)
+            return false;
+
+        var asksAboutContent = Regex.IsMatch(
+            raw,
+            @"(?i)\b(?:parle\w*|mentionne\w*|traite\w*|contien\w*|about|regarding|concerning)\b",
+            RegexOptions.CultureInvariant);
+        if (!asksAboutContent)
+            return false;
+
+        topic = NormalizeRagQueryForRetrieval(raw);
+        return !string.IsNullOrWhiteSpace(topic)
+            && !string.Equals(topic, raw, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string BuildDocumentContentSearchAnswer(ToolResults toolResults, string topic, string language)
+    {
+        var hits = EnumerateRagHitSummaries(toolResults).ToList();
+        if (hits.Count == 0)
+        {
+            return NormalizeLanguageCode(language) switch
+            {
+                "en" => $"I did not find any indexed document content about {topic}.",
+                "es" => $"No he encontrado contenido indexado sobre {topic}.",
+                "pt" => $"Nao encontrei conteudo indexado sobre {topic}.",
+                "de" => $"Ich habe keine indexierten Dokumentinhalte zu {topic} gefunden.",
+                "it" => $"Non ho trovato contenuti indicizzati su {topic}.",
+                _ => $"Je n'ai trouve aucun contenu indexe sur {topic}."
+            };
+        }
+
+        var docs = hits
+            .GroupBy(h => string.IsNullOrWhiteSpace(h.DocPath) ? h.DocName : h.DocPath, StringComparer.OrdinalIgnoreCase)
+            .Select(g =>
+            {
+                var first = g.First();
+                var pages = g
+                    .Select(h => h.PageStart)
+                    .Where(p => p > 0)
+                    .Distinct()
+                    .OrderBy(p => p)
+                    .Take(5)
+                    .ToList();
+                return new
+                {
+                    Label = string.IsNullOrWhiteSpace(first.DocName) ? Path.GetFileName(first.DocPath) : first.DocName,
+                    Pages = pages
+                };
+            })
+            .Take(8)
+            .ToList();
+
+        var header = NormalizeLanguageCode(language) switch
+        {
+            "en" => $"I found {docs.Count} document(s) with indexed content about {topic}:",
+            "es" => $"He encontrado {docs.Count} documento(s) con contenido indexado sobre {topic}:",
+            "pt" => $"Encontrei {docs.Count} documento(s) com conteudo indexado sobre {topic}:",
+            "de" => $"Ich habe {docs.Count} Dokument(e) mit indexiertem Inhalt zu {topic} gefunden:",
+            "it" => $"Ho trovato {docs.Count} documento/i con contenuti indicizzati su {topic}:",
+            _ => $"J'ai trouve {docs.Count} document(s) avec du contenu indexe sur {topic} :"
+        };
+
+        var lines = docs.Select(d =>
+        {
+            var pages = d.Pages.Count == 0
+                ? string.Empty
+                : $" (p.{string.Join(", ", d.Pages)})";
+            return $"- {d.Label}{pages}";
+        });
+
+        return header + "\n" + string.Join("\n", lines);
+    }
 
     private static bool TryExtractExactAdminReindexDocumentRef(string? message, out string documentRef)
     {

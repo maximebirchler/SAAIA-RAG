@@ -42,4 +42,10 @@ public sealed partial class ToolAgentOrchestrator
 
     internal static bool LooksLikeStandaloneDocumentaryTopicForTests(string query)
         => LooksLikeStandaloneDocumentaryTopic(query);
+
+    internal static (bool Matched, string Topic) TryExtractDocumentContentSearchTopicForTests(string query)
+    {
+        var matched = TryExtractDocumentContentSearchTopic(query, out var topic);
+        return (matched, topic);
+    }
 }
