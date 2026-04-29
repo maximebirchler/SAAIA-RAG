@@ -571,6 +571,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
             if (candidates.Count <= 1)
             {
                 backendUrl = string.IsNullOrWhiteSpace(_appSettings.BackendUrl) ? ClientDefaults.BackendBaseUrl : _appSettings.BackendUrl;
+                ClientLog.Info($"Backend connect: using configured URL {backendUrl}.");
             }
             else
             {
@@ -580,6 +581,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
 
                 var pick = await BackendUrlPicker.PickAsync(candidates, TimeSpan.FromSeconds(3), CancellationToken.None);
                 backendUrl = pick.Url ?? candidates[0];
+                ClientLog.Info($"BackendUrlPicker: selected={backendUrl}; candidates={string.Join(" | ", candidates)}; failure={pick.FailureSummary ?? "none"}.");
 
                 if (pick.Url is null)
                 {
@@ -597,17 +599,6 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
             }
 
             _api.Configure(backendUrl, ApiKeyBox.Password, _userId);
-
-            // LLM endpoint (usually already running via Docker/service). In user mode we do NOT manage a process.
-            // Advanced mode can manage llama.cpp if ManageLocalLlmProcess is true.
-            if (_appSettings.ManageLocalLlmProcess && _appSettings.UseLocalLlm && _appSettings.EagerLoad)
-            {
-                var started = _appSettings.ShowAdvancedUi
-                    ? await EnsureLocalLlmStartedAsync(CancellationToken.None)
-                    : await EnsureLocalLlmStartedFromSettingsAsync(CancellationToken.None);
-                if (!started)
-                    Status(LocalRuntimeText("Demarrage du LLM local en echec. Mode degrade possible.", "Local LLM start failed. Fallback mode is possible.", "Error al iniciar el LLM local. Es posible un modo degradado.", "Falha ao iniciar o LLM local. E possivel um modo degradado.", "Lokaler LLM-Start fehlgeschlagen. Ein degradierter Modus ist moeglich.", "Avvio del LLM locale non riuscito. E possibile una modalita degradata.", UiLang));
-            }
 
             // Configure LLM (even if disabled; agent will handle degraded mode)
             var llmBaseUrl = _appSettings.LlmBaseUrl;
@@ -647,8 +638,10 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
                 await LoadSessionAsync(selectedSession, CancellationToken.None);
 
             Status(LocalRuntimeText($"Connecte. Session : {_sessionId}", $"Connected. Session: {_sessionId}", $"Conectado. Sesion: {_sessionId}", $"Ligado. Sessao: {_sessionId}", $"Verbunden. Sitzung: {_sessionId}", $"Connesso. Sessione: {_sessionId}", UiLang));
+            ClientLog.Info($"Backend connect succeeded: {backendUrl}; session={_sessionId ?? "(none)"}.");
             UpdateUiState(isGenerating: false);
             ApplyResponsiveLayout(Root.ActualWidth);
+            StartLocalLlmWarmupAfterBackendConnect();
 
         }
         catch (Exception ex)
@@ -659,9 +652,38 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
             // even though no backend call ever succeeds.
             _agent = null;
             _lastConnectErrorMessage = ClassifyConnectError(ex, backendUrl, UiLang);
+            ClientLog.Exception($"Backend connect failed: {backendUrl}", ex);
             Status(LocalRuntimeText("Connexion en échec : ", "Connect failed: ", "Error de conexión: ", "Falha na ligação: ", "Verbindung fehlgeschlagen: ", "Connessione non riuscita: ", UiLang) + _lastConnectErrorMessage);
             UpdateUiState(isGenerating: false);
             ApplyResponsiveLayout(Root.ActualWidth);
+        }
+    }
+
+    private void StartLocalLlmWarmupAfterBackendConnect()
+    {
+        if (_appSettings is null || !_appSettings.ManageLocalLlmProcess || !_appSettings.UseLocalLlm || !_appSettings.EagerLoad)
+            return;
+
+        _ = StartLocalLlmWarmupAfterBackendConnectAsync();
+    }
+
+    private async Task StartLocalLlmWarmupAfterBackendConnectAsync()
+    {
+        try
+        {
+            await Task.Yield();
+            var started = _appSettings.ShowAdvancedUi
+                ? await EnsureLocalLlmStartedAsync(CancellationToken.None)
+                : await EnsureLocalLlmStartedFromSettingsAsync(CancellationToken.None);
+            if (!started)
+            {
+                Status(LocalRuntimeText("Demarrage du LLM local en echec. Mode degrade possible.", "Local LLM start failed. Fallback mode is possible.", "Error al iniciar el LLM local. Es posible un modo degradado.", "Falha ao iniciar o LLM local. E possivel um modo degradado.", "Lokaler LLM-Start fehlgeschlagen. Ein degradierter Modus ist moeglich.", "Avvio del LLM locale non riuscito. E possibile una modalita degradata.", UiLang));
+            }
+        }
+        catch (Exception ex)
+        {
+            ClientLog.Exception("StartLocalLlmWarmupAfterBackendConnectAsync", ex);
+            Status(LocalRuntimeText("Assistant IA : erreur au demarrage (voir logs).", "Assistant: startup error (see logs).", "Asistente: error al iniciar (ver logs).", "Assistente: erro ao iniciar (ver logs).", "Assistent: Startfehler (siehe Logs).", "Assistente: errore all'avvio (vedi log).", UiLang));
         }
     }
 

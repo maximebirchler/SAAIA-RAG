@@ -10,9 +10,6 @@ public sealed partial class MainWindow
             ShowStartupOverlay(ClientUiText.Get("startup.subtitle", _appSettings.UiLanguage), ClientUiText.Get("startup.status.checking_setup", _appSettings.UiLanguage));
             await ShowSetupWizardIfNeededAsync();
 
-            ShowStartupOverlay(ClientUiText.Get("startup.subtitle", _appSettings.UiLanguage), ClientUiText.Get("startup.status.starting_assistant", _appSettings.UiLanguage));
-            await EnsureAssistantReadyIfNeededAsync(force: false);
-
             if (_appSettings.AutoConnect && _agent is null && !NeedsSetupWizard())
             {
                 ShowStartupOverlay(ClientUiText.Get("startup.subtitle", _appSettings.UiLanguage), ClientUiText.Get("startup.status.connecting", _appSettings.UiLanguage));
