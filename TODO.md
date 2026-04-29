@@ -45,7 +45,7 @@
 - [x] Le scenario `v3.0-lite` est abandonne
 - [x] A et B restent gouvernees avec runtime LLM serveur local + fallback explicite
 - [x] vLLM reste reserve au serveur Linux GPU (Capacite B premium) - jamais runtime universel
-- [x] Serveurs faibles capacites : collection gouvernee `backend-low-capacity` ajoutee. Reco nominale Qwen2.5 3B Q4_K_M ; variantes Q6/Q8 et Gemma E2B/Mistral IQ3 disponibles mais non promues comme choix confort.
+- [x] Serveurs faibles capacites : collection gouvernee `backend-low-capacity` ajoutee et bench serveur reel confirme. Reco nominale Qwen2.5 3B Q4_K_M ; variantes Q6/Q8 et Gemma E2B/Mistral IQ3 disponibles mais non promues comme choix confort.
 
 ---
 
@@ -449,6 +449,7 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
   - [x] Mistral 7B Q4_K_M
   - [x] Gemma 4 E2B Q4_K_M
 - [x] Prioriser les benches serveur utiles :
+  - [x] Qwen2.5 3B Q4_K_M pour serveurs faibles capacites
   - [x] Qwen3.6 27B Q4_K_M
   - [x] Qwen3.6 35B-A3B UD Q3_K_M
   - [x] Qwen3.6 35B-A3B UD IQ4_XS
@@ -524,6 +525,7 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 - [x] Premier smoke local `Qwen3.6-35B-A3B-UD-Q3_K_S` capture sur `b8901` et valide par `Test Bench/bench-llama-server-matrix.ps1` : architecture OK, chargement OK, reponse OK, mais machine P520 non representative pour trancher le runtime serveur
 - [x] Preflight `saaia-server` capture : GPU Quadro T2000 detecte mais serveur encore en `nouveau_only`, sans `nvidia-smi`, sans runtime `llama-server` et sans modeles bench
 - [x] Reprise serveur 2026-04-29 : `Qwen3.6-27B-Q4_K_M.gguf` recopie completement sur `saaia-server` via reprise SFTP, SHA256 valide, smoke CUDA officiel OK (`ctx=2048`, `ngl=8`, `batch=256`, `ubatch=128`, `flash-attn=off`) ; resultat meilleur que les A3B en latence globale courte, mais encore non confortable pour runtime produit nominal
+- [x] Bench faible capacite 2026-04-29 : `Qwen2.5-3B-Instruct-Q4_K_M.gguf` recopie sur `saaia-server`, SHA256 gouverne valide, smoke CUDA officiel OK (`ctx=4096`, `ngl=36`, `batch=1024`, `ubatch=256`, `flash-attn=on`) ; a chaud TTFT ~154 ms, generation ~6.88 tok/s, VRAM runtime ~2148 MiB, donc choix recommande pour ce laptop serveur
 - [ ] La campagne manuelle reelle ne commence qu'apres ce gate
 
 ---
@@ -745,3 +747,4 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 | 2026-04-29 | Codex | Reprise serveur : copie `Qwen3.6-27B-Q4_K_M.gguf` reprise/verifiee sur `saaia-server` (SHA-256 OK), smoke CUDA officiel execute ; resultat compatible mais trop lent pour le nominal produit (~1.09 tok/s eval). Backend `/ready` serveur confirme vert avec `llm=client-only`. |
 | 2026-04-29 | Codex | Reprise client : corrections post-Claude stabilisees, garde-fou RAG ajoute pour compacter les hits deja normalises avant prompt writer, message utilisateur explicite sur depassement contexte, suite client `367/367`, suite backend `348/348`, build solution OK. |
 | 2026-04-29 | Codex | Profil local nominal promu a `ctx=4096` uniquement via gouvernance qualifiee : warmup CUDA headless passe (`Pass`, TTFT max 107 ms, min ~10.89 tok/s), artefacts locaux `16/16` verifies, `llama-server` confirme `n_ctx=4096`; fallback CUDA stable reste `ctx=3072`. |
+| 2026-04-29 | Codex | Serveurs faibles capacites : collection gouvernee `backend-low-capacity` ajoutee puis verifiee sur `saaia-server` avec Qwen2.5 3B Q4_K_M (`ctx=4096`, `ngl=36`, `flash-attn=on`) ; hot TTFT ~154 ms, ~6.88 tok/s, VRAM ~2.1 GiB. Une copie locale obsolete dans `Desktop\\ecom\\SAAIA\\Models` a ete quarantainee et remplacee par le fichier gouverne `%LOCALAPPDATA%`. |
