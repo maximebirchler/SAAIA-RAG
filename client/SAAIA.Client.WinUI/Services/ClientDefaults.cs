@@ -16,5 +16,7 @@ internal static class ClientDefaults
     // On met un modèle "safe" et léger par défaut (compatible CPU/iGPU).
     public const string LlmModel = "Qwen2.5-3B-Instruct-Q4_K_M.gguf";
 
-    public const string DefaultCategory = "general";
+    // Empty means "search the whole corpus". A concrete category here would silently
+    // filter normal user questions and hide relevant documents from other folders.
+    public const string DefaultCategory = "";
 }

@@ -6,6 +6,12 @@ namespace SAAIA.Client.ToolAgent.Tests;
 
 public sealed class PreUiRegressionSafetyNetTests
 {
+    [Fact]
+    public void Default_category_does_not_filter_normal_chat_questions()
+    {
+        Assert.True(string.IsNullOrEmpty(SAAIA.Client.WinUI.Services.ClientDefaults.DefaultCategory));
+    }
+
     [Theory]
     [InlineData("Combien de documents n'ont pas de résumé ?")]
     [InlineData("Liste les documents sans résumé")]
