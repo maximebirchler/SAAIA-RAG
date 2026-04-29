@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 
@@ -24,5 +25,15 @@ public sealed partial class ToolAgentOrchestrator
     {
         using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(json) ? "{}" : json);
         return NormalizeRagHits(doc.RootElement);
+    }
+
+    internal static (string EffectiveUserMessage, bool Consumed) PreparePendingClarificationForTests(
+        ToolMemory mem,
+        IReadOnlyList<(string role, string content)> chatHistory,
+        string userMessage)
+    {
+        var sut = new ToolAgentOrchestrator(api: null!, llm: null!, mem: mem);
+        var prepared = sut.PrepareUserMessageForPendingClarification(chatHistory, userMessage);
+        return (prepared.EffectiveUserMessage, prepared.Consumed);
     }
 }

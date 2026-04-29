@@ -163,7 +163,7 @@ public sealed partial class ToolAgentOrchestrator
             return FinalizeAndReturn(swTotalPipeline, userMessage, ack, null, "meta.translate_last_answer", Array.Empty<string>(), Array.Empty<string>());
         }
 
-        var pendingClarification = PrepareUserMessageForPendingClarification(userMessage);
+        var pendingClarification = PrepareUserMessageForPendingClarification(chatHistory, userMessage);
         var effectiveUserMessage = pendingClarification.EffectiveUserMessage;
         var interactionLanguage = ResolveInteractionLanguage(effectiveUserMessage);
         if (LocalizedStrings.TryDetectStylePreferenceChange(effectiveUserMessage, out var explicitStyle))

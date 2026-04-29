@@ -200,10 +200,18 @@ public sealed partial class ToolAgentOrchestrator
 
     private sealed record PendingClarificationPreparation(string EffectiveUserMessage, DocumentRefResolver.AnalysisResult? AnalysisOverride, bool Consumed);
 
-    private PendingClarificationPreparation PrepareUserMessageForPendingClarification(string? userMessage)
+    private PendingClarificationPreparation PrepareUserMessageForPendingClarification(
+        IReadOnlyList<(string role, string content)> chatHistory,
+        string? userMessage)
     {
         var safeUserMessage = userMessage ?? string.Empty;
         var pending = _mem.PendingClarification;
+        if ((pending is null || string.IsNullOrWhiteSpace(pending.OriginalUserMessage))
+            && TryInferPendingClarificationFromHistory(chatHistory, out var inferredPending))
+        {
+            pending = inferredPending;
+        }
+
         if (pending is null || string.IsNullOrWhiteSpace(pending.OriginalUserMessage))
             return new PendingClarificationPreparation(safeUserMessage, null, false);
 
@@ -221,12 +229,15 @@ public sealed partial class ToolAgentOrchestrator
             || string.Equals(pending.Kind, "document_reference", StringComparison.OrdinalIgnoreCase);
         var expectsTreeScope = string.Equals(pending.Kind, "tree_scope", StringComparison.OrdinalIgnoreCase);
         var expectsRagProbeRefinement = string.Equals(pending.Kind, "rag_probe", StringComparison.OrdinalIgnoreCase);
+        var expectsGenericClarification = IsGenericClarificationKind(pending.Kind);
 
         var isExpectedAnswer = expectsDocumentAnswer
             ? DocumentRefResolver.LooksLikeDocumentReferenceAnswer(current, _mem.LastFocusedDocument, _mem.LastListedDocuments, _mem.LastRequestedDocumentRef)
             : expectsTreeScope
                 ? DocumentRefResolver.LooksLikeTreeScopeAnswer(current)
-                : expectsRagProbeRefinement && current.Length >= 2;
+                : expectsRagProbeRefinement
+                    ? current.Length >= 2
+                    : expectsGenericClarification && LooksLikeGenericClarificationAnswer(current);
 
         if (!isExpectedAnswer)
         {
@@ -243,17 +254,115 @@ public sealed partial class ToolAgentOrchestrator
 
 RETRIEVAL_REFINEMENT:
 {current}"
+            : expectsGenericClarification
+                ? $@"PREVIOUS_USER_REQUEST:
+{pending.OriginalUserMessage}
+
+USER_CLARIFICATION:
+{current}
+
+RESOLVED_REQUEST:
+Continue the previous request using the clarification as the intended topic or scope."
             : $@"PREVIOUS_AMBIGUOUS_REQUEST:
 {pending.OriginalUserMessage}
 
 CLARIFICATION_ANSWER:
 {current}";
 
-        var analysisOverride = expectsRagProbeRefinement
+        var analysisOverride = expectsRagProbeRefinement || expectsGenericClarification
             ? null
             : DocumentRefResolver.Analyze(effectiveUserMessage, _mem.LastFocusedDocument, _mem.LastListedDocuments, _mem.LastRequestedDocumentRef);
         ClearPendingClarification();
         return new PendingClarificationPreparation(effectiveUserMessage, analysisOverride, true);
+    }
+
+    private static bool IsGenericClarificationKind(string? kind)
+    {
+        if (string.IsNullOrWhiteSpace(kind))
+            return true;
+
+        return string.Equals(kind, "generic", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(kind, "clarification", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(kind, "topic", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(kind, "topic_scope", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(kind, "topic_refinement", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool LooksLikeGenericClarificationAnswer(string? userMessage)
+    {
+        var s = (userMessage ?? string.Empty).Trim();
+        if (s.Length < 2)
+            return false;
+
+        return s.Length <= 800;
+    }
+
+    private static bool TryInferPendingClarificationFromHistory(
+        IReadOnlyList<(string role, string content)> chatHistory,
+        out ToolMemory.PendingClarificationState? pending)
+    {
+        pending = null;
+        if (chatHistory is null || chatHistory.Count < 2)
+            return false;
+
+        for (var assistantIndex = chatHistory.Count - 1; assistantIndex >= 1; assistantIndex--)
+        {
+            var assistantTurn = chatHistory[assistantIndex];
+            if (!string.Equals(assistantTurn.role, "assistant", StringComparison.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(assistantTurn.content))
+            {
+                continue;
+            }
+
+            if (!LooksLikeAssistantClarificationQuestion(assistantTurn.content))
+                return false;
+
+            for (var userIndex = assistantIndex - 1; userIndex >= 0; userIndex--)
+            {
+                var userTurn = chatHistory[userIndex];
+                if (!string.Equals(userTurn.role, "user", StringComparison.OrdinalIgnoreCase)
+                    || string.IsNullOrWhiteSpace(userTurn.content))
+                {
+                    continue;
+                }
+
+                pending = new ToolMemory.PendingClarificationState
+                {
+                    Kind = InferClarificationKindFromQuestion(assistantTurn.content),
+                    OriginalUserMessage = userTurn.content.Trim(),
+                    Hint = "recovered_from_chat_history",
+                    Language = DetectMessageLanguage(assistantTurn.content),
+                    CreatedAtUtc = DateTimeOffset.UtcNow
+                };
+                return true;
+            }
+
+            return false;
+        }
+
+        return false;
+    }
+
+    private static bool LooksLikeAssistantClarificationQuestion(string? assistantMessage)
+    {
+        var s = (assistantMessage ?? string.Empty).Trim();
+        if (s.Length == 0 || !s.Contains('?', StringComparison.Ordinal))
+            return false;
+
+        return Regex.IsMatch(
+            s,
+            @"(?i)(clarif|precis|pr[ée]cis|quel\s+sujet|quelle\s+sujet|which\s+topic|what\s+topic|quel\s+document|which\s+document|scope|perimetre|p[ée]rim[èe]tre|category|cat[ée]gorie)");
+    }
+
+    private static string InferClarificationKindFromQuestion(string? assistantMessage)
+    {
+        var s = assistantMessage ?? string.Empty;
+        if (Regex.IsMatch(s, @"(?i)(document|doc\b|pdf|file|fichier)"))
+            return "doc_reference";
+        if (Regex.IsMatch(s, @"(?i)(scope|perimetre|p[ée]rim[èe]tre|category|cat[ée]gorie|dossier|folder|arborescence)"))
+            return "tree_scope";
+
+        return "generic";
     }
 
     private void RememberPendingClarification(string kind, string originalUserMessage, string? hint, string? language)
