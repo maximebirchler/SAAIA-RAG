@@ -12,6 +12,20 @@ public sealed class PreUiRegressionSafetyNetTests
         Assert.True(string.IsNullOrEmpty(SAAIA.Client.WinUI.Services.ClientDefaults.DefaultCategory));
     }
 
+    [Fact]
+    public void Writer_prompt_forbids_common_knowledge_when_general_chat_is_disabled()
+    {
+        var prompt = PromptCatalog.BuildWriterSystemPrompt(
+            language: "fr",
+            mode: "strict",
+            style: "plain",
+            allowGeneralChat: false);
+
+        Assert.Contains("General-chat allowed", prompt);
+        Assert.Contains("never answer from common knowledge", prompt);
+        Assert.Contains("available sources are insufficient", prompt);
+    }
+
     [Theory]
     [InlineData("Combien de documents n'ont pas de résumé ?")]
     [InlineData("Liste les documents sans résumé")]
