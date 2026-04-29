@@ -1,4 +1,5 @@
 using SAAIA.Backend;
+using SAAIA.Backend.Endpoints;
 using SAAIA.Backend.Models;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
@@ -200,6 +201,17 @@ public sealed class RuntimeGovernanceCoreLogicTests
         Assert.Equal(2, snapshot.Active);
         Assert.Equal(0, snapshot.AvailableSlots);
         Assert.Equal(0, snapshot.Queued);
+    }
+
+    [Fact]
+    public void BuildLexicalContentFallbackTerms_bridges_french_and_english_inerting_terms()
+    {
+        var terms = RagEndpoints.BuildLexicalContentFallbackTerms("Je veux les documents qui parlent d'inertage");
+
+        Assert.Contains("inertage", terms);
+        Assert.Contains("inerting", terms);
+        Assert.Contains("inert", terms);
+        Assert.DoesNotContain("documents", terms);
     }
 
     [Fact]

@@ -852,7 +852,7 @@ LIMIT @top_k;
         var swSparse = Stopwatch.StartNew();
         try
         {
-            var rows = await conn.QueryAsync<SparseMatchRow>(new CommandDefinition(sql, new
+            var rows = (await conn.QueryAsync<SparseMatchRow>(new CommandDefinition(sql, new
             {
                 tenant_id = tenantId,
                 query_text = query.Trim(),
@@ -860,7 +860,24 @@ LIMIT @top_k;
                 doc_id = normalizedDocId,
                 doc_path = normalizedDocPath,
                 top_k = topK
-            }, cancellationToken: ct));
+            }, cancellationToken: ct))).ToList();
+
+            if (rows.Count == 0)
+            {
+                var lexicalTerms = BuildLexicalContentFallbackTerms(query);
+                if (lexicalTerms.Count > 0)
+                {
+                    rows = (await conn.QueryAsync<SparseMatchRow>(new CommandDefinition(LexicalContentFallbackSql, new
+                    {
+                        tenant_id = tenantId,
+                        lexical_terms = lexicalTerms.ToArray(),
+                        category,
+                        doc_id = normalizedDocId,
+                        doc_path = normalizedDocPath,
+                        top_k = topK
+                    }, cancellationToken: ct))).ToList();
+                }
+            }
 
             return rows.Select(row => new RagMatch(
                 Score: NormalizeSparseScore(row.SparseRank),
@@ -897,6 +914,62 @@ LIMIT @top_k;
             sparseMsRef(swSparse.ElapsedMilliseconds);
         }
     }
+
+    private const string LexicalContentFallbackSql = """
+WITH lexical_terms AS (
+    SELECT DISTINCT LOWER(term) AS term
+    FROM unnest(@lexical_terms::text[]) AS term
+    WHERE term IS NOT NULL AND term <> ''
+)
+SELECT
+    d.doc_id AS "DocId",
+    d.doc_path AS "DocPath",
+    d.doc_name AS "DocName",
+    rc.page_start AS "PageStart",
+    rc.page_end AS "PageEnd",
+    (rc.metadata->>'offsetStart')::int AS "OffsetStart",
+    (rc.metadata->>'offsetEnd')::int AS "OffsetEnd",
+    rc.retrieval_chunk_id AS "ChunkId",
+    rc.chunk_index AS "ChunkIndex",
+    rc.text_content AS "Text",
+    d.indexed_version AS "IngestionVersion",
+    LOWER(ENCODE(d.content_hash, 'hex')) AS "HashDoc",
+    cte.text_content AS "EmbedText",
+    rc.section_id AS "SectionOrdinalPlaceholder",
+    COALESCE(rc.metadata->>'sectionTitle', s.title) AS "SectionTitle",
+    COALESCE(rc.metadata->>'headingPath', s.title) AS "HeadingPath",
+    COALESCE(rc.metadata->>'chunkType', 'contextual_text_v1') AS "ChunkType",
+    rc.metadata->>'prevChunkId' AS "PrevChunkId",
+    rc.metadata->>'nextChunkId' AS "NextChunkId",
+    rc.metadata->>'sameSectionChunkId' AS "SameSectionChunkId",
+    lm.match_count::real AS "SparseRank"
+FROM documents d
+JOIN document_revisions r
+  ON r.tenant_id = d.tenant_id
+ AND r.doc_id = d.doc_id
+ AND r.indexed_version = d.indexed_version
+JOIN contextual_text_entries cte
+  ON cte.tenant_id = r.tenant_id
+ AND cte.revision_id = r.revision_id
+JOIN retrieval_chunks rc
+  ON rc.retrieval_chunk_id = cte.retrieval_chunk_id
+LEFT JOIN document_sections s
+  ON s.section_id = rc.section_id
+CROSS JOIN LATERAL (
+    SELECT COUNT(*) AS match_count
+    FROM lexical_terms
+    WHERE LOWER(cte.text_content) LIKE '%' || lexical_terms.term || '%'
+) lm
+WHERE d.tenant_id = @tenant_id
+  AND d.status = 'indexed'
+  AND d.indexed_version > 0
+  AND lm.match_count > 0
+  AND (@category IS NULL OR LOWER(d.category) = @category)
+  AND (@doc_id IS NULL OR d.doc_id = @doc_id)
+  AND (@doc_path IS NULL OR d.doc_path = @doc_path)
+ORDER BY lm.match_count DESC, rc.chunk_index ASC
+LIMIT @top_k;
+""";
 
     private static async Task<List<RagMatch>> FilterMatchesAgainstActiveDocumentVersionsAsync(
         NpgsqlDataSource ds,
@@ -1588,6 +1661,26 @@ LIMIT @top_k;
             .ToArray();
     }
 
+    internal static IReadOnlyList<string> BuildLexicalContentFallbackTerms(string query)
+    {
+        var terms = new HashSet<string>(ExtractLexicalQueryTokens(query), StringComparer.Ordinal);
+        if (terms.Count == 0)
+            return Array.Empty<string>();
+
+        if (terms.Contains("inertage") || terms.Contains("inerting") || terms.Contains("inert"))
+        {
+            terms.Add("inert");
+            terms.Add("inerting");
+            terms.Add("inertage");
+        }
+
+        return terms
+            .Where(static term => term.Length >= 4)
+            .Where(static term => !LexicalStopwords.Contains(term))
+            .OrderBy(static term => term, StringComparer.Ordinal)
+            .ToArray();
+    }
+
     internal static double ComputeLexicalCoverage(IReadOnlyList<string> queryTokens, string? candidateText)
     {
         if (queryTokens.Count == 0 || string.IsNullOrWhiteSpace(candidateText))
@@ -1748,7 +1841,8 @@ LIMIT @top_k;
         "les", "que", "quoi", "dont", "when", "where", "which", "with", "from",
         "this", "that", "those", "these", "what", "into", "pdf", "doc", "document",
         "manuel", "manual", "guide", "please", "stp", "svp", "cherche", "show",
-        "need", "have", "has", "just", "juste", "moi", "peux", "avoir"
+        "need", "have", "has", "just", "juste", "moi", "peux", "avoir",
+        "parle", "parler", "documents"
     };
 
     private static readonly HashSet<string> DocumentHintStopwords = new(StringComparer.Ordinal)
