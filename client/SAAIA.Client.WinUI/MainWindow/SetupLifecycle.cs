@@ -672,9 +672,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
         try
         {
             await Task.Yield();
-            var started = _appSettings.ShowAdvancedUi
-                ? await EnsureLocalLlmStartedAsync(CancellationToken.None)
-                : await EnsureLocalLlmStartedFromSettingsAsync(CancellationToken.None);
+            var started = await EnsureLocalLlmStartedFromSettingsAsync(CancellationToken.None);
             if (!started)
             {
                 Status(LocalRuntimeText("Demarrage du LLM local en echec. Mode degrade possible.", "Local LLM start failed. Fallback mode is possible.", "Error al iniciar el LLM local. Es posible un modo degradado.", "Falha ao iniciar o LLM local. E possivel um modo degradado.", "Lokaler LLM-Start fehlgeschlagen. Ein degradierter Modus ist moeglich.", "Avvio del LLM locale non riuscito. E possibile una modalita degradata.", UiLang));

@@ -134,9 +134,11 @@ public sealed partial class MainWindow
         if (ok)
             ok = await RunLocalLlmWarmupQualificationAsync(_appSettings, assistantMsg, ct).ConfigureAwait(false);
 
-        // reflect URL/model
-        LlmUrlBox.Text = _appSettings.LlmBaseUrl;
-        LlmModelBox.Text = _appSettings.ModelId;
+        TrySoftUi("EnsureLocalLlmStartedFromSettingsAsync.ReflectEndpoint", () =>
+        {
+            LlmUrlBox.Text = _appSettings.LlmBaseUrl;
+            LlmModelBox.Text = _appSettings.ModelId;
+        });
 
         return ok;
     }
@@ -304,9 +306,11 @@ public sealed partial class MainWindow
         if (ok)
             ok = await RunLocalLlmWarmupQualificationAsync(_appSettings, null, ct).ConfigureAwait(false);
 
-        // reflect URL/model
-        LlmUrlBox.Text = _appSettings.LlmBaseUrl;
-        LlmModelBox.Text = _appSettings.ModelId;
+        TrySoftUi("EnsureLocalLlmStartedAsync.ReflectEndpoint", () =>
+        {
+            LlmUrlBox.Text = _appSettings.LlmBaseUrl;
+            LlmModelBox.Text = _appSettings.ModelId;
+        });
         await RefreshLocalLlmGovernanceStatusAsync().ConfigureAwait(false);
 
         return ok;

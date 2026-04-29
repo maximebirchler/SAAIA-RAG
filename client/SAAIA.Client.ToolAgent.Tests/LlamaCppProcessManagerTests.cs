@@ -34,6 +34,39 @@ public sealed class LlamaCppProcessManagerTests
     }
 
     [Fact]
+    public void ExistingModelListContainsExpected_accepts_openai_data_id()
+    {
+        const string json = """
+        {
+          "object": "list",
+          "data": [
+            { "id": "Qwen2.5-3B-Instruct-Q4_K_M.gguf", "object": "model" }
+          ]
+        }
+        """;
+
+        Assert.True(LlamaCppProcessManager.ExistingModelListContainsExpected(
+            json,
+            "Qwen2.5-3B-Instruct-Q4_K_M.gguf"));
+    }
+
+    [Fact]
+    public void ExistingModelListContainsExpected_rejects_other_model_on_same_port()
+    {
+        const string json = """
+        {
+          "models": [
+            { "model": "TinyLlama-1.1B-Chat-v1.0-Q4_K_M.gguf" }
+          ]
+        }
+        """;
+
+        Assert.False(LlamaCppProcessManager.ExistingModelListContainsExpected(
+            json,
+            "Qwen2.5-3B-Instruct-Q4_K_M.gguf"));
+    }
+
+    [Fact]
     public async Task ResolveIdleTimeoutSecondsAsync_prefers_battery_policy_when_on_battery()
     {
         var root = NewTempRoot();

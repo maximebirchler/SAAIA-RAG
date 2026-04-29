@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,8 +16,10 @@ internal sealed class LlamaCppProcessManager
     private Timer? _idleTimer;
     private int _activeRequests;
     private int _idleTimeoutSeconds;
+    private string? _attachedBaseUrl;
+    private string? _attachedModelId;
 
-    public bool IsRunning => _proc is { HasExited: false };
+    public bool IsRunning => _proc is { HasExited: false } || !string.IsNullOrWhiteSpace(_attachedBaseUrl);
 
     public string? LastCommandLine { get; private set; }
     public string? LastLogFile { get; private set; }
@@ -31,6 +34,8 @@ internal sealed class LlamaCppProcessManager
     {
         DisposeIdleTimer();
         LastStartupLoadMs = null;
+        _attachedBaseUrl = null;
+        _attachedModelId = null;
         if (_proc is null) return;
 
         try
@@ -101,6 +106,7 @@ internal sealed class LlamaCppProcessManager
 
         var host = "127.0.0.1";
         var port = 1234;
+        string? modelPath = null;
 
         // Best-effort parse host/port from args (if present)
         // If not present, defaults above are OK for readiness check.
@@ -111,9 +117,32 @@ internal sealed class LlamaCppProcessManager
             {
                 if (parts[i] == "--host" && i + 1 < parts.Length) host = parts[i + 1];
                 if (parts[i] == "--port" && i + 1 < parts.Length && int.TryParse(parts[i + 1], out var p)) port = p;
+                if (parts[i] == "--model" && i + 1 < parts.Length) modelPath = parts[i + 1].Trim('"');
             }
         }
         catch { /* ignore */ }
+
+        var baseUrl = $"http://{host}:{port}";
+        var expectedModelName = string.IsNullOrWhiteSpace(modelPath) ? null : Path.GetFileName(modelPath);
+        var attachProbe = await TryAttachToExistingServerAsync(baseUrl, expectedModelName, ct).ConfigureAwait(false);
+        if (attachProbe.Status == ExistingServerProbeStatus.Attached)
+        {
+            _attachedBaseUrl = baseUrl;
+            _attachedModelId = attachProbe.ModelId;
+            LastLogFile = null;
+            LastCommandLine = $"Attached to existing llama-server at {baseUrl} ({attachProbe.ModelId ?? "model unknown"})";
+            LastStartupLoadMs = 0;
+            ClientLog.Info($"[LlamaCpp] {LastCommandLine}");
+            ScheduleIdleStop();
+            return (true, $"LLM already ready at {baseUrl}.");
+        }
+
+        if (attachProbe.Status == ExistingServerProbeStatus.WrongModel)
+        {
+            return (false, attachProbe.Message ?? $"Port {port} is already used by another llama-server model.");
+        }
+
+        StopMatchingRuntimeProcesses(exePath);
 
         var logsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "logs");
         Directory.CreateDirectory(logsDir);
@@ -144,16 +173,21 @@ internal sealed class LlamaCppProcessManager
             _ = PipeToFileAsync(_proc, logPath, ct);
 
             // Wait for /v1/models
-            var timeout = Math.Max(5,  (new AppSettings()).StartupTimeoutSeconds); // default fallback if caller doesn't set
-            // If args include a known port/host, use that.
-            var baseUrl = $"http://{host}:{port}";
-            var ok = await WaitModelsReadyAsync(baseUrl, timeoutSeconds: 120, ct).ConfigureAwait(false);
+            var ok = await WaitModelsReadyAsync(
+                baseUrl,
+                timeoutSeconds: 120,
+                ct,
+                shouldAbort: () => _proc is { HasExited: true }).ConfigureAwait(false);
             startupSw.Stop();
             LastStartupLoadMs = (int)Math.Min(int.MaxValue, startupSw.ElapsedMilliseconds);
 
             if (!ok)
             {
+                var exited = _proc is { HasExited: true };
+                var exitCode = exited ? _proc?.ExitCode.ToString() : null;
                 try { Stop(); } catch { }
+                if (exited)
+                    return (false, $"llama-server exited before readiness (exit code {exitCode ?? "unknown"}). See log: {logPath}");
                 return (false, $"Started but /v1/models did not become ready within timeout. See log: {logPath}");
             }
 
@@ -166,6 +200,152 @@ internal sealed class LlamaCppProcessManager
             try { Stop(); } catch { }
             return (false, "Start failed: " + ex.Message);
         }
+    }
+
+    private enum ExistingServerProbeStatus
+    {
+        NotAvailable,
+        Attached,
+        WrongModel
+    }
+
+    private sealed record ExistingServerProbe(
+        ExistingServerProbeStatus Status,
+        string? Message = null,
+        string? ModelId = null);
+
+    private static async Task<ExistingServerProbe> TryAttachToExistingServerAsync(
+        string baseUrl,
+        string? expectedModelName,
+        CancellationToken ct)
+    {
+        using var http = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(2)
+        };
+
+        var url = baseUrl.TrimEnd('/') + "/v1/models";
+        try
+        {
+            using var resp = await http.GetAsync(url, ct).ConfigureAwait(false);
+            if ((int)resp.StatusCode != 200)
+                return new ExistingServerProbe(ExistingServerProbeStatus.NotAvailable);
+
+            var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            var ids = ReadModelIds(json).ToArray();
+            if (ExistingModelListContainsExpected(json, expectedModelName))
+            {
+                var modelId = ids.FirstOrDefault()
+                    ?? (string.IsNullOrWhiteSpace(expectedModelName) ? null : expectedModelName);
+                return new ExistingServerProbe(ExistingServerProbeStatus.Attached, ModelId: modelId);
+            }
+
+            var actual = ids.Length > 0 ? string.Join(", ", ids) : "unknown model";
+            return new ExistingServerProbe(
+                ExistingServerProbeStatus.WrongModel,
+                $"A llama-server is already listening at {baseUrl}, but it serves {actual} instead of {expectedModelName ?? "the configured model"}.");
+        }
+        catch
+        {
+            return new ExistingServerProbe(ExistingServerProbeStatus.NotAvailable);
+        }
+    }
+
+    internal static bool ExistingModelListContainsExpected(string modelsJson, string? expectedModelName)
+    {
+        var ids = ReadModelIds(modelsJson).ToArray();
+        if (ids.Length == 0)
+            return false;
+
+        if (string.IsNullOrWhiteSpace(expectedModelName))
+            return true;
+
+        return ids.Any(id =>
+            string.Equals(id, expectedModelName, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(Path.GetFileName(id), expectedModelName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static IEnumerable<string> ReadModelIds(string modelsJson)
+    {
+        using var doc = JsonDocument.Parse(modelsJson);
+        var root = doc.RootElement;
+
+        if (root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in data.EnumerateArray())
+            {
+                if (TryGetStringProperty(item, "id", out var id))
+                    yield return id;
+                else if (TryGetStringProperty(item, "model", out var model))
+                    yield return model;
+            }
+        }
+
+        if (root.TryGetProperty("models", out var models) && models.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in models.EnumerateArray())
+            {
+                if (TryGetStringProperty(item, "model", out var model))
+                    yield return model;
+                else if (TryGetStringProperty(item, "name", out var name))
+                    yield return name;
+            }
+        }
+    }
+
+    private static bool TryGetStringProperty(JsonElement element, string propertyName, out string value)
+    {
+        value = string.Empty;
+        if (!element.TryGetProperty(propertyName, out var property) || property.ValueKind != JsonValueKind.String)
+            return false;
+
+        value = property.GetString() ?? string.Empty;
+        return !string.IsNullOrWhiteSpace(value);
+    }
+
+    private static void StopMatchingRuntimeProcesses(string exePath)
+    {
+        var processName = Path.GetFileNameWithoutExtension(exePath);
+        if (string.IsNullOrWhiteSpace(processName))
+            return;
+
+        var targetPath = Path.GetFullPath(exePath);
+        foreach (var proc in Process.GetProcessesByName(processName))
+        {
+            try
+            {
+                if (proc.Id == Environment.ProcessId || proc.HasExited)
+                    continue;
+
+                var modulePath = proc.MainModule?.FileName;
+                if (string.IsNullOrWhiteSpace(modulePath)
+                    || !string.Equals(Path.GetFullPath(modulePath), targetPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                ClientLog.Warn($"[LlamaCpp] Stopping stale runtime process pid={proc.Id}: {modulePath}");
+                try { proc.Kill(entireProcessTree: true); }
+                catch { proc.Kill(); }
+
+                if (!proc.WaitForExit(3000))
+                    ClientLog.Warn($"[LlamaCpp] Stale runtime process pid={proc.Id} did not exit within 3s.");
+            }
+            catch (Exception ex)
+            {
+                ClientLog.Warn($"[LlamaCpp] Could not inspect/stop stale runtime process pid={SafeProcessId(proc)}: {ex.GetType().Name}: {ex.Message}");
+            }
+            finally
+            {
+                try { proc.Dispose(); } catch { }
+            }
+        }
+    }
+
+    private static string SafeProcessId(Process proc)
+    {
+        try { return proc.Id.ToString(); }
+        catch { return "unknown"; }
     }
 
     public void NotifyActivityStart()
@@ -401,7 +581,11 @@ internal sealed class LlamaCppProcessManager
         }
     }
 
-    private static async Task<bool> WaitModelsReadyAsync(string baseUrl, int timeoutSeconds, CancellationToken ct)
+    private static async Task<bool> WaitModelsReadyAsync(
+        string baseUrl,
+        int timeoutSeconds,
+        CancellationToken ct,
+        Func<bool>? shouldAbort = null)
     {
         using var http = new HttpClient
         {
@@ -413,6 +597,9 @@ internal sealed class LlamaCppProcessManager
 
         while (DateTime.UtcNow < deadline && !ct.IsCancellationRequested)
         {
+            if (shouldAbort?.Invoke() == true)
+                return false;
+
             try
             {
                 using var resp = await http.GetAsync(url, ct).ConfigureAwait(false);
