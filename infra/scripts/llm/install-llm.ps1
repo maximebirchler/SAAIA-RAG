@@ -1,11 +1,13 @@
 param(
   [string]$InstallRoot = $(if ($env:SAAIA_INSTALL_ROOT) { $env:SAAIA_INSTALL_ROOT } else { 'C:\SAAIA' }),
-  [string]$Repo = 'bartowski/Mistral-7B-Instruct-v0.3-GGUF',
-  [string]$File = 'Mistral-7B-Instruct-v0.3-IQ3_M.gguf',
-  [string]$Sha256 = '4ea14c5a6c787ac2703505f04a4ee746f746d1ace3ffd907af28f6f179e6b224',
+  [string]$Repo = 'bartowski/Qwen2.5-3B-Instruct-GGUF',
+  [string]$File = 'Qwen2.5-3B-Instruct-Q4_K_M.gguf',
+  [string]$Sha256 = '9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94',
   [string]$BindAddr = '127.0.0.1',
   [int]$HostPort = 1234,
   [int]$ContainerPort = 8080,
+  [int]$LicenseSeats = $(if ($env:SAAIA_LICENSE_SEATS -as [int]) { [int]$env:SAAIA_LICENSE_SEATS } else { 1 }),
+  [switch]$AutoPlan,
   [switch]$NoDockerUp,
   [switch]$NoWait,
   [switch]$ForceRedownload
@@ -23,6 +25,206 @@ $ModelPath = Join-Path $ModelsDir $File
 
 New-Item -ItemType Directory -Force -Path $ModelsDir | Out-Null
 New-Item -ItemType Directory -Force -Path $DeployDir | Out-Null
+
+function Get-ServerHardwareSnapshot {
+  $cpu = [Environment]::ProcessorCount
+  $totalRamMiB = 0
+  try {
+    $cs = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
+    $totalRamMiB = [int][Math]::Floor([double]$cs.TotalPhysicalMemory / 1MB)
+  } catch {
+    try {
+      $os = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
+      $totalRamMiB = [int][Math]::Floor([double]$os.TotalVisibleMemorySize / 1024)
+    } catch { }
+  }
+
+  $gpuName = $null
+  $vramMiB = 0
+  $nvidiaSmi = Get-Command nvidia-smi -ErrorAction SilentlyContinue
+  if ($nvidiaSmi) {
+    try {
+      $line = & nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,nounits 2>$null | Select-Object -First 1
+      if ($line) {
+        $parts = $line -split ','
+        $gpuName = $parts[0].Trim()
+        if ($parts.Count -ge 2) { $vramMiB = [int]($parts[1].Trim()) }
+      }
+    } catch { }
+  }
+
+  if ($vramMiB -le 0) {
+    try {
+      $gpu = Get-CimInstance Win32_VideoController -ErrorAction Stop |
+        Where-Object { $_.AdapterRAM -gt 0 } |
+        Sort-Object AdapterRAM -Descending |
+        Select-Object -First 1
+      if ($gpu) {
+        $gpuName = [string]$gpu.Name
+        $vramMiB = [int][Math]::Floor([double]$gpu.AdapterRAM / 1MB)
+      }
+    } catch { }
+  }
+
+  [pscustomobject]@{
+    CpuCount = [int]$cpu
+    TotalRamMiB = [int]$totalRamMiB
+    GpuName = $gpuName
+    GpuVramMiB = [int]$vramMiB
+  }
+}
+
+function New-ServerLlmCapacityPlan {
+  param(
+    [Parameter(Mandatory=$true)]$Hardware,
+    [Parameter(Mandatory=$true)][int]$Seats,
+    [Parameter(Mandatory=$true)][int]$BaseHostPort,
+    [Parameter(Mandatory=$true)][int]$ContainerPort
+  )
+
+  $seatsSafe = [Math]::Max(1, $Seats)
+  $vram = [Math]::Max(0, [int]$Hardware.GpuVramMiB)
+  $ram = [Math]::Max(0, [int]$Hardware.TotalRamMiB)
+  $cpu = [Math]::Max(1, [int]$Hardware.CpuCount)
+
+  $model = [ordered]@{
+    repo = 'bartowski/Qwen2.5-3B-Instruct-GGUF'
+    file = 'Qwen2.5-3B-Instruct-Q4_K_M.gguf'
+    sha256 = '9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94'
+    modelId = 'qwen2.5-3b-instruct-q4-k-m'
+    profile = 'server-low-capacity'
+    estimatedModelMiB = 2300
+    ctxSize = 4096
+    batch = 512
+    ubatch = 256
+    reason = 'safe default for low/medium servers and high seat counts'
+  }
+
+  if ($vram -ge 8192 -and $ram -ge 16384 -and $seatsSafe -le 25) {
+    $model.repo = 'bartowski/Qwen2.5-3B-Instruct-GGUF'
+    $model.file = 'Qwen2.5-3B-Instruct-Q6_K_L.gguf'
+    $model.sha256 = '930d792ba9cebbb98faaef6755c62b47cb24bb2d16fb10a338ac80d721b81796'
+    $model.modelId = 'qwen2.5-3b-instruct-q6-k-l'
+    $model.profile = 'server-balanced'
+    $model.estimatedModelMiB = 3000
+    $model.reason = 'enough VRAM for better quality while keeping concurrency'
+  }
+
+  if ($vram -ge 12288 -and $ram -ge 24576 -and $seatsSafe -le 10) {
+    $model.repo = 'bartowski/Mistral-7B-Instruct-v0.3-GGUF'
+    $model.file = 'Mistral-7B-Instruct-v0.3-Q4_K_M.gguf'
+    $model.sha256 = '56d2db1ee4e4330338433c3a2d1f98f3d647db9cef785fd6e640061e1c98dde2'
+    $model.modelId = 'mistral-7b-instruct-v0.3-q4-k-m'
+    $model.profile = 'server-quality-small-team'
+    $model.estimatedModelMiB = 5200
+    $model.ctxSize = 4096
+    $model.batch = 512
+    $model.reason = 'small seat count and enough VRAM for a quality 7B model'
+  }
+
+  $desiredConcurrent = [int][Math]::Ceiling($seatsSafe * 0.12)
+  if ($seatsSafe -le 3) { $desiredConcurrent = 1 }
+  if ($seatsSafe -gt 3 -and $desiredConcurrent -lt 2) { $desiredConcurrent = 2 }
+  $desiredConcurrent = [Math]::Min(12, [Math]::Max(1, $desiredConcurrent))
+
+  $slotMemoryMiB = if ($model.modelId -like '*27b*') { 650 } elseif ($model.modelId -like '*7b*') { 420 } else { 180 }
+  $overheadMiB = 900
+  $effectiveVram = if ($vram -gt 0) { [int]($vram * 0.82) } else { 0 }
+  $maxSlotsByVram = if ($effectiveVram -gt 0) {
+    [int][Math]::Floor(($effectiveVram - $model.estimatedModelMiB - $overheadMiB) / $slotMemoryMiB)
+  } else { 1 }
+  $maxSlotsByVram = [Math]::Max(1, $maxSlotsByVram)
+  $maxSlotsByCpu = [Math]::Max(1, [int][Math]::Floor($cpu / 2))
+  $totalSlots = [Math]::Min($desiredConcurrent, [Math]::Min($maxSlotsByVram, $maxSlotsByCpu))
+  $totalSlots = [Math]::Max(1, $totalSlots)
+
+  $slotsPerInstance = [Math]::Min(4, $totalSlots)
+  $instances = [int][Math]::Ceiling($totalSlots / [double]$slotsPerInstance)
+
+  $perInstanceMiB = $model.estimatedModelMiB + ($slotsPerInstance * $slotMemoryMiB) + $overheadMiB
+  if ($effectiveVram -gt 0) {
+    $maxInstancesByVram = [Math]::Max(1, [int][Math]::Floor($effectiveVram / $perInstanceMiB))
+    $instances = [Math]::Min($instances, $maxInstancesByVram)
+  }
+  $instances = [Math]::Max(1, $instances)
+  $slotsPerInstance = [Math]::Max(1, [int][Math]::Ceiling($totalSlots / [double]$instances))
+
+  $queueLimit = [Math]::Min(100, [Math]::Max(10, $seatsSafe * 2))
+  $perUserActive = 1
+  $perUserQueued = if ($seatsSafe -le 5) { 2 } else { 1 }
+
+  [pscustomobject]@{
+    version = 'v3.1-server-capacity'
+    plannedAt = (Get-Date).ToString('o')
+    licenseSeats = $seatsSafe
+    hardware = $Hardware
+    modelId = $model.modelId
+    repo = $model.repo
+    file = $model.file
+    sha256 = $model.sha256
+    profile = $model.profile
+    reason = $model.reason
+    instances = [int]$instances
+    slotsPerInstance = [int]$slotsPerInstance
+    totalSlots = [int]($instances * $slotsPerInstance)
+    queueLimit = [int]$queueLimit
+    perUserActiveLimit = [int]$perUserActive
+    perUserQueuedLimit = [int]$perUserQueued
+    hostPorts = @(0..($instances - 1) | ForEach-Object { $BaseHostPort + $_ })
+    containerPort = $ContainerPort
+    llamaArgs = [ordered]@{
+      ctxSize = [int]$model.ctxSize
+      nParallel = [int]$slotsPerInstance
+      threads = [Math]::Max(2, [Math]::Min(8, $cpu - 1))
+      threadsBatch = [Math]::Max(2, [Math]::Min(8, $cpu - 1))
+      batch = [int]$model.batch
+      ubatch = [int]$model.ubatch
+      nGpuLayers = 'all'
+    }
+  }
+}
+
+if ($AutoPlan) {
+  $hardware = Get-ServerHardwareSnapshot
+  $capacityPlan = New-ServerLlmCapacityPlan -Hardware $hardware -Seats $LicenseSeats -BaseHostPort $HostPort -ContainerPort $ContainerPort
+  $Repo = $capacityPlan.repo
+  $File = $capacityPlan.file
+  $Sha256 = $capacityPlan.sha256
+  $ModelPath = Join-Path $ModelsDir $File
+  Info "Auto capacity plan:"
+  Info "  seats=$($capacityPlan.licenseSeats) cpu=$($hardware.CpuCount) ramMiB=$($hardware.TotalRamMiB) gpu='$($hardware.GpuName)' vramMiB=$($hardware.GpuVramMiB)"
+  Info "  model=$($capacityPlan.modelId) profile=$($capacityPlan.profile)"
+  Info "  instances=$($capacityPlan.instances) slots/instance=$($capacityPlan.slotsPerInstance) queue=$($capacityPlan.queueLimit)"
+} else {
+  $capacityPlan = [pscustomobject]@{
+    version = 'manual'
+    plannedAt = (Get-Date).ToString('o')
+    licenseSeats = [Math]::Max(1, $LicenseSeats)
+    modelId = $File
+    repo = $Repo
+    file = $File
+    sha256 = $Sha256
+    profile = 'manual'
+    reason = 'manual parameters'
+    instances = 1
+    slotsPerInstance = 1
+    totalSlots = 1
+    queueLimit = [Math]::Min(100, [Math]::Max(10, [Math]::Max(1, $LicenseSeats) * 2))
+    perUserActiveLimit = 1
+    perUserQueuedLimit = 1
+    hostPorts = @($HostPort)
+    containerPort = $ContainerPort
+    llamaArgs = [ordered]@{
+      ctxSize = 3072
+      nParallel = 1
+      threads = 6
+      threadsBatch = 6
+      batch = 256
+      ubatch = 128
+      nGpuLayers = 'all'
+    }
+  }
+}
 
 $ModelUrl = "https://huggingface.co/$Repo/resolve/main/$File"
 Info "InstallRoot: $InstallRoot"
@@ -84,9 +286,17 @@ $compose = @"
 name: saaia-llm
 
 services:
-  llama:
+"@
+
+for ($i = 1; $i -le [int]$capacityPlan.instances; $i++) {
+  $serviceName = if ([int]$capacityPlan.instances -eq 1) { 'llama' } else { "llama-$i" }
+  $containerName = if ([int]$capacityPlan.instances -eq 1) { 'saaia-llama' } else { "saaia-llama-$i" }
+  $port = [int]$capacityPlan.hostPorts[$i - 1]
+  $args = $capacityPlan.llamaArgs
+  $compose += @"
+  ${serviceName}:
     image: ghcr.io/ggml-org/llama.cpp:server-cuda
-    container_name: saaia-llama
+    container_name: $containerName
     gpus: all
     deploy:
       resources:
@@ -107,22 +317,29 @@ services:
       LLAMA_ARG_HOST: 0.0.0.0
       LLAMA_ARG_PORT: $ContainerPort
 
-      # Safe defaults (adjust later if needed)
-      LLAMA_ARG_CTX_SIZE: 3072
-      LLAMA_ARG_N_PARALLEL: 1
-      LLAMA_ARG_THREADS: 6
-      LLAMA_ARG_THREADS_BATCH: 6
-      LLAMA_ARG_BATCH: 256
-      LLAMA_ARG_N_GPU_LAYERS: all
+      # Generated by install-llm.ps1 capacity planner.
+      LLAMA_ARG_CTX_SIZE: $($args.ctxSize)
+      LLAMA_ARG_N_PARALLEL: $($args.nParallel)
+      LLAMA_ARG_THREADS: $($args.threads)
+      LLAMA_ARG_THREADS_BATCH: $($args.threadsBatch)
+      LLAMA_ARG_BATCH: $($args.batch)
+      LLAMA_ARG_UBATCH_SIZE: $($args.ubatch)
+      LLAMA_ARG_N_GPU_LAYERS: $($args.nGpuLayers)
 
     ports:
-      - "${BindAddr}:${HostPort}:${ContainerPort}"
+      - "${BindAddr}:${port}:${ContainerPort}"
 
     restart: unless-stopped
+
 "@
+}
 
 Set-Content -Encoding UTF8 -Path $composePath -Value $compose
 Ok "Generated: $composePath"
+
+$capacityPlanPath = Join-Path $DeployDir 'llm.capacity-plan.json'
+($capacityPlan | ConvertTo-Json -Depth 10) | Set-Content -Encoding UTF8 $capacityPlanPath
+Ok "Wrote: $capacityPlanPath"
 
 # Write install manifest for support
 $manifest = [ordered]@{
@@ -135,6 +352,7 @@ $manifest = [ordered]@{
   host = $BindAddr
   port = $HostPort
   containerPort = $ContainerPort
+  capacityPlan = $capacityPlan
 }
 $manifestPath = Join-Path $DeployDir 'llm.install.json'
 ($manifest | ConvertTo-Json -Depth 5) | Set-Content -Encoding UTF8 $manifestPath
