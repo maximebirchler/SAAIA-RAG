@@ -574,16 +574,22 @@ CURRENT_USER_MESSAGE:
             if (raw.ValueKind != JsonValueKind.Object)
                 return JsonDocument.Parse("{\"hits\":[]}").RootElement;
 
-            // Already normalized
+            var sourceHits = default(JsonElement);
             if (raw.TryGetProperty("hits", out var hits0) && hits0.ValueKind == JsonValueKind.Array)
-                return raw;
-
-            // Backend often returns { items: [...] }
-            if (!raw.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+            {
+                sourceHits = hits0;
+            }
+            else if (raw.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
+            {
+                sourceHits = items;
+            }
+            else
+            {
                 return JsonDocument.Parse("{\"hits\":[]}").RootElement;
+            }
 
             var list = new List<object>();
-            foreach (var it in items.EnumerateArray())
+            foreach (var it in sourceHits.EnumerateArray())
             {
                 if (it.ValueKind != JsonValueKind.Object) continue;
 
@@ -596,8 +602,8 @@ CURRENT_USER_MESSAGE:
                 var ps = TryGetInt(it, "pageStart") ?? TryGetInt(it, "page") ?? 1;
                 var pe = TryGetInt(it, "pageEnd") ?? ps;
 
-                var text = TryGetString(it, "text") ?? TryGetString(it, "excerpt") ?? "";
-                if (text.Length > 320) text = text.Substring(0, 320) + "…";
+                var text = TryGetString(it, "excerpt") ?? TryGetString(it, "text") ?? "";
+                if (text.Length > 320) text = text.Substring(0, 320) + "...";
 
                 list.Add(new
                 {

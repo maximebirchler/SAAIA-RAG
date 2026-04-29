@@ -660,7 +660,7 @@ public sealed partial class MainWindow
         }
         catch (Exception ex)
         {
-            EnsureAssistantMessageHasFailureText(assistantMsg);
+            EnsureAssistantMessageHasFailureText(assistantMsg, ex);
             Status(ClientUiText.Get("status.help_send_failed", UiLang) + ex.Message);
             return false;
         }

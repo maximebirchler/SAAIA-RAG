@@ -125,9 +125,12 @@
                             PointerExited="Bubble_PointerExited">
                         <StackPanel Spacing="8">
 
+                            <!-- Standalone ProgressText spinner: only when NOT streaming.
+                                 Otherwise the streaming row below already renders it,
+                                 and we'd see two spinners stacked. -->
                             <StackPanel Orientation="Horizontal"
                                         Spacing="8"
-                                        Visibility="{Binding ProgressText, Converter={StaticResource NonEmptyStringToVisibility}}">
+                                        Visibility="{Binding ProgressTextVisibleWhenIdle, Converter={StaticResource BooleanToVisibility}}">
                                 <ProgressRing Width="14"
                                               Height="14"
                                               IsActive="True"
@@ -140,6 +143,9 @@
 
                             <controls:LinkifiedTextBlock Text="{x:Bind Content, Mode=OneWay}" TextForeground="{ThemeResource AppTextPrimaryBrush}" TextFontSize="14"/>
 
+                            <!-- Streaming row: ONE label only. Priority StatusNote >
+                                 ProgressText > "Génération en cours…". Three TextBlocks
+                                 alternate via mutually-exclusive boolean bindings. -->
                             <StackPanel Orientation="Horizontal"
                                         Spacing="6"
                                         Visibility="{Binding IsStreaming, Converter={StaticResource BooleanToVisibility}}">
@@ -147,16 +153,26 @@
                                               Height="10"
                                               IsActive="True"
                                               VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding StatusNote}"
+                                           Visibility="{Binding StatusNoteSet, Converter={StaticResource BooleanToVisibility}}"
+                                           Foreground="{ThemeResource AppTextSecondaryBrush}"
+                                           FontSize="11"/>
+                                <TextBlock Text="{Binding ProgressText}"
+                                           Visibility="{Binding StreamingShowProgressText, Converter={StaticResource BooleanToVisibility}}"
+                                           Foreground="{ThemeResource AppTextSecondaryBrush}"
+                                           FontSize="11"/>
                                 <TextBlock x:Name="StreamingStatusText"
                                            Loaded="StreamingStatusText_Loaded"
                                            Text="Streaming..."
+                                           Visibility="{Binding StreamingShowDefault, Converter={StaticResource BooleanToVisibility}}"
                                            Foreground="{ThemeResource AppTextSecondaryBrush}"
                                            FontSize="11"/>
                             </StackPanel>
 
-                            <!-- Status note (ex: Génération interrompue.) -->
+                            <!-- Idle status row (StatusNote shown only when streaming has stopped,
+                                 e.g. "Génération interrompue."). -->
                             <TextBlock Text="{Binding StatusNote}"
-                                    Visibility="{Binding StatusNote, Converter={StaticResource NonEmptyStringToVisibility}}"
+                                    Visibility="{Binding StatusNoteVisibleWhenIdle, Converter={StaticResource BooleanToVisibility}}"
                                     Foreground="{ThemeResource AppTextSecondaryBrush}"
                                     FontSize="12"/>
 

@@ -18,32 +18,48 @@ public sealed partial class MainWindow
         {
             _userId = SecureLocalStore.GetOrCreateUserId();
 
+            // Use the URL currently configured in AppSettings as default (falls back to ClientDefaults
+            // only if AppSettings has nothing). This way the wizard reflects the real running config
+            // (provisioning.json or previous user input), not a hardcoded localhost.
+            var settingsForWizard = _appSettings ?? AppSettings.Load();
+            var initialBackendUrl = !string.IsNullOrWhiteSpace(settingsForWizard.BackendUrl)
+                ? settingsForWizard.BackendUrl
+                : ClientDefaults.BackendBaseUrl;
+
             var dlg = new SetupWizardDialog(
-                backendUrl: ClientDefaults.BackendBaseUrl,
+                backendUrl: initialBackendUrl,
                 userId: _userId,
                 apiKeyInitial: ApiKeyBox.Password,
-                settingsInitial: _appSettings,
+                settingsInitial: settingsForWizard,
                 llmProc: _llmProc);
 
+            // Wait for the XamlRoot before detaching content, otherwise the wizard's TextBoxes
+            // (PasswordBox in particular) refuse focus inside the overlay.
             var xamlRoot = await GetDialogXamlRootAsync();
             if (xamlRoot is not null) dlg.XamlRoot = xamlRoot;
+            dlg.RequestedTheme = GetElementTheme();
 
-            await dlg.ShowAsync();
+            // Show inside MainWindow's overlay system (smoke + presenter) — same pattern as
+            // UserSettingsDialog. Avoids the leftover ContentDialog rectangle behind the card.
+            OverlayDialogSession? overlay = null;
+            var overlayContent = dlg.DetachContentForOverlay(() => overlay?.Close());
+            overlay = ShowOverlayDialog(overlayContent);
+            await overlay.Completion;
 
             if (dlg.Applied)
             {
                 LoadSettings();
                 LoadLocalLlmUiFromSettings();
                 ApplyUserModeVisibility();
-                Status(LocalRuntimeText("Configuration enregistree.", "Setup saved.", "Configuracion guardada.", "Configuracao guardada.", "Einrichtung gespeichert.", "Configurazione salvata.", UiLang));
+                Status(LocalRuntimeText("Configuration enregistrée.", "Setup saved.", "Configuración guardada.", "Configuração guardada.", "Einrichtung gespeichert.", "Configurazione salvata.", UiLang));
 
-                if (_appSettings.AutoConnect && _agent is null && !NeedsSetupWizard())
+                if ((_appSettings?.AutoConnect ?? false) && _agent is null && !NeedsSetupWizard())
                     await ConnectAsync();
             }
         }
         catch (Exception ex)
         {
-            Status(LocalRuntimeText("Assistant de configuration en echec : ", "Setup wizard failed: ", "Error del asistente de configuracion: ", "Falha no assistente de configuracao: ", "Setup-Assistent fehlgeschlagen: ", "Procedura guidata non riuscita: ", UiLang) + ex.Message);
+            Status(LocalRuntimeText("Assistant de configuration en échec : ", "Setup wizard failed: ", "Error del asistente de configuración: ", "Falha no assistente de configuração: ", "Setup-Assistent fehlgeschlagen: ", "Procedura guidata non riuscita: ", UiLang) + ex.Message);
         }
     }
 
@@ -387,76 +403,38 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
 
     private async Task EnsureEmbeddedAssistantAsync(bool force)
     {
-        var xamlRoot = await GetDialogXamlRootAsync();
-        if (xamlRoot is null)
-        {
-            ClientLog.Error("LLM bootstrap UI: XamlRoot is null; cannot show embedded progress dialog.");
-            Status(LocalRuntimeText("Assistant IA : interface non prete (reessaie).", "Assistant: UI not ready (try again).", "Asistente: interfaz no lista (vuelve a intentarlo).", "Assistente: interface nao pronta (tenta novamente).", "Assistent: UI nicht bereit (erneut versuchen).", "Assistente: interfaccia non pronta (riprova).", UiLang));
-            return;
-        }
-
-        // UI dialog with progress; no PowerShell/UAC needed.
-        var title = new TextBlock { Text = LocalRuntimeText("Preparation de l'assistant IA...", "Preparing the assistant...", "Preparando el asistente...", "A preparar o assistente...", "Assistent wird vorbereitet...", "Preparazione dell'assistente...", UiLang), TextWrapping = TextWrapping.Wrap };
-        var detail = new TextBlock { Text = LocalRuntimeText("Verification...", "Checking...", "Verificando...", "A verificar...", "Pruefung...", "Verifica...", UiLang), Opacity = 0.85, TextWrapping = TextWrapping.Wrap };
-        var bar = new ProgressBar { IsIndeterminate = true, Height = 6, Minimum = 0, Maximum = 1 };
-
-        var panel = new StackPanel { Spacing = 12 };
-        panel.Children.Add(title);
-        panel.Children.Add(bar);
-        panel.Children.Add(detail);
-
+        // No more separate "Préparation de l'assistant IA…" modal. The user already
+        // sees the SAAIA startup overlay — we just refresh its status text in place.
+        // (Bonus: no XamlRoot-not-ready race, no smoke-on-smoke stacking.)
         using var cts = new CancellationTokenSource();
+        var subtitle = ClientUiText.Get("startup.subtitle", UiLang);
 
-        var dlg = new ContentDialog
-        {
-            Title = LocalRuntimeText("Assistant", "Assistant", "Asistente", "Assistente", "Assistent", "Assistente", UiLang),
-            Content = panel,
-            CloseButtonText = ClientUiText.Get("dialog.close", UiLang),
-            XamlRoot = xamlRoot
-        };
-        ConfigureDialogChrome(dlg);
-
-        dlg.CloseButtonClick += (_, __) =>
-        {
-            TrySoftUi("EnsureEmbeddedAssistantAsync.CancelDialog", () => cts.Cancel());
-        };
-
-        var showTask = dlg.ShowAsync().AsTask();
+        void SetStartupStatus(string status)
+            => ShowStartupOverlay(subtitle, status);
 
         try
         {
             var prog = new Progress<DownloadManager.ProgressInfo>(p =>
             {
-                if (p.TotalBytes is long tot && tot > 0)
+                SetStartupStatus(p.Stage switch
                 {
-                    bar.IsIndeterminate = false;
-                    bar.Maximum = tot;
-                    bar.Value = Math.Min(tot, Math.Max(0, p.DownloadedBytes));
-                }
-                else
-                {
-                    bar.IsIndeterminate = true;
-                }
-
-                detail.Text = p.Stage switch
-                {
-                    "verify" => LocalRuntimeText($"Verification : {p.Id}", $"Verification: {p.Id}", $"Verificacion: {p.Id}", $"Verificacao: {p.Id}", $"Pruefung: {p.Id}", $"Verifica: {p.Id}", UiLang),
-                    "download" => LocalRuntimeText($"Telechargement : {p.Id}", $"Download: {p.Id}", $"Descarga: {p.Id}", $"Transferencia: {p.Id}", $"Download: {p.Id}", $"Download: {p.Id}", UiLang),
-                    "done" => LocalRuntimeText($"Pret : {p.Id}", $"Done: {p.Id}", $"Listo: {p.Id}", $"Concluido: {p.Id}", $"Fertig: {p.Id}", $"Pronto: {p.Id}", UiLang),
+                    "verify" => LocalRuntimeText($"Vérification : {p.Id}", $"Verifying: {p.Id}", $"Verificación: {p.Id}", $"Verificação: {p.Id}", $"Pruefung: {p.Id}", $"Verifica: {p.Id}", UiLang),
+                    "download" => LocalRuntimeText($"Téléchargement : {p.Id}", $"Download: {p.Id}", $"Descarga: {p.Id}", $"Transferência: {p.Id}", $"Download: {p.Id}", $"Download: {p.Id}", UiLang),
+                    "done" => LocalRuntimeText($"Prêt : {p.Id}", $"Done: {p.Id}", $"Listo: {p.Id}", $"Concluído: {p.Id}", $"Fertig: {p.Id}", $"Pronto: {p.Id}", UiLang),
                     _ => p.Stage
-                };
+                });
             });
 
-            detail.Text = LocalRuntimeText("Preparation des fichiers...", "Preparing files...", "Preparando archivos...", "A preparar ficheiros...", "Dateien werden vorbereitet...", "Preparazione dei file...", UiLang);
+            SetStartupStatus(LocalRuntimeText("Préparation des fichiers…", "Preparing files…", "Preparando archivos…", "A preparar ficheiros…", "Dateien werden vorbereitet…", "Preparazione dei file…", UiLang));
             var (ok, msg, _) = await _llmBootstrapper.EnsureAsync(_appSettings, force, prog, cts.Token);
             if (!ok)
             {
-                detail.Text = LocalRuntimeText("Echec : ", "Failed: ", "Error: ", "Falha: ", "Fehler: ", "Errore: ", UiLang) + msg;
+                SetStartupStatus(LocalRuntimeText("Échec : ", "Failed: ", "Error: ", "Falha: ", "Fehler: ", "Errore: ", UiLang) + msg);
                 await Task.Delay(1200);
                 return;
             }
 
-            detail.Text = LocalRuntimeText("Demarrage de l'assistant...", "Starting assistant...", "Iniciando el asistente...", "A iniciar o assistente...", "Assistent wird gestartet...", "Avvio dell'assistente...", UiLang);
+            SetStartupStatus(LocalRuntimeText("Démarrage de l'assistant…", "Starting assistant…", "Iniciando el asistente…", "A iniciar o assistente…", "Assistent wird gestartet…", "Avvio dell'assistente…", UiLang));
             _appSettings = AppSettings.Load();
             _appSettings.ManageLocalLlmProcess = true;
             _appSettings.LlmMode = "embedded";
@@ -465,11 +443,12 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
             var (startedOk, startedMsg) = await _llmProc.StartAsync(_appSettings, cts.Token);
             if (!startedOk)
             {
-                detail.Text = LocalRuntimeText("Echec : ", "Failed: ", "Error: ", "Falha: ", "Fehler: ", "Errore: ", UiLang) + startedMsg;
+                SetStartupStatus(LocalRuntimeText("Échec : ", "Failed: ", "Error: ", "Falha: ", "Fehler: ", "Errore: ", UiLang) + startedMsg);
                 await Task.Delay(1200);
                 return;
             }
-            // Wait until /v1/models is really ready (handles 503 "Loading model")
+
+            // Wait until /v1/models is really ready (handles 503 "Loading model").
             var readyDeadline = DateTimeOffset.UtcNow + TimeSpan.FromMinutes(2);
             while (DateTimeOffset.UtcNow < readyDeadline && !cts.IsCancellationRequested)
             {
@@ -481,9 +460,9 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
                 if (probe2.Status == LlmModelsStatus.Ok)
                     break;
 
-                detail.Text = probe2.Status == LlmModelsStatus.Loading
-                    ? LocalRuntimeText("Chargement du modele...", "Model loading...", "Cargando modelo...", "A carregar modelo...", "Modell wird geladen...", "Caricamento modello...", UiLang)
-                    : LocalRuntimeText("Demarrage de l'assistant...", "Starting assistant...", "Iniciando el asistente...", "A iniciar o assistente...", "Assistent wird gestartet...", "Avvio dell'assistente...", UiLang);
+                SetStartupStatus(probe2.Status == LlmModelsStatus.Loading
+                    ? LocalRuntimeText("Chargement du modèle…", "Model loading…", "Cargando modelo…", "A carregar modelo…", "Modell wird geladen…", "Caricamento modello…", UiLang)
+                    : LocalRuntimeText("Démarrage de l'assistant…", "Starting assistant…", "Iniciando el asistente…", "A iniciar o assistente…", "Assistent wird gestartet…", "Avvio dell'assistente…", UiLang));
 
                 await Task.Delay(1000, cts.Token);
             }
@@ -495,12 +474,12 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
 
             if (finalProbe.Status != LlmModelsStatus.Ok)
             {
-                detail.Text = LocalRuntimeText("Assistant demarre, mais le modele n'est pas pret. Reessaie dans 1-2 minutes.", "Assistant started, but the model is not ready yet. Try again in 1-2 minutes.", "El asistente se inicio, pero el modelo aun no esta listo. Vuelve a intentarlo en 1-2 minutos.", "O assistente iniciou, mas o modelo ainda nao esta pronto. Tenta novamente em 1-2 minutos.", "Der Assistent wurde gestartet, aber das Modell ist noch nicht bereit. Versuche es in 1-2 Minuten erneut.", "L'assistente e stato avviato, ma il modello non e ancora pronto. Riprova tra 1-2 minuti.", UiLang);
+                SetStartupStatus(LocalRuntimeText("Assistant démarré, mais le modèle n'est pas prêt. Réessaie dans 1-2 minutes.", "Assistant started, but the model is not ready yet. Try again in 1-2 minutes.", "El asistente se inició, pero el modelo aún no está listo. Vuelve a intentarlo en 1-2 minutos.", "O assistente iniciou, mas o modelo ainda não está pronto. Tenta novamente em 1-2 minutos.", "Der Assistent wurde gestartet, aber das Modell ist noch nicht bereit. Versuche es in 1-2 Minuten erneut.", "L'assistente è stato avviato, ma il modello non è ancora pronto. Riprova tra 1-2 minuti.", UiLang));
                 await Task.Delay(1600);
                 return;
             }
 
-            detail.Text = LocalRuntimeText("Assistant pret.", "Assistant ready.", "Asistente listo.", "Assistente pronto.", "Assistent bereit.", "Assistente pronto.", UiLang);
+            SetStartupStatus(LocalRuntimeText("Assistant prêt.", "Assistant ready.", "Asistente listo.", "Assistente pronto.", "Assistent bereit.", "Assistente pronto.", UiLang));
 
             // Mark provisioning as successfully applied ONLY when models are ready.
             if (!string.IsNullOrWhiteSpace(_appSettings.ProvisioningHash))
@@ -510,7 +489,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
             }
 
             await Task.Delay(600);
-}
+        }
         catch (OperationCanceledException)
         {
             // ignore
@@ -518,12 +497,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
         catch (Exception ex)
         {
             ClientLog.Exception("EnsureAssistantReadyIfNeededAsync", ex);
-            Status(LocalRuntimeText("Assistant IA : erreur au demarrage (voir logs).", "Assistant: startup error (see logs).", "Asistente: error al iniciar (ver logs).", "Assistente: erro ao iniciar (ver logs).", "Assistent: Startfehler (siehe Logs).", "Assistente: errore all'avvio (vedi log).", UiLang));
-        }
-        finally
-        {
-            TrySoftUi("EnsureEmbeddedAssistantAsync.HideDialog", dlg.Hide);
-            await TrySoftUiAsync("EnsureEmbeddedAssistantAsync.AwaitDialogClose", () => showTask);
+            Status(LocalRuntimeText("Assistant IA : erreur au démarrage (voir logs).", "Assistant: startup error (see logs).", "Asistente: error al iniciar (ver logs).", "Assistente: erro ao iniciar (ver logs).", "Assistent: Startfehler (siehe Logs).", "Assistente: errore all'avvio (vedi log).", UiLang));
         }
     }
 
@@ -580,12 +554,48 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
 
     private async Task ConnectAsync()
     {
+        _lastConnectErrorMessage = null;
+        // Declared outside the try so the catch can include "(192.168.1.75:5122)" in the
+        // localized error message — context that's invaluable for debugging which URL failed.
+        string backendUrl = "";
         try
         {
             _userId = SecureLocalStore.GetOrCreateUserId();
 
             _appSettings = AppSettings.Load();
-            var backendUrl = string.IsNullOrWhiteSpace(_appSettings.BackendUrl) ? ClientDefaults.BackendBaseUrl : _appSettings.BackendUrl;
+
+            // Pick the first reachable backend URL among (BackendUrl + alternates). This is
+            // what makes "same wizard config" work both on Wifi (LAN URL) and on VPN
+            // (Tailscale URL): whichever responds within the timeout wins.
+            var candidates = _appSettings.AllBackendUrlCandidates();
+            if (candidates.Count <= 1)
+            {
+                backendUrl = string.IsNullOrWhiteSpace(_appSettings.BackendUrl) ? ClientDefaults.BackendBaseUrl : _appSettings.BackendUrl;
+            }
+            else
+            {
+                ShowStartupOverlay(
+                    ClientUiText.Get("startup.subtitle", UiLang),
+                    LocalRuntimeText("Recherche du serveur joignable…", "Probing reachable backend…", "Buscando servidor accesible…", "À procura do servidor acessível…", "Erreichbares Backend wird gesucht…", "Ricerca del backend raggiungibile…", UiLang));
+
+                var pick = await BackendUrlPicker.PickAsync(candidates, TimeSpan.FromSeconds(3), CancellationToken.None);
+                backendUrl = pick.Url ?? candidates[0];
+
+                if (pick.Url is null)
+                {
+                    // None responded — keep the primary URL configured anyway so the rest of
+                    // the connect flow surfaces a clean failure message via _lastConnectErrorMessage.
+                    _lastConnectErrorMessage = pick.FailureSummary ?? "no backend reachable";
+                }
+                else if (pick.ChangedFromPrimary)
+                {
+                    // Persist the successful URL only as the *active* one for this run; we do
+                    // NOT mutate AppSettings.BackendUrl so the user's preferred order stays
+                    // intact across networks (next launch will probe again from the same list).
+                    ClientLog.Info($"BackendUrlPicker: roamed to {pick.Url} (primary was {candidates[0]}).");
+                }
+            }
+
             _api.Configure(backendUrl, ApiKeyBox.Password, _userId);
 
             // LLM endpoint (usually already running via Docker/service). In user mode we do NOT manage a process.
@@ -643,10 +653,106 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
         }
         catch (Exception ex)
         {
-            Status(LocalRuntimeText("Connexion en echec : ", "Connect failed: ", "Error de conexion: ", "Falha na ligacao: ", "Verbindung fehlgeschlagen: ", "Connessione non riuscita: ", UiLang) + ex.Message);
+            // Reset _agent so InitializeUserModeAsync detects the failure and shows the
+            // "Pas connecté au serveur" red-cross overlay. Without this, the agent stays
+            // wired to the previously-configured (unreachable) URL and the UI looks fine
+            // even though no backend call ever succeeds.
+            _agent = null;
+            _lastConnectErrorMessage = ClassifyConnectError(ex, backendUrl, UiLang);
+            Status(LocalRuntimeText("Connexion en échec : ", "Connect failed: ", "Error de conexión: ", "Falha na ligação: ", "Verbindung fehlgeschlagen: ", "Connessione non riuscita: ", UiLang) + _lastConnectErrorMessage);
             UpdateUiState(isGenerating: false);
             ApplyResponsiveLayout(Root.ActualWidth);
         }
+    }
+
+    // Turn a raw .NET network exception into a localized, actionable one-liner.
+    // Recognises the most common Windows socket / HTTP error patterns and falls
+    // back to the original message (with URL appended) when nothing matches.
+    private static string ClassifyConnectError(Exception ex, string url, string lang)
+    {
+        var raw = ex?.Message ?? "";
+        var lower = raw.ToLowerInvariant();
+        var host = string.IsNullOrWhiteSpace(url) ? "" : $" ({url})";
+
+        bool Has(params string[] needles)
+        {
+            foreach (var n in needles)
+                if (lower.Contains(n, StringComparison.Ordinal)) return true;
+            return false;
+        }
+
+        // Timeout (TaskCanceledException + Windows socket "did not properly respond after a period of time").
+        if (ex is TaskCanceledException || Has("timed out", "did not properly respond after a period of time", "operation has timed out"))
+        {
+            return lang switch
+            {
+                "en" => $"The server did not respond within the timeout{host}.",
+                "es" => $"El servidor no respondió dentro del tiempo límite{host}.",
+                "pt" => $"O servidor não respondeu dentro do tempo limite{host}.",
+                "de" => $"Der Server hat innerhalb des Timeouts nicht geantwortet{host}.",
+                "it" => $"Il server non ha risposto entro il timeout{host}.",
+                _    => $"Le serveur n'a pas répondu dans les temps{host}."
+            };
+        }
+
+        // Connection refused (active rejection by the server).
+        if (Has("actively refused", "connection refused", "no connection could be made"))
+        {
+            return lang switch
+            {
+                "en" => $"Connection refused by the server{host}.",
+                "es" => $"Conexión rechazada por el servidor{host}.",
+                "pt" => $"Ligação recusada pelo servidor{host}.",
+                "de" => $"Verbindung vom Server abgelehnt{host}.",
+                "it" => $"Connessione rifiutata dal server{host}.",
+                _    => $"Connexion refusée par le serveur{host}."
+            };
+        }
+
+        // DNS resolution failure.
+        if (Has("no such host", "name or service not known", "name resolution"))
+        {
+            return lang switch
+            {
+                "en" => $"Hostname could not be resolved{host}.",
+                "es" => $"No se pudo resolver el nombre del host{host}.",
+                "pt" => $"Não foi possível resolver o nome do host{host}.",
+                "de" => $"Hostname konnte nicht aufgelöst werden{host}.",
+                "it" => $"Impossibile risolvere il nome host{host}.",
+                _    => $"Nom d'hôte introuvable{host}."
+            };
+        }
+
+        // Network unreachable (often: VPN down, route missing).
+        if (Has("network is unreachable", "no route to host", "network unreachable"))
+        {
+            return lang switch
+            {
+                "en" => $"Network unreachable — check your VPN/Wifi{host}.",
+                "es" => $"Red inaccesible — comprueba tu VPN/Wifi{host}.",
+                "pt" => $"Rede inacessível — verifica a tua VPN/Wifi{host}.",
+                "de" => $"Netzwerk nicht erreichbar — VPN/Wifi prüfen{host}.",
+                "it" => $"Rete non raggiungibile — controlla la tua VPN/Wifi{host}.",
+                _    => $"Réseau injoignable — vérifie ton VPN/Wifi{host}."
+            };
+        }
+
+        // TLS/SSL issues.
+        if (Has("ssl", "tls", "certificate"))
+        {
+            return lang switch
+            {
+                "en" => $"TLS/certificate problem{host}: {raw}",
+                "es" => $"Problema TLS/certificado{host}: {raw}",
+                "pt" => $"Problema TLS/certificado{host}: {raw}",
+                "de" => $"TLS-/Zertifikatsproblem{host}: {raw}",
+                "it" => $"Problema TLS/certificato{host}: {raw}",
+                _    => $"Problème TLS/certificat{host} : {raw}"
+            };
+        }
+
+        // Fallback: keep raw message (still in English) but at least append URL for context.
+        return string.IsNullOrEmpty(host) ? raw : $"{raw}{host}";
     }
 
 private async Task RefreshSessionsAsync(string? preferSessionId, CancellationToken ct)

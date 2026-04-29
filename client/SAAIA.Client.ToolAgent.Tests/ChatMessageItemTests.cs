@@ -15,6 +15,10 @@ public sealed class ChatMessageItemTests
         item.IsStreaming = true;
         item.IsStreaming = false;
 
-        Assert.Equal(new[] { nameof(ChatMessageItem.IsStreaming), nameof(ChatMessageItem.IsStreaming) }, changed);
+        Assert.Equal(2, changed.Count(p => p == nameof(ChatMessageItem.IsStreaming)));
+        Assert.Contains(nameof(ChatMessageItem.StatusNoteVisibleWhenIdle), changed);
+        Assert.Contains(nameof(ChatMessageItem.ProgressTextVisibleWhenIdle), changed);
+        Assert.Contains(nameof(ChatMessageItem.StreamingShowProgressText), changed);
+        Assert.Contains(nameof(ChatMessageItem.StreamingShowDefault), changed);
     }
 }

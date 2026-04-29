@@ -63,7 +63,7 @@ public sealed class UiLocalizationSafetyNetTests
         var file = Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "Controls", "SetupWizardDialog.xaml.cs");
         var source = File.ReadAllText(file);
 
-        Assert.Contains("ApiKeyBox.PlaceholderText = SZ(", source);
+        Assert.Contains("ApiKeyBox.PlaceholderText = \"saaia_…\"", source);
         Assert.Contains("LlamaExeBox.PlaceholderText = SZ(", source);
         Assert.Contains("ModelPathBox.PlaceholderText = SZ(", source);
         Assert.Contains("HostBox.PlaceholderText = SZ(", source);
@@ -78,9 +78,9 @@ public sealed class UiLocalizationSafetyNetTests
         var file = Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "Controls", "SetupWizardDialog.xaml.cs");
         var source = File.ReadAllText(file);
 
-        Assert.Contains("Title = SZ(", source);
-        Assert.Contains("PrimaryButtonText = SZ(", source);
-        Assert.Contains("CloseButtonText = SZ(", source);
+        Assert.Contains("HeroTitleText.Text = SZ(", source);
+        Assert.Contains("WizardApplyButton.Content = SZ(", source);
+        Assert.Contains("WizardCancelButton.Content = SZ(", source);
         Assert.Contains("TestReadyButton.Content = SZ(", source);
         Assert.Contains("TestApiKeyButton.Content = SZ(", source);
         Assert.Contains("UseLocalLlmCheck.Content = SZ(", source);

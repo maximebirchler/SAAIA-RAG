@@ -1,5 +1,0 @@
-﻿Diagnostic :
-Le système actuel peut être instable avec les paramètres actuels, notamment avec les valeurs de batch-size et threads-batch qui peuvent exposer la mémoire vive à des pics importants. Cela peut entraîner des pauses dans l'interface utilisateur.
-
-Action recommandée :
-Réduire le batch-size et augmenter le threads-batch pour libérer plus de mémoire et maintenir la fluidité de l'interface.

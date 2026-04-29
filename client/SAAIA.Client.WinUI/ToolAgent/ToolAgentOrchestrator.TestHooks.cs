@@ -19,4 +19,10 @@ public sealed partial class ToolAgentOrchestrator
         using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(jsonArgs) ? "{}" : jsonArgs);
         return NormalizeToolArgs(toolName, doc.RootElement);
     }
+
+    internal static JsonElement NormalizeRagHitsForTests(string json)
+    {
+        using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(json) ? "{}" : json);
+        return NormalizeRagHits(doc.RootElement);
+    }
 }

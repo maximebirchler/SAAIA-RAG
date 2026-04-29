@@ -4,7 +4,6 @@ public sealed partial class MainWindow
 {
     private async Task InitializeUserModeAsync()
     {
-        var shouldHideOverlay = true;
         try
         {
             ApplyUserModeVisibility();
@@ -19,17 +18,34 @@ public sealed partial class MainWindow
                 ShowStartupOverlay(ClientUiText.Get("startup.subtitle", _appSettings.UiLanguage), ClientUiText.Get("startup.status.connecting", _appSettings.UiLanguage));
                 await ConnectAsync();
             }
+
+            // If auto-connect was supposed to run but the agent is still null, ConnectAsync
+            // either threw and was swallowed, or the backend didn't answer. Keep the overlay
+            // visible in error mode so the user has an obvious "not connected" indicator
+            // instead of an empty chat with a vague status line.
+            if (_agent is null && !NeedsSetupWizard() && _appSettings.AutoConnect)
+            {
+                ShowStartupOverlayError(
+                    ClientUiText.Get("startup.error.not_connected", _appSettings.UiLanguage),
+                    GetLastConnectErrorMessage() ?? ClientUiText.Get("startup.subtitle", _appSettings.UiLanguage));
+                return;
+            }
+
+            HideStartupOverlay();
         }
         catch (Exception ex)
         {
             Status(ClientUiText.Get("status.init_failed", _appSettings.UiLanguage) + ex.Message);
-        }
-        finally
-        {
-            if (shouldHideOverlay)
-                HideStartupOverlay();
+            ShowStartupOverlayError(
+                ClientUiText.Get("startup.error.not_connected", _appSettings.UiLanguage),
+                ex.Message);
         }
     }
+
+    // ConnectAsync stuffs failures into Status(...) text. We capture the most recent
+    // failure here so the startup overlay can show something better than "Initialisation…".
+    private string? _lastConnectErrorMessage;
+    private string? GetLastConnectErrorMessage() => _lastConnectErrorMessage;
 
 
     private void Status(string s)

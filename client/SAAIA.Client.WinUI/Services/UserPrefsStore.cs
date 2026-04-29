@@ -14,8 +14,11 @@ internal static class UserPrefsStore
 
     private sealed record UserPrefsDto(int Version, string? Language, string? Style, string? Mode);
 
+    internal static string? FilePathOverrideForTests { get; set; }
+
     private static string FilePath =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "user-prefs.bin");
+        FilePathOverrideForTests
+        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "user-prefs.bin");
 
     public static UserPrefs Load()
     {

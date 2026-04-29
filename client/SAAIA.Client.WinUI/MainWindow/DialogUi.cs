@@ -1,7 +1,35 @@
+using System.Net.Http;
+
 namespace SAAIA.Client.WinUI;
 
 public sealed partial class MainWindow
 {
+    // Turn an HttpRequestException's opaque "Response status code does not indicate success."
+    // into a humane "GET /admin/x → HTTP 401 (clé admin invalide ?)" so admin panels show
+    // the integrator something actionable instead of the raw .NET message.
+    private static string FormatAdminLoadError(System.Exception ex, string endpoint, string lang)
+    {
+        if (ex is TaskCanceledException)
+            return endpoint + " — timeout";
+
+        if (ex is HttpRequestException http && http.StatusCode is { } code)
+        {
+            var hint = (int)code switch
+            {
+                401 => lang switch { "en" => "missing or invalid admin key", "es" => "clave admin inválida o ausente", "pt" => "chave admin inválida ou ausente", "de" => "Admin-Key fehlt oder ungueltig", "it" => "chiave admin mancante o non valida", _ => "clé admin invalide ou absente" },
+                403 => lang switch { "en" => "admin key not authorized", "es" => "clave admin no autorizada", "pt" => "chave admin não autorizada", "de" => "Admin-Key nicht autorisiert", "it" => "chiave admin non autorizzata", _ => "clé admin non autorisée" },
+                404 => lang switch { "en" => "endpoint missing on backend", "es" => "endpoint ausente en backend", "pt" => "endpoint ausente no backend", "de" => "Endpoint fehlt im Backend", "it" => "endpoint assente nel backend", _ => "endpoint absent côté backend" },
+                503 => lang switch { "en" => "backend service unavailable", "es" => "servicio backend no disponible", "pt" => "serviço backend indisponível", "de" => "Backend-Dienst nicht verfuegbar", "it" => "servizio backend non disponibile", _ => "service backend indisponible" },
+                _ => lang switch { "en" => "see server logs", "es" => "ver logs del servidor", "pt" => "ver logs do servidor", "de" => "Server-Logs ansehen", "it" => "vedi log server", _ => "voir logs serveur" }
+            };
+            return $"GET {endpoint} → HTTP {(int)code} ({hint})";
+        }
+
+        var msg = ex.Message ?? string.Empty;
+        if (msg.Length > 160) msg = msg.Substring(0, 157) + "…";
+        return $"{endpoint} — {msg}";
+    }
+
     private Border BuildDialogBadge(string badgeText)
     {
         var light = UseLightPalette();
@@ -309,11 +337,15 @@ public sealed partial class MainWindow
             {
                 Text = text,
                 FontWeight = FontWeights.SemiBold,
-                HorizontalAlignment = HorizontalAlignment.Center
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextAlignment = Microsoft.UI.Xaml.TextAlignment.Center,
+                // Wrap multi-word labels (e.g. "Réconcilier stale") instead of letting them clip
+                // when the footer Grid hands the button a narrow column.
+                TextWrapping = TextWrapping.WrapWholeWords
             },
             HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Center,
-            Padding = new Thickness(16, 11, 16, 11),
+            Padding = new Thickness(12, 10, 12, 10),
             CornerRadius = new CornerRadius(14),
             BorderThickness = new Thickness(1),
             Background = background,

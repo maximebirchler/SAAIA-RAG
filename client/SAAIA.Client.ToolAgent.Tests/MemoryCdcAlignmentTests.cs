@@ -342,15 +342,13 @@ public sealed class MemoryCdcAlignmentTests
     [Fact]
     public void User_prefs_persist_language_and_style_but_not_mode()
     {
-        var filePathProperty = typeof(UserPrefsStore).GetProperty("FilePath", BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.NotNull(filePathProperty);
-        var filePath = Assert.IsType<string>(filePathProperty!.GetValue(null));
-
-        var hadExistingFile = File.Exists(filePath);
-        var backup = hadExistingFile ? File.ReadAllBytes(filePath) : null;
+        var tempDir = Path.Combine(Path.GetTempPath(), "SAAIA.Tests", Guid.NewGuid().ToString("N"));
+        var filePath = Path.Combine(tempDir, "user-prefs.bin");
 
         try
         {
+            UserPrefsStore.FilePathOverrideForTests = filePath;
+
             UserPrefsStore.SaveLanguage("de");
             UserPrefsStore.SaveStyle("technical");
             UserPrefsStore.SaveMode("strict");
@@ -363,15 +361,9 @@ public sealed class MemoryCdcAlignmentTests
         }
         finally
         {
-            if (hadExistingFile && backup is not null)
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
-                File.WriteAllBytes(filePath, backup);
-            }
-            else if (File.Exists(filePath))
-            {
-                File.Delete(filePath);
-            }
+            UserPrefsStore.FilePathOverrideForTests = null;
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, recursive: true);
         }
     }
 }

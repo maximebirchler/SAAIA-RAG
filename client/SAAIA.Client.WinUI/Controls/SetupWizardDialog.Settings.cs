@@ -13,6 +13,28 @@ public sealed partial class SetupWizardDialog
     {
         var s = AppSettings.Load();
 
+        // Persist the backend URL the user actually typed in the wizard. Previously
+        // forgotten — the URL field was visually editable but its value was never saved.
+        var backendUrl = NormalizeBackendUrl((BackendUrlBox.Text ?? "").Trim().TrimEnd('/'));
+        if (!string.IsNullOrWhiteSpace(backendUrl))
+            s.BackendUrl = backendUrl;
+
+        // Optional fallback URLs (one per line). Empty string is fine — clears any previous list.
+        // Each line goes through NormalizeBackendUrl so .ts.net (Tailscale serve) URLs are
+        // forced to https:// — http:// would hit a closed port 80.
+        var alts = (BackendUrlAlternatesBox.Text ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(alts))
+        {
+            s.BackendUrlAlternates = "";
+        }
+        else
+        {
+            var lines = alts.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            for (var i = 0; i < lines.Length; i++)
+                lines[i] = NormalizeBackendUrl(lines[i].Trim().TrimEnd('/'));
+            s.BackendUrlAlternates = string.Join("\n", lines);
+        }
+
         s.UseLocalLlm = UseLocalLlmCheck.IsChecked ?? false;
         s.AutoStartOnConnect = AutoStartCheck.IsChecked ?? false;
 
@@ -37,29 +59,26 @@ public sealed partial class SetupWizardDialog
         return s;
     }
 
-    private void Dialog_PrimaryButtonClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
+    // Force HTTPS for Tailscale MagicDNS hostnames (*.ts.net): Tailscale serve terminates
+    // TLS on :443, port 80 is closed. Many users paste an http:// URL here by reflex and
+    // then wonder why nothing connects (silent timeout). For other hostnames we leave the
+    // user's choice alone.
+    private static string NormalizeBackendUrl(string raw)
     {
-        try
+        if (string.IsNullOrWhiteSpace(raw)) return "";
+
+        var url = raw.Trim();
+        if (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
         {
-            var apiKey = (ApiKeyBox.Password ?? "").Trim();
-            if (string.IsNullOrWhiteSpace(apiKey))
-            {
-                args.Cancel = true;
-                ApiKeyStatusText.Text = SZ("Cle API requise.", "API key required.", "Se requiere clave API.", "Chave API obrigatoria.", "API-Schluessel erforderlich.", "Chiave API richiesta.");
-                return;
-            }
-
-            SecureLocalStore.SetServerApiKey(apiKey);
-
-            var s = ReadSettingsFromUi();
-            s.Save();
-
-            Applied = true;
+            var rest = url.Substring("http://".Length);
+            // Detect Tailscale Magic DNS host (anything ending in .ts.net, with no explicit port).
+            var hostAndRest = rest;
+            var pathStart = hostAndRest.IndexOf('/');
+            var host = pathStart >= 0 ? hostAndRest.Substring(0, pathStart) : hostAndRest;
+            if (host.EndsWith(".ts.net", StringComparison.OrdinalIgnoreCase) && !host.Contains(':'))
+                url = "https://" + rest;
         }
-        catch (Exception ex)
-        {
-            args.Cancel = true;
-            ApiKeyStatusText.Text = SZ("Echec de l'application : ", "Apply failed: ", "Error al aplicar: ", "Falha ao aplicar: ", "Anwenden fehlgeschlagen: ", "Applicazione non riuscita: ") + ex.Message;
-        }
+
+        return url;
     }
 }

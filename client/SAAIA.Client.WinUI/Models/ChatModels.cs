@@ -73,20 +73,72 @@ public sealed class ChatMessageItem : INotifyPropertyChanged
     public string? StatusNote
     {
         get => _statusNote;
-        set { if (_statusNote != value) { _statusNote = value; OnPropertyChanged(); } }
+        set
+        {
+            if (_statusNote != value)
+            {
+                _statusNote = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(StatusNoteSet));
+                OnPropertyChanged(nameof(StatusNoteEmpty));
+                OnPropertyChanged(nameof(StatusNoteVisibleWhenIdle));
+            }
+        }
     }
 
     public string? ProgressText
     {
         get => _progressText;
-        set { if (_progressText != value) { _progressText = value; OnPropertyChanged(); } }
+        set
+        {
+            if (_progressText != value)
+            {
+                _progressText = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ProgressTextVisibleWhenIdle));
+                OnPropertyChanged(nameof(StreamingShowProgressText));
+                OnPropertyChanged(nameof(StreamingShowDefault));
+            }
+        }
     }
 
     public bool IsStreaming
     {
         get => _isStreaming;
-        set { if (_isStreaming != value) { _isStreaming = value; OnPropertyChanged(); } }
+        set
+        {
+            if (_isStreaming != value)
+            {
+                _isStreaming = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(StatusNoteVisibleWhenIdle));
+                OnPropertyChanged(nameof(ProgressTextVisibleWhenIdle));
+                OnPropertyChanged(nameof(StreamingShowProgressText));
+                OnPropertyChanged(nameof(StreamingShowDefault));
+            }
+        }
     }
+
+    // Streaming-row layout: only ONE label visible at a time. Priority order:
+    //   1. StatusNote        (most specific)
+    //   2. ProgressText      (next)
+    //   3. "Génération en cours…" default
+    public bool StatusNoteSet => !string.IsNullOrWhiteSpace(_statusNote);
+    public bool StatusNoteEmpty => string.IsNullOrWhiteSpace(_statusNote);
+    public bool StreamingShowProgressText
+        => string.IsNullOrWhiteSpace(_statusNote) && !string.IsNullOrWhiteSpace(_progressText);
+    public bool StreamingShowDefault
+        => string.IsNullOrWhiteSpace(_statusNote) && string.IsNullOrWhiteSpace(_progressText);
+
+    // The standalone ProgressText spinner (above the bubble) is only shown when NOT
+    // streaming. While streaming, the row inside the bubble already covers it — without
+    // this guard the user sees TWO spinners stacked ("J'interprète…" + "Génération…").
+    public bool ProgressTextVisibleWhenIdle
+        => !_isStreaming && !string.IsNullOrWhiteSpace(_progressText);
+
+    // Idle row: render StatusNote (e.g. "Génération interrompue.") only after streaming.
+    public bool StatusNoteVisibleWhenIdle
+        => !_isStreaming && !string.IsNullOrWhiteSpace(_statusNote);
 
     public ChatTrackingMeta? TrackingMeta
     {

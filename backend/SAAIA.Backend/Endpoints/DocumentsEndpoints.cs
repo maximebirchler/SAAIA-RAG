@@ -182,7 +182,7 @@ LIMIT 1;";
 
     // -------------------------
     // Inventory endpoints (CDC v3.1)
-    // Snapshot-first (M1.4) with safe fallbacks.
+    // Snapshot-first with safe fallbacks.
     // -------------------------
 
     private static async Task<IResult> CountAsync(

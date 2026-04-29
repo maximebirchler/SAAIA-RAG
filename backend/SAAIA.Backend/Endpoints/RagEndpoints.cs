@@ -990,6 +990,11 @@ WHERE tenant_id=@tenant_id
         string Path,
         int DisplayOrder);
 
+    // Must match the SELECT column order/names/types in SearchSparseMatchesAsync exactly —
+    // Dapper materialises records by positional constructor binding, so a missing column
+    // (e.g. SectionOrdinalPlaceholder, which we don't use but must declare) or a type
+    // mismatch (ts_rank_cd returns float/Single, not double) makes the whole endpoint
+    // throw "no matching constructor" at runtime.
     private sealed record SparseMatchRow(
         Guid DocId,
         string DocPath,
@@ -1004,13 +1009,14 @@ WHERE tenant_id=@tenant_id
         int IngestionVersion,
         string? HashDoc,
         string EmbedText,
+        Guid? SectionOrdinalPlaceholder,
         string? SectionTitle,
         string? HeadingPath,
         string ChunkType,
         string? PrevChunkId,
         string? NextChunkId,
         string? SameSectionChunkId,
-        double SparseRank);
+        float SparseRank);
 
     private sealed record LinkedMatchRow(
         Guid DocId,

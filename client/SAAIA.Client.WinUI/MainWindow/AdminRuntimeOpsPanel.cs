@@ -658,7 +658,7 @@ public sealed partial class MainWindow
                 SetStateBanner(ClientUiText.Get("admin.runtime.load_failed", lang));
                 runtimeHost.Content = BuildDialogInfoBanner(LocalRuntimeText("Diagnostic runtime local indisponible.", "Local runtime diagnostics unavailable.", "Diagnostico runtime local no disponible.", "Diagnostico runtime local indisponivel.", "Lokale Runtime-Diagnose nicht verfuegbar.", "Diagnostica runtime locale non disponibile.", lang));
                 capabilitiesHost.Children.Clear();
-                capabilitiesHost.Children.Add(BuildDialogInfoBanner(ex.Message));
+                capabilitiesHost.Children.Add(BuildDialogInfoBanner(FormatAdminLoadError(ex, "/admin/runtime/operational-summary", lang)));
             }
             finally
             {
@@ -686,7 +686,10 @@ public sealed partial class MainWindow
                     BuildDialogSurfaceCard(capabilitiesHost, new Thickness(12))
                 },
                 footer),
-            closeOnBackgroundTap: true);
+            // Admin panel — must dismiss only via the explicit "Fermer" button so an
+            // accidental click outside doesn't close mid-action. Other admin overlays
+            // already follow this pattern.
+            closeOnBackgroundTap: false);
 
         _activeAdminRuntimeOverlay = overlay;
 

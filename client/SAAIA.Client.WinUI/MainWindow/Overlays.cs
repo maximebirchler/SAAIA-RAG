@@ -7,7 +7,13 @@ public sealed partial class MainWindow
     private Grid? _startupOverlay;
     private TextBlock? _startupOverlayStatusText;
     private TextBlock? _startupOverlaySubtitleText;
+    private TextBlock? _startupOverlayTitleText;
     private ProgressRing? _startupOverlayRing;
+    private Border? _startupOverlayBrand;
+    private FontIcon? _startupOverlayErrorIcon;
+    private Button? _startupOverlayRetryButton;
+    private Button? _startupOverlaySetupButton;
+    private StackPanel? _startupOverlayActionsRow;
 
     private Grid? _dialogOverlayHost;
     private Border? _dialogOverlaySmoke;
@@ -42,7 +48,7 @@ public sealed partial class MainWindow
 
         var light = UseLightPalette();
 
-        var brand = new Border
+        _startupOverlayBrand = new Border
         {
             Width = 74,
             Height = 74,
@@ -60,6 +66,62 @@ public sealed partial class MainWindow
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             }
+        };
+
+        // Error-state icon (red cross) shown in place of the brand circle when the
+        // startup probe fails. Built once, shown/hidden via SetStartupOverlayError().
+        _startupOverlayErrorIcon = new FontIcon
+        {
+            Glyph = "",
+            FontSize = 56,
+            Foreground = light ? UiBrush(0xC2, 0x3B, 0x44) : UiBrush(0xE2, 0x6A, 0x72),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Visibility = Visibility.Collapsed
+        };
+
+        _startupOverlayRetryButton = new Button
+        {
+            Content = ClientUiText.Get("startup.retry", _appSettings.UiLanguage),
+            Padding = new Thickness(20, 10, 20, 10),
+            CornerRadius = new CornerRadius(14),
+            Background = light ? UiBrush(0x5E, 0x7A, 0x97) : UiBrush(0x3A, 0x84, 0xD8),
+            Foreground = UiBrush(0xFF, 0xFF, 0xFF),
+            BorderThickness = new Thickness(0)
+        };
+        _startupOverlayRetryButton.Click += async (_, __) =>
+        {
+            HideStartupOverlay();
+            await InitializeUserModeAsync();
+        };
+
+        // Secondary "Configurer" button: opens the setup wizard so the user can fix the
+        // backend URL (or anything else) right from the error overlay — no need to dig
+        // through Settings to reach the wrench/setup icon.
+        _startupOverlaySetupButton = new Button
+        {
+            Content = ClientUiText.Get("startup.configure", _appSettings.UiLanguage),
+            Padding = new Thickness(20, 10, 20, 10),
+            CornerRadius = new CornerRadius(14),
+            Background = light ? UiBrush(0xF1, 0xF4, 0xF8) : UiBrush(0x19, 0x1D, 0x26),
+            Foreground = light ? UiBrush(0x11, 0x18, 0x27) : UiBrush(0xF5, 0xF7, 0xFB),
+            BorderBrush = light ? UiBrush(0xCC, 0xD6, 0xE4) : UiBrush(0x36, 0x38, 0x40),
+            BorderThickness = new Thickness(1)
+        };
+        _startupOverlaySetupButton.Click += async (_, __) =>
+        {
+            HideStartupOverlay();
+            await ShowSetupWizardAsync();
+            // After the wizard closes, retry the init so the new URL kicks in.
+            await InitializeUserModeAsync();
+        };
+
+        _startupOverlayActionsRow = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 10,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Visibility = Visibility.Collapsed,
+            Children = { _startupOverlaySetupButton, _startupOverlayRetryButton }
         };
 
         _startupOverlaySubtitleText = new TextBlock
@@ -94,6 +156,16 @@ public sealed partial class MainWindow
             HorizontalAlignment = HorizontalAlignment.Center
         };
 
+        _startupOverlayTitleText = new TextBlock
+        {
+            Text = ClientUiText.Get("startup.title", _appSettings.UiLanguage),
+            FontSize = 28,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Foreground = light ? UiBrush(0x11, 0x18, 0x27) : UiBrush(0xF7, 0xFA, 0xFE),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            TextAlignment = TextAlignment.Center
+        };
+
         var card = new Border
         {
             CornerRadius = new CornerRadius(28),
@@ -110,19 +182,13 @@ public sealed partial class MainWindow
                 VerticalAlignment = VerticalAlignment.Center,
                 Children =
                 {
-                    brand,
-                    new TextBlock
-                    {
-                        Text = ClientUiText.Get("startup.title", _appSettings.UiLanguage),
-                        FontSize = 28,
-                        FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                        Foreground = light ? UiBrush(0x11, 0x18, 0x27) : UiBrush(0xF7, 0xFA, 0xFE),
-                        HorizontalAlignment = HorizontalAlignment.Center,
-                        TextAlignment = TextAlignment.Center
-                    },
+                    _startupOverlayBrand,
+                    _startupOverlayErrorIcon,
+                    _startupOverlayTitleText,
                     _startupOverlaySubtitleText,
                     _startupOverlayRing,
-                    _startupOverlayStatusText
+                    _startupOverlayStatusText,
+                    _startupOverlayActionsRow
                 }
             }
         };
@@ -131,8 +197,14 @@ public sealed partial class MainWindow
         {
             Background = light ? UiBrush(0xE8, 0xEE, 0xF5, 0xD8) : UiBrush(0x08, 0x0B, 0x12, 0xD8),
             Visibility = Visibility.Visible,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            // Root has Padding="12,0,12,12" — bleed the smoke into that padding so the
+            // overlay covers the entire window (no leftover slivers on the edges).
+            Margin = new Thickness(-12, 0, -12, -12),
             Children = { card }
         };
+        Grid.SetRow(_startupOverlay, 0);
         Grid.SetRowSpan(_startupOverlay, 3);
         Root.Children.Add(_startupOverlay);
     }
@@ -154,7 +226,13 @@ public sealed partial class MainWindow
                 _startupOverlay = null;
                 _startupOverlayStatusText = null;
                 _startupOverlaySubtitleText = null;
+                _startupOverlayTitleText = null;
                 _startupOverlayRing = null;
+                _startupOverlayBrand = null;
+                _startupOverlayErrorIcon = null;
+                _startupOverlayRetryButton = null;
+                _startupOverlaySetupButton = null;
+                _startupOverlayActionsRow = null;
             }
         }
         catch { }
@@ -178,12 +256,60 @@ public sealed partial class MainWindow
             return;
 
         _startupOverlay.Visibility = Visibility.Visible;
+
+        // Reset to "loading" mode in case we're re-entering after a previous error.
+        if (_startupOverlayTitleText is not null)
+            _startupOverlayTitleText.Text = ClientUiText.Get("startup.title", _appSettings.UiLanguage);
+        if (_startupOverlayBrand is not null)
+            _startupOverlayBrand.Visibility = Visibility.Visible;
+        if (_startupOverlayErrorIcon is not null)
+            _startupOverlayErrorIcon.Visibility = Visibility.Collapsed;
+        if (_startupOverlayActionsRow is not null)
+            _startupOverlayActionsRow.Visibility = Visibility.Collapsed;
+        if (_startupOverlayRing is not null)
+        {
+            _startupOverlayRing.Visibility = Visibility.Visible;
+            _startupOverlayRing.IsActive = true;
+        }
+
         if (_startupOverlaySubtitleText is not null)
             _startupOverlaySubtitleText.Text = subtitle;
         if (_startupOverlayStatusText is not null)
             _startupOverlayStatusText.Text = status;
+    }
+
+    // Switch the startup overlay into an error state: red cross instead of brand,
+    // "Pas connecté au serveur" title, the error message as the status, and a retry
+    // button that re-runs InitializeUserModeAsync.
+    private void ShowStartupOverlayError(string title, string detail)
+    {
+        EnsureStartupOverlay();
+        if (_startupOverlay is null)
+            return;
+
+        _startupOverlay.Visibility = Visibility.Visible;
+
+        if (_startupOverlayTitleText is not null)
+            _startupOverlayTitleText.Text = title;
+        if (_startupOverlayBrand is not null)
+            _startupOverlayBrand.Visibility = Visibility.Collapsed;
+        if (_startupOverlayErrorIcon is not null)
+            _startupOverlayErrorIcon.Visibility = Visibility.Visible;
         if (_startupOverlayRing is not null)
-            _startupOverlayRing.IsActive = true;
+        {
+            _startupOverlayRing.IsActive = false;
+            _startupOverlayRing.Visibility = Visibility.Collapsed;
+        }
+        if (_startupOverlaySubtitleText is not null)
+            _startupOverlaySubtitleText.Text = detail;
+        if (_startupOverlayStatusText is not null)
+            _startupOverlayStatusText.Text = string.Empty;
+        if (_startupOverlayRetryButton is not null)
+            _startupOverlayRetryButton.Content = ClientUiText.Get("startup.retry", _appSettings.UiLanguage);
+        if (_startupOverlaySetupButton is not null)
+            _startupOverlaySetupButton.Content = ClientUiText.Get("startup.configure", _appSettings.UiLanguage);
+        if (_startupOverlayActionsRow is not null)
+            _startupOverlayActionsRow.Visibility = Visibility.Visible;
     }
 
     private void HideStartupOverlay()

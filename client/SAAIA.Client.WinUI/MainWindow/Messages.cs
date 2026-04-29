@@ -131,7 +131,7 @@ public sealed partial class MainWindow
         assistantMsg.CreatedAt = DateTime.UtcNow;
     }
 
-    private void EnsureAssistantMessageHasFailureText(ChatMessageItem? assistantMsg)
+    private void EnsureAssistantMessageHasFailureText(ChatMessageItem? assistantMsg, Exception? cause = null)
     {
         if (assistantMsg is null)
             return;
@@ -139,8 +139,62 @@ public sealed partial class MainWindow
         ClearAssistantProgress(assistantMsg);
         assistantMsg.StatusNote = null;
 
-        if (string.IsNullOrWhiteSpace(assistantMsg.Content))
-            assistantMsg.Content = LocalRuntimeText("La reponse n'a pas pu etre generee. Reessaie.", "The reply could not be generated. Try again.", "No se pudo generar la respuesta. Vuelve a intentarlo.", "Nao foi possivel gerar a resposta. Tenta novamente.", "Die Antwort konnte nicht erzeugt werden. Versuche es erneut.", "Non e stato possibile generare la risposta. Riprova.", UiLang);
+        if (!string.IsNullOrWhiteSpace(assistantMsg.Content))
+            return;
+
+        // Try to recognise the most common root cause (LLM endpoint unreachable / refused)
+        // and tell the user something actionable instead of the generic "try again".
+        var hint = ClassifyAssistantFailure(cause);
+        assistantMsg.Content = hint;
+    }
+
+    private string ClassifyAssistantFailure(Exception? ex)
+    {
+        var lang = UiLang;
+        var msg = ex?.Message ?? string.Empty;
+        var lower = msg.ToLowerInvariant();
+
+        if (lower.Contains("exceeds the available context size")
+            || (lower.Contains("context size") && lower.Contains("exceed"))
+            || lower.Contains("context window")
+            || lower.Contains("n_ctx"))
+        {
+            return LocalRuntimeText(
+                "Le contexte documentaire est trop volumineux pour le profil LLM actuel. Essaie une question plus ciblée ou qualifie un profil avec une fenêtre de contexte plus grande.",
+                "The document context is too large for the current LLM profile. Try a more focused question or qualify a profile with a larger context window.",
+                "El contexto documental es demasiado grande para el perfil LLM actual. Prueba con una pregunta más concreta o valida un perfil con una ventana de contexto mayor.",
+                "O contexto documental é demasiado grande para o perfil LLM atual. Tenta uma pergunta mais focada ou qualifica um perfil com uma janela de contexto maior.",
+                "Der Dokumentkontext ist zu gross fuer das aktuelle LLM-Profil. Stelle eine gezieltere Frage oder qualifiziere ein Profil mit groesserem Kontextfenster.",
+                "Il contesto documentale è troppo grande per il profilo LLM attuale. Prova con una domanda più mirata o qualifica un profilo con una finestra di contesto più ampia.",
+                lang);
+        }
+
+        // Network errors talking to the local LLM endpoint (most common: nothing listening on
+        // 127.0.0.1:1234 because Docker/llama-server isn't up, or wrong port/host configured).
+        if (ex is HttpRequestException || ex is TaskCanceledException
+            || lower.Contains("connection refused") || lower.Contains("no connection could be made")
+            || lower.Contains("actively refused") || lower.Contains("connection.*timed out")
+            || lower.Contains("timed out")
+            || lower.Contains("name resolution"))
+        {
+            return LocalRuntimeText(
+                "Le moteur local (LLM) n'a pas répondu. Vérifie qu'il tourne (Docker / llama-server) et que l'URL côté paramètres est correcte.",
+                "The local engine (LLM) did not respond. Check it is running (Docker / llama-server) and that the URL in settings is correct.",
+                "El motor local (LLM) no respondió. Comprueba que está activo (Docker / llama-server) y que la URL en ajustes es correcta.",
+                "O motor local (LLM) não respondeu. Verifica se está a correr (Docker / llama-server) e que o URL nas definições está correto.",
+                "Die lokale Engine (LLM) hat nicht geantwortet. Pruefe, ob sie laeuft (Docker / llama-server) und dass die URL in den Einstellungen stimmt.",
+                "Il motore locale (LLM) non ha risposto. Verifica che sia in esecuzione (Docker / llama-server) e che l'URL nelle impostazioni sia corretto.",
+                lang);
+        }
+
+        return LocalRuntimeText(
+            "La réponse n'a pas pu être générée. Réessaie.",
+            "The reply could not be generated. Try again.",
+            "No se pudo generar la respuesta. Vuelve a intentarlo.",
+            "Não foi possível gerar a resposta. Tenta novamente.",
+            "Die Antwort konnte nicht erzeugt werden. Versuche es erneut.",
+            "Non è stato possibile generare la risposta. Riprova.",
+            lang);
     }
 
     private async Task MaybeAutoTitleAsync(string userText)
@@ -612,10 +666,10 @@ public sealed partial class MainWindow
         {
             if (assistantMsg is not null)
                 assistantMsg.IsStreaming = false;
-            EnsureAssistantMessageHasFailureText(assistantMsg);
+            EnsureAssistantMessageHasFailureText(assistantMsg, ex);
             SetTyping(false);
             UpdateJumpButton();
-            Status(LocalRuntimeText("Echec de l'envoi : ", "Send failed: ", "Error al enviar: ", "Falha ao enviar: ", "Senden fehlgeschlagen: ", "Invio non riuscito: ", UiLang) + ex.Message);
+            Status(LocalRuntimeText("Échec de l'envoi : ", "Send failed: ", "Error al enviar: ", "Falha ao enviar: ", "Senden fehlgeschlagen: ", "Invio non riuscito: ", UiLang) + ex.Message);
         }
         finally
         {

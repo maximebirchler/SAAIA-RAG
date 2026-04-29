@@ -1,1 +1,0 @@
-﻿"C:\Users\MBirchler\AppData\Local\SAAIA\llm\runtime\win-cuda-x64\llama-server.exe" --model C:\Users\MBirchler\Desktop\ecom\SAAIA\GIT\RAG\models\Qwen2.5-3B-Instruct-Q4_K_M.gguf --host 127.0.0.1 --port 18236 --threads 6 --ctx-size 3072 --batch-size 1024 --n-gpu-layers 36 --ubatch-size 256 --threads-batch 6 --flash-attn off

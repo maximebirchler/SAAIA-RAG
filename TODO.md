@@ -440,6 +440,8 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 
 - [x] Preparer une matrice de bench approuvee par famille / machine / runtime avant campagne reelle
   - Artefacts crees : `artifacts/manual-test-checklist/SAAIA_Bench_Matrix_v3.1.tsv` et `artifacts/manual-test-checklist/SAAIA_Bench_Matrix_v3.1.xlsx`
+  - Script dedie ajoute : `Test Bench/bench-llama-server-matrix.ps1`
+  - Preflight serveur ajoute : `Test Bench/server-runtime-preflight.ps1`
 - [x] Prioriser les benches client utiles :
   - [x] Qwen2.5 3B Q4_K_M
   - [x] Qwen2.5 3B Q6_K_L
@@ -518,6 +520,9 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 - [x] Tous les outils critiques sont verifies comme fonctionnels
   - Verifies sur machine : regeneration / verification / repair governance, support bundles, ConfigSigner, runtime-ci smoke, bench local, export checklists `.xlsx`
 - [x] La checklist Excel/UI est prete et revue
+- [x] Premier smoke local `Qwen3.6-35B-A3B-UD-Q3_K_S` capture sur `b8901` et valide par `Test Bench/bench-llama-server-matrix.ps1` : architecture OK, chargement OK, reponse OK, mais machine P520 non representative pour trancher le runtime serveur
+- [x] Preflight `saaia-server` capture : GPU Quadro T2000 detecte mais serveur encore en `nouveau_only`, sans `nvidia-smi`, sans runtime `llama-server` et sans modeles bench
+- [x] Reprise serveur 2026-04-29 : `Qwen3.6-27B-Q4_K_M.gguf` recopie completement sur `saaia-server` via reprise SFTP, SHA256 valide, smoke CUDA officiel OK (`ctx=2048`, `ngl=8`, `batch=256`, `ubatch=128`, `flash-attn=off`) ; resultat meilleur que les A3B en latence globale courte, mais encore non confortable pour runtime produit nominal
 - [ ] La campagne manuelle reelle ne commence qu'apres ce gate
 
 ---
@@ -736,3 +741,5 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 | 2026-04-24 | Codex | Audit Phase 4 - passe 34 : sync automatique des artefacts locaux `model_catalog.json` et `model_collections.json` quand le catalogue par defaut s'enrichit ; regeneration machine reelle executee, gouvernance locale revalidee `16/16` + runtime `1/1`, suite client complete `359/359` verte |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 35 : safety nets ajoutes sur le multilingue compile (`SetupWizard` titres/boutons, resume runtime admin) et sur les scripts critiques `tools/*` ; revalidation sequentielle client `364/364` verte, parsing PowerShell OK, `runtime-ci-harness` smoke revalide, audit gouvernance local toujours vert |
 | 2026-04-24 | Codex | Audit Phase 4 - passe 36 : rapport LLM du 22.04 reborné explicitement comme référentiel historique non normatif pour l’état courant ; TODO réaligné sur cette clôture documentaire |
+| 2026-04-29 | Codex | Reprise serveur : copie `Qwen3.6-27B-Q4_K_M.gguf` reprise/verifiee sur `saaia-server` (SHA-256 OK), smoke CUDA officiel execute ; resultat compatible mais trop lent pour le nominal produit (~1.09 tok/s eval). Backend `/ready` serveur confirme vert avec `llm=client-only`. |
+| 2026-04-29 | Codex | Reprise client : corrections post-Claude stabilisees, garde-fou RAG ajoute pour compacter les hits deja normalises avant prompt writer, message utilisateur explicite sur depassement contexte, suite client `367/367`, suite backend `348/348`, build solution OK. |

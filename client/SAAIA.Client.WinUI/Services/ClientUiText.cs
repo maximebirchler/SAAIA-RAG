@@ -75,6 +75,9 @@ internal static class ClientUiText
         ["startup.status.checking_setup"] = Multi("Vérification de la configuration…", "Checking configuration…", "Comprobando la configuración…", "Verificando a configuração…", "Konfiguration wird geprüft…", "Verifica della configurazione…"),
         ["startup.status.starting_assistant"] = Multi("Démarrage de l'assistant…", "Starting assistant…", "Iniciando el asistente…", "Iniciando o assistente…", "Assistent wird gestartet…", "Avvio dell'assistente…"),
         ["startup.status.connecting"] = Multi("Connexion au serveur…", "Connecting to server…", "Conectando al servidor…", "A ligar ao servidor…", "Verbindung zum Server…", "Connessione al server…"),
+        ["startup.error.not_connected"] = Multi("Pas connecté au serveur", "Not connected to the server", "Sin conexión al servidor", "Não ligado ao servidor", "Nicht mit dem Server verbunden", "Non connesso al server"),
+        ["startup.retry"] = Multi("Réessayer", "Retry", "Reintentar", "Tentar novamente", "Erneut versuchen", "Riprova"),
+        ["startup.configure"] = Multi("Configurer", "Configure", "Configurar", "Configurar", "Konfigurieren", "Configura"),
         ["status.init_failed"] = Multi("Échec de l'initialisation : ", "Init failed: ", "Error de inicialización: ", "Falha na inicialização: ", "Initialisierung fehlgeschlagen: ", "Errore di inizializzazione: "),
 
         ["dialog.close"] = Multi("Fermer", "Close", "Cerrar", "Fechar", "Schließen", "Chiudi"),

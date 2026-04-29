@@ -20,6 +20,9 @@ internal sealed class AppSettings
 
     // Core
     private const string KBackendUrl = "backend.url";
+    // Alternate backend URLs to try if BackendUrl is unreachable. Stored as a single string,
+    // newline-separated. Solves the "different URL on Wifi vs VPN" pain.
+    private const string KBackendUrlAlternates = "backend.urlAlternates";
     private const string KShowAdvancedUi = "ui.showAdvanced";
     private const string KAutoConnect = "ui.autoConnect";
     private const string KUiLanguage = "ui.language";
@@ -55,6 +58,40 @@ internal sealed class AppSettings
     private const string KQualifiedProfile = "llm.qualifiedProfile";
 
     public string BackendUrl { get; set; } = ClientDefaults.BackendBaseUrl;
+
+    /// <summary>
+    /// Optional list of fallback URLs to try if <see cref="BackendUrl"/> is unreachable.
+    /// Lets the same client roam between Wifi (LAN URL) and VPN (Tailscale URL) without
+    /// re-editing the URL each time. Persisted as a single newline-separated string.
+    /// </summary>
+    public string BackendUrlAlternates { get; set; } = "";
+
+    /// <summary>
+    /// All candidate backend URLs in priority order: BackendUrl first, then alternates,
+    /// de-duplicated and trimmed. Used by the connect-time picker.
+    /// </summary>
+    public IReadOnlyList<string> AllBackendUrlCandidates()
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var list = new List<string>(4);
+
+        void Add(string? raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return;
+            var u = raw.Trim().TrimEnd('/');
+            if (u.Length == 0) return;
+            if (seen.Add(u)) list.Add(u);
+        }
+
+        Add(BackendUrl);
+        if (!string.IsNullOrWhiteSpace(BackendUrlAlternates))
+        {
+            foreach (var line in BackendUrlAlternates.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                Add(line);
+        }
+
+        return list;
+    }
 
     /// <summary>
     /// UI: when false, the app hides all advanced/provisioning-risky fields.
@@ -162,6 +199,7 @@ internal sealed class AppSettings
 
     private sealed record FileDto(
         string BackendUrl,
+        string BackendUrlAlternates,
         bool ShowAdvancedUi,
         bool AutoConnect,
         string UiLanguage,
@@ -199,6 +237,7 @@ internal sealed class AppSettings
             var ls = ApplicationData.Current.LocalSettings;
 
             s.BackendUrl = (ls.Values[KBackendUrl] as string) ?? s.BackendUrl;
+            s.BackendUrlAlternates = (ls.Values[KBackendUrlAlternates] as string) ?? s.BackendUrlAlternates;
             s.ShowAdvancedUi = (ls.Values[KShowAdvancedUi] as bool?) ?? s.ShowAdvancedUi;
             s.AutoConnect = (ls.Values[KAutoConnect] as bool?) ?? s.AutoConnect;
             s.UiLanguage = (ls.Values[KUiLanguage] as string) ?? s.UiLanguage;
@@ -254,6 +293,9 @@ internal sealed class AppSettings
 
             if (Has(nameof(FileDto.BackendUrl)))
                 s.BackendUrl = string.IsNullOrWhiteSpace(dto.BackendUrl) ? s.BackendUrl : dto.BackendUrl;
+
+            if (Has(nameof(FileDto.BackendUrlAlternates)))
+                s.BackendUrlAlternates = dto.BackendUrlAlternates ?? "";
 
             if (Has(nameof(FileDto.ShowAdvancedUi)))
                 s.ShowAdvancedUi = dto.ShowAdvancedUi;
@@ -348,6 +390,7 @@ internal sealed class AppSettings
             var ls = ApplicationData.Current.LocalSettings;
 
             ls.Values[KBackendUrl] = BackendUrl ?? ClientDefaults.BackendBaseUrl;
+            ls.Values[KBackendUrlAlternates] = BackendUrlAlternates ?? "";
             ls.Values[KShowAdvancedUi] = ShowAdvancedUi;
             ls.Values[KAutoConnect] = AutoConnect;
             ls.Values[KUiLanguage] = string.IsNullOrWhiteSpace(UiLanguage) ? "fr" : UiLanguage;
@@ -407,6 +450,7 @@ internal sealed class AppSettings
 
             var dto = new FileDto(
                 BackendUrl ?? ClientDefaults.BackendBaseUrl,
+                BackendUrlAlternates ?? "",
                 ShowAdvancedUi,
                 AutoConnect,
                 string.IsNullOrWhiteSpace(UiLanguage) ? "fr" : UiLanguage,
@@ -484,6 +528,7 @@ internal sealed class AppSettings
     public AppSettings Clone() => new AppSettings
     {
         BackendUrl = this.BackendUrl,
+        BackendUrlAlternates = this.BackendUrlAlternates,
         ShowAdvancedUi = this.ShowAdvancedUi,
         AutoConnect = this.AutoConnect,
         UiLanguage = this.UiLanguage,
@@ -521,6 +566,7 @@ internal sealed class AppSettings
         if (other is null) return;
 
         BackendUrl = other.BackendUrl;
+        BackendUrlAlternates = other.BackendUrlAlternates;
         ShowAdvancedUi = other.ShowAdvancedUi;
         AutoConnect = other.AutoConnect;
         UiLanguage = other.UiLanguage;

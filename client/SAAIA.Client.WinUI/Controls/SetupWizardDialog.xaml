@@ -4,93 +4,199 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d"
-    Title="Setup (First run)"
-    PrimaryButtonText="Apply"
-    CloseButtonText="Cancel"
-    DefaultButton="Primary"
-    PrimaryButtonClick="Dialog_PrimaryButtonClick">
+    mc:Ignorable="d">
 
-    <ScrollViewer MaxWidth="760" MaxHeight="760"
-                  VerticalScrollBarVisibility="Auto"
-                  HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Spacing="14">
+    <!--
+        This dialog is NEVER displayed via ShowAsync(). The host detaches the WizardShell
+        via DetachContentForOverlay(...) and presents it inside MainWindow's overlay system
+        (smoke + presenter), the same way UserSettingsDialog is shown. Keeping the
+        ContentDialog wrapper only because the .NET XAML compiler requires a top-level
+        Window/Page/UserControl/ContentDialog for x:Class binding here.
+    -->
 
-            <TextBlock x:Name="BackendSectionTitleText" Text="Backend" FontWeight="SemiBold" FontSize="16"/>
-            <TextBlock x:Name="BackendSectionNoteText" Text="Le serveur SAAIA (RAG) est on-prem. Cette etape verifie /ready." Opacity="0.75" TextWrapping="Wrap"/>
+    <Border x:Name="WizardShell"
+            CornerRadius="24"
+            Padding="0"
+            MaxWidth="760"
+            MaxHeight="760"
+            Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
 
-            <TextBox x:Name="BackendUrlBox" IsReadOnly="True" />
+            <!-- Scrollable body -->
+            <ScrollViewer Grid.Row="0"
+                          Padding="20,18,20,8"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Spacing="14">
 
-            <StackPanel Orientation="Horizontal" Spacing="10">
-                <Button x:Name="TestReadyButton" Content="Test /ready" Click="TestReady_Click" MinWidth="120"/>
-                <TextBlock x:Name="ReadyStatusText" VerticalAlignment="Center" Opacity="0.85" TextWrapping="Wrap"/>
-            </StackPanel>
+                    <!-- Hero header -->
+                    <Border CornerRadius="18"
+                            Padding="20,16,20,16"
+                            Background="{ThemeResource SubtleFillColorTertiaryBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1">
+                        <StackPanel Spacing="6">
+                            <TextBlock x:Name="HeroTitleText"
+                                       FontSize="22"
+                                       FontWeight="SemiBold"
+                                       Text="Configuration initiale"/>
+                            <TextBlock x:Name="HeroSubtitleText"
+                                       Opacity="0.75"
+                                       TextWrapping="Wrap"
+                                       Text="Connectez le client au serveur SAAIA et validez votre clé API."/>
+                        </StackPanel>
+                    </Border>
 
-            <TextBox x:Name="ReadyRawBox"
-                     IsReadOnly="True"
-                     AcceptsReturn="True"
-                     TextWrapping="Wrap"
-                     Visibility="Collapsed"
-                     MinHeight="72"/>
+                    <!-- Backend card -->
+                    <Border CornerRadius="16"
+                            Padding="18,14,18,14"
+                            Background="{ThemeResource SubtleFillColorTertiaryBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1">
+                        <StackPanel Spacing="10">
+                            <TextBlock x:Name="BackendSectionTitleText" Text="Serveur SAAIA" FontWeight="SemiBold" FontSize="15"/>
+                            <TextBlock x:Name="BackendSectionNoteText" Opacity="0.75" TextWrapping="Wrap"
+                                       Text="URL du serveur RAG. Le test vérifie qu'il répond."/>
 
-            <Rectangle Height="1" Fill="#2D2D2D" Margin="0,6,0,6"/>
+                            <TextBox x:Name="BackendUrlBox" PlaceholderText="http://192.168.1.75:5122"/>
 
-            <TextBlock x:Name="ApiKeySectionTitleText" Text="API Key" FontWeight="SemiBold" FontSize="16"/>
-            <TextBlock x:Name="ApiKeySectionNoteText" Text="Cette cle est stockee localement (DPAPI) et sert a acceder au chat-store (sessions/messages)." Opacity="0.75" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="BackendAltLabelText"
+                                       Text="URLs alternatives (une par ligne, optionnel)"
+                                       FontWeight="SemiBold"
+                                       FontSize="12"
+                                       Opacity="0.8"/>
+                            <TextBlock x:Name="BackendAltNoteText"
+                                       Opacity="0.7"
+                                       TextWrapping="Wrap"
+                                       FontSize="12"
+                                       Text="Le client essaiera ces URLs si la principale ne répond pas. Pratique pour roamer entre Wifi (IP locale) et VPN (Tailscale)."/>
+                            <TextBox x:Name="BackendUrlAlternatesBox"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     MinHeight="56"
+                                     PlaceholderText="https://saaia-server.taila2196b.ts.net&#x0A;http://192.168.1.75:5122"/>
 
-            <PasswordBox x:Name="ApiKeyBox" PlaceholderText="X-Api-Key"/>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <Button x:Name="TestReadyButton" Content="Tester /ready" Click="TestReady_Click" MinWidth="120"/>
+                                <TextBlock x:Name="ReadyStatusText" VerticalAlignment="Center" Opacity="0.85" TextWrapping="Wrap"/>
+                            </StackPanel>
 
-            <StackPanel Orientation="Horizontal" Spacing="10">
-                <Button x:Name="TestApiKeyButton" Content="Test API key" Click="TestApiKey_Click" MinWidth="120"/>
-                <TextBlock x:Name="ApiKeyStatusText" VerticalAlignment="Center" Opacity="0.85" TextWrapping="Wrap"/>
-            </StackPanel>
+                            <TextBox x:Name="ReadyRawBox"
+                                     IsReadOnly="True"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     Visibility="Collapsed"
+                                     MinHeight="72"/>
+                        </StackPanel>
+                    </Border>
 
-            <Rectangle Height="1" Fill="#2D2D2D" Margin="0,6,0,6"/>
+                    <!-- API key card -->
+                    <Border CornerRadius="16"
+                            Padding="18,14,18,14"
+                            Background="{ThemeResource SubtleFillColorTertiaryBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1">
+                        <StackPanel Spacing="10">
+                            <TextBlock x:Name="ApiKeySectionTitleText" Text="Clé API" FontWeight="SemiBold" FontSize="15"/>
+                            <TextBlock x:Name="ApiKeySectionNoteText" Opacity="0.75" TextWrapping="Wrap"
+                                       Text="Clé fournie par l'intégrateur (commence par « saaia_ »). Stockée chiffrée localement."/>
 
-            <StackPanel x:Name="LlmSection" Spacing="14">
-                <TextBlock x:Name="LlmSectionTitleText" Text="Local LLM (advanced)" FontWeight="SemiBold" FontSize="16"/>
-                <TextBlock x:Name="LlmSectionNoteText" Text="Section avancee (integrateur). En usage standard, l'app utilise un endpoint OpenAI-compatible deja lance (ex: Docker)." Opacity="0.75" TextWrapping="Wrap"/>
+                            <PasswordBox x:Name="ApiKeyBox" PlaceholderText="saaia_…"/>
 
-                <CheckBox x:Name="UseLocalLlmCheck" Content="Enable assistant (LLM)"/>
-                <CheckBox x:Name="AutoStartCheck" Content="Auto-start local LLM process on Connect"/>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <Button x:Name="TestApiKeyButton" Content="Tester la clé API" Click="TestApiKey_Click" MinWidth="120"/>
+                                <TextBlock x:Name="ApiKeyStatusText" VerticalAlignment="Center" Opacity="0.85" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
 
-                <TextBlock x:Name="LlamaExeLabelText" Text="Server executable (llama-server.exe)" FontWeight="SemiBold"/>
-                <TextBox x:Name="LlamaExeBox" PlaceholderText="C:\SAAIA\llm\llama-server.exe"/>
+                    <!-- Local LLM card (integrator-only) -->
+                    <Border x:Name="LlmSection"
+                            CornerRadius="16"
+                            Padding="18,14,18,14"
+                            Background="{ThemeResource SubtleFillColorTertiaryBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1">
+                        <StackPanel Spacing="10">
+                            <TextBlock x:Name="LlmSectionTitleText" Text="LLM local (intégrateur)" FontWeight="SemiBold" FontSize="15"/>
+                            <TextBlock x:Name="LlmSectionNoteText" Opacity="0.75" TextWrapping="Wrap"
+                                       Text="Réservé à l'intégrateur. Laissez tel quel si le LLM tourne déjà (Docker, serveur distant)."/>
 
-                <TextBlock x:Name="ModelPathLabelText" Text="Model (.gguf)" FontWeight="SemiBold"/>
-                <TextBox x:Name="ModelPathBox" PlaceholderText="C:\SAAIA\models\model.gguf"/>
+                            <CheckBox x:Name="UseLocalLlmCheck" Content="Activer l'assistant (LLM)"/>
 
-                <Grid ColumnSpacing="10">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="2*"/>
-                        <ColumnDefinition Width="1*"/>
-                    </Grid.ColumnDefinitions>
+                            <!-- Sub-section: only meaningful when LlamaExePath is set. -->
+                            <StackPanel x:Name="LocalLlmProcessSection" Spacing="10">
+                                <CheckBox x:Name="AutoStartCheck" Content="Démarrer automatiquement le processus LLM local à la connexion"/>
 
-                    <StackPanel Grid.Column="0" Spacing="4">
-                        <TextBlock x:Name="HostLabelText" Text="Host" FontWeight="SemiBold"/>
-                        <TextBox x:Name="HostBox" PlaceholderText="127.0.0.1"/>
-                    </StackPanel>
+                                <TextBlock x:Name="LlamaExeLabelText" Text="Exécutable serveur (llama-server.exe)" FontWeight="SemiBold"/>
+                                <TextBox x:Name="LlamaExeBox" PlaceholderText="C:\SAAIA\llm\llama-server.exe"/>
 
-                    <StackPanel Grid.Column="1" Spacing="4">
-                        <TextBlock x:Name="PortLabelText" Text="Port" FontWeight="SemiBold"/>
-                        <TextBox x:Name="PortBox" PlaceholderText="1234"/>
-                    </StackPanel>
-                </Grid>
+                                <TextBlock x:Name="ModelPathLabelText" Text="Modèle (.gguf)" FontWeight="SemiBold"/>
+                                <TextBox x:Name="ModelPathBox" PlaceholderText="C:\SAAIA\models\model.gguf"/>
+                            </StackPanel>
 
-                <TextBlock x:Name="ModelIdLabelText" Text="Model ID (OpenAI 'model')" FontWeight="SemiBold"/>
-                <TextBox x:Name="ModelIdBox" PlaceholderText="Mistral-7B-Instruct-v0.3-IQ3_M.gguf"/>
+                            <Grid ColumnSpacing="10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="1*"/>
+                                </Grid.ColumnDefinitions>
 
-                <TextBlock x:Name="ExtraArgsLabelText" Text="Extra args (optional)" FontWeight="SemiBold"/>
-                <TextBox x:Name="ExtraArgsBox" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="54"/>
+                                <StackPanel Grid.Column="0" Spacing="4">
+                                    <TextBlock x:Name="HostLabelText" Text="Hôte" FontWeight="SemiBold"/>
+                                    <TextBox x:Name="HostBox" PlaceholderText="127.0.0.1"/>
+                                </StackPanel>
 
-                <StackPanel Orientation="Horizontal" Spacing="10">
-                    <Button x:Name="TestModelsButton" Content="Test /v1/models" Click="TestModels_Click" MinWidth="140"/>
-                    <Button x:Name="StartLocalLlmButton" Content="Start local LLM" Click="StartLocalLlm_Click" MinWidth="140"/>
-                    <Button x:Name="StopLocalLlmButton" Content="Stop" Click="StopLocalLlm_Click" MinWidth="90"/>
+                                <StackPanel Grid.Column="1" Spacing="4">
+                                    <TextBlock x:Name="PortLabelText" Text="Port" FontWeight="SemiBold"/>
+                                    <TextBox x:Name="PortBox" PlaceholderText="1234"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock x:Name="ModelIdLabelText" Text="ID modèle (OpenAI 'model')" FontWeight="SemiBold"/>
+                            <TextBox x:Name="ModelIdBox" PlaceholderText="model-id.gguf"/>
+
+                            <TextBlock x:Name="ExtraArgsLabelText" Text="Arguments supplémentaires (optionnel)" FontWeight="SemiBold"/>
+                            <TextBox x:Name="ExtraArgsBox" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="54"/>
+
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <Button x:Name="TestModelsButton" Content="Tester /v1/models" Click="TestModels_Click" MinWidth="140"/>
+                                <Button x:Name="StartLocalLlmButton" Content="Démarrer le LLM local" Click="StartLocalLlm_Click" MinWidth="140"/>
+                                <Button x:Name="StopLocalLlmButton" Content="Arrêter" Click="StopLocalLlm_Click" MinWidth="90"/>
+                            </StackPanel>
+
+                            <TextBlock x:Name="LlmStatusText" Opacity="0.85" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
+            </ScrollViewer>
 
-                <TextBlock x:Name="LlmStatusText" Opacity="0.85" TextWrapping="Wrap"/>
-            </StackPanel>
-        </StackPanel>
-    </ScrollViewer>
+            <!-- Footer: lives INSIDE the rounded shell (matches UserSettingsDialog footer placement). -->
+            <Grid Grid.Row="1"
+                  Padding="20,12,20,18"
+                  ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Button x:Name="WizardApplyButton"
+                        Grid.Column="0"
+                        HorizontalAlignment="Stretch"
+                        Style="{StaticResource AppPrimaryButtonStyle}"
+                        Click="WizardApplyButton_Click"
+                        Content="Appliquer"/>
+                <Button x:Name="WizardCancelButton"
+                        Grid.Column="1"
+                        HorizontalAlignment="Stretch"
+                        Style="{StaticResource AppSecondaryButtonStyle}"
+                        Click="WizardCancelButton_Click"
+                        Content="Annuler"/>
+            </Grid>
+        </Grid>
+    </Border>
 </ContentDialog>

@@ -13,7 +13,7 @@ public sealed partial class SetupWizardDialog
 {
     private async void TestModels_Click(object sender, RoutedEventArgs e)
     {
-        LlmStatusText.Text = SZ("Test en cours...", "Testing...", "Probando...", "A testar...", "Test wird ausgefuehrt...", "Test in corso...");
+        LlmStatusText.Text = SZ("Test en cours…", "Testing…", "Probando…", "A testar…", "Test wird ausgefuehrt…", "Test in corso…");
 
         try
         {
@@ -21,7 +21,7 @@ public sealed partial class SetupWizardDialog
 
             if (!s.UseLocalLlm)
             {
-                LlmStatusText.Text = SZ("Le LLM local est desactive.", "Local LLM is disabled.", "El LLM local esta desactivado.", "O LLM local esta desativado.", "Lokales LLM ist deaktiviert.", "Il LLM locale e disattivato.");
+                LlmStatusText.Text = SZ("Le LLM local est désactivé.", "Local LLM is disabled.", "El LLM local está desactivado.", "O LLM local está desativado.", "Lokales LLM ist deaktiviert.", "Il LLM locale è disattivato.");
                 return;
             }
 
@@ -42,7 +42,7 @@ public sealed partial class SetupWizardDialog
 
             if (models.Count == 0)
             {
-                LlmStatusText.Text = SZ("Aucun modele retourne.", "No models returned.", "No se devolvio ningun modelo.", "Nenhum modelo foi devolvido.", "Keine Modelle zurueckgegeben.", "Nessun modello restituito.");
+                LlmStatusText.Text = SZ("Aucun modèle retourné.", "No models returned.", "No se devolvió ningún modelo.", "Nenhum modelo foi devolvido.", "Keine Modelle zurueckgegeben.", "Nessun modello restituito.");
                 return;
             }
 
@@ -50,7 +50,7 @@ public sealed partial class SetupWizardDialog
 
             LlmStatusText.Text = ok
                 ? SZ(
-                    $"/v1/models OK (modele trouve : {modelId})",
+                    $"/v1/models OK (modèle trouvé : {modelId})",
                     $"/v1/models OK (model found: {modelId})",
                     $"/v1/models OK (modelo encontrado: {modelId})",
                     $"/v1/models OK (modelo encontrado: {modelId})",
@@ -60,33 +60,48 @@ public sealed partial class SetupWizardDialog
                     $"/v1/models OK mais modelId introuvable. Premier={models[0]}",
                     $"/v1/models OK but modelId not found. First={models[0]}",
                     $"/v1/models OK pero modelId no encontrado. Primero={models[0]}",
-                    $"/v1/models OK mas modelId nao encontrado. Primeiro={models[0]}",
+                    $"/v1/models OK mas modelId não encontrado. Primeiro={models[0]}",
                     $"/v1/models OK, aber modelId nicht gefunden. Erstes={models[0]}",
                     $"/v1/models OK ma modelId non trovato. Primo={models[0]}");
         }
         catch (Exception ex)
         {
-            LlmStatusText.Text = SZ("Echec /v1/models : ", "/v1/models failed: ", "Error /v1/models: ", "Falha /v1/models: ", "/v1/models fehlgeschlagen: ", "Errore /v1/models: ") + ex.Message;
+            LlmStatusText.Text = SZ("Échec /v1/models : ", "/v1/models failed: ", "Error /v1/models: ", "Falha /v1/models: ", "/v1/models fehlgeschlagen: ", "Errore /v1/models: ") + ex.Message;
         }
     }
 
     private async void StartLocalLlm_Click(object sender, RoutedEventArgs e)
     {
-        LlmStatusText.Text = SZ("Demarrage...", "Starting...", "Iniciando...", "A iniciar...", "Startet...", "Avvio...");
+        LlmStatusText.Text = SZ("Démarrage…", "Starting…", "Iniciando…", "A iniciar…", "Startet…", "Avvio…");
 
         try
         {
             var s = ReadSettingsFromUi();
             s.UseLocalLlm = true;
 
+            // Guard against the most common confusing failure ("Missing LLM runtime path"):
+            // if the user has no llama-server.exe configured but tries to launch one, give a
+            // friendly hint instead of leaking the internal error string.
+            if (string.IsNullOrWhiteSpace(s.LlamaExePath))
+            {
+                LlmStatusText.Text = SZ(
+                    "Aucun exécutable LLM local configuré. Si l'assistant tourne ailleurs (Docker ou serveur distant), décochez « Activer l'assistant (LLM) » — pas besoin de démarrer quoi que ce soit ici.",
+                    "No local LLM executable configured. If the assistant runs elsewhere (Docker or remote server), uncheck 'Enable assistant (LLM)' — nothing to start here.",
+                    "Sin ejecutable LLM local configurado. Si el asistente corre en otro lugar (Docker o servidor remoto), desmarque 'Activar asistente (LLM)' — no hay que iniciar nada aquí.",
+                    "Sem executável LLM local configurado. Se o assistente correr noutro lado (Docker ou servidor remoto), desmarque 'Ativar assistente (LLM)' — nada para iniciar aqui.",
+                    "Keine lokale LLM-Executable konfiguriert. Laeuft der Assistent woanders (Docker oder Remote-Server), deaktivieren Sie 'Assistenten aktivieren (LLM)' — hier ist nichts zu starten.",
+                    "Nessun eseguibile LLM locale configurato. Se l'assistente gira altrove (Docker o server remoto), deseleziona 'Attiva assistente (LLM)' — niente da avviare qui.");
+                return;
+            }
+
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(Math.Max(5, s.StartupTimeoutSeconds)));
             var (ok, msg) = await _llmProc.StartAsync(s, cts.Token);
 
-            LlmStatusText.Text = ok ? msg : SZ("Echec : ", "Failed: ", "Error: ", "Falha: ", "Fehler: ", "Errore: ") + msg;
+            LlmStatusText.Text = ok ? msg : SZ("Échec : ", "Failed: ", "Error: ", "Falha: ", "Fehler: ", "Errore: ") + msg;
         }
         catch (Exception ex)
         {
-            LlmStatusText.Text = SZ("Echec du demarrage : ", "Start failed: ", "Error al iniciar: ", "Falha ao iniciar: ", "Start fehlgeschlagen: ", "Avvio non riuscito: ") + ex.Message;
+            LlmStatusText.Text = SZ("Échec du démarrage : ", "Start failed: ", "Error al iniciar: ", "Falha ao iniciar: ", "Start fehlgeschlagen: ", "Avvio non riuscito: ") + ex.Message;
         }
     }
 
@@ -95,11 +110,11 @@ public sealed partial class SetupWizardDialog
         try
         {
             _llmProc.Stop();
-            LlmStatusText.Text = SZ("Arrete.", "Stopped.", "Detenido.", "Parado.", "Gestoppt.", "Fermato.");
+            LlmStatusText.Text = SZ("Arrêté.", "Stopped.", "Detenido.", "Parado.", "Gestoppt.", "Fermato.");
         }
         catch (Exception ex)
         {
-            LlmStatusText.Text = SZ("Echec de l'arret : ", "Stop failed: ", "Error al detener: ", "Falha ao parar: ", "Stop fehlgeschlagen: ", "Arresto non riuscito: ") + ex.Message;
+            LlmStatusText.Text = SZ("Échec de l'arrêt : ", "Stop failed: ", "Error al detener: ", "Falha ao parar: ", "Stop fehlgeschlagen: ", "Arresto non riuscito: ") + ex.Message;
         }
     }
 }

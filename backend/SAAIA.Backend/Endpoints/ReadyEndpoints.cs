@@ -142,7 +142,7 @@ public static class ReadyEndpoints
             // LLM: client-only en v2.7
             details["llm"] = "client-only";
 
-            // Signed deployment config status (M2.3)
+            // Signed deployment config status
             if (cfgStatus is not null)
             {
                 details["config_signature_mode"] = cfgStatus.Mode;

@@ -22,6 +22,7 @@ public sealed class RagChatAgent
     private double _temperature = 0.2;
     private int _maxTokens = 900;
     private string _ragQualityPreset = "balanced";
+    private AppSettings _effectiveSettings = new();
 
     private readonly ToolMemory _mem = new();
 
@@ -49,6 +50,7 @@ public sealed class RagChatAgent
 
     internal void ApplySettings(AppSettings s)
     {
+        _effectiveSettings = s.Clone();
         _llmEnabled = s.UseLocalLlm;
         var configuredMode = AppSettings.NormalizeActiveMode(s.ActiveMode);
         _activeMode = configuredMode;
@@ -172,7 +174,8 @@ public sealed class RagChatAgent
         }
 
         var llm = new LlmAdapter(_llm, _temperature, _maxTokens);
-        var orchSettings = new AppSettings { ActiveMode = _activeMode };
+        var orchSettings = _effectiveSettings.Clone();
+        orchSettings.ActiveMode = _activeMode;
         var orch = new ToolAgentOrchestrator(_api, llm, _mem, orchSettings);
         var result = await orch.RunAsync(
             history,
@@ -194,7 +197,8 @@ public sealed class RagChatAgent
         ArgumentNullException.ThrowIfNull(request);
 
         var llm = new LlmAdapter(_llm, _temperature, _maxTokens);
-        var orchSettings = new AppSettings { ActiveMode = _activeMode };
+        var orchSettings = _effectiveSettings.Clone();
+        orchSettings.ActiveMode = _activeMode;
         var orch = new ToolAgentOrchestrator(_api, llm, _mem, orchSettings);
         var result = await orch.ExecuteDirectCommandAsync(request, ct).ConfigureAwait(false);
         _activeMode = AppSettings.NormalizeActiveMode(orchSettings.ActiveMode);
