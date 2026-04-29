@@ -67,6 +67,7 @@ services:
         condition: service_started
     volumes:
       # Signed deployment config (persisted under install root)
+      - "${SAAIA_INSTALL_ROOT:-..}/deploy:/app/deploy:ro"
       - "${SAAIA_INSTALL_ROOT:-..}/deploy/deployment.config.json:/app/deployment.config.json:ro"
       - "${SAAIA_INSTALL_ROOT:-..}/deploy/deployment.config.sig:/app/deployment.config.sig:ro"
 
