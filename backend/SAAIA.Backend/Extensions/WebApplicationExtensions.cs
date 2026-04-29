@@ -80,7 +80,6 @@ public static class WebApplicationExtensions
 
         RagEndpoints.Map(app);
         ChatStoreEndpoints.Map(app);
-        LlmProxyEndpoints.Map(app);
 
         return app;
     }
