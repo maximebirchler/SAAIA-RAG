@@ -9,7 +9,8 @@ namespace SAAIA.Client.WinUI.Services;
 
 /// <summary>
 /// Probes backend URLs in parallel and returns the first one reachable on the current network.
-/// Any HTTP response counts as reachable; only network errors, timeouts and DNS failures do not.
+/// Uses /health for reachability so a busy deep /ready dependency (TEI/Qdrant) does not
+/// make roaming between LAN/VPN look like a network outage.
 /// </summary>
 internal static class BackendUrlPicker
 {
@@ -106,7 +107,7 @@ internal static class BackendUrlPicker
         try
         {
             using var client = new HttpClient { Timeout = timeout };
-            using var resp = await client.GetAsync(trimmed + "/ready", HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+            using var resp = await client.GetAsync(trimmed + "/health", HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
             var code = (int)resp.StatusCode;
             var is2xx = code >= 200 && code < 300;
             return new ProbeOutcome(trimmed, true, is2xx, is2xx ? null : $"HTTP {code}");
