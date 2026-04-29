@@ -20,6 +20,9 @@ namespace SAAIA.Client.WinUI.Services.ToolAgent;
 public sealed partial class ToolAgentOrchestrator
 {
     private const int RouterCanonicalHintsLimit = 6;
+    private const int SerializedTailContentMaxChars = 420;
+    private const int RagWriterMaxHits = 8;
+    private const int RagWriterMaxExcerptChars = 240;
     private readonly ApiClient _api;
     private readonly ILlmClient _llm;
     private readonly ToolMemory _mem;
@@ -2910,8 +2913,24 @@ TOOL_RESULTS (json):
 
     private static string SerializeTail(IReadOnlyList<(string role, string content)> hist, int maxTurns)
     {
-        var tail = hist.TakeLast(maxTurns).Select(m => new { role = m.role, content = m.content }).ToList();
+        var tail = hist
+            .TakeLast(maxTurns)
+            .Select(m => new
+            {
+                role = m.role,
+                content = TruncateForPrompt(m.content, SerializedTailContentMaxChars)
+            })
+            .ToList();
         return JsonSerializer.Serialize(tail);
+    }
+
+    private static string TruncateForPrompt(string? value, int maxChars)
+    {
+        var s = Regex.Replace(value ?? string.Empty, @"\s+", " ").Trim();
+        if (maxChars <= 0 || s.Length <= maxChars)
+            return s;
+
+        return s[..maxChars].TrimEnd() + "...";
     }
 
     private static bool TryExtractJsonObject(string raw, out string json)

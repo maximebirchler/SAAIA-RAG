@@ -153,7 +153,26 @@ public sealed partial class MainWindow
             return true;
 
         if (_llmProc.IsRunning)
-            return true;
+        {
+            var probe = await LlmEndpointProbe.GetModelsStatusAsync(
+                _appSettings.LlmBaseUrl,
+                TimeSpan.FromSeconds(4),
+                ct).ConfigureAwait(false);
+
+            if (probe.Status == LlmModelsStatus.Ok)
+                return true;
+
+            if (probe.Status == LlmModelsStatus.Loading)
+            {
+                var ready = await WaitForExistingLocalLlmReadyAsync(assistantMsg, ct).ConfigureAwait(false);
+                if (ready)
+                    return true;
+            }
+
+            ClientLog.Warn(
+                $"[LlamaCpp] Managed runtime state was stale before request "
+                + $"(status={probe.Status}, http={probe.HttpStatus}, error={probe.ErrorMessage}). Restarting.");
+        }
 
         await TrySoftUiAsync("EnsureLocalLlmAwakeForRequestAsync.Progress", () =>
             RunOnUiThreadAsync(() =>
@@ -179,6 +198,38 @@ public sealed partial class MainWindow
             }));
 
         return ok;
+    }
+
+    private async Task<bool> WaitForExistingLocalLlmReadyAsync(ChatMessageItem? assistantMsg, CancellationToken ct)
+    {
+        await TrySoftUiAsync("WaitForExistingLocalLlmReadyAsync.Progress", () =>
+            RunOnUiThreadAsync(() =>
+            {
+                var loadingText = LocalLlmText("Chargement du modele en cours...", "Loading model...", "Cargando modelo...", "A carregar o modelo...", "Modell wird geladen...", "Caricamento modello...", UiLang);
+                SetAssistantProgress(assistantMsg, loadingText);
+                LocalLlmStatusText.Text = loadingText;
+            }));
+
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromMinutes(2);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var probe = await LlmEndpointProbe.GetModelsStatusAsync(
+                _appSettings.LlmBaseUrl,
+                TimeSpan.FromSeconds(6),
+                ct).ConfigureAwait(false);
+
+            if (probe.Status == LlmModelsStatus.Ok)
+                return true;
+
+            if (probe.Status != LlmModelsStatus.Loading)
+                return false;
+
+            await Task.Delay(1000, ct).ConfigureAwait(false);
+        }
+
+        return false;
     }
 
     private async Task<bool> RunLocalLlmWarmupQualificationAsync(

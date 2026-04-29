@@ -27,6 +27,9 @@ public sealed partial class ToolAgentOrchestrator
         return NormalizeRagHits(doc.RootElement);
     }
 
+    internal static string SerializeTailForTests(IReadOnlyList<(string role, string content)> history, int maxTurns)
+        => SerializeTail(history, maxTurns);
+
     internal static (string EffectiveUserMessage, bool Consumed) PreparePendingClarificationForTests(
         ToolMemory mem,
         IReadOnlyList<(string role, string content)> chatHistory,

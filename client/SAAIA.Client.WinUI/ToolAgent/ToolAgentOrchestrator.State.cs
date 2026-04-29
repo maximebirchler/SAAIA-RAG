@@ -837,7 +837,7 @@ CURRENT_USER_MESSAGE:
             }
 
             var list = new List<object>();
-            foreach (var it in sourceHits.EnumerateArray())
+            foreach (var it in sourceHits.EnumerateArray().Take(RagWriterMaxHits))
             {
                 if (it.ValueKind != JsonValueKind.Object) continue;
 
@@ -850,8 +850,9 @@ CURRENT_USER_MESSAGE:
                 var ps = TryGetInt(it, "pageStart") ?? TryGetInt(it, "page") ?? 1;
                 var pe = TryGetInt(it, "pageEnd") ?? ps;
 
-                var text = TryGetString(it, "excerpt") ?? TryGetString(it, "text") ?? "";
-                if (text.Length > 320) text = text.Substring(0, 320) + "...";
+                var text = TruncateForPrompt(
+                    TryGetString(it, "excerpt") ?? TryGetString(it, "text") ?? "",
+                    RagWriterMaxExcerptChars);
 
                 list.Add(new
                 {
