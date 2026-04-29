@@ -119,14 +119,16 @@ foreach ($p in $pathsToEnsure) {
 
 # ---------------------------
 # Deploy optional LLM installer script (client repair)
-# Copy infra/scripts/llm/install-llm.ps1 into <InstallRoot>\deploy\install-llm.ps1
+# Copy infra/scripts/llm/*.ps1 into <InstallRoot>\deploy
 # so the WinUI client can run it (UAC) to download the model + start docker LLM.
 # ---------------------------
-$llmScriptSrc = Resolve-PathFromRepo $repo "infra/scripts/llm/install-llm.ps1"
-if (Test-Path $llmScriptSrc) {
-  Copy-Item -Force $llmScriptSrc (Join-Path $deployDirExpected "install-llm.ps1")
-  if (-not $deployDirIsExpected) {
-    Copy-Item -Force $llmScriptSrc (Join-Path $deployDir "install-llm.ps1")
+$llmScriptRoot = Resolve-PathFromRepo $repo "infra/scripts/llm"
+if (Test-Path $llmScriptRoot) {
+  foreach ($llmScriptSrc in Get-ChildItem -Path $llmScriptRoot -Filter '*.ps1' -File) {
+    Copy-Item -Force $llmScriptSrc.FullName (Join-Path $deployDirExpected $llmScriptSrc.Name)
+    if (-not $deployDirIsExpected) {
+      Copy-Item -Force $llmScriptSrc.FullName (Join-Path $deployDir $llmScriptSrc.Name)
+    }
   }
 }
 

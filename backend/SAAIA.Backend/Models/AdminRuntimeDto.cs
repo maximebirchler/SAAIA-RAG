@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace SAAIA.Backend.Models;
 
@@ -531,8 +532,12 @@ public sealed record AdminRuntimeLlmCapacityResponseDto(
     string Status,
     string? Path,
     string? Error,
+    int CurrentLicenseSeats,
+    bool PlanMatchesLicense,
+    bool ReplanRequired,
     AdminRuntimeLlmCapacityPlanDto? Plan,
-    AdminRuntimeLlmQueueSnapshotDto Queue
+    AdminRuntimeLlmQueueSnapshotDto Queue,
+    IReadOnlyList<string> Recommendations
 );
 
 public sealed record AdminRuntimeLlmCapacityArtifactDto(
@@ -543,18 +548,22 @@ public sealed record AdminRuntimeLlmCapacityArtifactDto(
     string Status,
     string? Path,
     string? Error,
+    int CurrentLicenseSeats,
+    bool PlanMatchesLicense,
+    bool ReplanRequired,
     AdminRuntimeLlmCapacityPlanDto? Plan,
-    AdminRuntimeLlmQueueSnapshotDto Queue
+    AdminRuntimeLlmQueueSnapshotDto Queue,
+    IReadOnlyList<string> Recommendations
 );
 
 public sealed record AdminRuntimeLlmCapacityPlanDto(
     string? Version,
-    string? GeneratedAt,
+    [property: JsonPropertyName("plannedAt")] string? GeneratedAt,
     int LicenseSeats,
     string? Profile,
-    string? ModelRepo,
-    string? ModelFile,
-    string? ModelLabel,
+    [property: JsonPropertyName("repo")] string? ModelRepo,
+    [property: JsonPropertyName("file")] string? ModelFile,
+    [property: JsonPropertyName("modelId")] string? ModelLabel,
     string? Placement,
     int Instances,
     int SlotsPerInstance,
@@ -562,7 +571,7 @@ public sealed record AdminRuntimeLlmCapacityPlanDto(
     int QueueLimit,
     int PerUserActiveLimit,
     int PerUserQueuedLimit,
-    string? Notes,
+    [property: JsonPropertyName("reason")] string? Notes,
     AdminRuntimeLlmCapacityHardwareDto? Hardware,
     AdminRuntimeLlmCapacityLlamaArgsDto? LlamaArgs
 );
@@ -576,9 +585,9 @@ public sealed record AdminRuntimeLlmCapacityHardwareDto(
 
 public sealed record AdminRuntimeLlmCapacityLlamaArgsDto(
     int CtxSize,
-    int BatchSize,
-    int UBatchSize,
-    int GpuLayers
+    [property: JsonPropertyName("batch")] int BatchSize,
+    [property: JsonPropertyName("ubatch")] int UBatchSize,
+    [property: JsonPropertyName("nGpuLayers")] string? GpuLayers
 );
 
 public sealed record AdminRuntimeLlmQueueSnapshotDto(

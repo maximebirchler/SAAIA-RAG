@@ -45,6 +45,7 @@ public static class ServiceCollectionExtensions
         services.Configure<OpenTelemetryOptions>(config.GetSection("OpenTelemetry"));
         services.Configure<CatalogSnapshotOptions>(config.GetSection("CatalogSnapshot"));
         services.Configure<RuntimeGovernanceOptions>(config.GetSection("RuntimeGovernance"));
+        services.Configure<LicenseOptions>(config.GetSection("License"));
 
         // ---------- OpenTelemetry ----------
         services.AddSaaiaOpenTelemetry(config, env);

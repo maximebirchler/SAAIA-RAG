@@ -45,6 +45,9 @@
     "PermitLimit": 120,
     "WindowSeconds": 60
   },
+  "License": {
+    "Seats": __LICENSE_SEATS__
+  },
   "OpenTelemetry": {
     "Enabled": false,
     "ServiceName": "saaia-backend",

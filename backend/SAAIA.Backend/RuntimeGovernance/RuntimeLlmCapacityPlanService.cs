@@ -1,9 +1,10 @@
 using System.Text.Json;
+using Microsoft.Extensions.Options;
 using SAAIA.Backend.Models;
 
 namespace SAAIA.Backend;
 
-internal sealed class RuntimeLlmCapacityPlanService(IHostEnvironment env)
+internal sealed class RuntimeLlmCapacityPlanService(IHostEnvironment env, IOptions<LicenseOptions>? licenseOptions = null)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -24,8 +25,12 @@ internal sealed class RuntimeLlmCapacityPlanService(IHostEnvironment env)
             Status: result.Status,
             Path: result.Path,
             Error: result.Error,
+            CurrentLicenseSeats: GetCurrentLicenseSeats(),
+            PlanMatchesLicense: PlanMatchesLicense(result.Plan),
+            ReplanRequired: ReplanRequired(result),
             Plan: result.Plan,
-            Queue: snapshot);
+            Queue: snapshot,
+            Recommendations: BuildRecommendations(result));
     }
 
     internal async Task<AdminRuntimeLlmCapacityArtifactDto> GetCapacityArtifactAsync(
@@ -41,8 +46,12 @@ internal sealed class RuntimeLlmCapacityPlanService(IHostEnvironment env)
             Status: response.Status,
             Path: response.Path,
             Error: response.Error,
+            CurrentLicenseSeats: response.CurrentLicenseSeats,
+            PlanMatchesLicense: response.PlanMatchesLicense,
+            ReplanRequired: response.ReplanRequired,
             Plan: response.Plan,
-            Queue: response.Queue);
+            Queue: response.Queue,
+            Recommendations: response.Recommendations);
     }
 
     internal async Task<RuntimeLlmCapacityReadResult> TryLoadPlanAsync(CancellationToken ct)
@@ -82,6 +91,12 @@ internal sealed class RuntimeLlmCapacityPlanService(IHostEnvironment env)
         return new RuntimeLlmCapacityReadResult("missing", null, "llm.capacity-plan.json was not found", null);
     }
 
+    internal async Task<AdminRuntimeLlmCapacityPlanDto?> GetQueuePlanAsync(CancellationToken ct)
+    {
+        var result = await TryLoadPlanAsync(ct).ConfigureAwait(false);
+        return result.Status == "ok" && PlanMatchesLicense(result.Plan) ? result.Plan : null;
+    }
+
     internal IReadOnlyList<string> GetCandidatePaths()
     {
         var candidates = new List<string>();
@@ -97,6 +112,53 @@ internal sealed class RuntimeLlmCapacityPlanService(IHostEnvironment env)
         return candidates
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    private int GetCurrentLicenseSeats()
+    {
+        var configured = licenseOptions?.Value.Seats ?? 0;
+        if (configured > 0)
+            return configured;
+
+        var envSeats = Environment.GetEnvironmentVariable("SAAIA_LICENSE_SEATS");
+        return int.TryParse(envSeats, out var parsed) ? Math.Max(1, parsed) : 1;
+    }
+
+    private bool PlanMatchesLicense(AdminRuntimeLlmCapacityPlanDto? plan)
+        => plan is not null && Math.Max(1, plan.LicenseSeats) == GetCurrentLicenseSeats();
+
+    private bool ReplanRequired(RuntimeLlmCapacityReadResult result)
+        => result.Status is "missing" or "invalid" || !PlanMatchesLicense(result.Plan);
+
+    private IReadOnlyList<string> BuildRecommendations(RuntimeLlmCapacityReadResult result)
+    {
+        var currentSeats = GetCurrentLicenseSeats();
+        if (result.Status == "missing")
+        {
+            return new[]
+            {
+                $"Run infra/scripts/llm/install-llm.ps1 -AutoPlan -LicenseSeats {currentSeats} to generate the server LLM capacity plan."
+            };
+        }
+
+        if (result.Status == "invalid")
+        {
+            return new[]
+            {
+                "Regenerate llm.capacity-plan.json; the current capacity plan cannot be parsed safely."
+            };
+        }
+
+        if (!PlanMatchesLicense(result.Plan))
+        {
+            return new[]
+            {
+                $"License seats changed from {result.Plan?.LicenseSeats ?? 0} to {currentSeats}; rerun the LLM capacity planner before trusting server concurrency.",
+                $"Use infra/scripts/llm/install-llm.ps1 -AutoPlan -LicenseSeats {currentSeats} and restart the LLM compose stack."
+            };
+        }
+
+        return Array.Empty<string>();
     }
 
     private static AdminRuntimeLlmCapacityPlanDto NormalizePlan(AdminRuntimeLlmCapacityPlanDto plan)

@@ -174,9 +174,9 @@ internal sealed class LocalLlmChatClient
         if (_capacityPlanService is null || _queueManager is null)
             return null;
 
-        var capacity = await _capacityPlanService.TryLoadPlanAsync(ct).ConfigureAwait(false);
+        var capacityPlan = await _capacityPlanService.GetQueuePlanAsync(ct).ConfigureAwait(false);
         return await _queueManager
-            .AcquireOrQueueAsync("backend-llm", capacity.Plan, TimeSpan.FromSeconds(15), ct)
+            .AcquireOrQueueAsync("backend-llm", capacityPlan, TimeSpan.FromSeconds(15), ct)
             .ConfigureAwait(false);
     }
 

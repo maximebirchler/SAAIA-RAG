@@ -246,6 +246,15 @@ function New-SignedConfig {
   $teiModel = 'intfloat/multilingual-e5-base'
   if ($env.ContainsKey('TEI_MODEL_ID') -and -not [string]::IsNullOrWhiteSpace($env['TEI_MODEL_ID'])) { $teiModel = $env['TEI_MODEL_ID'] }
 
+  $licenseSeats = 1
+  if ($env.ContainsKey('SAAIA_LICENSE_SEATS') -and -not [string]::IsNullOrWhiteSpace($env['SAAIA_LICENSE_SEATS'])) {
+    $parsedSeats = 0
+    if (-not [int]::TryParse([string]$env['SAAIA_LICENSE_SEATS'], [ref]$parsedSeats) -or $parsedSeats -lt 1) {
+      throw "SAAIA_LICENSE_SEATS must be a positive integer."
+    }
+    $licenseSeats = $parsedSeats
+  }
+
   $content = Get-Content $templatePath -Raw
   $content = $content.Replace('__AUTH_PEPPER__', (Escape-JsonString $env['SAAIA_AUTH_PEPPER']))
   $content = $content.Replace('__BOOTSTRAP_API_KEY__', (Escape-JsonString $bootKey))
@@ -255,6 +264,7 @@ function New-SignedConfig {
   $content = $content.Replace('__POSTGRES_USER__', (Escape-JsonString $pgUser))
   $content = $content.Replace('__TEI_MODEL_ID__', (Escape-JsonString $teiModel))
   $content = $content.Replace('__REQUIRE_QDRANT_AUTH__', $requireQdrantAuth)
+  $content = $content.Replace('__LICENSE_SEATS__', $licenseSeats.ToString([Globalization.CultureInfo]::InvariantCulture))
 
   $content | Out-File -FilePath $outCfg -Encoding utf8
 

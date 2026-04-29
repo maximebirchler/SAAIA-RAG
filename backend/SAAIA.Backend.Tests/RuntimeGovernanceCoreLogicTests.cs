@@ -2,6 +2,7 @@ using SAAIA.Backend;
 using SAAIA.Backend.Models;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace SAAIA.Backend.Tests;
@@ -21,12 +22,12 @@ public sealed class RuntimeGovernanceCoreLogicTests
             await File.WriteAllTextAsync(planPath, """
             {
               "version": "1.0",
-              "generatedAt": "2026-04-29T12:00:00Z",
+              "plannedAt": "2026-04-29T12:00:00Z",
               "licenseSeats": 25,
               "profile": "small-server",
-              "modelRepo": "bartowski/Qwen2.5-3B-Instruct-GGUF",
-              "modelFile": "Qwen2.5-3B-Instruct-Q4_K_M.gguf",
-              "modelLabel": "Qwen2.5-3B-Instruct-Q4_K_M",
+              "repo": "bartowski/Qwen2.5-3B-Instruct-GGUF",
+              "file": "Qwen2.5-3B-Instruct-Q4_K_M.gguf",
+              "modelId": "qwen2.5-3b-instruct-q4-k-m",
               "placement": "server",
               "instances": 1,
               "slotsPerInstance": 3,
@@ -34,7 +35,7 @@ public sealed class RuntimeGovernanceCoreLogicTests
               "queueLimit": 40,
               "perUserActiveLimit": 1,
               "perUserQueuedLimit": 2,
-              "notes": "test plan",
+              "reason": "test plan",
               "hardware": {
                 "cpuCount": 8,
                 "totalRamMiB": 32768,
@@ -45,16 +46,21 @@ public sealed class RuntimeGovernanceCoreLogicTests
                 "ctxSize": 8192,
                 "batchSize": 512,
                 "uBatchSize": 128,
-                "gpuLayers": 99
+                "nGpuLayers": "all"
               }
             }
             """);
             Environment.SetEnvironmentVariable("LLM_CAPACITY_PLAN_PATH", planPath);
 
-            var service = new RuntimeLlmCapacityPlanService(new StubHostEnvironment { ContentRootPath = tempRoot });
+            var service = new RuntimeLlmCapacityPlanService(
+                new StubHostEnvironment { ContentRootPath = tempRoot },
+                Options.Create(new LicenseOptions { Seats = 25 }));
             var response = await service.GetCapacityAsync(new RuntimeLlmQueueManager(), CancellationToken.None);
 
             Assert.Equal("ok", response.Status);
+            Assert.Equal(25, response.CurrentLicenseSeats);
+            Assert.True(response.PlanMatchesLicense);
+            Assert.False(response.ReplanRequired);
             Assert.Equal(planPath, response.Path);
             Assert.NotNull(response.Plan);
             Assert.Equal(25, response.Plan!.LicenseSeats);
@@ -62,6 +68,7 @@ public sealed class RuntimeGovernanceCoreLogicTests
             Assert.Equal(3, response.Queue.TotalSlots);
             Assert.Equal(40, response.Queue.QueueLimit);
             Assert.Equal(3, response.Queue.AvailableSlots);
+            Assert.Empty(response.Recommendations);
         }
         finally
         {
@@ -86,9 +93,65 @@ public sealed class RuntimeGovernanceCoreLogicTests
             var response = await service.GetCapacityAsync(new RuntimeLlmQueueManager(), CancellationToken.None);
 
             Assert.Equal("missing", response.Status);
+            Assert.True(response.ReplanRequired);
+            Assert.False(response.PlanMatchesLicense);
             Assert.Null(response.Plan);
             Assert.Equal(1, response.Queue.TotalSlots);
             Assert.Equal(10, response.Queue.QueueLimit);
+            Assert.Contains(response.Recommendations, item => item.Contains("-AutoPlan", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("LLM_CAPACITY_PLAN_PATH", previousPath);
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task RuntimeLlmCapacityPlanService_marks_plan_stale_when_license_seats_change()
+    {
+        var previousPath = Environment.GetEnvironmentVariable("LLM_CAPACITY_PLAN_PATH");
+        var tempRoot = Path.Combine(Path.GetTempPath(), "saaia-llm-capacity-stale-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+            var planPath = Path.Combine(tempRoot, "llm.capacity-plan.json");
+            await File.WriteAllTextAsync(planPath, """
+            {
+              "version": "v3.1-server-capacity",
+              "plannedAt": "2026-04-29T12:00:00Z",
+              "licenseSeats": 10,
+              "modelId": "qwen2.5-3b-instruct-q4-k-m",
+              "repo": "bartowski/Qwen2.5-3B-Instruct-GGUF",
+              "file": "Qwen2.5-3B-Instruct-Q4_K_M.gguf",
+              "profile": "server-low-capacity",
+              "instances": 1,
+              "slotsPerInstance": 2,
+              "totalSlots": 2,
+              "queueLimit": 20,
+              "perUserActiveLimit": 1,
+              "perUserQueuedLimit": 1
+            }
+            """);
+            Environment.SetEnvironmentVariable("LLM_CAPACITY_PLAN_PATH", planPath);
+
+            var service = new RuntimeLlmCapacityPlanService(
+                new StubHostEnvironment { ContentRootPath = tempRoot },
+                Options.Create(new LicenseOptions { Seats = 25 }));
+            var response = await service.GetCapacityAsync(new RuntimeLlmQueueManager(), CancellationToken.None);
+
+            Assert.Equal("ok", response.Status);
+            Assert.Equal(25, response.CurrentLicenseSeats);
+            Assert.NotNull(response.Plan);
+            Assert.Equal(10, response.Plan!.LicenseSeats);
+            Assert.False(response.PlanMatchesLicense);
+            Assert.True(response.ReplanRequired);
+            Assert.Contains(response.Recommendations, item => item.Contains("changed from 10 to 25", StringComparison.OrdinalIgnoreCase));
+
+            var queuePlan = await service.GetQueuePlanAsync(CancellationToken.None);
+            Assert.Null(queuePlan);
         }
         finally
         {
