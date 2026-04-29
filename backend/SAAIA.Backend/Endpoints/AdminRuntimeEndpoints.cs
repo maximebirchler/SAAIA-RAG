@@ -40,6 +40,7 @@ public static class AdminRuntimeEndpoints
             IOptions<RuntimeGovernanceOptions> options,
             IOptions<RagOptions> ragOptions)
             => OperationalSummaryAsync(ctx, diagnosticsService, options, ragOptions));
+        app.MapGet("/admin/runtime/llm-capacity", LlmCapacityAsync);
         app.MapGet("/admin/runtime/events", EventsAsync);
         app.MapGet("/admin/runtime/warmup-results", WarmupResultsAsync);
         app.MapGet("/admin/runtime/capabilities/capability_a.corpus_enrichment/candidates", CapabilityAEnrichmentCandidatesAsync);
@@ -88,6 +89,7 @@ public static class AdminRuntimeEndpoints
             IOptions<RuntimeGovernanceOptions> options,
             IOptions<RagOptions> ragOptions)
             => OperationalSummaryArtifactAsync(ctx, diagnosticsService, options, ragOptions));
+        app.MapGet("/admin/runtime/artifacts/llm-capacity-plan.json", LlmCapacityArtifactAsync);
         app.MapGet("/admin/runtime/artifacts/runtime-events.json", EventsArtifactAsync);
         app.MapGet("/admin/runtime/artifacts/runtime-catalog.json", RuntimeCatalogArtifactAsync);
         app.MapGet("/admin/runtime/artifacts/model-catalog.json", ModelCatalogArtifactAsync);
@@ -220,6 +222,16 @@ public static class AdminRuntimeEndpoints
             options,
             ragOptions);
 
+    internal static async Task<IResult> LlmCapacityAsync(
+        HttpContext ctx,
+        RuntimeLlmCapacityPlanService capacityPlanService,
+        RuntimeLlmQueueManager queueManager)
+    {
+        AdminAuth.EnsureAdmin(ctx);
+        var response = await capacityPlanService.GetCapacityAsync(queueManager, ctx.RequestAborted);
+        return Results.Ok(response);
+    }
+
     internal static async Task<IResult> EventsAsync(
         HttpContext ctx,
         NpgsqlDataSource ds,
@@ -330,6 +342,16 @@ public static class AdminRuntimeEndpoints
             new RuntimeDiagnosticsService(ds, env, ctx.RequestServices.GetService<IHttpClientFactory>()),
             options,
             ragOptions);
+
+    internal static async Task<IResult> LlmCapacityArtifactAsync(
+        HttpContext ctx,
+        RuntimeLlmCapacityPlanService capacityPlanService,
+        RuntimeLlmQueueManager queueManager)
+    {
+        AdminAuth.EnsureAdmin(ctx);
+        var response = await capacityPlanService.GetCapacityArtifactAsync(queueManager, ctx.RequestAborted);
+        return Results.Ok(response);
+    }
 
     internal static async Task<IResult> EventsArtifactAsync(
         HttpContext ctx,
@@ -941,6 +963,8 @@ public static class AdminRuntimeEndpoints
         var artifactErrors = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var tenantId = ctx.GetTenantId();
         var diagnosticsService = new RuntimeDiagnosticsService(ds, env, ctx.RequestServices.GetService<IHttpClientFactory>());
+        var llmCapacityPlanService = new RuntimeLlmCapacityPlanService(env);
+        var llmQueueManager = ctx.RequestServices.GetService<RuntimeLlmQueueManager>() ?? new RuntimeLlmQueueManager();
 
         var generatedArtifacts = new Dictionary<string, Func<CancellationToken, Task<object>>>(StringComparer.OrdinalIgnoreCase)
         {
@@ -983,7 +1007,10 @@ public static class AdminRuntimeEndpoints
             ["capability-a-kpis.json"] = _ => Task.FromResult<object>(
                 new RuntimeCapabilityAKpiService(env).GetKpisArtifact(options.Value)),
             ["capability-b-kpis.json"] = _ => Task.FromResult<object>(
-                new RuntimeCapabilityBKpiService(env).GetKpisArtifact(options.Value))
+                new RuntimeCapabilityBKpiService(env).GetKpisArtifact(options.Value)),
+            ["llm-capacity-plan.json"] = async ct => await llmCapacityPlanService
+                .GetCapacityArtifactAsync(llmQueueManager, ct)
+                .ConfigureAwait(false)
         };
 
         var governanceFileNames = new[]

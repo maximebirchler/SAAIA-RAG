@@ -174,9 +174,13 @@ public static class ServiceCollectionExtensions
         // ---------- Bulkheads / job runtime state ----------
         services.AddSingleton<IngestionBulkheads>();
         services.AddSingleton<IngestionJobCancellationRegistry>();
+        services.AddSingleton<RuntimeLlmCapacityPlanService>();
+        services.AddSingleton<RuntimeLlmQueueManager>();
         services.AddSingleton(sp => new LocalLlmChatClient(
             sp.GetRequiredService<IHttpClientFactory>(),
-            sp.GetRequiredService<IOptions<ChatOptions>>().Value));
+            sp.GetRequiredService<IOptions<ChatOptions>>().Value,
+            sp.GetRequiredService<RuntimeLlmCapacityPlanService>(),
+            sp.GetRequiredService<RuntimeLlmQueueManager>()));
         services.AddSingleton<CapabilityAHypotheticalQuestionService>();
         services.AddSingleton(sp => new CapabilityBBackofficeSummaryService(
             sp.GetRequiredService<LocalLlmChatClient>(),

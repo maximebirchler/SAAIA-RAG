@@ -524,6 +524,73 @@ public sealed record AdminRuntimeOperationalSummaryArtifactDto(
     IReadOnlyList<AdminRuntimeOperationalCapabilitySummaryDto> Items
 );
 
+public sealed record AdminRuntimeLlmCapacityResponseDto(
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    string Status,
+    string? Path,
+    string? Error,
+    AdminRuntimeLlmCapacityPlanDto? Plan,
+    AdminRuntimeLlmQueueSnapshotDto Queue
+);
+
+public sealed record AdminRuntimeLlmCapacityArtifactDto(
+    string Artifact,
+    string CdcAlignment,
+    string Environment,
+    DateTimeOffset GeneratedAt,
+    string Status,
+    string? Path,
+    string? Error,
+    AdminRuntimeLlmCapacityPlanDto? Plan,
+    AdminRuntimeLlmQueueSnapshotDto Queue
+);
+
+public sealed record AdminRuntimeLlmCapacityPlanDto(
+    string? Version,
+    string? GeneratedAt,
+    int LicenseSeats,
+    string? Profile,
+    string? ModelRepo,
+    string? ModelFile,
+    string? ModelLabel,
+    string? Placement,
+    int Instances,
+    int SlotsPerInstance,
+    int TotalSlots,
+    int QueueLimit,
+    int PerUserActiveLimit,
+    int PerUserQueuedLimit,
+    string? Notes,
+    AdminRuntimeLlmCapacityHardwareDto? Hardware,
+    AdminRuntimeLlmCapacityLlamaArgsDto? LlamaArgs
+);
+
+public sealed record AdminRuntimeLlmCapacityHardwareDto(
+    int CpuCount,
+    int TotalRamMiB,
+    string? GpuName,
+    int GpuVramMiB
+);
+
+public sealed record AdminRuntimeLlmCapacityLlamaArgsDto(
+    int CtxSize,
+    int BatchSize,
+    int UBatchSize,
+    int GpuLayers
+);
+
+public sealed record AdminRuntimeLlmQueueSnapshotDto(
+    int Active,
+    int Queued,
+    int TotalSlots,
+    int QueueLimit,
+    int PerUserActiveLimit,
+    int PerUserQueuedLimit,
+    int AvailableSlots
+);
+
 public sealed record AdminRuntimeRetrievalKpisResponseDto(
     string CdcAlignment,
     string Environment,

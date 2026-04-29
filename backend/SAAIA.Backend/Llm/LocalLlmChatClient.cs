@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Diagnostics;
+using Microsoft.AspNetCore.Http;
 
 namespace SAAIA.Backend;
 
@@ -10,13 +11,19 @@ internal sealed class LocalLlmChatClient
 
     private readonly IHttpClientFactory _httpFactory;
     private readonly ChatOptions _options;
+    private readonly RuntimeLlmCapacityPlanService? _capacityPlanService;
+    private readonly RuntimeLlmQueueManager? _queueManager;
 
     public LocalLlmChatClient(
         IHttpClientFactory httpFactory,
-        ChatOptions options)
+        ChatOptions options,
+        RuntimeLlmCapacityPlanService? capacityPlanService = null,
+        RuntimeLlmQueueManager? queueManager = null)
     {
         _httpFactory = httpFactory;
         _options = options;
+        _capacityPlanService = capacityPlanService;
+        _queueManager = queueManager;
     }
 
     internal bool IsConfigured
@@ -41,26 +48,39 @@ internal sealed class LocalLlmChatClient
         if (!IsConfigured)
             return LocalLlmChatCompletionResult.NotConfigured;
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, "v1/chat/completions")
-        {
-            Content = new StringContent(
-                JsonSerializer.Serialize(new
-                {
-                    model = _options.LlmModel,
-                    temperature = temperature ?? _options.LlmTemperature,
-                    max_tokens = Math.Clamp(maxTokens ?? _options.LlmMaxTokens, 64, 4096),
-                    messages = new object[]
-                    {
-                        new { role = "system", content = systemPrompt },
-                        new { role = "user", content = userPrompt }
-                    }
-                }, JsonOptions),
-                Encoding.UTF8,
-                "application/json")
-        };
-
         try
         {
+            using var queueLease = await TryAcquireQueueSlotAsync(ct).ConfigureAwait(false);
+            if (_queueManager is not null && queueLease is null)
+            {
+                return new LocalLlmChatCompletionResult(
+                    Content: null,
+                    DurationMs: null,
+                    ResponseHeadersMs: null,
+                    FirstByteMs: null,
+                    StatusCode: StatusCodes.Status429TooManyRequests,
+                    BytesRead: 0,
+                    Error: "llm_queue_full");
+            }
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, "v1/chat/completions")
+            {
+                Content = new StringContent(
+                    JsonSerializer.Serialize(new
+                    {
+                        model = _options.LlmModel,
+                        temperature = temperature ?? _options.LlmTemperature,
+                        max_tokens = Math.Clamp(maxTokens ?? _options.LlmMaxTokens, 64, 4096),
+                        messages = new object[]
+                        {
+                            new { role = "system", content = systemPrompt },
+                            new { role = "user", content = userPrompt }
+                        }
+                    }, JsonOptions),
+                    Encoding.UTF8,
+                    "application/json")
+            };
+
             var sw = Stopwatch.StartNew();
             var http = _httpFactory.CreateClient("llm");
             using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
@@ -147,6 +167,17 @@ internal sealed class LocalLlmChatClient
                 BytesRead: 0,
                 Error: "exception");
         }
+    }
+
+    private async Task<RuntimeLlmQueueManager.RuntimeLlmQueueLease?> TryAcquireQueueSlotAsync(CancellationToken ct)
+    {
+        if (_capacityPlanService is null || _queueManager is null)
+            return null;
+
+        var capacity = await _capacityPlanService.TryLoadPlanAsync(ct).ConfigureAwait(false);
+        return await _queueManager
+            .AcquireOrQueueAsync("backend-llm", capacity.Plan, TimeSpan.FromSeconds(15), ct)
+            .ConfigureAwait(false);
     }
 
     private static string? ReadContent(JsonElement content)
