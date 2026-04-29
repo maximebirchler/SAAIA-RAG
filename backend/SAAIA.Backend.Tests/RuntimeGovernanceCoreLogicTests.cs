@@ -215,6 +215,45 @@ public sealed class RuntimeGovernanceCoreLogicTests
     }
 
     [Fact]
+    public void ExpandRetrievalQuery_adds_cuisine_synonyms_only_for_cuisine_scope()
+    {
+        var expanded = RagEndpoints.ExpandRetrievalQuery("Quelle sauce avec une entrecôte ?", "cuisine");
+
+        Assert.Contains("steak", expanded);
+        Assert.Contains("rumsteck", expanded);
+        Assert.Contains("viande rouge", expanded);
+        Assert.Contains("marinade", expanded);
+
+        var unchanged = RagEndpoints.ExpandRetrievalQuery("Quelle sauce avec une entrecôte ?", "atex");
+        Assert.Equal("Quelle sauce avec une entrecôte ?", unchanged);
+    }
+
+    [Fact]
+    public void ShouldSupplementSparseWithLexicalFallback_is_limited_to_cuisine_disambiguation()
+    {
+        Assert.True(RagEndpoints.ShouldSupplementSparseWithLexicalFallback("cuisine", "activité cuisine avec des enfants"));
+        Assert.True(RagEndpoints.ShouldSupplementSparseWithLexicalFallback("cuisine", "quelle sauce avec une entrecôte"));
+        Assert.False(RagEndpoints.ShouldSupplementSparseWithLexicalFallback("atex", "quelle sauce avec une entrecôte"));
+        Assert.False(RagEndpoints.ShouldSupplementSparseWithLexicalFallback("cuisine", "dessert au chocolat facile"));
+    }
+
+    [Fact]
+    public void ComputeDomainSpecificBoost_promotes_cuisine_child_activity_and_red_meat_matches()
+    {
+        Assert.True(RagEndpoints.ComputeDomainSpecificBoost(
+            "activité cuisine avec des enfants",
+            "Ces recettes sont destinées à des animateurs qui souhaitent faire de la cuisine avec les enfants.") > 0);
+
+        Assert.True(RagEndpoints.ComputeDomainSpecificBoost(
+            "quelle sauce avec une entrecôte",
+            "Viandes rouges (bœuf, agneau, gibier) 4h à 12h. La marinade est un mélange...") > 0);
+
+        Assert.Equal(0, RagEndpoints.ComputeDomainSpecificBoost(
+            "dessert au chocolat facile",
+            "Gâteau chocolat-courgette."));
+    }
+
+    [Fact]
     public void EvaluateSelectionUpdate_rejects_authorization_when_capability_is_stale()
     {
         var current = new AdminRuntimeCapabilityStateDto(

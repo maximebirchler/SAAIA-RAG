@@ -49,6 +49,15 @@ public sealed class DocumentUnitExtractorTests
     }
 
     [Fact]
+    public void Pdf_text_sanitizer_replaces_nul_bytes_before_storage()
+    {
+        var sanitized = PdfTextSanitizer.ForStorage("Sauce\0tomate");
+
+        Assert.Equal("Sauce tomate", sanitized);
+        Assert.DoesNotContain('\0', sanitized);
+    }
+
+    [Fact]
     public void Stable_unit_id_is_deterministic_for_same_revision_and_ordinal()
     {
         var revisionId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");

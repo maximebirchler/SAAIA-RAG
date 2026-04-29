@@ -17,7 +17,7 @@ static class PdfExtractor
         {
             ct.ThrowIfCancellationRequested();
 
-            var text = page.Text ?? "";
+            var text = PdfTextSanitizer.ForStorage(page.Text);
             var words = SplitWords(text).ToArray();
             foreach (var w in words)
             {
