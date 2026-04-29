@@ -238,13 +238,17 @@ public sealed class GovernanceArtifactStoreTests
                 DateTimeOffset.UtcNow,
                 ModelCatalogStore.CreateDefaultCatalog().Items
                     .Where(item => !item.ModelId.StartsWith("qwen3.6-", StringComparison.OrdinalIgnoreCase))
+                    .Select(item => item.ModelId == "qwen2.5-3b-instruct-q4-k-m"
+                        ? item with { SupportedScopes = new[] { "client", "capability_b_backoffice" } }
+                        : item)
                     .ToArray());
             var staleCollections = new ModelCollectionsArtifact(
                 GovernanceArtifactStore.ModelCollectionsFile,
                 "v3.1",
                 ModelCatalogStore.CreateDefaultCollections().Items
                     .Where(item => !string.Equals(item.Key, "backend-qwen3.6", StringComparison.OrdinalIgnoreCase)
-                                && !string.Equals(item.Key, "backend-a3b", StringComparison.OrdinalIgnoreCase))
+                                && !string.Equals(item.Key, "backend-a3b", StringComparison.OrdinalIgnoreCase)
+                                && !string.Equals(item.Key, "backend-low-capacity", StringComparison.OrdinalIgnoreCase))
                     .ToArray());
 
             await GovernanceArtifactStore.WriteAsync(GovernanceArtifactStore.ModelCatalogFile, staleCatalog, root);
@@ -265,6 +269,9 @@ public sealed class GovernanceArtifactStoreTests
                 item.ModelId == "qwen3.6-27b-q4-k-m"
                 && item.SourceRef == "local-bundle");
             Assert.Contains(catalogRead.Value.Items, item =>
+                item.ModelId == "qwen2.5-3b-instruct-q4-k-m"
+                && item.SupportedScopes.Contains("backend"));
+            Assert.Contains(catalogRead.Value.Items, item =>
                 item.ModelId == "qwen3.6-35b-a3b-ud-q4-k-m"
                 && item.Family == "qwen3.6-a3b");
             Assert.Contains(collectionsRead.Value!.Items, item =>
@@ -273,6 +280,9 @@ public sealed class GovernanceArtifactStoreTests
             Assert.Contains(collectionsRead.Value.Items, item =>
                 item.Key == "backend-a3b"
                 && item.ModelIds.Contains("qwen3.6-35b-a3b-ud-iq4-xs"));
+            Assert.Contains(collectionsRead.Value.Items, item =>
+                item.Key == "backend-low-capacity"
+                && item.ModelIds.Contains("qwen2.5-3b-instruct-q4-k-m"));
             Assert.Contains(collectionsRead.Value.Items, item => item.Key == "client-baseline");
         }
         finally
@@ -798,6 +808,15 @@ public sealed class GovernanceArtifactStoreTests
         var installerVisible = ModelCatalogStore.GetInstallerVisibleClientModels();
 
         Assert.Contains(catalog.Items, item =>
+            item.ModelId == "qwen2.5-3b-instruct-q4-k-m"
+            && item.SupportTier == "client-baseline"
+            && item.SupportedScopes.Contains("client")
+            && item.SupportedScopes.Contains("backend"));
+        Assert.Contains(catalog.Items, item =>
+            item.ModelId == "gemma-4-e2b-it-q4-k-m"
+            && item.SupportedScopes.Contains("backend")
+            && item.BusinessStates.Contains("experimental"));
+        Assert.Contains(catalog.Items, item =>
             item.ModelId == "qwen3.6-27b-q4-k-m"
             && item.SourceRef == "local-bundle"
             && item.License.LicenseFamily == "qwen"
@@ -825,6 +844,13 @@ public sealed class GovernanceArtifactStoreTests
             && !item.VisibleInInstaller
             && item.ModelIds.Contains("qwen3.6-35b-a3b-ud-q3-k-s")
             && item.ModelIds.Contains("qwen3.6-35b-a3b-ud-iq4-xs"));
+        Assert.Contains(collections.Items, item =>
+            item.Key == "backend-low-capacity"
+            && !item.VisibleInInstaller
+            && item.ModelIds[0] == "qwen2.5-3b-instruct-q4-k-m"
+            && item.ModelIds.Contains("qwen2.5-3b-instruct-q6-k-l")
+            && item.ModelIds.Contains("gemma-4-e2b-it-q4-k-m")
+            && item.ModelIds.Contains("mistral-7b-instruct-v0.3-iq3-m"));
         Assert.DoesNotContain(installerVisible, item =>
             item.ModelId.StartsWith("qwen3.6-", StringComparison.OrdinalIgnoreCase));
     }

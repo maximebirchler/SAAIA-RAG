@@ -411,6 +411,18 @@ internal static class ModelCatalogStore
                 VisibleInInstaller: false,
                 ModelIds: new[] { "qwen2.5-3b-instruct-q4-k-m", "mistral-7b-instruct-v0.3-q4-k-m" }),
             new ModelCollectionItem(
+                Key: "backend-low-capacity",
+                Scope: "backend",
+                VisibleInInstaller: false,
+                ModelIds: new[]
+                {
+                    "qwen2.5-3b-instruct-q4-k-m",
+                    "qwen2.5-3b-instruct-q6-k-l",
+                    "qwen2.5-3b-instruct-q8-0",
+                    "gemma-4-e2b-it-q4-k-m",
+                    "mistral-7b-instruct-v0.3-iq3-m"
+                }),
+            new ModelCollectionItem(
                 Key: "backend-qwen3.6",
                 Scope: "backend",
                 VisibleInInstaller: false,
@@ -522,7 +534,7 @@ internal static class ModelCatalogStore
                 ContextLength: 32768,
                 FeedForwardLength: 11008),
             ApprovedRuntimeRefs: new[] { "llama.cpp-cuda", "llama.cpp-vulkan", "llama.cpp-cpu" },
-            SupportedScopes: new[] { "client", "capability_b_backoffice" },
+            SupportedScopes: new[] { "client", "backend", "capability_b_backoffice" },
             BusinessStates: new[] { "known", "authorized", "installable" },
             ArtifactStates: new[] { "downloaded_pending", "verification_required" },
             SupportTier: supportTier);
@@ -559,7 +571,7 @@ internal static class ModelCatalogStore
                 ContextLength: 32768,
                 FeedForwardLength: 14336),
             ApprovedRuntimeRefs: new[] { "llama.cpp-cuda", "llama.cpp-vulkan", "llama.cpp-cpu" },
-            SupportedScopes: new[] { "client", "capability_b_backoffice" },
+            SupportedScopes: new[] { "client", "backend", "capability_b_backoffice" },
             BusinessStates: new[] { "known", "authorized", "installable" },
             ArtifactStates: new[] { "downloaded_pending", "verification_required" },
             SupportTier: supportTier);
@@ -598,7 +610,7 @@ internal static class ModelCatalogStore
                 ContextLength: 131072,
                 FeedForwardLength: null),
             ApprovedRuntimeRefs: new[] { "llama.cpp-cuda", "llama.cpp-vulkan", "llama.cpp-cpu" },
-            SupportedScopes: new[] { "client", "capability_b_backoffice" },
+            SupportedScopes: new[] { "client", "backend", "capability_b_backoffice" },
             BusinessStates: new[] { "known", "authorized", "installable", "experimental" },
             ArtifactStates: new[] { "download_required", "verification_required" },
             SupportTier: supportTier);

@@ -232,6 +232,14 @@ internal static class GovernanceArtifactStore
             }
 
             var existing = items[index];
+            var merged = MergeDefaultModelCatalogItem(existing, defaultItem, out var contractChanged);
+            if (contractChanged)
+            {
+                existing = merged;
+                items[index] = existing;
+                changed = true;
+            }
+
             if (string.IsNullOrWhiteSpace(defaultItem.ChecksumSha256))
                 continue;
 
@@ -258,6 +266,37 @@ internal static class GovernanceArtifactStore
         };
         await WriteAsync(ModelCatalogFile, upgraded, root, ct).ConfigureAwait(false);
     }
+
+    private static ModelCatalogItem MergeDefaultModelCatalogItem(
+        ModelCatalogItem existing,
+        ModelCatalogItem defaultItem,
+        out bool changed)
+    {
+        var mergedScopes = MergeStrings(existing.SupportedScopes, defaultItem.SupportedScopes);
+        var mergedRuntimeRefs = MergeStrings(existing.ApprovedRuntimeRefs, defaultItem.ApprovedRuntimeRefs);
+        changed = !SameStrings(existing.SupportedScopes, mergedScopes)
+            || !SameStrings(existing.ApprovedRuntimeRefs, mergedRuntimeRefs);
+
+        return changed
+            ? existing with
+            {
+                SupportedScopes = mergedScopes,
+                ApprovedRuntimeRefs = mergedRuntimeRefs
+            }
+            : existing;
+    }
+
+    private static IReadOnlyList<string> MergeStrings(
+        IReadOnlyList<string> existing,
+        IReadOnlyList<string> defaults)
+        => existing
+            .Concat(defaults)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+    private static bool SameStrings(IReadOnlyList<string> left, IReadOnlyList<string> right)
+        => left.SequenceEqual(right, StringComparer.OrdinalIgnoreCase);
 
     private static async Task WriteOrUpgradeModelCollectionsAsync(
         string root,

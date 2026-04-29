@@ -167,10 +167,12 @@ Write-Host ""
 $problemItems = @($governanceResults + $llmResults | Where-Object { $_.checksumStatus -ne "ok" })
 if ($problemItems.Count -eq 0) {
     Write-Host "All expected artifacts are present and verified."
+    exit 0
 }
 else {
     Write-Host "Artifacts requiring attention:"
     $problemItems |
         Select-Object relativePath, exists, sidecarExists, checksumStatus, detail |
         Format-Table -AutoSize
+    exit 1
 }

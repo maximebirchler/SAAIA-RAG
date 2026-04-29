@@ -45,6 +45,7 @@
 - [x] Le scenario `v3.0-lite` est abandonne
 - [x] A et B restent gouvernees avec runtime LLM serveur local + fallback explicite
 - [x] vLLM reste reserve au serveur Linux GPU (Capacite B premium) - jamais runtime universel
+- [x] Serveurs faibles capacites : collection gouvernee `backend-low-capacity` ajoutee. Reco nominale Qwen2.5 3B Q4_K_M ; variantes Q6/Q8 et Gemma E2B/Mistral IQ3 disponibles mais non promues comme choix confort.
 
 ---
 
