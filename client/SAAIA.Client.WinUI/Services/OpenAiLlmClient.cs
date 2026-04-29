@@ -27,7 +27,6 @@ public sealed class OpenAiLlmClient
     // Exemple llama.cpp server OpenAI compat : http://127.0.0.1:8080/v1
     private string _baseUrl = "http://127.0.0.1:8080/v1";
     private string _model = "mistral";
-    private string _apiKey = "";
 
     private static readonly JsonSerializerOptions JsonOpts = ClientJson.CamelCase;
 
@@ -54,11 +53,10 @@ public sealed class OpenAiLlmClient
         throw new HttpRequestException(msg, null, resp.StatusCode);
     }
 
-    public void Configure(string baseUrl, string model, string? apiKey = null)
+    public void Configure(string baseUrl, string model)
     {
         _baseUrl = baseUrl.Trim().TrimEnd('/');
         _model = model.Trim();
-        _apiKey = (apiKey ?? string.Empty).Trim();
     }
 
     public async Task<string> ChatOnceAsync(
@@ -81,7 +79,6 @@ public sealed class OpenAiLlmClient
 
             using var req = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/chat/completions");
             req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            ApplyApiKey(req);
             req.Content = new StringContent(JsonSerializer.Serialize(payload, JsonOpts), Encoding.UTF8, "application/json");
 
             using var resp = await _http.SendAsync(req, ct);
@@ -125,7 +122,6 @@ public sealed class OpenAiLlmClient
 
             using var req = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/chat/completions");
             req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
-            ApplyApiKey(req);
             req.Content = new StringContent(JsonSerializer.Serialize(payload, JsonOpts), Encoding.UTF8, "application/json");
 
             using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
@@ -279,7 +275,6 @@ public sealed class OpenAiLlmClient
     {
         using var req = new HttpRequestMessage(HttpMethod.Get, $"{_baseUrl}/models");
         req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        ApplyApiKey(req);
 
         using var resp = await _http.SendAsync(req, ct);
         await EnsureSuccessAsync(resp, ct).ConfigureAwait(false);
@@ -322,9 +317,4 @@ public sealed class OpenAiLlmClient
             .ToList();
     }
 
-    private void ApplyApiKey(HttpRequestMessage req)
-    {
-        if (!string.IsNullOrWhiteSpace(_apiKey))
-            req.Headers.TryAddWithoutValidation("X-Api-Key", _apiKey);
-    }
 }
