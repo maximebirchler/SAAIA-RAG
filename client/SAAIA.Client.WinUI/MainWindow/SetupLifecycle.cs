@@ -603,25 +603,46 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
             // Configure LLM (even if disabled; agent will handle degraded mode)
             var llmBaseUrl = _appSettings.LlmBaseUrl;
             var llmModelId = string.IsNullOrWhiteSpace(_appSettings.ModelId) ? ClientDefaults.LlmModel : _appSettings.ModelId;
+            var llmApiKey = string.Empty;
+
+            try
+            {
+                using var readyCts = new CancellationTokenSource(TimeSpan.FromSeconds(4));
+                var (_, readyRaw) = await _api.ReadyAsync(readyCts.Token).ConfigureAwait(false);
+                if (TryResolveServerLlmEndpoint(readyRaw, backendUrl, out var serverLlmBaseUrl, out var serverModelId))
+                {
+                    llmBaseUrl = serverLlmBaseUrl;
+                    llmModelId = serverModelId;
+                    llmApiKey = ApiKeyBox.Password;
+                    ClientLog.Info($"Backend server LLM selected: {llmBaseUrl}; model={llmModelId}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                ClientLog.Warn($"Backend server LLM detection skipped: {ex.Message}");
+            }
 
             // If modelId is invalid, auto-fallback to the first /v1/models (safe, prevents breaking).
             try
             {
-                _llm.Configure(llmBaseUrl, llmModelId);
+                _llm.Configure(llmBaseUrl, llmModelId, llmApiKey);
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(4));
                 var models = await _llm.ListModelsAsync(cts.Token);
                 if (models.Count > 0 && !models.Any(m => string.Equals(m, llmModelId, StringComparison.OrdinalIgnoreCase)))
                 {
-                    _appSettings.ModelId = models[0];
-                    _appSettings.Save();
                     llmModelId = models[0];
-                    _llm.Configure(llmBaseUrl, llmModelId);
+                    if (string.IsNullOrWhiteSpace(llmApiKey))
+                    {
+                        _appSettings.ModelId = models[0];
+                        _appSettings.Save();
+                    }
+                    _llm.Configure(llmBaseUrl, llmModelId, llmApiKey);
                 }
             }
             catch
             {
                 // LLM might be down; keep config and continue (degraded mode supported).
-                _llm.Configure(llmBaseUrl, llmModelId);
+                _llm.Configure(llmBaseUrl, llmModelId, llmApiKey);
             }
 
             _agent = new RagChatAgent(_api, _llm);
@@ -641,7 +662,8 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
             ClientLog.Info($"Backend connect succeeded: {backendUrl}; session={_sessionId ?? "(none)"}.");
             UpdateUiState(isGenerating: false);
             ApplyResponsiveLayout(Root.ActualWidth);
-            StartLocalLlmWarmupAfterBackendConnect();
+            if (string.IsNullOrWhiteSpace(llmApiKey))
+                StartLocalLlmWarmupAfterBackendConnect();
 
         }
         catch (Exception ex)
@@ -656,6 +678,53 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
             Status(LocalRuntimeText("Connexion en échec : ", "Connect failed: ", "Error de conexión: ", "Falha na ligação: ", "Verbindung fehlgeschlagen: ", "Connessione non riuscita: ", UiLang) + _lastConnectErrorMessage);
             UpdateUiState(isGenerating: false);
             ApplyResponsiveLayout(Root.ActualWidth);
+        }
+    }
+
+    private static bool TryResolveServerLlmEndpoint(
+        string readyJson,
+        string backendUrl,
+        out string llmBaseUrl,
+        out string modelId)
+    {
+        llmBaseUrl = string.Empty;
+        modelId = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(readyJson) || string.IsNullOrWhiteSpace(backendUrl))
+            return false;
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(readyJson);
+            if (!doc.RootElement.TryGetProperty("details", out var details)
+                || details.ValueKind != System.Text.Json.JsonValueKind.Object)
+            {
+                return false;
+            }
+
+            if (!details.TryGetProperty("llm", out var llm)
+                || !string.Equals(llm.GetString(), "server-ok", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (!details.TryGetProperty("llm_model", out var model)
+                || model.ValueKind != System.Text.Json.JsonValueKind.String)
+            {
+                return false;
+            }
+
+            var resolvedModel = model.GetString();
+            if (string.IsNullOrWhiteSpace(resolvedModel))
+                return false;
+
+            llmBaseUrl = backendUrl.Trim().TrimEnd('/') + "/llm/v1";
+            modelId = resolvedModel.Trim();
+            return true;
+        }
+        catch
+        {
+            return false;
         }
     }
 
