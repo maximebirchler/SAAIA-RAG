@@ -59,6 +59,8 @@ services:
       Embeddings__BaseUrl: http://tei
       QDRANT_API_KEY: ${QDRANT_API_KEY:-}
       SAAIA_LICENSE_SEATS: ${SAAIA_LICENSE_SEATS:-1}
+      Chat__LlmBaseUrl: ${CHAT_LLM_BASE_URL:-}
+      Chat__LlmModel: ${CHAT_LLM_MODEL:-local}
     depends_on:
       postgres:
         condition: service_healthy

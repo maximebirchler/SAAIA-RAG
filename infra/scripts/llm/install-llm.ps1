@@ -7,6 +7,7 @@ param(
   [int]$HostPort = 1234,
   [int]$ContainerPort = 8080,
   [int]$LicenseSeats = $(if ($env:SAAIA_LICENSE_SEATS -as [int]) { [int]$env:SAAIA_LICENSE_SEATS } else { 1 }),
+  [string]$DockerNetwork = $(if ($env:SAAIA_LLM_DOCKER_NETWORK) { $env:SAAIA_LLM_DOCKER_NETWORK } else { '' }),
   [switch]$AutoPlan,
   [switch]$NoDockerUp,
   [switch]$NoWait,
@@ -331,6 +332,23 @@ for ($i = 1; $i -le [int]$capacityPlan.instances; $i++) {
 
     restart: unless-stopped
 
+"@
+
+  if (-not [string]::IsNullOrWhiteSpace($DockerNetwork)) {
+    $compose += @"
+    networks:
+      - backend
+
+"@
+  }
+}
+
+if (-not [string]::IsNullOrWhiteSpace($DockerNetwork)) {
+  $compose += @"
+networks:
+  backend:
+    name: $DockerNetwork
+    external: true
 "@
 }
 

@@ -25,6 +25,7 @@ public static class ReadyEndpoints
         NpgsqlDataSource ds,
         IHttpClientFactory httpFactory,
         IOptions<RagOptions> ragOpt,
+        IOptions<ChatOptions> chatOpt,
         SignedConfigStatus? cfgStatus,
         IMemoryCache cache,
         CancellationToken ct)
@@ -139,8 +140,9 @@ public static class ReadyEndpoints
                 details["qdrant_error"] = ex.Message;
             }
 
-            // LLM: client-only en v2.7
-            details["llm"] = "client-only";
+            var llmOk = await ProbeLlmReadinessAsync(httpFactory, chatOpt.Value, details, ct);
+            if (!llmOk)
+                ok = false;
 
             // Signed deployment config status
             if (cfgStatus is not null)
@@ -162,6 +164,54 @@ public static class ReadyEndpoints
         finally
         {
             _gate.Release();
+        }
+    }
+
+    private static async Task<bool> ProbeLlmReadinessAsync(
+        IHttpClientFactory httpFactory,
+        ChatOptions chat,
+        Dictionary<string, object?> details,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(chat.LlmBaseUrl))
+        {
+            details["llm"] = "client-only";
+            details["llm_server_configured"] = false;
+            return true;
+        }
+
+        details["llm"] = "server-configured";
+        details["llm_server_configured"] = true;
+        details["llm_model"] = chat.LlmModel;
+
+        try
+        {
+            var llm = httpFactory.CreateClient("llm");
+            using var llmCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            llmCts.CancelAfter(TimeSpan.FromSeconds(5));
+
+            using var response = await llm.GetAsync("v1/models", llmCts.Token);
+            details["llm_status"] = (int)response.StatusCode;
+            if (!response.IsSuccessStatusCode)
+            {
+                details["llm"] = "server-unavailable";
+                return false;
+            }
+
+            details["llm"] = "server-ok";
+            return true;
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            details["llm"] = "server-timeout";
+            details["llm_error"] = "timeout";
+            return false;
+        }
+        catch (Exception ex)
+        {
+            details["llm"] = "server-unavailable";
+            details["llm_error"] = ex.Message;
+            return false;
         }
     }
 }
