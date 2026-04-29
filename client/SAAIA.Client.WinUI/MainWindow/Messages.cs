@@ -154,6 +154,20 @@ public sealed partial class MainWindow
         var msg = ex?.Message ?? string.Empty;
         var lower = msg.ToLowerInvariant();
 
+        if (lower.Contains("llm_queue_full")
+            || lower.Contains("too many requests")
+            || lower.Contains("429"))
+        {
+            return LocalRuntimeText(
+                "Le serveur IA est occupé. Ta demande n'est pas perdue : réessaie dans quelques secondes.",
+                "The AI server is busy. Your request is not lost: try again in a few seconds.",
+                "El servidor IA está ocupado. Tu solicitud no se ha perdido: vuelve a intentarlo en unos segundos.",
+                "O servidor de IA está ocupado. O teu pedido não se perdeu: tenta novamente dentro de alguns segundos.",
+                "Der KI-Server ist ausgelastet. Deine Anfrage ist nicht verloren: versuche es in einigen Sekunden erneut.",
+                "Il server IA è occupato. La richiesta non è persa: riprova tra qualche secondo.",
+                lang);
+        }
+
         if (lower.Contains("exceeds the available context size")
             || (lower.Contains("context size") && lower.Contains("exceed"))
             || lower.Contains("context window")
