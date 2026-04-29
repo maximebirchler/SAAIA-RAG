@@ -120,25 +120,28 @@ public sealed partial class MainWindow
         if (string.IsNullOrWhiteSpace(_appSettings.LlamaExePath) || string.IsNullOrWhiteSpace(_appSettings.ModelPath))
             return false;
 
-        TrySoftUi("EnsureLocalLlmStartedFromSettingsAsync.StatusText.Starting", () =>
-            LocalLlmStatusText.Text = LocalLlmText("Demarrage de llama.cpp...", "Starting llama.cpp...", "Iniciando llama.cpp...", "A iniciar llama.cpp...", "llama.cpp wird gestartet...", "Avvio di llama.cpp...", UiLang));
+        await TrySoftUiAsync("EnsureLocalLlmStartedFromSettingsAsync.StatusText.Starting", () =>
+            RunOnUiThreadAsync(() =>
+                LocalLlmStatusText.Text = LocalLlmText("Demarrage de llama.cpp...", "Starting llama.cpp...", "Iniciando llama.cpp...", "A iniciar llama.cpp...", "llama.cpp wird gestartet...", "Avvio di llama.cpp...", UiLang)));
 
         var (ok, msg) = await _llmProc.StartAsync(_appSettings, ct);
 
-        TrySoftUi("EnsureLocalLlmStartedFromSettingsAsync.SyncUi", () =>
-        {
-            LocalLlmCmdLineBox.Text = _llmProc.LastCommandLine ?? "";
-            LocalLlmStatusText.Text = msg;
-        });
+        await TrySoftUiAsync("EnsureLocalLlmStartedFromSettingsAsync.SyncUi", () =>
+            RunOnUiThreadAsync(() =>
+            {
+                LocalLlmCmdLineBox.Text = _llmProc.LastCommandLine ?? "";
+                LocalLlmStatusText.Text = msg;
+            }));
 
         if (ok)
             ok = await RunLocalLlmWarmupQualificationAsync(_appSettings, assistantMsg, ct).ConfigureAwait(false);
 
-        TrySoftUi("EnsureLocalLlmStartedFromSettingsAsync.ReflectEndpoint", () =>
-        {
-            LlmUrlBox.Text = _appSettings.LlmBaseUrl;
-            LlmModelBox.Text = _appSettings.ModelId;
-        });
+        await TrySoftUiAsync("EnsureLocalLlmStartedFromSettingsAsync.ReflectEndpoint", () =>
+            RunOnUiThreadAsync(() =>
+            {
+                LlmUrlBox.Text = _appSettings.LlmBaseUrl;
+                LlmModelBox.Text = _appSettings.ModelId;
+            }));
 
         return ok;
     }
@@ -152,26 +155,28 @@ public sealed partial class MainWindow
         if (_llmProc.IsRunning)
             return true;
 
-        TrySoftUi("EnsureLocalLlmAwakeForRequestAsync.Progress", () =>
-        {
-            var loadingText = LocalLlmText("Chargement du modele en cours...", "Loading model...", "Cargando modelo...", "A carregar o modelo...", "Modell wird geladen...", "Caricamento modello...", UiLang);
-            SetAssistantProgress(assistantMsg, loadingText);
-            LocalLlmStatusText.Text = loadingText;
-        });
+        await TrySoftUiAsync("EnsureLocalLlmAwakeForRequestAsync.Progress", () =>
+            RunOnUiThreadAsync(() =>
+            {
+                var loadingText = LocalLlmText("Chargement du modele en cours...", "Loading model...", "Cargando modelo...", "A carregar o modelo...", "Modell wird geladen...", "Caricamento modello...", UiLang);
+                SetAssistantProgress(assistantMsg, loadingText);
+                LocalLlmStatusText.Text = loadingText;
+            }));
 
         var ok = await EnsureLocalLlmStartedFromSettingsAsync(ct, assistantMsg);
-        TrySoftUi("EnsureLocalLlmAwakeForRequestAsync.Done", () =>
-        {
-            if (ok)
+        await TrySoftUiAsync("EnsureLocalLlmAwakeForRequestAsync.Done", () =>
+            RunOnUiThreadAsync(() =>
             {
-                var loadMs = _llmProc.LastStartupLoadMs;
-                SetAssistantProgress(
-                    assistantMsg,
-                    loadMs is > 0
-                        ? $"Modele pret en {loadMs.Value / 1000d:0.0}s. Je prepare la reponse..."
-                        : "Modele pret. Je prepare la reponse...");
-            }
-        });
+                if (ok)
+                {
+                    var loadMs = _llmProc.LastStartupLoadMs;
+                    SetAssistantProgress(
+                        assistantMsg,
+                        loadMs is > 0
+                            ? $"Modele pret en {loadMs.Value / 1000d:0.0}s. Je prepare la reponse..."
+                            : "Modele pret. Je prepare la reponse...");
+                }
+            }));
 
         return ok;
     }
@@ -187,12 +192,13 @@ public sealed partial class MainWindow
         if (WarmupProfileStore.FindProfile(settings.QualifiedProfile.ProfileId) is null)
             return true;
 
-        TrySoftUi("RunLocalLlmWarmupQualificationAsync.Progress", () =>
-        {
-            var checkingText = LocalLlmText("Verification de compatibilite en cours...", "Checking compatibility...", "Comprobando compatibilidad...", "A verificar a compatibilidade...", "Kompatibilitaet wird geprueft...", "Verifica compatibilita in corso...", UiLang);
-            SetAssistantProgress(assistantMsg, checkingText);
-            LocalLlmStatusText.Text = checkingText;
-        });
+        await TrySoftUiAsync("RunLocalLlmWarmupQualificationAsync.Progress", () =>
+            RunOnUiThreadAsync(() =>
+            {
+                var checkingText = LocalLlmText("Verification de compatibilite en cours...", "Checking compatibility...", "Comprobando compatibilidad...", "A verificar a compatibilidade...", "Kompatibilitaet wird geprueft...", "Verifica compatibilita in corso...", UiLang);
+                SetAssistantProgress(assistantMsg, checkingText);
+                LocalLlmStatusText.Text = checkingText;
+            }));
 
         var result = await WarmupGate.RunQualificationAsync(
             settings.QualifiedProfile,
@@ -224,26 +230,27 @@ public sealed partial class MainWindow
                 settings.LlamaExePath = rollbackExe;
                 settings.Save();
 
-                TrySoftUi("RunLocalLlmWarmupQualificationAsync.RollbackUi", () =>
-                {
-                    LocalLlmExePathBox.Text = rollbackExe;
-                    LocalLlmStatusText.Text = LocalLlmText(
-                        $"Qualification echouee. Runtime precedent reactive ({rollbackBuild ?? "rollback"}).",
-                        $"Qualification failed. Previous runtime restored ({rollbackBuild ?? "rollback"}).",
-                        $"La cualificacion fallo. Runtime anterior reactivado ({rollbackBuild ?? "rollback"}).",
-                        $"A qualificacao falhou. Runtime anterior reativado ({rollbackBuild ?? "rollback"}).",
-                        $"Qualifizierung fehlgeschlagen. Vorherige Runtime wiederhergestellt ({rollbackBuild ?? "rollback"}).",
-                        $"Qualificazione non riuscita. Runtime precedente riattivato ({rollbackBuild ?? "rollback"}).",
-                        UiLang);
-                    SetAssistantProgress(assistantMsg, LocalLlmText(
-                        "Compatibilite non validee. Retour au runtime precedent.",
-                        "Compatibility not validated. Returning to the previous runtime.",
-                        "Compatibilidad no validada. Volviendo al runtime anterior.",
-                        "Compatibilidade nao validada. Regresso ao runtime anterior.",
-                        "Kompatibilitaet nicht bestaetigt. Rueckkehr zur vorherigen Runtime.",
-                        "Compatibilita non validata. Ritorno al runtime precedente.",
-                        UiLang));
-                });
+                await TrySoftUiAsync("RunLocalLlmWarmupQualificationAsync.RollbackUi", () =>
+                    RunOnUiThreadAsync(() =>
+                    {
+                        LocalLlmExePathBox.Text = rollbackExe;
+                        LocalLlmStatusText.Text = LocalLlmText(
+                            $"Qualification echouee. Runtime precedent reactive ({rollbackBuild ?? "rollback"}).",
+                            $"Qualification failed. Previous runtime restored ({rollbackBuild ?? "rollback"}).",
+                            $"La cualificacion fallo. Runtime anterior reactivado ({rollbackBuild ?? "rollback"}).",
+                            $"A qualificacao falhou. Runtime anterior reativado ({rollbackBuild ?? "rollback"}).",
+                            $"Qualifizierung fehlgeschlagen. Vorherige Runtime wiederhergestellt ({rollbackBuild ?? "rollback"}).",
+                            $"Qualificazione non riuscita. Runtime precedente riattivato ({rollbackBuild ?? "rollback"}).",
+                            UiLang);
+                        SetAssistantProgress(assistantMsg, LocalLlmText(
+                            "Compatibilite non validee. Retour au runtime precedent.",
+                            "Compatibility not validated. Returning to the previous runtime.",
+                            "Compatibilidad no validada. Volviendo al runtime anterior.",
+                            "Compatibilidade nao validada. Regresso ao runtime anterior.",
+                            "Kompatibilitaet nicht bestaetigt. Rueckkehr zur vorherigen Runtime.",
+                            "Compatibilita non validata. Ritorno al runtime precedente.",
+                            UiLang));
+                    }));
 
                 ClientLog.Warn(
                     $"[RuntimeCompatibility] Qualification failed for '{runtimeId}'. "
@@ -306,11 +313,12 @@ public sealed partial class MainWindow
         if (ok)
             ok = await RunLocalLlmWarmupQualificationAsync(_appSettings, null, ct).ConfigureAwait(false);
 
-        TrySoftUi("EnsureLocalLlmStartedAsync.ReflectEndpoint", () =>
-        {
-            LlmUrlBox.Text = _appSettings.LlmBaseUrl;
-            LlmModelBox.Text = _appSettings.ModelId;
-        });
+        await TrySoftUiAsync("EnsureLocalLlmStartedAsync.ReflectEndpoint", () =>
+            RunOnUiThreadAsync(() =>
+            {
+                LlmUrlBox.Text = _appSettings.LlmBaseUrl;
+                LlmModelBox.Text = _appSettings.ModelId;
+            }));
         await RefreshLocalLlmGovernanceStatusAsync().ConfigureAwait(false);
 
         return ok;
