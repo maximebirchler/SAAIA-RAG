@@ -701,6 +701,162 @@ CURRENT_USER_MESSAGE:
             @"(?i)\b(?:je\s+n['’]ai\s+pas|aucun(?:e)?|pas\s+de|no\s+(?:specific\s+)?(?:data|document|source|information)|nothing\s+specific)\b.{0,120}\b(?:donn[ée]es?|documents?|sources?|information|data)\b");
     }
 
+    internal static bool ShouldUseCuisineExtractiveAnswer(string query, ToolResults toolResults)
+    {
+        var hits = EnumerateRagHitSummaries(toolResults).Take(8).ToList();
+        if (hits.Count == 0)
+            return false;
+
+        if (!hits.Any(static hit => IsCuisineDocPath(hit.DocPath)))
+            return false;
+
+        var normalizedQuery = NormalizeCuisineLookup(query);
+        if (string.IsNullOrWhiteSpace(normalizedQuery))
+            return false;
+
+        return Regex.IsMatch(
+            normalizedQuery,
+            @"\b(?:recette|recettes|cuisine|cuisiner|repas|menu|menus|sauce|sauces|trempette|marinade|dessert|gateau|gâteau|chocolat|entrecote|entrecôte|steak|poulet|riz|courgette|courgettes|vegetarien|vegetarienne|végétarien|végétarienne|enfant|enfants|gouter|goûter)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    internal static string BuildCuisineExtractiveAnswer(ToolResults toolResults, string query, string language)
+    {
+        language = NormalizeLanguageCode(language);
+        var hits = EnumerateRagHitSummaries(toolResults)
+            .Where(static hit => IsCuisineDocPath(hit.DocPath))
+            .OrderByDescending(hit => ComputeCuisineHitRelevance(query, hit.Excerpt))
+            .Take(4)
+            .ToList();
+
+        if (hits.Count == 0)
+            return BuildRagEvidenceFallbackAnswer(toolResults, query, language);
+
+        var normalizedQuery = NormalizeCuisineLookup(query);
+        var isMeatSauceQuestion =
+            (normalizedQuery.Contains("sauce", StringComparison.Ordinal) || normalizedQuery.Contains("sauces", StringComparison.Ordinal))
+            && (normalizedQuery.Contains("entrecote", StringComparison.Ordinal)
+                || normalizedQuery.Contains("entrecôte", StringComparison.Ordinal)
+                || normalizedQuery.Contains("steak", StringComparison.Ordinal)
+                || normalizedQuery.Contains("viande", StringComparison.Ordinal));
+
+        var hasExactPairing = hits.Any(hit =>
+        {
+            var excerpt = NormalizeCuisineLookup(hit.Excerpt);
+            return (excerpt.Contains("entrecote", StringComparison.Ordinal)
+                    || excerpt.Contains("entrecôte", StringComparison.Ordinal)
+                    || excerpt.Contains("steak", StringComparison.Ordinal))
+                   && (excerpt.Contains("sauce", StringComparison.Ordinal)
+                       || excerpt.Contains("trempette", StringComparison.Ordinal)
+                       || excerpt.Contains("marinade", StringComparison.Ordinal));
+        });
+
+        var sb = new StringBuilder();
+        if (language == "fr")
+        {
+            sb.Append(isMeatSauceQuestion && !hasExactPairing
+                ? "Je n'ai pas trouve d'association explicite avec l'entrecote dans les extraits disponibles. Les sources Cuisine donnent plutot ces pistes documentees :"
+                : "Voici les pistes trouvees dans les documents Cuisine, sans ajout d'ingredients ni d'etapes hors source :");
+        }
+        else
+        {
+            sb.Append(isMeatSauceQuestion && !hasExactPairing
+                ? "I did not find an explicit pairing with entrecote in the available excerpts. The Cuisine sources provide these documented leads:"
+                : "Here are the leads found in the Cuisine documents, without adding ingredients or steps outside the sources:");
+        }
+
+        sb.AppendLine();
+        foreach (var hit in hits)
+        {
+            var docLabel = string.IsNullOrWhiteSpace(hit.DocName) ? hit.DocPath : hit.DocName;
+            var excerpt = CollapseWhitespace(hit.Excerpt);
+            if (excerpt.Length > 320)
+                excerpt = excerpt[..320].TrimEnd() + "...";
+
+            sb.Append("- ");
+            sb.Append(docLabel);
+            sb.Append(" p.");
+            sb.Append(hit.PageStart);
+            sb.Append(" : ");
+            sb.AppendLine(excerpt);
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    private static bool IsCuisineDocPath(string? docPath)
+        => (docPath ?? string.Empty)
+            .Replace('\\', '/')
+            .TrimStart('/')
+            .StartsWith("Cuisine/", StringComparison.OrdinalIgnoreCase);
+
+    private static int ComputeCuisineHitRelevance(string query, string? excerpt)
+    {
+        var normalizedQuery = NormalizeCuisineLookup(query);
+        var normalizedExcerpt = NormalizeCuisineLookup(excerpt);
+        var score = 0;
+
+        if ((normalizedQuery.Contains("sauce", StringComparison.Ordinal) || normalizedQuery.Contains("sauces", StringComparison.Ordinal))
+            && (normalizedExcerpt.Contains("sauce", StringComparison.Ordinal)
+                || normalizedExcerpt.Contains("sauces", StringComparison.Ordinal)
+                || normalizedExcerpt.Contains("trempette", StringComparison.Ordinal)
+                || normalizedExcerpt.Contains("trempettes", StringComparison.Ordinal)))
+        {
+            score += 4;
+        }
+
+        if ((normalizedQuery.Contains("entrecote", StringComparison.Ordinal)
+             || normalizedQuery.Contains("steak", StringComparison.Ordinal)
+             || normalizedQuery.Contains("viande", StringComparison.Ordinal))
+            && (normalizedExcerpt.Contains("viande", StringComparison.Ordinal)
+                || normalizedExcerpt.Contains("viandes", StringComparison.Ordinal)
+                || normalizedExcerpt.Contains("boeuf", StringComparison.Ordinal)
+                || normalizedExcerpt.Contains("bœuf", StringComparison.Ordinal)
+                || normalizedExcerpt.Contains("steak", StringComparison.Ordinal)))
+        {
+            score += 3;
+        }
+
+        if ((normalizedQuery.Contains("chocolat", StringComparison.Ordinal) || normalizedQuery.Contains("dessert", StringComparison.Ordinal))
+            && (normalizedExcerpt.Contains("chocolat", StringComparison.Ordinal)
+                || normalizedExcerpt.Contains("dessert", StringComparison.Ordinal)
+                || normalizedExcerpt.Contains("gateau", StringComparison.Ordinal)))
+        {
+            score += 3;
+        }
+
+        if ((normalizedQuery.Contains("enfant", StringComparison.Ordinal) || normalizedQuery.Contains("enfants", StringComparison.Ordinal))
+            && (normalizedExcerpt.Contains("enfant", StringComparison.Ordinal)
+                || normalizedExcerpt.Contains("enfants", StringComparison.Ordinal)
+                || normalizedExcerpt.Contains("animateur", StringComparison.Ordinal)
+                || normalizedExcerpt.Contains("animateurs", StringComparison.Ordinal)))
+        {
+            score += 3;
+        }
+
+        return score;
+    }
+
+    private static string NormalizeCuisineLookup(string? value)
+        => CollapseWhitespace(value ?? string.Empty)
+            .ToLowerInvariant()
+            .Replace('à', 'a')
+            .Replace('â', 'a')
+            .Replace('ä', 'a')
+            .Replace('ç', 'c')
+            .Replace('é', 'e')
+            .Replace('è', 'e')
+            .Replace('ê', 'e')
+            .Replace('ë', 'e')
+            .Replace('î', 'i')
+            .Replace('ï', 'i')
+            .Replace('ô', 'o')
+            .Replace('ö', 'o')
+            .Replace('ù', 'u')
+            .Replace('û', 'u')
+            .Replace('ü', 'u')
+            .Replace("œ", "oe", StringComparison.Ordinal);
+
     private static string BuildRagEvidenceFallbackAnswer(ToolResults toolResults, string query, string language)
     {
         language = NormalizeLanguageCode(language);

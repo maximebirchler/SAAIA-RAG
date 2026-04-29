@@ -56,4 +56,73 @@ public sealed class RagContextBudgetRegressionTests
             Assert.EndsWith("...", content);
         });
     }
+
+    [Fact]
+    public void Cuisine_rag_hits_use_extractive_answer_to_avoid_recipe_hallucination()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Cuisine/livre-recette-sist-2025-web.pdf",
+                    docName = "livre-recette-sist-2025-web.pdf",
+                    pageStart = 23,
+                    pageEnd = 23,
+                    excerpt = "Gateau chocolat-courgette. Ingredients: 150 g de chocolat noir dessert, 30 g de sucre, 4 oeufs, 300 g de courgettes, 70 g de farine.",
+                    score = 0.97
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.search",
+            Result = doc.RootElement.Clone()
+        });
+
+        Assert.True(ToolAgentOrchestrator.ShouldUseCuisineExtractiveAnswerForTests("dessert au chocolat facile", toolResults));
+
+        var answer = ToolAgentOrchestrator.BuildCuisineExtractiveAnswerForTests(toolResults, "dessert au chocolat facile", "fr");
+
+        Assert.Contains("sans ajout", answer);
+        Assert.Contains("Gateau chocolat-courgette", answer);
+        Assert.Contains("300 g de courgettes", answer);
+    }
+
+    [Fact]
+    public void Cuisine_meat_sauce_answer_stays_cautious_without_explicit_pairing()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Cuisine/facilitemps.pdf",
+                    docName = "facilitemps.pdf",
+                    pageStart = 44,
+                    pageEnd = 44,
+                    excerpt = "Les sauces et les trempettes. Une idee pour rehausser le gout de vos viandes est de cuisiner des sauces et des trempettes.",
+                    score = 0.99
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildCuisineExtractiveAnswerForTests(toolResults, "quelle sauce avec une entrecote ?", "fr");
+
+        Assert.Contains("pas trouve d'association explicite", answer);
+        Assert.Contains("facilitemps.pdf p.44", answer);
+    }
 }

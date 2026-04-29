@@ -222,7 +222,8 @@ public sealed class RuntimeGovernanceCoreLogicTests
         Assert.Contains("steak", expanded);
         Assert.Contains("rumsteck", expanded);
         Assert.Contains("viande rouge", expanded);
-        Assert.Contains("marinade", expanded);
+        Assert.Contains("sauces trempettes", expanded);
+        Assert.DoesNotContain("marinade", expanded);
 
         var unchanged = RagEndpoints.ExpandRetrievalQuery("Quelle sauce avec une entrecôte ?", "atex");
         Assert.Equal("Quelle sauce avec une entrecôte ?", unchanged);
@@ -247,6 +248,10 @@ public sealed class RuntimeGovernanceCoreLogicTests
         Assert.True(RagEndpoints.ComputeDomainSpecificBoost(
             "quelle sauce avec une entrecôte",
             "Viandes rouges (bœuf, agneau, gibier) 4h à 12h. La marinade est un mélange...") > 0);
+
+        Assert.True(RagEndpoints.ComputeDomainSpecificBoost(
+            "quelle sauce avec une entrecote",
+            "LES SAUCES ET LES TREMPETTES. Une autre idee pour rehausser le gout de vos viandes est de cuisiner des sauces et des trempettes.") > 0.15);
 
         Assert.Equal(0, RagEndpoints.ComputeDomainSpecificBoost(
             "dessert au chocolat facile",

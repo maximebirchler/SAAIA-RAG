@@ -1783,6 +1783,17 @@ USER_MESSAGE:
             }
         }
 
+        if (ShouldUseCuisineExtractiveAnswer(userMessage, writerToolResults))
+        {
+            var deterministicAnswer = BuildCuisineExtractiveAnswer(writerToolResults, userMessage, plan.Language);
+            var deterministicSources = DeriveSourcesFromRagHits(writerToolResults);
+            if (!string.IsNullOrWhiteSpace(deterministicAnswer))
+            {
+                _lastAnswerSource = $"writer_bypass_cuisine_extractive:{plan.Intent}";
+                return (deterministicAnswer, deterministicSources);
+            }
+        }
+
         var user = $@"
 CHAT_TAIL:
 {SerializeTail(chatHistory, maxTurns: 10)}
@@ -1823,7 +1834,9 @@ AUTHORITATIVE_INVENTORY_DATA (json):
         if (usedRagSearch)
         {
             sources = DeriveSourcesFromRagHits(toolResults);
-            if (sources.Count > 0 && LooksLikeNoRagDataAnswer(finalAnswer))
+            if (ShouldUseCuisineExtractiveAnswer(userMessage, toolResults))
+                finalAnswer = BuildCuisineExtractiveAnswer(toolResults, userMessage, plan.Language);
+            else if (sources.Count > 0 && LooksLikeNoRagDataAnswer(finalAnswer))
                 finalAnswer = BuildRagEvidenceFallbackAnswer(toolResults, userMessage, plan.Language);
         }
         else if (usedSourcesResolve)

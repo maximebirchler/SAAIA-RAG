@@ -27,6 +27,12 @@ public sealed partial class ToolAgentOrchestrator
         return NormalizeRagHits(doc.RootElement);
     }
 
+    internal static bool ShouldUseCuisineExtractiveAnswerForTests(string query, ToolResults toolResults)
+        => ShouldUseCuisineExtractiveAnswer(query, toolResults);
+
+    internal static string BuildCuisineExtractiveAnswerForTests(ToolResults toolResults, string query, string language)
+        => BuildCuisineExtractiveAnswer(toolResults, query, language);
+
     internal static string SerializeTailForTests(IReadOnlyList<(string role, string content)> history, int maxTurns)
         => SerializeTail(history, maxTurns);
 

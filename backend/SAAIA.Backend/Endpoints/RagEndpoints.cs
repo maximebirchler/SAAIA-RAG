@@ -1622,6 +1622,15 @@ LIMIT @top_k;
             boost += 0.08;
         }
 
+        if ((normalizedQuery.Contains("sauce", StringComparison.Ordinal) || normalizedQuery.Contains("sauces", StringComparison.Ordinal))
+            && (normalizedCandidate.Contains("sauces et les trempettes", StringComparison.Ordinal)
+                || normalizedCandidate.Contains("cuisiner des sauces et des trempettes", StringComparison.Ordinal)
+                || normalizedCandidate.Contains("sauce froide", StringComparison.Ordinal)
+                || normalizedCandidate.Contains("trempette", StringComparison.Ordinal)))
+        {
+            boost += 0.16;
+        }
+
         return boost;
     }
 
@@ -1777,6 +1786,8 @@ LIMIT @top_k;
 
         var tokens = new HashSet<string>(ExtractLexicalQueryTokens(query), StringComparer.Ordinal);
         var additions = new List<string>();
+        if (tokens.Any(static token => token.StartsWith("entrec", StringComparison.Ordinal)))
+            tokens.Add("entrecote");
 
         if (tokens.Contains("entrecote") || tokens.Contains("entrecôte"))
         {
@@ -1785,7 +1796,9 @@ LIMIT @top_k;
 
         if (tokens.Contains("sauce") || tokens.Contains("sauces"))
         {
-            additions.AddRange(["marinade", "jus roti"]);
+            additions.AddRange(["sauces trempettes", "viandes"]);
+            if (!(tokens.Contains("entrecote") || tokens.Contains("steak") || tokens.Contains("rumsteck")))
+                additions.AddRange(["marinade", "jus roti"]);
         }
 
         if (tokens.Contains("enfants") || tokens.Contains("enfant"))
