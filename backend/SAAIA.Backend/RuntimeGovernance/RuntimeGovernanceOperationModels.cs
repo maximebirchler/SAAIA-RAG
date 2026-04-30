@@ -53,6 +53,6 @@ internal sealed record CapabilityBExecutionJobRow(
     string? EnqueueSource,
     string? ExecutionLeaseToken,
     string? ExecutionClaimedBy,
-    DateTimeOffset? ExecutionClaimedAt,
+    DateTime? ExecutionClaimedAt,
     Guid? CampaignId,
     string PayloadJson);

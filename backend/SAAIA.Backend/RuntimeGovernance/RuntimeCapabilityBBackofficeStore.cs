@@ -183,7 +183,7 @@ ORDER BY d.updated_at DESC
             PolicyBlocked: row.HasActiveJob || !string.IsNullOrWhiteSpace(cooldownReason),
             PolicyBlockReason: row.HasActiveJob ? "active_summary_job_exists" : cooldownReason,
             LastJobStatus: row.LastJobStatus,
-            LastJobFinishedAt: row.LastJobFinishedAt,
+            LastJobFinishedAt: ToUtcOffset(row.LastJobFinishedAt),
             LastJobError: row.LastJobError);
     }
 
@@ -191,24 +191,39 @@ ORDER BY d.updated_at DESC
         CapabilityBBackofficeCandidateRow row,
         RuntimeGovernanceOptions options)
     {
-        if (!row.LastJobFinishedAt.HasValue || string.IsNullOrWhiteSpace(row.LastJobStatus))
+        var lastJobFinishedAt = ToUtcOffset(row.LastJobFinishedAt);
+        if (!lastJobFinishedAt.HasValue || string.IsNullOrWhiteSpace(row.LastJobStatus))
             return null;
 
         var status = row.LastJobStatus.Trim();
         if (string.Equals(status, "failed", StringComparison.OrdinalIgnoreCase)
-            && row.LastJobFinishedAt.Value >= DateTimeOffset.UtcNow.AddHours(-Math.Abs(options.CapabilityBRecentFailureCooldownHours)))
+            && lastJobFinishedAt.Value >= DateTimeOffset.UtcNow.AddHours(-Math.Abs(options.CapabilityBRecentFailureCooldownHours)))
         {
             return "recent_summary_job_failure";
         }
 
         if ((string.Equals(status, "canceled", StringComparison.OrdinalIgnoreCase)
              || string.Equals(status, "cancelled", StringComparison.OrdinalIgnoreCase))
-            && row.LastJobFinishedAt.Value >= DateTimeOffset.UtcNow.AddHours(-Math.Abs(options.CapabilityBRecentCancellationCooldownHours)))
+            && lastJobFinishedAt.Value >= DateTimeOffset.UtcNow.AddHours(-Math.Abs(options.CapabilityBRecentCancellationCooldownHours)))
         {
             return "recent_summary_job_cancellation";
         }
 
         return null;
+    }
+
+    private static DateTimeOffset? ToUtcOffset(DateTime? value)
+    {
+        if (!value.HasValue)
+            return null;
+
+        var utc = value.Value.Kind switch
+        {
+            DateTimeKind.Utc => value.Value,
+            DateTimeKind.Local => value.Value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)
+        };
+        return new DateTimeOffset(utc);
     }
 
     private static int BuildPriorityScore(
@@ -236,6 +251,6 @@ ORDER BY d.updated_at DESC
         string SummaryState,
         bool HasActiveJob,
         string? LastJobStatus,
-        DateTimeOffset? LastJobFinishedAt,
+        DateTime? LastJobFinishedAt,
         string? LastJobError);
 }

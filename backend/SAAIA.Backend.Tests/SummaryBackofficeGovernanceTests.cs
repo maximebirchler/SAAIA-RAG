@@ -1123,6 +1123,23 @@ VALUES(
   'This document defines the operational perimeter and the required safety controls for classified areas.',
   98, 18, '{}'::jsonb, now()
 );
+
+INSERT INTO document_profiles(
+  document_profile_id, tenant_id, revision_id, doc_id, profile_version, language,
+  summary_text, keywords, entities, topics, hypothetical_questions, limits,
+  search_text, token_count, checksum, metadata
+)
+VALUES(
+  @profileId, @tenant, @revisionId, @docId, 'deterministic_v1', 'en',
+  'Deterministic profile for b-worker-llm-summary.pdf.',
+  ARRAY['baseline-keyword']::text[],
+  ARRAY['baseline-entity']::text[],
+  ARRAY['baseline-topic']::text[],
+  ARRAY['What does b-worker-llm-summary.pdf say about safety controls?']::text[],
+  ARRAY['Use page chunks for exact facts.']::text[],
+  'b-worker-llm-summary.pdf deterministic baseline safety controls classified areas',
+  8, decode(repeat('01', 32), 'hex'), '{}'::jsonb
+);
 """,
                     new
                     {
@@ -1130,7 +1147,8 @@ VALUES(
                         docId,
                         revisionId,
                         sectionId,
-                        unitId
+                        unitId,
+                        profileId = DocumentFoundationRepo.BuildStableDocumentProfileId(revisionId, "deterministic_v1")
                     });
             }
 
@@ -1327,13 +1345,14 @@ VALUES(
                 LlmBaseUrl = "http://llm.test/",
                 LlmModel = "local"
             }));
-            services.AddSingleton<IHttpClientFactory>(new RuntimeGovernanceHttpClientFactory());
+            services.AddSingleton<IHttpClientFactory>(new WorkerProfileEnrichmentHttpClientFactory());
             services.AddSingleton<LocalLlmChatClient>(sp => new LocalLlmChatClient(
                 sp.GetRequiredService<IHttpClientFactory>(),
                 sp.GetRequiredService<IOptions<ChatOptions>>().Value));
             services.AddSingleton<CapabilityBBackofficeSummaryService>(sp => new CapabilityBBackofficeSummaryService(
                 sp.GetRequiredService<LocalLlmChatClient>(),
                 sp.GetRequiredService<IOptions<ChatOptions>>().Value));
+            services.AddSingleton<DocumentProfileEnrichmentService>();
             services.AddSingleton<IHostEnvironment>(new StubHostEnvironment());
 
             using var provider = services.BuildServiceProvider();
@@ -1358,6 +1377,22 @@ LIMIT 1;
 
                 Assert.Contains("Operational summary for b-worker-llm-summary.pdf", storedSummary, StringComparison.Ordinal);
                 Assert.Contains("Scope and Purpose", storedSummary, StringComparison.Ordinal);
+
+                var enrichedProfile = await conn.QuerySingleAsync<(string SummaryText, string[] Keywords, string SearchText)>(
+                    """
+SELECT summary_text, keywords, search_text
+FROM document_profiles
+WHERE tenant_id=@tenant
+  AND doc_id=@docId
+  AND profile_version='llm_backoffice_v1'
+LIMIT 1;
+""",
+                    new { tenant = tenantId, docId });
+
+                Assert.Contains("LLM enriched profile", enrichedProfile.SummaryText, StringComparison.Ordinal);
+                Assert.Contains("classified safety controls", enrichedProfile.Keywords);
+                Assert.Contains("baseline-keyword", enrichedProfile.Keywords);
+                Assert.Contains("classified safety controls", enrichedProfile.SearchText, StringComparison.OrdinalIgnoreCase);
             }
         }
         finally
@@ -1649,6 +1684,89 @@ VALUES(
                     _ => new Uri("http://stub.test/")
                 }
             };
+    }
+
+    private sealed class WorkerProfileEnrichmentHttpClientFactory : IHttpClientFactory
+    {
+        private int _chatCompletionCount;
+
+        public HttpClient CreateClient(string name)
+            => new(new WorkerProfileEnrichmentHttpMessageHandler(this))
+            {
+                BaseAddress = name switch
+                {
+                    "qdrant" => new Uri("http://qdrant.test/"),
+                    "tei" => new Uri("http://tei.test/"),
+                    "llm" => new Uri("http://llm.test/"),
+                    _ => new Uri("http://stub.test/")
+                }
+            };
+
+        private int NextChatCompletionCount()
+            => Interlocked.Increment(ref _chatCompletionCount);
+
+        private sealed class WorkerProfileEnrichmentHttpMessageHandler(WorkerProfileEnrichmentHttpClientFactory owner) : HttpMessageHandler
+        {
+            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                var path = request.RequestUri?.AbsolutePath ?? string.Empty;
+
+                if (request.Method == HttpMethod.Get && path.StartsWith("/collections/", StringComparison.OrdinalIgnoreCase))
+                    return Task.FromResult(JsonResponse("""{ "result": { "status": "green", "points_count": 0 } }"""));
+
+                if (path.EndsWith("/v1/embeddings", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Task.FromResult(JsonResponse("""
+                    {
+                      "data": [
+                        { "embedding": [0.1, 0.2, 0.3, 0.4] }
+                      ]
+                    }
+                    """));
+                }
+
+                if (path.EndsWith("/v1/chat/completions", StringComparison.OrdinalIgnoreCase))
+                {
+                    var call = owner.NextChatCompletionCount();
+                    return Task.FromResult(call == 1
+                        ? ChatCompletionResponse("Operational summary for b-worker-llm-summary.pdf: Scope and Purpose frames the operational perimeter. Operators should apply the required safety controls before deployment.")
+                        : ChatCompletionResponse("""
+                        {
+                          "language": "en",
+                          "summary": "LLM enriched profile: b-worker-llm-summary.pdf covers classified safety controls and operational perimeter checks.",
+                          "keywords": ["classified safety controls", "operational perimeter"],
+                          "entities": ["classified areas"],
+                          "topics": ["Safety controls"],
+                          "questions": ["Which document covers classified safety controls?"],
+                          "limits": ["Use page chunks for exact operational requirements."]
+                        }
+                        """));
+                }
+
+                return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.NotFound));
+            }
+
+            private static HttpResponseMessage ChatCompletionResponse(string content)
+                => JsonResponse(JsonSerializer.Serialize(new
+                {
+                    choices = new[]
+                    {
+                        new
+                        {
+                            message = new
+                            {
+                                content
+                            }
+                        }
+                    }
+                }));
+
+            private static HttpResponseMessage JsonResponse(string json)
+                => new(System.Net.HttpStatusCode.OK)
+                {
+                    Content = new StringContent(json, Encoding.UTF8, "application/json")
+                };
+        }
     }
 
     private sealed class RuntimeGovernanceHttpMessageHandler : HttpMessageHandler

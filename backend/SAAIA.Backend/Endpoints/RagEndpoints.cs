@@ -368,6 +368,7 @@ ORDER BY doc_path;
         long sparsePhaseMs = 0;
         long densePhaseMs = 0;
         long linkedPhaseMs = 0;
+        long profilePhaseMs = 0;
         int qdrantStatus = 0;
 
         if (shortCircuitAfterExact)
@@ -408,14 +409,29 @@ ORDER BY doc_path;
                     qdrantMsRef: value => qdrantMs = value,
                     qdrantStatusRef: value => qdrantStatus = value),
                 getReturnedCount: static matches => matches.Count);
+            var profileMatchesTask = MeasurePhaseAsync(
+                phaseName: "retrieval_document_profile",
+                retriever: "document_profile",
+                action: () => SearchDocumentProfileMatchesAsync(
+                    ds,
+                    tenantId,
+                    retrievalQuery,
+                    category,
+                    req.DocId,
+                    req.DocPath,
+                    Math.Min(candidates, Math.Max(topK, 12)),
+                    ct),
+                getReturnedCount: static matches => matches.Count);
 
-            await Task.WhenAll(sparseMatchesTask, denseMatchesTask);
+            await Task.WhenAll(sparseMatchesTask, denseMatchesTask, profileMatchesTask);
 
             var (sparseMatches, measuredSparsePhaseMs) = await sparseMatchesTask;
             var (denseMatches, measuredDensePhaseMs) = await denseMatchesTask;
+            var (profileMatches, measuredProfilePhaseMs) = await profileMatchesTask;
             sparsePhaseMs = measuredSparsePhaseMs;
             densePhaseMs = measuredDensePhaseMs;
-            var fusedMatches = FuseWithRrf(exactMatches, sparseMatches, denseMatches);
+            profilePhaseMs = measuredProfilePhaseMs;
+            var fusedMatches = FuseWithRrf(exactMatches, sparseMatches, denseMatches, profileMatches);
             fusedMatches = CalibrateFusedMatches(retrievalQuery, fusedMatches);
             var (rerankedMatches, _) = await MeasurePhaseAsync(
                 phaseName: "retrieval_rerank",
@@ -498,7 +514,7 @@ ORDER BY doc_path;
             Matches: selected);
 
         RetrievalTelemetry.CompleteSearch(searchActivity, response, mode, hasCategoryFilter, hasDocScope);
-        RetrievalTelemetry.RecordSearch(response, mode, hasCategoryFilter, hasDocScope, exactMs, sparsePhaseMs, densePhaseMs, linkedPhaseMs);
+        RetrievalTelemetry.RecordSearch(response, mode, hasCategoryFilter, hasDocScope, exactMs, sparsePhaseMs + profilePhaseMs, densePhaseMs, linkedPhaseMs);
 
         return response;
     }
@@ -986,6 +1002,137 @@ ORDER BY lm.match_count DESC, rc.chunk_index ASC
 LIMIT @top_k;
 """;
 
+    internal static async Task<List<RagMatch>> SearchDocumentProfileMatchesAsync(
+        NpgsqlDataSource ds,
+        Guid tenantId,
+        string query,
+        string? category,
+        string? docId,
+        string? docPath,
+        int topK,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(query) || topK <= 0)
+            return [];
+
+        var lexicalTerms = BuildLexicalContentFallbackTerms(query);
+        if (lexicalTerms.Count == 0)
+            return [];
+
+        var normalizedDocPath = string.IsNullOrWhiteSpace(docPath)
+            ? null
+            : docPath.Trim().Replace('\\', '/').TrimStart('/');
+        Guid? normalizedDocId = Guid.TryParse(docId, out var parsedDocId) ? parsedDocId : null;
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        const string sql = """
+WITH sparse_query AS (
+    SELECT websearch_to_tsquery('simple', @query_text) AS q
+),
+lexical_terms AS (
+    SELECT DISTINCT LOWER(term) AS term
+    FROM unnest(@lexical_terms::text[]) AS term
+    WHERE term IS NOT NULL AND term <> ''
+)
+SELECT
+    d.doc_id AS "DocId",
+    d.doc_path AS "DocPath",
+    d.doc_name AS "DocName",
+    p.document_profile_id AS "ProfileId",
+    d.indexed_version AS "IngestionVersion",
+    LOWER(ENCODE(d.content_hash, 'hex')) AS "HashDoc",
+    p.summary_text AS "Text",
+    p.search_text AS "SearchText",
+    p.language AS "Language",
+    ts_rank_cd(
+        to_tsvector('simple', p.search_text),
+        sparse_query.q,
+        32
+    ) AS "SparseRank",
+    lm.match_count AS "MatchCount"
+FROM sparse_query
+JOIN documents d
+  ON d.tenant_id = @tenant_id
+ AND d.status = 'indexed'
+ AND d.indexed_version > 0
+JOIN document_revisions r
+  ON r.tenant_id = d.tenant_id
+ AND r.doc_id = d.doc_id
+ AND r.indexed_version = d.indexed_version
+JOIN LATERAL (
+    SELECT profile.*
+    FROM document_profiles profile
+    WHERE profile.tenant_id = r.tenant_id
+      AND profile.revision_id = r.revision_id
+    ORDER BY
+        CASE profile.profile_version
+            WHEN 'llm_backoffice_v1' THEN 0
+            WHEN 'deterministic_v1' THEN 1
+            ELSE 2
+        END,
+        profile.updated_at DESC
+    LIMIT 1
+) p ON TRUE
+CROSS JOIN LATERAL (
+    SELECT COUNT(*) AS match_count
+    FROM lexical_terms
+    WHERE LOWER(p.search_text) LIKE '%' || lexical_terms.term || '%'
+) lm
+WHERE (
+       to_tsvector('simple', p.search_text) @@ sparse_query.q
+       OR lm.match_count > 0
+      )
+  AND (@category IS NULL OR LOWER(d.category) = @category)
+  AND (@doc_id IS NULL OR d.doc_id = @doc_id)
+  AND (@doc_path IS NULL OR d.doc_path = @doc_path)
+ORDER BY
+    (ts_rank_cd(to_tsvector('simple', p.search_text), sparse_query.q, 32) + (lm.match_count::real * 0.04)) DESC,
+    d.updated_at DESC
+LIMIT @top_k;
+""";
+
+        try
+        {
+            var rows = (await conn.QueryAsync<DocumentProfileMatchRow>(new CommandDefinition(sql, new
+            {
+                tenant_id = tenantId,
+                query_text = query.Trim(),
+                lexical_terms = lexicalTerms.ToArray(),
+                category,
+                doc_id = normalizedDocId,
+                doc_path = normalizedDocPath,
+                top_k = topK
+            }, cancellationToken: ct))).ToList();
+
+            return rows.Select(row => new RagMatch(
+                Score: NormalizeDocumentProfileScore(row.SparseRank, (int)Math.Min(row.MatchCount, int.MaxValue)),
+                DocId: row.DocId.ToString(),
+                DocPath: row.DocPath,
+                DocName: row.DocName,
+                PageStart: null,
+                PageEnd: null,
+                ChunkId: row.ProfileId.ToString(),
+                ChunkIndex: -1,
+                Text: row.Text,
+                IngestionVersion: row.IngestionVersion,
+                HashDoc: row.HashDoc,
+                EmbedText: row.SearchText,
+                EmbeddingBasis: "document_profile_v1",
+                SectionOrdinal: null,
+                UnitOrdinal: null,
+                SectionTitle: "Document profile",
+                HeadingPath: "Document profile",
+                ChunkType: "document_profile",
+                PrevChunkId: null,
+                NextChunkId: null,
+                SameSectionChunkId: null)).ToList();
+        }
+        catch (PostgresException)
+        {
+            return [];
+        }
+    }
+
     private static List<SparseMatchRow> MergeSparseRows(
         IReadOnlyList<SparseMatchRow> preferred,
         IReadOnlyList<SparseMatchRow> secondary,
@@ -1144,6 +1291,19 @@ WHERE tenant_id=@tenant_id
         string? NextChunkId,
         string? SameSectionChunkId,
         float SparseRank);
+
+    private sealed record DocumentProfileMatchRow(
+        Guid DocId,
+        string DocPath,
+        string DocName,
+        Guid ProfileId,
+        int IngestionVersion,
+        string? HashDoc,
+        string Text,
+        string SearchText,
+        string? Language,
+        float SparseRank,
+        long MatchCount);
 
     private sealed record LinkedMatchRow(
         Guid DocId,
@@ -1501,6 +1661,7 @@ LIMIT @top_k;
         IReadOnlyList<RagMatch> exactMatches,
         IReadOnlyList<RagMatch> sparseMatches,
         IReadOnlyList<RagMatch> denseMatches,
+        IReadOnlyList<RagMatch>? profileMatches = null,
         int rrfK = 60)
     {
         var accumulators = new Dictionary<string, RrfAccumulator>(StringComparer.OrdinalIgnoreCase);
@@ -1508,6 +1669,8 @@ LIMIT @top_k;
         AccumulateRrf(accumulators, exactMatches, rrfK);
         AccumulateRrf(accumulators, sparseMatches, rrfK);
         AccumulateRrf(accumulators, denseMatches, rrfK);
+        if (profileMatches is { Count: > 0 })
+            AccumulateRrf(accumulators, profileMatches, rrfK);
 
         if (accumulators.Count == 0)
             return [];
@@ -1695,6 +1858,14 @@ LIMIT @top_k;
 
         var normalized = 0.45 + Math.Min(0.42, Math.Log10(1 + (rawScore * 1000.0)) * 0.24);
         return Math.Min(0.92, normalized);
+    }
+
+    internal static double NormalizeDocumentProfileScore(double sparseRank, int matchCount)
+    {
+        var lexicalScore = NormalizeSparseScore(sparseRank);
+        var matchScore = matchCount <= 0 ? 0.0 : Math.Min(0.28, matchCount * 0.045);
+        var combined = Math.Max(lexicalScore, 0.48 + matchScore);
+        return Math.Clamp(combined, 0.0, 0.86);
     }
 
     internal static IReadOnlyList<string> ExtractLexicalQueryTokens(string query)
@@ -1885,6 +2056,7 @@ LIMIT @top_k;
         {
             "exact_match_v1" => "exact_match",
             "sparse_bm25_v1" => "sparse_bm25",
+            "document_profile_v1" => "document_profile",
             "linked_context_v1" => "linked_context",
             _ => "dense_qdrant"
         };
@@ -1927,8 +2099,9 @@ LIMIT @top_k;
     private static int GetRetrieverPriority(RagMatch match)
         => ResolveRetriever(match) switch
         {
-            "exact_match" => 3,
-            "sparse_bm25" => 2,
+            "exact_match" => 4,
+            "sparse_bm25" => 3,
+            "dense_qdrant" => 2,
             _ => 1
         };
 

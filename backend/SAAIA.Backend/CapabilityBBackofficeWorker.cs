@@ -62,6 +62,7 @@ internal sealed class CapabilityBBackofficeWorker : BackgroundService
         var rag = services.GetRequiredService<IOptions<RagOptions>>().Value;
         var env = services.GetRequiredService<IHostEnvironment>();
         var summaryService = services.GetService<CapabilityBBackofficeSummaryService>();
+        var profileEnrichmentService = services.GetService<DocumentProfileEnrichmentService>();
 
         if (!options.CapabilityBWorkerEnabled)
             return false;
@@ -101,7 +102,7 @@ internal sealed class CapabilityBBackofficeWorker : BackgroundService
             CapabilityBGeneratedSummaryPayload generatedSummary;
             await using (var conn = await ds.OpenConnectionAsync(ct))
             {
-                generatedSummary = await BuildGeneratedSummaryAsync(conn, locator.TenantId, execution, summaryService, ct);
+                generatedSummary = await BuildGeneratedSummaryAsync(conn, locator.TenantId, execution, summaryService, profileEnrichmentService, _logger, ct);
             }
 
             var completion = await RuntimeCapabilityBExecutionCommandService.CompleteCapabilityBBackofficeExecutionAsync(
@@ -184,6 +185,8 @@ LIMIT 1;
         Guid tenantId,
         AdminRuntimeCapabilityBClaimResponseDto execution,
         CapabilityBBackofficeSummaryService? summaryService,
+        DocumentProfileEnrichmentService? profileEnrichmentService,
+        ILogger<CapabilityBBackofficeWorker> logger,
         CancellationToken ct)
     {
         var doc = await RuntimeCapabilityBExecutionStore.LoadCapabilityBDocumentAsync(conn, tenantId, execution.DocId, ct);
@@ -197,10 +200,47 @@ LIMIT 1;
             ? await RuntimeGovernanceService.LoadCapabilityBUnitExcerptsAsync(conn, tenantId, doc.DocId, doc.IndexedVersion, limit: 3, ct)
             : Array.Empty<string>();
 
-        if (summaryService is not null)
-            return await summaryService.BuildSummaryAsync(doc, sectionTitles, excerpts, ct);
+        var summary = summaryService is not null
+            ? await summaryService.BuildSummaryAsync(doc, sectionTitles, excerpts, ct)
+            : CapabilityBBackofficeSummaryService.BuildDeterministicSummary(doc, sectionTitles, excerpts, "summary_service_unavailable");
 
-        return CapabilityBBackofficeSummaryService.BuildDeterministicSummary(doc, sectionTitles, excerpts, "summary_service_unavailable");
+        if (profileEnrichmentService is not null && doc.IndexedVersion > 0)
+        {
+            try
+            {
+                var baseline = await DocumentFoundationRepo.LoadDocumentProfileAsync(
+                    conn,
+                    tenantId,
+                    doc.DocId,
+                    "deterministic_v1",
+                    ct);
+                if (baseline is not null)
+                {
+                    var enriched = await profileEnrichmentService.BuildEnrichedProfileAsync(doc, baseline, sectionTitles, excerpts, ct);
+                    if (enriched is not null)
+                    {
+                        await DocumentFoundationRepo.UpsertDocumentProfileAsync(
+                            conn,
+                            tx: null,
+                            tenantId,
+                            doc.DocId,
+                            baseline.RevisionId,
+                            enriched,
+                            ct);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(
+                    ex,
+                    "Capability B worker could not enrich document profile for job {JobId} doc {DocPath}",
+                    execution.JobId,
+                    execution.DocPath);
+            }
+        }
+
+        return summary;
     }
 
     private sealed record CapabilityBQueuedJobLocator(Guid TenantId, Guid JobId);

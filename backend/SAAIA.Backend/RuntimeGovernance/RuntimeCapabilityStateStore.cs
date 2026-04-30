@@ -143,8 +143,8 @@ ON CONFLICT (capability_key) DO UPDATE SET
             Selected: row.Selected,
             ProfileKey: row.ProfileKey,
             PassCount: row.PassCount,
-            LastCheckedAt: row.LastCheckedAt,
-            LastQualifiedAt: row.LastQualifiedAt,
+            LastCheckedAt: ToUtcOffset(row.LastCheckedAt),
+            LastQualifiedAt: ToUtcOffset(row.LastQualifiedAt),
             LastError: row.LastError,
             Details: details,
             Stale: false,
@@ -156,6 +156,20 @@ ON CONFLICT (capability_key) DO UPDATE SET
             PersistedSelected: row.Selected,
             EffectiveAuthorized: row.Authorized,
             EffectiveSelected: row.Selected);
+    }
+
+    private static DateTimeOffset? ToUtcOffset(DateTime? value)
+    {
+        if (!value.HasValue)
+            return null;
+
+        var utc = value.Value.Kind switch
+        {
+            DateTimeKind.Utc => value.Value,
+            DateTimeKind.Local => value.Value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)
+        };
+        return new DateTimeOffset(utc);
     }
 
     private sealed record CapabilityStateRow(
@@ -173,8 +187,8 @@ ON CONFLICT (capability_key) DO UPDATE SET
         bool Authorized,
         bool Selected,
         int PassCount,
-        DateTimeOffset? LastCheckedAt,
-        DateTimeOffset? LastQualifiedAt,
+        DateTime? LastCheckedAt,
+        DateTime? LastQualifiedAt,
         string? LastError,
         string? DetailsJson);
 }

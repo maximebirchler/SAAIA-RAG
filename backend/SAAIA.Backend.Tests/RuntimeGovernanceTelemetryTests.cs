@@ -326,7 +326,10 @@ public sealed class RuntimeGovernanceTelemetryTests
         var capabilityBSummaryFallbackActivity = activitySnapshot.First(activity =>
             activity.OperationName == "capability_b_summary_generation"
             && Equals(activity.GetTagItem("saaia.runtime.strategy"), "deterministic_document_foundation")
-            && Equals(activity.GetTagItem("saaia.runtime.fallback_reason"), "llm_empty_response"));
+            && Equals(activity.GetTagItem("saaia.runtime.fallback_reason"), "llm_empty_response")
+            && Equals(activity.GetTagItem("saaia.runtime.first_response_ms"), 9L)
+            && Equals(activity.GetTagItem("saaia.runtime.quality_score"), 0.64d)
+            && Equals(activity.GetTagItem("saaia.runtime.output_length"), 180));
         Assert.Equal(true, capabilityBSummaryFallbackActivity.GetTagItem("saaia.runtime.fallback_used"));
         Assert.Equal("llm_empty_response", capabilityBSummaryFallbackActivity.GetTagItem("saaia.runtime.fallback_reason"));
         Assert.Equal(0.64d, capabilityBSummaryFallbackActivity.GetTagItem("saaia.runtime.quality_score"));

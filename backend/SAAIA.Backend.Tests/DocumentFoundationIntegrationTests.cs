@@ -88,6 +88,7 @@ public sealed class DocumentFoundationIntegrationTests
         var chunkCount = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM retrieval_chunks;");
         var exactCount = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM exact_match_entries;");
         var contextualCount = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM contextual_text_entries;");
+        var profileCount = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM document_profiles;");
         var artifactCount = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM document_revision_artifacts;");
 
         Assert.Equal(1, revisionCount);
@@ -97,7 +98,8 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal(1, chunkCount);
         Assert.Equal(1, exactCount);
         Assert.Equal(1, contextualCount);
-        Assert.Equal(6, artifactCount);
+        Assert.Equal(1, profileCount);
+        Assert.Equal(7, artifactCount);
 
         var revision = await conn.QuerySingleAsync<(int ingestion_version, int indexed_version)>(
             "SELECT ingestion_version, indexed_version FROM document_revisions LIMIT 1;");
@@ -108,6 +110,25 @@ public sealed class DocumentFoundationIntegrationTests
             "SELECT payload::text FROM document_revision_artifacts WHERE artifact_type='exact_match_entries';");
         Assert.Contains("\"count\":1", artifactPayload, StringComparison.Ordinal);
         Assert.Contains("\"hashBasis\":\"canonical_text_v1\"", artifactPayload, StringComparison.Ordinal);
+
+        var profile = await conn.QuerySingleAsync<(string summary_text, string search_text, string[] keywords)>(
+            "SELECT summary_text, search_text, keywords FROM document_profiles LIMIT 1;");
+        Assert.Contains("CEN.pdf", profile.summary_text, StringComparison.Ordinal);
+        Assert.Contains("Intro text", profile.search_text, StringComparison.Ordinal);
+        Assert.Contains("intro", profile.keywords);
+
+        var profileMatches = await RagEndpoints.SearchDocumentProfileMatchesAsync(
+            ds,
+            tenantId,
+            "intro text",
+            category: null,
+            docId: null,
+            docPath: null,
+            topK: 5,
+            CancellationToken.None);
+        var profileMatch = Assert.Single(profileMatches);
+        Assert.Equal("document_profile", RagEndpoints.ResolveRetriever(profileMatch));
+        Assert.Contains("CEN.pdf", profileMatch.Text, StringComparison.Ordinal);
 
         var retrievalChunkMetadata = await conn.ExecuteScalarAsync<string>(
             "SELECT metadata::text FROM retrieval_chunks LIMIT 1;");

@@ -103,12 +103,15 @@ SET doc_path = EXCLUDED.doc_path,
         await UpsertRetrievalChunkLinksAsync(conn, tx, tenantId, docId, revisionId, ingestionVersion, retrievalChunks, ct);
         await UpsertExactMatchEntriesAsync(conn, tx, tenantId, revisionId, sections, units, exactMatchEntries, ct);
         await UpsertContextualTextEntriesAsync(conn, tx, tenantId, docId, revisionId, ingestionVersion, sections, units, contextualTextEntries, ct);
+        var documentProfile = DocumentProfileProjector.Project(docPath, pages, sections, units, exactMatchEntries);
+        await UpsertDocumentProfileAsync(conn, tx, tenantId, docId, revisionId, documentProfile, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "page_index", pages, p => $"page:{p.PageNumber}:{p.CharCount}:{Convert.ToHexString(p.Checksum)}", p => p.CharCount, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "sections", sections, s => $"section:{s.Ordinal}:{s.Level}:{s.PageStart}:{s.PageEnd}:{s.Title}", _ => 0, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "units", units, u => $"unit:{u.Ordinal}:{u.PageStart}:{u.PageEnd}:{u.TokenCount}:{u.Text}", u => u.CharCount, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "retrieval_chunks", retrievalChunks, c => $"chunk:{c.ChunkIndex}:{c.PageStart}:{c.PageEnd}:{c.TokenCount}:{c.ChunkType}:{c.Text}", c => c.Text.Length, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "exact_match_entries", exactMatchEntries, e => $"exact:{e.EntryIndex}:{e.PageStart}:{e.PageEnd}:{e.NormalizedText}", e => e.CharCount, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "contextual_text_entries", contextualTextEntries, e => $"contextual:{e.EntryIndex}:{e.PageStart}:{e.PageEnd}:{e.Text}", e => e.CharCount, ct);
+        await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "document_profile", new[] { documentProfile }, p => $"profile:{p.ProfileVersion}:{p.Language}:{p.SearchText}", p => p.SearchText.Length, ct);
     }
 
     public static async Task PublishDeleteCompletionAsync(
@@ -153,6 +156,9 @@ SET doc_path = EXCLUDED.doc_path,
 
     internal static Guid BuildStableArtifactId(Guid revisionId, string artifactType)
         => IdUtil.DeterministicGuid($"{revisionId:N}|artifact|{artifactType}");
+
+    internal static Guid BuildStableDocumentProfileId(Guid revisionId, string profileVersion)
+        => IdUtil.DeterministicGuid($"{revisionId:N}|document-profile|{profileVersion}");
 
     private static async Task InsertProcessingRunAsync(
         NpgsqlConnection conn,
@@ -307,6 +313,137 @@ SET content_hash = EXCLUDED.content_hash,
             content_hash = contentHash,
             byte_size = byteSize,
             payload
+        }, transaction: tx, cancellationToken: ct));
+    }
+
+    internal static async Task<DocumentProfileSnapshot?> LoadDocumentProfileAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        Guid docId,
+        string profileVersion,
+        CancellationToken ct)
+        => await conn.QueryFirstOrDefaultAsync<DocumentProfileSnapshot>(new CommandDefinition(
+            """
+SELECT
+    p.revision_id AS "RevisionId",
+    p.doc_id AS "DocId",
+    p.profile_version AS "ProfileVersion",
+    COALESCE(p.language, 'und') AS "Language",
+    p.summary_text AS "SummaryText",
+    p.keywords AS "Keywords",
+    p.entities AS "Entities",
+    p.topics AS "Topics",
+    p.hypothetical_questions AS "HypotheticalQuestions",
+    p.limits AS "Limits",
+    p.search_text AS "SearchText",
+    p.token_count AS "TokenCount"
+FROM document_profiles p
+JOIN document_revisions r
+  ON r.revision_id = p.revision_id
+JOIN documents d
+  ON d.tenant_id = r.tenant_id
+ AND d.doc_id = r.doc_id
+ AND d.indexed_version = r.indexed_version
+WHERE p.tenant_id = @tenant_id
+  AND p.doc_id = @doc_id
+  AND p.profile_version = @profile_version
+  AND d.status = 'indexed'
+LIMIT 1;
+""",
+            new
+            {
+                tenant_id = tenantId,
+                doc_id = docId,
+                profile_version = profileVersion
+            },
+            cancellationToken: ct));
+
+    internal static async Task UpsertDocumentProfileAsync(
+        NpgsqlConnection conn,
+        NpgsqlTransaction? tx,
+        Guid tenantId,
+        Guid docId,
+        Guid revisionId,
+        ProjectedDocumentProfile profile,
+        CancellationToken ct)
+    {
+        const string sql = @"
+INSERT INTO document_profiles(
+    document_profile_id,
+    tenant_id,
+    revision_id,
+    doc_id,
+    profile_version,
+    language,
+    summary_text,
+    keywords,
+    entities,
+    topics,
+    hypothetical_questions,
+    limits,
+    search_text,
+    token_count,
+    checksum,
+    metadata)
+VALUES(
+    @document_profile_id,
+    @tenant_id,
+    @revision_id,
+    @doc_id,
+    @profile_version,
+    @language,
+    @summary_text,
+    @keywords,
+    @entities,
+    @topics,
+    @hypothetical_questions,
+    @limits,
+    @search_text,
+    @token_count,
+    @checksum,
+    CAST(@metadata AS jsonb))
+ON CONFLICT (revision_id, profile_version) DO UPDATE
+SET language = EXCLUDED.language,
+    summary_text = EXCLUDED.summary_text,
+    keywords = EXCLUDED.keywords,
+    entities = EXCLUDED.entities,
+    topics = EXCLUDED.topics,
+    hypothetical_questions = EXCLUDED.hypothetical_questions,
+    limits = EXCLUDED.limits,
+    search_text = EXCLUDED.search_text,
+    token_count = EXCLUDED.token_count,
+    checksum = EXCLUDED.checksum,
+    metadata = EXCLUDED.metadata,
+    updated_at = now();";
+
+        var metadata = JsonSerializer.Serialize(new
+        {
+            generatedBy = "document_profile_projector",
+            profile.ProfileVersion,
+            keywordCount = profile.Keywords.Count,
+            entityCount = profile.Entities.Count,
+            topicCount = profile.Topics.Count,
+            hypotheticalQuestionCount = profile.HypotheticalQuestions.Count
+        });
+
+        await conn.ExecuteAsync(new CommandDefinition(sql, new
+        {
+            document_profile_id = BuildStableDocumentProfileId(revisionId, profile.ProfileVersion),
+            tenant_id = tenantId,
+            revision_id = revisionId,
+            doc_id = docId,
+            profile_version = profile.ProfileVersion,
+            language = string.Equals(profile.Language, "und", StringComparison.Ordinal) ? null : profile.Language,
+            summary_text = profile.SummaryText,
+            keywords = profile.Keywords.ToArray(),
+            entities = profile.Entities.ToArray(),
+            topics = profile.Topics.ToArray(),
+            hypothetical_questions = profile.HypotheticalQuestions.ToArray(),
+            limits = profile.Limits.ToArray(),
+            search_text = profile.SearchText,
+            token_count = profile.TokenCount,
+            checksum = profile.Checksum,
+            metadata
         }, transaction: tx, cancellationToken: ct));
     }
 
@@ -920,3 +1057,17 @@ SET section_id = EXCLUDED.section_id,
     }
 
 }
+
+internal sealed record DocumentProfileSnapshot(
+    Guid RevisionId,
+    Guid DocId,
+    string ProfileVersion,
+    string Language,
+    string SummaryText,
+    string[] Keywords,
+    string[] Entities,
+    string[] Topics,
+    string[] HypotheticalQuestions,
+    string[] Limits,
+    string SearchText,
+    int TokenCount);

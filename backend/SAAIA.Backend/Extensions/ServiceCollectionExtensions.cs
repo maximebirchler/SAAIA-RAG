@@ -183,6 +183,7 @@ public static class ServiceCollectionExtensions
             sp.GetRequiredService<RuntimeLlmCapacityPlanService>(),
             sp.GetRequiredService<RuntimeLlmQueueManager>()));
         services.AddSingleton<CapabilityAHypotheticalQuestionService>();
+        services.AddSingleton<DocumentProfileEnrichmentService>();
         services.AddSingleton(sp => new CapabilityBBackofficeSummaryService(
             sp.GetRequiredService<LocalLlmChatClient>(),
             sp.GetRequiredService<IOptions<ChatOptions>>().Value));

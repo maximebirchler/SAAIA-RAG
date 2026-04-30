@@ -147,8 +147,23 @@ internal static class RuntimeCapabilityBExecutionCoordinator
                 job.EnqueueSource,
                 job.ExecutionLeaseToken!,
                 job.ExecutionClaimedBy ?? adminRuntimeActor,
-                job.ExecutionClaimedAt),
+                ToUtcOffset(job.ExecutionClaimedAt)),
             null);
+    }
+
+    private static DateTimeOffset? ToUtcOffset(DateTime? value)
+    {
+        if (!value.HasValue)
+            return null;
+
+        var utc = value.Value.Kind switch
+        {
+            DateTimeKind.Utc => value.Value,
+            DateTimeKind.Local => value.Value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)
+        };
+
+        return new DateTimeOffset(utc);
     }
 
     internal static async Task<RuntimeOperationResult<CapabilityBCompletionResult>> CompleteAsync(
