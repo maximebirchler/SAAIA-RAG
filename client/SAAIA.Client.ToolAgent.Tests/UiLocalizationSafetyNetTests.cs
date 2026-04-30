@@ -27,6 +27,18 @@ public sealed class UiLocalizationSafetyNetTests
     }
 
     [Fact]
+    public void Sources_cards_control_keeps_the_explicit_active_language()
+    {
+        var repoRoot = FindRepoRoot();
+        var file = Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "Controls", "SourcesCardsControl.xaml.cs");
+        var source = File.ReadAllText(file);
+
+        Assert.Contains("_uiLanguage = ClientUiText.NormalizeLanguage(uiLanguage ?? AppSettings.Load().UiLanguage)", source);
+        Assert.Contains("GetOpenButtonText(_uiLanguage)", source);
+        Assert.Contains("ClientUiText.Get(\"dialog.close\", _uiLanguage)", source);
+    }
+
+    [Fact]
     public void MainWindow_apply_ui_language_covers_core_visible_labels()
     {
         var repoRoot = FindRepoRoot();

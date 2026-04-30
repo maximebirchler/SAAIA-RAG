@@ -20,6 +20,14 @@ internal static class RetrievalQuestionBankFixture
             ?? throw new InvalidOperationException("Failed to load retrieval product validation v1 pack.");
     }
 
+    public static RetrievalCuisineValidationCorpus LoadCuisineValidationV1()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "retrieval_cuisine_validation.v1.json");
+        var json = File.ReadAllText(path);
+        return JsonSerializer.Deserialize<RetrievalCuisineValidationCorpus>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web))
+            ?? throw new InvalidOperationException("Failed to load cuisine retrieval validation v1 pack.");
+    }
+
     internal sealed record RetrievalQuestionBankCorpus(
         string Version,
         IReadOnlyList<QuestionCase> QuestionCases);
@@ -27,6 +35,13 @@ internal static class RetrievalQuestionBankFixture
     internal sealed record RetrievalProductValidationCorpus(
         string Version,
         IReadOnlyList<ProductValidationCase> ValidationCases);
+
+    internal sealed record RetrievalCuisineValidationCorpus(
+        string Version,
+        string GeneratedAt,
+        string SourceFile,
+        string Description,
+        IReadOnlyList<CuisineValidationCase> ValidationCases);
 
     internal sealed record QuestionCase(
         string Name,
@@ -53,4 +68,14 @@ internal static class RetrievalQuestionBankFixture
         string? ExpectedPrimarySectionHint = null,
         IReadOnlyList<string>? ManualChecks = null,
         string? Notes = null);
+
+    internal sealed record CuisineValidationCase(
+        string Id,
+        string Axis,
+        string Difficulty,
+        string CorpusTarget,
+        string Theme,
+        string Question,
+        string ExpectedAnswerKind,
+        string ValidationPoints);
 }

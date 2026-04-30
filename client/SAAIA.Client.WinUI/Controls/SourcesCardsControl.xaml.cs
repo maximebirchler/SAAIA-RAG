@@ -11,6 +11,8 @@ namespace SAAIA.Client.WinUI.Controls;
 
 public sealed partial class SourcesCardsControl : UserControl
 {
+    private string _uiLanguage = ClientUiText.NormalizeLanguage(AppSettings.Load().UiLanguage);
+
     public SourcesCardsControl()
     {
         InitializeComponent();
@@ -20,7 +22,8 @@ public sealed partial class SourcesCardsControl : UserControl
 
     public void ApplyUiLanguage(string? uiLanguage = null)
     {
-        SourcesHeaderText.Text = GetSourcesHeaderText(uiLanguage);
+        _uiLanguage = ClientUiText.NormalizeLanguage(uiLanguage ?? AppSettings.Load().UiLanguage);
+        SourcesHeaderText.Text = GetSourcesHeaderText(_uiLanguage);
         ApplyButtonLanguage();
     }
 
@@ -59,8 +62,8 @@ public sealed partial class SourcesCardsControl : UserControl
             return;
 
         await ShowErrorAsync(
-            result.ErrorTitle ?? ST("Impossible d'ouvrir le fichier", "Could not open the file", "No se pudo abrir el archivo", "Nao foi possivel abrir o ficheiro", "Datei konnte nicht geoeffnet werden", "Impossibile aprire il file"),
-            result.ErrorMessage ?? ST("Erreur inconnue.", "Unknown error.", "Error desconocido.", "Erro desconhecido.", "Unbekannter Fehler.", "Errore sconosciuto."));
+            result.ErrorTitle ?? ST("Impossible d'ouvrir le fichier", "Could not open the file", "No se pudo abrir el archivo", "Nao foi possivel abrir o ficheiro", "Datei konnte nicht geoeffnet werden", "Impossibile aprire il file", _uiLanguage),
+            result.ErrorMessage ?? ST("Erreur inconnue.", "Unknown error.", "Error desconocido.", "Erro desconhecido.", "Unbekannter Fehler.", "Errore sconosciuto.", _uiLanguage));
     }
 
     private async Task ShowErrorAsync(string title, string message)
@@ -71,7 +74,7 @@ public sealed partial class SourcesCardsControl : UserControl
             {
                 Title = title,
                 Content = message,
-                CloseButtonText = ClientUiText.Get("dialog.close", AppSettings.Load().UiLanguage),
+                CloseButtonText = ClientUiText.Get("dialog.close", _uiLanguage),
                 XamlRoot = this.XamlRoot
             };
             await dlg.ShowAsync();
@@ -85,7 +88,7 @@ public sealed partial class SourcesCardsControl : UserControl
     private void OpenButton_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is Button button)
-            button.Content = GetOpenButtonText();
+            button.Content = GetOpenButtonText(_uiLanguage);
     }
 
     private void ApplyButtonLanguage()
@@ -93,7 +96,7 @@ public sealed partial class SourcesCardsControl : UserControl
         foreach (var button in EnumerateButtons(ItemsHost))
         {
             if (button.Tag is SourceCard)
-                button.Content = GetOpenButtonText();
+                button.Content = GetOpenButtonText(_uiLanguage);
         }
     }
 
