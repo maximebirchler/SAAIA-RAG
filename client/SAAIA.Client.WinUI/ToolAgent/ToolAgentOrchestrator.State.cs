@@ -752,18 +752,7 @@ CURRENT_USER_MESSAGE:
         });
 
         var sb = new StringBuilder();
-        if (language == "fr")
-        {
-            sb.Append(isMeatSauceQuestion && !hasExactPairing
-                ? "Je n'ai pas trouve d'association explicite avec l'entrecote dans les extraits disponibles. Les sources Cuisine donnent plutot ces pistes documentees :"
-                : "Voici les pistes trouvees dans les documents Cuisine, sans ajout d'ingredients ni d'etapes hors source :");
-        }
-        else
-        {
-            sb.Append(isMeatSauceQuestion && !hasExactPairing
-                ? "I did not find an explicit pairing with entrecote in the available excerpts. The Cuisine sources provide these documented leads:"
-                : "Here are the leads found in the Cuisine documents, without adding ingredients or steps outside the sources:");
-        }
+        sb.Append(BuildCuisineExtractiveHeader(language, isMeatSauceQuestion && !hasExactPairing));
 
         sb.AppendLine();
         foreach (var hit in hits)
@@ -782,6 +771,26 @@ CURRENT_USER_MESSAGE:
         }
 
         return sb.ToString().TrimEnd();
+    }
+
+    internal static string BuildCuisineExtractiveHeader(string language, bool noExplicitPairing)
+    {
+        language = NormalizeLanguageCode(language);
+        return (language, noExplicitPairing) switch
+        {
+            ("en", true) => "I did not find an explicit pairing with entrecote in the available excerpts. The Cuisine sources provide these documented leads:",
+            ("en", false) => "Here are the leads found in the Cuisine documents, without adding ingredients or steps outside the sources:",
+            ("es", true) => "No he encontrado una asociacion explicita con la entrecote en los extractos disponibles. Las fuentes de Cocina ofrecen estas pistas documentadas:",
+            ("es", false) => "Estas son las pistas encontradas en los documentos de Cocina, sin anadir ingredientes ni pasos fuera de las fuentes:",
+            ("pt", true) => "Nao encontrei uma associacao explicita com entrecote nos excertos disponiveis. As fontes de Cozinha fornecem estas pistas documentadas:",
+            ("pt", false) => "Estas sao as pistas encontradas nos documentos de Cozinha, sem acrescentar ingredientes nem passos fora das fontes:",
+            ("de", true) => "Ich habe in den verfuegbaren Auszuegen keine ausdrueckliche Kombination mit Entrecote gefunden. Die Kuechenquellen liefern diese belegten Hinweise:",
+            ("de", false) => "Hier sind die Hinweise aus den Kuechendokumenten, ohne Zutaten oder Schritte ausserhalb der Quellen hinzuzufuegen:",
+            ("it", true) => "Non ho trovato un abbinamento esplicito con l'entrecote negli estratti disponibili. Le fonti di Cucina forniscono queste indicazioni documentate:",
+            ("it", false) => "Ecco le indicazioni trovate nei documenti di Cucina, senza aggiungere ingredienti o passaggi non presenti nelle fonti:",
+            (_, true) => "Je n'ai pas trouve d'association explicite avec l'entrecote dans les extraits disponibles. Les sources Cuisine donnent plutot ces pistes documentees :",
+            _ => "Voici les pistes trouvees dans les documents Cuisine, sans ajout d'ingredients ni d'etapes hors source :"
+        };
     }
 
     private static bool IsCuisineDocPath(string? docPath)

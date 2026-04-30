@@ -125,4 +125,19 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Contains("pas trouve d'association explicite", answer);
         Assert.Contains("facilitemps.pdf p.44", answer);
     }
+
+    [Theory]
+    [InlineData("fr", "sources Cuisine")]
+    [InlineData("en", "Cuisine sources")]
+    [InlineData("es", "fuentes de Cocina")]
+    [InlineData("pt", "fontes de Cozinha")]
+    [InlineData("de", "Kuechenquellen")]
+    [InlineData("it", "fonti di Cucina")]
+    public void Cuisine_extractive_headers_cover_all_supported_languages(string language, string expectedPhrase)
+    {
+        var header = ToolAgentOrchestrator.BuildCuisineExtractiveHeaderForTests(language, noExplicitPairing: true);
+
+        Assert.Contains(expectedPhrase, header);
+        Assert.DoesNotContain("Here are the leads", header);
+    }
 }
