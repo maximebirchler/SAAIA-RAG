@@ -362,6 +362,8 @@ public sealed partial class ToolAgentOrchestrator
         if (localItems.Count > 0)
             plan.ToolCalls = plan.ToolCalls.Where(c => !string.Equals(c.Name, "meta.list_questions", StringComparison.OrdinalIgnoreCase)).ToList();
 
+        ApplyCuisineRagDefaults(plan, effectiveUserMessage);
+
         var swTools = Stopwatch.StartNew();
         var toolResults = await ExecuteToolsAsync(plan, effectiveUserMessage, ct, onPhase, onProgress).ConfigureAwait(false);
         swTools.Stop();
@@ -1391,6 +1393,7 @@ public sealed partial class ToolAgentOrchestrator
             {
                 query = retrievalQuery,
                 topK = 8,
+                category = LooksLikeCuisineActionRequest(effectiveUserMessage) ? "Cuisine" : null,
                 mode = "balanced"
             });
             var ragResult = await ExecRagSearchAsync(args, ct).ConfigureAwait(false);
@@ -1832,8 +1835,12 @@ USER_MESSAGE:
 
         if (ShouldUseCuisineExtractiveAnswer(userMessage, writerToolResults) || LooksLikeCuisineActionRequest(userMessage))
         {
-            var deterministicAnswer = BuildCuisineExtractiveAnswer(writerToolResults, userMessage, plan.Language);
-            var deterministicSources = DeriveSourcesFromRagHits(writerToolResults);
+            var deterministicAnswer = LooksLikeCuisineMealPlanningRequest(userMessage)
+                ? BuildCuisineMealPlanningAnswer(writerToolResults, plan.Language)
+                : BuildCuisineExtractiveAnswer(writerToolResults, userMessage, plan.Language);
+            var deterministicSources = LooksLikeCuisineMealPlanningRequest(userMessage)
+                ? DeriveSourcesFromRagHits(writerToolResults)
+                : DeriveCuisineSourcesFromRankedHits(writerToolResults, userMessage);
             if (!string.IsNullOrWhiteSpace(deterministicAnswer))
             {
                 _lastAnswerSource = $"writer_bypass_cuisine_extractive:{plan.Intent}";
@@ -1882,7 +1889,14 @@ AUTHORITATIVE_INVENTORY_DATA (json):
         {
             sources = DeriveSourcesFromRagHits(toolResults);
             if (ShouldUseCuisineExtractiveAnswer(userMessage, toolResults) || LooksLikeCuisineActionRequest(userMessage))
-                finalAnswer = BuildCuisineExtractiveAnswer(toolResults, userMessage, plan.Language);
+            {
+                finalAnswer = LooksLikeCuisineMealPlanningRequest(userMessage)
+                    ? BuildCuisineMealPlanningAnswer(toolResults, plan.Language)
+                    : BuildCuisineExtractiveAnswer(toolResults, userMessage, plan.Language);
+                sources = LooksLikeCuisineMealPlanningRequest(userMessage)
+                    ? sources
+                    : DeriveCuisineSourcesFromRankedHits(toolResults, userMessage);
+            }
             else if (sources.Count > 0 && LooksLikeNoRagDataAnswer(finalAnswer))
                 finalAnswer = BuildRagEvidenceFallbackAnswer(toolResults, userMessage, plan.Language);
         }
@@ -2598,6 +2612,134 @@ TOOL_RESULTS (json):
             || LooksLikeCuisineActionRequest(effectiveUserMessage);
     }
 
+    private static void ApplyCuisineRagDefaults(RouterPlan plan, string effectiveUserMessage)
+    {
+        if (!LooksLikeCuisineActionRequest(effectiveUserMessage))
+            return;
+
+        var retrievalQuery = NormalizeRagQueryForRetrieval(effectiveUserMessage);
+        if (string.IsNullOrWhiteSpace(retrievalQuery))
+            retrievalQuery = effectiveUserMessage;
+        var isMealPlanning = LooksLikeCuisineMealPlanningRequest(effectiveUserMessage);
+
+        var hasRagCall = plan.ToolCalls.Any(call =>
+            string.Equals(call.Name, "rag.search", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(call.Name, "rag.multi_search", StringComparison.OrdinalIgnoreCase));
+        if (!hasRagCall)
+        {
+            plan.Intent = "rag.answer";
+            plan.ToolCalls.Clear();
+            if (isMealPlanning)
+            {
+                plan.ToolCalls.Add(new RouterPlan.ToolCall
+                {
+                    Name = "rag.multi_search",
+                    Args = CreateJsonArgs(new
+                    {
+                        queries = BuildCuisineMealPlanningQueries(effectiveUserMessage),
+                        topK = 4,
+                        category = "Cuisine",
+                        mode = "balanced"
+                    })
+                });
+            }
+            else
+            {
+                plan.ToolCalls.Add(new RouterPlan.ToolCall
+                {
+                    Name = "rag.search",
+                    Args = CreateJsonArgs(new
+                    {
+                        query = retrievalQuery,
+                        topK = 8,
+                        category = "Cuisine",
+                        mode = "balanced"
+                    })
+                });
+            }
+        }
+
+        foreach (var call in plan.ToolCalls)
+        {
+            if (string.Equals(call.Name, "rag.search", StringComparison.OrdinalIgnoreCase))
+            {
+                call.Args = CreateJsonArgs(new
+                {
+                    query = retrievalQuery,
+                    topK = NormalizeIntArg(TryGetIntArg(call.Args, "topK"), 8, 1, 20),
+                    category = "Cuisine",
+                    mode = NormalizeRagMode(TryGetStringArg(call.Args, "mode"))
+                });
+            }
+            else if (string.Equals(call.Name, "rag.multi_search", StringComparison.OrdinalIgnoreCase))
+            {
+                var queries = TryGetStringArrayArg(call.Args, "queries");
+                if (queries.Count == 0)
+                    queries.Add(retrievalQuery);
+                else if (!isMealPlanning && !queries.Any(q => string.Equals(q, retrievalQuery, StringComparison.OrdinalIgnoreCase)))
+                    queries.Insert(0, retrievalQuery);
+
+                call.Args = CreateJsonArgs(new
+                {
+                    queries = queries.Take(5).ToArray(),
+                    topK = NormalizeIntArg(TryGetIntArg(call.Args, "topK"), 8, 1, 20),
+                    category = "Cuisine",
+                    mode = NormalizeRagMode(TryGetStringArg(call.Args, "mode"))
+                });
+            }
+        }
+    }
+
+    private static string? TryGetStringArg(JsonElement args, string name)
+    {
+        try
+        {
+            return args.ValueKind == JsonValueKind.Object ? GetStringArg(args, name) : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static int? TryGetIntArg(JsonElement args, string name)
+    {
+        try
+        {
+            return args.ValueKind == JsonValueKind.Object ? GetIntArg(args, name) : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static List<string> TryGetStringArrayArg(JsonElement args, string name)
+    {
+        var values = new List<string>();
+        try
+        {
+            if (args.ValueKind != JsonValueKind.Object
+                || !args.TryGetProperty(name, out var arr)
+                || arr.ValueKind != JsonValueKind.Array)
+                return values;
+
+            foreach (var item in arr.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.String)
+                    continue;
+                var value = NormalizeRagQueryForRetrieval(item.GetString());
+                if (!string.IsNullOrWhiteSpace(value))
+                    values.Add(value);
+            }
+        }
+        catch
+        {
+        }
+
+        return values.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
     private static bool LooksLikeCuisineActionRequest(string? userMessage)
     {
         var s = CollapseWhitespace(userMessage ?? string.Empty);
@@ -2614,7 +2756,7 @@ TOOL_RESULTS (json):
 
         return Regex.IsMatch(
             s,
-            @"(?i)\b(?:aide|aider|propose|proposer|trouve|trouver|faire|vais|veux|peux|peux-tu|pourrais|conseille|conseiller|choisir|planifie|organise|help|suggest|recommend|cook|make|plan|prepare|find|ayuda|ayudar|propone|recomienda|cozinhar|ajuda|vorschlag|empfiehl|aiutami|consiglia)\b",
+            @"(?i)\b(?:aide|aider|propose|proposes|proposer|trouve|trouver|cherche|chercher|faire|fais|vais|veux|voudrais|souhaite|aimerais|peux|peux-tu|pourrais|as|aurais|donne|idee|idée|conseille|conseiller|choisir|planifie|organise|help|suggest|recommend|cook|make|plan|prepare|find|ayuda|ayudar|propone|recomienda|cozinhar|ajuda|vorschlag|empfiehl|aiutami|consiglia)\b",
             RegexOptions.CultureInvariant);
     }
 

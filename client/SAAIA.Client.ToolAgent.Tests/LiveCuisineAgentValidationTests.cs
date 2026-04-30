@@ -43,7 +43,10 @@ public sealed class LiveCuisineAgentValidationTests(ITestOutputHelper output)
         var cases = new[]
         {
             "Je vais faire une entrecôte, quelle sauce irait bien avec ?",
-            "Je ne sais pas quoi faire pour les repas de cette semaine, tu peux m'aider ?"
+            "Je ne sais pas quoi faire pour les repas de cette semaine, tu peux m'aider ?",
+            "Je veux un dessert au chocolat facile, tu proposes quoi ?",
+            "J'ai du cabillaud, tu as une recette ?",
+            "Tu peux me faire une idée de batch cooking avec cuisson parallèle ?"
         };
 
         foreach (var question in cases)
@@ -56,7 +59,13 @@ public sealed class LiveCuisineAgentValidationTests(ITestOutputHelper output)
                 category: "",
                 conversationTail: Array.Empty<ChatMessageItem>(),
                 onDelta: delta => streamed.Append(delta),
-                ct: cts.Token);
+                ct: cts.Token,
+                onPhase: phase => output.WriteLine("PHASE: " + phase),
+                onProgress: progress =>
+                {
+                    if (!string.IsNullOrWhiteSpace(progress))
+                        output.WriteLine("PROGRESS: " + progress);
+                });
 
             var rendered = string.IsNullOrWhiteSpace(answer) ? streamed.ToString() : answer;
             output.WriteLine("QUESTION: " + question);

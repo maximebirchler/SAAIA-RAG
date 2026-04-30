@@ -155,6 +155,8 @@ public sealed class RagContextBudgetRegressionTests
 
         Assert.True(ToolAgentOrchestrator.ShouldUseCuisineExtractiveAnswerForTests("Je vais faire une entrecôte, quelle sauce irait bien avec ?", toolResults));
         Assert.True(ToolAgentOrchestrator.LooksLikeCuisineActionRequestForTests("Je vais faire une entrecôte, quelle sauce irait bien avec ?"));
+        Assert.True(ToolAgentOrchestrator.LooksLikeCuisineActionRequestForTests("Je veux un dessert au chocolat facile, tu proposes quoi ?"));
+        Assert.True(ToolAgentOrchestrator.LooksLikeCuisineActionRequestForTests("J'ai du cabillaud, tu as une recette ?"));
     }
 
     [Fact]

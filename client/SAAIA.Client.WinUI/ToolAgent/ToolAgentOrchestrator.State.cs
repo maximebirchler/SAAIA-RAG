@@ -690,6 +690,26 @@ CURRENT_USER_MESSAGE:
             sources = sources.Select(x => new { docPath = x.DocPath, pageStart = x.PageStart, pageEnd = x.PageEnd, label = x.Label }).ToList()
         };
 
+    private static List<ToolMemory.SourceRef> DeriveCuisineSourcesFromRankedHits(ToolResults toolResults, string query, int maxSources = 8)
+        => EnumerateRagHitSummaries(toolResults)
+            .Where(static hit => IsCuisineDocPath(hit.DocPath))
+            .OrderByDescending(hit => ComputeCuisineHitRelevance(query, hit.Excerpt))
+            .GroupBy(hit => $"{hit.DocPath}|{hit.PageStart}", StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .Take(maxSources)
+            .Select(hit =>
+            {
+                var label = string.IsNullOrWhiteSpace(hit.DocName) ? Path.GetFileName(hit.DocPath) : hit.DocName;
+                return new ToolMemory.SourceRef
+                {
+                    DocPath = hit.DocPath.Replace('\\', '/'),
+                    PageStart = hit.PageStart,
+                    PageEnd = hit.PageStart,
+                    Label = $"{label} (p.{hit.PageStart})"
+                };
+            })
+            .ToList();
+
     private static bool LooksLikeNoRagDataAnswer(string? answer)
     {
         var s = (answer ?? string.Empty).Trim();
@@ -893,6 +913,7 @@ CURRENT_USER_MESSAGE:
             .Replace("ESCALOPEDE", "ESCALOPE DE", StringComparison.OrdinalIgnoreCase)
             .Replace("CARNEHEALTHY", "CARNE HEALTHY", StringComparison.OrdinalIgnoreCase)
             .Replace("EQUILIBRESELON", "EQUILIBRE SELON", StringComparison.OrdinalIgnoreCase);
+        title = Regex.Replace(title, @"(?:E|[\u00c9\u00c8])QUILIBR(?:E|[\u00c9\u00c8])SELON", "EQUILIBRE SELON", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         title = Regex.Replace(title, @"\s+", " ").Trim(' ', '-', ':');
         return title;
     }
@@ -967,7 +988,37 @@ CURRENT_USER_MESSAGE:
             score += 3;
         }
 
+        foreach (var term in ExtractCuisineSignalTerms(normalizedQuery))
+        {
+            if (normalizedExcerpt.Contains(term, StringComparison.Ordinal))
+                score += term.Length >= 7 ? 4 : 2;
+        }
+
+        if (normalizedQuery.Contains("recette", StringComparison.Ordinal)
+            && (normalizedExcerpt.Contains("ingredients", StringComparison.Ordinal)
+                || normalizedExcerpt.Contains("preparation", StringComparison.Ordinal)
+                || normalizedExcerpt.Contains("menu", StringComparison.Ordinal)))
+        {
+            score += 2;
+        }
+
         return score;
+    }
+
+    private static IEnumerable<string> ExtractCuisineSignalTerms(string normalizedQuery)
+    {
+        var stopWords = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "aide", "aider", "avec", "avoir", "cette", "comment", "cuisine", "cuisiner", "dans", "dessert",
+            "faire", "facile", "idee", "menu", "peux", "pour", "propose", "proposes", "quoi", "recette",
+            "recettes", "repas", "semaine", "vais", "veux", "voudrais"
+        };
+
+        return Regex.Matches(normalizedQuery, @"[\p{L}\p{N}]{4,}")
+            .Select(m => m.Value)
+            .Where(term => !stopWords.Contains(term))
+            .Distinct(StringComparer.Ordinal)
+            .Take(8);
     }
 
     private static string NormalizeCuisineLookup(string? value)
