@@ -1009,17 +1009,20 @@ LIMIT @top_k;
 
     internal static bool ShouldSupplementSparseWithLexicalFallback(string? category, string query)
     {
-        if (!string.Equals(category, "cuisine", StringComparison.OrdinalIgnoreCase))
+        var tokens = ExtractLexicalQueryTokens(query);
+        if (tokens.Count == 0)
             return false;
 
-        var tokens = ExtractLexicalQueryTokens(query);
-        return tokens.Any(static token => token is
-            "entrecote" or "entrecôte" or
-            "steak" or "rumsteck" or
-            "enfant" or "enfants" or
-            "activite" or "activité" or
-            "vegetarien" or "végétarien" or
-            "vegetarienne" or "végétarienne");
+        var scoped = !string.IsNullOrWhiteSpace(category);
+        var hasStrongToken = tokens.Any(static token =>
+            token.Length >= 7
+            || token.Any(char.IsDigit)
+            || IsReferenceLikeLookupTerm(token));
+
+        if (scoped)
+            return hasStrongToken || tokens.Count <= 4;
+
+        return hasStrongToken && tokens.Count <= 4;
     }
 
     private static async Task<List<RagMatch>> FilterMatchesAgainstActiveDocumentVersionsAsync(
@@ -1582,56 +1585,12 @@ LIMIT @top_k;
                     }
                 }
 
-                adjusted += ComputeDomainSpecificBoost(query, match.EmbedText ?? match.Text);
-
                 return match with { Score = Math.Clamp(adjusted, 0.0, 1.02) };
             })
             .OrderByDescending(item => item.Score)
             .ThenBy(item => item.DocPath, StringComparer.OrdinalIgnoreCase)
             .ThenBy(item => item.ChunkIndex)
             .ToList();
-    }
-
-    internal static double ComputeDomainSpecificBoost(string query, string? candidateText)
-    {
-        if (string.IsNullOrWhiteSpace(query) || string.IsNullOrWhiteSpace(candidateText))
-            return 0.0;
-
-        var normalizedQuery = ExactMatchEntryExtractor.NormalizeForLookup(query);
-        var normalizedCandidate = ExactMatchEntryExtractor.NormalizeForLookup(candidateText);
-        var boost = 0.0;
-
-        if ((normalizedQuery.Contains("enfant", StringComparison.Ordinal) || normalizedQuery.Contains("enfants", StringComparison.Ordinal))
-            && (normalizedCandidate.Contains("faire de la cuisine avec les enfants", StringComparison.Ordinal)
-                || normalizedCandidate.Contains("centre de loisirs", StringComparison.Ordinal)
-                || normalizedCandidate.Contains("centre de vacances", StringComparison.Ordinal)
-                || normalizedCandidate.Contains("animateurs", StringComparison.Ordinal)))
-        {
-            boost += 0.20;
-        }
-
-        if ((normalizedQuery.Contains("entrecote", StringComparison.Ordinal)
-             || normalizedQuery.Contains("entrecôte", StringComparison.Ordinal)
-             || normalizedQuery.Contains("steak", StringComparison.Ordinal)
-             || normalizedQuery.Contains("rumsteck", StringComparison.Ordinal))
-            && (normalizedCandidate.Contains("rumsteck", StringComparison.Ordinal)
-                || normalizedCandidate.Contains("viandes rouges", StringComparison.Ordinal)
-                || normalizedCandidate.Contains("boeuf", StringComparison.Ordinal)
-                || normalizedCandidate.Contains("bœuf", StringComparison.Ordinal)))
-        {
-            boost += 0.08;
-        }
-
-        if ((normalizedQuery.Contains("sauce", StringComparison.Ordinal) || normalizedQuery.Contains("sauces", StringComparison.Ordinal))
-            && (normalizedCandidate.Contains("sauces et les trempettes", StringComparison.Ordinal)
-                || normalizedCandidate.Contains("cuisiner des sauces et des trempettes", StringComparison.Ordinal)
-                || normalizedCandidate.Contains("sauce froide", StringComparison.Ordinal)
-                || normalizedCandidate.Contains("trempette", StringComparison.Ordinal)))
-        {
-            boost += 0.16;
-        }
-
-        return boost;
     }
 
     internal static List<RagMatch> RerankDenseMatches(IReadOnlyList<RagMatch> matches)
@@ -1781,8 +1740,7 @@ LIMIT @top_k;
         if (string.IsNullOrWhiteSpace(query))
             return query;
 
-        if (!string.Equals(category, "cuisine", StringComparison.OrdinalIgnoreCase))
-            return query;
+        _ = category;
 
         var tokens = new HashSet<string>(ExtractLexicalQueryTokens(query), StringComparer.Ordinal);
         var additions = new List<string>();

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -362,7 +362,7 @@ public sealed partial class ToolAgentOrchestrator
         if (localItems.Count > 0)
             plan.ToolCalls = plan.ToolCalls.Where(c => !string.Equals(c.Name, "meta.list_questions", StringComparison.OrdinalIgnoreCase)).ToList();
 
-        ApplyCuisineRagDefaults(plan, effectiveUserMessage);
+        ApplyDocumentaryRagDefaults(plan, effectiveUserMessage);
 
         var swTools = Stopwatch.StartNew();
         var toolResults = await ExecuteToolsAsync(plan, effectiveUserMessage, ct, onPhase, onProgress).ConfigureAwait(false);
@@ -1336,7 +1336,11 @@ public sealed partial class ToolAgentOrchestrator
         if (!ShouldForceRagForStandaloneTopic(effectiveUserMessage, plan))
             return (false, string.Empty, null);
 
-        var retrievalQuery = NormalizeRagQueryForRetrieval(effectiveUserMessage);
+        var exactItemTitle = TryExtractRequestedItemTitle(effectiveUserMessage);
+        var normalizedOriginalQuery = NormalizeRagQueryForRetrieval(effectiveUserMessage);
+        var retrievalQuery = !string.IsNullOrWhiteSpace(exactItemTitle)
+            ? CollapseWhitespace($"{exactItemTitle} {normalizedOriginalQuery}")
+            : normalizedOriginalQuery;
         if (string.IsNullOrWhiteSpace(retrievalQuery))
             return (false, string.Empty, null);
 
@@ -1344,6 +1348,7 @@ public sealed partial class ToolAgentOrchestrator
         {
             onPhase?.Invoke(DeterministicAgentText.PhaseRag(plan.Language));
             onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(plan.Language));
+            var categoryScope = ResolveRagCategoryScope(effectiveUserMessage);
 
             if (LooksLikeCuisineMealPlanningRequest(effectiveUserMessage))
             {
@@ -1351,7 +1356,7 @@ public sealed partial class ToolAgentOrchestrator
                 {
                     queries = BuildCuisineMealPlanningQueries(effectiveUserMessage),
                     topK = 4,
-                    category = "Cuisine",
+                    category = categoryScope,
                     mode = "balanced"
                 });
                 var multiResult = await ExecRagMultiSearchAsync(multiArgs, ct).ConfigureAwait(false);
@@ -1389,14 +1394,24 @@ public sealed partial class ToolAgentOrchestrator
                 }
             }
 
-            var args = CreateJsonArgs(new
-            {
-                query = retrievalQuery,
-                topK = 8,
-                category = LooksLikeCuisineActionRequest(effectiveUserMessage) ? "Cuisine" : null,
-                mode = "balanced"
-            });
-            var ragResult = await ExecRagSearchAsync(args, ct).ConfigureAwait(false);
+            var args = !string.IsNullOrWhiteSpace(exactItemTitle)
+                ? CreateJsonArgs(new
+                {
+                    queries = BuildPreciseRetrievalQueries(exactItemTitle!, retrievalQuery),
+                    topK = 10,
+                    category = categoryScope,
+                    mode = "balanced"
+                })
+                : CreateJsonArgs(new
+                {
+                    query = retrievalQuery,
+                    topK = 8,
+                    category = categoryScope,
+                    mode = "balanced"
+                });
+            var ragResult = !string.IsNullOrWhiteSpace(exactItemTitle)
+                ? await ExecRagMultiSearchAsync(args, ct).ConfigureAwait(false)
+                : await ExecRagSearchAsync(args, ct).ConfigureAwait(false);
             if (!HasRagHits(ragResult))
                 return (false, string.Empty, null);
 
@@ -1410,7 +1425,7 @@ public sealed partial class ToolAgentOrchestrator
                 {
                     new()
                     {
-                        Name = "rag.search",
+                        Name = !string.IsNullOrWhiteSpace(exactItemTitle) ? "rag.multi_search" : "rag.search",
                         Args = args
                     }
                 },
@@ -1830,6 +1845,17 @@ USER_MESSAGE:
             {
                 _lastAnswerSource = $"writer_bypass_deterministic_inventory:{plan.Intent}";
                 return (deterministicAnswer, null);
+            }
+        }
+
+        var requestedItemTitle = TryExtractRequestedItemTitle(userMessage);
+        if (!string.IsNullOrWhiteSpace(requestedItemTitle))
+        {
+            var ragHits = EnumerateRagHitSummaries(writerToolResults).ToList();
+            if (ragHits.Count > 0 && !RagHitsContainRequestedTitle(ragHits, requestedItemTitle!))
+            {
+                _lastAnswerSource = $"writer_bypass_missing_exact_item:{plan.Intent}";
+                return (BuildMissingExactItemAnswer(plan.Language, requestedItemTitle!, ragHits), DeriveSourcesFromRagHits(writerToolResults));
             }
         }
 
@@ -2609,18 +2635,26 @@ TOOL_RESULTS (json):
             return false;
 
         return LooksLikeStandaloneDocumentaryTopic(effectiveUserMessage)
+            || !string.IsNullOrWhiteSpace(TryExtractRequestedItemTitle(effectiveUserMessage))
             || LooksLikeCuisineActionRequest(effectiveUserMessage);
     }
 
-    private static void ApplyCuisineRagDefaults(RouterPlan plan, string effectiveUserMessage)
+    private void ApplyDocumentaryRagDefaults(RouterPlan plan, string effectiveUserMessage)
     {
-        if (!LooksLikeCuisineActionRequest(effectiveUserMessage))
+        var exactItemTitle = TryExtractRequestedItemTitle(effectiveUserMessage);
+        var isCuisineRequest = LooksLikeCuisineActionRequest(effectiveUserMessage);
+        if (string.IsNullOrWhiteSpace(exactItemTitle) && !isCuisineRequest)
             return;
 
-        var retrievalQuery = NormalizeRagQueryForRetrieval(effectiveUserMessage);
+        var normalizedOriginalQuery = NormalizeRagQueryForRetrieval(effectiveUserMessage);
+        var retrievalQuery = !string.IsNullOrWhiteSpace(exactItemTitle)
+            ? CollapseWhitespace($"{exactItemTitle} {normalizedOriginalQuery}")
+            : normalizedOriginalQuery;
         if (string.IsNullOrWhiteSpace(retrievalQuery))
             retrievalQuery = effectiveUserMessage;
         var isMealPlanning = LooksLikeCuisineMealPlanningRequest(effectiveUserMessage);
+        var topK = string.IsNullOrWhiteSpace(exactItemTitle) ? 8 : 20;
+        var categoryScope = ResolveRagCategoryScope(effectiveUserMessage);
 
         var hasRagCall = plan.ToolCalls.Any(call =>
             string.Equals(call.Name, "rag.search", StringComparison.OrdinalIgnoreCase)
@@ -2638,7 +2672,7 @@ TOOL_RESULTS (json):
                     {
                         queries = BuildCuisineMealPlanningQueries(effectiveUserMessage),
                         topK = 4,
-                        category = "Cuisine",
+                        category = categoryScope,
                         mode = "balanced"
                     })
                 });
@@ -2647,14 +2681,22 @@ TOOL_RESULTS (json):
             {
                 plan.ToolCalls.Add(new RouterPlan.ToolCall
                 {
-                    Name = "rag.search",
-                    Args = CreateJsonArgs(new
-                    {
-                        query = retrievalQuery,
-                        topK = 8,
-                        category = "Cuisine",
-                        mode = "balanced"
-                    })
+                    Name = string.IsNullOrWhiteSpace(exactItemTitle) ? "rag.search" : "rag.multi_search",
+                    Args = string.IsNullOrWhiteSpace(exactItemTitle)
+                        ? CreateJsonArgs(new
+                        {
+                            query = retrievalQuery,
+                            topK,
+                            category = categoryScope,
+                            mode = "balanced"
+                        })
+                        : CreateJsonArgs(new
+                        {
+                            queries = BuildPreciseRetrievalQueries(exactItemTitle!, retrievalQuery),
+                            topK = 10,
+                            category = categoryScope,
+                            mode = "balanced"
+                        })
                 });
             }
         }
@@ -2663,17 +2705,38 @@ TOOL_RESULTS (json):
         {
             if (string.Equals(call.Name, "rag.search", StringComparison.OrdinalIgnoreCase))
             {
+                if (!string.IsNullOrWhiteSpace(exactItemTitle))
+                {
+                    call.Name = "rag.multi_search";
+                    call.Args = CreateJsonArgs(new
+                    {
+                        queries = BuildPreciseRetrievalQueries(exactItemTitle!, retrievalQuery),
+                        topK = 10,
+                        category = TryGetStringArg(call.Args, "category") ?? categoryScope,
+                        mode = "balanced"
+                    });
+                    continue;
+                }
+
                 call.Args = CreateJsonArgs(new
                 {
                     query = retrievalQuery,
-                    topK = NormalizeIntArg(TryGetIntArg(call.Args, "topK"), 8, 1, 20),
-                    category = "Cuisine",
+                    topK = string.IsNullOrWhiteSpace(exactItemTitle)
+                        ? NormalizeIntArg(TryGetIntArg(call.Args, "topK"), 8, 1, 20)
+                        : 20,
+                    category = TryGetStringArg(call.Args, "category") ?? categoryScope,
                     mode = NormalizeRagMode(TryGetStringArg(call.Args, "mode"))
                 });
             }
             else if (string.Equals(call.Name, "rag.multi_search", StringComparison.OrdinalIgnoreCase))
             {
                 var queries = TryGetStringArrayArg(call.Args, "queries");
+                if (!string.IsNullOrWhiteSpace(exactItemTitle)
+                    && !queries.Any(q => string.Equals(q, exactItemTitle, StringComparison.OrdinalIgnoreCase)))
+                {
+                    queries.Insert(0, exactItemTitle!);
+                }
+
                 if (queries.Count == 0)
                     queries.Add(retrievalQuery);
                 else if (!isMealPlanning && !queries.Any(q => string.Equals(q, retrievalQuery, StringComparison.OrdinalIgnoreCase)))
@@ -2683,11 +2746,53 @@ TOOL_RESULTS (json):
                 {
                     queries = queries.Take(5).ToArray(),
                     topK = NormalizeIntArg(TryGetIntArg(call.Args, "topK"), 8, 1, 20),
-                    category = "Cuisine",
+                    category = TryGetStringArg(call.Args, "category") ?? categoryScope,
                     mode = NormalizeRagMode(TryGetStringArg(call.Args, "mode"))
                 });
             }
         }
+    }
+
+    private string? ResolveRagCategoryScope(string effectiveUserMessage)
+    {
+        var message = NormalizeLooseLookup(effectiveUserMessage);
+        var candidates = _mem.CatalogSnapshotCache?.Categories ?? new List<ToolMemory.CategorySnapshot>();
+        foreach (var category in candidates)
+        {
+            var names = new[]
+                {
+                    category.CategoryPath,
+                    category.DisplayName,
+                    category.CategoryRef
+                }
+                .Concat(category.Aliases ?? new List<string>())
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Select(NormalizeLooseLookup)
+                .Where(name => name.Length >= 3)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+
+            if (names.Any(name => message.Contains(name, StringComparison.Ordinal)))
+                return string.IsNullOrWhiteSpace(category.CategoryPath) ? category.DisplayName : category.CategoryPath;
+        }
+
+        return string.IsNullOrWhiteSpace(_mem.LastResolvedCategory?.CategoryPath)
+            ? null
+            : _mem.LastResolvedCategory!.CategoryPath;
+    }
+
+    private static string[] BuildPreciseRetrievalQueries(string exactTitle, string retrievalQuery)
+    {
+        var title = CollapseWhitespace(exactTitle);
+        var combined = CollapseWhitespace(retrievalQuery);
+
+        if (string.IsNullOrWhiteSpace(title))
+            return string.IsNullOrWhiteSpace(combined) ? Array.Empty<string>() : new[] { combined };
+
+        if (string.IsNullOrWhiteSpace(combined) || string.Equals(title, combined, StringComparison.OrdinalIgnoreCase))
+            return new[] { title };
+
+        return new[] { title, combined };
     }
 
     private static string? TryGetStringArg(JsonElement args, string name)
@@ -2748,7 +2853,7 @@ TOOL_RESULTS (json):
 
         if (!Regex.IsMatch(
                 s,
-                @"(?i)\b(?:recette|recettes|cuisine|cuisiner|repas|menu|menus|sauce|sauces|entrecote|entrecôte|steak|viande|poisson|poulet|dessert|semaine|batch\s+cooking|meal|meals|recipe|recipes|dinner|week|cocina|receta|recetas|comida|salsa|carne|cozinha|receita|receitas|refeicao|refeição|molho|kueche|küche|rezept|rezepte|essen|fleisch|cucina|ricetta|ricette|pasto)\b",
+                @"(?i)\b(?:recette|recettes|fiche|fiches|ingredient|ingredients|ingrédient|ingrédients|etape|etapes|étape|étapes|cuisine|cuisiner|repas|menu|menus|sauce|sauces|entrecote|entrecôte|steak|viande|poisson|poulet|dessert|semaine|batch\s+cooking|meal|meals|recipe|recipes|dinner|week|cocina|receta|recetas|comida|salsa|carne|cozinha|receita|receitas|refeicao|refeição|molho|kueche|küche|rezept|rezepte|essen|fleisch|cucina|ricetta|ricette|pasto)\b",
                 RegexOptions.CultureInvariant))
         {
             return false;

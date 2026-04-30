@@ -12,6 +12,10 @@ param(
     [string[]]$Difficulty = @(),
     [int]$Limit = 0,
     [int]$TopK = 8,
+    [string]$Category = $env:SAAIA_VALIDATION_CATEGORY,
+    [int]$MaxLlmSources = 8,
+    [int]$MaxLlmContextChars = 5200,
+    [int]$MaxCharsPerLlmSource = 650,
     [int]$TimeoutSeconds = 120,
     [int]$DelayMs = 0
 )
@@ -225,7 +229,9 @@ function Get-RagSources {
 function Format-SourcesForPrompt {
     param(
         [object[]]$Sources,
-        [int]$MaxCharsPerSource = 1200
+        [int]$MaxSources = 8,
+        [int]$MaxCharsPerSource = 650,
+        [int]$MaxTotalChars = 5200
     )
 
     if ($Sources.Count -eq 0) {
@@ -234,18 +240,72 @@ function Format-SourcesForPrompt {
 
     $parts = New-Object System.Collections.Generic.List[string]
     $i = 1
-    foreach ($source in $Sources) {
+    $usedChars = 0
+    foreach ($source in @($Sources | Select-Object -First $MaxSources)) {
         $page = if ($source.pageStart) { "p.$($source.pageStart)" } else { "page inconnue" }
         $text = [string]$source.text
         if ($text.Length -gt $MaxCharsPerSource) {
             $text = $text.Substring(0, $MaxCharsPerSource) + "..."
         }
 
-        $parts.Add("[S$i] $($source.docName) ($page)`n$text")
+        $part = "[S$i] $($source.docName) ($page)`n$text"
+        if (($usedChars + $part.Length) -gt $MaxTotalChars) {
+            break
+        }
+
+        $parts.Add($part)
+        $usedChars += $part.Length
         $i++
     }
 
+    if ($parts.Count -eq 0) {
+        return "Aucune source assez courte pour le contexte LLM."
+    }
+
     return ($parts -join "`n`n")
+}
+
+function Get-TargetAliases {
+    param([string]$TargetPart)
+
+    $part = ([string]$TargetPart).Trim()
+    if ([string]::IsNullOrWhiteSpace($part)) {
+        return @()
+    }
+
+    $aliases = @{
+        "Top30" = @("30-recettes-preferees-des-francais.pdf")
+        "Nobilia" = @("nobilia-recettes-internationales-FR.pdf")
+        "NEFF" = @("14911887_9001116052_NFFS4I_fr_fm.pdf")
+        "Cemea" = @("si-on-cuisinait.pdf")
+        "SIST" = @("livre-recette-sist-2025-web.pdf")
+        "Etudiants" = @("9782317030376.pdf", "Je_cuisine_simplement.pdf")
+        "JeCuisine" = @("Je_cuisine_simplement.pdf")
+        "Moulinex" = @("Tag249008277_1_MOULINEX_HF93D810_8020007485_IFU.pdf")
+        "Chefbot" = @("chefbot_livre_de_recettes_fr.pdf")
+        "Facilitemps" = @("facilitemps.pdf")
+    }
+
+    if ($aliases.ContainsKey($part)) {
+        return @($aliases[$part])
+    }
+
+    return @($part)
+}
+
+function Split-TargetParts {
+    param([string]$Target)
+
+    $normalized = ([string]$Target).Trim()
+    if ([string]::IsNullOrWhiteSpace($normalized)) {
+        return @()
+    }
+
+    $parts = @($normalized -split "\s+vs\s+|\s*\+\s*|;" | ForEach-Object { $_.Trim() } | Where-Object {
+        -not [string]::IsNullOrWhiteSpace($_)
+    })
+
+    return $parts
 }
 
 function Test-TargetMatched {
@@ -258,14 +318,78 @@ function Test-TargetMatched {
         return ""
     }
 
-    foreach ($source in $Sources) {
-        $haystack = "$($source.docName) $($source.docPath)"
-        if ($haystack.IndexOf($Target, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
-            return "yes"
+    $parts = @(Split-TargetParts $Target)
+    if ($parts.Count -eq 0) {
+        return ""
+    }
+
+    foreach ($part in $parts) {
+        $candidates = @(Get-TargetAliases $part)
+        $partMatched = $false
+
+        foreach ($source in $Sources) {
+            $haystack = "$($source.docName) $($source.docPath)"
+            foreach ($candidate in $candidates) {
+                if ($haystack.IndexOf($candidate, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                    $partMatched = $true
+                    break
+                }
+            }
+
+            if ($partMatched) {
+                break
+            }
+        }
+
+        if (-not $partMatched) {
+            return "no"
         }
     }
 
-    return "no"
+    return "yes"
+}
+
+function Get-PreciseCuisineTitle {
+    param([string]$Question)
+
+    $s = ([string]$Question).Trim()
+    if ([string]::IsNullOrWhiteSpace($s)) {
+        return ""
+    }
+
+    $quoted = [regex]::Match($s, "[\u00ab`"'](?<title>[^\u00bb`"']{3,90})[\u00bb`"']")
+    if ($quoted.Success) {
+        return (Format-PreciseCuisineTitle $quoted.Groups["title"].Value)
+    }
+
+    $named = [regex]::Match(
+        $s,
+        "(?i)\b(?:recette|fiche)\s+(?:claire\s+)?(?:pour|de|du|de\s+la|des|d['’])\s+(?<title>[^:?.!,;]{3,90})")
+    if ($named.Success) {
+        return (Format-PreciseCuisineTitle $named.Groups["title"].Value)
+    }
+
+    return ""
+}
+
+function Format-PreciseCuisineTitle {
+    param([string]$Value)
+
+    $title = ([string]$Value).Trim(" ", ":", "-", ".", "?", "!", ",", ";")
+    if ([string]::IsNullOrWhiteSpace($title)) {
+        return ""
+    }
+
+    $title = [regex]::Replace(
+        $title,
+        "(?i)\s+(?:ingredients?|ingr[ée]dients?|etapes?|[ée]tapes?|temps|source|sources|portions?|materiel|mat[ée]riel|reglages?|r[ée]glages?)\b.*$",
+        "").Trim()
+
+    if ($title.Length -lt 3) {
+        return ""
+    }
+
+    return $title
 }
 
 function Invoke-RagSearch {
@@ -280,22 +404,59 @@ function Invoke-RagSearch {
         $headers["X-Api-Key"] = $ApiKey
     }
 
-    $body = [ordered]@{
-        query = [string]$Case.question
-        topK = $TopK
+    $preciseTitle = Get-PreciseCuisineTitle ([string]$Case.question)
+    $retrievalQueries = New-Object System.Collections.Generic.List[string]
+    if ([string]::IsNullOrWhiteSpace($preciseTitle)) {
+        $retrievalQueries.Add([string]$Case.question)
+    } else {
+        $retrievalQueries.Add($preciseTitle)
+        $retrievalQueries.Add("$preciseTitle $($Case.question)")
     }
 
     $url = $BackendBaseUrl.TrimEnd("/") + "/rag/search"
-    $response = Invoke-HttpJson -Method "POST" -Url $url -Body $body -Headers $headers -TimeoutSeconds $TimeoutSeconds
+    $response = $null
     $parsed = $null
-    if (-not [string]::IsNullOrWhiteSpace($response.body)) {
-        $parsed = $response.body | ConvertFrom-Json
+    $sources = New-Object System.Collections.ArrayList
+    $seenSources = New-Object System.Collections.Generic.HashSet[string]
+
+    foreach ($query in $retrievalQueries) {
+        if ([string]::IsNullOrWhiteSpace($query)) {
+            continue
+        }
+
+        $body = [ordered]@{
+            query = $query
+            topK = $TopK
+        }
+        if (-not [string]::IsNullOrWhiteSpace($Category)) {
+            $body.category = $Category
+        }
+
+        $currentResponse = Invoke-HttpJson -Method "POST" -Url $url -Body $body -Headers $headers -TimeoutSeconds $TimeoutSeconds
+        if ($null -eq $response) {
+            $response = $currentResponse
+        }
+
+        $currentParsed = $null
+        if (-not [string]::IsNullOrWhiteSpace($currentResponse.body)) {
+            $currentParsed = $currentResponse.body | ConvertFrom-Json
+        }
+        if ($null -eq $parsed) {
+            $parsed = $currentParsed
+        }
+
+        foreach ($source in @(Get-RagSources $currentParsed)) {
+            $key = "$($source.docPath)|$($source.pageStart)|$($source.excerpt)"
+            if ($seenSources.Add($key)) {
+                [void]$sources.Add($source)
+            }
+        }
     }
 
     return [ordered]@{
         response = $response
         parsed = $parsed
-        sources = @(Get-RagSources $parsed)
+        sources = @($sources)
     }
 }
 
@@ -310,13 +471,20 @@ function Invoke-LlmAnswer {
     }
 
     $model = if ([string]::IsNullOrWhiteSpace($LlmModel)) { "local" } else { $LlmModel }
-    $context = Format-SourcesForPrompt $Sources
+    $context = Format-SourcesForPrompt `
+        -Sources $Sources `
+        -MaxSources $MaxLlmSources `
+        -MaxCharsPerSource $MaxCharsPerLlmSource `
+        -MaxTotalChars $MaxLlmContextChars
     $system = @"
 Tu es SAAIA, assistant RAG local.
 Reponds en francais, avec un ton naturel et utile.
 Tu dois utiliser uniquement les sources fournies.
-Si les sources ne contiennent pas assez d'information, dis-le clairement et demande une clarification courte.
-Quand l'utilisateur demande des recettes pour une semaine ou un menu, propose une structure exploitable par jours, en indiquant quelles recettes viennent des sources.
+Si les sources ne contiennent pas assez d'information, dis-le clairement et n'invente pas la recette, les quantites, les temps ou les etapes.
+Ne transforme pas une question simple en planning de semaine sauf si l'utilisateur demande explicitement un menu, une semaine, un planning ou du meal prep.
+Pour une fiche recette precise, verifie que le titre ou les ingredients de cette recette sont presents dans les sources avant de repondre.
+Pour une comparaison, separe clairement les recettes et signale quand une des versions manque dans les sources.
+Pour une demande d'invention, d'amelioration ou de contournement des sources, refuse la partie non sourcee et propose seulement ce qui est etabli par les sources.
 Ne fusionne pas deux recettes sans le signaler. Ne donne pas de quantites exactes si elles ne sont pas presentes dans les sources.
 Termine par une section Sources concise.
 "@
@@ -382,6 +550,9 @@ New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
 $bankPath = (Resolve-Path $QuestionBankPath).Path
 $bank = Get-Content $bankPath -Raw -Encoding UTF8 | ConvertFrom-Json
+if ([string]::IsNullOrWhiteSpace($Category) -and [string]$bank.version -eq "cuisine-v1") {
+    $Category = "Cuisine"
+}
 $idsFilter = Normalize-List $Ids
 $axisFilter = Normalize-List $Axis
 $difficultyFilter = Normalize-List $Difficulty
@@ -489,6 +660,10 @@ $summary = [ordered]@{
     backendBaseUrl = $BackendBaseUrl
     llmBaseUrl = $LlmBaseUrl
     llmModel = $LlmModel
+    category = $Category
+    maxLlmSources = $MaxLlmSources
+    maxLlmContextChars = $MaxLlmContextChars
+    maxCharsPerLlmSource = $MaxCharsPerLlmSource
     selectedCount = $cases.Count
     filters = [ordered]@{
         ids = $idsFilter

@@ -692,7 +692,6 @@ CURRENT_USER_MESSAGE:
 
     private static List<ToolMemory.SourceRef> DeriveCuisineSourcesFromRankedHits(ToolResults toolResults, string query, int maxSources = 8)
         => EnumerateRagHitSummaries(toolResults)
-            .Where(static hit => IsCuisineDocPath(hit.DocPath))
             .OrderByDescending(hit => ComputeCuisineHitRelevance(query, hit.Excerpt))
             .GroupBy(hit => $"{hit.DocPath}|{hit.PageStart}", StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
@@ -727,12 +726,20 @@ CURRENT_USER_MESSAGE:
         if (hits.Count == 0)
             return false;
 
-        if (!hits.Any(static hit => IsCuisineDocPath(hit.DocPath)))
-            return false;
-
         var normalizedQuery = NormalizeCuisineLookup(query);
         if (string.IsNullOrWhiteSpace(normalizedQuery))
             return false;
+
+        if (!string.IsNullOrWhiteSpace(TryExtractRequestedItemTitle(query)))
+            return true;
+
+        if (Regex.IsMatch(
+                normalizedQuery,
+                @"\b(?:fiche|fiches|ingredient|ingredients|ingrédient|ingrédients|etape|etapes|étape|étapes|recipe|recipes|receta|recetas|receita|receitas|rezept|rezepte|ricetta|ricette)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
 
         return Regex.IsMatch(
             normalizedQuery,
@@ -743,14 +750,35 @@ CURRENT_USER_MESSAGE:
     internal static string BuildCuisineExtractiveAnswer(ToolResults toolResults, string query, string language)
     {
         language = NormalizeLanguageCode(language);
-        var hits = EnumerateRagHitSummaries(toolResults)
-            .Where(static hit => IsCuisineDocPath(hit.DocPath))
+        var allHits = EnumerateRagHitSummaries(toolResults)
             .OrderByDescending(hit => ComputeCuisineHitRelevance(query, hit.Excerpt))
-            .Take(4)
             .ToList();
 
-        if (hits.Count == 0)
+        if (allHits.Count == 0)
             return BuildRagEvidenceFallbackAnswer(toolResults, query, language);
+
+        var requestedTitle = TryExtractRequestedItemTitle(query);
+        if (!string.IsNullOrWhiteSpace(requestedTitle) && !RagHitsContainRequestedTitle(allHits, requestedTitle))
+        {
+            return BuildMissingExactItemAnswer(language, requestedTitle!, allHits);
+        }
+
+        var hits = allHits;
+        if (!string.IsNullOrWhiteSpace(requestedTitle))
+        {
+            var exactTitleHits = allHits
+                .Where(hit => RagHitContainsRequestedTitle(hit, requestedTitle!))
+                .ToList();
+            if (exactTitleHits.Count > 0)
+            {
+                hits = exactTitleHits
+                    .Concat(allHits.Where(hit => !exactTitleHits.Contains(hit)))
+                    .Take(4)
+                    .ToList();
+            }
+        }
+
+        hits = hits.Take(4).ToList();
 
         var normalizedQuery = NormalizeCuisineLookup(query);
         var isMeatSauceQuestion =
@@ -793,6 +821,118 @@ CURRENT_USER_MESSAGE:
         return sb.ToString().TrimEnd();
     }
 
+    private static string? TryExtractRequestedItemTitle(string? query)
+    {
+        var s = CollapseWhitespace(query ?? string.Empty);
+        if (s.Length == 0)
+            return null;
+
+        var quoted = Regex.Match(s, "[\\u00ab\"'](?<title>[^\\u00bb\"']{3,90})[\\u00bb\"']", RegexOptions.CultureInvariant);
+        if (quoted.Success)
+            return CleanupRequestedItemTitle(quoted.Groups["title"].Value);
+
+        var namedItem = Regex.Match(
+            s,
+            @"(?i)\b(?:recette|recipe|fiche|document|doc|contrat|contract|procedure|proc[ée]dure|processus|process|manuel|manual|guide|rapport|report|notice|policy|politique)\s+(?:claire\s+)?(?:pour|about|on|de|du|de\s+la|des|d['\u2019]|sur|sobre|ueber|über|su)\s+(?<title>[^:?.!,;]{3,90})",
+            RegexOptions.CultureInvariant);
+        if (namedItem.Success)
+            return CleanupRequestedItemTitle(namedItem.Groups["title"].Value);
+
+        return null;
+    }
+
+    private static string? CleanupRequestedItemTitle(string? value)
+    {
+        var title = CollapseWhitespace(value ?? string.Empty)
+            .Trim(' ', ':', '-', '.', '?', '!', ',', ';');
+        if (title.Length == 0)
+            return null;
+
+        title = Regex.Replace(
+            title,
+            @"(?i)\s+(?:ingredients?|ingr[ée]dients?|etapes?|[ée]tapes?|temps|source|sources|portions?|materiel|mat[ée]riel|reglages?|r[ée]glages?)\b.*$",
+            string.Empty,
+            RegexOptions.CultureInvariant).Trim();
+
+        return title.Length >= 3 ? title : null;
+    }
+
+    private static bool RagHitsContainRequestedTitle(IReadOnlyList<RagHitSummary> hits, string requestedTitle)
+    {
+        var normalizedTitle = NormalizeCuisineLookup(requestedTitle);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        var titleTerms = ExtractCuisineSignalTerms(normalizedTitle)
+            .Where(static term => term.Length >= 4)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        foreach (var hit in hits)
+        {
+            if (RagHitContainsRequestedTitle(hit, normalizedTitle, titleTerms))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool RagHitContainsRequestedTitle(RagHitSummary hit, string requestedTitle)
+    {
+        var normalizedTitle = NormalizeCuisineLookup(requestedTitle);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        var titleTerms = ExtractCuisineSignalTerms(normalizedTitle)
+            .Where(static term => term.Length >= 4)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        return RagHitContainsRequestedTitle(hit, normalizedTitle, titleTerms);
+    }
+
+    private static bool RagHitContainsRequestedTitle(RagHitSummary hit, string normalizedTitle, IReadOnlyList<string> titleTerms)
+    {
+        var haystack = NormalizeCuisineLookup($"{hit.DocName} {hit.DocPath} {hit.Excerpt}");
+        if (haystack.Contains(normalizedTitle, StringComparison.Ordinal))
+            return true;
+
+        return titleTerms.Count > 0 && titleTerms.All(term => haystack.Contains(term, StringComparison.Ordinal));
+    }
+
+    private static string BuildMissingExactItemAnswer(string language, string requestedTitle, IReadOnlyList<RagHitSummary> hits)
+    {
+        language = NormalizeLanguageCode(language);
+        var header = language switch
+        {
+            "en" => $"I did not find the exact requested item \"{requestedTitle}\" in the available excerpts. I will not invent missing facts, quantities, steps, or details. Closest source-backed leads:",
+            "es" => $"No he encontrado el elemento exacto solicitado \"{requestedTitle}\" en los extractos disponibles. No voy a inventar hechos, cantidades, pasos ni detalles. Pistas cercanas con fuente:",
+            "pt" => $"Nao encontrei o item exato solicitado \"{requestedTitle}\" nos excertos disponiveis. Nao vou inventar factos, quantidades, passos nem detalhes. Pistas proximas com fonte:",
+            "de" => $"Ich habe den exakt angefragten Eintrag \"{requestedTitle}\" in den verfuegbaren Auszuegen nicht gefunden. Ich erfinde keine Fakten, Mengen, Schritte oder Details. Naheliegende belegte Hinweise:",
+            "it" => $"Non ho trovato l'elemento esatto richiesto \"{requestedTitle}\" negli estratti disponibili. Non invento fatti, quantita, passaggi o dettagli. Indicazioni vicine con fonte:",
+            _ => $"Je n'ai pas trouve l'element exact demande \"{requestedTitle}\" dans les extraits disponibles. Je n'invente donc pas les faits, quantites, etapes ou details manquants. Pistes proches sourcees :"
+        };
+
+        var sb = new StringBuilder();
+        sb.AppendLine(header);
+        foreach (var hit in hits.Take(3))
+        {
+            var docLabel = string.IsNullOrWhiteSpace(hit.DocName) ? hit.DocPath : hit.DocName;
+            var excerpt = CollapseWhitespace(hit.Excerpt);
+            if (excerpt.Length > 240)
+                excerpt = excerpt[..240].TrimEnd() + "...";
+
+            sb.Append("- ");
+            sb.Append(docLabel);
+            sb.Append(" p.");
+            sb.Append(hit.PageStart);
+            sb.Append(" : ");
+            sb.AppendLine(excerpt);
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
     private static bool LooksLikeCuisineMealPlanningRequest(string? query)
     {
         var s = NormalizeCuisineLookup(query);
@@ -808,21 +948,28 @@ CURRENT_USER_MESSAGE:
     }
 
     private static string[] BuildCuisineMealPlanningQueries(string query)
-        => new[]
+    {
+        var normalized = NormalizeRagQueryForRetrieval(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            normalized = query;
+
+        return new[]
         {
-            "Menu Ingredients volaille champignons pommes darphin",
-            "Menu Ingredients filet cabillaud crumble chorizo parmesan",
-            "Menu Ingredients salade pates thon tomates",
-            "Menu Ingredients chili con carne healthy",
-            "Menu Ingredients veloute lentilles corail coco",
-            "Menu Ingredients curry legumes pois chiches champignons"
+            normalized,
+            "recette repas menu semaine ingredients preparation",
+            "recettes plats faciles ingredients preparation",
+            "meal plan recipes ingredients preparation",
+            "receta menu semana ingredientes preparacion",
+            "receita menu semana ingredientes preparacao",
+            "rezept wochenplan zutaten zubereitung",
+            "ricette menu settimana ingredienti preparazione"
         };
+    }
 
     private static string BuildCuisineMealPlanningAnswer(ToolResults toolResults, string language)
     {
         language = NormalizeLanguageCode(language);
         var recipes = EnumerateRagHitSummaries(toolResults)
-            .Where(static hit => IsCuisineDocPath(hit.DocPath))
             .Select(hit => new
             {
                 Hit = hit,
@@ -839,12 +986,12 @@ CURRENT_USER_MESSAGE:
 
         var header = language switch
         {
-            "en" => "Here is a source-backed meal plan from the Cuisine documents. I only list recipes found in the excerpts:",
-            "es" => "Aqui tienes una propuesta de comidas basada en las fuentes de Cocina. Solo incluyo recetas encontradas en los extractos:",
-            "pt" => "Aqui esta uma proposta de refeicoes baseada nas fontes de Cozinha. Incluo apenas receitas encontradas nos excertos:",
-            "de" => "Hier ist ein quellenbasierter Essensplan aus den Kuechendokumenten. Ich nenne nur Rezepte aus den Auszuegen:",
-            "it" => "Ecco una proposta di pasti basata sulle fonti di Cucina. Includo solo ricette trovate negli estratti:",
-            _ => "Voici une proposition de repas appuyee sur les documents Cuisine. Je liste uniquement des recettes retrouvees dans les extraits :"
+            "en" => "Here is a source-backed meal plan from the available documents. I only list recipes found in the excerpts:",
+            "es" => "Aqui tienes una propuesta de comidas basada en los documentos disponibles. Solo incluyo recetas encontradas en los extractos:",
+            "pt" => "Aqui esta uma proposta de refeicoes baseada nos documentos disponiveis. Incluo apenas receitas encontradas nos excertos:",
+            "de" => "Hier ist ein quellenbasierter Essensplan aus den verfuegbaren Dokumenten. Ich nenne nur Rezepte aus den Auszuegen:",
+            "it" => "Ecco una proposta di pasti basata sui documenti disponibili. Includo solo ricette trovate negli estratti:",
+            _ => "Voici une proposition de repas appuyee sur les documents disponibles. Je liste uniquement des recettes retrouvees dans les extraits :"
         };
 
         var sb = new StringBuilder();
@@ -923,26 +1070,20 @@ CURRENT_USER_MESSAGE:
         language = NormalizeLanguageCode(language);
         return (language, noExplicitPairing) switch
         {
-            ("en", true) => "I did not find an explicit pairing with entrecote in the available excerpts. The Cuisine sources provide these documented leads:",
-            ("en", false) => "Here are the leads found in the Cuisine documents, without adding ingredients or steps outside the sources:",
-            ("es", true) => "No he encontrado una asociacion explicita con la entrecote en los extractos disponibles. Las fuentes de Cocina ofrecen estas pistas documentadas:",
-            ("es", false) => "Estas son las pistas encontradas en los documentos de Cocina, sin anadir ingredientes ni pasos fuera de las fuentes:",
-            ("pt", true) => "Nao encontrei uma associacao explicita com entrecote nos excertos disponiveis. As fontes de Cozinha fornecem estas pistas documentadas:",
-            ("pt", false) => "Estas sao as pistas encontradas nos documentos de Cozinha, sem acrescentar ingredientes nem passos fora das fontes:",
-            ("de", true) => "Ich habe in den verfuegbaren Auszuegen keine ausdrueckliche Kombination mit Entrecote gefunden. Die Kuechenquellen liefern diese belegten Hinweise:",
-            ("de", false) => "Hier sind die Hinweise aus den Kuechendokumenten, ohne Zutaten oder Schritte ausserhalb der Quellen hinzuzufuegen:",
-            ("it", true) => "Non ho trovato un abbinamento esplicito con l'entrecote negli estratti disponibili. Le fonti di Cucina forniscono queste indicazioni documentate:",
-            ("it", false) => "Ecco le indicazioni trovate nei documenti di Cucina, senza aggiungere ingredienti o passaggi non presenti nelle fonti:",
-            (_, true) => "Je n'ai pas trouve d'association explicite avec l'entrecote dans les extraits disponibles. Les sources Cuisine donnent plutot ces pistes documentees :",
-            _ => "Voici les pistes trouvees dans les documents Cuisine, sans ajout d'ingredients ni d'etapes hors source :"
+            ("en", true) => "I did not find an explicit pairing with entrecote in the available excerpts. The documents provide these source-backed leads:",
+            ("en", false) => "Here are the leads found in the available documents, without adding ingredients or steps outside the sources:",
+            ("es", true) => "No he encontrado una asociacion explicita con la entrecote en los extractos disponibles. Los documentos ofrecen estas pistas con fuente:",
+            ("es", false) => "Estas son las pistas encontradas en los documentos disponibles, sin anadir ingredientes ni pasos fuera de las fuentes:",
+            ("pt", true) => "Nao encontrei uma associacao explicita com entrecote nos excertos disponiveis. Os documentos fornecem estas pistas com fonte:",
+            ("pt", false) => "Estas sao as pistas encontradas nos documentos disponiveis, sem acrescentar ingredientes nem passos fora das fontes:",
+            ("de", true) => "Ich habe in den verfuegbaren Auszuegen keine ausdrueckliche Kombination mit Entrecote gefunden. Die Dokumente liefern diese belegten Hinweise:",
+            ("de", false) => "Hier sind die Hinweise aus den verfuegbaren Dokumenten, ohne Zutaten oder Schritte ausserhalb der Quellen hinzuzufuegen:",
+            ("it", true) => "Non ho trovato un abbinamento esplicito con l'entrecote negli estratti disponibili. I documenti forniscono queste indicazioni con fonte:",
+            ("it", false) => "Ecco le indicazioni trovate nei documenti disponibili, senza aggiungere ingredienti o passaggi non presenti nelle fonti:",
+            (_, true) => "Je n'ai pas trouve d'association explicite avec l'entrecote dans les extraits disponibles. Les documents donnent plutot ces pistes sourcees :",
+            _ => "Voici les pistes trouvees dans les documents disponibles, sans ajout d'ingredients ni d'etapes hors source :"
         };
     }
-
-    private static bool IsCuisineDocPath(string? docPath)
-        => (docPath ?? string.Empty)
-            .Replace('\\', '/')
-            .TrimStart('/')
-            .StartsWith("Cuisine/", StringComparison.OrdinalIgnoreCase);
 
     private static int ComputeCuisineHitRelevance(string query, string? excerpt)
     {
@@ -1041,11 +1182,14 @@ CURRENT_USER_MESSAGE:
             .Replace('ü', 'u')
             .Replace("œ", "oe", StringComparison.Ordinal);
 
+    private static string NormalizeLooseLookup(string? value)
+        => NormalizeCuisineLookup(value);
+
     private static string BuildRagEvidenceFallbackAnswer(ToolResults toolResults, string query, string language)
     {
         language = NormalizeLanguageCode(language);
         if (LooksLikeCuisineActionRequest(query)
-            && EnumerateRagHitSummaries(toolResults).Any(static hit => IsCuisineDocPath(hit.DocPath)))
+            && EnumerateRagHitSummaries(toolResults).Any())
         {
             return BuildCuisineExtractiveAnswer(toolResults, query, language);
         }

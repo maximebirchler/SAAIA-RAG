@@ -215,47 +215,30 @@ public sealed class RuntimeGovernanceCoreLogicTests
     }
 
     [Fact]
-    public void ExpandRetrievalQuery_adds_cuisine_synonyms_only_for_cuisine_scope()
+    public void ExpandRetrievalQuery_uses_query_terms_not_category_name()
     {
         var expanded = RagEndpoints.ExpandRetrievalQuery("Quelle sauce avec une entrecôte ?", "cuisine");
+        var expandedOtherCategory = RagEndpoints.ExpandRetrievalQuery("Quelle sauce avec une entrecôte ?", "atex");
 
         Assert.Contains("steak", expanded);
         Assert.Contains("rumsteck", expanded);
         Assert.Contains("viande rouge", expanded);
         Assert.Contains("sauces trempettes", expanded);
         Assert.DoesNotContain("marinade", expanded);
+        Assert.Equal(expanded, expandedOtherCategory);
 
-        var unchanged = RagEndpoints.ExpandRetrievalQuery("Quelle sauce avec une entrecôte ?", "atex");
-        Assert.Equal("Quelle sauce avec une entrecôte ?", unchanged);
+        var unchanged = RagEndpoints.ExpandRetrievalQuery("procedure onboarding fournisseur", "hr");
+        Assert.Equal("procedure onboarding fournisseur", unchanged);
     }
 
     [Fact]
-    public void ShouldSupplementSparseWithLexicalFallback_is_limited_to_cuisine_disambiguation()
+    public void ShouldSupplementSparseWithLexicalFallback_uses_generic_query_signal()
     {
         Assert.True(RagEndpoints.ShouldSupplementSparseWithLexicalFallback("cuisine", "activité cuisine avec des enfants"));
-        Assert.True(RagEndpoints.ShouldSupplementSparseWithLexicalFallback("cuisine", "quelle sauce avec une entrecôte"));
-        Assert.False(RagEndpoints.ShouldSupplementSparseWithLexicalFallback("atex", "quelle sauce avec une entrecôte"));
-        Assert.False(RagEndpoints.ShouldSupplementSparseWithLexicalFallback("cuisine", "dessert au chocolat facile"));
-    }
-
-    [Fact]
-    public void ComputeDomainSpecificBoost_promotes_cuisine_child_activity_and_red_meat_matches()
-    {
-        Assert.True(RagEndpoints.ComputeDomainSpecificBoost(
-            "activité cuisine avec des enfants",
-            "Ces recettes sont destinées à des animateurs qui souhaitent faire de la cuisine avec les enfants.") > 0);
-
-        Assert.True(RagEndpoints.ComputeDomainSpecificBoost(
-            "quelle sauce avec une entrecôte",
-            "Viandes rouges (bœuf, agneau, gibier) 4h à 12h. La marinade est un mélange...") > 0);
-
-        Assert.True(RagEndpoints.ComputeDomainSpecificBoost(
-            "quelle sauce avec une entrecote",
-            "LES SAUCES ET LES TREMPETTES. Une autre idee pour rehausser le gout de vos viandes est de cuisiner des sauces et des trempettes.") > 0.15);
-
-        Assert.Equal(0, RagEndpoints.ComputeDomainSpecificBoost(
-            "dessert au chocolat facile",
-            "Gâteau chocolat-courgette."));
+        Assert.True(RagEndpoints.ShouldSupplementSparseWithLexicalFallback("atex", "quelle sauce avec une entrecôte"));
+        Assert.True(RagEndpoints.ShouldSupplementSparseWithLexicalFallback("hr", "procedure onboarding fournisseur"));
+        Assert.True(RagEndpoints.ShouldSupplementSparseWithLexicalFallback(null, "manual ABC-123 pressure valve"));
+        Assert.False(RagEndpoints.ShouldSupplementSparseWithLexicalFallback(null, "ok merci"));
     }
 
     [Fact]

@@ -127,6 +127,44 @@ public sealed class RagContextBudgetRegressionTests
     }
 
     [Fact]
+    public void Cuisine_precise_recipe_request_refuses_when_title_is_missing_from_hits()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Cuisine/facilitemps.pdf",
+                    docName = "facilitemps.pdf",
+                    pageStart = 44,
+                    pageEnd = 44,
+                    excerpt = "Les sauces et les trempettes. Une idee pour rehausser le gout de vos viandes est de cuisiner des sauces et des trempettes.",
+                    score = 0.99
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildCuisineExtractiveAnswerForTests(
+            toolResults,
+            "Tu peux me faire une fiche claire pour \"Sauce bearnaise\" : ingredients, etapes, temps et source ?",
+            "fr");
+
+        Assert.Contains("exact", answer);
+        Assert.Contains("Sauce bearnaise", answer);
+        Assert.DoesNotContain("Ingredients :", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("10 g de poivron", answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Cuisine_action_query_with_accented_entrecote_uses_extractive_answer()
     {
         var payload = JsonSerializer.Serialize(new
@@ -200,21 +238,54 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Contains("Jour 1", answer);
         Assert.Contains("FILET DE CABILLAUD", answer);
         Assert.Contains("CHILI CON CARNE", answer);
-        Assert.Contains("documents Cuisine", answer);
+        Assert.Contains("documents disponibles", answer);
     }
 
     [Theory]
-    [InlineData("fr", "sources Cuisine")]
-    [InlineData("en", "Cuisine sources")]
-    [InlineData("es", "fuentes de Cocina")]
-    [InlineData("pt", "fontes de Cozinha")]
-    [InlineData("de", "Kuechenquellen")]
-    [InlineData("it", "fonti di Cucina")]
+    [InlineData("fr", "documents")]
+    [InlineData("en", "documents")]
+    [InlineData("es", "documentos")]
+    [InlineData("pt", "documentos")]
+    [InlineData("de", "Dokumente")]
+    [InlineData("it", "documenti")]
     public void Cuisine_extractive_headers_cover_all_supported_languages(string language, string expectedPhrase)
     {
         var header = ToolAgentOrchestrator.BuildCuisineExtractiveHeaderForTests(language, noExplicitPairing: true);
 
         Assert.Contains(expectedPhrase, header);
         Assert.DoesNotContain("Here are the leads", header);
+    }
+
+    [Fact]
+    public void Cuisine_fiche_ingredients_request_uses_cuisine_route()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Cuisine/facilitemps.pdf",
+                    docName = "facilitemps.pdf",
+                    pageStart = 44,
+                    pageEnd = 44,
+                    excerpt = "Les sauces et les trempettes. Une idee pour rehausser le gout de vos viandes.",
+                    score = 0.99
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.search",
+            Result = doc.RootElement.Clone()
+        });
+
+        const string question = "Tu peux me faire une fiche claire pour \"Concombres a la romaine\" : ingredients, etapes, temps et source ?";
+
+        Assert.True(ToolAgentOrchestrator.ShouldUseCuisineExtractiveAnswerForTests(question, toolResults));
+        Assert.True(ToolAgentOrchestrator.LooksLikeCuisineActionRequestForTests(question));
     }
 }
