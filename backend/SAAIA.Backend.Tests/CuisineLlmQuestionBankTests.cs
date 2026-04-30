@@ -68,6 +68,23 @@ public sealed class CuisineLlmQuestionBankTests
     }
 
     [Fact]
+    public void Cuisine_question_bank_exercises_weekly_meal_planning_and_menu_assistance()
+    {
+        var corpus = RetrievalQuestionBankFixture.LoadCuisineValidationV1();
+
+        var planningCases = corpus.ValidationCases.Count(static c =>
+            c.Question.Contains("semaine", StringComparison.OrdinalIgnoreCase) ||
+            c.Question.Contains("7 repas", StringComparison.OrdinalIgnoreCase) ||
+            c.Question.Contains("plan", StringComparison.OrdinalIgnoreCase) ||
+            c.Question.Contains("menu", StringComparison.OrdinalIgnoreCase));
+        var compositionCases = corpus.ValidationCases.Count(static c =>
+            string.Equals(c.Axis, "Composition de menu / fusion contrôlée", StringComparison.Ordinal));
+
+        Assert.True(planningCases >= 20, "The pack should stress realistic weekly/menu planning prompts.");
+        Assert.True(compositionCases >= 30, "The pack should include enough menu composition cases to test useful assistant behavior.");
+    }
+
+    [Fact]
     public void Cuisine_question_bank_cases_are_well_formed()
     {
         var corpus = RetrievalQuestionBankFixture.LoadCuisineValidationV1();

@@ -87,6 +87,7 @@ infra/req*.json
 
 # Local CI/runtime reports
 artifacts/runtime-ci/
+artifacts/llm-validation/
 artifacts/llama-*/
 artifacts/llm-bench-*/
 artifacts/manual-test-checklist/*.xlsx
