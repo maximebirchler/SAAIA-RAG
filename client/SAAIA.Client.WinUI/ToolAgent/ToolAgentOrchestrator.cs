@@ -1254,6 +1254,9 @@ public sealed partial class ToolAgentOrchestrator
         if (Regex.IsMatch(s, @"^(?:hi|hello|bonjour|salut|merci|thanks?|ok|okay)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
             return false;
 
+        if (LooksLikeCuisineActionRequest(s))
+            return false;
+
         return Regex.IsMatch(s, @"\b(?:qu['’]est\s*ce\s+que\s+tu\s+peux\s+me\s+dire|que\s+peux\s*tu\s+me\s+dire|parle\s*[- ]?moi|au\s+sujet\s+de|a\s+propos\s+de|à\s+propos\s+de|what\s+can\s+you\s+tell\s+me|tell\s+me\s+about|about\s+the|regarding|concerning)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
             || s.Contains("?", StringComparison.Ordinal);
     }
@@ -1339,6 +1342,50 @@ public sealed partial class ToolAgentOrchestrator
         {
             onPhase?.Invoke(DeterministicAgentText.PhaseRag(plan.Language));
             onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(plan.Language));
+
+            if (LooksLikeCuisineMealPlanningRequest(effectiveUserMessage))
+            {
+                var multiArgs = CreateJsonArgs(new
+                {
+                    queries = BuildCuisineMealPlanningQueries(effectiveUserMessage),
+                    topK = 4,
+                    category = "Cuisine",
+                    mode = "balanced"
+                });
+                var multiResult = await ExecRagMultiSearchAsync(multiArgs, ct).ConfigureAwait(false);
+                if (HasRagHits(multiResult))
+                {
+                    var mealToolResults = new ToolResults();
+                    mealToolResults.Items.Add(new ToolResults.Item
+                    {
+                        ToolName = "rag.multi_search",
+                        Result = multiResult
+                    });
+
+                    var mealAnswer = BuildCuisineMealPlanningAnswer(mealToolResults, plan.Language);
+                    if (!string.IsNullOrWhiteSpace(mealAnswer))
+                    {
+                        var mealSources = DeriveSourcesFromRagHits(mealToolResults);
+                        object? mealSourcesPayload = null;
+                        if (mealSources.Count > 0)
+                        {
+                            _mem.LastSourcesUsed = mealSources;
+                            mealAnswer = InjectInlineSources(mealAnswer, mealSources, plan.Language);
+                            mealSourcesPayload = BuildSourcesPayload(mealSources);
+                        }
+
+                        _lastAnswerSource = "standalone_topic_rag:cuisine_meal_planning";
+                        _lastToolDurations = new List<(string tool, long durationMs, bool ok)> { ("rag.multi_search", 0, true) };
+                        _lastToolsMs = 0;
+                        _lastWriterMs = 0;
+                        _mem.LastToolNames = new List<string> { "rag.multi_search" };
+                        onProgress?.Invoke(string.Empty);
+
+                        var finalizedMealPlan = FinalizeAndReturn(swTotalPipeline, displayUserMessage, mealAnswer, mealSourcesPayload, "rag.answer", _mem.LastToolNames, _mem.LastReasoningTracePublic);
+                        return (true, finalizedMealPlan.finalAnswer, mealSourcesPayload);
+                    }
+                }
+            }
 
             var args = CreateJsonArgs(new
             {
@@ -1783,7 +1830,7 @@ USER_MESSAGE:
             }
         }
 
-        if (ShouldUseCuisineExtractiveAnswer(userMessage, writerToolResults))
+        if (ShouldUseCuisineExtractiveAnswer(userMessage, writerToolResults) || LooksLikeCuisineActionRequest(userMessage))
         {
             var deterministicAnswer = BuildCuisineExtractiveAnswer(writerToolResults, userMessage, plan.Language);
             var deterministicSources = DeriveSourcesFromRagHits(writerToolResults);
@@ -1834,7 +1881,7 @@ AUTHORITATIVE_INVENTORY_DATA (json):
         if (usedRagSearch)
         {
             sources = DeriveSourcesFromRagHits(toolResults);
-            if (ShouldUseCuisineExtractiveAnswer(userMessage, toolResults))
+            if (ShouldUseCuisineExtractiveAnswer(userMessage, toolResults) || LooksLikeCuisineActionRequest(userMessage))
                 finalAnswer = BuildCuisineExtractiveAnswer(toolResults, userMessage, plan.Language);
             else if (sources.Count > 0 && LooksLikeNoRagDataAnswer(finalAnswer))
                 finalAnswer = BuildRagEvidenceFallbackAnswer(toolResults, userMessage, plan.Language);
@@ -2547,7 +2594,28 @@ TOOL_RESULTS (json):
         if (plan.ToolCalls.Count > 0 || plan.NeedClarification)
             return false;
 
-        return LooksLikeStandaloneDocumentaryTopic(effectiveUserMessage);
+        return LooksLikeStandaloneDocumentaryTopic(effectiveUserMessage)
+            || LooksLikeCuisineActionRequest(effectiveUserMessage);
+    }
+
+    private static bool LooksLikeCuisineActionRequest(string? userMessage)
+    {
+        var s = CollapseWhitespace(userMessage ?? string.Empty);
+        if (s.Length < 6)
+            return false;
+
+        if (!Regex.IsMatch(
+                s,
+                @"(?i)\b(?:recette|recettes|cuisine|cuisiner|repas|menu|menus|sauce|sauces|entrecote|entrecôte|steak|viande|poisson|poulet|dessert|semaine|batch\s+cooking|meal|meals|recipe|recipes|dinner|week|cocina|receta|recetas|comida|salsa|carne|cozinha|receita|receitas|refeicao|refeição|molho|kueche|küche|rezept|rezepte|essen|fleisch|cucina|ricetta|ricette|pasto)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        return Regex.IsMatch(
+            s,
+            @"(?i)\b(?:aide|aider|propose|proposer|trouve|trouver|faire|vais|veux|peux|peux-tu|pourrais|conseille|conseiller|choisir|planifie|organise|help|suggest|recommend|cook|make|plan|prepare|find|ayuda|ayudar|propone|recomienda|cozinhar|ajuda|vorschlag|empfiehl|aiutami|consiglia)\b",
+            RegexOptions.CultureInvariant);
     }
 
     private static string NormalizePlanMode(string? mode)

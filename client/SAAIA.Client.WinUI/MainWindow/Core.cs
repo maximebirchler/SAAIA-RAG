@@ -5,6 +5,15 @@ public sealed partial class MainWindow
     public MainWindow()
     {
         InitializeComponent();
+        _llm.RuntimeEnsureReady += async ct =>
+        {
+            if (!_appSettings.UseLocalLlm || !_appSettings.ManageLocalLlmProcess)
+                return;
+
+            var (ok, message) = await _llmProc.EnsureRunningAsync(_appSettings, ct).ConfigureAwait(false);
+            if (!ok)
+                throw new InvalidOperationException(message);
+        };
         _llm.RuntimeActivityStarted += _llmProc.NotifyActivityStart;
         _llm.RuntimeActivityFinished += _llmProc.NotifyActivityFinished;
         ApplyAppearanceTheme();

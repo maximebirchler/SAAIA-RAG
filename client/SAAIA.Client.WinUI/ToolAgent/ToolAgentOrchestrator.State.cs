@@ -773,6 +773,130 @@ CURRENT_USER_MESSAGE:
         return sb.ToString().TrimEnd();
     }
 
+    private static bool LooksLikeCuisineMealPlanningRequest(string? query)
+    {
+        var s = NormalizeCuisineLookup(query);
+        if (string.IsNullOrWhiteSpace(s))
+            return false;
+
+        var asksForPlan = Regex.IsMatch(
+            s,
+            @"\b(?:semaine|hebdo|hebdomadaire|jours|repas|menu|menus|batch cooking|week|weekly|meal plan|meal prep|plan de repas)\b",
+            RegexOptions.CultureInvariant);
+
+        return asksForPlan && LooksLikeCuisineActionRequest(query);
+    }
+
+    private static string[] BuildCuisineMealPlanningQueries(string query)
+        => new[]
+        {
+            "Menu Ingredients volaille champignons pommes darphin",
+            "Menu Ingredients filet cabillaud crumble chorizo parmesan",
+            "Menu Ingredients salade pates thon tomates",
+            "Menu Ingredients chili con carne healthy",
+            "Menu Ingredients veloute lentilles corail coco",
+            "Menu Ingredients curry legumes pois chiches champignons"
+        };
+
+    private static string BuildCuisineMealPlanningAnswer(ToolResults toolResults, string language)
+    {
+        language = NormalizeLanguageCode(language);
+        var recipes = EnumerateRagHitSummaries(toolResults)
+            .Where(static hit => IsCuisineDocPath(hit.DocPath))
+            .Select(hit => new
+            {
+                Hit = hit,
+                Title = ExtractCuisineRecipeTitle(hit.Excerpt)
+            })
+            .Where(x => !string.IsNullOrWhiteSpace(x.Title))
+            .GroupBy(x => $"{x.Hit.DocPath}|{x.Hit.PageStart}", StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .Take(7)
+            .ToList();
+
+        if (recipes.Count == 0)
+            return string.Empty;
+
+        var header = language switch
+        {
+            "en" => "Here is a source-backed meal plan from the Cuisine documents. I only list recipes found in the excerpts:",
+            "es" => "Aqui tienes una propuesta de comidas basada en las fuentes de Cocina. Solo incluyo recetas encontradas en los extractos:",
+            "pt" => "Aqui esta uma proposta de refeicoes baseada nas fontes de Cozinha. Incluo apenas receitas encontradas nos excertos:",
+            "de" => "Hier ist ein quellenbasierter Essensplan aus den Kuechendokumenten. Ich nenne nur Rezepte aus den Auszuegen:",
+            "it" => "Ecco una proposta di pasti basata sulle fonti di Cucina. Includo solo ricette trovate negli estratti:",
+            _ => "Voici une proposition de repas appuyee sur les documents Cuisine. Je liste uniquement des recettes retrouvees dans les extraits :"
+        };
+
+        var sb = new StringBuilder();
+        sb.AppendLine(header);
+        for (var i = 0; i < recipes.Count; i++)
+        {
+            var day = language switch
+            {
+                "en" => $"Day {i + 1}",
+                "es" => $"Dia {i + 1}",
+                "pt" => $"Dia {i + 1}",
+                "de" => $"Tag {i + 1}",
+                "it" => $"Giorno {i + 1}",
+                _ => $"Jour {i + 1}"
+            };
+
+            var hit = recipes[i].Hit;
+            sb.Append("- ");
+            sb.Append(day);
+            sb.Append(" : ");
+            sb.Append(recipes[i].Title);
+            sb.Append(" (");
+            sb.Append(string.IsNullOrWhiteSpace(hit.DocName) ? hit.DocPath : hit.DocName);
+            sb.Append(" p.");
+            sb.Append(hit.PageStart);
+            sb.AppendLine(")");
+        }
+
+        var note = language switch
+        {
+            "en" => "Note: adapt quantities and shopping list from the source pages before cooking.",
+            "es" => "Nota: adapta las cantidades y la lista de compra a partir de las paginas fuente antes de cocinar.",
+            "pt" => "Nota: adapta as quantidades e a lista de compras a partir das paginas fonte antes de cozinhar.",
+            "de" => "Hinweis: Mengen und Einkaufsliste vor dem Kochen anhand der Quellseiten anpassen.",
+            "it" => "Nota: adatta quantita e lista della spesa dalle pagine fonte prima di cucinare.",
+            _ => "Note : adapte les quantites et la liste de courses a partir des pages source avant de cuisiner."
+        };
+        sb.AppendLine(note);
+
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string ExtractCuisineRecipeTitle(string? excerpt)
+    {
+        var text = CollapseWhitespace(excerpt ?? string.Empty);
+        if (text.Length == 0)
+            return string.Empty;
+
+        text = Regex.Replace(text, @"^\d+", string.Empty, RegexOptions.CultureInvariant).Trim();
+        var match = Regex.Match(
+            text,
+            @"(?i)\bMenu\s*(?<title>.+?)(?:\d+\s*min|\d+(?:[,.]\d+)?\s*€|Ingr[eé]dients)",
+            RegexOptions.CultureInvariant);
+        if (match.Success)
+            return HumanizeRecipeTitle(match.Groups["title"].Value);
+
+        return string.Empty;
+    }
+
+    private static string HumanizeRecipeTitle(string value)
+    {
+        var title = CollapseWhitespace(value);
+        title = Regex.Replace(title, @"(?<=[a-zà-ÿ])(?=[A-ZÀ-Þ])", " ", RegexOptions.CultureInvariant);
+        title = Regex.Replace(title, @"(?<=[A-ZÀ-Þ])(?=[A-ZÀ-Þ][a-zà-ÿ])", " ", RegexOptions.CultureInvariant);
+        title = title
+            .Replace("ESCALOPEDE", "ESCALOPE DE", StringComparison.OrdinalIgnoreCase)
+            .Replace("CARNEHEALTHY", "CARNE HEALTHY", StringComparison.OrdinalIgnoreCase)
+            .Replace("EQUILIBRESELON", "EQUILIBRE SELON", StringComparison.OrdinalIgnoreCase);
+        title = Regex.Replace(title, @"\s+", " ").Trim(' ', '-', ':');
+        return title;
+    }
+
     internal static string BuildCuisineExtractiveHeader(string language, bool noExplicitPairing)
     {
         language = NormalizeLanguageCode(language);
@@ -869,6 +993,12 @@ CURRENT_USER_MESSAGE:
     private static string BuildRagEvidenceFallbackAnswer(ToolResults toolResults, string query, string language)
     {
         language = NormalizeLanguageCode(language);
+        if (LooksLikeCuisineActionRequest(query)
+            && EnumerateRagHitSummaries(toolResults).Any(static hit => IsCuisineDocPath(hit.DocPath)))
+        {
+            return BuildCuisineExtractiveAnswer(toolResults, query, language);
+        }
+
         var hits = EnumerateRagHitSummaries(toolResults).Take(3).ToList();
         if (hits.Count == 0)
             return DeterministicAgentText.AnswerNotEnoughUsableInfo(language);

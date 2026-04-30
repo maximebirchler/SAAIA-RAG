@@ -126,6 +126,81 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Contains("facilitemps.pdf p.44", answer);
     }
 
+    [Fact]
+    public void Cuisine_action_query_with_accented_entrecote_uses_extractive_answer()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Cuisine/facilitemps.pdf",
+                    docName = "facilitemps.pdf",
+                    pageStart = 44,
+                    pageEnd = 44,
+                    excerpt = "Les sauces et les trempettes. Une idee pour rehausser le gout de vos viandes est de cuisiner des sauces et des trempettes.",
+                    score = 0.99
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.search",
+            Result = doc.RootElement.Clone()
+        });
+
+        Assert.True(ToolAgentOrchestrator.ShouldUseCuisineExtractiveAnswerForTests("Je vais faire une entrecôte, quelle sauce irait bien avec ?", toolResults));
+        Assert.True(ToolAgentOrchestrator.LooksLikeCuisineActionRequestForTests("Je vais faire une entrecôte, quelle sauce irait bien avec ?"));
+    }
+
+    [Fact]
+    public void Cuisine_meal_planning_answer_lists_source_backed_recipe_days()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Cuisine/livre-recette-sist-2025-web.pdf",
+                    docName = "livre-recette-sist-2025-web.pdf",
+                    pageStart = 17,
+                    pageEnd = 17,
+                    excerpt = "17MenuFILET DE CABILLAUD EN CRUMBLE DE CHORIZO & PARMESAN10 min4Ingrédients4 filets de cabillaud (surgelés)",
+                    score = 1.0
+                },
+                new
+                {
+                    docPath = "Cuisine/livre-recette-sist-2025-web.pdf",
+                    docName = "livre-recette-sist-2025-web.pdf",
+                    pageStart = 15,
+                    pageEnd = 15,
+                    excerpt = "15MenuCHILI CON CARNEHEALTHY50 min4Ingrédients500g de boeuf hache",
+                    score = 0.99
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildCuisineMealPlanningAnswerForTests(toolResults, "fr");
+
+        Assert.Contains("Jour 1", answer);
+        Assert.Contains("FILET DE CABILLAUD", answer);
+        Assert.Contains("CHILI CON CARNE", answer);
+        Assert.Contains("documents Cuisine", answer);
+    }
+
     [Theory]
     [InlineData("fr", "sources Cuisine")]
     [InlineData("en", "Cuisine sources")]

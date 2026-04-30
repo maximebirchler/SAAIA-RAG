@@ -36,6 +36,9 @@ public sealed partial class ToolAgentOrchestrator
     internal static string BuildCuisineExtractiveHeaderForTests(string language, bool noExplicitPairing)
         => BuildCuisineExtractiveHeader(language, noExplicitPairing);
 
+    internal static string BuildCuisineMealPlanningAnswerForTests(ToolResults toolResults, string language)
+        => BuildCuisineMealPlanningAnswer(toolResults, language);
+
     internal static string SerializeTailForTests(IReadOnlyList<(string role, string content)> history, int maxTurns)
         => SerializeTail(history, maxTurns);
 
@@ -54,6 +57,9 @@ public sealed partial class ToolAgentOrchestrator
 
     internal static bool LooksLikeStandaloneDocumentaryTopicForTests(string query)
         => LooksLikeStandaloneDocumentaryTopic(query);
+
+    internal static bool LooksLikeCuisineActionRequestForTests(string query)
+        => LooksLikeCuisineActionRequest(query);
 
     internal static (bool Matched, string Topic) TryExtractDocumentContentSearchTopicForTests(string query)
     {

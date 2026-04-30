@@ -30,6 +30,7 @@ public sealed class OpenAiLlmClient
 
     private static readonly JsonSerializerOptions JsonOpts = ClientJson.CamelCase;
 
+    public event Func<CancellationToken, Task>? RuntimeEnsureReady;
     public OpenAiLlmClient()
         : this(httpClient: null)
     {
@@ -59,12 +60,23 @@ public sealed class OpenAiLlmClient
         _model = model.Trim();
     }
 
+    private async Task EnsureRuntimeReadyAsync(CancellationToken ct)
+    {
+        var handlers = RuntimeEnsureReady;
+        if (handlers is null)
+            return;
+
+        foreach (Func<CancellationToken, Task> handler in handlers.GetInvocationList())
+            await handler(ct).ConfigureAwait(false);
+    }
+
     public async Task<string> ChatOnceAsync(
         IReadOnlyList<(string role, string content)> messages,
         double temperature,
         int maxTokens,
         CancellationToken ct)
     {
+        await EnsureRuntimeReadyAsync(ct).ConfigureAwait(false);
         RuntimeActivityStarted?.Invoke();
         try
         {
@@ -108,6 +120,7 @@ public sealed class OpenAiLlmClient
         Action<string> onDelta,
         CancellationToken ct)
     {
+        await EnsureRuntimeReadyAsync(ct).ConfigureAwait(false);
         RuntimeActivityStarted?.Invoke();
         try
         {

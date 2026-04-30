@@ -73,9 +73,45 @@ public sealed class OpenAiLlmClientTests
             models);
     }
 
+    [Fact]
+    public async Task ChatOnceAsync_ensures_managed_runtime_before_request()
+    {
+        var ensureCalled = false;
+        var handler = new StubHttpHandler(
+            """
+            {
+              "choices": [
+                { "message": { "content": "ok" } }
+              ]
+            }
+            """,
+            HttpMethod.Post,
+            assertBeforeResponse: () => Assert.True(ensureCalled));
+
+        var sut = new OpenAiLlmClient(new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://localhost:1234")
+        });
+        sut.Configure("http://localhost:1234/v1", "model");
+        sut.RuntimeEnsureReady += _ =>
+        {
+            ensureCalled = true;
+            return Task.CompletedTask;
+        };
+
+        var answer = await sut.ChatOnceAsync(
+            new[] { ("user", "hello") },
+            temperature: 0.1,
+            maxTokens: 16,
+            CancellationToken.None);
+
+        Assert.Equal("ok", answer);
+        Assert.True(ensureCalled);
+    }
+
     private static OpenAiLlmClient CreateClient(string body)
     {
-        var http = new HttpClient(new StubHttpHandler(body))
+        var http = new HttpClient(new StubHttpHandler(body, HttpMethod.Get))
         {
             BaseAddress = new Uri("http://localhost:1234")
         };
@@ -83,12 +119,19 @@ public sealed class OpenAiLlmClientTests
         return new OpenAiLlmClient(http);
     }
 
-    private sealed class StubHttpHandler(string body) : HttpMessageHandler
+    private sealed class StubHttpHandler(
+        string body,
+        HttpMethod expectedMethod,
+        Action? assertBeforeResponse = null) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            Assert.Equal(HttpMethod.Get, request.Method);
-            Assert.EndsWith("/models", request.RequestUri!.AbsoluteUri);
+            assertBeforeResponse?.Invoke();
+            Assert.Equal(expectedMethod, request.Method);
+            if (expectedMethod == HttpMethod.Get)
+                Assert.EndsWith("/models", request.RequestUri!.AbsoluteUri);
+            else
+                Assert.EndsWith("/chat/completions", request.RequestUri!.AbsoluteUri);
 
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {

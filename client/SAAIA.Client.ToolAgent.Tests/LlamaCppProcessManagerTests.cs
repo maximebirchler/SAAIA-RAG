@@ -6,6 +6,42 @@ namespace SAAIA.Client.ToolAgent.Tests;
 public sealed class LlamaCppProcessManagerTests
 {
     [Fact]
+    public async Task EnsureRunningAsync_skips_when_runtime_is_externally_managed()
+    {
+        var sut = new LlamaCppProcessManager();
+        var settings = new AppSettings
+        {
+            UseLocalLlm = true,
+            ManageLocalLlmProcess = false,
+            LlamaExePath = "",
+            ModelPath = ""
+        };
+
+        var result = await sut.EnsureRunningAsync(settings, CancellationToken.None);
+
+        Assert.True(result.ok);
+        Assert.Contains("externally", result.message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task EnsureRunningAsync_reports_missing_runtime_for_managed_embedded_mode()
+    {
+        var sut = new LlamaCppProcessManager();
+        var settings = new AppSettings
+        {
+            UseLocalLlm = true,
+            ManageLocalLlmProcess = true,
+            LlamaExePath = "",
+            ModelPath = ""
+        };
+
+        var result = await sut.EnsureRunningAsync(settings, CancellationToken.None);
+
+        Assert.False(result.ok);
+        Assert.Contains("runtime", result.message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void BuildArgs_prefers_qualified_profile_over_conflicting_extra_args()
     {
         var settings = new AppSettings

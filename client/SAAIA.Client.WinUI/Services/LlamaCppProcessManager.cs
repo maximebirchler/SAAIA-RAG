@@ -12,6 +12,7 @@ namespace SAAIA.Client.WinUI.Services;
 internal sealed class LlamaCppProcessManager
 {
     private readonly object _gate = new();
+    private readonly SemaphoreSlim _startGate = new(1, 1);
     private Process? _proc;
     private Timer? _idleTimer;
     private int _activeRequests;
@@ -25,6 +26,29 @@ internal sealed class LlamaCppProcessManager
     public string? LastLogFile { get; private set; }
     public int? LastStartupLoadMs { get; private set; }
     public int IdleTimeoutSeconds => _idleTimeoutSeconds;
+
+    internal async Task<(bool ok, string message)> EnsureRunningAsync(AppSettings s, CancellationToken ct)
+    {
+        if (!s.UseLocalLlm || !s.ManageLocalLlmProcess)
+            return (true, "LLM runtime is managed externally.");
+
+        if (IsRunning)
+            return (true, "LLM runtime is already running.");
+
+        await _startGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (IsRunning)
+                return (true, "LLM runtime is already running.");
+
+            ClientLog.Info("[LlamaCpp] Runtime not running before request - starting managed runtime.");
+            return await StartAsync(s, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            _startGate.Release();
+        }
+    }
 
     /// <summary>
     /// Stops the managed llama-server process if running.

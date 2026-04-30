@@ -194,11 +194,23 @@ function Invoke-HttpJson {
 function Get-RagSources {
     param([object]$Parsed)
 
-    if ($null -eq $Parsed -or $null -eq $Parsed.matches) {
+    if ($null -eq $Parsed) {
         return @()
     }
 
-    return @($Parsed.matches | ForEach-Object {
+    $hits = @()
+    if ($Parsed.items) {
+        $hits = @($Parsed.items)
+    }
+    elseif ($Parsed.matches) {
+        $hits = @($Parsed.matches)
+    }
+
+    if ($hits.Count -eq 0) {
+        return @()
+    }
+
+    return @($hits | ForEach-Object {
         [ordered]@{
             docName = $_.docName
             docPath = $_.docPath
