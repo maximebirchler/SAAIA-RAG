@@ -445,6 +445,13 @@ internal static partial class DocumentProfileProjector
 
     private static IEnumerable<string> ExtractLeadTitleCandidatesFromLine(string line)
     {
+        var spacedLine = LowerOrDigitToUpperTitleBoundaryRegex().Replace(line, " ");
+        if (!string.Equals(spacedLine, line, StringComparison.Ordinal))
+        {
+            foreach (var candidate in ExtractEmbeddedUppercaseTitleCandidates(spacedLine))
+                yield return candidate;
+        }
+
         var cleaned = CleanTitleCandidate(line);
         if (IsUsefulContentCardTitle(cleaned))
             yield return cleaned;
@@ -656,6 +663,8 @@ internal static partial class DocumentProfileProjector
 
         title = LeadingNumberRegex().Replace(title, string.Empty);
         title = BracketedIndexSuffixRegex().Replace(title, string.Empty);
+        if (CountTokens(title) >= 2 && LooksLikeMostlyUppercaseTitle(title))
+            title = CompactTrailingMeasureNumberRegex().Replace(title, string.Empty);
         if (CountTokens(title) >= 2)
             title = CompactTrailingNumericSuffixRegex().Replace(title, string.Empty);
         title = CollapseWhitespace(title.Trim(' ', '-', ':', ';', '.', ',', '|', '/', '\\', '(', ')', '•', '·'));
@@ -979,6 +988,9 @@ internal static partial class DocumentProfileProjector
     [GeneratedRegex(@"(?<left>[\p{Ll}\p{Lo}])(?<right>[\p{Lu}][\p{Ll}]{2,}\b)", RegexOptions.CultureInvariant)]
     private static partial Regex LowerToUpperBoundaryRegex();
 
+    [GeneratedRegex(@"(?<=[\p{Ll}\p{Nd}])(?=[\p{Lu}]{2,}\b)", RegexOptions.CultureInvariant)]
+    private static partial Regex LowerOrDigitToUpperTitleBoundaryRegex();
+
     [GeneratedRegex(@"^\s*(?:page\s*)?(?:\d+[\.)\]\-:]*\s*|[IVXLCDM]+(?:[\.)\]\-:]\s*|\s+))", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex LeadingNumberRegex();
 
@@ -1029,6 +1041,9 @@ internal static partial class DocumentProfileProjector
 
     [GeneratedRegex("(?<=[\\p{Ll}\\p{Lo}])\\d{5,}$", RegexOptions.CultureInvariant)]
     private static partial Regex CompactTrailingNumericSuffixRegex();
+
+    [GeneratedRegex("(?<=[\\p{Lu}]{3})\\d{1,4}$", RegexOptions.CultureInvariant)]
+    private static partial Regex CompactTrailingMeasureNumberRegex();
 }
 
 internal sealed record DocumentProfileContentCard(

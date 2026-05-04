@@ -76,6 +76,47 @@ public sealed class DocumentProfileProjectorTests
     }
 
     [Fact]
+    public void Project_extracts_embedded_uppercase_title_when_followed_by_measurement()
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                1,
+                "Ajoutez 15 cl d'eau puis lancez le robot pour 12 min. Servez avec des steaks.6 personnes12 min5 minSAUCE AU POIVRE50 g de parmesan Sel Poivre.",
+                24,
+                146,
+                [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "Ajoutez 15 cl d'eau puis lancez le robot pour 12 min. Servez avec des steaks.6 personnes12 min5 minSAUCE AU POIVRE50 g de parmesan Sel Poivre.",
+                146,
+                24,
+                [2])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Mixed/Robot.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "SAUCE AU POIVRE", StringComparison.Ordinal));
+        Assert.Contains("SAUCE AU POIVRE", profile.SearchText, StringComparison.Ordinal);
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "SAUCE AU POIVRE50", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Project_discards_layout_noise_from_content_card_titles()
     {
         var pages = new[]

@@ -318,18 +318,166 @@ internal static partial class RetrievalChunkProjector
         int? offsetStart,
         int? offsetEnd,
         string chunkType)
-        => new(
+    {
+        var normalizedText = NormalizeRetrievalText(text);
+        var prefixedText = PrefixDetectedEmbeddedTitle(normalizedText);
+
+        return new(
             ChunkIndex: chunkIndex,
             SectionOrdinal: sectionOrdinal,
             UnitOrdinal: unitOrdinal,
             PageStart: pageStart,
             PageEnd: pageEnd,
-            Text: text,
-            TokenCount: CountTokens(text),
-            Checksum: SHA256.HashData(Encoding.UTF8.GetBytes(text)),
+            Text: prefixedText,
+            TokenCount: CountTokens(prefixedText),
+            Checksum: SHA256.HashData(Encoding.UTF8.GetBytes(prefixedText)),
             ChunkType: chunkType,
             OffsetStart: offsetStart,
             OffsetEnd: offsetEnd);
+    }
+
+    private static string NormalizeRetrievalText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return string.Empty;
+
+        var withoutControls = new StringBuilder(text.Length);
+        foreach (var ch in text)
+        {
+            withoutControls.Append(char.IsControl(ch) && ch is not '\r' and not '\n' and not '\t'
+                ? ' '
+                : ch);
+        }
+
+        var normalized = withoutControls.ToString();
+        normalized = LeadingCompactPageNumberRegex().Replace(normalized, string.Empty);
+        normalized = DigitToStructuralLeadRegex().Replace(normalized, " ");
+        normalized = LetterToNumericMeasureRegex().Replace(normalized, " ");
+        normalized = LowerToCountNounBoundaryRegex().Replace(normalized, " ");
+        normalized = ApostropheWordToNumericWordBoundaryRegex().Replace(normalized, "${word} ");
+        normalized = LetterToBareNumberedStepRegex().Replace(normalized, " ");
+        normalized = PunctuationToBareNumberedStepRegex().Replace(normalized, " ");
+        normalized = PunctuationToNumericMeasureRegex().Replace(normalized, " ");
+        normalized = UnitToDigitBoundaryRegex().Replace(normalized, "${unit} ");
+        if (LooksQuantityDenseText(normalized))
+        {
+            normalized = PunctuationToLooseQuantityBoundaryRegex().Replace(normalized, " ");
+            normalized = LowerToLooseQuantityBoundaryRegex().Replace(normalized, " ");
+            normalized = UnitToDigitBoundaryRegex().Replace(normalized, "${unit} ");
+        }
+
+        normalized = UppercaseRunToTitleCaseBoundaryRegex().Replace(normalized, " ");
+        normalized = LowerToKnownLabelBoundaryRegex().Replace(normalized, " ");
+        normalized = AdjacentKnownLabelsBoundaryRegex().Replace(normalized, "${first} ${second}");
+        normalized = LowerOrDigitToStructuralLeadRegex().Replace(normalized, " ");
+        normalized = StructuralBoundaryRegex().Replace(normalized, " ");
+        normalized = HorizontalWhitespaceRegex().Replace(normalized, " ");
+        normalized = ParagraphWhitespaceRegex().Replace(normalized, ChunkSeparator);
+        return normalized.Trim();
+    }
+
+    private static bool LooksQuantityDenseText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        var count = 0;
+        foreach (Match _ in QuantityDenseMarkerRegex().Matches(text))
+        {
+            count++;
+            if (count >= 3)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static string PrefixDetectedEmbeddedTitle(string text)
+    {
+        var title = ExtractEmbeddedTitle(text);
+        if (string.IsNullOrWhiteSpace(title))
+            return text;
+
+        var normalizedText = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(text));
+        var normalizedTitle = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(title));
+        if (normalizedText.StartsWith(normalizedTitle, StringComparison.Ordinal))
+            return text;
+
+        return $"{title}{ChunkSeparator}{text}";
+    }
+
+    private static string? ExtractEmbeddedTitle(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || text.Length < 80)
+            return null;
+
+        string? best = null;
+        var bestScore = 0;
+        foreach (Match match in EmbeddedUppercaseTitleRegex().Matches(text))
+        {
+            var candidate = CleanEmbeddedTitleCandidate(match.Groups["title"].Value);
+            if (!IsUsefulEmbeddedTitle(candidate))
+                continue;
+
+            var normalized = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(candidate));
+            var score = candidate.Length;
+            if (match.Index > 40)
+                score += 20;
+            if (StructuredContextBeforeTitleRegex().IsMatch(text[..match.Index]))
+                score += 30;
+            if (StructuredContextAfterTitleRegex().IsMatch(text[Math.Min(text.Length, match.Index + match.Length)..]))
+                score += 10;
+            if (EmbeddedTitleStopwords.Contains(normalized))
+                score -= 40;
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = candidate;
+            }
+        }
+
+        return bestScore >= 30 ? best : null;
+    }
+
+    private static string CleanEmbeddedTitleCandidate(string value)
+    {
+        var title = HorizontalWhitespaceRegex().Replace(value ?? string.Empty, " ").Trim();
+        title = LeadingCompactPageNumberRegex().Replace(title, string.Empty);
+        title = MostlyUppercaseTrailingMeasureNumberRegex().Replace(title, string.Empty);
+        title = title.Trim(' ', '-', ':', ';', '.', ',', '|', '/', '\\', '(', ')', '*', '•');
+        return HorizontalWhitespaceRegex().Replace(title, " ").Trim();
+    }
+
+    private static bool IsUsefulEmbeddedTitle(string? title)
+    {
+        if (string.IsNullOrWhiteSpace(title) || title.Length is < 4 or > 90)
+            return false;
+
+        var tokenCount = CountTokens(title);
+        if (tokenCount is < 2 or > 10)
+            return false;
+
+        if (!title.Any(char.IsLetter) || !LooksLikeMostlyUppercaseTitle(title))
+            return false;
+
+        var normalized = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(title));
+        if (EmbeddedTitleStopwords.Contains(normalized))
+            return false;
+
+        return !normalized.Contains("table des matieres", StringComparison.Ordinal)
+            && !normalized.Contains("table of contents", StringComparison.Ordinal);
+    }
+
+    private static bool LooksLikeMostlyUppercaseTitle(string title)
+    {
+        var letters = title.Where(char.IsLetter).ToArray();
+        if (letters.Length < 4)
+            return false;
+
+        var uppercase = letters.Count(char.IsUpper);
+        return uppercase >= Math.Ceiling(letters.Length * 0.72);
+    }
 
     private static int? ResolveExcerptOffsetStart(ExtractedDocumentUnit? unit, string excerpt)
     {
@@ -362,6 +510,24 @@ internal static partial class RetrievalChunkProjector
     private static int CountTokens(string text)
         => text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
 
+    private static readonly HashSet<string> EmbeddedTitleStopwords = new(StringComparer.Ordinal)
+    {
+        "ingredients",
+        "ingredient",
+        "preparation",
+        "preparations",
+        "etapes",
+        "steps",
+        "method",
+        "methods",
+        "temps total",
+        "total time",
+        "sauces",
+        "document",
+        "page",
+        "pages"
+    };
+
     [GeneratedRegex(@"(?:^|[^\p{L}\p{N}])(?:pour|for|para|per)\s+\d+|(?:^|[^\p{L}\p{N}])\d+\s*[\.)]\s+\p{L}", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex ServingOrStepMarkerRegex();
 
@@ -370,6 +536,72 @@ internal static partial class RetrievalChunkProjector
 
     [GeneratedRegex(@"(?<=[\p{Ll}\p{Nd}])(?=(?:Pour|For|Para|Per|Ingredients?|Ingrédients?|Zutaten|Preparation|Préparation|Realisation|Réalisation|Etapes?|Étapes?)\b)", RegexOptions.CultureInvariant)]
     private static partial Regex StructuralBoundaryRegex();
+
+    [GeneratedRegex(@"^\s*\d{1,6}(?=(?:Temps|Total|Ingredients?|Ingr[eÃ©]dients?|Preparation|Pr[eÃ©]paration|\p{Lu}(?:[\p{Ll}]{2,}|['\u2019]\p{Lu}{2,}|\p{Lu}{2,})))", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex LeadingCompactPageNumberRegex();
+
+    [GeneratedRegex(@"(?<=\d)(?=(?:Temps|Total|Ingredients?|Ingr[eÃ©]dients?|Preparation|Pr[eÃ©]paration|\p{Lu}(?:[\p{Ll}]{2,}|['\u2019]\p{Lu}{2,}|\p{Lu}{2,})))", RegexOptions.CultureInvariant)]
+    private static partial Regex DigitToStructuralLeadRegex();
+
+    [GeneratedRegex(@"(?<=[\p{L}])(?=\d+(?:[,.]\d+)?(?:\s*(?:g|kg|mg|ml|cl|l|oz|lb|c\.|cuill|personnes?|people|servings?|portions?|brins?|cubes?|gousses?|tranches?|morceaux?|feuilles?|sachets?|pinc[e\u00e9]es?|carottes?|oignons?|\u00e9chalotes?|echalotes?|branches?|lamelles?|escalopes?|capsules?|gla[c\u00e7]ons?|bouquets?|piments?|fruits?|l[e\u00e9]gumes?|jaunes?|blancs?|oeufs?|\u0153ufs?|eggs?|cloves?|slices?|pieces?|leaves?|cups?|tbsp|tsp|s|sec|secs|secondes?|seconds?|min|h)(?:\b|\s)|[\.)]\s*\p{L}))", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex LetterToNumericMeasureRegex();
+
+    [GeneratedRegex(@"(?<=[\p{Ll}])(?=\d{1,4}\s+(?:brins?|cubes?|gousses?|tranches?|morceaux?|feuilles?|sachets?|pinc[e\u00e9]es?|carottes?|oignons?|\u00e9chalotes?|echalotes?|branches?|lamelles?|escalopes?|capsules?|gla[c\u00e7]ons?|bouquets?|piments?|fruits?|l[e\u00e9]gumes?|jaunes?|blancs?|oeufs?|\u0153ufs?|eggs?|cloves?|slices?|pieces?|leaves?)(?:\s|[,\.;:\)\]]|$))", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex LowerToCountNounBoundaryRegex();
+
+    [GeneratedRegex(@"(?<=[\p{Ll}])(?=\d{1,4}(?:[,.]\d+)?\s+\p{Ll})", RegexOptions.CultureInvariant)]
+    private static partial Regex LowerToLooseQuantityBoundaryRegex();
+
+    [GeneratedRegex(@"(?<=[\.!?:;\)\]\u00ae])(?=\d{1,4}(?:[,.]\d+)?\s+\p{Ll})", RegexOptions.CultureInvariant)]
+    private static partial Regex PunctuationToLooseQuantityBoundaryRegex();
+
+    [GeneratedRegex(@"\b(?<word>[\p{L}]+['\u2019][\p{L}]{2,20})(?=\d{1,4}\s+\p{Ll})", RegexOptions.CultureInvariant)]
+    private static partial Regex ApostropheWordToNumericWordBoundaryRegex();
+
+    [GeneratedRegex(@"(?<=[\p{L}])(?=\d+\s+\p{Lu})", RegexOptions.CultureInvariant)]
+    private static partial Regex LetterToBareNumberedStepRegex();
+
+    [GeneratedRegex(@"(?<=[\.!?])(?=\d+\s+\p{Lu})", RegexOptions.CultureInvariant)]
+    private static partial Regex PunctuationToBareNumberedStepRegex();
+
+    [GeneratedRegex(@"(?<=[\.!?:;\)\]\u00ae])(?=\d+(?:[,.]\d+)?(?:/\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|c\.|cuill|cups?|tbsp|tsp|personnes?|people|servings?|portions?|s|sec|secs|secondes?|seconds?|min|h)(?:\b|(?=\d)))", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex PunctuationToNumericMeasureRegex();
+
+    [GeneratedRegex(@"\b(?<unit>personnes?|people|servings?|portions?|s|sec|secs|secondes?|seconds?|min|h)(?=\d)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex UnitToDigitBoundaryRegex();
+
+    [GeneratedRegex(@"\b(?:ingredients?|ingr[e\u00e9]dients?|zutaten|preparation|pr[e\u00e9]paration|\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|c\.|cuill|cups?|tbsp|tsp|personnes?|people|servings?|portions?|s|sec|secs|secondes?|seconds?|min|h))\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex QuantityDenseMarkerRegex();
+
+    [GeneratedRegex(@"(?<=[\p{Lu}])(?=\p{Lu}\p{Ll}{2,})", RegexOptions.CultureInvariant)]
+    private static partial Regex UppercaseRunToTitleCaseBoundaryRegex();
+
+    [GeneratedRegex(@"(?<=[\p{Ll}])(?=(?:Sel|Poivre|Salt|Pepper))", RegexOptions.CultureInvariant)]
+    private static partial Regex LowerToKnownLabelBoundaryRegex();
+
+    [GeneratedRegex(@"\b(?<first>Sel|Salt)(?<second>Poivre|Pepper)\b", RegexOptions.CultureInvariant)]
+    private static partial Regex AdjacentKnownLabelsBoundaryRegex();
+
+    [GeneratedRegex(@"(?<=[\p{Ll}\p{Nd}])(?=(?:Temps|Total|Pour|For|Para|Per|With|Avec|Ingredients?|Ingr[eÃ©]dients?|Zutaten|Preparation|Pr[eÃ©]paration|Method|Steps?|Etapes?|[A-Z]{2,}\b))", RegexOptions.CultureInvariant)]
+    private static partial Regex LowerOrDigitToStructuralLeadRegex();
+
+    [GeneratedRegex(@"[ \t\f\v]+", RegexOptions.CultureInvariant)]
+    private static partial Regex HorizontalWhitespaceRegex();
+
+    [GeneratedRegex(@"(?:\s*\r?\n\s*){2,}", RegexOptions.CultureInvariant)]
+    private static partial Regex ParagraphWhitespaceRegex();
+
+    [GeneratedRegex(@"(?<![\p{L}\p{N}])(?<title>[\p{Lu}][\p{Lu}\p{Nd}'\u2019\-\s]{4,90}?)(?=(?:\s+\d{1,4}\s*(?:g|kg|mg|ml|cl|l|oz|lb|c\.|cuill|personnes?|people|servings?|portions?|min|h)\b|\s+[A-Z][\p{Ll}]{2,}|\s*$|[\.:\-\u2013\u2014]))", RegexOptions.CultureInvariant)]
+    private static partial Regex EmbeddedUppercaseTitleRegex();
+
+    [GeneratedRegex(@"(?<=[\p{Lu}])\d{1,4}$", RegexOptions.CultureInvariant)]
+    private static partial Regex MostlyUppercaseTrailingMeasureNumberRegex();
+
+    [GeneratedRegex(@"\b(?:ingredients?|ingr[eÃ©]dients?|zutaten|preparation|pr[eÃ©]paration|method|steps?|etapes?|temps total|total time|\d+\s*(?:personnes?|people|servings?|portions?|min|h))\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex StructuredContextBeforeTitleRegex();
+
+    [GeneratedRegex(@"\b(?:ingredients?|ingr[eÃ©]dients?|zutaten|preparation|pr[eÃ©]paration|method|steps?|\d+\s*(?:g|kg|mg|ml|cl|l|oz|lb|c\.|cuill))\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex StructuredContextAfterTitleRegex();
 }
 
 internal sealed record ProjectedRetrievalChunk(

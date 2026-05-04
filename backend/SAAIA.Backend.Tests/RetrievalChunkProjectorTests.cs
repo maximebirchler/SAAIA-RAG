@@ -178,7 +178,7 @@ public sealed class RetrievalChunkProjectorTests
             chunk.Text.StartsWith("Si vous preferez", StringComparison.Ordinal)
             && chunk.Text.Contains("Gratin dauphinois", StringComparison.Ordinal));
         Assert.Contains(projected, chunk =>
-            chunk.Text.StartsWith("7Gratin dauphinois", StringComparison.Ordinal)
+            chunk.Text.StartsWith("Gratin dauphinois", StringComparison.Ordinal)
             && (chunk.ChunkType == "section_window_v1" || chunk.ChunkType == "unit_exact_v1"));
     }
 
@@ -246,8 +246,139 @@ public sealed class RetrievalChunkProjectorTests
 
         Assert.DoesNotContain(projected, chunk =>
             chunk.Text.StartsWith("Si vous préférez", StringComparison.Ordinal)
-            && chunk.Text.Contains("7Gratin dauphinois", StringComparison.Ordinal));
+            && chunk.Text.Contains("Gratin dauphinois", StringComparison.Ordinal));
         Assert.Contains(projected, chunk =>
-            chunk.Text.StartsWith("7Gratin dauphinois", StringComparison.Ordinal));
+            chunk.Text.StartsWith("Gratin dauphinois", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ProjectStructureAware_prefixes_embedded_uppercase_title_and_cleans_pdf_artifacts()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 121, 121, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                426,
+                0,
+                121,
+                121,
+                "226227Temps total : 12 minTemps total : 17 min1 c. a c. de poivre concasse1 cl de cognac10 cl de creme liquide1 Dans le robot muni du batteur, mettez le poivre.",
+                164,
+                31,
+                [1],
+                0,
+                164),
+            new ExtractedDocumentUnit(
+                427,
+                0,
+                121,
+                121,
+                "Ajoutez 15 cl d'eau puis lancez le robot pour 12 min. Servez avec des steaks.6 personnes12 min5 minSAUCE AU POIVRE50 g de parmesan\x07SelPoivre1 Otez la croute.",
+                160,
+                31,
+                [2],
+                166,
+                326)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 0,
+            minWords: 25);
+
+        var sauce = Assert.Single(projected, chunk => chunk.Text.StartsWith("SAUCE AU POIVRE", StringComparison.Ordinal));
+        Assert.DoesNotContain("\x07", sauce.Text, StringComparison.Ordinal);
+        Assert.Contains("Temps total : 12 min", sauce.Text, StringComparison.Ordinal);
+        Assert.Contains("12 min Temps total", sauce.Text, StringComparison.Ordinal);
+        Assert.Contains("liquide 1 Dans", sauce.Text, StringComparison.Ordinal);
+        Assert.Contains("d'eau puis lancez", sauce.Text, StringComparison.Ordinal);
+        Assert.Contains("steaks. 6 personnes 12 min 5 min SAUCE AU POIVRE", sauce.Text, StringComparison.Ordinal);
+        Assert.Contains("5 min SAUCE AU POIVRE 50 g", sauce.Text, StringComparison.Ordinal);
+        Assert.False(sauce.Text.StartsWith("226227", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ProjectStructureAware_separates_compact_measure_step_and_title_boundaries()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 107, 107, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                107,
+                107,
+                "Temps total : 22 min 150 g de polenta precuite0,7 L d'eau1 \u0153uf et d'eau1 cube.2 Dans le bol, versez d'eau10 brins de ciboulette.4 A la fin, ajoutez du chorizo2 oignons, servez avec du riz basmati.1,8 kg de dinde (morceaux a sauter)100 g de chorizo, des tomates (en conserve)1 branche de thym, Maizena\u00ae30 cl de bouillon, un saumon sans la peau1 poignee d'aneth et du gorgonzola2 jaunes avec la creme liquideSelPoivre. Mixez 10 s2 h. Servez immediatement.4/6 personnes 17 min5 minPOLENTAVous pouvez ajouter des herbes.",
+                216,
+                32,
+                [1],
+                0,
+                216)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 0,
+            minWords: 1);
+
+        var chunk = Assert.Single(projected);
+        Assert.Contains("precuite 0,7 L d'eau 1 \u0153uf et d'eau 1 cube", chunk.Text, StringComparison.Ordinal);
+        Assert.Contains(". 2 Dans le bol", chunk.Text, StringComparison.Ordinal);
+        Assert.Contains("d'eau 10 brins", chunk.Text, StringComparison.Ordinal);
+        Assert.Contains(". 4 A la fin", chunk.Text, StringComparison.Ordinal);
+        Assert.Contains("chorizo 2 oignons", chunk.Text, StringComparison.Ordinal);
+        Assert.Contains("basmati. 1,8 kg", chunk.Text, StringComparison.Ordinal);
+        Assert.Contains("sauter) 100 g", chunk.Text, StringComparison.Ordinal);
+        Assert.Contains("conserve) 1 branche", chunk.Text, StringComparison.Ordinal);
+        Assert.Contains("Maizena\u00ae 30 cl", chunk.Text, StringComparison.Ordinal);
+        Assert.Contains("peau 1 poignee", chunk.Text, StringComparison.Ordinal);
+        Assert.Contains("gorgonzola 2 jaunes", chunk.Text, StringComparison.Ordinal);
+        Assert.Contains("liquide Sel Poivre", chunk.Text, StringComparison.Ordinal);
+        Assert.Contains("10 s 2 h", chunk.Text, StringComparison.Ordinal);
+        Assert.Contains("immediatement. 4/6 personnes 17 min 5 min POLENTA Vous", chunk.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ProjectStructureAware_removes_compact_leading_page_number_before_apostrophe_title()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 19, 19, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                19,
+                19,
+                "19N'ATTENDEZ PAS D'AVOIR SOIF POUR BOIRE DE L'EAU ! Il est essentiel de boire de l'eau regulierement tout au long de la journee.",
+                132,
+                22,
+                [1],
+                0,
+                132)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 0,
+            minWords: 1);
+
+        var chunk = Assert.Single(projected);
+        Assert.StartsWith("N'ATTENDEZ PAS", chunk.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("19N'ATTENDEZ", chunk.Text, StringComparison.Ordinal);
     }
 }
