@@ -504,6 +504,7 @@ ORDER BY d.doc_path;
         PruneWeakTitleExpansionSelections(req.Query, selected);
         PruneWeakAdjacentSiblingSelections(req.Query, selected);
         PrunePreciseTitleTailSelections(req.Query, selected);
+        PruneUnmatchedPreciseTitleSelections(req.Query, selected);
         PruneNavigationalSelections(req.Query, selected);
         ApplyAutocut(selected, minScore);
 
@@ -957,7 +958,7 @@ LEFT JOIN document_sections s
   ON s.section_id = rc.section_id
 LEFT JOIN profile_card_matches pcm
   ON pcm.revision_id = r.revision_id
- AND rc.page_start <= pcm.card_page_end + 1
+ AND rc.page_start <= pcm.card_page_end
  AND rc.page_end >= pcm.card_page_start
 CROSS JOIN LATERAL (
     SELECT LOWER(rc.text_content) AS text_lc
@@ -1327,7 +1328,7 @@ LEFT JOIN document_sections s
   ON s.section_id = rc.section_id
 LEFT JOIN profile_card_matches pcm
   ON pcm.revision_id = r.revision_id
- AND rc.page_start <= pcm.card_page_end + 1
+ AND rc.page_start <= pcm.card_page_end
  AND rc.page_end >= pcm.card_page_start
 WHERE to_tsvector('simple', cte.text_content) @@ sparse_query.q
   AND (@category IS NULL OR LOWER(d.category) = @category)
@@ -1518,7 +1519,7 @@ LEFT JOIN document_sections s
   ON s.section_id = rc.section_id
 LEFT JOIN profile_card_matches pcm
   ON pcm.revision_id = r.revision_id
- AND rc.page_start <= pcm.card_page_end + 1
+ AND rc.page_start <= pcm.card_page_end
  AND rc.page_end >= pcm.card_page_start
 CROSS JOIN LATERAL (
     SELECT LOWER(rc.text_content) AS text_lc
@@ -2829,17 +2830,23 @@ LIMIT @top_k;
                 {
                     Match = match with { Score = Math.Clamp(adjusted, 0.0, 1.02) },
                     ExactTitleScore = exactTitleScore,
+                    DirectChunkTitleSignal = ComputeDirectChunkTitleSignal(originalQuery ?? query, match),
                     QuotedLookupScore = quotedLookupScore,
-                    SpecificAnchorCount = CountSpecificLexicalAnchors(lexicalTokens, titleSignalText),
+                    LexicalCoverage = lexicalCoverage,
+                    SpecificAnchorCount = specificAnchorCount,
                     StructuredAnswerPriority = GetStructuredAnswerPriority(match)
                 };
             })
             .OrderByDescending(item => item.ExactTitleScore > 0.0 ? 1 : 0)
+            .ThenByDescending(static item => item.DirectChunkTitleSignal)
             .ThenByDescending(item => useSpecificCoverageTitlePriority && item.SpecificAnchorCount >= 2 ? 1 : 0)
             .ThenByDescending(item => useSpecificCoverageTitlePriority ? item.StructuredAnswerPriority : 0)
             .ThenByDescending(item => useSpecificCoverageTitlePriority ? item.SpecificAnchorCount : 0)
             .ThenByDescending(item => item.ExactTitleScore)
             .ThenByDescending(item => item.Match.Score)
+            .ThenByDescending(static item => item.SpecificAnchorCount)
+            .ThenByDescending(static item => item.LexicalCoverage)
+            .ThenByDescending(static item => item.StructuredAnswerPriority)
             .ThenByDescending(item => item.QuotedLookupScore)
             .ThenBy(item => item.Match.DocPath, StringComparer.OrdinalIgnoreCase)
             .ThenBy(item => item.Match.ChunkIndex)
@@ -2960,6 +2967,7 @@ LIMIT @top_k;
             {
                 Match = match,
                 ExactTitleScore = ComputeExactTitleCandidateScore(query, match),
+                DirectChunkTitleSignal = ComputeDirectChunkTitleSignal(query, match),
                 SpecificAnchorCount = lexicalTokens.Length > 0
                     ? CountSpecificLexicalAnchors(lexicalTokens, GetTitleSignalText(match))
                     : 0,
@@ -2976,6 +2984,7 @@ LIMIT @top_k;
         selected.Clear();
         selected.AddRange(ranked
             .OrderByDescending(static item => item.ExactTitleScore > 0.0 ? 1 : 0)
+            .ThenByDescending(static item => item.DirectChunkTitleSignal)
             .ThenByDescending(item => useSpecificCoverageTitlePriority && item.SpecificAnchorCount >= 2 ? 1 : 0)
             .ThenByDescending(item => useSpecificCoverageTitlePriority ? item.StructuredAnswerPriority : 0)
             .ThenByDescending(item => useSpecificCoverageTitlePriority ? item.SpecificAnchorCount : 0)
@@ -3183,6 +3192,7 @@ LIMIT @top_k;
                 StrictCoverage = HasStrictTitleAnchorCoverage(lexicalTokens, match),
                 TitleAnchorCount = CountTitleAnchorTokens(lexicalTokens, GetPreciseTitleSignalText(match)),
                 ExactTitleScore = ComputeExactTitleCandidateScore(query, match),
+                DirectChunkTitleSignal = ComputeDirectChunkTitleSignal(query, match),
                 StructuredAnswerPriority = GetStructuredAnswerPriority(match)
             })
             .ToList();
@@ -3194,6 +3204,7 @@ LIMIT @top_k;
                     || item.StructuredAnswerPriority >= 2
                     || HasProfileTitleHint(item.Match)))
             .OrderByDescending(static item => item.StrictCoverage)
+            .ThenByDescending(static item => item.DirectChunkTitleSignal)
             .ThenByDescending(static item => item.ExactTitleScore)
             .ThenByDescending(static item => item.StructuredAnswerPriority)
             .ThenByDescending(static item => item.Match.Score)
@@ -3221,6 +3232,58 @@ LIMIT @top_k;
             return !HasStrictTitleAnchorCoverage(lexicalTokens, match)
                 || (anchorIsContentChunk && string.Equals(match.ChunkType, "document_profile", StringComparison.Ordinal));
         });
+    }
+
+    internal static void PruneUnmatchedPreciseTitleSelections(string query, List<RagMatch> selected)
+    {
+        if (selected.Count == 0 || !ShouldConstrainPreciseTitleLookup(query))
+            return;
+
+        var primaryTokens = ExtractTitlePruneTokens(query)
+            .Where(IsPrimarySpecificLexicalAnchorToken)
+            .Distinct(StringComparer.Ordinal)
+            .Take(4)
+            .ToArray();
+        if (primaryTokens.Length == 0)
+            return;
+
+        var primaryAnchors = selected
+            .Where(match => ContainsPrimarySpecificSelectionAnchor(primaryTokens, match))
+            .ToArray();
+        if (primaryAnchors.Length == 0)
+        {
+            selected.Clear();
+            return;
+        }
+
+        selected.RemoveAll(match =>
+        {
+            if (ContainsPrimarySpecificSelectionAnchor(primaryTokens, match))
+                return false;
+
+            return !IsUsefulLinkedSelectionNearPrimaryAnchor(match, primaryAnchors);
+        });
+    }
+
+    private static bool ContainsPrimarySpecificSelectionAnchor(IReadOnlyList<string> primaryTokens, RagMatch match)
+    {
+        if (primaryTokens.Count == 0)
+            return true;
+
+        return ContainsPrimarySpecificLexicalAnchor(primaryTokens, GetPreciseTitleSignalText(match));
+    }
+
+    private static bool IsUsefulLinkedSelectionNearPrimaryAnchor(RagMatch match, IReadOnlyList<RagMatch> primaryAnchors)
+    {
+        if (!string.Equals(ResolveRetriever(match), "linked_context", StringComparison.Ordinal))
+            return false;
+        if (LooksLikeNavigationalChunk(match) || LooksLikeGlossaryChunk(match))
+            return false;
+
+        return primaryAnchors.Any(anchor =>
+            string.Equals(anchor.DocPath, match.DocPath, StringComparison.OrdinalIgnoreCase)
+            && IsNearbyPage(anchor, match, maxDistance: 2)
+            && !IsNearDuplicatePageOverlap(anchor, match));
     }
 
     private static bool IsSameChunk(RagMatch left, RagMatch right)
@@ -3527,12 +3590,20 @@ LIMIT @top_k;
             return 0.0;
 
         var normalizedQuery = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query));
+        var normalizedChunkText = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(match.Text ?? string.Empty));
         var score = ComputeRawOrderedTitleScore(query, candidateText);
         if (normalizedQuery.Length >= 8
             && normalizedQuery.Count(static ch => ch == ' ') >= 1
             && normalizedCandidate.Contains(normalizedQuery, StringComparison.Ordinal))
         {
             score += 18.0;
+        }
+
+        if (normalizedQuery.Length >= 8
+            && normalizedQuery.Count(static ch => ch == ' ') >= 1
+            && normalizedChunkText.Contains(normalizedQuery, StringComparison.Ordinal))
+        {
+            score += 14.0;
         }
 
         var orderedPhraseMatch = BuildLexicalContentFallbackTerms(query)
@@ -3547,6 +3618,9 @@ LIMIT @top_k;
 
         if (ContainsTitleLikeLexicalSequence(normalizedCandidate, titleTokens))
             score += 12.0;
+
+        if (ContainsTitleLikeLexicalSequence(normalizedChunkText, titleTokens))
+            score += 10.0;
 
         if (score <= 0.0)
             return 0.0;
@@ -3565,6 +3639,34 @@ LIMIT @top_k;
             score += 1.0;
 
         return score;
+    }
+
+    private static int ComputeDirectChunkTitleSignal(string query, RagMatch match)
+    {
+        if (string.IsNullOrWhiteSpace(query) || string.IsNullOrWhiteSpace(match.Text))
+            return 0;
+
+        var titleTokens = ExtractLexicalQueryTokens(query)
+            .Where(static token => !PrimaryAnchorStopwords.Contains(token))
+            .Distinct(StringComparer.Ordinal)
+            .Take(9)
+            .ToArray();
+        if (titleTokens.Length < 2 || titleTokens.Length > 8)
+            return 0;
+
+        var normalizedQuery = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query));
+        var normalizedChunkText = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(match.Text));
+        if (normalizedQuery.Length >= 8
+            && normalizedQuery.Count(static ch => ch == ' ') >= 1
+            && normalizedChunkText.Contains(normalizedQuery, StringComparison.Ordinal))
+        {
+            return 3;
+        }
+
+        if (ContainsOrderedTitleTokenSubstrings(match.Text, titleTokens, maxGapChars: 60))
+            return 2;
+
+        return ContainsTitleLikeLexicalSequence(normalizedChunkText, titleTokens) ? 1 : 0;
     }
 
     private static bool ContainsTitleLikeLexicalSequence(string normalizedCandidate, IReadOnlyList<string> titleTokens)
@@ -5152,7 +5254,9 @@ LIMIT @top_k;
         "quel", "quelle", "quels", "quelles", "trouve", "trouver", "montre",
         "montrez", "ou", "sont", "sous", "plus", "moins", "comme", "cela",
         "cette", "cet", "ces", "leurs", "leur", "par", "sur", "des", "une",
+        "bien", "irait", "iraient", "convient", "conviendrait",
         "les", "que", "quoi", "dont", "when", "where", "which", "with", "from",
+        "would", "could", "should", "well", "goes",
         "this", "that", "those", "these", "what", "into", "pdf", "doc", "document",
         "manuel", "manual", "guide", "please", "stp", "svp", "cherche", "show",
         "need", "have", "has", "just", "juste", "moi", "peux", "avoir",
@@ -5265,6 +5369,16 @@ LIMIT @top_k;
         var normalized = NormalizeQueryForGuidance(query);
         var matchedContext = BuildMatchedRetrievalContext(matches);
         var matchedDocHints = matchedContext.DocHints;
+
+        if (matches.Count == 0)
+        {
+            return new RagAnswerGuidanceDto(
+                Behavior: "answer_with_caveat",
+                Reason: "no_relevant_source_found",
+                ResponseShape: "no_source_match",
+                QualificationNote: "No sufficiently relevant source was retrieved for this query.",
+                MatchedDocHints: matchedDocHints);
+        }
 
         if (ContainsPlaceholderStandard(normalized))
         {

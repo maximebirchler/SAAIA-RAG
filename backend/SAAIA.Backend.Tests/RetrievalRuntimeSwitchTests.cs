@@ -811,6 +811,51 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void CalibrateFusedMatches_breaks_capped_ties_with_specific_anchor_coverage()
+    {
+        var genericMarinade = new RagMatch(
+            1.02,
+            "doc-generic",
+            "Cuisine/Marinades.pdf",
+            "Marinades.pdf",
+            46,
+            46,
+            "generic-marinade",
+            46,
+            "Marinade pour poulet avec mayonnaise, paprika, sel et poivre.",
+            1,
+            "hash-generic",
+            "Marinade pour poulet avec mayonnaise, paprika, sel et poivre.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Marinades",
+            "Marinades",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+        var steakSauce = genericMarinade with
+        {
+            DocId = "doc-steak",
+            DocPath = "Cuisine/Robot.pdf",
+            DocName = "Robot.pdf",
+            ChunkId = "steak-sauce",
+            ChunkIndex = 121,
+            PageStart = 121,
+            PageEnd = 121,
+            Text = "Sauce au poivre avec creme, fond de veau et cognac. Servez avec des steaks.",
+            EmbedText = "Sauce au poivre avec creme, fond de veau et cognac. Servez avec des steaks.",
+            ChunkType = "section_window_v1"
+        };
+        var retrievalQuery = RagEndpoints.ExpandRetrievalQuery("Quelle sauce irait bien avec une entrecote ?", "cuisine");
+
+        var calibrated = RagEndpoints.CalibrateFusedMatches(retrievalQuery, [genericMarinade, steakSauce]);
+
+        Assert.Equal("steak-sauce", calibrated[0].ChunkId);
+    }
+
+    [Fact]
     public void CalibrateFusedMatches_ignores_answer_format_words_for_specific_recipe_queries()
     {
         var genericOnionRecipe = new RagMatch(
@@ -1853,6 +1898,18 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void BuildLexicalContentFallbackTerms_ignores_advice_filler_but_keeps_subject_terms()
+    {
+        var terms = RagEndpoints.BuildLexicalContentFallbackTerms("Quelle sauce irait bien avec une entrecote ?");
+
+        Assert.Contains("sauce", terms);
+        Assert.Contains("entrecote", terms);
+        Assert.DoesNotContain("irait", terms);
+        Assert.DoesNotContain("bien", terms);
+        Assert.DoesNotContain("irait bien", terms);
+    }
+
+    [Fact]
     public void RerankDenseMatches_prefers_structure_aware_chunks()
     {
         var broad = new RagMatch(0.50, "doc", "path", "doc.pdf", 1, 1, "a", 0, "text", 1, "hash", "embed", "chunk_text", 1, 1, "Intro", null, "legacy_word_window_v1", null, null, null);
@@ -2296,6 +2353,111 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void PruneUnmatchedPreciseTitleSelections_removes_neighbor_when_primary_token_is_absent()
+    {
+        var selected = new List<RagMatch>
+        {
+            TestMatch(
+                text: "Gratin suisse Ingredients pain de mie emmenthal jambon lait oeufs.",
+                embedText: "Matched profile title: Gratin suisse\nContext: Gratin suisse Ingredients pain de mie emmenthal jambon lait oeufs.\nPreviousContext: Oeufs gratines avec du fromage a raclette.")
+        };
+
+        RagEndpoints.PruneUnmatchedPreciseTitleSelections("raclette suisse", selected);
+
+        Assert.Empty(selected);
+    }
+
+    [Fact]
+    public void PruneUnmatchedPreciseTitleSelections_keeps_primary_title_match_and_drops_unanchored_tail()
+    {
+        var selected = new List<RagMatch>
+        {
+            TestMatch(
+                text: "Gratin dauphinois Ingredients pommes de terre creme ail cuisson.",
+                embedText: "Matched profile title: Gratin dauphinois\nGratin dauphinois Ingredients pommes de terre creme ail cuisson."),
+            TestMatch(
+                text: "Osso buco Pour 4 personnes jarret de veau tomates bouillon.",
+                embedText: "Osso buco Pour 4 personnes jarret de veau tomates bouillon.",
+                page: 8,
+                chunkId: "chunk-tail")
+        };
+
+        RagEndpoints.PruneUnmatchedPreciseTitleSelections("gratin dauphinois", selected);
+
+        var remaining = Assert.Single(selected);
+        Assert.Contains("dauphinois", remaining.Text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void PruneUnmatchedPreciseTitleSelections_does_not_apply_to_open_advice_queries()
+    {
+        var selected = new List<RagMatch>
+        {
+            TestMatch(
+                text: "Sauce moutarde Ingredients moutarde vinaigre huile sel poivre.",
+                embedText: "Sauce moutarde Ingredients moutarde vinaigre huile sel poivre.")
+        };
+
+        RagEndpoints.PruneUnmatchedPreciseTitleSelections("quelle sauce irait bien avec entrecote", selected);
+
+        Assert.Single(selected);
+    }
+
+    [Fact]
+    public void BuildAnswerGuidance_marks_empty_retrieval_as_no_source_match()
+    {
+        var guidance = RagEndpoints.BuildAnswerGuidance("raclette suisse", Array.Empty<RagMatch>());
+
+        Assert.Equal("answer_with_caveat", guidance.Behavior);
+        Assert.Equal("no_relevant_source_found", guidance.Reason);
+        Assert.Equal("no_source_match", guidance.ResponseShape);
+    }
+
+    [Fact]
+    public void ComputeExactTitleCandidateScore_prefers_chunk_text_that_contains_requested_title()
+    {
+        var fullRecipe = TestMatch(
+            text: "7Gratin dauphinoisPour 4 personnes Ingredients pommes de terre lait creme ail noix de muscade.",
+            embedText: "Matched profile title: Gratin dauphinois\nContext: 7Gratin dauphinoisPour 4 personnes Ingredients pommes de terre lait creme ail noix de muscade.",
+            page: 6,
+            chunkId: "full-recipe",
+            chunkType: "section_window_v1");
+        var recipeTail = TestMatch(
+            text: "Quant a twister la recette, il est autorise d'ajouter une touche personnelle au plat.",
+            embedText: "Matched profile title: Gratin dauphinois\nContext: Quant a twister la recette, il est autorise d'ajouter une touche personnelle au plat.",
+            page: 7,
+            chunkId: "recipe-tail",
+            chunkType: "unit_exact_v1");
+
+        var fullRecipeScore = RagEndpoints.ComputeExactTitleCandidateScore("gratin dauphinois", fullRecipe);
+        var recipeTailScore = RagEndpoints.ComputeExactTitleCandidateScore("gratin dauphinois", recipeTail);
+
+        Assert.True(fullRecipeScore > recipeTailScore);
+    }
+
+    [Fact]
+    public void PrioritizeExactTitleSelections_prefers_direct_chunk_title_over_title_hinted_tail()
+    {
+        var recipeTail = TestMatch(
+            text: "Quant a twister la recette, il est autorise d'ajouter une touche personnelle au plat.",
+            embedText: "Matched profile title: Gratin dauphinois\nContext: Quant a twister la recette, il est autorise d'ajouter une touche personnelle au plat.",
+            page: 7,
+            chunkId: "recipe-tail",
+            chunkType: "unit_exact_v1");
+        var fullRecipe = TestMatch(
+            text: "Preparation 20 minutes. 7Gratin dauphinoisPour 4 personnes Ingredients pommes de terre lait creme ail.",
+            embedText: "Matched profile title: Gratin dauphinois\nContext: Preparation 20 minutes. 7Gratin dauphinoisPour 4 personnes Ingredients pommes de terre lait creme ail.",
+            page: 6,
+            chunkId: "full-recipe",
+            chunkType: "section_window_v1");
+        var selected = new List<RagMatch> { recipeTail, fullRecipe };
+
+        RagEndpoints.PrioritizeExactTitleSelections("gratin dauphinois", selected);
+
+        Assert.Equal("full-recipe", selected[0].ChunkId);
+    }
+
+    [Fact]
     public void ExtractMatchedDocHints_derives_generic_reference_and_alpha_hints()
     {
         var matches = new[]
@@ -2333,5 +2495,36 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.Contains("perimetre", guidance.QualificationNote!, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("contexte projet", guidance.QualificationNote!, StringComparison.OrdinalIgnoreCase);
     }
+
+    private static RagMatch TestMatch(
+        string text,
+        string? embedText = null,
+        string docPath = "Cuisine/Test.pdf",
+        int page = 1,
+        string chunkId = "chunk-1",
+        string embeddingBasis = "sparse_bm25_v1",
+        string chunkType = "unit_exact_v1")
+        => new(
+            Score: 0.93,
+            DocId: "doc-1",
+            DocPath: docPath,
+            DocName: Path.GetFileName(docPath),
+            PageStart: page,
+            PageEnd: page,
+            ChunkId: chunkId,
+            ChunkIndex: page,
+            Text: text,
+            IngestionVersion: 1,
+            HashDoc: "hash",
+            EmbedText: embedText ?? text,
+            EmbeddingBasis: embeddingBasis,
+            SectionOrdinal: 1,
+            UnitOrdinal: page,
+            SectionTitle: null,
+            HeadingPath: null,
+            ChunkType: chunkType,
+            PrevChunkId: null,
+            NextChunkId: null,
+            SameSectionChunkId: null);
 
 }
