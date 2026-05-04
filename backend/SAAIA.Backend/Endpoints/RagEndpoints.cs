@@ -1265,8 +1265,8 @@ profile_card_matches AS (
       AND pcc.page_start IS NOT NULL
       AND CASE
           WHEN lexical_terms.term LIKE '% %'
-              THEN LOWER(pcc.search_text) ~ REPLACE(lexical_terms.term, ' ', '.{0,40}')
-                   OR pcc.normalized_title ~ REPLACE(lexical_terms.term, ' ', '.{0,40}')
+              THEN LOWER(pcc.search_text) ~ REPLACE(lexical_terms.term, ' ', '([^[:alnum:]]+[[:alnum:]]{1,3}){0,2}[^[:alnum:]]+')
+                   OR pcc.normalized_title ~ REPLACE(lexical_terms.term, ' ', '([^[:alnum:]]+[[:alnum:]]{1,3}){0,2}[^[:alnum:]]+')
           ELSE LOWER(pcc.search_text) LIKE '%' || lexical_terms.term || '%'
                OR pcc.normalized_title LIKE '%' || lexical_terms.term || '%'
       END
@@ -1416,34 +1416,119 @@ WITH lexical_terms AS (
     FROM unnest(@lexical_terms::text[]) AS term
     WHERE term IS NOT NULL AND term <> ''
 ),
-profile_card_matches AS (
+single_terms AS (
+    SELECT term
+    FROM lexical_terms
+    WHERE term NOT LIKE '% %'
+),
+phrase_terms AS (
+    SELECT term
+    FROM lexical_terms
+    WHERE term LIKE '% %'
+),
+scoped_docs AS (
     SELECT
-        r.revision_id,
-        GREATEST(1, COALESCE(pcc.page_start, 1)) AS card_page_start,
-        GREATEST(
-            GREATEST(1, COALESCE(pcc.page_start, 1)),
-            COALESCE(pcc.page_end, GREATEST(1, COALESCE(pcc.page_start, 1)))
-        ) AS card_page_end,
-        COUNT(*) AS match_count,
-        LEFT(string_agg(DISTINCT pcc.title, '; '), 500) AS card_titles,
-        COALESCE(SUM(
-            CASE
-                WHEN lexical_terms.term LIKE '% %' AND length(lexical_terms.term) >= 18 THEN 8.0
-                WHEN lexical_terms.term LIKE '% %' THEN 6.0
-                WHEN length(lexical_terms.term) >= 10 THEN 3.0
-                WHEN length(lexical_terms.term) >= 7 THEN 2.0
-                ELSE 1.1
-            END), 0.0) AS match_weight
+        d.tenant_id,
+        d.doc_id,
+        d.doc_path,
+        d.doc_name,
+        d.indexed_version,
+        d.content_hash,
+        r.revision_id
     FROM documents d
     JOIN document_revisions r
       ON r.tenant_id = d.tenant_id
      AND r.doc_id = d.doc_id
      AND r.indexed_version = d.indexed_version
+    WHERE d.tenant_id = @tenant_id
+      AND d.status = 'indexed'
+      AND d.indexed_version > 0
+      AND (@category IS NULL OR LOWER(d.category) = @category)
+      AND (@doc_id IS NULL OR d.doc_id = @doc_id)
+      AND (@doc_path IS NULL OR d.doc_path = @doc_path)
+),
+single_chunk_term_matches AS (
+    SELECT
+        rc.retrieval_chunk_id,
+        single_terms.term,
+        CASE
+            WHEN length(single_terms.term) >= 10 THEN 2.5
+            WHEN length(single_terms.term) >= 7 THEN 1.6
+            ELSE 1.0
+        END AS match_weight
+    FROM scoped_docs d
+    JOIN retrieval_chunks rc
+      ON rc.tenant_id = d.tenant_id
+     AND rc.revision_id = d.revision_id
+    JOIN single_terms
+      ON LOWER(rc.text_content) LIKE '%' || single_terms.term || '%'
+),
+single_chunk_candidates AS (
+    SELECT DISTINCT retrieval_chunk_id
+    FROM single_chunk_term_matches
+),
+phrase_chunk_term_matches AS (
+    SELECT
+        rc.retrieval_chunk_id,
+        phrase_terms.term,
+        CASE
+            WHEN length(phrase_terms.term) >= 18 THEN 7.0
+            ELSE 5.0
+        END AS match_weight
+    FROM scoped_docs d
+    JOIN retrieval_chunks rc
+      ON rc.tenant_id = d.tenant_id
+     AND rc.revision_id = d.revision_id
+    JOIN phrase_terms
+      ON (
+        NOT EXISTS (SELECT 1 FROM single_terms)
+        OR EXISTS (
+            SELECT 1
+            FROM single_chunk_candidates candidate
+            WHERE candidate.retrieval_chunk_id = rc.retrieval_chunk_id
+        )
+     )
+     AND LOWER(rc.text_content) ~ REPLACE(phrase_terms.term, ' ', '([^[:alnum:]]+[[:alnum:]]{1,3}){0,2}[^[:alnum:]]+')
+),
+chunk_term_matches AS (
+    SELECT retrieval_chunk_id, term, match_weight
+    FROM single_chunk_term_matches
+
+    UNION ALL
+
+    SELECT retrieval_chunk_id, term, match_weight
+    FROM phrase_chunk_term_matches
+),
+ranked_chunk_terms AS (
+    SELECT
+        retrieval_chunk_id,
+        COUNT(DISTINCT term) AS match_count,
+        SUM(match_weight)::real AS match_weight
+    FROM chunk_term_matches
+    GROUP BY retrieval_chunk_id
+),
+single_profile_card_term_matches AS (
+    SELECT
+        pcc.content_card_id,
+        pcc.revision_id,
+        GREATEST(1, COALESCE(pcc.page_start, 1)) AS card_page_start,
+        GREATEST(
+            GREATEST(1, COALESCE(pcc.page_start, 1)),
+            COALESCE(pcc.page_end, GREATEST(1, COALESCE(pcc.page_start, 1)))
+        ) AS card_page_end,
+        pcc.title,
+        single_terms.term,
+        CASE
+            WHEN length(single_terms.term) >= 10 THEN 3.0
+            WHEN length(single_terms.term) >= 7 THEN 2.0
+            ELSE 1.1
+        END AS match_weight
+    FROM scoped_docs d
     JOIN LATERAL (
         SELECT profile.*
         FROM document_profiles profile
-        WHERE profile.tenant_id = r.tenant_id
-          AND profile.revision_id = r.revision_id
+        WHERE profile.tenant_id = d.tenant_id
+          AND profile.revision_id = d.revision_id
         ORDER BY
             CASE profile.profile_version
                 WHEN 'llm_backoffice_v1' THEN 0
@@ -1456,28 +1541,100 @@ profile_card_matches AS (
     JOIN document_profile_content_cards pcc
       ON pcc.tenant_id = p.tenant_id
      AND pcc.document_profile_id = p.document_profile_id
-    CROSS JOIN lexical_terms
-    WHERE d.tenant_id = @tenant_id
-      AND d.status = 'indexed'
-      AND d.indexed_version > 0
-      AND (@category IS NULL OR LOWER(d.category) = @category)
-      AND (@doc_id IS NULL OR d.doc_id = @doc_id)
-      AND (@doc_path IS NULL OR d.doc_path = @doc_path)
-      AND pcc.page_start IS NOT NULL
-      AND CASE
-          WHEN lexical_terms.term LIKE '% %'
-              THEN LOWER(pcc.search_text) ~ REPLACE(lexical_terms.term, ' ', '.{0,40}')
-                   OR pcc.normalized_title ~ REPLACE(lexical_terms.term, ' ', '.{0,40}')
-          ELSE LOWER(pcc.search_text) LIKE '%' || lexical_terms.term || '%'
-               OR pcc.normalized_title LIKE '%' || lexical_terms.term || '%'
-      END
-    GROUP BY
-        r.revision_id,
-        GREATEST(1, COALESCE(pcc.page_start, 1)),
+    JOIN single_terms
+      ON LOWER(pcc.search_text) LIKE '%' || single_terms.term || '%'
+      OR pcc.normalized_title LIKE '%' || single_terms.term || '%'
+    WHERE pcc.page_start IS NOT NULL
+),
+single_profile_card_candidates AS (
+    SELECT DISTINCT content_card_id
+    FROM single_profile_card_term_matches
+),
+phrase_profile_card_term_matches AS (
+    SELECT
+        pcc.content_card_id,
+        pcc.revision_id,
+        GREATEST(1, COALESCE(pcc.page_start, 1)) AS card_page_start,
         GREATEST(
             GREATEST(1, COALESCE(pcc.page_start, 1)),
             COALESCE(pcc.page_end, GREATEST(1, COALESCE(pcc.page_start, 1)))
+        ) AS card_page_end,
+        pcc.title,
+        phrase_terms.term,
+        CASE
+            WHEN length(phrase_terms.term) >= 18 THEN 8.0
+            ELSE 6.0
+        END AS match_weight
+    FROM scoped_docs d
+    JOIN LATERAL (
+        SELECT profile.*
+        FROM document_profiles profile
+        WHERE profile.tenant_id = d.tenant_id
+          AND profile.revision_id = d.revision_id
+        ORDER BY
+            CASE profile.profile_version
+                WHEN 'llm_backoffice_v1' THEN 0
+                WHEN 'deterministic_v1' THEN 1
+                ELSE 2
+            END,
+            profile.updated_at DESC
+        LIMIT 1
+    ) p ON TRUE
+    JOIN document_profile_content_cards pcc
+      ON pcc.tenant_id = p.tenant_id
+     AND pcc.document_profile_id = p.document_profile_id
+    JOIN phrase_terms
+      ON (
+        NOT EXISTS (SELECT 1 FROM single_terms)
+        OR EXISTS (
+            SELECT 1
+            FROM single_profile_card_candidates candidate
+            WHERE candidate.content_card_id = pcc.content_card_id
         )
+     )
+     AND (
+        LOWER(pcc.search_text) ~ REPLACE(phrase_terms.term, ' ', '([^[:alnum:]]+[[:alnum:]]{1,3}){0,2}[^[:alnum:]]+')
+        OR pcc.normalized_title ~ REPLACE(phrase_terms.term, ' ', '([^[:alnum:]]+[[:alnum:]]{1,3}){0,2}[^[:alnum:]]+')
+     )
+    WHERE pcc.page_start IS NOT NULL
+),
+profile_card_term_matches AS (
+    SELECT revision_id, card_page_start, card_page_end, title, term, match_weight
+    FROM single_profile_card_term_matches
+
+    UNION ALL
+
+    SELECT revision_id, card_page_start, card_page_end, title, term, match_weight
+    FROM phrase_profile_card_term_matches
+),
+profile_card_matches AS (
+    SELECT
+        revision_id,
+        card_page_start,
+        card_page_end,
+        COUNT(DISTINCT term) AS match_count,
+        LEFT(string_agg(DISTINCT title, '; '), 500) AS card_titles,
+        SUM(match_weight)::real AS match_weight
+    FROM profile_card_term_matches
+    GROUP BY revision_id, card_page_start, card_page_end
+),
+profile_matched_chunks AS (
+    SELECT
+        rc.retrieval_chunk_id,
+        SUM(pcm.match_count)::int AS match_count,
+        LEFT(string_agg(DISTINCT pcm.card_titles, '; '), 500) AS card_titles,
+        SUM(pcm.match_weight)::real AS match_weight
+    FROM profile_card_matches pcm
+    JOIN retrieval_chunks rc
+      ON rc.revision_id = pcm.revision_id
+     AND rc.page_start <= pcm.card_page_end
+     AND rc.page_end >= pcm.card_page_start
+    GROUP BY rc.retrieval_chunk_id
+),
+candidate_chunks AS (
+    SELECT retrieval_chunk_id FROM ranked_chunk_terms
+    UNION
+    SELECT retrieval_chunk_id FROM profile_matched_chunks
 )
 SELECT
     d.doc_id AS "DocId",
@@ -1504,54 +1661,26 @@ SELECT
     rc.metadata->>'prevChunkId' AS "PrevChunkId",
     rc.metadata->>'nextChunkId' AS "NextChunkId",
     rc.metadata->>'sameSectionChunkId' AS "SameSectionChunkId",
-    (lm.match_weight + (COALESCE(pcm.match_weight, 0.0) * 1.8))::real AS "SparseRank"
-FROM documents d
-JOIN document_revisions r
-  ON r.tenant_id = d.tenant_id
- AND r.doc_id = d.doc_id
- AND r.indexed_version = d.indexed_version
-JOIN contextual_text_entries cte
-  ON cte.tenant_id = r.tenant_id
- AND cte.revision_id = r.revision_id
+    (COALESCE(lm.match_weight, 0.0) + (COALESCE(pcm.match_weight, 0.0) * 1.8))::real AS "SparseRank"
+FROM candidate_chunks candidate
 JOIN retrieval_chunks rc
-  ON rc.retrieval_chunk_id = cte.retrieval_chunk_id
+  ON rc.retrieval_chunk_id = candidate.retrieval_chunk_id
+JOIN scoped_docs d
+  ON d.tenant_id = rc.tenant_id
+ AND d.revision_id = rc.revision_id
+JOIN contextual_text_entries cte
+  ON cte.tenant_id = d.tenant_id
+ AND cte.revision_id = d.revision_id
+ AND cte.retrieval_chunk_id = rc.retrieval_chunk_id
 LEFT JOIN document_sections s
   ON s.section_id = rc.section_id
-LEFT JOIN profile_card_matches pcm
-  ON pcm.revision_id = r.revision_id
- AND rc.page_start <= pcm.card_page_end
- AND rc.page_end >= pcm.card_page_start
-CROSS JOIN LATERAL (
-    SELECT LOWER(rc.text_content) AS text_lc
-) normalized_chunk
-CROSS JOIN LATERAL (
-    SELECT
-        COUNT(*) AS match_count,
-        COALESCE(SUM(
-            CASE
-                WHEN lexical_terms.term LIKE '% %' AND length(lexical_terms.term) >= 18 THEN 7.0
-                WHEN lexical_terms.term LIKE '% %' THEN 5.0
-                WHEN length(lexical_terms.term) >= 10 THEN 2.5
-                WHEN length(lexical_terms.term) >= 7 THEN 1.6
-                ELSE 1.0
-            END), 0.0) AS match_weight
-    FROM lexical_terms
-    WHERE CASE
-        WHEN lexical_terms.term LIKE '% %'
-            THEN normalized_chunk.text_lc ~ REPLACE(lexical_terms.term, ' ', '.{0,40}')
-        ELSE normalized_chunk.text_lc LIKE '%' || lexical_terms.term || '%'
-    END
-) lm
-WHERE d.tenant_id = @tenant_id
-  AND d.status = 'indexed'
-  AND d.indexed_version > 0
-  AND (lm.match_count > 0 OR COALESCE(pcm.match_count, 0) > 0)
-  AND (@category IS NULL OR LOWER(d.category) = @category)
-  AND (@doc_id IS NULL OR d.doc_id = @doc_id)
-  AND (@doc_path IS NULL OR d.doc_path = @doc_path)
-ORDER BY (lm.match_weight + (COALESCE(pcm.match_weight, 0.0) * 1.8)) DESC,
+LEFT JOIN ranked_chunk_terms lm
+  ON lm.retrieval_chunk_id = rc.retrieval_chunk_id
+LEFT JOIN profile_matched_chunks pcm
+  ON pcm.retrieval_chunk_id = rc.retrieval_chunk_id
+ORDER BY (COALESCE(lm.match_weight, 0.0) + (COALESCE(pcm.match_weight, 0.0) * 1.8)) DESC,
          COALESCE(pcm.match_count, 0) DESC,
-         lm.match_count DESC,
+         COALESCE(lm.match_count, 0) DESC,
          rc.chunk_index ASC
 LIMIT @top_k;
 """;
@@ -1663,8 +1792,8 @@ LEFT JOIN LATERAL (
       AND card.document_profile_id = p.document_profile_id
       AND CASE
         WHEN lexical_terms.term LIKE '% %'
-            THEN LOWER(card.search_text) ~ REPLACE(lexical_terms.term, ' ', '.{0,40}')
-                 OR card.normalized_title ~ REPLACE(lexical_terms.term, ' ', '.{0,40}')
+            THEN LOWER(card.search_text) ~ REPLACE(lexical_terms.term, ' ', '([^[:alnum:]]+[[:alnum:]]{1,3}){0,2}[^[:alnum:]]+')
+                 OR card.normalized_title ~ REPLACE(lexical_terms.term, ' ', '([^[:alnum:]]+[[:alnum:]]{1,3}){0,2}[^[:alnum:]]+')
         ELSE LOWER(card.search_text) LIKE '%' || lexical_terms.term || '%'
              OR card.normalized_title LIKE '%' || lexical_terms.term || '%'
       END
@@ -1683,7 +1812,7 @@ CROSS JOIN LATERAL (
     FROM lexical_terms
     WHERE CASE
         WHEN lexical_terms.term LIKE '% %'
-            THEN LOWER(p.search_text) ~ REPLACE(lexical_terms.term, ' ', '.{0,40}')
+            THEN LOWER(p.search_text) ~ REPLACE(lexical_terms.term, ' ', '([^[:alnum:]]+[[:alnum:]]{1,3}){0,2}[^[:alnum:]]+')
         ELSE LOWER(p.search_text) LIKE '%' || lexical_terms.term || '%'
     END
 ) lm
