@@ -1,7 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 
-internal static class RetrievalChunkProjector
+internal static partial class RetrievalChunkProjector
 {
     private static readonly string ChunkSeparator = Environment.NewLine + Environment.NewLine;
 
@@ -131,6 +132,8 @@ internal static class RetrievalChunkProjector
             }
         }
 
+        AddHighSignalUnitChunks(chunks, orderedUnits, ref chunkIndex);
+
         if (chunks.Count == 0)
         {
             var fallback = orderedUnits;
@@ -150,6 +153,103 @@ internal static class RetrievalChunkProjector
         }
 
         return chunks;
+    }
+
+    private static void AddHighSignalUnitChunks(
+        List<ProjectedRetrievalChunk> chunks,
+        IReadOnlyList<ExtractedDocumentUnit> orderedUnits,
+        ref int chunkIndex)
+    {
+        var existingExactUnitOrdinals = chunks
+            .Where(static chunk => string.Equals(chunk.ChunkType, "unit_exact_v1", StringComparison.Ordinal))
+            .Select(static chunk => chunk.UnitOrdinal)
+            .Where(static ordinal => ordinal.HasValue)
+            .Select(static ordinal => ordinal!.Value)
+            .ToHashSet();
+
+        foreach (var unit in orderedUnits)
+        {
+            if (existingExactUnitOrdinals.Contains(unit.Ordinal))
+                continue;
+            if (!LooksLikeHighSignalUnit(unit))
+                continue;
+
+            chunks.Add(CreateProjectedChunk(
+                chunkIndex++,
+                unit.SectionOrdinal,
+                unit.Ordinal,
+                unit.PageStart,
+                unit.PageEnd,
+                unit.Text,
+                unit.OffsetStart,
+                unit.OffsetEnd,
+                chunkType: "unit_exact_v1"));
+
+            existingExactUnitOrdinals.Add(unit.Ordinal);
+        }
+    }
+
+    private static bool LooksLikeHighSignalUnit(ExtractedDocumentUnit unit)
+    {
+        if (unit.TokenCount < 10 || unit.Text.Length < 80)
+            return false;
+
+        var text = unit.Text;
+        var normalized = ExactMatchEntryExtractor.NormalizeForLookup(text);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        if (LooksLikeReferenceList(normalized))
+            return false;
+
+        var signalCount = 0;
+        if (ContainsAny(normalized,
+            "ingredient", "ingredients", "ingredienti", "ingrédients", "ingrédient", "zutaten", "materials", "materiaux"))
+            signalCount++;
+        if (ContainsAny(normalized,
+            "preparation", "préparation", "realisation", "réalisation", "method", "procedure", "procedures", "steps", "etapes", "étapes"))
+            signalCount++;
+        if (ContainsAny(normalized,
+            "requirements", "requirement", "warning", "caution", "attention", "consigne", "instructions"))
+            signalCount++;
+
+        return signalCount >= 2
+            || (signalCount >= 1 && (ServingOrStepMarkerRegex().IsMatch(normalized) || CountNumberedSteps(normalized) >= 2));
+    }
+
+    private static bool LooksLikeReferenceList(string normalized)
+    {
+        if (normalized.Contains("http", StringComparison.Ordinal)
+            && CountOccurrences(normalized, "http") >= 2)
+            return true;
+
+        return normalized.Contains("references consultees", StringComparison.Ordinal)
+            || normalized.Contains("références consultées", StringComparison.Ordinal);
+    }
+
+    private static bool ContainsAny(string text, params string[] needles)
+        => needles.Any(needle => text.Contains(needle, StringComparison.Ordinal));
+
+    private static int CountOccurrences(string text, string needle)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = text.IndexOf(needle, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += needle.Length;
+        }
+
+        return count;
+    }
+
+    private static int CountNumberedSteps(string text)
+    {
+        var count = 0;
+        foreach (Match match in NumberedStepRegex().Matches(text))
+            count++;
+
+        return count;
     }
 
     private static int ComputeNextStart(
@@ -229,6 +329,12 @@ internal static class RetrievalChunkProjector
 
     private static int CountTokens(string text)
         => text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+
+    [GeneratedRegex(@"(?:^|[^\p{L}\p{N}])(?:pour|for|para|per)\s+\d+|(?:^|[^\p{L}\p{N}])\d+\s*[\.)]\s+\p{L}", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex ServingOrStepMarkerRegex();
+
+    [GeneratedRegex(@"(?:^|[^\p{L}\p{N}])\d+\s*[\.)]\s+\p{L}", RegexOptions.CultureInvariant)]
+    private static partial Regex NumberedStepRegex();
 }
 
 internal sealed record ProjectedRetrievalChunk(

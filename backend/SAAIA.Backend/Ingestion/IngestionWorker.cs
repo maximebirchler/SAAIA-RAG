@@ -370,6 +370,7 @@ WHERE job_id=@job_id
         extractMs = swExtract.ElapsedMilliseconds;
         var tokens = extraction.Tokens;
         var pages = extraction.Pages;
+        var extractionQuality = extraction.Quality;
         var swSections = Stopwatch.StartNew();
         var sections = DocumentSectionExtractor.Extract(pages);
         swSections.Stop();
@@ -380,7 +381,7 @@ WHERE job_id=@job_id
         unitMs = swUnits.ElapsedMilliseconds;
         await ThrowIfJobCanceledAsync(ds, job, ct);
         if (tokens.Count == 0)
-            throw new Exception("No text extracted from PDF");
+            throw new Exception($"No text extracted from PDF; text_status={extractionQuality.TextStatus}; ocr_recommended={extractionQuality.OcrRecommended}");
 
         var swChunking = Stopwatch.StartNew();
         var retrievalChunks = RetrievalChunkProjector.ProjectStructureAware(
@@ -594,11 +595,13 @@ WHERE job_id=@job_id
         try
         {
             var swCleanup = Stopwatch.StartNew();
-            using (await _bulkheads.AcquireQdrantAsync(qdrantToken))
+            using var cleanupQdrantCts = CreateTimeoutCts(ct, ingest.QdrantTimeoutSeconds);
+            var cleanupQdrantToken = cleanupQdrantCts?.Token ?? ct;
+            using (await _bulkheads.AcquireQdrantAsync(cleanupQdrantToken))
             {
                 await QdrantClient.DeleteOtherVersionsByDocAsync(
                     qdrant, rag.QdrantCollection,
-                    tenantId, docId, job.Version, qdrantToken);
+                    tenantId, docId, job.Version, cleanupQdrantToken);
             }
             swCleanup.Stop();
             cleanupMs = swCleanup.ElapsedMilliseconds;
@@ -612,7 +615,7 @@ WHERE job_id=@job_id
 
         swTotal.Stop();
         _log.LogInformation(
-            "Ingestion stage timings job={JobId} doc={DocPath} total_ms={TotalMs} hash_ms={HashMs} extract_ms={ExtractMs} sections_ms={SectionsMs} units_ms={UnitsMs} chunking_ms={ChunkingMs} exact_ms={ExactMs} contextual_ms={ContextualMs} tei_warmup_ms={TeiWarmupMs} qdrant_ensure_ms={QdrantEnsureMs} embedding_ms={EmbeddingMs} qdrant_upsert_ms={QdrantUpsertMs} publish_ms={PublishMs} cleanup_ms={CleanupMs} pages={Pages} sections={Sections} units={Units} chunks={Chunks} exact_entries={ExactEntries} contextual_entries={ContextualEntries}",
+            "Ingestion stage timings job={JobId} doc={DocPath} total_ms={TotalMs} hash_ms={HashMs} extract_ms={ExtractMs} sections_ms={SectionsMs} units_ms={UnitsMs} chunking_ms={ChunkingMs} exact_ms={ExactMs} contextual_ms={ContextualMs} tei_warmup_ms={TeiWarmupMs} qdrant_ensure_ms={QdrantEnsureMs} embedding_ms={EmbeddingMs} qdrant_upsert_ms={QdrantUpsertMs} publish_ms={PublishMs} cleanup_ms={CleanupMs} pages={Pages} sections={Sections} units={Units} chunks={Chunks} exact_entries={ExactEntries} contextual_entries={ContextualEntries} extraction_quality={ExtractionQuality} ocr_recommended={OcrRecommended}",
             job.JobId,
             relDocPath,
             swTotal.ElapsedMilliseconds,
@@ -634,7 +637,9 @@ WHERE job_id=@job_id
             units.Count,
             retrievalChunks.Count,
             exactMatchEntries.Count,
-            contextualTextEntries.Count);
+            contextualTextEntries.Count,
+            extractionQuality.TextStatus,
+            extractionQuality.OcrRecommended);
 
         return true;
     }

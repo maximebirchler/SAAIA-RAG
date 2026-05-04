@@ -82,6 +82,35 @@ public sealed class CapabilityBBackofficeSummaryServiceTests
     }
 
     [Fact]
+    public async Task BuildSummaryAsync_fallback_respects_preferred_document_language()
+    {
+        var service = CreateService(
+            """
+            {
+              "error": "runtime_unavailable"
+            }
+            """,
+            HttpStatusCode.ServiceUnavailable);
+
+        var payload = await service.BuildSummaryAsync(
+            new CapabilityBDocumentRow(
+                DocId: Guid.NewGuid(),
+                DocPath: "Cuisine/Guide.pdf",
+                DocName: "Guide.pdf",
+                Category: "cuisine",
+                PageCount: 12,
+                IndexedVersion: 1),
+            ["Batch cooking"],
+            ["Le batch cooking consiste a preparer plusieurs repas de la semaine a l'avance."],
+            CancellationToken.None,
+            preferredLanguage: "fr");
+
+        Assert.Contains("Guide.pdf est un document indexe cuisine", payload.SummaryText, StringComparison.Ordinal);
+        Assert.Contains("Sections cles", payload.SummaryText, StringComparison.Ordinal);
+        Assert.Equal("fr", payload.Meta.GetProperty("outputLanguage").GetString());
+    }
+
+    [Fact]
     public async Task BuildSummaryAsync_uses_llm_summary_when_runtime_returns_text_content_blocks()
     {
         var service = CreateService(

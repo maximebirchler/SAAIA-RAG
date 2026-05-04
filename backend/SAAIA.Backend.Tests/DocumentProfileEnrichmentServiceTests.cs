@@ -16,7 +16,7 @@ public sealed class DocumentProfileEnrichmentServiceTests
               "choices": [
                 {
                   "message": {
-                    "content": "{\"language\":\"en\",\"summary\":\"LLM profile: IND570 describes PLC exchange controls and operational safety checks.\",\"keywords\":[\"plc exchange\",\"safety checks\"],\"entities\":[\"IND570\"],\"topics\":[\"PLC Integration\"],\"questions\":[\"How does IND570 handle PLC exchange controls?\"],\"limits\":[\"Use page chunks for exact parameters.\"]}"
+                    "content": "{\"language\":\"en\",\"summary\":\"LLM profile: IND570 describes PLC exchange controls and operational safety checks.\",\"keywords\":[\"plc exchange\",\"safety checks\"],\"entities\":[\"IND570\"],\"topics\":[\"PLC Integration\"],\"questions\":[\"How does IND570 handle PLC exchange controls?\"],\"limits\":[\"Use page chunks for exact parameters.\"],\"cards\":[{\"title\":\"PLC exchange controls\",\"pageStart\":7,\"pageEnd\":8,\"kind\":\"llm_content_card\",\"signals\":[\"plc exchange\",\"controls\"]}]}"
                   }
                 }
               ]
@@ -36,7 +36,16 @@ public sealed class DocumentProfileEnrichmentServiceTests
             HypotheticalQuestions: ["What does the document say about baseline-keyword?"],
             Limits: ["Use page chunks for exact facts."],
             SearchText: "baseline-keyword EN 15281",
-            TokenCount: 3);
+            TokenCount: 3,
+            ContentCards:
+            [
+                new DocumentProfileContentCard(
+                    "Baseline card",
+                    2,
+                    2,
+                    "section",
+                    ["baseline-keyword"])
+            ]);
 
         var profile = await service.BuildEnrichedProfileAsync(
             new CapabilityBDocumentRow(
@@ -53,6 +62,7 @@ public sealed class DocumentProfileEnrichmentServiceTests
 
         Assert.NotNull(profile);
         Assert.Equal("llm_backoffice_v1", profile!.ProfileVersion);
+        Assert.Equal("en", profile.Language);
         Assert.Contains("LLM profile", profile.SummaryText, StringComparison.Ordinal);
         Assert.Contains("plc exchange", profile.Keywords);
         Assert.Contains("baseline-keyword", profile.Keywords);
@@ -61,6 +71,50 @@ public sealed class DocumentProfileEnrichmentServiceTests
         Assert.Contains("How does IND570 handle PLC exchange controls?", profile.HypotheticalQuestions);
         Assert.Contains("Use page chunks for exact parameters.", profile.Limits);
         Assert.Contains("plc exchange", profile.SearchText, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "PLC exchange controls", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Baseline card", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task BuildEnrichedProfileAsync_ignores_schema_language_placeholder()
+    {
+        var service = CreateService(
+            """
+            {
+              "choices": [
+                {
+                  "message": {
+                    "content": "{\"language\":\"fr|en|es|pt|de|it|und\",\"summary\":\"Profil compact.\",\"keywords\":[\"compact\"],\"entities\":[],\"topics\":[],\"questions\":[],\"limits\":[]}"
+                  }
+                }
+              ]
+            }
+            """,
+            HttpStatusCode.OK);
+
+        var baseline = new DocumentProfileSnapshot(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "deterministic_v1",
+            "fr",
+            "Profil deterministe.",
+            ["base"],
+            [],
+            [],
+            [],
+            [],
+            "base",
+            1);
+
+        var profile = await service.BuildEnrichedProfileAsync(
+            new CapabilityBDocumentRow(baseline.DocId, "Cuisine/Test.pdf", "Test.pdf", "cuisine", 1, 1),
+            baseline,
+            [],
+            [],
+            CancellationToken.None);
+
+        Assert.NotNull(profile);
+        Assert.Equal("fr", profile!.Language);
     }
 
     [Fact]

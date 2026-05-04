@@ -89,6 +89,7 @@ public sealed class DocumentFoundationIntegrationTests
         var exactCount = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM exact_match_entries;");
         var contextualCount = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM contextual_text_entries;");
         var profileCount = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM document_profiles;");
+        var profileCardCount = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM document_profile_content_cards;");
         var artifactCount = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM document_revision_artifacts;");
 
         Assert.Equal(1, revisionCount);
@@ -99,7 +100,8 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal(1, exactCount);
         Assert.Equal(1, contextualCount);
         Assert.Equal(1, profileCount);
-        Assert.Equal(7, artifactCount);
+        Assert.Equal(1, profileCardCount);
+        Assert.Equal(8, artifactCount);
 
         var revision = await conn.QuerySingleAsync<(int ingestion_version, int indexed_version)>(
             "SELECT ingestion_version, indexed_version FROM document_revisions LIMIT 1;");
@@ -111,11 +113,46 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Contains("\"count\":1", artifactPayload, StringComparison.Ordinal);
         Assert.Contains("\"hashBasis\":\"canonical_text_v1\"", artifactPayload, StringComparison.Ordinal);
 
-        var profile = await conn.QuerySingleAsync<(string summary_text, string search_text, string[] keywords)>(
-            "SELECT summary_text, search_text, keywords FROM document_profiles LIMIT 1;");
+        var processingPayload = await conn.ExecuteScalarAsync<string>(
+            "SELECT payload::text FROM document_processing_runs LIMIT 1;");
+        using (var processingMetadata = JsonDocument.Parse(processingPayload ?? "{}"))
+        {
+            var extractionQuality = processingMetadata.RootElement.GetProperty("extractionQuality");
+            Assert.Equal(1, extractionQuality.GetProperty("pageCount").GetInt32());
+            Assert.Equal(1, extractionQuality.GetProperty("textPageCount").GetInt32());
+            Assert.Equal("low_text", extractionQuality.GetProperty("textStatus").GetString());
+            Assert.True(extractionQuality.GetProperty("ocrRecommended").GetBoolean());
+        }
+
+        var pageMetadataJson = await conn.ExecuteScalarAsync<string>(
+            "SELECT metadata::text FROM document_page_index LIMIT 1;");
+        using (var pageMetadata = JsonDocument.Parse(pageMetadataJson ?? "{}"))
+        {
+            Assert.Equal(2, pageMetadata.RootElement.GetProperty("wordCount").GetInt32());
+            var extractionQuality = pageMetadata.RootElement.GetProperty("extractionQuality");
+            Assert.Equal("low_text", extractionQuality.GetProperty("textStatus").GetString());
+            Assert.True(extractionQuality.GetProperty("textSparse").GetBoolean());
+            Assert.True(extractionQuality.GetProperty("ocrCandidate").GetBoolean());
+        }
+
+        var profile = await conn.QuerySingleAsync<(string summary_text, string search_text, string[] keywords, string metadata)>(
+            "SELECT summary_text, search_text, keywords, metadata::text FROM document_profiles LIMIT 1;");
         Assert.Contains("CEN.pdf", profile.summary_text, StringComparison.Ordinal);
         Assert.Contains("Intro text", profile.search_text, StringComparison.Ordinal);
         Assert.Contains("intro", profile.keywords);
+        using (var profileMetadata = JsonDocument.Parse(profile.metadata))
+        {
+            Assert.Equal(1, profileMetadata.RootElement.GetProperty("contentCardCount").GetInt32());
+            Assert.Contains(
+                profileMetadata.RootElement.GetProperty("contentCards").EnumerateArray(),
+                card => string.Equals(card.GetProperty("title").GetString(), "Intro text", StringComparison.Ordinal));
+        }
+
+        var profileCard = await conn.QuerySingleAsync<(string title, string search_text, string[] signals)>(
+            "SELECT title, search_text, signals FROM document_profile_content_cards LIMIT 1;");
+        Assert.Equal("Intro text", profileCard.title);
+        Assert.Contains("Intro text", profileCard.search_text, StringComparison.Ordinal);
+        Assert.Contains("intro", profileCard.signals);
 
         var profileMatches = await RagEndpoints.SearchDocumentProfileMatchesAsync(
             ds,
@@ -139,6 +176,155 @@ public sealed class DocumentFoundationIntegrationTests
         var retrievalChunkId = await conn.ExecuteScalarAsync<Guid>(
             "SELECT retrieval_chunk_id FROM retrieval_chunks LIMIT 1;");
         Assert.Equal(DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 1, 0), retrievalChunkId);
+    }
+
+    [Fact]
+    public async Task CompleteUpsertAsync_keeps_profile_content_cards_active_per_document_profile()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("44444444-1111-1111-1111-111111111111");
+        var docId = Guid.Parse("55555555-2222-2222-2222-222222222222");
+        var firstJobId = Guid.Parse("66666666-3333-3333-3333-333333333333");
+        var secondJobId = Guid.Parse("77777777-3333-3333-3333-333333333333");
+        const string docPath = "Cuisine/ActiveCards.pdf";
+
+        await db.SeedRunningJobAsync(tenantId, docId, firstJobId, docPath, ingestionVersion: 1, indexedVersion: 0);
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var firstCommitted = await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            firstJobId,
+            docPath,
+            hash: [1, 1, 1],
+            size: 64,
+            mtimeUtc: DateTime.UtcNow,
+            version: 1,
+            pages: [new ExtractedPdfPage(1, "OLD ACTIVE CARD\nOld details.", 5, 28, [1])],
+            sections: [new ExtractedDocumentSection(0, "Old active heading", 1, 1, 1, 1, null)],
+            units: [new ExtractedDocumentUnit(0, 0, 1, 1, "OLD ACTIVE CARD\nOld details.", 28, 5, [2])],
+            retrievalChunks: [new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "OLD ACTIVE CARD\nOld details.", 5, [3], "unit_exact_v1")],
+            exactMatchEntries: [new ExtractedExactMatchEntry(0, 0, 0, 1, 1, "OLD ACTIVE CARD\nOld details.", "old active card old details", 28, 5, [4], "verbatim_excerpt")],
+            contextualTextEntries: [new ProjectedContextualTextEntry(0, 0, 0, 0, 1, 1, "Document: ActiveCards.pdf\n\nExcerpt:\nOLD ACTIVE CARD\nOld details.", 62, 8, [5])],
+            CancellationToken.None);
+
+        Assert.True(firstCommitted);
+
+        await using var conn = new NpgsqlConnection(db.ConnectionString);
+        await conn.OpenAsync();
+
+        await conn.ExecuteAsync(
+            @"UPDATE documents
+              SET status='pending',
+                  ingestion_version=2,
+                  indexed_version=1,
+                  updated_at=now()
+              WHERE tenant_id=@tenant_id AND doc_id=@doc_id;",
+            new { tenant_id = tenantId, doc_id = docId });
+
+        var payload = JsonSerializer.Serialize(new { });
+        await conn.ExecuteAsync(
+            @"INSERT INTO ingestion_jobs(
+                  job_id, tenant_id, action, doc_path, category, status, attempts,
+                  locked_by, locked_at, available_at, created_at, started_at, payload)
+              VALUES(
+                  @job_id, @tenant_id, 'upsert', @doc_path, 'Cuisine', 'running', 1,
+                  'test-worker', now(), now(), now(), now(), CAST(@payload AS jsonb));",
+            new { job_id = secondJobId, tenant_id = tenantId, doc_path = docPath, payload });
+
+        var secondCommitted = await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            secondJobId,
+            docPath,
+            hash: [2, 2, 2],
+            size: 72,
+            mtimeUtc: DateTime.UtcNow,
+            version: 2,
+            pages: [new ExtractedPdfPage(1, "NEW ACTIVE CARD\nFresh details.", 5, 30, [6])],
+            sections: [new ExtractedDocumentSection(0, "New active heading", 1, 1, 1, 1, null)],
+            units: [new ExtractedDocumentUnit(0, 0, 1, 1, "NEW ACTIVE CARD\nFresh details.", 30, 5, [7])],
+            retrievalChunks: [new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "NEW ACTIVE CARD\nFresh details.", 5, [8], "unit_exact_v1")],
+            exactMatchEntries: [new ExtractedExactMatchEntry(0, 0, 0, 1, 1, "NEW ACTIVE CARD\nFresh details.", "new active card fresh details", 30, 5, [9], "verbatim_excerpt")],
+            contextualTextEntries: [new ProjectedContextualTextEntry(0, 0, 0, 0, 1, 1, "Document: ActiveCards.pdf\n\nExcerpt:\nNEW ACTIVE CARD\nFresh details.", 64, 8, [10])],
+            CancellationToken.None);
+
+        Assert.True(secondCommitted);
+
+        var profileCount = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM document_profiles;");
+        var cardRows = (await conn.QueryAsync<(string title, Guid revision_id)>(
+            "SELECT title, revision_id FROM document_profile_content_cards ORDER BY title;")).ToArray();
+
+        Assert.Equal(2, profileCount);
+        Assert.Contains(cardRows, row => string.Equals(row.title, "NEW ACTIVE CARD", StringComparison.Ordinal));
+        Assert.DoesNotContain(cardRows, row => row.title.Contains("OLD", StringComparison.OrdinalIgnoreCase));
+        Assert.Single(cardRows.Select(static row => row.revision_id).Distinct());
+    }
+
+    [Fact]
+    public async Task SearchDocumentProfileMatchesAsync_uses_materialized_content_cards_when_profile_search_text_is_stale()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("88888888-1111-1111-1111-111111111111");
+        var docId = Guid.Parse("99999999-2222-2222-2222-222222222222");
+        var jobId = Guid.Parse("aaaaaaaa-3333-3333-3333-333333333333");
+        const string docPath = "Operations/WeeklyPlan.pdf";
+        const string text = "WEEKLY MAINTENANCE PLAN\nInspection schedule and spare-part checklist.";
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 1, indexedVersion: 0);
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        Assert.True(await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            jobId,
+            docPath,
+            hash: [3, 3, 3],
+            size: text.Length,
+            mtimeUtc: DateTime.UtcNow,
+            version: 1,
+            pages: [new ExtractedPdfPage(1, text, 7, text.Length, [1])],
+            sections: [new ExtractedDocumentSection(0, "Weekly Maintenance Plan", 1, 1, 1, 1, null)],
+            units: [new ExtractedDocumentUnit(0, 0, 1, 1, text, text.Length, 7, [2])],
+            retrievalChunks: [new ProjectedRetrievalChunk(0, 0, 0, 1, 1, text, 7, [3], "unit_exact_v1")],
+            exactMatchEntries: [],
+            contextualTextEntries: [new ProjectedContextualTextEntry(0, 0, 0, 0, 1, 1, $"Document: WeeklyPlan.pdf\nExcerpt:\n{text}", text.Length + 35, 10, [4])],
+            CancellationToken.None));
+
+        await using var conn = new NpgsqlConnection(db.ConnectionString);
+        await conn.OpenAsync();
+        await conn.ExecuteAsync(
+            """
+            UPDATE document_profiles
+            SET summary_text='Generic administrative note.',
+                search_text='generic administrative note',
+                keywords=ARRAY[]::text[],
+                topics=ARRAY[]::text[],
+                hypothetical_questions=ARRAY[]::text[]
+            WHERE tenant_id=@tenant_id AND doc_id=@doc_id;
+            """,
+            new { tenant_id = tenantId, doc_id = docId });
+
+        var matches = await RagEndpoints.SearchDocumentProfileMatchesAsync(
+            ds,
+            tenantId,
+            "weekly maintenance plan",
+            category: null,
+            docId: null,
+            docPath: null,
+            topK: 5,
+            CancellationToken.None);
+
+        var match = Assert.Single(matches);
+        Assert.Equal("document_profile", RagEndpoints.ResolveRetriever(match));
+        Assert.Equal(docPath, match.DocPath);
+        Assert.Contains("Weekly Maintenance Plan", match.Text, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -639,6 +825,102 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
+    public async Task SearchSparseMatchesAsync_lexical_fallback_matches_accents_and_ligatures()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("74747474-1111-1111-1111-111111111111");
+        var docId = Guid.Parse("75757575-2222-2222-2222-222222222222");
+        var jobId = Guid.Parse("76767676-3333-3333-3333-333333333333");
+        const string docPath = "Cuisine/AccentLigature.pdf";
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 1, indexedVersion: 0);
+
+        const string text = "Recette: Bœuf à l'aïoli épicé. Servir avec une crème brûlée.\nSalade \nde lentilles.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, text.Length, 12, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Recettes accentuées", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, text, text.Length, 12, [2])
+        };
+        var retrievalChunks = new[]
+        {
+            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, text, 12, [3], "unit_exact_v1")
+        };
+        var contextualTextEntries = new[]
+        {
+            new ProjectedContextualTextEntry(
+                0,
+                0,
+                0,
+                0,
+                1,
+                1,
+                $"Document: AccentLigature.pdf\nHeading Path: Recettes accentuées\nExcerpt:\n{text}",
+                text.Length + 70,
+                18,
+                [4])
+        };
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        Assert.True(await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            jobId,
+            docPath,
+            [6, 6, 6],
+            66,
+            DateTime.UtcNow,
+            1,
+            pages,
+            sections,
+            units,
+            retrievalChunks,
+            exactMatchEntries: [],
+            contextualTextEntries,
+            CancellationToken.None));
+
+        var matches = await RagEndpoints.SearchSparseMatchesAsync(
+            ds,
+            tenantId,
+            "boeuf aioli epice creme brulee",
+            "cuisine",
+            docId.ToString(),
+            docPath,
+            5,
+            CancellationToken.None,
+            _ => { });
+
+        var match = Assert.Single(matches);
+        Assert.Equal("sparse_bm25_v1", match.EmbeddingBasis);
+        Assert.Contains("Bœuf", match.Text!, StringComparison.Ordinal);
+        Assert.Contains("crème brûlée", match.Text!, StringComparison.Ordinal);
+
+        var splitTitleMatches = await RagEndpoints.SearchSparseMatchesAsync(
+            ds,
+            tenantId,
+            "salade de lentilles",
+            "cuisine",
+            docId.ToString(),
+            docPath,
+            5,
+            CancellationToken.None,
+            _ => { });
+
+        var splitTitleMatch = Assert.Single(splitTitleMatches);
+        Assert.Contains("Salade", splitTitleMatch.Text!, StringComparison.Ordinal);
+        Assert.Contains("lentilles", splitTitleMatch.Text!, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task SearchLinkedMatchesAsync_supports_exact_match_anchor_when_it_resolves_to_a_retrieval_chunk()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
@@ -846,6 +1128,97 @@ public sealed class DocumentFoundationIntegrationTests
 
         var linkCount = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM retrieval_chunk_links;");
         Assert.Equal(3, linkCount);
+    }
+
+    [Fact]
+    public async Task SearchLinkedMatchesAsync_accepts_sparse_bm25_anchor_for_same_page_expansion()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("4444aaaa-7777-1111-1111-111111111111");
+        var docId = Guid.Parse("5555bbbb-8888-2222-2222-222222222222");
+        var jobId = Guid.Parse("6666cccc-9999-3333-3333-333333333333");
+        const string docPath = "ATEX/SparseLinkedContext.pdf";
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 5, indexedVersion: 4);
+
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, "recipe title preparation details ingredient list", 6, 45, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Recipe", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, "recipe title preparation details", 10, 3, [2]),
+            new ExtractedDocumentUnit(1, 0, 1, 1, "ingredient list", 11, 2, [3])
+        };
+        var retrievalChunks = new[]
+        {
+            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "recipe title preparation details", 3, [4], "unit_exact_v1"),
+            new ProjectedRetrievalChunk(1, 0, 1, 1, 1, "ingredient list", 2, [5], "section_window_v1")
+        };
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        Assert.True(await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            jobId,
+            docPath,
+            [7, 7, 7],
+            65,
+            DateTime.UtcNow,
+            5,
+            pages,
+            sections,
+            units,
+            retrievalChunks,
+            exactMatchEntries: [],
+            contextualTextEntries: [],
+            CancellationToken.None));
+
+        var sparseAnchor = new RagMatch(
+            Score: 0.90,
+            DocId: docId.ToString(),
+            DocPath: docPath,
+            DocName: "SparseLinkedContext.pdf",
+            PageStart: 1,
+            PageEnd: 1,
+            ChunkId: DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 5, 0).ToString(),
+            ChunkIndex: 0,
+            Text: "recipe title preparation details",
+            IngestionVersion: 5,
+            HashDoc: "hash",
+            EmbedText: "recipe title preparation details",
+            EmbeddingBasis: "sparse_bm25_v1",
+            SectionOrdinal: 0,
+            UnitOrdinal: 0,
+            SectionTitle: "Recipe",
+            HeadingPath: "Recipe",
+            ChunkType: "unit_exact_v1",
+            PrevChunkId: null,
+            NextChunkId: DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 5, 1).ToString(),
+            SameSectionChunkId: DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 5, 1).ToString());
+
+        var linkedMatches = await RagEndpoints.SearchLinkedMatchesAsync(
+            ds,
+            tenantId,
+            [sparseAnchor],
+            category: "atex",
+            docId: docId.ToString(),
+            docPath: docPath,
+            topK: 3,
+            CancellationToken.None);
+
+        var linked = Assert.Single(linkedMatches, item => item.ChunkId == DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 5, 1).ToString());
+        Assert.Equal("linked_context_v1", linked.EmbeddingBasis);
+        Assert.Equal("section_window_v1", linked.ChunkType);
+        Assert.True(linked.Score < sparseAnchor.Score);
+        Assert.Equal(0.875, linked.Score, 3);
     }
 
     [Fact]
@@ -1742,7 +2115,7 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
-    public async Task SearchAsync_uses_capability_a_llm_questions_when_request_services_provides_runtime()
+    public async Task SearchAsync_does_not_call_capability_a_llm_questions_during_interactive_search()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
@@ -1752,7 +2125,8 @@ public sealed class DocumentFoundationIntegrationTests
         await PublishRuntimeReadyQuestionBankDocumentsAsync(db, tenantId);
 
         var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        var ctx = BuildRagHttpContext(tenantId, BuildCapabilityARequestServices());
+        var (requestServices, llmFactory) = BuildCapabilityARequestServices();
+        var ctx = BuildRagHttpContext(tenantId, requestServices);
         var result = await InvokeRagSearchAsync(
             ctx,
             ds,
@@ -1773,7 +2147,8 @@ public sealed class DocumentFoundationIntegrationTests
             response!.Items,
             static match => string.Equals(match.DocPath, "Programmation/Mettler/MettlerToledo_IND570.pdf", StringComparison.Ordinal));
 
-        Assert.True(item.HypQuestionsMatched);
+        Assert.NotNull(item.HypQuestionsMatched);
+        Assert.Equal(0, llmFactory.LlmRequestCount);
     }
 
     private static DefaultHttpContext BuildRagHttpContext(Guid tenantId, IServiceProvider? requestServices = null)
@@ -1882,18 +2257,19 @@ public sealed class DocumentFoundationIntegrationTests
         return await (Task<IResult>)method!.Invoke(null, [ctx, ds, ragOptions, httpFactory, request])!;
     }
 
-    private static IServiceProvider BuildCapabilityARequestServices()
+    private static (IServiceProvider Services, CountingLlmHttpClientFactory LlmFactory) BuildCapabilityARequestServices()
     {
+        var llmFactory = new CountingLlmHttpClientFactory();
         var services = new ServiceCollection();
         services.AddSingleton(new CapabilityAHypotheticalQuestionService(
             new LocalLlmChatClient(
-                new StubHttpClientFactory(),
+                llmFactory,
                 new ChatOptions
                 {
                     LlmBaseUrl = "http://llm.test/",
                     LlmModel = "local"
                 })));
-        return services.BuildServiceProvider();
+        return (services.BuildServiceProvider(), llmFactory);
     }
 
     private static string ReadResponseBody(DefaultHttpContext context)
@@ -2151,6 +2527,50 @@ public sealed class DocumentFoundationIntegrationTests
                     _ => new Uri("http://stub.test/")
                 }
             };
+    }
+
+    private sealed class CountingLlmHttpClientFactory : IHttpClientFactory
+    {
+        private readonly CountingLlmHttpMessageHandler _handler = new();
+
+        public int LlmRequestCount => _handler.LlmRequestCount;
+
+        public HttpClient CreateClient(string name)
+            => new(_handler, disposeHandler: false)
+            {
+                BaseAddress = new Uri("http://llm.test/")
+            };
+    }
+
+    private sealed class CountingLlmHttpMessageHandler : HttpMessageHandler
+    {
+        private int _llmRequestCount;
+
+        public int LlmRequestCount => _llmRequestCount;
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if ((request.RequestUri?.AbsolutePath ?? string.Empty).EndsWith("/v1/chat/completions", StringComparison.OrdinalIgnoreCase))
+                System.Threading.Interlocked.Increment(ref _llmRequestCount);
+
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {
+                      "choices": [
+                        {
+                          "message": {
+                            "content": "{\"questions\":[\"When should the IND570 PLC integration guidance be retrieved?\"]}"
+                          }
+                        }
+                      ]
+                    }
+                    """,
+                    System.Text.Encoding.UTF8,
+                    "application/json")
+            });
+        }
     }
 
     private sealed class StubHttpMessageHandler : HttpMessageHandler

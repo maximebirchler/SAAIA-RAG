@@ -166,6 +166,11 @@ internal static class RuntimeCapabilityBExecutionCoordinator
         return new DateTimeOffset(utc);
     }
 
+    private static string NormalizeDocLanguage(string? value)
+        => string.IsNullOrWhiteSpace(value)
+            ? "und"
+            : value.Trim();
+
     internal static async Task<RuntimeOperationResult<CapabilityBCompletionResult>> CompleteAsync(
         Guid tenantId,
         NpgsqlDataSource ds,
@@ -216,7 +221,7 @@ internal static class RuntimeCapabilityBExecutionCoordinator
             tenantId,
             execution.DocId,
             level,
-            string.IsNullOrWhiteSpace(req.DocLanguage) ? null : req.DocLanguage.Trim(),
+            NormalizeDocLanguage(req.DocLanguage),
             sourceHash,
             normalizedSummaryText,
             metaJson,

@@ -84,4 +84,53 @@ public sealed class RetrievalChunkProjectorTests
         Assert.All(projected, chunk => Assert.NotEqual("legacy_word_window_v1", chunk.ChunkType));
         Assert.All(projected, chunk => Assert.True(chunk.OffsetEnd > chunk.OffsetStart));
     }
+
+    [Fact]
+    public void ProjectStructureAware_adds_exact_chunks_for_short_high_signal_units()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 2, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "Reference list http://example.test http://example-two.test",
+                57,
+                5,
+                [1],
+                0,
+                57),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                2,
+                2,
+                "SAUCE BECHAMEL DE BASE Ingredients beurre farine lait Preparation 1. Faire fondre le beurre. 2. Ajouter la farine et fouetter.",
+                125,
+                18,
+                [2],
+                61,
+                186)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 200,
+            overlapWords: 0,
+            minWords: 80);
+
+        Assert.Contains(projected, chunk =>
+            chunk.ChunkType == "unit_exact_v1"
+            && chunk.UnitOrdinal == 1
+            && chunk.Text.StartsWith("SAUCE BECHAMEL", StringComparison.Ordinal));
+        Assert.DoesNotContain(projected, chunk =>
+            chunk.ChunkType == "unit_exact_v1"
+            && chunk.UnitOrdinal == 0);
+    }
 }

@@ -25,7 +25,8 @@ public sealed record RagSearchRequestDto(
     string? Mode = null,
     RagDiversityDto? Diversity = null,
     string? DocId = null,
-    string? DocPath = null
+    string? DocPath = null,
+    bool? IncludeContextualSnippet = null
 );
 
 /// <summary>

@@ -35,6 +35,34 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void BuildFocusedLexicalBackfillQuery_keeps_specific_user_topic()
+    {
+        var focused = RagEndpoints.BuildFocusedLexicalBackfillQuery(
+            "Quelles recettes avec des lentilles corail existent dans les PDF ?");
+
+        Assert.Contains("lentilles", focused, StringComparison.Ordinal);
+        Assert.Contains("corail", focused, StringComparison.Ordinal);
+        Assert.DoesNotContain("existent", focused, StringComparison.Ordinal);
+        Assert.DoesNotContain("recettes", focused, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("Quels documents parlent d'inertage ?", true)]
+    [InlineData("Which documents mention inerting?", true)]
+    [InlineData("Explique l'inertage dans ce passage.", false)]
+    public void ShouldBackfillEnumerativeSearch_detects_list_or_find_requests(string query, bool expected)
+    {
+        Assert.Equal(expected, RagEndpoints.ShouldBackfillEnumerativeSearch(query, selectedCount: 1, topK: 8));
+    }
+
+    [Fact]
+    public void ShouldConstrainPreciseTitleLookup_does_not_limit_enumerative_recipe_searches()
+    {
+        Assert.False(RagEndpoints.ShouldConstrainPreciseTitleLookup(
+            "Quelles recettes avec des lentilles corail existent dans les PDF ?"));
+    }
+
+    [Fact]
     public void BuildQdrantChunkPayload_keeps_chunk_text_and_tracks_contextual_embedding_basis()
     {
         var tenantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
@@ -135,6 +163,67 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.Equal("prev-1", match.PrevChunkId);
         Assert.Equal("next-1", match.NextChunkId);
         Assert.Equal("same-1", match.SameSectionChunkId);
+    }
+
+    [Fact]
+    public void IsActiveDenseMatchForRevision_uses_revision_ingestion_version_not_indexed_version()
+    {
+        var match = new RagMatch(
+            0.91,
+            "doc-1",
+            "Cuisine/si-on-cuisinait.pdf",
+            "si-on-cuisinait.pdf",
+            1,
+            1,
+            "chunk-1",
+            0,
+            "Chunk snippet",
+            IngestionVersion: 9,
+            HashDoc: "DEADBEEF",
+            EmbedText: "Chunk snippet",
+            EmbeddingBasis: "contextual_text_v1",
+            SectionOrdinal: 1,
+            UnitOrdinal: 1,
+            SectionTitle: "Section",
+            HeadingPath: "Section",
+            ChunkType: "unit_exact_v1",
+            PrevChunkId: null,
+            NextChunkId: null,
+            SameSectionChunkId: null);
+
+        Assert.True(RagEndpoints.IsActiveDenseMatchForRevision(match, currentRevisionIngestionVersion: 9, currentContentHashHex: "deadbeef"));
+        Assert.False(RagEndpoints.IsActiveDenseMatchForRevision(match, currentRevisionIngestionVersion: 7, currentContentHashHex: "deadbeef"));
+        Assert.False(RagEndpoints.IsActiveDenseMatchForRevision(match, currentRevisionIngestionVersion: 9, currentContentHashHex: "feedface"));
+    }
+
+    [Fact]
+    public void IsActiveDenseMatchForRevision_keeps_legacy_hash_only_payloads()
+    {
+        var legacy = new RagMatch(
+            0.91,
+            "doc-1",
+            "Docs/Legacy.pdf",
+            "Legacy.pdf",
+            1,
+            1,
+            "chunk-1",
+            0,
+            "Chunk snippet",
+            IngestionVersion: null,
+            HashDoc: "deadbeef",
+            EmbedText: "Chunk snippet",
+            EmbeddingBasis: "contextual_text_v1",
+            SectionOrdinal: 1,
+            UnitOrdinal: 1,
+            SectionTitle: "Section",
+            HeadingPath: "Section",
+            ChunkType: "unit_exact_v1",
+            PrevChunkId: null,
+            NextChunkId: null,
+            SameSectionChunkId: null);
+
+        Assert.True(RagEndpoints.IsActiveDenseMatchForRevision(legacy, currentRevisionIngestionVersion: 9, currentContentHashHex: "DEADBEEF"));
+        Assert.False(RagEndpoints.IsActiveDenseMatchForRevision(legacy, currentRevisionIngestionVersion: 9, currentContentHashHex: "feedface"));
     }
 
     [Fact]
@@ -260,6 +349,1460 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void CalibrateFusedMatches_penalizes_navigation_chunks_for_content_queries()
+    {
+        var navigation = new RagMatch(
+            0.99,
+            "doc-index",
+            "Docs/Device.pdf",
+            "Device.pdf",
+            176,
+            176,
+            "nav",
+            0,
+            "Vegetarian items 153Burger vegetarian 154Stuffed cabbage 155Tomato clafoutis 156Vegetable flan 157Potato galette 158Quiche lorraine 186Chocolate cake 187",
+            1,
+            "hash-index",
+            "Vegetarian items 153Burger vegetarian 154Stuffed cabbage 155Tomato clafoutis 156Vegetable flan 157Potato galette 158Quiche lorraine 186Chocolate cake 187",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Document",
+            "Document",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+        var content = new RagMatch(
+            0.94,
+            "doc-recipe",
+            "Docs/Recipes.pdf",
+            "Recipes.pdf",
+            15,
+            15,
+            "content",
+            1,
+            "Quiche lorraine ingredients include eggs and bacon. Preparation method: make the dough, fill the tart and bake until golden.",
+            1,
+            "hash-content",
+            "Quiche lorraine ingredients include eggs and bacon. Preparation method: make the dough, fill the tart and bake until golden.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Guide",
+            "Guide",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+
+        var calibrated = RagEndpoints.CalibrateFusedMatches("Compare les quiches lorraines du corpus : ingredients et methode.", [navigation, content]);
+
+        Assert.Equal("content", calibrated[0].ChunkId);
+        Assert.True(RagEndpoints.LooksLikeNavigationalChunk(navigation));
+    }
+
+    [Fact]
+    public void LooksLikeNavigationalChunk_detects_recipe_index_pages()
+    {
+        var index = new RagMatch(
+            0.98,
+            "doc-index",
+            "Cuisine/children.pdf",
+            "children.pdf",
+            13,
+            13,
+            "index",
+            12,
+            "Entrées•Salade de lentilles1•Salade de haricots verts à l’avocat2•Taboulé5•Quiche lorraine16Index•Clafoutis aux pommes3•Brownies21FicheFicheFichefiche-index Page 1",
+            1,
+            "hash-index",
+            "Entrées•Salade de lentilles1•Salade de haricots verts à l’avocat2•Taboulé5•Quiche lorraine16Index•Clafoutis aux pommes3•Brownies21FicheFicheFichefiche-index Page 1",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Document",
+            "Document",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+
+        Assert.True(RagEndpoints.LooksLikeNavigationalChunk(index));
+
+        var inlineIndex = index with
+        {
+            ChunkId = "inline-index",
+            Text = "Index des recettesAAsperges vertes au miel, 16BBoulettes de viande hachee a la mozzarella, 30Brochettes de poisson mediterraneennes, 34 Rumsteck aux oignons grilles, 38 Quiche lorraine, 16 Brownies, 21",
+            EmbedText = "Index des recettesAAsperges vertes au miel, 16BBoulettes de viande hachee a la mozzarella, 30Brochettes de poisson mediterraneennes, 34 Rumsteck aux oignons grilles, 38 Quiche lorraine, 16 Brownies, 21"
+        };
+
+        Assert.True(RagEndpoints.LooksLikeNavigationalChunk(inlineIndex));
+    }
+
+    [Fact]
+    public void LooksLikeSourceListChunk_detects_url_reference_lists()
+    {
+        var sourceList = new RagMatch(
+            0.98,
+            "doc-source",
+            "Docs/Sources.pdf",
+            "Sources.pdf",
+            52,
+            55,
+            "sources",
+            63,
+            "Useful links http://example.com https://example.org www.example.net MAPAQ https://example.ca Metro https://metro.ca",
+            1,
+            "hash-source",
+            "Useful links http://example.com https://example.org www.example.net MAPAQ https://example.ca Metro https://metro.ca",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Sources",
+            "Sources",
+            "section_window_v1",
+            null,
+            null,
+            null);
+
+        Assert.True(RagEndpoints.LooksLikeSourceListChunk(sourceList));
+    }
+
+    [Fact]
+    public void CalibrateFusedMatches_promotes_structured_answer_unit_over_sources_and_indexes()
+    {
+        var sourceList = new RagMatch(
+            1.02,
+            "doc-source",
+            "Cuisine/Sources.pdf",
+            "Sources.pdf",
+            52,
+            55,
+            "sources",
+            63,
+            "Ma boite http://maboite.qc.ca MAPAQ https://mapaq.gouv.qc.ca Maxi https://maxi.ca Metro https://metro.ca Naître et grandir https://naitreetgrandir.com/fr Sauce bechamel",
+            1,
+            "hash-source",
+            "Ma boite http://maboite.qc.ca MAPAQ https://mapaq.gouv.qc.ca Maxi https://maxi.ca Metro https://metro.ca Naître et grandir https://naitreetgrandir.com/fr Sauce bechamel",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Sources",
+            "Sources",
+            "section_window_v1",
+            null,
+            null,
+            null);
+        var index = new RagMatch(
+            1.02,
+            "doc-index",
+            "Cuisine/Index.pdf",
+            "Index.pdf",
+            7,
+            7,
+            "index",
+            7,
+            "Sauce bechamel 43 Sauce tomate 44 Sauce fromage 45 Sauce rosee 46 Sauce moutarde 47 Sauce pizza 48",
+            1,
+            "hash-index",
+            "Sauce bechamel 43 Sauce tomate 44 Sauce fromage 45 Sauce rosee 46 Sauce moutarde 47 Sauce pizza 48",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Sommaire",
+            "Sommaire",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+        var recipe = new RagMatch(
+            0.88,
+            "doc-recipe",
+            "Cuisine/Recipes.pdf",
+            "Recipes.pdf",
+            55,
+            55,
+            "recipe",
+            131,
+            "SAUCE BECHAMEL DE BASE Ingredients 45 ml de beurre 45 ml de farine 500 ml de lait Preparation 1. Faire fondre le beurre. Ajouter la farine puis le lait.",
+            1,
+            "hash-recipe",
+            "SAUCE BECHAMEL DE BASE Ingredients 45 ml de beurre 45 ml de farine 500 ml de lait Preparation 1. Faire fondre le beurre. Ajouter la farine puis le lait.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Sauce bechamel",
+            "Sauce bechamel",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+
+        var calibrated = RagEndpoints.CalibrateFusedMatches("Je veux une sauce bechamel", [sourceList, index, recipe]);
+
+        Assert.True(RagEndpoints.LooksLikeStrongNavigationalChunk(index));
+        Assert.Equal("recipe", calibrated[0].ChunkId);
+        Assert.True(calibrated[0].Score > calibrated[1].Score);
+        Assert.True(calibrated.Single(match => match.ChunkId == "index").Score <= 0.68);
+    }
+
+    [Fact]
+    public void LooksLikeDocumentOverviewChunk_detects_introductory_document_marketing_text()
+    {
+        var overview = new RagMatch(
+            0.98,
+            "doc-overview",
+            "Docs/Guide.pdf",
+            "Guide.pdf",
+            7,
+            7,
+            "overview",
+            0,
+            "Ce livre contient quelques exemples et vous permettra de preparer des soupes, des cremes ou une sauce bechamel.",
+            1,
+            "hash-overview",
+            "Ce livre contient quelques exemples et vous permettra de preparer des soupes, des cremes ou une sauce bechamel.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Introduction",
+            "Introduction",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+
+        Assert.True(RagEndpoints.LooksLikeDocumentOverviewChunk(overview));
+    }
+
+    [Fact]
+    public void ExpandRetrievalQuery_adds_contextual_terms_for_meal_planning_and_meat_sauce_queries()
+    {
+        var mealPlanning = RagEndpoints.ExpandRetrievalQuery("Je veux organiser des repas pour toute la semaine", "cuisine");
+        var quickLunch = RagEndpoints.ExpandRetrievalQuery("Quelles recettes sont adaptées pour un déjeuner de semaine rapide ?", "cuisine");
+        var steakSauce = RagEndpoints.ExpandRetrievalQuery("Quelle sauce irait bien avec une entrecote ?", "cuisine");
+
+        Assert.Contains("batch cooking", mealPlanning, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("repas de la semaine", mealPlanning, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("repas rapide", quickLunch, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("easy lunch", quickLunch, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("steaks poivre", steakSauce, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("steak", steakSauce, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BuildLexicalContentFallbackTerms_keeps_quoted_titles_with_short_words_and_digits()
+    {
+        var terms = RagEndpoints.BuildLexicalContentFallbackTerms(
+            "Tu peux me faire une fiche claire pour « Sauce aux 4 fromages » : ingredients, etapes, temps et source ?");
+
+        Assert.Contains("sauce aux 4 fromages", terms);
+    }
+
+    [Fact]
+    public void BuildLexicalContentFallbackTerms_keeps_quoted_titles_for_exact_recipe_names()
+    {
+        var terms = RagEndpoints.BuildLexicalContentFallbackTerms(
+            "Tu peux me faire une fiche claire pour « Asperges vertes au miel » : ingredients, etapes, temps et source ?");
+
+        Assert.Contains("asperges vertes au miel", terms);
+    }
+
+    [Fact]
+    public void BuildLexicalContentFallbackTerms_ignores_comparison_quantity_words()
+    {
+        var terms = RagEndpoints.BuildLexicalContentFallbackTerms(
+            "Il y a plusieurs crèmes brûlées ? Compare-les si oui.");
+
+        Assert.Contains("creme brulee", terms);
+        Assert.DoesNotContain("plusieurs", terms);
+    }
+
+    [Fact]
+    public void ComputeQuotedLookupCandidateScore_rewards_full_title_token_coverage_when_pdf_glues_words()
+    {
+        var phrases = RagEndpoints.ExtractQuotedLookupPhrases(
+            "Tu peux me faire une fiche claire pour « Salade de haricots verts à l'avocat » : ingredients, etapes, temps et source ?");
+        var target = "Ingrédients: haricots verts, avocat, tomates. Technique: préparer la sauce. Salade de haricotsverts à l'avocat.";
+        var partial = "Haricots verts vapeur avec huile d'olive, citron, sel et poivre.";
+
+        var targetScore = RagEndpoints.ComputeQuotedLookupCandidateScore(phrases, target);
+        var partialScore = RagEndpoints.ComputeQuotedLookupCandidateScore(phrases, partial);
+
+        Assert.True(targetScore > partialScore);
+        Assert.True(targetScore >= 8.0);
+    }
+
+    [Fact]
+    public void ComputeQuotedLookupCandidateScore_prefers_heading_over_measured_ingredient_occurrence()
+    {
+        var phrases = RagEndpoints.ExtractQuotedLookupPhrases(
+            "Tu peux me faire une fiche claire pour « Bouillon de volaille » : ingredients, etapes, temps et source ?");
+        var heading = "INGRÉDIENTS: carcasse, oignons, céleri. BOUILLON DE VOLAILLE SAUCES PRÉPARATION: laisser mijoter 1h.";
+        var ingredient = "Osso buco pour 4 personnes: 75 cl de bouillon de volaille, tomates, farine, vin blanc.";
+
+        var headingScore = RagEndpoints.ComputeQuotedLookupCandidateScore(phrases, heading);
+        var ingredientScore = RagEndpoints.ComputeQuotedLookupCandidateScore(phrases, ingredient);
+
+        Assert.True(headingScore > ingredientScore);
+    }
+
+    [Fact]
+    public void CalibrateFusedMatches_uses_quoted_title_coverage_to_break_capped_score_ties()
+    {
+        var partial = new RagMatch(
+            1.02,
+            "doc-partial",
+            "Cuisine/chefbot.pdf",
+            "chefbot.pdf",
+            112,
+            112,
+            "partial",
+            171,
+            "Haricots verts vapeur avec huile d'olive et citron.",
+            IngestionVersion: 1,
+            HashDoc: "a",
+            EmbedText: "Haricots verts vapeur avec huile d'olive et citron.",
+            EmbeddingBasis: "sparse_bm25_v1",
+            SectionOrdinal: null,
+            UnitOrdinal: null,
+            SectionTitle: "Document",
+            HeadingPath: "Document",
+            ChunkType: "unit_exact_v1",
+            PrevChunkId: null,
+            NextChunkId: null,
+            SameSectionChunkId: null);
+        var target = partial with
+        {
+            DocId = "doc-target",
+            DocPath = "Cuisine/si-on-cuisinait.pdf",
+            DocName = "si-on-cuisinait.pdf",
+            ChunkId = "target",
+            ChunkIndex = 53,
+            PageStart = 28,
+            PageEnd = 28,
+            Text = "Ingrédients: haricots verts, avocat, tomates. Technique: préparer la sauce. Salade de haricotsverts à l'avocat.",
+            EmbedText = "Document: si-on-cuisinait.pdf\nExcerpt: Ingrédients: haricots verts, avocat, tomates. Technique: préparer la sauce."
+        };
+
+        var calibrated = RagEndpoints.CalibrateFusedMatches(
+            "Tu peux me faire une fiche claire pour « Salade de haricots verts à l'avocat » : ingredients, etapes, temps et source ?",
+            [partial, target]);
+
+        Assert.Equal("target", calibrated[0].ChunkId);
+
+        var selected = new List<RagMatch> { partial, target };
+        RagEndpoints.PrioritizeQuotedTitleSelections(
+            "Tu peux me faire une fiche claire pour « Salade de haricots verts à l'avocat » : ingredients, etapes, temps et source ?",
+            selected);
+
+        Assert.Equal("target", selected[0].ChunkId);
+    }
+
+    [Fact]
+    public void PrunePreciseTitleTailSelections_keeps_quoted_title_anchor_with_digit()
+    {
+        var profileNoise = new RagMatch(
+            1.02,
+            "doc-noise",
+            "Cuisine/facilitemps.pdf",
+            "facilitemps.pdf",
+            56,
+            56,
+            "profile-noise",
+            69,
+            "SAUCE TOMATE DE BASE Ingredients: tomates, oignon, ail. Preparation: mijoter.",
+            1,
+            "hash-noise",
+            "Matched profile title: Sauce au fromage\nDocument: facilitemps.pdf\nContext: sauce tomate.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Document",
+            "Document",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+        var quotedAnchor = profileNoise with
+        {
+            DocId = "doc-target",
+            DocPath = "Cuisine/robot.pdf",
+            DocName = "robot.pdf",
+            PageStart = 121,
+            PageEnd = 121,
+            ChunkId = "quoted-anchor",
+            ChunkIndex = 306,
+            Text = "Temps total : 17 min. Vin blanc, comte, gorgonzola, parmesan et poivre.",
+            EmbedText = "Matched quoted title: SAUCE AUX 4 FROMAGES\nTemps total : 17 min. Vin blanc, comte, gorgonzola, parmesan et poivre.",
+            ChunkType = "section_window_v1"
+        };
+
+        var selected = new List<RagMatch> { profileNoise, quotedAnchor };
+
+        RagEndpoints.PrioritizeQuotedTitleSelections("\"Sauce aux 4 fromages\"", selected);
+        RagEndpoints.PrunePreciseTitleTailSelections("\"Sauce aux 4 fromages\"", selected);
+
+        Assert.Single(selected);
+        Assert.Equal("quoted-anchor", selected[0].ChunkId);
+    }
+
+    [Fact]
+    public void ShouldSupplementSparseWithLexicalFallback_keeps_long_quoted_title_queries()
+    {
+        Assert.True(RagEndpoints.ShouldSupplementSparseWithLexicalFallback(
+            "cuisine",
+            "Tu peux me faire une fiche claire pour « Asperges vertes au miel » : ingredients, etapes, temps et source ?"));
+    }
+
+    [Fact]
+    public void CalibrateFusedMatches_boosts_serving_fit_chunks_with_multiple_specific_anchors()
+    {
+        var genericSauce = new RagMatch(
+            0.98,
+            "doc-generic",
+            "Cuisine/Sauces.pdf",
+            "Sauces.pdf",
+            18,
+            18,
+            "generic",
+            18,
+            "SAUCE MOUTARDE Ingredients moutarde vinaigre huile sel poivre Realisation melanger dans un bol.",
+            1,
+            "hash-generic",
+            "SAUCE MOUTARDE Ingredients moutarde vinaigre huile sel poivre Realisation melanger dans un bol.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Sauces",
+            "Sauces",
+            "section_window_v1",
+            null,
+            null,
+            null);
+        var steakSauce = new RagMatch(
+            0.88,
+            "doc-steak",
+            "Cuisine/Robot.pdf",
+            "Robot.pdf",
+            121,
+            121,
+            "steak-sauce",
+            306,
+            "1 c. a c. de poivre concasse 10 cl de creme liquide. Ajoutez l'eau puis lancez la cuisson. Servez avec des steaks. SAUCE AU POIVRE.",
+            1,
+            "hash-steak",
+            "1 c. a c. de poivre concasse 10 cl de creme liquide. Ajoutez l'eau puis lancez la cuisson. Servez avec des steaks. SAUCE AU POIVRE.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Sauces",
+            "Sauces",
+            "section_window_v1",
+            null,
+            null,
+            null);
+        var retrievalQuery = RagEndpoints.ExpandRetrievalQuery("Quelle sauce irait bien avec une entrecote ?", "cuisine");
+
+        var calibrated = RagEndpoints.CalibrateFusedMatches(retrievalQuery, [genericSauce, steakSauce]);
+
+        Assert.Equal("steak-sauce", calibrated[0].ChunkId);
+    }
+
+    [Fact]
+    public void CalibrateFusedMatches_ignores_answer_format_words_for_specific_recipe_queries()
+    {
+        var genericOnionRecipe = new RagMatch(
+            1.02,
+            "doc-generic",
+            "Cuisine/Other.pdf",
+            "Other.pdf",
+            83,
+            83,
+            "generic-onion",
+            0,
+            "Ingredients: oignons grelots, sucre, vinaigre. Preparation: cuire les oignons.",
+            1,
+            "hash-generic",
+            "Matched profile title: Oignons caramelises\nIngredients: oignons grelots, sucre, vinaigre. Preparation: cuire les oignons.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Oignons",
+            "Oignons",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+        var specificRecipe = new RagMatch(
+            0.82,
+            "doc-rumsteck",
+            "Cuisine/Grill.pdf",
+            "Grill.pdf",
+            38,
+            38,
+            "rumsteck-oignons",
+            0,
+            "Ingredients: 1 gros oignon, paprika, farine, huile vegetale, 2 rumstecks. Preparation: peler les oignons et faire cuire les rumstecks.",
+            1,
+            "hash-rumsteck",
+            "Matched profile title: Rumsteck aux oignons grilles\nIngredients: 1 gros oignon, paprika, farine, huile vegetale, 2 rumstecks. Preparation: peler les oignons et faire cuire les rumstecks.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Rumsteck aux oignons",
+            "Poissons et viandes > Rumsteck aux oignons",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+
+        var query = "Tu peux me faire une fiche claire pour Rumsteck aux oignons grilles : ingredients, etapes, temps et source ?";
+        var tokens = RagEndpoints.ExtractLexicalQueryTokens(query);
+        var calibrated = RagEndpoints.CalibrateFusedMatches(query, [genericOnionRecipe, specificRecipe]);
+
+        Assert.DoesNotContain("fiche", tokens);
+        Assert.DoesNotContain("claire", tokens);
+        Assert.DoesNotContain("etapes", tokens);
+        Assert.DoesNotContain("source", tokens);
+        Assert.Contains("rumsteck", tokens);
+        Assert.Contains("oignons", tokens);
+        Assert.True(RagEndpoints.HasProfileTitleHint(specificRecipe));
+        Assert.True(RagEndpoints.HasProfileTitleHint(genericOnionRecipe));
+        Assert.True(RagEndpoints.RequiresPrimarySpecificLexicalAnchor(tokens));
+        Assert.True(RagEndpoints.ContainsPrimarySpecificLexicalAnchor(tokens, specificRecipe.EmbedText));
+        Assert.False(RagEndpoints.ContainsPrimarySpecificLexicalAnchor(tokens, genericOnionRecipe.EmbedText));
+        Assert.Equal("rumsteck-oignons", calibrated[0].ChunkId);
+    }
+
+    [Fact]
+    public void ShouldSuppressUnanchoredSpecificResults_blocks_single_specific_dense_noise()
+    {
+        var denseNoise = new RagMatch(
+            0.72,
+            "doc-menu",
+            "Cuisine/Menu.pdf",
+            "Menu.pdf",
+            4,
+            4,
+            "dense-noise",
+            0,
+            "Menus de semaine, legumes, desserts rapides et organisation des repas.",
+            1,
+            "hash-menu",
+            "Menus de semaine, legumes, desserts rapides et organisation des repas.",
+            "contextual_text_v1",
+            1,
+            1,
+            "Menus",
+            "Menus",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+
+        Assert.True(RagEndpoints.ShouldSuppressUnanchoredSpecificResults("inertage", [denseNoise]));
+    }
+
+    [Fact]
+    public void ShouldSuppressUnanchoredSpecificResults_keeps_specific_anchor_hits()
+    {
+        var anchored = new RagMatch(
+            0.86,
+            "doc-atex",
+            "ATEX/Inerting.pdf",
+            "Inerting.pdf",
+            8,
+            8,
+            "anchor",
+            0,
+            "Inerting guidance for oxygen concentration and purge conditions.",
+            1,
+            "hash-atex",
+            "Inerting guidance for oxygen concentration and purge conditions.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Inerting",
+            "Inerting",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+
+        Assert.False(RagEndpoints.ShouldSuppressUnanchoredSpecificResults("inertage", [anchored]));
+    }
+
+    [Fact]
+    public void ShouldSuppressUnanchoredSpecificResults_keeps_multi_intent_semantic_queries()
+    {
+        var denseCandidate = new RagMatch(
+            0.62,
+            "doc-recipes",
+            "Cuisine/Vegetarian.pdf",
+            "Vegetarian.pdf",
+            12,
+            12,
+            "semantic",
+            0,
+            "Recettes vegetariennes faciles avec legumes et cereales.",
+            1,
+            "hash-recipes",
+            "Recettes vegetariennes faciles avec legumes et cereales.",
+            "contextual_text_v1",
+            1,
+            1,
+            "Recettes",
+            "Recettes",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+
+        Assert.False(RagEndpoints.ShouldSuppressUnanchoredSpecificResults("quiero una receta vegetariana facil", [denseCandidate]));
+    }
+
+    [Fact]
+    public void IsNearDuplicatePageOverlap_detects_overlapping_contained_chunks()
+    {
+        var broader = new RagMatch(
+            0.91,
+            "doc-recipe",
+            "Cuisine/Classic.pdf",
+            "Classic.pdf",
+            3,
+            5,
+            "broader",
+            1,
+            "Intro generale. Boeuf bourguignon pour quatre personnes avec boeuf, champignons, lardons, carottes, oignons, vin rouge, huile, ail, bouquet garni, sel et poivre. Degraisser la viande puis la tailler en morceaux.",
+            1,
+            "hash",
+            "Intro generale. Boeuf bourguignon pour quatre personnes avec boeuf, champignons, lardons, carottes, oignons, vin rouge, huile, ail, bouquet garni, sel et poivre. Degraisser la viande puis la tailler en morceaux.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Classiques",
+            "Classiques",
+            "section_window_v1",
+            null,
+            null,
+            null);
+        var contained = broader with
+        {
+            PageStart = 5,
+            PageEnd = 5,
+            ChunkId = "contained",
+            Text = "Boeuf bourguignon pour quatre personnes avec boeuf, champignons, lardons, carottes, oignons, vin rouge, huile, ail, bouquet garni, sel et poivre. Degraisser la viande puis la tailler en morceaux.",
+            EmbedText = "Boeuf bourguignon pour quatre personnes avec boeuf, champignons, lardons, carottes, oignons, vin rouge, huile, ail, bouquet garni, sel et poivre. Degraisser la viande puis la tailler en morceaux."
+        };
+
+        Assert.True(RagEndpoints.IsNearDuplicatePageOverlap(broader, contained));
+    }
+
+    [Fact]
+    public void LooksLikeNavigationalChunk_detects_dense_recipe_index()
+    {
+        var indexChunk = new RagMatch(
+            1.02,
+            "doc-index",
+            "Cuisine/International.pdf",
+            "International.pdf",
+            159,
+            159,
+            "index",
+            234,
+            "IndexA, BAioli 78Boeuf bourguignon 70Boeuf Stroganoff 129Bortsch 126Bouillon de mangue au vivaneau 148Boulettes de viande suedoises accompagnees de sauce 12Boulgour aux crevettes et aux gombos 142Brioches fourrees aux cerises 110Brochettes de poulet grille a l'indonesienne 41Canard en feuille de riz 156Cannelloni aux epinards 102Carpaccio 93Churros avec sauce au chocolat 89Coq au vin 68Creme brulee 72",
+            1,
+            "hash-index",
+            "IndexA, BAioli 78Boeuf bourguignon 70Boeuf Stroganoff 129Bortsch 126Bouillon de mangue au vivaneau 148Boulettes de viande suedoises accompagnees de sauce 12Boulgour aux crevettes et aux gombos 142Brioches fourrees aux cerises 110Brochettes de poulet grille a l'indonesienne 41Canard en feuille de riz 156Cannelloni aux epinards 102Carpaccio 93Churros avec sauce au chocolat 89Coq au vin 68Creme brulee 72",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Document",
+            "Document",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+
+        Assert.True(RagEndpoints.LooksLikeNavigationalChunk(indexChunk));
+    }
+
+    [Fact]
+    public void LooksLikeNavigationalChunk_detects_compact_pdf_index_extracted_from_live_corpus()
+    {
+        var indexChunk = new RagMatch(
+            1.02,
+            "doc-index",
+            "Cuisine/nobilia-recettes-internationales-FR.pdf",
+            "nobilia-recettes-internationales-FR.pdf",
+            159,
+            159,
+            "index",
+            234,
+            "IndexA, BAioli 78Boeuf bourguignon 70Boeuf Stroganoff 129Bortsch 126Bouillon de mangue au vivaneau 148Boulettes de viande suedoises accompagnees de sauce 12Boulgour aux crevettes et aux gombos 142Brioches fourrees aux cerises 110Brochettes de poulet grille a l'indonesienne 41Brochettes Raznjici et riz Djuvec 122C, DCanard en feuille de riz 156Cannelloni aux epinards 102Carpaccio 93Chaussons de Cornouailles 22Churros avec sauce au chocolat et au piment 89Coq au vin 68Creme brulee 72Crepes polonais a la creme et aux pommes caramelisees 131Papas arrugadas 82158 | Index",
+            1,
+            "hash-index",
+            "IndexA, BAioli 78Boeuf bourguignon 70Boeuf Stroganoff 129Bortsch 126Bouillon de mangue au vivaneau 148Boulettes de viande suedoises accompagnees de sauce 12Boulgour aux crevettes et aux gombos 142Brioches fourrees aux cerises 110Brochettes de poulet grille a l'indonesienne 41Brochettes Raznjici et riz Djuvec 122C, DCanard en feuille de riz 156Cannelloni aux epinards 102Carpaccio 93Chaussons de Cornouailles 22Churros avec sauce au chocolat et au piment 89Coq au vin 68Creme brulee 72Crepes polonais a la creme et aux pommes caramelisees 131Papas arrugadas 82158 | Index",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Document",
+            "Document",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+
+        Assert.True(RagEndpoints.LooksLikeNavigationalChunk(indexChunk));
+        Assert.True(RagEndpoints.LooksLikeStrongNavigationalChunk(indexChunk));
+    }
+
+    [Fact]
+    public void LooksLikeNavigationalChunk_keeps_structured_recipe_with_pdf_asset_index_marker()
+    {
+        var recipe = new RagMatch(
+            1.02,
+            "doc-neff",
+            "Cuisine/14911887_9001116052_NFFS4I_fr_fm.pdf",
+            "14911887_9001116052_NFFS4I_fr_fm.pdf",
+            17,
+            19,
+            "asparagus",
+            16,
+            "16 Asperges vertes au miel [Index: ] MCRC01072833_BO_Gruener_Spargel_m_Honig-010MCRC01072992_SE_Gruener_Spargel_m_Honig-007 INGREDIENTS : 50 g de cerneaux de noix, 1 botte d'asperges vertes, 3 c. a s. de miel. PREPARATION 1. Faire chauffer la poele comme indique. 2. Faire griller les asperges.",
+            1,
+            "hash-neff",
+            "16 Asperges vertes au miel [Index: ] MCRC01072833_BO_Gruener_Spargel_m_Honig-010MCRC01072992_SE_Gruener_Spargel_m_Honig-007 INGREDIENTS : 50 g de cerneaux de noix, 1 botte d'asperges vertes, 3 c. a s. de miel. PREPARATION 1. Faire chauffer la poele comme indique. 2. Faire griller les asperges.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Document",
+            "Document",
+            "section_window_v1",
+            null,
+            null,
+            null);
+
+        Assert.False(RagEndpoints.LooksLikeNavigationalChunk(recipe));
+    }
+
+    [Fact]
+    public void LooksLikeStructuredQuantityList_detects_bulleted_measurements()
+    {
+        var text = "Boeuf bourguignon Pour 4 personnes • 1,2 kg de boeuf • 250 g de champignons • 100 g de lardons • 1,5 l de vin rouge • 2 c. a soupe d'huile.";
+
+        Assert.True(RagEndpoints.LooksLikeStructuredQuantityList(text));
+    }
+
+    [Fact]
+    public void CalibrateFusedMatches_keeps_dense_index_below_recipe_chunk()
+    {
+        var recipe = new RagMatch(
+            0.88,
+            "doc-recipe",
+            "Cuisine/Classiques.pdf",
+            "Classiques.pdf",
+            5,
+            5,
+            "recipe",
+            2,
+            "Boeuf bourguignon Pour 4 personnes. Ingredients boeuf champignons lardons carottes oignons vin rouge ail bouquet garni. Preparation degraisser la viande puis faire revenir et mijoter.",
+            1,
+            "hash-recipe",
+            "Boeuf bourguignon Pour 4 personnes. Ingredients boeuf champignons lardons carottes oignons vin rouge ail bouquet garni. Preparation degraisser la viande puis faire revenir et mijoter.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Classiques",
+            "Classiques > Boeuf bourguignon",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+        var indexChunk = new RagMatch(
+            1.02,
+            "doc-index",
+            "Cuisine/International.pdf",
+            "International.pdf",
+            159,
+            159,
+            "index",
+            234,
+            "IndexA, BAioli 78Boeuf bourguignon 70Boeuf Stroganoff 129Bortsch 126Bouillon de mangue au vivaneau 148Boulettes de viande suedoises accompagnees de sauce 12Boulgour aux crevettes et aux gombos 142Brioches fourrees aux cerises 110Brochettes de poulet grille a l'indonesienne 41Canard en feuille de riz 156Cannelloni aux epinards 102Carpaccio 93Churros avec sauce au chocolat 89Coq au vin 68Creme brulee 72",
+            1,
+            "hash-index",
+            "IndexA, BAioli 78Boeuf bourguignon 70Boeuf Stroganoff 129Bortsch 126Bouillon de mangue au vivaneau 148Boulettes de viande suedoises accompagnees de sauce 12Boulgour aux crevettes et aux gombos 142Brioches fourrees aux cerises 110Brochettes de poulet grille a l'indonesienne 41Canard en feuille de riz 156Cannelloni aux epinards 102Carpaccio 93Churros avec sauce au chocolat 89Coq au vin 68Creme brulee 72",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Document",
+            "Document",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+
+        var calibrated = RagEndpoints.CalibrateFusedMatches("boeuf bourguignon grandes etapes", [indexChunk, recipe]);
+
+        Assert.Equal("recipe", calibrated[0].ChunkId);
+        Assert.True(calibrated.Single(match => match.ChunkId == "index").Score < 0.70);
+    }
+
+    [Fact]
+    public void SuppressNavigationalNoise_removes_index_when_answer_chunks_exist()
+    {
+        var recipe = new RagMatch(
+            0.76,
+            "doc-recipe",
+            "Cuisine/Classiques.pdf",
+            "Classiques.pdf",
+            5,
+            5,
+            "recipe",
+            2,
+            "Boeuf bourguignon Ingredients boeuf champignons vin rouge. Preparation faire revenir puis mijoter.",
+            1,
+            "hash-recipe",
+            "Boeuf bourguignon Ingredients boeuf champignons vin rouge. Preparation faire revenir puis mijoter.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Classiques",
+            "Classiques > Boeuf bourguignon",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+        var indexChunk = new RagMatch(
+            1.02,
+            "doc-index",
+            "Cuisine/International.pdf",
+            "International.pdf",
+            159,
+            159,
+            "index",
+            234,
+            "IndexA, BAioli 78Boeuf bourguignon 70Boeuf Stroganoff 129Bortsch 126Bouillon de mangue au vivaneau 148Boulettes de viande suedoises accompagnees de sauce 12Boulgour aux crevettes et aux gombos 142Brioches fourrees aux cerises 110Brochettes de poulet grille a l'indonesienne 41Canard en feuille de riz 156Cannelloni aux epinards 102Carpaccio 93Churros avec sauce au chocolat 89Coq au vin 68Creme brulee 72",
+            1,
+            "hash-index",
+            "IndexA, BAioli 78Boeuf bourguignon 70Boeuf Stroganoff 129Bortsch 126Bouillon de mangue au vivaneau 148Boulettes de viande suedoises accompagnees de sauce 12Boulgour aux crevettes et aux gombos 142Brioches fourrees aux cerises 110Brochettes de poulet grille a l'indonesienne 41Canard en feuille de riz 156Cannelloni aux epinards 102Carpaccio 93Churros avec sauce au chocolat 89Coq au vin 68Creme brulee 72",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Document",
+            "Document",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+
+        var suppressed = RagEndpoints.SuppressNavigationalNoise("boeuf bourguignon grandes etapes", [indexChunk, recipe]);
+
+        Assert.Equal("recipe", suppressed[0].ChunkId);
+        Assert.DoesNotContain(suppressed, match => match.ChunkId == "index");
+    }
+
+    [Fact]
+    public void SuppressNavigationalNoise_accepts_specific_anchor_as_answer_signal()
+    {
+        var recipe = new RagMatch(
+            1.02,
+            "doc-recipe",
+            "Cuisine/Classiques.pdf",
+            "Classiques.pdf",
+            5,
+            5,
+            "recipe",
+            2,
+            "Boeuf bourguignon Pour 4 personnes. Degraisser la viande puis la tailler en morceaux. Faire revenir, ajouter le vin rouge et laisser mijoter.",
+            1,
+            "hash-recipe",
+            "Boeuf bourguignon Pour 4 personnes. Degraisser la viande puis la tailler en morceaux. Faire revenir, ajouter le vin rouge et laisser mijoter.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Classiques",
+            "Classiques > Boeuf bourguignon",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+        var indexChunk = new RagMatch(
+            1.02,
+            "doc-index",
+            "Cuisine/International.pdf",
+            "International.pdf",
+            159,
+            159,
+            "index",
+            234,
+            "IndexA, BAioli 78Boeuf bourguignon 70Boeuf Stroganoff 129Bortsch 126Bouillon de mangue au vivaneau 148Boulettes de viande suedoises accompagnees de sauce 12",
+            1,
+            "hash-index",
+            "IndexA, BAioli 78Boeuf bourguignon 70Boeuf Stroganoff 129Bortsch 126Bouillon de mangue au vivaneau 148Boulettes de viande suedoises accompagnees de sauce 12",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Document",
+            "Document",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+
+        var suppressed = RagEndpoints.SuppressNavigationalNoise("C'est quoi les grandes etapes du boeuf bourguignon ?", [indexChunk, recipe]);
+
+        Assert.Equal("recipe", Assert.Single(suppressed).ChunkId);
+    }
+
+    [Fact]
+    public void PruneNavigationalSelections_removes_index_even_when_it_was_selected_early()
+    {
+        var indexChunk = new RagMatch(
+            1.02,
+            "doc-index",
+            "Cuisine/International.pdf",
+            "International.pdf",
+            159,
+            159,
+            "index",
+            234,
+            "IndexA, BAioli 78Boeuf bourguignon 70Boeuf Stroganoff 129Bortsch 126Bouillon de mangue au vivaneau 148Boulettes de viande suedoises accompagnees de sauce 12",
+            1,
+            "hash-index",
+            "IndexA, BAioli 78Boeuf bourguignon 70Boeuf Stroganoff 129Bortsch 126Bouillon de mangue au vivaneau 148Boulettes de viande suedoises accompagnees de sauce 12",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Document",
+            "Document",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+        var recipe = indexChunk with
+        {
+            DocId = "doc-recipe",
+            DocPath = "Cuisine/Classiques.pdf",
+            DocName = "Classiques.pdf",
+            PageStart = 71,
+            PageEnd = 71,
+            ChunkId = "recipe",
+            ChunkIndex = 12,
+            Text = "Boeuf bourguignon. Faites bien dorer la viande, ajoutez l'oignon, les carottes, le bouquet garni et le vin rouge, puis laissez mijoter.",
+            EmbedText = "Boeuf bourguignon. Faites bien dorer la viande, ajoutez l'oignon, les carottes, le bouquet garni et le vin rouge, puis laissez mijoter."
+        };
+        var selected = new List<RagMatch> { indexChunk, recipe };
+
+        RagEndpoints.PruneNavigationalSelections("boeuf bourguignon grandes etapes", selected);
+
+        Assert.Equal("recipe", Assert.Single(selected).ChunkId);
+    }
+
+    [Fact]
+    public void SuppressNavigationalNoise_allows_inventory_queries()
+    {
+        var indexChunk = new RagMatch(
+            1.02,
+            "doc-index",
+            "Cuisine/International.pdf",
+            "International.pdf",
+            159,
+            159,
+            "index",
+            234,
+            "IndexA, BAioli 78Boeuf bourguignon 70Boeuf Stroganoff 129Bortsch 126",
+            1,
+            "hash-index",
+            "IndexA, BAioli 78Boeuf bourguignon 70Boeuf Stroganoff 129Bortsch 126",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Document",
+            "Document",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+        var overview = indexChunk with { ChunkId = "overview", Score = 0.75, Text = "Ce document contient des recettes internationales.", EmbedText = "Ce document contient des recettes internationales." };
+
+        var suppressed = RagEndpoints.SuppressNavigationalNoise("Quels documents et quelles sources vois-tu dans le corpus ?", [indexChunk, overview]);
+
+        Assert.Equal(1.02, suppressed[0].Score);
+        Assert.Equal("index", suppressed[0].ChunkId);
+    }
+
+    [Fact]
+    public void ContainsOrderedPhraseWindow_accepts_short_title_gaps_but_rejects_loose_topic_matches()
+    {
+        Assert.True(RagEndpoints.ContainsOrderedPhraseWindow(
+            "© Test\nSalade \nde lentilles\nIngrédients...",
+            "salade lentilles",
+            maxGapChars: 40));
+
+        Assert.False(RagEndpoints.ContainsOrderedPhraseWindow(
+            "Cette salade peut être adaptée avec tomates, œufs, tofu, légumineuses et même des lentilles selon ce que vous avez.",
+            "salade lentilles",
+            maxGapChars: 40));
+    }
+
+    [Fact]
+    public void CalibrateFusedMatches_prioritizes_exact_title_candidate_over_loose_term_overlap()
+    {
+        var looseOverlap = new RagMatch(
+            1.02,
+            "doc-loose",
+            "Cuisine/International.pdf",
+            "International.pdf",
+            135,
+            135,
+            "loose",
+            1,
+            "Falafels servis avec une sauce concombre et quelques feuilles de laitue romaine.",
+            1,
+            "hash-loose",
+            "Falafels servis avec une sauce concombre et quelques feuilles de laitue romaine.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Falafels",
+            "Falafels",
+            "section_window_v1",
+            null,
+            null,
+            null);
+        var exactTitle = new RagMatch(
+            1.02,
+            "doc-exact",
+            "Cuisine/si-on-cuisinait.pdf",
+            "si-on-cuisinait.pdf",
+            33,
+            33,
+            "exact-title",
+            2,
+            "Ingredients: 2 concombres, creme, moutarde. Preparation: melanger et servir frais. CONCOMBRES\u00e0 LA ROMAINE110077",
+            1,
+            "hash-exact",
+            "Ingredients: 2 concombres, creme, moutarde. Preparation: melanger et servir frais. CONCOMBRES\u00e0 LA ROMAINE110077",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Document",
+            "Document",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+
+        var calibrated = RagEndpoints.CalibrateFusedMatches("Concombres a la romaine", [looseOverlap, exactTitle]);
+        var filtered = RagEndpoints.SuppressNavigationalNoise("Concombres a la romaine", calibrated);
+
+        Assert.Equal("exact-title", calibrated[0].ChunkId);
+        Assert.Equal("exact-title", filtered[0].ChunkId);
+        Assert.True(RagEndpoints.ComputeExactTitleCandidateScore("Concombres a la romaine", exactTitle)
+            > RagEndpoints.ComputeExactTitleCandidateScore("Concombres a la romaine", looseOverlap));
+    }
+
+    [Fact]
+    public void PruneWeakTitleExpansionSelections_removes_adjacent_neighbor_without_title_anchors()
+    {
+        var exactTitle = new RagMatch(
+            1.02,
+            "doc-exact",
+            "Cuisine/si-on-cuisinait.pdf",
+            "si-on-cuisinait.pdf",
+            33,
+            33,
+            "exact-title",
+            53,
+            "Ingredients: 2 concombres, creme, moutarde. Preparation: melanger et servir frais. CONCOMBRES\u00e0 LA ROMAINE110077",
+            1,
+            "hash-exact",
+            "Ingredients: 2 concombres, creme, moutarde. Preparation: melanger et servir frais. CONCOMBRES\u00e0 LA ROMAINE110077",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Document",
+            "Document",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+        var adjacentNeighbor = exactTitle with
+        {
+            Score = 0.91,
+            ChunkId = "adjacent-neighbor",
+            ChunkIndex = 54,
+            PageStart = 34,
+            PageEnd = 34,
+            Text = "Ingredients: 6 tomates, 4 oeufs, huile, vinaigre. Suggestions: remplacer les rondelles d'oeuf par des rondelles de concombre. TOMATES a la printaniere3300110088",
+            EmbedText = "Ingredients: 6 tomates, 4 oeufs, huile, vinaigre. Suggestions: remplacer les rondelles d'oeuf par des rondelles de concombre. TOMATES a la printaniere3300110088",
+            EmbeddingBasis = "sparse_bm25_v1"
+        };
+
+        var selected = new List<RagMatch> { exactTitle, adjacentNeighbor };
+
+        RagEndpoints.PruneWeakTitleExpansionSelections("Concombres a la romaine", selected);
+
+        Assert.Single(selected);
+        Assert.Equal("exact-title", selected[0].ChunkId);
+    }
+
+    [Fact]
+    public void PruneWeakTitleExpansionSelections_keeps_specific_section_continuation()
+    {
+        var exactTitle = new RagMatch(
+            1.02,
+            "doc-exact",
+            "Cuisine/si-on-cuisinait.pdf",
+            "si-on-cuisinait.pdf",
+            33,
+            33,
+            "exact-title",
+            53,
+            "Ingredients: 2 concombres, creme, moutarde. Preparation: melanger et servir frais. CONCOMBRES\u00e0 LA ROMAINE110077",
+            1,
+            "hash-exact",
+            "Ingredients: 2 concombres, creme, moutarde. Preparation: melanger et servir frais. CONCOMBRES\u00e0 LA ROMAINE110077",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Concombres a la romaine",
+            "Concombres a la romaine",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+        var continuation = exactTitle with
+        {
+            Score = 0.88,
+            ChunkId = "continuation",
+            ChunkIndex = 54,
+            PageStart = 34,
+            PageEnd = 34,
+            Text = "Suite: reserver au frais, rectifier l'assaisonnement et servir.",
+            EmbedText = "Suite: reserver au frais, rectifier l'assaisonnement et servir.",
+            EmbeddingBasis = "linked_context_v1",
+            ChunkType = "section_window_v1"
+        };
+
+        var selected = new List<RagMatch> { exactTitle, continuation };
+
+        RagEndpoints.PruneWeakTitleExpansionSelections("Concombres a la romaine", selected);
+
+        Assert.Equal(2, selected.Count);
+        Assert.Equal("exact-title", selected[0].ChunkId);
+        Assert.Equal("continuation", selected[1].ChunkId);
+    }
+
+    [Fact]
+    public void PruneWeakAdjacentSiblingSelections_removes_same_document_neighbor_with_low_query_coverage()
+    {
+        var anchor = new RagMatch(
+            1.02,
+            "doc-exact",
+            "Cuisine/si-on-cuisinait.pdf",
+            "si-on-cuisinait.pdf",
+            33,
+            33,
+            "anchor",
+            58,
+            "Ingredients: concombres, miel, menthe. Preparation: melanger la sauce et servir frais.",
+            1,
+            "hash-exact",
+            "Ingredients: concombres, miel, menthe. Preparation: melanger la sauce et servir frais.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Document",
+            "Document",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+        var neighbor = anchor with
+        {
+            ChunkId = "neighbor",
+            PageStart = 34,
+            PageEnd = 34,
+            ChunkIndex = 59,
+            Text = "Ingredients: tomates, oeufs, huile. Suggestion: quelques rondelles de concombre.",
+            EmbedText = "Ingredients: tomates, oeufs, huile. Suggestion: quelques rondelles de concombre."
+        };
+
+        var selected = new List<RagMatch> { anchor, neighbor };
+
+        RagEndpoints.PruneWeakAdjacentSiblingSelections("Concombres a la romaine", selected);
+
+        Assert.Single(selected);
+        Assert.Equal("anchor", selected[0].ChunkId);
+    }
+
+    [Fact]
+    public void ShouldConstrainPreciseTitleLookup_detects_title_like_queries_but_not_explanatory_requests()
+    {
+        Assert.True(RagEndpoints.ShouldConstrainPreciseTitleLookup("Concombres a la romaine"));
+        Assert.True(RagEndpoints.ShouldConstrainPreciseTitleLookup("je veux une recette de concombres romaine"));
+
+        Assert.False(RagEndpoints.ShouldConstrainPreciseTitleLookup("comment preparer des concombres pour la semaine"));
+        Assert.False(RagEndpoints.ShouldConstrainPreciseTitleLookup("compare concombres romaine et tomates printanieres"));
+        Assert.False(RagEndpoints.ShouldConstrainPreciseTitleLookup("Quelles recettes sont les plus adaptées pour un déjeuner de semaine rapide ?"));
+        Assert.False(RagEndpoints.ShouldConstrainPreciseTitleLookup("Quel dessert français choisir pour un repas chic ?"));
+    }
+
+    [Fact]
+    public void PrunePreciseTitleTailSelections_removes_low_confidence_tail_after_strong_title_answer()
+    {
+        var anchor = new RagMatch(
+            1.02,
+            "doc-exact",
+            "Cuisine/si-on-cuisinait.pdf",
+            "si-on-cuisinait.pdf",
+            33,
+            33,
+            "anchor",
+            58,
+            "Ingredients: concombres, miel, menthe. Preparation: melanger. CONCOMBRES\u00e0 LA ROMAINE110077",
+            1,
+            "hash-exact",
+            "Ingredients: concombres, miel, menthe. Preparation: melanger. CONCOMBRES\u00e0 LA ROMAINE110077",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Document",
+            "Document",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+        var weakTail = anchor with
+        {
+            Score = 1.02,
+            DocId = "doc-weak",
+            DocPath = "Cuisine/Other.pdf",
+            DocName = "Other.pdf",
+            ChunkId = "weak",
+            PageStart = 5,
+            PageEnd = 5,
+            Text = "General seasonal product list with cucumbers and vegetables.",
+            EmbedText = "General seasonal product list with cucumbers and vegetables."
+        };
+        var lexicalTail = anchor with
+        {
+            Score = 1.02,
+            DocId = "doc-lexical",
+            DocPath = "Cuisine/Tzatziki.pdf",
+            DocName = "Tzatziki.pdf",
+            ChunkId = "lexical-tail",
+            PageStart = 12,
+            PageEnd = 12,
+            Text = "Tzatziki: ingredients: 3 concombres moyens, yaourt grec, ail et menthe. Servir avec une salade de laitue romaine.",
+            EmbedText = "Matched profile title: Entre deux tranches de pain complet\nDocument: Tzatziki.pdf\nContext: Tzatziki: ingredients: 3 concombres moyens, yaourt grec, ail et menthe. Servir avec une salade de laitue romaine.\nPreviousContext: CONCOMBRES A LA ROMAINE"
+        };
+        var sameTitleElsewhere = anchor with
+        {
+            Score = 0.88,
+            DocId = "doc-title",
+            DocPath = "Cuisine/Variant.pdf",
+            DocName = "Variant.pdf",
+            ChunkId = "variant",
+            Text = "CONCOMBRES A LA ROMAINE Ingredients: concombres, vinaigre, menthe.",
+            EmbedText = "CONCOMBRES A LA ROMAINE Ingredients: concombres, vinaigre, menthe."
+        };
+        var seasonalListTail = anchor with
+        {
+            Score = 0.72,
+            DocId = "doc-seasonal",
+            DocPath = "Cuisine/Seasonal.pdf",
+            DocName = "Seasonal.pdf",
+            ChunkId = "seasonal-list",
+            PageStart = 30,
+            PageEnd = 30,
+            Text = "Legumes de printemps: artichaut, asperge, aubergine, carotte, chou-fleur, concombre, courgette, cresson, epinard, salade frisee, laitue ou romaine, tomate.",
+            EmbedText = "Legumes de printemps: artichaut, asperge, aubergine, carotte, chou-fleur, concombre, courgette, cresson, epinard, salade frisee, laitue ou romaine, tomate."
+        };
+
+        var selected = new List<RagMatch> { lexicalTail, anchor, weakTail, seasonalListTail, sameTitleElsewhere };
+
+        RagEndpoints.PrunePreciseTitleTailSelections("Concombres a la romaine", selected);
+
+        Assert.Equal(2, selected.Count);
+        Assert.DoesNotContain(selected, match => string.Equals(match.ChunkId, "weak", StringComparison.Ordinal));
+        Assert.DoesNotContain(selected, match => string.Equals(match.ChunkId, "lexical-tail", StringComparison.Ordinal));
+        Assert.DoesNotContain(selected, match => string.Equals(match.ChunkId, "seasonal-list", StringComparison.Ordinal));
+        Assert.Contains(selected, match => string.Equals(match.ChunkId, "variant", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void PrunePreciseTitleTailSelections_removes_cross_document_lexical_overlap_for_two_word_titles()
+    {
+        var anchor = new RagMatch(
+            1.02,
+            "doc-exact",
+            "Cuisine/Sauces.pdf",
+            "Sauces.pdf",
+            122,
+            122,
+            "anchor",
+            122,
+            "SAUCE B\u00c9ARNAISE Ingredients: echalotes, estragon, beurre, jaunes d'oeufs. Preparation: monter la sauce.",
+            1,
+            "hash-exact",
+            "SAUCE B\u00c9ARNAISE Ingredients: echalotes, estragon, beurre, jaunes d'oeufs. Preparation: monter la sauce.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Document",
+            "Document",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+        var lexicalTail = anchor with
+        {
+            Score = 1.02,
+            DocId = "doc-tail",
+            DocPath = "Cuisine/Menu.pdf",
+            DocName = "Menu.pdf",
+            ChunkId = "lexical-tail",
+            PageStart = 8,
+            PageEnd = 8,
+            Text = "Sauce froide au yaourt pour crudites. Variante: ajouter une note d'estragon pour un esprit bearnaise.",
+            EmbedText = "Matched profile title: Sauce bechamel\nDocument: Menu.pdf\nContext: Sauce froide au yaourt pour crudites. Variante: ajouter une note d'estragon pour un esprit bearnaise.\nPreviousContext: SAUCE BEARNAISE"
+        };
+        var sameTitleElsewhere = anchor with
+        {
+            Score = 0.90,
+            DocId = "doc-title",
+            DocPath = "Cuisine/SauceVariant.pdf",
+            DocName = "SauceVariant.pdf",
+            ChunkId = "variant",
+            Text = "Sauce bearnaise express: ingredients et preparation rapide.",
+            EmbedText = "Sauce bearnaise express: ingredients et preparation rapide."
+        };
+
+        var selected = new List<RagMatch> { lexicalTail, anchor, sameTitleElsewhere };
+
+        RagEndpoints.PrunePreciseTitleTailSelections("sauce bearnaise", selected);
+
+        Assert.Equal(2, selected.Count);
+        Assert.DoesNotContain(selected, match => string.Equals(match.ChunkId, "lexical-tail", StringComparison.Ordinal));
+        Assert.Contains(selected, match => string.Equals(match.ChunkId, "variant", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ComputeExactTitleCandidateScore_accepts_connector_only_title_gaps()
+    {
+        var titleCandidate = new RagMatch(
+            0.9,
+            "doc",
+            "Docs/Guide.pdf",
+            "Guide.pdf",
+            4,
+            4,
+            "title",
+            0,
+            "XR 200 fieldbus commissioning\nProcedure and checks.",
+            1,
+            "hash",
+            "XR 200 fieldbus commissioning\nProcedure and checks.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "XR 200 fieldbus commissioning",
+            "XR 200 fieldbus commissioning",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+        var looseCandidate = titleCandidate with
+        {
+            ChunkId = "loose",
+            Text = "The XR 200 terminal uses several safety checks. A later fieldbus section describes commissioning.",
+            EmbedText = "The XR 200 terminal uses several safety checks. A later fieldbus section describes commissioning.",
+            SectionTitle = "Overview",
+            HeadingPath = "Overview"
+        };
+
+        var titleScore = RagEndpoints.ComputeExactTitleCandidateScore("XR 200 fieldbus commissioning", titleCandidate);
+        var looseScore = RagEndpoints.ComputeExactTitleCandidateScore("XR 200 fieldbus commissioning", looseCandidate);
+
+        Assert.True(titleScore > 0);
+        Assert.True(titleScore > looseScore);
+    }
+
+    [Fact]
+    public void Title_pruning_keeps_nearby_linked_context_companion_chunk()
+    {
+        var anchor = new RagMatch(
+            1.02,
+            "doc",
+            "Cuisine/Recipes.pdf",
+            "Recipes.pdf",
+            90,
+            90,
+            "anchor",
+            131,
+            "Pour 20 churros. Churros avec sauce au chocolat et au piment. Faites frire la pate puis preparez la sauce.",
+            1,
+            "hash",
+            "Matched profile title: Churros avec sauce au chocolat et au piment\nPour 20 churros. Churros avec sauce au chocolat et au piment. Faites frire la pate puis preparez la sauce.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Churros avec sauce au chocolat et au piment",
+            "Churros avec sauce au chocolat et au piment",
+            "unit_exact_v1",
+            null,
+            "linked",
+            "linked");
+        var linkedCompanion = new RagMatch(
+            0.995,
+            "doc",
+            "Cuisine/Recipes.pdf",
+            "Recipes.pdf",
+            90,
+            92,
+            "linked",
+            132,
+            "INGREDIENTS Pour la pate 25 g de beurre 200 g de farine 50 g de sucre. Pour la sauce au chocolat et au piment 50 g de chocolat noir 150 g de creme liquide.",
+            1,
+            "hash",
+            "INGREDIENTS Pour la pate 25 g de beurre 200 g de farine 50 g de sucre. Pour la sauce au chocolat et au piment 50 g de chocolat noir 150 g de creme liquide.",
+            "linked_context_v1",
+            1,
+            2,
+            "Document",
+            "Document",
+            "section_window_v1",
+            "anchor",
+            null,
+            null);
+        var selected = new List<RagMatch> { anchor, linkedCompanion };
+
+        RagEndpoints.PruneWeakTitleExpansionSelections("Churros sauce chocolat ingredients", selected);
+        RagEndpoints.PruneWeakAdjacentSiblingSelections("Churros sauce chocolat ingredients", selected);
+        RagEndpoints.PrunePreciseTitleTailSelections("Churros sauce chocolat ingredients", selected);
+
+        Assert.Equal(2, selected.Count);
+        Assert.Contains(selected, match => string.Equals(match.ChunkId, "linked", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void CalibrateFusedMatches_penalizes_dense_noise_when_lexical_anchor_exists()
+    {
+        var sparseAnchor = new RagMatch(0.91, "doc-a", "ATEX/CEN.pdf", "CEN.pdf", 1, 1, "sparse-anchor", 0, "Inerting prevents explosion by controlling oxygen concentration and purge conditions.", 1, "hash-a", "Inerting prevents explosion by controlling oxygen concentration and purge conditions.", "sparse_bm25_v1", 1, 1, "Inerting", "Inerting", "unit_exact_v1", null, null, null);
+        var denseNoise = new RagMatch(0.98, "doc-b", "Kitchen/Menu.pdf", "Menu.pdf", 1, 1, "dense-noise", 0, "Balanced meals, vegetables and weekly menu planning.", 1, "hash-b", "Balanced meals, vegetables and weekly menu planning.", "contextual_text_v1", 1, 1, "Meals", "Meals", "unit_exact_v1", null, null, null);
+
+        var calibrated = RagEndpoints.CalibrateFusedMatches("Quels documents parlent d inerting explosion oxygen ?", [denseNoise, sparseAnchor]);
+
+        Assert.Equal("sparse-anchor", calibrated[0].ChunkId);
+        Assert.Equal("sparse_bm25_v1", calibrated[0].EmbeddingBasis);
+    }
+
+    [Fact]
     public void CalibrateFusedMatches_keeps_exact_reference_above_dense_for_reference_query()
     {
         var exact = new RagMatch(0.96, "doc-a", "ATEX/CEN TR 15281 2006.pdf", "CEN TR 15281 2006.pdf", null, null, "exact-1", -1, "EN 15281", 1, "hash-a", "EN 15281", "exact_match_v1", null, null, null, null, "document_metadata_ref", null, null, null);
@@ -318,6 +1861,23 @@ public sealed class RetrievalRuntimeSwitchTests
         var reranked = RagEndpoints.RerankDenseMatches([broad, precise]);
 
         Assert.Equal("b", reranked[0].ChunkId);
+    }
+
+    [Fact]
+    public void ApplyAutocut_keeps_minimum_context_before_large_early_gap()
+    {
+        var matches = new List<RagMatch>
+        {
+            new(0.99, "doc-1", "Docs/A.pdf", "A.pdf", 1, 1, "a", 0, "alpha", 1, "hash-a", "alpha", "sparse_bm25_v1", 1, 1, "A", "A", "unit_exact_v1", null, null, null),
+            new(0.98, "doc-2", "Docs/B.pdf", "B.pdf", 1, 1, "b", 0, "beta", 1, "hash-b", "beta", "sparse_bm25_v1", 1, 1, "B", "B", "unit_exact_v1", null, null, null),
+            new(0.50, "doc-3", "Docs/C.pdf", "C.pdf", 1, 1, "c", 0, "gamma", 1, "hash-c", "gamma", "sparse_bm25_v1", 1, 1, "C", "C", "unit_exact_v1", null, null, null),
+            new(0.49, "doc-4", "Docs/D.pdf", "D.pdf", 1, 1, "d", 0, "delta", 1, "hash-d", "delta", "sparse_bm25_v1", 1, 1, "D", "D", "unit_exact_v1", null, null, null),
+            new(0.48, "doc-5", "Docs/E.pdf", "E.pdf", 1, 1, "e", 0, "epsilon", 1, "hash-e", "epsilon", "sparse_bm25_v1", 1, 1, "E", "E", "unit_exact_v1", null, null, null)
+        };
+
+        RagEndpoints.ApplyAutocut(matches, absoluteMinScore: 0.25);
+
+        Assert.Equal(5, matches.Count);
     }
 
     [Theory]
@@ -415,10 +1975,14 @@ public sealed class RetrievalRuntimeSwitchTests
     {
         var fromDense = RagEndpoints.ComputeLinkedMatchScore(0.90, "same_section", "dense_qdrant");
         var fromExact = RagEndpoints.ComputeLinkedMatchScore(0.90, "same_section", "exact_match");
+        var fromSparse = RagEndpoints.ComputeLinkedMatchScore(0.90, "same_section", "sparse_bm25");
         var fromLinked = RagEndpoints.ComputeLinkedMatchScore(0.90, "same_section", "linked_context");
 
+        Assert.True(fromDense > fromSparse);
+        Assert.True(fromSparse > fromExact);
         Assert.True(fromDense > fromExact);
         Assert.True(fromExact > fromLinked);
+        Assert.Equal(0.875, fromSparse, 3);
         Assert.Equal(0.87, fromExact, 3);
     }
 
@@ -493,6 +2057,35 @@ public sealed class RetrievalRuntimeSwitchTests
         var second = new RagMatch(0.955, "doc-2", "ATEX/Other 15281.pdf", "Other 15281.pdf", null, null, "docmeta:2", -1, "Other 15281.pdf", 1, "hash2", "Other 15281.pdf", "exact_match_v1", null, null, null, null, "document_metadata_ref", null, null, null);
 
         Assert.False(RagEndpoints.ShouldShortCircuitAfterExact([top, second]));
+    }
+
+    [Fact]
+    public void ShouldShortCircuitAfterExact_keeps_search_open_for_navigation_hits()
+    {
+        var index = new RagMatch(
+            1.02,
+            "doc-index",
+            "Cuisine/International.pdf",
+            "International.pdf",
+            159,
+            159,
+            "index",
+            234,
+            "IndexA, BAioli 78Boeuf bourguignon 70Boeuf Stroganoff 129Bortsch 126Bouillon de mangue au vivaneau 148Boulettes de viande suedoises accompagnees de sauce 12Boulgour aux crevettes et aux gombos 142Brioches fourrees aux cerises 110Brochettes de poulet grille a l'indonesienne 41",
+            1,
+            "hash-index",
+            "IndexA, BAioli 78Boeuf bourguignon 70Boeuf Stroganoff 129Bortsch 126Bouillon de mangue au vivaneau 148Boulettes de viande suedoises accompagnees de sauce 12Boulgour aux crevettes et aux gombos 142Brioches fourrees aux cerises 110Brochettes de poulet grille a l'indonesienne 41",
+            "exact_match_v1",
+            1,
+            1,
+            "Document",
+            "Document",
+            "exact_match_entry",
+            null,
+            null,
+            null);
+
+        Assert.False(RagEndpoints.ShouldShortCircuitAfterExact([index]));
     }
 
     [Fact]

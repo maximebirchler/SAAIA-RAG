@@ -76,14 +76,19 @@ public sealed class RetrievalCdcV3AlignmentTests
             MakeMatch(0.90),
             MakeMatch(0.88),
             MakeMatch(0.85),
-            MakeMatch(0.40), // 53% drop from 0.85 -> should trigger cut
+            MakeMatch(0.84),
+            MakeMatch(0.83),
+            MakeMatch(0.82),
+            MakeMatch(0.81),
+            MakeMatch(0.80),
+            MakeMatch(0.40), // 50% drop from 0.80 -> should trigger cut after the minimum context floor
             MakeMatch(0.35)
         };
 
         RagEndpoints.ApplyAutocut(matches, 0.25);
 
-        Assert.Equal(3, matches.Count);
-        Assert.Equal(0.85, matches[^1].Score);
+        Assert.Equal(8, matches.Count);
+        Assert.Equal(0.80, matches[^1].Score);
     }
 
     [Fact]
@@ -198,6 +203,21 @@ public sealed class RetrievalCdcV3AlignmentTests
         Assert.NotNull(snippet);
         Assert.True(snippet!.Length <= 50);
         Assert.DoesNotContain("word".AsSpan(), snippet.AsSpan()[(snippet.Length - 3)..]);
+    }
+
+    [Fact]
+    public void BuildSnippet_centers_on_query_anchor_when_present()
+    {
+        var text = new string('A', 260)
+            + " Ingredients generiques avant le titre. "
+            + "SAUCE B\u00c9ARNAISE 2 echalotes, estragon, vin blanc, vinaigre. "
+            + new string('B', 260);
+
+        var snippet = RagEndpoints.BuildSnippet(text, maxLength: 180, query: "Sauce bearnaise ingredients etapes");
+
+        Assert.NotNull(snippet);
+        Assert.Contains("SAUCE B\u00c9ARNAISE", snippet);
+        Assert.False(snippet!.StartsWith(new string('A', 30), StringComparison.Ordinal));
     }
 
     #endregion

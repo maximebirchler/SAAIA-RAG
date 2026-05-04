@@ -41,8 +41,9 @@ public static partial class DocumentsEndpoints
         // Admin/health filesystem diagnostics (kept out of nominal user inventory)
         app.MapGet("/admin/catalog/empty-folders/count", EmptyFoldersCountAsync).RequireAdminKey();
         app.MapGet("/admin/catalog/empty-folders", EmptyFoldersListAsync).RequireAdminKey();
+        app.MapGet("/admin/documents/extraction-quality", ExtractionQualityAsync).RequireAdminKey();
 
-        app.Logger.LogInformation("Mapped documents endpoints (catalog + count/tree/stats + legacy admin list + admin empty-folder diagnostics)");
+        app.Logger.LogInformation("Mapped documents endpoints (catalog + count/tree/stats + legacy admin list + admin diagnostics)");
     }
 
     private static Task<IResult> UnifiedListAsync(
@@ -677,6 +678,205 @@ WHERE tenant_id=@tenant AND status='indexed';";
     }
 
 
+    private static async Task<IResult> ExtractionQualityAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        string? path,
+        string? categoryRef,
+        int? limit)
+    {
+        AdminAuth.EnsureAdmin(ctx);
+
+        var tenantId = ctx.GetTenantId();
+        var ct = ctx.RequestAborted;
+        path = DocumentsCategoryScopeResolver.NormalizeCategoryPathOrNull(path);
+        categoryRef = DocumentsCategoryScopeResolver.NormalizeCategoryRefOrNull(categoryRef);
+        var lim = Math.Clamp(limit ?? 200, 1, 2000);
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        path = await DocumentsCategoryScopeResolver.ResolveCategoryScopeAsync(conn, tenantId, path, categoryRef, ct);
+
+        const string scopeWhere = @"
+WHERE d.tenant_id=@tenant
+  AND d.status='indexed'
+  AND (@path IS NULL OR d.doc_path LIKE (@path || '/%'))";
+
+        var qualityCte = $@"
+WITH scoped_docs AS (
+  SELECT
+    d.doc_id,
+    d.tenant_id,
+    d.doc_path,
+    d.indexed_version
+  FROM documents d
+  {scopeWhere}
+),
+latest_runs AS (
+  SELECT
+    sd.doc_id,
+    r.payload
+  FROM scoped_docs sd
+  LEFT JOIN LATERAL (
+    SELECT payload
+    FROM document_processing_runs pr
+    WHERE pr.tenant_id=sd.tenant_id
+      AND pr.doc_id=sd.doc_id
+      AND pr.action='upsert'
+      AND pr.status='done'
+    ORDER BY pr.finished_at DESC NULLS LAST, pr.started_at DESC NULLS LAST
+    LIMIT 1
+  ) r ON true
+),
+page_quality AS (
+  SELECT
+    sd.doc_id,
+    COUNT(pi.page_number)::int AS page_count,
+    COUNT(*) FILTER (WHERE pm.word_count > 0 AND COALESCE(pi.char_count, 0) > 0)::int AS text_page_count,
+    COUNT(*) FILTER (WHERE pi.page_number IS NOT NULL AND (pm.word_count <= 0 OR COALESCE(pi.char_count, 0) <= 0))::int AS empty_page_count,
+    COUNT(*) FILTER (
+      WHERE pi.page_number IS NOT NULL
+        AND pm.word_count > 0
+        AND COALESCE(pi.char_count, 0) > 0
+        AND (pm.word_count < 12 OR pi.char_count < 80)
+    )::int AS sparse_page_count,
+    COALESCE(SUM(pm.word_count), 0)::int AS total_word_count,
+    COALESCE(SUM(pi.char_count), 0)::int AS total_char_count
+  FROM scoped_docs sd
+  LEFT JOIN document_revisions rev
+    ON rev.tenant_id=sd.tenant_id
+   AND rev.doc_id=sd.doc_id
+   AND rev.indexed_version=sd.indexed_version
+  LEFT JOIN document_page_index pi
+    ON pi.tenant_id=sd.tenant_id
+   AND pi.revision_id=rev.revision_id
+  LEFT JOIN LATERAL (
+    SELECT CASE
+      WHEN COALESCE(pi.metadata ->> 'wordCount', '') ~ '^[0-9]+$' THEN (pi.metadata ->> 'wordCount')::int
+      ELSE 0
+    END AS word_count
+  ) pm ON true
+  GROUP BY sd.doc_id
+),
+doc_quality_base AS (
+  SELECT
+    sd.doc_id AS ""DocId"",
+    sd.doc_path AS ""DocPath"",
+    lr.payload #>> '{{extractionQuality,textStatus}}' AS ""RunTextStatus"",
+    (lr.payload #>> '{{extractionQuality,ocrRecommended}}')::boolean AS ""RunOcrRecommended"",
+    COALESCE((lr.payload #>> '{{extractionQuality,pageCount}}')::int, pq.page_count, 0) AS ""PageCount"",
+    COALESCE((lr.payload #>> '{{extractionQuality,textPageCount}}')::int, pq.text_page_count, 0) AS ""TextPageCount"",
+    COALESCE((lr.payload #>> '{{extractionQuality,emptyPageCount}}')::int, pq.empty_page_count, 0) AS ""EmptyPageCount"",
+    COALESCE((lr.payload #>> '{{extractionQuality,sparsePageCount}}')::int, pq.sparse_page_count, 0) AS ""SparsePageCount"",
+    COALESCE((lr.payload #>> '{{extractionQuality,totalWordCount}}')::int, pq.total_word_count, 0) AS ""TotalWordCount"",
+    COALESCE((lr.payload #>> '{{extractionQuality,totalCharCount}}')::int, pq.total_char_count, 0) AS ""TotalCharCount"",
+    COALESCE(
+      (lr.payload #>> '{{extractionQuality,averageWordsPerPage}}')::double precision,
+      ROUND((COALESCE(pq.total_word_count, 0)::numeric / GREATEST(COALESCE(pq.page_count, 0), 1)), 2)::double precision,
+      0
+    ) AS ""AverageWordsPerPage"",
+    COALESCE(
+      (lr.payload #>> '{{extractionQuality,textPageRatio}}')::double precision,
+      ROUND((COALESCE(pq.text_page_count, 0)::numeric / GREATEST(COALESCE(pq.page_count, 0), 1)), 4)::double precision,
+      0
+    ) AS ""TextPageRatio"",
+    CASE
+      WHEN COALESCE(pq.page_count, 0) <= 0 THEN 'unknown'
+      WHEN COALESCE(pq.total_word_count, 0) <= 0 THEN 'empty_text'
+      WHEN (COALESCE(pq.empty_page_count, 0)::double precision / GREATEST(COALESCE(pq.page_count, 0), 1)) >= 0.6 THEN 'low_text'
+      WHEN (COALESCE(pq.sparse_page_count, 0)::double precision / GREATEST(COALESCE(pq.page_count, 0), 1)) >= 0.6
+           AND (COALESCE(pq.total_word_count, 0)::double precision / GREATEST(COALESCE(pq.page_count, 0), 1)) < 30 THEN 'low_text'
+      WHEN (COALESCE(pq.total_word_count, 0)::double precision / GREATEST(COALESCE(pq.page_count, 0), 1)) < 10 THEN 'low_text'
+      ELSE 'ok'
+    END AS ""ComputedTextStatus"",
+    lr.payload #>> '{{extractionQuality,signals}}' AS ""RunSignalsJson""
+  FROM scoped_docs sd
+  LEFT JOIN latest_runs lr ON lr.doc_id=sd.doc_id
+  LEFT JOIN page_quality pq ON pq.doc_id=sd.doc_id
+),
+doc_quality AS (
+  SELECT
+    *,
+    COALESCE(""RunTextStatus"", ""ComputedTextStatus"") AS ""TextStatus"",
+    COALESCE(""RunOcrRecommended"", ""ComputedTextStatus"" IN ('empty_text', 'low_text')) AS ""OcrRecommended"",
+    COALESCE(
+      ""RunSignalsJson"",
+      CASE ""ComputedTextStatus""
+        WHEN 'empty_text' THEN '[""no_text_extracted"",""ocr_recommended""]'
+        WHEN 'low_text' THEN '[""low_text_extraction"",""ocr_recommended""]'
+        WHEN 'ok' THEN '[""text_extraction_ok""]'
+        ELSE '[]'
+      END
+    ) AS ""SignalsJson""
+  FROM doc_quality_base
+)
+";
+
+        var summarySql = qualityCte + @"
+SELECT
+  COUNT(*)::int AS ""TotalDocuments"",
+  COUNT(*) FILTER (WHERE ""OcrRecommended"")::int AS ""OcrRecommendedDocuments"",
+  COUNT(*) FILTER (WHERE ""TextStatus""='empty_text')::int AS ""EmptyTextDocuments"",
+  COUNT(*) FILTER (WHERE ""TextStatus""='low_text')::int AS ""LowTextDocuments"",
+  COUNT(*) FILTER (WHERE ""TextStatus""='ok')::int AS ""OkDocuments"",
+  COUNT(*) FILTER (WHERE ""TextStatus""='unknown')::int AS ""UnknownDocuments""
+FROM doc_quality;";
+
+        var itemsSql = qualityCte + @"
+SELECT *
+FROM doc_quality
+ORDER BY
+  ""OcrRecommended"" DESC,
+  CASE ""TextStatus""
+    WHEN 'empty_text' THEN 0
+    WHEN 'low_text' THEN 1
+    WHEN 'unknown' THEN 2
+    ELSE 3
+  END,
+  ""DocPath"" ASC
+LIMIT @lim;";
+
+        var summary = await conn.QuerySingleAsync<ExtractionQualitySummaryRow>(new CommandDefinition(
+            summarySql,
+            new { tenant = tenantId, path },
+            cancellationToken: ct));
+
+        var rows = (await conn.QueryAsync<ExtractionQualityRow>(new CommandDefinition(
+            itemsSql,
+            new { tenant = tenantId, path, lim },
+            cancellationToken: ct))).ToList();
+
+        return Results.Ok(new
+        {
+            scopePath = path,
+            summary = new
+            {
+                totalDocuments = summary.TotalDocuments,
+                okDocuments = summary.OkDocuments,
+                lowTextDocuments = summary.LowTextDocuments,
+                emptyTextDocuments = summary.EmptyTextDocuments,
+                unknownDocuments = summary.UnknownDocuments,
+                ocrRecommendedDocuments = summary.OcrRecommendedDocuments
+            },
+            items = rows.Select(row => new
+            {
+                docId = row.DocId,
+                docPath = row.DocPath,
+                textStatus = row.TextStatus,
+                ocrRecommended = row.OcrRecommended,
+                pageCount = row.PageCount,
+                textPageCount = row.TextPageCount,
+                emptyPageCount = row.EmptyPageCount,
+                sparsePageCount = row.SparsePageCount,
+                totalWordCount = row.TotalWordCount,
+                totalCharCount = row.TotalCharCount,
+                averageWordsPerPage = row.AverageWordsPerPage,
+                textPageRatio = row.TextPageRatio,
+                signals = ParseJsonStringArray(row.SignalsJson)
+            }),
+            limit = lim
+        });
+    }
+
     private static async Task<IResult> SnapshotAsync(HttpContext ctx, NpgsqlDataSource ds)
     {
         var tenantId = ctx.GetTenantId();
@@ -1068,6 +1268,33 @@ WHERE d.tenant_id=@tenant
             NextLink = nextLink
         });
     }
+
+    private static string[] ParseJsonStringArray(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return [];
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            if (document.RootElement.ValueKind != JsonValueKind.Array)
+                return [];
+
+            return document.RootElement
+                .EnumerateArray()
+                .Where(static item => item.ValueKind == JsonValueKind.String)
+                .Select(static item => item.GetString())
+                .Where(static value => !string.IsNullOrWhiteSpace(value))
+                .Select(static value => value!)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
     private sealed class CatalogCategoriesCursor
     {
         public string? Path { get; set; }
@@ -1121,6 +1348,33 @@ WHERE d.tenant_id=@tenant
         public string DocName { get; set; } = "";
         public string CategoryPath { get; set; } = "";
         public DateTimeOffset? UpdatedAt { get; set; }
+    }
+
+    private sealed class ExtractionQualitySummaryRow
+    {
+        public int TotalDocuments { get; set; }
+        public int OcrRecommendedDocuments { get; set; }
+        public int EmptyTextDocuments { get; set; }
+        public int LowTextDocuments { get; set; }
+        public int OkDocuments { get; set; }
+        public int UnknownDocuments { get; set; }
+    }
+
+    private sealed class ExtractionQualityRow
+    {
+        public Guid DocId { get; set; }
+        public string DocPath { get; set; } = "";
+        public string TextStatus { get; set; } = "";
+        public bool OcrRecommended { get; set; }
+        public int PageCount { get; set; }
+        public int TextPageCount { get; set; }
+        public int EmptyPageCount { get; set; }
+        public int SparsePageCount { get; set; }
+        public int TotalWordCount { get; set; }
+        public int TotalCharCount { get; set; }
+        public double AverageWordsPerPage { get; set; }
+        public double TextPageRatio { get; set; }
+        public string SignalsJson { get; set; } = "[]";
     }
 
     private sealed class SummaryRow

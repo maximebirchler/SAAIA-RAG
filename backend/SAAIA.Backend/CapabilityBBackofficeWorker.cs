@@ -112,7 +112,7 @@ internal sealed class CapabilityBBackofficeWorker : BackgroundService
                     JobId: execution.JobId,
                     LeaseToken: execution.LeaseToken,
                     SummaryText: generatedSummary.SummaryText,
-                    DocLanguage: null,
+                    DocLanguage: generatedSummary.DocLanguage,
                     SourceHash: null,
                     Meta: generatedSummary.Meta),
                 ct);
@@ -200,35 +200,48 @@ LIMIT 1;
             ? await RuntimeGovernanceService.LoadCapabilityBUnitExcerptsAsync(conn, tenantId, doc.DocId, doc.IndexedVersion, limit: 3, ct)
             : Array.Empty<string>();
 
-        var summary = summaryService is not null
-            ? await summaryService.BuildSummaryAsync(doc, sectionTitles, excerpts, ct)
-            : CapabilityBBackofficeSummaryService.BuildDeterministicSummary(doc, sectionTitles, excerpts, "summary_service_unavailable");
-
-        if (profileEnrichmentService is not null && doc.IndexedVersion > 0)
+        DocumentProfileSnapshot? baseline = null;
+        if (doc.IndexedVersion > 0)
         {
             try
             {
-                var baseline = await DocumentFoundationRepo.LoadDocumentProfileAsync(
+                baseline = await DocumentFoundationRepo.LoadDocumentProfileAsync(
                     conn,
                     tenantId,
                     doc.DocId,
                     "deterministic_v1",
                     ct);
-                if (baseline is not null)
-                {
-                    var enriched = await profileEnrichmentService.BuildEnrichedProfileAsync(doc, baseline, sectionTitles, excerpts, ct);
-                    if (enriched is not null)
-                    {
-                        await DocumentFoundationRepo.UpsertDocumentProfileAsync(
-                            conn,
-                            tx: null,
-                            tenantId,
-                            doc.DocId,
-                            baseline.RevisionId,
-                            enriched,
-                            ct);
-                    }
-                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(
+                    ex,
+                    "Capability B worker could not load deterministic profile for job {JobId} doc {DocPath}",
+                    execution.JobId,
+                    execution.DocPath);
+            }
+        }
+
+        var summary = summaryService is not null
+            ? await summaryService.BuildSummaryAsync(doc, sectionTitles, excerpts, ct, baseline?.Language)
+            : CapabilityBBackofficeSummaryService.BuildDeterministicSummary(doc, sectionTitles, excerpts, "summary_service_unavailable", baseline?.Language);
+
+        if (baseline is not null)
+        {
+            try
+            {
+                var enrichedProfile = profileEnrichmentService is null
+                    ? null
+                    : await profileEnrichmentService.BuildEnrichedProfileAsync(doc, baseline, sectionTitles, excerpts, ct);
+
+                await DocumentFoundationRepo.UpsertDocumentProfileAsync(
+                    conn,
+                    tx: null,
+                    tenantId,
+                    doc.DocId,
+                    baseline.RevisionId,
+                    enrichedProfile ?? BuildBackofficeProfileFromSummary(doc, baseline, summary),
+                    ct);
             }
             catch (Exception ex)
             {
@@ -240,8 +253,25 @@ LIMIT 1;
             }
         }
 
-        return summary;
+        return summary with { DocLanguage = baseline?.Language ?? "und" };
     }
+
+    private static ProjectedDocumentProfile BuildBackofficeProfileFromSummary(
+        CapabilityBDocumentRow doc,
+        DocumentProfileSnapshot baseline,
+        CapabilityBGeneratedSummaryPayload summary)
+        => DocumentProfileProjector.BuildProfile(
+            profileVersion: "llm_backoffice_v1",
+            language: baseline.Language,
+            summaryText: summary.SummaryText,
+            keywords: baseline.Keywords,
+            entities: baseline.Entities,
+            topics: baseline.Topics,
+            hypotheticalQuestions: baseline.HypotheticalQuestions,
+            limits: baseline.Limits,
+            docPath: doc.DocPath,
+            docName: doc.DocName,
+            contentCards: baseline.ContentCards ?? []);
 
     private sealed record CapabilityBQueuedJobLocator(Guid TenantId, Guid JobId);
 

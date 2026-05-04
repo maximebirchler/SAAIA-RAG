@@ -58,6 +58,58 @@ public sealed class DocumentUnitExtractorTests
     }
 
     [Fact]
+    public void Extract_splits_dense_structured_pages_at_probable_item_boundaries()
+    {
+        var previousBlock = string.Join(' ', Enumerable.Repeat(
+            "Faites mijoter doucement en remuant et servez bien chaud.",
+            16));
+        var text = previousBlock
+            + " Dégustez le lendemain !Cassoulet toulousainPour 4 personnes"
+            + " • 500 g de haricots blancs • 4 saucisses de Toulouse Préparation Faites cuire longuement."
+            + " Intermédiaire13Paëlla mixtePour 8 personnes • 500 g de riz • 20 crevettes Préparation Couvrez et laissez cuire.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, 120, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 1, null, null)
+        };
+
+        var units = DocumentUnitExtractor.Extract(pages, sections);
+
+        Assert.True(units.Count >= 3);
+        Assert.Contains(units, unit => unit.Text.StartsWith("Cassoulet toulousain", StringComparison.Ordinal));
+        Assert.Contains(units, unit => unit.Text.StartsWith("13Paëlla mixte", StringComparison.Ordinal));
+        Assert.DoesNotContain(units, unit =>
+            unit.Text.Contains("Dégustez le lendemain", StringComparison.Ordinal)
+            && unit.Text.Contains("Cassoulet toulousain", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Extract_splits_short_mixed_structured_paragraphs_when_title_is_embedded()
+    {
+        const string text =
+            "Nappez avec la preparation et enfournez pendant 30 minutes. Servez tiede !"
+            + "Quiche lorraine traditionnellePour 4 personnes• 200 g de farine• 8 oeufs poivrePreparationAstuce Enfournez.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, 24, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 1, null, null)
+        };
+
+        var units = DocumentUnitExtractor.Extract(pages, sections);
+
+        Assert.Contains(units, unit => unit.Text.StartsWith("Quiche lorraine traditionnelle", StringComparison.Ordinal));
+        Assert.DoesNotContain(units, unit =>
+            unit.Text.Contains("Servez tiede", StringComparison.Ordinal)
+            && unit.Text.Contains("Quiche lorraine", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Stable_unit_id_is_deterministic_for_same_revision_and_ordinal()
     {
         var revisionId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");

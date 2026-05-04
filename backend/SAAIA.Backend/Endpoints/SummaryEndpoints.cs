@@ -820,7 +820,7 @@ DO UPDATE SET
             tenant = tenantId,
             docId = cmd.DocId,
             level,
-            docLanguage = string.IsNullOrWhiteSpace(cmd.DocLanguage) ? null : cmd.DocLanguage.Trim(),
+            docLanguage = NormalizeDocLanguage(cmd.DocLanguage),
             sourceHash,
             summaryText = cmd.SummaryText,
             summaryMeta = (object?)metaJson ?? DBNull.Value
@@ -1141,6 +1141,11 @@ LIMIT 1;
         // instead of letting the DB constraint fail at runtime.
         return "medium";
     }
+
+    private static string NormalizeDocLanguage(string? language)
+        => string.IsNullOrWhiteSpace(language)
+            ? "und"
+            : language.Trim();
 
     private static string? NormalizePath(string? path)
     {

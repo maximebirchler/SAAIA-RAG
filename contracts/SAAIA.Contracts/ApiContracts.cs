@@ -66,6 +66,12 @@ public sealed class RagItem
 
     [JsonPropertyName("text")]
     public string Text { get; set; } = "";
+
+    [JsonPropertyName("snippet")]
+    public string? Snippet { get; set; }
+
+    [JsonPropertyName("contextualSnippet")]
+    public string? ContextualSnippet { get; set; }
 }
 
 public sealed class RagSearchResponse

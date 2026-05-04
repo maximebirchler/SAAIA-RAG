@@ -210,21 +210,77 @@ public sealed class RuntimeGovernanceCoreLogicTests
 
         Assert.Contains("inertage", terms);
         Assert.Contains("inerting", terms);
-        Assert.Contains("inert", terms);
+        Assert.DoesNotContain("inert", terms);
         Assert.DoesNotContain("documents", terms);
+    }
+
+    [Fact]
+    public void BuildLexicalContentFallbackTerms_extracts_generic_singular_phrases()
+    {
+        var terms = RagEndpoints.BuildLexicalContentFallbackTerms(
+            "Compare les deux quiches lorraines du corpus : differences d'ingredients, methode et style.");
+
+        Assert.Contains("quiche", terms);
+        Assert.Contains("lorraine", terms);
+        Assert.Contains("quiche lorraine", terms);
+        Assert.DoesNotContain("ingredients", terms);
+        Assert.DoesNotContain("methode", terms);
+        Assert.DoesNotContain("corpus", terms);
+    }
+
+    [Fact]
+    public void BuildLexicalContentFallbackTerms_folds_accents_and_common_ligatures()
+    {
+        var terms = RagEndpoints.BuildLexicalContentFallbackTerms(
+            "Tu peux me faire une fiche claire pour « Bœuf à l'aïoli épicé » ?");
+
+        Assert.Contains("boeuf", terms);
+        Assert.Contains("bœuf", terms);
+        Assert.Contains("aioli", terms);
+        Assert.Contains("aïoli", terms);
+        Assert.Contains("epice", terms);
+        Assert.Contains("boeuf aioli", terms);
+        Assert.Contains("bœuf aïoli", terms);
+
+        var accentTerms = RagEndpoints.BuildLexicalContentFallbackTerms(
+            "Sauce bearnaise, bechamel, eclairs et entrecote");
+        Assert.Contains("b\u00e9arnaise", accentTerms);
+        Assert.Contains("b\u00e9chamel", accentTerms);
+        Assert.Contains("\u00e9clairs", accentTerms);
+        Assert.Contains("entrec\u00f4te", accentTerms);
+    }
+
+    [Fact]
+    public void BuildLexicalContentFallbackTerms_keeps_adjacent_word_number_document_cues()
+    {
+        var terms = RagEndpoints.BuildLexicalContentFallbackTerms(
+            "Compare la paella francaise/top 30 et celle du livre international.");
+
+        Assert.Contains("paella", terms);
+        Assert.Contains("top 30", terms);
+        Assert.DoesNotContain("30", terms);
+        Assert.DoesNotContain("30 et", terms);
+
+        var technicalTerms = RagEndpoints.BuildLexicalContentFallbackTerms(
+            "Compare ISO 27001 avec API v2 dans les notes de migration.");
+
+        Assert.Contains("iso 27001", technicalTerms);
+        Assert.Contains("api v2", technicalTerms);
+        Assert.DoesNotContain("27001", technicalTerms);
     }
 
     [Fact]
     public void ExpandRetrievalQuery_uses_query_terms_not_category_name()
     {
-        var expanded = RagEndpoints.ExpandRetrievalQuery("Quelle sauce avec une entrecôte ?", "cuisine");
-        var expandedOtherCategory = RagEndpoints.ExpandRetrievalQuery("Quelle sauce avec une entrecôte ?", "atex");
+        var query = "Quelle sauce avec une entrec\u00f4te ?";
+        var expanded = RagEndpoints.ExpandRetrievalQuery(query, "cuisine");
+        var expandedOtherCategory = RagEndpoints.ExpandRetrievalQuery(query, "atex");
 
+        Assert.Contains("entrecote", expanded);
         Assert.Contains("steak", expanded);
-        Assert.Contains("rumsteck", expanded);
-        Assert.Contains("viande rouge", expanded);
-        Assert.Contains("sauces trempettes", expanded);
-        Assert.DoesNotContain("marinade", expanded);
+        Assert.DoesNotContain("rumsteck", expanded);
+        Assert.DoesNotContain("viande rouge", expanded);
+        Assert.DoesNotContain("sauces trempettes", expanded);
         Assert.Equal(expanded, expandedOtherCategory);
 
         var unchanged = RagEndpoints.ExpandRetrievalQuery("procedure onboarding fournisseur", "hr");
@@ -239,6 +295,153 @@ public sealed class RuntimeGovernanceCoreLogicTests
         Assert.True(RagEndpoints.ShouldSupplementSparseWithLexicalFallback("hr", "procedure onboarding fournisseur"));
         Assert.True(RagEndpoints.ShouldSupplementSparseWithLexicalFallback(null, "manual ABC-123 pressure valve"));
         Assert.False(RagEndpoints.ShouldSupplementSparseWithLexicalFallback(null, "ok merci"));
+    }
+
+    [Fact]
+    public void ResolveEffectiveSearchMode_infers_broad_for_comparative_intent_without_domain_hardcoding()
+    {
+        Assert.Equal("broad", RagEndpoints.ResolveEffectiveSearchMode(null, "Compare trois procedures et dis laquelle choisir."));
+        Assert.Equal("broad", RagEndpoints.ResolveEffectiveSearchMode(null, "Quel document est le plus technique ?"));
+        Assert.Equal("broad", RagEndpoints.ResolveEffectiveSearchMode("", "Which report is the most relevant?"));
+        Assert.Equal("focused", RagEndpoints.ResolveEffectiveSearchMode("focused", "Compare les options."));
+        Assert.Equal("balanced", RagEndpoints.ResolveEffectiveSearchMode(null, "Donne-moi la procedure d'installation."));
+    }
+
+    [Fact]
+    public void Comparative_document_diversity_uses_wider_candidates_and_one_chunk_per_doc()
+    {
+        Assert.True(RagEndpoints.ShouldPreferComparativeDocumentDiversity("Compare les options disponibles."));
+        Assert.True(RagEndpoints.ShouldPreferComparativeDocumentDiversity("Qual documento e o mais tecnico?"));
+        Assert.Equal(120, RagEndpoints.ResolveDefaultCandidateCount("broad", preferComparativeDiversity: true, topK: 8));
+        Assert.Equal(96, RagEndpoints.ResolveDefaultCandidateCount("broad", preferComparativeDiversity: false, topK: 8));
+        Assert.Equal(1, RagEndpoints.ResolveDefaultMaxPerDoc("broad", preferComparativeDiversity: true, topK: 8));
+        Assert.Equal(2, RagEndpoints.ResolveDefaultMaxPerDoc("broad", preferComparativeDiversity: false, topK: 8));
+    }
+
+    [Fact]
+    public void Comparative_subject_anchor_uses_requested_subject_not_the_criterion()
+    {
+        var tokens = RagEndpoints.ExtractComparativeSubjectAnchorTokens("Quel dessert est le plus technique ?");
+
+        Assert.Contains("dessert", tokens);
+        Assert.DoesNotContain("technique", tokens);
+        Assert.True(RagEndpoints.ContainsComparativeSubjectAnchor(tokens, "Recettes sucrées et pâtisserie."));
+        Assert.False(RagEndpoints.ContainsComparativeSubjectAnchor(tokens, "Technique très simple pour une procedure."));
+    }
+
+    [Fact]
+    public void CalibrateFusedMatches_penalizes_comparative_criterion_only_matches()
+    {
+        var criterionOnly = new RagMatch(
+            0.96,
+            "doc-criterion",
+            "Knowledge/technique.pdf",
+            "technique.pdf",
+            1,
+            1,
+            "chunk-criterion",
+            0,
+            "Cette procedure exige une technique tres simple.",
+            1,
+            "hash-criterion",
+            "Matched profile title: technique tres simple\nCette procedure exige une technique tres simple.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Procedure",
+            "Procedure",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+        var subjectMatch = new RagMatch(
+            0.78,
+            "doc-subject",
+            "Knowledge/desserts.pdf",
+            "desserts.pdf",
+            2,
+            2,
+            "chunk-subject",
+            1,
+            "Recettes sucrées: eclairs, profiteroles et autres patisseries.",
+            1,
+            "hash-subject",
+            "Recettes sucrées: eclairs, profiteroles et autres patisseries.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Recettes sucrées",
+            "Recettes sucrées",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+
+        var ranked = RagEndpoints.CalibrateFusedMatches(
+            "Quel dessert est le plus technique ?",
+            [criterionOnly, subjectMatch]);
+
+        Assert.Equal("doc-subject", ranked[0].DocId);
+    }
+
+    [Fact]
+    public void SuppressNavigationalNoise_removes_glossary_chunks_unless_definition_is_requested()
+    {
+        var glossary = new RagMatch(
+            0.98,
+            "doc-glossary",
+            "Knowledge/glossary.pdf",
+            "glossary.pdf",
+            1,
+            1,
+            "chunk-glossary",
+            0,
+            "NNAPPER : Recouvrir de sauce. PAPIER PARCHEMIN : Papier de cuisson. POCHER : Cuire dans un liquide. RESERVER : Mettre de cote.",
+            1,
+            "hash-glossary",
+            "NNAPPER : Recouvrir de sauce. PAPIER PARCHEMIN : Papier de cuisson. POCHER : Cuire dans un liquide. RESERVER : Mettre de cote.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Glossaire",
+            "Glossaire",
+            "section_window_v1",
+            null,
+            null,
+            null);
+        var content = new RagMatch(
+            0.78,
+            "doc-content",
+            "Knowledge/content.pdf",
+            "content.pdf",
+            2,
+            2,
+            "chunk-content",
+            1,
+            "Dessert au chocolat. Ingredients: chocolat, sucre. Preparation: cuire puis refroidir.",
+            1,
+            "hash-content",
+            "Dessert au chocolat. Ingredients: chocolat, sucre. Preparation: cuire puis refroidir.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Dessert",
+            "Dessert",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+
+        var filtered = RagEndpoints.SuppressNavigationalNoise(
+            "Quel dessert est le plus technique ?",
+            [glossary, content]);
+        var definition = RagEndpoints.SuppressNavigationalNoise(
+            "Que veut dire pocher ?",
+            [glossary, content]);
+
+        Assert.True(RagEndpoints.LooksLikeGlossaryChunk(glossary));
+        Assert.DoesNotContain(filtered, match => match.DocId == "doc-glossary");
+        Assert.Contains(definition, match => match.DocId == "doc-glossary");
     }
 
     [Fact]

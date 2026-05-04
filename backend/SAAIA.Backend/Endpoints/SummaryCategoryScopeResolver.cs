@@ -169,7 +169,7 @@ ORDER BY display_order ASC, name ASC;
             return catOrdinal;
         }
 
-        var ordinalMatch = Regex.Match(trimmed, @"(?:^|\b)(?:cat(?:egory)?|cat[Ã©e]gorie|categoria|kategorie)?\s*(?<n>\d{1,4})(?:st|nd|rd|th|er|e|eme|Ã¨me)?(?:\b|$)", RegexOptions.IgnoreCase);
+        var ordinalMatch = Regex.Match(trimmed, @"(?:^|\b)(?:cat(?:egory)?|cat[ée]gorie|categoria|kategorie)?\s*(?<n>\d{1,4})(?:st|nd|rd|th|er|e|eme|ème)?(?:\b|$)", RegexOptions.IgnoreCase);
         if (ordinalMatch.Success && int.TryParse(ordinalMatch.Groups["n"].Value, out var parsed) && parsed > 0)
             return parsed;
 

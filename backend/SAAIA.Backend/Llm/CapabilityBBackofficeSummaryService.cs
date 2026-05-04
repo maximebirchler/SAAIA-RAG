@@ -50,14 +50,15 @@ internal sealed class CapabilityBBackofficeSummaryService
         CapabilityBDocumentRow doc,
         IReadOnlyList<string> sectionTitles,
         IReadOnlyList<string> excerpts,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? preferredLanguage = null)
     {
         using var activity = RuntimeGovernanceTelemetry.StartCapabilityBSummaryGenerationActivity();
         var sw = Stopwatch.StartNew();
 
         if (!_llmClient.IsConfigured)
         {
-            var fallback = BuildDeterministicSummary(doc, sectionTitles, excerpts, "llm_not_configured");
+            var fallback = BuildDeterministicSummary(doc, sectionTitles, excerpts, "llm_not_configured", preferredLanguage);
             sw.Stop();
             RuntimeGovernanceTelemetry.CompleteCapabilityBSummaryGeneration(
                 activity,
@@ -82,9 +83,11 @@ Constraints:
 - no JSON
 - mention concrete scope, sections, and operational takeaways when available
 - keep the answer under 900 characters
+- write in the requested output language; if it is unknown, use the dominant language of the provided titles and excerpts
 """;
 
-        var userPrompt = BuildUserPrompt(doc, sectionTitles, excerpts);
+        var outputLanguage = NormalizePreferredLanguage(preferredLanguage);
+        var userPrompt = BuildUserPrompt(doc, sectionTitles, excerpts, outputLanguage);
         var completion = await _llmClient.TryCompleteWithTelemetryAsync(systemPrompt, userPrompt, maxTokens: 320, temperature: 0.1, ct);
         var summaryText = NormalizeSummary(completion.Content);
         if (string.IsNullOrWhiteSpace(summaryText))
@@ -92,7 +95,7 @@ Constraints:
             var fallbackReason = string.Equals(completion.Error, "not_configured", StringComparison.Ordinal)
                 ? "llm_not_configured"
                 : "llm_empty_response";
-            var fallback = BuildDeterministicSummary(doc, sectionTitles, excerpts, fallbackReason);
+            var fallback = BuildDeterministicSummary(doc, sectionTitles, excerpts, fallbackReason, outputLanguage);
             sw.Stop();
             RuntimeGovernanceTelemetry.CompleteCapabilityBSummaryGeneration(
                 activity,
@@ -122,6 +125,7 @@ Constraints:
             ["llmResponseHeadersMs"] = completion.ResponseHeadersMs,
             ["llmFirstResponseMs"] = completion.FirstByteMs,
             ["llmBytesRead"] = completion.BytesRead,
+            ["outputLanguage"] = outputLanguage ?? "auto",
             ["qualityScore"] = quality.Score,
             ["qualitySignals"] = new Dictionary<string, object?>
             {
@@ -157,9 +161,11 @@ Constraints:
         CapabilityBDocumentRow doc,
         IReadOnlyList<string> sectionTitles,
         IReadOnlyList<string> excerpts,
-        string? fallbackReason = null)
+        string? fallbackReason = null,
+        string? preferredLanguage = null)
     {
-        var summaryText = ComposeSummaryText(doc, sectionTitles, excerpts);
+        var outputLanguage = NormalizePreferredLanguage(preferredLanguage);
+        var summaryText = ComposeSummaryText(doc, sectionTitles, excerpts, outputLanguage);
         var quality = EvaluateQuality(summaryText, sectionTitles, excerpts);
         var meta = JsonSerializer.SerializeToElement(new Dictionary<string, object?>
         {
@@ -184,6 +190,7 @@ Constraints:
             },
             ["fallbackUsed"] = true,
             ["fallbackReason"] = fallbackReason,
+            ["outputLanguage"] = outputLanguage ?? "auto",
             ["generatedAt"] = DateTimeOffset.UtcNow
         });
 
@@ -193,7 +200,8 @@ Constraints:
     private static string BuildUserPrompt(
         CapabilityBDocumentRow doc,
         IReadOnlyList<string> sectionTitles,
-        IReadOnlyList<string> excerpts)
+        IReadOnlyList<string> excerpts,
+        string? outputLanguage)
     {
         var normalizedSections = sectionTitles
             .Where(static title => !string.IsNullOrWhiteSpace(title))
@@ -212,6 +220,7 @@ Document path: {doc.DocPath}
 Category: {doc.Category ?? "unknown"}
 Page count: {(doc.PageCount is > 0 ? doc.PageCount.Value.ToString() : "unknown")}
 Indexed version: {doc.IndexedVersion}
+Requested output language: {outputLanguage ?? "auto"}
 Section titles:
 {string.Join(Environment.NewLine, normalizedSections.Select(static title => $"- {title}"))}
 Excerpt highlights:
@@ -238,32 +247,57 @@ Write a short backoffice summary for operators who need to understand this docum
     private static string ComposeSummaryText(
         CapabilityBDocumentRow doc,
         IReadOnlyList<string> sectionTitles,
-        IReadOnlyList<string> excerpts)
+        IReadOnlyList<string> excerpts,
+        string? outputLanguage)
     {
         var lines = new List<string>
         {
-            BuildOverviewLine(doc)
+            BuildOverviewLine(doc, outputLanguage)
         };
 
         if (sectionTitles.Count > 0)
-            lines.Add("Key sections: " + string.Join("; ", sectionTitles.Select(NormalizeInlineText)) + ".");
+            lines.Add(BuildKeySectionsLabel(outputLanguage) + string.Join("; ", sectionTitles.Select(NormalizeInlineText)) + ".");
 
         if (excerpts.Count > 0)
         {
-            lines.Add("Highlights:");
+            lines.Add(BuildHighlightsLabel(outputLanguage));
             foreach (var excerpt in excerpts.Select(TrimExcerpt))
                 lines.Add($"- {excerpt}");
         }
         else
         {
-            lines.Add("No extracted unit excerpts were available, so this summary relies on the indexed document metadata.");
+            lines.Add(BuildNoExcerptsLine(outputLanguage));
         }
 
         return string.Join(Environment.NewLine, lines);
     }
 
-    private static string BuildOverviewLine(CapabilityBDocumentRow doc)
+    private static string BuildOverviewLine(CapabilityBDocumentRow doc, string? outputLanguage)
     {
+        if (string.Equals(outputLanguage, "fr", StringComparison.Ordinal))
+        {
+            var builderFr = new StringBuilder();
+            builderFr.Append(doc.DocName);
+            builderFr.Append(" est un document indexe");
+            if (!string.IsNullOrWhiteSpace(doc.Category))
+            {
+                builderFr.Append(' ');
+                builderFr.Append(doc.Category!.Trim());
+            }
+
+            if (doc.PageCount is > 0)
+            {
+                builderFr.Append(" de ");
+                builderFr.Append(doc.PageCount.Value);
+                builderFr.Append(doc.PageCount.Value == 1 ? " page" : " pages");
+            }
+
+            builderFr.Append(" : ");
+            builderFr.Append(doc.DocPath);
+            builderFr.Append('.');
+            return builderFr.ToString();
+        }
+
         var builder = new StringBuilder();
         builder.Append(doc.DocName);
         builder.Append(" is an indexed");
@@ -285,6 +319,32 @@ Write a short backoffice summary for operators who need to understand this docum
         builder.Append(doc.DocPath);
         builder.Append('.');
         return builder.ToString();
+    }
+
+    private static string BuildKeySectionsLabel(string? outputLanguage)
+        => string.Equals(outputLanguage, "fr", StringComparison.Ordinal)
+            ? "Sections cles : "
+            : "Key sections: ";
+
+    private static string BuildHighlightsLabel(string? outputLanguage)
+        => string.Equals(outputLanguage, "fr", StringComparison.Ordinal)
+            ? "Extraits :"
+            : "Highlights:";
+
+    private static string BuildNoExcerptsLine(string? outputLanguage)
+        => string.Equals(outputLanguage, "fr", StringComparison.Ordinal)
+            ? "Aucun extrait d'unite disponible ; ce resume s'appuie sur les metadonnees indexees du document."
+            : "No extracted unit excerpts were available, so this summary relies on the indexed document metadata.";
+
+    private static string? NormalizePreferredLanguage(string? preferredLanguage)
+    {
+        if (string.IsNullOrWhiteSpace(preferredLanguage))
+            return null;
+
+        var language = preferredLanguage.Trim().ToLowerInvariant();
+        return language is "fr" or "en" or "es" or "pt" or "de" or "it"
+            ? language
+            : null;
     }
 
     private static string TrimExcerpt(string text)
@@ -385,7 +445,11 @@ Write a short backoffice summary for operators who need to understand this docum
     }
 }
 
-internal sealed record CapabilityBGeneratedSummaryPayload(string SummaryText, JsonElement Meta, CapabilityBSummaryQualityEvaluation Quality);
+internal sealed record CapabilityBGeneratedSummaryPayload(
+    string SummaryText,
+    JsonElement Meta,
+    CapabilityBSummaryQualityEvaluation Quality,
+    string? DocLanguage = null);
 
 internal sealed record CapabilityBSummaryQualityEvaluation(
     double Score,

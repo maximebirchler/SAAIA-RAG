@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -28,6 +29,7 @@ internal static class DocumentFoundationRepo
         CancellationToken ct)
     {
         var revisionId = BuildStableRevisionId(tenantId, docId, indexedVersionAfter);
+        var extractionQuality = PdfExtractionQualitySummary.FromPages(pages);
 
         const string revisionSql = @"
 INSERT INTO document_revisions(
@@ -92,7 +94,8 @@ SET doc_path = EXCLUDED.doc_path,
             {
                 published = true,
                 sourceSize,
-                sourceMtimeUtc = DateTime.SpecifyKind(sourceMtimeUtc, DateTimeKind.Utc)
+                sourceMtimeUtc = DateTime.SpecifyKind(sourceMtimeUtc, DateTimeKind.Utc),
+                extractionQuality = BuildExtractionQualityPayload(extractionQuality)
             }),
             ct);
 
@@ -112,6 +115,7 @@ SET doc_path = EXCLUDED.doc_path,
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "exact_match_entries", exactMatchEntries, e => $"exact:{e.EntryIndex}:{e.PageStart}:{e.PageEnd}:{e.NormalizedText}", e => e.CharCount, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "contextual_text_entries", contextualTextEntries, e => $"contextual:{e.EntryIndex}:{e.PageStart}:{e.PageEnd}:{e.Text}", e => e.CharCount, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "document_profile", new[] { documentProfile }, p => $"profile:{p.ProfileVersion}:{p.Language}:{p.SearchText}", p => p.SearchText.Length, ct);
+        await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "document_profile_content_cards", documentProfile.ContentCards, c => $"card:{c.Title}:{c.PageStart}:{c.PageEnd}:{c.Kind}:{string.Join('|', c.Signals)}", c => BuildContentCardSearchText(c).Length, ct);
     }
 
     public static async Task PublishDeleteCompletionAsync(
@@ -159,6 +163,9 @@ SET doc_path = EXCLUDED.doc_path,
 
     internal static Guid BuildStableDocumentProfileId(Guid revisionId, string profileVersion)
         => IdUtil.DeterministicGuid($"{revisionId:N}|document-profile|{profileVersion}");
+
+    internal static Guid BuildStableDocumentProfileContentCardId(Guid documentProfileId, int cardIndex)
+        => IdUtil.DeterministicGuid($"{documentProfileId:N}|content-card|{cardIndex}");
 
     private static async Task InsertProcessingRunAsync(
         NpgsqlConnection conn,
@@ -322,7 +329,8 @@ SET content_hash = EXCLUDED.content_hash,
         Guid docId,
         string profileVersion,
         CancellationToken ct)
-        => await conn.QueryFirstOrDefaultAsync<DocumentProfileSnapshot>(new CommandDefinition(
+    {
+        var row = await conn.QueryFirstOrDefaultAsync<DocumentProfileSnapshotRow>(new CommandDefinition(
             """
 SELECT
     p.revision_id AS "RevisionId",
@@ -336,7 +344,8 @@ SELECT
     p.hypothetical_questions AS "HypotheticalQuestions",
     p.limits AS "Limits",
     p.search_text AS "SearchText",
-    p.token_count AS "TokenCount"
+    p.token_count AS "TokenCount",
+    p.metadata::text AS "MetadataJson"
 FROM document_profiles p
 JOIN document_revisions r
   ON r.revision_id = p.revision_id
@@ -357,6 +366,76 @@ LIMIT 1;
                 profile_version = profileVersion
             },
             cancellationToken: ct));
+
+        if (row is null)
+            return null;
+
+        var contentCards = await LoadDocumentProfileContentCardsAsync(
+            conn,
+            row.RevisionId,
+            row.ProfileVersion ?? profileVersion,
+            ct);
+        if (contentCards.Count == 0)
+            contentCards = DocumentProfileProjector.ParseContentCards(row.MetadataJson);
+
+        return new DocumentProfileSnapshot(
+            row.RevisionId,
+            row.DocId,
+            row.ProfileVersion ?? profileVersion,
+            row.Language ?? "und",
+            row.SummaryText ?? string.Empty,
+            row.Keywords ?? [],
+            row.Entities ?? [],
+            row.Topics ?? [],
+            row.HypotheticalQuestions ?? [],
+            row.Limits ?? [],
+            row.SearchText ?? string.Empty,
+            row.TokenCount,
+            contentCards);
+    }
+
+    private static async Task<IReadOnlyList<DocumentProfileContentCard>> LoadDocumentProfileContentCardsAsync(
+        NpgsqlConnection conn,
+        Guid revisionId,
+        string profileVersion,
+        CancellationToken ct)
+    {
+        try
+        {
+            var rows = await conn.QueryAsync<DocumentProfileContentCardRow>(new CommandDefinition(
+                """
+SELECT
+    title AS "Title",
+    page_start AS "PageStart",
+    page_end AS "PageEnd",
+    kind AS "Kind",
+    signals AS "Signals"
+FROM document_profile_content_cards
+WHERE revision_id = @revision_id
+  AND profile_version = @profile_version
+ORDER BY card_index;
+""",
+                new
+                {
+                    revision_id = revisionId,
+                    profile_version = profileVersion
+                },
+                cancellationToken: ct));
+
+            return rows
+                .Select(static row => new DocumentProfileContentCard(
+                    row.Title ?? string.Empty,
+                    row.PageStart,
+                    row.PageEnd,
+                    row.Kind ?? "content_item",
+                    row.Signals ?? []))
+                .ToArray();
+        }
+        catch (PostgresException)
+        {
+            return [];
+        }
+    }
 
     internal static async Task UpsertDocumentProfileAsync(
         NpgsqlConnection conn,
@@ -423,12 +502,23 @@ SET language = EXCLUDED.language,
             keywordCount = profile.Keywords.Count,
             entityCount = profile.Entities.Count,
             topicCount = profile.Topics.Count,
-            hypotheticalQuestionCount = profile.HypotheticalQuestions.Count
+            hypotheticalQuestionCount = profile.HypotheticalQuestions.Count,
+            contentCardCount = profile.ContentCards.Count,
+            contentCards = profile.ContentCards.Select(card => new
+            {
+                title = card.Title,
+                pageStart = card.PageStart,
+                pageEnd = card.PageEnd,
+                kind = card.Kind,
+                signals = card.Signals
+            })
         });
+
+        var documentProfileId = BuildStableDocumentProfileId(revisionId, profile.ProfileVersion);
 
         await conn.ExecuteAsync(new CommandDefinition(sql, new
         {
-            document_profile_id = BuildStableDocumentProfileId(revisionId, profile.ProfileVersion),
+            document_profile_id = documentProfileId,
             tenant_id = tenantId,
             revision_id = revisionId,
             doc_id = docId,
@@ -445,7 +535,164 @@ SET language = EXCLUDED.language,
             checksum = profile.Checksum,
             metadata
         }, transaction: tx, cancellationToken: ct));
+
+        await UpsertDocumentProfileContentCardsAsync(
+            conn,
+            tx,
+            tenantId,
+            docId,
+            revisionId,
+            documentProfileId,
+            profile,
+            ct);
     }
+
+    private static async Task UpsertDocumentProfileContentCardsAsync(
+        NpgsqlConnection conn,
+        NpgsqlTransaction? tx,
+        Guid tenantId,
+        Guid docId,
+        Guid revisionId,
+        Guid documentProfileId,
+        ProjectedDocumentProfile profile,
+        CancellationToken ct)
+    {
+        const string purgeSql = @"
+DELETE FROM document_profile_content_cards
+WHERE tenant_id = @tenant_id
+  AND doc_id = @doc_id
+  AND profile_version = @profile_version;";
+        await conn.ExecuteAsync(new CommandDefinition(
+            purgeSql,
+            new
+            {
+                tenant_id = tenantId,
+                doc_id = docId,
+                profile_version = profile.ProfileVersion
+            },
+            transaction: tx,
+            cancellationToken: ct));
+
+        if (profile.ContentCards.Count == 0)
+            return;
+
+        const string sql = @"
+INSERT INTO document_profile_content_cards(
+    content_card_id,
+    tenant_id,
+    document_profile_id,
+    revision_id,
+    doc_id,
+    profile_version,
+    card_index,
+    title,
+    normalized_title,
+    page_start,
+    page_end,
+    kind,
+    signals,
+    search_text,
+    token_count,
+    checksum,
+    metadata)
+VALUES(
+    @content_card_id,
+    @tenant_id,
+    @document_profile_id,
+    @revision_id,
+    @doc_id,
+    @profile_version,
+    @card_index,
+    @title,
+    @normalized_title,
+    @page_start,
+    @page_end,
+    @kind,
+    @signals,
+    @search_text,
+    @token_count,
+    @checksum,
+    CAST(@metadata AS jsonb))
+ON CONFLICT (document_profile_id, card_index) DO UPDATE
+SET title = EXCLUDED.title,
+    normalized_title = EXCLUDED.normalized_title,
+    page_start = EXCLUDED.page_start,
+    page_end = EXCLUDED.page_end,
+    kind = EXCLUDED.kind,
+    signals = EXCLUDED.signals,
+    search_text = EXCLUDED.search_text,
+    token_count = EXCLUDED.token_count,
+    checksum = EXCLUDED.checksum,
+    metadata = EXCLUDED.metadata,
+    updated_at = now();";
+
+        for (var i = 0; i < profile.ContentCards.Count; i++)
+        {
+            var card = profile.ContentCards[i];
+            var searchText = BuildContentCardSearchText(card);
+            var metadata = JsonSerializer.Serialize(new
+            {
+                generatedBy = "document_profile_projector",
+                profile.ProfileVersion,
+                signalCount = card.Signals.Count
+            });
+
+            await conn.ExecuteAsync(new CommandDefinition(sql, new
+            {
+                content_card_id = BuildStableDocumentProfileContentCardId(documentProfileId, i),
+                tenant_id = tenantId,
+                document_profile_id = documentProfileId,
+                revision_id = revisionId,
+                doc_id = docId,
+                profile_version = profile.ProfileVersion,
+                card_index = i,
+                title = card.Title,
+                normalized_title = NormalizeContentCardLookupText(card.Title),
+                page_start = card.PageStart,
+                page_end = card.PageEnd,
+                kind = string.IsNullOrWhiteSpace(card.Kind) ? "content_item" : card.Kind,
+                signals = card.Signals.ToArray(),
+                search_text = searchText,
+                token_count = CountTokens(searchText),
+                checksum = SHA256.HashData(Encoding.UTF8.GetBytes(searchText)),
+                metadata
+            }, transaction: tx, cancellationToken: ct));
+        }
+    }
+
+    private static string BuildContentCardSearchText(DocumentProfileContentCard card)
+        => string.Join(
+            ' ',
+            new[]
+            {
+                card.Title,
+                NormalizeContentCardLookupText(card.Title),
+                card.Kind,
+                string.Join(' ', card.Signals),
+                NormalizeContentCardLookupText(string.Join(' ', card.Signals))
+            }.Where(static value => !string.IsNullOrWhiteSpace(value)));
+
+    private static string NormalizeContentCardLookupText(string text)
+        => FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(text));
+
+    private static string FoldDiacritics(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var normalized = value.Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder(normalized.Length);
+        foreach (var ch in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(ch) != UnicodeCategory.NonSpacingMark)
+                sb.Append(ch);
+        }
+
+        return sb.ToString().Normalize(NormalizationForm.FormC);
+    }
+
+    private static int CountTokens(string text)
+        => text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
 
     private static async Task UpsertPageIndexAsync(
         NpgsqlConnection conn,
@@ -480,10 +727,12 @@ SET char_count = EXCLUDED.char_count,
 
         foreach (var page in pages)
         {
+            var pageQuality = page.Quality ?? PdfPageExtractionQuality.FromCounts(page.WordCount, page.CharCount);
             var metadata = JsonSerializer.Serialize(new
             {
                 wordCount = page.WordCount,
-                textLength = page.Text.Length
+                textLength = page.Text.Length,
+                extractionQuality = BuildPageExtractionQualityPayload(pageQuality)
             });
 
             await conn.ExecuteAsync(new CommandDefinition(sql, new
@@ -497,6 +746,36 @@ SET char_count = EXCLUDED.char_count,
             }, transaction: tx, cancellationToken: ct));
         }
     }
+
+    private static object BuildExtractionQualityPayload(PdfExtractionQualitySummary quality)
+        => new
+        {
+            pageCount = quality.PageCount,
+            textPageCount = quality.TextPageCount,
+            emptyPageCount = quality.EmptyPageCount,
+            sparsePageCount = quality.SparsePageCount,
+            totalWordCount = quality.TotalWordCount,
+            totalCharCount = quality.TotalCharCount,
+            averageWordsPerPage = quality.AverageWordsPerPage,
+            averageCharsPerPage = quality.AverageCharsPerPage,
+            textPageRatio = quality.TextPageRatio,
+            emptyPageRatio = quality.EmptyPageRatio,
+            sparsePageRatio = quality.SparsePageRatio,
+            textStatus = quality.TextStatus,
+            ocrRecommended = quality.OcrRecommended,
+            signals = quality.Signals
+        };
+
+    private static object BuildPageExtractionQualityPayload(PdfPageExtractionQuality quality)
+        => new
+        {
+            textStatus = quality.TextStatus,
+            textEmpty = quality.TextEmpty,
+            textSparse = quality.TextSparse,
+            ocrCandidate = quality.OcrCandidate,
+            averageCharsPerWord = quality.AverageCharsPerWord,
+            signals = quality.Signals
+        };
 
     private static async Task UpsertSectionsAsync(
         NpgsqlConnection conn,
@@ -1070,4 +1349,31 @@ internal sealed record DocumentProfileSnapshot(
     string[] HypotheticalQuestions,
     string[] Limits,
     string SearchText,
-    int TokenCount);
+    int TokenCount,
+    IReadOnlyList<DocumentProfileContentCard>? ContentCards = null);
+
+internal sealed class DocumentProfileSnapshotRow
+{
+    public Guid RevisionId { get; set; }
+    public Guid DocId { get; set; }
+    public string? ProfileVersion { get; set; }
+    public string? Language { get; set; }
+    public string? SummaryText { get; set; }
+    public string[]? Keywords { get; set; }
+    public string[]? Entities { get; set; }
+    public string[]? Topics { get; set; }
+    public string[]? HypotheticalQuestions { get; set; }
+    public string[]? Limits { get; set; }
+    public string? SearchText { get; set; }
+    public int TokenCount { get; set; }
+    public string? MetadataJson { get; set; }
+}
+
+internal sealed class DocumentProfileContentCardRow
+{
+    public string? Title { get; set; }
+    public int? PageStart { get; set; }
+    public int? PageEnd { get; set; }
+    public string? Kind { get; set; }
+    public string[]? Signals { get; set; }
+}
