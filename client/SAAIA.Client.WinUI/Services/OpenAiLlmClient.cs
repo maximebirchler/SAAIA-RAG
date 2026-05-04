@@ -84,8 +84,12 @@ public sealed class OpenAiLlmClient
             {
                 model = _model,
                 temperature,
+                top_p = 0.85,
+                frequency_penalty = 0.2,
+                presence_penalty = 0.05,
                 max_tokens = maxTokens,
                 stream = false,
+                stop = new[] { "\nUSER_MESSAGE:", "\nTOOL_RESULTS", "\nDRAFT_ANSWER:", "\nCHAT_TAIL:" },
                 messages = messages.Select(m => new { role = m.role, content = m.content }).ToArray()
             };
 
@@ -128,8 +132,12 @@ public sealed class OpenAiLlmClient
             {
                 model = _model,
                 temperature,
+                top_p = 0.85,
+                frequency_penalty = 0.2,
+                presence_penalty = 0.05,
                 max_tokens = maxTokens,
                 stream = true,
+                stop = new[] { "\nUSER_MESSAGE:", "\nTOOL_RESULTS", "\nDRAFT_ANSWER:", "\nCHAT_TAIL:" },
                 messages = messages.Select(m => new { role = m.role, content = m.content }).ToArray()
             };
 

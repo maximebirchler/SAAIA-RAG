@@ -146,6 +146,7 @@ public sealed class RagChatAgent
             var language = LocalizedStrings.DetectLanguage(userText, "fr");
             _mem.LastLanguage = language;
             _mem.LastUserDetectedLanguage = language;
+            ApplyDefaultCategoryScope(category);
             onPhase?.Invoke(DeterministicAgentText.PhaseRag(language));
             onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(language));
             var (ans, payload) = await RunSearchOnlyFallbackAsync(userText, category, ct, language).ConfigureAwait(false);
@@ -169,6 +170,7 @@ public sealed class RagChatAgent
 
         if (!string.IsNullOrWhiteSpace(category))
         {
+            ApplyDefaultCategoryScope(category);
             history.Insert(0, ("system",
                 $"Default retrieval category hint: {category}. Use it only if it matches the user's intent."));
         }
@@ -254,6 +256,33 @@ public sealed class RagChatAgent
         _mem.LastSearchOnlyCategory = category;
 
         return (ans, payload);
+    }
+
+    private void ApplyDefaultCategoryScope(string? category)
+    {
+        var categoryPath = NormalizeCategoryPath(category);
+        if (string.IsNullOrWhiteSpace(categoryPath))
+            return;
+
+        _mem.LastResolvedCategory = new ToolMemory.CategorySnapshot
+        {
+            CategoryPath = categoryPath,
+            DisplayName = categoryPath.Split('/').LastOrDefault(part => !string.IsNullOrWhiteSpace(part)) ?? categoryPath,
+            Aliases = new List<string> { categoryPath }
+        };
+    }
+
+    private static string NormalizeCategoryPath(string? category)
+    {
+        var normalized = (category ?? string.Empty)
+            .Replace('\\', '/')
+            .Trim()
+            .TrimStart('/')
+            .TrimEnd('/');
+
+        return string.IsNullOrWhiteSpace(normalized)
+            ? string.Empty
+            : normalized;
     }
 
     private static string NormalizeRole(string? role)

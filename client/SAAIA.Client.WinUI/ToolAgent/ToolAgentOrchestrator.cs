@@ -22,7 +22,16 @@ public sealed partial class ToolAgentOrchestrator
     private const int RouterCanonicalHintsLimit = 6;
     private const int SerializedTailContentMaxChars = 420;
     private const int RagWriterMaxHits = 8;
-    private const int RagWriterMaxExcerptChars = 240;
+    private const int RagWriterMaxExcerptChars = 420;
+    private const int RagWriterMaxFullTextChars = 1200;
+    private const int RagWriterContextualEvidenceChars = 480;
+    private const int RagWriterContextualRawChars = 800;
+    private const int RagWriterContextualTotalChars = 1200;
+    private const int RagWriterBroadMaxHits = 6;
+    private const int RagWriterBroadExcerptChars = 320;
+    private const int RagWriterBroadFullTextChars = 650;
+    private const int RagWriterBroadContextualChars = 360;
+    private const int SourceBackedEvidenceMaxChars = 620;
     private readonly ApiClient _api;
     private readonly ILlmClient _llm;
     private readonly ToolMemory _mem;
@@ -277,6 +286,16 @@ public sealed partial class ToolAgentOrchestrator
         if (!string.IsNullOrWhiteSpace(routerTrace))
             onProgress?.Invoke(routerTrace);
 
+        if (LooksLikeUnresolvedSourceBackedDeicticFollowup(effectiveUserMessage)
+            && (_mem.LastSourcesUsed is null || _mem.LastSourcesUsed.Count == 0))
+        {
+            var clarification = BuildUnresolvedSourceBackedDeicticFollowupAnswer(plan.Language, effectiveUserMessage);
+            await EmitDeterministicTextAsync(clarification, onDelta, ct).ConfigureAwait(false);
+            RememberPendingClarification("source_backed_followup", userMessage, null, plan.Language);
+            onProgress?.Invoke(string.Empty);
+            return FinalizeAndReturn(swTotalPipeline, userMessage, clarification, null, "clarification", Array.Empty<string>(), _mem.LastReasoningTracePublic, clearPendingClarification: false);
+        }
+
         var standaloneTopicRag = await TryHandleStandaloneTopicRagAsync(
             chatHistory,
             userMessage,
@@ -300,7 +319,22 @@ public sealed partial class ToolAgentOrchestrator
             return FinalizeAndReturn(swTotalPipeline, userMessage, repairAnswer, null, plan.Intent, Array.Empty<string>(), _mem.LastReasoningTracePublic);
         }
 
-        if ((plan.NeedClarification && plan.ClarificationQuestions.Count == 0) || (!plan.NeedClarification && docResolution.NeedsClarification && !string.IsNullOrWhiteSpace(docResolution.ClarificationKind)))
+        ApplySourceBackedClarificationOverride(plan, effectiveUserMessage);
+        ApplyDocumentaryRagDefaults(plan, effectiveUserMessage);
+
+        var suppressDocumentClarificationForSourceBackedRequest =
+            LooksLikeSourceBackedActionRequest(effectiveUserMessage)
+            || !string.IsNullOrWhiteSpace(TryExtractRequestedItemTitle(effectiveUserMessage))
+            || LooksLikeComparativeDocumentaryRequest(effectiveUserMessage)
+            || LooksLikeSourceBackedAdaptationRequest(effectiveUserMessage)
+            || LooksLikeDocumentaryContentRequest(effectiveUserMessage);
+
+        if ((plan.NeedClarification && plan.ClarificationQuestions.Count == 0)
+            || (!suppressDocumentClarificationForSourceBackedRequest
+                && plan.ToolCalls.Count == 0
+                && !plan.NeedClarification
+                && docResolution.NeedsClarification
+                && !string.IsNullOrWhiteSpace(docResolution.ClarificationKind)))
         {
             var clarification = await GenerateClarificationResponseAsync(
                 chatHistory,
@@ -382,6 +416,21 @@ public sealed partial class ToolAgentOrchestrator
             toolResults.Items.Add(inventoryRendered);
         }
 
+        var deterministicToolFailure = TryBuildToolFailureAnswer(plan, toolResults, plan.Language);
+        if (!string.IsNullOrWhiteSpace(deterministicToolFailure))
+        {
+            await EmitDeterministicTextAsync(deterministicToolFailure, onDelta, ct).ConfigureAwait(false);
+            onProgress?.Invoke(string.Empty);
+            return FinalizeAndReturn(
+                swTotalPipeline,
+                userMessage,
+                deterministicToolFailure,
+                null,
+                plan.Intent,
+                _mem.LastToolNames,
+                _mem.LastReasoningTracePublic);
+        }
+
         onPhase?.Invoke(DeterministicAgentText.PhaseWriting(plan.Language));
         onProgress?.Invoke(DeterministicAgentText.ProgressDraftFinalAnswer(plan.Language));
         var swWriter = Stopwatch.StartNew();
@@ -390,6 +439,26 @@ public sealed partial class ToolAgentOrchestrator
         _lastWriterMs = swWriter.ElapsedMilliseconds;
 
         answer = (answer ?? string.Empty).Replace("**", string.Empty).Trim();
+        if (toolResults.Items.Any(x => x.ToolName is "rag.search" or "rag.multi_search")
+            && (sources is null || sources.Count == 0 || LooksLikeNoRagDataAnswer(answer)))
+        {
+            var repairedSources = (LooksLikeSourceBackedActionRequest(effectiveUserMessage)
+                    || LooksLikeComparativeDocumentaryRequest(effectiveUserMessage)
+                    || ShouldUseSourceBackedExtractiveAnswer(effectiveUserMessage, toolResults))
+                ? DeriveSourcesFromExtractiveHits(toolResults, effectiveUserMessage)
+                : DeriveSourcesFromRankedRagHits(toolResults, effectiveUserMessage);
+            if (repairedSources.Count == 0 && LooksLikeSourceBackedPlanningRequest(effectiveUserMessage))
+                repairedSources = DeriveSourcesFromPlanningHits(toolResults, effectiveUserMessage);
+            if (repairedSources.Count == 0)
+                repairedSources = DeriveSourcesFromRagHits(toolResults).Take(8).ToList();
+
+            if (repairedSources.Count > 0)
+            {
+                sources = repairedSources;
+                if (string.IsNullOrWhiteSpace(answer) || LooksLikeNoRagDataAnswer(answer))
+                    answer = BuildRagEvidenceFallbackAnswer(toolResults, effectiveUserMessage, plan.Language);
+            }
+        }
 
         if (sources is { Count: > 0 })
             _mem.LastSourcesUsed = sources;
@@ -1256,7 +1325,11 @@ public sealed partial class ToolAgentOrchestrator
         if (Regex.IsMatch(s, @"^(?:hi|hello|bonjour|salut|merci|thanks?|ok|okay)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
             return false;
 
-        if (LooksLikeCuisineActionRequest(s))
+        if (LooksLikeSourceBackedActionRequest(s))
+            return false;
+        if (LooksLikeComparativeDocumentaryRequest(s))
+            return false;
+        if (LooksLikeSourceBackedAdaptationRequest(s))
             return false;
 
         return Regex.IsMatch(s, @"\b(?:qu['’]est\s*ce\s+que\s+tu\s+peux\s+me\s+dire|que\s+peux\s*tu\s+me\s+dire|parle\s*[- ]?moi|au\s+sujet\s+de|a\s+propos\s+de|à\s+propos\s+de|what\s+can\s+you\s+tell\s+me|tell\s+me\s+about|about\s+the|regarding|concerning)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
@@ -1294,6 +1367,19 @@ public sealed partial class ToolAgentOrchestrator
             if (hits.Count == 0)
                 return (false, string.Empty, null, null, Array.Empty<string>(), true);
 
+            var probeToolResults = BuildProbeRagToolResults(hits);
+            var sourceBackedAnswer = BuildSourceBackedExtractiveAnswer(probeToolResults, effectiveUserMessage, plan.Language);
+            var sourceBackedSources = DeriveSourcesFromExtractiveHits(probeToolResults, effectiveUserMessage);
+            if (!string.IsNullOrWhiteSpace(sourceBackedAnswer) && sourceBackedSources.Count > 0)
+            {
+                _mem.LastSourcesUsed = sourceBackedSources;
+                sourceBackedAnswer = InjectInlineSources(sourceBackedAnswer, sourceBackedSources, plan.Language);
+                var sourceBackedPayload = BuildSourcesPayload(sourceBackedSources);
+                await EmitDeterministicTextAsync(sourceBackedAnswer, onDelta, ct).ConfigureAwait(false);
+                onProgress?.Invoke(string.Empty);
+                return (true, sourceBackedAnswer, sourceBackedPayload, "rag.answer", new[] { "rag.search" }, true);
+            }
+
             var answer = BuildDocumentaryProbeClarification(hits, plan.Language);
             var sourcesPayload = new
             {
@@ -1322,6 +1408,34 @@ public sealed partial class ToolAgentOrchestrator
         }
     }
 
+    private static ToolResults BuildProbeRagToolResults(IReadOnlyList<RagItem> hits)
+    {
+        var payload = new
+        {
+            hits = hits.Select(x => new
+            {
+                score = x.Score,
+                docId = x.DocId,
+                docName = x.DocName,
+                docPath = x.DocPath,
+                pageStart = x.PageStart ?? 1,
+                pageEnd = x.PageEnd ?? x.PageStart ?? 1,
+                excerpt = string.IsNullOrWhiteSpace(x.Snippet) ? x.Text : x.Snippet,
+                fullText = x.Text,
+                contextualSnippet = x.ContextualSnippet
+            }).ToList()
+        };
+
+        using var doc = JsonDocument.Parse(JsonSerializer.Serialize(payload));
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.search",
+            Result = doc.RootElement.Clone()
+        });
+        return toolResults;
+    }
+
     private async Task<(bool handled, string finalAnswer, object? sourcesPayload)> TryHandleStandaloneTopicRagAsync(
         IReadOnlyList<(string role, string content)> chatHistory,
         string displayUserMessage,
@@ -1337,6 +1451,7 @@ public sealed partial class ToolAgentOrchestrator
             return (false, string.Empty, null);
 
         var exactItemTitle = TryExtractRequestedItemTitle(effectiveUserMessage);
+        var isComparativeDocumentaryRequest = LooksLikeComparativeDocumentaryRequest(effectiveUserMessage);
         var normalizedOriginalQuery = NormalizeRagQueryForRetrieval(effectiveUserMessage);
         var retrievalQuery = !string.IsNullOrWhiteSpace(exactItemTitle)
             ? CollapseWhitespace($"{exactItemTitle} {normalizedOriginalQuery}")
@@ -1350,11 +1465,11 @@ public sealed partial class ToolAgentOrchestrator
             onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(plan.Language));
             var categoryScope = ResolveRagCategoryScope(effectiveUserMessage);
 
-            if (LooksLikeCuisineMealPlanningRequest(effectiveUserMessage))
+            if (LooksLikeSourceBackedPlanningRequest(effectiveUserMessage))
             {
                 var multiArgs = CreateJsonArgs(new
                 {
-                    queries = BuildCuisineMealPlanningQueries(effectiveUserMessage),
+                    queries = BuildPlanningRetrievalQueries(effectiveUserMessage),
                     topK = 4,
                     category = categoryScope,
                     mode = "balanced"
@@ -1369,10 +1484,10 @@ public sealed partial class ToolAgentOrchestrator
                         Result = multiResult
                     });
 
-                    var mealAnswer = BuildCuisineMealPlanningAnswer(mealToolResults, plan.Language);
+                    var mealAnswer = BuildSourceBackedPlanningAnswer(mealToolResults, plan.Language, minItems: 3, query: effectiveUserMessage);
                     if (!string.IsNullOrWhiteSpace(mealAnswer))
                     {
-                        var mealSources = DeriveSourcesFromRagHits(mealToolResults);
+                        var mealSources = DeriveSourcesFromPlanningHits(mealToolResults, effectiveUserMessage);
                         object? mealSourcesPayload = null;
                         if (mealSources.Count > 0)
                         {
@@ -1381,7 +1496,7 @@ public sealed partial class ToolAgentOrchestrator
                             mealSourcesPayload = BuildSourcesPayload(mealSources);
                         }
 
-                        _lastAnswerSource = "standalone_topic_rag:cuisine_meal_planning";
+                        _lastAnswerSource = "standalone_topic_rag:source_backed_planning";
                         _lastToolDurations = new List<(string tool, long durationMs, bool ok)> { ("rag.multi_search", 0, true) };
                         _lastToolsMs = 0;
                         _lastWriterMs = 0;
@@ -1391,14 +1506,66 @@ public sealed partial class ToolAgentOrchestrator
                         var finalizedMealPlan = FinalizeAndReturn(swTotalPipeline, displayUserMessage, mealAnswer, mealSourcesPayload, "rag.answer", _mem.LastToolNames, _mem.LastReasoningTracePublic);
                         return (true, finalizedMealPlan.finalAnswer, mealSourcesPayload);
                     }
+
+                    var planningWriterPlan = new RouterPlan
+                    {
+                        Intent = "rag.answer",
+                        Language = plan.Language,
+                        Mode = plan.Mode,
+                        ResponseFormat = "auto",
+                        ToolCalls = new List<RouterPlan.ToolCall>
+                        {
+                            new()
+                            {
+                                Name = "rag.multi_search",
+                                Args = multiArgs
+                            }
+                        },
+                        ReasoningTracePublic = plan.ReasoningTracePublic ?? new List<string>(),
+                        RiskFlags = plan.RiskFlags ?? new List<string>(),
+                        RouterConfidence = plan.RouterConfidence
+                    };
+
+                    onPhase?.Invoke(DeterministicAgentText.PhaseWriting(plan.Language));
+                    onProgress?.Invoke(DeterministicAgentText.ProgressDraftFinalAnswer(plan.Language));
+                    var (writerAnswer, writerSources) = await AnswerAsync(chatHistory, effectiveUserMessage, planningWriterPlan, mealToolResults, ct, onDelta, onProgress).ConfigureAwait(false);
+                    writerAnswer = (writerAnswer ?? string.Empty).Replace("**", string.Empty).Trim();
+                    if (string.IsNullOrWhiteSpace(writerAnswer) || LooksLikeNoRagDataAnswer(writerAnswer))
+                    {
+                        writerAnswer = BuildRagEvidenceFallbackAnswer(mealToolResults, effectiveUserMessage, plan.Language);
+                        writerSources = DeriveSourcesFromExtractiveHits(mealToolResults, effectiveUserMessage);
+                    }
+
+                    if (writerSources is null || writerSources.Count == 0)
+                        writerSources = DeriveSourcesFromPlanningHits(mealToolResults, effectiveUserMessage);
+
+                    object? writerSourcesPayload = null;
+                    if (writerSources is { Count: > 0 })
+                    {
+                        _mem.LastSourcesUsed = writerSources;
+                        writerAnswer = InjectInlineSources(writerAnswer, writerSources, plan.Language);
+                        writerSourcesPayload = BuildSourcesPayload(writerSources);
+                    }
+
+                    _lastAnswerSource = "standalone_topic_rag:source_backed_planning_writer";
+                    _lastToolDurations = new List<(string tool, long durationMs, bool ok)> { ("rag.multi_search", 0, true) };
+                    _lastToolsMs = 0;
+                    _mem.LastToolNames = new List<string> { "rag.multi_search" };
+                    onProgress?.Invoke(string.Empty);
+
+                    var finalizedWriterPlan = FinalizeAndReturn(swTotalPipeline, displayUserMessage, writerAnswer, writerSourcesPayload, "rag.answer", _mem.LastToolNames, _mem.LastReasoningTracePublic);
+                    return (true, finalizedWriterPlan.finalAnswer, writerSourcesPayload);
                 }
             }
 
-            var args = !string.IsNullOrWhiteSpace(exactItemTitle)
+            var useMultiSearch = !string.IsNullOrWhiteSpace(exactItemTitle) || isComparativeDocumentaryRequest;
+            var args = useMultiSearch
                 ? CreateJsonArgs(new
                 {
-                    queries = BuildPreciseRetrievalQueries(exactItemTitle!, retrievalQuery),
-                    topK = 10,
+                    queries = !string.IsNullOrWhiteSpace(exactItemTitle)
+                        ? BuildPreciseRetrievalQueries(exactItemTitle!, retrievalQuery)
+                        : BuildComparativeRetrievalQueries(effectiveUserMessage),
+                    topK = !string.IsNullOrWhiteSpace(exactItemTitle) ? 20 : 12,
                     category = categoryScope,
                     mode = "balanced"
                 })
@@ -1409,7 +1576,7 @@ public sealed partial class ToolAgentOrchestrator
                     category = categoryScope,
                     mode = "balanced"
                 });
-            var ragResult = !string.IsNullOrWhiteSpace(exactItemTitle)
+            var ragResult = useMultiSearch
                 ? await ExecRagMultiSearchAsync(args, ct).ConfigureAwait(false)
                 : await ExecRagSearchAsync(args, ct).ConfigureAwait(false);
             if (!HasRagHits(ragResult))
@@ -1425,7 +1592,7 @@ public sealed partial class ToolAgentOrchestrator
                 {
                     new()
                     {
-                        Name = !string.IsNullOrWhiteSpace(exactItemTitle) ? "rag.multi_search" : "rag.search",
+                        Name = useMultiSearch ? "rag.multi_search" : "rag.search",
                         Args = args
                     }
                 },
@@ -1437,7 +1604,7 @@ public sealed partial class ToolAgentOrchestrator
             var toolResults = new ToolResults();
             toolResults.Items.Add(new ToolResults.Item
             {
-                ToolName = "rag.search",
+                ToolName = useMultiSearch ? "rag.multi_search" : "rag.search",
                 Result = ragResult
             });
 
@@ -1447,7 +1614,22 @@ public sealed partial class ToolAgentOrchestrator
             var (answer, sources) = await AnswerAsync(chatHistory, effectiveUserMessage, ragPlan, toolResults, ct, onDelta, onProgress).ConfigureAwait(false);
             answer = (answer ?? string.Empty).Replace("**", string.Empty).Trim();
             if (string.IsNullOrWhiteSpace(answer) || LooksLikeNoRagDataAnswer(answer))
-                answer = BuildRagEvidenceFallbackAnswer(toolResults, retrievalQuery, plan.Language);
+            {
+                answer = BuildRagEvidenceFallbackAnswer(toolResults, effectiveUserMessage, plan.Language);
+                sources = DeriveSourcesFromExtractiveHits(toolResults, effectiveUserMessage);
+            }
+            else if (ShouldUseSourceBackedExtractiveAnswer(effectiveUserMessage, toolResults)
+                || LooksLikeSourceBackedActionRequest(effectiveUserMessage)
+                || LooksLikeComparativeDocumentaryRequest(effectiveUserMessage))
+            {
+                var deterministicAnswer = BuildSourceBackedExtractiveAnswer(toolResults, effectiveUserMessage, plan.Language);
+                if (!string.IsNullOrWhiteSpace(deterministicAnswer))
+                    answer = deterministicAnswer;
+
+                var deterministicSources = DeriveSourcesFromExtractiveHits(toolResults, effectiveUserMessage);
+                if (deterministicSources.Count > 0)
+                    sources = deterministicSources;
+            }
 
             object? sourcesPayload = null;
             if (sources is { Count: > 0 })
@@ -1458,10 +1640,10 @@ public sealed partial class ToolAgentOrchestrator
             }
 
             _lastAnswerSource = $"standalone_topic_rag:{ragPlan.Intent}";
-            _lastToolDurations = new List<(string tool, long durationMs, bool ok)> { ("rag.search", 0, true) };
+            _lastToolDurations = new List<(string tool, long durationMs, bool ok)> { (useMultiSearch ? "rag.multi_search" : "rag.search", 0, true) };
             _lastToolsMs = 0;
             _lastWriterMs = 0;
-            _mem.LastToolNames = new List<string> { "rag.search" };
+            _mem.LastToolNames = new List<string> { useMultiSearch ? "rag.multi_search" : "rag.search" };
             onProgress?.Invoke(string.Empty);
 
             var finalized = FinalizeAndReturn(swTotalPipeline, displayUserMessage, answer, sourcesPayload, ragPlan.Intent, _mem.LastToolNames, _mem.LastReasoningTracePublic);
@@ -1832,7 +2014,7 @@ USER_MESSAGE:
                 LocalizedStrings.NormalizeStyle(_mem.LastStyle),
                 allowGeneralChat: plan.ToolCalls.Count == 0 || string.Equals(plan.Intent, "chat.general", StringComparison.OrdinalIgnoreCase));
 
-        var writerToolResults = BuildWriterToolResults(plan, toolResults);
+        var writerToolResults = BuildWriterToolResults(plan, toolResults, userMessage);
         _lastWriterToolNames = writerToolResults.Items.Select(x => x.ToolName).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         _lastUsedInventoryRendered = _lastUsedInventoryRendered || _lastWriterToolNames.Any(x => string.Equals(x, "inventory.rendered", StringComparison.OrdinalIgnoreCase));
         var inventoryRenderedText = TryRenderInventoryFallbackText(writerToolResults, plan.Language);
@@ -1855,21 +2037,38 @@ USER_MESSAGE:
             if (ragHits.Count > 0 && !RagHitsContainRequestedTitle(ragHits, requestedItemTitle!))
             {
                 _lastAnswerSource = $"writer_bypass_missing_exact_item:{plan.Intent}";
-                return (BuildMissingExactItemAnswer(plan.Language, requestedItemTitle!, ragHits), DeriveSourcesFromRagHits(writerToolResults));
+                return (BuildMissingExactItemAnswer(plan.Language, requestedItemTitle!, ragHits), DeriveSourcesFromMissingExactItemCloseLeads(requestedItemTitle!, ragHits));
             }
         }
 
-        if (ShouldUseCuisineExtractiveAnswer(userMessage, writerToolResults) || LooksLikeCuisineActionRequest(userMessage))
+        if (ShouldUseSourceBackedExtractiveAnswer(userMessage, writerToolResults)
+            || LooksLikeSourceBackedActionRequest(userMessage)
+            || LooksLikeComparativeDocumentaryRequest(userMessage))
         {
-            var deterministicAnswer = LooksLikeCuisineMealPlanningRequest(userMessage)
-                ? BuildCuisineMealPlanningAnswer(writerToolResults, plan.Language)
-                : BuildCuisineExtractiveAnswer(writerToolResults, userMessage, plan.Language);
-            var deterministicSources = LooksLikeCuisineMealPlanningRequest(userMessage)
-                ? DeriveSourcesFromRagHits(writerToolResults)
-                : DeriveCuisineSourcesFromRankedHits(writerToolResults, userMessage);
+            var isPlanningRequest = LooksLikeSourceBackedPlanningRequest(userMessage);
+            string deterministicAnswer;
+            List<ToolMemory.SourceRef> deterministicSources;
+            if (isPlanningRequest)
+            {
+                deterministicAnswer = BuildSourceBackedPlanningAnswer(writerToolResults, plan.Language, minItems: 3, query: userMessage);
+                if (!string.IsNullOrWhiteSpace(deterministicAnswer))
+                {
+                    deterministicSources = DeriveSourcesFromPlanningHits(writerToolResults, userMessage);
+                }
+                else
+                {
+                    deterministicAnswer = BuildSourceBackedExtractiveAnswer(writerToolResults, userMessage, plan.Language);
+                    deterministicSources = DeriveSourcesFromExtractiveHits(writerToolResults, userMessage);
+                }
+            }
+            else
+            {
+                deterministicAnswer = BuildSourceBackedExtractiveAnswer(writerToolResults, userMessage, plan.Language);
+                deterministicSources = DeriveSourcesFromExtractiveHits(writerToolResults, userMessage);
+            }
             if (!string.IsNullOrWhiteSpace(deterministicAnswer))
             {
-                _lastAnswerSource = $"writer_bypass_cuisine_extractive:{plan.Intent}";
+                _lastAnswerSource = $"writer_bypass_source_backed_extractive:{plan.Intent}";
                 return (deterministicAnswer, deterministicSources);
             }
         }
@@ -1911,19 +2110,61 @@ AUTHORITATIVE_INVENTORY_DATA (json):
         var usedRagSearch = toolResults.Items.Any(x => x.ToolName is "rag.search" or "rag.multi_search");
         var usedSourcesResolve = toolResults.Items.Any(x => x.ToolName == "sources.resolve");
 
+        if (usedRagSearch && LooksLikeDegenerateLlmOutput(finalAnswer))
+        {
+            var guardedAnswer = BuildSourceBackedPlanningOrExtractiveAnswer(toolResults, userMessage, plan.Language, minPlanningItems: 1);
+            finalAnswer = string.IsNullOrWhiteSpace(guardedAnswer)
+                ? BuildRagEvidenceFallbackAnswer(toolResults, userMessage, plan.Language)
+                : guardedAnswer;
+            _lastAnswerSource = $"writer_guard_degenerate_output:{plan.Intent}";
+        }
+
         if (usedRagSearch)
         {
             sources = DeriveSourcesFromRagHits(toolResults);
-            if (ShouldUseCuisineExtractiveAnswer(userMessage, toolResults) || LooksLikeCuisineActionRequest(userMessage))
+            if (ShouldUseSourceBackedExtractiveAnswer(userMessage, toolResults)
+                || LooksLikeSourceBackedActionRequest(userMessage)
+                || LooksLikeComparativeDocumentaryRequest(userMessage))
             {
-                finalAnswer = LooksLikeCuisineMealPlanningRequest(userMessage)
-                    ? BuildCuisineMealPlanningAnswer(toolResults, plan.Language)
-                    : BuildCuisineExtractiveAnswer(toolResults, userMessage, plan.Language);
-                sources = LooksLikeCuisineMealPlanningRequest(userMessage)
-                    ? sources
-                    : DeriveCuisineSourcesFromRankedHits(toolResults, userMessage);
+                if (LooksLikeSourceBackedPlanningRequest(userMessage))
+                {
+                    var planningAnswer = BuildSourceBackedPlanningAnswer(toolResults, plan.Language, minItems: 3, query: userMessage);
+                    if (!string.IsNullOrWhiteSpace(planningAnswer))
+                    {
+                        finalAnswer = planningAnswer;
+                        sources = DeriveSourcesFromPlanningHits(toolResults, userMessage);
+                        if (sources.Count == 0)
+                            sources = DeriveSourcesFromRankedRagHits(toolResults, userMessage);
+                    }
+                    else
+                    {
+                        var extractiveAnswer = BuildSourceBackedExtractiveAnswer(toolResults, userMessage, plan.Language);
+                        if (!string.IsNullOrWhiteSpace(extractiveAnswer))
+                        {
+                            finalAnswer = extractiveAnswer;
+                            sources = DeriveSourcesFromExtractiveHits(toolResults, userMessage);
+                        }
+                        else
+                        {
+                            sources = DeriveSourcesFromExtractiveHits(toolResults, userMessage);
+                        }
+                    }
+                }
+                else
+                {
+                    var extractiveAnswer = BuildSourceBackedExtractiveAnswer(toolResults, userMessage, plan.Language);
+                    if (!string.IsNullOrWhiteSpace(extractiveAnswer))
+                    {
+                        finalAnswer = extractiveAnswer;
+                        sources = DeriveSourcesFromExtractiveHits(toolResults, userMessage);
+                    }
+                    else
+                    {
+                        sources = DeriveSourcesFromExtractiveHits(toolResults, userMessage);
+                    }
+                }
             }
-            else if (sources.Count > 0 && LooksLikeNoRagDataAnswer(finalAnswer))
+            if (sources.Count > 0 && LooksLikeNoRagDataAnswer(finalAnswer))
                 finalAnswer = BuildRagEvidenceFallbackAnswer(toolResults, userMessage, plan.Language);
         }
         else if (usedSourcesResolve)
@@ -1938,6 +2179,17 @@ AUTHORITATIVE_INVENTORY_DATA (json):
             onProgress?.Invoke(DeterministicAgentText.ProgressCheckAlignmentWithSources(plan.Language));
 
             finalAnswer = await RunCriticPassAsync(chatHistory, userMessage, plan, toolResults, finalAnswer, ct).ConfigureAwait(false);
+        }
+
+        if (usedRagSearch && sources is { Count: > 0 } && LooksLikeNoRagDataAnswer(finalAnswer))
+        {
+            finalAnswer = BuildRagEvidenceFallbackAnswer(toolResults, userMessage, plan.Language);
+            if (ShouldUseSourceBackedExtractiveAnswer(userMessage, toolResults)
+                || LooksLikeSourceBackedActionRequest(userMessage)
+                || LooksLikeComparativeDocumentaryRequest(userMessage))
+            {
+                sources = DeriveSourcesFromExtractiveHits(toolResults, userMessage);
+            }
         }
 
         return (finalAnswer, sources);
@@ -2360,7 +2612,7 @@ TOOL_RESULTS (json):
             },
             "rag.multi_search" => new
             {
-                queries = GetStringArrayArg(args, "queries")?.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).Take(5).ToArray() ?? Array.Empty<string>(),
+                queries = NormalizeRagMultiSearchQueries(args),
                 topK = NormalizeIntArg(GetIntArg(args, "topK"), 8, 1, 20),
                 categoryPath = NormalizeCategoryPathArg(GetStringArg(args, "categoryPath") ?? GetNestedStringArg(args, "filters", "categoryPath") ?? GetStringArg(args, "category") ?? GetNestedStringArg(args, "filters", "category")),
                 mode = NormalizeRagMode(GetStringArg(args, "mode"))
@@ -2488,7 +2740,7 @@ TOOL_RESULTS (json):
     private static string NormalizeRagMode(string? mode)
     {
         var normalized = (mode ?? string.Empty).Trim().ToLowerInvariant();
-        return normalized is "auto" or "balanced" or "standard" or "strict" ? normalized : "balanced";
+        return normalized is "auto" or "focused" or "balanced" or "broad" or "standard" or "strict" ? normalized : "auto";
     }
 
     private static string NormalizeLiveSummaryLevel(string? level)
@@ -2636,15 +2888,46 @@ TOOL_RESULTS (json):
 
         return LooksLikeStandaloneDocumentaryTopic(effectiveUserMessage)
             || !string.IsNullOrWhiteSpace(TryExtractRequestedItemTitle(effectiveUserMessage))
-            || LooksLikeCuisineActionRequest(effectiveUserMessage);
+            || LooksLikeComparativeDocumentaryRequest(effectiveUserMessage)
+            || LooksLikeSourceBackedActionRequest(effectiveUserMessage)
+            || LooksLikeSourceBackedAdaptationRequest(effectiveUserMessage)
+            || LooksLikeDocumentaryContentRequest(effectiveUserMessage);
+    }
+
+    private static void ApplySourceBackedClarificationOverride(RouterPlan plan, string effectiveUserMessage)
+    {
+        if (!plan.NeedClarification
+            || (!LooksLikeSourceBackedActionRequest(effectiveUserMessage)
+                && string.IsNullOrWhiteSpace(TryExtractRequestedItemTitle(effectiveUserMessage))
+                && !LooksLikeComparativeDocumentaryRequest(effectiveUserMessage)
+                && !LooksLikeSourceBackedAdaptationRequest(effectiveUserMessage)
+                && !LooksLikeDocumentaryContentRequest(effectiveUserMessage)))
+        {
+            return;
+        }
+
+        plan.NeedClarification = false;
+        plan.ClarificationQuestions.Clear();
+        plan.Intent = "rag.answer";
     }
 
     private void ApplyDocumentaryRagDefaults(RouterPlan plan, string effectiveUserMessage)
     {
         var exactItemTitle = TryExtractRequestedItemTitle(effectiveUserMessage);
-        var isCuisineRequest = LooksLikeCuisineActionRequest(effectiveUserMessage);
-        if (string.IsNullOrWhiteSpace(exactItemTitle) && !isCuisineRequest)
+        var isSourceBackedActionRequest = LooksLikeSourceBackedActionRequest(effectiveUserMessage);
+        var isComparativeDocumentaryRequest = LooksLikeComparativeDocumentaryRequest(effectiveUserMessage);
+        var isSourceBackedAdaptationRequest = LooksLikeSourceBackedAdaptationRequest(effectiveUserMessage);
+        var isDocumentaryContentRequest = LooksLikeDocumentaryContentRequest(effectiveUserMessage);
+        if (string.IsNullOrWhiteSpace(exactItemTitle)
+            && !isSourceBackedActionRequest
+            && !isComparativeDocumentaryRequest
+            && !isSourceBackedAdaptationRequest
+            && !isDocumentaryContentRequest)
             return;
+
+        plan.NeedClarification = false;
+        plan.ClarificationQuestions.Clear();
+        plan.Intent = "rag.answer";
 
         var normalizedOriginalQuery = NormalizeRagQueryForRetrieval(effectiveUserMessage);
         var retrievalQuery = !string.IsNullOrWhiteSpace(exactItemTitle)
@@ -2652,13 +2935,16 @@ TOOL_RESULTS (json):
             : normalizedOriginalQuery;
         if (string.IsNullOrWhiteSpace(retrievalQuery))
             retrievalQuery = effectiveUserMessage;
-        var isMealPlanning = LooksLikeCuisineMealPlanningRequest(effectiveUserMessage);
+        var isMealPlanning = LooksLikeSourceBackedPlanningRequest(effectiveUserMessage);
         var topK = string.IsNullOrWhiteSpace(exactItemTitle) ? 8 : 20;
         var categoryScope = ResolveRagCategoryScope(effectiveUserMessage);
 
         var hasRagCall = plan.ToolCalls.Any(call =>
-            string.Equals(call.Name, "rag.search", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(call.Name, "rag.multi_search", StringComparison.OrdinalIgnoreCase));
+        {
+            var normalizedName = NormalizeToolName(call.Name);
+            return string.Equals(normalizedName, "rag.search", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalizedName, "rag.multi_search", StringComparison.OrdinalIgnoreCase);
+        });
         if (!hasRagCall)
         {
             plan.Intent = "rag.answer";
@@ -2670,7 +2956,7 @@ TOOL_RESULTS (json):
                     Name = "rag.multi_search",
                     Args = CreateJsonArgs(new
                     {
-                        queries = BuildCuisineMealPlanningQueries(effectiveUserMessage),
+                        queries = BuildPlanningRetrievalQueries(effectiveUserMessage),
                         topK = 4,
                         category = categoryScope,
                         mode = "balanced"
@@ -2681,8 +2967,8 @@ TOOL_RESULTS (json):
             {
                 plan.ToolCalls.Add(new RouterPlan.ToolCall
                 {
-                    Name = string.IsNullOrWhiteSpace(exactItemTitle) ? "rag.search" : "rag.multi_search",
-                    Args = string.IsNullOrWhiteSpace(exactItemTitle)
+                    Name = string.IsNullOrWhiteSpace(exactItemTitle) && !isComparativeDocumentaryRequest && !isSourceBackedAdaptationRequest && !isDocumentaryContentRequest ? "rag.search" : "rag.multi_search",
+                    Args = string.IsNullOrWhiteSpace(exactItemTitle) && !isComparativeDocumentaryRequest && !isSourceBackedAdaptationRequest && !isDocumentaryContentRequest
                         ? CreateJsonArgs(new
                         {
                             query = retrievalQuery,
@@ -2692,8 +2978,14 @@ TOOL_RESULTS (json):
                         })
                         : CreateJsonArgs(new
                         {
-                            queries = BuildPreciseRetrievalQueries(exactItemTitle!, retrievalQuery),
-                            topK = 10,
+                            queries = !string.IsNullOrWhiteSpace(exactItemTitle)
+                                ? BuildPreciseRetrievalQueries(exactItemTitle!, retrievalQuery)
+                                : isSourceBackedAdaptationRequest
+                                    ? BuildSourceBackedActionRetrievalQueries(effectiveUserMessage)
+                                    : isDocumentaryContentRequest
+                                        ? BuildSourceBackedActionRetrievalQueries(effectiveUserMessage)
+                                        : BuildComparativeRetrievalQueries(effectiveUserMessage),
+                            topK = !string.IsNullOrWhiteSpace(exactItemTitle) ? 20 : 12,
                             category = categoryScope,
                             mode = "balanced"
                         })
@@ -2703,15 +2995,93 @@ TOOL_RESULTS (json):
 
         foreach (var call in plan.ToolCalls)
         {
+            call.Name = NormalizeToolName(call.Name);
             if (string.Equals(call.Name, "rag.search", StringComparison.OrdinalIgnoreCase))
             {
+                if (isMealPlanning)
+                {
+                    call.Name = "rag.multi_search";
+                    call.Args = CreateJsonArgs(new
+                    {
+                        queries = BuildPlanningRetrievalQueries(effectiveUserMessage),
+                        topK = 4,
+                        category = TryGetStringArg(call.Args, "category") ?? categoryScope,
+                        mode = "balanced"
+                    });
+                    continue;
+                }
+
                 if (!string.IsNullOrWhiteSpace(exactItemTitle))
                 {
                     call.Name = "rag.multi_search";
                     call.Args = CreateJsonArgs(new
                     {
                         queries = BuildPreciseRetrievalQueries(exactItemTitle!, retrievalQuery),
-                        topK = 10,
+                        topK = 20,
+                        category = TryGetStringArg(call.Args, "category") ?? categoryScope,
+                        mode = "balanced"
+                    });
+                    continue;
+                }
+
+                if (isComparativeDocumentaryRequest)
+                {
+                    var comparativeQueries = BuildComparativeRetrievalQueries(effectiveUserMessage).ToList();
+                    var existingQuery = NormalizeRagQueryForRetrieval(TryGetStringArg(call.Args, "query"));
+                    existingQuery = NormalizeComparativeSupplementalRetrievalQuery(existingQuery, effectiveUserMessage);
+                    if (!string.IsNullOrWhiteSpace(existingQuery)
+                        && !comparativeQueries.Any(q => string.Equals(q, existingQuery, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        comparativeQueries.Add(existingQuery);
+                    }
+
+                    call.Name = "rag.multi_search";
+                    call.Args = CreateJsonArgs(new
+                    {
+                        queries = comparativeQueries.Take(8).ToArray(),
+                        topK = Math.Max(12, NormalizeIntArg(TryGetIntArg(call.Args, "topK"), 12, 1, 20)),
+                        category = TryGetStringArg(call.Args, "category") ?? categoryScope,
+                        mode = "balanced"
+                    });
+                    continue;
+                }
+
+                if (isSourceBackedAdaptationRequest)
+                {
+                    var actionQueries = BuildSourceBackedActionRetrievalQueries(effectiveUserMessage).ToList();
+                    var existingQuery = NormalizeRagQueryForRetrieval(TryGetStringArg(call.Args, "query"));
+                    if (!string.IsNullOrWhiteSpace(existingQuery)
+                        && !actionQueries.Any(q => string.Equals(q, existingQuery, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        actionQueries.Add(existingQuery);
+                    }
+
+                    call.Name = "rag.multi_search";
+                    call.Args = CreateJsonArgs(new
+                    {
+                        queries = actionQueries.Take(6).ToArray(),
+                        topK = NormalizeIntArg(TryGetIntArg(call.Args, "topK"), 8, 1, 20),
+                        category = TryGetStringArg(call.Args, "category") ?? categoryScope,
+                        mode = "balanced"
+                    });
+                    continue;
+                }
+
+                if (isDocumentaryContentRequest)
+                {
+                    var actionQueries = BuildSourceBackedActionRetrievalQueries(effectiveUserMessage).ToList();
+                    var existingQuery = NormalizeRagQueryForRetrieval(TryGetStringArg(call.Args, "query"));
+                    if (!string.IsNullOrWhiteSpace(existingQuery)
+                        && !actionQueries.Any(q => string.Equals(q, existingQuery, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        actionQueries.Add(existingQuery);
+                    }
+
+                    call.Name = "rag.multi_search";
+                    call.Args = CreateJsonArgs(new
+                    {
+                        queries = actionQueries.Take(8).ToArray(),
+                        topK = Math.Max(12, NormalizeIntArg(TryGetIntArg(call.Args, "topK"), 12, 1, 20)),
                         category = TryGetStringArg(call.Args, "category") ?? categoryScope,
                         mode = "balanced"
                     });
@@ -2731,21 +3101,110 @@ TOOL_RESULTS (json):
             else if (string.Equals(call.Name, "rag.multi_search", StringComparison.OrdinalIgnoreCase))
             {
                 var queries = TryGetStringArrayArg(call.Args, "queries");
+                if (isMealPlanning)
+                {
+                    var planningQueries = BuildPlanningRetrievalQueries(effectiveUserMessage).ToList();
+                    foreach (var query in queries)
+                    {
+                        if (!planningQueries.Any(q => string.Equals(q, query, StringComparison.OrdinalIgnoreCase)))
+                            planningQueries.Add(query);
+                    }
+
+                    call.Args = CreateJsonArgs(new
+                    {
+                        queries = planningQueries.Take(8).ToArray(),
+                        topK = NormalizeIntArg(TryGetIntArg(call.Args, "topK"), 5, 1, 20),
+                        category = TryGetStringArg(call.Args, "category") ?? categoryScope,
+                        mode = NormalizeRagMode(TryGetStringArg(call.Args, "mode"))
+                    });
+                    continue;
+                }
+
                 if (!string.IsNullOrWhiteSpace(exactItemTitle)
                     && !queries.Any(q => string.Equals(q, exactItemTitle, StringComparison.OrdinalIgnoreCase)))
                 {
                     queries.Insert(0, exactItemTitle!);
                 }
 
+                if (isComparativeDocumentaryRequest && string.IsNullOrWhiteSpace(exactItemTitle))
+                {
+                    var comparativeQueries = BuildComparativeRetrievalQueries(effectiveUserMessage).ToList();
+                    foreach (var query in queries)
+                    {
+                        var supplementalQuery = NormalizeComparativeSupplementalRetrievalQuery(query, effectiveUserMessage);
+                        if (!comparativeQueries.Any(q => string.Equals(q, supplementalQuery, StringComparison.OrdinalIgnoreCase)))
+                            comparativeQueries.Add(supplementalQuery);
+                    }
+
+                    call.Args = CreateJsonArgs(new
+                    {
+                        queries = comparativeQueries.Take(8).ToArray(),
+                        topK = Math.Max(12, NormalizeIntArg(TryGetIntArg(call.Args, "topK"), 12, 1, 20)),
+                        category = TryGetStringArg(call.Args, "category") ?? categoryScope,
+                        mode = "balanced"
+                    });
+                    continue;
+                }
+
+                if (isSourceBackedAdaptationRequest && string.IsNullOrWhiteSpace(exactItemTitle))
+                {
+                    var actionQueries = BuildSourceBackedActionRetrievalQueries(effectiveUserMessage).ToList();
+                    foreach (var query in queries)
+                    {
+                        if (!actionQueries.Any(q => string.Equals(q, query, StringComparison.OrdinalIgnoreCase)))
+                            actionQueries.Add(query);
+                    }
+
+                    call.Args = CreateJsonArgs(new
+                    {
+                        queries = actionQueries.Take(8).ToArray(),
+                        topK = NormalizeIntArg(TryGetIntArg(call.Args, "topK"), 8, 1, 20),
+                        category = TryGetStringArg(call.Args, "category") ?? categoryScope,
+                        mode = NormalizeRagMode(TryGetStringArg(call.Args, "mode"))
+                    });
+                    continue;
+                }
+
+                if (isDocumentaryContentRequest && string.IsNullOrWhiteSpace(exactItemTitle))
+                {
+                    var actionQueries = BuildSourceBackedActionRetrievalQueries(effectiveUserMessage).ToList();
+                    foreach (var query in queries)
+                    {
+                        if (!actionQueries.Any(q => string.Equals(q, query, StringComparison.OrdinalIgnoreCase)))
+                            actionQueries.Add(query);
+                    }
+
+                    call.Args = CreateJsonArgs(new
+                    {
+                        queries = actionQueries.Take(8).ToArray(),
+                        topK = Math.Max(12, NormalizeIntArg(TryGetIntArg(call.Args, "topK"), 12, 1, 20)),
+                        category = TryGetStringArg(call.Args, "category") ?? categoryScope,
+                        mode = NormalizeRagMode(TryGetStringArg(call.Args, "mode"))
+                    });
+                    continue;
+                }
+
                 if (queries.Count == 0)
                     queries.Add(retrievalQuery);
-                else if (!isMealPlanning && !queries.Any(q => string.Equals(q, retrievalQuery, StringComparison.OrdinalIgnoreCase)))
+                else if (!isMealPlanning
+                    && string.IsNullOrWhiteSpace(exactItemTitle)
+                    && !queries.Any(q => string.Equals(q, retrievalQuery, StringComparison.OrdinalIgnoreCase)))
+                {
                     queries.Insert(0, retrievalQuery);
+                }
+
+                var normalizedTopK = NormalizeIntArg(TryGetIntArg(call.Args, "topK"), 8, 1, 20);
+                if (!string.IsNullOrWhiteSpace(exactItemTitle))
+                {
+                    normalizedTopK = LooksLikeStructuredItemCardRequest(effectiveUserMessage)
+                        ? 20
+                        : Math.Max(12, normalizedTopK);
+                }
 
                 call.Args = CreateJsonArgs(new
                 {
-                    queries = queries.Take(5).ToArray(),
-                    topK = NormalizeIntArg(TryGetIntArg(call.Args, "topK"), 8, 1, 20),
+                    queries = queries.Take(string.IsNullOrWhiteSpace(exactItemTitle) ? 5 : 8).ToArray(),
+                    topK = normalizedTopK,
                     category = TryGetStringArg(call.Args, "category") ?? categoryScope,
                     mode = NormalizeRagMode(TryGetStringArg(call.Args, "mode"))
                 });
@@ -2776,9 +3235,30 @@ TOOL_RESULTS (json):
                 return string.IsNullOrWhiteSpace(category.CategoryPath) ? category.DisplayName : category.CategoryPath;
         }
 
-        return string.IsNullOrWhiteSpace(_mem.LastResolvedCategory?.CategoryPath)
-            ? null
-            : _mem.LastResolvedCategory!.CategoryPath;
+        if (!string.IsNullOrWhiteSpace(_mem.LastResolvedCategory?.CategoryPath))
+            return _mem.LastResolvedCategory!.CategoryPath;
+
+        var lastSourceCategories = (_mem.LastSourcesUsed ?? new List<ToolMemory.SourceRef>())
+            .Select(static source => TryExtractTopLevelCategoryFromDocPath(source.DocPath))
+            .Where(static category => !string.IsNullOrWhiteSpace(category))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(2)
+            .ToArray();
+        return lastSourceCategories.Length == 1 ? lastSourceCategories[0] : null;
+    }
+
+    private static string? TryExtractTopLevelCategoryFromDocPath(string? docPath)
+    {
+        var normalized = (docPath ?? string.Empty).Replace('\\', '/').Trim('/');
+        if (string.IsNullOrWhiteSpace(normalized))
+            return null;
+
+        var slash = normalized.IndexOf('/', StringComparison.Ordinal);
+        if (slash <= 0)
+            return null;
+
+        var category = normalized[..slash].Trim();
+        return string.IsNullOrWhiteSpace(category) ? null : category;
     }
 
     private static string[] BuildPreciseRetrievalQueries(string exactTitle, string retrievalQuery)
@@ -2789,10 +3269,48 @@ TOOL_RESULTS (json):
         if (string.IsNullOrWhiteSpace(title))
             return string.IsNullOrWhiteSpace(combined) ? Array.Empty<string>() : new[] { combined };
 
-        if (string.IsNullOrWhiteSpace(combined) || string.Equals(title, combined, StringComparison.OrdinalIgnoreCase))
-            return new[] { title };
+        var quotedTitle = QuoteLookupTitle(title);
+        var queries = new List<string>();
+        AddDistinctQuery(queries, title);
+        AddDistinctQuery(queries, quotedTitle);
 
-        return new[] { title, combined };
+        if (LooksLikeItemLocationLookupRequest(combined))
+        {
+            AddDistinctQuery(queries, $"{title} source");
+            AddDistinctQuery(queries, $"{title} document");
+            AddDistinctQuery(queries, $"{title} livre");
+            AddDistinctQuery(queries, $"{title} recipe");
+            return queries.Take(8).ToArray();
+        }
+
+        if (LooksLikeStructuredItemCardRequest(combined))
+        {
+            AddDistinctQuery(queries, $"{title} ingredients");
+            AddDistinctQuery(queries, $"{title} etapes");
+            AddDistinctQuery(queries, $"{title} preparation");
+            AddDistinctQuery(queries, $"{title} temps");
+            AddDistinctQuery(queries, $"{title} source");
+        }
+
+        if (!string.IsNullOrWhiteSpace(combined) && !string.Equals(title, combined, StringComparison.OrdinalIgnoreCase))
+            AddDistinctQuery(queries, combined);
+
+        return queries.Take(8).ToArray();
+    }
+
+    private static string QuoteLookupTitle(string title)
+        => "\"" + title.Replace("\"", string.Empty, StringComparison.Ordinal).Trim() + "\"";
+
+    private static bool LooksLikeItemLocationLookupRequest(string? query)
+    {
+        var normalized = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return Regex.IsMatch(
+            normalized,
+            @"\b(?:dans\s+quel(?:le)?\s+(?:livre|document|pdf|fichier|source)|quel(?:le)?\s+(?:livre|document|pdf|fichier|source)|where\s+(?:is|can\s+i\s+find)|which\s+(?:book|document|pdf|file|source)|en\s+que\s+(?:libro|documento|pdf|archivo|fuente)|em\s+que\s+(?:livro|documento|pdf|ficheiro|fonte)|in\s+welchem\s+(?:buch|dokument|pdf|datei)|in\s+quale\s+(?:libro|documento|pdf|file|fonte))\b",
+            RegexOptions.CultureInvariant);
     }
 
     private static string? TryGetStringArg(JsonElement args, string name)
@@ -2833,7 +3351,10 @@ TOOL_RESULTS (json):
             {
                 if (item.ValueKind != JsonValueKind.String)
                     continue;
-                var value = NormalizeRagQueryForRetrieval(item.GetString());
+                var rawValue = item.GetString();
+                var value = LooksLikeQuotedLookupQuery(rawValue)
+                    ? CollapseWhitespace(rawValue ?? string.Empty)
+                    : NormalizeRagQueryForRetrieval(rawValue);
                 if (!string.IsNullOrWhiteSpace(value))
                     values.Add(value);
             }
@@ -2845,24 +3366,90 @@ TOOL_RESULTS (json):
         return values.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
 
-    private static bool LooksLikeCuisineActionRequest(string? userMessage)
+    private static bool LooksLikeQuotedLookupQuery(string? query)
+    {
+        var s = CollapseWhitespace(query ?? string.Empty);
+        return Regex.IsMatch(
+            s,
+            "^[\\u00ab\\u201c\"]([^\\u00bb\\u201d\"]{3,90})[\\u00bb\\u201d\"]$",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static string[] NormalizeRagMultiSearchQueries(JsonElement args)
+    {
+        var queries = new List<string>();
+        foreach (var query in GetStringArrayArg(args, "queries") ?? new List<string>())
+        {
+            AddDistinctRagQuery(queries, query);
+            if (LooksLikeComparativeDocumentaryRequest(query))
+            {
+                foreach (var expanded in BuildComparativeRetrievalQueries(query))
+                    AddDistinctRagQuery(queries, expanded);
+            }
+        }
+
+        var singleQuery = GetStringArg(args, "query");
+        if (!string.IsNullOrWhiteSpace(singleQuery))
+        {
+            AddDistinctRagQuery(queries, singleQuery);
+            if (LooksLikeComparativeDocumentaryRequest(singleQuery))
+            {
+                foreach (var expanded in BuildComparativeRetrievalQueries(singleQuery))
+                    AddDistinctRagQuery(queries, expanded);
+            }
+        }
+
+        return queries.Take(8).ToArray();
+    }
+
+    private static void AddDistinctRagQuery(List<string> queries, string? query)
+    {
+        var value = CollapseWhitespace(query ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+
+        if (!queries.Any(existing => string.Equals(existing, value, StringComparison.OrdinalIgnoreCase)))
+            queries.Add(value);
+    }
+
+    private static bool LooksLikeSourceBackedActionRequest(string? userMessage)
     {
         var s = CollapseWhitespace(userMessage ?? string.Empty);
         if (s.Length < 6)
             return false;
 
-        if (!Regex.IsMatch(
-                s,
-                @"(?i)\b(?:recette|recettes|fiche|fiches|ingredient|ingredients|ingrédient|ingrédients|etape|etapes|étape|étapes|cuisine|cuisiner|repas|menu|menus|sauce|sauces|entrecote|entrecôte|steak|viande|poisson|poulet|dessert|semaine|batch\s+cooking|meal|meals|recipe|recipes|dinner|week|cocina|receta|recetas|comida|salsa|carne|cozinha|receita|receitas|refeicao|refeição|molho|kueche|küche|rezept|rezepte|essen|fleisch|cucina|ricetta|ricette|pasto)\b",
-                RegexOptions.CultureInvariant))
+        var normalized = NormalizeLooseLookup(s);
+        var hasActionVerb = Regex.IsMatch(
+            normalized,
+            @"\b(?:aide|aider|analyse|analyser|dis|donne|donner|explique|expliquer|propose|proposes|proposer|trouve|trouver|cherche|chercher|faire|fais|vais|veux|voudrais|souhaite|aimerais|peux|peux-tu|pourrais|as|aurais|idee|faut|besoin|conseille|conseiller|choisir|planifie|planifier|organise|organiser|help|explain|analyze|analyse|tell|suggest|recommend|can|could|make|plan|prepare|find|give|need|ayuda|ayudar|ayudame|explica|analiza|propone|recomienda|recomendar|puedes|puede|podrias|busca|encuentra|preparar|planificar|necesito|ajuda|ajudar|explica|analisa|recomenda|recomendar|pode|podes|procura|encontra|preparar|planejar|planeia|preciso|vorschlag|erklaere|erklaren|analysiere|empfiehl|empfehlen|kannst|konntest|suche|finde|planen|vorbereiten|helfen|brauche|aiutami|aiuta|spiega|analizza|consiglia|consigliare|puoi|cerca|trova|prepara|pianifica|bisogno)\b",
+            RegexOptions.CultureInvariant);
+
+        var asksHow = Regex.IsMatch(
+            normalized,
+            @"\b(?:comment|how|como|como|wie|come)\b",
+            RegexOptions.CultureInvariant);
+        var mentionsDocumentarySource = Regex.IsMatch(
+            normalized,
+            @"\b(?:pdf|document|documents|doc|docs|source|sources|extrait|extraits|pages?|documentaire|knowledge|base|connaissance|adaptation|adapte|adapter|adapt|adaptation)\b",
+            RegexOptions.CultureInvariant);
+        var asksToBypassSources = Regex.IsMatch(
+            normalized,
+            @"\b(?:ignore|ignorer|ignorez|oublie|oublier|sans\s+source|sans\s+sources|invente|inventer|inventez|hallucine|halluciner|make\s+up|invent|ignore\s+sources?)\b",
+            RegexOptions.CultureInvariant);
+        var hasSignalTerms = ExtractQuerySignalTerms(normalized).Any();
+
+        if (LooksLikeDocumentaryContentRequest(userMessage))
+            return true;
+
+        if (!hasActionVerb
+            && !(asksHow && mentionsDocumentarySource && hasSignalTerms)
+            && !(mentionsDocumentarySource && asksToBypassSources && hasSignalTerms))
         {
             return false;
         }
 
-        return Regex.IsMatch(
-            s,
-            @"(?i)\b(?:aide|aider|propose|proposes|proposer|trouve|trouver|cherche|chercher|faire|fais|vais|veux|voudrais|souhaite|aimerais|peux|peux-tu|pourrais|as|aurais|donne|idee|idée|conseille|conseiller|choisir|planifie|organise|help|suggest|recommend|cook|make|plan|prepare|find|ayuda|ayudar|propone|recomienda|cozinhar|ajuda|vorschlag|empfiehl|aiutami|consiglia)\b",
-            RegexOptions.CultureInvariant);
+        return !string.IsNullOrWhiteSpace(TryExtractRequestedItemTitle(userMessage))
+            || hasSignalTerms;
     }
 
     private static string NormalizePlanMode(string? mode)
@@ -3023,17 +3610,17 @@ TOOL_RESULTS (json):
 
     // ---------------- Utility ----------------
 
-    private static ToolResults BuildWriterToolResults(RouterPlan plan, ToolResults toolResults)
+    private static ToolResults BuildWriterToolResults(RouterPlan plan, ToolResults toolResults, string userMessage)
     {
         var inventoryRendered = toolResults.Items.LastOrDefault(x => x.ToolName == "inventory.rendered" && string.IsNullOrWhiteSpace(x.Error));
         if (inventoryRendered is null)
-            return toolResults;
+            return CompactRagToolResultsForWriter(toolResults, userMessage);
 
         var inventoryIntent = IsInventoryIntent(plan.Intent);
         var inventoryOnly = HasOnlyInventoryTools(toolResults);
 
         if (!inventoryIntent && !inventoryOnly)
-            return toolResults;
+            return CompactRagToolResultsForWriter(toolResults, userMessage);
 
         var filtered = new ToolResults();
         filtered.Items.Add(new ToolResults.Item
@@ -3056,7 +3643,156 @@ TOOL_RESULTS (json):
             });
         }
 
-        return filtered;
+        return CompactRagToolResultsForWriter(filtered, userMessage);
+    }
+
+    private static ToolResults CompactRagToolResultsForWriter(ToolResults toolResults, string userMessage)
+    {
+        var precise = !string.IsNullOrWhiteSpace(TryExtractRequestedItemTitle(userMessage));
+        var compacted = new ToolResults();
+
+        foreach (var item in toolResults.Items)
+        {
+            if (item.ToolName is "rag.search" or "rag.multi_search"
+                && string.IsNullOrWhiteSpace(item.Error)
+                && item.Result.ValueKind == JsonValueKind.Object)
+            {
+                compacted.Items.Add(new ToolResults.Item
+                {
+                    ToolName = item.ToolName,
+                    Error = item.Error,
+                    DurationMs = item.DurationMs,
+                    Result = CompactRagResultForWriter(item.Result, userMessage, precise)
+                });
+                continue;
+            }
+
+            compacted.Items.Add(item);
+        }
+
+        return compacted;
+    }
+
+    private static JsonElement CompactRagResultForWriter(JsonElement result, string userMessage, bool precise)
+    {
+        try
+        {
+            if (!result.TryGetProperty("hits", out var hits) || hits.ValueKind != JsonValueKind.Array)
+                return result;
+
+            var prioritizeEvidence = precise
+                || LooksLikeComparativeDocumentaryRequest(userMessage);
+            var maxHits = prioritizeEvidence ? RagWriterMaxHits : RagWriterBroadMaxHits;
+            var excerptChars = prioritizeEvidence ? RagWriterMaxExcerptChars : RagWriterBroadExcerptChars;
+            var fullTextChars = prioritizeEvidence ? RagWriterMaxFullTextChars : RagWriterBroadFullTextChars;
+            var contextualChars = prioritizeEvidence ? RagWriterContextualTotalChars : RagWriterBroadContextualChars;
+            var list = new List<object?>();
+            var sourceHits = hits.EnumerateArray()
+                .Where(static it => it.ValueKind == JsonValueKind.Object)
+                .Select(static it => it.Clone())
+                .ToList();
+            var selectedHits = prioritizeEvidence
+                ? RankRagHitsForWriter(sourceHits, userMessage)
+                : sourceHits;
+
+            foreach (var it in selectedHits.Take(maxHits))
+            {
+                var docPath = TryGetString(it, "docPath") ?? string.Empty;
+                var docName = TryGetString(it, "docName") ?? Path.GetFileName(docPath);
+                var pageStart = TryGetInt(it, "pageStart") ?? 1;
+                var pageEnd = TryGetInt(it, "pageEnd") ?? pageStart;
+                var excerpt = TruncateForPrompt(TryGetString(it, "excerpt"), excerptChars);
+                var fullText = TruncateForPrompt(TryGetString(it, "fullText"), fullTextChars);
+                var contextualSnippet = TruncateForPrompt(TryGetString(it, "contextualSnippet"), contextualChars);
+
+                list.Add(new
+                {
+                    docPath,
+                    docName,
+                    pageStart,
+                    pageEnd,
+                    excerpt,
+                    fullText,
+                    score = TryGetDouble(it, "score") ?? 0.0,
+                    sectionTitle = TryGetString(it, "sectionTitle"),
+                    headingPath = TryGetString(it, "headingPath"),
+                    retriever = TryGetString(it, "retriever"),
+                    exactMatchHit = TryGetBool(it, "exactMatchHit") ?? false,
+                    contextualSnippet = string.IsNullOrWhiteSpace(contextualSnippet) ? null : contextualSnippet
+                });
+            }
+
+            object? meta = null;
+            if (result.TryGetProperty("meta", out var metaEl) && metaEl.ValueKind is JsonValueKind.Object or JsonValueKind.Array)
+                meta = JsonSerializer.Deserialize<object>(metaEl.GetRawText());
+
+            return JsonDocument.Parse(JsonSerializer.Serialize(new { hits = list, meta })).RootElement.Clone();
+        }
+        catch
+        {
+            return result;
+        }
+    }
+
+    private static IReadOnlyList<JsonElement> RankRagHitsForWriter(IReadOnlyList<JsonElement> hits, string userMessage)
+    {
+        if (hits.Count <= 1)
+            return hits;
+
+        if (LooksLikeComparativeDocumentaryRequest(userMessage))
+        {
+            var summaries = hits
+                .Select((hit, index) => new
+                {
+                    Hit = hit,
+                    Index = index,
+                    Summary = BuildRagHitSummary(hit)
+                })
+                .ToList();
+            var selected = SelectComparativeDocumentaryHits(
+                    summaries.Select(static item => item.Summary),
+                    userMessage,
+                    RagWriterMaxHits)
+                .ToList();
+            if (selected.Count > 0)
+            {
+                var selectedRanks = selected
+                    .Select((hit, rank) => new { Key = $"{hit.DocPath}|{hit.PageStart}|{hit.PageEnd}", Rank = rank })
+                    .GroupBy(static item => item.Key, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(static group => group.Key, static group => group.First().Rank, StringComparer.OrdinalIgnoreCase);
+                return summaries
+                    .Where(item => selectedRanks.ContainsKey($"{item.Summary.DocPath}|{item.Summary.PageStart}|{item.Summary.PageEnd}"))
+                    .OrderBy(item => selectedRanks[$"{item.Summary.DocPath}|{item.Summary.PageStart}|{item.Summary.PageEnd}"])
+                    .Concat(summaries.Where(item => !selectedRanks.ContainsKey($"{item.Summary.DocPath}|{item.Summary.PageStart}|{item.Summary.PageEnd}")))
+                    .Take(RagWriterMaxHits)
+                    .Select(static item => item.Hit)
+                    .ToList();
+            }
+        }
+
+        var requestedTitle = TryExtractRequestedItemTitle(userMessage);
+        var evidenceQuery = !string.IsNullOrWhiteSpace(requestedTitle)
+            ? requestedTitle!
+            : BuildRagEvidenceSelectionQuery(userMessage);
+
+        if (string.IsNullOrWhiteSpace(evidenceQuery))
+            return hits;
+
+        return hits
+            .Select((hit, index) => new
+            {
+                Hit = hit,
+                Index = index,
+                Summary = BuildRagHitSummary(hit)
+            })
+            .OrderBy(item => LooksLikeNavigationOnlyHit(item.Summary) ? 1 : 0)
+            .ThenByDescending(item => !string.IsNullOrWhiteSpace(requestedTitle) && RagHitContainsRequestedTitle(item.Summary, requestedTitle!) ? 1 : 0)
+            .ThenByDescending(item => ComputeRagHitLexicalRelevance(evidenceQuery, GetRagHitPrimaryEvidenceText(item.Summary)))
+            .ThenByDescending(item => ComputeRagHitLexicalRelevance(evidenceQuery, GetRagHitLookupText(item.Summary)))
+            .ThenByDescending(item => item.Summary.Score)
+            .ThenBy(item => item.Index)
+            .Select(item => item.Hit)
+            .ToList();
     }
 
     private static bool IsInventoryIntent(string? intent)

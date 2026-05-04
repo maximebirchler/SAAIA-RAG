@@ -10,6 +10,9 @@ public sealed class OpenAiCompatLlmClient : ILlmClient
     private readonly HttpClient _http;
     private readonly string _baseUrl;
     private readonly string _model;
+    private const int JsonMaxTokens = 700;
+    private const int DefaultAnswerMaxTokens = 850;
+    private const int SummaryAnswerMaxTokens = 1100;
 
     public OpenAiCompatLlmClient(HttpClient http, string baseUrl, string model)
     {
@@ -148,6 +151,10 @@ public sealed class OpenAiCompatLlmClient : ILlmClient
             ["model"] = _model,
             ["stream"] = stream,
             ["temperature"] = 0.2,
+            ["top_p"] = 0.85,
+            ["frequency_penalty"] = 0.2,
+            ["presence_penalty"] = 0.05,
+            ["max_tokens"] = EstimateMaxTokens(messages, forceJson),
             ["messages"] = messages.Select(m => new Dictionary<string, string>
             {
                 ["role"] = m.role,
@@ -157,8 +164,26 @@ public sealed class OpenAiCompatLlmClient : ILlmClient
 
         if (forceJson)
             dict["response_format"] = new Dictionary<string, string> { ["type"] = "json_object" };
+        else
+            dict["stop"] = new[] { "\nUSER_MESSAGE:", "\nTOOL_RESULTS", "\nDRAFT_ANSWER:", "\nCHAT_TAIL:" };
 
         return dict;
+    }
+
+    private static int EstimateMaxTokens(IReadOnlyList<(string role, string content)> messages, bool forceJson)
+    {
+        if (forceJson)
+            return JsonMaxTokens;
+
+        var joined = string.Join('\n', messages.Select(m => m.content ?? string.Empty));
+        if (joined.Contains("SOURCE_SUMMARY:", StringComparison.OrdinalIgnoreCase)
+            || joined.Contains("Translate the stored summary", StringComparison.OrdinalIgnoreCase)
+            || joined.Contains("summary", StringComparison.OrdinalIgnoreCase))
+        {
+            return SummaryAnswerMaxTokens;
+        }
+
+        return DefaultAnswerMaxTokens;
     }
 
 

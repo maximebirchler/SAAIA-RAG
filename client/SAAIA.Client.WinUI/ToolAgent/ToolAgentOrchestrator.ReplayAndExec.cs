@@ -332,8 +332,22 @@ public sealed partial class ToolAgentOrchestrator
         var category = ExtractTopLevelCategoryForRag(categoryPath);
         var mode = args.TryGetProperty("mode", out var m) && m.ValueKind != JsonValueKind.Null ? m.GetString() : "balanced";
 
+        if (LooksLikeComparativeDocumentaryRequest(query))
+        {
+            var multiArgs = CreateJsonArgs(new
+            {
+                queries = BuildComparativeRetrievalQueries(query),
+                topK,
+                category,
+                mode
+            });
+            return await ExecRagMultiSearchAsync(multiArgs, ct).ConfigureAwait(false);
+        }
+
         var raw = await _api.RagSearchToolAsync(query, topK, category, mode, ct);
-        return NormalizeRagHits(raw);
+        var normalized = NormalizeRagHits(raw);
+        RememberLastRagDiagnostics(new[] { query }, normalized);
+        return normalized;
     }
 
     private async Task<JsonElement> ExecRagMultiSearchAsync(JsonElement args, CancellationToken ct)
@@ -367,7 +381,7 @@ public sealed partial class ToolAgentOrchestrator
             return JsonDocument.Parse("{\"hits\":[]}").RootElement;
 
         var merged = new List<JsonElement>();
-        foreach (var q in queries.Take(5))
+        foreach (var q in queries.Take(8))
         {
             var raw = await _api.RagSearchToolAsync(q, topK, category, mode, ct);
             var norm = NormalizeRagHits(raw);
@@ -400,10 +414,47 @@ public sealed partial class ToolAgentOrchestrator
         var payload = new
         {
             hits = uniq,
-            meta = new { queries = queries.Take(5).ToArray(), mode = (mode ?? "balanced"), category }
+            meta = new { queries = queries.Take(8).ToArray(), mode = (mode ?? "balanced"), category }
         };
 
-        return JsonDocument.Parse(JsonSerializer.Serialize(payload)).RootElement;
+        var result = JsonDocument.Parse(JsonSerializer.Serialize(payload)).RootElement;
+        RememberLastRagDiagnostics(queries.Take(8), result);
+        return result;
+    }
+
+    private void RememberLastRagDiagnostics(IEnumerable<string> queries, JsonElement result)
+    {
+        _mem.LastRagQueries = queries
+            .Where(static query => !string.IsNullOrWhiteSpace(query))
+            .Select(CollapseWhitespace)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(8)
+            .ToList();
+
+        if (result.ValueKind != JsonValueKind.Object
+            || !result.TryGetProperty("hits", out var hits)
+            || hits.ValueKind != JsonValueKind.Array)
+        {
+            _mem.LastRagHitLabels = new();
+            return;
+        }
+
+        _mem.LastRagHitLabels = hits.EnumerateArray()
+            .Where(static hit => hit.ValueKind == JsonValueKind.Object)
+            .Take(30)
+            .Select(FormatRagDiagnosticHitLabel)
+            .Where(static label => !string.IsNullOrWhiteSpace(label))
+            .ToList();
+    }
+
+    private static string FormatRagDiagnosticHitLabel(JsonElement hit)
+    {
+        var docName = TryGetString(hit, "docName") ?? Path.GetFileName(TryGetString(hit, "docPath") ?? string.Empty);
+        var pageStart = TryGetInt(hit, "pageStart") ?? 1;
+        var pageEnd = TryGetInt(hit, "pageEnd") ?? pageStart;
+        var score = TryGetDouble(hit, "score") ?? 0.0;
+        var scoreText = score.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+        return $"{docName} p.{pageStart}{(pageEnd != pageStart ? $"-{pageEnd}" : string.Empty)} score={scoreText}";
     }
 private JsonElement ExecExportCreate(JsonElement args)
     {

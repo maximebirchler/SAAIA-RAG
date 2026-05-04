@@ -25,10 +25,10 @@ public sealed class PreUiRegressionSafetyNetTests
         Assert.Contains("never answer from common knowledge", prompt);
         Assert.Contains("available sources are insufficient", prompt);
         Assert.Contains("Do not fill gaps with plausible knowledge", prompt);
-        Assert.Contains("ingredients, quantities, times, temperatures", prompt);
+        Assert.Contains("components, quantities, times, temperatures", prompt);
         Assert.Contains("source-backed alternatives", prompt);
-        Assert.Contains("Do not infer culinary suitability from a generic list", prompt);
-        Assert.Contains("If only ingredients are present, do not invent preparation steps", prompt);
+        Assert.Contains("Do not infer suitability, compatibility or recommendation quality from a generic list", prompt);
+        Assert.Contains("If only raw lists are present, do not invent pairings, processes or recommendations", prompt);
     }
 
     [Theory]

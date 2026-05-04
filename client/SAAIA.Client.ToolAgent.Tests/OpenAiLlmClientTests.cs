@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using SAAIA.Client.WinUI.Services;
 using Xunit;
 
@@ -109,6 +110,41 @@ public sealed class OpenAiLlmClientTests
         Assert.True(ensureCalled);
     }
 
+    [Fact]
+    public async Task ChatOnceAsync_sends_conservative_generation_controls()
+    {
+        string? requestBody = null;
+        var handler = new StubHttpHandler(
+            """
+            {
+              "choices": [
+                { "message": { "content": "ok" } }
+              ]
+            }
+            """,
+            HttpMethod.Post,
+            assertRequest: request => requestBody = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
+
+        var sut = new OpenAiLlmClient(new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://localhost:1234")
+        });
+        sut.Configure("http://localhost:1234/v1", "model");
+
+        _ = await sut.ChatOnceAsync(
+            new[] { ("user", "hello") },
+            temperature: 0.1,
+            maxTokens: 16,
+            CancellationToken.None);
+
+        using var payload = JsonDocument.Parse(requestBody ?? "{}");
+        var root = payload.RootElement;
+        Assert.Equal(0.85, root.GetProperty("top_p").GetDouble(), precision: 3);
+        Assert.Equal(0.2, root.GetProperty("frequency_penalty").GetDouble(), precision: 3);
+        Assert.Equal(0.05, root.GetProperty("presence_penalty").GetDouble(), precision: 3);
+        Assert.Contains(root.GetProperty("stop").EnumerateArray(), item => item.GetString() == "\nTOOL_RESULTS");
+    }
+
     private static OpenAiLlmClient CreateClient(string body)
     {
         var http = new HttpClient(new StubHttpHandler(body, HttpMethod.Get))
@@ -122,7 +158,8 @@ public sealed class OpenAiLlmClientTests
     private sealed class StubHttpHandler(
         string body,
         HttpMethod expectedMethod,
-        Action? assertBeforeResponse = null) : HttpMessageHandler
+        Action? assertBeforeResponse = null,
+        Action<HttpRequestMessage>? assertRequest = null) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -132,6 +169,7 @@ public sealed class OpenAiLlmClientTests
                 Assert.EndsWith("/models", request.RequestUri!.AbsoluteUri);
             else
                 Assert.EndsWith("/chat/completions", request.RequestUri!.AbsoluteUri);
+            assertRequest?.Invoke(request);
 
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {

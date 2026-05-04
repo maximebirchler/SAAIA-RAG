@@ -152,6 +152,18 @@ public sealed class ToolMemory
         set => Execution.LastToolNames = value ?? new();
     }
 
+    public List<string> LastRagQueries
+    {
+        get => Execution.LastRagQueries;
+        set => Execution.LastRagQueries = value ?? new();
+    }
+
+    public List<string> LastRagHitLabels
+    {
+        get => Execution.LastRagHitLabels;
+        set => Execution.LastRagHitLabels = value ?? new();
+    }
+
     public List<string> LastReasoningTracePublic
     {
         get => Execution.LastReasoningTracePublic;
@@ -326,6 +338,10 @@ public sealed class ToolMemory
         public string? LastRouterIntent { get; set; }
 
         public List<string> LastToolNames { get; set; } = new();
+
+        public List<string> LastRagQueries { get; set; } = new();
+
+        public List<string> LastRagHitLabels { get; set; } = new();
 
         public List<string> LastReasoningTracePublic { get; set; } = new();
 
@@ -675,6 +691,8 @@ public sealed class ToolMemory
         Execution.LastAnswerLanguage = null;
         Execution.LastRouterIntent = null;
         Execution.LastToolNames = new();
+        Execution.LastRagQueries = new();
+        Execution.LastRagHitLabels = new();
         Execution.LastReasoningTracePublic = new();
         Execution.LastRiskFlags = new();
         Execution.LastPlannerMemoryUpdate = null;

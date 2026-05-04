@@ -390,24 +390,23 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
     /// </summary>
     public async Task<JsonElement> RagSearchAsync(string query, int topK, string? category, CancellationToken ct)
     {
-        return await RagSearchToolAsync(query, topK, category, mode: "balanced", ct).ConfigureAwait(false);
+        return await RagSearchToolAsync(query, topK, category, mode: "auto", ct).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// Tool-agent friendly RAG search with explicit mode (balanced|precise|fast).
+    /// Tool-agent friendly RAG search with explicit mode.
     /// </summary>
     public async Task<JsonElement> RagSearchToolAsync(string query, int topK, string? category, string? mode, CancellationToken ct)
     {
-        var m = (mode ?? "balanced").Trim().ToLowerInvariant();
-        if (m is not ("balanced" or "precise" or "fast"))
-            m = "balanced";
+        var m = NormalizeRagSearchApiMode(mode);
 
         var body = JsonSerializer.Serialize(new
         {
             query,
             category,
             topK,
-            mode = m
+            mode = m,
+            includeContextualSnippet = true
         }, JsonOpts);
 
         using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Post, "/rag/search", body), ct);
@@ -491,9 +490,10 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
             query,
             category,
             topK,
-            mode,
+            mode = NormalizeRagSearchApiMode(mode),
             docId = string.IsNullOrWhiteSpace(docId) ? null : docId.Trim(),
-            docPath = string.IsNullOrWhiteSpace(docPath) ? null : NormalizeDocPath(docPath)
+            docPath = string.IsNullOrWhiteSpace(docPath) ? null : NormalizeDocPath(docPath),
+            includeContextualSnippet = true
         }, JsonOpts);
 
         using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Post, "/rag/search", body), ct);
@@ -502,6 +502,19 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
         var json = await resp.Content.ReadAsStringAsync(ct);
         return JsonSerializer.Deserialize<RagSearchResponse>(json, JsonOpts)
                ?? throw new Exception(T("api.error.invalid_rag_search_response"));
+    }
+
+    private static string? NormalizeRagSearchApiMode(string? mode)
+    {
+        var normalized = (mode ?? "auto").Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "auto" or "" => null,
+            "standard" => "balanced",
+            "strict" or "precise" or "fast" => "focused",
+            "focused" or "balanced" or "broad" => normalized,
+            _ => null
+        };
     }
 
 }
