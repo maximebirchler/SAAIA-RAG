@@ -83,11 +83,18 @@ internal static partial class RetrievalChunkProjector
                 var window = new List<ExtractedDocumentUnit>();
                 var tokenTotal = 0;
                 var cursor = start;
+                var stoppedBeforeStructuredBoundary = false;
 
                 while (cursor < sectionUnits.Count)
                 {
                     var candidate = sectionUnits[cursor];
                     var candidateTokens = Math.Max(1, candidate.TokenCount);
+
+                    if (window.Count > 0 && LooksLikeHighSignalUnit(candidate))
+                    {
+                        stoppedBeforeStructuredBoundary = true;
+                        break;
+                    }
 
                     if (window.Count > 0 && tokenTotal + candidateTokens > maxWords)
                         break;
@@ -104,7 +111,10 @@ internal static partial class RetrievalChunkProjector
                     tokenTotal = Math.Max(1, sectionUnits[start].TokenCount);
                 }
 
-                if (tokenTotal >= minWords || chunks.Count == 0)
+                var shouldKeepShortBoundaryLead = !stoppedBeforeStructuredBoundary
+                    || tokenTotal >= minWords
+                    || WindowContainsHighSignalUnit(window);
+                if (tokenTotal >= minWords || (chunks.Count == 0 && shouldKeepShortBoundaryLead))
                 {
                     var first = window[0];
                     var last = window[^1];
@@ -189,13 +199,16 @@ internal static partial class RetrievalChunkProjector
         }
     }
 
+    private static bool WindowContainsHighSignalUnit(IReadOnlyList<ExtractedDocumentUnit> window)
+        => window.Any(LooksLikeHighSignalUnit);
+
     private static bool LooksLikeHighSignalUnit(ExtractedDocumentUnit unit)
     {
         if (unit.TokenCount < 10 || unit.Text.Length < 80)
             return false;
 
-        var text = unit.Text;
-        var normalized = ExactMatchEntryExtractor.NormalizeForLookup(text);
+        var text = InsertStructuralBoundarySpaces(unit.Text);
+        var normalized = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(text));
         if (string.IsNullOrWhiteSpace(normalized))
             return false;
 
@@ -204,10 +217,10 @@ internal static partial class RetrievalChunkProjector
 
         var signalCount = 0;
         if (ContainsAny(normalized,
-            "ingredient", "ingredients", "ingredienti", "ingrédients", "ingrédient", "zutaten", "materials", "materiaux"))
+            "ingredient", "ingredients", "ingredienti", "zutaten", "materials", "materiaux"))
             signalCount++;
         if (ContainsAny(normalized,
-            "preparation", "préparation", "realisation", "réalisation", "method", "procedure", "procedures", "steps", "etapes", "étapes"))
+            "preparation", "realisation", "method", "procedure", "procedures", "steps", "etapes"))
             signalCount++;
         if (ContainsAny(normalized,
             "requirements", "requirement", "warning", "caution", "attention", "consigne", "instructions"))
@@ -223,9 +236,28 @@ internal static partial class RetrievalChunkProjector
             && CountOccurrences(normalized, "http") >= 2)
             return true;
 
-        return normalized.Contains("references consultees", StringComparison.Ordinal)
-            || normalized.Contains("références consultées", StringComparison.Ordinal);
+        return normalized.Contains("references consultees", StringComparison.Ordinal);
     }
+
+    private static string FoldDiacritics(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var normalized = value.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+        foreach (var ch in normalized)
+        {
+            var category = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch);
+            if (category != System.Globalization.UnicodeCategory.NonSpacingMark)
+                builder.Append(ch);
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
+    }
+
+    private static string InsertStructuralBoundarySpaces(string text)
+        => StructuralBoundaryRegex().Replace(text, " ");
 
     private static bool ContainsAny(string text, params string[] needles)
         => needles.Any(needle => text.Contains(needle, StringComparison.Ordinal));
@@ -335,6 +367,9 @@ internal static partial class RetrievalChunkProjector
 
     [GeneratedRegex(@"(?:^|[^\p{L}\p{N}])\d+\s*[\.)]\s+\p{L}", RegexOptions.CultureInvariant)]
     private static partial Regex NumberedStepRegex();
+
+    [GeneratedRegex(@"(?<=[\p{Ll}\p{Nd}])(?=(?:Pour|For|Para|Per|Ingredients?|Ingrédients?|Zutaten|Preparation|Préparation|Realisation|Réalisation|Etapes?|Étapes?)\b)", RegexOptions.CultureInvariant)]
+    private static partial Regex StructuralBoundaryRegex();
 }
 
 internal sealed record ProjectedRetrievalChunk(
