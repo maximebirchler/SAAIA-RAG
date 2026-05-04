@@ -90,6 +90,10 @@ artifacts/runtime-ci/
 artifacts/llm-validation/
 artifacts/llama-*/
 artifacts/llm-bench-*/
+artifacts/client-live-cuisine-hardcases-*/
+artifacts/cuisine-rag-eval-*/
+artifacts/cuisine-llm-sample-*/
+artifacts/neff-page*.txt
 artifacts/manual-test-checklist/*.xlsx
 Test Bench/
 support-bundles/

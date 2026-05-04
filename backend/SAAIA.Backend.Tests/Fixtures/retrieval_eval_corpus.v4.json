@@ -546,11 +546,11 @@
       ],
       "rerankItems": [
         {
-          "index": 1,
+          "index": 0,
           "score": 0.93
         },
         {
-          "index": 0,
+          "index": 1,
           "score": 0.41
         }
       ],
