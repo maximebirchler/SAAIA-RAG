@@ -711,6 +711,11 @@ internal static partial class DocumentProfileProjector
 
         if (LooksLikeGluedNavigationOrHeaderTitle(title) && !hasTechnicalIdentifier)
             return false;
+        if (!hasTechnicalIdentifier
+            && RetrievalContentClassifier.DetectNavigationReason(title) is not null)
+        {
+            return false;
+        }
 
         if (ContentCardTitleStopwords.Contains(normalizedFolded))
             return false;

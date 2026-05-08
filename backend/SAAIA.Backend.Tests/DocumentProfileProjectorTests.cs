@@ -41,6 +41,58 @@ public sealed class DocumentProfileProjectorTests
     }
 
     [Fact]
+    public void Project_does_not_create_content_cards_from_navigation_sections()
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                1,
+                "Table of contents Safety overview 3 Lockout procedure 8 Alarm reset 12 Maintenance plan 18 Index of procedures 24",
+                16,
+                111,
+                [1]),
+            new ExtractedPdfPage(
+                2,
+                "LOCKOUT TAGOUT PROCEDURE Materials lock padlock warning tag. Procedure 1. Isolate the machine. 2. Verify zero energy.",
+                17,
+                119,
+                [2])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Table of contents", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(1, "LOCKOUT TAGOUT PROCEDURE", 1, 2, 2, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "Table of contents Safety overview 3 Lockout procedure 8 Alarm reset 12 Maintenance plan 18 Index of procedures 24",
+                111,
+                16,
+                [3]),
+            new ExtractedDocumentUnit(
+                1,
+                1,
+                2,
+                2,
+                "LOCKOUT TAGOUT PROCEDURE Materials lock padlock warning tag. Procedure 1. Isolate the machine. 2. Verify zero energy.",
+                119,
+                17,
+                [4])
+        };
+
+        var profile = DocumentProfileProjector.Project("Maintenance/lockout-guide.pdf", pages, sections, units, exactMatchEntries: []);
+
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "LOCKOUT TAGOUT PROCEDURE", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.Contains("contents", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.Contains("Index of procedures", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void Project_uses_neutral_extract_when_language_is_not_known()
     {
         var pages = new[]
