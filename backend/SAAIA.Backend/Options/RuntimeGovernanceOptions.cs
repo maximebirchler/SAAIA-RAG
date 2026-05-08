@@ -33,8 +33,10 @@ sealed class RuntimeGovernanceOptions
     public int CapabilityBWorkerEmptyDelayMs { get; set; } = 5000;
     public int CapabilityBWorkerErrorDelayMs { get; set; } = 1000;
     public bool CapabilityBRequireIngestionIdleForExecution { get; set; } = true;
+    public bool CapabilityBRequireRagIdleForExecution { get; set; }
     public bool CapabilityBAutoEnqueueWhenIngestionIdleEnabled { get; set; } = true;
     public int CapabilityBIngestionIdleDelaySeconds { get; set; } = 900;
+    public int CapabilityBRagIdleDelaySeconds { get; set; } = 120;
     public int CapabilityBRunningJobLeaseTimeoutSeconds { get; set; } = 3600;
     public int CapabilityBAutoEnqueueBatchSize { get; set; } = 25;
     public int CapabilityBAutoEnqueueTenantLimit { get; set; } = 8;

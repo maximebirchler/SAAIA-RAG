@@ -700,6 +700,83 @@ public sealed class RuntimeGovernanceCoreLogicTests
     }
 
     [Fact]
+    public void CapabilityBRagIdle_blocks_when_interactive_retrieval_is_active()
+    {
+        var now = DateTimeOffset.Parse("2026-05-05T12:00:00Z");
+        var snapshot = RuntimeCapabilityBRagIdleCoordinator.Evaluate(
+            activeRetrievals: 2,
+            lastActivityAt: now.AddMinutes(-10),
+            requiredIdleDelay: TimeSpan.FromMinutes(2),
+            now);
+
+        Assert.False(snapshot.IsIdle);
+        Assert.Equal("rag_active", snapshot.Reason);
+        Assert.Equal(2, snapshot.ActiveRetrievals);
+        Assert.Null(snapshot.IdleFor);
+    }
+
+    [Fact]
+    public void CapabilityBRagIdle_waits_after_recent_interactive_retrieval()
+    {
+        var now = DateTimeOffset.Parse("2026-05-05T12:00:00Z");
+        var snapshot = RuntimeCapabilityBRagIdleCoordinator.Evaluate(
+            activeRetrievals: 0,
+            lastActivityAt: now.AddSeconds(-30),
+            requiredIdleDelay: TimeSpan.FromMinutes(2),
+            now);
+
+        Assert.False(snapshot.IsIdle);
+        Assert.Equal("rag_recent", snapshot.Reason);
+        Assert.Equal(TimeSpan.FromSeconds(30), snapshot.IdleFor);
+    }
+
+    [Fact]
+    public void CapabilityBRagIdle_allows_summary_work_after_idle_delay()
+    {
+        var now = DateTimeOffset.Parse("2026-05-05T12:00:00Z");
+        var snapshot = RuntimeCapabilityBRagIdleCoordinator.Evaluate(
+            activeRetrievals: 0,
+            lastActivityAt: now.AddMinutes(-3),
+            requiredIdleDelay: TimeSpan.FromMinutes(2),
+            now);
+
+        Assert.True(snapshot.IsIdle);
+        Assert.Equal("rag_idle", snapshot.Reason);
+        Assert.Equal(TimeSpan.FromMinutes(3), snapshot.IdleFor);
+    }
+
+    [Fact]
+    public void CapabilityBRagIdle_tracker_marks_active_then_recent_then_idle()
+    {
+        RuntimeCapabilityBRagIdleCoordinator.ResetForTests();
+        var now = DateTimeOffset.Parse("2026-05-05T12:00:00Z");
+        var options = new RuntimeGovernanceOptions
+        {
+            CapabilityBRequireRagIdleForExecution = true,
+            CapabilityBRagIdleDelaySeconds = 120
+        };
+
+        using (RuntimeCapabilityBRagIdleCoordinator.BeginInteractiveRetrieval(options, now))
+        {
+            var active = RuntimeCapabilityBRagIdleCoordinator.LoadSnapshot(options, now);
+
+            Assert.False(active.IsIdle);
+            Assert.Equal("rag_active", active.Reason);
+            Assert.Equal(1, active.ActiveRetrievals);
+        }
+
+        var recent = RuntimeCapabilityBRagIdleCoordinator.LoadSnapshot(options, now.AddSeconds(30));
+        var idle = RuntimeCapabilityBRagIdleCoordinator.LoadSnapshot(options, now.AddMinutes(3));
+
+        Assert.False(recent.IsIdle);
+        Assert.Equal("rag_recent", recent.Reason);
+        Assert.True(idle.IsIdle);
+        Assert.Equal("rag_idle", idle.Reason);
+
+        RuntimeCapabilityBRagIdleCoordinator.ResetForTests();
+    }
+
+    [Fact]
     public void CapabilityBIdleSchedulerDto_exposes_policy_for_client_surfaces()
     {
         var now = DateTimeOffset.Parse("2026-05-05T12:00:00Z");

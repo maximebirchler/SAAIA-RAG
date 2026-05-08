@@ -79,6 +79,8 @@ ORDER BY display_order, name;
         IHttpClientFactory httpFactory,
         RagSearchRequestDto req)
     {
+        using var interactiveRetrieval = RuntimeCapabilityBRagIdleCoordinator.BeginInteractiveRetrieval(
+            ctx.RequestServices.GetService<IOptions<RuntimeGovernanceOptions>>()?.Value);
         var responseDto = await BuildSearchResponseDtoAsync(ctx, ds, ragOpt.Value, httpFactory, req);
         return Results.Ok(new
         {
@@ -99,6 +101,8 @@ ORDER BY display_order, name;
         IHttpClientFactory httpFactory,
         RagSearchRequestDto req)
     {
+        using var interactiveRetrieval = RuntimeCapabilityBRagIdleCoordinator.BeginInteractiveRetrieval(
+            ctx.RequestServices.GetService<IOptions<RuntimeGovernanceOptions>>()?.Value);
         var responseDto = await BuildSearchResponseDtoAsync(ctx, ds, ragOpt.Value, httpFactory, req);
         return Results.Ok(responseDto);
     }
@@ -173,7 +177,12 @@ ORDER BY display_order, name;
                 SparseMs: resp.Timings.SparseMs,
                 QdrantMs: resp.Timings.QdrantMs,
                 CandidatesEvaluated: resp.Candidates,
-                DegradedRetrievers: resp.DegradedRetrievers
+                DegradedRetrievers: resp.DegradedRetrievers,
+                ExactMs: resp.Timings.ExactMs,
+                SparsePhaseMs: resp.Timings.SparsePhaseMs,
+                DenseMs: resp.Timings.DenseMs,
+                ProfileMs: resp.Timings.ProfileMs,
+                LinkedMs: resp.Timings.LinkedMs
             ),
             Items: qualityAdjustedMatches
                 .Select(item =>
@@ -1660,7 +1669,12 @@ ORDER BY d.doc_path;
                 TeiMs: teiMs,
                 RerankMs: rerankMs,
                 SparseMs: sparseMs,
-                QdrantMs: qdrantMs),
+                QdrantMs: qdrantMs,
+                ExactMs: exactMs,
+                SparsePhaseMs: sparsePhaseMs,
+                DenseMs: densePhaseMs,
+                ProfileMs: profilePhaseMs,
+                LinkedMs: linkedPhaseMs),
             Matches: selected,
             DegradedRetrievers: degradedRetrievers.Count == 0
                 ? null
@@ -9401,7 +9415,17 @@ public sealed record RagSearchRequest(
     string? Mode = null
 );
 
-    public sealed record RagSearchTimings(long TotalMs, long TeiMs, long RerankMs, long SparseMs, long QdrantMs);
+    public sealed record RagSearchTimings(
+        long TotalMs,
+        long TeiMs,
+        long RerankMs,
+        long SparseMs,
+        long QdrantMs,
+        long ExactMs = 0,
+        long SparsePhaseMs = 0,
+        long DenseMs = 0,
+        long ProfileMs = 0,
+        long LinkedMs = 0);
 
 public sealed record RagSearchResponse(
     string RequestId,

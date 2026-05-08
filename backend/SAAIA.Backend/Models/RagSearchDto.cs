@@ -200,7 +200,12 @@ public sealed record RagMetricsDto(
     long? SparseMs = null,
     long? QdrantMs = null,
     int? CandidatesEvaluated = null,
-    IReadOnlyList<string>? DegradedRetrievers = null
+    IReadOnlyList<string>? DegradedRetrievers = null,
+    long? ExactMs = null,
+    long? SparsePhaseMs = null,
+    long? DenseMs = null,
+    long? ProfileMs = null,
+    long? LinkedMs = null
 );
 
 /// <summary>

@@ -100,8 +100,10 @@ services:
       Ingestion__OcrImagePageMinWords: ${SAAIA_OCR_IMAGE_PAGE_MIN_WORDS:-3}
       RuntimeGovernance__CapabilityBWorkerEnabled: ${SAAIA_CAPABILITY_B_WORKER_ENABLED:-true}
       RuntimeGovernance__CapabilityBRequireIngestionIdleForExecution: ${SAAIA_CAPABILITY_B_REQUIRE_INGESTION_IDLE:-true}
+      RuntimeGovernance__CapabilityBRequireRagIdleForExecution: ${SAAIA_CAPABILITY_B_REQUIRE_RAG_IDLE:-true}
       RuntimeGovernance__CapabilityBAutoEnqueueWhenIngestionIdleEnabled: ${SAAIA_CAPABILITY_B_AUTO_ENQUEUE_IDLE:-true}
       RuntimeGovernance__CapabilityBIngestionIdleDelaySeconds: ${SAAIA_CAPABILITY_B_INGESTION_IDLE_DELAY_SECONDS:-900}
+      RuntimeGovernance__CapabilityBRagIdleDelaySeconds: ${SAAIA_CAPABILITY_B_RAG_IDLE_DELAY_SECONDS:-120}
       RuntimeGovernance__CapabilityBRunningJobLeaseTimeoutSeconds: ${SAAIA_CAPABILITY_B_RUNNING_JOB_LEASE_TIMEOUT_SECONDS:-3600}
       RuntimeGovernance__CapabilityBAutoEnqueueBatchSize: ${SAAIA_CAPABILITY_B_AUTO_ENQUEUE_BATCH_SIZE:-25}
       RuntimeGovernance__CapabilityBAutoEnqueueTenantLimit: ${SAAIA_CAPABILITY_B_AUTO_ENQUEUE_TENANT_LIMIT:-8}

@@ -1818,6 +1818,103 @@ VALUES(
     }
 
     [Fact]
+    public async Task Capability_b_worker_waits_when_rag_activity_is_recent()
+    {
+        RuntimeCapabilityBRagIdleCoordinator.ResetForTests();
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeef");
+        var docId = Guid.NewGuid();
+        var summaryJobId = Guid.NewGuid();
+
+        await using (var conn = new NpgsqlConnection(db.ConnectionString))
+        {
+            await conn.OpenAsync();
+            await conn.ExecuteAsync(
+                """
+INSERT INTO tenants(tenant_id, name)
+VALUES(@tenant, 'RAG idle scheduler tenant');
+
+INSERT INTO documents(
+  tenant_id, doc_id, doc_path, doc_name, category, status,
+  page_count, content_hash, updated_at, created_at, ingestion_version, indexed_version,
+  auto_ingest_paused
+)
+VALUES(
+  @tenant, @docId, 'Idle/rag-recent-summary.pdf', 'rag-recent-summary.pdf', 'idle', 'indexed',
+  3, decode(repeat('12', 32), 'hex'), now(), now(), 1, 1, false
+);
+
+INSERT INTO admin_jobs(
+  job_id, tenant_id, job_type, status, doc_id, doc_path, level, payload, created_at
+)
+VALUES(
+  @summaryJobId, @tenant, 'summary.generate', 'queued', @docId, 'Idle/rag-recent-summary.pdf', 'medium',
+  @summaryPayload::jsonb, now()
+);
+""",
+                new
+                {
+                    tenant = tenantId,
+                    docId,
+                    summaryJobId,
+                    summaryPayload = JsonSerializer.Serialize(new
+                    {
+                        docPath = "Idle/rag-recent-summary.pdf",
+                        source = "capability_b",
+                        executionMode = "server_backoffice",
+                        runtimeCapabilityKey = "capability_b.backoffice_generation",
+                        runtimeCapabilityStatus = "selected",
+                        runtimeCapabilitySelected = true
+                    })
+                });
+        }
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(ds);
+        services.AddSingleton<IOptions<RuntimeGovernanceOptions>>(Options.Create(new RuntimeGovernanceOptions
+        {
+            CapabilityBWorkerEnabled = true,
+            CapabilityBRequireRagIdleForExecution = true,
+            CapabilityBRagIdleDelaySeconds = 120,
+            CapabilityBAutoEnqueueWhenIngestionIdleEnabled = false,
+            CapabilityBRunningJobLeaseTimeoutSeconds = 0
+        }));
+        services.AddSingleton<IOptions<RagOptions>>(Options.Create(CreateRagOptions()));
+        services.AddSingleton<IHostEnvironment>(new StubHostEnvironment());
+
+        using var provider = services.BuildServiceProvider();
+        var worker = new CapabilityBBackofficeWorker(
+            provider,
+            provider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<CapabilityBBackofficeWorker>>());
+
+        var now = DateTimeOffset.Parse("2026-05-05T12:00:00Z");
+        using var activity = RuntimeCapabilityBRagIdleCoordinator.BeginInteractiveRetrieval(
+            new RuntimeGovernanceOptions { CapabilityBRequireRagIdleForExecution = true },
+            now);
+
+        var processed = await worker.ProcessNextJobOnceAsync(CancellationToken.None);
+
+        Assert.False(processed);
+
+        await using (var conn = new NpgsqlConnection(db.ConnectionString))
+        {
+            await conn.OpenAsync();
+            var summaryStatus = await conn.ExecuteScalarAsync<string>(
+                "SELECT status FROM admin_jobs WHERE job_id=@jobId;",
+                new { jobId = summaryJobId });
+
+            Assert.Equal("queued", summaryStatus);
+        }
+
+        RuntimeCapabilityBRagIdleCoordinator.ResetForTests();
+    }
+
+    [Fact]
     public async Task Capability_b_worker_can_process_idle_tenant_when_another_tenant_is_ingesting()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");

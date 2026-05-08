@@ -69,6 +69,21 @@ internal sealed class CapabilityBBackofficeWorker : BackgroundService
         if (!options.CapabilityBWorkerEnabled)
             return false;
 
+        if (options.CapabilityBRequireRagIdleForExecution)
+        {
+            var ragIdleSnapshot = RuntimeCapabilityBRagIdleCoordinator.LoadSnapshot(options, DateTimeOffset.UtcNow);
+            if (!ragIdleSnapshot.IsIdle)
+            {
+                _logger.LogDebug(
+                    "Capability B worker waits for RAG idle reason={Reason} active_retrievals={ActiveRetrievals} idle_for_seconds={IdleForSeconds} required_idle_seconds={RequiredIdleSeconds}",
+                    ragIdleSnapshot.Reason,
+                    ragIdleSnapshot.ActiveRetrievals,
+                    ragIdleSnapshot.IdleFor?.TotalSeconds,
+                    ragIdleSnapshot.RequiredIdleDelay.TotalSeconds);
+                return false;
+            }
+        }
+
         if (options.CapabilityBRequireIngestionIdleForExecution)
         {
             var idleSnapshot = await RuntimeCapabilityBIngestionIdleCoordinator.LoadGlobalIngestionIdleSnapshotAsync(
