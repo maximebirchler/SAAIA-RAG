@@ -89,6 +89,74 @@ WHERE job_id=@job_id AND status IN ('running','paused');";
     public static async Task MarkFailedAsync(NpgsqlDataSource ds, Guid jobId, string error, CancellationToken ct)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
+        await using var tx = await conn.BeginTransactionAsync(ct);
+
+        const string supersededStateSql = @"
+SELECT
+    j.tenant_id AS ""TenantId"",
+    j.action AS ""Action"",
+    j.doc_path AS ""DocPath"",
+    j.status AS ""JobStatus"",
+    j.priority AS ""Priority"",
+    CASE WHEN COALESCE(j.payload #>> '{version}', '') ~ '^[0-9]+$'
+        THEN (j.payload #>> '{version}')::int ELSE 0 END AS ""JobVersion"",
+    d.doc_id AS ""DocId"",
+    d.status AS ""DocumentStatus"",
+    d.category AS ""Category"",
+    COALESCE(d.ingestion_version, 0) AS ""DocumentIngestionVersion"",
+    COALESCE(d.indexed_version, 0) AS ""DocumentIndexedVersion"",
+    COALESCE(d.auto_ingest_paused, false) AS ""AutoIngestPaused"",
+    d.auto_ingest_pause_reason AS ""AutoIngestPauseReason""
+FROM ingestion_jobs j
+LEFT JOIN documents d
+  ON d.tenant_id=j.tenant_id
+ AND d.doc_path=j.doc_path
+WHERE j.job_id=@job_id
+  AND j.status IN ('running','paused')
+FOR UPDATE OF j;";
+
+        var supersededState = await conn.QueryFirstOrDefaultAsync<SupersededFailureState>(
+            new CommandDefinition(supersededStateSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
+        if (supersededState is not null
+            && string.Equals(supersededState.Action, "upsert", StringComparison.OrdinalIgnoreCase)
+            && supersededState.JobVersion > 0
+            && supersededState.DocumentIngestionVersion > supersededState.JobVersion)
+        {
+            const string cancelSupersededSql = @"
+UPDATE ingestion_jobs
+SET status='canceled',
+    finished_at=COALESCE(finished_at, now()),
+    last_error='superseded_failed_before_commit',
+    payload=((COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}'),
+    locked_by=NULL,
+    locked_at=NULL,
+    available_at=now()
+WHERE job_id=@job_id
+  AND status IN ('running','paused');";
+
+            await conn.ExecuteAsync(new CommandDefinition(cancelSupersededSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
+            var currentDocState = new DocumentVersionState(
+                supersededState.DocId,
+                supersededState.DocumentStatus,
+                supersededState.Category,
+                supersededState.DocumentIngestionVersion,
+                supersededState.DocumentIndexedVersion,
+                supersededState.AutoIngestPaused,
+                supersededState.AutoIngestPauseReason);
+            await QueueCurrentVersionAfterSupersededAsync(
+                conn,
+                tx,
+                supersededState.TenantId,
+                supersededState.DocPath,
+                currentDocState,
+                supersededState.JobVersion,
+                supersededState.Priority ?? 100,
+                ct);
+            await FreezeTerminalSnapshotAsync(conn, jobId, tx, ct);
+            await tx.CommitAsync(ct);
+            return;
+        }
+
         const string sql = @"
 UPDATE ingestion_jobs j
 SET status = CASE
@@ -193,11 +261,12 @@ WHERE j.job_id=@job_id
   AND d.tenant_id=j.tenant_id
   AND d.doc_path=j.doc_path
   AND j.status IN ('running','paused');";
-        var affected = await conn.ExecuteAsync(new CommandDefinition(sql, new { job_id = jobId, err = error }, cancellationToken: ct));
+        var affected = await conn.ExecuteAsync(new CommandDefinition(sql, new { job_id = jobId, err = error }, transaction: tx, cancellationToken: ct));
 
         if (affected > 0)
         {
-            await FreezeTerminalSnapshotAsync(conn, jobId, null, ct);
+            await FreezeTerminalSnapshotAsync(conn, jobId, tx, ct);
+            await tx.CommitAsync(ct);
             return;
         }
 
@@ -226,9 +295,10 @@ SET status = CASE
     locked_by=NULL,
     locked_at=NULL
 WHERE job_id=@job_id AND status IN ('running','paused');";
-        var fallbackAffected = await conn.ExecuteAsync(new CommandDefinition(fallbackSql, new { job_id = jobId, err = error }, cancellationToken: ct));
+        var fallbackAffected = await conn.ExecuteAsync(new CommandDefinition(fallbackSql, new { job_id = jobId, err = error }, transaction: tx, cancellationToken: ct));
         if (fallbackAffected > 0)
-            await FreezeTerminalSnapshotAsync(conn, jobId, null, ct);
+            await FreezeTerminalSnapshotAsync(conn, jobId, tx, ct);
+        await tx.CommitAsync(ct);
     }
 
     public static async Task MarkCanceledAsync(NpgsqlDataSource ds, Guid jobId, string reason, CancellationToken ct)
@@ -545,6 +615,21 @@ WHERE status='running'
         string? Category,
         int? IngestionVersion,
         int? IndexedVersion,
+        bool AutoIngestPaused,
+        string? AutoIngestPauseReason);
+
+    private sealed record SupersededFailureState(
+        Guid TenantId,
+        string Action,
+        string DocPath,
+        string? JobStatus,
+        int? Priority,
+        int JobVersion,
+        Guid? DocId,
+        string? DocumentStatus,
+        string? Category,
+        int DocumentIngestionVersion,
+        int DocumentIndexedVersion,
         bool AutoIngestPaused,
         string? AutoIngestPauseReason);
 

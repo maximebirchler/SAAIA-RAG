@@ -231,7 +231,9 @@ sealed class IngestionWorker : BackgroundService
            && (!indexedVersion.HasValue || indexedVersion.Value != jobVersion);
 
     internal static bool ShouldStabilizeDocumentAfterCancel(string? reason)
-        => !string.Equals(reason, "superseded_version", StringComparison.OrdinalIgnoreCase);
+        => !string.Equals(reason, "superseded_version", StringComparison.OrdinalIgnoreCase)
+           && !string.Equals(reason, "superseded_failed_ocr_publish", StringComparison.OrdinalIgnoreCase)
+           && !string.Equals(reason, "superseded_failed_before_commit", StringComparison.OrdinalIgnoreCase);
 
     // Heartbeat: refresh locked_at so long jobs are not considered stale while they are still running.
     private async Task<T> RunWithJobHeartbeatAsync<T>(
@@ -734,7 +736,7 @@ WHERE job_id=@job_id
             var failureReason = ResolveNoTextFailureReason(ocrAttempted, ocrRequiredButDisabled);
             try
             {
-                await DocumentFoundationRepo.PublishFailedOcrExtractionAsync(
+                var failureDiagnosticsPublished = await DocumentFoundationRepo.PublishFailedOcrExtractionAsync(
                     ds,
                     tenantId,
                     docId,
@@ -752,7 +754,10 @@ WHERE job_id=@job_id
                     extractionQuality,
                     nativeExtractionQuality,
                     failureReason,
-                    ct);
+                    ct,
+                    extractedPages: pages);
+                if (!failureDiagnosticsPublished)
+                    return false;
             }
             catch (Exception persistEx)
             {

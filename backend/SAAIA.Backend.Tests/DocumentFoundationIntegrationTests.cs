@@ -442,7 +442,8 @@ public sealed class DocumentFoundationIntegrationTests
             extractionQuality,
             nativeExtractionQuality: extractionQuality,
             failureReason: "scanned_pdf_not_indexable",
-            CancellationToken.None);
+            CancellationToken.None,
+            extractedPages: [page]);
 
         await using var conn = new NpgsqlConnection(db.ConnectionString);
         await conn.OpenAsync();
@@ -462,6 +463,8 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.False(payload.RootElement.GetProperty("published").GetBoolean());
         Assert.False(payload.RootElement.GetProperty("documentIndexable").GetBoolean());
         Assert.Equal("scanned_pdf_not_indexable", payload.RootElement.GetProperty("failureReason").GetString());
+        Assert.Equal("extraction_failure_v1", payload.RootElement.GetProperty("diagnosticVersion").GetString());
+        Assert.Equal("failed_run", payload.RootElement.GetProperty("diagnosticScope").GetString());
 
         var ocrDiagnostics = payload.RootElement.GetProperty("ocrDiagnostics");
         Assert.Equal("full_document", ocrDiagnostics.GetProperty("mode").GetString());
@@ -470,6 +473,27 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal("exit_code_non_zero", ocrDiagnostics.GetProperty("failureReason").GetString());
         Assert.Equal("ocr_extraction_failed", ocrDiagnostics.GetProperty("appliedReason").GetString());
         Assert.True(ocrDiagnostics.GetProperty("stderr").GetString()!.Length <= 4096);
+
+        var pageDiagnostics = payload.RootElement.GetProperty("pageDiagnostics").EnumerateArray().ToArray();
+        var pageDiagnostic = Assert.Single(pageDiagnostics);
+        Assert.Equal(1, pageDiagnostic.GetProperty("pageNumber").GetInt32());
+        Assert.Equal("manual_review_empty_text", pageDiagnostic.GetProperty("qualityStatus").GetString());
+        Assert.True(pageDiagnostic.GetProperty("manualReviewRecommended").GetBoolean());
+        Assert.True(pageDiagnostic.GetProperty("ocrCandidate").GetBoolean());
+
+        var revisionCount = await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM document_revisions WHERE tenant_id=@tenant_id AND doc_id=@doc_id;",
+            new { tenant_id = tenantId, doc_id = docId });
+        var pageIndexCount = await conn.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM document_page_index pi
+            JOIN document_revisions r ON r.revision_id=pi.revision_id
+            WHERE r.tenant_id=@tenant_id AND r.doc_id=@doc_id;
+            """,
+            new { tenant_id = tenantId, doc_id = docId });
+        Assert.Equal(0, revisionCount);
+        Assert.Equal(0, pageIndexCount);
     }
 
     [Fact]
@@ -490,7 +514,7 @@ public sealed class DocumentFoundationIntegrationTests
         var extractionQuality = PdfExtractionQualitySummary.FromPages([page]);
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
-        await DocumentFoundationRepo.PublishFailedOcrExtractionAsync(
+        var published = await DocumentFoundationRepo.PublishFailedOcrExtractionAsync(
             ds,
             tenantId,
             docId,
@@ -527,9 +551,21 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal(2, document.ingestion_version);
         Assert.Equal(0, document.indexed_version);
         Assert.False(document.auto_ingest_paused);
+        Assert.False(published);
         Assert.Equal(0, runCount);
         Assert.Equal("canceled", job.status);
         Assert.Equal("superseded_failed_ocr_publish", job.last_error);
+
+        var followUp = await conn.QuerySingleAsync<(string status, string? version, string? source)>(
+            """
+            SELECT status, payload #>> '{version}' AS version, payload #>> '{source}' AS source
+            FROM ingestion_jobs
+            WHERE tenant_id=@tenant_id AND doc_path=@doc_path AND action='upsert' AND status='queued';
+            """,
+            new { tenant_id = tenantId, doc_path = docPath });
+        Assert.Equal("queued", followUp.status);
+        Assert.Equal("2", followUp.version);
+        Assert.Equal("superseded", followUp.source);
     }
 
     [Fact]
@@ -581,7 +617,8 @@ public sealed class DocumentFoundationIntegrationTests
             extractionQuality,
             nativeExtractionQuality: extractionQuality,
             failureReason: "ocr_required_but_disabled",
-            CancellationToken.None);
+            CancellationToken.None,
+            extractedPages: [page]);
 
         await using (var conn = new NpgsqlConnection(db.ConnectionString))
         {
@@ -627,9 +664,17 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal("failed", root.GetProperty("processingRunStatus").GetString());
         Assert.False(root.GetProperty("documentIndexable").GetBoolean());
         Assert.Equal("ocr_required_but_disabled", root.GetProperty("failureReason").GetString());
+        Assert.Equal("failed_run", root.GetProperty("diagnosticScope").GetString());
         Assert.Equal(1, root.GetProperty("summary").GetProperty("pageCount").GetInt32());
         Assert.Equal(1, root.GetProperty("summary").GetProperty("manualReviewRecommendedPages").GetInt32());
-        Assert.Empty(root.GetProperty("pages").EnumerateArray());
+        var pageItem = Assert.Single(root.GetProperty("pages").EnumerateArray());
+        Assert.Equal(1, pageItem.GetProperty("pageNumber").GetInt32());
+        Assert.Equal("manual_review_empty_text", pageItem.GetProperty("qualityStatus").GetString());
+        Assert.True(pageItem.GetProperty("manualReviewRecommended").GetBoolean());
+        Assert.True(pageItem.GetProperty("ocrCandidate").GetBoolean());
+        Assert.Contains(
+            pageItem.GetProperty("signals").EnumerateArray().Select(static item => item.GetString()),
+            value => string.Equals(value, "no_chunks_on_page", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -720,7 +765,8 @@ public sealed class DocumentFoundationIntegrationTests
             extractionQuality: failedQuality,
             nativeExtractionQuality: failedQuality,
             failureReason: "scanned_pdf_not_indexable",
-            CancellationToken.None);
+            CancellationToken.None,
+            extractedPages: [failedPage]);
 
         await using (var conn = new NpgsqlConnection(db.ConnectionString))
         {
@@ -745,6 +791,25 @@ public sealed class DocumentFoundationIntegrationTests
             Assert.Equal("indexed", document.status);
             Assert.True(document.auto_ingest_paused);
         }
+
+        var pagesCtx = BuildAdminDocumentsHttpContext(tenantId);
+        var pagesResult = await InvokeExtractionQualityPagesAsync(pagesCtx, ds, docId);
+        await pagesResult.ExecuteAsync(pagesCtx);
+
+        Assert.Equal(StatusCodes.Status200OK, pagesCtx.Response.StatusCode);
+        using var pagesPayload = JsonDocument.Parse(ReadResponseBody(pagesCtx));
+        var root = pagesPayload.RootElement;
+        Assert.Equal("indexed", root.GetProperty("documentStatus").GetString());
+        Assert.Equal("failed", root.GetProperty("processingRunStatus").GetString());
+        Assert.False(root.GetProperty("documentIndexable").GetBoolean());
+        Assert.Equal("scanned_pdf_not_indexable", root.GetProperty("failureReason").GetString());
+        Assert.Equal("failed_run", root.GetProperty("diagnosticScope").GetString());
+        var publishedRevision = root.GetProperty("publishedRevision");
+        Assert.True(publishedRevision.GetProperty("searchable").GetBoolean());
+        Assert.Equal(1, publishedRevision.GetProperty("indexedVersion").GetInt32());
+        var failedPageItem = Assert.Single(root.GetProperty("pages").EnumerateArray());
+        Assert.Equal("manual_review_empty_text", failedPageItem.GetProperty("qualityStatus").GetString());
+        Assert.True(failedPageItem.GetProperty("manualReviewRecommended").GetBoolean());
     }
 
     [Fact]
@@ -1708,6 +1773,64 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal(0, revisionCount);
         Assert.Equal(0, artifactCount);
         Assert.Equal("failed", jobStatus);
+    }
+
+    [Fact]
+    public async Task MarkFailedAsync_when_running_upsert_payload_version_is_superseded_queues_current_version()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("12121212-4444-1111-1111-111111111111");
+        var docId = Guid.Parse("34343434-5555-2222-2222-222222222222");
+        var jobId = Guid.Parse("56565656-6666-3333-3333-333333333333");
+        const string docPath = "General/SupersededFailure.pdf";
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 2, indexedVersion: 1);
+
+        await using (var conn = new NpgsqlConnection(db.ConnectionString))
+        {
+            await conn.OpenAsync();
+            await conn.ExecuteAsync(
+                """
+                UPDATE ingestion_jobs
+                SET payload=CAST(@payload AS jsonb)
+                WHERE tenant_id=@tenant AND job_id=@jobId;
+                """,
+                new
+                {
+                    tenant = tenantId,
+                    jobId,
+                    payload = IngestionJobPayloadJson.Serialize(
+                        docId,
+                        version: 1,
+                        source: "test",
+                        indexedVersionBefore: 1)
+                });
+        }
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        await JobRepo.MarkFailedAsync(ds, jobId, "boom", CancellationToken.None);
+
+        await using var verifyConn = new NpgsqlConnection(db.ConnectionString);
+        await verifyConn.OpenAsync();
+        var oldJob = await verifyConn.QuerySingleAsync<(string status, string last_error)>(
+            "SELECT status, last_error FROM ingestion_jobs WHERE job_id=@jobId;",
+            new { jobId });
+        var followUp = await verifyConn.QuerySingleAsync<(string status, string? version, string? source)>(
+            """
+            SELECT status, payload #>> '{version}' AS version, payload #>> '{source}' AS source
+            FROM ingestion_jobs
+            WHERE tenant_id=@tenant AND doc_path=@docPath AND action='upsert' AND status='queued';
+            """,
+            new { tenant = tenantId, docPath });
+
+        Assert.Equal("canceled", oldJob.status);
+        Assert.Equal("superseded_failed_before_commit", oldJob.last_error);
+        Assert.Equal("queued", followUp.status);
+        Assert.Equal("2", followUp.version);
+        Assert.Equal("superseded", followUp.source);
     }
 
     [Fact]

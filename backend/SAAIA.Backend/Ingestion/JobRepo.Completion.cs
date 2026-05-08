@@ -414,7 +414,8 @@ WHERE job_id=@job_id AND status='running';";
         Guid jobId,
         string docPath,
         int supersededVersion,
-        CancellationToken ct)
+        CancellationToken ct,
+        string lastError = "superseded_version")
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
@@ -440,7 +441,7 @@ FOR UPDATE;
 UPDATE ingestion_jobs
 SET status='canceled',
     finished_at=COALESCE(finished_at, now()),
-    last_error='superseded_version',
+    last_error=@last_error,
     locked_by=NULL,
     locked_at=NULL,
     available_at=now(),
@@ -450,7 +451,7 @@ WHERE job_id=@job_id
 """;
 
         var affected = await conn.ExecuteAsync(
-            new CommandDefinition(cancelSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
+            new CommandDefinition(cancelSql, new { job_id = jobId, last_error = lastError }, transaction: tx, cancellationToken: ct));
         if (affected == 0)
         {
             await tx.CommitAsync(ct);

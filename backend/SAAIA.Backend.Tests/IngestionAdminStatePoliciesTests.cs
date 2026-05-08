@@ -47,6 +47,8 @@ public sealed class IngestionAdminStatePoliciesTests
 
     [Theory]
     [InlineData("superseded_version", false)]
+    [InlineData("superseded_failed_ocr_publish", false)]
+    [InlineData("superseded_failed_before_commit", false)]
     [InlineData("canceled_by_admin", true)]
     [InlineData("canceled_by_admin_token", true)]
     [InlineData("timeout_or_canceled", true)]

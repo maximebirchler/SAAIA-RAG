@@ -39,6 +39,7 @@ SELECT
   END AS ""DocumentIndexable"",
   NULLIF(COALESCE(lr.payload ->> 'failureReason', d.auto_ingest_pause_reason), '') AS ""FailureReason"",
   lr.payload ->> 'extractionSource' AS ""ExtractionSource"",
+  lr.payload ->> 'diagnosticScope' AS ""DiagnosticScope"",
   CASE
     WHEN LOWER(COALESCE(NULLIF(lr.payload ->> 'ocrAttempted', ''), '')) IN ('true','false')
       THEN LOWER(lr.payload ->> 'ocrAttempted')::boolean
@@ -66,7 +67,8 @@ SELECT
     WHEN LOWER(COALESCE(NULLIF(lr.payload #>> '{extractionQuality,ocrRecommended}', ''), '')) IN ('true','false')
       THEN LOWER(lr.payload #>> '{extractionQuality,ocrRecommended}')::boolean
     ELSE false
-  END AS ""RunOcrRecommended""
+  END AS ""RunOcrRecommended"",
+  (lr.payload -> 'pageDiagnostics')::text AS ""RunPageDiagnosticsJson""
 FROM documents d
 LEFT JOIN document_revisions rev
   ON rev.tenant_id=d.tenant_id
@@ -120,6 +122,72 @@ LIMIT 1;";
             return Results.NotFound(new { error = "document_not_found", docId });
 
         var ocrDiagnostics = ParseOptionalJsonElement(doc.OcrDiagnosticsJson);
+        var failedPageItems = ParseFailedPageDiagnostics(doc.RunPageDiagnosticsJson);
+        if (failedPageItems.Length > 0)
+        {
+            return Results.Ok(new
+            {
+                docId = doc.DocId,
+                docPath = doc.DocPath,
+                documentStatus = doc.DocumentStatus,
+                processingRunStatus = doc.ProcessingRunStatus,
+                indexedVersion = doc.IndexedVersion,
+                documentIndexable = doc.DocumentIndexable,
+                failureReason = doc.FailureReason,
+                diagnosticScope = doc.DiagnosticScope,
+                extractionSource = doc.ExtractionSource,
+                ocrAttempted = doc.OcrAttempted,
+                ocrApplied = doc.OcrApplied,
+                ocrLanguages = doc.OcrLanguages,
+                ocrDurationMs = doc.OcrDurationMs,
+                ocrDiagnostics,
+                publishedRevision = doc.RevisionId is null
+                    ? null
+                    : new
+                    {
+                        indexedVersion = doc.IndexedVersion,
+                        revisionId = doc.RevisionId,
+                        searchable = true
+                    },
+                summary = new
+                {
+                    pageCount = failedPageItems.Length,
+                    manualReviewRecommendedPages = failedPageItems.Count(static page => page.ManualReviewRecommended),
+                    probableOcrNoisePages = failedPageItems.Count(static page => page.SuspiciousUnitCount > 0),
+                    emptyTextPages = failedPageItems.Count(static page => page.TextEmpty),
+                    lowTextPages = failedPageItems.Count(static page => page.TextSparse),
+                    imagePages = failedPageItems.Count(static page => page.ImageCount > 0)
+                },
+                pages = failedPageItems.Select(static page => new
+                {
+                    pageNumber = page.PageNumber,
+                    qualityStatus = page.QualityStatus,
+                    extractionConfidence = page.ExtractionConfidence,
+                    manualReviewRecommended = page.ManualReviewRecommended,
+                    charCount = page.CharCount,
+                    wordCount = page.WordCount,
+                    imageCount = page.ImageCount,
+                    unitCount = page.UnitCount,
+                    suspiciousUnitCount = page.SuspiciousUnitCount,
+                    chunkCount = page.ChunkCount,
+                    textStatus = page.TextStatus,
+                    textEmpty = page.TextEmpty,
+                    textSparse = page.TextSparse,
+                    ocrCandidate = page.OcrCandidate,
+                    imageOcrStatus = page.ImageOcrDiagnostic?.Status,
+                    imageOcrReason = page.ImageOcrDiagnostic?.Reason,
+                    imageOcrWordCount = page.ImageOcrDiagnostic?.OcrWordCount,
+                    imageOcrCharCount = page.ImageOcrDiagnostic?.OcrCharCount,
+                    imageOcrExitCode = page.ImageOcrDiagnostic?.ExitCode,
+                    imageOcrTimedOut = page.ImageOcrDiagnostic?.TimedOut,
+                    averageCharsPerWord = page.AverageCharsPerWord,
+                    signals = page.Signals,
+                    unitPreviews = page.UnitPreviews,
+                    chunkPreviews = page.ChunkPreviews
+                })
+            });
+        }
+
         if (doc.RevisionId is null)
         {
             return Results.Ok(new
@@ -131,6 +199,7 @@ LIMIT 1;";
                 indexedVersion = doc.IndexedVersion,
                 documentIndexable = doc.DocumentIndexable,
                 failureReason = doc.FailureReason,
+                diagnosticScope = doc.DiagnosticScope,
                 extractionSource = doc.ExtractionSource,
                 ocrAttempted = doc.OcrAttempted,
                 ocrApplied = doc.OcrApplied,
@@ -409,6 +478,65 @@ ORDER BY chunk_index;";
         }
     }
 
+    private static ExtractionQualityPageItem[] ParseFailedPageDiagnostics(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json) || string.Equals(json, "null", StringComparison.OrdinalIgnoreCase))
+            return [];
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array)
+                return [];
+
+            var result = new List<ExtractionQualityPageItem>();
+            foreach (var item in doc.RootElement.EnumerateArray())
+            {
+                if (!TryGetInt32(item, "pageNumber", out var pageNumber) || pageNumber <= 0)
+                    continue;
+
+                var qualityStatus = TryGetString(item, "qualityStatus") ?? "manual_review_extraction_failed";
+                var imageOcrStatus = TryGetString(item, "imageOcrStatus");
+                var imageOcrDiagnostic = string.IsNullOrWhiteSpace(imageOcrStatus)
+                    ? null
+                    : new ExtractionQualityImageOcrDiagnostic(
+                        imageOcrStatus,
+                        TryGetString(item, "imageOcrReason"),
+                        TryGetNullableInt32(item, "imageOcrWordCount"),
+                        TryGetNullableInt32(item, "imageOcrCharCount"),
+                        TryGetNullableInt32(item, "imageOcrExitCode"),
+                        TryGetBoolean(item, "imageOcrTimedOut"));
+
+                result.Add(new ExtractionQualityPageItem(
+                    pageNumber,
+                    qualityStatus,
+                    TryGetDouble(item, "extractionConfidence") ?? 0.15,
+                    TryGetBoolean(item, "manualReviewRecommended") || qualityStatus.StartsWith("manual_review_", StringComparison.Ordinal),
+                    TryGetNullableInt32(item, "charCount") ?? 0,
+                    TryGetNullableInt32(item, "wordCount") ?? 0,
+                    TryGetNullableInt32(item, "imageCount") ?? 0,
+                    TryGetNullableInt32(item, "unitCount") ?? 0,
+                    TryGetNullableInt32(item, "suspiciousUnitCount") ?? 0,
+                    TryGetNullableInt32(item, "chunkCount") ?? 0,
+                    TryGetString(item, "textStatus") ?? "empty",
+                    TryGetBoolean(item, "textEmpty"),
+                    TryGetBoolean(item, "textSparse"),
+                    TryGetBoolean(item, "ocrCandidate"),
+                    TryGetDouble(item, "averageCharsPerWord") ?? 0.0,
+                    TryGetStringArray(item, "signals"),
+                    [],
+                    [],
+                    imageOcrDiagnostic));
+            }
+
+            return result.OrderBy(static page => page.PageNumber).ToArray();
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
     private static string? TryGetString(JsonElement source, string propertyName)
         => source.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.String
             ? property.GetString()
@@ -435,9 +563,43 @@ ORDER BY chunk_index;";
         return false;
     }
 
+    private static double? TryGetDouble(JsonElement source, string propertyName)
+    {
+        if (!source.TryGetProperty(propertyName, out var property))
+            return null;
+
+        if (property.ValueKind == JsonValueKind.Number && property.TryGetDouble(out var value))
+            return value;
+
+        if (property.ValueKind == JsonValueKind.String
+            && double.TryParse(property.GetString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out value))
+        {
+            return value;
+        }
+
+        return null;
+    }
+
     private static bool TryGetBoolean(JsonElement source, string propertyName)
         => source.TryGetProperty(propertyName, out var property)
            && property.ValueKind == JsonValueKind.True;
+
+    private static string[] TryGetStringArray(JsonElement source, string propertyName)
+    {
+        if (!source.TryGetProperty(propertyName, out var property)
+            || property.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        return property.EnumerateArray()
+            .Where(static item => item.ValueKind == JsonValueKind.String)
+            .Select(static item => item.GetString())
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(static value => value!)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+    }
 
     private sealed class ExtractionQualityDocumentRow
     {
@@ -449,6 +611,7 @@ ORDER BY chunk_index;";
         public Guid? RevisionId { get; set; }
         public bool DocumentIndexable { get; set; } = true;
         public string? FailureReason { get; set; }
+        public string? DiagnosticScope { get; set; }
         public string? ExtractionSource { get; set; }
         public bool OcrAttempted { get; set; }
         public bool OcrApplied { get; set; }
@@ -459,6 +622,7 @@ ORDER BY chunk_index;";
         public int RunEmptyPageCount { get; set; }
         public int RunSparsePageCount { get; set; }
         public bool RunOcrRecommended { get; set; }
+        public string? RunPageDiagnosticsJson { get; set; }
     }
 
     private sealed class ExtractionQualityPageRow

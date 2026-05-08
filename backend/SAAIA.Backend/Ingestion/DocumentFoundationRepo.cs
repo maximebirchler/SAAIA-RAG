@@ -182,7 +182,7 @@ SET doc_path = EXCLUDED.doc_path,
             ct);
     }
 
-    public static async Task PublishFailedOcrExtractionAsync(
+    public static async Task<bool> PublishFailedOcrExtractionAsync(
         NpgsqlDataSource ds,
         Guid tenantId,
         Guid docId,
@@ -200,7 +200,8 @@ SET doc_path = EXCLUDED.doc_path,
         PdfExtractionQualitySummary extractionQuality,
         PdfExtractionQualitySummary? nativeExtractionQuality,
         string failureReason,
-        CancellationToken ct)
+        CancellationToken ct,
+        IReadOnlyList<ExtractedPdfPage>? extractedPages = null)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
@@ -226,24 +227,16 @@ FOR UPDATE;
         var indexedVersionBefore = Math.Max(0, state?.IndexedVersion ?? 0);
         if (state is null || state.IngestionVersion != ingestionVersion)
         {
-            const string supersededSql = """
-UPDATE ingestion_jobs
-SET status='canceled',
-    finished_at=COALESCE(finished_at, now()),
-    last_error='superseded_failed_ocr_publish',
-    locked_by=NULL,
-    locked_at=NULL,
-    payload=((COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}')
-WHERE job_id=@job_id
-  AND status='running';
-""";
-            await conn.ExecuteAsync(new CommandDefinition(
-                supersededSql,
-                new { job_id = jobId },
-                transaction: tx,
-                cancellationToken: ct));
             await tx.CommitAsync(ct);
-            return;
+            await JobRepo.MarkSupersededAndQueueCurrentAsync(
+                ds,
+                tenantId,
+                jobId,
+                docPath,
+                ingestionVersion,
+                ct,
+                lastError: "superseded_failed_ocr_publish");
+            return false;
         }
 
         var pageCount = Math.Max(0, extractionQuality.PageCount);
@@ -314,6 +307,8 @@ WHERE tenant_id=@tenant_id
             {
                 published = false,
                 documentIndexable = false,
+                diagnosticVersion = "extraction_failure_v1",
+                diagnosticScope = "failed_run",
                 failureReason,
                 sourceSize,
                 sourceMtimeUtc = DateTime.SpecifyKind(sourceMtimeUtc, DateTimeKind.Utc),
@@ -328,11 +323,13 @@ WHERE tenant_id=@tenant_id
                 nativeExtractionQuality = nativeExtractionQuality is null
                     ? null
                     : BuildExtractionQualityPayload(nativeExtractionQuality),
-                extractionQuality = BuildExtractionQualityPayload(extractionQuality)
+                extractionQuality = BuildExtractionQualityPayload(extractionQuality),
+                pageDiagnostics = BuildFailedPageDiagnosticsPayload(extractedPages, ocrDiagnostics)
             }),
             ct);
 
         await tx.CommitAsync(ct);
+        return true;
     }
 
     internal static Guid BuildStableRevisionId(Guid tenantId, Guid docId, int indexedVersion)
@@ -1172,6 +1169,61 @@ SET char_count = EXCLUDED.char_count,
             chunkCount,
             signals = review.Signals
         };
+
+    private static object[] BuildFailedPageDiagnosticsPayload(
+        IReadOnlyList<ExtractedPdfPage>? pages,
+        PdfOcrDiagnostics? ocrDiagnostics)
+    {
+        if (pages is null || pages.Count == 0)
+            return [];
+
+        var imageDiagnosticsByPage = (ocrDiagnostics?.ImagePageDiagnostics ?? [])
+            .GroupBy(static item => item.PageNumber)
+            .ToDictionary(static group => group.Key, static group => group.Last());
+
+        return pages
+            .OrderBy(static page => page.PageNumber)
+            .Select(page =>
+            {
+                var pageQuality = page.Quality ?? PdfPageExtractionQuality.FromCounts(page.WordCount, page.CharCount);
+                var review = ExtractionQualityDiagnostics.AssessPage(
+                    page.WordCount,
+                    page.CharCount,
+                    page.ImageCount,
+                    unitCount: 0,
+                    suspiciousUnitCount: 0,
+                    chunkCount: 0,
+                    pageQuality.Signals);
+                imageDiagnosticsByPage.TryGetValue(page.PageNumber, out var imageDiagnostic);
+
+                return new
+                {
+                    pageNumber = page.PageNumber,
+                    charCount = page.CharCount,
+                    wordCount = page.WordCount,
+                    imageCount = page.ImageCount,
+                    unitCount = 0,
+                    suspiciousUnitCount = 0,
+                    chunkCount = 0,
+                    qualityStatus = review.Status,
+                    extractionConfidence = review.ExtractionConfidence,
+                    manualReviewRecommended = review.ManualReviewRecommended,
+                    textStatus = review.TextStatus,
+                    textEmpty = review.TextEmpty,
+                    textSparse = review.TextSparse,
+                    ocrCandidate = review.OcrCandidate,
+                    averageCharsPerWord = review.AverageCharsPerWord,
+                    signals = review.Signals,
+                    imageOcrStatus = imageDiagnostic?.Status,
+                    imageOcrReason = imageDiagnostic?.Reason,
+                    imageOcrWordCount = imageDiagnostic?.OcrWordCount,
+                    imageOcrCharCount = imageDiagnostic?.OcrCharCount,
+                    imageOcrExitCode = imageDiagnostic?.ExitCode,
+                    imageOcrTimedOut = imageDiagnostic?.TimedOut ?? false
+                };
+            })
+            .ToArray();
+    }
 
     private static object BuildOcrDiagnosticsPayload(PdfOcrDiagnostics diagnostics)
         => new
