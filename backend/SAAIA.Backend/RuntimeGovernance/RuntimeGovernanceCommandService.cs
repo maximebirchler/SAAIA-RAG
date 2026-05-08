@@ -9,11 +9,30 @@ internal static class RuntimeGovernanceCommandService
     private const string CdcAlignment = "v3.1";
     private const string AdminRuntimeActor = "admin_runtime_endpoint";
 
+    internal static Task<AdminRuntimeRequalifyResponseDto> RequalifyAsync(
+        NpgsqlDataSource ds,
+        IHttpClientFactory httpFactory,
+        RuntimeGovernanceOptions options,
+        RagOptions rag,
+        IHostEnvironment env,
+        AdminRuntimeRequalifyRequestDto? req,
+        CancellationToken ct)
+        => RequalifyAsync(
+            ds,
+            httpFactory,
+            options,
+            rag,
+            new ChatOptions(),
+            env,
+            req,
+            ct);
+
     internal static async Task<AdminRuntimeRequalifyResponseDto> RequalifyAsync(
         NpgsqlDataSource ds,
         IHttpClientFactory httpFactory,
         RuntimeGovernanceOptions options,
         RagOptions rag,
+        ChatOptions chat,
         IHostEnvironment env,
         AdminRuntimeRequalifyRequestDto? req,
         CancellationToken ct)
@@ -35,6 +54,7 @@ internal static class RuntimeGovernanceCommandService
             req?.SelectWhenQualified,
             options,
             rag,
+            chat,
             httpFactory,
             ct);
 

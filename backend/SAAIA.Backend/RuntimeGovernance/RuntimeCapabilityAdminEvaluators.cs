@@ -281,6 +281,7 @@ internal static class RuntimeCapabilityAdminEvaluators
         bool? selectWhenQualified,
         RuntimeGovernanceOptions options,
         RagOptions rag,
+        ChatOptions chat,
         IHttpClientFactory httpFactory,
         string capabilityKey,
         CancellationToken ct)
@@ -304,6 +305,7 @@ internal static class RuntimeCapabilityAdminEvaluators
                     profile,
                     hardwareGate,
                     runtimeGates,
+                    chat,
                     httpFactory,
                     pass,
                     ct);
@@ -420,6 +422,7 @@ internal static class RuntimeCapabilityAdminEvaluators
         AdminRuntimeWarmupProfileDto profile,
         HardwareGateResult hardwareGate,
         RuntimeSpecificGateResult runtimeGates,
+        ChatOptions chat,
         IHttpClientFactory httpFactory,
         int passNumber,
         CancellationToken ct)
@@ -428,7 +431,7 @@ internal static class RuntimeCapabilityAdminEvaluators
         var measuredAt = DateTimeOffset.UtcNow;
         var sw = Stopwatch.StartNew();
 
-        var llmProbe = await CapabilityBLiveRuntimeProbe.ProbeAsync(httpFactory, ct);
+        var llmProbe = await CapabilityBLiveRuntimeProbe.ProbeAsync(httpFactory, chat, ct);
         sw.Stop();
 
         var performanceBudget = EvaluateCapabilityBPerformanceBudget(profile, llmProbe, sw.ElapsedMilliseconds);

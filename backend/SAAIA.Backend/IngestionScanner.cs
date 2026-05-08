@@ -122,6 +122,7 @@ sealed class IngestionScanner : BackgroundService
         const string loadSql = @"
 SELECT
   doc_path                           AS ""DocPath"",
+  category                           AS ""Category"",
   file_size                          AS ""FileSize"",
   file_mtime                         AS ""FileMtime"",
   status                             AS ""Status"",
@@ -194,7 +195,7 @@ WHERE tenant_id = @tenant_id
                 continue;
             }
 
-            var category = DeriveCategory(rel, opt);
+            var category = IngestionCategoryResolver.Derive(rel, opt);
 
             if (!existing.TryGetValue(rel, out var row))
             {
@@ -233,9 +234,15 @@ WHERE tenant_id = @tenant_id
                 }
             }
 
+            var categoryChanged = !string.Equals(
+                IngestionCategoryResolver.Normalize(row.Category),
+                category,
+                StringComparison.Ordinal);
+
             var changed =
                 (row.FileSize ?? -1) != fi.Length ||
-                !SameMtime(row.FileMtime, fi.LastWriteTimeUtc);
+                !SameMtime(row.FileMtime, fi.LastWriteTimeUtc) ||
+                categoryChanged;
 
             var normalizedStatus = (row.Status ?? string.Empty).Trim().ToLowerInvariant();
             var hasActiveJob = await HasActiveJobForDocAsync(conn, tenantId, rel, ct);
@@ -288,8 +295,8 @@ WHERE tenant_id = @tenant_id
                 else
                 {
                     _log.LogInformation(
-                        "Scanner: enqueue upsert for {DocPath} (status={Status}, changed={Changed}, hasActiveJob={HasActiveJob}, pendingOrBroken={PendingOrBroken}, forceReindex={Force})",
-                        rel, row.Status, changed, hasActiveJob, pendingOrBrokenWithoutJob, forceReindexAll);
+                        "Scanner: enqueue upsert for {DocPath} (status={Status}, changed={Changed}, category_changed={CategoryChanged}, hasActiveJob={HasActiveJob}, pendingOrBroken={PendingOrBroken}, forceReindex={Force})",
+                        rel, row.Status, changed, categoryChanged, hasActiveJob, pendingOrBrokenWithoutJob, forceReindexAll);
                     await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, category, fi, ct, isAutomatic: true, enqueueSource: "scanner");
                     enqUpsert++;
                 }
@@ -593,18 +600,6 @@ WHERE tenant_id=@tenant_id
         }, cancellationToken: ct));
     }
 
-    private static string DeriveCategory(string docPath, IngestionOptions opt)
-    {
-        if (!opt.CategoryFromFirstFolder)
-            return (opt.DefaultCategory ?? "general").Trim().ToLowerInvariant();
-
-        var parts = docPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length >= 2)
-            return parts[0].Trim().ToLowerInvariant();
-
-        return (opt.DefaultCategory ?? "general").Trim().ToLowerInvariant();
-    }
-
     private static async Task<Guid> ResolveSingleTenantIdAsync(NpgsqlDataSource ds, BootstrapOptions bootstrap, CancellationToken ct)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
@@ -633,6 +628,7 @@ WHERE tenant_id=@tenant_id
     private sealed class DocRow
     {
         public string DocPath { get; set; } = "";
+        public string Category { get; set; } = "";
         public long? FileSize { get; set; }
         public DateTime? FileMtime { get; set; }
         public string Status { get; set; } = "";

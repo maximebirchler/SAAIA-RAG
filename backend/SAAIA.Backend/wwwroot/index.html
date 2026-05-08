@@ -34,7 +34,7 @@
     <div class="row">
       <div>
         <label>Category (optionnel)</label>
-        <input id="category" value="programmation" />
+        <input id="category" value="" />
       </div>
       <div>
         <label>topK</label>
@@ -81,7 +81,7 @@ const LS = {
 };
 
 function loadSettings() {
-  document.getElementById('category').value = LS.get('category', 'programmation');
+  document.getElementById('category').value = LS.get('category', '');
   document.getElementById('topK').value = LS.get('topK', '5');
   document.getElementById('apiKey').value = LS.get('apiKey', '');
   document.getElementById('query').value = LS.get('query', 'Résume le passage le plus pertinent.');

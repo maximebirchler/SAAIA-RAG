@@ -16,14 +16,16 @@ internal sealed partial class CapabilityAHypotheticalQuestionService
         string docName,
         IReadOnlyList<string> sectionTitles,
         IReadOnlyList<string> excerpts,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? documentLanguage = null)
     {
-        var fallback = RuntimeCapabilityAEnrichmentStore.BuildHypotheticalQuestions(docName, sectionTitles, excerpts);
+        var resolvedLanguage = ResolveDocumentLanguage(documentLanguage, docName, sectionTitles, excerpts);
+        var fallback = RuntimeCapabilityAEnrichmentStore.BuildHypotheticalQuestions(docName, sectionTitles, excerpts, resolvedLanguage);
         if (!_llmClient.IsConfigured)
             return fallback;
 
         var systemPrompt = """
-You generate concise hypothetical retrieval questions for enterprise document enrichment.
+You generate concise hypothetical retrieval questions for document enrichment.
 Return JSON only with the shape {"questions":["..."]}.
 Constraints:
 - 2 to 4 questions
@@ -31,13 +33,20 @@ Constraints:
 - no markdown
 - no explanations
 - keep each question under 140 characters
+- write questions in the document language when it is known; otherwise use the dominant excerpt language
 """;
 
-        var userPrompt = BuildUserPrompt(docName, sectionTitles, excerpts);
+        var userPrompt = BuildUserPrompt(docName, sectionTitles, excerpts, resolvedLanguage);
         var completion = await _llmClient.TryCompleteAsync(systemPrompt, userPrompt, maxTokens: 220, temperature: 0.1, ct);
         var parsed = ParseQuestions(completion);
+        var grounded = FilterGroundedQuestions(
+            parsed,
+            docName,
+            sectionTitles,
+            excerpts,
+            resolvedLanguage);
 
-        return parsed.Count == 0 ? fallback : parsed;
+        return grounded.Count == 0 ? fallback : grounded;
     }
 
     internal async Task<IReadOnlyList<string>> BuildTagsAsync(
@@ -72,7 +81,8 @@ Constraints:
     private static string BuildUserPrompt(
         string docName,
         IReadOnlyList<string> sectionTitles,
-        IReadOnlyList<string> excerpts)
+        IReadOnlyList<string> excerpts,
+        string documentLanguage)
     {
         var normalizedSections = sectionTitles
             .Where(static title => !string.IsNullOrWhiteSpace(title))
@@ -87,13 +97,28 @@ Constraints:
 
         return $"""
 Document name: {docName}
+Document language: {documentLanguage}
 Section titles:
 {string.Join(Environment.NewLine, normalizedSections.Select(static title => $"- {title}"))}
 Excerpt highlights:
 {string.Join(Environment.NewLine, normalizedExcerpts.Select(static excerpt => $"- {excerpt}"))}
-Generate hypothetical user questions that would help retrieve this document.
+Generate hypothetical user questions that would help retrieve this document. Preserve the document language.
 """;
     }
+
+    private static string ResolveDocumentLanguage(
+        string? documentLanguage,
+        string docName,
+        IReadOnlyList<string> sectionTitles,
+        IReadOnlyList<string> excerpts)
+        => DocumentLanguageResolver.FirstKnownLanguage(documentLanguage)
+            ?? DocumentLanguageResolver.DetectDominantLanguage(string.Join(' ', new[]
+            {
+                docName,
+                string.Join(' ', sectionTitles),
+                string.Join(' ', excerpts)
+            }))
+            ?? "und";
 
     private static string BuildTagsUserPrompt(
         string docName,
@@ -258,6 +283,98 @@ Generate metadata tags for filtering, review, and retrieval diagnostics.
         return normalized;
     }
 
+    private static IReadOnlyList<string> FilterGroundedQuestions(
+        IReadOnlyList<string> questions,
+        string docName,
+        IReadOnlyList<string> sectionTitles,
+        IReadOnlyList<string> excerpts,
+        string documentLanguage)
+    {
+        if (questions.Count == 0)
+            return questions;
+
+        var groundingCorpus = BuildGroundingCorpus(docName, sectionTitles, excerpts);
+        if (string.IsNullOrWhiteSpace(groundingCorpus))
+            return Array.Empty<string>();
+
+        var primaryLanguage = DocumentLanguageResolver.PrimarySubtag(documentLanguage);
+        return questions
+            .Where(static question => question.Length <= 140)
+            .Where(question => !LooksLikeWrongLanguageQuestion(question, primaryLanguage))
+            .Where(question => IsGroundedQuestion(question, groundingCorpus))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(4)
+            .ToArray();
+    }
+
+    private static string BuildGroundingCorpus(
+        string docName,
+        IReadOnlyList<string> sectionTitles,
+        IReadOnlyList<string> excerpts)
+        => NormalizeForGrounding(string.Join(' ', new[]
+        {
+            docName,
+            string.Join(' ', sectionTitles),
+            string.Join(' ', excerpts)
+        }));
+
+    private static bool LooksLikeWrongLanguageQuestion(string question, string primaryLanguage)
+    {
+        if (string.IsNullOrWhiteSpace(primaryLanguage) || primaryLanguage is "und" or "en")
+            return false;
+
+        var normalized = " " + NormalizeForGrounding(question) + " ";
+        var englishHits = CountContains(normalized, EnglishQuestionSignals);
+        if (englishHits < 3)
+            return false;
+
+        var targetHits = primaryLanguage switch
+        {
+            "fr" => CountContains(normalized, [" que ", " quels ", " quelles ", " comment ", " quand ", " document "]),
+            "es" => CountContains(normalized, [" que ", " cuales ", " como ", " cuando ", " documento "]),
+            "pt" => CountContains(normalized, [" que ", " quais ", " como ", " quando ", " documento "]),
+            "de" => CountContains(normalized, [" was ", " welche ", " wie ", " wann ", " dokument "]),
+            "it" => CountContains(normalized, [" che ", " quali ", " come ", " quando ", " documento "]),
+            "nl" => CountContains(normalized, [" welke ", " wat ", " hoe ", " wanneer ", " handleiding "]),
+            _ => 0
+        };
+        return targetHits == 0;
+    }
+
+    private static int CountContains(string normalized, IReadOnlyList<string> needles)
+        => needles.Count(needle => normalized.Contains(needle, StringComparison.Ordinal));
+
+    private static bool IsGroundedQuestion(string question, string groundingCorpus)
+    {
+        var tokens = BuildGroundingTokens(question);
+        if (tokens.Length == 0)
+            return false;
+
+        var matched = tokens.Count(token => TokenOccursInCorpus(token, groundingCorpus));
+        if (tokens.Length <= 2)
+            return matched >= 1;
+
+        return matched >= 2 && matched >= (int)Math.Ceiling(tokens.Length * 0.40d);
+    }
+
+    private static string[] BuildGroundingTokens(string value)
+        => NormalizeForGrounding(value)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(static token => token.Length >= 4)
+            .Where(static token => token.Any(char.IsLetter))
+            .Where(static token => !GroundingStopwords.Contains(token))
+            .Distinct(StringComparer.Ordinal)
+            .Take(12)
+            .ToArray();
+
+    private static bool TokenOccursInCorpus(string token, string groundingCorpus)
+        => groundingCorpus.Contains(token, StringComparison.Ordinal)
+            || (token.Length > 5 && groundingCorpus.Contains(token.TrimEnd('s'), StringComparison.Ordinal))
+            || (token.Length > 5 && groundingCorpus.Contains(token.TrimEnd('e', 's'), StringComparison.Ordinal));
+
+    private static string NormalizeForGrounding(string? value)
+        => StructuredContentLexicon.NormalizeForStructuredLookup(value);
+
     private static IReadOnlyList<string> BuildDeterministicTags(
         string docName,
         string? category,
@@ -327,4 +444,32 @@ Generate metadata tags for filtering, review, and retrieval diagnostics.
 
     [GeneratedRegex(@"^\s*(?:[-*]|\d+[.)])\s*")]
     private static partial Regex LeadingBulletRegex();
+
+    private static readonly string[] EnglishQuestionSignals =
+    [
+        " what ",
+        " which ",
+        " how ",
+        " when ",
+        " does ",
+        " should ",
+        " document ",
+        " describe ",
+        " describes ",
+        " requirements ",
+        " apply ",
+        " relevant "
+    ];
+
+    private static readonly HashSet<string> GroundingStopwords = new(StringComparer.Ordinal)
+    {
+        "about", "avec", "cette", "dans", "document", "documents", "from", "pour",
+        "section", "sections", "that", "this", "with", "sobre", "para", "esta",
+        "este", "questo", "questa", "dokument", "seite", "pages", "page",
+        "what", "which", "does", "says", "discuss", "describe", "describes",
+        "comment", "quels", "quelles", "quoi", "points", "cles", "principaux",
+        "cuales", "quais", "welche", "wichtigsten", "quali", "punti",
+        "user", "users", "question", "questions", "help", "helps", "retrieve",
+        "retrieval", "would", "should", "when", "where", "waar", "welke", "wanneer"
+    };
 }

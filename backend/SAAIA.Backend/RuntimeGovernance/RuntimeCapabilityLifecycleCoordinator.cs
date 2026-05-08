@@ -14,6 +14,7 @@ internal static class RuntimeCapabilityLifecycleCoordinator
         bool? selectWhenQualified,
         RuntimeGovernanceOptions options,
         RagOptions rag,
+        ChatOptions chat,
         IHttpClientFactory httpFactory,
         CancellationToken ct)
     {
@@ -29,6 +30,7 @@ internal static class RuntimeCapabilityLifecycleCoordinator
                 selectWhenQualified,
                 options,
                 rag,
+                chat,
                 httpFactory,
                 ct);
 
@@ -111,6 +113,7 @@ internal static class RuntimeCapabilityLifecycleCoordinator
         bool? selectWhenQualified,
         RuntimeGovernanceOptions options,
         RagOptions rag,
+        ChatOptions chat,
         IHttpClientFactory httpFactory,
         CancellationToken ct)
     {
@@ -174,6 +177,7 @@ internal static class RuntimeCapabilityLifecycleCoordinator
                 selectWhenQualified,
                 options,
                 rag,
+                chat,
                 httpFactory,
                 "capability_b.backoffice_generation",
                 ct);

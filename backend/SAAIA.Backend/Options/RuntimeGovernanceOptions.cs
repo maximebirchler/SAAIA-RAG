@@ -32,6 +32,14 @@ sealed class RuntimeGovernanceOptions
     public bool CapabilityBWorkerEnabled { get; set; } = true;
     public int CapabilityBWorkerEmptyDelayMs { get; set; } = 5000;
     public int CapabilityBWorkerErrorDelayMs { get; set; } = 1000;
+    public bool CapabilityBRequireIngestionIdleForExecution { get; set; } = true;
+    public bool CapabilityBAutoEnqueueWhenIngestionIdleEnabled { get; set; } = true;
+    public int CapabilityBIngestionIdleDelaySeconds { get; set; } = 900;
+    public int CapabilityBRunningJobLeaseTimeoutSeconds { get; set; } = 3600;
+    public int CapabilityBAutoEnqueueBatchSize { get; set; } = 25;
+    public int CapabilityBAutoEnqueueTenantLimit { get; set; } = 8;
+    public int CapabilityBDocumentProfileSectionTitleLimit { get; set; } = 12;
+    public int CapabilityBDocumentProfileExcerptLimit { get; set; } = 10;
     public int RetrievalKpiObservationWindowMinutes { get; set; } = 15;
     public double RetrievalP95TargetMs { get; set; } = 800;
     public double RerankP95TargetMs { get; set; } = 300;

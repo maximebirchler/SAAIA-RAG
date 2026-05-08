@@ -160,7 +160,8 @@ static class QdrantClient
                 NextChunkId: GetStr("next_chunk_id"),
                 SameSectionChunkId: GetStr("same_section_chunk_id"),
                 OffsetStart: GetInt("offset_start"),
-                OffsetEnd: GetInt("offset_end")
+                OffsetEnd: GetInt("offset_end"),
+                Category: GetStr("category")
             );
 
             list.Add(m);
@@ -184,6 +185,16 @@ static class QdrantClient
         }
     }
 }
+
+public sealed record RagMatchedContentCard(
+    string Title,
+    string? ContentCardId = null,
+    int? PageStart = null,
+    int? PageEnd = null,
+    string? Kind = null,
+    IReadOnlyList<string>? Signals = null,
+    JsonElement? Evidence = null
+);
 
 public sealed record RagMatch(
     double Score,
@@ -209,5 +220,7 @@ public sealed record RagMatch(
     string? SameSectionChunkId,
     double? RerankScore = null,
     int? OffsetStart = null,
-    int? OffsetEnd = null
+    int? OffsetEnd = null,
+    IReadOnlyList<RagMatchedContentCard>? MatchedContentCards = null,
+    string? Category = null
 );

@@ -13,6 +13,7 @@ using SAAIA.Backend.Audit;
 using SAAIA.Backend.CatalogSnapshot;
 using SAAIA.Backend.Models;
 using SAAIA.Backend.Shared;
+using SAAIA.Contracts;
 
 namespace SAAIA.Backend.Endpoints;
 
@@ -20,6 +21,8 @@ internal sealed class SummaryEndpointsMarker { }
 
 public static partial class SummaryEndpoints
 {
+    private const int CapabilityBDefaultRunningJobLeaseTimeoutSeconds = 3600;
+
     public static void Map(WebApplication app)
     {
         app.MapGet("/summaries/{docId:guid}", GetSummaryAsync);
@@ -94,18 +97,32 @@ public static partial class SummaryEndpoints
             return Results.NotFound(new { error = "summary_stale", docId, level });
         }
 
-        return Results.Ok(new
+        var source = await ResolvedSourceProjection.ResolveByDocIdAsync(conn, tenantId, docId, ct);
+
+        return Results.Ok(new SummaryGetResponse
         {
-            docId,
-            row.DocPath,
-            row.DocName,
-            level,
-            row.DocLanguage,
-            sourceHash = row.SourceHash,
-            summaryText = row.SummaryText,
-            meta = ParseJsonOrNull(row.SummaryMeta),
-            updatedAt = row.UpdatedAt,
-            isFresh = true
+            DocId = docId,
+            DocPath = row.DocPath,
+            DocName = row.DocName,
+            Level = level,
+            DocLanguage = row.DocLanguage,
+            SourceHash = row.SourceHash,
+            PageStart = source?.PageStart,
+            PageEnd = source?.PageEnd,
+            Label = source?.Label,
+            ProfileLanguage = source?.ProfileLanguage,
+            Category = source?.Category,
+            CategoryRef = source?.CategoryRef,
+            CategoryPath = source?.CategoryPath,
+            ChunkId = source?.ChunkId,
+            ExtractionQuality = source?.ExtractionQuality,
+            MatchedContentCards = source?.MatchedContentCards,
+            SelectionHints = source?.SelectionHints,
+            Source = source,
+            SummaryText = row.SummaryText,
+            Meta = ParseJsonOrNull(row.SummaryMeta),
+            UpdatedAt = row.UpdatedAt,
+            IsFresh = true
         });
     }
 
@@ -178,6 +195,7 @@ LIMIT @lim OFFSET @off;
                 continue;
             }
 
+            var source = await ResolvedSourceProjection.ResolveByDocIdAsync(conn, tenantId, row.DocId, ct);
             items.Add(new
             {
                 row.DocId,
@@ -186,6 +204,18 @@ LIMIT @lim OFFSET @off;
                 row.Level,
                 row.DocLanguage,
                 row.SourceHash,
+                pageStart = source?.PageStart,
+                pageEnd = source?.PageEnd,
+                label = source?.Label,
+                profileLanguage = source?.ProfileLanguage,
+                category = source?.Category,
+                categoryRef = source?.CategoryRef,
+                categoryPath = source?.CategoryPath,
+                chunkId = source?.ChunkId,
+                extractionQuality = source?.ExtractionQuality,
+                matchedContentCards = source?.MatchedContentCards,
+                selectionHints = source?.SelectionHints,
+                source,
                 summaryText = row.SummaryText,
                 row.UpdatedAt
             });
@@ -243,17 +273,33 @@ SELECT
   COUNT(*) FILTER (WHERE s.source_hash IS NULL)::int AS "MissingStored",
   COUNT(*) FILTER (
     WHERE s.source_hash IS NOT NULL
-      AND s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')))
-  )::int AS "StaleStored"
+      AND s.source_hash <> saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version)
+  )::int AS "StaleStored",
+  COUNT(*) FILTER (WHERE llm_profile.document_profile_id IS NULL)::int AS "ProfileMissing"
 FROM documents d
 LEFT JOIN document_summaries s
   ON s.tenant_id = d.tenant_id AND s.doc_id = d.doc_id AND s.level='medium'
+LEFT JOIN LATERAL (
+  SELECT r.revision_id
+  FROM document_revisions r
+  WHERE r.tenant_id = d.tenant_id
+    AND r.doc_id = d.doc_id
+    AND r.indexed_version = COALESCE(d.indexed_version, 0)
+  ORDER BY r.published_at DESC NULLS LAST, r.created_at DESC NULLS LAST
+  LIMIT 1
+) current_revision ON TRUE
+LEFT JOIN document_profiles llm_profile
+  ON llm_profile.tenant_id = d.tenant_id
+ AND llm_profile.doc_id = d.doc_id
+ AND llm_profile.revision_id = current_revision.revision_id
+ AND llm_profile.profile_version = 'llm_backoffice_v1'
 WHERE d.tenant_id=@tenant
   AND d.status='indexed'
   AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
   AND (
     s.source_hash IS NULL
-    OR s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')))
+    OR s.source_hash <> saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version)
+    OR llm_profile.document_profile_id IS NULL
   );
 """;
 
@@ -276,12 +322,26 @@ SELECT
   sj."ActiveSummaryJobCampaignId",
   CASE
     WHEN s.source_hash IS NULL THEN 'missing'
-    WHEN s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,''))) THEN 'stale'
+    WHEN s.source_hash <> saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version) THEN 'stale'
     ELSE 'fresh'
   END AS "SummaryState"
 FROM documents d
 LEFT JOIN document_summaries s
   ON s.tenant_id = d.tenant_id AND s.doc_id = d.doc_id AND s.level='medium'
+LEFT JOIN LATERAL (
+  SELECT r.revision_id
+  FROM document_revisions r
+  WHERE r.tenant_id = d.tenant_id
+    AND r.doc_id = d.doc_id
+    AND r.indexed_version = COALESCE(d.indexed_version, 0)
+  ORDER BY r.published_at DESC NULLS LAST, r.created_at DESC NULLS LAST
+  LIMIT 1
+) current_revision ON TRUE
+LEFT JOIN document_profiles llm_profile
+  ON llm_profile.tenant_id = d.tenant_id
+ AND llm_profile.doc_id = d.doc_id
+ AND llm_profile.revision_id = current_revision.revision_id
+ AND llm_profile.profile_version = 'llm_backoffice_v1'
 LEFT JOIN LATERAL (
   SELECT
     aj.job_id AS "ActiveSummaryJobId",
@@ -308,7 +368,8 @@ WHERE d.tenant_id=@tenant
   AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
   AND (
     s.source_hash IS NULL
-    OR s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')))
+    OR s.source_hash <> saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version)
+    OR llm_profile.document_profile_id IS NULL
   )
 ORDER BY d.updated_at DESC
 LIMIT @lim OFFSET @off;
@@ -354,6 +415,8 @@ LIMIT @lim OFFSET @off;
                 CapabilityBLastJobStatus = capabilityBCandidate?.LastJobStatus,
                 CapabilityBLastJobFinishedAt = capabilityBCandidate?.LastJobFinishedAt,
                 CapabilityBLastJobError = capabilityBCandidate?.LastJobError,
+                CapabilityBProfileState = capabilityBCandidate?.ProfileState,
+                CapabilityBHasBackofficeProfile = capabilityBCandidate?.HasBackofficeProfile ?? false,
                 CapabilityBReasons = capabilityBCandidate?.Reasons ?? Array.Empty<string>()
             };
         }).ToList();
@@ -387,7 +450,8 @@ LIMIT @lim OFFSET @off;
             {
                 total = counts.Total,
                 missingStored = counts.MissingStored,
-                staleStored = counts.StaleStored
+                staleStored = counts.StaleStored,
+                profileMissing = counts.ProfileMissing
             },
             scopePath = categoryPath,
             level = "medium"
@@ -411,17 +475,33 @@ SELECT
   COUNT(*) FILTER (WHERE s.source_hash IS NULL)::int AS "MissingStored",
   COUNT(*) FILTER (
     WHERE s.source_hash IS NOT NULL
-      AND s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')))
-  )::int AS "StaleStored"
+      AND s.source_hash <> saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version)
+  )::int AS "StaleStored",
+  COUNT(*) FILTER (WHERE llm_profile.document_profile_id IS NULL)::int AS "ProfileMissing"
 FROM documents d
 LEFT JOIN document_summaries s
   ON s.tenant_id = d.tenant_id AND s.doc_id = d.doc_id AND s.level='medium'
+LEFT JOIN LATERAL (
+  SELECT r.revision_id
+  FROM document_revisions r
+  WHERE r.tenant_id = d.tenant_id
+    AND r.doc_id = d.doc_id
+    AND r.indexed_version = COALESCE(d.indexed_version, 0)
+  ORDER BY r.published_at DESC NULLS LAST, r.created_at DESC NULLS LAST
+  LIMIT 1
+) current_revision ON TRUE
+LEFT JOIN document_profiles llm_profile
+  ON llm_profile.tenant_id = d.tenant_id
+ AND llm_profile.doc_id = d.doc_id
+ AND llm_profile.revision_id = current_revision.revision_id
+ AND llm_profile.profile_version = 'llm_backoffice_v1'
 WHERE d.tenant_id=@tenant
   AND d.status='indexed'
   AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
   AND (
     s.source_hash IS NULL
-    OR s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')))
+    OR s.source_hash <> saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version)
+    OR llm_profile.document_profile_id IS NULL
   );
 """;
 
@@ -431,6 +511,7 @@ WHERE d.tenant_id=@tenant
             total = row.Total,
             missingStored = row.MissingStored,
             staleStored = row.StaleStored,
+            profileMissing = row.ProfileMissing,
             scopePath = categoryPath,
             level = "medium"
         });
@@ -457,7 +538,7 @@ WHERE d.tenant_id=@tenant
   AND d.status='indexed'
   AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
   AND s.source_hash IS NOT NULL
-  AND s.source_hash = COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')));
+  AND s.source_hash = saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version);
 """;
 
         var total = await conn.ExecuteScalarAsync<int>(new CommandDefinition(sql, new { tenant = tenantId, categoryPath }, cancellationToken: ct));
@@ -494,7 +575,7 @@ WHERE d.tenant_id=@tenant
   AND d.status='indexed'
   AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
   AND s.source_hash IS NOT NULL
-  AND s.source_hash = COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')));
+  AND s.source_hash = saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version);
 """;
 
         const string sql = """
@@ -507,7 +588,7 @@ SELECT
   d.last_ingested_at AS "LastIngestedAt",
   d.updated_at       AS "UpdatedAt",
   s.source_hash      AS "StoredSourceHash",
-  COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,''))) AS "CurrentSourceHash",
+  saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version) AS "CurrentSourceHash",
   'fresh'            AS "SummaryState"
 FROM documents d
 JOIN document_summaries s
@@ -516,7 +597,7 @@ WHERE d.tenant_id=@tenant
   AND d.status='indexed'
   AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
   AND s.source_hash IS NOT NULL
-  AND s.source_hash = COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')))
+  AND s.source_hash = saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version)
 ORDER BY d.updated_at DESC
 LIMIT @lim OFFSET @off;
 """;
@@ -568,17 +649,33 @@ SELECT
   COUNT(*) FILTER (WHERE s.source_hash IS NULL)::int AS "MissingStored",
   COUNT(*) FILTER (
     WHERE s.source_hash IS NOT NULL
-      AND s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')))
-  )::int AS "StaleStored"
+      AND s.source_hash <> saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version)
+  )::int AS "StaleStored",
+  COUNT(*) FILTER (WHERE llm_profile.document_profile_id IS NULL)::int AS "ProfileMissing"
 FROM documents d
 LEFT JOIN document_summaries s
   ON s.tenant_id = d.tenant_id AND s.doc_id = d.doc_id AND s.level='medium'
+LEFT JOIN LATERAL (
+  SELECT r.revision_id
+  FROM document_revisions r
+  WHERE r.tenant_id = d.tenant_id
+    AND r.doc_id = d.doc_id
+    AND r.indexed_version = COALESCE(d.indexed_version, 0)
+  ORDER BY r.published_at DESC NULLS LAST, r.created_at DESC NULLS LAST
+  LIMIT 1
+) current_revision ON TRUE
+LEFT JOIN document_profiles llm_profile
+  ON llm_profile.tenant_id = d.tenant_id
+ AND llm_profile.doc_id = d.doc_id
+ AND llm_profile.revision_id = current_revision.revision_id
+ AND llm_profile.profile_version = 'llm_backoffice_v1'
 WHERE d.tenant_id=@tenant
   AND d.status='indexed'
   AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
   AND (
     s.source_hash IS NULL
-    OR s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')))
+    OR s.source_hash <> saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version)
+    OR llm_profile.document_profile_id IS NULL
   );
 """;
 
@@ -592,7 +689,7 @@ SELECT
   d.last_ingested_at AS "LastIngestedAt",
   d.updated_at       AS "UpdatedAt",
   s.source_hash      AS "StoredSourceHash",
-  COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,''))) AS "CurrentSourceHash",
+  saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version) AS "CurrentSourceHash",
   sj."ActiveSummaryJobId",
   sj."ActiveSummaryJobType",
   sj."ActiveSummaryJobStatus",
@@ -603,12 +700,26 @@ SELECT
   sj."ActiveSummaryJobCampaignId",
   CASE
     WHEN s.source_hash IS NULL THEN 'missing'
-    WHEN s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,''))) THEN 'stale'
+    WHEN s.source_hash <> saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version) THEN 'stale'
     ELSE 'fresh'
   END AS "SummaryState"
 FROM documents d
 LEFT JOIN document_summaries s
   ON s.tenant_id = d.tenant_id AND s.doc_id = d.doc_id AND s.level='medium'
+LEFT JOIN LATERAL (
+  SELECT r.revision_id
+  FROM document_revisions r
+  WHERE r.tenant_id = d.tenant_id
+    AND r.doc_id = d.doc_id
+    AND r.indexed_version = COALESCE(d.indexed_version, 0)
+  ORDER BY r.published_at DESC NULLS LAST, r.created_at DESC NULLS LAST
+  LIMIT 1
+) current_revision ON TRUE
+LEFT JOIN document_profiles llm_profile
+  ON llm_profile.tenant_id = d.tenant_id
+ AND llm_profile.doc_id = d.doc_id
+ AND llm_profile.revision_id = current_revision.revision_id
+ AND llm_profile.profile_version = 'llm_backoffice_v1'
 LEFT JOIN LATERAL (
   SELECT
     aj.job_id AS "ActiveSummaryJobId",
@@ -635,7 +746,8 @@ WHERE d.tenant_id=@tenant
   AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
   AND (
     s.source_hash IS NULL
-    OR s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')))
+    OR s.source_hash <> saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version)
+    OR llm_profile.document_profile_id IS NULL
   )
 ORDER BY d.updated_at DESC
 LIMIT @lim OFFSET @off;
@@ -671,6 +783,8 @@ LIMIT @lim OFFSET @off;
             CapabilityBLastJobStatus = capabilityBCandidate?.LastJobStatus,
             CapabilityBLastJobFinishedAt = capabilityBCandidate?.LastJobFinishedAt,
             CapabilityBLastJobError = capabilityBCandidate?.LastJobError,
+            CapabilityBProfileState = capabilityBCandidate?.ProfileState,
+            CapabilityBHasBackofficeProfile = capabilityBCandidate?.HasBackofficeProfile ?? false,
             CapabilityBReasons = capabilityBCandidate?.Reasons ?? Array.Empty<string>()
         }).ToList();
 
@@ -682,6 +796,7 @@ LIMIT @lim OFFSET @off;
             total = counts.Total,
             missingStored = counts.MissingStored,
             staleStored = counts.StaleStored,
+            profileMissing = counts.ProfileMissing,
             scopePath = categoryPath,
             level = "medium"
         });
@@ -737,17 +852,41 @@ LIMIT @lim OFFSET @off;
         if (doc is null) return Results.NotFound(new { error = "document_not_found", docId = cmd.DocId });
 
         var level = NormalizeStoredSummaryLevel(cmd.Level);
-        var jobId = await InsertAdminJobAsync(conn, tenantId, cmd.DocId.Value, level, "summary.generate", new
+        if (!execution.UsesCapabilityB
+            || !string.Equals(execution.ExecutionMode, "server_backoffice", StringComparison.Ordinal))
         {
-            docId = cmd.DocId,
-            docPath = doc.DocPath,
-            level,
-            force = cmd.Force ?? false,
-            executionMode = execution.ExecutionMode,
-            runtimeCapabilityKey = execution.CapabilityKey,
-            runtimeCapabilityStatus = execution.Status,
-            runtimeCapabilitySelected = execution.UsesCapabilityB
-        }, ct);
+            return Results.Ok(new
+            {
+                jobId = (Guid?)null,
+                status = "backoffice_unavailable",
+                queued = false,
+                error = "backoffice_unavailable",
+                executionMode = execution.ExecutionMode,
+                runtimeCapabilityKey = execution.CapabilityKey,
+                runtimeCapabilityStatus = execution.Status,
+                docId = cmd.DocId,
+                level
+            });
+        }
+
+        var payload = new Dictionary<string, object?>
+        {
+            ["docId"] = cmd.DocId,
+            ["docPath"] = doc.DocPath,
+            ["level"] = level,
+            ["force"] = cmd.Force ?? false,
+            ["executionMode"] = execution.ExecutionMode,
+            ["runtimeCapabilityKey"] = execution.CapabilityKey,
+            ["runtimeCapabilityStatus"] = execution.Status,
+            ["runtimeCapabilitySelected"] = execution.UsesCapabilityB
+        };
+        if (execution.UsesCapabilityB)
+        {
+            payload["source"] = "capability_b";
+            payload["priorityScore"] = 1000;
+        }
+
+        var jobId = await InsertAdminJobAsync(conn, tenantId, cmd.DocId.Value, level, "summary.generate", payload, ct);
 
         return Results.Ok(new
         {
@@ -781,27 +920,56 @@ LIMIT @lim OFFSET @off;
         if (cmd.JobId is not null && cmd.JobId != Guid.Empty && jobContext is null)
             return Results.NotFound(new { error = "job_not_found", jobId = cmd.JobId });
 
-        if (jobContext is not null
-            && string.Equals(jobContext.RuntimeCapabilityKey, "capability_b.backoffice_generation", StringComparison.Ordinal)
-            && !string.IsNullOrWhiteSpace(jobContext.ExecutionLeaseToken))
+        if (jobContext is not null)
         {
-            if (!string.Equals(jobContext.Status, "running", StringComparison.Ordinal))
+            if (!IsSummaryAdminJobType(jobContext.JobType))
+                return Results.BadRequest(new { error = "summary_job_required", jobId = cmd.JobId });
+
+            if (jobContext.DocId is null || jobContext.DocId == Guid.Empty)
+                return Results.BadRequest(new { error = "summary_job_document_required", jobId = cmd.JobId });
+
+            if (jobContext.DocId.Value != cmd.DocId.Value)
+                return Results.BadRequest(new
+                {
+                    error = "summary_job_document_mismatch",
+                    jobId = cmd.JobId,
+                    docId = cmd.DocId,
+                    jobDocId = jobContext.DocId
+                });
+        }
+
+        var capabilityBJobContext = IsCapabilityBBackofficeSummaryJob(jobContext) ? jobContext : null;
+        var isCapabilityBJob = capabilityBJobContext is not null;
+        var capabilityBLeaseStaleBefore = DateTimeOffset.UtcNow.AddSeconds(-CapabilityBDefaultRunningJobLeaseTimeoutSeconds);
+        if (capabilityBJobContext is not null)
+        {
+            if (!string.Equals(capabilityBJobContext.Status, "running", StringComparison.Ordinal))
                 return Results.BadRequest(new { error = "capability_b_job_not_running", jobId = cmd.JobId });
+
+            if (string.IsNullOrWhiteSpace(capabilityBJobContext.ExecutionLeaseToken))
+                return Results.BadRequest(new { error = "capability_b_execution_lease_required", jobId = cmd.JobId });
+
+            if (IsCapabilityBExecutionLeaseExpired(capabilityBJobContext, capabilityBLeaseStaleBefore))
+                return Results.BadRequest(new { error = "capability_b_execution_lease_expired", jobId = cmd.JobId });
 
             if (string.IsNullOrWhiteSpace(cmd.ExecutionLeaseToken))
                 return Results.BadRequest(new { error = "capability_b_execution_lease_required", jobId = cmd.JobId });
 
-            if (!string.Equals(jobContext.ExecutionLeaseToken, cmd.ExecutionLeaseToken, StringComparison.Ordinal))
+            if (!string.Equals(capabilityBJobContext.ExecutionLeaseToken, cmd.ExecutionLeaseToken, StringComparison.Ordinal))
                 return Results.BadRequest(new { error = "capability_b_invalid_execution_lease", jobId = cmd.JobId });
         }
 
-        var sourceHash = string.IsNullOrWhiteSpace(cmd.SourceHash)
-            ? await ComputeDocumentSourceHashAsync(conn, tenantId, cmd.DocId.Value, ct)
-            : cmd.SourceHash.Trim();
-        if (string.IsNullOrWhiteSpace(sourceHash))
-            return Results.BadRequest(new { error = "source_hash_unavailable" });
+        var summaryText = PostgresTextSanitizer.Clean(cmd.SummaryText).Trim();
+        if (string.IsNullOrWhiteSpace(summaryText))
+            return Results.BadRequest(new { error = "summary_text_required" });
 
-        var metaJson = cmd.Meta.HasValue ? cmd.Meta.Value.GetRawText() : null;
+        if (string.IsNullOrWhiteSpace(cmd.SourceHash))
+            return Results.BadRequest(new { error = "source_hash_required" });
+
+        var expectedSourceHash = cmd.SourceHash.Trim();
+        var metaJson = PostgresTextSanitizer.CleanJson(cmd.Meta);
+        var effectiveDocLanguage = ResolveStoredDocLanguage(cmd.DocLanguage, doc.ProfileLanguage);
+        var effectiveDocLanguageSource = ResolveStoredDocLanguageSource(cmd.DocLanguage, doc.ProfileLanguage);
 
         var sql = """
 INSERT INTO document_summaries(tenant_id, doc_id, level, doc_language, source_hash, summary_text, summary_meta, created_at, updated_at)
@@ -815,35 +983,79 @@ DO UPDATE SET
   updated_at = now();
 """;
 
+        await using var tx = await conn.BeginTransactionAsync(ct);
+        var sourceHash = await ComputeDocumentSourceHashForUpdateAsync(conn, tenantId, cmd.DocId.Value, ct, tx);
+        if (string.IsNullOrWhiteSpace(sourceHash))
+        {
+            await tx.RollbackAsync(ct);
+            return Results.BadRequest(new { error = "source_hash_unavailable" });
+        }
+
+        sourceHash = sourceHash.Trim();
+        if (!string.Equals(expectedSourceHash, sourceHash, StringComparison.Ordinal))
+        {
+            await tx.RollbackAsync(ct);
+            return Results.BadRequest(new { error = "source_hash_mismatch" });
+        }
+
         await conn.ExecuteAsync(new CommandDefinition(sql, new
         {
             tenant = tenantId,
             docId = cmd.DocId,
             level,
-            docLanguage = NormalizeDocLanguage(cmd.DocLanguage),
+            docLanguage = effectiveDocLanguage,
             sourceHash,
-            summaryText = cmd.SummaryText,
+            summaryText,
             summaryMeta = (object?)metaJson ?? DBNull.Value
-        }, cancellationToken: ct));
+        }, transaction: tx, cancellationToken: ct));
 
         if (cmd.JobId is not null && cmd.JobId != Guid.Empty)
         {
             var completedBy = string.IsNullOrWhiteSpace(cmd.CompletedBy)
                 ? "admin_submit_summary"
                 : cmd.CompletedBy.Trim();
-            var jobSql = """
+            var jobSql = isCapabilityBJob
+                ? """
 UPDATE admin_jobs
 SET status='done', result=@result::jsonb, finished_at=now(), last_error=NULL
-WHERE tenant_id=@tenant AND job_id=@jobId;
+WHERE tenant_id=@tenant
+  AND job_id=@jobId
+  AND doc_id=@docId
+  AND job_type='summary.generate'
+  AND status='running'
+  AND payload ->> 'executionLeaseToken' = @leaseToken
+  AND COALESCE(
+        CASE
+          WHEN jsonb_typeof(payload -> 'executionHeartbeatAt') = 'string'
+            THEN (payload ->> 'executionHeartbeatAt')::timestamptz
+          ELSE NULL::timestamptz
+        END,
+        CASE
+          WHEN jsonb_typeof(payload -> 'executionClaimedAt') = 'string'
+            THEN (payload ->> 'executionClaimedAt')::timestamptz
+          ELSE NULL::timestamptz
+        END,
+        started_at
+      ) >= @leaseStaleBefore;
+"""
+                : """
+UPDATE admin_jobs
+SET status='done', result=@result::jsonb, finished_at=now(), last_error=NULL
+WHERE tenant_id=@tenant
+  AND job_id=@jobId
+  AND doc_id=@docId
+  AND job_type IN ('summary.request', 'summary.generate');
 """;
             var result = JsonSerializer.Serialize(new Dictionary<string, object?>
             {
                 ["docId"] = cmd.DocId,
                 ["docPath"] = doc.DocPath,
                 ["level"] = level,
+                ["docLanguage"] = effectiveDocLanguage,
+                ["docLanguageSource"] = effectiveDocLanguageSource,
                 ["stored"] = true,
                 ["sourceHash"] = sourceHash,
-                ["summaryLength"] = cmd.SummaryText?.Length ?? 0,
+                ["summaryLength"] = summaryText.Length,
                 ["completedBy"] = completedBy,
                 ["executionMode"] = jobContext?.ExecutionMode,
                 ["runtimeCapabilityKey"] = jobContext?.RuntimeCapabilityKey,
@@ -854,9 +1066,30 @@ WHERE tenant_id=@tenant AND job_id=@jobId;
                 ["campaignId"] = jobContext?.CampaignId,
                 ["executionLeaseToken"] = jobContext?.ExecutionLeaseToken
             });
-            await conn.ExecuteAsync(new CommandDefinition(jobSql, new { tenant = tenantId, jobId = cmd.JobId, result }, cancellationToken: ct));
+            var updatedJobRows = await conn.ExecuteAsync(new CommandDefinition(
+                jobSql,
+                new
+                {
+                    tenant = tenantId,
+                    jobId = cmd.JobId,
+                    docId = cmd.DocId,
+                    leaseToken = cmd.ExecutionLeaseToken,
+                    leaseStaleBefore = capabilityBLeaseStaleBefore.UtcDateTime,
+                    result
+                },
+                transaction: tx,
+                cancellationToken: ct));
+            if (updatedJobRows == 0)
+            {
+                await tx.RollbackAsync(ct);
+                return Results.BadRequest(new
+                {
+                    error = isCapabilityBJob ? "capability_b_invalid_execution_lease" : "summary_job_not_updatable",
+                    jobId = cmd.JobId
+                });
+            }
 
-            if (string.Equals(jobContext?.RuntimeCapabilityKey, "capability_b.backoffice_generation", StringComparison.Ordinal))
+            if (isCapabilityBJob)
             {
                 await RuntimeCapabilityBExecutionCommandService.RecordCapabilityBSummaryCompletedAsync(
                     conn,
@@ -865,15 +1098,18 @@ WHERE tenant_id=@tenant AND job_id=@jobId;
                     doc.DocPath,
                     level,
                     sourceHash,
-                    cmd.SummaryText?.Length ?? 0,
+                    summaryText.Length,
                     jobContext?.RuntimeProfileKey,
                     jobContext?.CampaignId,
                     jobContext?.RuntimeCapabilityStatus,
-                    ct);
+                    ct,
+                    tx);
             }
         }
 
-        return Results.Ok(new { stored = true, docId = cmd.DocId, level, sourceHash });
+        await tx.CommitAsync(ct);
+
+        return Results.Ok(new { stored = true, docId = cmd.DocId, level, docLanguage = effectiveDocLanguage, docLanguageSource = effectiveDocLanguageSource, sourceHash });
     }
 
     internal static async Task<IResult> SummaryStatusAsync(HttpContext ctx, NpgsqlDataSource ds, Guid jobId)
@@ -927,7 +1163,7 @@ SELECT
   CASE
     WHEN d.doc_id IS NULL THEN 'document_missing'
     WHEN s.doc_id IS NULL THEN 'missing'
-    WHEN s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,''))) THEN 'stale'
+    WHEN s.source_hash <> saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version) THEN 'stale'
     ELSE 'fresh'
   END AS "StoredSummaryFreshness",
   payload AS "Payload",
@@ -1036,9 +1272,30 @@ LIMIT 1;
     private static async Task<DocumentRow?> LoadDocumentAsync(NpgsqlConnection conn, Guid tenantId, Guid docId, CancellationToken ct)
     {
         var sql = """
-SELECT doc_id AS "DocId", doc_path AS "DocPath", doc_name AS "DocName", category AS "Category"
-FROM documents
-WHERE tenant_id=@tenant AND doc_id=@docId
+SELECT
+  d.doc_id AS "DocId",
+  d.doc_path AS "DocPath",
+  d.doc_name AS "DocName",
+  d.category AS "Category",
+  profile.language AS "ProfileLanguage"
+FROM documents d
+LEFT JOIN LATERAL (
+  SELECT NULLIF(BTRIM(p.language), 'und') AS language
+  FROM document_profiles p
+  JOIN document_revisions r
+    ON r.revision_id = p.revision_id
+   AND r.tenant_id = p.tenant_id
+   AND r.doc_id = p.doc_id
+  WHERE p.tenant_id = d.tenant_id
+    AND p.doc_id = d.doc_id
+    AND r.indexed_version = COALESCE(d.indexed_version, 0)
+  ORDER BY
+    (NULLIF(BTRIM(p.language), 'und') IS NULL) ASC,
+    r.published_at DESC NULLS LAST,
+    p.profile_version ASC
+  LIMIT 1
+) profile ON true
+WHERE d.tenant_id=@tenant AND d.doc_id=@docId
 LIMIT 1;
 """;
         return await conn.QueryFirstOrDefaultAsync<DocumentRow>(new CommandDefinition(sql, new { tenant = tenantId, docId }, cancellationToken: ct));
@@ -1047,9 +1304,30 @@ LIMIT 1;
     private static async Task<DocumentRow?> LoadDocumentByPathAsync(NpgsqlConnection conn, Guid tenantId, string docPath, CancellationToken ct)
     {
         var sql = """
-SELECT doc_id AS "DocId", doc_path AS "DocPath", doc_name AS "DocName", category AS "Category"
-FROM documents
-WHERE tenant_id=@tenant AND doc_path=@docPath
+SELECT
+  d.doc_id AS "DocId",
+  d.doc_path AS "DocPath",
+  d.doc_name AS "DocName",
+  d.category AS "Category",
+  profile.language AS "ProfileLanguage"
+FROM documents d
+LEFT JOIN LATERAL (
+  SELECT NULLIF(BTRIM(p.language), 'und') AS language
+  FROM document_profiles p
+  JOIN document_revisions r
+    ON r.revision_id = p.revision_id
+   AND r.tenant_id = p.tenant_id
+   AND r.doc_id = p.doc_id
+  WHERE p.tenant_id = d.tenant_id
+    AND p.doc_id = d.doc_id
+    AND r.indexed_version = COALESCE(d.indexed_version, 0)
+  ORDER BY
+    (NULLIF(BTRIM(p.language), 'und') IS NULL) ASC,
+    r.published_at DESC NULLS LAST,
+    p.profile_version ASC
+  LIMIT 1
+) profile ON true
+WHERE d.tenant_id=@tenant AND d.doc_path=@docPath
 LIMIT 1;
 """;
         return await conn.QueryFirstOrDefaultAsync<DocumentRow>(new CommandDefinition(sql, new { tenant = tenantId, docPath = NormalizePath(docPath) }, cancellationToken: ct));
@@ -1059,6 +1337,9 @@ LIMIT 1;
     {
         const string sql = """
 SELECT
+  job_type AS "JobType",
+  doc_id AS "DocId",
+  started_at AS "StartedAt",
   status AS "Status",
   payload ->> 'executionMode' AS "ExecutionMode",
   payload ->> 'runtimeCapabilityKey' AS "RuntimeCapabilityKey",
@@ -1076,6 +1357,10 @@ SELECT
     WHEN jsonb_typeof(payload->'executionClaimedAt')='string' THEN (payload->>'executionClaimedAt')::timestamptz
     ELSE NULL::timestamptz
   END AS "ExecutionClaimedAt",
+  CASE
+    WHEN jsonb_typeof(payload->'executionHeartbeatAt')='string' THEN (payload->>'executionHeartbeatAt')::timestamptz
+    ELSE NULL::timestamptz
+  END AS "ExecutionHeartbeatAt",
   CASE
     WHEN jsonb_typeof(payload->'campaignId')='string' THEN (payload->>'campaignId')::uuid
     ELSE NULL::uuid
@@ -1109,15 +1394,32 @@ LIMIT 1;
         return await conn.QueryFirstOrDefaultAsync<SummaryRow>(new CommandDefinition(sql, new { tenant = tenantId, docId, level }, cancellationToken: ct));
     }
 
-    private static async Task<string?> ComputeDocumentSourceHashAsync(NpgsqlConnection conn, Guid tenantId, Guid docId, CancellationToken ct)
+    private static async Task<string?> ComputeDocumentSourceHashAsync(NpgsqlConnection conn, Guid tenantId, Guid docId, CancellationToken ct, NpgsqlTransaction? tx = null)
     {
         var sql = """
-SELECT COALESCE(encode(content_hash, 'hex'), md5(COALESCE(doc_path,'') || '|' || COALESCE(file_size::text,'') || '|' || COALESCE(file_mtime::text,'')))
+SELECT saaia_document_summary_source_hash(content_hash, doc_path, file_size, file_mtime, indexed_version)
 FROM documents
 WHERE tenant_id=@tenant AND doc_id=@docId
 LIMIT 1;
 """;
-        return await conn.ExecuteScalarAsync<string?>(new CommandDefinition(sql, new { tenant = tenantId, docId }, cancellationToken: ct));
+        return await conn.ExecuteScalarAsync<string?>(new CommandDefinition(sql, new { tenant = tenantId, docId }, transaction: tx, cancellationToken: ct));
+    }
+
+    private static async Task<string?> ComputeDocumentSourceHashForUpdateAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        Guid docId,
+        CancellationToken ct,
+        NpgsqlTransaction tx)
+    {
+        var sql = """
+SELECT saaia_document_summary_source_hash(content_hash, doc_path, file_size, file_mtime, indexed_version)
+FROM documents
+WHERE tenant_id=@tenant AND doc_id=@docId
+LIMIT 1
+FOR UPDATE;
+""";
+        return await conn.ExecuteScalarAsync<string?>(new CommandDefinition(sql, new { tenant = tenantId, docId }, transaction: tx, cancellationToken: ct));
     }
 
     private static async Task<bool> DeleteSummaryCoreAsync(NpgsqlConnection conn, Guid tenantId, Guid docId, string level, CancellationToken ct)
@@ -1142,10 +1444,52 @@ LIMIT 1;
         return "medium";
     }
 
+    private static string ResolveStoredDocLanguage(string? requestedLanguage, string? profileLanguage)
+    {
+        var requested = NormalizeDocLanguage(requestedLanguage);
+        return string.Equals(requested, "und", StringComparison.Ordinal)
+            ? NormalizeDocLanguage(profileLanguage)
+            : requested;
+    }
+
+    private static string ResolveStoredDocLanguageSource(string? requestedLanguage, string? profileLanguage)
+        => !string.Equals(NormalizeDocLanguage(requestedLanguage), "und", StringComparison.Ordinal)
+            ? "request"
+            : !string.Equals(NormalizeDocLanguage(profileLanguage), "und", StringComparison.Ordinal)
+                ? "profile"
+                : "unknown";
+
     private static string NormalizeDocLanguage(string? language)
-        => string.IsNullOrWhiteSpace(language)
-            ? "und"
-            : language.Trim();
+    {
+        if (string.IsNullOrWhiteSpace(language))
+            return "und";
+
+        var normalized = language.Trim().Replace('_', '-').ToLowerInvariant();
+        if (normalized.Contains(',', StringComparison.Ordinal))
+            normalized = normalized.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? string.Empty;
+        if (normalized.Contains('+', StringComparison.Ordinal))
+            normalized = normalized.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? string.Empty;
+
+        return IsPlausibleLanguageTag(normalized) ? normalized : "und";
+    }
+
+    private static bool IsPlausibleLanguageTag(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || string.Equals(value, "und", StringComparison.Ordinal))
+            return string.Equals(value, "und", StringComparison.Ordinal);
+        if (value.Length is < 2 or > 35)
+            return false;
+
+        var parts = value.Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0 || parts.Length > 5)
+            return false;
+        if (parts[0].Length is < 2 or > 8 || !parts[0].All(char.IsLetter))
+            return false;
+
+        return parts.Skip(1).All(static part =>
+            part.Length is >= 2 and <= 8
+            && part.All(static ch => char.IsLetterOrDigit(ch)));
+    }
 
     private static string? NormalizePath(string? path)
     {
@@ -1209,7 +1553,8 @@ LIMIT 1;
     private static async Task<bool> IsCapabilityBExecutionRuntimeReadyAsync(HttpContext ctx, CancellationToken ct)
     {
         var httpFactory = ctx.RequestServices.GetService(typeof(IHttpClientFactory)) as IHttpClientFactory;
-        return (await CapabilityBLiveRuntimeProbe.ProbeAsync(httpFactory, ct)).Available;
+        var chatOptions = (ctx.RequestServices.GetService(typeof(IOptions<ChatOptions>)) as IOptions<ChatOptions>)?.Value;
+        return (await CapabilityBLiveRuntimeProbe.ProbeAsync(httpFactory, chatOptions, ct)).Available;
     }
 
     private static SummaryGenerationExecutionDecision BuildSummaryExecutionDecision(
@@ -1251,6 +1596,9 @@ LIMIT 1;
 
     private sealed class SummaryAdminJobContext
     {
+        public string? JobType { get; set; }
+        public Guid? DocId { get; set; }
+        public DateTimeOffset? StartedAt { get; set; }
         public string? Status { get; set; }
         public string? ExecutionMode { get; set; }
         public string? RuntimeCapabilityKey { get; set; }
@@ -1261,6 +1609,7 @@ LIMIT 1;
         public string? ExecutionLeaseToken { get; set; }
         public string? ExecutionClaimedBy { get; set; }
         public DateTimeOffset? ExecutionClaimedAt { get; set; }
+        public DateTimeOffset? ExecutionHeartbeatAt { get; set; }
         public Guid? CampaignId { get; set; }
     }
 
@@ -1278,6 +1627,28 @@ LIMIT 1;
 
     private static bool CursorMatches(int cursorValue, int requestValue)
         => requestValue <= 0 || cursorValue == requestValue;
+
+    private static bool IsSummaryAdminJobType(string? jobType)
+        => string.Equals(jobType, "summary.request", StringComparison.Ordinal)
+           || string.Equals(jobType, "summary.generate", StringComparison.Ordinal);
+
+    private static bool IsCapabilityBBackofficeSummaryJob(SummaryAdminJobContext? jobContext)
+        => jobContext is not null
+           && (string.Equals(jobContext.RuntimeCapabilityKey, "capability_b.backoffice_generation", StringComparison.Ordinal)
+               || string.Equals(jobContext.EnqueueSource, "capability_b", StringComparison.Ordinal)
+               || string.Equals(jobContext.ExecutionMode, "server_backoffice", StringComparison.Ordinal));
+
+    private static bool IsCapabilityBExecutionLeaseExpired(
+        SummaryAdminJobContext jobContext,
+        DateTimeOffset staleBefore)
+    {
+        var lastLeaseActivity =
+            jobContext.ExecutionHeartbeatAt
+            ?? jobContext.ExecutionClaimedAt
+            ?? jobContext.StartedAt;
+        return lastLeaseActivity is null
+               || lastLeaseActivity.Value.ToUniversalTime() < staleBefore;
+    }
 
     internal sealed record SummaryGenerationExecutionDecision(
         string ExecutionMode,
@@ -1306,6 +1677,7 @@ LIMIT 1;
         public int Total { get; set; }
         public int MissingStored { get; set; }
         public int StaleStored { get; set; }
+        public int ProfileMissing { get; set; }
     }
 
     private sealed class MissingSummaryRow
@@ -1335,5 +1707,6 @@ LIMIT 1;
         public string DocPath { get; set; } = "";
         public string DocName { get; set; } = "";
         public string Category { get; set; } = "";
+        public string? ProfileLanguage { get; set; }
     }
 }

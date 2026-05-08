@@ -19,10 +19,11 @@ static partial class IngestionEnqueue
         FileInfo? fi,
         CancellationToken ct,
         bool isAutomatic = false,
-        string? enqueueSource = null)
+        string? enqueueSource = null,
+        IngestionCapabilityAProfileSeed? capabilityAProfileSeed = null)
     {
         docPath = PathUtil.NormalizeRelativePath(docPath);
-        category = string.IsNullOrWhiteSpace(category) ? "general" : category.Trim().ToLowerInvariant();
+        category = IngestionCategoryResolver.Normalize(category);
 
         var docName = Path.GetFileName(docPath);
         var docId = IdUtil.DeterministicGuid($"{tenantId}:{docPath}");
@@ -135,7 +136,8 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path
             returned.doc_id,
             returned.ingestion_version,
             payloadSource,
-            returned.indexed_version);
+            returned.indexed_version,
+            capabilityAProfileSeed);
         var jobId = Guid.NewGuid();
 
         const string jobSql = """

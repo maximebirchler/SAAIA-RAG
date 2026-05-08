@@ -93,9 +93,7 @@ public static class IngestionAdminEndpoints
             if (minAge > TimeSpan.Zero && (now - fi.LastWriteTimeUtc) < minAge)
                 continue;
 
-            var docCategory = ingest.CategoryFromFirstFolder
-                ? (rel.Split('/', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? ingest.DefaultCategory ?? "general").Trim().ToLowerInvariant()
-                : (ingest.DefaultCategory ?? "general").Trim().ToLowerInvariant();
+            var docCategory = IngestionCategoryResolver.Derive(rel, ingest);
 
             if (filterCategory is not null && docCategory != filterCategory)
                 continue;

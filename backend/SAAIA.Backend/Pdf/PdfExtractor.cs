@@ -11,6 +11,7 @@ static class PdfExtractor
     {
         var tokens = new List<WordToken>();
         var pages = new List<ExtractedPdfPage>();
+        var rawPages = new List<(int PageNumber, string Text, int ImageCount)>();
 
         using var doc = PdfPig.PdfDocument.Open(pdfPath);
         foreach (var page in doc.GetPages())
@@ -18,21 +19,30 @@ static class PdfExtractor
             ct.ThrowIfCancellationRequested();
 
             var text = PdfTextSanitizer.ForStorage(page.Text);
+            rawPages.Add((page.Number, text, CountPageImages(page)));
+        }
+
+        foreach (var rawPage in RemoveRepeatedPageBoilerplate(rawPages))
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var text = rawPage.Text;
             var words = SplitWords(text).ToArray();
             foreach (var w in words)
             {
                 ct.ThrowIfCancellationRequested();
                 if (w.Length == 0) continue;
-                tokens.Add(new WordToken(w, page.Number)); // page.Number is 1-based
+                tokens.Add(new WordToken(w, rawPage.PageNumber)); // PageNumber is 1-based
             }
 
             pages.Add(new ExtractedPdfPage(
-                PageNumber: page.Number,
+                PageNumber: rawPage.PageNumber,
                 Text: text,
                 WordCount: words.Length,
                 CharCount: text.Length,
                 Checksum: SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text)),
-                Quality: PdfPageExtractionQuality.FromCounts(words.Length, text.Length)));
+                Quality: PdfPageExtractionQuality.FromCounts(words.Length, text.Length),
+                ImageCount: rawPage.ImageCount));
         }
 
         return new PdfExtractionResult(tokens, pages, PdfExtractionQualitySummary.FromPages(pages));
@@ -46,6 +56,79 @@ static class PdfExtractor
 
     private static IEnumerable<string> SplitWords(string s)
         => s.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+
+    private static int CountPageImages(UglyToad.PdfPig.Content.Page page)
+    {
+        try
+        {
+            return page.GetImages().Count();
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    internal static IReadOnlyList<(int PageNumber, string Text, int ImageCount)> RemoveRepeatedPageBoilerplate(
+        IReadOnlyList<(int PageNumber, string Text, int ImageCount)> pages)
+    {
+        if (pages.Count < 3)
+            return pages;
+
+        var pageLineSets = pages
+            .Select(static page => ExtractCandidateBoilerplateLines(page.Text).Distinct(StringComparer.OrdinalIgnoreCase).ToArray())
+            .ToArray();
+        var repeated = pageLineSets
+            .SelectMany(static lines => lines)
+            .GroupBy(static line => line, StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() >= Math.Max(3, (int)Math.Ceiling(pages.Count * 0.35)))
+            .Select(static group => group.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (repeated.Count == 0)
+            return pages;
+
+        return pages
+            .Select(page => (page.PageNumber, Text: RemoveRepeatedLines(page.Text, repeated), page.ImageCount))
+            .ToArray();
+    }
+
+    private static IEnumerable<string> ExtractCandidateBoilerplateLines(string text)
+    {
+        foreach (var line in SplitLikelyLines(text))
+        {
+            var normalized = NormalizeBoilerplateLine(line);
+            if (normalized.Length is < 8 or > 120)
+                continue;
+
+            var tokenCount = SplitWords(normalized).Count();
+            if (tokenCount is < 2 or > 12)
+                continue;
+
+            yield return normalized;
+        }
+    }
+
+    private static string RemoveRepeatedLines(string text, ISet<string> repeated)
+    {
+        var lines = SplitLikelyLines(text).ToArray();
+        if (lines.Length <= 1)
+        {
+            var normalized = NormalizeBoilerplateLine(text);
+            return repeated.Contains(normalized) ? string.Empty : text;
+        }
+
+        return string.Join('\n', lines.Where(line => !repeated.Contains(NormalizeBoilerplateLine(line)))).Trim();
+    }
+
+    private static IEnumerable<string> SplitLikelyLines(string text)
+        => (text ?? string.Empty)
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    private static string NormalizeBoilerplateLine(string line)
+        => System.Text.RegularExpressions.Regex.Replace(line ?? string.Empty, @"\s+", " ").Trim();
 }
 
 sealed record WordToken(string Word, int Page);
@@ -55,7 +138,8 @@ sealed record ExtractedPdfPage(
     int WordCount,
     int CharCount,
     byte[] Checksum,
-    PdfPageExtractionQuality? Quality = null);
+    PdfPageExtractionQuality? Quality = null,
+    int ImageCount = 0);
 
 sealed record PdfPageExtractionQuality(
     string TextStatus,
@@ -194,6 +278,51 @@ sealed record PdfExtractionQualitySummary(
 sealed record PdfExtractionResult(
     List<WordToken> Tokens,
     List<ExtractedPdfPage> Pages,
-    PdfExtractionQualitySummary Quality);
+    PdfExtractionQualitySummary Quality,
+    string Source = "pdf_text",
+    string? OcrLanguages = null,
+    PdfOcrDiagnostics? OcrDiagnostics = null);
+
+sealed record PdfImagePageOcrPlan(
+    int CandidatePageCount,
+    int AttemptedPageCount,
+    int SkippedPageCount,
+    int MaxPages,
+    int[] CandidatePages,
+    int[] AttemptedPages,
+    int[] SkippedPages);
+
+sealed record PdfImagePageOcrDiagnostic(
+    int PageNumber,
+    string Status,
+    string? Reason = null,
+    int? OcrWordCount = null,
+    int? OcrCharCount = null,
+    int? ExitCode = null,
+    bool TimedOut = false);
+
+sealed record PdfOcrDiagnostics(
+    string Mode,
+    int CandidatePageCount,
+    int AttemptedPageCount,
+    int SkippedPageCount,
+    int MaxPages,
+    int[] CandidatePages,
+    int[] AttemptedPages,
+    int[] SkippedPages,
+    int[] PagesWithOcrText,
+    int[] PagesWithNovelText,
+    int? ExitCode = null,
+    bool TimedOut = false,
+    int? TimeoutSeconds = null,
+    string? Stderr = null,
+    string? FailureReason = null,
+    string? AppliedReason = null,
+    string? CoverageStatus = null,
+    IReadOnlyList<PdfImagePageOcrDiagnostic>? ImagePageDiagnostics = null);
+
+sealed record PdfImagePageOcrResult(
+    PdfExtractionResult? Extraction,
+    PdfOcrDiagnostics Diagnostics);
 
 sealed record Chunk(int ChunkIndex, int PageStart, int PageEnd, string Text);

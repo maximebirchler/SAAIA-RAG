@@ -1,26 +1,5 @@
-DELETE FROM document_profile_content_cards
-WHERE kind <> 'section'
-  AND (
-    LOWER(BTRIM(title, ' •·-"''«»')) ~ '^(abaissez|ajoutez?|arrosez|assaisonnez|badigeonnez|battez|beurrez|choisissez|couvrez|creusez|d[eé]coupez|d[eé]posez|dressez|[eé]crasez|[eé]gouttez|emportez|enduisez|enfournez|enlevez|[eé]talez|filtrez|foncez|garnissez|glissez|incorporez|lavez|manipulez|m[eé]langez|passez|p[eé]trissez|piquez|placez|posez|pr[eé]chauffez|ramenez|r[eé]alisez|recouvrez|rectifiez|remettez|r[eé]servez|roulez|saisissez?|saupoudrez|sortez)([[:space:]-]|$)'
-    OR LOWER(BTRIM(title, ' •·-"''«»')) LIKE 'bien %'
-    OR LOWER(BTRIM(title, ' •·-"''«»')) LIKE 'bonne nouvelle %'
-    OR LOWER(BTRIM(title, ' •·-"''«»')) LIKE 'c est %'
-    OR LOWER(BTRIM(title, ' •·-"''«»')) LIKE 'c’est %'
-    OR LOWER(BTRIM(title, ' •·-"''«»')) LIKE 'c''est %'
-    OR LOWER(BTRIM(title, ' •·-"''«»')) LIKE 'ça %'
-    OR LOWER(BTRIM(title, ' •·-"''«»')) LIKE 'ca %'
-    OR LOWER(BTRIM(title, ' •·-"''«»')) LIKE 'dans tous les cas %'
-    OR LOWER(BTRIM(title, ' •·-"''«»')) LIKE 'l idee %'
-    OR LOWER(BTRIM(title, ' •·-"''«»')) LIKE 'l’idée %'
-    OR LOWER(BTRIM(title, ' •·-"''«»')) LIKE 'l''idee %'
-    OR LOWER(BTRIM(title, ' •·-"''«»')) LIKE 'le repas %'
-    OR LOWER(BTRIM(title, ' •·-"''«»')) LIKE 'mais la aussi %'
-    OR LOWER(BTRIM(title, ' •·-"''«»')) LIKE 'mais là aussi %'
-    OR LOWER(BTRIM(title, ' •·-"''«»')) LIKE 'n hesitez %'
-    OR LOWER(BTRIM(title, ' •·-"''«»')) LIKE 'n’hésitez %'
-    OR LOWER(BTRIM(title, ' •·-"''«»')) LIKE 'n''hesitez %'
-    OR LOWER(BTRIM(title, ' •·-"''«»')) LIKE 'onne %'
-    OR LOWER(BTRIM(title, ' •·-"''«»')) LIKE 'ou saisir %'
-    OR LOWER(BTRIM(title, ' •·-"''«»')) LIKE 'pour des recettes %'
-    OR LOWER(BTRIM(title, ' •·-"''«»')) LIKE 'pourtant %'
-  );
+-- Retired as a product migration.
+--
+-- The previous revision used action words from one corpus to delete profile
+-- cards globally. Runtime ingestion must stay domain-neutral; low-signal cards
+-- should be handled by generic ranking/scoring and versioned regeneration.

@@ -204,12 +204,64 @@ public sealed class RuntimeGovernanceCoreLogicTests
     }
 
     [Fact]
-    public void BuildLexicalContentFallbackTerms_bridges_french_and_english_inerting_terms()
+    public async Task RuntimeLlmCapacityPlanService_caps_multi_instance_plan_without_router()
+    {
+        var previousPath = Environment.GetEnvironmentVariable("LLM_CAPACITY_PLAN_PATH");
+        var previousRouter = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_MULTI_INSTANCE_ROUTER_ENABLED");
+        var tempRoot = Path.Combine(Path.GetTempPath(), "saaia-llm-capacity-router-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+            var planPath = Path.Combine(tempRoot, "llm.capacity-plan.json");
+            await File.WriteAllTextAsync(planPath, """
+            {
+              "version": "v3.1-server-capacity",
+              "plannedAt": "2026-04-29T12:00:00Z",
+              "licenseSeats": 25,
+              "modelId": "qwen-server-test",
+              "repo": "test/repo",
+              "file": "test.gguf",
+              "profile": "server-multi",
+              "instances": 3,
+              "slotsPerInstance": 2,
+              "totalSlots": 6,
+              "queueLimit": 20,
+              "perUserActiveLimit": 2,
+              "perUserQueuedLimit": 2
+            }
+            """);
+            Environment.SetEnvironmentVariable("LLM_CAPACITY_PLAN_PATH", planPath);
+            Environment.SetEnvironmentVariable("BACKOFFICE_LLM_MULTI_INSTANCE_ROUTER_ENABLED", null);
+
+            var service = new RuntimeLlmCapacityPlanService(
+                new StubHostEnvironment { ContentRootPath = tempRoot },
+                Options.Create(new LicenseOptions { Seats = 25 }));
+            var response = await service.GetCapacityAsync(new RuntimeLlmQueueManager(), CancellationToken.None);
+
+            Assert.Equal("ok", response.Status);
+            Assert.Equal(3, response.Plan!.Instances);
+            Assert.Equal(6, response.Plan.TotalSlots);
+            Assert.Equal(2, response.Queue.TotalSlots);
+            Assert.Equal(2, response.Queue.AvailableSlots);
+            Assert.Contains(response.Recommendations, item => item.Contains("single Chat:LlmBaseUrl", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("LLM_CAPACITY_PLAN_PATH", previousPath);
+            Environment.SetEnvironmentVariable("BACKOFFICE_LLM_MULTI_INSTANCE_ROUTER_ENABLED", previousRouter);
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void BuildLexicalContentFallbackTerms_keeps_query_terms_without_domain_translation()
     {
         var terms = RagEndpoints.BuildLexicalContentFallbackTerms("Je veux les documents qui parlent d'inertage");
 
         Assert.Contains("inertage", terms);
-        Assert.Contains("inerting", terms);
+        Assert.DoesNotContain("inerting", terms);
         Assert.DoesNotContain("inert", terms);
         Assert.DoesNotContain("documents", terms);
     }
@@ -218,12 +270,11 @@ public sealed class RuntimeGovernanceCoreLogicTests
     public void BuildLexicalContentFallbackTerms_extracts_generic_singular_phrases()
     {
         var terms = RagEndpoints.BuildLexicalContentFallbackTerms(
-            "Compare les deux quiches lorraines du corpus : differences d'ingredients, methode et style.");
+            "Compare les deux rapports techniques du corpus : differences de methode et style.");
 
-        Assert.Contains("quiche", terms);
-        Assert.Contains("lorraine", terms);
-        Assert.Contains("quiche lorraine", terms);
-        Assert.DoesNotContain("ingredients", terms);
+        Assert.Contains("rapport", terms);
+        Assert.Contains("technique", terms);
+        Assert.Contains("rapport technique", terms);
         Assert.DoesNotContain("methode", terms);
         Assert.DoesNotContain("corpus", terms);
     }
@@ -244,10 +295,11 @@ public sealed class RuntimeGovernanceCoreLogicTests
 
         var accentTerms = RagEndpoints.BuildLexicalContentFallbackTerms(
             "Sauce bearnaise, bechamel, eclairs et entrecote");
-        Assert.Contains("b\u00e9arnaise", accentTerms);
-        Assert.Contains("b\u00e9chamel", accentTerms);
-        Assert.Contains("\u00e9clairs", accentTerms);
-        Assert.Contains("entrec\u00f4te", accentTerms);
+        Assert.Contains("bearnaise", accentTerms);
+        Assert.Contains("bechamel", accentTerms);
+        Assert.Contains("eclairs", accentTerms);
+        Assert.Contains("entrecote", accentTerms);
+        Assert.DoesNotContain("steak", accentTerms);
     }
 
     [Fact]
@@ -277,7 +329,7 @@ public sealed class RuntimeGovernanceCoreLogicTests
         var expandedOtherCategory = RagEndpoints.ExpandRetrievalQuery(query, "atex");
 
         Assert.Contains("entrecote", expanded);
-        Assert.Contains("steak", expanded);
+        Assert.DoesNotContain("steak", expanded);
         Assert.DoesNotContain("rumsteck", expanded);
         Assert.DoesNotContain("viande rouge", expanded);
         Assert.DoesNotContain("sauces trempettes", expanded);
@@ -302,6 +354,9 @@ public sealed class RuntimeGovernanceCoreLogicTests
     {
         Assert.Equal("broad", RagEndpoints.ResolveEffectiveSearchMode(null, "Compare trois procedures et dis laquelle choisir."));
         Assert.Equal("broad", RagEndpoints.ResolveEffectiveSearchMode(null, "Quel document est le plus technique ?"));
+        Assert.Equal("broad", RagEndpoints.ResolveEffectiveSearchMode(null, "Quels documents sont disponibles dans la base ?"));
+        Assert.Equal("broad", RagEndpoints.ResolveEffectiveSearchMode(null, "Tu peux me faire une vue d'ensemble des documents par grands themes ?"));
+        Assert.Equal("broad", RagEndpoints.ResolveEffectiveSearchMode(null, "Which manuals are available in the knowledge base?"));
         Assert.Equal("broad", RagEndpoints.ResolveEffectiveSearchMode("", "Which report is the most relevant?"));
         Assert.Equal("focused", RagEndpoints.ResolveEffectiveSearchMode("focused", "Compare les options."));
         Assert.Equal("balanced", RagEndpoints.ResolveEffectiveSearchMode(null, "Donne-moi la procedure d'installation."));
@@ -312,10 +367,43 @@ public sealed class RuntimeGovernanceCoreLogicTests
     {
         Assert.True(RagEndpoints.ShouldPreferComparativeDocumentDiversity("Compare les options disponibles."));
         Assert.True(RagEndpoints.ShouldPreferComparativeDocumentDiversity("Qual documento e o mais tecnico?"));
+        Assert.True(RagEndpoints.ShouldPreferDocumentDiversity("Quels livres vois-tu dans cette base documentaire ?"));
+        Assert.True(RagEndpoints.ShouldPreferDocumentDiversity("Fammi una panoramica dei documenti disponibili."));
+        Assert.False(RagEndpoints.ShouldPreferDocumentDiversity("Donne-moi la procedure d'installation."));
+        Assert.True(RagEndpoints.ShouldSkipChunkRetrieversForDocumentOverview("Quels documents sont disponibles dans la base ?", hasDocScope: false, mode: "balanced"));
+        Assert.False(RagEndpoints.ShouldSkipChunkRetrieversForDocumentOverview("Quels documents sont disponibles dans la base ?", hasDocScope: true, mode: "balanced"));
+        Assert.False(RagEndpoints.ShouldSkipChunkRetrieversForDocumentOverview("Quels documents sont disponibles dans la base ?", hasDocScope: false, mode: "focused"));
+        Assert.True(RagEndpoints.ShouldRequireDocumentOverviewProfileMatch("Quels documents parlent d'inertage ?"));
+        Assert.True(RagEndpoints.ShouldRequireDocumentOverviewProfileMatch("Which documents mention nitrogen blanketing?"));
+        Assert.False(RagEndpoints.ShouldRequireDocumentOverviewProfileMatch("Quels documents sont disponibles dans la base ?"));
+        Assert.False(RagEndpoints.ShouldRequireDocumentOverviewProfileMatch("Quels livres de recettes tu vois dans la base et a quoi ils servent chacun ?"));
         Assert.Equal(120, RagEndpoints.ResolveDefaultCandidateCount("broad", preferComparativeDiversity: true, topK: 8));
         Assert.Equal(96, RagEndpoints.ResolveDefaultCandidateCount("broad", preferComparativeDiversity: false, topK: 8));
         Assert.Equal(1, RagEndpoints.ResolveDefaultMaxPerDoc("broad", preferComparativeDiversity: true, topK: 8));
         Assert.Equal(2, RagEndpoints.ResolveDefaultMaxPerDoc("broad", preferComparativeDiversity: false, topK: 8));
+    }
+
+    [Fact]
+    public void Document_level_selection_keeps_profile_matches_in_ranked_order_for_overview_queries()
+    {
+        var chunk = CreateRetrievalMatch("chunk", "Knowledge/manual.pdf", "unit_exact_v1", 0.91);
+        var profile = CreateRetrievalMatch("profile", "Knowledge/manual.pdf", "document_profile", 0.86);
+        var ranked = new[] { profile, chunk };
+
+        Assert.Equal(["chunk", "profile"], RagEndpoints.OrderMatchesForSelection(ranked, prioritizeDocumentProfiles: false).Select(static match => match.ChunkId));
+        Assert.Equal(["profile", "chunk"], RagEndpoints.OrderMatchesForSelection(ranked, prioritizeDocumentProfiles: true).Select(static match => match.ChunkId));
+    }
+
+    [Fact]
+    public void Document_profile_matches_are_not_pruned_as_navigation()
+    {
+        var profile = CreateRetrievalMatch("profile", "Knowledge/list.pdf", "document_profile", 0.32) with
+        {
+            Text = "Ce document comprend une liste de contenus disponibles et un apercu des sujets traites."
+        };
+
+        Assert.False(RagEndpoints.LooksLikeNavigationalChunk(profile));
+        Assert.False(RagEndpoints.LooksLikeGlossaryChunk(profile));
     }
 
     [Fact]
@@ -325,7 +413,7 @@ public sealed class RuntimeGovernanceCoreLogicTests
 
         Assert.Contains("dessert", tokens);
         Assert.DoesNotContain("technique", tokens);
-        Assert.True(RagEndpoints.ContainsComparativeSubjectAnchor(tokens, "Recettes sucrées et pâtisserie."));
+        Assert.True(RagEndpoints.ContainsComparativeSubjectAnchor(tokens, "Desserts et patisserie."));
         Assert.False(RagEndpoints.ContainsComparativeSubjectAnchor(tokens, "Technique très simple pour une procedure."));
     }
 
@@ -363,15 +451,15 @@ public sealed class RuntimeGovernanceCoreLogicTests
             2,
             "chunk-subject",
             1,
-            "Recettes sucrées: eclairs, profiteroles et autres patisseries.",
+            "Desserts: eclairs, profiteroles et autres patisseries.",
             1,
             "hash-subject",
-            "Recettes sucrées: eclairs, profiteroles et autres patisseries.",
+            "Desserts: eclairs, profiteroles et autres patisseries.",
             "sparse_bm25_v1",
             1,
             1,
-            "Recettes sucrées",
-            "Recettes sucrées",
+            "Desserts",
+            "Desserts",
             "unit_exact_v1",
             null,
             null,
@@ -549,6 +637,120 @@ public sealed class RuntimeGovernanceCoreLogicTests
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previous);
         }
     }
+
+    [Fact]
+    public void CapabilityBIngestionIdle_blocks_when_ingestion_is_active()
+    {
+        var now = DateTimeOffset.Parse("2026-05-05T12:00:00Z");
+        var snapshot = RuntimeCapabilityBIngestionIdleCoordinator.Evaluate(
+            activeIngestionJobs: 2,
+            lastIngestionActivityAt: now.AddHours(-2),
+            requiredIdleDelay: TimeSpan.FromMinutes(15),
+            now);
+
+        Assert.False(snapshot.IsIdle);
+        Assert.Equal("ingestion_active", snapshot.Reason);
+        Assert.Equal(2, snapshot.ActiveIngestionJobs);
+        Assert.Null(snapshot.IdleFor);
+    }
+
+    [Fact]
+    public void CapabilityBIngestionIdle_waits_after_recent_ingestion_activity()
+    {
+        var now = DateTimeOffset.Parse("2026-05-05T12:00:00Z");
+        var snapshot = RuntimeCapabilityBIngestionIdleCoordinator.Evaluate(
+            activeIngestionJobs: 0,
+            lastIngestionActivityAt: now.AddMinutes(-5),
+            requiredIdleDelay: TimeSpan.FromMinutes(15),
+            now);
+
+        Assert.False(snapshot.IsIdle);
+        Assert.Equal("ingestion_recent", snapshot.Reason);
+        Assert.Equal(TimeSpan.FromMinutes(5), snapshot.IdleFor);
+    }
+
+    [Fact]
+    public void CapabilityBIngestionIdle_allows_summary_work_after_idle_delay()
+    {
+        var now = DateTimeOffset.Parse("2026-05-05T12:00:00Z");
+        var snapshot = RuntimeCapabilityBIngestionIdleCoordinator.Evaluate(
+            activeIngestionJobs: 0,
+            lastIngestionActivityAt: now.AddMinutes(-20),
+            requiredIdleDelay: TimeSpan.FromMinutes(15),
+            now);
+
+        Assert.True(snapshot.IsIdle);
+        Assert.Equal("ingestion_idle", snapshot.Reason);
+        Assert.Equal(TimeSpan.FromMinutes(20), snapshot.IdleFor);
+    }
+
+    [Fact]
+    public void CapabilityBIngestionIdle_allows_summary_work_when_no_ingestion_history_exists()
+    {
+        var now = DateTimeOffset.Parse("2026-05-05T12:00:00Z");
+        var snapshot = RuntimeCapabilityBIngestionIdleCoordinator.Evaluate(
+            activeIngestionJobs: 0,
+            lastIngestionActivityAt: null,
+            requiredIdleDelay: TimeSpan.FromMinutes(15),
+            now);
+
+        Assert.True(snapshot.IsIdle);
+        Assert.Equal("no_ingestion_activity", snapshot.Reason);
+        Assert.Null(snapshot.IdleFor);
+    }
+
+    [Fact]
+    public void CapabilityBIdleSchedulerDto_exposes_policy_for_client_surfaces()
+    {
+        var now = DateTimeOffset.Parse("2026-05-05T12:00:00Z");
+        var options = new RuntimeGovernanceOptions
+        {
+            CapabilityBRequireIngestionIdleForExecution = true,
+            CapabilityBAutoEnqueueWhenIngestionIdleEnabled = true,
+            CapabilityBIngestionIdleDelaySeconds = 900,
+            CapabilityBAutoEnqueueBatchSize = 7
+        };
+        var snapshot = RuntimeCapabilityBIngestionIdleCoordinator.Evaluate(
+            activeIngestionJobs: 0,
+            lastIngestionActivityAt: now.AddMinutes(-5),
+            requiredIdleDelay: TimeSpan.FromSeconds(options.CapabilityBIngestionIdleDelaySeconds),
+            now);
+
+        var dto = RuntimeCapabilityBIngestionIdleCoordinator.BuildSchedulerDto(options, snapshot);
+
+        Assert.True(dto.Enabled);
+        Assert.True(dto.RequiresIngestionIdle);
+        Assert.True(dto.AutoEnqueueEnabled);
+        Assert.False(dto.IsIdle);
+        Assert.Equal("waiting_for_ingestion_idle", dto.State);
+        Assert.Equal(900, dto.RequiredIdleSeconds);
+        Assert.Equal(300, dto.IdleForSeconds);
+        Assert.Equal(7, dto.AutoEnqueueBatchSize);
+    }
+
+    private static RagMatch CreateRetrievalMatch(string chunkId, string docPath, string chunkType, double score)
+        => new(
+            Score: score,
+            DocId: Guid.NewGuid().ToString(),
+            DocPath: docPath,
+            DocName: Path.GetFileName(docPath),
+            PageStart: 1,
+            PageEnd: 1,
+            ChunkId: chunkId,
+            ChunkIndex: 0,
+            Text: chunkType,
+            IngestionVersion: 1,
+            HashDoc: "abc",
+            EmbedText: chunkType,
+            EmbeddingBasis: chunkType == "document_profile" ? "document_profile_v1" : "unit_exact_v1",
+            SectionOrdinal: null,
+            UnitOrdinal: null,
+            SectionTitle: chunkType,
+            HeadingPath: chunkType,
+            ChunkType: chunkType,
+            PrevChunkId: null,
+            NextChunkId: null,
+            SameSectionChunkId: null);
 
     private sealed class StubHostEnvironment : IHostEnvironment
     {

@@ -52,7 +52,7 @@ normalized_candidates AS (
     AND CARDINALITY(REGEXP_SPLIT_TO_ARRAY(title, '[[:space:]]+')) BETWEEN 2 AND 14
     AND title ~ '[[:alpha:]]'
     AND title !~ '[0-9]{4,}'
-    AND LOWER(title) !~ '^(ingredients?|preparations?|method|methods|steps?|etapes?|sources?|notes?|sommaire|contents|index|page)([[:space:]:-]|$)'
+    AND LOWER(title) !~ '^(sources?|references?|notes?|sommaire|contents|index|pages?|documents?|table (des matieres|of contents))([[:space:]:-]|$)'
 ),
 deduped AS (
   SELECT DISTINCT ON (candidate.document_profile_id, candidate.normalized_title)
@@ -88,7 +88,7 @@ prepared AS (
       '[[:space:]]+',
       ' ',
       'g') AS search_text,
-    md5(document_profile_id::text || '|compact-numeric-suffix-card|' || normalized_title || '|' || COALESCE(page_start::text, '')) AS stable_hash
+    md5(document_profile_id::text || '|content-card|' || normalized_title) AS stable_hash
   FROM ranked
   WHERE card_index < 240
 )

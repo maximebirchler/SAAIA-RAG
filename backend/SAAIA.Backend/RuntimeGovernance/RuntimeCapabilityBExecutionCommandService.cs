@@ -100,6 +100,23 @@ internal static class RuntimeCapabilityBExecutionCommandService
             req,
             ct);
 
+    internal static Task<RuntimeOperationResult<CapabilityBCompletionResult>> CompleteCapabilityBBackofficeExecutionWithGeneratedProfileAsync(
+        Guid tenantId,
+        NpgsqlDataSource ds,
+        AdminRuntimeCapabilityBCompleteRequestDto? req,
+        Guid? generatedProfileRevisionId,
+        ProjectedDocumentProfile? generatedProfile,
+        CancellationToken ct)
+        => RuntimeCapabilityBExecutionCoordinator.CompleteAsync(
+            tenantId,
+            ds,
+            AdminRuntimeActor,
+            CapabilityBBackofficeGenerationKey,
+            req,
+            generatedProfileRevisionId,
+            generatedProfile,
+            ct);
+
     internal static async Task<RuntimeOperationResult<AdminRuntimeCapabilityBFailResponseDto>> FailCapabilityBBackofficeExecutionAsync(
         Guid tenantId,
         NpgsqlDataSource ds,
@@ -156,7 +173,8 @@ internal static class RuntimeCapabilityBExecutionCommandService
         string? profileKey,
         Guid? campaignId,
         string? runtimeCapabilityStatus,
-        CancellationToken ct)
+        CancellationToken ct,
+        NpgsqlTransaction? tx = null)
         => RuntimeCapabilityBExecutionStore.RecordCapabilityBSummaryCompletedAsync(
             conn,
             jobId,
@@ -168,5 +186,6 @@ internal static class RuntimeCapabilityBExecutionCommandService
             profileKey,
             campaignId,
             runtimeCapabilityStatus,
-            ct);
+            ct,
+            tx);
 }

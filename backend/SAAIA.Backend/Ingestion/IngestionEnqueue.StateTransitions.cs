@@ -202,6 +202,7 @@ WHERE tenant_id=@tenant_id
         docPath = PathUtil.NormalizeRelativePath(docPath);
         var docId = IdUtil.DeterministicGuid($"{tenantId}:{docPath}");
         var docName = Path.GetFileName(docPath);
+        var category = IngestionCategoryResolver.DeriveFromDocumentPath(docPath);
 
         const string docSql = """
 INSERT INTO documents(
@@ -210,7 +211,7 @@ INSERT INTO documents(
   auto_ingest_paused, auto_ingest_paused_at, auto_ingest_pause_reason
 )
 VALUES(
-  @tenant_id, @doc_id, @doc_path, @doc_name, 'general',
+  @tenant_id, @doc_id, @doc_path, @doc_name, @category,
   'missing', now(), now(), 0, 0,
   false, NULL, NULL
 )
@@ -233,7 +234,8 @@ RETURNING doc_id;
                 tenant_id = tenantId,
                 doc_id = docId,
                 doc_path = docPath,
-                doc_name = docName
+                doc_name = docName,
+                category
             }, cancellationToken: ct)
         );
 

@@ -42,6 +42,7 @@ public static partial class DocumentsEndpoints
         app.MapGet("/admin/catalog/empty-folders/count", EmptyFoldersCountAsync).RequireAdminKey();
         app.MapGet("/admin/catalog/empty-folders", EmptyFoldersListAsync).RequireAdminKey();
         app.MapGet("/admin/documents/extraction-quality", ExtractionQualityAsync).RequireAdminKey();
+        app.MapGet("/admin/documents/{docId:guid}/extraction-pages", ExtractionQualityPagesAsync).RequireAdminKey();
 
         app.Logger.LogInformation("Mapped documents endpoints (catalog + count/tree/stats + legacy admin list + admin diagnostics)");
     }
@@ -102,23 +103,83 @@ public static partial class DocumentsEndpoints
 
         const string sql = @"
 SELECT
-  doc_id           AS ""DocId"",
-  doc_path         AS ""DocPath"",
-  doc_name         AS ""DocName"",
-  category         AS ""Category"",
-  CASE WHEN doc_path LIKE '%/%' THEN regexp_replace(doc_path, '/[^/]+$', '') ELSE '' END AS ""CategoryPath"",
-  status           AS ""Status"",
-  page_count       AS ""PageCount"",
-  last_ingested_at AS ""LastIngestedAt"",
-  updated_at       AS ""UpdatedAt""
-FROM documents
-WHERE tenant_id=@tenant
-  AND status='indexed'
-  AND (@category IS NULL OR category=@category)
-  AND (@categoryPath IS NULL OR doc_path LIKE (@categoryPath || '/%'))
-  AND (@changedSince IS NULL OR updated_at >= @changedSince)
-  AND (@q IS NULL OR (doc_name ILIKE ('%' || @q || '%') OR doc_path ILIKE ('%' || @q || '%')))
-ORDER BY category ASC, doc_path ASC
+  d.doc_id           AS ""DocId"",
+  d.doc_path         AS ""DocPath"",
+  d.doc_name         AS ""DocName"",
+  d.category         AS ""Category"",
+  CASE WHEN d.doc_path LIKE '%/%' THEN regexp_replace(d.doc_path, '/[^/]+$', '') ELSE '' END AS ""CategoryPath"",
+  CASE WHEN top_cat.display_order IS NULL THEN NULL ELSE ('cat_' || lpad(top_cat.display_order::text, 3, '0')) END AS ""CategoryRef"",
+  saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version) AS ""SourceHash"",
+  COALESCE(
+    NULLIF(NULLIF(lower(BTRIM(profile.language)), ''), 'und'),
+    NULLIF(NULLIF(lower(BTRIM(summary.doc_language)), ''), 'und'),
+    NULLIF(NULLIF(lower(BTRIM(run.document_language)), ''), 'und')
+  ) AS ""DocLanguage"",
+  NULLIF(NULLIF(lower(BTRIM(profile.language)), ''), 'und') AS ""ProfileLanguage"",
+  d.status           AS ""Status"",
+  d.page_count       AS ""PageCount"",
+  d.last_ingested_at AS ""LastIngestedAt"",
+  d.updated_at       AS ""UpdatedAt""
+FROM documents d
+LEFT JOIN LATERAL (
+  SELECT c.display_order
+  FROM documents_catalog_categories c
+  WHERE c.tenant_id = d.tenant_id
+    AND c.path = split_part(d.doc_path, '/', 1)
+  LIMIT 1
+) top_cat ON true
+LEFT JOIN LATERAL (
+  SELECT NULLIF(BTRIM(p.language), '') AS language
+  FROM document_profiles p
+  JOIN document_revisions r
+    ON r.revision_id = p.revision_id
+   AND r.tenant_id = p.tenant_id
+   AND r.doc_id = p.doc_id
+  WHERE p.tenant_id = d.tenant_id
+    AND p.doc_id = d.doc_id
+    AND r.indexed_version = d.indexed_version
+  ORDER BY
+    (NULLIF(BTRIM(p.language), 'und') IS NULL) ASC,
+    CASE p.profile_version
+      WHEN 'llm_backoffice_v1' THEN 0
+      WHEN 'foundation_v1' THEN 1
+      WHEN 'deterministic_v1' THEN 2
+      ELSE 3
+    END,
+    r.published_at DESC NULLS LAST,
+    p.updated_at DESC NULLS LAST
+  LIMIT 1
+) profile ON true
+LEFT JOIN LATERAL (
+  SELECT NULLIF(BTRIM(s.doc_language), '') AS doc_language
+  FROM document_summaries s
+  WHERE s.tenant_id = d.tenant_id
+    AND s.doc_id = d.doc_id
+    AND s.source_hash = saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version)
+  ORDER BY
+    CASE s.level WHEN 'medium' THEN 0 WHEN 'long' THEN 1 WHEN 'short' THEN 2 ELSE 3 END,
+    s.updated_at DESC NULLS LAST,
+    s.created_at DESC NULLS LAST
+  LIMIT 1
+) summary ON true
+LEFT JOIN LATERAL (
+  SELECT NULLIF(BTRIM(pr.payload ->> 'documentLanguage'), '') AS document_language
+  FROM document_processing_runs pr
+  WHERE pr.tenant_id = d.tenant_id
+    AND pr.doc_id = d.doc_id
+    AND pr.action = 'upsert'
+    AND pr.status = 'done'
+    AND pr.indexed_version_after = d.indexed_version
+  ORDER BY pr.finished_at DESC NULLS LAST, pr.started_at DESC NULLS LAST
+  LIMIT 1
+) run ON true
+WHERE d.tenant_id=@tenant
+  AND d.status='indexed'
+  AND (@category IS NULL OR d.category=@category)
+  AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
+  AND (@changedSince IS NULL OR d.updated_at >= @changedSince)
+  AND (@q IS NULL OR (d.doc_name ILIKE ('%' || @q || '%') OR d.doc_path ILIKE ('%' || @q || '%')))
+ORDER BY d.category ASC, d.doc_path ASC
 LIMIT @lim OFFSET @off;";
 
         var rows = await conn.QueryAsync(sql, new { tenant = tenantId, category, categoryPath, changedSince, q, lim, off });
@@ -151,17 +212,77 @@ LIMIT @lim OFFSET @off;";
 
         const string sql = @"
 SELECT
-  doc_id           AS ""DocId"",
-  doc_path         AS ""DocPath"",
-  doc_name         AS ""DocName"",
-  category         AS ""Category"",
-  CASE WHEN doc_path LIKE '%/%' THEN regexp_replace(doc_path, '/[^/]+$', '') ELSE '' END AS ""CategoryPath"",
-  status           AS ""Status"",
-  page_count       AS ""PageCount"",
-  last_ingested_at AS ""LastIngestedAt"",
-  updated_at       AS ""UpdatedAt""
-FROM documents
-WHERE tenant_id=@tenant AND doc_id=@docId AND status='indexed'
+  d.doc_id           AS ""DocId"",
+  d.doc_path         AS ""DocPath"",
+  d.doc_name         AS ""DocName"",
+  d.category         AS ""Category"",
+  CASE WHEN d.doc_path LIKE '%/%' THEN regexp_replace(d.doc_path, '/[^/]+$', '') ELSE '' END AS ""CategoryPath"",
+  CASE WHEN top_cat.display_order IS NULL THEN NULL ELSE ('cat_' || lpad(top_cat.display_order::text, 3, '0')) END AS ""CategoryRef"",
+  saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version) AS ""SourceHash"",
+  COALESCE(
+    NULLIF(NULLIF(lower(BTRIM(profile.language)), ''), 'und'),
+    NULLIF(NULLIF(lower(BTRIM(summary.doc_language)), ''), 'und'),
+    NULLIF(NULLIF(lower(BTRIM(run.document_language)), ''), 'und')
+  ) AS ""DocLanguage"",
+  NULLIF(NULLIF(lower(BTRIM(profile.language)), ''), 'und') AS ""ProfileLanguage"",
+  d.status           AS ""Status"",
+  d.page_count       AS ""PageCount"",
+  d.last_ingested_at AS ""LastIngestedAt"",
+  d.updated_at       AS ""UpdatedAt""
+FROM documents d
+LEFT JOIN LATERAL (
+  SELECT c.display_order
+  FROM documents_catalog_categories c
+  WHERE c.tenant_id = d.tenant_id
+    AND c.path = split_part(d.doc_path, '/', 1)
+  LIMIT 1
+) top_cat ON true
+LEFT JOIN LATERAL (
+  SELECT NULLIF(BTRIM(p.language), '') AS language
+  FROM document_profiles p
+  JOIN document_revisions r
+    ON r.revision_id = p.revision_id
+   AND r.tenant_id = p.tenant_id
+   AND r.doc_id = p.doc_id
+  WHERE p.tenant_id = d.tenant_id
+    AND p.doc_id = d.doc_id
+    AND r.indexed_version = d.indexed_version
+  ORDER BY
+    (NULLIF(BTRIM(p.language), 'und') IS NULL) ASC,
+    CASE p.profile_version
+      WHEN 'llm_backoffice_v1' THEN 0
+      WHEN 'foundation_v1' THEN 1
+      WHEN 'deterministic_v1' THEN 2
+      ELSE 3
+    END,
+    r.published_at DESC NULLS LAST,
+    p.updated_at DESC NULLS LAST
+  LIMIT 1
+) profile ON true
+LEFT JOIN LATERAL (
+  SELECT NULLIF(BTRIM(s.doc_language), '') AS doc_language
+  FROM document_summaries s
+  WHERE s.tenant_id = d.tenant_id
+    AND s.doc_id = d.doc_id
+    AND s.source_hash = saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version)
+  ORDER BY
+    CASE s.level WHEN 'medium' THEN 0 WHEN 'long' THEN 1 WHEN 'short' THEN 2 ELSE 3 END,
+    s.updated_at DESC NULLS LAST,
+    s.created_at DESC NULLS LAST
+  LIMIT 1
+) summary ON true
+LEFT JOIN LATERAL (
+  SELECT NULLIF(BTRIM(pr.payload ->> 'documentLanguage'), '') AS document_language
+  FROM document_processing_runs pr
+  WHERE pr.tenant_id = d.tenant_id
+    AND pr.doc_id = d.doc_id
+    AND pr.action = 'upsert'
+    AND pr.status = 'done'
+    AND pr.indexed_version_after = d.indexed_version
+  ORDER BY pr.finished_at DESC NULLS LAST, pr.started_at DESC NULLS LAST
+  LIMIT 1
+) run ON true
+WHERE d.tenant_id=@tenant AND d.doc_id=@docId AND d.status='indexed'
 LIMIT 1;";
 
         var row = await conn.QueryFirstOrDefaultAsync(sql, new { tenant = tenantId, docId });
@@ -698,7 +819,27 @@ WHERE tenant_id=@tenant AND status='indexed';";
 
         const string scopeWhere = @"
 WHERE d.tenant_id=@tenant
-  AND d.status='indexed'
+  AND (
+    d.status='indexed'
+    OR (
+      d.status='error'
+      AND COALESCE(d.indexed_version, 0)=0
+      AND COALESCE(d.auto_ingest_paused, false)
+      AND NULLIF(d.auto_ingest_pause_reason, '') IS NOT NULL
+      AND EXISTS (
+        SELECT 1
+        FROM document_processing_runs failed_pr
+        WHERE failed_pr.tenant_id=d.tenant_id
+          AND failed_pr.doc_id=d.doc_id
+          AND failed_pr.action='upsert'
+          AND failed_pr.status='failed'
+          AND (
+            LOWER(COALESCE(NULLIF(failed_pr.payload ->> 'documentIndexable', ''), ''))='false'
+            OR COALESCE(failed_pr.payload ->> 'failureReason', '') <> ''
+          )
+      )
+    )
+  )
   AND (@path IS NULL OR d.doc_path LIKE (@path || '/%'))";
 
         var qualityCte = $@"
@@ -707,75 +848,280 @@ WITH scoped_docs AS (
     d.doc_id,
     d.tenant_id,
     d.doc_path,
-    d.indexed_version
+    d.indexed_version,
+    d.content_hash,
+    d.file_size,
+    d.file_mtime,
+    d.status AS document_status,
+    d.auto_ingest_pause_reason,
+    rev.revision_id
   FROM documents d
+  LEFT JOIN document_revisions rev
+    ON rev.tenant_id=d.tenant_id
+   AND rev.doc_id=d.doc_id
+   AND rev.indexed_version=d.indexed_version
   {scopeWhere}
 ),
 latest_runs AS (
   SELECT
     sd.doc_id,
+    r.status AS processing_run_status,
     r.payload
   FROM scoped_docs sd
   LEFT JOIN LATERAL (
-    SELECT payload
+    SELECT status, payload
     FROM document_processing_runs pr
     WHERE pr.tenant_id=sd.tenant_id
       AND pr.doc_id=sd.doc_id
       AND pr.action='upsert'
-      AND pr.status='done'
+      AND (
+        (
+          sd.document_status='indexed'
+          AND pr.status='done'
+          AND (
+            (sd.revision_id IS NOT NULL AND pr.revision_id=sd.revision_id)
+            OR (sd.revision_id IS NULL AND pr.indexed_version_after=sd.indexed_version)
+          )
+        )
+        OR (
+          sd.document_status='error'
+          AND pr.status='failed'
+          AND pr.indexed_version_after=COALESCE(sd.indexed_version, 0)
+          AND (
+            LOWER(COALESCE(NULLIF(pr.payload ->> 'documentIndexable', ''), ''))='false'
+            OR COALESCE(pr.payload ->> 'failureReason', '') <> ''
+          )
+        )
+      )
     ORDER BY pr.finished_at DESC NULLS LAST, pr.started_at DESC NULLS LAST
     LIMIT 1
   ) r ON true
 ),
-page_quality AS (
+enrichment_state AS (
   SELECT
     sd.doc_id,
-    COUNT(pi.page_number)::int AS page_count,
-    COUNT(*) FILTER (WHERE pm.word_count > 0 AND COALESCE(pi.char_count, 0) > 0)::int AS text_page_count,
-    COUNT(*) FILTER (WHERE pi.page_number IS NOT NULL AND (pm.word_count <= 0 OR COALESCE(pi.char_count, 0) <= 0))::int AS empty_page_count,
-    COUNT(*) FILTER (
-      WHERE pi.page_number IS NOT NULL
-        AND pm.word_count > 0
-        AND COALESCE(pi.char_count, 0) > 0
-        AND (pm.word_count < 12 OR pi.char_count < 80)
-    )::int AS sparse_page_count,
-    COALESCE(SUM(pm.word_count), 0)::int AS total_word_count,
-    COALESCE(SUM(pi.char_count), 0)::int AS total_char_count
+    CASE
+      WHEN sd.document_status <> 'indexed' THEN false
+      ELSE summary.doc_id IS NULL
+    END AS summary_enrichment_pending,
+    CASE
+      WHEN sd.document_status <> 'indexed' THEN false
+      ELSE profile.document_profile_id IS NULL
+    END AS profile_enrichment_pending,
+    CASE
+      WHEN sd.document_status <> 'indexed' THEN false
+      ELSE (
+        profile.document_profile_id IS NULL
+        OR COALESCE(profile.content_card_evidence_schema_version, 0) < 2
+      )
+    END AS content_card_enrichment_pending
   FROM scoped_docs sd
-  LEFT JOIN document_revisions rev
-    ON rev.tenant_id=sd.tenant_id
-   AND rev.doc_id=sd.doc_id
-   AND rev.indexed_version=sd.indexed_version
-  LEFT JOIN document_page_index pi
-    ON pi.tenant_id=sd.tenant_id
-   AND pi.revision_id=rev.revision_id
   LEFT JOIN LATERAL (
-    SELECT CASE
+    SELECT
+      p.document_profile_id,
+      CASE
+        WHEN COALESCE(p.metadata ->> 'contentCardEvidenceSchemaVersion', '') ~ '^[0-9]+$'
+          THEN (p.metadata ->> 'contentCardEvidenceSchemaVersion')::int
+        ELSE 0
+      END AS content_card_evidence_schema_version
+    FROM document_profiles p
+    WHERE p.tenant_id=sd.tenant_id
+      AND p.doc_id=sd.doc_id
+      AND p.revision_id=sd.revision_id
+      AND p.profile_version='llm_backoffice_v1'
+    ORDER BY p.updated_at DESC NULLS LAST
+    LIMIT 1
+  ) profile ON true
+  LEFT JOIN LATERAL (
+    SELECT s.doc_id
+    FROM document_summaries s
+    WHERE s.tenant_id=sd.tenant_id
+      AND s.doc_id=sd.doc_id
+      AND s.level='medium'
+      AND s.source_hash = saaia_document_summary_source_hash(
+        sd.content_hash,
+        sd.doc_path,
+        sd.file_size,
+        sd.file_mtime,
+        sd.indexed_version)
+    ORDER BY s.updated_at DESC NULLS LAST, s.created_at DESC NULLS LAST
+    LIMIT 1
+  ) summary ON true
+),
+page_rows AS (
+  SELECT
+    sd.doc_id,
+    sd.tenant_id,
+    sd.revision_id,
+    pi.page_number,
+    COALESCE(pi.char_count, 0)::int AS char_count,
+    CASE
       WHEN COALESCE(pi.metadata ->> 'wordCount', '') ~ '^[0-9]+$' THEN (pi.metadata ->> 'wordCount')::int
       ELSE 0
-    END AS word_count
-  ) pm ON true
-  GROUP BY sd.doc_id
+    END AS word_count,
+    CASE
+      WHEN COALESCE(pi.metadata ->> 'imageCount', '') ~ '^[0-9]+$' THEN (pi.metadata ->> 'imageCount')::int
+      ELSE 0
+    END AS image_count
+  FROM scoped_docs sd
+  LEFT JOIN document_page_index pi
+    ON pi.tenant_id=sd.tenant_id
+   AND pi.revision_id=sd.revision_id
+),
+page_projection AS (
+  SELECT
+    pr.*,
+    COALESCE(uc.unit_count, 0) AS unit_count,
+    COALESCE(cc.chunk_count, 0) AS chunk_count
+  FROM page_rows pr
+  LEFT JOIN LATERAL (
+    SELECT COUNT(*)::int AS unit_count
+    FROM document_units u
+    WHERE u.tenant_id=pr.tenant_id
+      AND u.revision_id=pr.revision_id
+      AND pr.page_number IS NOT NULL
+      AND u.page_start <= pr.page_number
+      AND pr.page_number <= u.page_end
+  ) uc ON true
+  LEFT JOIN LATERAL (
+    SELECT COUNT(*)::int AS chunk_count
+    FROM retrieval_chunks rc
+    WHERE rc.tenant_id=pr.tenant_id
+      AND rc.revision_id=pr.revision_id
+      AND pr.page_number IS NOT NULL
+      AND rc.page_start <= pr.page_number
+      AND pr.page_number <= rc.page_end
+  ) cc ON true
+),
+page_quality AS (
+  SELECT
+    doc_id,
+    COUNT(page_number)::int AS page_count,
+    COUNT(*) FILTER (WHERE word_count > 0 AND char_count > 0)::int AS text_page_count,
+    COUNT(*) FILTER (WHERE page_number IS NOT NULL AND (word_count <= 0 OR char_count <= 0))::int AS empty_page_count,
+    COUNT(*) FILTER (
+      WHERE page_number IS NOT NULL
+        AND word_count > 0
+        AND char_count > 0
+        AND (word_count < 12 OR char_count < 80)
+    )::int AS sparse_page_count,
+    COUNT(*) FILTER (WHERE image_count > 0)::int AS image_page_count,
+    COUNT(*) FILTER (
+      WHERE page_number IS NOT NULL
+        AND (
+          ((word_count <= 0 OR char_count <= 0) AND chunk_count <= 0)
+          OR (word_count > 0 AND char_count > 0 AND (word_count < 12 OR char_count < 80) AND chunk_count <= 0)
+          OR (unit_count <= 0 AND chunk_count <= 0 AND (word_count >= 30 OR char_count >= 200))
+        )
+    )::int AS page_warning_count,
+    COUNT(*) FILTER (
+      WHERE page_number IS NOT NULL
+        AND (
+          (image_count > 0 AND (word_count <= 0 OR char_count <= 0))
+          OR (image_count > 0 AND unit_count <= 0 AND chunk_count <= 0 AND word_count > 0 AND char_count > 0 AND (word_count < 12 OR char_count < 80))
+          OR (unit_count <= 0 AND chunk_count <= 0 AND (word_count >= 30 OR char_count >= 200))
+        )
+    )::int AS page_review_recommended_count,
+    COALESCE(SUM(word_count), 0)::int AS total_word_count,
+    COALESCE(SUM(char_count), 0)::int AS total_char_count
+  FROM page_projection
+  GROUP BY doc_id
 ),
 doc_quality_base AS (
   SELECT
     sd.doc_id AS ""DocId"",
     sd.doc_path AS ""DocPath"",
+    sd.document_status AS ""DocumentStatus"",
+    lr.processing_run_status AS ""ProcessingRunStatus"",
+    CASE
+      WHEN LOWER(COALESCE(NULLIF(lr.payload ->> 'documentIndexable', ''), '')) IN ('true','false')
+        THEN LOWER(lr.payload ->> 'documentIndexable')::boolean
+      WHEN NULLIF(COALESCE(lr.payload ->> 'failureReason', sd.auto_ingest_pause_reason), '') IS NOT NULL
+        THEN false
+      ELSE true
+    END AS ""DocumentIndexable"",
+    NULLIF(COALESCE(lr.payload ->> 'failureReason', sd.auto_ingest_pause_reason), '') AS ""FailureReason"",
+    lr.payload #>> '{{ocrDiagnostics,failureReason}}' AS ""OcrFailureReason"",
+    lr.payload ->> 'extractionSource' AS ""ExtractionSource"",
+    CASE
+      WHEN LOWER(COALESCE(NULLIF(lr.payload ->> 'ocrAttempted', ''), '')) IN ('true','false')
+        THEN LOWER(lr.payload ->> 'ocrAttempted')::boolean
+      ELSE false
+    END AS ""OcrAttempted"",
+    CASE
+      WHEN LOWER(COALESCE(NULLIF(lr.payload ->> 'ocrApplied', ''), '')) IN ('true','false')
+        THEN LOWER(lr.payload ->> 'ocrApplied')::boolean
+      ELSE false
+    END AS ""OcrApplied"",
+    lr.payload ->> 'ocrLanguages' AS ""OcrLanguages"",
+    CASE
+      WHEN COALESCE(lr.payload ->> 'ocrDurationMs', '') ~ '^[0-9]+$'
+        THEN (lr.payload ->> 'ocrDurationMs')::bigint
+      ELSE NULL
+    END AS ""OcrDurationMs"",
+    lr.payload #>> '{{nativeExtractionQuality,textStatus}}' AS ""NativeTextStatus"",
+    CASE
+      WHEN LOWER(COALESCE(NULLIF(lr.payload #>> '{{nativeExtractionQuality,ocrRecommended}}', ''), '')) IN ('true','false')
+        THEN LOWER(lr.payload #>> '{{nativeExtractionQuality,ocrRecommended}}')::boolean
+      ELSE NULL
+    END AS ""NativeOcrRecommended"",
     lr.payload #>> '{{extractionQuality,textStatus}}' AS ""RunTextStatus"",
-    (lr.payload #>> '{{extractionQuality,ocrRecommended}}')::boolean AS ""RunOcrRecommended"",
-    COALESCE((lr.payload #>> '{{extractionQuality,pageCount}}')::int, pq.page_count, 0) AS ""PageCount"",
-    COALESCE((lr.payload #>> '{{extractionQuality,textPageCount}}')::int, pq.text_page_count, 0) AS ""TextPageCount"",
-    COALESCE((lr.payload #>> '{{extractionQuality,emptyPageCount}}')::int, pq.empty_page_count, 0) AS ""EmptyPageCount"",
-    COALESCE((lr.payload #>> '{{extractionQuality,sparsePageCount}}')::int, pq.sparse_page_count, 0) AS ""SparsePageCount"",
-    COALESCE((lr.payload #>> '{{extractionQuality,totalWordCount}}')::int, pq.total_word_count, 0) AS ""TotalWordCount"",
-    COALESCE((lr.payload #>> '{{extractionQuality,totalCharCount}}')::int, pq.total_char_count, 0) AS ""TotalCharCount"",
+    CASE
+      WHEN LOWER(COALESCE(NULLIF(lr.payload #>> '{{extractionQuality,ocrRecommended}}', ''), '')) IN ('true','false')
+        THEN LOWER(lr.payload #>> '{{extractionQuality,ocrRecommended}}')::boolean
+      ELSE NULL
+    END AS ""RunOcrRecommended"",
     COALESCE(
-      (lr.payload #>> '{{extractionQuality,averageWordsPerPage}}')::double precision,
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,pageCount}}', '') ~ '^[0-9]+$'
+        THEN (lr.payload #>> '{{extractionQuality,pageCount}}')::int ELSE NULL END,
+      pq.page_count,
+      0
+    ) AS ""PageCount"",
+    COALESCE(
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,textPageCount}}', '') ~ '^[0-9]+$'
+        THEN (lr.payload #>> '{{extractionQuality,textPageCount}}')::int ELSE NULL END,
+      pq.text_page_count,
+      0
+    ) AS ""TextPageCount"",
+    COALESCE(
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,emptyPageCount}}', '') ~ '^[0-9]+$'
+        THEN (lr.payload #>> '{{extractionQuality,emptyPageCount}}')::int ELSE NULL END,
+      pq.empty_page_count,
+      0
+    ) AS ""EmptyPageCount"",
+    COALESCE(
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,sparsePageCount}}', '') ~ '^[0-9]+$'
+        THEN (lr.payload #>> '{{extractionQuality,sparsePageCount}}')::int ELSE NULL END,
+      pq.sparse_page_count,
+      0
+    ) AS ""SparsePageCount"",
+    COALESCE(pq.image_page_count, 0) AS ""ImagePageCount"",
+    COALESCE(pq.page_warning_count, 0) AS ""PageWarningCount"",
+    COALESCE(pq.page_review_recommended_count, 0) AS ""PageReviewRecommendedCount"",
+    COALESCE(
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,totalWordCount}}', '') ~ '^[0-9]+$'
+        THEN (lr.payload #>> '{{extractionQuality,totalWordCount}}')::int ELSE NULL END,
+      pq.total_word_count,
+      0
+    ) AS ""TotalWordCount"",
+    COALESCE(
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,totalCharCount}}', '') ~ '^[0-9]+$'
+        THEN (lr.payload #>> '{{extractionQuality,totalCharCount}}')::int ELSE NULL END,
+      pq.total_char_count,
+      0
+    ) AS ""TotalCharCount"",
+    COALESCE(es.summary_enrichment_pending, true) AS ""SummaryEnrichmentPending"",
+    COALESCE(es.profile_enrichment_pending, true) AS ""ProfileEnrichmentPending"",
+    COALESCE(es.content_card_enrichment_pending, true) AS ""ContentCardEvidencePending"",
+    COALESCE(
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,averageWordsPerPage}}', '') ~ '^[0-9]+([.][0-9]+)?$'
+        THEN (lr.payload #>> '{{extractionQuality,averageWordsPerPage}}')::double precision ELSE NULL END,
       ROUND((COALESCE(pq.total_word_count, 0)::numeric / GREATEST(COALESCE(pq.page_count, 0), 1)), 2)::double precision,
       0
     ) AS ""AverageWordsPerPage"",
     COALESCE(
-      (lr.payload #>> '{{extractionQuality,textPageRatio}}')::double precision,
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,textPageRatio}}', '') ~ '^[0-9]+([.][0-9]+)?$'
+        THEN (lr.payload #>> '{{extractionQuality,textPageRatio}}')::double precision ELSE NULL END,
       ROUND((COALESCE(pq.text_page_count, 0)::numeric / GREATEST(COALESCE(pq.page_count, 0), 1)), 4)::double precision,
       0
     ) AS ""TextPageRatio"",
@@ -792,10 +1138,16 @@ doc_quality_base AS (
   FROM scoped_docs sd
   LEFT JOIN latest_runs lr ON lr.doc_id=sd.doc_id
   LEFT JOIN page_quality pq ON pq.doc_id=sd.doc_id
+  LEFT JOIN enrichment_state es ON es.doc_id=sd.doc_id
 ),
 doc_quality AS (
   SELECT
     *,
+    (
+      ""SummaryEnrichmentPending""
+      OR ""ProfileEnrichmentPending""
+      OR ""ContentCardEvidencePending""
+    ) AS ""LlmEnrichmentPending"",
     COALESCE(""RunTextStatus"", ""ComputedTextStatus"") AS ""TextStatus"",
     COALESCE(""RunOcrRecommended"", ""ComputedTextStatus"" IN ('empty_text', 'low_text')) AS ""OcrRecommended"",
     COALESCE(
@@ -808,6 +1160,49 @@ doc_quality AS (
       END
     ) AS ""SignalsJson""
   FROM doc_quality_base
+),
+doc_quality_scored AS (
+  SELECT
+    *,
+    CASE
+      WHEN NOT ""DocumentIndexable"" AND COALESCE(""FailureReason"", '')='ocr_required_but_disabled' THEN 'ocr_required_but_disabled'
+      WHEN NOT ""DocumentIndexable"" AND COALESCE(""FailureReason"", '')='scanned_pdf_not_indexable' THEN 'scanned_pdf_not_indexable'
+      WHEN NOT ""DocumentIndexable"" AND COALESCE(""FailureReason"", '')='no_indexable_text' THEN 'no_indexable_text'
+      WHEN NOT ""DocumentIndexable"" THEN 'document_not_indexable'
+      WHEN ""OcrApplied"" AND ""TextStatus""='ok' AND COALESCE(""ExtractionSource"", '')='pdf_text_plus_image_ocr' THEN 'image_ocr_applied_ok'
+      WHEN ""OcrApplied"" AND ""TextStatus""='ok' AND ""PageWarningCount"" > 0 THEN 'ocr_applied_ok_with_page_warnings'
+      WHEN ""OcrApplied"" AND ""TextStatus""='ok' THEN 'ocr_applied_ok'
+      WHEN ""OcrApplied"" AND ""TextStatus"" <> 'ok' THEN 'ocr_applied_low_confidence'
+      WHEN ""OcrAttempted"" AND NOT ""OcrApplied"" AND ""OcrRecommended"" THEN 'ocr_failed_or_insufficient'
+      WHEN ""TextStatus""='empty_text' THEN 'manual_review_empty_text'
+      WHEN ""TextStatus""='low_text' THEN 'manual_review_low_text'
+      WHEN ""TextStatus""='unknown' THEN 'unknown'
+      WHEN ""TextStatus""='ok' AND ""PageWarningCount"" > 0 THEN 'extraction_ok_with_page_warnings'
+      WHEN ""ImagePageCount"" > 0 AND NOT ""OcrApplied"" THEN 'text_extraction_ok_with_images'
+      ELSE 'extraction_ok'
+    END AS ""QualityStatus"",
+    CASE
+      WHEN NOT ""DocumentIndexable"" AND COALESCE(""FailureReason"", '')='ocr_required_but_disabled' THEN 0.10::double precision
+      WHEN NOT ""DocumentIndexable"" THEN 0.12::double precision
+      WHEN ""OcrApplied"" AND ""TextStatus""='ok' AND COALESCE(""ExtractionSource"", '')='pdf_text_plus_image_ocr' THEN 0.92::double precision
+      WHEN ""OcrApplied"" AND ""TextStatus""='ok' AND ""PageWarningCount"" > 0 THEN 0.86::double precision
+      WHEN ""OcrApplied"" AND ""TextStatus""='ok' THEN 0.90::double precision
+      WHEN ""TextStatus""='ok' AND ""PageWarningCount"" > 0 THEN 0.88::double precision
+      WHEN ""TextStatus""='ok' AND ""ImagePageCount"" > 0 AND NOT ""OcrApplied"" THEN 0.85::double precision
+      WHEN ""TextStatus""='ok' THEN 1.00::double precision
+      WHEN ""OcrApplied"" AND ""TextStatus"" <> 'ok' THEN 0.45::double precision
+      WHEN ""OcrAttempted"" AND NOT ""OcrApplied"" AND ""OcrRecommended"" THEN 0.30::double precision
+      WHEN ""TextStatus""='low_text' THEN 0.35::double precision
+      WHEN ""TextStatus""='empty_text' THEN 0.15::double precision
+      ELSE 0.50::double precision
+    END AS ""ExtractionConfidence"",
+    (
+      NOT ""DocumentIndexable""
+      OR ""TextStatus"" IN ('empty_text','low_text','unknown')
+      OR (""OcrAttempted"" AND NOT ""OcrApplied"" AND ""OcrRecommended"")
+      OR (""OcrApplied"" AND ""TextStatus"" <> 'ok')
+    ) AS ""ManualReviewRecommended""
+  FROM doc_quality
 )
 ";
 
@@ -818,14 +1213,28 @@ SELECT
   COUNT(*) FILTER (WHERE ""TextStatus""='empty_text')::int AS ""EmptyTextDocuments"",
   COUNT(*) FILTER (WHERE ""TextStatus""='low_text')::int AS ""LowTextDocuments"",
   COUNT(*) FILTER (WHERE ""TextStatus""='ok')::int AS ""OkDocuments"",
-  COUNT(*) FILTER (WHERE ""TextStatus""='unknown')::int AS ""UnknownDocuments""
-FROM doc_quality;";
+  COUNT(*) FILTER (WHERE ""TextStatus""='unknown')::int AS ""UnknownDocuments"",
+  COUNT(*) FILTER (WHERE ""OcrAttempted"")::int AS ""OcrAttemptedDocuments"",
+  COUNT(*) FILTER (WHERE ""OcrApplied"")::int AS ""OcrAppliedDocuments"",
+  COUNT(*) FILTER (WHERE ""ManualReviewRecommended"")::int AS ""ManualReviewRecommendedDocuments"",
+  COUNT(*) FILTER (WHERE ""PageReviewRecommendedCount"" > 0)::int AS ""PageReviewRecommendedDocuments"",
+  COALESCE(SUM(""PageReviewRecommendedCount""), 0)::int AS ""PageReviewRecommendedPages"",
+  COUNT(*) FILTER (WHERE ""PageWarningCount"" > 0)::int AS ""PageWarningDocuments"",
+  COALESCE(SUM(""PageWarningCount""), 0)::int AS ""PageWarningPages"",
+  COUNT(*) FILTER (WHERE ""LlmEnrichmentPending"")::int AS ""LlmEnrichmentPendingDocuments"",
+  COUNT(*) FILTER (WHERE ""SummaryEnrichmentPending"")::int AS ""SummaryEnrichmentPendingDocuments"",
+  COUNT(*) FILTER (WHERE ""ProfileEnrichmentPending"")::int AS ""ProfileEnrichmentPendingDocuments"",
+  COUNT(*) FILTER (WHERE ""ContentCardEvidencePending"")::int AS ""ContentCardEvidencePendingDocuments""
+FROM doc_quality_scored;";
 
         var itemsSql = qualityCte + @"
 SELECT *
-FROM doc_quality
+FROM doc_quality_scored
 ORDER BY
+  ""ManualReviewRecommended"" DESC,
   ""OcrRecommended"" DESC,
+  ""PageReviewRecommendedCount"" DESC,
+  ""PageWarningCount"" DESC,
   CASE ""TextStatus""
     WHEN 'empty_text' THEN 0
     WHEN 'low_text' THEN 1
@@ -835,6 +1244,39 @@ ORDER BY
   ""DocPath"" ASC
 LIMIT @lim;";
 
+        var categoriesSql = qualityCte + @"
+SELECT
+  CASE
+    WHEN ""DocPath"" LIKE '%/%' THEN split_part(""DocPath"", '/', 1)
+    ELSE ''
+  END AS ""CategoryPath"",
+  COUNT(*)::int AS ""TotalDocuments"",
+  COUNT(*) FILTER (WHERE ""TextStatus""='ok')::int AS ""OkDocuments"",
+  COUNT(*) FILTER (WHERE ""TextStatus""='low_text')::int AS ""LowTextDocuments"",
+  COUNT(*) FILTER (WHERE ""TextStatus""='empty_text')::int AS ""EmptyTextDocuments"",
+  COUNT(*) FILTER (WHERE ""OcrRecommended"")::int AS ""OcrRecommendedDocuments"",
+  COUNT(*) FILTER (WHERE ""OcrAttempted"")::int AS ""OcrAttemptedDocuments"",
+  COUNT(*) FILTER (WHERE ""OcrApplied"")::int AS ""OcrAppliedDocuments"",
+  COUNT(*) FILTER (WHERE ""ManualReviewRecommended"")::int AS ""ManualReviewRecommendedDocuments"",
+  COUNT(*) FILTER (WHERE ""PageReviewRecommendedCount"" > 0)::int AS ""PageReviewRecommendedDocuments"",
+  COALESCE(SUM(""PageReviewRecommendedCount""), 0)::int AS ""PageReviewRecommendedPages"",
+  COUNT(*) FILTER (WHERE ""PageWarningCount"" > 0)::int AS ""PageWarningDocuments"",
+  COALESCE(SUM(""PageWarningCount""), 0)::int AS ""PageWarningPages"",
+  COUNT(*) FILTER (WHERE ""LlmEnrichmentPending"")::int AS ""LlmEnrichmentPendingDocuments"",
+  COUNT(*) FILTER (WHERE ""SummaryEnrichmentPending"")::int AS ""SummaryEnrichmentPendingDocuments"",
+  COUNT(*) FILTER (WHERE ""ProfileEnrichmentPending"")::int AS ""ProfileEnrichmentPendingDocuments"",
+  COUNT(*) FILTER (WHERE ""ContentCardEvidencePending"")::int AS ""ContentCardEvidencePendingDocuments""
+FROM doc_quality_scored
+GROUP BY ""CategoryPath""
+ORDER BY
+  ""LlmEnrichmentPendingDocuments"" DESC,
+  ""ManualReviewRecommendedDocuments"" DESC,
+  ""PageReviewRecommendedPages"" DESC,
+  ""OcrRecommendedDocuments"" DESC,
+  ""TotalDocuments"" DESC,
+  ""CategoryPath"" ASC
+LIMIT 500;";
+
         var summary = await conn.QuerySingleAsync<ExtractionQualitySummaryRow>(new CommandDefinition(
             summarySql,
             new { tenant = tenantId, path },
@@ -843,6 +1285,11 @@ LIMIT @lim;";
         var rows = (await conn.QueryAsync<ExtractionQualityRow>(new CommandDefinition(
             itemsSql,
             new { tenant = tenantId, path, lim },
+            cancellationToken: ct))).ToList();
+
+        var categories = (await conn.QueryAsync<ExtractionQualityCategoryRow>(new CommandDefinition(
+            categoriesSql,
+            new { tenant = tenantId, path },
             cancellationToken: ct))).ToList();
 
         return Results.Ok(new
@@ -855,18 +1302,71 @@ LIMIT @lim;";
                 lowTextDocuments = summary.LowTextDocuments,
                 emptyTextDocuments = summary.EmptyTextDocuments,
                 unknownDocuments = summary.UnknownDocuments,
-                ocrRecommendedDocuments = summary.OcrRecommendedDocuments
+                ocrRecommendedDocuments = summary.OcrRecommendedDocuments,
+                ocrAttemptedDocuments = summary.OcrAttemptedDocuments,
+                ocrAppliedDocuments = summary.OcrAppliedDocuments,
+                manualReviewRecommendedDocuments = summary.ManualReviewRecommendedDocuments,
+                pageReviewRecommendedDocuments = summary.PageReviewRecommendedDocuments,
+                pageReviewRecommendedPages = summary.PageReviewRecommendedPages,
+                pageWarningDocuments = summary.PageWarningDocuments,
+                pageWarningPages = summary.PageWarningPages,
+                llmEnrichmentPendingDocuments = summary.LlmEnrichmentPendingDocuments,
+                summaryEnrichmentPendingDocuments = summary.SummaryEnrichmentPendingDocuments,
+                profileEnrichmentPendingDocuments = summary.ProfileEnrichmentPendingDocuments,
+                contentCardEvidencePendingDocuments = summary.ContentCardEvidencePendingDocuments
             },
+            categories = categories.Select(row => new
+            {
+                categoryPath = row.CategoryPath,
+                totalDocuments = row.TotalDocuments,
+                okDocuments = row.OkDocuments,
+                lowTextDocuments = row.LowTextDocuments,
+                emptyTextDocuments = row.EmptyTextDocuments,
+                ocrRecommendedDocuments = row.OcrRecommendedDocuments,
+                ocrAttemptedDocuments = row.OcrAttemptedDocuments,
+                ocrAppliedDocuments = row.OcrAppliedDocuments,
+                manualReviewRecommendedDocuments = row.ManualReviewRecommendedDocuments,
+                pageReviewRecommendedDocuments = row.PageReviewRecommendedDocuments,
+                pageReviewRecommendedPages = row.PageReviewRecommendedPages,
+                pageWarningDocuments = row.PageWarningDocuments,
+                pageWarningPages = row.PageWarningPages,
+                llmEnrichmentPendingDocuments = row.LlmEnrichmentPendingDocuments,
+                summaryEnrichmentPendingDocuments = row.SummaryEnrichmentPendingDocuments,
+                profileEnrichmentPendingDocuments = row.ProfileEnrichmentPendingDocuments,
+                contentCardEvidencePendingDocuments = row.ContentCardEvidencePendingDocuments
+            }),
             items = rows.Select(row => new
             {
                 docId = row.DocId,
                 docPath = row.DocPath,
+                documentStatus = row.DocumentStatus,
+                processingRunStatus = row.ProcessingRunStatus,
+                qualityStatus = row.QualityStatus,
+                extractionConfidence = row.ExtractionConfidence,
+                manualReviewRecommended = row.ManualReviewRecommended,
+                documentIndexable = row.DocumentIndexable,
+                failureReason = row.FailureReason,
+                ocrFailureReason = row.OcrFailureReason,
+                extractionSource = row.ExtractionSource,
+                ocrAttempted = row.OcrAttempted,
+                ocrApplied = row.OcrApplied,
+                ocrLanguages = row.OcrLanguages,
+                ocrDurationMs = row.OcrDurationMs,
+                nativeTextStatus = row.NativeTextStatus,
+                nativeOcrRecommended = row.NativeOcrRecommended,
                 textStatus = row.TextStatus,
                 ocrRecommended = row.OcrRecommended,
                 pageCount = row.PageCount,
                 textPageCount = row.TextPageCount,
                 emptyPageCount = row.EmptyPageCount,
                 sparsePageCount = row.SparsePageCount,
+                imagePageCount = row.ImagePageCount,
+                pageWarningCount = row.PageWarningCount,
+                pageReviewRecommendedCount = row.PageReviewRecommendedCount,
+                llmEnrichmentPending = row.LlmEnrichmentPending,
+                summaryEnrichmentPending = row.SummaryEnrichmentPending,
+                profileEnrichmentPending = row.ProfileEnrichmentPending,
+                contentCardEvidencePending = row.ContentCardEvidencePending,
                 totalWordCount = row.TotalWordCount,
                 totalCharCount = row.TotalCharCount,
                 averageWordsPerPage = row.AverageWordsPerPage,
@@ -1133,6 +1633,7 @@ WHERE tenant_id=@tenant AND parent_path=@path;";
         HttpContext ctx,
         NpgsqlDataSource ds,
         string? categoryRef,
+        string? categoryPath,
         string? q,
         DateTimeOffset? changedSince,
         string? orderby,
@@ -1144,6 +1645,7 @@ WHERE tenant_id=@tenant AND parent_path=@path;";
         var ct = ctx.RequestAborted;
 
         var requestedCategoryRef = DocumentsCategoryScopeResolver.NormalizeCategoryRefOrNull(categoryRef);
+        var requestedCategoryPath = DocumentsCategoryScopeResolver.NormalizeCategoryPathOrNull(categoryPath);
         var requestedQuery = string.IsNullOrWhiteSpace(q) ? null : q.Trim();
         var requestedOrderBy = NormalizeCatalogOrderBy(orderby);
         var requestedPageSize = Math.Clamp(pageSize ?? maxpagesize ?? 50, 1, 200);
@@ -1157,6 +1659,7 @@ WHERE tenant_id=@tenant AND parent_path=@path;";
             }
 
             if (!CursorMatches(cursorState.CategoryRef, requestedCategoryRef)
+                || !CursorMatches(cursorState.CategoryPath, requestedCategoryPath)
                 || !CursorMatches(cursorState.Query, requestedQuery)
                 || !CursorMatches(cursorState.ChangedSince, changedSince)
                 || !CursorMatches(cursorState.OrderBy, requestedOrderBy)
@@ -1166,6 +1669,7 @@ WHERE tenant_id=@tenant AND parent_path=@path;";
             }
 
             requestedCategoryRef = cursorState.CategoryRef;
+            requestedCategoryPath = cursorState.CategoryPath;
             requestedQuery = cursorState.Query;
             changedSince = cursorState.ChangedSince;
             requestedOrderBy = cursorState.OrderBy;
@@ -1175,7 +1679,7 @@ WHERE tenant_id=@tenant AND parent_path=@path;";
         var offset = cursorState?.Offset ?? 0;
 
         await using var conn = await ds.OpenConnectionAsync(ct);
-        var resolvedCategoryPath = await DocumentsCategoryScopeResolver.ResolveCategoryScopeAsync(conn, tenantId, categoryPath: null, categoryRef: requestedCategoryRef, ct: ct);
+        var resolvedCategoryPath = await DocumentsCategoryScopeResolver.ResolveCategoryScopeAsync(conn, tenantId, requestedCategoryPath, requestedCategoryRef, ct);
 
         var orderClause = requestedOrderBy switch
         {
@@ -1190,9 +1694,59 @@ SELECT
   d.doc_id           AS ""DocId"",
   d.doc_path         AS ""DocPath"",
   d.doc_name         AS ""DocName"",
+  d.page_count       AS ""PageCount"",
   d.updated_at       AS ""UpdatedAt"",
-  CASE WHEN d.doc_path LIKE '%/%' THEN regexp_replace(d.doc_path, '/[^/]+$', '') ELSE '' END AS ""CategoryPath""
+  CASE WHEN d.doc_path LIKE '%/%' THEN regexp_replace(d.doc_path, '/[^/]+$', '') ELSE '' END AS ""CategoryPath"",
+  saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version) AS ""SourceHash"",
+  profile.language AS ""ProfileLanguage"",
+  summary.doc_language AS ""SummaryLanguage"",
+  run.document_language AS ""RunDocumentLanguage""
 FROM documents d
+LEFT JOIN LATERAL (
+  SELECT NULLIF(BTRIM(p.language), '') AS language
+  FROM document_profiles p
+  JOIN document_revisions r
+    ON r.revision_id = p.revision_id
+   AND r.tenant_id = p.tenant_id
+   AND r.doc_id = p.doc_id
+  WHERE p.tenant_id = d.tenant_id
+    AND p.doc_id = d.doc_id
+    AND r.indexed_version = d.indexed_version
+  ORDER BY
+    (NULLIF(BTRIM(p.language), 'und') IS NULL) ASC,
+    CASE p.profile_version
+      WHEN 'llm_backoffice_v1' THEN 0
+      WHEN 'foundation_v1' THEN 1
+      WHEN 'deterministic_v1' THEN 2
+      ELSE 3
+    END,
+    r.published_at DESC NULLS LAST,
+    p.updated_at DESC NULLS LAST
+  LIMIT 1
+) profile ON true
+LEFT JOIN LATERAL (
+  SELECT NULLIF(BTRIM(s.doc_language), '') AS doc_language
+  FROM document_summaries s
+  WHERE s.tenant_id = d.tenant_id
+    AND s.doc_id = d.doc_id
+    AND s.source_hash = saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version)
+  ORDER BY
+    CASE s.level WHEN 'medium' THEN 0 WHEN 'long' THEN 1 WHEN 'short' THEN 2 ELSE 3 END,
+    s.updated_at DESC NULLS LAST,
+    s.created_at DESC NULLS LAST
+  LIMIT 1
+) summary ON true
+LEFT JOIN LATERAL (
+  SELECT NULLIF(BTRIM(pr.payload ->> 'documentLanguage'), '') AS document_language
+  FROM document_processing_runs pr
+  WHERE pr.tenant_id = d.tenant_id
+    AND pr.doc_id = d.doc_id
+    AND pr.action = 'upsert'
+    AND pr.status = 'done'
+    AND pr.indexed_version_after = d.indexed_version
+  ORDER BY pr.finished_at DESC NULLS LAST, pr.started_at DESC NULLS LAST
+  LIMIT 1
+) run ON true
 WHERE d.tenant_id=@tenant
   AND d.status='indexed'
   AND (@categoryPath IS NULL OR d.doc_path LIKE (@categoryPath || '/%'))
@@ -1233,6 +1787,10 @@ WHERE d.tenant_id=@tenant
                 CategoryRef = topCategory is null ? null : BuildCategoryRef(topCategory.DisplayOrder),
                 CategoryCanonicalName = topCategory?.Name ?? topLevel,
                 CategoryPath = row.CategoryPath,
+                Pages = row.PageCount,
+                SourceHash = NullIfWhiteSpace(row.SourceHash),
+                DocLanguage = ResolveDocumentLanguage(row.ProfileLanguage, row.SummaryLanguage, row.RunDocumentLanguage),
+                ProfileLanguage = NormalizeLanguageOrNull(row.ProfileLanguage),
                 LastModifiedUtc = row.UpdatedAt
             };
         }).ToList();
@@ -1244,6 +1802,7 @@ WHERE d.tenant_id=@tenant
             var nextCursor = OpaqueCursor.Encode(new CatalogDocumentsCursor
             {
                 CategoryRef = requestedCategoryRef,
+                CategoryPath = requestedCategoryPath,
                 Query = requestedQuery,
                 ChangedSince = changedSince,
                 OrderBy = requestedOrderBy,
@@ -1254,6 +1813,7 @@ WHERE d.tenant_id=@tenant
             nextLink = BuildAbsoluteNextLink(ctx, "/catalog/documents", new Dictionary<string, string?>
             {
                 ["categoryRef"] = requestedCategoryRef,
+                ["categoryPath"] = requestedCategoryPath,
                 ["q"] = requestedQuery,
                 ["changedSince"] = changedSince?.ToString("O"),
                 ["orderby"] = requestedOrderBy,
@@ -1295,6 +1855,21 @@ WHERE d.tenant_id=@tenant
         }
     }
 
+    private static string? ResolveDocumentLanguage(string? profileLanguage, string? summaryLanguage, string? runDocumentLanguage = null)
+        => NormalizeLanguageOrNull(profileLanguage) ?? NormalizeLanguageOrNull(summaryLanguage) ?? NormalizeLanguageOrNull(runDocumentLanguage);
+
+    private static string? NormalizeLanguageOrNull(string? language)
+    {
+        var value = (language ?? string.Empty).Trim().ToLowerInvariant();
+        return string.IsNullOrWhiteSpace(value) || string.Equals(value, "und", StringComparison.Ordinal) ? null : value;
+    }
+
+    private static string? NullIfWhiteSpace(string? value)
+    {
+        var trimmed = (value ?? string.Empty).Trim();
+        return trimmed.Length == 0 ? null : trimmed;
+    }
+
     private sealed class CatalogCategoriesCursor
     {
         public string? Path { get; set; }
@@ -1306,6 +1881,7 @@ WHERE d.tenant_id=@tenant
     private sealed class CatalogDocumentsCursor
     {
         public string? CategoryRef { get; set; }
+        public string? CategoryPath { get; set; }
         public string? Query { get; set; }
         public DateTimeOffset? ChangedSince { get; set; }
         public string? OrderBy { get; set; }
@@ -1347,6 +1923,11 @@ WHERE d.tenant_id=@tenant
         public string DocPath { get; set; } = "";
         public string DocName { get; set; } = "";
         public string CategoryPath { get; set; } = "";
+        public int? PageCount { get; set; }
+        public string? SourceHash { get; set; }
+        public string? ProfileLanguage { get; set; }
+        public string? SummaryLanguage { get; set; }
+        public string? RunDocumentLanguage { get; set; }
         public DateTimeOffset? UpdatedAt { get; set; }
     }
 
@@ -1358,18 +1939,72 @@ WHERE d.tenant_id=@tenant
         public int LowTextDocuments { get; set; }
         public int OkDocuments { get; set; }
         public int UnknownDocuments { get; set; }
+        public int OcrAttemptedDocuments { get; set; }
+        public int OcrAppliedDocuments { get; set; }
+        public int ManualReviewRecommendedDocuments { get; set; }
+        public int PageReviewRecommendedDocuments { get; set; }
+        public int PageReviewRecommendedPages { get; set; }
+        public int PageWarningDocuments { get; set; }
+        public int PageWarningPages { get; set; }
+        public int LlmEnrichmentPendingDocuments { get; set; }
+        public int SummaryEnrichmentPendingDocuments { get; set; }
+        public int ProfileEnrichmentPendingDocuments { get; set; }
+        public int ContentCardEvidencePendingDocuments { get; set; }
+    }
+
+    private sealed class ExtractionQualityCategoryRow
+    {
+        public string CategoryPath { get; set; } = "";
+        public int TotalDocuments { get; set; }
+        public int OcrRecommendedDocuments { get; set; }
+        public int EmptyTextDocuments { get; set; }
+        public int LowTextDocuments { get; set; }
+        public int OkDocuments { get; set; }
+        public int OcrAttemptedDocuments { get; set; }
+        public int OcrAppliedDocuments { get; set; }
+        public int ManualReviewRecommendedDocuments { get; set; }
+        public int PageReviewRecommendedDocuments { get; set; }
+        public int PageReviewRecommendedPages { get; set; }
+        public int PageWarningDocuments { get; set; }
+        public int PageWarningPages { get; set; }
+        public int LlmEnrichmentPendingDocuments { get; set; }
+        public int SummaryEnrichmentPendingDocuments { get; set; }
+        public int ProfileEnrichmentPendingDocuments { get; set; }
+        public int ContentCardEvidencePendingDocuments { get; set; }
     }
 
     private sealed class ExtractionQualityRow
     {
         public Guid DocId { get; set; }
         public string DocPath { get; set; } = "";
+        public string DocumentStatus { get; set; } = "";
+        public string? ProcessingRunStatus { get; set; }
+        public string QualityStatus { get; set; } = "";
+        public double ExtractionConfidence { get; set; }
+        public bool ManualReviewRecommended { get; set; }
+        public bool DocumentIndexable { get; set; } = true;
+        public string? FailureReason { get; set; }
+        public string? OcrFailureReason { get; set; }
+        public string? ExtractionSource { get; set; }
+        public bool OcrAttempted { get; set; }
+        public bool OcrApplied { get; set; }
+        public string? OcrLanguages { get; set; }
+        public long? OcrDurationMs { get; set; }
+        public string? NativeTextStatus { get; set; }
+        public bool? NativeOcrRecommended { get; set; }
         public string TextStatus { get; set; } = "";
         public bool OcrRecommended { get; set; }
         public int PageCount { get; set; }
         public int TextPageCount { get; set; }
         public int EmptyPageCount { get; set; }
         public int SparsePageCount { get; set; }
+        public int ImagePageCount { get; set; }
+        public int PageWarningCount { get; set; }
+        public int PageReviewRecommendedCount { get; set; }
+        public bool LlmEnrichmentPending { get; set; }
+        public bool SummaryEnrichmentPending { get; set; }
+        public bool ProfileEnrichmentPending { get; set; }
+        public bool ContentCardEvidencePending { get; set; }
         public int TotalWordCount { get; set; }
         public int TotalCharCount { get; set; }
         public double AverageWordsPerPage { get; set; }

@@ -19,7 +19,15 @@ sealed class JobCanceledException : Exception
     public JobCanceledException(string reason) : base(reason) => Reason = reason;
 }
 
-sealed record IngestionJob(Guid JobId, Guid TenantId, string Action, string DocPath, string? Category, Guid DocId, int Version);
+sealed record IngestionJob(
+    Guid JobId,
+    Guid TenantId,
+    string Action,
+    string DocPath,
+    string? Category,
+    Guid DocId,
+    int Version,
+    IngestionCapabilityAProfileSeed? CapabilityAProfileSeed);
 
 sealed class IngestionWorker : BackgroundService
 {
@@ -124,16 +132,19 @@ sealed class IngestionWorker : BackgroundService
                         _log.LogInformation("Job canceled job={JobId} action={Action} doc={DocPath} reason={Reason}",
                             job.JobId, job.Action, job.DocPath, jc.Reason);
                         await JobRepo.MarkCanceledAsync(ds, job.JobId, jc.Reason, ct);
-                        // Safety net: stabilize document to prevent scanner from recreating the job.
-                        // Uses COALESCE so it won't overwrite if cancel endpoint already set the pause.
-                        try
+                        if (ShouldStabilizeDocumentAfterCancel(jc.Reason))
                         {
-                            await JobRepo.StabilizeDocumentAfterCancelAsync(ds, job.TenantId, job.DocPath, ct);
-                            await JobRepo.FreezeTerminalSnapshotAsync(ds, job.JobId, ct);
-                        }
-                        catch (Exception stabEx)
-                        {
-                            _log.LogWarning(stabEx, "Failed to stabilize document after cancel job={JobId} doc={DocPath}", job.JobId, job.DocPath);
+                            // Safety net: stabilize document to prevent scanner from recreating admin/user-canceled jobs.
+                            // Uses COALESCE so it won't overwrite if cancel endpoint already set the pause.
+                            try
+                            {
+                                await JobRepo.StabilizeDocumentAfterCancelAsync(ds, job.TenantId, job.DocPath, ct);
+                                await JobRepo.FreezeTerminalSnapshotAsync(ds, job.JobId, ct);
+                            }
+                            catch (Exception stabEx)
+                            {
+                                _log.LogWarning(stabEx, "Failed to stabilize document after cancel job={JobId} doc={DocPath}", job.JobId, job.DocPath);
+                            }
                         }
                     }
                     catch (OperationCanceledException) when (!ct.IsCancellationRequested)
@@ -206,6 +217,9 @@ sealed class IngestionWorker : BackgroundService
         var v = await conn.ExecuteScalarAsync<int?>(new CommandDefinition(sql, new { tenant_id = tenantId, doc_path = docPath }, cancellationToken: ct));
         return v.HasValue && v.Value == version;
     }
+
+    internal static bool ShouldStabilizeDocumentAfterCancel(string? reason)
+        => !string.Equals(reason, "superseded_version", StringComparison.OrdinalIgnoreCase);
 
     // Heartbeat: rafraîchit locked_at pour éviter qu’un job long soit considéré "stale" alors qu’il tourne.
     private static async Task TouchJobLockAsync(NpgsqlDataSource ds, Guid jobId, string workerId, CancellationToken ct)
@@ -304,6 +318,7 @@ WHERE job_id=@job_id
         var swTotal = Stopwatch.StartNew();
         long hashMs = 0;
         long extractMs = 0;
+        long ocrMs = 0;
         long sectionMs = 0;
         long unitMs = 0;
         long chunkingMs = 0;
@@ -368,6 +383,96 @@ WHERE job_id=@job_id
         var extraction = PdfExtractor.Extract(absPath, ct);
         swExtract.Stop();
         extractMs = swExtract.ElapsedMilliseconds;
+        var nativeExtractionQuality = extraction.Quality;
+        var ocrAttempted = false;
+        var ocrApplied = false;
+        string? ocrLanguages = null;
+        PdfOcrDiagnostics? ocrDiagnostics = null;
+        var nativeExtraction = extraction;
+        var fullDocumentOcrRecommended = nativeExtraction.Quality.OcrRecommended;
+        var imagePageOcrRecommended = ShouldAttemptImagePageOcr(ingest, nativeExtraction);
+        var ocrRequiredButDisabled = IsOcrRequiredButDisabled(ingest, fullDocumentOcrRecommended, imagePageOcrRecommended);
+        if (ocrRequiredButDisabled)
+        {
+            ocrDiagnostics = PdfOcrTextExtractor.BuildOcrDisabledDiagnostics(
+                ingest,
+                nativeExtraction,
+                imagePageOcrRecommended);
+        }
+
+        if (ingest.OcrEnabled && (fullDocumentOcrRecommended || imagePageOcrRecommended))
+        {
+            ocrAttempted = true;
+            var forceFullDocumentOcr = fullDocumentOcrRecommended && PdfOcrTextExtractor.ShouldForceOcrNativeText(nativeExtraction);
+            await JobRepo.UpdateProgressAsync(ds, job.JobId, fullDocumentOcrRecommended ? "ocr" : "image_ocr", null, null, ct);
+            await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+            var swOcr = Stopwatch.StartNew();
+            PdfExtractionResult? fullOcrExtraction = null;
+            PdfExtractionResult? imageOcrExtraction = null;
+            PdfExtractionResult? ocrExtraction = null;
+            PdfOcrDiagnostics? fullOcrDiagnostics = null;
+            PdfOcrDiagnostics? imageOcrDiagnostics = null;
+            var fullOcrApplied = false;
+            var imageOcrApplied = false;
+            using (await _bulkheads.AcquireOcrAsync(ct))
+            {
+                ocrLanguages = PdfOcrTextExtractor.ResolveLanguagesForDocument(absPath, ingest, nativeExtraction);
+                if (fullDocumentOcrRecommended)
+                {
+                    var fullOcrResult = await PdfOcrTextExtractor.TryExtractWithDiagnosticsAsync(absPath, ingest, ct, ocrLanguages, forceFullDocumentOcr);
+                    fullOcrDiagnostics = fullOcrResult?.Diagnostics;
+                    fullOcrExtraction = fullOcrResult?.Extraction;
+                    fullOcrApplied = fullOcrExtraction is not null
+                        && PdfOcrTextExtractor.ShouldApplyOcrExtraction(
+                            nativeExtraction,
+                            fullOcrExtraction,
+                            fullDocumentOcrRecommended,
+                            forceFullDocumentOcr);
+                    if (fullOcrApplied)
+                        ocrExtraction = PdfOcrTextExtractor.WithImageCountsFromNative(fullOcrExtraction!, nativeExtraction);
+                }
+
+                if (imagePageOcrRecommended)
+                {
+                    if (fullDocumentOcrRecommended)
+                    {
+                        await JobRepo.UpdateProgressAsync(ds, job.JobId, "image_ocr", null, null, ct);
+                        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+                    }
+
+                    var imageMergeBase = ocrExtraction ?? nativeExtraction;
+                    var imageOcrResult = await PdfOcrTextExtractor.TryMergeImagePageOcrAsync(absPath, ingest, imageMergeBase, ct, ocrLanguages);
+                    imageOcrDiagnostics = imageOcrResult?.Diagnostics;
+                    imageOcrExtraction = imageOcrResult?.Extraction;
+                    imageOcrApplied = imageOcrExtraction is not null
+                        && PdfOcrTextExtractor.ShouldApplyOcrExtraction(
+                            imageMergeBase,
+                            imageOcrExtraction,
+                            fullDocumentOcrRecommended: false,
+                            forceFullDocumentOcr: false);
+                    if (imageOcrApplied)
+                        ocrExtraction = imageOcrExtraction;
+                }
+            }
+            swOcr.Stop();
+            ocrMs = swOcr.ElapsedMilliseconds;
+            var shouldApplyOcrExtraction = fullOcrApplied || imageOcrApplied;
+            var appliedReason = ResolveOcrAppliedReason(
+                fullDocumentOcrRecommended,
+                forceFullDocumentOcr,
+                fullDocumentOcrRecommended ? fullOcrExtraction : imageOcrExtraction,
+                shouldApplyOcrExtraction,
+                imagePageOcrRecommended,
+                imageOcrApplied,
+                fullOcrApplied);
+            ocrDiagnostics = PdfOcrTextExtractor.CombineOcrDiagnostics(fullOcrDiagnostics, imageOcrDiagnostics);
+            ocrDiagnostics = PdfOcrTextExtractor.WithAppliedReason(ocrDiagnostics, appliedReason);
+            if (shouldApplyOcrExtraction && ocrExtraction is not null)
+            {
+                extraction = ocrExtraction with { OcrDiagnostics = ocrDiagnostics };
+                ocrApplied = true;
+            }
+        }
         var tokens = extraction.Tokens;
         var pages = extraction.Pages;
         var extractionQuality = extraction.Quality;
@@ -381,7 +486,37 @@ WHERE job_id=@job_id
         unitMs = swUnits.ElapsedMilliseconds;
         await ThrowIfJobCanceledAsync(ds, job, ct);
         if (tokens.Count == 0)
-            throw new Exception($"No text extracted from PDF; text_status={extractionQuality.TextStatus}; ocr_recommended={extractionQuality.OcrRecommended}");
+        {
+            var failureReason = ResolveNoTextFailureReason(ocrAttempted, ocrRequiredButDisabled);
+            try
+            {
+                await DocumentFoundationRepo.PublishFailedOcrExtractionAsync(
+                    ds,
+                    tenantId,
+                    docId,
+                    job.JobId,
+                    relDocPath,
+                    hash,
+                    size,
+                    File.GetLastWriteTimeUtc(absPath),
+                    job.Version,
+                    extraction.Source,
+                    ocrAttempted,
+                    ocrLanguages,
+                    ocrAttempted ? ocrMs : null,
+                    ocrDiagnostics,
+                    extractionQuality,
+                    nativeExtractionQuality,
+                    failureReason,
+                    ct);
+            }
+            catch (Exception persistEx)
+            {
+                _log.LogWarning(persistEx, "Failed to persist OCR failure diagnostics job={JobId} doc={DocPath}", job.JobId, relDocPath);
+            }
+
+            throw new Exception($"No text extracted from PDF; text_status={extractionQuality.TextStatus}; ocr_recommended={extractionQuality.OcrRecommended}; failure_reason={failureReason}; ocr_failure={ocrDiagnostics?.FailureReason ?? "none"}");
+        }
 
         var swChunking = Stopwatch.StartNew();
         var retrievalChunks = RetrievalChunkProjector.ProjectStructureAware(
@@ -482,10 +617,10 @@ WHERE job_id=@job_id
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
 
         // embed + upsert by batches
-        var batchSize = Math.Clamp(ingest.EmbeddingsBatchSize, 1, 256);
+        var batchSize = IngestionOptions.ResolveEmbeddingsBatchSize(ingest.EmbeddingsBatchSize);
 
         var nowIso = DateTimeOffset.UtcNow.ToString("O");
-        var category = (job.Category ?? ingest.DefaultCategory).Trim().ToLowerInvariant();
+        var category = IngestionCategoryResolver.Normalize(job.Category ?? ingest.DefaultCategory);
 
         for (int i = resumeFromChunk; i < chunks.Count; i += batchSize)
         {
@@ -584,7 +719,15 @@ WHERE job_id=@job_id
         var swPublish = Stopwatch.StartNew();
         var committed = await JobRepo.CompleteUpsertAsync(
             ds, tenantId, job.JobId, relDocPath,
-            hash, size, mtime, job.Version, pages, sections, units, retrievalChunks, exactMatchEntries, contextualTextEntries, ct);
+            hash, size, mtime, job.Version, pages, sections, units, retrievalChunks, exactMatchEntries, contextualTextEntries, ct,
+            extractionSource: extraction.Source,
+            ocrAttempted: ocrAttempted,
+            ocrApplied: ocrApplied,
+            ocrLanguages: ocrLanguages,
+            ocrDurationMs: ocrAttempted ? ocrMs : null,
+            ocrDiagnostics: ocrDiagnostics,
+            nativeExtractionQuality: nativeExtractionQuality,
+            capabilityAProfileSeed: job.CapabilityAProfileSeed);
         swPublish.Stop();
         publishMs = swPublish.ElapsedMilliseconds;
 
@@ -615,12 +758,14 @@ WHERE job_id=@job_id
 
         swTotal.Stop();
         _log.LogInformation(
-            "Ingestion stage timings job={JobId} doc={DocPath} total_ms={TotalMs} hash_ms={HashMs} extract_ms={ExtractMs} sections_ms={SectionsMs} units_ms={UnitsMs} chunking_ms={ChunkingMs} exact_ms={ExactMs} contextual_ms={ContextualMs} tei_warmup_ms={TeiWarmupMs} qdrant_ensure_ms={QdrantEnsureMs} embedding_ms={EmbeddingMs} qdrant_upsert_ms={QdrantUpsertMs} publish_ms={PublishMs} cleanup_ms={CleanupMs} pages={Pages} sections={Sections} units={Units} chunks={Chunks} exact_entries={ExactEntries} contextual_entries={ContextualEntries} extraction_quality={ExtractionQuality} ocr_recommended={OcrRecommended}",
+            "Ingestion stage timings job={JobId} doc={DocPath} total_ms={TotalMs} hash_ms={HashMs} extract_ms={ExtractMs} ocr_ms={OcrMs} extraction_source={ExtractionSource} sections_ms={SectionsMs} units_ms={UnitsMs} chunking_ms={ChunkingMs} exact_ms={ExactMs} contextual_ms={ContextualMs} tei_warmup_ms={TeiWarmupMs} qdrant_ensure_ms={QdrantEnsureMs} embedding_ms={EmbeddingMs} qdrant_upsert_ms={QdrantUpsertMs} publish_ms={PublishMs} cleanup_ms={CleanupMs} pages={Pages} sections={Sections} units={Units} chunks={Chunks} exact_entries={ExactEntries} contextual_entries={ContextualEntries} extraction_quality={ExtractionQuality} ocr_recommended={OcrRecommended}",
             job.JobId,
             relDocPath,
             swTotal.ElapsedMilliseconds,
             hashMs,
             extractMs,
+            ocrMs,
+            extraction.Source,
             sectionMs,
             unitMs,
             chunkingMs,
@@ -649,6 +794,62 @@ WHERE job_id=@job_id
         => contextualTextEntries
             .GroupBy(entry => entry.ChunkIndex)
             .ToDictionary(group => group.Key, group => group.Last());
+
+    internal static bool ShouldAttemptImagePageOcr(IngestionOptions options, PdfExtractionResult extraction)
+        => options.OcrImagePageEnabled
+           && extraction.Pages.Any(static page => page.ImageCount > 0);
+
+    internal static bool IsOcrRequiredButDisabled(
+        IngestionOptions options,
+        bool fullDocumentOcrRecommended,
+        bool imagePageOcrRecommended)
+        => !options.OcrEnabled && (fullDocumentOcrRecommended || imagePageOcrRecommended);
+
+    internal static string ResolveNoTextFailureReason(bool ocrAttempted, bool ocrRequiredButDisabled)
+    {
+        if (ocrRequiredButDisabled)
+            return "ocr_required_but_disabled";
+
+        return ocrAttempted
+            ? "scanned_pdf_not_indexable"
+            : "no_indexable_text";
+    }
+
+    internal static string ResolveOcrAppliedReason(
+        bool fullDocumentOcrRecommended,
+        bool forceFullDocumentOcr,
+        PdfExtractionResult? ocrExtraction,
+        bool ocrApplied,
+        bool imagePageOcrRecommended = false,
+        bool imageOcrApplied = false,
+        bool fullOcrApplied = false)
+    {
+        if (imagePageOcrRecommended && imageOcrApplied)
+        {
+            return fullOcrApplied
+                ? "ocr_replaced_native_text_and_image_ocr_merged"
+                : "image_ocr_merged_native_text";
+        }
+
+        if (ocrExtraction is null)
+            return fullDocumentOcrRecommended
+                ? "ocr_extraction_failed"
+                : "image_ocr_no_novel_text";
+
+        if (ocrApplied)
+        {
+            if (!fullDocumentOcrRecommended)
+                return "image_ocr_merged_native_text";
+
+            return forceFullDocumentOcr
+                ? "force_ocr_replaced_native_text"
+                : "ocr_replaced_native_text";
+        }
+
+        return fullDocumentOcrRecommended
+            ? "ocr_not_better_than_native_text"
+            : "image_ocr_not_better_than_native_text";
+    }
 
     internal static string ResolveEmbeddingText(
         int chunkIndex,

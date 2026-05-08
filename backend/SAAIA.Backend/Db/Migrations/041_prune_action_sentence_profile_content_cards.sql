@@ -1,5 +1,3 @@
-DELETE FROM document_profile_content_cards
-WHERE kind <> 'section'
-  AND (
-    normalized_title ~ '^(a l aide|cassez|farinez|incorporez|melangez|repartissez|ramenez|farcir|epaissir|suivant le|pour des preparations)([[:space:]]|$)'
-  );
+-- Retired: previous lexical pruning was destructive for arbitrary corpora.
+-- Runtime generation now filters low-signal profile cards before storage.
+SELECT 1;

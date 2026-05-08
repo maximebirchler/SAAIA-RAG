@@ -1294,17 +1294,24 @@ VALUES(
         try
         {
             var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+            var otherTenantId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
             var firstDocId = Guid.NewGuid();
             var secondDocId = Guid.NewGuid();
             var thirdDocId = Guid.NewGuid();
             var existingJobId = Guid.NewGuid();
             var failedJobId = Guid.NewGuid();
+            var mixedCaseFailedJobId = Guid.NewGuid();
+            var foreignFailedJobId = Guid.NewGuid();
 
             await using (var conn = new NpgsqlConnection(db.ConnectionString))
             {
                 await conn.OpenAsync();
                 await conn.ExecuteAsync(
                     """
+INSERT INTO tenants(tenant_id, name)
+VALUES(@otherTenant, 'Other tenant')
+ON CONFLICT (tenant_id) DO NOTHING;
+
 INSERT INTO documents(
   tenant_id, doc_id, doc_path, doc_name, category, status,
   updated_at, created_at, ingestion_version, indexed_version,
@@ -1323,25 +1330,42 @@ VALUES(
 );
 
 INSERT INTO admin_jobs(
-  job_id, tenant_id, job_type, status, doc_id, level, payload, created_at, finished_at, last_error
+  job_id, tenant_id, job_type, status, doc_id, level, payload, result, created_at, finished_at, last_error
 )
 VALUES(
   @jobId, @tenant, 'summary.generate', 'queued', @doc2, 'medium',
-  '{"executionMode":"server_backoffice","source":"test_seed"}'::jsonb, now(), NULL, NULL
+  '{"executionMode":"server_backoffice","source":"test_seed"}'::jsonb, NULL, now(), NULL, NULL
 ),
 (
   @failedJobId, @tenant, 'summary.generate', 'failed', @doc3, 'medium',
-  '{"executionMode":"server_backoffice","source":"capability_b"}'::jsonb, now(), now(), 'tei timeout'
+  '{"executionMode":"server_backoffice","source":"capability_b"}'::jsonb,
+  '{"stored":false,"llmFailureCategory":"queue","llmFailureKind":"llm_queue_full","llmError":"llm_queue_full"}'::jsonb,
+  now(), now(), 'tei timeout'
+),
+(
+  @mixedCaseFailedJobId, @tenant, 'summary.generate', 'failed', @doc3, 'medium',
+  '{"executionMode":"server_backoffice","source":"capability_b"}'::jsonb,
+  '{"stored":false,"llmFailureCategory":"Queue","llmFailureKind":"llm_queue_full","llmError":"llm_queue_full"}'::jsonb,
+  now(), now(), 'queue saturated'
+),
+(
+  @foreignFailedJobId, @otherTenant, 'summary.generate', 'failed', NULL, 'medium',
+  '{"executionMode":"server_backoffice","source":"capability_b"}'::jsonb,
+  '{"stored":false,"llmFailureCategory":"timeout","llmFailureKind":"llm_timeout","llmError":"llm_timeout"}'::jsonb,
+  now(), now(), 'foreign timeout'
 );
 """,
                     new
                     {
                         tenant = tenantId,
+                        otherTenant = otherTenantId,
                         doc1 = firstDocId,
                         doc2 = secondDocId,
                         doc3 = thirdDocId,
                         jobId = existingJobId,
-                        failedJobId
+                        failedJobId,
+                        mixedCaseFailedJobId,
+                        foreignFailedJobId
                     });
             }
 
@@ -1398,6 +1422,9 @@ VALUES(
             Assert.Equal(0, capabilityB.OperationalSummary.TotalCampaignCount);
             Assert.Equal(0, capabilityB.OperationalSummary.ActiveCampaignCount);
             Assert.Equal(0, capabilityB.OperationalSummary.StoredSummaryCount);
+            Assert.NotNull(capabilityB.OperationalSummary.LlmFailureCounts);
+            Assert.Equal(2, capabilityB.OperationalSummary.LlmFailureCounts!["queue"]);
+            Assert.DoesNotContain("timeout", capabilityB.OperationalSummary.LlmFailureCounts.Keys);
             Assert.NotNull(diagnostics.Summary.Operational);
             Assert.Equal(3, diagnostics.Summary.Operational!.CapabilityBBacklogCount);
             Assert.Equal(1, diagnostics.Summary.Operational.CapabilityBReadyToEnqueueCount);
@@ -1573,6 +1600,19 @@ WHERE tenant_id=@tenant
 """,
                     new { tenant = tenantId });
                 Assert.Equal(2, queuedJobs);
+
+                var queuedJobPaths = (await conn.QueryAsync<string>(
+                    """
+SELECT doc_path
+FROM admin_jobs
+WHERE tenant_id=@tenant
+  AND job_type='summary.generate'
+  AND status='queued'
+  AND payload ->> 'source' = 'capability_b'
+ORDER BY doc_path;
+""",
+                    new { tenant = tenantId })).ToArray();
+                Assert.Equal(["ATEX/missing-summary.pdf", "PLC/recent-failure-summary.pdf"], queuedJobPaths);
             }
 
             var eventsCtx = BuildAdminContext();

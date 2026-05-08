@@ -34,20 +34,15 @@ ranked_cards AS (
   FROM section_candidates
   WHERE CHAR_LENGTH(title) BETWEEN 4 AND 120
     AND CARDINALITY(REGEXP_SPLIT_TO_ARRAY(title, '\s+')) BETWEEN 2 AND 14
-    AND LOWER(title) NOT IN (
-      'ingredients',
-      'ingredient',
-      'preparation',
-      'method',
-      'methods',
-      'steps',
-      'step',
+    AND LOWER(REGEXP_REPLACE(title, '\s+', ' ', 'g')) NOT IN (
       'notes',
       'note',
+      'references',
       'source',
       'sources',
       'sommaire',
       'contents',
+      'table des matieres',
       'table of contents',
       'index',
       'document',
@@ -65,7 +60,7 @@ normalized_cards AS (
       '\s+',
       ' ',
       'g') AS search_text,
-    md5(document_profile_id::text || '|content-card|' || card_index::text) AS stable_hash
+    md5(document_profile_id::text || '|content-card|' || LOWER(REGEXP_REPLACE(title, '\s+', ' ', 'g'))) AS stable_hash
   FROM ranked_cards
   WHERE card_index < 240
 )

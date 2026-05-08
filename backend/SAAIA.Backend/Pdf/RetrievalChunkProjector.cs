@@ -215,20 +215,28 @@ internal static partial class RetrievalChunkProjector
         if (LooksLikeReferenceList(normalized))
             return false;
 
-        var signalCount = 0;
-        if (ContainsAny(normalized,
-            "ingredient", "ingredients", "ingredienti", "zutaten", "materials", "materiaux"))
-            signalCount++;
-        if (ContainsAny(normalized,
-            "preparation", "realisation", "method", "procedure", "procedures", "steps", "etapes"))
-            signalCount++;
-        if (ContainsAny(normalized,
-            "requirements", "requirement", "warning", "caution", "attention", "consigne", "instructions"))
-            signalCount++;
+        var hasItemizedSection = ContainsItemizedSectionHeading(normalized);
+        var hasProcedureSection = ContainsProcedureSectionHeading(normalized);
+        var hasGovernanceSection = ContainsGovernanceSectionHeading(normalized);
+        var hasCountOrSteps = CountOrStepMarkerRegex().IsMatch(text)
+            || CountOrStepMarkerRegex().IsMatch(normalized)
+            || CountNumberedSteps(text) >= 2
+            || CountNumberedSteps(normalized) >= 2;
 
-        return signalCount >= 2
-            || (signalCount >= 1 && (ServingOrStepMarkerRegex().IsMatch(normalized) || CountNumberedSteps(normalized) >= 2));
+        return (hasItemizedSection && (hasProcedureSection || hasCountOrSteps))
+            || (hasProcedureSection && (hasGovernanceSection || hasCountOrSteps))
+            || (hasGovernanceSection && hasCountOrSteps);
     }
+
+    private static bool ContainsItemizedSectionHeading(string normalized)
+        => StructuredContentLexicon.ContainsItemizedCue(normalized)
+            || ContainsAny(normalized, "resources", "ressources");
+
+    private static bool ContainsProcedureSectionHeading(string normalized)
+        => StructuredContentLexicon.ContainsRetrievalProcedureCue(normalized);
+
+    private static bool ContainsGovernanceSectionHeading(string normalized)
+        => StructuredContentLexicon.ContainsGovernanceCue(normalized);
 
     private static bool LooksLikeReferenceList(string normalized)
     {
@@ -367,8 +375,8 @@ internal static partial class RetrievalChunkProjector
         }
 
         normalized = UppercaseRunToTitleCaseBoundaryRegex().Replace(normalized, " ");
-        normalized = LowerToKnownLabelBoundaryRegex().Replace(normalized, " ");
-        normalized = AdjacentKnownLabelsBoundaryRegex().Replace(normalized, "${first} ${second}");
+        normalized = LowerToTitleCaseWordBoundaryRegex().Replace(normalized, " ");
+        normalized = LowerToTitleCaseWordBoundaryRegex().Replace(normalized, " ");
         normalized = LowerOrDigitToStructuralLeadRegex().Replace(normalized, " ");
         normalized = StructuralBoundaryRegex().Replace(normalized, " ");
         normalized = HorizontalWhitespaceRegex().Replace(normalized, " ");
@@ -512,47 +520,45 @@ internal static partial class RetrievalChunkProjector
 
     private static readonly HashSet<string> EmbeddedTitleStopwords = new(StringComparer.Ordinal)
     {
-        "ingredients",
-        "ingredient",
-        "preparation",
-        "preparations",
+        "materials",
+        "material",
+        "components",
+        "component",
         "etapes",
         "steps",
         "method",
         "methods",
-        "temps total",
         "total time",
-        "sauces",
         "document",
         "page",
         "pages"
     };
 
     [GeneratedRegex(@"(?:^|[^\p{L}\p{N}])(?:pour|for|para|per)\s+\d+|(?:^|[^\p{L}\p{N}])\d+\s*[\.)]\s+\p{L}", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
-    private static partial Regex ServingOrStepMarkerRegex();
+    private static partial Regex CountOrStepMarkerRegex();
 
     [GeneratedRegex(@"(?:^|[^\p{L}\p{N}])\d+\s*[\.)]\s+\p{L}", RegexOptions.CultureInvariant)]
     private static partial Regex NumberedStepRegex();
 
-    [GeneratedRegex(@"(?<=[\p{Ll}\p{Nd}])(?=(?:Pour|For|Para|Per|Ingredients?|Ingrédients?|Zutaten|Preparation|Préparation|Realisation|Réalisation|Etapes?|Étapes?)\b)", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<=[\p{Ll}\p{Nd}])(?=(?:Pour|For|Para|Per|Preparation|Pr[eé]paration|Realisation|R[eé]alisation|Materials?|Components?|Requirements?|Warnings?|Cautions?|Instructions?|Procedure|Procedures|Method|Methods|Etapes?|Steps?)\b)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex StructuralBoundaryRegex();
 
-    [GeneratedRegex(@"^\s*\d{1,6}(?=(?:Temps|Total|Ingredients?|Ingr[eÃ©]dients?|Preparation|Pr[eÃ©]paration|\p{Lu}(?:[\p{Ll}]{2,}|['\u2019]\p{Lu}{2,}|\p{Lu}{2,})))", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^\s*\d{1,6}(?=(?:Time|Temps|Total|Preparation|Pr[eé]paration|Materials?|Components?|Requirements?|Warnings?|Cautions?|Instructions?|Procedure|Procedures|Method|Methods|\p{Lu}(?:[\p{Ll}]{2,}|['\u2019]\p{Lu}{2,}|\p{Lu}{2,})))", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex LeadingCompactPageNumberRegex();
 
-    [GeneratedRegex(@"(?<=\d)(?=(?:Temps|Total|Ingredients?|Ingr[eÃ©]dients?|Preparation|Pr[eÃ©]paration|\p{Lu}(?:[\p{Ll}]{2,}|['\u2019]\p{Lu}{2,}|\p{Lu}{2,})))", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<=\d)(?=(?:Time|Temps|Total|Preparation|Pr[eé]paration|Materials?|Components?|Requirements?|Warnings?|Cautions?|Instructions?|Procedure|Procedures|Method|Methods|\p{Lu}(?:[\p{Ll}]{2,}|['\u2019]\p{Lu}{2,}|\p{Lu}{2,})))", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex DigitToStructuralLeadRegex();
 
-    [GeneratedRegex(@"(?<=[\p{L}])(?=\d+(?:[,.]\d+)?(?:\s*(?:g|kg|mg|ml|cl|l|oz|lb|c\.|cuill|personnes?|people|servings?|portions?|brins?|cubes?|gousses?|tranches?|morceaux?|feuilles?|sachets?|pinc[e\u00e9]es?|carottes?|oignons?|\u00e9chalotes?|echalotes?|branches?|lamelles?|escalopes?|capsules?|gla[c\u00e7]ons?|bouquets?|piments?|fruits?|l[e\u00e9]gumes?|jaunes?|blancs?|oeufs?|\u0153ufs?|eggs?|cloves?|slices?|pieces?|leaves?|cups?|tbsp|tsp|s|sec|secs|secondes?|seconds?|min|h)(?:\b|\s)|[\.)]\s*\p{L}))", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"(?<=[\p{L}])(?=\d+(?:[,.]\d+)?(?:\s*(?:g|kg|mg|ml|cl|l|oz|lb|mm|cm|m|bar|pa|kpa|mpa|v|a|w|hz|rpm|%|units?|unites?|items?|pieces?|pages?|s|sec|secs|secondes?|seconds?|min|h)(?:\b|\s)|[\.)]\s*\p{L}))", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex LetterToNumericMeasureRegex();
 
-    [GeneratedRegex(@"(?<=[\p{Ll}])(?=\d{1,4}\s+(?:brins?|cubes?|gousses?|tranches?|morceaux?|feuilles?|sachets?|pinc[e\u00e9]es?|carottes?|oignons?|\u00e9chalotes?|echalotes?|branches?|lamelles?|escalopes?|capsules?|gla[c\u00e7]ons?|bouquets?|piments?|fruits?|l[e\u00e9]gumes?|jaunes?|blancs?|oeufs?|\u0153ufs?|eggs?|cloves?|slices?|pieces?|leaves?)(?:\s|[,\.;:\)\]]|$))", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"(?<=[\p{Ll}])(?=\d{1,4}(?:/\d{1,4})?\s+[\p{Ll}]{2,24}(?:\s|[,\.;:\)\]]|$))", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex LowerToCountNounBoundaryRegex();
 
-    [GeneratedRegex(@"(?<=[\p{Ll}])(?=\d{1,4}(?:[,.]\d+)?\s+\p{Ll})", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<=[\p{Ll}])(?=\d{1,4}(?:/\d{1,4})?(?:[,.]\d+)?\s+\p{Ll})", RegexOptions.CultureInvariant)]
     private static partial Regex LowerToLooseQuantityBoundaryRegex();
 
-    [GeneratedRegex(@"(?<=[\.!?:;\)\]\u00ae])(?=\d{1,4}(?:[,.]\d+)?\s+\p{Ll})", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<=[\.!?:;\)\]\u00ae])(?=\d{1,4}(?:/\d{1,4})?(?:[,.]\d+)?\s+\p{Ll})", RegexOptions.CultureInvariant)]
     private static partial Regex PunctuationToLooseQuantityBoundaryRegex();
 
     [GeneratedRegex(@"\b(?<word>[\p{L}]+['\u2019][\p{L}]{2,20})(?=\d{1,4}\s+\p{Ll})", RegexOptions.CultureInvariant)]
@@ -564,25 +570,22 @@ internal static partial class RetrievalChunkProjector
     [GeneratedRegex(@"(?<=[\.!?])(?=\d+\s+\p{Lu})", RegexOptions.CultureInvariant)]
     private static partial Regex PunctuationToBareNumberedStepRegex();
 
-    [GeneratedRegex(@"(?<=[\.!?:;\)\]\u00ae])(?=\d+(?:[,.]\d+)?(?:/\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|c\.|cuill|cups?|tbsp|tsp|personnes?|people|servings?|portions?|s|sec|secs|secondes?|seconds?|min|h)(?:\b|(?=\d)))", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"(?<=[\.!?:;\)\]\u00ae])(?=\d+(?:[,.]\d+)?(?:/\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|mm|cm|m|bar|pa|kpa|mpa|v|a|w|hz|rpm|%|units?|unites?|items?|pieces?|s|sec|secs|secondes?|seconds?|min|h)(?:\b|(?=\d)))", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex PunctuationToNumericMeasureRegex();
 
-    [GeneratedRegex(@"\b(?<unit>personnes?|people|servings?|portions?|s|sec|secs|secondes?|seconds?|min|h)(?=\d)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(?<unit>s|sec|secs|secondes?|seconds?|min|h|g|kg|mg|ml|cl|l|mm|cm|m|bar|pa|kpa|mpa|v|a|w|hz|rpm|units?|unites?|items?|pieces?)(?=\d)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex UnitToDigitBoundaryRegex();
 
-    [GeneratedRegex(@"\b(?:ingredients?|ingr[e\u00e9]dients?|zutaten|preparation|pr[e\u00e9]paration|\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|c\.|cuill|cups?|tbsp|tsp|personnes?|people|servings?|portions?|s|sec|secs|secondes?|seconds?|min|h))\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(?:items?|elements?|materials?|components?|requirements?|instructions?|\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|mm|cm|m|bar|pa|kpa|mpa|v|a|w|hz|rpm|%|units?|unites?|items?|pieces?|s|sec|secs|secondes?|seconds?|min|h))\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex QuantityDenseMarkerRegex();
 
     [GeneratedRegex(@"(?<=[\p{Lu}])(?=\p{Lu}\p{Ll}{2,})", RegexOptions.CultureInvariant)]
     private static partial Regex UppercaseRunToTitleCaseBoundaryRegex();
 
-    [GeneratedRegex(@"(?<=[\p{Ll}])(?=(?:Sel|Poivre|Salt|Pepper))", RegexOptions.CultureInvariant)]
-    private static partial Regex LowerToKnownLabelBoundaryRegex();
+    [GeneratedRegex(@"(?<=[\p{Ll}])(?=\p{Lu}[\p{Ll}]{2,}\b)", RegexOptions.CultureInvariant)]
+    private static partial Regex LowerToTitleCaseWordBoundaryRegex();
 
-    [GeneratedRegex(@"\b(?<first>Sel|Salt)(?<second>Poivre|Pepper)\b", RegexOptions.CultureInvariant)]
-    private static partial Regex AdjacentKnownLabelsBoundaryRegex();
-
-    [GeneratedRegex(@"(?<=[\p{Ll}\p{Nd}])(?=(?:Temps|Total|Pour|For|Para|Per|With|Avec|Ingredients?|Ingr[eÃ©]dients?|Zutaten|Preparation|Pr[eÃ©]paration|Method|Steps?|Etapes?|[A-Z]{2,}\b))", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<=[\p{Ll}\p{Nd}])(?=(?:Temps|Total|Pour|For|Para|Per|With|Avec|Preparation|Pr[eé]paration|Materials?|Components?|Requirements?|Instructions?|Procedure|Procedures|Method|Steps?|Etapes?|[A-Z]{2,}\b))", RegexOptions.CultureInvariant)]
     private static partial Regex LowerOrDigitToStructuralLeadRegex();
 
     [GeneratedRegex(@"[ \t\f\v]+", RegexOptions.CultureInvariant)]
@@ -591,16 +594,16 @@ internal static partial class RetrievalChunkProjector
     [GeneratedRegex(@"(?:\s*\r?\n\s*){2,}", RegexOptions.CultureInvariant)]
     private static partial Regex ParagraphWhitespaceRegex();
 
-    [GeneratedRegex(@"(?<![\p{L}\p{N}])(?<title>[\p{Lu}][\p{Lu}\p{Nd}'\u2019\-\s]{4,90}?)(?=(?:\s+\d{1,4}\s*(?:g|kg|mg|ml|cl|l|oz|lb|c\.|cuill|personnes?|people|servings?|portions?|min|h)\b|\s+[A-Z][\p{Ll}]{2,}|\s*$|[\.:\-\u2013\u2014]))", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<![\p{L}\p{N}])(?<title>[\p{Lu}][\p{Lu}\p{Nd}'\u2019\-\s]{4,90}?)(?=(?:\s+\d{1,4}\s*(?:g|kg|mg|ml|cl|l|oz|lb|mm|cm|m|bar|pa|kpa|mpa|v|a|w|hz|rpm|%|min|h)\b|\s+[A-Z][\p{Ll}]{2,}|\s*$|[\.:\-\u2013\u2014]))", RegexOptions.CultureInvariant)]
     private static partial Regex EmbeddedUppercaseTitleRegex();
 
     [GeneratedRegex(@"(?<=[\p{Lu}])\d{1,4}$", RegexOptions.CultureInvariant)]
     private static partial Regex MostlyUppercaseTrailingMeasureNumberRegex();
 
-    [GeneratedRegex(@"\b(?:ingredients?|ingr[eÃ©]dients?|zutaten|preparation|pr[eÃ©]paration|method|steps?|etapes?|temps total|total time|\d+\s*(?:personnes?|people|servings?|portions?|min|h))\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(?:items?|elements?|materials?|components?|requirements?|instructions?|procedures?|method|steps?|etapes?|preparation|pr[eé]paration|temps total|total time|\d+\s*(?:units?|unites?|items?|pieces?|min|h))\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex StructuredContextBeforeTitleRegex();
 
-    [GeneratedRegex(@"\b(?:ingredients?|ingr[eÃ©]dients?|zutaten|preparation|pr[eÃ©]paration|method|steps?|\d+\s*(?:g|kg|mg|ml|cl|l|oz|lb|c\.|cuill))\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(?:items?|elements?|preparation|pr[eé]paration|materials?|components?|requirements?|instructions?|procedures?|method|steps?|\d+\s*(?:g|kg|mg|ml|cl|l|oz|lb|units?|items?|pieces?))\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex StructuredContextAfterTitleRegex();
 }
 

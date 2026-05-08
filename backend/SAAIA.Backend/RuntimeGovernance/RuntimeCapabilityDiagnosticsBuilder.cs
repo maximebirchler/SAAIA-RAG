@@ -169,7 +169,7 @@ WHERE payload ->> 'source' = 'capability_a'
                 : string.Equals(latestCampaign.EventType, "capability_a_campaign_dry_run", StringComparison.Ordinal)
                     ? "dry_run"
                     : "executed",
-            LatestCampaignOccurredAt: latestCampaign?.OccurredAt);
+            LatestCampaignOccurredAt: ToUtcOffset(latestCampaign?.OccurredAt));
     }
 
     internal static AdminRuntimeCapabilityDiagnosticDto BuildCapabilityDiagnostic(
@@ -238,6 +238,7 @@ WHERE payload ->> 'source' = 'capability_a'
 
     internal static async Task<AdminRuntimeCapabilityOperationalSummaryDto> LoadCapabilityBOperationalSummaryAsync(
         NpgsqlConnection conn,
+        Guid tenantId,
         string capabilityBKey,
         IReadOnlyList<AdminRuntimeCapabilityBBackofficeCandidateDto> candidates,
         CancellationToken ct)
@@ -253,10 +254,12 @@ WHERE payload ->> 'source' = 'capability_a'
             """
 SELECT COUNT(*)::int
 FROM admin_jobs
-WHERE payload ->> 'source' = 'capability_b'
+WHERE tenant_id = @tenantId
+  AND payload ->> 'source' = 'capability_b'
   AND job_type = 'summary.generate'
   AND status IN ('queued', 'running', 'paused');
 """,
+            new { tenantId },
             cancellationToken: ct));
 
         var campaignRows = (await conn.QueryAsync<CapabilityBCampaignOperationalRow>(new CommandDefinition(
@@ -269,9 +272,16 @@ FROM runtime_capability_events
 WHERE capability_key = @capabilityKey
   AND event_type IN ('capability_b_campaign_dry_run', 'capability_b_campaign_executed')
   AND details ? 'campaignId'
+  AND EXISTS (
+    SELECT 1
+    FROM admin_jobs a
+    WHERE a.tenant_id = @tenantId
+      AND a.payload ->> 'source' = 'capability_b'
+      AND a.payload ->> 'campaignId' = details ->> 'campaignId'
+  )
 ORDER BY occurred_at DESC;
 """,
-            new { capabilityKey = capabilityBKey },
+            new { capabilityKey = capabilityBKey, tenantId },
             cancellationToken: ct))).ToArray();
 
         var latestCampaignRow = campaignRows.FirstOrDefault();
@@ -292,20 +302,37 @@ SELECT
     END
   )::int AS "StoredSummaryCount"
 FROM admin_jobs a
-WHERE a.payload ->> 'source' = 'capability_b'
+WHERE a.tenant_id = @tenantId
+  AND a.payload ->> 'source' = 'capability_b'
   AND a.payload ? 'campaignId'
 GROUP BY CAST(a.payload ->> 'campaignId' AS uuid);
 """,
+                new { tenantId },
                 cancellationToken: ct))).ToArray();
 
         var activeCampaignCount = campaignStates.Count(static row => row.ActiveJobCount > 0);
         var terminalCapabilityJobCount = campaignStates.Sum(static row => row.TerminalJobCount);
         var storedSummaryCount = campaignStates.Sum(static row => row.StoredSummaryCount);
+        var llmFailureRows = (await conn.QueryAsync<NamedCountRow>(new CommandDefinition(
+            """
+SELECT
+  lower(btrim(result ->> 'llmFailureCategory')) AS "Key",
+  COUNT(*)::int AS "Count"
+FROM admin_jobs
+WHERE tenant_id = @tenantId
+  AND payload ->> 'source' = 'capability_b'
+  AND job_type = 'summary.generate'
+  AND status IN ('done', 'failed', 'canceled', 'cancelled')
+  AND NULLIF(btrim(result ->> 'llmFailureCategory'), '') IS NOT NULL
+GROUP BY lower(btrim(result ->> 'llmFailureCategory'));
+""",
+            new { tenantId },
+            cancellationToken: ct))).ToArray();
 
         int? latestCampaignProgressPercent = null;
         string? latestCampaignStatus = null;
         Guid? latestCampaignId = latestCampaignRow?.CampaignId;
-        DateTimeOffset? latestCampaignOccurredAt = latestCampaignRow?.OccurredAt;
+        DateTimeOffset? latestCampaignOccurredAt = ToUtcOffset(latestCampaignRow?.OccurredAt);
         if (latestCampaignRow is not null)
         {
             latestCampaignStatus = string.Equals(latestCampaignRow.EventType, "capability_b_campaign_dry_run", StringComparison.Ordinal)
@@ -337,7 +364,11 @@ GROUP BY CAST(a.payload ->> 'campaignId' AS uuid);
             LatestCampaignProgressPercent: latestCampaignProgressPercent,
             LatestCampaignId: latestCampaignId,
             LatestCampaignStatus: latestCampaignStatus,
-            LatestCampaignOccurredAt: latestCampaignOccurredAt);
+            LatestCampaignOccurredAt: latestCampaignOccurredAt,
+            LlmFailureCounts: llmFailureRows.ToDictionary(
+                static row => row.Key,
+                static row => row.Count,
+                StringComparer.OrdinalIgnoreCase));
     }
 
     private static AdminRuntimeDiagnosticsOperationalSummaryDto BuildOperationalSummary(
@@ -550,19 +581,38 @@ GROUP BY CAST(a.payload ->> 'campaignId' AS uuid);
         bool HasContextualTextEntries,
         bool HasActiveUpsertJob);
 
+    private static DateTimeOffset? ToUtcOffset(DateTime? value)
+    {
+        if (!value.HasValue)
+            return null;
+
+        var utc = value.Value.Kind switch
+        {
+            DateTimeKind.Utc => value.Value,
+            DateTimeKind.Local => value.Value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)
+        };
+
+        return new DateTimeOffset(utc);
+    }
+
     private sealed record CapabilityACampaignOperationalRow(
         Guid CampaignId,
         string EventType,
-        DateTimeOffset OccurredAt);
+        DateTime OccurredAt);
 
     private sealed record CapabilityBCampaignOperationalRow(
         Guid CampaignId,
         string EventType,
-        DateTimeOffset OccurredAt);
+        DateTime OccurredAt);
 
     private sealed record CapabilityBCampaignJobAggregateRow(
         Guid CampaignId,
         int ActiveJobCount,
         int TerminalJobCount,
         int StoredSummaryCount);
+
+    private sealed record NamedCountRow(
+        string Key,
+        int Count);
 }

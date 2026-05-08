@@ -84,8 +84,8 @@ internal static partial class ExactMatchEntryExtractor
                 terms.Add(normalizedReference);
 
             // Generate sub-variants for composite references:
-            // "EN 15281" → also produce "15281"
-            // "CEN TR 15281" → also produce "tr 15281", "15281"
+            // "STD 12345" -> also produce "12345"
+            // "ORG TYPE 12345" -> also produce "type 12345", "12345"
             foreach (var variant in ExpandReferenceVariants(reference))
             {
                 var normalizedVariant = NormalizeForLookup(variant);
@@ -183,10 +183,10 @@ internal static partial class ExactMatchEntryExtractor
     }
 
     /// <summary>
-    /// For a composite reference like "CEN TR 15281" or "EN 15281", produce sub-variants:
+    /// For a composite reference like "ORG TYPE 12345" or "STD 12345", produce sub-variants:
     /// - Strip known prefixes progressively (EN/ISO/IEC/CEN/TR/etc.)
-    /// - Extract bare numeric core (e.g., "15281")
-    /// This allows cross-matching between "EN 15281" (query) and "CEN TR 15281" (doc).
+    /// - Extract bare numeric core (e.g., "12345")
+    /// This allows cross-matching between shorter and longer forms of the same reference.
     /// </summary>
     internal static IEnumerable<string> ExpandReferenceVariants(string reference)
     {
@@ -223,7 +223,7 @@ internal static partial class ExactMatchEntryExtractor
             yield break;
 
         // Progressively strip leading prefix tokens
-        // "CEN TR 15281" → "TR 15281" → "15281"
+        // "ORG TYPE 12345" -> "TYPE 12345" -> "12345"
         var prefixes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             { "EN", "ISO", "IEC", "ASTM", "DIN", "NFPA", "API", "ANSI", "CEN", "TR", "TS", "PD", "BS" };
 

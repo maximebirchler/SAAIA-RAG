@@ -96,7 +96,17 @@ public static class AdminRuntimeEndpoints
         app.MapGet("/admin/runtime/artifacts/warmup-profiles.json", WarmupProfilesArtifactAsync);
         app.MapGet("/admin/runtime/artifacts/capability-state.json", CapabilityStateArtifactAsync);
         app.MapGet("/admin/runtime/artifacts/warmup-results.json", WarmupResultsArtifactAsync);
-        app.MapPost("/admin/runtime/requalify", RequalifyAsync);
+        app.MapPost(
+            "/admin/runtime/requalify",
+            (HttpContext ctx,
+             NpgsqlDataSource ds,
+             IHttpClientFactory httpFactory,
+             IOptions<RuntimeGovernanceOptions> options,
+             IOptions<RagOptions> ragOptions,
+             IOptions<ChatOptions> chatOptions,
+             IHostEnvironment env,
+             AdminRuntimeRequalifyRequestDto? req) =>
+                RequalifyAsync(ctx, ds, httpFactory, options, ragOptions, chatOptions, env, req));
         app.MapPost("/admin/runtime/reconcile-stale", ReconcileStaleAsync);
         app.MapPost("/admin/runtime/capabilities/{capabilityKey}/selection", UpdateSelectionAsync);
         app.MapPost("/admin/runtime/capabilities/capability_a.corpus_enrichment/enqueue", CapabilityAEnqueueAsync);
@@ -370,12 +380,31 @@ public static class AdminRuntimeEndpoints
         return Results.Ok(response);
     }
 
+    internal static Task<IResult> RequalifyAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        IHttpClientFactory httpFactory,
+        IOptions<RuntimeGovernanceOptions> options,
+        IOptions<RagOptions> ragOptions,
+        IHostEnvironment env,
+        AdminRuntimeRequalifyRequestDto? req)
+        => RequalifyAsync(
+            ctx,
+            ds,
+            httpFactory,
+            options,
+            ragOptions,
+            Options.Create(new ChatOptions()),
+            env,
+            req);
+
     internal static async Task<IResult> RequalifyAsync(
         HttpContext ctx,
         NpgsqlDataSource ds,
         IHttpClientFactory httpFactory,
         IOptions<RuntimeGovernanceOptions> options,
         IOptions<RagOptions> ragOptions,
+        IOptions<ChatOptions> chatOptions,
         IHostEnvironment env,
         AdminRuntimeRequalifyRequestDto? req)
     {
@@ -385,6 +414,7 @@ public static class AdminRuntimeEndpoints
             httpFactory,
             options.Value,
             ragOptions.Value,
+            chatOptions.Value,
             env,
             req,
             ctx.RequestAborted);
@@ -910,6 +940,8 @@ public static class AdminRuntimeEndpoints
             stored = true,
             docId = payload.DocId,
             level = payload.Level,
+            docLanguage = payload.DocLanguage,
+            docLanguageSource = payload.DocLanguageSource,
             sourceHash = payload.SourceHash
         });
     }
@@ -938,7 +970,7 @@ public static class AdminRuntimeEndpoints
     /// Canonical backend artifacts are generated on demand from the current runtime state.
     /// Optional companion files still present on disk are copied when available and reported
     /// in <c>missingArtifacts</c> when absent.
-    /// CDC v3.1 Â§14.2 â€” admin governance bundle (distinct from the lightweight client bundle).
+    /// CDC v3.1 §14.2 — admin governance bundle (distinct from the lightweight client bundle).
     /// </summary>
     internal static async Task<IResult> SupportBundleAsync(
         HttpContext ctx,

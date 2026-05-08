@@ -47,6 +47,7 @@ internal static class RuntimeCapabilityBExecutionCoordinator
         {
             ["executionLeaseToken"] = leaseToken,
             ["executionClaimedAt"] = claimedAt,
+            ["executionHeartbeatAt"] = claimedAt,
             ["executionClaimedBy"] = claimedBy,
             ["executionClaimCapabilityStatus"] = job.RuntimeCapabilityStatus ?? "selected",
             ["executionClaimProfileKey"] = profileKey
@@ -166,10 +167,52 @@ internal static class RuntimeCapabilityBExecutionCoordinator
         return new DateTimeOffset(utc);
     }
 
+    private static string ResolveStoredDocLanguage(string? requestedLanguage, string? profileLanguage)
+    {
+        var requested = NormalizeDocLanguage(requestedLanguage);
+        return string.Equals(requested, "und", StringComparison.Ordinal)
+            ? NormalizeDocLanguage(profileLanguage)
+            : requested;
+    }
+
+    private static string ResolveStoredDocLanguageSource(string? requestedLanguage, string? profileLanguage)
+        => !string.Equals(NormalizeDocLanguage(requestedLanguage), "und", StringComparison.Ordinal)
+            ? "request"
+            : !string.Equals(NormalizeDocLanguage(profileLanguage), "und", StringComparison.Ordinal)
+                ? "profile"
+                : "unknown";
+
     private static string NormalizeDocLanguage(string? value)
-        => string.IsNullOrWhiteSpace(value)
-            ? "und"
-            : value.Trim();
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return "und";
+
+        var normalized = value.Trim().Replace('_', '-').ToLowerInvariant();
+        if (normalized.Contains(',', StringComparison.Ordinal))
+            normalized = normalized.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? string.Empty;
+        if (normalized.Contains('+', StringComparison.Ordinal))
+            normalized = normalized.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? string.Empty;
+
+        return IsPlausibleLanguageTag(normalized) ? normalized : "und";
+    }
+
+    private static bool IsPlausibleLanguageTag(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || string.Equals(value, "und", StringComparison.Ordinal))
+            return string.Equals(value, "und", StringComparison.Ordinal);
+        if (value.Length is < 2 or > 35)
+            return false;
+
+        var parts = value.Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0 || parts.Length > 5)
+            return false;
+        if (parts[0].Length is < 2 or > 8 || !parts[0].All(char.IsLetter))
+            return false;
+
+        return parts.Skip(1).All(static part =>
+            part.Length is >= 2 and <= 8
+            && part.All(static ch => char.IsLetterOrDigit(ch)));
+    }
 
     internal static async Task<RuntimeOperationResult<CapabilityBCompletionResult>> CompleteAsync(
         Guid tenantId,
@@ -177,6 +220,25 @@ internal static class RuntimeCapabilityBExecutionCoordinator
         string adminRuntimeActor,
         string capabilityKey,
         AdminRuntimeCapabilityBCompleteRequestDto? req,
+        CancellationToken ct)
+        => await CompleteAsync(
+            tenantId,
+            ds,
+            adminRuntimeActor,
+            capabilityKey,
+            req,
+            generatedProfileRevisionId: null,
+            generatedProfile: null,
+            ct);
+
+    internal static async Task<RuntimeOperationResult<CapabilityBCompletionResult>> CompleteAsync(
+        Guid tenantId,
+        NpgsqlDataSource ds,
+        string adminRuntimeActor,
+        string capabilityKey,
+        AdminRuntimeCapabilityBCompleteRequestDto? req,
+        Guid? generatedProfileRevisionId,
+        ProjectedDocumentProfile? generatedProfile,
         CancellationToken ct)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
@@ -192,6 +254,8 @@ internal static class RuntimeCapabilityBExecutionCoordinator
             return new RuntimeOperationResult<CapabilityBCompletionResult>(null, validation.Error);
         if (string.IsNullOrWhiteSpace(req?.SummaryText))
             return new RuntimeOperationResult<CapabilityBCompletionResult>(null, "summary_text_required");
+        if (generatedProfile is not null && !generatedProfileRevisionId.HasValue)
+            return new RuntimeOperationResult<CapabilityBCompletionResult>(null, "generated_profile_revision_required");
 
         var execution = validation.Payload!;
         var level = string.IsNullOrWhiteSpace(execution.Level)
@@ -205,35 +269,36 @@ internal static class RuntimeCapabilityBExecutionCoordinator
         if (doc is null)
             return new RuntimeOperationResult<CapabilityBCompletionResult>(null, "document_not_found");
 
-        var sourceHash = string.IsNullOrWhiteSpace(req?.SourceHash)
-            ? await RuntimeCapabilityBExecutionStore.ComputeCapabilityBDocumentSourceHashAsync(conn, tenantId, execution.DocId, ct)
+        var expectedSourceHash = string.IsNullOrWhiteSpace(req?.SourceHash)
+            ? null
             : req.SourceHash.Trim();
+        var sourceHash = await RuntimeCapabilityBExecutionStore.ComputeCapabilityBDocumentSourceHashAsync(conn, tenantId, execution.DocId, ct);
         if (string.IsNullOrWhiteSpace(sourceHash))
             return new RuntimeOperationResult<CapabilityBCompletionResult>(null, "source_hash_unavailable");
+        sourceHash = sourceHash.Trim();
+        if (!string.IsNullOrWhiteSpace(expectedSourceHash)
+            && !string.Equals(expectedSourceHash, sourceHash, StringComparison.Ordinal))
+        {
+            await CancelStaleSourceJobAsync(tenantId, conn, capabilityKey, execution, "source_hash_mismatch", ct);
+            return new RuntimeOperationResult<CapabilityBCompletionResult>(null, "source_hash_mismatch");
+        }
 
-        var normalizedSummaryText = req!.SummaryText.Trim();
-        var metaJson = req.Meta.HasValue
-            ? req.Meta.Value.GetRawText()
-            : null;
-
-        await RuntimeCapabilityBExecutionStore.UpsertDocumentSummaryAsync(
-            conn,
-            tenantId,
-            execution.DocId,
-            level,
-            NormalizeDocLanguage(req.DocLanguage),
-            sourceHash,
-            normalizedSummaryText,
-            metaJson,
-            ct);
+        var normalizedSummaryText = PostgresTextSanitizer.Clean(req!.SummaryText).Trim();
+        if (string.IsNullOrWhiteSpace(normalizedSummaryText))
+            return new RuntimeOperationResult<CapabilityBCompletionResult>(null, "summary_text_required");
+        var metaJson = PostgresTextSanitizer.CleanJson(req.Meta);
+        var effectiveDocLanguage = ResolveStoredDocLanguage(req.DocLanguage, doc.ProfileLanguage);
+        var effectiveDocLanguageSource = ResolveStoredDocLanguageSource(req.DocLanguage, doc.ProfileLanguage);
 
         var summaryLength = normalizedSummaryText.Length;
         var finishedAt = DateTimeOffset.UtcNow;
-        var resultJson = JsonSerializer.Serialize(new Dictionary<string, object?>
+        var resultValues = new Dictionary<string, object?>
         {
             ["docId"] = execution.DocId,
             ["docPath"] = doc.DocPath,
             ["level"] = level,
+            ["docLanguage"] = effectiveDocLanguage,
+            ["docLanguageSource"] = effectiveDocLanguageSource,
             ["stored"] = true,
             ["sourceHash"] = sourceHash,
             ["summaryLength"] = summaryLength,
@@ -245,19 +310,87 @@ internal static class RuntimeCapabilityBExecutionCoordinator
             ["runtimeProfileKey"] = execution.RuntimeProfileKey,
             ["source"] = execution.EnqueueSource,
             ["campaignId"] = execution.CampaignId,
-            ["executionLeaseToken"] = execution.LeaseToken
-        });
+            ["executionLeaseToken"] = execution.LeaseToken,
+            ["generatedProfileStored"] = generatedProfile is not null,
+            ["generatedProfileRevisionId"] = generatedProfileRevisionId,
+            ["generatedProfileVersion"] = generatedProfile?.ProfileVersion
+        };
+        AddSummaryMetaDiagnosticsToJobResult(resultValues, req.Meta);
+        var resultJson = JsonSerializer.Serialize(resultValues);
+
+        await using var tx = await conn.BeginTransactionAsync(ct);
+        var lockedSourceHash = await RuntimeCapabilityBExecutionStore.ComputeCapabilityBDocumentSourceHashForUpdateAsync(
+            conn,
+            tenantId,
+            execution.DocId,
+            ct,
+            tx);
+        if (string.IsNullOrWhiteSpace(lockedSourceHash))
+        {
+            await tx.RollbackAsync(ct);
+            return new RuntimeOperationResult<CapabilityBCompletionResult>(null, "source_hash_unavailable");
+        }
+
+        lockedSourceHash = lockedSourceHash.Trim();
+        if (!string.Equals(sourceHash, lockedSourceHash, StringComparison.Ordinal))
+        {
+            await tx.RollbackAsync(ct);
+            await CancelStaleSourceJobAsync(tenantId, conn, capabilityKey, execution, "source_hash_changed_during_completion", ct);
+            return new RuntimeOperationResult<CapabilityBCompletionResult>(null, "source_hash_changed_during_completion");
+        }
+
+        if (generatedProfile is not null && generatedProfileRevisionId.HasValue)
+        {
+            var revisionMatches = await RuntimeCapabilityBExecutionStore.RevisionMatchesCurrentDocumentSnapshotAsync(
+                conn,
+                tenantId,
+                execution.DocId,
+                generatedProfileRevisionId.Value,
+                ct,
+                tx);
+            if (!revisionMatches)
+            {
+                await tx.RollbackAsync(ct);
+                return new RuntimeOperationResult<CapabilityBCompletionResult>(null, "generated_profile_revision_stale");
+            }
+
+            await DocumentFoundationRepo.UpsertDocumentProfileAsync(
+                conn,
+                tx,
+                tenantId,
+                execution.DocId,
+                generatedProfileRevisionId.Value,
+                generatedProfile,
+                ct);
+        }
+
+        await RuntimeCapabilityBExecutionStore.UpsertDocumentSummaryAsync(
+            conn,
+            tenantId,
+            execution.DocId,
+            level,
+            effectiveDocLanguage,
+            sourceHash,
+            normalizedSummaryText,
+            metaJson,
+            ct,
+            tx);
 
         var completed = await RuntimeCapabilityBExecutionStore.TryCompleteJobAsync(
             conn,
             tenantId,
             execution.JobId,
+            execution.LeaseToken,
             finishedAt,
             resultJson,
-            ct);
+            ct,
+            tx);
 
         if (!completed)
+        {
+            await tx.RollbackAsync(ct);
             return new RuntimeOperationResult<CapabilityBCompletionResult>(null, "capability_b_job_not_running");
+        }
 
         await RuntimeCapabilityBExecutionStore.RecordCapabilityBSummaryCompletedAsync(
             conn,
@@ -270,7 +403,10 @@ internal static class RuntimeCapabilityBExecutionCoordinator
             execution.RuntimeProfileKey,
             execution.CampaignId,
             execution.RuntimeCapabilityStatus,
-            ct);
+            ct,
+            tx);
+
+        await tx.CommitAsync(ct);
 
         return new RuntimeOperationResult<CapabilityBCompletionResult>(
             new CapabilityBCompletionResult(
@@ -278,6 +414,8 @@ internal static class RuntimeCapabilityBExecutionCoordinator
                 execution.DocId,
                 doc.DocPath,
                 level,
+                effectiveDocLanguage,
+                effectiveDocLanguageSource,
                 sourceHash,
                 summaryLength,
                 completedBy,
@@ -337,6 +475,7 @@ internal static class RuntimeCapabilityBExecutionCoordinator
             conn,
             tenantId,
             execution.JobId,
+            execution.LeaseToken,
             failedAt,
             resultJson,
             lastError,
@@ -383,5 +522,135 @@ internal static class RuntimeCapabilityBExecutionCoordinator
                 "failed",
                 failedAt),
             null);
+    }
+
+    private static void AddSummaryMetaDiagnosticsToJobResult(
+        IDictionary<string, object?> resultValues,
+        JsonElement? meta)
+    {
+        if (meta is null || meta.Value.ValueKind != JsonValueKind.Object)
+            return;
+
+        foreach (var key in new[]
+        {
+            "fallbackUsed",
+            "fallbackReason",
+            "llmError",
+            "llmFailureKind",
+            "llmFailureCategory",
+            "llmStatusCode",
+            "llmDurationMs",
+            "llmResponseHeadersMs",
+            "llmFirstResponseMs",
+            "llmBytesRead",
+            "llmModel"
+        })
+        {
+            if (!meta.Value.TryGetProperty(key, out var value))
+                continue;
+
+            if (TryReadSummaryMetaScalar(value, out var scalar))
+                resultValues[key] = scalar;
+        }
+    }
+
+    private static bool TryReadSummaryMetaScalar(JsonElement value, out object? scalar)
+    {
+        switch (value.ValueKind)
+        {
+            case JsonValueKind.String:
+                scalar = PostgresTextSanitizer.Clean(value.GetString());
+                return true;
+            case JsonValueKind.Number:
+                if (value.TryGetInt64(out var longValue))
+                {
+                    scalar = longValue;
+                    return true;
+                }
+
+                if (value.TryGetDouble(out var doubleValue))
+                {
+                    scalar = doubleValue;
+                    return true;
+                }
+
+                break;
+            case JsonValueKind.True:
+                scalar = true;
+                return true;
+            case JsonValueKind.False:
+                scalar = false;
+                return true;
+            case JsonValueKind.Null:
+                scalar = null;
+                return true;
+        }
+
+        scalar = null;
+        return false;
+    }
+
+    private static async Task CancelStaleSourceJobAsync(
+        Guid tenantId,
+        NpgsqlConnection conn,
+        string capabilityKey,
+        CapabilityBExecutionContext execution,
+        string error,
+        CancellationToken ct)
+    {
+        var canceledAt = DateTimeOffset.UtcNow;
+        var resultJson = JsonSerializer.Serialize(new Dictionary<string, object?>
+        {
+            ["docId"] = execution.DocId,
+            ["docPath"] = execution.DocPath,
+            ["level"] = execution.Level,
+            ["stored"] = false,
+            ["canceledBy"] = execution.ClaimedBy,
+            ["reason"] = "stale_source",
+            ["error"] = error,
+            ["executionMode"] = execution.ExecutionMode,
+            ["runtimeCapabilityKey"] = execution.RuntimeCapabilityKey,
+            ["runtimeCapabilityStatus"] = execution.RuntimeCapabilityStatus,
+            ["runtimeCapabilitySelected"] = execution.RuntimeCapabilitySelected,
+            ["runtimeProfileKey"] = execution.RuntimeProfileKey,
+            ["source"] = execution.EnqueueSource,
+            ["campaignId"] = execution.CampaignId,
+            ["executionLeaseToken"] = execution.LeaseToken
+        });
+
+        var canceled = await RuntimeCapabilityBExecutionStore.TryCancelJobAsync(
+            conn,
+            tenantId,
+            execution.JobId,
+            execution.LeaseToken,
+            canceledAt,
+            resultJson,
+            error,
+            ct);
+
+        if (!canceled)
+            return;
+
+        await RuntimeCapabilityPersistenceStore.InsertCapabilityEventAsync(
+            conn,
+            RuntimeGovernanceService.CreateCapabilityEvent(
+                capabilityKey: capabilityKey,
+                profileKey: execution.RuntimeProfileKey,
+                eventType: "capability_b_job_canceled",
+                reason: "stale_source",
+                details: new Dictionary<string, object?>
+                {
+                    ["jobId"] = execution.JobId,
+                    ["docId"] = execution.DocId,
+                    ["docPath"] = execution.DocPath,
+                    ["level"] = execution.Level,
+                    ["campaignId"] = execution.CampaignId,
+                    ["canceledBy"] = execution.ClaimedBy,
+                    ["canceledAt"] = canceledAt,
+                    ["leaseToken"] = execution.LeaseToken,
+                    ["runtimeCapabilityStatus"] = execution.RuntimeCapabilityStatus,
+                    ["error"] = error
+                }),
+            ct);
     }
 }

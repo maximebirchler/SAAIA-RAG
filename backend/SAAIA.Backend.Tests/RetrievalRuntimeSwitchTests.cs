@@ -142,6 +142,7 @@ public sealed class RetrievalRuntimeSwitchTests
                 "prev_chunk_id": "prev-1",
                 "next_chunk_id": "next-1",
                 "same_section_chunk_id": "same-1",
+                "category": "canonical-safety",
                 "ingestion_version": 4,
                 "hash_doc": "deadbeef"
               }
@@ -163,6 +164,37 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.Equal("prev-1", match.PrevChunkId);
         Assert.Equal("next-1", match.NextChunkId);
         Assert.Equal("same-1", match.SameSectionChunkId);
+        Assert.Equal("canonical-safety", match.Category);
+    }
+
+    [Fact]
+    public void ResolveMatchCategory_prefers_ingested_category_over_doc_path()
+    {
+        var match = new RagMatch(
+            0.91,
+            "doc-1",
+            "LegacyPath/Guide.pdf",
+            "Guide.pdf",
+            1,
+            1,
+            "chunk-1",
+            0,
+            "Chunk snippet",
+            IngestionVersion: 4,
+            HashDoc: "deadbeef",
+            EmbedText: "Chunk snippet",
+            EmbeddingBasis: "contextual_text_v1",
+            SectionOrdinal: 1,
+            UnitOrdinal: 1,
+            SectionTitle: "Section",
+            HeadingPath: "Section",
+            ChunkType: "unit_exact_v1",
+            PrevChunkId: null,
+            NextChunkId: null,
+            SameSectionChunkId: null,
+            Category: "Canonical-Safety");
+
+        Assert.Equal("canonical-safety", RagEndpoints.ResolveMatchCategory(match, "fallback"));
     }
 
     [Fact]
@@ -577,18 +609,15 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
-    public void ExpandRetrievalQuery_adds_contextual_terms_for_meal_planning_and_meat_sauce_queries()
+    public void ExpandRetrievalQuery_only_adds_corpus_agnostic_surface_forms()
     {
         var mealPlanning = RagEndpoints.ExpandRetrievalQuery("Je veux organiser des repas pour toute la semaine", "cuisine");
-        var quickLunch = RagEndpoints.ExpandRetrievalQuery("Quelles recettes sont adaptées pour un déjeuner de semaine rapide ?", "cuisine");
-        var steakSauce = RagEndpoints.ExpandRetrievalQuery("Quelle sauce irait bien avec une entrecote ?", "cuisine");
+        var accentFolded = RagEndpoints.ExpandRetrievalQuery("Quelle sauce irait bien avec une entrecôte ?", "cuisine");
 
-        Assert.Contains("batch cooking", mealPlanning, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("repas de la semaine", mealPlanning, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("repas rapide", quickLunch, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("easy lunch", quickLunch, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("steaks poivre", steakSauce, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("steak", steakSauce, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Je veux organiser des repas pour toute la semaine", mealPlanning);
+        Assert.Contains("entrecote", accentFolded, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("steak", accentFolded, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("batch cooking", accentFolded, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -790,10 +819,10 @@ public sealed class RetrievalRuntimeSwitchTests
             121,
             "steak-sauce",
             306,
-            "1 c. a c. de poivre concasse 10 cl de creme liquide. Ajoutez l'eau puis lancez la cuisson. Servez avec des steaks. SAUCE AU POIVRE.",
+            "1 c. a c. de poivre concasse 10 cl de creme liquide. Ajoutez l'eau puis lancez la cuisson. Servez avec une entrecote. SAUCE AU POIVRE.",
             1,
             "hash-steak",
-            "1 c. a c. de poivre concasse 10 cl de creme liquide. Ajoutez l'eau puis lancez la cuisson. Servez avec des steaks. SAUCE AU POIVRE.",
+            "1 c. a c. de poivre concasse 10 cl de creme liquide. Ajoutez l'eau puis lancez la cuisson. Servez avec une entrecote. SAUCE AU POIVRE.",
             "sparse_bm25_v1",
             1,
             1,
@@ -844,8 +873,8 @@ public sealed class RetrievalRuntimeSwitchTests
             ChunkIndex = 121,
             PageStart = 121,
             PageEnd = 121,
-            Text = "Sauce au poivre avec creme, fond de veau et cognac. Servez avec des steaks.",
-            EmbedText = "Sauce au poivre avec creme, fond de veau et cognac. Servez avec des steaks.",
+            Text = "Sauce au poivre avec creme, fond de veau et cognac. Servez avec une entrecote.",
+            EmbedText = "Sauce au poivre avec creme, fond de veau et cognac. Servez avec une entrecote.",
             ChunkType = "section_window_v1"
         };
         var retrievalQuery = RagEndpoints.ExpandRetrievalQuery("Quelle sauce irait bien avec une entrecote ?", "cuisine");
@@ -903,7 +932,7 @@ public sealed class RetrievalRuntimeSwitchTests
             null,
             null);
 
-        var query = "Tu peux me faire une fiche claire pour Rumsteck aux oignons grilles : ingredients, etapes, temps et source ?";
+        var query = "Tu peux me faire une fiche claire pour Rumsteck grille : details, etapes, temps et source ?";
         var tokens = RagEndpoints.ExtractLexicalQueryTokens(query);
         var calibrated = RagEndpoints.CalibrateFusedMatches(query, [genericOnionRecipe, specificRecipe]);
 
@@ -912,7 +941,6 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.DoesNotContain("etapes", tokens);
         Assert.DoesNotContain("source", tokens);
         Assert.Contains("rumsteck", tokens);
-        Assert.Contains("oignons", tokens);
         Assert.True(RagEndpoints.HasProfileTitleHint(specificRecipe));
         Assert.True(RagEndpoints.HasProfileTitleHint(genericOnionRecipe));
         Assert.True(RagEndpoints.RequiresPrimarySpecificLexicalAnchor(tokens));
@@ -976,7 +1004,7 @@ public sealed class RetrievalRuntimeSwitchTests
             null,
             null);
 
-        Assert.False(RagEndpoints.ShouldSuppressUnanchoredSpecificResults("inertage", [anchored]));
+        Assert.False(RagEndpoints.ShouldSuppressUnanchoredSpecificResults("inerting", [anchored]));
     }
 
     [Fact]
@@ -1427,10 +1455,10 @@ public sealed class RetrievalRuntimeSwitchTests
             33,
             "exact-title",
             2,
-            "Ingredients: 2 concombres, creme, moutarde. Preparation: melanger et servir frais. CONCOMBRES\u00e0 LA ROMAINE110077",
+            "Materials: 2 concombres, creme, moutarde. Procedure: melanger et servir frais. CONCOMBRES\u00e0 LA ROMAINE110077",
             1,
             "hash-exact",
-            "Ingredients: 2 concombres, creme, moutarde. Preparation: melanger et servir frais. CONCOMBRES\u00e0 LA ROMAINE110077",
+            "Materials: 2 concombres, creme, moutarde. Procedure: melanger et servir frais. CONCOMBRES\u00e0 LA ROMAINE110077",
             "sparse_bm25_v1",
             1,
             1,
@@ -1462,10 +1490,10 @@ public sealed class RetrievalRuntimeSwitchTests
             33,
             "exact-title",
             53,
-            "Ingredients: 2 concombres, creme, moutarde. Preparation: melanger et servir frais. CONCOMBRES\u00e0 LA ROMAINE110077",
+            "Materials: 2 concombres, creme, moutarde. Procedure: melanger et servir frais. CONCOMBRES\u00e0 LA ROMAINE110077",
             1,
             "hash-exact",
-            "Ingredients: 2 concombres, creme, moutarde. Preparation: melanger et servir frais. CONCOMBRES\u00e0 LA ROMAINE110077",
+            "Materials: 2 concombres, creme, moutarde. Procedure: melanger et servir frais. CONCOMBRES\u00e0 LA ROMAINE110077",
             "sparse_bm25_v1",
             1,
             1,
@@ -1482,8 +1510,8 @@ public sealed class RetrievalRuntimeSwitchTests
             ChunkIndex = 54,
             PageStart = 34,
             PageEnd = 34,
-            Text = "Ingredients: 6 tomates, 4 oeufs, huile, vinaigre. Suggestions: remplacer les rondelles d'oeuf par des rondelles de concombre. TOMATES a la printaniere3300110088",
-            EmbedText = "Ingredients: 6 tomates, 4 oeufs, huile, vinaigre. Suggestions: remplacer les rondelles d'oeuf par des rondelles de concombre. TOMATES a la printaniere3300110088",
+            Text = "Materials: 6 tomates, 4 oeufs, huile, vinaigre. Suggestions: remplacer les rondelles d'oeuf par des rondelles de concombre. TOMATES a la printaniere3300110088",
+            EmbedText = "Materials: 6 tomates, 4 oeufs, huile, vinaigre. Suggestions: remplacer les rondelles d'oeuf par des rondelles de concombre. TOMATES a la printaniere3300110088",
             EmbeddingBasis = "sparse_bm25_v1"
         };
 
@@ -1554,10 +1582,10 @@ public sealed class RetrievalRuntimeSwitchTests
             33,
             "anchor",
             58,
-            "Ingredients: concombres, miel, menthe. Preparation: melanger la sauce et servir frais.",
+            "Materials: concombres, miel, menthe. Procedure: melanger la sauce et servir frais.",
             1,
             "hash-exact",
-            "Ingredients: concombres, miel, menthe. Preparation: melanger la sauce et servir frais.",
+            "Materials: concombres, miel, menthe. Procedure: melanger la sauce et servir frais.",
             "sparse_bm25_v1",
             1,
             1,
@@ -1573,8 +1601,8 @@ public sealed class RetrievalRuntimeSwitchTests
             PageStart = 34,
             PageEnd = 34,
             ChunkIndex = 59,
-            Text = "Ingredients: tomates, oeufs, huile. Suggestion: quelques rondelles de concombre.",
-            EmbedText = "Ingredients: tomates, oeufs, huile. Suggestion: quelques rondelles de concombre."
+            Text = "Materials: tomates, oeufs, huile. Suggestion: quelques rondelles de concombre.",
+            EmbedText = "Materials: tomates, oeufs, huile. Suggestion: quelques rondelles de concombre."
         };
 
         var selected = new List<RagMatch> { anchor, neighbor };
@@ -1836,6 +1864,58 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void Title_pruning_removes_linked_context_with_only_profile_title_hint()
+    {
+        var anchor = new RagMatch(
+            1.02,
+            "doc",
+            "Operations/Manual.pdf",
+            "Manual.pdf",
+            6,
+            6,
+            "anchor",
+            60,
+            "Gratin dauphinois Ingredients pommes de terre creme ail. Preparation: cuire doucement.",
+            1,
+            "hash",
+            "Matched profile title: Gratin dauphinois\nGratin dauphinois Ingredients pommes de terre creme ail. Preparation: cuire doucement.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Document",
+            "Document",
+            "section_window_v1",
+            null,
+            "tail",
+            "tail");
+        var linkedTail = anchor with
+        {
+            Score = 0.995,
+            ChunkId = "tail",
+            ChunkIndex = 61,
+            PageStart = 7,
+            PageEnd = 7,
+            Text = "Quant a adapter cette preparation, ajoutez une note personnelle selon les stocks disponibles.",
+            EmbedText = "Matched profile title: Gratin dauphinois\nContext: Quant a adapter cette preparation, ajoutez une note personnelle selon les stocks disponibles.",
+            EmbeddingBasis = "linked_context_v1",
+            SectionTitle = "Document",
+            HeadingPath = "Document",
+            ChunkType = "section_window_v1",
+            PrevChunkId = "anchor",
+            NextChunkId = null,
+            SameSectionChunkId = null
+        };
+        var selected = new List<RagMatch> { anchor, linkedTail };
+
+        RagEndpoints.PruneWeakTitleExpansionSelections("gratin dauphinois", selected);
+        RagEndpoints.PruneWeakAdjacentSiblingSelections("gratin dauphinois", selected);
+        RagEndpoints.PrunePreciseTitleTailSelections("gratin dauphinois", selected);
+
+        var remaining = Assert.Single(selected);
+        Assert.Equal("anchor", remaining.ChunkId);
+    }
+
+    [Fact]
     public void CalibrateFusedMatches_penalizes_dense_noise_when_lexical_anchor_exists()
     {
         var sparseAnchor = new RagMatch(0.91, "doc-a", "ATEX/CEN.pdf", "CEN.pdf", 1, 1, "sparse-anchor", 0, "Inerting prevents explosion by controlling oxygen concentration and purge conditions.", 1, "hash-a", "Inerting prevents explosion by controlling oxygen concentration and purge conditions.", "sparse_bm25_v1", 1, 1, "Inerting", "Inerting", "unit_exact_v1", null, null, null);
@@ -1845,6 +1925,43 @@ public sealed class RetrievalRuntimeSwitchTests
 
         Assert.Equal("sparse-anchor", calibrated[0].ChunkId);
         Assert.Equal("sparse_bm25_v1", calibrated[0].EmbeddingBasis);
+    }
+
+    [Fact]
+    public void BuildSelectionHints_marks_low_quality_page_as_low_confidence()
+    {
+        var match = new RagMatch(
+            0.86,
+            "doc",
+            "Knowledge/Procedure.pdf",
+            "Procedure.pdf",
+            4,
+            4,
+            "chunk",
+            2,
+            "Procedure: verify the sensor, adjust the threshold, record the result.",
+            1,
+            "hash",
+            "Procedure: verify the sensor, adjust the threshold, record the result.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Procedure",
+            "Procedure",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+        var quality = new RagItemExtractionQualityDto(
+            PageQualityStatus: "manual_review_low_text",
+            PageExtractionConfidence: 0.32,
+            PageManualReviewRecommended: true,
+            TextStatus: "low_confidence");
+
+        var hints = RagEndpoints.BuildSelectionHints(match, quality);
+
+        Assert.Equal("low_confidence", hints.EvidenceRole);
+        Assert.True(hints.QualityPenalty >= 10);
     }
 
     [Fact]
@@ -2220,6 +2337,72 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void BuildProvenanceInfo_can_suppress_legacy_hash_fallback_for_public_search_contract()
+    {
+        var match = new RagMatch(
+            0.9,
+            "doc",
+            "Knowledge/manual.pdf",
+            "manual.pdf",
+            1,
+            1,
+            "chunk-1",
+            0,
+            "text",
+            1,
+            "legacy-hash",
+            "embed",
+            "dense_qdrant",
+            1,
+            1,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
+
+        var info = RagEndpoints.BuildProvenanceInfo(match, sourceHash: null, allowLegacyHashFallback: false);
+
+        Assert.Null(info.SourceHash);
+    }
+
+    [Fact]
+    public void ResolveDocumentSourceHash_uses_doc_path_when_doc_id_is_not_usable()
+    {
+        var match = new RagMatch(
+            0.9,
+            "not-a-guid",
+            "Knowledge\\manual.pdf",
+            "manual.pdf",
+            1,
+            1,
+            "chunk-1",
+            0,
+            "text",
+            1,
+            "legacy-hash",
+            "embed",
+            "dense_qdrant",
+            1,
+            1,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
+        var hashes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Knowledge/manual.pdf"] = "revision-aware-hash"
+        };
+
+        var resolved = RagEndpoints.ResolveDocumentSourceHash(match, hashes);
+
+        Assert.Equal("revision-aware-hash", resolved);
+    }
+
+    [Fact]
     public void RagItemDto_marks_flat_provenance_as_legacy_backward_compat_field()
     {
         var property = typeof(RagItemDto).GetProperty("Provenance", BindingFlags.Instance | BindingFlags.Public);
@@ -2278,6 +2461,22 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void ResolveHypQuestionsMatched_normalizes_legacy_path_variants()
+    {
+        var byDocPath = new Dictionary<string, bool?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Programmation/Mettler/MettlerToledo_IND570.pdf"] = true
+        };
+
+        var matched = RagEndpoints.ResolveHypQuestionsMatched(
+            "\\Programmation\\Mettler\\MettlerToledo_IND570.pdf",
+            byDocPath);
+
+        Assert.True(matched.HasValue);
+        Assert.True(matched.Value);
+    }
+
+    [Fact]
     public void ResolveHypQuestionsMatched_returns_null_when_item_has_no_hypothetical_questions()
     {
         var byDocPath = new Dictionary<string, bool?>(StringComparer.OrdinalIgnoreCase)
@@ -2298,7 +2497,7 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.Equal("ATEX/Guidance", RagEndpoints.BuildDocumentCategoryPath("ATEX/Guidance/CEN TR 15281.pdf"));
         Assert.Equal("atex", RagEndpoints.BuildDocumentCategory("ATEX/Guidance/CEN TR 15281.pdf"));
         Assert.Null(RagEndpoints.BuildDocumentCategoryPath("root-level.pdf"));
-        Assert.Equal("rootlevel", RagEndpoints.BuildDocumentCategory("RootLevel"));
+        Assert.Null(RagEndpoints.BuildDocumentCategory("RootLevel"));
     }
 
     [Fact]
@@ -2414,6 +2613,34 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void BuildAnswerGuidance_adds_caveat_when_selected_sources_have_low_extraction_quality()
+    {
+        var match = TestMatch(
+            text: "Procedure: verify the scanned label before using the recorded pressure value.",
+            docPath: "Scans/Archive.pdf",
+            page: 3);
+        var quality = new RagItemExtractionQualityDto(
+            PageQualityStatus: "manual_review_low_text",
+            PageExtractionConfidence: 0.32,
+            PageManualReviewRecommended: true,
+            TextStatus: "low_confidence");
+        var qualityByMatch = new Dictionary<string, RagItemExtractionQualityDto>(StringComparer.OrdinalIgnoreCase)
+        {
+            [RagEndpoints.BuildExtractionQualityMatchKey(match)] = quality
+        };
+
+        var guidance = RagEndpoints.BuildAnswerGuidance(
+            "Que dit ce document sur la procedure ?",
+            [match],
+            qualityByMatch);
+
+        Assert.Equal("answer_with_caveat", guidance.Behavior);
+        Assert.Equal("source_quality_requires_manual_review_caveat", guidance.Reason);
+        Assert.NotNull(guidance.QualificationNote);
+        Assert.Contains("OCR", guidance.QualificationNote!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void ComputeExactTitleCandidateScore_prefers_chunk_text_that_contains_requested_title()
     {
         var fullRecipe = TestMatch(
@@ -2464,7 +2691,8 @@ public sealed class RetrievalRuntimeSwitchTests
         {
             new RagMatch(0.9, "doc-1", "Safety/IEC 61511 burner management handbook.pdf", "IEC 61511 burner management handbook.pdf", 1, 1, "chunk-1", 0, "functional safety handbook", 1, "hash-1", "functional safety handbook", "exact_match_v1", 1, 1, "Safety", "Safety", "document_metadata_ref", null, null, null),
             new RagMatch(0.9, "doc-2", "Controls/XR 200 fieldbus commissioning guide.pdf", "XR 200 fieldbus commissioning guide.pdf", 1, 1, "chunk-2", 0, "fieldbus integration guide", 1, "hash-2", "fieldbus integration guide", "exact_match_v1", 1, 1, "PLC", "PLC", "document_metadata_ref", null, null, null),
-            new RagMatch(0.7, "doc-3", "General/Accord sur le transfert du code source.pdf", "Accord sur le transfert du code source.pdf", 1, 1, "chunk-3", 0, "agreement document", 1, "hash-3", "agreement document", "contextual_text_v1", 1, 1, "General", "General", "unit_exact_v1", null, null, null)
+            new RagMatch(0.7, "doc-3", "General/Accord sur le transfert du code source.pdf", "Accord sur le transfert du code source.pdf", 1, 1, "chunk-3", 0, "agreement document", 1, "hash-3", "agreement document", "contextual_text_v1", 1, 1, "General", "General", "unit_exact_v1", null, null, null),
+            new RagMatch(0.7, "doc-4", "Safety/Prevention.pdf", "Prevention.pdf", 1, 1, "chunk-4", 0, "prevention document", 1, "hash-4", "prevention document", "contextual_text_v1", 1, 1, "Safety", "Safety", "unit_exact_v1", null, null, null)
         };
 
         var hints = RagEndpoints.ExtractMatchedDocHints(matches);
@@ -2472,6 +2700,7 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.Contains("61511", hints);
         Assert.Contains("XR200", hints);
         Assert.Contains("ACCORD", hints);
+        Assert.Contains("PREVENTION", hints);
         Assert.DoesNotContain("GUIDE", hints);
     }
 
@@ -2494,6 +2723,42 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.Contains("XR200", guidance.QualificationNote!, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("perimetre", guidance.QualificationNote!, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("contexte projet", guidance.QualificationNote!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BuildAnswerGuidance_keeps_high_impact_caveats_generic_without_corpus_terms()
+    {
+        var matches = new[]
+        {
+            TestMatch(
+                text: "Privacy policy retention notes mention customer data handling and audit history.",
+                docPath: "Policies/Privacy policy.pdf")
+        };
+
+        var guidance = RagEndpoints.BuildAnswerGuidance(
+            "Un client demande si on peut garantir legalement que cette option est conforme, tu repondrais quoi ?",
+            matches);
+
+        Assert.Equal("answer_with_caveat", guidance.Behavior);
+        Assert.Equal("high_impact_or_safety_answer_requires_qualification", guidance.Reason);
+    }
+
+    [Fact]
+    public void BuildAnswerGuidance_does_not_treat_domain_incident_words_as_high_impact_by_themselves()
+    {
+        var matches = new[]
+        {
+            TestMatch(
+                text: "The historical incident report mentions an explosion during an old production event.",
+                docPath: "Archive/Incident history.pdf")
+        };
+
+        var guidance = RagEndpoints.BuildAnswerGuidance(
+            "Le document mentionne une explosion dans l'historique ?",
+            matches);
+
+        Assert.Equal("answer", guidance.Behavior);
+        Assert.Equal("documented_question_with_relevant_sources", guidance.Reason);
     }
 
     private static RagMatch TestMatch(

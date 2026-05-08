@@ -156,6 +156,43 @@ internal sealed class LocalLlmChatClient
                 BytesRead: bytesRead,
                 Error: null);
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (TaskCanceledException)
+        {
+            return new LocalLlmChatCompletionResult(
+                Content: null,
+                DurationMs: null,
+                ResponseHeadersMs: null,
+                FirstByteMs: null,
+                StatusCode: null,
+                BytesRead: 0,
+                Error: "llm_timeout");
+        }
+        catch (TimeoutException)
+        {
+            return new LocalLlmChatCompletionResult(
+                Content: null,
+                DurationMs: null,
+                ResponseHeadersMs: null,
+                FirstByteMs: null,
+                StatusCode: null,
+                BytesRead: 0,
+                Error: "llm_timeout");
+        }
+        catch (HttpRequestException)
+        {
+            return new LocalLlmChatCompletionResult(
+                Content: null,
+                DurationMs: null,
+                ResponseHeadersMs: null,
+                FirstByteMs: null,
+                StatusCode: null,
+                BytesRead: 0,
+                Error: "llm_transport_error");
+        }
         catch
         {
             return new LocalLlmChatCompletionResult(

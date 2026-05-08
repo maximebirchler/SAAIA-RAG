@@ -29,8 +29,30 @@ WITH current_docs AS (
     COALESCE(d.ingestion_version, 0) AS "IngestionVersion",
     COALESCE(d.indexed_version, 0) AS "IndexedVersion",
     COALESCE(d.auto_ingest_paused, false) AS "AutoIngestPaused",
-    d.auto_ingest_pause_reason AS "AutoIngestPauseReason"
+    d.auto_ingest_pause_reason AS "AutoIngestPauseReason",
+    profile.language AS "ProfileLanguage"
   FROM documents d
+  LEFT JOIN LATERAL (
+    SELECT NULLIF(BTRIM(p.language), '') AS language
+    FROM document_profiles p
+    JOIN document_revisions r
+      ON r.revision_id = p.revision_id
+     AND r.tenant_id = p.tenant_id
+     AND r.doc_id = p.doc_id
+    WHERE p.tenant_id = d.tenant_id
+      AND p.doc_id = d.doc_id
+      AND r.indexed_version = COALESCE(d.indexed_version, 0)
+    ORDER BY
+      (NULLIF(BTRIM(p.language), 'und') IS NULL) ASC,
+      CASE p.profile_version
+        WHEN 'llm_backoffice_v1' THEN 0
+        WHEN 'foundation_v1' THEN 1
+        ELSE 2
+      END,
+      r.published_at DESC NULLS LAST,
+      p.profile_version ASC
+    LIMIT 1
+  ) profile ON true
   WHERE d.tenant_id = @tenant
     AND (@category IS NULL OR d.category = @category)
     AND COALESCE(d.status, '') NOT IN ('missing', 'deleted')
@@ -45,6 +67,7 @@ SELECT
   cd."IndexedVersion",
   cd."AutoIngestPaused",
   cd."AutoIngestPauseReason",
+  cd."ProfileLanguage",
   EXISTS(
     SELECT 1
     FROM document_revisions dr
@@ -160,8 +183,11 @@ LIMIT @limit;
     internal static IReadOnlyList<string> BuildHypotheticalQuestions(
         string docName,
         IReadOnlyList<string> sectionTitles,
-        IReadOnlyList<string> excerpts)
+        IReadOnlyList<string> excerpts,
+        string? documentLanguage = null)
     {
+        var resolvedLanguage = ResolveQuestionLanguage(documentLanguage, docName, sectionTitles, excerpts);
+        var primaryLanguage = DocumentLanguageResolver.PrimarySubtag(resolvedLanguage);
         var questions = new List<string>();
 
         foreach (var title in sectionTitles.Take(2))
@@ -170,8 +196,7 @@ LIMIT @limit;
             if (string.IsNullOrWhiteSpace(normalizedTitle))
                 continue;
 
-            questions.Add($"What does {docName} say about {normalizedTitle}?");
-            questions.Add($"Which requirements from {docName} apply to {normalizedTitle}?");
+            AddSectionQuestions(questions, primaryLanguage, docName, normalizedTitle);
         }
 
         if (questions.Count == 0 && excerpts.Count > 0)
@@ -179,14 +204,105 @@ LIMIT @limit;
             var excerptLead = NormalizePreviewText(excerpts[0]);
             if (excerptLead.Length > 80)
                 excerptLead = excerptLead[..80].TrimEnd() + "...";
-            questions.Add($"What are the key operational requirements described in {docName}?");
-            questions.Add($"How does {docName} frame this topic: {excerptLead}");
+            AddExcerptQuestions(questions, primaryLanguage, docName, excerptLead);
         }
 
         return questions
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(4)
             .ToArray();
+    }
+
+    private static string ResolveQuestionLanguage(
+        string? documentLanguage,
+        string docName,
+        IReadOnlyList<string> sectionTitles,
+        IReadOnlyList<string> excerpts)
+    {
+        var explicitLanguage = DocumentLanguageResolver.FirstKnownLanguage(documentLanguage);
+        if (!string.IsNullOrWhiteSpace(explicitLanguage))
+            return explicitLanguage;
+
+        return DocumentLanguageResolver.DetectDominantLanguage(string.Join(' ', new[]
+        {
+            docName,
+            string.Join(' ', sectionTitles),
+            string.Join(' ', excerpts)
+        })) ?? "und";
+    }
+
+    private static void AddSectionQuestions(List<string> questions, string primaryLanguage, string docName, string title)
+    {
+        switch (primaryLanguage)
+        {
+            case "fr":
+                questions.Add($"Que dit {docName} sur {title} ?");
+                questions.Add($"Quels elements de {docName} concernent {title} ?");
+                break;
+            case "es":
+                questions.Add($"Que dice {docName} sobre {title}?");
+                questions.Add($"Que elementos de {docName} se aplican a {title}?");
+                break;
+            case "pt":
+                questions.Add($"O que diz {docName} sobre {title}?");
+                questions.Add($"Que elementos de {docName} se aplicam a {title}?");
+                break;
+            case "de":
+                questions.Add($"Was sagt {docName} ueber {title}?");
+                questions.Add($"Welche Elemente aus {docName} gelten fuer {title}?");
+                break;
+            case "it":
+                questions.Add($"Che cosa dice {docName} su {title}?");
+                questions.Add($"Quali elementi di {docName} si applicano a {title}?");
+                break;
+            case "en":
+            case "":
+            case "und":
+                questions.Add($"What does {docName} say about {title}?");
+                questions.Add($"Which requirements from {docName} apply to {title}?");
+                break;
+            default:
+                questions.Add($"{docName}: {title}?");
+                questions.Add($"{title}: {docName}?");
+                break;
+        }
+    }
+
+    private static void AddExcerptQuestions(List<string> questions, string primaryLanguage, string docName, string excerptLead)
+    {
+        switch (primaryLanguage)
+        {
+            case "fr":
+                questions.Add($"Quels sont les points cles de {docName} ?");
+                questions.Add($"{docName}: {excerptLead} ?");
+                break;
+            case "es":
+                questions.Add($"Cuales son los puntos clave de {docName}?");
+                questions.Add($"{docName}: {excerptLead}?");
+                break;
+            case "pt":
+                questions.Add($"Quais sao os pontos principais de {docName}?");
+                questions.Add($"{docName}: {excerptLead}?");
+                break;
+            case "de":
+                questions.Add($"Was sind die wichtigsten Punkte in {docName}?");
+                questions.Add($"{docName}: {excerptLead}?");
+                break;
+            case "it":
+                questions.Add($"Quali sono i punti principali di {docName}?");
+                questions.Add($"{docName}: {excerptLead}?");
+                break;
+            case "en":
+            case "":
+            case "und":
+                questions.Add($"What are the key operational requirements described in {docName}?");
+                questions.Add($"How does {docName} frame this topic: {excerptLead}");
+                break;
+            default:
+                questions.Add($"{docName}: {excerptLead}?");
+                questions.Add($"{excerptLead}: {docName}?");
+                break;
+        }
     }
 
     private static List<string> BuildReasons(CapabilityAEnrichmentCandidateRow row)
@@ -253,8 +369,8 @@ LIMIT @limit;
             ct);
 
         var questions = hypotheticalQuestionService is null
-            ? BuildHypotheticalQuestions(row.DocName, sectionTitles, excerpts)
-            : await hypotheticalQuestionService.BuildQuestionsAsync(row.DocName, sectionTitles, excerpts, ct);
+            ? BuildHypotheticalQuestions(row.DocName, sectionTitles, excerpts, row.ProfileLanguage)
+            : await hypotheticalQuestionService.BuildQuestionsAsync(row.DocName, sectionTitles, excerpts, ct, row.ProfileLanguage);
         var previewText = BuildPreviewText(row, sectionTitles, excerpts);
         var tags = hypotheticalQuestionService is null
             ? BuildSuggestedTags(row, sectionTitles)
@@ -284,7 +400,22 @@ LIMIT @limit;
         }
 
         if (sectionTitles.Count > 0)
-            return $"{row.DocName} covers {string.Join(", ", sectionTitles.Select(NormalizeTitle))}.";
+        {
+            var normalizedTitles = sectionTitles.Select(NormalizeTitle).ToArray();
+            var language = DocumentLanguageResolver.PrimarySubtag(
+                DocumentLanguageResolver.FirstKnownLanguage(row.ProfileLanguage)
+                ?? DocumentLanguageResolver.DetectDominantLanguage(string.Join(' ', normalizedTitles)));
+            return language switch
+            {
+                "fr" => $"{row.DocName} couvre {string.Join(", ", normalizedTitles)}.",
+                "es" => $"{row.DocName} cubre {string.Join(", ", normalizedTitles)}.",
+                "pt" => $"{row.DocName} cobre {string.Join(", ", normalizedTitles)}.",
+                "de" => $"{row.DocName} behandelt {string.Join(", ", normalizedTitles)}.",
+                "it" => $"{row.DocName} copre {string.Join(", ", normalizedTitles)}.",
+                "en" or "" or "und" => $"{row.DocName} covers {string.Join(", ", normalizedTitles)}.",
+                _ => $"{row.DocName}: {string.Join(", ", normalizedTitles)}."
+            };
+        }
 
         return null;
     }
@@ -428,6 +559,7 @@ LIMIT @limit;
         int IndexedVersion,
         bool AutoIngestPaused,
         string? AutoIngestPauseReason,
+        string? ProfileLanguage,
         bool HasRevision,
         bool HasRetrievalChunks,
         bool HasRetrievalChunkOffsetsMissing,

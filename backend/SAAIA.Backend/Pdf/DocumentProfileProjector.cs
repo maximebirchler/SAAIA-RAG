@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
 internal static partial class DocumentProfileProjector
@@ -114,30 +115,7 @@ internal static partial class DocumentProfileProjector
     }
 
     private static string DetectLanguage(string text)
-    {
-        var normalized = ExactMatchEntryExtractor.NormalizeForLookup(text);
-        if (string.IsNullOrWhiteSpace(normalized))
-            return "und";
-
-        var scores = new Dictionary<string, int>(StringComparer.Ordinal)
-        {
-            ["fr"] = CountHits(normalized, [" le ", " la ", " les ", " des ", " une ", " pour ", " avec ", " dans ", " cette ", " vous ", " etape ", " ingredients "]),
-            ["en"] = CountHits(normalized, [" the ", " and ", " with ", " from ", " this ", " that ", " for ", " section ", " chapter ", " safety ", " requirements "]),
-            ["es"] = CountHits(normalized, [" el ", " la ", " los ", " las ", " una ", " para ", " con ", " esta ", " receta ", " ingredientes "]),
-            ["pt"] = CountHits(normalized, [" de ", " para ", " com ", " uma ", " esta ", " receita ", " ingredientes ", " seguranca "]),
-            ["de"] = CountHits(normalized, [" der ", " die ", " das ", " und ", " mit ", " fuer ", " ist ", " sicherheit ", " kapitel "]),
-            ["it"] = CountHits(normalized, [" il ", " lo ", " la ", " gli ", " con ", " per ", " una ", " ricetta ", " ingredienti "])
-        };
-
-        var best = scores.OrderByDescending(static item => item.Value).First();
-        return best.Value <= 0 ? "und" : best.Key;
-    }
-
-    private static int CountHits(string normalized, IReadOnlyList<string> needles)
-    {
-        var padded = $" {normalized} ";
-        return needles.Count(needle => padded.Contains(needle, StringComparison.Ordinal));
-    }
+        => DocumentLanguageResolver.DetectDominantLanguage(text) ?? "und";
 
     private static string[] ExtractKeywords(string text, int maxKeywords)
     {
@@ -170,6 +148,8 @@ internal static partial class DocumentProfileProjector
         entities.AddRange(exactMatchEntries
             .Where(static entry => entry.Kind is "standard_ref" or "code_ref")
             .Select(static entry => entry.Text));
+        entities.AddRange(TechnicalIdentifierRegex().Matches(corpus)
+            .Select(static match => match.Value));
         entities.AddRange(ReferenceLikeRegex().Matches(corpus)
             .Select(static match => match.Value));
 
@@ -190,6 +170,9 @@ internal static partial class DocumentProfileProjector
         IReadOnlyList<ExtractedDocumentUnit> units,
         string language)
     {
+        if (!HasLocalizedProfileTemplate(language))
+            return BuildNeutralExtractiveSummary(docName, pageCount, sectionTitles, units);
+
         var lead = language switch
         {
             "en" => $"Document {docName}, {pageCount} page(s).",
@@ -241,6 +224,29 @@ internal static partial class DocumentProfileProjector
         return TrimTo(CollapseWhitespace(sb.ToString()), MaxSummaryChars);
     }
 
+    private static string BuildNeutralExtractiveSummary(
+        string docName,
+        int pageCount,
+        IReadOnlyList<string> sectionTitles,
+        IReadOnlyList<ExtractedDocumentUnit> units)
+    {
+        var parts = new List<string> { $"{docName}, {pageCount} page(s)" };
+        if (sectionTitles.Count > 0)
+            parts.Add(string.Join("; ", sectionTitles.Take(6)));
+
+        var excerpts = units
+            .OrderBy(static unit => unit.Ordinal)
+            .Select(static unit => CollapseWhitespace(unit.Text))
+            .Where(static text => text.Length >= 40)
+            .Take(3)
+            .Select(static excerpt => TrimTo(excerpt, 180))
+            .ToArray();
+        if (excerpts.Length > 0)
+            parts.Add(string.Join(" / ", excerpts));
+
+        return TrimTo(CollapseWhitespace(string.Join(". ", parts) + "."), MaxSummaryChars);
+    }
+
     private static string[] BuildHypotheticalQuestions(
         string docName,
         IReadOnlyList<string> keywords,
@@ -263,7 +269,8 @@ internal static partial class DocumentProfileProjector
                 "pt" => $"O que diz {docName} sobre {subject}?",
                 "de" => $"Was sagt {docName} ueber {subject}?",
                 "it" => $"Che cosa dice {docName} su {subject}?",
-                _ => $"Que dit {docName} sur {subject} ?"
+                "fr" => $"Que dit {docName} sur {subject} ?",
+                _ => $"{docName}: {subject}"
             })
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(6)
@@ -278,8 +285,12 @@ internal static partial class DocumentProfileProjector
             "pt" => ["Perfil deterministico gerado a partir do texto extraido.", "Usar excertos de paginas para factos, quantidades, passos e citacoes exatas."],
             "de" => ["Deterministisches Profil aus extrahiertem Text.", "Fuer exakte Fakten, Mengen, Schritte und Zitate Seiten-Chunks verwenden."],
             "it" => ["Profilo deterministico generato dal testo estratto.", "Usare i chunk di pagina per fatti, quantita, passaggi e citazioni esatte."],
-            _ => ["Profil deterministe genere depuis le texte extrait.", "Utiliser les extraits de pages pour les faits, quantites, etapes et citations exacts."]
+            "fr" => ["Profil deterministe genere depuis le texte extrait.", "Utiliser les extraits de pages pour les faits, quantites, etapes et citations exacts."],
+            _ => ["deterministic_profile_from_extracted_text", "use_page_chunks_for_exact_facts_quantities_steps_and_citations"]
         };
+
+    private static bool HasLocalizedProfileTemplate(string language)
+        => language is "fr" or "en" or "es" or "pt" or "de" or "it";
 
     private static IReadOnlyList<DocumentProfileContentCard> BuildContentCards(
         IReadOnlyList<ExtractedDocumentSection> sections,
@@ -303,6 +314,25 @@ internal static partial class DocumentProfileProjector
                 section.Title,
                 keywords,
                 score: 65);
+        }
+
+        foreach (var entry in exactMatchEntries
+                     .Where(static entry => entry.Kind is "standard_ref" or "code_ref")
+                     .OrderBy(static entry => entry.EntryIndex))
+        {
+            var title = CleanTitleCandidate(entry.Text);
+            if (!LooksLikeTechnicalIdentifier(title))
+                continue;
+
+            AddContentCardCandidate(
+                candidates,
+                title,
+                entry.PageStart,
+                entry.PageEnd,
+                entry.Kind,
+                entry.Text,
+                keywords,
+                score: 88);
         }
 
         foreach (var unit in units.OrderBy(static unit => unit.Ordinal))
@@ -409,14 +439,17 @@ internal static partial class DocumentProfileProjector
         if (LooksLikeLowSignalContentCardLead(cleanTitle, kind))
             return;
 
-        var signals = BuildCardSignals(cleanTitle, context, documentKeywords);
+        var evidence = BuildStructuredCardEvidence($"{cleanTitle} {context}");
+        var signals = BuildCardSignals(cleanTitle, context, documentKeywords, evidence);
         candidates.Add(new DocumentProfileContentCardCandidate(
             new DocumentProfileContentCard(
                 cleanTitle,
                 pageStart,
                 pageEnd,
                 string.IsNullOrWhiteSpace(kind) ? "content_item" : kind,
-                signals),
+                signals,
+                evidence,
+                ContentCardId: null),
             score));
     }
 
@@ -530,27 +563,7 @@ internal static partial class DocumentProfileProjector
         if (string.IsNullOrWhiteSpace(normalizedContext))
             return false;
 
-        return ContainsAny(
-            normalizedContext,
-            "ingredient",
-            "ingredients",
-            "zutaten",
-            "method",
-            "procedure",
-            "procedures",
-            "preparation",
-            "preparations",
-            "preparacion",
-            "preparacao",
-            "etape",
-            "etapes",
-            "steps",
-            "instructions",
-            "requirements",
-            "warning",
-            "caution",
-            "consigne",
-            "safety");
+        return StructuredContentLexicon.ContainsStructuredContentContext(normalizedContext);
     }
 
     private static bool LooksLikeCompactStandaloneTitle(string normalizedTitle)
@@ -564,9 +577,6 @@ internal static partial class DocumentProfileProjector
 
         return tokens.Count(static token => token.Length >= 4) >= Math.Min(2, tokens.Length);
     }
-
-    private static bool ContainsAny(string text, params string[] needles)
-        => needles.Any(needle => text.Contains(needle, StringComparison.Ordinal));
 
     private static bool LooksLikeLowSignalContentCardLead(string title, string kind)
     {
@@ -680,49 +690,60 @@ internal static partial class DocumentProfileProjector
             return false;
 
         var tokenCount = CountTokens(title);
-        if (tokenCount is < 2 or > 14)
+        var normalized = ExactMatchEntryExtractor.NormalizeForLookup(title);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+        var normalizedFolded = FoldDiacritics(normalized);
+        var hasTechnicalIdentifier = LooksLikeTechnicalIdentifier(title);
+
+        if ((tokenCount < 2 && !hasTechnicalIdentifier) || tokenCount > 14)
             return false;
 
         if (!title.Any(char.IsLetter))
             return false;
 
-        if (title.Count(char.IsDigit) > Math.Max(4, title.Length / 3))
+        if (title.Count(char.IsDigit) > Math.Max(4, title.Length / 3) && !hasTechnicalIdentifier)
             return false;
 
-        if (title.Count(static ch => ch is ',' or ';' or ':' or '|' or '/') > 4)
+        if (title.Count(static ch => ch is ',' or ';' or ':' or '|' or '/') > 4 && !hasTechnicalIdentifier)
             return false;
 
-        if (LooksLikeGluedNavigationOrHeaderTitle(title))
+        if (LooksLikeGluedNavigationOrHeaderTitle(title) && !hasTechnicalIdentifier)
             return false;
-
-        var normalized = ExactMatchEntryExtractor.NormalizeForLookup(title);
-        if (string.IsNullOrWhiteSpace(normalized))
-            return false;
-        var normalizedFolded = FoldDiacritics(normalized);
 
         if (ContentCardTitleStopwords.Contains(normalizedFolded))
             return false;
-        if (LooksLikeGenericContentCardTitle(normalizedFolded))
+        if (LooksLikeGenericContentCardTitle(normalizedFolded) && !hasTechnicalIdentifier)
+            return false;
+        if (LooksLikeOcrNoiseTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
             return false;
         if (PageReferenceFragmentRegex().IsMatch(normalizedFolded)
+            && !hasTechnicalIdentifier
             && (tokenCount >= 4 || normalizedFolded.Contains("table des matieres", StringComparison.Ordinal)))
         {
             return false;
         }
-        if (LooksLikeSentenceOrInstructionTitle(normalizedFolded, tokenCount))
+        if (LooksLikeSentenceOrInstructionTitle(normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
             return false;
-        if (ParameterFragmentTitleRegex().IsMatch(normalizedFolded))
+        if (ParameterFragmentTitleRegex().IsMatch(normalizedFolded) && !hasTechnicalIdentifier)
             return false;
 
-        if (tokenCount <= 2 && title.Any(char.IsDigit))
+        if (tokenCount <= 2 && title.Any(char.IsDigit) && !hasTechnicalIdentifier)
             return false;
 
         var firstToken = normalizedFolded.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
-        if (firstToken is not null && ContentCardLeadStopwords.Contains(firstToken) && tokenCount <= 3)
+        if (firstToken is not null
+            && ContentCardLeadStopwords.Contains(firstToken)
+            && tokenCount <= 3
+            && !hasTechnicalIdentifier)
             return false;
 
         return true;
     }
+
+    private static bool LooksLikeTechnicalIdentifier(string value)
+        => !string.IsNullOrWhiteSpace(value)
+            && TechnicalIdentifierRegex().IsMatch(value);
 
     private static bool LooksLikeGluedNavigationOrHeaderTitle(string title)
     {
@@ -759,15 +780,38 @@ internal static partial class DocumentProfileProjector
         if (tokenCount >= 4 && SentenceVerbTitleRegex().IsMatch(normalizedFolded))
             return true;
 
-        return normalizedFolded.Contains("ingredientspreparation", StringComparison.Ordinal)
-            || normalizedFolded.Contains("ingredients preparation", StringComparison.Ordinal)
-            || normalizedFolded.Contains("par portion", StringComparison.Ordinal)
-            || normalizedFolded.Contains("ppréparation", StringComparison.Ordinal)
-            || normalizedFolded.Contains("ppreparation", StringComparison.Ordinal)
-            || normalizedFolded.EndsWith(" a votre gout", StringComparison.Ordinal)
-            || normalizedFolded.Contains("be a master", StringComparison.Ordinal)
-            || normalizedFolded.Contains("become a chef", StringComparison.Ordinal);
+        return normalizedFolded.Contains("materialsprocedure", StringComparison.Ordinal)
+            || normalizedFolded.Contains("materials procedure", StringComparison.Ordinal)
+            || normalizedFolded.Contains("componentsprocedure", StringComparison.Ordinal)
+            || normalizedFolded.Contains("components procedure", StringComparison.Ordinal)
+            || LooksLikeAllCapsMarketingHeadline(normalizedFolded, tokenCount);
     }
+
+    private static bool LooksLikeOcrNoiseTitle(string title, string normalizedFolded, int tokenCount)
+    {
+        if (tokenCount < 4)
+            return false;
+
+        var tokens = normalizedFolded.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var noiseTokens = tokens.Count(static token =>
+            token.Length == 1
+            || token.All(char.IsDigit)
+            || IsShortRomanNumeral(token));
+        if (noiseTokens >= Math.Max(2, (int)Math.Ceiling(tokens.Length * 0.45)))
+            return true;
+
+        var invertedPunctuation = title.Count(static ch => ch is '¡' or '¿');
+        return invertedPunctuation > 0 && noiseTokens >= 2;
+    }
+
+    private static bool IsShortRomanNumeral(string token)
+        => token.Length <= 5
+            && token.All(static ch => ch is 'i' or 'v' or 'x')
+            && token.Any(static ch => ch is 'i' or 'v' or 'x');
+
+    private static bool LooksLikeAllCapsMarketingHeadline(string normalizedFolded, int tokenCount)
+        => tokenCount >= 4
+            && Regex.IsMatch(normalizedFolded, @"\b[a-z]{2,}\s+a\s+[a-z]{2,}\b", RegexOptions.CultureInvariant);
 
     private static string FoldDiacritics(string value)
     {
@@ -788,7 +832,7 @@ internal static partial class DocumentProfileProjector
     private static bool LooksLikeGenericContentCardTitle(string normalizedTitle)
         => GenericContentCardTitlePrefixRegex().IsMatch(normalizedTitle)
             || InstructionLeadTitleRegex().IsMatch(normalizedTitle)
-            || ServingLeadTitleRegex().IsMatch(normalizedTitle)
+            || CountLeadTitleRegex().IsMatch(normalizedTitle)
             || normalizedTitle.Contains("table des matieres", StringComparison.Ordinal)
             || normalizedTitle.Contains("table of contents", StringComparison.Ordinal)
             || normalizedTitle.Contains(" indd ", StringComparison.Ordinal)
@@ -798,15 +842,469 @@ internal static partial class DocumentProfileProjector
     private static string[] BuildCardSignals(
         string title,
         string? context,
-        IReadOnlyList<string> documentKeywords)
+        IReadOnlyList<string> documentKeywords,
+        DocumentProfileCardEvidence? evidence)
     {
         var localKeywords = ExtractKeywords($"{title} {context}", maxKeywords: 8);
+        var structuredSignals = BuildStructuredCardSignals(evidence);
         return NormalizeList(
             new[] { title }
+                .Concat(structuredSignals)
                 .Concat(localKeywords)
                 .Concat(documentKeywords.Take(6)),
             10);
     }
+
+    private static DocumentProfileCardEvidence? BuildStructuredCardEvidence(string? context)
+    {
+        var normalized = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(context ?? string.Empty));
+        if (string.IsNullOrWhiteSpace(normalized))
+            return null;
+
+        var hasScaleBasis = TryExtractStructuredScaleBasis(normalized, out var scaleBasisCount, out var scaleBasisLabel);
+        var quantityFacts = ExtractStructuredQuantityFacts(context).ToArray();
+        var nonScalableReasons = LooksLikeNonScalableStructuredQuantityContext(normalized)
+            ? new[] { "safety_or_parameter_context" }
+            : [];
+
+        if (!hasScaleBasis && quantityFacts.Length < 2 && nonScalableReasons.Length == 0)
+            return null;
+
+        var genericFacts = new List<DocumentProfileEvidenceFact>();
+        if (hasScaleBasis)
+        {
+            genericFacts.Add(new DocumentProfileEvidenceFact(
+                Kind: "scale_basis",
+                Label: NormalizeOptionalStructuredSignalLabel(scaleBasisLabel) ?? "scale_basis",
+                Value: scaleBasisCount.ToString(CultureInfo.InvariantCulture),
+                Unit: null,
+                SourceText: null,
+                PageStart: null,
+                PageEnd: null,
+                Confidence: 0.82));
+        }
+
+        genericFacts.AddRange(quantityFacts.Select(static fact => new DocumentProfileEvidenceFact(
+            Kind: "quantity",
+            Label: fact.Label,
+            Value: fact.Value.ToString(CultureInfo.InvariantCulture),
+            Unit: fact.Unit,
+            SourceText: fact.SourceText,
+            PageStart: null,
+            PageEnd: null,
+            Confidence: 0.82)));
+
+        return new DocumentProfileCardEvidence(
+            SchemaVersion: "content_card_evidence_v1",
+            ScaleBasis: hasScaleBasis ? new DocumentProfileScaleBasis(scaleBasisCount, NormalizeOptionalStructuredSignalLabel(scaleBasisLabel)) : null,
+            QuantityFacts: quantityFacts,
+            NonScalableReasons: nonScalableReasons,
+            Confidence: hasScaleBasis && quantityFacts.Length >= 2 && nonScalableReasons.Length == 0 ? 0.82 : 0.55,
+            Language: null,
+            Facts: genericFacts);
+    }
+
+    private static IReadOnlyList<string> BuildStructuredCardSignals(DocumentProfileCardEvidence? evidence)
+    {
+        if (evidence is null)
+            return [];
+
+        var signals = new List<string>();
+        if (evidence.ScaleBasis is { Count: > 0 } basis)
+        {
+            signals.Add("scale_basis");
+            signals.Add($"scale_basis_count:{basis.Count}");
+            if (!string.IsNullOrWhiteSpace(basis.Label))
+                signals.Add($"scale_basis_label:{NormalizeStructuredSignalLabel(basis.Label)}");
+        }
+
+        if (evidence.QuantityFacts.Count >= 2)
+            signals.Add("quantity_list");
+
+        if ((evidence.Facts ?? []).Count > 0)
+            signals.Add("structured_facts");
+
+        if (evidence.NonScalableReasons.Count > 0)
+            signals.Add("non_scalable_quantities");
+
+        if (evidence.ScaleBasis is { Count: > 0 }
+            && evidence.QuantityFacts.Count >= 2
+            && evidence.NonScalableReasons.Count == 0)
+        {
+            signals.Add("scalable_quantities");
+        }
+
+        return signals;
+    }
+
+    private static bool TryExtractStructuredScaleBasis(string normalizedContext, out int count, out string? label)
+        => StructuredContentLexicon.TryExtractScaleBasis(normalizedContext, out count, out label);
+
+    private static IEnumerable<DocumentProfileQuantityFact> ExtractStructuredQuantityFacts(string? context)
+    {
+        var text = CollapseWhitespace((context ?? string.Empty)
+            .Replace('\u2022', '|')
+            .Replace('\u00b7', '|'));
+        if (string.IsNullOrWhiteSpace(text))
+            yield break;
+
+        foreach (Match match in Regex.Matches(
+                     text,
+                     @"\b(?<value>\d+(?:[,.]\d+)?)\s*(?<unit>%|[a-zA-Z]{1,8}\.?|[\p{L}]{1,12})\s+(?<label>[^|;\.\n\r]{2,90})",
+                     RegexOptions.CultureInvariant))
+        {
+            if (!double.TryParse(match.Groups["value"].Value.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+                || value <= 0)
+            {
+                continue;
+            }
+
+            var unit = NormalizeStructuredSignalLabel(match.Groups["unit"].Value);
+            if (string.IsNullOrWhiteSpace(unit) || LooksLikeNonScalableStructuredQuantityUnit(unit))
+                continue;
+
+            var label = CleanQuantityFactLabel(match.Groups["label"].Value);
+            if (string.IsNullOrWhiteSpace(label))
+                continue;
+
+            yield return new DocumentProfileQuantityFact(
+                Value: value,
+                Unit: unit,
+                Label: label,
+                SourceText: CollapseWhitespace(match.Value));
+        }
+    }
+
+    private static string CleanQuantityFactLabel(string? value)
+    {
+        var label = CollapseWhitespace(value)
+            .Trim(' ', '.', ',', ';', ':', '-', '\u2022', '\u00b7');
+        label = Regex.Replace(label, @"^(?:de|d['\u2019]|du|des|of|for|pour|para|per)\s+", string.Empty, RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        label = Regex.Replace(
+            label,
+            @"\b(?:procedure|procedures?|process|execution|operation|operations|instructions?|method|methods?|methode|methodes|mode\s+operatoire|etapes?|steps?)\b.*$",
+            string.Empty,
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase).Trim();
+        return TrimTo(label, 80);
+    }
+
+    private static bool LooksLikeNonScalableStructuredQuantityContext(string normalizedContext)
+        => StructuredContentLexicon.ContainsNonScalableQuantityContext(normalizedContext);
+
+    private static DocumentProfileCardEvidence? NormalizeContentCardEvidence(DocumentProfileCardEvidence? evidence)
+    {
+        if (evidence is null)
+            return null;
+
+        var rawQuantityFacts = evidence.QuantityFacts ?? [];
+        var rawNonScalableReasons = evidence.NonScalableReasons ?? [];
+        var rawFacts = evidence.Facts ?? [];
+        var quantityFacts = rawQuantityFacts
+            .Where(static fact => fact.Value > 0)
+            .Select(static fact => fact with
+            {
+                Unit = NormalizeStructuredSignalLabel(fact.Unit),
+                Label = TrimTo(CollapseWhitespace(fact.Label), 80),
+                SourceText = TrimTo(CollapseWhitespace(fact.SourceText), 120)
+            })
+            .Where(static fact => !string.IsNullOrWhiteSpace(fact.Unit) && !string.IsNullOrWhiteSpace(fact.Label))
+            .Take(24)
+            .ToArray();
+
+        var scaleBasis = evidence.ScaleBasis is { Count: > 0 and <= 200 } basis
+            ? new DocumentProfileScaleBasis(basis.Count, NormalizeOptionalStructuredSignalLabel(basis.Label))
+            : null;
+        var nonScalableReasons = NormalizeList(rawNonScalableReasons, 8);
+        var facts = rawFacts
+            .Select(NormalizeContentCardEvidenceFact)
+            .Where(static fact => fact is not null)
+            .Select(static fact => fact!)
+            .DistinctBy(static fact => $"{fact.Kind}\u001f{fact.Label}\u001f{fact.Value}\u001f{fact.Unit}", StringComparer.OrdinalIgnoreCase)
+            .Take(32)
+            .ToArray();
+        if (scaleBasis is null && quantityFacts.Length == 0 && nonScalableReasons.Length == 0 && facts.Length == 0)
+            return null;
+
+        return new DocumentProfileCardEvidence(
+            string.IsNullOrWhiteSpace(evidence.SchemaVersion) ? "content_card_evidence_v1" : CollapseWhitespace(evidence.SchemaVersion),
+            scaleBasis,
+            quantityFacts,
+            nonScalableReasons,
+            evidence.Confidence is >= 0 and <= 1 ? evidence.Confidence : null,
+            NormalizeOptionalLanguageTag(evidence.Language),
+            facts);
+    }
+
+    private static DocumentProfileEvidenceFact? NormalizeContentCardEvidenceFact(DocumentProfileEvidenceFact? fact)
+    {
+        if (fact is null)
+            return null;
+
+        var kind = NormalizeStructuredSignalLabel(fact.Kind);
+        var label = TrimTo(CollapseWhitespace(fact.Label), 100);
+        var value = TrimTo(CollapseWhitespace(fact.Value ?? string.Empty), 120);
+        var unit = NormalizeOptionalStructuredSignalLabel(fact.Unit);
+        var sourceText = TrimTo(CollapseWhitespace(fact.SourceText ?? string.Empty), 180);
+        var pageStart = fact.PageStart is > 0 and <= 100000 ? fact.PageStart : null;
+        var pageEnd = fact.PageEnd is > 0 and <= 100000 ? fact.PageEnd : null;
+        if (pageStart is > 0 && pageEnd is > 0 && pageEnd < pageStart)
+            pageEnd = pageStart;
+
+        if (string.IsNullOrWhiteSpace(kind))
+            kind = "fact";
+        if (string.IsNullOrWhiteSpace(label) && string.IsNullOrWhiteSpace(value) && string.IsNullOrWhiteSpace(sourceText))
+            return null;
+
+        return new DocumentProfileEvidenceFact(
+            Kind: kind,
+            Label: string.IsNullOrWhiteSpace(label) ? "fact" : label,
+            Value: string.IsNullOrWhiteSpace(value) ? null : value,
+            Unit: unit,
+            SourceText: string.IsNullOrWhiteSpace(sourceText) ? null : sourceText,
+            PageStart: pageStart,
+            PageEnd: pageEnd,
+            Confidence: fact.Confidence is >= 0 and <= 1 ? fact.Confidence : null);
+    }
+
+    private static string? NormalizeOptionalLanguageTag(string? value)
+    {
+        var normalized = DocumentLanguageResolver.NormalizeLanguageTag(value);
+        return string.IsNullOrWhiteSpace(normalized) || string.Equals(normalized, "und", StringComparison.Ordinal)
+            ? null
+            : normalized;
+    }
+
+    internal static DocumentProfileCardEvidence? ParseContentCardEvidenceFromMetadata(string? metadataJson)
+    {
+        if (string.IsNullOrWhiteSpace(metadataJson))
+            return null;
+
+        try
+        {
+            using var json = JsonDocument.Parse(metadataJson);
+            if (json.RootElement.ValueKind != JsonValueKind.Object)
+                return null;
+
+            if (json.RootElement.TryGetProperty("evidence", out var nested))
+                return ParseContentCardEvidence(nested);
+
+            return ParseContentCardEvidence(json.RootElement);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static DocumentProfileCardEvidence? ParseContentCardEvidence(JsonElement value)
+    {
+        if (value.ValueKind != JsonValueKind.Object)
+            return null;
+
+        try
+        {
+            var normalized = NormalizeContentCardEvidence(value.Deserialize<DocumentProfileCardEvidence>(JsonOptions));
+            return normalized ?? ParseLooseContentCardEvidence(value);
+        }
+        catch (JsonException)
+        {
+            return ParseLooseContentCardEvidence(value);
+        }
+    }
+
+    private static DocumentProfileCardEvidence? ParseLooseContentCardEvidence(JsonElement value)
+    {
+        if (value.ValueKind != JsonValueKind.Object)
+            return null;
+
+        var schemaVersion = ReadLooseString(value, "schemaVersion") ?? "content_card_evidence_v1";
+        var language = ReadLooseString(value, "language");
+        var confidence = ReadLooseDouble(value, "confidence");
+        var scaleBasis = ParseLooseScaleBasis(value);
+        var quantityFacts = ParseLooseQuantityFacts(value).ToArray();
+        var nonScalableReasons = ReadLooseStringArray(value, "nonScalableReasons");
+        var facts = ParseLooseEvidenceFacts(value).ToArray();
+
+        return NormalizeContentCardEvidence(new DocumentProfileCardEvidence(
+            SchemaVersion: schemaVersion,
+            ScaleBasis: scaleBasis,
+            QuantityFacts: quantityFacts,
+            NonScalableReasons: nonScalableReasons,
+            Confidence: confidence,
+            Language: language,
+            Facts: facts));
+    }
+
+    private static DocumentProfileScaleBasis? ParseLooseScaleBasis(JsonElement root)
+    {
+        if (!root.TryGetProperty("scaleBasis", out var value) || value.ValueKind != JsonValueKind.Object)
+            return null;
+
+        var count = ReadLooseInt(value, "count") ?? ReadLooseInt(value, "value");
+        if (count is null or <= 0 or > 200)
+            return null;
+
+        return new DocumentProfileScaleBasis(
+            count.Value,
+            ReadLooseString(value, "label") ?? ReadLooseString(value, "unit") ?? ReadLooseString(value, "basis"));
+    }
+
+    private static IEnumerable<DocumentProfileQuantityFact> ParseLooseQuantityFacts(JsonElement root)
+    {
+        if (!root.TryGetProperty("quantityFacts", out var value) || value.ValueKind != JsonValueKind.Array)
+            yield break;
+
+        foreach (var item in value.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object)
+                continue;
+
+            var parsedValue = ReadLooseDouble(item, "value") ?? ReadLooseDouble(item, "amount");
+            var unit = ReadLooseString(item, "unit");
+            var label = ReadLooseString(item, "label") ?? ReadLooseString(item, "name");
+            if (parsedValue is not > 0 || string.IsNullOrWhiteSpace(unit) || string.IsNullOrWhiteSpace(label))
+                continue;
+
+            yield return new DocumentProfileQuantityFact(
+                parsedValue.Value,
+                unit,
+                label,
+                ReadLooseString(item, "sourceText") ?? ReadLooseString(item, "text") ?? string.Empty);
+        }
+    }
+
+    private static IEnumerable<DocumentProfileEvidenceFact> ParseLooseEvidenceFacts(JsonElement root)
+    {
+        if (!root.TryGetProperty("facts", out var value) || value.ValueKind != JsonValueKind.Array)
+            yield break;
+
+        foreach (var item in value.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object)
+                continue;
+
+            yield return new DocumentProfileEvidenceFact(
+                Kind: ReadLooseString(item, "kind") ?? ReadLooseString(item, "type") ?? "fact",
+                Label: ReadLooseString(item, "label") ?? ReadLooseString(item, "name") ?? "fact",
+                Value: ReadLooseString(item, "value") ?? ReadLooseString(item, "amount"),
+                Unit: ReadLooseString(item, "unit"),
+                SourceText: ReadLooseString(item, "sourceText") ?? ReadLooseString(item, "text") ?? ReadLooseString(item, "quote"),
+                PageStart: ReadLooseInt(item, "pageStart") ?? ReadLooseInt(item, "page"),
+                PageEnd: ReadLooseInt(item, "pageEnd") ?? ReadLooseInt(item, "page"),
+                Confidence: ReadLooseDouble(item, "confidence"));
+        }
+    }
+
+    private static string[] ReadLooseStringArray(JsonElement root, string propertyName)
+    {
+        if (!root.TryGetProperty(propertyName, out var value) || value.ValueKind != JsonValueKind.Array)
+            return [];
+
+        return value.EnumerateArray()
+            .Select(static item => item.ValueKind == JsonValueKind.String ? item.GetString() : item.ToString())
+            .Where(static item => !string.IsNullOrWhiteSpace(item))
+            .Select(static item => item!)
+            .ToArray();
+    }
+
+    private static string? ReadLooseString(JsonElement root, string propertyName)
+    {
+        if (!root.TryGetProperty(propertyName, out var value))
+            return null;
+
+        return value.ValueKind switch
+        {
+            JsonValueKind.String => value.GetString(),
+            JsonValueKind.Number => value.ToString(),
+            JsonValueKind.True => "true",
+            JsonValueKind.False => "false",
+            _ => null
+        };
+    }
+
+    private static int? ReadLooseInt(JsonElement root, string propertyName)
+    {
+        if (!root.TryGetProperty(propertyName, out var value))
+            return null;
+
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var parsed))
+            return parsed;
+        if (value.ValueKind == JsonValueKind.String
+            && int.TryParse(value.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed))
+        {
+            return parsed;
+        }
+
+        return null;
+    }
+
+    private static double? ReadLooseDouble(JsonElement root, string propertyName)
+    {
+        if (!root.TryGetProperty(propertyName, out var value))
+            return null;
+
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var parsed))
+            return parsed;
+        if (value.ValueKind == JsonValueKind.String
+            && double.TryParse(value.GetString()?.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out parsed))
+        {
+            return parsed;
+        }
+
+        return null;
+    }
+
+    private static string BuildContentCardEvidenceLookupText(DocumentProfileCardEvidence? evidence)
+    {
+        if (evidence is null)
+            return string.Empty;
+
+        var parts = new List<string>();
+        if (evidence.ScaleBasis is { Count: > 0 } basis)
+        {
+            parts.Add("scale_basis");
+            parts.Add($"scale_basis_count:{basis.Count}");
+            if (!string.IsNullOrWhiteSpace(basis.Label))
+                parts.Add($"scale_basis_label:{basis.Label}");
+        }
+
+        if (evidence.QuantityFacts.Count >= 2)
+            parts.Add("quantity_list");
+
+        if (!string.IsNullOrWhiteSpace(evidence.Language))
+            parts.Add($"language:{evidence.Language}");
+        if ((evidence.Facts ?? []).Count > 0)
+            parts.Add("structured_facts");
+
+        parts.AddRange(evidence.QuantityFacts.Select(static fact => $"{fact.Value.ToString(CultureInfo.InvariantCulture)} {fact.Unit} {fact.Label}"));
+        parts.AddRange(evidence.NonScalableReasons);
+        parts.AddRange((evidence.Facts ?? []).Select(static fact => string.Join(' ', new[]
+        {
+            fact.Kind,
+            fact.Label,
+            fact.Value,
+            fact.Unit,
+            fact.SourceText
+        }.Where(static value => !string.IsNullOrWhiteSpace(value)))));
+        return CollapseWhitespace(string.Join(' ', parts));
+    }
+
+    private static string? NormalizeOptionalStructuredSignalLabel(string? value)
+    {
+        var normalized = NormalizeStructuredSignalLabel(value);
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    private static bool LooksLikeNonScalableStructuredQuantityUnit(string unit)
+        => StructuredContentLexicon.IsNonScalableQuantityUnit(unit);
+
+    private static string NormalizeStructuredSignalLabel(string? value)
+        => StructuredContentLexicon.NormalizeStructuredSignalLabel(value);
 
     private static IReadOnlyList<DocumentProfileContentCard> NormalizeContentCards(
         IEnumerable<DocumentProfileContentCard> cards)
@@ -820,16 +1318,24 @@ internal static partial class DocumentProfileProjector
             if (!IsUsefulContentCardTitle(title))
                 continue;
 
-            var key = ExactMatchEntryExtractor.NormalizeForLookup(title);
+            var key = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(title));
             if (string.IsNullOrWhiteSpace(key) || !seen.Add(key))
                 continue;
+
+            var normalizedEvidence = NormalizeContentCardEvidence(card.Evidence);
+            var normalizedSignals = NormalizeList(
+                BuildStructuredCardSignals(normalizedEvidence)
+                    .Concat(card.Signals ?? []),
+                10);
 
             normalized.Add(new DocumentProfileContentCard(
                 title,
                 card.PageStart,
                 card.PageEnd,
                 string.IsNullOrWhiteSpace(card.Kind) ? "content_item" : CollapseWhitespace(card.Kind),
-                NormalizeList(card.Signals, 10)));
+                normalizedSignals,
+                normalizedEvidence,
+                card.ContentCardId));
 
             if (normalized.Count >= MaxContentCards)
                 break;
@@ -863,7 +1369,11 @@ internal static partial class DocumentProfileProjector
                 var pageStart = ReadJsonInt(item, "pageStart");
                 var pageEnd = ReadJsonInt(item, "pageEnd");
                 var signals = ReadJsonStringArray(item, "signals");
-                parsed.Add(new DocumentProfileContentCard(title ?? string.Empty, pageStart, pageEnd, kind, signals));
+                var contentCardId = ReadJsonString(item, "contentCardId") ?? ReadJsonString(item, "content_card_id");
+                var evidence = item.TryGetProperty("evidence", out var evidenceElement)
+                    ? ParseContentCardEvidence(evidenceElement)
+                    : null;
+                parsed.Add(new DocumentProfileContentCard(title ?? string.Empty, pageStart, pageEnd, kind, signals, evidence, contentCardId));
             }
 
             return NormalizeContentCards(parsed);
@@ -917,14 +1427,15 @@ internal static partial class DocumentProfileProjector
             string.Join(' ', topics),
             string.Join(' ', questions),
             string.Join(' ', limits),
-            string.Join(' ', contentCards.Select(static card => $"{card.Title} {BuildContentCardLookupText(card)} {string.Join(' ', card.Signals)}"))
+            string.Join(' ', contentCards.Select(static card => $"{card.Title} {BuildContentCardLookupText(card)} {string.Join(' ', card.Signals)} {BuildContentCardEvidenceLookupText(card.Evidence)}"))
         }));
 
     private static string BuildContentCardLookupText(DocumentProfileContentCard card)
         => CollapseWhitespace(string.Join(' ', new[]
         {
             FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(card.Title)),
-            FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(string.Join(' ', card.Signals)))
+            FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(string.Join(' ', card.Signals))),
+            FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(BuildContentCardEvidenceLookupText(card.Evidence)))
         }));
 
     private static int CountTokens(string text)
@@ -965,10 +1476,10 @@ internal static partial class DocumentProfileProjector
 
     private static readonly HashSet<string> ContentCardTitleStopwords = new(StringComparer.Ordinal)
     {
-        "ingredients", "ingredient", "preparation", "preparations", "method", "methods",
+        "materials", "material", "components", "component", "method", "methods",
         "etapes", "etape", "steps", "step", "notes", "note", "source", "sources",
-        "sommaire", "contents", "table of contents", "index", "menu", "menus",
-        "temps total", "total time", "duree totale", "durée totale",
+        "sommaire", "contents", "table of contents", "index",
+        "total time", "duree totale", "durée totale",
         "document", "documents", "page", "pages"
     };
 
@@ -985,6 +1496,9 @@ internal static partial class DocumentProfileProjector
     [GeneratedRegex(@"\b(?:[A-Z]{2,}(?:[-\s]?[A-Z0-9]{2,})+|[A-Z]{1,6}\s?\d{2,}(?:[-/]\d{1,})?)\b", RegexOptions.CultureInvariant)]
     private static partial Regex ReferenceLikeRegex();
 
+    [GeneratedRegex(@"\b(?:EN|ISO|IEC|ASTM|DIN|NFPA|API|ANSI|CEN|TR|TS|PD|BS|NF|SN|UL|CSA)(?:[\s._/\-]+[A-Z]{1,6}){0,4}[\s._/\-]*\d[A-Z0-9._/\-:]*\b", RegexOptions.CultureInvariant)]
+    private static partial Regex TechnicalIdentifierRegex();
+
     [GeneratedRegex(@"(?<left>[\p{Ll}\p{Lo}])(?<right>[\p{Lu}][\p{Ll}]{2,}\b)", RegexOptions.CultureInvariant)]
     private static partial Regex LowerToUpperBoundaryRegex();
 
@@ -997,29 +1511,29 @@ internal static partial class DocumentProfileProjector
     [GeneratedRegex(@"\s*\[(?:index|contents?|sommaire).*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex BracketedIndexSuffixRegex();
 
-    [GeneratedRegex(@"^(?:ingredients?|preparations?|method|methods|steps?|etapes?|sources?|references?|notes?|materiel|matériel|technique|suggestions?|par portion|nutrition|valeurs nutritionnelles|temps total|total time|duree totale|durée totale|temps de preparation|temps de préparation|temps de cuisson|nombre de personnes|number of servings|serving count)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:materials?|components?|procedures?|method|methods|steps?|etapes?|sources?|references?|notes?|materiel|matériel|technique|suggestions?|requirements?|warnings?|cautions?|instructions?|parameters?|settings?|total time|duree totale|durée totale)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex GenericContentCardTitlePrefixRegex();
 
-    [GeneratedRegex(@"^(?:ajouter|ajoutez?|add|au bout de|cassez?|contournez?|couper|coupez?|cut|dans le robot|decorer|d[ée]corer|disposer|elaborer|[ée]laborer|enlever|ensuite|faites?|farinez?|fermer|filtrer|gouter|go[ûu]ter|incorporez?|lancez?|laissez?|melanger|m[ée]langer|m[ée]langez?|mettez?|mettre|mixez?|nettoyer|ouvrir|placer|preparer|pr[ée]parer|programmer|puis|quand|raclez?|ramenez?|recommencer|remplacez?|repartir|repartissez?|r[ée]partir|r[ée]partissez?|retirer|salez?|servir|triturer|utilisez?|utiliser|verser|versez?|verifier|v[ée]rifier)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:add|ajouter|ajoutez?|appliquer|apply|arreter|attendre|check|choisir|close|configurer|configure|connect|connecter|copy|copier|deconnecter|delete|demarrer|ensuite|enter|fermer|install|installer|lancer|mettre|open|ouvrir|placer|place|programmer|programmez|puis|quand|remove|remplacer|replace|restart|retirer|run|save|select|selectionner|set|start|stop|supprimer|update|use|utilisez?|utiliser|validate|valider|verify|verifier|v[ée]rifier)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex InstructionLeadTitleRegex();
 
-    [GeneratedRegex(@"^(?:avec des|ce|cela|celle|celui|cette|elle|elles|est|facultatif\)?|fonctionne|il|ils|it|pour cette|pour le|pour la|pour les|se|sel,?\s|si vous|this|vous)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:avec des|ce|cela|celle|celui|cette|elle|elles|est|facultatif\)?|fonctionne|il|ils|it|pour cette|pour le|pour la|pour les|se|si vous|this|vous)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex SentenceLeadTitleRegex();
 
-    [GeneratedRegex(@"\b(?:est|sont|doit|doivent|peut|peuvent|pouvez|pourrez|permet|permettent|recommande|recommandons|utilisez|utiliser|trouver|trouvez|preparez|pr[ée]parez|pr[ée]par[ée]s?|m[ée]langez|ajoutez|ouvrez|fermez|retirez|servez|is|are|can|must|should|allows?|use|uses|using|prepare|prepared|serves?)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(?:est|sont|doit|doivent|peut|peuvent|pouvez|pourrez|permet|permettent|recommande|recommandons|utilisez|utiliser|trouver|trouvez|ajoutez|ouvrez|fermez|retirez|verifiez|v[ée]rifiez|is|are|can|must|should|allows?|use|uses|using|open|close|remove|verify|check)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex SentenceVerbTitleRegex();
 
-    [GeneratedRegex(@"^(?:abaissez|ajoutez?|arrosez|assaisonnez|assaisonnez-les|badigeonnez|battez|beurrez|cassez|choisissez|couvrez|creusez|d[ée]coupez|d[ée]posez|dressez|[ée]crasez|[ée]gouttez|emportez|enduisez|enfournez|enlevez|[ée]talez|farinez|filtrez|foncez|garnissez|glissez|incorporez|lavez|manipulez|m[ée]langez|passez|p[ée]trissez|piquez|placez|placez-les|posez|pr[ée]chauffez|ramenez|r[ée]alisez|recouvrez|rectifiez|remettez|r[ée]partissez|repartissez|r[ée]servez|roulez|saisissez?|saupoudrez|sortez)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:ajoutez?|appliquez|arretez|choisissez|configurez|connectez|copiez|demarrez|deconnectez|enlevez|fermez|installez|lancez?|ouvrez|placez|placez-les|posez|programmez|redemarrez|remettez|remplacez?|retirez|saisissez?|selectionnez|supprimez|utilisez?|validez|verifiez|v[ée]rifiez)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex ImperativeInstructionLeadRegex();
 
-    [GeneratedRegex(@"^(?:arroser|badigeonner|casser|cuire|d[ée]poser|[ée]paissir|epaissir|[ée]plucher|faire|farcir|garnir|hacher|incorporer|laisser|laver|m[ée]langer|porter|r[ée]aliser|recouvrir|r[ée]server|rincer)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:ajouter|appliquer|arreter|choisir|configurer|connecter|copier|demarrer|deconnecter|enlever|fermer|installer|lancer|ouvrir|placer|programmer|redemarrer|remettre|remplacer|retirer|selectionner|supprimer|utiliser|valider|verifier|v[ée]rifier)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex InfinitiveInstructionLeadRegex();
 
-    [GeneratedRegex(@"^(?:a l aide|a la fin|apres|bien|bonne nouvelle|c est|ca|ceci|cela|dans tous les cas|emportez|garder|gardez|glissez|l idee|le repas|manipulez|mais la aussi|n hesitez|on|onne|ou saisir|pendant ce temps|pour connaitre|pour des preparations|pour des recettes|pour l|pour vous|pourtant|quellesatisfaction|rectifiez|roulez|saisir|saupoudrez|si vous|suivant le|voici)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:a l aide|a la fin|apres|bien|c est|ca|ceci|cela|dans tous les cas|garder|gardez|l idee|mais la aussi|n hesitez|on|onne|pour connaitre|pour l|pour vous|pourtant|quellesatisfaction|si vous|suivant le|voici)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex LowSignalSentenceLeadRegex();
 
-    [GeneratedRegex(@"^(?:pour|for|para|per)\s+\d+\s+(?:personnes?|people|servings?|portions?)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
-    private static partial Regex ServingLeadTitleRegex();
+    [GeneratedRegex(@"^(?:pour|for|para|per|fur|fuer|zu|a|da)\s+\d{1,3}\s+[\p{L}'\u2019.\-]{2,30}", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex CountLeadTitleRegex();
 
     [GeneratedRegex(@"^(?:vitesse|speed|temperature|température|temp|mode|programme|program|rpm|tr/min|minutes?|mins?|seconds?|secondes?|heures?|hours?)\b.*\d", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex ParameterFragmentTitleRegex();
@@ -1027,7 +1541,7 @@ internal static partial class DocumentProfileProjector
     [GeneratedRegex(@"\b(?:page|pages?|p\.?)\s*\d+\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex PageReferenceFragmentRegex();
 
-    [GeneratedRegex(@"^\s*(?<title>.{4,90}?)(?:\s{2,}|[\.:\-\u2013\u2014]\s+|(?=\b(?:for|pour|para|per|mit|avec|with|ingredients?|ingredienti|zutaten|preparation|method|steps?)\b))", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^\s*(?<title>.{4,90}?)(?:\s{2,}|[\.:\-\u2013\u2014]\s+|(?=\b(?:for|pour|para|per|mit|avec|with|materials?|components?|procedure|procedures|method|steps?|requirements?|instructions?)\b))", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex LeadBoundaryRegex();
 
     [GeneratedRegex(@"(?<title>\b[\p{Lu}][\p{Lu}\p{Nd}'’\-\s]{4,90})(?=\d|\s{2,}|[\.:\-\u2013\u2014]|$)", RegexOptions.CultureInvariant)]
@@ -1051,7 +1565,38 @@ internal sealed record DocumentProfileContentCard(
     int? PageStart,
     int? PageEnd,
     string Kind,
-    IReadOnlyList<string> Signals);
+    IReadOnlyList<string> Signals,
+    DocumentProfileCardEvidence? Evidence = null,
+    string? ContentCardId = null);
+
+internal sealed record DocumentProfileCardEvidence(
+    [property: JsonPropertyName("schemaVersion")] string SchemaVersion,
+    [property: JsonPropertyName("scaleBasis")] DocumentProfileScaleBasis? ScaleBasis,
+    [property: JsonPropertyName("quantityFacts")] IReadOnlyList<DocumentProfileQuantityFact> QuantityFacts,
+    [property: JsonPropertyName("nonScalableReasons")] IReadOnlyList<string> NonScalableReasons,
+    [property: JsonPropertyName("confidence")] double? Confidence = null,
+    [property: JsonPropertyName("language")] string? Language = null,
+    [property: JsonPropertyName("facts")] IReadOnlyList<DocumentProfileEvidenceFact>? Facts = null);
+
+internal sealed record DocumentProfileScaleBasis(
+    [property: JsonPropertyName("count")] int Count,
+    [property: JsonPropertyName("label")] string? Label);
+
+internal sealed record DocumentProfileQuantityFact(
+    [property: JsonPropertyName("value")] double Value,
+    [property: JsonPropertyName("unit")] string Unit,
+    [property: JsonPropertyName("label")] string Label,
+    [property: JsonPropertyName("sourceText")] string SourceText);
+
+internal sealed record DocumentProfileEvidenceFact(
+    [property: JsonPropertyName("kind")] string Kind,
+    [property: JsonPropertyName("label")] string Label,
+    [property: JsonPropertyName("value")] string? Value,
+    [property: JsonPropertyName("unit")] string? Unit,
+    [property: JsonPropertyName("sourceText")] string? SourceText,
+    [property: JsonPropertyName("pageStart")] int? PageStart,
+    [property: JsonPropertyName("pageEnd")] int? PageEnd,
+    [property: JsonPropertyName("confidence")] double? Confidence = null);
 
 internal sealed record DocumentProfileContentCardCandidate(
     DocumentProfileContentCard Card,

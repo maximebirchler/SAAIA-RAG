@@ -46,6 +46,21 @@ public sealed class IngestionAdminStatePoliciesTests
     }
 
     [Theory]
+    [InlineData("superseded_version", false)]
+    [InlineData("canceled_by_admin", true)]
+    [InlineData("canceled_by_admin_token", true)]
+    [InlineData("timeout_or_canceled", true)]
+    [InlineData(null, true)]
+    public void ShouldStabilizeDocumentAfterCancel_keeps_superseded_versions_requeueable(
+        string? reason,
+        bool expected)
+    {
+        var actual = IngestionWorker.ShouldStabilizeDocumentAfterCancel(reason);
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Theory]
     [InlineData("upsert", "paused", true, "admin_cancel", "pending", 0)]
     [InlineData("upsert", "paused", true, "admin_pause", "pending", 0)]
     [InlineData("upsert", "running", true, "admin_cancel", "pending", 2)]

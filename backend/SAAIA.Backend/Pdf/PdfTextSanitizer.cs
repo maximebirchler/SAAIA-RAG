@@ -5,8 +5,9 @@ internal static class PdfTextSanitizer
         if (string.IsNullOrEmpty(text))
             return string.Empty;
 
-        return text.IndexOf('\0', StringComparison.Ordinal) < 0
+        var cleaned = text.IndexOf('\0', StringComparison.Ordinal) < 0
             ? text
             : text.Replace('\0', ' ');
+        return TextEncodingSanitizer.RepairCommonMojibake(cleaned);
     }
 }

@@ -21,6 +21,7 @@ internal static partial class DocumentUnitExtractor
         var units = new List<ExtractedDocumentUnit>();
         var ordinal = 0;
         var offsetCursor = 0;
+        var skippedProbableOcrNoise = false;
 
         foreach (var page in pages.OrderBy(p => p.PageNumber))
         {
@@ -47,6 +48,12 @@ internal static partial class DocumentUnitExtractor
                 if (tokenCount <= 0)
                     continue;
 
+                if (OcrNoiseFilter.LooksLikeProbableNoiseText(normalized))
+                {
+                    skippedProbableOcrNoise = true;
+                    continue;
+                }
+
                 units.Add(new ExtractedDocumentUnit(
                     Ordinal: ordinal++,
                     SectionOrdinal: currentSection?.Ordinal,
@@ -65,6 +72,9 @@ internal static partial class DocumentUnitExtractor
 
         if (units.Count == 0)
         {
+            if (skippedProbableOcrNoise)
+                return Array.Empty<ExtractedDocumentUnit>();
+
             var fullText = string.Join(Environment.NewLine + Environment.NewLine,
                 pages.OrderBy(p => p.PageNumber)
                     .Select(p => NormalizeLine(p.Text))
@@ -207,7 +217,7 @@ internal static partial class DocumentUnitExtractor
 
             var lookaheadLength = Math.Min(180, text.Length - candidate);
             var lookahead = text.Substring(candidate, lookaheadLength);
-            if (!StructuredLeadMarkerRegex().IsMatch(lookahead))
+            if (!StructuredContentLexicon.LooksLikeStructuredLeadMarker(lookahead))
             {
                 index++;
                 continue;
@@ -291,8 +301,6 @@ internal static partial class DocumentUnitExtractor
     [GeneratedRegex(@"[\.!?;:]\s*$", RegexOptions.CultureInvariant)]
     private static partial Regex SentenceEndRegex();
 
-    [GeneratedRegex(@"(?:^|[^\p{L}\p{N}]|(?<=[\p{Ll}])(?=[\p{Lu}]))(?:pour|for|para|per)\s+\d+|(?:^|[^\p{L}\p{N}]|(?<=[\p{Ll}])(?=[\p{Lu}]))(?:ingredients?|ingr[eé]dients?|ingredienti|zutaten|preparation|pr[eé]paration|method|steps?|[eé]tapes?|procedure|requirements?|materials?)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
-    private static partial Regex StructuredLeadMarkerRegex();
 }
 
 internal sealed record ExtractedDocumentUnit(

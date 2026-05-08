@@ -132,6 +132,7 @@ internal sealed class RuntimeLlmCapacityPlanService(IHostEnvironment env, IOptio
 
     private IReadOnlyList<string> BuildRecommendations(RuntimeLlmCapacityReadResult result)
     {
+        var recommendations = new List<string>();
         var currentSeats = GetCurrentLicenseSeats();
         if (result.Status == "missing")
         {
@@ -151,14 +152,19 @@ internal sealed class RuntimeLlmCapacityPlanService(IHostEnvironment env, IOptio
 
         if (!PlanMatchesLicense(result.Plan))
         {
-            return new[]
-            {
+            recommendations.AddRange([
                 $"License seats changed from {result.Plan?.LicenseSeats ?? 0} to {currentSeats}; rerun the LLM capacity planner before trusting server concurrency.",
                 $"Use infra/scripts/llm/install-llm.ps1 -AutoPlan -LicenseSeats {currentSeats} and restart the LLM compose stack."
-            };
+            ]);
         }
 
-        return Array.Empty<string>();
+        if (result.Plan is { Instances: > 1 } && !RuntimeLlmQueuePolicy.MultiInstanceRouterEnabled())
+        {
+            recommendations.Add(
+                "Capacity plan declares multiple LLM instances, but backend has a single Chat:LlmBaseUrl. Queue concurrency is capped to slotsPerInstance until BACKOFFICE_LLM_MULTI_INSTANCE_ROUTER_ENABLED=true points to a real router.");
+        }
+
+        return recommendations.ToArray();
     }
 
     private static AdminRuntimeLlmCapacityPlanDto NormalizePlan(AdminRuntimeLlmCapacityPlanDto plan)

@@ -600,9 +600,14 @@ public sealed class RetrievalEvaluationHarnessTests
         IReadOnlyList<ProjectedRetrievalChunk> projectedChunks,
         IReadOnlyList<ProjectedContextualTextEntry> contextualEntries)
     {
-        var contextualWithHeadingPath = contextualEntries.Count(entry => entry.Text.Contains("HeadingPath:", StringComparison.Ordinal));
+        var contextualWithHeadingPath = contextualEntries.Count(entry =>
+            entry.Text.Contains("heading_path:", StringComparison.Ordinal)
+            || entry.Text.Contains("HeadingPath:", StringComparison.Ordinal));
         var contextualWithNeighborContext = contextualEntries.Count(entry =>
-            entry.Text.Contains("PreviousContext:", StringComparison.Ordinal) || entry.Text.Contains("NextContext:", StringComparison.Ordinal));
+            entry.Text.Contains("previous_context:", StringComparison.Ordinal)
+            || entry.Text.Contains("next_context:", StringComparison.Ordinal)
+            || entry.Text.Contains("PreviousContext:", StringComparison.Ordinal)
+            || entry.Text.Contains("NextContext:", StringComparison.Ordinal));
 
         return new ContextualCoverageMetrics(
             HeadingCoverage: projectedChunks.Count == 0 ? 1.0 : (double)contextualWithHeadingPath / projectedChunks.Count,

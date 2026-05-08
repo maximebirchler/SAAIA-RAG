@@ -30,12 +30,87 @@ public static partial class SummaryEndpoints
         await using var conn = await ds.OpenConnectionAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
 
+        if (requestedAction == AdminJobControlAction.Pause)
+        {
+            var pausedAdminRows = await conn.ExecuteAsync(new CommandDefinition(
+                """
+UPDATE admin_jobs
+SET status='paused',
+    started_at=NULL,
+    last_error=NULL,
+    payload = jsonb_set(
+        jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,pauseRequested}', 'true'::jsonb, true),
+        '{control,requestedAction}',
+        to_jsonb('pause'::text),
+        true)
+WHERE tenant_id=@tenant
+  AND job_id=@jobId
+  AND status='queued';
+""",
+                new { tenant = tenantId, jobId },
+                transaction: tx,
+                cancellationToken: ct));
+
+            if (pausedAdminRows > 0)
+            {
+                await tx.CommitAsync(ct);
+                return Results.Ok(new
+                {
+                    paused = true,
+                    jobId,
+                    type = "summary",
+                    requestedAction = "pause",
+                    status = "paused",
+                    queuedStateChanged = pausedAdminRows,
+                    result = "paused"
+                });
+            }
+
+            var adminJob = await conn.QueryFirstOrDefaultAsync<(Guid JobId, string JobType, string Status, string? DocPath)>(
+                new CommandDefinition(
+                    """
+SELECT job_id AS "JobId", job_type AS "JobType", status AS "Status", doc_path AS "DocPath"
+FROM admin_jobs
+WHERE tenant_id=@tenant AND job_id=@jobId
+LIMIT 1;
+""",
+                    new { tenant = tenantId, jobId },
+                    transaction: tx,
+                    cancellationToken: ct));
+
+            if (adminJob.JobId != Guid.Empty)
+            {
+                await tx.CommitAsync(ct);
+                var status = (adminJob.Status ?? string.Empty).Trim().ToLowerInvariant();
+                var pauseResult = status switch
+                {
+                    "paused" => "already_paused",
+                    "running" => "running_item_will_finish",
+                    "done" or "failed" or "canceled" or "cancelled" => "already_finished",
+                    _ => "nothing_changed"
+                };
+
+                return Results.Ok(new
+                {
+                    paused = status == "paused",
+                    jobId,
+                    type = "summary",
+                    requestedAction = "pause",
+                    docPath = adminJob.DocPath,
+                    previousStatus = status,
+                    status,
+                    queuedStateChanged = 0,
+                    result = pauseResult
+                });
+            }
+        }
+
         if (requestedAction == AdminJobControlAction.Cancel)
         {
             var cancelAdminSql = """
 UPDATE admin_jobs
 SET status='canceled', canceled_at=now(), finished_at=now()
-WHERE tenant_id=@tenant AND job_id=@jobId AND status IN ('queued','running');
+WHERE tenant_id=@tenant AND job_id=@jobId AND status IN ('queued','running','paused');
 """;
             var changed = await conn.ExecuteAsync(new CommandDefinition(cancelAdminSql, new { tenant = tenantId, jobId }, transaction: tx, cancellationToken: ct));
             if (changed > 0)
@@ -322,13 +397,70 @@ LIMIT 1;
         await using var conn = await ds.OpenConnectionAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
 
+        var resumedAdminRows = await conn.ExecuteAsync(new CommandDefinition(
+            """
+UPDATE admin_jobs
+SET status='queued',
+    started_at=NULL,
+    finished_at=NULL,
+    canceled_at=NULL,
+    last_error=NULL,
+    payload = ((COALESCE(payload, '{}'::jsonb) #- '{control,pauseRequested}') #- '{control,requestedAction}')
+WHERE tenant_id=@tenant
+  AND job_id=@jobId
+  AND status='paused';
+""",
+            new { tenant = tenantId, jobId = cmd.JobId },
+            transaction: tx,
+            cancellationToken: ct));
+
+        if (resumedAdminRows > 0)
+        {
+            await tx.CommitAsync(ct);
+            return Results.Ok(new
+            {
+                resumed = true,
+                jobId = cmd.JobId,
+                type = "summary",
+                status = "queued",
+                queuedStateChanged = resumedAdminRows
+            });
+        }
+
+        var adminJob = await conn.QueryFirstOrDefaultAsync<(Guid JobId, string JobType, string Status, string? DocPath)>(
+            new CommandDefinition(
+                """
+SELECT job_id AS "JobId", job_type AS "JobType", status AS "Status", doc_path AS "DocPath"
+FROM admin_jobs
+WHERE tenant_id=@tenant AND job_id=@jobId
+LIMIT 1;
+""",
+                new { tenant = tenantId, jobId = cmd.JobId },
+                transaction: tx,
+                cancellationToken: ct));
+
+        if (adminJob.JobId != Guid.Empty)
+        {
+            await tx.CommitAsync(ct);
+            var status = (adminJob.Status ?? string.Empty).Trim().ToLowerInvariant();
+            return Results.Ok(new
+            {
+                resumed = false,
+                reason = status == "paused" ? "not_resumed" : "not_paused",
+                jobId = cmd.JobId,
+                type = "summary",
+                docPath = adminJob.DocPath,
+                status
+            });
+        }
+
         var row = await conn.QueryFirstOrDefaultAsync<(Guid JobId, string DocPath, string Category, bool AutoIngestPaused, string? AutoIngestPauseReason, string Status, string Action, string? DocumentStatus, int DocumentIndexedVersion)>(
             new CommandDefinition(
                 """
 SELECT
   i.job_id AS "JobId",
   i.doc_path AS "DocPath",
-  COALESCE(d.category, i.category, 'general') AS "Category",
+  COALESCE(d.category, i.category, '') AS "Category",
   COALESCE(d.auto_ingest_paused, false) AS "AutoIngestPaused",
   d.auto_ingest_pause_reason AS "AutoIngestPauseReason",
   i.status AS "Status",

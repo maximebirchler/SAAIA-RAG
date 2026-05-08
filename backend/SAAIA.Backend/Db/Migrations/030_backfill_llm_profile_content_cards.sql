@@ -25,7 +25,7 @@ source_cards AS (
     source.search_text,
     source.token_count,
     source.checksum,
-    md5(target.document_profile_id::text || '|content-card|' || source.card_index::text) AS stable_hash
+    md5(target.document_profile_id::text || '|content-card|' || source.normalized_title) AS stable_hash
   FROM target_profiles target
   JOIN document_profiles deterministic
     ON deterministic.tenant_id = target.tenant_id

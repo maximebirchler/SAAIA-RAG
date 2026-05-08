@@ -27,6 +27,9 @@ public static partial class DocumentsEndpoints
         category = string.IsNullOrWhiteSpace(category) ? null : category.Trim().ToLowerInvariant();
         status = string.IsNullOrWhiteSpace(status) ? null : status.Trim().ToLowerInvariant();
         q = string.IsNullOrWhiteSpace(q) ? null : q.Trim();
+        var includeAllStatuses = string.Equals(status, "all", StringComparison.Ordinal);
+        if (includeAllStatuses)
+            status = null;
 
         await using var conn = await ds.OpenConnectionAsync(ct);
 
@@ -49,12 +52,16 @@ SELECT
 FROM documents
 WHERE tenant_id=@tenant
   AND (@category IS NULL OR category=@category)
-  AND (@status IS NULL OR status=@status)
+  AND (
+       @includeAllStatuses
+       OR (@status IS NULL AND status NOT IN ('missing','deleted'))
+       OR (@status IS NOT NULL AND status=@status)
+  )
   AND (@q IS NULL OR (doc_name ILIKE ('%' || @q || '%') OR doc_path ILIKE ('%' || @q || '%')))
 ORDER BY updated_at DESC
 LIMIT @lim OFFSET @off;";
 
-        var rows = await conn.QueryAsync(sql, new { tenant = tenantId, category, status, q, lim, off });
+        var rows = await conn.QueryAsync(sql, new { tenant = tenantId, category, status, includeAllStatuses, q, lim, off });
         return Results.Ok(new { items = rows, limit = lim, offset = off });
     }
 

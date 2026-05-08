@@ -91,7 +91,8 @@ internal static class RuntimeCapabilityAEnrichmentCoordinator
                 candidate.Category,
                 fileInfo,
                 ct,
-                enqueueSource: "capability_a");
+                enqueueSource: "capability_a",
+                capabilityAProfileSeed: BuildCapabilityAProfileSeed(candidate));
 
             items.Add(CreateEnqueueItem(candidate, queued: true, jobId: queued.JobId));
 
@@ -229,4 +230,12 @@ LIMIT 1;
             HypotheticalQuestions: candidate.HypotheticalQuestions,
             QualityScore: candidate.QualityScore,
             QualitySignals: candidate.QualitySignals);
+
+    private static IngestionCapabilityAProfileSeed? BuildCapabilityAProfileSeed(AdminRuntimeCapabilityAEnrichmentCandidateDto candidate)
+        => IngestionJobPayloadJson.NormalizeCapabilityAProfileSeed(new IngestionCapabilityAProfileSeed(
+            HypotheticalQuestions: candidate.HypotheticalQuestions ?? [],
+            SuggestedTags: candidate.SuggestedTags ?? [],
+            KeySectionTitles: candidate.KeySectionTitles ?? [],
+            PreviewText: candidate.PreviewText,
+            BasedOnIndexedVersion: candidate.IndexedVersion));
 }

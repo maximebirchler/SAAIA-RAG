@@ -9,6 +9,7 @@ internal static class CapabilityBLiveRuntimeProbe
 {
     internal static async Task<CapabilityBLiveRuntimeProbeResult> ProbeAsync(
         IHttpClientFactory? httpFactory,
+        ChatOptions? chatOptions,
         CancellationToken ct)
     {
         var measuredAt = DateTimeOffset.UtcNow;
@@ -54,7 +55,7 @@ internal static class CapabilityBLiveRuntimeProbe
                 Content = new StringContent(
                     JsonSerializer.Serialize(new
                     {
-                        model = "local",
+                        model = string.IsNullOrWhiteSpace(chatOptions?.LlmModel) ? "local" : chatOptions!.LlmModel,
                         temperature = 0.0,
                         max_tokens = 16,
                         messages = new object[]

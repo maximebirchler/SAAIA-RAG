@@ -53,7 +53,15 @@ RETURNING
         var version = row.VersionFromPayload ?? 0;
 
         await tx.CommitAsync(ct);
-        return new IngestionJob(row.JobId, row.TenantId, row.Action, row.DocPath, row.Category, docId, version);
+        return new IngestionJob(
+            row.JobId,
+            row.TenantId,
+            row.Action,
+            row.DocPath,
+            row.Category,
+            docId,
+            version,
+            row.CapabilityAProfileSeedFromPayload);
     }
 
     public static async Task MarkDoneAsync(NpgsqlDataSource ds, Guid jobId, CancellationToken ct)
@@ -542,5 +550,7 @@ WHERE status='running'
         public Guid? DocIdFromPayload => ParsedPayload.DocId;
 
         public int? VersionFromPayload => ParsedPayload.Version;
+
+        public IngestionCapabilityAProfileSeed? CapabilityAProfileSeedFromPayload => ParsedPayload.CapabilityAProfileSeed;
     }
 }

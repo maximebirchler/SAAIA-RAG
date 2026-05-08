@@ -64,7 +64,7 @@ LIMIT @limit;
             row.ProfileKey,
             row.PassCount,
             row.Passed,
-            row.MeasuredAt,
+            ToUtcOffset(row.MeasuredAt),
             RuntimeGovernanceJson.ParseDetails(row.DetailsJson));
 
     private static AdminRuntimeCapabilityEventDto MapCapabilityEventRow(CapabilityEventRow row)
@@ -75,8 +75,20 @@ LIMIT @limit;
             row.EventType,
             row.Actor,
             row.Reason,
-            row.OccurredAt,
+            ToUtcOffset(row.OccurredAt),
             RuntimeGovernanceJson.ParseDetails(row.DetailsJson));
+
+    private static DateTimeOffset ToUtcOffset(DateTime value)
+    {
+        var utc = value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+        };
+
+        return new DateTimeOffset(utc);
+    }
 
     private sealed record WarmupResultRow(
         Guid WarmupResultId,
@@ -84,7 +96,7 @@ LIMIT @limit;
         string ProfileKey,
         int PassCount,
         bool Passed,
-        DateTimeOffset MeasuredAt,
+        DateTime MeasuredAt,
         string? DetailsJson);
 
     private sealed record CapabilityEventRow(
@@ -94,6 +106,6 @@ LIMIT @limit;
         string EventType,
         string Actor,
         string? Reason,
-        DateTimeOffset OccurredAt,
+        DateTime OccurredAt,
         string? DetailsJson);
 }

@@ -122,6 +122,80 @@ LIMIT @limit;
             .Select(text => text.Trim())
             .ToArray();
 
+    internal static async Task<string[]> LoadCapabilityBRepresentativeUnitExcerptsAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        Guid docId,
+        int indexedVersion,
+        int limit,
+        CancellationToken ct)
+        => (await conn.QueryAsync<string>(new CommandDefinition(
+            """
+WITH ordered_units AS (
+  SELECT
+    du.text_content,
+    du.ordinal,
+    row_number() OVER (ORDER BY du.ordinal) AS rn,
+    count(*) OVER () AS total
+  FROM document_revisions dr
+  JOIN document_units du ON du.revision_id = dr.revision_id
+  WHERE dr.tenant_id=@tenant
+    AND dr.doc_id=@docId
+    AND dr.indexed_version=@indexedVersion
+    AND length(trim(du.text_content)) > 0
+),
+scored_units AS (
+  SELECT
+    text_content,
+    ordinal,
+    rn,
+    total,
+    CASE
+      WHEN text_content ~ '\.{8,}' THEN 1
+      WHEN text_content ~* '(^|[[:space:]])(r.f.rence|reference|referencia|referenz|riferiment|refer.ncia)' THEN 1
+      WHEN text_content ~* '(https?://|www\.)' THEN 1
+      WHEN text_content ~* '(r.daction|remerciements|acknowledg|copyright|isbn)' THEN 1
+      ELSE 0
+    END AS low_value_rank
+  FROM ordered_units
+),
+bucketed AS (
+  SELECT
+    text_content,
+    ordinal,
+    floor(((rn - 1)::numeric * @limit) / greatest(total, 1))::integer AS bucket,
+    length(text_content) AS char_count,
+    low_value_rank
+  FROM scored_units
+),
+ranked AS (
+  SELECT
+    text_content,
+    ordinal,
+    row_number() OVER (
+      PARTITION BY bucket
+      ORDER BY low_value_rank ASC, char_count DESC, ordinal ASC
+    ) AS bucket_rank
+  FROM bucketed
+)
+SELECT text_content
+FROM ranked
+WHERE bucket_rank = 1
+ORDER BY ordinal
+LIMIT @limit;
+""",
+            new
+            {
+                tenant = tenantId,
+                docId,
+                indexedVersion,
+                limit = Math.Clamp(limit, 1, 30)
+            },
+            cancellationToken: ct)))
+            .Where(text => !string.IsNullOrWhiteSpace(text))
+            .Select(text => text.Trim())
+            .ToArray();
+
     internal static async Task<IReadOnlyDictionary<Guid, string[]>> LoadCapabilityBUnitExcerptsBatchAsync(
         NpgsqlConnection conn,
         Guid tenantId,

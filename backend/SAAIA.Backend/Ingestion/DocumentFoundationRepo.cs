@@ -7,6 +7,8 @@ using Npgsql;
 
 internal static class DocumentFoundationRepo
 {
+    internal const int ContentCardEvidenceSchemaVersion = 2;
+
     public static async Task PublishUpsertCompletionAsync(
         NpgsqlConnection conn,
         NpgsqlTransaction tx,
@@ -26,10 +28,25 @@ internal static class DocumentFoundationRepo
         IReadOnlyList<ProjectedRetrievalChunk> retrievalChunks,
         IReadOnlyList<ExtractedExactMatchEntry> exactMatchEntries,
         IReadOnlyList<ProjectedContextualTextEntry> contextualTextEntries,
-        CancellationToken ct)
+        CancellationToken ct,
+        string extractionSource = "pdf_text",
+        bool ocrAttempted = false,
+        bool ocrApplied = false,
+        string? ocrLanguages = null,
+        long? ocrDurationMs = null,
+        PdfOcrDiagnostics? ocrDiagnostics = null,
+        PdfExtractionQualitySummary? nativeExtractionQuality = null,
+        IngestionCapabilityAProfileSeed? capabilityAProfileSeed = null)
     {
         var revisionId = BuildStableRevisionId(tenantId, docId, indexedVersionAfter);
         var extractionQuality = PdfExtractionQualitySummary.FromPages(pages);
+        var documentProfile = DocumentProfileProjector.Project(docPath, pages, sections, units, exactMatchEntries);
+        documentProfile = MergeCapabilityAProfileSeed(
+            documentProfile,
+            capabilityAProfileSeed,
+            indexedVersionBefore,
+            docPath,
+            Path.GetFileName(docPath.Replace('\\', '/')));
 
         const string revisionSql = @"
 INSERT INTO document_revisions(
@@ -95,18 +112,31 @@ SET doc_path = EXCLUDED.doc_path,
                 published = true,
                 sourceSize,
                 sourceMtimeUtc = DateTime.SpecifyKind(sourceMtimeUtc, DateTimeKind.Utc),
+                extractionSource,
+                ocrAttempted,
+                ocrApplied,
+                ocrLanguages,
+                ocrDurationMs,
+                documentLanguage = documentProfile.Language,
+                documentLanguageSource = "document_profile_projector",
+                documentProfileVersion = documentProfile.ProfileVersion,
+                ocrDiagnostics = ocrDiagnostics is null
+                    ? null
+                    : BuildOcrDiagnosticsPayload(ocrDiagnostics),
+                nativeExtractionQuality = nativeExtractionQuality is null
+                    ? null
+                    : BuildExtractionQualityPayload(nativeExtractionQuality),
                 extractionQuality = BuildExtractionQualityPayload(extractionQuality)
             }),
             ct);
 
-        await UpsertPageIndexAsync(conn, tx, tenantId, revisionId, pages, ct);
+        await UpsertPageIndexAsync(conn, tx, tenantId, revisionId, pages, units, retrievalChunks, ct);
         await UpsertSectionsAsync(conn, tx, tenantId, revisionId, sections, ct);
         await UpsertUnitsAsync(conn, tx, tenantId, revisionId, sections, units, ct);
         await UpsertRetrievalChunksAsync(conn, tx, tenantId, docId, revisionId, ingestionVersion, sections, units, retrievalChunks, ct);
         await UpsertRetrievalChunkLinksAsync(conn, tx, tenantId, docId, revisionId, ingestionVersion, retrievalChunks, ct);
         await UpsertExactMatchEntriesAsync(conn, tx, tenantId, revisionId, sections, units, exactMatchEntries, ct);
         await UpsertContextualTextEntriesAsync(conn, tx, tenantId, docId, revisionId, ingestionVersion, sections, units, contextualTextEntries, ct);
-        var documentProfile = DocumentProfileProjector.Project(docPath, pages, sections, units, exactMatchEntries);
         await UpsertDocumentProfileAsync(conn, tx, tenantId, docId, revisionId, documentProfile, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "page_index", pages, p => $"page:{p.PageNumber}:{p.CharCount}:{Convert.ToHexString(p.Checksum)}", p => p.CharCount, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "sections", sections, s => $"section:{s.Ordinal}:{s.Level}:{s.PageStart}:{s.PageEnd}:{s.Title}", _ => 0, ct);
@@ -152,6 +182,136 @@ SET doc_path = EXCLUDED.doc_path,
             ct);
     }
 
+    public static async Task PublishFailedOcrExtractionAsync(
+        NpgsqlDataSource ds,
+        Guid tenantId,
+        Guid docId,
+        Guid jobId,
+        string docPath,
+        byte[] sourceHash,
+        long sourceSize,
+        DateTime sourceMtimeUtc,
+        int ingestionVersion,
+        string extractionSource,
+        bool ocrAttempted,
+        string? ocrLanguages,
+        long? ocrDurationMs,
+        PdfOcrDiagnostics? ocrDiagnostics,
+        PdfExtractionQualitySummary extractionQuality,
+        PdfExtractionQualitySummary? nativeExtractionQuality,
+        string failureReason,
+        CancellationToken ct)
+    {
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        await using var tx = await conn.BeginTransactionAsync(ct);
+
+        const string stateSql = """
+SELECT
+    doc_id AS "DocId",
+    COALESCE(indexed_version, 0) AS "IndexedVersion"
+FROM documents
+WHERE tenant_id=@tenant_id
+  AND doc_path=@doc_path
+FOR UPDATE;
+""";
+        var state = await conn.QueryFirstOrDefaultAsync<FailedExtractionDocumentState>(
+            new CommandDefinition(
+                stateSql,
+                new { tenant_id = tenantId, doc_path = docPath },
+                transaction: tx,
+                cancellationToken: ct));
+
+        var persistedDocId = state?.DocId ?? docId;
+        var indexedVersionBefore = Math.Max(0, state?.IndexedVersion ?? 0);
+        var pageCount = Math.Max(0, extractionQuality.PageCount);
+
+        const string documentSql = """
+UPDATE documents
+SET content_hash=CASE
+        WHEN COALESCE(indexed_version, 0) > 0 THEN content_hash
+        ELSE @source_hash
+    END,
+    file_size=CASE
+        WHEN COALESCE(indexed_version, 0) > 0 THEN file_size
+        ELSE @source_size
+    END,
+    file_mtime=CASE
+        WHEN COALESCE(indexed_version, 0) > 0 THEN file_mtime
+        ELSE @source_mtime
+    END,
+    page_count=CASE
+        WHEN COALESCE(indexed_version, 0) <= 0 AND @page_count > 0 THEN @page_count
+        ELSE page_count
+    END,
+    status=CASE
+        WHEN COALESCE(indexed_version, 0) > 0 THEN 'indexed'
+        ELSE 'error'
+    END,
+    auto_ingest_paused=true,
+    auto_ingest_paused_at=COALESCE(auto_ingest_paused_at, now()),
+    auto_ingest_pause_reason=@pause_reason,
+    ingestion_version=GREATEST(COALESCE(ingestion_version, 0), @ingestion_version),
+    updated_at=now()
+WHERE tenant_id=@tenant_id
+  AND doc_path=@doc_path
+  AND COALESCE(status, '') NOT IN ('missing','deleted');
+""";
+        await conn.ExecuteAsync(new CommandDefinition(
+            documentSql,
+            new
+            {
+                tenant_id = tenantId,
+                doc_path = docPath,
+                source_hash = sourceHash,
+                source_size = sourceSize,
+                source_mtime = DateTime.SpecifyKind(sourceMtimeUtc, DateTimeKind.Utc),
+                page_count = pageCount,
+                pause_reason = failureReason,
+                ingestion_version = ingestionVersion
+            },
+            transaction: tx,
+            cancellationToken: ct));
+
+        await InsertProcessingRunAsync(
+            conn,
+            tx,
+            processingRunId: BuildStableProcessingRunId(jobId),
+            tenantId,
+            jobId,
+            persistedDocId,
+            docPath,
+            revisionId: null,
+            action: "upsert",
+            status: "failed",
+            ingestionVersion,
+            indexedVersionBefore,
+            indexedVersionAfter: indexedVersionBefore,
+            sourceHash,
+            payload: JsonSerializer.SerializeToElement(new
+            {
+                published = false,
+                documentIndexable = false,
+                failureReason,
+                sourceSize,
+                sourceMtimeUtc = DateTime.SpecifyKind(sourceMtimeUtc, DateTimeKind.Utc),
+                extractionSource,
+                ocrAttempted,
+                ocrApplied = false,
+                ocrLanguages,
+                ocrDurationMs,
+                ocrDiagnostics = ocrDiagnostics is null
+                    ? null
+                    : BuildOcrDiagnosticsPayload(ocrDiagnostics),
+                nativeExtractionQuality = nativeExtractionQuality is null
+                    ? null
+                    : BuildExtractionQualityPayload(nativeExtractionQuality),
+                extractionQuality = BuildExtractionQualityPayload(extractionQuality)
+            }),
+            ct);
+
+        await tx.CommitAsync(ct);
+    }
+
     internal static Guid BuildStableRevisionId(Guid tenantId, Guid docId, int indexedVersion)
         => IdUtil.DeterministicGuid($"{tenantId:N}|{docId:N}|rev|{indexedVersion}");
 
@@ -164,8 +324,20 @@ SET doc_path = EXCLUDED.doc_path,
     internal static Guid BuildStableDocumentProfileId(Guid revisionId, string profileVersion)
         => IdUtil.DeterministicGuid($"{revisionId:N}|document-profile|{profileVersion}");
 
-    internal static Guid BuildStableDocumentProfileContentCardId(Guid documentProfileId, int cardIndex)
-        => IdUtil.DeterministicGuid($"{documentProfileId:N}|content-card|{cardIndex}");
+    internal static Guid BuildStableDocumentProfileContentCardId(Guid documentProfileId, string normalizedTitle)
+        => IdUtil.DeterministicGuid($"{documentProfileId:N}|content-card|{NormalizeContentCardLookupText(normalizedTitle)}");
+
+    internal static string NormalizePostgresTextForStorage(string? text)
+        => PostgresTextSanitizer.Clean(text);
+
+    private static string? NormalizeOptionalPostgresTextForStorage(string? text)
+        => PostgresTextSanitizer.CleanOrNull(text);
+
+    private static string[] NormalizePostgresTextArrayForStorage(IEnumerable<string>? values)
+        => PostgresTextSanitizer.CleanArray(values);
+
+    private static byte[] ComputeStoredTextChecksum(string text)
+        => SHA256.HashData(Encoding.UTF8.GetBytes(text));
 
     private static async Task InsertProcessingRunAsync(
         NpgsqlConnection conn,
@@ -323,6 +495,86 @@ SET content_hash = EXCLUDED.content_hash,
         }, transaction: tx, cancellationToken: ct));
     }
 
+    private static ProjectedDocumentProfile MergeCapabilityAProfileSeed(
+        ProjectedDocumentProfile profile,
+        IngestionCapabilityAProfileSeed? seed,
+        int indexedVersionBefore,
+        string docPath,
+        string docName)
+    {
+        seed = IngestionJobPayloadJson.NormalizeCapabilityAProfileSeed(seed);
+        if (seed is null)
+            return profile;
+
+        if (seed.BasedOnIndexedVersion.HasValue && seed.BasedOnIndexedVersion.Value != indexedVersionBefore)
+            return profile;
+
+        var summary = MergeSummaryPreview(profile.SummaryText, seed.PreviewText);
+        var suggestedTags = seed.SuggestedTags ?? [];
+        var keySectionTitles = seed.KeySectionTitles ?? [];
+        var seedQuestions = seed.HypotheticalQuestions ?? [];
+        var seedCards = BuildCapabilityASeedContentCards(keySectionTitles, suggestedTags);
+
+        return DocumentProfileProjector.BuildProfile(
+            profileVersion: profile.ProfileVersion,
+            language: profile.Language,
+            summaryText: summary,
+            keywords: suggestedTags.Concat(profile.Keywords),
+            entities: profile.Entities,
+            topics: keySectionTitles.Concat(suggestedTags).Concat(profile.Topics),
+            hypotheticalQuestions: seedQuestions.Concat(profile.HypotheticalQuestions),
+            limits: profile.Limits,
+            docPath: docPath,
+            docName: docName,
+            contentCards: seedCards.Concat(profile.ContentCards));
+    }
+
+    private static string MergeSummaryPreview(string summary, string? preview)
+    {
+        if (string.IsNullOrWhiteSpace(preview))
+            return summary;
+
+        var normalizedPreview = NormalizePostgresTextForStorage(preview);
+        if (string.IsNullOrWhiteSpace(normalizedPreview))
+            return summary;
+
+        if (!string.IsNullOrWhiteSpace(summary)
+            && summary.Contains(normalizedPreview, StringComparison.OrdinalIgnoreCase))
+        {
+            return summary;
+        }
+
+        return string.IsNullOrWhiteSpace(summary)
+            ? normalizedPreview
+            : $"{summary.Trim()} {normalizedPreview}";
+    }
+
+    private static IReadOnlyList<DocumentProfileContentCard> BuildCapabilityASeedContentCards(
+        IReadOnlyList<string> keySectionTitles,
+        IReadOnlyList<string> suggestedTags)
+    {
+        if (keySectionTitles.Count == 0)
+            return [];
+
+        var signals = suggestedTags
+            .Where(static tag => !string.IsNullOrWhiteSpace(tag))
+            .Select(static tag => tag.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(8)
+            .Append("capability_a")
+            .ToArray();
+
+        return keySectionTitles
+            .Where(static title => !string.IsNullOrWhiteSpace(title))
+            .Select(title => new DocumentProfileContentCard(
+                title.Trim(),
+                PageStart: null,
+                PageEnd: null,
+                Kind: "capability_a_hint",
+                Signals: signals))
+            .ToArray();
+    }
+
     internal static async Task<DocumentProfileSnapshot?> LoadDocumentProfileAsync(
         NpgsqlConnection conn,
         Guid tenantId,
@@ -406,10 +658,12 @@ LIMIT 1;
                 """
 SELECT
     title AS "Title",
+    content_card_id AS "ContentCardId",
     page_start AS "PageStart",
     page_end AS "PageEnd",
     kind AS "Kind",
-    signals AS "Signals"
+    signals AS "Signals",
+    metadata::text AS "MetadataJson"
 FROM document_profile_content_cards
 WHERE revision_id = @revision_id
   AND profile_version = @profile_version
@@ -428,7 +682,9 @@ ORDER BY card_index;
                     row.PageStart,
                     row.PageEnd,
                     row.Kind ?? "content_item",
-                    row.Signals ?? []))
+                    row.Signals ?? [],
+                    DocumentProfileProjector.ParseContentCardEvidenceFromMetadata(row.MetadataJson),
+                    row.ContentCardId?.ToString()))
                 .ToArray();
         }
         catch (PostgresException)
@@ -446,6 +702,14 @@ ORDER BY card_index;
         ProjectedDocumentProfile profile,
         CancellationToken ct)
     {
+        if (tx is null)
+        {
+            await using var localTx = await conn.BeginTransactionAsync(ct);
+            await UpsertDocumentProfileAsync(conn, localTx, tenantId, docId, revisionId, profile, ct);
+            await localTx.CommitAsync(ct);
+            return;
+        }
+
         const string sql = @"
 INSERT INTO document_profiles(
     document_profile_id,
@@ -495,26 +759,39 @@ SET language = EXCLUDED.language,
     metadata = EXCLUDED.metadata,
     updated_at = now();";
 
+        var documentProfileId = BuildStableDocumentProfileId(revisionId, profile.ProfileVersion);
+        var profileVersion = NormalizePostgresTextForStorage(profile.ProfileVersion);
+        var profileLanguage = string.Equals(profile.Language, "und", StringComparison.Ordinal)
+            ? null
+            : NormalizeOptionalPostgresTextForStorage(profile.Language);
+        var summaryText = NormalizePostgresTextForStorage(profile.SummaryText);
+        var keywords = NormalizePostgresTextArrayForStorage(profile.Keywords);
+        var entities = NormalizePostgresTextArrayForStorage(profile.Entities);
+        var topics = NormalizePostgresTextArrayForStorage(profile.Topics);
+        var hypotheticalQuestions = NormalizePostgresTextArrayForStorage(profile.HypotheticalQuestions);
+        var limits = NormalizePostgresTextArrayForStorage(profile.Limits);
+        var searchText = NormalizePostgresTextForStorage(profile.SearchText);
+
         var metadata = JsonSerializer.Serialize(new
         {
             generatedBy = "document_profile_projector",
-            profile.ProfileVersion,
-            keywordCount = profile.Keywords.Count,
-            entityCount = profile.Entities.Count,
-            topicCount = profile.Topics.Count,
-            hypotheticalQuestionCount = profile.HypotheticalQuestions.Count,
+            ProfileVersion = profileVersion,
+            contentCardEvidenceSchemaVersion = ContentCardEvidenceSchemaVersion,
+            keywordCount = keywords.Length,
+            entityCount = entities.Length,
+            topicCount = topics.Length,
+            hypotheticalQuestionCount = hypotheticalQuestions.Length,
             contentCardCount = profile.ContentCards.Count,
             contentCards = profile.ContentCards.Select(card => new
             {
-                title = card.Title,
+                title = NormalizePostgresTextForStorage(card.Title),
                 pageStart = card.PageStart,
                 pageEnd = card.PageEnd,
-                kind = card.Kind,
-                signals = card.Signals
+                kind = NormalizePostgresTextForStorage(card.Kind),
+                signals = NormalizePostgresTextArrayForStorage(card.Signals),
+                evidence = card.Evidence
             })
         });
-
-        var documentProfileId = BuildStableDocumentProfileId(revisionId, profile.ProfileVersion);
 
         await conn.ExecuteAsync(new CommandDefinition(sql, new
         {
@@ -522,17 +799,17 @@ SET language = EXCLUDED.language,
             tenant_id = tenantId,
             revision_id = revisionId,
             doc_id = docId,
-            profile_version = profile.ProfileVersion,
-            language = string.Equals(profile.Language, "und", StringComparison.Ordinal) ? null : profile.Language,
-            summary_text = profile.SummaryText,
-            keywords = profile.Keywords.ToArray(),
-            entities = profile.Entities.ToArray(),
-            topics = profile.Topics.ToArray(),
-            hypothetical_questions = profile.HypotheticalQuestions.ToArray(),
-            limits = profile.Limits.ToArray(),
-            search_text = profile.SearchText,
-            token_count = profile.TokenCount,
-            checksum = profile.Checksum,
+            profile_version = profileVersion,
+            language = profileLanguage,
+            summary_text = summaryText,
+            keywords,
+            entities,
+            topics,
+            hypothetical_questions = hypotheticalQuestions,
+            limits,
+            search_text = searchText,
+            token_count = CountTokens(searchText),
+            checksum = ComputeStoredTextChecksum(searchText),
             metadata
         }, transaction: tx, cancellationToken: ct));
 
@@ -560,15 +837,18 @@ SET language = EXCLUDED.language,
         const string purgeSql = @"
 DELETE FROM document_profile_content_cards
 WHERE tenant_id = @tenant_id
-  AND doc_id = @doc_id
-  AND profile_version = @profile_version;";
+  AND (
+    document_profile_id = @document_profile_id
+    OR (revision_id = @revision_id AND profile_version = @profile_version)
+  );";
         await conn.ExecuteAsync(new CommandDefinition(
             purgeSql,
             new
             {
                 tenant_id = tenantId,
-                doc_id = docId,
-                profile_version = profile.ProfileVersion
+                document_profile_id = documentProfileId,
+                revision_id = revisionId,
+                profile_version = NormalizePostgresTextForStorage(profile.ProfileVersion)
             },
             transaction: tx,
             cancellationToken: ct));
@@ -613,8 +893,11 @@ VALUES(
     @token_count,
     @checksum,
     CAST(@metadata AS jsonb))
-ON CONFLICT (document_profile_id, card_index) DO UPDATE
-SET title = EXCLUDED.title,
+ON CONFLICT (revision_id, profile_version, normalized_title) DO UPDATE
+SET card_index = EXCLUDED.card_index,
+    title = EXCLUDED.title,
+    document_profile_id = EXCLUDED.document_profile_id,
+    doc_id = EXCLUDED.doc_id,
     normalized_title = EXCLUDED.normalized_title,
     page_start = EXCLUDED.page_start,
     page_end = EXCLUDED.page_end,
@@ -626,37 +909,58 @@ SET title = EXCLUDED.title,
     metadata = EXCLUDED.metadata,
     updated_at = now();";
 
-        for (var i = 0; i < profile.ContentCards.Count; i++)
+        var seenNormalizedTitles = new HashSet<string>(StringComparer.Ordinal);
+        var cardIndex = 0;
+        foreach (var card in profile.ContentCards)
         {
-            var card = profile.ContentCards[i];
-            var searchText = BuildContentCardSearchText(card);
+            var title = NormalizePostgresTextForStorage(card.Title);
+            var kind = NormalizePostgresTextForStorage(card.Kind);
+            var signals = NormalizePostgresTextArrayForStorage(card.Signals);
+            var storedCard = card with
+            {
+                Title = title,
+                Kind = kind,
+                Signals = signals
+            };
+            var searchText = BuildContentCardSearchText(storedCard);
+            var normalizedTitle = NormalizeContentCardLookupText(title);
+            if (string.IsNullOrWhiteSpace(normalizedTitle) || !seenNormalizedTitles.Add(normalizedTitle))
+                continue;
+            var contentCardId = BuildStableDocumentProfileContentCardId(documentProfileId, normalizedTitle);
+            storedCard = storedCard with { ContentCardId = contentCardId.ToString() };
+
             var metadata = JsonSerializer.Serialize(new
             {
                 generatedBy = "document_profile_projector",
-                profile.ProfileVersion,
-                signalCount = card.Signals.Count
+                ProfileVersion = NormalizePostgresTextForStorage(profile.ProfileVersion),
+                contentCardEvidenceSchemaVersion = ContentCardEvidenceSchemaVersion,
+                signalCount = signals.Length,
+                contentCardId = contentCardId.ToString(),
+                evidence = card.Evidence
             });
 
             await conn.ExecuteAsync(new CommandDefinition(sql, new
             {
-                content_card_id = BuildStableDocumentProfileContentCardId(documentProfileId, i),
+                content_card_id = contentCardId,
                 tenant_id = tenantId,
                 document_profile_id = documentProfileId,
                 revision_id = revisionId,
                 doc_id = docId,
-                profile_version = profile.ProfileVersion,
-                card_index = i,
-                title = card.Title,
-                normalized_title = NormalizeContentCardLookupText(card.Title),
+                profile_version = NormalizePostgresTextForStorage(profile.ProfileVersion),
+                card_index = cardIndex,
+                title,
+                normalized_title = normalizedTitle,
                 page_start = card.PageStart,
                 page_end = card.PageEnd,
-                kind = string.IsNullOrWhiteSpace(card.Kind) ? "content_item" : card.Kind,
-                signals = card.Signals.ToArray(),
+                kind = string.IsNullOrWhiteSpace(kind) ? "content_item" : kind,
+                signals,
                 search_text = searchText,
                 token_count = CountTokens(searchText),
-                checksum = SHA256.HashData(Encoding.UTF8.GetBytes(searchText)),
+                checksum = ComputeStoredTextChecksum(searchText),
                 metadata
             }, transaction: tx, cancellationToken: ct));
+
+            cardIndex++;
         }
     }
 
@@ -669,8 +973,49 @@ SET title = EXCLUDED.title,
                 NormalizeContentCardLookupText(card.Title),
                 card.Kind,
                 string.Join(' ', card.Signals),
-                NormalizeContentCardLookupText(string.Join(' ', card.Signals))
+                NormalizeContentCardLookupText(string.Join(' ', card.Signals)),
+                BuildContentCardEvidenceSearchText(card.Evidence)
             }.Where(static value => !string.IsNullOrWhiteSpace(value)));
+
+    private static string BuildContentCardEvidenceSearchText(DocumentProfileCardEvidence? evidence)
+    {
+        if (evidence is null)
+            return string.Empty;
+
+        var parts = new List<string>();
+        if (evidence.ScaleBasis is { Count: > 0 } basis)
+        {
+            parts.Add("scale_basis");
+            parts.Add($"scale_basis_count:{basis.Count}");
+            if (!string.IsNullOrWhiteSpace(basis.Label))
+                parts.Add($"scale_basis_label:{basis.Label}");
+        }
+
+        if (evidence.QuantityFacts.Count >= 2)
+            parts.Add("quantity_list");
+        if (evidence.ScaleBasis is { Count: > 0 }
+            && evidence.QuantityFacts.Count >= 2
+            && evidence.NonScalableReasons.Count == 0)
+        {
+            parts.Add("scalable_quantities");
+        }
+
+        if (!string.IsNullOrWhiteSpace(evidence.Language))
+            parts.Add($"language:{evidence.Language}");
+        if ((evidence.Facts ?? []).Count > 0)
+            parts.Add("structured_facts");
+        parts.AddRange(evidence.QuantityFacts.Select(static fact => $"{fact.Value.ToString(CultureInfo.InvariantCulture)} {fact.Unit} {fact.Label}"));
+        parts.AddRange(evidence.NonScalableReasons);
+        parts.AddRange((evidence.Facts ?? []).Select(static fact => string.Join(' ', new[]
+        {
+            fact.Kind,
+            fact.Label,
+            fact.Value,
+            fact.Unit,
+            fact.SourceText
+        }.Where(static value => !string.IsNullOrWhiteSpace(value)))));
+        return NormalizeContentCardLookupText(string.Join(' ', parts));
+    }
 
     private static string NormalizeContentCardLookupText(string text)
         => FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(text));
@@ -700,6 +1045,8 @@ SET title = EXCLUDED.title,
         Guid tenantId,
         Guid revisionId,
         IReadOnlyList<ExtractedPdfPage> pages,
+        IReadOnlyList<ExtractedDocumentUnit> units,
+        IReadOnlyList<ProjectedRetrievalChunk> retrievalChunks,
         CancellationToken ct)
     {
         if (pages.Count == 0)
@@ -728,11 +1075,26 @@ SET char_count = EXCLUDED.char_count,
         foreach (var page in pages)
         {
             var pageQuality = page.Quality ?? PdfPageExtractionQuality.FromCounts(page.WordCount, page.CharCount);
+            var unitsOnPage = units.Count(unit => unit.PageStart <= page.PageNumber && page.PageNumber <= unit.PageEnd);
+            var suspiciousUnitCount = units.Count(unit =>
+                unit.PageStart <= page.PageNumber
+                && page.PageNumber <= unit.PageEnd
+                && OcrNoiseFilter.LooksLikeProbableNoiseText(unit.Text));
+            var chunksOnPage = retrievalChunks.Count(chunk => chunk.PageStart <= page.PageNumber && page.PageNumber <= chunk.PageEnd);
+            var pageReview = ExtractionQualityDiagnostics.AssessPage(
+                page.WordCount,
+                page.CharCount,
+                page.ImageCount,
+                unitsOnPage,
+                suspiciousUnitCount,
+                chunksOnPage,
+                pageQuality.Signals);
             var metadata = JsonSerializer.Serialize(new
             {
                 wordCount = page.WordCount,
                 textLength = page.Text.Length,
-                extractionQuality = BuildPageExtractionQualityPayload(pageQuality)
+                imageCount = page.ImageCount,
+                extractionQuality = BuildPageExtractionQualityPayload(pageReview, unitsOnPage, suspiciousUnitCount, chunksOnPage)
             });
 
             await conn.ExecuteAsync(new CommandDefinition(sql, new
@@ -766,15 +1128,58 @@ SET char_count = EXCLUDED.char_count,
             signals = quality.Signals
         };
 
-    private static object BuildPageExtractionQualityPayload(PdfPageExtractionQuality quality)
+    private static object BuildPageExtractionQualityPayload(
+        ExtractionPageReview review,
+        int unitCount,
+        int suspiciousUnitCount,
+        int chunkCount)
         => new
         {
-            textStatus = quality.TextStatus,
-            textEmpty = quality.TextEmpty,
-            textSparse = quality.TextSparse,
-            ocrCandidate = quality.OcrCandidate,
-            averageCharsPerWord = quality.AverageCharsPerWord,
-            signals = quality.Signals
+            diagnosticVersion = "page_extraction_quality_v2",
+            qualityStatus = review.Status,
+            extractionConfidence = review.ExtractionConfidence,
+            manualReviewRecommended = review.ManualReviewRecommended,
+            textStatus = review.TextStatus,
+            textEmpty = review.TextEmpty,
+            textSparse = review.TextSparse,
+            ocrCandidate = review.OcrCandidate,
+            averageCharsPerWord = review.AverageCharsPerWord,
+            unitCount,
+            suspiciousUnitCount,
+            chunkCount,
+            signals = review.Signals
+        };
+
+    private static object BuildOcrDiagnosticsPayload(PdfOcrDiagnostics diagnostics)
+        => new
+        {
+            mode = diagnostics.Mode,
+            candidatePageCount = diagnostics.CandidatePageCount,
+            attemptedPageCount = diagnostics.AttemptedPageCount,
+            skippedPageCount = diagnostics.SkippedPageCount,
+            maxPages = diagnostics.MaxPages,
+            candidatePages = diagnostics.CandidatePages,
+            attemptedPages = diagnostics.AttemptedPages,
+            skippedPages = diagnostics.SkippedPages,
+            pagesWithOcrText = diagnostics.PagesWithOcrText,
+            pagesWithNovelText = diagnostics.PagesWithNovelText,
+            exitCode = diagnostics.ExitCode,
+            timedOut = diagnostics.TimedOut,
+            timeoutSeconds = diagnostics.TimeoutSeconds,
+            stderr = diagnostics.Stderr,
+            failureReason = diagnostics.FailureReason,
+            appliedReason = diagnostics.AppliedReason,
+            coverageStatus = diagnostics.CoverageStatus,
+            imagePageDiagnostics = diagnostics.ImagePageDiagnostics?.Select(static page => new
+            {
+                pageNumber = page.PageNumber,
+                status = page.Status,
+                reason = page.Reason,
+                ocrWordCount = page.OcrWordCount,
+                ocrCharCount = page.OcrCharCount,
+                exitCode = page.ExitCode,
+                timedOut = page.TimedOut
+            }).ToArray()
         };
 
     private static async Task UpsertSectionsAsync(
@@ -824,6 +1229,7 @@ SET title = EXCLUDED.title,
 
         foreach (var section in sections)
         {
+            var title = NormalizePostgresTextForStorage(section.Title);
             var metadata = JsonSerializer.Serialize(new
             {
                 inferred = true
@@ -835,7 +1241,7 @@ SET title = EXCLUDED.title,
                 tenant_id = tenantId,
                 revision_id = revisionId,
                 ordinal = section.Ordinal,
-                title = section.Title,
+                title,
                 section_level = section.Level,
                 page_start = section.PageStart,
                 page_end = section.PageEnd,
@@ -1000,6 +1406,7 @@ SET section_id = EXCLUDED.section_id,
 
         foreach (var unit in units)
         {
+            var text = NormalizePostgresTextForStorage(unit.Text);
             var metadata = JsonSerializer.Serialize(new
             {
                 inferred = true,
@@ -1019,10 +1426,10 @@ SET section_id = EXCLUDED.section_id,
                 ordinal = unit.Ordinal,
                 page_start = unit.PageStart,
                 page_end = unit.PageEnd,
-                text_content = unit.Text,
-                char_count = unit.CharCount,
-                token_count = unit.TokenCount,
-                checksum = unit.Checksum,
+                text_content = text,
+                char_count = text.Length,
+                token_count = CountTokens(text),
+                checksum = ComputeStoredTextChecksum(text),
                 metadata
             }, transaction: tx, cancellationToken: ct));
         }
@@ -1107,13 +1514,16 @@ SET retrieval_chunk_id = EXCLUDED.retrieval_chunk_id,
             sectionTitleByOrdinal.TryGetValue(chunk.SectionOrdinal ?? -1, out var sectionTitle);
             var headingPath = ContextualTextProjector.ResolveHeadingPath(chunk.SectionOrdinal, headingPathBySectionOrdinal);
             chunkLinkMap.TryGetValue(chunk.ChunkIndex, out var chunkLinks);
+            var text = NormalizePostgresTextForStorage(chunk.Text);
+            var storedSectionTitle = NormalizeOptionalPostgresTextForStorage(sectionTitle);
+            var storedHeadingPath = NormalizeOptionalPostgresTextForStorage(headingPath);
 
             var metadata = JsonSerializer.Serialize(new
             {
                 inferred = true,
-                chunkType = chunk.ChunkType,
-                sectionTitle,
-                headingPath,
+                chunkType = NormalizePostgresTextForStorage(chunk.ChunkType),
+                sectionTitle = storedSectionTitle,
+                headingPath = storedHeadingPath,
                 offsetStart = chunk.OffsetStart,
                 offsetEnd = chunk.OffsetEnd,
                 prevChunkId = chunkLinks?.PreviousChunkId?.ToString(),
@@ -1131,9 +1541,9 @@ SET retrieval_chunk_id = EXCLUDED.retrieval_chunk_id,
                 chunk_index = chunk.ChunkIndex,
                 page_start = chunk.PageStart,
                 page_end = chunk.PageEnd,
-                text_content = chunk.Text,
-                token_count = chunk.TokenCount,
-                checksum = chunk.Checksum,
+                text_content = text,
+                token_count = CountTokens(text),
+                checksum = ComputeStoredTextChecksum(text),
                 metadata
             }, transaction: tx, cancellationToken: ct));
         }
@@ -1208,11 +1618,13 @@ SET section_id = EXCLUDED.section_id,
             unitIdsByOrdinal.TryGetValue(entry.UnitOrdinal, out var unitIdValue);
             Guid? sectionId = sectionIdValue == Guid.Empty ? null : sectionIdValue;
             Guid? unitId = unitIdValue == Guid.Empty ? null : unitIdValue;
+            var text = NormalizePostgresTextForStorage(entry.Text);
+            var normalizedText = NormalizePostgresTextForStorage(entry.NormalizedText);
 
             var metadata = JsonSerializer.Serialize(new
             {
                 inferred = true,
-                kind = entry.Kind,
+                kind = NormalizePostgresTextForStorage(entry.Kind),
                 offsetStart = entry.OffsetStart,
                 offsetEnd = entry.OffsetEnd
             });
@@ -1227,11 +1639,11 @@ SET section_id = EXCLUDED.section_id,
                 entry_index = entry.EntryIndex,
                 page_start = entry.PageStart,
                 page_end = entry.PageEnd,
-                text_content = entry.Text,
-                normalized_text = entry.NormalizedText,
-                char_count = entry.CharCount,
-                token_count = entry.TokenCount,
-                checksum = entry.Checksum,
+                text_content = text,
+                normalized_text = normalizedText,
+                char_count = text.Length,
+                token_count = CountTokens(text),
+                checksum = ComputeStoredTextChecksum(normalizedText),
                 metadata
             }, transaction: tx, cancellationToken: ct));
         }
@@ -1309,6 +1721,7 @@ SET section_id = EXCLUDED.section_id,
             Guid? sectionId = sectionIdValue == Guid.Empty ? null : sectionIdValue;
             Guid? unitId = unitIdValue == Guid.Empty ? null : unitIdValue;
             Guid retrievalChunkId = BuildStableRetrievalChunkId(docId, ingestionVersion, entry.ChunkIndex);
+            var text = NormalizePostgresTextForStorage(entry.Text);
 
             var metadata = JsonSerializer.Serialize(new
             {
@@ -1326,10 +1739,10 @@ SET section_id = EXCLUDED.section_id,
                 entry_index = entry.EntryIndex,
                 page_start = entry.PageStart,
                 page_end = entry.PageEnd,
-                text_content = entry.Text,
-                char_count = entry.CharCount,
-                token_count = entry.TokenCount,
-                checksum = entry.Checksum,
+                text_content = text,
+                char_count = text.Length,
+                token_count = CountTokens(text),
+                checksum = ComputeStoredTextChecksum(text),
                 metadata
             }, transaction: tx, cancellationToken: ct));
         }
@@ -1376,4 +1789,12 @@ internal sealed class DocumentProfileContentCardRow
     public int? PageEnd { get; set; }
     public string? Kind { get; set; }
     public string[]? Signals { get; set; }
+    public string? MetadataJson { get; set; }
+    public Guid? ContentCardId { get; set; }
+}
+
+internal sealed class FailedExtractionDocumentState
+{
+    public Guid DocId { get; set; }
+    public int IndexedVersion { get; set; }
 }

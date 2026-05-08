@@ -14,14 +14,17 @@ internal sealed class RuntimeDiagnosticsService(NpgsqlDataSource ds, IHostEnviro
     private const string CapabilityACorpusEnrichmentKey = "capability_a.corpus_enrichment";
     private const string CapabilityBBackofficeGenerationKey = "capability_b.backoffice_generation";
     private readonly IHttpClientFactory? _httpFactory = null;
+    private readonly ChatOptions? _chatOptions = null;
 
     internal RuntimeDiagnosticsService(
         NpgsqlDataSource ds,
         IHostEnvironment env,
-        IHttpClientFactory? httpFactory)
+        IHttpClientFactory? httpFactory,
+        ChatOptions? chatOptions = null)
         : this(ds, env)
     {
         _httpFactory = httpFactory;
+        _chatOptions = chatOptions;
     }
 
     internal async Task<AdminRuntimeDiagnosticsResponseDto> GetDiagnosticsAsync(
@@ -43,10 +46,12 @@ internal sealed class RuntimeDiagnosticsService(NpgsqlDataSource ds, IHostEnviro
                 ct);
             var capabilityBCandidates = await RuntimeCapabilityBBackofficeStore.LoadCandidatesForDiagnosticsAsync(
                 conn,
+                tenantId,
                 options,
                 ct);
             var capabilityBOperationalSummary = await RuntimeCapabilityDiagnosticsBuilder.LoadCapabilityBOperationalSummaryAsync(
                 conn,
+                tenantId,
                 CapabilityBBackofficeGenerationKey,
                 capabilityBCandidates,
                 ct);
@@ -71,6 +76,23 @@ internal sealed class RuntimeDiagnosticsService(NpgsqlDataSource ds, IHostEnviro
                 items,
                 CapabilityACorpusEnrichmentKey,
                 CapabilityBBackofficeGenerationKey);
+            if (summary.Operational is not null)
+            {
+                var idleSnapshot = await RuntimeCapabilityBIngestionIdleCoordinator.LoadGlobalIngestionIdleSnapshotAsync(
+                    conn,
+                    options,
+                    DateTimeOffset.UtcNow,
+                    ct);
+                summary = summary with
+                {
+                    Operational = summary.Operational with
+                    {
+                        CapabilityBIdleScheduler = RuntimeCapabilityBIngestionIdleCoordinator.BuildSchedulerDto(
+                            options,
+                            idleSnapshot)
+                    }
+                };
+            }
 
             sw.Stop();
             RuntimeGovernanceTelemetry.CompleteArtifactRead(activity, DiagnosticsArtifact, success: true, durationMs: sw.ElapsedMilliseconds);
@@ -199,7 +221,7 @@ internal sealed class RuntimeDiagnosticsService(NpgsqlDataSource ds, IHostEnviro
         if (!capabilityB.Implemented || !capabilityB.Selected || capabilityB.Stale)
             return items;
 
-        var probe = await CapabilityBLiveRuntimeProbe.ProbeAsync(_httpFactory, ct);
+        var probe = await CapabilityBLiveRuntimeProbe.ProbeAsync(_httpFactory, _chatOptions, ct);
         if (probe.Available)
             return items;
 

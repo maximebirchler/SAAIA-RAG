@@ -90,7 +90,7 @@ normalized_cards AS (
       '\s+',
       ' ',
       'g') AS search_text,
-    md5(document_profile_id::text || '|content-card|' || card_index::text) AS stable_hash
+    md5(document_profile_id::text || '|content-card|' || LOWER(REGEXP_REPLACE(title, '\s+', ' ', 'g'))) AS stable_hash
   FROM raw_cards
   WHERE title IS NOT NULL
 )

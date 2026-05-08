@@ -52,13 +52,13 @@ internal static class ContextualTextProjector
         ExtractedDocumentUnit? nextUnit)
     {
         var sb = new StringBuilder();
-        sb.Append("Document: ").Append(fileName).AppendLine();
+        sb.Append("document_name: ").Append(fileName).AppendLine();
         if (!string.IsNullOrWhiteSpace(section?.Title))
-            sb.Append("Section: ").Append(section.Title).AppendLine();
+            sb.Append("section_title: ").Append(section.Title).AppendLine();
         if (!string.IsNullOrWhiteSpace(headingPath))
-            sb.Append("HeadingPath: ").Append(headingPath).AppendLine();
-        sb.Append("ChunkType: ").Append(chunk.ChunkType).AppendLine();
-        sb.Append("Pages: ").Append(chunk.PageStart);
+            sb.Append("heading_path: ").Append(headingPath).AppendLine();
+        sb.Append("chunk_type: ").Append(chunk.ChunkType).AppendLine();
+        sb.Append("pages: ").Append(chunk.PageStart);
         if (chunk.PageEnd != chunk.PageStart)
             sb.Append('-').Append(chunk.PageEnd);
         sb.AppendLine();
@@ -66,26 +66,26 @@ internal static class ContextualTextProjector
 
         if (!string.IsNullOrWhiteSpace(unit?.Text))
         {
-            sb.AppendLine("Context:");
+            sb.AppendLine("context:");
             sb.AppendLine(unit.Text.Trim());
             sb.AppendLine();
         }
 
         if (!string.IsNullOrWhiteSpace(previousUnit?.Text))
         {
-            sb.AppendLine("PreviousContext:");
+            sb.AppendLine("previous_context:");
             sb.AppendLine(previousUnit.Text.Trim());
             sb.AppendLine();
         }
 
         if (!string.IsNullOrWhiteSpace(nextUnit?.Text))
         {
-            sb.AppendLine("NextContext:");
+            sb.AppendLine("next_context:");
             sb.AppendLine(nextUnit.Text.Trim());
             sb.AppendLine();
         }
 
-        sb.AppendLine("Excerpt:");
+        sb.AppendLine("excerpt:");
         sb.Append(chunk.Text.Trim());
         return sb.ToString().TrimEnd();
     }

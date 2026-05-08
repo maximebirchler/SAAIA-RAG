@@ -187,7 +187,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(sp => new CapabilityBBackofficeSummaryService(
             sp.GetRequiredService<LocalLlmChatClient>(),
             sp.GetRequiredService<IOptions<ChatOptions>>().Value));
-        services.AddSingleton<RuntimeDiagnosticsService>();
+        services.AddSingleton(sp => new RuntimeDiagnosticsService(
+            sp.GetRequiredService<NpgsqlDataSource>(),
+            sp.GetRequiredService<IHostEnvironment>(),
+            sp.GetService<IHttpClientFactory>(),
+            sp.GetRequiredService<IOptions<ChatOptions>>().Value));
         services.AddSingleton<RuntimeRetrievalKpiService>();
         services.AddSingleton<RuntimeCapabilityAKpiService>();
         services.AddSingleton<RuntimeCapabilityBKpiService>();

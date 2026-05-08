@@ -101,7 +101,7 @@ internal static class RuntimeCapabilityBBackofficeCommandService
                     continue;
                 }
 
-                var jobId = await InsertCapabilityBAdminJobAsync(conn, tenantId, candidate.DocId, candidate.DocPath, req?.Force == true, campaignId, gate.State!.ProfileKey, ct);
+                var jobId = await InsertCapabilityBAdminJobAsync(conn, tenantId, candidate.DocId, candidate.DocPath, req?.Force == true, campaignId, gate.State!.ProfileKey, candidate.PriorityScore, ct);
                 items.Add(new AdminRuntimeCapabilityBEnqueueItemDto(candidate.DocId, candidate.DocPath, Queued: true, JobId: jobId));
 
                 await RuntimeCapabilityPersistenceStore.InsertCapabilityEventAsync(
@@ -119,6 +119,7 @@ internal static class RuntimeCapabilityBBackofficeCommandService
                             ["summaryState"] = candidate.SummaryState,
                             ["jobId"] = jobId,
                             ["reasons"] = candidate.Reasons.ToArray(),
+                            ["priorityScore"] = candidate.PriorityScore,
                             ["policyBlocked"] = candidate.PolicyBlocked,
                             ["policyBlockReason"] = candidate.PolicyBlockReason,
                             ["campaignId"] = campaignId
@@ -212,8 +213,9 @@ internal static class RuntimeCapabilityBBackofficeCommandService
         bool force,
         Guid campaignId,
         string? profileKey,
+        int priorityScore,
         CancellationToken ct)
-        => RuntimeCapabilityBExecutionStore.InsertCapabilityBAdminJobAsync(conn, tenantId, docId, docPath, force, campaignId, profileKey, ct);
+        => RuntimeCapabilityBExecutionStore.InsertCapabilityBAdminJobAsync(conn, tenantId, docId, docPath, force, campaignId, profileKey, priorityScore, ct);
 
     private static void IncrementReasonCounts(
         IDictionary<string, int> counts,

@@ -1,5 +1,11 @@
 sealed class IngestionOptions
 {
+    public const int DefaultAutoOcrMaxLanguages = 4;
+    public const int AbsoluteAutoOcrMaxLanguages = 32;
+    public const int MinEmbeddingsBatchSize = 1;
+    public const int DefaultEmbeddingsBatchSize = 32;
+    public const int MaxEmbeddingsBatchSize = 256;
+
     public string DocumentsRoot { get; set; } = "";
 
     public bool WatcherEnabled { get; set; } = true;
@@ -13,7 +19,7 @@ sealed class IngestionOptions
     public int ChunkMaxWords { get; set; } = 200;
     public int ChunkOverlapWords { get; set; } = 35;
     public int ChunkMinWords { get; set; } = 25;
-    public int EmbeddingsBatchSize { get; set; } = 32;
+    public int EmbeddingsBatchSize { get; set; } = DefaultEmbeddingsBatchSize;
 
     // Worker
     public int WorkerConcurrency { get; set; } = 2;
@@ -27,7 +33,7 @@ sealed class IngestionOptions
     public int MaxFilesPerScan { get; set; } = 5000;
 
     // Catégorie
-    public string DefaultCategory { get; set; } = "general";
+    public string DefaultCategory { get; set; } = "";
     public bool CategoryFromFirstFolder { get; set; } = true;
 
     // Anti-freeze (IMPORTANT)
@@ -44,6 +50,32 @@ sealed class IngestionOptions
 
     // Auto-heal si Qdrant est vide alors que la DB contient des documents
     public bool ReindexIfQdrantEmpty { get; set; } = true;
+
+    // OCR optionnel pour les PDF scannes ou avec trop peu de texte extractible.
+    // Par defaut, le backend detecte seulement le besoin OCR. L'execution OCR
+    // demande un outil externe explicite, typiquement ocrmypdf.
+    public bool OcrEnabled { get; set; } = false;
+    public string OcrCommand { get; set; } = "";
+    public string OcrArguments { get; set; } = "";
+    public string OcrForceArguments { get; set; } = "";
+    public string OcrLanguages { get; set; } = "auto";
+    public string OcrAutoFallbackLanguages { get; set; } = "fra+eng+deu+ita";
+    public int OcrMaxLanguages { get; set; } = DefaultAutoOcrMaxLanguages;
+    public bool OcrAutoDetectLanguages { get; set; } = true;
+    public int OcrTimeoutSeconds { get; set; } = 900;
+    public int OcrMinWords { get; set; } = 5;
+    public int OcrMaxConcurrency { get; set; } = 1;
+    public bool OcrImagePageEnabled { get; set; } = true;
+    public string OcrImageRendererCommand { get; set; } = "gs";
+    public string OcrImageTextCommand { get; set; } = "tesseract";
+    // 0 means no page budget: OCR every image-bearing page for maximum ingestion fidelity.
+    public int OcrImagePageMaxPages { get; set; } = 0;
+    public int OcrImagePageRenderDpi { get; set; } = 220;
+    public int OcrImagePageSegmentationMode { get; set; } = 3;
+    public int OcrImagePageTimeoutSeconds { get; set; } = 120;
+    // Global per-document budget for image-page OCR. 0 disables the global budget.
+    public int OcrImagePageMaxTotalSeconds { get; set; } = 1800;
+    public int OcrImagePageMinWords { get; set; } = 3;
 
     // Backoff auto-upsert après échecs répétés (évite les boucles infinies scanner -> worker failed -> scanner)
     public int AutoRetryBackoffSeconds { get; set; } = 120;
@@ -74,7 +106,7 @@ sealed class IngestionOptions
     public int TeiBatchSize
     {
         get => EmbeddingsBatchSize;
-        set => EmbeddingsBatchSize = Math.Clamp(value, 1, 512);
+        set => EmbeddingsBatchSize = ResolveEmbeddingsBatchSize(value);
     }
 
     // Anciennes clés JSON : ScannerIntervalSeconds / PollSeconds
@@ -89,4 +121,7 @@ sealed class IngestionOptions
         get => (int)Math.Round(WorkerEmptyDelayMs / 1000.0);
         set => WorkerEmptyDelayMs = Math.Clamp(value, 0, 3600) * 1000;
     }
+
+    public static int ResolveEmbeddingsBatchSize(int value)
+        => Math.Clamp(value, MinEmbeddingsBatchSize, MaxEmbeddingsBatchSize);
 }

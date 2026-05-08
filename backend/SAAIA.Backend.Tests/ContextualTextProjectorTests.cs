@@ -26,15 +26,18 @@ public sealed class ContextualTextProjectorTests
         var entries = ContextualTextProjector.Project("ATEX/CEN.pdf", sections, units, chunks);
 
         var entry = Assert.Single(entries);
-        Assert.Contains("Document: CEN.pdf", entry.Text, StringComparison.Ordinal);
-        Assert.Contains("Section: Introduction", entry.Text, StringComparison.Ordinal);
-        Assert.Contains("HeadingPath: Chapter 1 > Introduction", entry.Text, StringComparison.Ordinal);
-        Assert.Contains("ChunkType: unit_exact_v1", entry.Text, StringComparison.Ordinal);
-        Assert.Contains("Pages: 1", entry.Text, StringComparison.Ordinal);
-        Assert.Contains("Context:", entry.Text, StringComparison.Ordinal);
-        Assert.Contains("PreviousContext:", entry.Text, StringComparison.Ordinal);
-        Assert.Contains("NextContext:", entry.Text, StringComparison.Ordinal);
-        Assert.Contains("Excerpt:", entry.Text, StringComparison.Ordinal);
+        Assert.Contains("document_name: CEN.pdf", entry.Text, StringComparison.Ordinal);
+        Assert.Contains("section_title: Introduction", entry.Text, StringComparison.Ordinal);
+        Assert.Contains("heading_path: Chapter 1 > Introduction", entry.Text, StringComparison.Ordinal);
+        Assert.Contains("chunk_type: unit_exact_v1", entry.Text, StringComparison.Ordinal);
+        Assert.Contains("pages: 1", entry.Text, StringComparison.Ordinal);
+        Assert.Contains("context:", entry.Text, StringComparison.Ordinal);
+        Assert.Contains("previous_context:", entry.Text, StringComparison.Ordinal);
+        Assert.Contains("next_context:", entry.Text, StringComparison.Ordinal);
+        Assert.Contains("excerpt:", entry.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Document:", entry.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Section:", entry.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Excerpt:", entry.Text, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -26,7 +26,10 @@ public sealed class ErrorHandlingMiddleware
             await _next(ctx);
 
             // Si pas encore d'erreur mais statut 401/403/404/429, formate en réponse d'erreur
-            if (ctx.Response.StatusCode >= 400 && !ctx.Response.HasStarted)
+            if (ctx.Response.StatusCode >= 400
+                && !ctx.Response.HasStarted
+                && string.IsNullOrWhiteSpace(ctx.Response.ContentType)
+                && ctx.Response.ContentLength is null)
             {
                 await HandleErrorResponseAsync(ctx);
             }

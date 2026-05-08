@@ -160,8 +160,29 @@ internal sealed record RuntimeLlmQueuePolicy(
 {
     internal static RuntimeLlmQueuePolicy FromPlan(AdminRuntimeLlmCapacityPlanDto? plan)
         => new(
-            TotalSlots: Math.Max(1, plan?.TotalSlots ?? 1),
+            TotalSlots: ResolveEffectiveTotalSlots(plan),
             QueueLimit: Math.Max(0, plan?.QueueLimit ?? 10),
             PerUserActiveLimit: Math.Max(1, plan?.PerUserActiveLimit ?? 1),
             PerUserQueuedLimit: Math.Max(0, plan?.PerUserQueuedLimit ?? 2));
+
+    internal static bool MultiInstanceRouterEnabled()
+        => string.Equals(
+            Environment.GetEnvironmentVariable("BACKOFFICE_LLM_MULTI_INSTANCE_ROUTER_ENABLED"),
+            "true",
+            StringComparison.OrdinalIgnoreCase);
+
+    private static int ResolveEffectiveTotalSlots(AdminRuntimeLlmCapacityPlanDto? plan)
+    {
+        if (plan is null)
+            return 1;
+
+        var instances = Math.Max(1, plan.Instances);
+        var slotsPerInstance = Math.Max(1, plan.SlotsPerInstance);
+        var totalSlots = Math.Max(1, plan.TotalSlots > 0 ? plan.TotalSlots : instances * slotsPerInstance);
+
+        if (instances <= 1 || MultiInstanceRouterEnabled())
+            return totalSlots;
+
+        return Math.Max(1, Math.Min(totalSlots, slotsPerInstance));
+    }
 }

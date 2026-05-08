@@ -178,7 +178,7 @@ sealed class FileWatcherService : BackgroundService
                     return;
 
                 var fi = new FileInfo(fullPath);
-                var category = DeriveCategory(rel, opt);
+                var category = IngestionCategoryResolver.Derive(rel, opt);
 
                 await using var conn = await ds.OpenConnectionAsync(linked.Token);
                 var restored = await IngestionEnqueue.TryRestoreMissingIndexedDocumentAsync(conn, tenantId, rel, fi, linked.Token);
@@ -296,18 +296,6 @@ sealed class FileWatcherService : BackgroundService
             try { old.Cancel(); } catch { }
             // Dispose dans le Task qui l’utilise
         }
-    }
-
-    private static string DeriveCategory(string docPath, IngestionOptions opt)
-    {
-        if (!opt.CategoryFromFirstFolder)
-            return (opt.DefaultCategory ?? "general").Trim().ToLowerInvariant();
-
-        var parts = docPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length >= 2)
-            return parts[0].Trim().ToLowerInvariant();
-
-        return (opt.DefaultCategory ?? "general").Trim().ToLowerInvariant();
     }
 
     private static async Task<Guid> ResolveSingleTenantIdAsync(NpgsqlDataSource ds, BootstrapOptions bootstrap, CancellationToken ct)

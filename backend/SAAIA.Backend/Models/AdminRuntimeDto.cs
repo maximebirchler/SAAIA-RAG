@@ -729,7 +729,23 @@ public sealed record AdminRuntimeDiagnosticsOperationalSummaryDto(
     int CapabilityBBacklogCount,
     int CapabilityBReadyToEnqueueCount,
     int CapabilityBActiveJobCount,
-    int? CapabilityBLatestCampaignProgressPercent = null
+    int? CapabilityBLatestCampaignProgressPercent = null,
+    AdminRuntimeCapabilityBIdleSchedulerDto? CapabilityBIdleScheduler = null
+);
+
+public sealed record AdminRuntimeCapabilityBIdleSchedulerDto(
+    bool Enabled,
+    bool RequiresIngestionIdle,
+    bool AutoEnqueueEnabled,
+    bool IsIdle,
+    string State,
+    string Reason,
+    int ActiveIngestionJobs,
+    DateTimeOffset? LastIngestionActivityAt,
+    int RequiredIdleSeconds,
+    int? IdleForSeconds,
+    int AutoEnqueueBatchSize,
+    int RunningJobLeaseTimeoutSeconds
 );
 
 public sealed record AdminRuntimeCapabilityOperationalSummaryDto(
@@ -747,7 +763,8 @@ public sealed record AdminRuntimeCapabilityOperationalSummaryDto(
     int? LatestCampaignProgressPercent = null,
     Guid? LatestCampaignId = null,
     string? LatestCampaignStatus = null,
-    DateTimeOffset? LatestCampaignOccurredAt = null
+    DateTimeOffset? LatestCampaignOccurredAt = null,
+    IReadOnlyDictionary<string, int>? LlmFailureCounts = null
 );
 
 public sealed record AdminRuntimeOperationalCapabilitySummaryDto(
@@ -843,7 +860,9 @@ public sealed record AdminRuntimeCapabilityBBackofficeCandidateDto(
     string? PolicyBlockReason = null,
     string? LastJobStatus = null,
     DateTimeOffset? LastJobFinishedAt = null,
-    string? LastJobError = null
+    string? LastJobError = null,
+    string? ProfileState = null,
+    bool HasBackofficeProfile = false
 );
 
 public sealed record AdminRuntimeCapabilityAEnqueueItemDto(

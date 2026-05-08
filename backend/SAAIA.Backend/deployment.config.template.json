@@ -27,7 +27,7 @@
     "ScanIntervalSeconds": 10,
     "MinFileAgeSeconds": 2,
     "MaxFilesPerScan": 5000,
-    "DefaultCategory": "general",
+    "DefaultCategory": "",
     "CategoryFromFirstFolder": true,
     "TeiTimeoutSeconds": 180,
     "QdrantTimeoutSeconds": 180,

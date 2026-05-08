@@ -24,6 +24,14 @@ RUN dotnet publish backend/SAAIA.Backend/SAAIA.Backend.csproj -c Release -o /app
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
 
+# Optional OCR runtime used by ingestion for scanned/low-text PDFs when enabled.
+# The backend OCR policy is document-driven and not limited to client UI languages.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ocrmypdf \
+        tesseract-ocr-all \
+    && rm -rf /var/lib/apt/lists/*
+
 # Kestrel
 ENV ASPNETCORE_URLS=http://0.0.0.0:5122
 EXPOSE 5122

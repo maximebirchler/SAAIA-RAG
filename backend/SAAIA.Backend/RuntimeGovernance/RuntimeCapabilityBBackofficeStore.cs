@@ -22,20 +22,25 @@ internal static class RuntimeCapabilityBBackofficeStore
             Endpoints.SummaryCategoryScopeResolver.NormalizeCategoryRefOrNull(category),
             ct);
 
+        var effectiveLimit = limit.HasValue ? Math.Clamp(limit.Value, 1, 500) : (int?)null;
         var rows = await LoadCandidateRowsAsync(
             conn,
             tenantId,
             categoryPath,
-            limit.HasValue ? Math.Clamp(limit.Value, 1, 500) : null,
+            limit: null,
             includeFresh,
             ct);
 
-        return rows
+        var candidates = rows
             .Select(row => MapCandidate(row, options))
             .OrderByDescending(candidate => candidate.PriorityScore)
             .ThenBy(candidate => candidate.Category, StringComparer.OrdinalIgnoreCase)
             .ThenBy(candidate => candidate.DocPath, StringComparer.OrdinalIgnoreCase)
             .ToArray();
+
+        return effectiveLimit.HasValue
+            ? candidates.Take(effectiveLimit.Value).ToArray()
+            : candidates;
     }
 
     internal static async Task<IReadOnlyDictionary<Guid, AdminRuntimeCapabilityBBackofficeCandidateDto>> LoadCandidateLookupAsync(
@@ -61,12 +66,13 @@ internal static class RuntimeCapabilityBBackofficeStore
 
     internal static async Task<AdminRuntimeCapabilityBBackofficeCandidateDto[]> LoadCandidatesForDiagnosticsAsync(
         NpgsqlConnection conn,
+        Guid tenantId,
         RuntimeGovernanceOptions options,
         CancellationToken ct)
     {
         var rows = await LoadCandidateRowsAsync(
             conn,
-            tenantId: null,
+            tenantId,
             categoryPath: null,
             limit: null,
             includeFresh: false,
@@ -96,9 +102,21 @@ SELECT
   d.category AS "Category",
   CASE
     WHEN s.source_hash IS NULL THEN 'missing'
-    WHEN s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,''))) THEN 'stale'
+    WHEN s.source_hash <> saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version) THEN 'stale'
     ELSE 'fresh'
   END AS "SummaryState",
+  CASE
+    WHEN current_revision.revision_id IS NULL THEN 'missing'
+    WHEN llm_profile.document_profile_id IS NULL THEN 'missing'
+    WHEN COALESCE(
+      CASE
+        WHEN COALESCE(llm_profile.metadata ->> 'contentCardEvidenceSchemaVersion', '') ~ '^[0-9]+$'
+          THEN (llm_profile.metadata ->> 'contentCardEvidenceSchemaVersion')::int
+        ELSE 0
+      END,
+      0) < @contentCardEvidenceSchemaVersion THEN 'stale'
+    ELSE 'fresh'
+  END AS "ProfileState",
   EXISTS (
     SELECT 1
     FROM admin_jobs a
@@ -115,6 +133,20 @@ LEFT JOIN document_summaries s
   ON s.tenant_id = d.tenant_id
  AND s.doc_id = d.doc_id
  AND s.level = 'medium'
+LEFT JOIN LATERAL (
+  SELECT r.revision_id
+  FROM document_revisions r
+  WHERE r.tenant_id = d.tenant_id
+    AND r.doc_id = d.doc_id
+    AND r.indexed_version = COALESCE(d.indexed_version, 0)
+  ORDER BY r.published_at DESC NULLS LAST, r.created_at DESC NULLS LAST
+  LIMIT 1
+) current_revision ON TRUE
+LEFT JOIN document_profiles llm_profile
+  ON llm_profile.tenant_id = d.tenant_id
+ AND llm_profile.doc_id = d.doc_id
+ AND llm_profile.revision_id = current_revision.revision_id
+ AND llm_profile.profile_version = 'llm_backoffice_v1'
 LEFT JOIN LATERAL (
   SELECT
     a.status,
@@ -134,12 +166,27 @@ WHERE (@tenant IS NULL OR d.tenant_id = @tenant)
     @includeFresh = true
     OR
     s.source_hash IS NULL
-    OR s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,'')))
+    OR s.source_hash <> saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version)
+    OR llm_profile.document_profile_id IS NULL
+    OR COALESCE(
+      CASE
+        WHEN COALESCE(llm_profile.metadata ->> 'contentCardEvidenceSchemaVersion', '') ~ '^[0-9]+$'
+          THEN (llm_profile.metadata ->> 'contentCardEvidenceSchemaVersion')::int
+        ELSE 0
+      END,
+      0) < @contentCardEvidenceSchemaVersion
   )
 ORDER BY d.updated_at DESC
 {(limit.HasValue ? "LIMIT @limit;" : ";")}
 """,
-            new { tenant = tenantId, categoryPath, limit, includeFresh },
+            new
+            {
+                tenant = tenantId,
+                categoryPath,
+                limit,
+                includeFresh,
+                contentCardEvidenceSchemaVersion = DocumentFoundationRepo.ContentCardEvidenceSchemaVersion
+            },
             cancellationToken: ct))).ToArray();
 
     private static AdminRuntimeCapabilityBBackofficeCandidateDto MapCandidate(
@@ -153,6 +200,10 @@ ORDER BY d.updated_at DESC
             reasons.Add("summary_stale");
         if (string.Equals(row.SummaryState, "fresh", StringComparison.OrdinalIgnoreCase))
             reasons.Add("summary_force_refresh");
+        if (string.Equals(row.ProfileState, "missing", StringComparison.OrdinalIgnoreCase))
+            reasons.Add("profile_missing");
+        if (string.Equals(row.ProfileState, "stale", StringComparison.OrdinalIgnoreCase))
+            reasons.Add("profile_schema_stale");
         if (row.HasActiveJob)
             reasons.Add("summary_job_active");
 
@@ -184,7 +235,9 @@ ORDER BY d.updated_at DESC
             PolicyBlockReason: row.HasActiveJob ? "active_summary_job_exists" : cooldownReason,
             LastJobStatus: row.LastJobStatus,
             LastJobFinishedAt: ToUtcOffset(row.LastJobFinishedAt),
-            LastJobError: row.LastJobError);
+            LastJobError: row.LastJobError,
+            ProfileState: row.ProfileState,
+            HasBackofficeProfile: !string.Equals(row.ProfileState, "missing", StringComparison.OrdinalIgnoreCase));
     }
 
     private static string? ResolveCooldownReason(
@@ -196,6 +249,9 @@ ORDER BY d.updated_at DESC
             return null;
 
         var status = row.LastJobStatus.Trim();
+        if (IsStaleSourceCancellation(status, row.LastJobError))
+            return null;
+
         if (string.Equals(status, "failed", StringComparison.OrdinalIgnoreCase)
             && lastJobFinishedAt.Value >= DateTimeOffset.UtcNow.AddHours(-Math.Abs(options.CapabilityBRecentFailureCooldownHours)))
         {
@@ -211,6 +267,15 @@ ORDER BY d.updated_at DESC
 
         return null;
     }
+
+    private static bool IsStaleSourceCancellation(string status, string? lastJobError)
+        => (string.Equals(status, "canceled", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(status, "cancelled", StringComparison.OrdinalIgnoreCase))
+           && IsStaleSourceError(lastJobError);
+
+    private static bool IsStaleSourceError(string? error)
+        => string.Equals(error, "source_hash_mismatch", StringComparison.Ordinal)
+           || string.Equals(error, "source_hash_changed_during_completion", StringComparison.Ordinal);
 
     private static DateTimeOffset? ToUtcOffset(DateTime? value)
     {
@@ -231,6 +296,16 @@ ORDER BY d.updated_at DESC
         string? cooldownReason)
     {
         var score = string.Equals(row.SummaryState, "missing", StringComparison.OrdinalIgnoreCase) ? 200 : 120;
+        if (string.Equals(row.ProfileState, "missing", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(row.SummaryState, "fresh", StringComparison.OrdinalIgnoreCase))
+        {
+            score += 40;
+        }
+        else if (string.Equals(row.ProfileState, "stale", StringComparison.OrdinalIgnoreCase)
+                 && string.Equals(row.SummaryState, "fresh", StringComparison.OrdinalIgnoreCase))
+        {
+            score += 35;
+        }
 
         if (row.HasActiveJob)
             score -= 180;
@@ -249,6 +324,7 @@ ORDER BY d.updated_at DESC
         string DocName,
         string Category,
         string SummaryState,
+        string ProfileState,
         bool HasActiveJob,
         string? LastJobStatus,
         DateTime? LastJobFinishedAt,

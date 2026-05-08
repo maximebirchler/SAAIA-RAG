@@ -50,8 +50,8 @@ public static class IngestionEndpoints
 
         // category toujours en lower; défaut = config
         var category = string.IsNullOrWhiteSpace(req.Category)
-            ? ingest.DefaultCategory
-            : req.Category.Trim().ToLowerInvariant();
+            ? IngestionCategoryResolver.Derive(relDocPath, ingest)
+            : IngestionCategoryResolver.Normalize(req.Category);
 
         await using var conn = await ds.OpenConnectionAsync(ct);
 

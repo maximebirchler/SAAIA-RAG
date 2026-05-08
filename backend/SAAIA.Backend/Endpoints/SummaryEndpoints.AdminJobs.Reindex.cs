@@ -70,7 +70,8 @@ LIMIT 1;
             });
         }
 
-        var enqueued = await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, doc.DocPath, doc.Category, fi, ct: ct, enqueueSource: "admin");
+        var category = IngestionCategoryResolver.Derive(doc.DocPath, ingestOpt.Value);
+        var enqueued = await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, doc.DocPath, category, fi, ct: ct, enqueueSource: "admin");
         return Results.Ok(new { queued = true, docId = enqueued.DocId, jobId = enqueued.JobId, docPath = doc.DocPath });
     }
 }

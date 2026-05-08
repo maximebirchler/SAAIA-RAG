@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.Json;
 
 namespace SAAIA.Backend.Models;
 
@@ -26,7 +27,9 @@ public sealed record RagSearchRequestDto(
     RagDiversityDto? Diversity = null,
     string? DocId = null,
     string? DocPath = null,
-    bool? IncludeContextualSnippet = null
+    bool? IncludeContextualSnippet = null,
+    string? CategoryPath = null,
+    string? CategoryRef = null
 );
 
 /// <summary>
@@ -58,6 +61,77 @@ public sealed record RagItemContextDto(
 );
 
 /// <summary>
+/// Lightweight extraction/OCR quality hints attached to a retrieved item.
+/// They qualify evidence confidence without exposing heavy admin diagnostics payloads.
+/// </summary>
+public sealed record RagItemExtractionDiagnosticSummaryDto(
+    string? NativeTextStatus = null,
+    bool? NativeOcrRecommended = null,
+    string? OcrMode = null,
+    string? OcrLanguages = null,
+    long? OcrDurationMs = null,
+    string? OcrFailureReason = null,
+    string? OcrAppliedReason = null,
+    bool? OcrTimedOut = null,
+    int? OcrAttemptedPageCount = null,
+    int? OcrSkippedPageCount = null,
+    int? OcrPagesWithNovelTextCount = null,
+    int? PageCount = null,
+    int? TextPageCount = null,
+    int? EmptyPageCount = null,
+    int? SparsePageCount = null,
+    int? ImagePageCount = null,
+    int? PageWarningCount = null,
+    int? PageReviewRecommendedCount = null
+);
+
+/// <summary>
+/// Lightweight extraction/OCR quality hints attached to a retrieved item.
+/// They qualify evidence confidence without exposing heavy admin diagnostics payloads.
+/// </summary>
+public sealed record RagItemExtractionQualityDto(
+    string? ExtractionSource = null,
+    bool? OcrAttempted = null,
+    bool? OcrApplied = null,
+    string? DocumentQualityStatus = null,
+    double? DocumentExtractionConfidence = null,
+    bool? DocumentManualReviewRecommended = null,
+    string? PageQualityStatus = null,
+    double? PageExtractionConfidence = null,
+    bool? PageManualReviewRecommended = null,
+    string? TextStatus = null,
+    bool? OcrRecommended = null,
+    IReadOnlyList<string>? Signals = null,
+    RagItemExtractionDiagnosticSummaryDto? DiagnosticSummary = null
+);
+
+/// <summary>
+/// Structured profile content card evidence selected for a document_profile hit.
+/// </summary>
+public sealed record RagItemContentCardDto(
+    string Title,
+    string? ContentCardId = null,
+    int? PageStart = null,
+    int? PageEnd = null,
+    string? Kind = null,
+    IReadOnlyList<string>? Signals = null,
+    JsonElement? Evidence = null
+);
+
+/// <summary>
+/// Backend evidence-role hints for downstream writers and deterministic client fallbacks.
+/// They are corpus-agnostic and describe how safe a hit is to promote into a concrete answer item.
+/// </summary>
+public sealed record RagItemSelectionHintsDto(
+    string EvidenceRole,
+    int ActionabilityScore = 0,
+    int SupportScore = 0,
+    int FragmentScore = 0,
+    int NavigationScore = 0,
+    int QualityPenalty = 0
+);
+
+/// <summary>
 /// Retrieval item returned by POST /rag/search.
 /// Flat fields are kept for compatibility while structured fields progressively align the contract with CDC v3.1.
 /// </summary>
@@ -68,6 +142,8 @@ public sealed record RagItemDto(
     string? DocPath,
     string? Category,
     string? CategoryRef,
+    string? DocLanguage,
+    string? ProfileLanguage,
     int? PageStart,
     int? PageEnd,
     string? ChunkId,
@@ -95,7 +171,10 @@ public sealed record RagItemDto(
     bool? HasTable = null,
     bool? HasWarning = null,
     string? ContextualSnippet = null,
-    bool? HypQuestionsMatched = null
+    bool? HypQuestionsMatched = null,
+    RagItemExtractionQualityDto? ExtractionQuality = null,
+    IReadOnlyList<RagItemContentCardDto>? MatchedContentCards = null,
+    RagItemSelectionHintsDto? SelectionHints = null
 );
 
 /// <summary>

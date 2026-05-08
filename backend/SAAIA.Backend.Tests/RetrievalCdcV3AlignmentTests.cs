@@ -97,7 +97,7 @@ public sealed class RetrievalCdcV3AlignmentTests
         var matches = new List<RagMatch>
         {
             MakeMatch(0.90),
-            MakeMatch(0.80), // 11% drop â€” below 15% threshold
+            MakeMatch(0.80), // 11% drop, below 15% threshold
             MakeMatch(0.72),
             MakeMatch(0.65)
         };
@@ -294,20 +294,20 @@ public sealed class RetrievalCdcV3AlignmentTests
             MakeMatch(0.80, chunkId: "d", sectionOrdinal: 1, sectionTitle: "Safety", text: "text d"),
         };
 
-        // Use reflection or direct call â€” AddRankedMatches is private, so test via the public helper
+        // Use reflection or direct call. AddRankedMatches is private, so test via the public helper.
         // Actually it uses internal RagMatch and private method. We test through the harness indirectly.
         // Let's use the internal method access pattern from existing tests.
 
         // Since AddRankedMatches is private, we verify the behavior through the scoring/dedup tests
         // and trust the integration. The section key builder is testable though.
-        Assert.True(true, "Section diversity is enforced in AddRankedMatches â€” verified via integration.");
+        Assert.True(true, "Section diversity is enforced in AddRankedMatches, verified via integration.");
     }
 
     [Fact]
     public void BuildSectionKey_uses_section_ordinal_when_available()
     {
         var match = MakeMatch(0.90, sectionOrdinal: 3, sectionTitle: "Safety");
-        // BuildSectionKey is private â€” we verify it indirectly through the section diversity behavior.
+        // BuildSectionKey is private, so we verify it indirectly through the section diversity behavior.
         // The key format is: "{docPath}:sec:{sectionOrdinal}"
         Assert.Equal(3, match.SectionOrdinal);
         Assert.Equal("Safety", match.SectionTitle);

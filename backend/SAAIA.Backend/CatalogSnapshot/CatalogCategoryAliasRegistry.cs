@@ -7,36 +7,6 @@ public static class CatalogCategoryAliasRegistry
 {
     public sealed record CategoryAliasDefinition(string Alias, string AliasKey, string? Language, string Source, int Priority);
 
-    private sealed record AliasSeed(string Alias, string? Language, string Source, int Priority);
-
-    private static readonly IReadOnlyDictionary<string, IReadOnlyList<AliasSeed>> _explicitAliases =
-        new Dictionary<string, IReadOnlyList<AliasSeed>>(StringComparer.Ordinal)
-        {
-            ["atex"] = new[]
-            {
-                new AliasSeed("ATEX", "fr", "builtin", 10)
-            },
-            ["general"] = new[]
-            {
-                new AliasSeed("General", "en", "builtin", 10),
-                new AliasSeed("Général", "fr", "builtin", 20),
-                new AliasSeed("Allgemein", "de", "builtin", 30),
-                new AliasSeed("Generale", "it", "builtin", 40),
-                new AliasSeed("Geral", "pt", "builtin", 50),
-                new AliasSeed("Generalidades", "es", "builtin", 60)
-            },
-            ["programmation"] = new[]
-            {
-                new AliasSeed("Programmation", "fr", "builtin", 10),
-                new AliasSeed("Programming", "en", "builtin", 20),
-                new AliasSeed("Programación", "es", "builtin", 30),
-                new AliasSeed("Programacao", "pt", "builtin", 40),
-                new AliasSeed("Programação", "pt", "builtin", 41),
-                new AliasSeed("Programmierung", "de", "builtin", 50),
-                new AliasSeed("Programmazione", "it", "builtin", 60)
-            }
-        };
-
     public static IReadOnlyList<CategoryAliasDefinition> BuildAliases(string path, string name)
     {
         var result = new List<CategoryAliasDefinition>();
@@ -62,13 +32,6 @@ public static class CatalogCategoryAliasRegistry
         Add(path, null, "canonical.path", 0);
         Add(name, null, "canonical.name", 0);
         Add(topLevel, null, "canonical.top", 0);
-
-        var canonicalKey = NormalizeComparable(string.IsNullOrWhiteSpace(topLevel) ? name : topLevel);
-        if (_explicitAliases.TryGetValue(canonicalKey, out var seeds))
-        {
-            foreach (var seed in seeds)
-                Add(seed.Alias, seed.Language, seed.Source, seed.Priority);
-        }
 
         return result
             .OrderBy(x => x.Priority)

@@ -417,7 +417,7 @@ LIMIT 1;
             QueuedCount: row.QueuedCount,
             SkippedCount: row.SkippedCount,
             ReasonCounts: ParseCapabilityAReasonCounts(row.DetailsJson),
-            OccurredAt: row.OccurredAt);
+            OccurredAt: ToUtcOffset(row.OccurredAt));
 
     private static async Task<AdminRuntimeCapabilityAEnqueueItemDto[]> LoadCapabilityACampaignItemsAsync(
         NpgsqlConnection conn,
@@ -537,7 +537,7 @@ ORDER BY occurred_at ASC;
             progress.TerminalJobCount,
             progress.StoredSummaryCount,
             progress.ProgressPercent,
-            row.OccurredAt);
+            ToUtcOffset(row.OccurredAt));
     }
 
     private static async Task<AdminRuntimeCapabilityBEnqueueItemDto[]> LoadCapabilityBCampaignItemsAsync(
@@ -608,7 +608,7 @@ SELECT
   CASE
     WHEN a.doc_id IS NULL OR d.doc_id IS NULL THEN NULL
     WHEN s.doc_id IS NULL THEN 'missing'
-    WHEN s.source_hash <> COALESCE(encode(d.content_hash, 'hex'), md5(COALESCE(d.doc_path,'') || '|' || COALESCE(d.file_size::text,'') || '|' || COALESCE(d.file_mtime::text,''))) THEN 'stale'
+    WHEN s.source_hash <> saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version) THEN 'stale'
     ELSE 'fresh'
   END AS "StoredSummaryFreshness"
 FROM admin_jobs a
@@ -729,6 +729,18 @@ GROUP BY CAST(a.payload ->> 'campaignId' AS uuid), a.status;
                     StringComparer.Ordinal));
     }
 
+    private static DateTimeOffset ToUtcOffset(DateTime value)
+    {
+        var utc = value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+        };
+
+        return new DateTimeOffset(utc);
+    }
+
     private sealed record CapabilityACampaignRow(
         Guid CampaignId,
         string CapabilityKey,
@@ -740,7 +752,7 @@ GROUP BY CAST(a.payload ->> 'campaignId' AS uuid), a.status;
         int PlannedCount,
         int QueuedCount,
         int SkippedCount,
-        DateTimeOffset OccurredAt,
+        DateTime OccurredAt,
         string? DetailsJson);
 
     private sealed record CapabilityACampaignItemRow(
@@ -753,7 +765,7 @@ GROUP BY CAST(a.payload ->> 'campaignId' AS uuid), a.status;
         string? HypotheticalQuestionsJson,
         double? QualityScore,
         string? QualitySignalsJson,
-        DateTimeOffset OccurredAt);
+        DateTime OccurredAt);
 
     private sealed record CapabilityBCampaignRow(
         Guid CampaignId,
@@ -766,14 +778,14 @@ GROUP BY CAST(a.payload ->> 'campaignId' AS uuid), a.status;
         int PlannedCount,
         int QueuedCount,
         int SkippedCount,
-        DateTimeOffset OccurredAt,
+        DateTime OccurredAt,
         string? DetailsJson);
 
     private sealed record CapabilityBCampaignItemRow(
         Guid? DocId,
         string? DocPath,
         Guid? JobId,
-        DateTimeOffset OccurredAt);
+        DateTime OccurredAt);
 
     private sealed record CapabilityBCampaignProgress(
         int TrackedJobCount,
@@ -786,7 +798,7 @@ GROUP BY CAST(a.payload ->> 'campaignId' AS uuid), a.status;
         Guid JobId,
         string? JobStatus,
         bool? ResultStored,
-        DateTimeOffset? FinishedAt,
+        DateTime? FinishedAt,
         string? StoredSummaryFreshness);
 
     private sealed record CapabilityBCampaignJobStatusCountRow(

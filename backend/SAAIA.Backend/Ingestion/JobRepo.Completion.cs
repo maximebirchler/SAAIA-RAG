@@ -18,7 +18,15 @@ static partial class JobRepo
         IReadOnlyList<ProjectedRetrievalChunk> retrievalChunks,
         IReadOnlyList<ExtractedExactMatchEntry> exactMatchEntries,
         IReadOnlyList<ProjectedContextualTextEntry> contextualTextEntries,
-        CancellationToken ct)
+        CancellationToken ct,
+        string extractionSource = "pdf_text",
+        bool ocrAttempted = false,
+        bool ocrApplied = false,
+        string? ocrLanguages = null,
+        long? ocrDurationMs = null,
+        PdfOcrDiagnostics? ocrDiagnostics = null,
+        PdfExtractionQualitySummary? nativeExtractionQuality = null,
+        IngestionCapabilityAProfileSeed? capabilityAProfileSeed = null)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
@@ -251,7 +259,15 @@ WHERE job_id=@job_id AND status='running';";
             retrievalChunks,
             exactMatchEntries,
             contextualTextEntries,
-            ct);
+            ct,
+            extractionSource,
+            ocrAttempted,
+            ocrApplied,
+            ocrLanguages,
+            ocrDurationMs,
+            ocrDiagnostics,
+            nativeExtractionQuality,
+            capabilityAProfileSeed);
         await FreezeTerminalSnapshotAsync(conn, jobId, tx, ct);
 
         await tx.CommitAsync(ct);

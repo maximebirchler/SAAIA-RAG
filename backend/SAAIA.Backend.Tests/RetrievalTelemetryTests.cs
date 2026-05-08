@@ -167,6 +167,47 @@ public sealed class RetrievalTelemetryTests
         Assert.Equal(12L, phaseActivity.GetTagItem("saaia.retrieval.duration_ms"));
     }
 
+    [Fact]
+    public void RecordRetrieverDegraded_emits_metric_and_search_activity_event()
+    {
+        var measurements = new List<RecordedMetric>();
+        using var meterListener = CreateMeterListener(measurements);
+        var stopped = new List<Activity>();
+
+        using var activityListener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == RetrievalTelemetry.ActivitySourceName,
+            Sample = static (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = activity => stopped.Add(activity)
+        };
+
+        ActivitySource.AddActivityListener(activityListener);
+
+        using (RetrievalTelemetry.StartSearchActivity(
+            mode: "balanced",
+            hasCategoryFilter: false,
+            hasDocScope: false,
+            topK: 5,
+            candidates: 25,
+            query: "profile lookup"))
+        {
+            RetrievalTelemetry.RecordRetrieverDegraded(
+                "document_profile_v1",
+                new InvalidOperationException("simulated profile retriever failure"));
+        }
+
+        var metric = Assert.Single(measurements, item => item.Name == "saaia.retrieval.retriever_degraded");
+        Assert.Equal(1, metric.AsLong());
+        Assert.Equal("document_profile_v1", metric.Tags["saaia.retrieval.retriever"]);
+        Assert.Equal(typeof(InvalidOperationException).FullName, metric.Tags["exception.type"]);
+
+        var searchActivity = Assert.Single(stopped, activity => activity.OperationName == "rag.search");
+        var degradedEvent = Assert.Single(searchActivity.Events, activityEvent => activityEvent.Name == "retriever.degraded");
+        var tags = degradedEvent.Tags.ToDictionary(tag => tag.Key, tag => tag.Value, StringComparer.Ordinal);
+        Assert.Equal("document_profile_v1", tags["saaia.retrieval.retriever"]);
+        Assert.Equal(typeof(InvalidOperationException).FullName, tags["exception.type"]);
+    }
+
     private static MeterListener CreateMeterListener(List<RecordedMetric> measurements)
     {
         var listener = new MeterListener

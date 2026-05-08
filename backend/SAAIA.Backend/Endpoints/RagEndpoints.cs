@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Security.Cryptography;
 using Dapper;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,10 +31,38 @@ public static class RagEndpoints
         await using var conn = await ds.OpenConnectionAsync(ctx.RequestAborted);
 
         const string sql = """
-SELECT DISTINCT category
-FROM documents
-WHERE tenant_id=@tenant_id AND status='indexed'
-ORDER BY category;
+WITH snapshot AS (
+  SELECT
+    path AS category,
+    display_order,
+    name
+  FROM documents_catalog_categories
+  WHERE tenant_id=@tenant_id
+    AND path <> ''
+    AND position('/' in path) = 0
+),
+dynamic AS (
+  SELECT DISTINCT
+    split_part(replace(doc_path, chr(92), '/'), '/', 1) AS category
+  FROM documents
+  WHERE tenant_id=@tenant_id
+    AND status='indexed'
+    AND position('/' in replace(doc_path, chr(92), '/')) > 0
+)
+SELECT category
+FROM (
+  SELECT category, display_order, name FROM snapshot
+  UNION ALL
+  SELECT category, 2147483647 AS display_order, category AS name
+  FROM dynamic d
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM snapshot s
+    WHERE LOWER(s.category) = LOWER(d.category)
+  )
+) categories
+WHERE category <> ''
+ORDER BY display_order, name;
 """;
 
         var cats = (await conn.QueryAsync<string>(
@@ -50,13 +79,16 @@ ORDER BY category;
         IHttpClientFactory httpFactory,
         RagSearchRequestDto req)
     {
-        var resp = await SearchCoreAsync(ctx, ds, ragOpt.Value, httpFactory, req);
+        var responseDto = await BuildSearchResponseDtoAsync(ctx, ds, ragOpt.Value, httpFactory, req);
         return Results.Ok(new
         {
-            query = req.Query,
-            category = resp.Category,
-            topK = resp.TopK,
-            matches = resp.Matches
+            query = responseDto.Query,
+            queryNormalized = responseDto.QueryNormalized,
+            category = responseDto.Category,
+            topK = responseDto.TopK,
+            matches = responseDto.Items,
+            metrics = responseDto.Metrics,
+            guidance = responseDto.Guidance
         });
     }
 
@@ -67,16 +99,53 @@ ORDER BY category;
         IHttpClientFactory httpFactory,
         RagSearchRequestDto req)
     {
-        var resp = await SearchCoreAsync(ctx, ds, ragOpt.Value, httpFactory, req);
-        var categoryRefsByTopLevelPath = await LoadTopCategoryRefsAsync(ds, ctx.GetTenantId(), resp.Matches, ctx.RequestAborted);
-        var hypQuestionsMatchedByDocPath = await LoadHypQuestionsMatchedByDocPathAsync(
+        var responseDto = await BuildSearchResponseDtoAsync(ctx, ds, ragOpt.Value, httpFactory, req);
+        return Results.Ok(responseDto);
+    }
+
+    private static async Task<RagSearchResponseDto> BuildSearchResponseDtoAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        RagOptions rag,
+        IHttpClientFactory httpFactory,
+        RagSearchRequestDto req)
+    {
+        var resp = await SearchCoreAsync(ctx, ds, rag, httpFactory, req);
+        var tenantId = ctx.GetTenantId();
+        var ct = ctx.RequestAborted;
+        var categoryRefsTask = LoadTopCategoryRefsAsync(ds, tenantId, resp.Matches, ct);
+        var hypQuestionsTask = LoadHypQuestionsMatchedByDocPathAsync(
             ds,
-            ctx.GetTenantId(),
+            tenantId,
             resp.Query,
             resp.Matches,
-            ctx.RequestAborted);
+            ct);
+        var extractionQualityTask = LoadRagExtractionQualityAsync(ds, tenantId, resp.Matches, ct);
+        var documentLanguagesTask = LoadRagDocumentLanguagesAsync(ds, tenantId, resp.Matches, ct);
+        var documentSourceHashesTask = LoadRagDocumentSourceHashesAsync(ds, tenantId, resp.Matches, ct);
 
-        var responseDto = new RagSearchResponseDto(
+        await Task.WhenAll(categoryRefsTask, hypQuestionsTask, extractionQualityTask, documentLanguagesTask, documentSourceHashesTask);
+        var categoryRefsByTopLevelPath = await categoryRefsTask;
+        var hypQuestionsMatchedByDocPath = await hypQuestionsTask;
+        var extractionQualityByMatch = await extractionQualityTask;
+        var documentLanguagesByDocId = await documentLanguagesTask;
+        var documentSourceHashesByDocId = await documentSourceHashesTask;
+        var qualityAdjustedMatches = resp.Matches
+            .Select(m =>
+            {
+                var extractionQuality = ResolveExtractionQuality(m, extractionQualityByMatch);
+                return new
+                {
+                    Match = m,
+                    ExtractionQuality = extractionQuality,
+                    AdjustedScore = ApplyExtractionQualityScorePenalty(m.Score, extractionQuality)
+                };
+            })
+            .OrderByDescending(static item => item.AdjustedScore)
+            .ThenByDescending(static item => item.Match.Score)
+            .ToList();
+
+        return new RagSearchResponseDto(
             RequestId: resp.RequestId,
             Query: resp.Query,
             QueryNormalized: resp.QueryNormalized,
@@ -105,17 +174,23 @@ ORDER BY category;
                 QdrantMs: resp.Timings.QdrantMs,
                 CandidatesEvaluated: resp.Candidates
             ),
-            Items: resp.Matches
-                .Select(m =>
+            Items: qualityAdjustedMatches
+                .Select(item =>
                 {
+                    var m = item.Match;
                     var categoryPath = BuildDocumentCategoryPath(m.DocPath);
+                    var category = ResolveMatchCategory(m, resp.Category);
+                    var languageInfo = ResolveDocumentLanguageInfo(m, documentLanguagesByDocId);
+                    var sourceHash = ResolveDocumentSourceHash(m, documentSourceHashesByDocId);
                     return new RagItemDto(
-                        Score: m.Score,
+                        Score: item.AdjustedScore,
                         DocId: m.DocId,
                         DocName: m.DocName ?? "Unknown",
                         DocPath: m.DocPath,
-                        Category: BuildDocumentCategory(m.DocPath) ?? resp.Category,
+                        Category: category,
                         CategoryRef: ResolveCategoryRef(categoryPath, categoryRefsByTopLevelPath),
+                        DocLanguage: languageInfo.DocLanguage,
+                        ProfileLanguage: languageInfo.ProfileLanguage,
                         PageStart: m.PageStart,
                         PageEnd: m.PageEnd,
                         ChunkId: m.ChunkId,
@@ -124,7 +199,7 @@ ORDER BY category;
                         Retriever: ResolveRetriever(m),
                         Provenance: ResolveProvenance(m),
                         ExactMatchHit: string.Equals(m.EmbeddingBasis, "exact_match_v1", StringComparison.Ordinal),
-                        SourceHash: m.HashDoc,
+                        SourceHash: sourceHash,
                         EmbeddingBasis: m.EmbeddingBasis,
                         ChunkType: m.ChunkType,
                         SectionTitle: m.SectionTitle,
@@ -132,7 +207,7 @@ ORDER BY category;
                         PrevChunkId: m.PrevChunkId,
                         NextChunkId: m.NextChunkId,
                         SameSectionChunkId: m.SameSectionChunkId,
-                        ProvenanceInfo: BuildProvenanceInfo(m),
+                        ProvenanceInfo: BuildProvenanceInfo(m, sourceHash, allowLegacyHashFallback: false),
                         Context: BuildContextInfo(m),
                         CategoryPath: categoryPath,
                         Snippet: BuildSnippet(m.Text, query: resp.Query),
@@ -140,14 +215,941 @@ ORDER BY category;
                         HasTable: DetectHasTable(m.Text),
                         HasWarning: DetectHasWarning(m.Text, m.ChunkType),
                         ContextualSnippet: req.IncludeContextualSnippet == true ? m.EmbedText : null,
-                        HypQuestionsMatched: ResolveHypQuestionsMatched(m.DocPath, hypQuestionsMatchedByDocPath)
+                        HypQuestionsMatched: ResolveHypQuestionsMatched(m.DocPath, hypQuestionsMatchedByDocPath),
+                        ExtractionQuality: item.ExtractionQuality,
+                        MatchedContentCards: BuildMatchedContentCardDtos(m),
+                        SelectionHints: BuildSelectionHints(m, item.ExtractionQuality)
                     );
                 })
                 .ToList(),
-            Guidance: BuildAnswerGuidance(resp.Query, resp.Matches)
+            Guidance: BuildAnswerGuidance(
+                resp.Query,
+                qualityAdjustedMatches.Select(static item => item.Match).ToList(),
+                extractionQualityByMatch)
         );
+    }
 
-        return Results.Ok(responseDto);
+    internal static async Task<IReadOnlyDictionary<string, RagItemExtractionQualityDto>> LoadRagExtractionQualityAsync(
+        NpgsqlDataSource ds,
+        Guid tenantId,
+        IReadOnlyList<RagMatch> matches,
+        CancellationToken ct)
+    {
+        var docIds = matches
+            .Select(static match => Guid.TryParse(match.DocId, out var docId) ? docId : (Guid?)null)
+            .Where(static docId => docId.HasValue)
+            .Select(static docId => docId!.Value)
+            .Distinct()
+            .ToArray();
+        var docPaths = matches
+            .Select(static match => NormalizeRagDocPath(match.DocPath))
+            .Where(static path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (docIds.Length == 0 && docPaths.Length == 0)
+            return new Dictionary<string, RagItemExtractionQualityDto>(StringComparer.OrdinalIgnoreCase);
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        const string docSql = """
+WITH scoped_docs AS (
+  SELECT
+    d.doc_id,
+    d.tenant_id,
+    d.doc_path,
+    d.indexed_version,
+    rev.revision_id
+  FROM documents d
+  LEFT JOIN LATERAL (
+    SELECT r.revision_id
+    FROM document_revisions r
+    WHERE r.tenant_id = d.tenant_id
+      AND r.doc_id = d.doc_id
+      AND r.indexed_version = d.indexed_version
+    ORDER BY r.published_at DESC NULLS LAST
+    LIMIT 1
+  ) rev ON true
+  WHERE d.tenant_id=@tenant
+    AND (
+      d.doc_id = ANY(@docIds)
+      OR d.doc_path = ANY(@docPaths)
+    )
+),
+latest_runs AS (
+  SELECT
+    sd.doc_id,
+    r.payload
+  FROM scoped_docs sd
+  LEFT JOIN LATERAL (
+    SELECT payload
+    FROM document_processing_runs pr
+    WHERE pr.tenant_id=sd.tenant_id
+      AND pr.doc_id=sd.doc_id
+      AND pr.action='upsert'
+      AND pr.status='done'
+      AND (
+        (sd.revision_id IS NOT NULL AND pr.revision_id = sd.revision_id)
+        OR (sd.revision_id IS NULL AND pr.indexed_version_after = sd.indexed_version)
+      )
+    ORDER BY pr.finished_at DESC NULLS LAST, pr.started_at DESC NULLS LAST
+    LIMIT 1
+  ) r ON true
+),
+page_rows AS (
+  SELECT
+    sd.doc_id,
+    sd.tenant_id,
+    rev.revision_id,
+    pi.page_number,
+    COALESCE(pi.char_count, 0)::int AS char_count,
+    CASE
+      WHEN COALESCE(pi.metadata ->> 'wordCount', '') ~ '^[0-9]+$' THEN (pi.metadata ->> 'wordCount')::int
+      ELSE 0
+    END AS word_count,
+    CASE
+      WHEN COALESCE(pi.metadata ->> 'imageCount', '') ~ '^[0-9]+$' THEN (pi.metadata ->> 'imageCount')::int
+      ELSE 0
+    END AS image_count
+  FROM scoped_docs sd
+  LEFT JOIN document_revisions rev
+    ON rev.tenant_id=sd.tenant_id
+   AND rev.doc_id=sd.doc_id
+   AND rev.indexed_version=sd.indexed_version
+  LEFT JOIN document_page_index pi
+    ON pi.tenant_id=sd.tenant_id
+   AND pi.revision_id=rev.revision_id
+),
+page_projection AS (
+  SELECT
+    pr.*,
+    COALESCE(uc.unit_count, 0) AS unit_count,
+    COALESCE(cc.chunk_count, 0) AS chunk_count
+  FROM page_rows pr
+  LEFT JOIN LATERAL (
+    SELECT COUNT(*)::int AS unit_count
+    FROM document_units u
+    WHERE u.tenant_id=pr.tenant_id
+      AND u.revision_id=pr.revision_id
+      AND pr.page_number IS NOT NULL
+      AND u.page_start <= pr.page_number
+      AND pr.page_number <= u.page_end
+  ) uc ON true
+  LEFT JOIN LATERAL (
+    SELECT COUNT(*)::int AS chunk_count
+    FROM retrieval_chunks rc
+    WHERE rc.tenant_id=pr.tenant_id
+      AND rc.revision_id=pr.revision_id
+      AND pr.page_number IS NOT NULL
+      AND rc.page_start <= pr.page_number
+      AND pr.page_number <= rc.page_end
+  ) cc ON true
+),
+page_quality AS (
+  SELECT
+    doc_id,
+    COUNT(page_number)::int AS page_count,
+    COUNT(*) FILTER (WHERE word_count > 0 AND char_count > 0)::int AS text_page_count,
+    COUNT(*) FILTER (WHERE page_number IS NOT NULL AND (word_count <= 0 OR char_count <= 0))::int AS empty_page_count,
+    COUNT(*) FILTER (
+      WHERE page_number IS NOT NULL
+        AND word_count > 0
+        AND char_count > 0
+        AND (word_count < 12 OR char_count < 80)
+    )::int AS sparse_page_count,
+    COUNT(*) FILTER (WHERE image_count > 0)::int AS image_page_count,
+    COUNT(*) FILTER (
+      WHERE page_number IS NOT NULL
+        AND (
+          ((word_count <= 0 OR char_count <= 0) AND chunk_count <= 0)
+          OR (word_count > 0 AND char_count > 0 AND (word_count < 12 OR char_count < 80) AND chunk_count <= 0)
+          OR (unit_count <= 0 AND chunk_count <= 0 AND (word_count >= 30 OR char_count >= 200))
+        )
+    )::int AS page_warning_count,
+    COUNT(*) FILTER (
+      WHERE page_number IS NOT NULL
+        AND (
+          (image_count > 0 AND (word_count <= 0 OR char_count <= 0))
+          OR (image_count > 0 AND unit_count <= 0 AND chunk_count <= 0 AND word_count > 0 AND char_count > 0 AND (word_count < 12 OR char_count < 80))
+          OR (unit_count <= 0 AND chunk_count <= 0 AND (word_count >= 30 OR char_count >= 200))
+        )
+    )::int AS page_review_recommended_count,
+    COALESCE(SUM(word_count), 0)::int AS total_word_count,
+    COALESCE(SUM(char_count), 0)::int AS total_char_count
+  FROM page_projection
+  GROUP BY doc_id
+),
+doc_quality_base AS (
+  SELECT
+    sd.doc_id AS "DocId",
+    sd.doc_path AS "DocPath",
+    lr.payload ->> 'extractionSource' AS "ExtractionSource",
+    CASE
+      WHEN LOWER(COALESCE(lr.payload ->> 'ocrAttempted', '')) IN ('true', 'false')
+        THEN (lr.payload ->> 'ocrAttempted')::boolean
+      ELSE false
+    END AS "OcrAttempted",
+    CASE
+      WHEN LOWER(COALESCE(lr.payload ->> 'ocrApplied', '')) IN ('true', 'false')
+        THEN (lr.payload ->> 'ocrApplied')::boolean
+      ELSE false
+    END AS "OcrApplied",
+    NULLIF(lr.payload ->> 'ocrLanguages', '') AS "OcrLanguages",
+    CASE
+      WHEN COALESCE(lr.payload ->> 'ocrDurationMs', '') ~ '^[0-9]+$'
+        THEN (lr.payload ->> 'ocrDurationMs')::bigint
+      ELSE NULL
+    END AS "OcrDurationMs",
+    lr.payload #>> '{nativeExtractionQuality,textStatus}' AS "NativeTextStatus",
+    CASE
+      WHEN LOWER(COALESCE(lr.payload #>> '{nativeExtractionQuality,ocrRecommended}', '')) IN ('true', 'false')
+        THEN (lr.payload #>> '{nativeExtractionQuality,ocrRecommended}')::boolean
+      ELSE NULL
+    END AS "NativeOcrRecommended",
+    (lr.payload -> 'ocrDiagnostics')::text AS "OcrDiagnosticsJson",
+    lr.payload #>> '{extractionQuality,textStatus}' AS "RunTextStatus",
+    CASE
+      WHEN LOWER(COALESCE(lr.payload #>> '{extractionQuality,ocrRecommended}', '')) IN ('true', 'false')
+        THEN (lr.payload #>> '{extractionQuality,ocrRecommended}')::boolean
+      ELSE NULL
+    END AS "RunOcrRecommended",
+    COALESCE(
+      CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,pageCount}', '') ~ '^[0-9]+$' THEN (lr.payload #>> '{extractionQuality,pageCount}')::int ELSE NULL END,
+      pq.page_count,
+      0) AS "PageCount",
+    COALESCE(
+      CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,textPageCount}', '') ~ '^[0-9]+$' THEN (lr.payload #>> '{extractionQuality,textPageCount}')::int ELSE NULL END,
+      pq.text_page_count,
+      0) AS "TextPageCount",
+    COALESCE(
+      CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,emptyPageCount}', '') ~ '^[0-9]+$' THEN (lr.payload #>> '{extractionQuality,emptyPageCount}')::int ELSE NULL END,
+      pq.empty_page_count,
+      0) AS "EmptyPageCount",
+    COALESCE(
+      CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,sparsePageCount}', '') ~ '^[0-9]+$' THEN (lr.payload #>> '{extractionQuality,sparsePageCount}')::int ELSE NULL END,
+      pq.sparse_page_count,
+      0) AS "SparsePageCount",
+    COALESCE(pq.image_page_count, 0) AS "ImagePageCount",
+    COALESCE(pq.page_warning_count, 0) AS "PageWarningCount",
+    COALESCE(pq.page_review_recommended_count, 0) AS "PageReviewRecommendedCount",
+    COALESCE(
+      CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,totalWordCount}', '') ~ '^[0-9]+$' THEN (lr.payload #>> '{extractionQuality,totalWordCount}')::int ELSE NULL END,
+      pq.total_word_count,
+      0) AS "TotalWordCount",
+    COALESCE(
+      CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,totalCharCount}', '') ~ '^[0-9]+$' THEN (lr.payload #>> '{extractionQuality,totalCharCount}')::int ELSE NULL END,
+      pq.total_char_count,
+      0) AS "TotalCharCount",
+    CASE
+      WHEN COALESCE(pq.page_count, 0) <= 0 THEN 'unknown'
+      WHEN COALESCE(pq.total_word_count, 0) <= 0 THEN 'empty_text'
+      WHEN (COALESCE(pq.empty_page_count, 0)::double precision / GREATEST(COALESCE(pq.page_count, 0), 1)) >= 0.6 THEN 'low_text'
+      WHEN (COALESCE(pq.sparse_page_count, 0)::double precision / GREATEST(COALESCE(pq.page_count, 0), 1)) >= 0.6
+           AND (COALESCE(pq.total_word_count, 0)::double precision / GREATEST(COALESCE(pq.page_count, 0), 1)) < 30 THEN 'low_text'
+      WHEN (COALESCE(pq.total_word_count, 0)::double precision / GREATEST(COALESCE(pq.page_count, 0), 1)) < 10 THEN 'low_text'
+      ELSE 'ok'
+    END AS "ComputedTextStatus",
+    lr.payload #>> '{extractionQuality,signals}' AS "RunSignalsJson"
+  FROM scoped_docs sd
+  LEFT JOIN latest_runs lr ON lr.doc_id=sd.doc_id
+  LEFT JOIN page_quality pq ON pq.doc_id=sd.doc_id
+),
+doc_quality AS (
+  SELECT
+    *,
+    COALESCE("RunTextStatus", "ComputedTextStatus") AS "TextStatus",
+    COALESCE("RunOcrRecommended", "ComputedTextStatus" IN ('empty_text', 'low_text')) AS "OcrRecommended",
+    COALESCE(
+      "RunSignalsJson",
+      CASE "ComputedTextStatus"
+        WHEN 'empty_text' THEN '["no_text_extracted","ocr_recommended"]'
+        WHEN 'low_text' THEN '["low_text_extraction","ocr_recommended"]'
+        WHEN 'ok' THEN '["text_extraction_ok"]'
+        ELSE '[]'
+      END
+    ) AS "SignalsJson"
+  FROM doc_quality_base
+),
+doc_quality_scored AS (
+  SELECT
+    *,
+    CASE
+      WHEN "OcrApplied" AND "TextStatus"='ok' AND COALESCE("ExtractionSource", '')='pdf_text_plus_image_ocr' THEN 'image_ocr_applied_ok'
+      WHEN "OcrApplied" AND "TextStatus"='ok' AND ("PageWarningCount" > 0 OR "PageReviewRecommendedCount" > 0) THEN 'ocr_applied_ok_with_page_warnings'
+      WHEN "OcrApplied" AND "TextStatus"='ok' THEN 'ocr_applied_ok'
+      WHEN "OcrApplied" AND "TextStatus" <> 'ok' THEN 'ocr_applied_low_confidence'
+      WHEN "OcrAttempted" AND NOT "OcrApplied" AND "OcrRecommended" THEN 'ocr_failed_or_insufficient'
+      WHEN "TextStatus"='empty_text' THEN 'manual_review_empty_text'
+      WHEN "TextStatus"='low_text' THEN 'manual_review_low_text'
+      WHEN "TextStatus"='unknown' THEN 'unknown'
+      WHEN "TextStatus"='ok' AND "PageReviewRecommendedCount" > 0 THEN 'extraction_ok_with_page_review'
+      WHEN "TextStatus"='ok' AND "PageWarningCount" > 0 THEN 'extraction_ok_with_page_warnings'
+      WHEN "ImagePageCount" > 0 AND NOT "OcrApplied" THEN 'text_extraction_ok_with_images'
+      ELSE 'extraction_ok'
+    END AS "QualityStatus",
+    CASE
+      WHEN "OcrApplied" AND "TextStatus"='ok' AND COALESCE("ExtractionSource", '')='pdf_text_plus_image_ocr' THEN 0.92::double precision
+      WHEN "OcrApplied" AND "TextStatus"='ok' AND ("PageWarningCount" > 0 OR "PageReviewRecommendedCount" > 0) THEN 0.86::double precision
+      WHEN "OcrApplied" AND "TextStatus"='ok' THEN 0.90::double precision
+      WHEN "TextStatus"='ok' AND "PageReviewRecommendedCount" > 0 THEN 0.82::double precision
+      WHEN "TextStatus"='ok' AND "PageWarningCount" > 0 THEN 0.88::double precision
+      WHEN "TextStatus"='ok' AND "ImagePageCount" > 0 AND NOT "OcrApplied" THEN 0.85::double precision
+      WHEN "TextStatus"='ok' THEN 1.00::double precision
+      WHEN "OcrApplied" AND "TextStatus" <> 'ok' THEN 0.45::double precision
+      WHEN "OcrAttempted" AND NOT "OcrApplied" AND "OcrRecommended" THEN 0.30::double precision
+      WHEN "TextStatus"='low_text' THEN 0.35::double precision
+      WHEN "TextStatus"='empty_text' THEN 0.15::double precision
+      ELSE 0.50::double precision
+    END AS "ExtractionConfidence",
+    (
+      "TextStatus" IN ('empty_text','low_text','unknown')
+      OR ("OcrAttempted" AND NOT "OcrApplied" AND "OcrRecommended")
+      OR ("OcrApplied" AND "TextStatus" <> 'ok')
+      OR "PageReviewRecommendedCount" > 0
+    ) AS "ManualReviewRecommended"
+  FROM doc_quality
+)
+SELECT
+  "DocId",
+  "DocPath",
+  "ExtractionSource",
+  "OcrAttempted",
+  "OcrApplied",
+  "QualityStatus",
+  "ExtractionConfidence",
+  "ManualReviewRecommended",
+  "OcrLanguages",
+  "OcrDurationMs",
+  "NativeTextStatus",
+  "NativeOcrRecommended",
+  "OcrDiagnosticsJson",
+  "PageCount",
+  "TextPageCount",
+  "EmptyPageCount",
+  "SparsePageCount",
+  "ImagePageCount",
+  "PageWarningCount",
+  "PageReviewRecommendedCount",
+  "TextStatus",
+  "OcrRecommended",
+  "SignalsJson"
+FROM doc_quality_scored;
+""";
+
+        const string pageSql = """
+WITH scoped_docs AS (
+  SELECT
+    d.doc_id,
+    d.tenant_id,
+    d.doc_path,
+    d.indexed_version,
+    rev.revision_id
+  FROM documents d
+  LEFT JOIN document_revisions rev
+    ON rev.tenant_id=d.tenant_id
+   AND rev.doc_id=d.doc_id
+   AND rev.indexed_version=d.indexed_version
+  WHERE d.tenant_id=@tenant
+    AND (
+      d.doc_id = ANY(@docIds)
+      OR d.doc_path = ANY(@docPaths)
+    )
+)
+SELECT
+  sd.doc_id AS "DocId",
+  sd.doc_path AS "DocPath",
+  pi.page_number AS "PageNumber",
+  COALESCE(pi.char_count, 0)::int AS "CharCount",
+  CASE
+    WHEN COALESCE(pi.metadata ->> 'wordCount', '') ~ '^[0-9]+$' THEN (pi.metadata ->> 'wordCount')::int
+    ELSE 0
+  END AS "WordCount",
+  CASE
+    WHEN COALESCE(pi.metadata ->> 'imageCount', '') ~ '^[0-9]+$' THEN (pi.metadata ->> 'imageCount')::int
+    ELSE 0
+  END AS "ImageCount",
+  COALESCE(uc.unit_count, 0) AS "UnitCount",
+  COALESCE(uc.unit_texts_json, '[]') AS "UnitTextsJson",
+  COALESCE(cc.chunk_count, 0) AS "ChunkCount",
+  pi.metadata #>> '{extractionQuality,signals}' AS "SignalsJson"
+FROM scoped_docs sd
+JOIN document_page_index pi
+  ON pi.tenant_id=sd.tenant_id
+ AND pi.revision_id=sd.revision_id
+LEFT JOIN LATERAL (
+  SELECT
+    COUNT(*)::int AS unit_count,
+    COALESCE(to_jsonb(array_agg(LEFT(u.text_content, 1000) ORDER BY u.ordinal))::text, '[]') AS unit_texts_json
+  FROM document_units u
+  WHERE u.tenant_id=sd.tenant_id
+    AND u.revision_id=sd.revision_id
+    AND u.page_start <= pi.page_number
+    AND pi.page_number <= u.page_end
+) uc ON true
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::int AS chunk_count
+  FROM retrieval_chunks rc
+  WHERE rc.tenant_id=sd.tenant_id
+    AND rc.revision_id=sd.revision_id
+    AND rc.page_start <= pi.page_number
+    AND pi.page_number <= rc.page_end
+) cc ON true
+ORDER BY sd.doc_path, pi.page_number;
+""";
+
+        var parameters = new { tenant = tenantId, docIds, docPaths };
+        var docRows = (await conn.QueryAsync<RagExtractionDocumentQualityRow>(
+            new CommandDefinition(docSql, parameters, cancellationToken: ct))).ToArray();
+        var pageRows = (await conn.QueryAsync<RagExtractionPageQualityRow>(
+            new CommandDefinition(pageSql, parameters, cancellationToken: ct))).ToArray();
+
+        var docById = docRows.ToDictionary(static row => row.DocId, static row => row);
+        var docByPath = docRows
+            .Where(static row => !string.IsNullOrWhiteSpace(row.DocPath))
+            .GroupBy(static row => NormalizeRagDocPath(row.DocPath) ?? "", StringComparer.OrdinalIgnoreCase)
+            .Where(static group => !string.IsNullOrWhiteSpace(group.Key))
+            .ToDictionary(static group => group.Key, static group => group.First(), StringComparer.OrdinalIgnoreCase);
+        var pagesById = pageRows
+            .GroupBy(static row => row.DocId)
+            .ToDictionary(static group => group.Key, static group => group.OrderBy(static row => row.PageNumber).ToArray());
+        var pagesByPath = pageRows
+            .Where(static row => !string.IsNullOrWhiteSpace(row.DocPath))
+            .GroupBy(static row => NormalizeRagDocPath(row.DocPath) ?? "", StringComparer.OrdinalIgnoreCase)
+            .Where(static group => !string.IsNullOrWhiteSpace(group.Key))
+            .ToDictionary(static group => group.Key, static group => group.OrderBy(static row => row.PageNumber).ToArray(), StringComparer.OrdinalIgnoreCase);
+
+        var byMatch = new Dictionary<string, RagItemExtractionQualityDto>(StringComparer.OrdinalIgnoreCase);
+        foreach (var match in matches)
+        {
+            var doc = ResolveExtractionDocumentQuality(match, docById, docByPath);
+            if (doc is null)
+                continue;
+
+            var pages = ResolveExtractionPageRows(match, pagesById, pagesByPath);
+            var pageQuality = BuildPageExtractionQuality(match, pages);
+            var documentSignals = doc.PageReviewRecommendedCount > 0
+                ? ParseJsonStringArray(doc.SignalsJson).Append("page_review_recommended").ToArray()
+                : ParseJsonStringArray(doc.SignalsJson);
+            var signals = MergeExtractionSignals(documentSignals, pageQuality?.Signals);
+            var diagnosticSummary = BuildRagExtractionDiagnosticSummary(doc);
+            var item = new RagItemExtractionQualityDto(
+                ExtractionSource: doc.ExtractionSource,
+                OcrAttempted: doc.OcrAttempted,
+                OcrApplied: doc.OcrApplied,
+                DocumentQualityStatus: doc.QualityStatus,
+                DocumentExtractionConfidence: doc.ExtractionConfidence,
+                DocumentManualReviewRecommended: doc.ManualReviewRecommended,
+                PageQualityStatus: pageQuality?.QualityStatus,
+                PageExtractionConfidence: pageQuality?.ExtractionConfidence,
+                PageManualReviewRecommended: pageQuality?.ManualReviewRecommended,
+                TextStatus: pageQuality?.TextStatus ?? doc.TextStatus,
+                OcrRecommended: doc.OcrRecommended,
+                Signals: signals.Length == 0 ? null : signals,
+                DiagnosticSummary: diagnosticSummary);
+
+            byMatch[BuildExtractionQualityMatchKey(match)] = item;
+        }
+
+        return byMatch;
+    }
+
+    private static RagItemExtractionQualityDto? ResolveExtractionQuality(
+        RagMatch match,
+        IReadOnlyDictionary<string, RagItemExtractionQualityDto> extractionQualityByMatch)
+        => extractionQualityByMatch.TryGetValue(BuildExtractionQualityMatchKey(match), out var quality)
+            ? quality
+            : null;
+
+    internal static async Task<IReadOnlyDictionary<string, RagDocumentLanguageInfo>> LoadRagDocumentLanguagesAsync(
+        NpgsqlDataSource ds,
+        Guid tenantId,
+        IReadOnlyList<RagMatch> matches,
+        CancellationToken ct)
+    {
+        var docIds = matches
+            .Select(static match => Guid.TryParse(match.DocId, out var docId) ? docId : (Guid?)null)
+            .Where(static docId => docId.HasValue)
+            .Select(static docId => docId!.Value)
+            .Distinct()
+            .ToArray();
+
+        if (docIds.Length == 0)
+            return new Dictionary<string, RagDocumentLanguageInfo>(StringComparer.OrdinalIgnoreCase);
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        const string sql = """
+SELECT
+  d.doc_id::text AS "DocId",
+  profile.language AS "ProfileLanguage",
+  summary.doc_language AS "SummaryLanguage",
+  run.payload ->> 'documentLanguage' AS "RunDocumentLanguage"
+FROM documents d
+LEFT JOIN LATERAL (
+  SELECT NULLIF(BTRIM(p.language), '') AS language
+  FROM document_profiles p
+  JOIN document_revisions r
+    ON r.revision_id = p.revision_id
+   AND r.tenant_id = p.tenant_id
+   AND r.doc_id = p.doc_id
+  WHERE p.tenant_id = d.tenant_id
+    AND p.doc_id = d.doc_id
+    AND r.indexed_version = COALESCE(d.indexed_version, 0)
+  ORDER BY
+    (NULLIF(BTRIM(p.language), 'und') IS NULL) ASC,
+    CASE p.profile_version
+      WHEN 'llm_backoffice_v1' THEN 0
+      WHEN 'foundation_v1' THEN 1
+      ELSE 2
+    END,
+    r.published_at DESC NULLS LAST,
+    p.profile_version ASC
+  LIMIT 1
+) profile ON true
+LEFT JOIN LATERAL (
+  SELECT NULLIF(BTRIM(s.doc_language), '') AS doc_language
+  FROM document_summaries s
+  WHERE s.tenant_id = d.tenant_id
+    AND s.doc_id = d.doc_id
+    AND s.level = 'medium'
+    AND s.source_hash = saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version)
+  ORDER BY s.updated_at DESC NULLS LAST, s.created_at DESC NULLS LAST
+  LIMIT 1
+) summary ON true
+LEFT JOIN LATERAL (
+  SELECT pr.payload
+  FROM document_processing_runs pr
+  WHERE pr.tenant_id=d.tenant_id
+    AND pr.doc_id=d.doc_id
+    AND pr.action='upsert'
+    AND pr.status='done'
+    AND (
+      pr.revision_id IN (
+        SELECT r.revision_id
+        FROM document_revisions r
+        WHERE r.tenant_id=d.tenant_id
+          AND r.doc_id=d.doc_id
+          AND r.indexed_version = COALESCE(d.indexed_version, 0)
+      )
+      OR pr.indexed_version_after = COALESCE(d.indexed_version, 0)
+    )
+  ORDER BY
+    (pr.indexed_version_after = COALESCE(d.indexed_version, 0)) DESC,
+    pr.finished_at DESC NULLS LAST,
+    pr.started_at DESC NULLS LAST
+  LIMIT 1
+) run ON true
+WHERE d.tenant_id=@tenant
+  AND d.doc_id = ANY(@docIds);
+""";
+
+        var rows = await conn.QueryAsync<RagDocumentLanguageRow>(new CommandDefinition(
+            sql,
+            new { tenant = tenantId, docIds },
+            cancellationToken: ct));
+
+        return rows.ToDictionary(
+            static row => row.DocId,
+            static row =>
+            {
+                var profileLanguage = NormalizeRagLanguageTag(row.ProfileLanguage);
+                var summaryLanguage = NormalizeRagLanguageTag(row.SummaryLanguage);
+                var runLanguage = NormalizeRagLanguageTag(row.RunDocumentLanguage);
+                var docLanguage = !string.Equals(profileLanguage, "und", StringComparison.Ordinal)
+                    ? profileLanguage
+                    : !string.Equals(summaryLanguage, "und", StringComparison.Ordinal)
+                        ? summaryLanguage
+                        : runLanguage;
+                return new RagDocumentLanguageInfo(
+                    DocLanguage: docLanguage,
+                    ProfileLanguage: string.Equals(profileLanguage, "und", StringComparison.Ordinal) ? null : profileLanguage);
+            },
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static RagDocumentLanguageInfo ResolveDocumentLanguageInfo(
+        RagMatch match,
+        IReadOnlyDictionary<string, RagDocumentLanguageInfo> languagesByDocId)
+    {
+        if (Guid.TryParse(match.DocId, out var docId)
+            && languagesByDocId.TryGetValue(docId.ToString(), out var byDashedId))
+            return byDashedId;
+        if (Guid.TryParse(match.DocId, out docId)
+            && languagesByDocId.TryGetValue(docId.ToString("N"), out var byCompactId))
+            return byCompactId;
+        return new RagDocumentLanguageInfo("und", null);
+    }
+
+    internal static async Task<IReadOnlyDictionary<string, string>> LoadRagDocumentSourceHashesAsync(
+        NpgsqlDataSource ds,
+        Guid tenantId,
+        IReadOnlyList<RagMatch> matches,
+        CancellationToken ct)
+    {
+        var docIds = matches
+            .Select(static match => Guid.TryParse(match.DocId, out var docId) ? docId : (Guid?)null)
+            .Where(static docId => docId.HasValue)
+            .Select(static docId => docId!.Value)
+            .Distinct()
+            .ToArray();
+        var docPaths = matches
+            .Select(static match => NormalizeDocumentSourceHashPathKey(match.DocPath))
+            .Where(static path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (docIds.Length == 0 && docPaths.Length == 0)
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        const string sql = """
+SELECT
+  d.doc_id::text AS "DocId",
+  d.doc_path     AS "DocPath",
+  saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version) AS "SourceHash"
+FROM documents d
+WHERE d.tenant_id=@tenant
+  AND (d.doc_id = ANY(@docIds) OR d.doc_path = ANY(@docPaths));
+""";
+
+        var rows = await conn.QueryAsync<RagDocumentSourceHashRow>(new CommandDefinition(
+            sql,
+            new { tenant = tenantId, docIds, docPaths },
+            cancellationToken: ct));
+
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in rows.Where(static row => !string.IsNullOrWhiteSpace(row.SourceHash)))
+        {
+            void Add(string? key)
+            {
+                if (!string.IsNullOrWhiteSpace(key) && !result.ContainsKey(key))
+                    result[key] = row.SourceHash!;
+            }
+
+            Add(row.DocId);
+            if (Guid.TryParse(row.DocId, out var docId))
+                Add(docId.ToString("N"));
+            Add(NormalizeDocumentSourceHashPathKey(row.DocPath));
+        }
+
+        return result;
+    }
+
+    internal static string? ResolveDocumentSourceHash(
+        RagMatch match,
+        IReadOnlyDictionary<string, string> sourceHashesByDocId)
+    {
+        if (Guid.TryParse(match.DocId, out var docId)
+            && sourceHashesByDocId.TryGetValue(docId.ToString(), out var byDashedId))
+            return byDashedId;
+        if (Guid.TryParse(match.DocId, out docId)
+            && sourceHashesByDocId.TryGetValue(docId.ToString("N"), out var byCompactId))
+            return byCompactId;
+        var pathKey = NormalizeDocumentSourceHashPathKey(match.DocPath);
+        if (!string.IsNullOrWhiteSpace(pathKey)
+            && sourceHashesByDocId.TryGetValue(pathKey, out var byPath))
+            return byPath;
+        return null;
+    }
+
+    private static string NormalizeDocumentSourceHashPathKey(string? docPath)
+        => string.IsNullOrWhiteSpace(docPath)
+            ? string.Empty
+            : docPath.Trim().Replace('\\', '/').TrimStart('/');
+
+    private static string NormalizeRagLanguageTag(string? language)
+    {
+        if (string.IsNullOrWhiteSpace(language))
+            return "und";
+
+        var normalized = language.Trim().Replace('_', '-').ToLowerInvariant();
+        if (normalized.Contains(',', StringComparison.Ordinal))
+            normalized = normalized.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? string.Empty;
+        if (normalized.Contains('+', StringComparison.Ordinal))
+            normalized = normalized.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? string.Empty;
+
+        if (string.Equals(normalized, "und", StringComparison.Ordinal))
+            return "und";
+
+        var parts = normalized.Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0 || parts.Length > 5)
+            return "und";
+        if (parts[0].Length is < 2 or > 8 || !parts[0].All(char.IsLetter))
+            return "und";
+
+        return parts.Skip(1).All(static part =>
+            part.Length is >= 2 and <= 8 && part.All(static ch => char.IsLetterOrDigit(ch)))
+            ? normalized
+            : "und";
+    }
+
+    internal static double ApplyExtractionQualityScorePenalty(double score, RagItemExtractionQualityDto? quality)
+    {
+        if (quality is null)
+            return score;
+
+        var multiplier = 1.0;
+        if (quality.DocumentManualReviewRecommended == true)
+            multiplier *= 0.90;
+        if (quality.PageManualReviewRecommended == true)
+            multiplier *= 0.82;
+
+        var confidence = quality.PageExtractionConfidence ?? quality.DocumentExtractionConfidence;
+        if (confidence is <= 0.35)
+            multiplier *= 0.78;
+        else if (confidence is <= 0.50)
+            multiplier *= 0.85;
+        else if (confidence is <= 0.70)
+            multiplier *= 0.93;
+
+        var status = string.Join(' ', quality.PageQualityStatus, quality.DocumentQualityStatus, quality.TextStatus)
+            .ToLowerInvariant();
+        if (status.Contains("ocr_failed", StringComparison.Ordinal)
+            || status.Contains("low_confidence", StringComparison.Ordinal)
+            || status.Contains("manual_review", StringComparison.Ordinal))
+        {
+            multiplier *= 0.90;
+        }
+
+        return Math.Round(Math.Clamp(score * multiplier, 0.0, 1.02), 6);
+    }
+
+    private static RagExtractionDocumentQualityRow? ResolveExtractionDocumentQuality(
+        RagMatch match,
+        IReadOnlyDictionary<Guid, RagExtractionDocumentQualityRow> docById,
+        IReadOnlyDictionary<string, RagExtractionDocumentQualityRow> docByPath)
+    {
+        if (Guid.TryParse(match.DocId, out var docId) && docById.TryGetValue(docId, out var byId))
+            return byId;
+
+        var docPath = NormalizeRagDocPath(match.DocPath);
+        return !string.IsNullOrWhiteSpace(docPath) && docByPath.TryGetValue(docPath, out var byPath)
+            ? byPath
+            : null;
+    }
+
+    private static IReadOnlyList<RagExtractionPageQualityRow> ResolveExtractionPageRows(
+        RagMatch match,
+        IReadOnlyDictionary<Guid, RagExtractionPageQualityRow[]> pagesById,
+        IReadOnlyDictionary<string, RagExtractionPageQualityRow[]> pagesByPath)
+    {
+        if (Guid.TryParse(match.DocId, out var docId) && pagesById.TryGetValue(docId, out var byId))
+            return byId;
+
+        var docPath = NormalizeRagDocPath(match.DocPath);
+        return !string.IsNullOrWhiteSpace(docPath) && pagesByPath.TryGetValue(docPath, out var byPath)
+            ? byPath
+            : [];
+    }
+
+    private static RagExtractionPageQuality? BuildPageExtractionQuality(
+        RagMatch match,
+        IReadOnlyList<RagExtractionPageQualityRow> pages)
+    {
+        if (!match.PageStart.HasValue || pages.Count == 0)
+            return null;
+
+        var start = Math.Max(1, match.PageStart.Value);
+        var end = Math.Max(start, match.PageEnd ?? start);
+        var reviews = pages
+            .Where(page => page.PageNumber >= start && page.PageNumber <= end)
+            .Select(page => ExtractionQualityDiagnostics.AssessPage(
+                page.WordCount,
+                page.CharCount,
+                page.ImageCount,
+                page.UnitCount,
+                CountSuspiciousExtractionUnits(page.UnitTextsJson),
+                page.ChunkCount,
+                ParseJsonStringArray(page.SignalsJson)))
+            .ToArray();
+        if (reviews.Length == 0)
+            return null;
+
+        var selected = reviews
+            .OrderBy(static review => review.ExtractionConfidence)
+            .ThenByDescending(static review => review.ManualReviewRecommended)
+            .First();
+        var signals = reviews
+            .SelectMany(static review => review.Signals)
+            .Where(static signal => !string.IsNullOrWhiteSpace(signal))
+            .Select(static signal => signal.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .Take(8)
+            .ToArray();
+
+        return new RagExtractionPageQuality(
+            selected.Status,
+            selected.ExtractionConfidence,
+            selected.ManualReviewRecommended,
+            selected.TextStatus,
+            signals);
+    }
+
+    private static int CountSuspiciousExtractionUnits(string? unitTextsJson)
+        => ParseJsonStringArray(unitTextsJson).Count(OcrNoiseFilter.LooksLikeProbableNoiseText);
+
+    private static string[] MergeExtractionSignals(params IReadOnlyList<string>?[] signalGroups)
+        => signalGroups
+            .Where(static group => group is not null)
+            .SelectMany(static group => group!)
+            .Where(static signal => !string.IsNullOrWhiteSpace(signal))
+            .Select(static signal => signal.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .Take(8)
+            .ToArray();
+
+    private static RagItemExtractionDiagnosticSummaryDto? BuildRagExtractionDiagnosticSummary(RagExtractionDocumentQualityRow row)
+    {
+        var ocrDiagnostics = ParseRagOcrDiagnostics(row.OcrDiagnosticsJson);
+        var summary = new RagItemExtractionDiagnosticSummaryDto(
+            NativeTextStatus: NullIfWhiteSpace(row.NativeTextStatus),
+            NativeOcrRecommended: row.NativeOcrRecommended,
+            OcrMode: ocrDiagnostics.Mode,
+            OcrLanguages: NullIfWhiteSpace(row.OcrLanguages),
+            OcrDurationMs: row.OcrDurationMs,
+            OcrFailureReason: ocrDiagnostics.FailureReason,
+            OcrAppliedReason: ocrDiagnostics.AppliedReason,
+            OcrTimedOut: ocrDiagnostics.TimedOut == true ? true : null,
+            OcrAttemptedPageCount: PositiveOrNull(ocrDiagnostics.AttemptedPageCount.GetValueOrDefault()),
+            OcrSkippedPageCount: PositiveOrNull(ocrDiagnostics.SkippedPageCount.GetValueOrDefault()),
+            OcrPagesWithNovelTextCount: PositiveOrNull(ocrDiagnostics.PagesWithNovelTextCount.GetValueOrDefault()),
+            PageCount: PositiveOrNull(row.PageCount),
+            TextPageCount: row.PageCount > 0 ? row.TextPageCount : null,
+            EmptyPageCount: row.PageCount > 0 ? row.EmptyPageCount : null,
+            SparsePageCount: row.PageCount > 0 ? row.SparsePageCount : null,
+            ImagePageCount: PositiveOrNull(row.ImagePageCount),
+            PageWarningCount: PositiveOrNull(row.PageWarningCount),
+            PageReviewRecommendedCount: PositiveOrNull(row.PageReviewRecommendedCount));
+
+        return HasRagExtractionDiagnosticValue(summary) ? summary : null;
+    }
+
+    private static bool HasRagExtractionDiagnosticValue(RagItemExtractionDiagnosticSummaryDto summary)
+        => !string.IsNullOrWhiteSpace(summary.NativeTextStatus)
+           || summary.NativeOcrRecommended is not null
+           || !string.IsNullOrWhiteSpace(summary.OcrMode)
+           || !string.IsNullOrWhiteSpace(summary.OcrLanguages)
+           || summary.OcrDurationMs is not null
+           || !string.IsNullOrWhiteSpace(summary.OcrFailureReason)
+           || !string.IsNullOrWhiteSpace(summary.OcrAppliedReason)
+           || summary.OcrTimedOut is not null
+           || summary.OcrAttemptedPageCount is not null
+           || summary.OcrSkippedPageCount is not null
+           || summary.OcrPagesWithNovelTextCount is not null
+           || summary.PageCount is not null
+           || summary.ImagePageCount is not null
+           || summary.PageWarningCount is not null
+           || summary.PageReviewRecommendedCount is not null;
+
+    private static RagOcrDiagnosticsSummary ParseRagOcrDiagnostics(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json) || string.Equals(json, "null", StringComparison.OrdinalIgnoreCase))
+            return new RagOcrDiagnosticsSummary();
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+                return new RagOcrDiagnosticsSummary();
+
+            var failureReason = GetRagJsonString(root, "failureReason");
+            var timedOut = GetRagJsonBool(root, "timedOut");
+            var imageFailureReason = default(string);
+            var imageTimedOut = false;
+            if (root.TryGetProperty("imagePageDiagnostics", out var imageDiagnostics)
+                && imageDiagnostics.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in imageDiagnostics.EnumerateArray())
+                {
+                    if (item.ValueKind != JsonValueKind.Object)
+                        continue;
+
+                    imageTimedOut |= GetRagJsonBool(item, "timedOut") == true;
+                    var status = GetRagJsonString(item, "status");
+                    var reason = GetRagJsonString(item, "reason");
+                    if (imageFailureReason is null
+                        && (ContainsRagOcrFailure(status) || ContainsRagOcrFailure(reason) || GetRagJsonBool(item, "timedOut") == true))
+                    {
+                        imageFailureReason = NullIfWhiteSpace(reason) ?? NullIfWhiteSpace(status) ?? "ocr_failed";
+                    }
+                }
+            }
+
+            return new RagOcrDiagnosticsSummary(
+                Mode: NullIfWhiteSpace(GetRagJsonString(root, "mode")),
+                FailureReason: NullIfWhiteSpace(failureReason) ?? imageFailureReason,
+                AppliedReason: NullIfWhiteSpace(GetRagJsonString(root, "appliedReason")),
+                TimedOut: timedOut == true || imageTimedOut,
+                AttemptedPageCount: GetRagJsonInt(root, "attemptedPageCount"),
+                SkippedPageCount: GetRagJsonInt(root, "skippedPageCount"),
+                PagesWithNovelTextCount: CountRagJsonArray(root, "pagesWithNovelText"));
+        }
+        catch (JsonException)
+        {
+            return new RagOcrDiagnosticsSummary();
+        }
+    }
+
+    private static bool ContainsRagOcrFailure(string? value)
+        => !string.IsNullOrWhiteSpace(value)
+           && (value.Contains("fail", StringComparison.OrdinalIgnoreCase)
+               || value.Contains("timeout", StringComparison.OrdinalIgnoreCase)
+               || value.Contains("timed_out", StringComparison.OrdinalIgnoreCase));
+
+    private static string? GetRagJsonString(JsonElement source, string propertyName)
+        => source.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.String
+            ? property.GetString()
+            : null;
+
+    private static int? GetRagJsonInt(JsonElement source, string propertyName)
+    {
+        if (!source.TryGetProperty(propertyName, out var property))
+            return null;
+        if (property.ValueKind == JsonValueKind.Number && property.TryGetInt32(out var value))
+            return value;
+        return property.ValueKind == JsonValueKind.String && int.TryParse(property.GetString(), out value)
+            ? value
+            : null;
+    }
+
+    private static bool? GetRagJsonBool(JsonElement source, string propertyName)
+    {
+        if (!source.TryGetProperty(propertyName, out var property))
+            return null;
+        if (property.ValueKind == JsonValueKind.True)
+            return true;
+        if (property.ValueKind == JsonValueKind.False)
+            return false;
+        return property.ValueKind == JsonValueKind.String && bool.TryParse(property.GetString(), out var value)
+            ? value
+            : null;
+    }
+
+    private static int? CountRagJsonArray(JsonElement source, string propertyName)
+        => source.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.Array
+            ? property.GetArrayLength()
+            : null;
+
+    private static int? PositiveOrNull(int value)
+        => value > 0 ? value : null;
+
+    private static string? NullIfWhiteSpace(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    internal static string BuildExtractionQualityMatchKey(RagMatch match)
+    {
+        var identity = Guid.TryParse(match.DocId, out var docId)
+            ? docId.ToString("N")
+            : NormalizeRagDocPath(match.DocPath) ?? string.Empty;
+        return $"{identity}|{match.PageStart?.ToString(CultureInfo.InvariantCulture) ?? ""}|{match.PageEnd?.ToString(CultureInfo.InvariantCulture) ?? ""}";
+    }
+
+    private static string? NormalizeRagDocPath(string? docPath)
+    {
+        if (string.IsNullOrWhiteSpace(docPath))
+            return null;
+
+        var normalized = docPath.Trim().Replace('\\', '/').TrimStart('/');
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
 
     internal static async Task<IReadOnlyDictionary<string, bool?>> LoadHypQuestionsMatchedByDocPathAsync(
@@ -158,7 +1160,7 @@ ORDER BY category;
         CancellationToken ct)
     {
         var docPaths = matches
-            .Select(static match => match.DocPath)
+            .Select(static match => NormalizeRagDocPath(match.DocPath))
             .Where(static path => !string.IsNullOrWhiteSpace(path))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -180,21 +1182,17 @@ LEFT JOIN document_revisions r
  AND r.doc_id = d.doc_id
  AND r.indexed_version = d.indexed_version
 LEFT JOIN LATERAL (
-    SELECT p.hypothetical_questions
+    SELECT COALESCE(
+        ARRAY_AGG(DISTINCT NULLIF(BTRIM(question.text), ''))
+            FILTER (WHERE NULLIF(BTRIM(question.text), '') IS NOT NULL),
+        ARRAY[]::text[]) AS hypothetical_questions
     FROM document_profiles p
+    CROSS JOIN LATERAL unnest(COALESCE(p.hypothetical_questions, ARRAY[]::text[])) AS question(text)
     WHERE p.tenant_id = r.tenant_id
       AND p.revision_id = r.revision_id
-    ORDER BY
-        CASE p.profile_version
-            WHEN 'llm_backoffice_v1' THEN 0
-            WHEN 'deterministic_v1' THEN 1
-            ELSE 2
-        END,
-        p.updated_at DESC
-    LIMIT 1
 ) profile ON TRUE
 WHERE d.tenant_id=@tenant
-  AND d.doc_path = ANY(@docPaths)
+  AND ltrim(replace(d.doc_path, chr(92), '/'), '/') = ANY(@docPaths)
   AND d.indexed_version > 0
 ORDER BY d.doc_path;
 """,
@@ -251,9 +1249,14 @@ ORDER BY d.doc_path;
                     excerpts ?? Array.Empty<string>());
             }
 
-            result[doc.DocPath] = hypotheticalQuestions.Count == 0
-                ? null
+            var matched = hypotheticalQuestions.Count == 0
+                ? (bool?)null
                 : ComputeHypQuestionsMatched(query, hypotheticalQuestions);
+            var normalizedDocPath = NormalizeRagDocPath(doc.DocPath);
+            if (!string.IsNullOrWhiteSpace(normalizedDocPath))
+                result[normalizedDocPath] = matched;
+            if (!string.IsNullOrWhiteSpace(doc.DocPath))
+                result[doc.DocPath] = matched;
         }
 
         return result;
@@ -267,6 +1270,7 @@ ORDER BY d.doc_path;
         RagSearchRequestDto req)
     {
         var tenantId = ctx.GetTenantId();
+        var ct = ctx.RequestAborted;
 
         if (string.IsNullOrWhiteSpace(req.Query))
             throw new BadHttpRequestException("query is required");
@@ -277,21 +1281,23 @@ ORDER BY d.doc_path;
         var category = string.IsNullOrWhiteSpace(req.Category)
             ? null
             : req.Category.Trim().ToLowerInvariant();
+        var categoryPath = await ResolveRagCategoryPathAsync(ds, tenantId, req.CategoryPath, req.CategoryRef, ct);
+
         var retrievalQuery = ExpandRetrievalQuery(req.Query, category);
         var queryNorm = NormalizeQuery(req.Query);
         var retrievalQueryNorm = NormalizeQuery(retrievalQuery);
 
         var mode = ResolveEffectiveSearchMode(req.Mode, req.Query);
-        var preferComparativeDiversity = ShouldPreferComparativeDocumentDiversity(req.Query) && mode != "focused";
+        var preferDocumentDiversity = ShouldPreferDocumentDiversity(req.Query) && mode != "focused";
         double defMinScore = mode switch
         {
             "focused" => 0.35,
             "broad" => 0.15,
             _ => 0.25
         };
-        int defCandidates = ResolveDefaultCandidateCount(mode, preferComparativeDiversity, topK);
+        int defCandidates = ResolveDefaultCandidateCount(mode, preferDocumentDiversity, topK);
         // CDC v3.1 §11.3: max 3 chunks per document default
-        int defMaxPerDoc = ResolveDefaultMaxPerDoc(mode, preferComparativeDiversity, topK);
+        int defMaxPerDoc = ResolveDefaultMaxPerDoc(mode, preferDocumentDiversity, topK);
 
         var minScore = Math.Clamp(req.MinScore ?? defMinScore, 0.0, 1.0);
         var candidates = Math.Clamp(req.Candidates ?? defCandidates, topK, Math.Max(topK, rag.MaxTopK * 20));
@@ -313,10 +1319,12 @@ ORDER BY d.doc_path;
         if (!hasExplicitMaxPerDoc && ShouldConstrainPreciseTitleLookup(req.Query))
             maxPerDoc = 1;
 
-        var ct = ctx.RequestAborted;
         var swTotal = Stopwatch.StartNew();
-        var hasCategoryFilter = !string.IsNullOrWhiteSpace(category);
+        var hasCategoryFilter = !string.IsNullOrWhiteSpace(category) || !string.IsNullOrWhiteSpace(categoryPath);
         var hasDocScope = !string.IsNullOrWhiteSpace(req.DocId) || !string.IsNullOrWhiteSpace(req.DocPath);
+        var skipChunkRetrieversForDocumentOverview = ShouldSkipChunkRetrieversForDocumentOverview(req.Query, hasDocScope, mode);
+        var requireDocumentOverviewProfileMatch = skipChunkRetrieversForDocumentOverview
+            && ShouldRequireDocumentOverviewProfileMatch(req.Query);
         using var searchActivity = RetrievalTelemetry.StartSearchActivity(mode, hasCategoryFilter, hasDocScope, topK, candidates, req.Query);
 
         async Task<(T Result, long DurationMs)> MeasurePhaseAsync<T>(
@@ -346,12 +1354,12 @@ ORDER BY d.doc_path;
         var (exactMatches, exactMs) = await MeasurePhaseAsync(
             phaseName: "retrieval_exact_match",
             retriever: "exact_match",
-            action: () => SearchExactMatchesAsync(ds, tenantId, req.Query, category, req.DocId, req.DocPath, topK, ct),
+            action: () => SearchExactMatchesAsync(ds, tenantId, req.Query, category, req.DocId, req.DocPath, topK, ct, categoryPath),
             getReturnedCount: static matches => matches.Count);
         var (quotedTitleMatches, _) = await MeasurePhaseAsync(
             phaseName: "retrieval_quoted_title",
             retriever: "quoted_title",
-            action: () => SearchQuotedTitleMatchesAsync(ds, tenantId, req.Query, category, req.DocId, req.DocPath, topK, ct),
+            action: () => SearchQuotedTitleMatchesAsync(ds, tenantId, req.Query, category, req.DocId, req.DocPath, topK, ct, categoryPath),
             getReturnedCount: static matches => matches.Count);
         var shortCircuitAfterExact = ShouldShortCircuitAfterExact(exactMatches);
         var selected = new List<RagMatch>(capacity: topK);
@@ -375,51 +1383,70 @@ ORDER BY d.doc_path;
         {
             AddRankedMatches(selected, selectedKeys, quotedTitleMatches, topK, minScore: 0.0, maxPerDoc, Math.Max(maxPerPage, 2));
 
-            var sparseMatchesTask = MeasurePhaseAsync(
-                phaseName: "retrieval_sparse",
-                retriever: "sparse_bm25",
-                action: () => SearchSparseMatchesAsync(
-                    ds,
-                    tenantId,
-                    req.Query,
-                    category,
-                    req.DocId,
-                    req.DocPath,
-                    candidates,
-                    ct,
-                    sparseMsRef: value => sparseMs = value,
-                    lexicalExpansionQuery: retrievalQuery),
-                getReturnedCount: static matches => matches.Count);
-            var denseMatchesTask = MeasurePhaseAsync(
-                phaseName: "retrieval_dense",
-                retriever: "dense_qdrant",
-                action: () => SearchDenseMatchesAsync(
-                    ds,
-                    httpFactory,
-                    rag,
-                    tenantId,
-                    retrievalQueryNorm,
-                    category,
-                    req.DocId,
-                    req.DocPath,
-                    candidates,
-                    ct,
-                    teiMsRef: value => teiMs = value,
-                    qdrantMsRef: value => qdrantMs = value,
-                    qdrantStatusRef: value => qdrantStatus = value),
-                getReturnedCount: static matches => matches.Count);
+            Task<(List<RagMatch> Result, long DurationMs)> sparseMatchesTask = skipChunkRetrieversForDocumentOverview
+                ? Task.FromResult((new List<RagMatch>(), 0L))
+                : MeasurePhaseAsync(
+                    phaseName: "retrieval_sparse",
+                    retriever: "sparse_bm25",
+                    action: () => SearchSparseMatchesAsync(
+                        ds,
+                        tenantId,
+                        req.Query,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        candidates,
+                        ct,
+                        sparseMsRef: value => sparseMs = value,
+                        lexicalExpansionQuery: retrievalQuery,
+                        categoryPath: categoryPath),
+                    getReturnedCount: static matches => matches.Count);
+            Task<(List<RagMatch> Result, long DurationMs)> denseMatchesTask = skipChunkRetrieversForDocumentOverview
+                ? Task.FromResult((new List<RagMatch>(), 0L))
+                : MeasurePhaseAsync(
+                    phaseName: "retrieval_dense",
+                    retriever: "dense_qdrant",
+                    action: () => SearchDenseMatchesAsync(
+                        ds,
+                        httpFactory,
+                        rag,
+                        tenantId,
+                        retrievalQueryNorm,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        candidates,
+                        ct,
+                        teiMsRef: value => teiMs = value,
+                        qdrantMsRef: value => qdrantMs = value,
+                        qdrantStatusRef: value => qdrantStatus = value,
+                        categoryPath: categoryPath),
+                    getReturnedCount: static matches => matches.Count);
             var profileMatchesTask = MeasurePhaseAsync(
                 phaseName: "retrieval_document_profile",
                 retriever: "document_profile",
-                action: () => SearchDocumentProfileMatchesAsync(
-                    ds,
-                    tenantId,
-                    retrievalQuery,
-                    category,
-                    req.DocId,
-                    req.DocPath,
-                    Math.Min(candidates, Math.Max(topK, 12)),
-                    ct),
+                action: () => skipChunkRetrieversForDocumentOverview
+                    ? SearchDocumentOverviewProfileMatchesAsync(
+                        ds,
+                        tenantId,
+                        retrievalQuery,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        Math.Min(candidates, Math.Max(topK, 12)),
+                        ct,
+                        categoryPath,
+                        requireDocumentOverviewProfileMatch)
+                    : SearchDocumentProfileMatchesAsync(
+                        ds,
+                        tenantId,
+                        retrievalQuery,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        Math.Min(candidates, Math.Max(topK, 12)),
+                        ct,
+                        categoryPath),
                 getReturnedCount: static matches => matches.Count);
 
             await Task.WhenAll(sparseMatchesTask, denseMatchesTask, profileMatchesTask);
@@ -455,7 +1482,15 @@ ORDER BY d.doc_path;
                 fusedMatches = SuppressNavigationalNoise(req.Query, fusedMatches);
             }
 
-            AddRankedMatches(selected, selectedKeys, fusedMatches, topK, minScore, maxPerDoc, maxPerPage);
+            AddRankedMatches(
+                selected,
+                selectedKeys,
+                fusedMatches,
+                topK,
+                minScore,
+                maxPerDoc,
+                maxPerPage,
+                prioritizeDocumentProfiles: preferDocumentDiversity);
 
             if (selected.Count < topK)
             {
@@ -470,7 +1505,8 @@ ORDER BY d.doc_path;
                         req.DocId,
                         req.DocPath,
                         topK - selected.Count,
-                        ct),
+                        ct,
+                        categoryPath),
                     getReturnedCount: static matches => matches.Count);
                 linkedPhaseMs += linkedDurationMs;
 
@@ -490,7 +1526,8 @@ ORDER BY d.doc_path;
                         req.DocId,
                         req.DocPath,
                         topK - selected.Count,
-                        ct),
+                        ct,
+                        categoryPath),
                     getReturnedCount: static matches => matches.Count);
                 linkedPhaseMs += secondWaveLinkedMs;
 
@@ -506,9 +1543,11 @@ ORDER BY d.doc_path;
         PrunePreciseTitleTailSelections(req.Query, selected);
         PruneUnmatchedPreciseTitleSelections(req.Query, selected);
         PruneNavigationalSelections(req.Query, selected);
-        ApplyAutocut(selected, minScore);
+        if (!skipChunkRetrieversForDocumentOverview)
+            ApplyAutocut(selected, minScore);
 
-        if (ShouldBackfillEnumerativeSearch(req.Query, selected.Count, topK))
+        if (!skipChunkRetrieversForDocumentOverview
+            && ShouldBackfillEnumerativeSearch(req.Query, selected.Count, topK))
         {
             var focusedLexicalQuery = BuildFocusedLexicalBackfillQuery(req.Query);
             if (!string.IsNullOrWhiteSpace(focusedLexicalQuery)
@@ -527,7 +1566,8 @@ ORDER BY d.doc_path;
                         Math.Max(candidates, topK * 4),
                         ct,
                         sparseMsRef: value => sparseMs += value,
-                        lexicalExpansionQuery: focusedLexicalQuery),
+                        lexicalExpansionQuery: focusedLexicalQuery,
+                        categoryPath: categoryPath),
                     getReturnedCount: static matches => matches.Count);
                 sparsePhaseMs += backfillDurationMs;
 
@@ -572,15 +1612,136 @@ ORDER BY d.doc_path;
         return response;
     }
 
+    private static async Task<string?> ResolveRagCategoryPathAsync(
+        NpgsqlDataSource ds,
+        Guid tenantId,
+        string? categoryPath,
+        string? categoryRef,
+        CancellationToken ct)
+    {
+        var normalizedPath = DocumentsCategoryScopeResolver.NormalizeCategoryPathOrNull(categoryPath);
+        var normalizedRef = DocumentsCategoryScopeResolver.NormalizeCategoryRefOrNull(categoryRef);
+        if (string.IsNullOrWhiteSpace(normalizedPath) && string.IsNullOrWhiteSpace(normalizedRef))
+            return null;
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        var resolved = await DocumentsCategoryScopeResolver.ResolveCategoryScopeAsync(
+            conn,
+            tenantId,
+            normalizedPath,
+            normalizedRef,
+            ct);
+
+        return DocumentsCategoryScopeResolver.NormalizeCategoryPathOrNull(resolved ?? normalizedPath);
+    }
+
+    private static string? NormalizeRagCategoryPathForSql(string? categoryPath)
+        => DocumentsCategoryScopeResolver.NormalizeCategoryPathOrNull(categoryPath);
+
+    private static bool RagDocPathMatchesCategoryPath(string? docPath, string? categoryPath)
+    {
+        if (string.IsNullOrWhiteSpace(categoryPath))
+            return true;
+        if (string.IsNullOrWhiteSpace(docPath))
+            return false;
+
+        var normalizedDocPath = docPath.Trim().Replace('\\', '/').Trim('/');
+        return string.Equals(normalizedDocPath, categoryPath, StringComparison.OrdinalIgnoreCase)
+            || normalizedDocPath.StartsWith(categoryPath + "/", StringComparison.OrdinalIgnoreCase);
+    }
+
     internal static string ResolveEffectiveSearchMode(string? requestedMode, string query)
     {
         var mode = (requestedMode ?? string.Empty).Trim().ToLowerInvariant();
         if (mode is "focused" or "balanced" or "broad")
             return mode;
 
-        return ShouldPreferComparativeDocumentDiversity(query)
+        return ShouldPreferDocumentDiversity(query)
             ? "broad"
             : "balanced";
+    }
+
+    internal static bool ShouldPreferDocumentDiversity(string query)
+        => ShouldPreferComparativeDocumentDiversity(query)
+           || ContainsDocumentOverviewIntent(query);
+
+    internal static bool ShouldSkipChunkRetrieversForDocumentOverview(string query, bool hasDocScope, string mode)
+        => !hasDocScope
+           && !string.Equals(mode, "focused", StringComparison.Ordinal)
+           && ContainsDocumentOverviewIntent(query);
+
+    internal static bool ShouldRequireDocumentOverviewProfileMatch(string query)
+    {
+        if (!ContainsDocumentOverviewIntent(query))
+            return false;
+
+        var topicTokens = ExtractLexicalQueryTokens(query)
+            .Where(static token => !DocumentOverviewTopicStopwords.Contains(token))
+            .ToArray();
+        if (topicTokens.Length == 0)
+            return false;
+
+        var normalized = " " + FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query)).ToLowerInvariant() + " ";
+        return ContainsAny(normalized,
+            " qui parle ",
+            " qui parlent ",
+            " parle de ",
+            " parle d ",
+            " parlent de ",
+            " parlent d ",
+            " mentionne ",
+            " mentionnent ",
+            " contient ",
+            " contiennent ",
+            " traite de ",
+            " traite d ",
+            " traitent de ",
+            " traitent d ",
+            " au sujet de ",
+            " en lien avec ",
+            " concernant ",
+            " sur ",
+            " about ",
+            " related to ",
+            " concerning ",
+            " mention ",
+            " mentions ",
+            " mentioning ",
+            " contain ",
+            " contains ",
+            " containing ",
+            " cover ",
+            " covers ",
+            " covering ",
+            " hablan de ",
+            " habla de ",
+            " mencionan ",
+            " menciona ",
+            " contienen ",
+            " contiene ",
+            " sobre ",
+            " falam de ",
+            " fala de ",
+            " mencionam ",
+            " menciona ",
+            " contem ",
+            " sobre ",
+            " parlano di ",
+            " parla di ",
+            " menzionano ",
+            " menziona ",
+            " contengono ",
+            " contiene ",
+            " riguard ",
+            " su ",
+            " sprechen uber ",
+            " sprechen ueber ",
+            " erwahnt ",
+            " erwahnen ",
+            " enthalt ",
+            " enthalten ",
+            " uber ",
+            " ueber ");
     }
 
     internal static bool ShouldPreferComparativeDocumentDiversity(string query)
@@ -632,6 +1793,136 @@ ORDER BY d.doc_path;
                 " welche ");
 
         return false;
+    }
+
+    internal static bool ContainsDocumentOverviewIntent(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return false;
+
+        var normalized = " " + FoldDiacritics(query).ToLowerInvariant() + " ";
+        if (ContainsAny(normalized,
+                " quels documents ",
+                " quelles sources ",
+                " quels fichiers ",
+                " quels pdf ",
+                " quels livres ",
+                " quels rapports ",
+                " quels manuels ",
+                " quels documents sont ",
+                " quels documents tu ",
+                " quels livres tu ",
+                " quels pdf tu ",
+                " which documents ",
+                " which sources ",
+                " which files ",
+                " which pdfs ",
+                " which books ",
+                " which reports ",
+                " which manuals ",
+                " what documents ",
+                " what sources ",
+                " what files ",
+                " que documentos ",
+                " que fuentes ",
+                " que archivos ",
+                " que pdf ",
+                " que libros ",
+                " quais documentos ",
+                " quais fontes ",
+                " quais ficheiros ",
+                " quais arquivos ",
+                " quais pdf ",
+                " quais livros ",
+                " welche dokumente ",
+                " welche quellen ",
+                " welche dateien ",
+                " welche pdf ",
+                " welche bucher ",
+                " welche berichte ",
+                " welche handbucher ",
+                " quali documenti ",
+                " quali fonti ",
+                " quali file ",
+                " quali pdf ",
+                " quali libri ",
+                " quali manuali "))
+        {
+            return true;
+        }
+
+        var hasOverviewIntent = ContainsAny(normalized,
+            " vue d ensemble ",
+            " vue globale ",
+            " inventaire ",
+            " liste ",
+            " disponibles ",
+            " disponible ",
+            " a quoi ils servent ",
+            " a quoi elles servent ",
+            " par grands themes ",
+            " overview ",
+            " inventory ",
+            " available ",
+            " what they are for ",
+            " what each is for ",
+            " high level view ",
+            " vista general ",
+            " panorama ",
+            " inventario ",
+            " disponibles ",
+            " visao geral ",
+            " inventario ",
+            " disponiveis ",
+            " uberblick ",
+            " verfugbar ",
+            " panoramica ",
+            " disponibili ");
+        if (!hasOverviewIntent)
+            return false;
+
+        return ContainsAny(normalized,
+            " document ",
+            " documents ",
+            " source ",
+            " sources ",
+            " fichier ",
+            " fichiers ",
+            " file ",
+            " files ",
+            " pdf ",
+            " livre ",
+            " livres ",
+            " book ",
+            " books ",
+            " rapport ",
+            " rapports ",
+            " report ",
+            " reports ",
+            " manuel ",
+            " manuels ",
+            " manual ",
+            " manuals ",
+            " corpus ",
+            " base ",
+            " knowledge base ",
+            " documentos ",
+            " fuentes ",
+            " archivos ",
+            " libros ",
+            " ficheiros ",
+            " arquivos ",
+            " livros ",
+            " dokumente ",
+            " quellen ",
+            " dateien ",
+            " bucher ",
+            " berichte ",
+            " handbucher ",
+            " documenti ",
+            " fonti ",
+            " libri ",
+            " manuali ");
     }
 
     internal static int ResolveDefaultCandidateCount(string mode, bool preferComparativeDiversity, int topK)
@@ -699,7 +1990,8 @@ ORDER BY d.doc_path;
         string? docId,
         string? docPath,
         int topK,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? categoryPath = null)
     {
         var normalizedTerms = ExactMatchEntryExtractor.ExtractLookupTerms(query);
         if (normalizedTerms.Count == 0)
@@ -718,6 +2010,7 @@ SELECT
     d.doc_id AS "DocId",
     d.doc_path AS "DocPath",
     d.doc_name AS "DocName",
+    d.category AS "Category",
     e.page_start AS "PageStart",
     e.page_end AS "PageEnd",
     (e.metadata->>'offsetStart')::int AS "OffsetStart",
@@ -746,6 +2039,7 @@ WHERE d.tenant_id = @tenant_id
   AND d.status = 'indexed'
   AND d.indexed_version > 0
   AND (@category IS NULL OR LOWER(d.category) = @category)
+  AND (@category_path IS NULL OR d.doc_path = @category_path OR d.doc_path LIKE (@category_path || '/%'))
   AND (@doc_id IS NULL OR d.doc_id = @doc_id)
   AND (@doc_path IS NULL OR d.doc_path = @doc_path)
 ORDER BY
@@ -764,6 +2058,7 @@ LIMIT @top_k;
         var normalizedDocPath = string.IsNullOrWhiteSpace(docPath)
             ? null
             : docPath.Trim().Replace('\\', '/').TrimStart('/');
+        var normalizedCategoryPath = NormalizeRagCategoryPathForSql(categoryPath);
         Guid? normalizedDocId = Guid.TryParse(docId, out var parsedDocId) ? parsedDocId : null;
 
         var rows = await conn.QueryAsync<ExactMatchRow>(new CommandDefinition(sql, new
@@ -771,6 +2066,7 @@ LIMIT @top_k;
             tenant_id = tenantId,
             normalized_terms = normalizedTerms.ToArray(),
             category,
+            category_path = normalizedCategoryPath,
             doc_id = normalizedDocId,
             doc_path = normalizedDocPath,
             top_k = topK
@@ -781,6 +2077,7 @@ LIMIT @top_k;
             DocId: row.DocId.ToString(),
             DocPath: row.DocPath,
             DocName: row.DocName,
+            Category: row.Category,
             PageStart: row.PageStart,
             PageEnd: row.PageEnd,
             OffsetStart: row.OffsetStart,
@@ -812,7 +2109,8 @@ LIMIT @top_k;
                 normalizedDocId,
                 normalizedDocPath,
                 topK - matches.Count,
-                ct);
+                ct,
+                normalizedCategoryPath);
 
             foreach (var metadataMatch in metadataMatches)
             {
@@ -828,7 +2126,12 @@ LIMIT @top_k;
             }
         }
 
-        return matches;
+        return await AttachDocumentProfileContentCardsAsync(
+            ds,
+            tenantId,
+            matches,
+            string.Join(' ', normalizedTerms),
+            ct);
     }
 
     internal static async Task<List<RagMatch>> SearchQuotedTitleMatchesAsync(
@@ -839,7 +2142,8 @@ LIMIT @top_k;
         string? docId,
         string? docPath,
         int topK,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? categoryPath = null)
     {
         var quotedTerms = ExtractQuotedLookupPhrases(query);
         if (quotedTerms.Count == 0 || topK <= 0)
@@ -849,6 +2153,7 @@ LIMIT @top_k;
         var normalizedDocPath = string.IsNullOrWhiteSpace(docPath)
             ? null
             : docPath.Trim().Replace('\\', '/').TrimStart('/');
+        var normalizedCategoryPath = NormalizeRagCategoryPathForSql(categoryPath);
         Guid? normalizedDocId = Guid.TryParse(docId, out var parsedDocId) ? parsedDocId : null;
 
         await using var conn = await ds.OpenConnectionAsync(ct);
@@ -868,6 +2173,16 @@ profile_card_matches AS (
         ) AS card_page_end,
         COUNT(*) AS match_count,
         LEFT(string_agg(DISTINCT pcc.title, '; '), 500) AS card_titles,
+        jsonb_build_object(
+            'contentCards',
+            jsonb_agg(DISTINCT jsonb_build_object(
+                'title', pcc.title,
+                'contentCardId', pcc.content_card_id,
+                'pageStart', pcc.page_start,
+                'pageEnd', pcc.page_end,
+                'kind', pcc.kind,
+                'signals', pcc.signals,
+                'evidence', pcc.metadata->'evidence')))::text AS matched_content_cards_json,
         SUM(CASE
             WHEN LOWER(pcc.search_text) LIKE '%' || quoted_terms.term || '%'
               OR pcc.normalized_title LIKE '%' || quoted_terms.term || '%'
@@ -880,27 +2195,38 @@ profile_card_matches AS (
      AND r.doc_id = d.doc_id
      AND r.indexed_version = d.indexed_version
     JOIN LATERAL (
-        SELECT profile.*
-        FROM document_profiles profile
-        WHERE profile.tenant_id = r.tenant_id
-          AND profile.revision_id = r.revision_id
+        SELECT DISTINCT ON (
+            card.normalized_title,
+            GREATEST(1, COALESCE(card.page_start, 1)),
+            GREATEST(
+                GREATEST(1, COALESCE(card.page_start, 1)),
+                COALESCE(card.page_end, GREATEST(1, COALESCE(card.page_start, 1)))
+            ))
+            card.*
+        FROM document_profile_content_cards card
+        WHERE card.tenant_id = r.tenant_id
+          AND card.revision_id = r.revision_id
         ORDER BY
-            CASE profile.profile_version
+            card.normalized_title,
+            GREATEST(1, COALESCE(card.page_start, 1)),
+            GREATEST(
+                GREATEST(1, COALESCE(card.page_start, 1)),
+                COALESCE(card.page_end, GREATEST(1, COALESCE(card.page_start, 1)))
+            ),
+            CASE card.profile_version
                 WHEN 'llm_backoffice_v1' THEN 0
                 WHEN 'deterministic_v1' THEN 1
                 ELSE 2
             END,
-            profile.updated_at DESC
-        LIMIT 1
-    ) p ON TRUE
-    JOIN document_profile_content_cards pcc
-      ON pcc.tenant_id = p.tenant_id
-     AND pcc.document_profile_id = p.document_profile_id
+            card.updated_at DESC,
+            card.card_index ASC
+    ) pcc ON TRUE
     CROSS JOIN quoted_terms
     WHERE d.tenant_id = @tenant_id
       AND d.status = 'indexed'
       AND d.indexed_version > 0
       AND (@category IS NULL OR LOWER(d.category) = @category)
+      AND (@category_path IS NULL OR d.doc_path = @category_path OR d.doc_path LIKE (@category_path || '/%'))
       AND (@doc_id IS NULL OR d.doc_id = @doc_id)
       AND (@doc_path IS NULL OR d.doc_path = @doc_path)
       AND pcc.page_start IS NOT NULL
@@ -920,6 +2246,7 @@ SELECT
     d.doc_id AS "DocId",
     d.doc_path AS "DocPath",
     d.doc_name AS "DocName",
+    d.category AS "Category",
     rc.page_start AS "PageStart",
     rc.page_end AS "PageEnd",
     (rc.metadata->>'offsetStart')::int AS "OffsetStart",
@@ -943,6 +2270,7 @@ SELECT
     rc.metadata->>'prevChunkId' AS "PrevChunkId",
     rc.metadata->>'nextChunkId' AS "NextChunkId",
     rc.metadata->>'sameSectionChunkId' AS "SameSectionChunkId",
+    pcm.matched_content_cards_json AS "MatchedContentCardsJson",
     (tm.match_weight + (COALESCE(pcm.match_weight, 0.0) * 2.2))::real AS "SparseRank"
 FROM documents d
 JOIN document_revisions r
@@ -976,6 +2304,7 @@ WHERE d.tenant_id = @tenant_id
   AND d.indexed_version > 0
   AND (tm.match_count > 0 OR COALESCE(pcm.match_count, 0) > 0)
   AND (@category IS NULL OR LOWER(d.category) = @category)
+  AND (@category_path IS NULL OR d.doc_path = @category_path OR d.doc_path LIKE (@category_path || '/%'))
   AND (@doc_id IS NULL OR d.doc_id = @doc_id)
   AND (@doc_path IS NULL OR d.doc_path = @doc_path)
 ORDER BY
@@ -991,6 +2320,7 @@ LIMIT @candidate_limit;
             tenant_id = tenantId,
             quoted_terms = quotedTerms.ToArray(),
             category,
+            category_path = normalizedCategoryPath,
             doc_id = normalizedDocId,
             doc_path = normalizedDocPath,
             candidate_limit = candidateLimit
@@ -1024,6 +2354,7 @@ LIMIT @candidate_limit;
             DocId: row.DocId.ToString(),
             DocPath: row.DocPath,
             DocName: row.DocName,
+            Category: row.Category,
             PageStart: row.PageStart,
             PageEnd: row.PageEnd,
             OffsetStart: row.OffsetStart,
@@ -1042,7 +2373,8 @@ LIMIT @candidate_limit;
             ChunkType: row.ChunkType,
             PrevChunkId: row.PrevChunkId,
             NextChunkId: row.NextChunkId,
-                    SameSectionChunkId: row.SameSectionChunkId);
+                    SameSectionChunkId: row.SameSectionChunkId,
+                    MatchedContentCards: BuildSparseMatchedContentCards(row, query));
             })
             .ToList();
     }
@@ -1060,7 +2392,8 @@ LIMIT @candidate_limit;
         CancellationToken ct,
         Action<long> teiMsRef,
         Action<long> qdrantMsRef,
-        Action<int> qdrantStatusRef)
+        Action<int> qdrantStatusRef,
+        string? categoryPath = null)
     {
         var tei = httpFactory.CreateClient("tei");
         tei.BaseAddress = new Uri(rag.EmbeddingsBaseUrl);
@@ -1078,17 +2411,21 @@ LIMIT @candidate_limit;
         {
             new { key = "tenant_id", match = new { value = tenantId.ToString() } }
         };
-        if (!string.IsNullOrWhiteSpace(category))
-            filterMust.Add(new { key = "category", match = new { value = category } });
+        var qdrantCategory = NormalizeRagCategory(category);
+        if (!string.IsNullOrWhiteSpace(qdrantCategory))
+            filterMust.Add(new { key = "category", match = new { value = qdrantCategory } });
         if (!string.IsNullOrWhiteSpace(docId))
             filterMust.Add(new { key = "doc_id", match = new { value = docId.Trim() } });
         if (!string.IsNullOrWhiteSpace(docPath))
             filterMust.Add(new { key = "doc_path", match = new { value = docPath.Trim().Replace('\\', '/') } });
 
+        var qdrantLimit = string.IsNullOrWhiteSpace(categoryPath)
+            ? candidates
+            : Math.Clamp(candidates * 3, candidates, Math.Max(candidates, 256));
         var payload = new
         {
             vector = qvec,
-            limit = candidates,
+            limit = qdrantLimit,
             with_payload = true,
             filter = new { must = filterMust }
         };
@@ -1123,8 +2460,9 @@ LIMIT @candidate_limit;
             await using var stream = await resp.Content.ReadAsStreamAsync(ct);
             using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
             var rawMatches = QdrantClient.ParseSearchResults(doc);
-            var filtered = await FilterMatchesAgainstActiveDocumentVersionsAsync(ds, tenantId, rawMatches, ct);
-            return RerankDenseMatches(filtered);
+            var filtered = await FilterMatchesAgainstActiveDocumentVersionsAsync(ds, tenantId, rawMatches, ct, categoryPath);
+            var enriched = await AttachDocumentProfileContentCardsAsync(ds, tenantId, filtered, queryNorm, ct);
+            return RerankDenseMatches(enriched).Take(candidates).ToList();
         }
         finally
         {
@@ -1187,7 +2525,8 @@ LIMIT @candidate_limit;
         int topK,
         CancellationToken ct,
         Action<long> sparseMsRef,
-        string? lexicalExpansionQuery = null)
+        string? lexicalExpansionQuery = null,
+        string? categoryPath = null)
     {
         if (string.IsNullOrWhiteSpace(query) || topK <= 0)
         {
@@ -1198,6 +2537,7 @@ LIMIT @candidate_limit;
         var normalizedDocPath = string.IsNullOrWhiteSpace(docPath)
             ? null
             : docPath.Trim().Replace('\\', '/').TrimStart('/');
+        var normalizedCategoryPath = NormalizeRagCategoryPathForSql(categoryPath);
         Guid? normalizedDocId = Guid.TryParse(docId, out var parsedDocId) ? parsedDocId : null;
         var sparseQueryText = string.IsNullOrWhiteSpace(lexicalExpansionQuery)
             ? query.Trim()
@@ -1225,6 +2565,16 @@ profile_card_matches AS (
         ) AS card_page_end,
         COUNT(*) AS match_count,
         LEFT(string_agg(DISTINCT pcc.title, '; '), 500) AS card_titles,
+        jsonb_build_object(
+            'contentCards',
+            jsonb_agg(DISTINCT jsonb_build_object(
+                'title', pcc.title,
+                'contentCardId', pcc.content_card_id,
+                'pageStart', pcc.page_start,
+                'pageEnd', pcc.page_end,
+                'kind', pcc.kind,
+                'signals', pcc.signals,
+                'evidence', pcc.metadata->'evidence')))::text AS matched_content_cards_json,
         COALESCE(SUM(
             CASE
                 WHEN lexical_terms.term LIKE '% %' AND length(lexical_terms.term) >= 18 THEN 8.0
@@ -1239,27 +2589,38 @@ profile_card_matches AS (
      AND r.doc_id = d.doc_id
      AND r.indexed_version = d.indexed_version
     JOIN LATERAL (
-        SELECT profile.*
-        FROM document_profiles profile
-        WHERE profile.tenant_id = r.tenant_id
-          AND profile.revision_id = r.revision_id
+        SELECT DISTINCT ON (
+            card.normalized_title,
+            GREATEST(1, COALESCE(card.page_start, 1)),
+            GREATEST(
+                GREATEST(1, COALESCE(card.page_start, 1)),
+                COALESCE(card.page_end, GREATEST(1, COALESCE(card.page_start, 1)))
+            ))
+            card.*
+        FROM document_profile_content_cards card
+        WHERE card.tenant_id = r.tenant_id
+          AND card.revision_id = r.revision_id
         ORDER BY
-            CASE profile.profile_version
+            card.normalized_title,
+            GREATEST(1, COALESCE(card.page_start, 1)),
+            GREATEST(
+                GREATEST(1, COALESCE(card.page_start, 1)),
+                COALESCE(card.page_end, GREATEST(1, COALESCE(card.page_start, 1)))
+            ),
+            CASE card.profile_version
                 WHEN 'llm_backoffice_v1' THEN 0
                 WHEN 'deterministic_v1' THEN 1
                 ELSE 2
             END,
-            profile.updated_at DESC
-        LIMIT 1
-    ) p ON TRUE
-    JOIN document_profile_content_cards pcc
-      ON pcc.tenant_id = p.tenant_id
-     AND pcc.document_profile_id = p.document_profile_id
+            card.updated_at DESC,
+            card.card_index ASC
+    ) pcc ON TRUE
     CROSS JOIN lexical_terms
     WHERE d.tenant_id = @tenant_id
       AND d.status = 'indexed'
       AND d.indexed_version > 0
       AND (@category IS NULL OR LOWER(d.category) = @category)
+      AND (@category_path IS NULL OR d.doc_path = @category_path OR d.doc_path LIKE (@category_path || '/%'))
       AND (@doc_id IS NULL OR d.doc_id = @doc_id)
       AND (@doc_path IS NULL OR d.doc_path = @doc_path)
       AND pcc.page_start IS NOT NULL
@@ -1282,6 +2643,7 @@ SELECT
     d.doc_id AS "DocId",
     d.doc_path AS "DocPath",
     d.doc_name AS "DocName",
+    d.category AS "Category",
     rc.page_start AS "PageStart",
     rc.page_end AS "PageEnd",
     (rc.metadata->>'offsetStart')::int AS "OffsetStart",
@@ -1303,6 +2665,7 @@ SELECT
     rc.metadata->>'prevChunkId' AS "PrevChunkId",
     rc.metadata->>'nextChunkId' AS "NextChunkId",
     rc.metadata->>'sameSectionChunkId' AS "SameSectionChunkId",
+    pcm.matched_content_cards_json AS "MatchedContentCardsJson",
     (
         ts_rank_cd(
             to_tsvector('simple', cte.text_content),
@@ -1330,8 +2693,9 @@ LEFT JOIN profile_card_matches pcm
   ON pcm.revision_id = r.revision_id
  AND rc.page_start <= pcm.card_page_end
  AND rc.page_end >= pcm.card_page_start
-WHERE to_tsvector('simple', cte.text_content) @@ sparse_query.q
+WHERE (to_tsvector('simple', cte.text_content) @@ sparse_query.q OR COALESCE(pcm.match_count, 0) > 0)
   AND (@category IS NULL OR LOWER(d.category) = @category)
+  AND (@category_path IS NULL OR d.doc_path = @category_path OR d.doc_path LIKE (@category_path || '/%'))
   AND (@doc_id IS NULL OR d.doc_id = @doc_id)
   AND (@doc_path IS NULL OR d.doc_path = @doc_path)
 ORDER BY "SparseRank" DESC,
@@ -1349,6 +2713,7 @@ LIMIT @top_k;
                 query_text = sparseQueryText,
                 lexical_terms = lexicalTerms.ToArray(),
                 category,
+                category_path = normalizedCategoryPath,
                 doc_id = normalizedDocId,
                 doc_path = normalizedDocPath,
                 top_k = topK
@@ -1357,13 +2722,19 @@ LIMIT @top_k;
             if (lexicalTerms.Count > 0
                 && (rows.Count == 0
                     || !string.IsNullOrWhiteSpace(category)
-                    || ShouldSupplementSparseWithLexicalFallback(category, sparseQueryText)))
+                    || ShouldSupplementSparseWithLexicalFallback(
+                        !string.IsNullOrWhiteSpace(category)
+                        || !string.IsNullOrWhiteSpace(normalizedCategoryPath)
+                        || normalizedDocId.HasValue
+                        || !string.IsNullOrWhiteSpace(normalizedDocPath),
+                        sparseQueryText)))
             {
                 var fallbackRows = (await conn.QueryAsync<SparseMatchRow>(new CommandDefinition(LexicalContentFallbackSql, new
                 {
                     tenant_id = tenantId,
                     lexical_terms = lexicalTerms.ToArray(),
                     category,
+                    category_path = normalizedCategoryPath,
                     doc_id = normalizedDocId,
                     doc_path = normalizedDocPath,
                     top_k = topK
@@ -1379,6 +2750,7 @@ LIMIT @top_k;
                 DocId: row.DocId.ToString(),
                 DocPath: row.DocPath,
                 DocName: row.DocName,
+                Category: row.Category,
                 PageStart: row.PageStart,
                 PageEnd: row.PageEnd,
                 OffsetStart: row.OffsetStart,
@@ -1397,10 +2769,12 @@ LIMIT @top_k;
                 ChunkType: row.ChunkType,
                 PrevChunkId: row.PrevChunkId,
                 NextChunkId: row.NextChunkId,
-                SameSectionChunkId: row.SameSectionChunkId)).ToList();
+                SameSectionChunkId: row.SameSectionChunkId,
+                MatchedContentCards: BuildSparseMatchedContentCards(row, query))).ToList();
         }
-        catch (PostgresException)
+        catch (PostgresException ex)
         {
+            RetrievalTelemetry.RecordRetrieverDegraded("sparse_bm25", ex);
             return [];
         }
         finally
@@ -1444,6 +2818,7 @@ scoped_docs AS (
       AND d.status = 'indexed'
       AND d.indexed_version > 0
       AND (@category IS NULL OR LOWER(d.category) = @category)
+      AND (@category_path IS NULL OR d.doc_path = @category_path OR d.doc_path LIKE (@category_path || '/%'))
       AND (@doc_id IS NULL OR d.doc_id = @doc_id)
       AND (@doc_path IS NULL OR d.doc_path = @doc_path)
 ),
@@ -1517,6 +2892,14 @@ single_profile_card_term_matches AS (
             COALESCE(pcc.page_end, GREATEST(1, COALESCE(pcc.page_start, 1)))
         ) AS card_page_end,
         pcc.title,
+        jsonb_build_object(
+            'title', pcc.title,
+            'contentCardId', pcc.content_card_id,
+            'pageStart', pcc.page_start,
+            'pageEnd', pcc.page_end,
+            'kind', pcc.kind,
+            'signals', pcc.signals,
+            'evidence', pcc.metadata->'evidence') AS card_json,
         single_terms.term,
         CASE
             WHEN length(single_terms.term) >= 10 THEN 3.0
@@ -1525,22 +2908,32 @@ single_profile_card_term_matches AS (
         END AS match_weight
     FROM scoped_docs d
     JOIN LATERAL (
-        SELECT profile.*
-        FROM document_profiles profile
-        WHERE profile.tenant_id = d.tenant_id
-          AND profile.revision_id = d.revision_id
+        SELECT DISTINCT ON (
+            card.normalized_title,
+            GREATEST(1, COALESCE(card.page_start, 1)),
+            GREATEST(
+                GREATEST(1, COALESCE(card.page_start, 1)),
+                COALESCE(card.page_end, GREATEST(1, COALESCE(card.page_start, 1)))
+            ))
+            card.*
+        FROM document_profile_content_cards card
+        WHERE card.tenant_id = d.tenant_id
+          AND card.revision_id = d.revision_id
         ORDER BY
-            CASE profile.profile_version
+            card.normalized_title,
+            GREATEST(1, COALESCE(card.page_start, 1)),
+            GREATEST(
+                GREATEST(1, COALESCE(card.page_start, 1)),
+                COALESCE(card.page_end, GREATEST(1, COALESCE(card.page_start, 1)))
+            ),
+            CASE card.profile_version
                 WHEN 'llm_backoffice_v1' THEN 0
                 WHEN 'deterministic_v1' THEN 1
                 ELSE 2
             END,
-            profile.updated_at DESC
-        LIMIT 1
-    ) p ON TRUE
-    JOIN document_profile_content_cards pcc
-      ON pcc.tenant_id = p.tenant_id
-     AND pcc.document_profile_id = p.document_profile_id
+            card.updated_at DESC,
+            card.card_index ASC
+    ) pcc ON TRUE
     JOIN single_terms
       ON LOWER(pcc.search_text) LIKE '%' || single_terms.term || '%'
       OR pcc.normalized_title LIKE '%' || single_terms.term || '%'
@@ -1560,6 +2953,14 @@ phrase_profile_card_term_matches AS (
             COALESCE(pcc.page_end, GREATEST(1, COALESCE(pcc.page_start, 1)))
         ) AS card_page_end,
         pcc.title,
+        jsonb_build_object(
+            'title', pcc.title,
+            'contentCardId', pcc.content_card_id,
+            'pageStart', pcc.page_start,
+            'pageEnd', pcc.page_end,
+            'kind', pcc.kind,
+            'signals', pcc.signals,
+            'evidence', pcc.metadata->'evidence') AS card_json,
         phrase_terms.term,
         CASE
             WHEN length(phrase_terms.term) >= 18 THEN 8.0
@@ -1567,22 +2968,32 @@ phrase_profile_card_term_matches AS (
         END AS match_weight
     FROM scoped_docs d
     JOIN LATERAL (
-        SELECT profile.*
-        FROM document_profiles profile
-        WHERE profile.tenant_id = d.tenant_id
-          AND profile.revision_id = d.revision_id
+        SELECT DISTINCT ON (
+            card.normalized_title,
+            GREATEST(1, COALESCE(card.page_start, 1)),
+            GREATEST(
+                GREATEST(1, COALESCE(card.page_start, 1)),
+                COALESCE(card.page_end, GREATEST(1, COALESCE(card.page_start, 1)))
+            ))
+            card.*
+        FROM document_profile_content_cards card
+        WHERE card.tenant_id = d.tenant_id
+          AND card.revision_id = d.revision_id
         ORDER BY
-            CASE profile.profile_version
+            card.normalized_title,
+            GREATEST(1, COALESCE(card.page_start, 1)),
+            GREATEST(
+                GREATEST(1, COALESCE(card.page_start, 1)),
+                COALESCE(card.page_end, GREATEST(1, COALESCE(card.page_start, 1)))
+            ),
+            CASE card.profile_version
                 WHEN 'llm_backoffice_v1' THEN 0
                 WHEN 'deterministic_v1' THEN 1
                 ELSE 2
             END,
-            profile.updated_at DESC
-        LIMIT 1
-    ) p ON TRUE
-    JOIN document_profile_content_cards pcc
-      ON pcc.tenant_id = p.tenant_id
-     AND pcc.document_profile_id = p.document_profile_id
+            card.updated_at DESC,
+            card.card_index ASC
+    ) pcc ON TRUE
     JOIN phrase_terms
       ON (
         NOT EXISTS (SELECT 1 FROM single_terms)
@@ -1599,12 +3010,12 @@ phrase_profile_card_term_matches AS (
     WHERE pcc.page_start IS NOT NULL
 ),
 profile_card_term_matches AS (
-    SELECT revision_id, card_page_start, card_page_end, title, term, match_weight
+    SELECT revision_id, card_page_start, card_page_end, title, card_json, term, match_weight
     FROM single_profile_card_term_matches
 
     UNION ALL
 
-    SELECT revision_id, card_page_start, card_page_end, title, term, match_weight
+    SELECT revision_id, card_page_start, card_page_end, title, card_json, term, match_weight
     FROM phrase_profile_card_term_matches
 ),
 profile_card_matches AS (
@@ -1614,6 +3025,7 @@ profile_card_matches AS (
         card_page_end,
         COUNT(DISTINCT term) AS match_count,
         LEFT(string_agg(DISTINCT title, '; '), 500) AS card_titles,
+        jsonb_build_object('contentCards', jsonb_agg(DISTINCT card_json))::text AS matched_content_cards_json,
         SUM(match_weight)::real AS match_weight
     FROM profile_card_term_matches
     GROUP BY revision_id, card_page_start, card_page_end
@@ -1623,8 +3035,10 @@ profile_matched_chunks AS (
         rc.retrieval_chunk_id,
         SUM(pcm.match_count)::int AS match_count,
         LEFT(string_agg(DISTINCT pcm.card_titles, '; '), 500) AS card_titles,
+        jsonb_build_object('contentCards', jsonb_agg(DISTINCT matched_card.card))::text AS matched_content_cards_json,
         SUM(pcm.match_weight)::real AS match_weight
     FROM profile_card_matches pcm
+    LEFT JOIN LATERAL jsonb_array_elements(COALESCE((pcm.matched_content_cards_json::jsonb)->'contentCards', '[]'::jsonb)) AS matched_card(card) ON TRUE
     JOIN retrieval_chunks rc
       ON rc.revision_id = pcm.revision_id
      AND rc.page_start <= pcm.card_page_end
@@ -1640,6 +3054,7 @@ SELECT
     d.doc_id AS "DocId",
     d.doc_path AS "DocPath",
     d.doc_name AS "DocName",
+    d.category AS "Category",
     rc.page_start AS "PageStart",
     rc.page_end AS "PageEnd",
     (rc.metadata->>'offsetStart')::int AS "OffsetStart",
@@ -1661,6 +3076,7 @@ SELECT
     rc.metadata->>'prevChunkId' AS "PrevChunkId",
     rc.metadata->>'nextChunkId' AS "NextChunkId",
     rc.metadata->>'sameSectionChunkId' AS "SameSectionChunkId",
+    pcm.matched_content_cards_json AS "MatchedContentCardsJson",
     (COALESCE(lm.match_weight, 0.0) + (COALESCE(pcm.match_weight, 0.0) * 1.8))::real AS "SparseRank"
 FROM candidate_chunks candidate
 JOIN retrieval_chunks rc
@@ -1685,7 +3101,7 @@ ORDER BY (COALESCE(lm.match_weight, 0.0) + (COALESCE(pcm.match_weight, 0.0) * 1.
 LIMIT @top_k;
 """;
 
-    internal static async Task<List<RagMatch>> SearchDocumentProfileMatchesAsync(
+    internal static async Task<List<RagMatch>> SearchDocumentOverviewProfileMatchesAsync(
         NpgsqlDataSource ds,
         Guid tenantId,
         string query,
@@ -1693,26 +3109,23 @@ LIMIT @top_k;
         string? docId,
         string? docPath,
         int topK,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? categoryPath = null,
+        bool requireLexicalMatch = false)
     {
-        if (string.IsNullOrWhiteSpace(query) || topK <= 0)
+        if (topK <= 0)
             return [];
 
-        var lexicalTerms = BuildLexicalContentFallbackTerms(query);
-        if (lexicalTerms.Count == 0)
-            return [];
-
+        var lexicalTerms = BuildLexicalContentFallbackTerms(query).ToArray();
         var normalizedDocPath = string.IsNullOrWhiteSpace(docPath)
             ? null
             : docPath.Trim().Replace('\\', '/').TrimStart('/');
+        var normalizedCategoryPath = NormalizeRagCategoryPathForSql(categoryPath);
         Guid? normalizedDocId = Guid.TryParse(docId, out var parsedDocId) ? parsedDocId : null;
 
         await using var conn = await ds.OpenConnectionAsync(ct);
         const string sql = """
-WITH sparse_query AS (
-    SELECT websearch_to_tsquery('simple', @query_text) AS q
-),
-lexical_terms AS (
+WITH lexical_terms AS (
     SELECT DISTINCT LOWER(term) AS term
     FROM unnest(@lexical_terms::text[]) AS term
     WHERE term IS NOT NULL AND term <> ''
@@ -1721,24 +3134,21 @@ SELECT
     d.doc_id AS "DocId",
     d.doc_path AS "DocPath",
     d.doc_name AS "DocName",
+    d.category AS "Category",
     p.document_profile_id AS "ProfileId",
     d.indexed_version AS "IngestionVersion",
     LOWER(ENCODE(d.content_hash, 'hex')) AS "HashDoc",
-    p.summary_text AS "Text",
-    p.search_text AS "SearchText",
+    COALESCE(NULLIF(s.summary_text, ''), NULLIF(p.summary_text, ''), d.doc_name, d.doc_path) AS "Text",
+    effective_profile.search_text AS "SearchText",
     COALESCE(cards.metadata_json, p.metadata::text) AS "MetadataJson",
     p.language AS "Language",
-    ts_rank_cd(
-        to_tsvector('simple', p.search_text),
-        sparse_query.q,
-        32
-    ) + ((lm.match_weight + COALESCE(cm.match_weight, 0.0))::real * 0.04) AS "SparseRank",
-    (lm.match_count + COALESCE(cm.match_count, 0)) AS "MatchCount"
-FROM sparse_query
-JOIN documents d
-  ON d.tenant_id = @tenant_id
- AND d.status = 'indexed'
- AND d.indexed_version > 0
+    CASE
+        WHEN COALESCE(lm.match_count, 0) > 0
+        THEN (0.01::double precision + (COALESCE(lm.match_weight, 0.0)::double precision * 0.05::double precision))
+        ELSE 0.0::double precision
+    END AS "SparseRank",
+    COALESCE(lm.match_count, 0)::bigint AS "MatchCount"
+FROM documents d
 JOIN document_revisions r
   ON r.tenant_id = d.tenant_id
  AND r.doc_id = d.doc_id
@@ -1757,24 +3167,71 @@ JOIN LATERAL (
         profile.updated_at DESC
     LIMIT 1
 ) p ON TRUE
+LEFT JOIN document_summaries s
+  ON s.tenant_id = d.tenant_id
+ AND s.doc_id = d.doc_id
+ AND s.level = 'medium'
+ AND s.source_hash = saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version)
 LEFT JOIN LATERAL (
-    SELECT CASE
-        WHEN COUNT(*) = 0 THEN NULL
-        ELSE jsonb_build_object(
-            'contentCards',
-            jsonb_agg(
-                jsonb_build_object(
-                    'title', card.title,
-                    'pageStart', card.page_start,
-                    'pageEnd', card.page_end,
-                    'kind', card.kind,
-                    'signals', card.signals)
-                ORDER BY card.card_index))::text
-        END AS metadata_json
-    FROM document_profile_content_cards card
-    WHERE card.tenant_id = p.tenant_id
-      AND card.document_profile_id = p.document_profile_id
+    SELECT
+        CASE
+            WHEN COUNT(*) = 0 THEN NULL
+            ELSE jsonb_build_object(
+                'contentCards',
+                jsonb_agg(
+                    jsonb_build_object(
+                        'title', card.title,
+                        'contentCardId', card.content_card_id,
+                        'pageStart', card.page_start,
+                        'pageEnd', card.page_end,
+                        'kind', card.kind,
+                        'signals', card.signals,
+                        'evidence', card.metadata->'evidence')
+                    ORDER BY card.card_index))::text
+        END AS metadata_json,
+        NULLIF(TRIM(BOTH FROM STRING_AGG(card.search_text, ' ' ORDER BY card.card_index)), '') AS search_text
+    FROM (
+        SELECT DISTINCT ON (
+            raw_card.normalized_title,
+            GREATEST(1, COALESCE(raw_card.page_start, 1)),
+            GREATEST(
+                GREATEST(1, COALESCE(raw_card.page_start, 1)),
+                COALESCE(raw_card.page_end, GREATEST(1, COALESCE(raw_card.page_start, 1)))
+            ))
+            raw_card.*
+        FROM document_profile_content_cards raw_card
+        WHERE raw_card.tenant_id = r.tenant_id
+          AND raw_card.revision_id = r.revision_id
+        ORDER BY
+            raw_card.normalized_title,
+            GREATEST(1, COALESCE(raw_card.page_start, 1)),
+            GREATEST(
+                GREATEST(1, COALESCE(raw_card.page_start, 1)),
+                COALESCE(raw_card.page_end, GREATEST(1, COALESCE(raw_card.page_start, 1)))
+            ),
+            CASE raw_card.profile_version
+                WHEN 'llm_backoffice_v1' THEN 0
+                WHEN 'deterministic_v1' THEN 1
+                ELSE 2
+            END,
+            raw_card.updated_at DESC,
+            raw_card.card_index ASC
+        LIMIT 80
+    ) card
 ) cards ON TRUE
+CROSS JOIN LATERAL (
+    SELECT TRIM(BOTH FROM CONCAT_WS(
+        ' ',
+        d.doc_path,
+        d.doc_name,
+        p.summary_text,
+        ARRAY_TO_STRING(p.keywords, ' '),
+        ARRAY_TO_STRING(p.entities, ' '),
+        ARRAY_TO_STRING(p.topics, ' '),
+        ARRAY_TO_STRING(p.hypothetical_questions, ' '),
+        NULLIF(s.summary_text, ''),
+        cards.search_text)) AS search_text
+) effective_profile
 LEFT JOIN LATERAL (
     SELECT
         COUNT(*) AS match_count,
@@ -1786,11 +3243,286 @@ LEFT JOIN LATERAL (
                 WHEN length(lexical_terms.term) >= 7 THEN 1.6
                 ELSE 1.0
             END), 0.0) AS match_weight
-    FROM document_profile_content_cards card
+    FROM lexical_terms
+    WHERE LOWER(effective_profile.search_text) LIKE '%' || lexical_terms.term || '%'
+) lm ON TRUE
+WHERE d.tenant_id = @tenant_id
+  AND d.status = 'indexed'
+  AND d.indexed_version > 0
+  AND (@category IS NULL OR LOWER(d.category) = @category)
+  AND (@category_path IS NULL OR d.doc_path = @category_path OR d.doc_path LIKE (@category_path || '/%'))
+  AND (@doc_id IS NULL OR d.doc_id = @doc_id)
+  AND (@doc_path IS NULL OR d.doc_path = @doc_path)
+  AND (NOT @require_lexical_match OR COALESCE(lm.match_count, 0) > 0)
+ORDER BY
+    CASE WHEN COALESCE(lm.match_count, 0) > 0 THEN 0 ELSE 1 END,
+    COALESCE(lm.match_weight, 0.0) DESC,
+    d.doc_path ASC
+LIMIT @top_k;
+""";
+
+        try
+        {
+            var rows = (await conn.QueryAsync<DocumentProfileMatchRow>(new CommandDefinition(sql, new
+            {
+                tenant_id = tenantId,
+                lexical_terms = lexicalTerms,
+                category,
+                category_path = normalizedCategoryPath,
+                doc_id = normalizedDocId,
+                doc_path = normalizedDocPath,
+                top_k = topK,
+                require_lexical_match = requireLexicalMatch
+            }, cancellationToken: ct))).ToList();
+
+            return rows.Select(row =>
+            {
+                var pageRange = ResolveDocumentProfileMatchPageRange(row.MetadataJson, query);
+                var matchedContentCards = BuildMatchedContentCards(row.MetadataJson, query);
+                var profileSectionTitle = BuildDocumentProfileSectionTitle(row.Language);
+                return new RagMatch(
+                    Score: NormalizeDocumentProfileScore(row.SparseRank, (int)Math.Min(row.MatchCount, int.MaxValue)),
+                    DocId: row.DocId.ToString(),
+                    DocPath: row.DocPath,
+                    DocName: row.DocName,
+                    Category: row.Category,
+                    PageStart: pageRange.PageStart,
+                    PageEnd: pageRange.PageEnd,
+                    ChunkId: row.ProfileId.ToString(),
+                    ChunkIndex: -1,
+                    Text: BuildDocumentProfileMatchText(row.Text, row.MetadataJson, query, row.Language),
+                    IngestionVersion: row.IngestionVersion,
+                    HashDoc: row.HashDoc,
+                    EmbedText: row.SearchText,
+                    EmbeddingBasis: "document_profile_v1",
+                    SectionOrdinal: null,
+                    UnitOrdinal: null,
+                    SectionTitle: profileSectionTitle,
+                    HeadingPath: profileSectionTitle,
+                    ChunkType: "document_profile",
+                    PrevChunkId: null,
+                    NextChunkId: null,
+                    SameSectionChunkId: null,
+                    MatchedContentCards: matchedContentCards.Count == 0 ? null : matchedContentCards);
+            }).ToList();
+        }
+        catch (PostgresException ex)
+        {
+            RetrievalTelemetry.RecordRetrieverDegraded("document_profile_overview_v1", ex);
+            return [];
+        }
+    }
+
+    internal static async Task<List<RagMatch>> SearchDocumentProfileMatchesAsync(
+        NpgsqlDataSource ds,
+        Guid tenantId,
+        string query,
+        string? category,
+        string? docId,
+        string? docPath,
+        int topK,
+        CancellationToken ct,
+        string? categoryPath = null)
+    {
+        if (string.IsNullOrWhiteSpace(query) || topK <= 0)
+            return [];
+
+        var lexicalTerms = BuildLexicalContentFallbackTerms(query);
+        if (lexicalTerms.Count == 0)
+            return [];
+
+        var normalizedDocPath = string.IsNullOrWhiteSpace(docPath)
+            ? null
+            : docPath.Trim().Replace('\\', '/').TrimStart('/');
+        var normalizedCategoryPath = NormalizeRagCategoryPathForSql(categoryPath);
+        Guid? normalizedDocId = Guid.TryParse(docId, out var parsedDocId) ? parsedDocId : null;
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        const string sql = """
+WITH sparse_query AS (
+    SELECT websearch_to_tsquery('simple', @query_text) AS q
+),
+lexical_terms AS (
+    SELECT DISTINCT LOWER(term) AS term
+    FROM unnest(@lexical_terms::text[]) AS term
+    WHERE term IS NOT NULL AND term <> ''
+)
+SELECT
+    d.doc_id AS "DocId",
+    d.doc_path AS "DocPath",
+    d.doc_name AS "DocName",
+    d.category AS "Category",
+    p.document_profile_id AS "ProfileId",
+    d.indexed_version AS "IngestionVersion",
+    LOWER(ENCODE(d.content_hash, 'hex')) AS "HashDoc",
+    effective_profile.summary_text AS "Text",
+    effective_profile.search_text AS "SearchText",
+    COALESCE(cards.metadata_json, p.metadata::text) AS "MetadataJson",
+    p.language AS "Language",
+    ts_rank_cd(
+        to_tsvector('simple', effective_profile.search_text),
+        sparse_query.q,
+        32
+    ) + ((lm.match_weight + COALESCE(cm.match_weight, 0.0) + (COALESCE(hm.match_weight, 0.0) * 1.2))::real * 0.04) AS "SparseRank",
+    (lm.match_count + COALESCE(cm.match_count, 0) + COALESCE(hm.match_count, 0)) AS "MatchCount"
+FROM sparse_query
+JOIN documents d
+  ON d.tenant_id = @tenant_id
+ AND d.status = 'indexed'
+ AND d.indexed_version > 0
+JOIN document_revisions r
+  ON r.tenant_id = d.tenant_id
+ AND r.doc_id = d.doc_id
+ AND r.indexed_version = d.indexed_version
+LEFT JOIN document_summaries s
+  ON s.tenant_id = d.tenant_id
+ AND s.doc_id = d.doc_id
+ AND s.level = 'medium'
+ AND s.source_hash = saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version)
+JOIN LATERAL (
+    SELECT profile.*
+    FROM document_profiles profile
+    WHERE profile.tenant_id = r.tenant_id
+      AND profile.revision_id = r.revision_id
+    ORDER BY
+        CASE profile.profile_version
+            WHEN 'llm_backoffice_v1' THEN 0
+            WHEN 'deterministic_v1' THEN 1
+            ELSE 2
+        END,
+        profile.updated_at DESC
+    LIMIT 1
+) p ON TRUE
+LEFT JOIN LATERAL (
+    SELECT
+        NULLIF(TRIM(BOTH FROM STRING_AGG(NULLIF(profile.summary_text, ''), ' ' ORDER BY
+            CASE profile.profile_version
+                WHEN 'llm_backoffice_v1' THEN 0
+                WHEN 'deterministic_v1' THEN 1
+                ELSE 2
+            END,
+            profile.updated_at DESC)), '') AS summary_text,
+        NULLIF(TRIM(BOTH FROM STRING_AGG(NULLIF(profile.search_text, ''), ' ' ORDER BY
+            CASE profile.profile_version
+                WHEN 'llm_backoffice_v1' THEN 0
+                WHEN 'deterministic_v1' THEN 1
+                ELSE 2
+            END,
+            profile.updated_at DESC)), '') AS search_text,
+        NULLIF(TRIM(BOTH FROM STRING_AGG(NULLIF(ARRAY_TO_STRING(profile.keywords, ' '), ''), ' ')), '') AS keywords_text,
+        NULLIF(TRIM(BOTH FROM STRING_AGG(NULLIF(ARRAY_TO_STRING(profile.entities, ' '), ''), ' ')), '') AS entities_text,
+        NULLIF(TRIM(BOTH FROM STRING_AGG(NULLIF(ARRAY_TO_STRING(profile.topics, ' '), ''), ' ')), '') AS topics_text,
+        NULLIF(TRIM(BOTH FROM STRING_AGG(NULLIF(ARRAY_TO_STRING(profile.hypothetical_questions, ' '), ''), ' ')), '') AS hypothetical_questions_text
+    FROM document_profiles profile
+    WHERE profile.tenant_id = r.tenant_id
+      AND profile.revision_id = r.revision_id
+) profile_terms ON TRUE
+LEFT JOIN LATERAL (
+    SELECT CASE
+        WHEN COUNT(*) = 0 THEN NULL
+        ELSE jsonb_build_object(
+            'contentCards',
+            jsonb_agg(
+                jsonb_build_object(
+                    'title', card.title,
+                    'contentCardId', card.content_card_id,
+                    'pageStart', card.page_start,
+                    'pageEnd', card.page_end,
+                    'kind', card.kind,
+                    'signals', card.signals,
+                    'evidence', card.metadata->'evidence')
+                ORDER BY card.card_index))::text
+        END AS metadata_json,
+        NULLIF(TRIM(BOTH FROM STRING_AGG(card.search_text, ' ' ORDER BY card.card_index)), '') AS search_text
+    FROM (
+        SELECT DISTINCT ON (
+            raw_card.normalized_title,
+            GREATEST(1, COALESCE(raw_card.page_start, 1)),
+            GREATEST(
+                GREATEST(1, COALESCE(raw_card.page_start, 1)),
+                COALESCE(raw_card.page_end, GREATEST(1, COALESCE(raw_card.page_start, 1)))
+            ))
+            raw_card.*
+        FROM document_profile_content_cards raw_card
+        WHERE raw_card.tenant_id = r.tenant_id
+          AND raw_card.revision_id = r.revision_id
+        ORDER BY
+            raw_card.normalized_title,
+            GREATEST(1, COALESCE(raw_card.page_start, 1)),
+            GREATEST(
+                GREATEST(1, COALESCE(raw_card.page_start, 1)),
+                COALESCE(raw_card.page_end, GREATEST(1, COALESCE(raw_card.page_start, 1)))
+            ),
+            CASE raw_card.profile_version
+                WHEN 'llm_backoffice_v1' THEN 0
+                WHEN 'deterministic_v1' THEN 1
+                ELSE 2
+            END,
+            raw_card.updated_at DESC,
+            raw_card.card_index ASC
+    ) card
+) cards ON TRUE
+CROSS JOIN LATERAL (
+    SELECT
+        COALESCE(NULLIF(s.summary_text, ''), p.summary_text) AS summary_text,
+        TRIM(BOTH FROM CONCAT_WS(
+            ' ',
+            d.doc_path,
+            d.doc_name,
+            p.summary_text,
+            profile_terms.summary_text,
+            profile_terms.search_text,
+            profile_terms.keywords_text,
+            profile_terms.entities_text,
+            profile_terms.topics_text,
+            profile_terms.hypothetical_questions_text,
+            NULLIF(s.summary_text, ''),
+            ARRAY_TO_STRING(p.keywords, ' '),
+            ARRAY_TO_STRING(p.entities, ' '),
+            ARRAY_TO_STRING(p.topics, ' '),
+            ARRAY_TO_STRING(p.hypothetical_questions, ' '),
+            cards.search_text)) AS search_text
+) effective_profile
+LEFT JOIN LATERAL (
+    SELECT
+        COUNT(*) AS match_count,
+        COALESCE(SUM(
+            CASE
+                WHEN lexical_terms.term LIKE '% %' AND length(lexical_terms.term) >= 18 THEN 7.0
+                WHEN lexical_terms.term LIKE '% %' THEN 5.0
+                WHEN length(lexical_terms.term) >= 10 THEN 2.5
+                WHEN length(lexical_terms.term) >= 7 THEN 1.6
+                ELSE 1.0
+            END), 0.0) AS match_weight
+    FROM (
+        SELECT DISTINCT ON (
+            raw_card.normalized_title,
+            GREATEST(1, COALESCE(raw_card.page_start, 1)),
+            GREATEST(
+                GREATEST(1, COALESCE(raw_card.page_start, 1)),
+                COALESCE(raw_card.page_end, GREATEST(1, COALESCE(raw_card.page_start, 1)))
+            ))
+            raw_card.*
+        FROM document_profile_content_cards raw_card
+        WHERE raw_card.tenant_id = r.tenant_id
+          AND raw_card.revision_id = r.revision_id
+        ORDER BY
+            raw_card.normalized_title,
+            GREATEST(1, COALESCE(raw_card.page_start, 1)),
+            GREATEST(
+                GREATEST(1, COALESCE(raw_card.page_start, 1)),
+                COALESCE(raw_card.page_end, GREATEST(1, COALESCE(raw_card.page_start, 1)))
+            ),
+            CASE raw_card.profile_version
+                WHEN 'llm_backoffice_v1' THEN 0
+                WHEN 'deterministic_v1' THEN 1
+                ELSE 2
+            END,
+            raw_card.updated_at DESC,
+            raw_card.card_index ASC
+    ) card
     CROSS JOIN lexical_terms
-    WHERE card.tenant_id = p.tenant_id
-      AND card.document_profile_id = p.document_profile_id
-      AND CASE
+    WHERE CASE
         WHEN lexical_terms.term LIKE '% %'
             THEN LOWER(card.search_text) ~ REPLACE(lexical_terms.term, ' ', '([^[:alnum:]]+[[:alnum:]]{1,3}){0,2}[^[:alnum:]]+')
                  OR card.normalized_title ~ REPLACE(lexical_terms.term, ' ', '([^[:alnum:]]+[[:alnum:]]{1,3}){0,2}[^[:alnum:]]+')
@@ -1798,6 +3530,28 @@ LEFT JOIN LATERAL (
              OR card.normalized_title LIKE '%' || lexical_terms.term || '%'
       END
 ) cm ON TRUE
+LEFT JOIN LATERAL (
+    SELECT
+        COUNT(*) AS match_count,
+        COALESCE(SUM(
+            CASE
+                WHEN lexical_terms.term LIKE '% %' AND length(lexical_terms.term) >= 18 THEN 7.0
+                WHEN lexical_terms.term LIKE '% %' THEN 5.0
+                WHEN length(lexical_terms.term) >= 10 THEN 2.5
+                WHEN length(lexical_terms.term) >= 7 THEN 1.6
+                ELSE 1.0
+            END), 0.0) AS match_weight
+    FROM document_profiles question_profile
+    CROSS JOIN LATERAL unnest(COALESCE(question_profile.hypothetical_questions, ARRAY[]::text[])) AS question(text)
+    CROSS JOIN lexical_terms
+    WHERE question_profile.tenant_id = r.tenant_id
+      AND question_profile.revision_id = r.revision_id
+      AND CASE
+          WHEN lexical_terms.term LIKE '% %'
+              THEN LOWER(question.text) ~ REPLACE(lexical_terms.term, ' ', '([^[:alnum:]]+[[:alnum:]]{1,3}){0,2}[^[:alnum:]]+')
+          ELSE LOWER(question.text) LIKE '%' || lexical_terms.term || '%'
+      END
+) hm ON TRUE
 CROSS JOIN LATERAL (
     SELECT
         COUNT(*) AS match_count,
@@ -1812,21 +3566,23 @@ CROSS JOIN LATERAL (
     FROM lexical_terms
     WHERE CASE
         WHEN lexical_terms.term LIKE '% %'
-            THEN LOWER(p.search_text) ~ REPLACE(lexical_terms.term, ' ', '([^[:alnum:]]+[[:alnum:]]{1,3}){0,2}[^[:alnum:]]+')
-        ELSE LOWER(p.search_text) LIKE '%' || lexical_terms.term || '%'
+            THEN LOWER(effective_profile.search_text) ~ REPLACE(lexical_terms.term, ' ', '([^[:alnum:]]+[[:alnum:]]{1,3}){0,2}[^[:alnum:]]+')
+        ELSE LOWER(effective_profile.search_text) LIKE '%' || lexical_terms.term || '%'
     END
 ) lm
 WHERE (
-       to_tsvector('simple', p.search_text) @@ sparse_query.q
+       to_tsvector('simple', effective_profile.search_text) @@ sparse_query.q
        OR lm.match_count > 0
        OR COALESCE(cm.match_count, 0) > 0
+       OR COALESCE(hm.match_count, 0) > 0
       )
   AND (@category IS NULL OR LOWER(d.category) = @category)
+  AND (@category_path IS NULL OR d.doc_path = @category_path OR d.doc_path LIKE (@category_path || '/%'))
   AND (@doc_id IS NULL OR d.doc_id = @doc_id)
   AND (@doc_path IS NULL OR d.doc_path = @doc_path)
 ORDER BY
-    (ts_rank_cd(to_tsvector('simple', p.search_text), sparse_query.q, 32)
-        + ((lm.match_weight + COALESCE(cm.match_weight, 0.0))::real * 0.04)) DESC,
+    (ts_rank_cd(to_tsvector('simple', effective_profile.search_text), sparse_query.q, 32)
+        + ((lm.match_weight + COALESCE(cm.match_weight, 0.0) + (COALESCE(hm.match_weight, 0.0) * 1.2))::real * 0.04)) DESC,
     d.updated_at DESC
 LIMIT @top_k;
 """;
@@ -1839,36 +3595,46 @@ LIMIT @top_k;
                 query_text = query.Trim(),
                 lexical_terms = lexicalTerms.ToArray(),
                 category,
+                category_path = normalizedCategoryPath,
                 doc_id = normalizedDocId,
                 doc_path = normalizedDocPath,
                 top_k = topK
             }, cancellationToken: ct))).ToList();
 
-            return rows.Select(row => new RagMatch(
-                Score: NormalizeDocumentProfileScore(row.SparseRank, (int)Math.Min(row.MatchCount, int.MaxValue)),
-                DocId: row.DocId.ToString(),
-                DocPath: row.DocPath,
-                DocName: row.DocName,
-                PageStart: null,
-                PageEnd: null,
-                ChunkId: row.ProfileId.ToString(),
-                ChunkIndex: -1,
-                Text: BuildDocumentProfileMatchText(row.Text, row.MetadataJson, query, row.Language),
-                IngestionVersion: row.IngestionVersion,
-                HashDoc: row.HashDoc,
-                EmbedText: row.SearchText,
-                EmbeddingBasis: "document_profile_v1",
-                SectionOrdinal: null,
-                UnitOrdinal: null,
-                SectionTitle: "Document profile",
-                HeadingPath: "Document profile",
-                ChunkType: "document_profile",
-                PrevChunkId: null,
-                NextChunkId: null,
-                SameSectionChunkId: null)).ToList();
+            return rows.Select(row =>
+            {
+                var pageRange = ResolveDocumentProfileMatchPageRange(row.MetadataJson, query);
+                var matchedContentCards = BuildMatchedContentCards(row.MetadataJson, query);
+                var profileSectionTitle = BuildDocumentProfileSectionTitle(row.Language);
+                return new RagMatch(
+                    Score: NormalizeDocumentProfileScore(row.SparseRank, (int)Math.Min(row.MatchCount, int.MaxValue)),
+                    DocId: row.DocId.ToString(),
+                    DocPath: row.DocPath,
+                    DocName: row.DocName,
+                    Category: row.Category,
+                    PageStart: pageRange.PageStart,
+                    PageEnd: pageRange.PageEnd,
+                    ChunkId: row.ProfileId.ToString(),
+                    ChunkIndex: -1,
+                    Text: BuildDocumentProfileMatchText(row.Text, row.MetadataJson, query, row.Language),
+                    IngestionVersion: row.IngestionVersion,
+                    HashDoc: row.HashDoc,
+                    EmbedText: row.SearchText,
+                    EmbeddingBasis: "document_profile_v1",
+                    SectionOrdinal: null,
+                    UnitOrdinal: null,
+                    SectionTitle: profileSectionTitle,
+                    HeadingPath: profileSectionTitle,
+                    ChunkType: "document_profile",
+                    PrevChunkId: null,
+                    NextChunkId: null,
+                    SameSectionChunkId: null,
+                    MatchedContentCards: matchedContentCards.Count == 0 ? null : matchedContentCards);
+            }).ToList();
         }
-        catch (PostgresException)
+        catch (PostgresException ex)
         {
+            RetrievalTelemetry.RecordRetrieverDegraded("document_profile_v1", ex);
             return [];
         }
     }
@@ -1899,22 +3665,12 @@ LIMIT @top_k;
         var summary = string.IsNullOrWhiteSpace(summaryText)
             ? string.Empty
             : summaryText.Trim();
-        var contentCards = DocumentProfileProjector.ParseContentCards(metadataJson);
+        var contentCards = SelectDocumentProfileContentCards(metadataJson, query);
         if (contentCards.Count == 0)
             return summary;
 
-        var queryTokens = ExtractLexicalQueryTokens(query);
         var rankedCards = contentCards
-            .Select(card => new
-            {
-                Card = card,
-                Coverage = ComputeLexicalCoverage(queryTokens, $"{card.Title} {string.Join(' ', card.Signals)}")
-            })
-            .OrderByDescending(static item => item.Coverage)
-            .ThenBy(static item => item.Card.PageStart ?? int.MaxValue)
-            .ThenBy(static item => item.Card.Title, StringComparer.OrdinalIgnoreCase)
-            .Take(12)
-            .Select(static item => FormatDocumentProfileContentCard(item.Card))
+            .Select(FormatDocumentProfileContentCard)
             .Where(static line => !string.IsNullOrWhiteSpace(line))
             .ToArray();
 
@@ -1927,15 +3683,246 @@ LIMIT @top_k;
             : $"{summary} {cardsText}";
     }
 
+    internal static IReadOnlyList<RagMatchedContentCard> BuildMatchedContentCards(
+        string? metadataJson,
+        string query,
+        int limit = 12,
+        int? pageStart = null,
+        int? pageEnd = null)
+        => SelectDocumentProfileContentCards(metadataJson, query, limit, pageStart, pageEnd)
+            .Select(static card => new RagMatchedContentCard(
+                Title: card.Title,
+                ContentCardId: card.ContentCardId,
+                PageStart: card.PageStart,
+                PageEnd: card.PageEnd,
+                Kind: card.Kind,
+                Signals: card.Signals,
+                Evidence: BuildContentCardEvidenceJson(card.Evidence)))
+            .ToArray();
+
+    private static IReadOnlyList<RagMatchedContentCard>? BuildSparseMatchedContentCards(SparseMatchRow row, string query)
+    {
+        var cards = BuildMatchedContentCards(row.MatchedContentCardsJson, query, pageStart: row.PageStart, pageEnd: row.PageEnd);
+        return cards.Count == 0 ? null : cards;
+    }
+
+    private static JsonElement? BuildContentCardEvidenceJson(DocumentProfileCardEvidence? evidence)
+        => evidence is null ? null : JsonSerializer.SerializeToElement(evidence);
+
+    private static IReadOnlyList<DocumentProfileContentCard> SelectDocumentProfileContentCards(
+        string? metadataJson,
+        string query,
+        int limit = 12,
+        int? pageStart = null,
+        int? pageEnd = null)
+    {
+        var contentCards = DocumentProfileProjector.ParseContentCards(metadataJson);
+        if (contentCards.Count == 0 || limit <= 0)
+            return [];
+
+        var queryTokens = ExtractLexicalQueryTokens(query);
+        if (queryTokens.Count == 0)
+            return [];
+
+        return contentCards
+            .Where(card => ContentCardOverlapsMatchPageRange(card, pageStart, pageEnd))
+            .Select(card => new
+            {
+                Card = card,
+                Score = ComputeDocumentProfileContentCardQueryScore(query, queryTokens, card),
+                Coverage = ComputeLexicalCoverage(queryTokens, BuildDocumentProfileContentCardQueryLookupText(card)),
+                TitleCoverage = ComputeLexicalCoverage(queryTokens, card.Title)
+            })
+            .Where(static item => item.Score > 0.0)
+            .OrderByDescending(static item => item.Score)
+            .ThenByDescending(static item => item.TitleCoverage)
+            .ThenByDescending(static item => item.Coverage)
+            .ThenBy(static item => item.Card.PageStart ?? int.MaxValue)
+            .ThenBy(static item => item.Card.Title, StringComparer.OrdinalIgnoreCase)
+            .Take(limit)
+            .Select(static item => item.Card)
+            .ToArray();
+    }
+
+    private static bool ContentCardOverlapsMatchPageRange(DocumentProfileContentCard card, int? pageStart, int? pageEnd)
+    {
+        if (pageStart is null or <= 0)
+            return true;
+
+        var matchStart = pageStart.Value;
+        var matchEnd = pageEnd is > 0 ? Math.Max(pageEnd.Value, matchStart) : matchStart;
+
+        if (card.PageStart is null or <= 0)
+            return true;
+
+        var cardStart = card.PageStart.Value;
+        var cardEnd = card.PageEnd is > 0 ? Math.Max(card.PageEnd.Value, cardStart) : cardStart;
+        return cardStart <= matchEnd && cardEnd >= matchStart;
+    }
+
+    private static double ComputeDocumentProfileContentCardQueryScore(
+        string query,
+        IReadOnlyList<string> queryTokens,
+        DocumentProfileContentCard card)
+    {
+        if (queryTokens.Count == 0 || string.IsNullOrWhiteSpace(card.Title))
+            return 0.0;
+
+        var title = card.Title.Trim();
+        var signals = string.Join(' ', card.Signals ?? Array.Empty<string>());
+        var evidenceText = BuildDocumentProfileContentCardEvidenceLookupText(card.Evidence);
+        var candidateText = BuildDocumentProfileContentCardQueryLookupText(card);
+        var coverage = ComputeLexicalCoverage(queryTokens, candidateText);
+        var titleCoverage = ComputeLexicalCoverage(queryTokens, title);
+        var signalCoverage = ComputeLexicalCoverage(queryTokens, signals);
+        var evidenceCoverage = ComputeLexicalCoverage(queryTokens, evidenceText);
+        if (coverage <= 0.0 && titleCoverage <= 0.0 && signalCoverage <= 0.0 && evidenceCoverage <= 0.0)
+            return 0.0;
+
+        var score = (coverage * 100.0) + (titleCoverage * 70.0) + (signalCoverage * 18.0) + (evidenceCoverage * 42.0);
+        var normalizedQuery = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query));
+        var normalizedTitle = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(title));
+        if (normalizedTitle.Length >= 4 && normalizedQuery.Length >= 4)
+        {
+            if (normalizedQuery.Contains(normalizedTitle, StringComparison.Ordinal))
+                score += 90.0 + Math.Min(35.0, normalizedTitle.Length / 2.0);
+            else if (normalizedTitle.Contains(normalizedQuery, StringComparison.Ordinal) && normalizedQuery.Length >= 8)
+                score += 45.0;
+        }
+
+        var phraseTerms = BuildLexicalContentFallbackTerms(query)
+            .Where(static term => term.Contains(' '))
+            .Take(24)
+            .ToArray();
+        if (phraseTerms.Any(term => ContainsOrderedPhraseWindow(title, term, maxGapChars: 30)))
+            score += 35.0;
+        else if (phraseTerms.Any(term => ContainsOrderedPhraseWindow(candidateText, term, maxGapChars: 45)))
+            score += 18.0;
+        else if (!string.IsNullOrWhiteSpace(evidenceText)
+                 && phraseTerms.Any(term => ContainsOrderedPhraseWindow(evidenceText, term, maxGapChars: 45)))
+        {
+            score += 24.0;
+        }
+
+        var titleAnchorCount = CountSpecificLexicalAnchors(queryTokens, title);
+        if (titleAnchorCount > 0)
+            score += Math.Min(36.0, titleAnchorCount * 9.0);
+
+        if (titleCoverage <= 0.0 && signalCoverage > 0.0)
+            score *= 0.80;
+        if (titleCoverage <= 0.0 && signalCoverage <= 0.0 && evidenceCoverage > 0.0)
+            score *= 0.95;
+
+        return score;
+    }
+
+    private static string BuildDocumentProfileContentCardQueryLookupText(DocumentProfileContentCard card)
+        => CollapseWhitespace(string.Join(' ', new[]
+        {
+            card.Title,
+            string.Join(' ', card.Signals ?? Array.Empty<string>()),
+            BuildDocumentProfileContentCardEvidenceLookupText(card.Evidence)
+        }));
+
+    private static string BuildDocumentProfileContentCardEvidenceLookupText(DocumentProfileCardEvidence? evidence)
+    {
+        if (evidence is null)
+            return string.Empty;
+
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(evidence.SchemaVersion))
+            parts.Add(evidence.SchemaVersion);
+        if (evidence.ScaleBasis is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(evidence.ScaleBasis.Label))
+                parts.Add(evidence.ScaleBasis.Label!);
+            if (evidence.ScaleBasis.Count > 0)
+                parts.Add(evidence.ScaleBasis.Count.ToString(CultureInfo.InvariantCulture));
+        }
+
+        foreach (var fact in evidence.QuantityFacts ?? [])
+        {
+            if (!string.IsNullOrWhiteSpace(fact.Label))
+                parts.Add(fact.Label);
+            if (!string.IsNullOrWhiteSpace(fact.Unit))
+                parts.Add(fact.Unit);
+            if (!string.IsNullOrWhiteSpace(fact.SourceText))
+                parts.Add(fact.SourceText);
+            if (fact.Value > 0)
+                parts.Add(fact.Value.ToString("0.###", CultureInfo.InvariantCulture));
+        }
+
+        foreach (var reason in evidence.NonScalableReasons ?? [])
+        {
+            if (!string.IsNullOrWhiteSpace(reason))
+                parts.Add(reason);
+        }
+
+        if (!string.IsNullOrWhiteSpace(evidence.Language))
+            parts.Add($"language:{evidence.Language}");
+        if ((evidence.Facts ?? []).Count > 0)
+            parts.Add("structured_facts");
+        foreach (var fact in evidence.Facts ?? [])
+        {
+            if (!string.IsNullOrWhiteSpace(fact.Kind))
+                parts.Add(fact.Kind);
+            if (!string.IsNullOrWhiteSpace(fact.Label))
+                parts.Add(fact.Label);
+            if (!string.IsNullOrWhiteSpace(fact.Value))
+                parts.Add(fact.Value);
+            if (!string.IsNullOrWhiteSpace(fact.Unit))
+                parts.Add(fact.Unit);
+            if (!string.IsNullOrWhiteSpace(fact.SourceText))
+                parts.Add(fact.SourceText);
+        }
+
+        return CollapseWhitespace(string.Join(' ', parts));
+    }
+
+    private static string CollapseWhitespace(string? value)
+        => string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : Regex.Replace(value.Trim(), @"\s+", " ", RegexOptions.CultureInvariant);
+
+    private static (int? PageStart, int? PageEnd) ResolveDocumentProfileMatchPageRange(string? metadataJson, string query)
+    {
+        if (ExtractLexicalQueryTokens(query).Count == 0)
+            return (null, null);
+
+        var contentCards = SelectDocumentProfileContentCards(metadataJson, query);
+        if (contentCards.Count == 0)
+            return (null, null);
+
+        var selected = contentCards
+            .Where(static card => card.PageStart is > 0)
+            .FirstOrDefault();
+
+        return selected is null
+            ? (null, null)
+            : (selected.PageStart, selected.PageEnd ?? selected.PageStart);
+    }
+
     private static string BuildContentCuesLabel(string? language)
-        => (language ?? string.Empty).Trim().ToLowerInvariant() switch
+        => DocumentLanguageResolver.PrimarySubtag(language) switch
         {
             "en" => "Content cues",
+            "fr" => "Repères de contenu",
             "es" => "Pistas de contenido",
-            "pt" => "Pistas de conteudo",
+            "pt" => "Pistas de conteúdo",
             "de" => "Inhaltshinweise",
             "it" => "Indizi di contenuto",
-            _ => "Reperes de contenu"
+            _ => "Content cues"
+        };
+
+    private static string BuildDocumentProfileSectionTitle(string? language)
+        => DocumentLanguageResolver.PrimarySubtag(language) switch
+        {
+            "fr" => "Profil documentaire",
+            "es" => "Perfil documental",
+            "pt" => "Perfil documental",
+            "de" => "Dokumentprofil",
+            "it" => "Profilo documentale",
+            _ => "Profile summary"
         };
 
     private static string FormatDocumentProfileContentCard(DocumentProfileContentCard card)
@@ -1949,13 +3936,139 @@ LIMIT @top_k;
             : title;
     }
 
+    private static IReadOnlyList<RagItemContentCardDto>? BuildMatchedContentCardDtos(RagMatch match)
+    {
+        var cards = match.MatchedContentCards;
+        if (cards is null || cards.Count == 0)
+            return null;
+
+        return cards
+            .Where(static card => !string.IsNullOrWhiteSpace(card.Title))
+            .Select(static card => new RagItemContentCardDto(
+                Title: card.Title.Trim(),
+                ContentCardId: card.ContentCardId,
+                PageStart: card.PageStart,
+                PageEnd: card.PageEnd,
+                Kind: card.Kind,
+                Signals: card.Signals,
+                Evidence: card.Evidence))
+            .ToArray();
+    }
+
+    internal static RagItemSelectionHintsDto BuildSelectionHints(
+        RagMatch match,
+        RagItemExtractionQualityDto? quality = null)
+    {
+        var retriever = ResolveRetriever(match);
+        var actionabilityScore = 0;
+        var supportScore = 0;
+        var fragmentScore = 0;
+        var navigationScore = 0;
+        var qualityPenalty = ComputeSelectionQualityPenalty(quality);
+
+        if (LooksLikeStructuredAnswerUnit(match))
+            actionabilityScore += 12;
+        else if (LooksLikeStructuredAnswerChunk(match))
+            actionabilityScore += 8;
+
+        if (match.MatchedContentCards is { Count: > 0 })
+        {
+            actionabilityScore += match.MatchedContentCards.Any(static card =>
+                string.Equals(card.Kind, "unit_lead", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(card.Kind, "exact_lead", StringComparison.OrdinalIgnoreCase))
+                ? 5
+                : 3;
+            supportScore += 2;
+        }
+
+        if (string.Equals(retriever, "exact_match", StringComparison.Ordinal))
+            actionabilityScore += 5;
+        if (string.Equals(retriever, "sparse_bm25", StringComparison.Ordinal))
+            actionabilityScore += 2;
+        if (string.Equals(retriever, "document_profile", StringComparison.Ordinal))
+            supportScore += 6;
+        if (string.Equals(retriever, "linked_context", StringComparison.Ordinal))
+            fragmentScore += 6;
+        if (string.Equals(retriever, "dense_qdrant", StringComparison.Ordinal))
+            supportScore += 2;
+
+        if (LooksLikeNavigationalChunk(match))
+            navigationScore += 10;
+        if (LooksLikeGlossaryChunk(match))
+            navigationScore += 6;
+        if (LooksLikeSourceListChunk(match))
+            navigationScore += 8;
+        if (LooksLikeDocumentOverviewChunk(match))
+            supportScore += 4;
+
+        var textLength = (match.Text ?? string.Empty).Trim().Length;
+        if (textLength is > 0 and < 140 && !LooksLikeStructuredAnswerChunk(match))
+            fragmentScore += 3;
+
+        var evidenceRole =
+            qualityPenalty >= 10 ? "low_confidence" :
+            navigationScore >= Math.Max(7, actionabilityScore + 2) ? "navigation" :
+            fragmentScore >= Math.Max(8, actionabilityScore + 3) ? "fragment" :
+            actionabilityScore >= Math.Max(8, supportScore + 1) ? "actionable_item" :
+            supportScore >= 5 ? "supporting_context" :
+            "advisory";
+
+        return new RagItemSelectionHintsDto(
+            EvidenceRole: evidenceRole,
+            ActionabilityScore: actionabilityScore,
+            SupportScore: supportScore,
+            FragmentScore: fragmentScore,
+            NavigationScore: navigationScore,
+            QualityPenalty: qualityPenalty);
+    }
+
+    private static int ComputeSelectionQualityPenalty(RagItemExtractionQualityDto? quality)
+    {
+        if (quality is null)
+            return 0;
+
+        var penalty = 0;
+        if (quality.DocumentManualReviewRecommended == true)
+            penalty += 4;
+        if (quality.PageManualReviewRecommended == true)
+            penalty += 6;
+        if (quality.OcrRecommended == true && quality.OcrApplied != true)
+            penalty += 5;
+
+        var confidence = quality.PageExtractionConfidence ?? quality.DocumentExtractionConfidence;
+        if (confidence is <= 0.35)
+            penalty += 8;
+        else if (confidence is <= 0.50)
+            penalty += 5;
+        else if (confidence is <= 0.70)
+            penalty += 2;
+
+        var status = string.Join(' ', quality.PageQualityStatus, quality.DocumentQualityStatus, quality.TextStatus)
+            .ToLowerInvariant();
+        if (status.Contains("ocr_failed", StringComparison.Ordinal)
+            || status.Contains("low_confidence", StringComparison.Ordinal))
+        {
+            penalty += 6;
+        }
+        if (status.Contains("manual_review", StringComparison.Ordinal)
+            || status.Contains("low_text", StringComparison.Ordinal)
+            || status.Contains("empty_text", StringComparison.Ordinal))
+        {
+            penalty += 4;
+        }
+
+        return Math.Clamp(penalty, 0, 24);
+    }
+
     internal static bool ShouldSupplementSparseWithLexicalFallback(string? category, string query)
+        => ShouldSupplementSparseWithLexicalFallback(!string.IsNullOrWhiteSpace(category), query);
+
+    internal static bool ShouldSupplementSparseWithLexicalFallback(bool scoped, string query)
     {
         var tokens = ExtractLexicalQueryTokens(query);
         if (tokens.Count == 0)
             return false;
 
-        var scoped = !string.IsNullOrWhiteSpace(category);
         var hasStrongToken = tokens.Any(static token =>
             token.Length >= 7
             || token.Any(char.IsDigit)
@@ -2077,7 +4190,8 @@ LIMIT @top_k;
         NpgsqlDataSource ds,
         Guid tenantId,
         IReadOnlyList<RagMatch> rawMatches,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? categoryPath = null)
     {
         if (rawMatches.Count == 0)
             return [];
@@ -2094,6 +4208,7 @@ LIMIT @top_k;
         await using var conn = await ds.OpenConnectionAsync(ct);
         const string sql = """
 SELECT d.doc_id AS "DocId",
+       d.doc_path AS "DocPath",
        d.status AS "Status",
        d.indexed_version AS "IndexedVersion",
        r.ingestion_version AS "CurrentRevisionIngestionVersion",
@@ -2114,6 +4229,7 @@ WHERE d.tenant_id=@tenant_id
         }, cancellationToken: ct));
 
         var active = rows.ToDictionary(x => x.DocId, x => x);
+        var normalizedCategoryPath = NormalizeRagCategoryPathForSql(categoryPath);
         var filtered = new List<RagMatch>(rawMatches.Count);
         foreach (var match in rawMatches)
         {
@@ -2125,6 +4241,8 @@ WHERE d.tenant_id=@tenant_id
                 continue;
             if (row.IndexedVersion <= 0)
                 continue;
+            if (!RagDocPathMatchesCategoryPath(row.DocPath, normalizedCategoryPath))
+                continue;
 
             if (!IsActiveDenseMatchForRevision(match, row.CurrentRevisionIngestionVersion, row.ContentHashHex))
                 continue;
@@ -2133,6 +4251,114 @@ WHERE d.tenant_id=@tenant_id
         }
 
         return filtered;
+    }
+
+    private static async Task<List<RagMatch>> AttachDocumentProfileContentCardsAsync(
+        NpgsqlDataSource ds,
+        Guid tenantId,
+        IReadOnlyList<RagMatch> matches,
+        string query,
+        CancellationToken ct,
+        int perMatchLimit = 12)
+    {
+        if (matches.Count == 0 || perMatchLimit <= 0)
+            return matches.ToList();
+
+        var candidates = matches
+            .Where(static match => match.MatchedContentCards is null || match.MatchedContentCards.Count == 0)
+            .Select(static match => Guid.TryParse(match.DocId, out var docId) ? docId : Guid.Empty)
+            .Where(static docId => docId != Guid.Empty)
+            .Distinct()
+            .ToArray();
+        if (candidates.Length == 0)
+            return matches.ToList();
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        const string sql = """
+SELECT
+    d.doc_id AS "DocId",
+    jsonb_build_object(
+        'contentCards',
+        COALESCE(
+            jsonb_agg(
+                jsonb_build_object(
+                    'title', pcc.title,
+                    'contentCardId', pcc.content_card_id,
+                    'pageStart', pcc.page_start,
+                    'pageEnd', pcc.page_end,
+                    'kind', pcc.kind,
+                    'signals', pcc.signals,
+                    'evidence', pcc.metadata->'evidence')
+                ORDER BY
+                    CASE pcc.profile_version
+                        WHEN 'llm_backoffice_v1' THEN 0
+                        WHEN 'foundation_v1' THEN 1
+                        WHEN 'deterministic_v1' THEN 2
+                        ELSE 3
+                    END,
+                    pcc.card_index)
+            FILTER (WHERE pcc.content_card_id IS NOT NULL),
+            '[]'::jsonb))::text AS "ContentCardsJson"
+FROM documents d
+JOIN document_revisions r
+  ON r.tenant_id = d.tenant_id
+ AND r.doc_id = d.doc_id
+ AND r.indexed_version = d.indexed_version
+LEFT JOIN LATERAL (
+    SELECT raw_card.*
+    FROM document_profile_content_cards raw_card
+    WHERE raw_card.tenant_id = d.tenant_id
+      AND raw_card.revision_id = r.revision_id
+      AND NULLIF(BTRIM(raw_card.title), '') IS NOT NULL
+    ORDER BY
+        CASE raw_card.profile_version
+            WHEN 'llm_backoffice_v1' THEN 0
+            WHEN 'foundation_v1' THEN 1
+            WHEN 'deterministic_v1' THEN 2
+            ELSE 3
+        END,
+        raw_card.card_index
+    LIMIT 160
+) pcc ON true
+WHERE d.tenant_id = @tenant_id
+  AND d.status = 'indexed'
+  AND d.indexed_version > 0
+  AND d.doc_id = ANY(@doc_ids)
+GROUP BY d.doc_id;
+""";
+
+        var rows = await conn.QueryAsync<DocProfileContentCardsRow>(new CommandDefinition(sql, new
+        {
+            tenant_id = tenantId,
+            doc_ids = candidates
+        }, cancellationToken: ct));
+        var byDocId = rows.ToDictionary(static row => row.DocId, static row => row.ContentCardsJson);
+        if (byDocId.Count == 0)
+            return matches.ToList();
+
+        return matches
+            .Select(match =>
+            {
+                if (match.MatchedContentCards is { Count: > 0 }
+                    || !Guid.TryParse(match.DocId, out var docId)
+                    || !byDocId.TryGetValue(docId, out var metadataJson))
+                {
+                    return match;
+                }
+
+                var selectionQuery = CollapseWhitespace(string.Join(' ', new[]
+                {
+                    query,
+                    match.SectionTitle,
+                    match.HeadingPath,
+                    match.Text
+                }));
+                var cards = BuildMatchedContentCards(metadataJson, selectionQuery, perMatchLimit, match.PageStart, match.PageEnd);
+                return cards.Count == 0
+                    ? match
+                    : match with { MatchedContentCards = cards };
+            })
+            .ToList();
     }
 
     internal static bool IsActiveDenseMatchForRevision(
@@ -2168,14 +4394,19 @@ WHERE d.tenant_id=@tenant_id
 
     private sealed record DocVersionRow(
         Guid DocId,
+        string DocPath,
         string Status,
         int IndexedVersion,
         int? CurrentRevisionIngestionVersion,
         string? ContentHashHex);
+    private sealed record DocProfileContentCardsRow(
+        Guid DocId,
+        string? ContentCardsJson);
     private sealed record ExactMatchRow(
         Guid DocId,
         string DocPath,
         string DocName,
+        string? Category,
         int PageStart,
         int PageEnd,
         int? OffsetStart,
@@ -2193,12 +4424,70 @@ WHERE d.tenant_id=@tenant_id
         Guid DocId,
         string DocPath,
         string DocName,
+        string? Category,
         int IngestionVersion,
         string? HashDoc);
 
     private sealed record TopCategoryOrderRow(
         string Path,
         int DisplayOrder);
+
+    private sealed class RagExtractionDocumentQualityRow
+    {
+        public Guid DocId { get; set; }
+        public string DocPath { get; set; } = "";
+        public string? ExtractionSource { get; set; }
+        public bool OcrAttempted { get; set; }
+        public bool OcrApplied { get; set; }
+        public string QualityStatus { get; set; } = "unknown";
+        public double ExtractionConfidence { get; set; } = 0.50;
+        public bool ManualReviewRecommended { get; set; }
+        public string? OcrLanguages { get; set; }
+        public long? OcrDurationMs { get; set; }
+        public string? NativeTextStatus { get; set; }
+        public bool? NativeOcrRecommended { get; set; }
+        public string? OcrDiagnosticsJson { get; set; }
+        public int PageCount { get; set; }
+        public int TextPageCount { get; set; }
+        public int EmptyPageCount { get; set; }
+        public int SparsePageCount { get; set; }
+        public int ImagePageCount { get; set; }
+        public int PageWarningCount { get; set; }
+        public int PageReviewRecommendedCount { get; set; }
+        public string TextStatus { get; set; } = "unknown";
+        public bool OcrRecommended { get; set; }
+        public string? SignalsJson { get; set; }
+    }
+
+    private sealed class RagExtractionPageQualityRow
+    {
+        public Guid DocId { get; set; }
+        public string DocPath { get; set; } = "";
+        public int PageNumber { get; set; }
+        public int CharCount { get; set; }
+        public int WordCount { get; set; }
+        public int ImageCount { get; set; }
+        public int UnitCount { get; set; }
+        public string? UnitTextsJson { get; set; }
+        public int ChunkCount { get; set; }
+        public string? SignalsJson { get; set; }
+    }
+
+    private sealed record RagExtractionPageQuality(
+        string QualityStatus,
+        double ExtractionConfidence,
+        bool ManualReviewRecommended,
+        string TextStatus,
+        string[] Signals);
+
+    private sealed record RagOcrDiagnosticsSummary(
+        string? Mode = null,
+        string? FailureReason = null,
+        string? AppliedReason = null,
+        bool? TimedOut = null,
+        int? AttemptedPageCount = null,
+        int? SkippedPageCount = null,
+        int? PagesWithNovelTextCount = null);
 
     // Must match the SELECT column order/names/types in SearchSparseMatchesAsync exactly —
     // Dapper materialises records by positional constructor binding, so a missing column
@@ -2209,6 +4498,7 @@ WHERE d.tenant_id=@tenant_id
         Guid DocId,
         string DocPath,
         string DocName,
+        string? Category,
         int PageStart,
         int PageEnd,
         int? OffsetStart,
@@ -2226,12 +4516,14 @@ WHERE d.tenant_id=@tenant_id
         string? PrevChunkId,
         string? NextChunkId,
         string? SameSectionChunkId,
+        string? MatchedContentCardsJson,
         float SparseRank);
 
     private sealed record DocumentProfileMatchRow(
         Guid DocId,
         string DocPath,
         string DocName,
+        string? Category,
         Guid ProfileId,
         int IngestionVersion,
         string? HashDoc,
@@ -2246,6 +4538,7 @@ WHERE d.tenant_id=@tenant_id
         Guid DocId,
         string DocPath,
         string DocName,
+        string? Category,
         int PageStart,
         int PageEnd,
         int? OffsetStart,
@@ -2273,7 +4566,8 @@ WHERE d.tenant_id=@tenant_id
         double minScore,
         int maxPerDoc,
         int maxPerPage,
-        int maxPerSection = 2)
+        int maxPerSection = 2,
+        bool prioritizeDocumentProfiles = false)
     {
         var perDoc = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var perPage = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -2282,6 +4576,8 @@ WHERE d.tenant_id=@tenant_id
         foreach (var selectedMatch in selected)
         {
             if (string.IsNullOrWhiteSpace(selectedMatch.DocPath))
+                continue;
+            if (!CountsAgainstChunkQuota(selectedMatch))
                 continue;
 
             var docKey = selectedMatch.DocPath!;
@@ -2293,7 +4589,9 @@ WHERE d.tenant_id=@tenant_id
                 perSection[sectionKey] = perSection.TryGetValue(sectionKey, out var secCount) ? secCount + 1 : 1;
         }
 
-        foreach (var match in matches)
+        var prioritizedMatches = OrderMatchesForSelection(matches, prioritizeDocumentProfiles);
+
+        foreach (var match in prioritizedMatches)
         {
             if (selected.Count >= topK)
                 break;
@@ -2355,6 +4653,26 @@ WHERE d.tenant_id=@tenant_id
         }
     }
 
+    internal static IReadOnlyList<RagMatch> OrderMatchesForSelection(
+        IEnumerable<RagMatch> matches,
+        bool prioritizeDocumentProfiles)
+    {
+        var orderedMatches = matches as IReadOnlyList<RagMatch> ?? matches.ToList();
+        return prioritizeDocumentProfiles
+            ? orderedMatches.ToList()
+            : orderedMatches
+                .Where(static match => !IsDocumentProfileMatch(match))
+                .Concat(orderedMatches.Where(IsDocumentProfileMatch))
+                .ToList();
+    }
+
+    private static bool IsDocumentProfileMatch(RagMatch match)
+        => string.Equals(match.ChunkType, "document_profile", StringComparison.Ordinal)
+           || string.Equals(ResolveRetriever(match), "document_profile", StringComparison.Ordinal);
+
+    private static bool CountsAgainstChunkQuota(RagMatch match)
+        => !IsDocumentProfileMatch(match);
+
     private static string? BuildSectionKey(RagMatch match)
     {
         if (string.IsNullOrWhiteSpace(match.DocPath))
@@ -2375,7 +4693,8 @@ WHERE d.tenant_id=@tenant_id
         string? docId,
         string? docPath,
         int topK,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? categoryPath = null)
     {
         if (topK <= 0)
             return [];
@@ -2482,6 +4801,7 @@ SELECT
     d.doc_id AS "DocId",
     d.doc_path AS "DocPath",
     d.doc_name AS "DocName",
+    d.category AS "Category",
     rc.page_start AS "PageStart",
     rc.page_end AS "PageEnd",
     (rc.metadata->>'offsetStart')::int AS "OffsetStart",
@@ -2516,6 +4836,7 @@ JOIN documents d
 LEFT JOIN document_sections s
   ON s.section_id = rc.section_id
 WHERE (@category IS NULL OR LOWER(d.category) = @category)
+  AND (@category_path IS NULL OR d.doc_path = @category_path OR d.doc_path LIKE (@category_path || '/%'))
   AND (@doc_id IS NULL OR d.doc_id = @doc_id)
   AND (@doc_path IS NULL OR d.doc_path = @doc_path)
 ORDER BY
@@ -2531,6 +4852,7 @@ LIMIT @top_k;
         var normalizedDocPath = string.IsNullOrWhiteSpace(docPath)
             ? null
             : docPath.Trim().Replace('\\', '/').TrimStart('/');
+        var normalizedCategoryPath = NormalizeRagCategoryPathForSql(categoryPath);
         Guid? normalizedDocId = Guid.TryParse(docId, out var parsedDocId) ? parsedDocId : null;
 
         var rows = await conn.QueryAsync<LinkedMatchRow>(new CommandDefinition(sql, new
@@ -2541,12 +4863,13 @@ LIMIT @top_k;
             sparse_anchor_chunk_ids = sparseAnchorIds,
             exact_anchor_entry_ids = exactAnchorIds,
             category,
+            category_path = normalizedCategoryPath,
             doc_id = normalizedDocId,
             doc_path = normalizedDocPath,
             top_k = topK * 3
         }, cancellationToken: ct));
 
-        return rows.Select(row =>
+        var linkedMatches = rows.Select(row =>
         {
             anchorsBySourceId.TryGetValue(row.AnchorSourceId, out var anchor);
             return new RagMatch(
@@ -2554,6 +4877,7 @@ LIMIT @top_k;
                 DocId: row.DocId.ToString(),
                 DocPath: row.DocPath,
                 DocName: row.DocName,
+                Category: row.Category,
                 PageStart: row.PageStart,
                 PageEnd: row.PageEnd,
                 OffsetStart: row.OffsetStart,
@@ -2574,6 +4898,14 @@ LIMIT @top_k;
                 NextChunkId: row.NextChunkId,
                 SameSectionChunkId: row.SameSectionChunkId);
         }).ToList();
+
+        var cardQuery = string.Join(
+            ' ',
+            anchorMatches
+                .OrderByDescending(static match => match.Score)
+                .Take(6)
+                .Select(static match => $"{match.SectionTitle} {match.HeadingPath} {match.Text}"));
+        return await AttachDocumentProfileContentCardsAsync(ds, tenantId, linkedMatches, cardQuery, ct);
     }
 
     /// <summary>
@@ -3171,7 +5503,7 @@ LIMIT @top_k;
         }
 
         var pruned = ranked
-            .Where(item => !ShouldPruneWeakTitleExpansion(item, strongAnchors))
+            .Where(item => !ShouldPruneWeakTitleExpansion(item, strongAnchors, lexicalTokens))
             .Select(static item => item.Match)
             .ToList();
 
@@ -3184,20 +5516,25 @@ LIMIT @top_k;
 
     private static bool ShouldPruneWeakTitleExpansion(
         TitleSelectionSignal item,
-        IReadOnlyList<TitleSelectionSignal> strongAnchors)
+        IReadOnlyList<TitleSelectionSignal> strongAnchors,
+        IReadOnlyList<string> lexicalTokens)
     {
         if (item.FullTitleCoverage)
+        {
+            if (string.Equals(ResolveRetriever(item.Match), "linked_context", StringComparison.Ordinal))
+            {
+                return !strongAnchors.Any(anchor =>
+                    IsUsefulLinkedContextCompanion(lexicalTokens, anchor.Match, item.Match));
+            }
+
             return false;
+        }
 
         var retriever = ResolveRetriever(item.Match);
         if (string.Equals(retriever, "linked_context", StringComparison.Ordinal))
         {
             return !strongAnchors.Any(anchor =>
-                string.Equals(anchor.Match.DocPath, item.Match.DocPath, StringComparison.OrdinalIgnoreCase)
-                && IsNearbyPage(anchor.Match, item.Match, maxDistance: 2)
-                && !LooksLikeNavigationalChunk(item.Match)
-                && !LooksLikeGlossaryChunk(item.Match)
-                && !IsNearDuplicatePageOverlap(anchor.Match, item.Match));
+                IsUsefulLinkedContextCompanion(lexicalTokens, anchor.Match, item.Match));
         }
 
         foreach (var anchor in strongAnchors)
@@ -3234,6 +5571,46 @@ LIMIT @top_k;
             return false;
 
         return Math.Abs(anchor.PageStart.Value - candidate.PageStart.Value) <= maxDistance;
+    }
+
+    private static bool IsUsefulLinkedContextCompanion(
+        IReadOnlyList<string> lexicalTokens,
+        RagMatch anchor,
+        RagMatch candidate)
+    {
+        if (!string.Equals(ResolveRetriever(candidate), "linked_context", StringComparison.Ordinal))
+            return false;
+        if (!string.Equals(anchor.DocPath, candidate.DocPath, StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (!IsNearbyPage(anchor, candidate, maxDistance: 2))
+            return false;
+        if (LooksLikeNavigationalChunk(candidate) || LooksLikeGlossaryChunk(candidate))
+            return false;
+        if (IsNearDuplicatePageOverlap(anchor, candidate))
+            return false;
+
+        if (SharesSpecificSection(anchor, candidate))
+            return true;
+        if (lexicalTokens.Count == 0)
+            return false;
+
+        var directSignalText = GetDirectChunkSignalText(candidate);
+        if (string.IsNullOrWhiteSpace(directSignalText))
+            return false;
+
+        if (ComputeLexicalCoverage(lexicalTokens, directSignalText) >= 0.50)
+            return true;
+
+        var specificAnchors = CountSpecificLexicalAnchors(lexicalTokens, directSignalText);
+        if (specificAnchors >= Math.Min(2, lexicalTokens.Count))
+            return true;
+
+        var titleTokens = lexicalTokens
+            .Where(static token => !SpecificAnchorStopwords.Contains(token))
+            .Take(6)
+            .ToArray();
+        return titleTokens.Length >= 2
+            && ContainsOrderedTitleTokenSubstrings(directSignalText, titleTokens, maxGapChars: 80);
     }
 
     private static bool SharesSpecificSection(RagMatch left, RagMatch right)
@@ -3275,6 +5652,7 @@ LIMIT @top_k;
 
         var anchor = selected.FirstOrDefault(match =>
             match.Score >= 0.90
+            && !string.Equals(ResolveRetriever(match), "linked_context", StringComparison.Ordinal)
             && LooksLikeStructuredAnswerChunk(match)
             && CountSpecificLexicalAnchors(lexicalTokens, GetTitleSignalText(match)) > 0);
         if (anchor is null)
@@ -3295,9 +5673,7 @@ LIMIT @top_k;
             if (!IsNearbyPage(anchor, match, maxDistance: 2))
                 return false;
             if (string.Equals(ResolveRetriever(match), "linked_context", StringComparison.Ordinal)
-                && !LooksLikeNavigationalChunk(match)
-                && !LooksLikeGlossaryChunk(match)
-                && !IsNearDuplicatePageOverlap(anchor, match))
+                && IsUsefulLinkedContextCompanion(lexicalTokens, anchor, match))
             {
                 return false;
             }
@@ -3349,11 +5725,7 @@ LIMIT @top_k;
                 return false;
 
             if (string.Equals(ResolveRetriever(match), "linked_context", StringComparison.Ordinal)
-                && string.Equals(match.DocPath, anchor.DocPath, StringComparison.OrdinalIgnoreCase)
-                && IsNearbyPage(anchor, match, maxDistance: 2)
-                && !LooksLikeNavigationalChunk(match)
-                && !LooksLikeGlossaryChunk(match)
-                && !IsNearDuplicatePageOverlap(anchor, match))
+                && IsUsefulLinkedContextCompanion(lexicalTokens, anchor, match))
             {
                 return false;
             }
@@ -3390,7 +5762,7 @@ LIMIT @top_k;
             if (ContainsPrimarySpecificSelectionAnchor(primaryTokens, match))
                 return false;
 
-            return !IsUsefulLinkedSelectionNearPrimaryAnchor(match, primaryAnchors);
+            return !IsUsefulLinkedSelectionNearPrimaryAnchor(primaryTokens, match, primaryAnchors);
         });
     }
 
@@ -3402,7 +5774,10 @@ LIMIT @top_k;
         return ContainsPrimarySpecificLexicalAnchor(primaryTokens, GetPreciseTitleSignalText(match));
     }
 
-    private static bool IsUsefulLinkedSelectionNearPrimaryAnchor(RagMatch match, IReadOnlyList<RagMatch> primaryAnchors)
+    private static bool IsUsefulLinkedSelectionNearPrimaryAnchor(
+        IReadOnlyList<string> primaryTokens,
+        RagMatch match,
+        IReadOnlyList<RagMatch> primaryAnchors)
     {
         if (!string.Equals(ResolveRetriever(match), "linked_context", StringComparison.Ordinal))
             return false;
@@ -3410,9 +5785,7 @@ LIMIT @top_k;
             return false;
 
         return primaryAnchors.Any(anchor =>
-            string.Equals(anchor.DocPath, match.DocPath, StringComparison.OrdinalIgnoreCase)
-            && IsNearbyPage(anchor, match, maxDistance: 2)
-            && !IsNearDuplicatePageOverlap(anchor, match));
+            IsUsefulLinkedContextCompanion(primaryTokens, anchor, match));
     }
 
     private static bool IsSameChunk(RagMatch left, RagMatch right)
@@ -3491,11 +5864,24 @@ LIMIT @top_k;
         var lineEnd = embedText.IndexOf('\n', start);
         if (lineEnd < 0)
         {
-            var documentMarker = embedText.IndexOf(" Document:", start, StringComparison.Ordinal);
+            var documentMarker = FindFirstMarker(embedText, start, [" Document:", " document_name:"]);
             lineEnd = documentMarker >= 0 ? documentMarker : embedText.Length;
         }
 
         return embedText[start..lineEnd].Trim();
+    }
+
+    private static int FindFirstMarker(string value, int startIndex, IReadOnlyList<string> markers)
+    {
+        var first = -1;
+        foreach (var marker in markers)
+        {
+            var index = value.IndexOf(marker, startIndex, StringComparison.Ordinal);
+            if (index >= 0 && (first < 0 || index < first))
+                first = index;
+        }
+
+        return first;
     }
 
     private static string[] ExtractTitlePruneTokens(string query)
@@ -3532,10 +5918,19 @@ LIMIT @top_k;
             " overview ",
             " quels livres ",
             " quelles sources ",
-            " quels documents ",
-            " liste des recettes ",
-            " list recipes ",
-            " recipe list ");
+            " quels documents ")
+            || LooksLikeGenericNavigationalRequest(normalized);
+    }
+
+    private static bool LooksLikeGenericNavigationalRequest(string normalizedPaddedQuery)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedPaddedQuery))
+            return false;
+
+        return System.Text.RegularExpressions.Regex.IsMatch(
+            normalizedPaddedQuery,
+            @"\b(?:liste|list|catalogue|catalog|inventaire|inventory|index)\s+(?:des?|de|du|d['’]?|of|for)?\s*[\p{L}\p{N}][\p{L}\p{N}\s\-_]{2,80}\b|\b[\p{L}\p{N}][\p{L}\p{N}\s\-_]{2,80}\s+(?:liste|list|catalogue|catalog|inventory|index)\b",
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     }
 
     internal static bool ContainsOrderedPhraseWindow(string? candidateText, string phrase, int maxGapChars)
@@ -3577,6 +5972,14 @@ LIMIT @top_k;
         => string.IsNullOrWhiteSpace(match.EmbedText)
             ? match.Text ?? string.Empty
             : match.EmbedText!;
+
+    private static string GetDirectChunkSignalText(RagMatch match)
+        => string.Join("\n", new[]
+        {
+            match.Text,
+            match.SectionTitle,
+            match.HeadingPath
+        }.Where(static value => !string.IsNullOrWhiteSpace(value)));
 
     private static string GetTitleSignalText(RagMatch match)
     {
@@ -4161,50 +6564,12 @@ LIMIT @top_k;
 
     private static bool LooksLikeStructuredAnswerText(string? value)
     {
-        var text = FoldDiacritics(value ?? string.Empty).ToLowerInvariant();
-        if (string.IsNullOrWhiteSpace(text))
-            return false;
-
-        return text.Contains("ingredient", StringComparison.Ordinal)
-            || text.Contains("preparation", StringComparison.Ordinal)
-            || text.Contains("procedure", StringComparison.Ordinal)
-            || text.Contains("methode", StringComparison.Ordinal)
-            || text.Contains("method", StringComparison.Ordinal)
-            || text.Contains("instruction", StringComparison.Ordinal)
-            || text.Contains("materiel", StringComparison.Ordinal)
-            || text.Contains("material", StringComparison.Ordinal)
-            || text.Contains("requirement", StringComparison.Ordinal)
-            || text.Contains("warning", StringComparison.Ordinal)
-            || text.Contains("caution", StringComparison.Ordinal)
-            || text.Contains("servez avec", StringComparison.Ordinal)
-            || text.Contains("servir avec", StringComparison.Ordinal)
-            || text.Contains("serve with", StringComparison.Ordinal)
-            || text.Contains("served with", StringComparison.Ordinal)
-            || text.Contains("ajoutez", StringComparison.Ordinal)
-            || text.Contains("mettez", StringComparison.Ordinal)
-            || text.Contains("faites", StringComparison.Ordinal)
-            || text.Contains("melangez", StringComparison.Ordinal)
-            || text.Contains("versez", StringComparison.Ordinal)
-            || text.Contains("laissez", StringComparison.Ordinal)
-            || text.Contains("realisation", StringComparison.Ordinal)
+        return StructuredContentLexicon.ContainsStructuredAnswerCue(value)
             || LooksLikeStructuredQuantityList(value);
     }
 
     internal static bool LooksLikeStructuredQuantityList(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return false;
-
-        var bulletCount = CountBulletMarkers(value);
-        if (bulletCount < 3)
-            return false;
-
-        var measurementCount = System.Text.RegularExpressions.Regex.Matches(
-            FoldDiacritics(value).ToLowerInvariant(),
-            @"\b\d+(?:[\.,]\d+)?\s?(?:kg|g|mg|l|ml|cl|h|min|s|mm|cm|m|bar|v|a|w|kw|nm|%|deg|c)\b",
-            System.Text.RegularExpressions.RegexOptions.CultureInvariant).Count;
-        return measurementCount >= 2;
-    }
+        => StructuredContentLexicon.LooksLikeStructuredQuantityList(value);
 
     internal static bool LooksLikeSourceListChunk(RagMatch match)
     {
@@ -4252,28 +6617,32 @@ LIMIT @top_k;
         if (!hasOverviewLanguage)
             return false;
 
-        return !text.Contains("preparation", StringComparison.Ordinal)
-            && !text.Contains("procedure", StringComparison.Ordinal)
-            && !text.Contains("ingredients", StringComparison.Ordinal)
+        return !text.Contains("procedure", StringComparison.Ordinal)
+            && !text.Contains("materials", StringComparison.Ordinal)
+            && !text.Contains("components", StringComparison.Ordinal)
             && !text.Contains("instructions", StringComparison.Ordinal);
     }
 
     internal static bool LooksLikeNavigationalChunk(RagMatch match)
     {
+        if (IsDocumentProfileMatch(match))
+            return false;
+
         var text = match.Text ?? string.Empty;
         var context = $"{match.SectionTitle} {match.HeadingPath} {text}";
         var folded = FoldDiacritics(context).ToLowerInvariant();
         var foldedText = FoldDiacritics(text).ToLowerInvariant();
         var padded = $" {NormalizeQuery(folded)} ";
-        var hasStrongIndexMarker = folded.Contains("index des recettes", StringComparison.Ordinal)
-            || folded.Contains("recipe index", StringComparison.Ordinal)
-            || folded.Contains("index of recipes", StringComparison.Ordinal);
-        var hasStructuredRecipeBody = foldedText.Contains("ingredient", StringComparison.Ordinal)
-            && (foldedText.Contains("preparation", StringComparison.Ordinal)
-                || foldedText.Contains("cuisson", StringComparison.Ordinal)
-                || foldedText.Contains("faites", StringComparison.Ordinal)
-                || foldedText.Contains("faire", StringComparison.Ordinal));
-        if (hasStructuredRecipeBody && !hasStrongIndexMarker)
+        var hasStrongIndexMarker = HasStrongNavigationalMarker(folded, padded);
+        var hasStructuredProcedureBody = (foldedText.Contains("materials", StringComparison.Ordinal)
+                || foldedText.Contains("materiaux", StringComparison.Ordinal)
+                || foldedText.Contains("components", StringComparison.Ordinal)
+                || foldedText.Contains("composants", StringComparison.Ordinal))
+            && (foldedText.Contains("method", StringComparison.Ordinal)
+                || foldedText.Contains("procedure", StringComparison.Ordinal)
+                || foldedText.Contains("instructions", StringComparison.Ordinal)
+                || foldedText.Contains("steps", StringComparison.Ordinal));
+        if (hasStructuredProcedureBody && !hasStrongIndexMarker)
             return false;
 
         if (folded.Contains("sommaire", StringComparison.Ordinal)
@@ -4306,6 +6675,9 @@ LIMIT @top_k;
 
     internal static bool LooksLikeGlossaryChunk(RagMatch match)
     {
+        if (IsDocumentProfileMatch(match))
+            return false;
+
         var text = match.Text ?? string.Empty;
         if (string.IsNullOrWhiteSpace(text))
             return false;
@@ -4367,13 +6739,26 @@ LIMIT @top_k;
         var folded = FoldDiacritics(context).ToLowerInvariant();
         var padded = $" {NormalizeQuery(folded)} ";
 
-        return folded.Contains("index des recettes", StringComparison.Ordinal)
-            || folded.Contains("recipe index", StringComparison.Ordinal)
-            || folded.Contains("index of recipes", StringComparison.Ordinal)
+        return HasStrongNavigationalMarker(folded, padded)
             || folded.Contains("table des matieres", StringComparison.Ordinal)
             || folded.Contains("table of contents", StringComparison.Ordinal)
             || padded.Contains(" sommaire ", StringComparison.Ordinal)
             || CountInlinePageNumberBoundaries(text) >= 8;
+    }
+
+    private static bool HasStrongNavigationalMarker(string foldedText, string paddedNormalizedText)
+    {
+        if (string.IsNullOrWhiteSpace(foldedText) || string.IsNullOrWhiteSpace(paddedNormalizedText))
+            return false;
+
+        if (foldedText.Contains("fiche-index", StringComparison.Ordinal)
+            || foldedText.Contains("fiche index", StringComparison.Ordinal))
+            return true;
+
+        return System.Text.RegularExpressions.Regex.IsMatch(
+            paddedNormalizedText,
+            @"\b(?:index|liste|list|catalogue|catalog|inventaire|inventory)\s+(?:des?|de|du|d['’]?|of|for)?\s*[\p{L}\p{N}][\p{L}\p{N}\s\-_]{2,80}\b|\b[\p{L}\p{N}][\p{L}\p{N}\s\-_]{2,80}\s+(?:index|liste|list|catalogue|catalog|inventory)\b",
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     }
 
     private static int CountBulletMarkers(string text)
@@ -4587,8 +6972,11 @@ LIMIT @top_k;
 
     internal static double NormalizeDocumentProfileScore(double sparseRank, int matchCount)
     {
+        if (matchCount <= 0)
+            return 0.32;
+
         var lexicalScore = NormalizeSparseScore(sparseRank);
-        var matchScore = matchCount <= 0 ? 0.0 : Math.Min(0.28, matchCount * 0.045);
+        var matchScore = Math.Min(0.28, matchCount * 0.045);
         var combined = Math.Max(lexicalScore, 0.48 + matchScore);
         return Math.Clamp(combined, 0.0, 0.86);
     }
@@ -4647,12 +7035,6 @@ LIMIT @top_k;
 
         AddAdjacentAlphaNumericPhraseTerms(terms, query);
 
-        if (terms.Contains("inertage") || terms.Contains("inerting"))
-        {
-            terms.Add("inerting");
-            terms.Add("inertage");
-        }
-
         foreach (var quotedPhrase in ExtractQuotedLookupPhrases(query))
         {
             terms.Add(quotedPhrase);
@@ -4664,6 +7046,7 @@ LIMIT @top_k;
         var filteredTerms = terms
             .Where(static term => term.Length >= 4)
             .Where(static term => !LexicalStopwords.Contains(term))
+            .Where(static term => !SpecificAnchorStopwords.Contains(term))
             .ToArray();
 
         var phraseTerms = filteredTerms
@@ -4769,7 +7152,7 @@ LIMIT @top_k;
                 : letters.Count(char.IsUpper) / (double)letters.Length;
             var prefix = foldedCandidate.Substring(Math.Max(0, index - 32), Math.Min(32, index));
             var placement = uppercaseRatio >= 0.70 ? 7.0 : 0.0;
-            if (LooksLikeMeasuredIngredientLead(prefix))
+            if (LooksLikeMeasuredListLead(prefix))
                 placement -= 4.0;
 
             best = Math.Max(best, placement);
@@ -4779,14 +7162,14 @@ LIMIT @top_k;
         return best;
     }
 
-    private static bool LooksLikeMeasuredIngredientLead(string prefix)
+    private static bool LooksLikeMeasuredListLead(string prefix)
     {
         if (string.IsNullOrWhiteSpace(prefix))
             return false;
 
         return System.Text.RegularExpressions.Regex.IsMatch(
             prefix,
-            @"(?:\d+[.,]?\d*|\b(?:g|kg|mg|ml|cl|l|litre|litres|tasse|tasses|cuillere|cuilleres|cuilleree|cuillerees|c\.|oz|lb)\b)\s*(?:de|d')?\s*$",
+            @"(?:\d+[.,]?\d*|\b(?:g|kg|mg|ml|cl|l|litre|litres|oz|lb|unit|units|unite|unites|item|items)\b)\s*(?:de|d')?\s*$",
             System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     }
 
@@ -4906,102 +7289,12 @@ LIMIT @top_k;
         if (token.Length >= 7 && token.EndsWith("te", StringComparison.Ordinal))
             variants.Add(token[..^1]);
 
-        foreach (var variant in variants.ToArray())
-            AddCommonLatinSurfaceVariants(variants, variant);
-
         return variants
             .Where(static variant => variant.Length >= 4)
             .Where(static variant => variant.Any(char.IsLetter))
             .Where(static variant => !LexicalStopwords.Contains(variant))
             .Distinct(StringComparer.Ordinal)
             .ToArray();
-    }
-
-    private static void AddCommonLatinSurfaceVariants(HashSet<string> variants, string token)
-    {
-        if (string.IsNullOrWhiteSpace(token))
-            return;
-        AddVariant(variants, token switch
-        {
-            "bechamel" => "b\u00e9chamel",
-            "bearnaise" => "b\u00e9arnaise",
-            "bearnaises" => "b\u00e9arnaises",
-            "eclair" => "\u00e9clair",
-            "eclairs" => "\u00e9clairs",
-            "entrecote" => "entrec\u00f4te",
-            _ => null
-        });
-
-        AddVariant(variants, token.Replace("oe", "œ", StringComparison.Ordinal));
-        AddVariant(variants, token.Replace("ae", "æ", StringComparison.Ordinal));
-        AddVariant(variants, token.Replace("ae", "aë", StringComparison.Ordinal));
-        AddVariant(variants, token.Replace("aioli", "aïoli", StringComparison.Ordinal));
-        AddVariant(variants, token.Replace("paella", "paëlla", StringComparison.Ordinal));
-
-        if (token.EndsWith("ee", StringComparison.Ordinal))
-        {
-            var finalAcute = token[..^2] + "ée";
-            AddVariant(variants, finalAcute);
-            AddVariant(variants, ReplaceFirst(finalAcute, "u", "û"));
-        }
-
-        if (string.Equals(token, "creme", StringComparison.Ordinal))
-            AddVariant(variants, "crème");
-        if (string.Equals(token, "cremes", StringComparison.Ordinal))
-            AddVariant(variants, "crèmes");
-        if (string.Equals(token, "brulee", StringComparison.Ordinal))
-            AddVariant(variants, "brûlée");
-        if (string.Equals(token, "brulees", StringComparison.Ordinal))
-            AddVariant(variants, "brûlées");
-        if (string.Equals(token, "epice", StringComparison.Ordinal))
-            AddVariant(variants, "épicé");
-        if (string.Equals(token, "epices", StringComparison.Ordinal))
-            AddVariant(variants, "épicés");
-        if (string.Equals(token, "inertage", StringComparison.Ordinal))
-            AddVariant(variants, "inerting");
-        if (string.Equals(token, "inerting", StringComparison.Ordinal))
-            AddVariant(variants, "inertage");
-        if (string.Equals(token, "entrecote", StringComparison.Ordinal) || string.Equals(token, "entrecôte", StringComparison.Ordinal))
-        {
-            AddVariant(variants, "steak");
-            AddVariant(variants, "steaks");
-        }
-        if (string.Equals(token, "repas", StringComparison.Ordinal))
-        {
-            AddVariant(variants, "menu");
-            AddVariant(variants, "menus");
-            AddVariant(variants, "meal");
-            AddVariant(variants, "meals");
-        }
-        if (string.Equals(token, "semaine", StringComparison.Ordinal))
-        {
-            AddVariant(variants, "weekly");
-            AddVariant(variants, "hebdomadaire");
-        }
-        if (string.Equals(token, "dessert", StringComparison.Ordinal) || string.Equals(token, "desserts", StringComparison.Ordinal))
-        {
-            AddVariant(variants, "sucre");
-            AddVariant(variants, "sucree");
-            AddVariant(variants, "sucrée");
-            AddVariant(variants, "sucrees");
-            AddVariant(variants, "sucrées");
-            AddVariant(variants, "sweet");
-            AddVariant(variants, "sweets");
-        }
-    }
-
-    private static void AddVariant(HashSet<string> variants, string? variant)
-    {
-        if (!string.IsNullOrWhiteSpace(variant))
-            variants.Add(variant);
-    }
-
-    private static string ReplaceFirst(string value, string search, string replacement)
-    {
-        var index = value.IndexOf(search, StringComparison.Ordinal);
-        return index < 0
-            ? value
-            : value[..index] + replacement + value[(index + search.Length)..];
     }
 
     private static void AddAdjacentPhraseTerms(HashSet<string> terms, IReadOnlyList<string> canonicalTokens)
@@ -5012,6 +7305,7 @@ LIMIT @top_k;
         var clean = canonicalTokens
             .Where(static token => token.Length >= 4)
             .Where(static token => !LexicalStopwords.Contains(token))
+            .Where(static token => !SpecificAnchorStopwords.Contains(token))
             .Take(8)
             .ToArray();
 
@@ -5116,56 +7410,9 @@ LIMIT @top_k;
         if (string.IsNullOrWhiteSpace(normalizedQuery))
             return Array.Empty<string>();
 
-        var terms = new HashSet<string>(StringComparer.Ordinal);
-        var padded = $" {normalizedQuery} ";
-
-        var hasMealContext = ContainsAny(
-            padded,
-            " repas ",
-            " menu ",
-            " menus ",
-            " dejeuner ",
-            " diner ",
-            " souper ",
-            " lunch ",
-            " dinner ",
-            " meal ",
-            " meals ");
-        var hasPlanningContext = ContainsAny(padded, " organiser ", " organise ", " planifier ", " planning ", " prevoir ", " preparer ", " semaine ", " weekly ");
-        if (hasMealContext && hasPlanningContext)
-        {
-            terms.Add("planifier");
-            terms.Add("prevoir");
-            terms.Add("preparer a l avance");
-            terms.Add("repas de la semaine");
-            terms.Add("menus");
-            terms.Add("batch cooking");
-            terms.Add("meal prep");
-            terms.Add("weekly meals");
-        }
-
-        var hasQuickMealContext = ContainsAny(padded, " rapide ", " rapides ", " vite ", " express ", " facile ", " faciles ", " quick ", " fast ", " easy ");
-        if (hasMealContext && hasQuickMealContext)
-        {
-            terms.Add("recette rapide");
-            terms.Add("repas rapide");
-            terms.Add("facile");
-            terms.Add("express");
-            terms.Add("quick meal");
-            terms.Add("easy lunch");
-        }
-
-        var hasSauceContext = padded.Contains(" sauce ", StringComparison.Ordinal);
-        var hasMeatContext = ContainsAny(padded, " entrecote ", " steak ", " steaks ", " boeuf ", " bœuf ", " beef ", " viande ", " meat ");
-        if (hasSauceContext && hasMeatContext)
-        {
-            terms.Add("steak");
-            terms.Add("steaks");
-            terms.Add("steaks poivre");
-            terms.Add("poivre");
-        }
-
-        return terms.ToArray();
+        // Query expansion must stay corpus-agnostic. Domain synonyms and translations are
+        // generated from indexed documents into profiles/content cards instead.
+        return Array.Empty<string>();
     }
 
     internal static string FoldDiacritics(string value)
@@ -5213,12 +7460,6 @@ LIMIT @top_k;
         foreach (var token in queryTokens)
         {
             var variants = new HashSet<string>(BuildLexicalTokenVariants(token), StringComparer.Ordinal);
-            if (variants.Contains("inertage") || variants.Contains("inerting"))
-            {
-                variants.Add("inertage");
-                variants.Add("inerting");
-            }
-
             if (variants.Any(variant => normalizedCandidate.Contains(variant, StringComparison.Ordinal)))
                 matched++;
         }
@@ -5243,9 +7484,12 @@ LIMIT @top_k;
         if (string.IsNullOrWhiteSpace(docPath) || byDocPath is null)
             return null;
 
-        return byDocPath.TryGetValue(docPath, out var matched)
-            ? matched
-            : null;
+        var normalizedDocPath = NormalizeRagDocPath(docPath);
+        if (!string.IsNullOrWhiteSpace(normalizedDocPath)
+            && byDocPath.TryGetValue(normalizedDocPath, out var normalizedMatched))
+            return normalizedMatched;
+
+        return byDocPath.TryGetValue(docPath, out var matched) ? matched : null;
     }
 
     internal static double ComputeLinkedMatchScore(double anchorScore, string linkType, string? anchorRetriever = null)
@@ -5391,9 +7635,8 @@ LIMIT @top_k;
         "need", "have", "has", "just", "juste", "moi", "peux", "avoir",
         "faire", "fais", "fait", "make", "help", "aide", "aider",
         "parle", "parler", "documents", "compare", "comparer", "comparison",
-        "difference", "differences", "different", "deux", "corpus", "ingredient",
-        "ingredients", "methode", "method", "style", "recette", "recettes",
-        "recipe", "recipes", "lequel", "veux", "veut", "simple",
+        "difference", "differences", "different", "deux", "corpus",
+        "methode", "method", "style", "lequel", "veux", "veut", "simple",
         "fiche", "claire", "clair", "detail", "details", "detailee", "detaillee",
         "etape", "etapes", "step", "steps", "source", "sources", "citation",
         "citations", "reponse", "answer", "format", "liste", "list",
@@ -5409,7 +7652,8 @@ LIMIT @top_k;
 
     private static readonly HashSet<string> SpecificAnchorStopwords = new(StringComparer.Ordinal)
     {
-        "ingredient", "ingredients", "preparation", "procedure", "procedures",
+        "items", "elements",
+        "preparation", "materials", "materiaux", "components", "composants", "procedure", "procedures",
         "methode", "method", "methods", "instruction", "instructions",
         "materiel", "material", "materials", "requirement", "requirements",
         "warning", "warnings", "caution", "cautions", "summary", "overview",
@@ -5418,12 +7662,24 @@ LIMIT @top_k;
         "temps", "time", "duration", "duree"
     };
 
+    private static readonly HashSet<string> DocumentOverviewTopicStopwords = new(StringComparer.Ordinal)
+    {
+        "document", "documents", "doc", "docs", "pdf", "fichier", "fichiers",
+        "file", "files", "source", "sources", "livre", "livres", "book", "books",
+        "rapport", "rapports", "report", "reports", "manuel", "manuels", "manual", "manuals",
+        "corpus", "base", "knowledge", "database", "disponible", "disponibles", "available",
+        "inventaire", "inventory", "overview", "panorama", "panoramica", "uberblick",
+        "liste", "list", "lister", "vois", "voir", "servir", "sert", "servent",
+        "documentos", "fuentes", "archivos", "libros", "ficheiros", "arquivos", "livros",
+        "dokumente", "quellen", "dateien", "bucher", "berichte", "handbucher",
+        "documenti", "fonti", "libri", "manuali"
+    };
+
     private static readonly HashSet<string> PrimaryAnchorStopwords = new(StringComparer.Ordinal)
     {
         "organiser", "organise", "organization", "organisation", "planifier",
         "planning", "prevoir", "preparer", "prepare", "prepared", "avance",
-        "weekly", "hebdomadaire", "semaine", "menu", "menus", "repas", "meal",
-        "meals", "batch", "cooking", "recette", "recettes", "recipe", "recipes",
+        "weekly", "hebdomadaire", "semaine",
         "question", "questions", "utilisateur", "client", "besoin", "conseil",
         "conseils", "recommendation", "recommendations"
     };
@@ -5448,54 +7704,31 @@ LIMIT @top_k;
     private static readonly HashSet<string> DocumentHintStopwords = new(StringComparer.Ordinal)
     {
         "PDF", "DOC", "DOCUMENT", "GUIDE", "GUIDANCE", "MANUAL", "MANUEL", "NOTICE",
-        "TERMINAL", "INTERFACE", "PROGRAMMATION", "PROGRAMMING", "COMMUNICATION",
-        "COMMUNICATIONS", "SYSTEM", "SYSTEMS", "PROCESS", "PROCESSUS", "PROCEDURE",
-        "PREVENTION", "EXPLOSION", "EXPLOSIONS", "INERTING", "INERTAGE", "WEIGHING",
-        "PESAGE", "TOLEDO", "METTLER", "GENERAL", "THE", "FOR", "AND", "WITH", "SUR",
+        "SYSTEM", "SYSTEMS", "PROCESS", "PROCESSUS", "PROCEDURE",
+        "THE", "FOR", "AND", "WITH", "SUR",
         "POUR", "DES", "LES", "UNE", "UN", "DU", "DE", "LA", "LE", "ET", "ON", "OF"
     };
 
-    private static readonly string[] ProcessSafetyKeywords =
-    [
-        "inert", "oxygen", "oxygene", "explosion", "flammability", "flammabilite",
-        "loc", "maoc", "hybrid", "dust", "poussier", "purge", "nitrogen", "azote",
-        "carbon dioxide", "co2", "flue gas", "gaz de combustion"
-    ];
-
-    private static readonly string[] ControlIntegrationKeywords =
-    [
-        "plc", "automate", "profinet", "profibus", "modbus", "ethernet/ip",
-        "ethernet ip", "device", "controlnet", "devicenet", "class 1", "class 3",
-        "analog", "analogique", "calibration", "tare", "tolerance", "siemens",
-        "rockwell", "shared data", "donnees partagees", "sortie analogique"
-    ];
-
-    private static readonly string[] HazardousAreaKeywords =
-    [
-        "hazardous", "zone dangereuse", "zone class", "zone 2", "zone 22",
-        "division 2", "explosive atmosphere", "atmosphere explosive", "atex"
-    ];
-
-    private static readonly string[] FunctionalSafetyKeywords =
-    [
-        "sil", "61508", "61511", "safety instrumented", "instrumented function",
-        "fonction de securite", "safety lifecycle"
-    ];
-
     private sealed record RrfAccumulator(double Score, RagMatch Representative);
-    internal sealed record MatchedRetrievalContext(
-        IReadOnlyList<string> DocHints,
-        bool HasProcessSafetyDomain,
-        bool HasControlIntegrationDomain,
-        bool HasHazardousAreaDomain,
-        bool HasFunctionalSafetyDomain);
+    internal sealed record MatchedRetrievalContext(IReadOnlyList<string> DocHints);
+    private sealed record GuidanceQualityRisk(bool RequiresCaveat, string Reason);
 
     internal static string ResolveProvenance(RagMatch match)
         => $"retriever:{ResolveRetriever(match)}";
 
     internal static RagAnswerGuidanceDto BuildAnswerGuidance(string query, IReadOnlyList<RagMatch> matches)
+        => BuildAnswerGuidance(
+            query,
+            matches,
+            new Dictionary<string, RagItemExtractionQualityDto>(StringComparer.OrdinalIgnoreCase));
+
+    internal static RagAnswerGuidanceDto BuildAnswerGuidance(
+        string query,
+        IReadOnlyList<RagMatch> matches,
+        IReadOnlyDictionary<string, RagItemExtractionQualityDto> extractionQualityByMatch)
     {
         var normalized = NormalizeQueryForGuidance(query);
+        var guidanceLanguage = ResolveGuidanceLanguage(query);
         var matchedContext = BuildMatchedRetrievalContext(matches);
         var matchedDocHints = matchedContext.DocHints;
 
@@ -5505,7 +7738,7 @@ LIMIT @top_k;
                 Behavior: "answer_with_caveat",
                 Reason: "no_relevant_source_found",
                 ResponseShape: "no_source_match",
-                QualificationNote: "No sufficiently relevant source was retrieved for this query.",
+                QualificationNote: BuildNoRelevantSourceNote(guidanceLanguage),
                 MatchedDocHints: matchedDocHints);
         }
 
@@ -5515,27 +7748,38 @@ LIMIT @top_k;
                 Behavior: "ask_clarification",
                 Reason: "missing_standard_identifier",
                 ResponseShape: "clarify",
-                ClarifyingQuestion: BuildClarifyingQuestion(normalized, matchedContext, "missing_standard_identifier"),
+                ClarifyingQuestion: BuildClarifyingQuestion(normalized, matchedContext, "missing_standard_identifier", guidanceLanguage),
                 MatchedDocHints: matchedDocHints);
         }
 
-        if (ContainsSilCertificationQuery(normalized))
+        if (ContainsCertificationScopeQuestion(normalized))
         {
             return new RagAnswerGuidanceDto(
                 Behavior: "ask_clarification",
-                Reason: "safety_certification_requires_precise_scope",
+                Reason: "certification_requires_precise_scope",
                 ResponseShape: "clarify",
-                ClarifyingQuestion: BuildClarifyingQuestion(normalized, matchedContext, "safety_certification_requires_precise_scope"),
+                ClarifyingQuestion: BuildClarifyingQuestion(normalized, matchedContext, "certification_requires_precise_scope", guidanceLanguage),
                 MatchedDocHints: matchedDocHints);
         }
 
-        if (ContainsBroadAtexComplianceQuery(normalized))
+        if (ContainsBroadComplianceQuestion(normalized))
         {
             return new RagAnswerGuidanceDto(
                 Behavior: "ask_clarification",
-                Reason: "broad_atex_compliance_requires_scope",
+                Reason: "broad_compliance_requires_scope",
                 ResponseShape: "clarify",
-                ClarifyingQuestion: BuildClarifyingQuestion(normalized, matchedContext, "broad_atex_compliance_requires_scope"),
+                ClarifyingQuestion: BuildClarifyingQuestion(normalized, matchedContext, "broad_compliance_requires_scope", guidanceLanguage),
+                MatchedDocHints: matchedDocHints);
+        }
+
+        var qualityRisk = AssessGuidanceQualityRisk(matches, extractionQualityByMatch);
+        if (qualityRisk.RequiresCaveat)
+        {
+            return new RagAnswerGuidanceDto(
+                Behavior: "answer_with_caveat",
+                Reason: qualityRisk.Reason,
+                ResponseShape: DetermineResponseShape(normalized, behavior: "answer_with_caveat"),
+                QualificationNote: BuildSourceQualityQualificationNote(matchedContext, guidanceLanguage),
                 MatchedDocHints: matchedDocHints);
         }
 
@@ -5550,22 +7794,21 @@ LIMIT @top_k;
 
         var simpleDocumentSelection = ContainsSimpleDocumentSelectionQuestion(normalized);
         var needsQualification =
-            ContainsOperationalRiskRecommendationQuestion(normalized)
+            ContainsRiskRecommendationQuestion(normalized)
             || ContainsQuickCustomerReplySelectionQuestion(normalized)
             || (!simpleDocumentSelection && (
                 ContainsComplianceLanguage(normalized)
                 || ContainsCustomerReplyLanguage(normalized)
                 || ContainsProjectAssessmentLanguage(normalized)
-                || ContainsCrossDomainSafetyIntegrationQuestion(normalized)
-                || ContainsFireProtectionClaimQuestion(normalized)));
+                || ContainsRiskRecommendationQuestion(normalized)));
 
         if (needsQualification)
         {
             return new RagAnswerGuidanceDto(
                 Behavior: "answer_with_caveat",
-                Reason: "project_or_compliance_answer_requires_qualification",
+                Reason: "high_impact_or_safety_answer_requires_qualification",
                 ResponseShape: DetermineResponseShape(normalized, behavior: "answer_with_caveat"),
-                QualificationNote: BuildQualificationNote(normalized, matchedContext, simpleDocumentSelection),
+                QualificationNote: BuildHighImpactSafetyQualificationNote(normalized, matchedContext, simpleDocumentSelection, guidanceLanguage),
                 MatchedDocHints: matchedDocHints);
         }
 
@@ -5576,11 +7819,43 @@ LIMIT @top_k;
             MatchedDocHints: matchedDocHints);
     }
 
-    internal static RagItemProvenanceDto BuildProvenanceInfo(RagMatch match)
+    private static GuidanceQualityRisk AssessGuidanceQualityRisk(
+        IReadOnlyList<RagMatch> matches,
+        IReadOnlyDictionary<string, RagItemExtractionQualityDto> extractionQualityByMatch)
+    {
+        foreach (var match in matches.Take(5))
+        {
+            var quality = ResolveExtractionQuality(match, extractionQualityByMatch);
+            if (quality is null)
+                continue;
+
+            if (quality.DocumentManualReviewRecommended == true || quality.PageManualReviewRecommended == true)
+                return new GuidanceQualityRisk(true, "source_quality_requires_manual_review_caveat");
+
+            var confidence = quality.PageExtractionConfidence ?? quality.DocumentExtractionConfidence;
+            if (confidence is <= 0.45)
+                return new GuidanceQualityRisk(true, "source_quality_low_confidence_caveat");
+
+            var status = string.Join(' ', quality.PageQualityStatus, quality.DocumentQualityStatus, quality.TextStatus)
+                .ToLowerInvariant();
+            if (status.Contains("ocr_failed", StringComparison.Ordinal)
+                || status.Contains("empty_text", StringComparison.Ordinal)
+                || status.Contains("low_text", StringComparison.Ordinal)
+                || status.Contains("low_confidence", StringComparison.Ordinal)
+                || status.Contains("manual_review", StringComparison.Ordinal))
+            {
+                return new GuidanceQualityRisk(true, "source_quality_status_caveat");
+            }
+        }
+
+        return new GuidanceQualityRisk(false, "source_quality_ok");
+    }
+
+    internal static RagItemProvenanceDto BuildProvenanceInfo(RagMatch match, string? sourceHash = null, bool allowLegacyHashFallback = true)
         => new(
             Channel: ResolveRetriever(match),
             Label: ResolveProvenance(match),
-            SourceHash: match.HashDoc,
+            SourceHash: sourceHash ?? (allowLegacyHashFallback ? match.HashDoc : null),
             ChunkId: match.ChunkId,
             PageStart: match.PageStart,
             PageEnd: match.PageEnd,
@@ -5603,7 +7878,7 @@ LIMIT @top_k;
         CancellationToken ct)
     {
         var topLevelPaths = matches
-            .Select(match => ExtractTopLevelCategoryPath(match.DocPath))
+            .Select(match => ExtractTopLevelCategoryPath(BuildDocumentCategoryPath(match.DocPath)))
             .Where(static path => !string.IsNullOrWhiteSpace(path))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -5634,11 +7909,23 @@ WHERE tenant_id=@tenant
 
     internal static string? BuildDocumentCategory(string? docPath)
     {
-        var topLevel = ExtractTopLevelCategoryPath(docPath);
+        var topLevel = ExtractTopLevelCategoryPath(BuildDocumentCategoryPath(docPath));
         return string.IsNullOrWhiteSpace(topLevel)
             ? null
             : topLevel.ToLowerInvariant();
     }
+
+    internal static string? ResolveMatchCategory(RagMatch match, string? responseCategory)
+    {
+        var storedCategory = NormalizeRagCategory(match.Category);
+        if (!string.IsNullOrWhiteSpace(storedCategory))
+            return storedCategory;
+
+        return BuildDocumentCategory(match.DocPath) ?? NormalizeRagCategory(responseCategory);
+    }
+
+    private static string? NormalizeRagCategory(string? category)
+        => string.IsNullOrWhiteSpace(category) ? null : category.Trim().ToLowerInvariant();
 
     internal static string? BuildDocumentCategoryPath(string? docPath)
     {
@@ -5816,10 +8103,6 @@ WHERE tenant_id=@tenant
     {
         "document",
         "documents",
-        "recette",
-        "recettes",
-        "recipe",
-        "recipes",
         "fiche",
         "claire",
         "faire",
@@ -5827,8 +8110,6 @@ WHERE tenant_id=@tenant
         "veux",
         "donne",
         "trouve",
-        "ingredients",
-        "ingredient",
         "etapes",
         "etape",
         "temps",
@@ -5908,48 +8189,97 @@ WHERE tenant_id=@tenant
     internal static MatchedRetrievalContext BuildMatchedRetrievalContext(IReadOnlyList<RagMatch> matches)
     {
         var hints = ExtractMatchedDocHints(matches);
-        var hasProcessSafetyDomain = false;
-        var hasControlIntegrationDomain = false;
-        var hasHazardousAreaDomain = false;
-        var hasFunctionalSafetyDomain = false;
 
-        foreach (var match in matches)
-        {
-            var searchable = $"{match.DocName} {match.DocPath} {match.SectionTitle} {match.HeadingPath} {match.Text} {match.EmbedText}";
-            hasProcessSafetyDomain |= ContainsAny(searchable, ProcessSafetyKeywords);
-            hasControlIntegrationDomain |= ContainsAny(searchable, ControlIntegrationKeywords);
-            hasHazardousAreaDomain |= ContainsAny(searchable, HazardousAreaKeywords);
-            hasFunctionalSafetyDomain |= ContainsAny(searchable, FunctionalSafetyKeywords);
-        }
-
-        return new MatchedRetrievalContext(
-            hints,
-            hasProcessSafetyDomain,
-            hasControlIntegrationDomain,
-            hasHazardousAreaDomain,
-            hasFunctionalSafetyDomain);
+        return new MatchedRetrievalContext(hints);
     }
 
     private static bool ContainsPlaceholderStandard(string normalizedQuery)
         => normalizedQuery.Contains("norme xxx", StringComparison.Ordinal)
            || normalizedQuery.Contains("standard xxx", StringComparison.Ordinal);
 
-    private static bool ContainsSilCertificationQuery(string normalizedQuery)
-        => normalizedQuery.Contains(" sil ", StringComparison.Ordinal)
-           || normalizedQuery.StartsWith("sil ", StringComparison.Ordinal)
-           || normalizedQuery.EndsWith(" sil", StringComparison.Ordinal)
-           || normalizedQuery.Contains("certification sil", StringComparison.Ordinal);
+    private static bool ContainsCertificationScopeQuestion(string normalizedQuery)
+    {
+        var functionSafetyClaim =
+            (normalizedQuery.Contains("fonction de securite", StringComparison.Ordinal)
+                && (normalizedQuery.Contains("affirmer", StringComparison.Ordinal)
+                    || normalizedQuery.Contains("adapte", StringComparison.Ordinal)
+                    || normalizedQuery.Contains("adapted", StringComparison.Ordinal)
+                    || normalizedQuery.Contains("claim", StringComparison.Ordinal)))
+            || (normalizedQuery.Contains("safety function", StringComparison.Ordinal)
+                && (normalizedQuery.Contains("claim", StringComparison.Ordinal)
+                    || normalizedQuery.Contains("adapted", StringComparison.Ordinal)));
+        if (functionSafetyClaim)
+            return !ContainsSimpleDocumentSelectionQuestion(normalizedQuery);
 
-    private static bool ContainsBroadAtexComplianceQuery(string normalizedQuery)
-        => normalizedQuery.Contains("atex", StringComparison.Ordinal)
-           && ContainsComplianceLanguage(normalizedQuery)
-           && !HasSpecificReferenceLookup(normalizedQuery);
+        return (normalizedQuery.Contains("certification", StringComparison.Ordinal)
+                || normalizedQuery.Contains("certifie", StringComparison.Ordinal)
+                || normalizedQuery.Contains("certifiee", StringComparison.Ordinal)
+                || normalizedQuery.Contains("homologation", StringComparison.Ordinal)
+                || normalizedQuery.Contains("approval", StringComparison.Ordinal)
+                || normalizedQuery.Contains("approved", StringComparison.Ordinal)
+                || normalizedQuery.Contains("qualification", StringComparison.Ordinal))
+            && !HasSpecificReferenceLookup(normalizedQuery)
+            && !ContainsSimpleDocumentSelectionQuestion(normalizedQuery);
+    }
 
     private static bool ContainsComplianceLanguage(string normalizedQuery)
         => normalizedQuery.Contains("respecte", StringComparison.Ordinal)
            || normalizedQuery.Contains("conforme", StringComparison.Ordinal)
            || normalizedQuery.Contains("conformite", StringComparison.Ordinal)
            || normalizedQuery.Contains("compliance", StringComparison.Ordinal);
+
+    private static bool ContainsHighImpactClaimLanguage(string normalizedQuery)
+    {
+        var foldedQuery = FoldDiacritics(normalizedQuery);
+        return HighImpactClaimTerms.Any(term => ContainsNormalizedWholeTerm(foldedQuery, term));
+    }
+
+    private static readonly string[] HighImpactClaimTerms =
+    [
+        "garantir",
+        "garantie",
+        "obligation",
+        "obligatoire",
+        "reglementaire",
+        "regulatory",
+        "legal",
+        "securite",
+        "safety",
+        "protection",
+        "protege",
+        "danger",
+        "risque",
+        "risques",
+        "risk",
+        "risks",
+        "critique",
+        "critical",
+        "fiabilite",
+        "reliability"
+    ];
+
+    private static bool ContainsNormalizedWholeTerm(string normalizedText, string term)
+        => Regex.IsMatch(
+            normalizedText,
+            $@"(?:^|[^\p{{L}}\p{{N}}]){Regex.Escape(term)}(?:$|[^\p{{L}}\p{{N}}])",
+            RegexOptions.CultureInvariant);
+
+    private static bool ContainsBroadComplianceQuestion(string normalizedQuery)
+        => ContainsComplianceLanguage(normalizedQuery)
+           && !HasSpecificReferenceLookup(normalizedQuery)
+           && ContainsBroadScopeLanguage(normalizedQuery);
+
+    private static bool ContainsBroadScopeLanguage(string normalizedQuery)
+        => normalizedQuery.Contains("partout", StringComparison.Ordinal)
+           || normalizedQuery.Contains("en general", StringComparison.Ordinal)
+           || normalizedQuery.Contains("global", StringComparison.Ordinal)
+           || normalizedQuery.Contains("globalement", StringComparison.Ordinal)
+           || normalizedQuery.Contains("juste", StringComparison.Ordinal)
+           || normalizedQuery.Contains("sans plus", StringComparison.Ordinal)
+           || normalizedQuery.Contains("overall", StringComparison.Ordinal)
+           || normalizedQuery.Contains("everywhere", StringComparison.Ordinal)
+           || normalizedQuery.Contains("generally", StringComparison.Ordinal)
+           || normalizedQuery.Contains("in general", StringComparison.Ordinal);
 
     private static bool ContainsCustomerReplyLanguage(string normalizedQuery)
         => normalizedQuery.Contains("on lui repond", StringComparison.Ordinal)
@@ -5963,14 +8293,6 @@ WHERE tenant_id=@tenant
            || normalizedQuery.Contains("notre systeme", StringComparison.Ordinal)
            || normalizedQuery.Contains("notre installation", StringComparison.Ordinal);
 
-    private static bool ContainsCrossDomainSafetyIntegrationQuestion(string normalizedQuery)
-        => (normalizedQuery.Contains("surveillance oxygene", StringComparison.Ordinal)
-            || normalizedQuery.Contains("oxygene", StringComparison.Ordinal)
-            || normalizedQuery.Contains("atmosphere", StringComparison.Ordinal))
-           && (normalizedQuery.Contains("plc", StringComparison.Ordinal)
-               || normalizedQuery.Contains("automate", StringComparison.Ordinal)
-               || normalizedQuery.Contains("terminal", StringComparison.Ordinal));
-
     private static bool ContainsSufficiencyQuestion(string normalizedQuery)
         => normalizedQuery.Contains("suffit a lui seul", StringComparison.Ordinal)
            || normalizedQuery.Contains("suffit a elle seule", StringComparison.Ordinal);
@@ -5978,27 +8300,156 @@ WHERE tenant_id=@tenant
     private static bool ContainsSimpleDocumentSelectionQuestion(string normalizedQuery)
         => normalizedQuery.Contains("quel document faut il citer", StringComparison.Ordinal)
            || normalizedQuery.Contains("quel document faut-il citer", StringComparison.Ordinal)
-           || normalizedQuery.Contains("lequel pour parler", StringComparison.Ordinal)
-           || normalizedQuery.Contains("quel document", StringComparison.Ordinal) && normalizedQuery.Contains("integration plc", StringComparison.Ordinal);
+           || normalizedQuery.Contains("lequel pour parler", StringComparison.Ordinal);
 
-    private static bool ContainsFireProtectionClaimQuestion(string normalizedQuery)
-        => (normalizedQuery.Contains("peut dire", StringComparison.Ordinal)
-            || normalizedQuery.Contains("on peut dire", StringComparison.Ordinal)
-            || normalizedQuery.Contains("est protege", StringComparison.Ordinal))
-           && (normalizedQuery.Contains("feu", StringComparison.Ordinal)
-               || normalizedQuery.Contains("incendie", StringComparison.Ordinal));
+    private static bool ContainsRiskRecommendationQuestion(string normalizedQuery)
+    {
+        if (ContainsDirectFactualAnswerQuestion(normalizedQuery))
+            return false;
 
-    private static bool ContainsOperationalRiskRecommendationQuestion(string normalizedQuery)
-        => (normalizedQuery.Contains("vapeur", StringComparison.Ordinal)
-            || normalizedQuery.Contains("gaz de combustion", StringComparison.Ordinal)
-            || normalizedQuery.Contains("niveau de fiabilite", StringComparison.Ordinal)
-            || normalizedQuery.Contains("zone potentiellement explosive", StringComparison.Ordinal)
-            || normalizedQuery.Contains("zone dangereuse", StringComparison.Ordinal))
-           && (normalizedQuery.Contains("client", StringComparison.Ordinal)
-               || normalizedQuery.Contains("on peut", StringComparison.Ordinal)
-               || normalizedQuery.Contains("utiliser", StringComparison.Ordinal)
-               || normalizedQuery.Contains("dit quoi", StringComparison.Ordinal)
-               || normalizedQuery.Contains("demande", StringComparison.Ordinal));
+        if (normalizedQuery.Contains("compare", StringComparison.Ordinal)
+            || normalizedQuery.Contains("comparer", StringComparison.Ordinal)
+            || normalizedQuery.Contains("difference", StringComparison.Ordinal)
+            || normalizedQuery.Contains("distingue", StringComparison.Ordinal)
+            || normalizedQuery.Contains("distinguer", StringComparison.Ordinal)
+            || normalizedQuery.Contains("expliquer le fonctionnement", StringComparison.Ordinal)
+            || normalizedQuery.Contains("explique simplement", StringComparison.Ordinal)
+            || normalizedQuery.Contains("quand on utiliserait", StringComparison.Ordinal)
+            || normalizedQuery.Contains("quand utiliser", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (!ContainsCustomerOrAdviceLanguage(normalizedQuery))
+        {
+            return false;
+        }
+
+        return ContainsOperationalAdviceLanguage(normalizedQuery)
+            || ContainsHighImpactClaimLanguage(normalizedQuery)
+            || ContainsBroadComplianceQuestion(normalizedQuery);
+    }
+
+    private static bool ContainsCustomerOrAdviceLanguage(string normalizedQuery)
+        => normalizedQuery.Contains("client", StringComparison.Ordinal)
+           || normalizedQuery.Contains("on peut", StringComparison.Ordinal)
+           || normalizedQuery.Contains("peut dire", StringComparison.Ordinal)
+           || normalizedQuery.Contains("dit quoi", StringComparison.Ordinal)
+           || normalizedQuery.Contains("demande", StringComparison.Ordinal)
+           || normalizedQuery.Contains("repondre", StringComparison.Ordinal)
+           || normalizedQuery.Contains("repondrais", StringComparison.Ordinal)
+           || normalizedQuery.Contains("recommend", StringComparison.Ordinal)
+           || normalizedQuery.Contains("recommendation", StringComparison.Ordinal);
+
+    private static bool ContainsOperationalAdviceLanguage(string normalizedQuery)
+        => ContainsCustomerReplyLanguage(normalizedQuery)
+           || ContainsOperationalInstallationAdvice(normalizedQuery)
+           || ContainsOperationalIntegrationSelection(normalizedQuery)
+           || ContainsOperationalTargetAdvice(normalizedQuery)
+           || ContainsOperationalUseAdvice(normalizedQuery);
+
+    private static bool ContainsOperationalInstallationAdvice(string normalizedQuery)
+        => (normalizedQuery.Contains("installer", StringComparison.Ordinal)
+            || normalizedQuery.Contains("install", StringComparison.Ordinal))
+           && (ContainsHighImpactClaimLanguage(normalizedQuery)
+               || ContainsHighImpactSafetyContextLanguage(normalizedQuery));
+
+    private static bool ContainsHighImpactSafetyContextLanguage(string normalizedQuery)
+    {
+        // General safety policy: operational guidance in high-impact industrial safety contexts stays qualified.
+        var foldedQuery = FoldDiacritics(normalizedQuery);
+        return HighImpactSafetyContextTerms.Any(term => foldedQuery.Contains(term, StringComparison.Ordinal));
+    }
+
+    private static readonly string[] HighImpactSafetyContextTerms =
+    [
+        "zone potentiellement explosive",
+        "zone explosive",
+        "atmosphere explosive",
+        "zone dangereuse",
+        "zone a risque",
+        "environnement dangereux",
+        "environnement a risque",
+        "securite industrielle",
+        "risque d explosion",
+        "risques industriels",
+        "prevention explosion",
+        "hazardous area",
+        "hazardous location",
+        "hazardous environment",
+        "dangerous area",
+        "explosive atmosphere",
+        "potentially explosive atmosphere",
+        "explosion hazard",
+        "explosion risk",
+        "explosion protection",
+        "explosion prevention",
+        "industrial safety",
+        "safety critical",
+        "seguridad industrial",
+        "area peligrosa",
+        "zona peligrosa",
+        "atmosfera explosiva",
+        "riesgo de explosion",
+        "seguranca industrial",
+        "area perigosa",
+        "zona perigosa",
+        "risco de explosao",
+        "industrielle sicherheit",
+        "explosionsgefahrdeter bereich",
+        "explosionsgefaehrdeter bereich",
+        "gefahrlicher bereich",
+        "explosionsgefahr",
+        "sicurezza industriale",
+        "area pericolosa",
+        "atmosfera esplosiva",
+        "rischio di esplosione"
+    ];
+
+    private static bool ContainsOperationalIntegrationSelection(string normalizedQuery)
+        => (normalizedQuery.Contains("relier", StringComparison.Ordinal)
+            || normalizedQuery.Contains("raccorder", StringComparison.Ordinal)
+            || normalizedQuery.Contains("connecter", StringComparison.Ordinal)
+            || normalizedQuery.Contains("integrer", StringComparison.Ordinal)
+            || normalizedQuery.Contains("connect", StringComparison.Ordinal)
+            || normalizedQuery.Contains("integrate", StringComparison.Ordinal))
+           && (normalizedQuery.Contains("lequel", StringComparison.Ordinal)
+               || normalizedQuery.Contains("quel document", StringComparison.Ordinal)
+               || normalizedQuery.Contains("documents aide", StringComparison.Ordinal)
+               || normalizedQuery.Contains("aide le plus", StringComparison.Ordinal));
+
+    private static bool ContainsOperationalTargetAdvice(string normalizedQuery)
+        => (normalizedQuery.Contains("viser", StringComparison.Ordinal)
+            || normalizedQuery.Contains("target", StringComparison.Ordinal))
+           && ContainsHighImpactClaimLanguage(normalizedQuery);
+
+    private static bool ContainsOperationalUseAdvice(string normalizedQuery)
+        => (normalizedQuery.Contains("utiliser", StringComparison.Ordinal)
+            || normalizedQuery.Contains("use ", StringComparison.Ordinal))
+           && (ContainsCustomerReplyLanguage(normalizedQuery)
+               || normalizedQuery.Contains("repondre quoi", StringComparison.Ordinal)
+               || normalizedQuery.Contains("document en dit quelque chose", StringComparison.Ordinal)
+               || normalizedQuery.Contains("point de vigilance", StringComparison.Ordinal)
+               || (ContainsHighImpactClaimLanguage(normalizedQuery)
+                   && (normalizedQuery.Contains(" pour ", StringComparison.Ordinal)
+                       || normalizedQuery.Contains(" comme ", StringComparison.Ordinal))));
+
+    private static bool ContainsDirectFactualAnswerQuestion(string normalizedQuery)
+    {
+        return normalizedQuery.Contains("c est autorise", StringComparison.Ordinal)
+            || normalizedQuery.Contains("est ce autorise", StringComparison.Ordinal)
+            || normalizedQuery.Contains("est-ce autorise", StringComparison.Ordinal)
+            || normalizedQuery.Contains("est ce qu on peut utiliser", StringComparison.Ordinal)
+            || normalizedQuery.Contains("est-ce qu on peut utiliser", StringComparison.Ordinal)
+            || normalizedQuery.Contains("est ce qu'on peut utiliser", StringComparison.Ordinal)
+            || normalizedQuery.Contains("se connecte", StringComparison.Ordinal)
+            || normalizedQuery.Contains("couvre aussi", StringComparison.Ordinal)
+            || normalizedQuery.Contains("couvre ", StringComparison.Ordinal)
+            || normalizedQuery.Contains("toutes les versions", StringComparison.Ordinal)
+            || normalizedQuery.Contains("tous les modeles", StringComparison.Ordinal)
+            || normalizedQuery.Contains("all versions", StringComparison.Ordinal)
+            || normalizedQuery.Contains("all models", StringComparison.Ordinal);
+    }
 
     private static bool ContainsQuickCustomerReplySelectionQuestion(string normalizedQuery)
         => normalizedQuery.Contains("repondre vite au client", StringComparison.Ordinal)
@@ -6008,58 +8459,102 @@ WHERE tenant_id=@tenant
            || (normalizedQuery.Contains("par lequel", StringComparison.Ordinal)
                && normalizedQuery.Contains("client", StringComparison.Ordinal));
 
-    private static string BuildClarifyingQuestion(string normalizedQuery, MatchedRetrievalContext matchedContext, string reason)
+    private static string ResolveGuidanceLanguage(string query)
     {
-        if (string.Equals(reason, "safety_certification_requires_precise_scope", StringComparison.Ordinal))
-            return "Tu parles d'une exigence SIL pour quel composant, quelle fonction de securite et quel niveau attendu ?";
-
-        if (string.Equals(reason, "broad_atex_compliance_requires_scope", StringComparison.Ordinal))
-        {
-            if (matchedContext.HasControlIntegrationDomain || matchedContext.HasHazardousAreaDomain)
-                return "Tu vises quelle exigence ATEX precise, sur quelle zone, pour quelle version d'equipement et avec quelles options installees ?";
-
-            return "Tu vises quelle exigence ATEX precise, sur quelle zone et pour quelle partie de l'installation ou du process ?";
-        }
-
-        if (matchedContext.HasProcessSafetyDomain && matchedContext.HasControlIntegrationDomain)
-            return "Tu parles de quelle norme exactement, et est-ce que tu vises plutot le process/inertage, le terminal/PLC, ou la zone ATEX autour de l'installation ?";
-
-        if (matchedContext.HasControlIntegrationDomain)
-            return "Tu parles de quelle norme exactement et sur quelle partie de l'equipement ou de l'integration automatisme ?";
-
-        if (matchedContext.HasProcessSafetyDomain)
-            return "Tu parles de quelle norme exactement et sur quelle partie du process ou de l'inertage ?";
-
-        return "Tu parles de quelle norme exactement et sur quelle partie du projet ou de l'equipement ?";
+        var primary = DocumentLanguageResolver.PrimarySubtag(DocumentLanguageResolver.DetectDominantLanguage(query));
+        return primary is "en" or "es" or "pt" or "de" or "it" ? primary : "fr";
     }
 
-    private static string BuildQualificationNote(string normalizedQuery, MatchedRetrievalContext matchedContext, bool simpleDocumentSelection)
+    private static string BuildNoRelevantSourceNote(string guidanceLanguage)
+        => guidanceLanguage switch
+        {
+            "en" => "No sufficiently relevant source was retrieved for this query.",
+            "es" => "No se ha recuperado ninguna fuente suficientemente pertinente para esta consulta.",
+            "pt" => "Nenhuma fonte suficientemente relevante foi recuperada para esta pergunta.",
+            "de" => "Fuer diese Anfrage wurde keine ausreichend relevante Quelle gefunden.",
+            "it" => "Non e stata recuperata nessuna fonte sufficientemente pertinente per questa richiesta.",
+            _ => "Aucune source suffisamment pertinente n'a ete retrouvee pour cette question."
+        };
+
+    private static string BuildClarifyingQuestion(string normalizedQuery, MatchedRetrievalContext matchedContext, string reason, string guidanceLanguage)
+    {
+        if (string.Equals(reason, "certification_requires_precise_scope", StringComparison.Ordinal))
+        {
+            return guidanceLanguage switch
+            {
+                "en" => "Which certification or qualification do you mean, for which exact scope, which item, and which usage conditions?",
+                "es" => "A que certificacion o cualificacion te refieres, con que alcance exacto, que elemento y que condiciones de uso?",
+                "pt" => "A que certificacao ou qualificacao se refere, com que escopo exato, que elemento e que condicoes de uso?",
+                "de" => "Welche Zertifizierung oder Qualifikation meinst du, fuer welchen genauen Umfang, welches Element und welche Nutzungsbedingungen?",
+                "it" => "A quale certificazione o qualificazione ti riferisci, con quale perimetro esatto, quale elemento e quali condizioni d'uso?",
+                _ => "Tu parles de quelle certification ou qualification, pour quel perimetre exact, quel element concerne et quelles conditions d'utilisation ?"
+            };
+        }
+
+        if (string.Equals(reason, "broad_compliance_requires_scope", StringComparison.Ordinal))
+        {
+            return guidanceLanguage switch
+            {
+                "en" => "Which exact requirement are you targeting, for which scope, equipment or document, and under which installation or usage conditions?",
+                "es" => "Que requisito exacto buscas, con que alcance, para que equipo o documento, y con que condiciones de instalacion o uso?",
+                "pt" => "Qual requisito exato voce quer tratar, com que escopo, para qual equipamento ou documento, e com quais condicoes de instalacao ou uso?",
+                "de" => "Welche genaue Anforderung meinst du, fuer welchen Umfang, welches Geraet oder Dokument und unter welchen Installations- oder Nutzungsbedingungen?",
+                "it" => "Quale requisito preciso intendi, con quale perimetro, per quale apparecchiatura o documento e con quali condizioni di installazione o uso?",
+                _ => "Tu vises quelle exigence precise, sur quel perimetre, pour quel equipement ou document, et avec quelles conditions d'installation ou d'utilisation ?"
+            };
+        }
+
+        return guidanceLanguage switch
+        {
+            "en" => "Which exact requirement do you mean, for which scope, which item or document, and under which usage conditions?",
+            "es" => "A que requisito exacto te refieres, con que alcance, para que elemento o documento, y con que condiciones de uso?",
+            "pt" => "A qual requisito exato voce se refere, com que escopo, para qual elemento ou documento, e com quais condicoes de uso?",
+            "de" => "Welche genaue Anforderung meinst du, fuer welchen Umfang, welches Element oder Dokument und unter welchen Nutzungsbedingungen?",
+            "it" => "A quale requisito esatto ti riferisci, con quale perimetro, quale elemento o documento e quali condizioni d'uso?",
+            _ => "Tu parles de quelle exigence exactement, sur quel perimetre, pour quel element ou document, et avec quelles conditions d'utilisation ?"
+        };
+    }
+
+    private static string BuildHighImpactSafetyQualificationNote(string normalizedQuery, MatchedRetrievalContext matchedContext, bool simpleDocumentSelection, string guidanceLanguage)
     {
         var hintLabel = FormatHintLabel(matchedContext.DocHints);
 
-        if (matchedContext.HasProcessSafetyDomain && matchedContext.HasControlIntegrationDomain)
+        if (ContainsQuickCustomerReplySelectionQuestion(normalizedQuery) || simpleDocumentSelection)
         {
-            if (ContainsQuickCustomerReplySelectionQuestion(normalizedQuery) || simpleDocumentSelection)
-                return $"Commence par la documentation process/safety{hintLabel} pour cadrer le sujet et la conformite process, puis utilise la documentation terminal/PLC pour l'equipement et l'integration; cela ne suffit pas a affirmer la conformite complete du projet.";
-
-            return $"Les documents retrouves{hintLabel} couvrent a la fois le process/safety et le terminal ou l'integration PLC. Il faut encore cadrer le perimetre, les equipements concernes et le contexte projet avant d'affirmer une conformite complete du projet.";
+            return guidanceLanguage switch
+            {
+                "en" => $"The retrieved documents{hintLabel} can help choose an initial source, but the scope, document version, affected items and context still need checking before making it a final answer.",
+                "es" => $"Los documentos recuperados{hintLabel} pueden ayudar a escoger una primera fuente, pero aun hay que verificar el alcance, la version del documento, los elementos afectados y el contexto antes de dar una respuesta definitiva.",
+                "pt" => $"Os documentos recuperados{hintLabel} podem ajudar a escolher uma primeira fonte, mas ainda e preciso verificar o escopo, a versao do documento, os elementos envolvidos e o contexto antes de dar uma resposta definitiva.",
+                "de" => $"Die gefundenen Dokumente{hintLabel} koennen bei der ersten Quellenauswahl helfen, aber Umfang, Dokumentversion, betroffene Elemente und Kontext muessen vor einer endgueltigen Antwort noch geprueft werden.",
+                "it" => $"I documenti recuperati{hintLabel} possono aiutare a scegliere una prima fonte, ma bisogna ancora verificare perimetro, versione del documento, elementi interessati e contesto prima di dare una risposta definitiva.",
+                _ => $"Les documents retrouves{hintLabel} peuvent aider a choisir une premiere source, mais il faut encore verifier le perimetre, la version du document, les elements concernes et le contexte avant d'en faire une reponse definitive."
+            };
         }
 
-        if (matchedContext.HasControlIntegrationDomain && (matchedContext.HasHazardousAreaDomain
-            || normalizedQuery.Contains("zone potentiellement explosive", StringComparison.Ordinal)
-            || normalizedQuery.Contains("zone dangereuse", StringComparison.Ordinal)))
+        return guidanceLanguage switch
         {
-            return $"La documentation equipement{hintLabel} aide a cadrer le terminal, mais il faut verifier la version exacte, la zone dangereuse visee et les options installees avant toute affirmation de conformite.";
-        }
+            "en" => $"The retrieved documents{hintLabel} can inform the topic, but the scope, affected items, usage conditions and project context still need framing before asserting compliance, an obligation or a final recommendation.",
+            "es" => $"Los documentos recuperados{hintLabel} pueden aclarar el tema, pero aun hay que acotar el alcance, los elementos afectados, las condiciones de uso y el contexto del proyecto antes de afirmar conformidad, obligacion o recomendacion definitiva.",
+            "pt" => $"Os documentos recuperados{hintLabel} podem esclarecer o tema, mas ainda e preciso enquadrar o escopo, os elementos envolvidos, as condicoes de uso e o contexto do projeto antes de afirmar conformidade, obrigacao ou recomendacao definitiva.",
+            "de" => $"Die gefundenen Dokumente{hintLabel} koennen das Thema einordnen, aber Umfang, betroffene Elemente, Nutzungsbedingungen und Projektkontext muessen noch geklaert werden, bevor Konformitaet, Pflicht oder endgueltige Empfehlung behauptet wird.",
+            "it" => $"I documenti recuperati{hintLabel} possono chiarire il tema, ma bisogna ancora definire perimetro, elementi interessati, condizioni d'uso e contesto di progetto prima di affermare conformita, obbligo o raccomandazione definitiva.",
+            _ => $"Les documents retrouves{hintLabel} peuvent eclairer le sujet, mais il faut encore cadrer le perimetre, les elements concernes, les conditions d'utilisation et le contexte projet avant d'affirmer une conformite, une obligation ou une recommandation definitive."
+        };
+    }
 
-        if (matchedContext.HasProcessSafetyDomain && (ContainsComplianceLanguage(normalizedQuery)
-            || ContainsCustomerReplyLanguage(normalizedQuery)
-            || ContainsProjectAssessmentLanguage(normalizedQuery)))
+    private static string BuildSourceQualityQualificationNote(MatchedRetrievalContext matchedContext, string guidanceLanguage)
+    {
+        var hintLabel = FormatHintLabel(matchedContext.DocHints);
+        return guidanceLanguage switch
         {
-            return $"La documentation process{hintLabel} eclaire l'inertage, les sauvegardes et le contexte technique, mais il faut encore cadrer le perimetre, les equipements concernes et le contexte projet avant d'affirmer une conformite.";
-        }
-
-        return "Les documents peuvent eclairer le sujet, mais ils ne suffisent pas seuls a affirmer la conformite complete du projet sans contexte supplementaire.";
+            "en" => $"The retrieved evidence{hintLabel} appears usable, but at least one selected source has weak extraction or OCR quality. Answer from the cited passages, and explicitly mention uncertainty if a value, wording or page detail looks ambiguous.",
+            "es" => $"La evidencia recuperada{hintLabel} parece utilizable, pero al menos una fuente seleccionada tiene calidad de extraccion u OCR debil. Responde a partir de los pasajes citados y menciona la incertidumbre si un valor, una formulacion o un detalle de pagina parece ambiguo.",
+            "pt" => $"As evidencias recuperadas{hintLabel} parecem utilizaveis, mas pelo menos uma fonte selecionada tem qualidade fraca de extracao ou OCR. Responda a partir dos trechos citados e mencione a incerteza se um valor, uma formulacao ou um detalhe de pagina parecer ambiguo.",
+            "de" => $"Die gefundenen Belege{hintLabel} wirken nutzbar, aber mindestens eine ausgewaehlte Quelle hat schwache Extraktions- oder OCR-Qualitaet. Antworte aus den zitierten Passagen und nenne Unsicherheit, wenn ein Wert, eine Formulierung oder ein Seitendetail mehrdeutig wirkt.",
+            "it" => $"Le evidenze recuperate{hintLabel} sembrano utilizzabili, ma almeno una fonte selezionata ha qualita di estrazione o OCR debole. Rispondi dai passaggi citati e segnala l'incertezza se un valore, una formulazione o un dettaglio di pagina sembra ambiguo.",
+            _ => $"Les elements retrouves{hintLabel} semblent exploitables, mais au moins une source selectionnee a une qualite d'extraction ou OCR faible. Reponds depuis les passages cites et signale l'incertitude si une valeur, une formulation ou un detail de page semble ambigu."
+        };
     }
 
     private static string DetermineResponseShape(string normalizedQuery, string behavior)
@@ -6228,7 +8723,7 @@ WHERE tenant_id=@tenant
     }
 
     private static string NormalizeQueryForGuidance(string query)
-        => $" {ExactMatchEntryExtractor.NormalizeForLookup(query)} ";
+        => $" {FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query))} ";
 
     private static string NormalizeQuery(string s)
     {
@@ -6312,7 +8807,8 @@ WHERE tenant_id=@tenant
         Guid? docId,
         string? docPath,
         int topK,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? categoryPath = null)
     {
         if (topK <= 0)
             return [];
@@ -6322,6 +8818,7 @@ SELECT
     d.doc_id AS "DocId",
     d.doc_path AS "DocPath",
     d.doc_name AS "DocName",
+    d.category AS "Category",
     d.indexed_version AS "IngestionVersion",
     LOWER(ENCODE(d.content_hash, 'hex')) AS "HashDoc"
 FROM documents d
@@ -6329,6 +8826,7 @@ WHERE d.tenant_id = @tenant_id
   AND d.status = 'indexed'
   AND d.indexed_version > 0
   AND (@category IS NULL OR LOWER(d.category) = @category)
+  AND (@category_path IS NULL OR d.doc_path = @category_path OR d.doc_path LIKE (@category_path || '/%'))
   AND (@doc_id IS NULL OR d.doc_id = @doc_id)
   AND (@doc_path IS NULL OR d.doc_path = @doc_path)
 ORDER BY d.updated_at DESC
@@ -6339,6 +8837,7 @@ LIMIT 500;
         {
             tenant_id = tenantId,
             category,
+            category_path = NormalizeRagCategoryPathForSql(categoryPath),
             doc_id = docId,
             doc_path = docPath
         }, cancellationToken: ct));
@@ -6409,6 +8908,7 @@ LIMIT 500;
             DocId: row.DocId.ToString(),
             DocPath: row.DocPath,
             DocName: row.DocName,
+            Category: row.Category,
             PageStart: null,
             PageEnd: null,
             ChunkId: $"docmeta:{row.DocId}",
@@ -6508,6 +9008,23 @@ LIMIT 500;
         var json = await resp.Content.ReadAsStringAsync(ctx.RequestAborted);
         return Results.Text(json, "application/json");
     }
+}
+
+public sealed record RagDocumentLanguageInfo(string DocLanguage, string? ProfileLanguage);
+
+public sealed class RagDocumentLanguageRow
+{
+    public string DocId { get; set; } = "";
+    public string? ProfileLanguage { get; set; }
+    public string? SummaryLanguage { get; set; }
+    public string? RunDocumentLanguage { get; set; }
+}
+
+public sealed class RagDocumentSourceHashRow
+{
+    public string DocId { get; set; } = "";
+    public string DocPath { get; set; } = "";
+    public string? SourceHash { get; set; }
 }
 
 public sealed record RagQueryRequest(string Query, string? Category, int? TopK);

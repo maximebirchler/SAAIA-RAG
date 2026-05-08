@@ -135,6 +135,41 @@ public sealed class RetrievalChunkProjectorTests
     }
 
     [Fact]
+    public void ProjectStructureAware_uses_shared_multilingual_lexicon_for_high_signal_units()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 1, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "BLOQUE CONTROL Componentes sensor valvula actuator Preparacion 1. Verificar sensor principal. 2. Registrar resultado final.",
+                121,
+                15,
+                [1],
+                0,
+                121)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 200,
+            overlapWords: 0,
+            minWords: 80);
+
+        Assert.Contains(projected, chunk =>
+            chunk.ChunkType == "unit_exact_v1"
+            && chunk.UnitOrdinal == 0
+            && chunk.Text.StartsWith("BLOQUE CONTROL", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ProjectStructureAware_does_not_prefix_structured_unit_with_previous_tail_fragment()
     {
         var sections = new[]

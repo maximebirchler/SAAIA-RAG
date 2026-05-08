@@ -1,4 +1,5 @@
 using System.Linq;
+using System.IO;
 using Xunit;
 
 namespace SAAIA.Backend.Tests;
@@ -40,6 +41,185 @@ public sealed class DocumentProfileProjectorTests
     }
 
     [Fact]
+    public void Project_uses_neutral_extract_when_language_is_not_known()
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, "Onderhoud veiligheidscontrole installatiehandleiding drukventiel.", 4, 61, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Onderhoud", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, "Onderhoud veiligheidscontrole installatiehandleiding drukventiel.", 61, 4, [2])
+        };
+
+        var profile = DocumentProfileProjector.Project("Kennisbank/Handleiding.pdf", pages, sections, units, exactMatchEntries: []);
+
+        Assert.Equal("nl", profile.Language);
+        Assert.Contains("Handleiding.pdf", profile.SummaryText, StringComparison.Ordinal);
+        Assert.Contains("Onderhoud", profile.SummaryText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Sections principales", profile.SummaryText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Premiers extraits", profile.SummaryText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(profile.HypotheticalQuestions, question => question.StartsWith("Que dit", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("deterministic_profile_from_extracted_text", profile.Limits);
+    }
+
+    [Theory]
+    [InlineData("Kennisbank/Handleiding.pdf", "Onderhoud en veiligheidscontroles voor de installatie.", "nl")]
+    [InlineData("Arabic/Guide.pdf", "يشرح هذا المستند اجراءات السلامة والصيانة للمعدات.", "ar")]
+    [InlineData("Chinese/Manual.pdf", "本文件介绍安全联锁状态和维护要求。", "zh")]
+    [InlineData("Russian/Manual.pdf", "Документ описывает требования безопасности и техническое обслуживание.", "ru")]
+    public void Project_detects_non_ui_document_languages_without_ui_language_limits(
+        string docPath,
+        string text,
+        string expectedLanguage)
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, 8, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, text, text.Length, 8, [2])
+        };
+
+        var profile = DocumentProfileProjector.Project(docPath, pages, sections, units, exactMatchEntries: []);
+
+        Assert.Equal(expectedLanguage, profile.Language);
+        Assert.Contains(Path.GetFileName(docPath), profile.SummaryText, StringComparison.Ordinal);
+        Assert.Contains("deterministic_profile_from_extracted_text", profile.Limits);
+    }
+
+    [Fact]
+    public void Project_deduplicates_content_cards_after_diacritic_folding()
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                1,
+                "Cafe safety requires clean equipment. Cafe safety also requires documented checks.",
+                10,
+                76,
+                [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Café Safety", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(1, "Cafe Safety", 1, 1, 1, 2, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, "Cafe safety requires clean equipment.", 37, 5, [2]),
+            new ExtractedDocumentUnit(1, 1, 1, 1, "Cafe safety also requires documented checks.", 43, 6, [3])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/Safety.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.Equal(
+            1,
+            profile.ContentCards.Count(card =>
+                string.Equals(card.Title, "Café Safety", StringComparison.Ordinal)
+                || string.Equals(card.Title, "Cafe Safety", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void Project_filters_generic_ocr_noise_content_card_titles()
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                1,
+                "WARNING een 6 ¡PASO i iii 6\nSafety symbols are used to identify hazards.",
+                12,
+                74,
+                [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "WARNING een 6 ¡PASO i iii 6", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(1, "Safety symbols", 1, 1, 1, 2, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, "WARNING een 6 ¡PASO i iii 6", 30, 6, [2]),
+            new ExtractedDocumentUnit(1, 1, 1, 1, "Safety symbols are used to identify hazards.", 44, 6, [3])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/OcrNoise.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.Contains("¡PASO", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Safety symbols", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Project_keeps_technical_identifier_cards_despite_numeric_title_filters()
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                1,
+                "ISO 13849-1\nSafety-related control functions require validation.\nReferences IEC 61508-2\nDiagnostic coverage shall be documented.\nEN60204-1\nElectrical equipment requirements.",
+                22,
+                176,
+                [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Technical standards", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, "ISO 13849-1\nSafety-related control functions require validation.", 64, 7, [2]),
+            new ExtractedDocumentUnit(1, 0, 1, 1, "References IEC 61508-2\nDiagnostic coverage shall be documented.", 63, 7, [3]),
+            new ExtractedDocumentUnit(2, 0, 1, 1, "EN60204-1\nElectrical equipment requirements.", 40, 4, [4])
+        };
+        var exact = new[]
+        {
+            new ExtractedExactMatchEntry(0, 0, 0, 1, 1, "ISO/IEC 27001", "iso iec 27001", 12, 2, [5], "standard_ref")
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/TechnicalIdentifiers.pdf",
+            pages,
+            sections,
+            units,
+            exact);
+
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "ISO 13849-1", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "References IEC 61508-2", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "EN60204-1", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "ISO/IEC 27001", StringComparison.Ordinal));
+        Assert.Contains("ISO 13849-1", profile.SearchText, StringComparison.Ordinal);
+        Assert.Contains("IEC 61508-2", profile.SearchText, StringComparison.Ordinal);
+        Assert.Contains("EN60204-1", profile.SearchText, StringComparison.Ordinal);
+        Assert.Contains("ISO/IEC 27001", profile.SearchText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Ocr_noise_filter_keeps_dense_technical_identifier_lines()
+    {
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(
+            "ISO13849-1 IEC61508-2 EN60204-1 ISO/IEC27001 UL508A SIL2 PLd"));
+    }
+
+    [Fact]
     public void Project_builds_generic_content_cards_from_titles_without_category_hardcoding()
     {
         var pages = new[]
@@ -73,6 +253,151 @@ public sealed class DocumentProfileProjectorTests
         Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "SAUCE BEARNAISE", StringComparison.Ordinal));
         Assert.Contains("LOCKOUT TAGOUT PROCEDURE", profile.SearchText, StringComparison.Ordinal);
         Assert.Contains("SAUCE BEARNAISE", profile.SearchText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Project_adds_structured_scalability_signals_to_content_cards()
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                1,
+                "MODULE COMPACT ALPHA\nBase 4 elements | 400 g de matiere de base | 5 cl de liant | 30 cl de fluide porteur. Procedure: assembler.",
+                20,
+                139,
+                [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Module compact alpha", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "MODULE COMPACT ALPHA\nBase 4 elements | 400 g de matiere de base | 5 cl de liant | 30 cl de fluide porteur. Procedure: assembler.",
+                139,
+                20,
+                [2])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Operations/CompactModule.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        var card = Assert.Single(
+            profile.ContentCards,
+            card => string.Equals(card.Title, "MODULE COMPACT ALPHA", StringComparison.Ordinal));
+        Assert.Contains("scale_basis", card.Signals);
+        Assert.Contains("scale_basis_count:4", card.Signals);
+        Assert.Contains("scale_basis_label:elements", card.Signals);
+        Assert.Contains("quantity_list", card.Signals);
+        Assert.Contains("structured_facts", card.Signals);
+        Assert.Contains("scalable_quantities", card.Signals);
+        Assert.NotNull(card.Evidence);
+        Assert.Equal("content_card_evidence_v1", card.Evidence!.SchemaVersion);
+        Assert.Equal(4, card.Evidence.ScaleBasis!.Count);
+        Assert.Equal("elements", card.Evidence.ScaleBasis.Label);
+        Assert.Contains(card.Evidence.QuantityFacts, fact =>
+            fact.Value == 400
+            && string.Equals(fact.Unit, "g", StringComparison.Ordinal)
+            && fact.Label.Contains("matiere de base", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(card.Evidence.Facts!, fact =>
+            string.Equals(fact.Kind, "scale_basis", StringComparison.Ordinal)
+            && string.Equals(fact.Value, "4", StringComparison.Ordinal)
+            && string.Equals(fact.Label, "elements", StringComparison.Ordinal));
+        Assert.Contains(card.Evidence.Facts!, fact =>
+            string.Equals(fact.Kind, "quantity", StringComparison.Ordinal)
+            && string.Equals(fact.Unit, "g", StringComparison.Ordinal)
+            && fact.Label.Contains("matiere de base", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("scalable_quantities", profile.SearchText, StringComparison.Ordinal);
+        Assert.Contains("structured_facts", profile.SearchText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Project_marks_parameter_content_cards_non_scalable_without_scaling_signals()
+    {
+        const string text = "CONTROL CHECK\nSafety context: pressure 2 bar | temperature 70 C | speed 1500 rpm | reference EN 60204 validation.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, 16, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Parameter guide", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, text, text.Length, 16, [2])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/ParameterCard.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        var card = Assert.Single(
+            profile.ContentCards,
+            card => string.Equals(card.Title, "CONTROL CHECK", StringComparison.Ordinal));
+        Assert.NotNull(card.Evidence);
+        Assert.Null(card.Evidence!.ScaleBasis);
+        Assert.Empty(card.Evidence.QuantityFacts);
+        Assert.Contains("safety_or_parameter_context", card.Evidence.NonScalableReasons);
+        Assert.DoesNotContain("scale_basis", card.Signals);
+        Assert.DoesNotContain("quantity_list", card.Signals);
+        Assert.DoesNotContain("scalable_quantities", card.Signals);
+        Assert.Contains("non_scalable_quantities", card.Signals);
+    }
+
+    [Fact]
+    public void BuildProfile_derives_structured_signals_from_supplied_card_evidence()
+    {
+        var profile = DocumentProfileProjector.BuildProfile(
+            profileVersion: "llm_backoffice_v1",
+            language: "en",
+            summaryText: "Profile with externally supplied structured evidence.",
+            keywords: [],
+            entities: [],
+            topics: [],
+            hypotheticalQuestions: [],
+            limits: [],
+            docPath: "Generic/StructuredEvidence.pdf",
+            docName: "StructuredEvidence.pdf",
+            contentCards:
+            [
+                new DocumentProfileContentCard(
+                    "CONTROL PACKAGE ALPHA",
+                    1,
+                    1,
+                    "llm_content_card",
+                    [],
+                    new DocumentProfileCardEvidence(
+                        "content_card_evidence_v1",
+                        new DocumentProfileScaleBasis(4, "elements"),
+                        [
+                            new DocumentProfileQuantityFact(400, "g", "base material", "400 g base material"),
+                            new DocumentProfileQuantityFact(5, "cl", "binder", "5 cl binder")
+                        ],
+                        [],
+                        0.81,
+                        "en",
+                        []))
+            ]);
+
+        var card = Assert.Single(profile.ContentCards);
+        Assert.Contains("scale_basis", card.Signals);
+        Assert.Contains("scale_basis_count:4", card.Signals);
+        Assert.Contains("quantity_list", card.Signals);
+        Assert.Contains("scalable_quantities", card.Signals);
+        Assert.Contains("scale_basis_count:4", profile.SearchText, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -233,23 +558,23 @@ public sealed class DocumentProfileProjectorTests
         {
             new ExtractedPdfPage(
                 1,
-                "Faire fondre du chocolat\nFAIRE UN BAC DE CUISINE-MOI EN PREMIER\nAssaisonnez la crème de sel et mettez-la dans un joli saladier.\n",
+                "Faire un diagnostic rapide\nFAIRE UN PLAN DE CONTROLE EN PREMIER\nAppliquez la configuration et validez le resultat.\n",
                 26,
                 132,
                 [1])
         };
         var sections = new[]
         {
-            new ExtractedDocumentSection(0, "Kitchen Techniques", 1, 1, 1, 1, null)
+            new ExtractedDocumentSection(0, "Operational Techniques", 1, 1, 1, 1, null)
         };
         var units = new[]
         {
-            new ExtractedDocumentUnit(0, 0, 1, 1, "Faire fondre du chocolat", 25, 4, [2]),
-            new ExtractedDocumentUnit(1, 0, 1, 1, "FAIRE UN BAC DE CUISINE-MOI EN PREMIER", 40, 7, [3]),
-            new ExtractedDocumentUnit(2, 0, 1, 1, "Assaisonnez la crème de sel et mettez-la dans un joli saladier.", 65, 10, [4]),
-            new ExtractedDocumentUnit(3, 0, 1, 1, "Badigeonner Étendre, à l’aide d’un pinceau, une préparation liquide", 68, 9, [5]),
-            new ExtractedDocumentUnit(4, 0, 1, 1, "Préchauffez le four à température maximale sur la position grill", 63, 9, [6]),
-            new ExtractedDocumentUnit(5, 0, 1, 1, "Réaliser la sauce à la crème.Verser le porto dans la poêle des escalopes", 76, 12, [7])
+            new ExtractedDocumentUnit(0, 0, 1, 1, "Faire un diagnostic rapide", 27, 4, [2]),
+            new ExtractedDocumentUnit(1, 0, 1, 1, "FAIRE UN PLAN DE CONTROLE EN PREMIER", 37, 7, [3]),
+            new ExtractedDocumentUnit(2, 0, 1, 1, "Appliquez la configuration et validez le resultat.", 49, 7, [4]),
+            new ExtractedDocumentUnit(3, 0, 1, 1, "Installer le module avant de connecter l'alimentation", 51, 8, [5]),
+            new ExtractedDocumentUnit(4, 0, 1, 1, "Configurez le mode automatique avant le demarrage", 47, 7, [6]),
+            new ExtractedDocumentUnit(5, 0, 1, 1, "Valider le controle final avant archivage", 39, 6, [7])
         };
 
         var profile = DocumentProfileProjector.Project(
@@ -259,12 +584,12 @@ public sealed class DocumentProfileProjectorTests
             units,
             exactMatchEntries: []);
 
-        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Faire fondre du chocolat", StringComparison.Ordinal));
-        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "FAIRE UN BAC DE CUISINE-MOI EN PREMIER", StringComparison.Ordinal));
-        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Assaisonnez", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Badigeonner", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Préchauffez", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Réaliser", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Faire un diagnostic rapide", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "FAIRE UN PLAN DE CONTROLE EN PREMIER", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Appliquez", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Installer", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Configurez", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Valider", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -337,12 +662,12 @@ public sealed class DocumentProfileProjectorTests
         var units = new[]
         {
             new ExtractedDocumentUnit(0, 0, 1, 1, "COURGE SPAGHETTI I page 48LE GRANOLA A KAKI I page 47", 60, 10, [2]),
-            new ExtractedDocumentUnit(1, 0, 1, 1, "Temps de preparationen minutes", 29, 4, [3]),
+            new ExtractedDocumentUnit(1, 0, 1, 1, "Total time in minutes", 21, 4, [3]),
             new ExtractedDocumentUnit(2, 0, 1, 1, "Pour vous aider a substituer certains ingredients, consultez l outil D a la page 56", 80, 13, [4]),
-            new ExtractedDocumentUnit(3, 0, 1, 1, "Repartir la preparation dans des moules a muffins legerement huiles", 67, 9, [5]),
-            new ExtractedDocumentUnit(4, 0, 1, 1, "Melangez, puis garnissez les blancs de cette preparation", 55, 8, [6]),
+            new ExtractedDocumentUnit(3, 0, 1, 1, "Remplacer la configuration dans les modules concernes", 55, 7, [5]),
+            new ExtractedDocumentUnit(4, 0, 1, 1, "Validez, puis archivez le resultat du controle", 45, 7, [6]),
             new ExtractedDocumentUnit(5, 0, 1, 1, "A l aide de la spatule, ramenez la preparation vers le centre", 62, 12, [7]),
-            new ExtractedDocumentUnit(6, 0, 1, 1, "SAUCE VERTE\nIngredients: persil, ail, huile.", 43, 6, [8])
+            new ExtractedDocumentUnit(6, 0, 1, 1, "SAFETY CHECK\nMaterials: gloves, labels, scanner.", 48, 6, [8])
         };
 
         var profile = DocumentProfileProjector.Project(
@@ -352,12 +677,12 @@ public sealed class DocumentProfileProjectorTests
             units,
             exactMatchEntries: []);
 
-        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "SAUCE VERTE", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "SAFETY CHECK", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => card.Title.Contains("page 48", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Temps de preparation", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Total time", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Pour vous aider", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Repartir", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Melangez", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Remplacer", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Validez", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("A l aide", StringComparison.OrdinalIgnoreCase));
     }
 

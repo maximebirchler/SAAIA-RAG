@@ -22,6 +22,11 @@ internal static class RetrievalTelemetry
         unit: "{request}",
         description: "Number of retrieval searches returning zero results.");
 
+    private static readonly Counter<long> RetrieverDegraded = Meter.CreateCounter<long>(
+        "saaia.retrieval.retriever_degraded",
+        unit: "{event}",
+        description: "Number of retriever phases that degraded and returned a fallback result.");
+
     private static readonly Histogram<double> SearchDurationMs = Meter.CreateHistogram<double>(
         "saaia.retrieval.duration",
         unit: "ms",
@@ -116,6 +121,26 @@ internal static class RetrievalTelemetry
 
         activity.SetStatus(ActivityStatusCode.Error, ex.Message);
         activity.SetTag("exception.type", ex.GetType().FullName);
+    }
+
+    internal static void RecordRetrieverDegraded(string retriever, Exception ex)
+    {
+        var normalizedRetriever = string.IsNullOrWhiteSpace(retriever) ? "unknown" : retriever.Trim().ToLowerInvariant();
+        var tags = new TagList
+        {
+            { "saaia.retrieval.retriever", normalizedRetriever },
+            { "exception.type", ex.GetType().FullName ?? ex.GetType().Name }
+        };
+
+        RetrieverDegraded.Add(1, tags);
+        Activity.Current?.AddEvent(new ActivityEvent(
+            "retriever.degraded",
+            tags: new ActivityTagsCollection
+            {
+                { "saaia.retrieval.retriever", normalizedRetriever },
+                { "exception.type", ex.GetType().FullName ?? ex.GetType().Name },
+                { "exception.message", ex.Message }
+            }));
     }
 
     internal static void CompleteSearch(
