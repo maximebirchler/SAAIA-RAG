@@ -221,7 +221,7 @@ sealed class IngestionWorker : BackgroundService
     internal static bool ShouldStabilizeDocumentAfterCancel(string? reason)
         => !string.Equals(reason, "superseded_version", StringComparison.OrdinalIgnoreCase);
 
-    // Heartbeat: rafraîchit locked_at pour éviter qu’un job long soit considéré "stale" alors qu’il tourne.
+    // Heartbeat: refresh locked_at so long jobs are not considered stale while they are still running.
     private async Task<T> RunWithJobHeartbeatAsync<T>(
         NpgsqlDataSource ds,
         IngestionJob job,
