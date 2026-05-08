@@ -1558,11 +1558,14 @@ ORDER BY d.doc_path;
 
         PrioritizeExactTitleSelections(selectionRankingQuery, selected);
         PrioritizeQuotedTitleSelections(req.Query, selected);
-        PruneWeakTitleExpansionSelections(selectionRankingQuery, selected);
-        PruneWeakAdjacentSiblingSelections(selectionRankingQuery, selected);
-        PrunePreciseTitleTailSelections(selectionRankingQuery, selected);
-        PruneUnmatchedPreciseTitleSelections(selectionRankingQuery, selected);
-        PruneUnpagedProfileSelectionsForPreciseLookup(selectionRankingQuery, selected);
+        if (!useScopedProfileFallback)
+        {
+            PruneWeakTitleExpansionSelections(selectionRankingQuery, selected);
+            PruneWeakAdjacentSiblingSelections(selectionRankingQuery, selected);
+            PrunePreciseTitleTailSelections(selectionRankingQuery, selected);
+            PruneUnmatchedPreciseTitleSelections(selectionRankingQuery, selected);
+            PruneUnpagedProfileSelectionsForPreciseLookup(selectionRankingQuery, selected);
+        }
         PruneNavigationalSelections(req.Query, selected);
         if (!skipChunkRetrieversForDocumentOverview)
             ApplyAutocut(selected, minScore);
