@@ -1551,12 +1551,16 @@ ORDER BY d.doc_path;
         }
 
         // CDC v3.1 §11.3: autocut - remove trailing results after largest relative score drop
-        PrioritizeExactTitleSelections(req.Query, selected);
+        var selectionRankingQuery = string.Equals(retrievalQuery.Trim(), req.Query.Trim(), StringComparison.OrdinalIgnoreCase)
+            ? req.Query
+            : retrievalQuery;
+
+        PrioritizeExactTitleSelections(selectionRankingQuery, selected);
         PrioritizeQuotedTitleSelections(req.Query, selected);
-        PruneWeakTitleExpansionSelections(req.Query, selected);
-        PruneWeakAdjacentSiblingSelections(req.Query, selected);
-        PrunePreciseTitleTailSelections(req.Query, selected);
-        PruneUnmatchedPreciseTitleSelections(req.Query, selected);
+        PruneWeakTitleExpansionSelections(selectionRankingQuery, selected);
+        PruneWeakAdjacentSiblingSelections(selectionRankingQuery, selected);
+        PrunePreciseTitleTailSelections(selectionRankingQuery, selected);
+        PruneUnmatchedPreciseTitleSelections(selectionRankingQuery, selected);
         PruneNavigationalSelections(req.Query, selected);
         if (!skipChunkRetrieversForDocumentOverview)
             ApplyAutocut(selected, minScore);

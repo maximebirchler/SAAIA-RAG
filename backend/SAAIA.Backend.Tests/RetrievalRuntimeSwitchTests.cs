@@ -2732,6 +2732,30 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void PrioritizeExactTitleSelections_prefers_exact_phrase_over_loose_token_overlap()
+    {
+        var looseOverlap = TestMatch(
+            text: "The alpha subsystem references a separate beta appendix without a combined title.",
+            embedText: "The alpha subsystem references a separate beta appendix without a combined title.",
+            page: 2,
+            score: 1.02,
+            chunkId: "loose-overlap",
+            chunkType: "section_window_v1");
+        var exactPhrase = TestMatch(
+            text: "Procedure summary. ALPHA BETA setup requires a clean initialization.",
+            embedText: "Procedure summary. ALPHA BETA setup requires a clean initialization.",
+            page: 3,
+            score: 0.91,
+            chunkId: "exact-phrase",
+            chunkType: "unit_exact_v1");
+        var selected = new List<RagMatch> { looseOverlap, exactPhrase };
+
+        RagEndpoints.PrioritizeExactTitleSelections("alpha beta", selected);
+
+        Assert.Equal("exact-phrase", selected[0].ChunkId);
+    }
+
+    [Fact]
     public void ExtractMatchedDocHints_derives_generic_reference_and_alpha_hints()
     {
         var matches = new[]
@@ -2815,9 +2839,10 @@ public sealed class RetrievalRuntimeSwitchTests
         int page = 1,
         string chunkId = "chunk-1",
         string embeddingBasis = "sparse_bm25_v1",
-        string chunkType = "unit_exact_v1")
+        string chunkType = "unit_exact_v1",
+        double score = 0.93)
         => new(
-            Score: 0.93,
+            Score: score,
             DocId: "doc-1",
             DocPath: docPath,
             DocName: Path.GetFileName(docPath),
