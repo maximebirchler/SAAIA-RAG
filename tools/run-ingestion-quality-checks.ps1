@@ -10,11 +10,22 @@ param(
     [int]$RecentHours = 24,
     [switch]$RequireIdle,
     [switch]$StrictFailedJobs,
-    [switch]$SkipQdrantVectorCheck
+    [switch]$SkipQdrantVectorCheck,
+    [switch]$AllowQdrantVectorCheckError
 )
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
+
+try {
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [Console]::InputEncoding = $utf8NoBom
+    [Console]::OutputEncoding = $utf8NoBom
+    $OutputEncoding = $utf8NoBom
+}
+catch {
+    # Best effort only: older hosts may not allow changing console encodings.
+}
 
 function Escape-SqlLiteral([string]$Value) {
     return $Value.Replace("'", "''")
@@ -22,11 +33,15 @@ function Escape-SqlLiteral([string]$Value) {
 
 function Invoke-PostgresQuery([string]$Query) {
     if ([string]::IsNullOrWhiteSpace($SshTarget)) {
-        return $Query | docker exec -i $PostgresContainer psql -U $PostgresUser -d $Database -v ON_ERROR_STOP=1 -tA -F "|"
+        $output = $Query | docker exec -i -e PGCLIENTENCODING=UTF8 $PostgresContainer psql -U $PostgresUser -d $Database -v ON_ERROR_STOP=1 -tA -F "|"
+        if ($LASTEXITCODE -ne 0) { throw "Postgres query failed with exit code $LASTEXITCODE." }
+        return $output
     }
 
-    $remote = "docker exec -i $PostgresContainer psql -U $PostgresUser -d $Database -v ON_ERROR_STOP=1 -tA -F '|'"
-    return $Query | ssh $SshTarget $remote
+    $remote = "docker exec -i -e PGCLIENTENCODING=UTF8 $PostgresContainer psql -U $PostgresUser -d $Database -v ON_ERROR_STOP=1 -tA -F '|'"
+    $output = $Query | ssh $SshTarget $remote
+    if ($LASTEXITCODE -ne 0) { throw "Remote Postgres query failed with exit code $LASTEXITCODE." }
+    return $output
 }
 
 function Quote-Sh([string]$Value) {
@@ -102,11 +117,15 @@ for target in targets:
     $collectionArg = Quote-Sh $QdrantCollection
 
     if ([string]::IsNullOrWhiteSpace($SshTarget)) {
-        return $TargetsJson | docker exec -i $BackendContainer python3 -c $bootstrap $encodedPython $QdrantBaseUrl $QdrantCollection
+        $output = $TargetsJson | docker exec -i $BackendContainer python3 -c $bootstrap $encodedPython $QdrantBaseUrl $QdrantCollection
+        if ($LASTEXITCODE -ne 0) { throw "Qdrant vector check failed with exit code $LASTEXITCODE." }
+        return $output
     }
 
     $remote = "docker exec -i $BackendContainer python3 -c " + (Quote-Sh $bootstrap) + " $scriptArg $baseArg $collectionArg"
-    return $TargetsJson | ssh $SshTarget $remote
+    $output = $TargetsJson | ssh $SshTarget $remote
+    if ($LASTEXITCODE -ne 0) { throw "Remote Qdrant vector check failed with exit code $LASTEXITCODE." }
+    return $output
 }
 
 $categoryFilterDocuments = ""
@@ -348,7 +367,10 @@ foreach ($row in $rows) {
             if ($valueNumber -ne 0) { $issues.Add("DB/Qdrant vector mismatch: category='$($row.Scope)' $($row.Metric)") }
         }
         "qdrant_vector_check_error" {
-            if ($valueNumber -gt 0) { $warnings.Add("DB/Qdrant vector check error: category='$($row.Scope)' $($row.Metric)") }
+            if ($valueNumber -gt 0) {
+                $message = "DB/Qdrant vector check error: category='$($row.Scope)' $($row.Metric)"
+                if ($AllowQdrantVectorCheckError) { $warnings.Add($message) } else { $issues.Add($message) }
+            }
         }
     }
 }
@@ -359,6 +381,7 @@ $result = [pscustomobject]@{
     requireIdle = [bool]$RequireIdle
     strictFailedJobs = [bool]$StrictFailedJobs
     qdrantVectorCheck = -not [bool]$SkipQdrantVectorCheck
+    allowQdrantVectorCheckError = [bool]$AllowQdrantVectorCheckError
     issues = $issues
     warnings = $warnings
     rows = $rows
