@@ -1503,12 +1503,12 @@ ORDER BY d.doc_path;
                 selectedKeys,
                 fusedMatches,
                 topK,
-                minScore,
+                useScopedProfileFallback ? 0.0 : minScore,
                 maxPerDoc,
                 maxPerPage,
                 prioritizeDocumentProfiles: preferDocumentDiversity);
 
-            if (selected.Count < topK)
+            if (!useScopedProfileFallback && selected.Count < topK)
             {
                 var (linkedMatches, linkedDurationMs) = await MeasurePhaseAsync(
                     phaseName: "retrieval_linked_context",
@@ -1529,7 +1529,7 @@ ORDER BY d.doc_path;
                 AddRankedMatches(selected, selectedKeys, linkedMatches, topK, minScore: 0.0, Math.Max(maxPerDoc, 2), Math.Max(maxPerPage, 2));
             }
 
-            if (selected.Count < topK)
+            if (!useScopedProfileFallback && selected.Count < topK)
             {
                 var (secondWaveLinkedMatches, secondWaveLinkedMs) = await MeasurePhaseAsync(
                     phaseName: "retrieval_linked_context",
