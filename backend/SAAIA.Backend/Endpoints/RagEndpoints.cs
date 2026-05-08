@@ -179,10 +179,14 @@ ORDER BY display_order, name;
                 CandidatesEvaluated: resp.Candidates,
                 DegradedRetrievers: resp.DegradedRetrievers,
                 ExactMs: resp.Timings.ExactMs,
+                QuotedTitleMs: resp.Timings.QuotedTitleMs,
                 SparsePhaseMs: resp.Timings.SparsePhaseMs,
                 DenseMs: resp.Timings.DenseMs,
                 ProfileMs: resp.Timings.ProfileMs,
-                LinkedMs: resp.Timings.LinkedMs
+                LinkedMs: resp.Timings.LinkedMs,
+                FusionMs: resp.Timings.FusionMs,
+                RerankPhaseMs: resp.Timings.RerankPhaseMs,
+                SelectionMs: resp.Timings.SelectionMs
             ),
             Items: qualityAdjustedMatches
                 .Select(item =>
@@ -1367,7 +1371,7 @@ ORDER BY d.doc_path;
             retriever: "exact_match",
             action: () => SearchExactMatchesAsync(ds, tenantId, req.Query, category, req.DocId, req.DocPath, topK, ct, categoryPath),
             getReturnedCount: static matches => matches.Count);
-        var (quotedTitleMatches, _) = await MeasurePhaseAsync(
+        var (quotedTitleMatches, quotedTitleMs) = await MeasurePhaseAsync(
             phaseName: "retrieval_quoted_title",
             retriever: "quoted_title",
             action: () => SearchQuotedTitleMatchesAsync(ds, tenantId, req.Query, category, req.DocId, req.DocPath, topK, ct, categoryPath),
@@ -1384,6 +1388,9 @@ ORDER BY d.doc_path;
         long densePhaseMs = 0;
         long linkedPhaseMs = 0;
         long profilePhaseMs = 0;
+        long fusionMs = 0;
+        long rerankPhaseMs = 0;
+        long selectionMs = 0;
         int qdrantStatus = 0;
         var degradedRetrievers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         object degradedRetrieversLock = new();
@@ -1482,16 +1489,22 @@ ORDER BY d.doc_path;
             sparsePhaseMs = measuredSparsePhaseMs;
             densePhaseMs = measuredDensePhaseMs;
             profilePhaseMs = measuredProfilePhaseMs;
+
+            var fusionSw = Stopwatch.StartNew();
             var fusedMatches = FuseWithRrf(exactMatches, sparseMatches, denseMatches, profileMatches);
             fusedMatches = CalibrateFusedMatches(retrievalQuery, fusedMatches, req.Query);
             fusedMatches = SuppressNavigationalNoise(req.Query, fusedMatches);
-            if (!useScopedProfileFallback && ShouldSuppressUnanchoredSpecificResults(retrievalQuery, fusedMatches))
+            var suppressUnanchoredSpecificResults = !useScopedProfileFallback && ShouldSuppressUnanchoredSpecificResults(retrievalQuery, fusedMatches);
+            fusionSw.Stop();
+            fusionMs += fusionSw.ElapsedMilliseconds;
+
+            if (suppressUnanchoredSpecificResults)
             {
                 fusedMatches = [];
             }
             else
             {
-                var (rerankedMatches, _) = await MeasurePhaseAsync(
+                var (rerankedMatches, measuredRerankPhaseMs) = await MeasurePhaseAsync(
                     phaseName: "retrieval_rerank",
                     retriever: "tei_rerank",
                     action: () => TryRerankWithTeiAsync(
@@ -1502,11 +1515,16 @@ ORDER BY d.doc_path;
                         ct,
                         rerankMsRef: value => rerankMs = value),
                     getReturnedCount: static matches => matches.Count);
+                rerankPhaseMs += measuredRerankPhaseMs;
+                fusionSw.Restart();
                 fusedMatches = rerankedMatches;
                 fusedMatches = CalibrateFusedMatches(retrievalQuery, fusedMatches, req.Query);
                 fusedMatches = SuppressNavigationalNoise(req.Query, fusedMatches);
+                fusionSw.Stop();
+                fusionMs += fusionSw.ElapsedMilliseconds;
             }
 
+            var selectionSw = Stopwatch.StartNew();
             AddRankedMatches(
                 selected,
                 selectedKeys,
@@ -1516,6 +1534,8 @@ ORDER BY d.doc_path;
                 maxPerDoc,
                 maxPerPage,
                 prioritizeDocumentProfiles: preferDocumentDiversity);
+            selectionSw.Stop();
+            selectionMs += selectionSw.ElapsedMilliseconds;
 
             if (!useScopedProfileFallback && selected.Count < topK)
             {
@@ -1569,15 +1589,21 @@ ORDER BY d.doc_path;
         PrioritizeQuotedTitleSelections(req.Query, selected);
         if (!useScopedProfileFallback)
         {
+            var selectionSw = Stopwatch.StartNew();
             PruneWeakTitleExpansionSelections(selectionRankingQuery, selected);
             PruneWeakAdjacentSiblingSelections(selectionRankingQuery, selected);
             PrunePreciseTitleTailSelections(selectionRankingQuery, selected);
             PruneUnmatchedPreciseTitleSelections(selectionRankingQuery, selected);
             PruneUnpagedProfileSelectionsForPreciseLookup(selectionRankingQuery, selected);
+            selectionSw.Stop();
+            selectionMs += selectionSw.ElapsedMilliseconds;
         }
+        var finalSelectionSw = Stopwatch.StartNew();
         PruneNavigationalSelections(req.Query, selected);
         if (!skipChunkRetrieversForDocumentOverview)
             ApplyAutocut(selected, minScore);
+        finalSelectionSw.Stop();
+        selectionMs += finalSelectionSw.ElapsedMilliseconds;
 
         if (!skipChunkRetrieversForDocumentOverview
             && ShouldBackfillEnumerativeSearch(req.Query, selected.Count, topK))
@@ -1607,6 +1633,7 @@ ORDER BY d.doc_path;
 
                 var calibratedBackfill = CalibrateFusedMatches(focusedLexicalQuery, backfillMatches, req.Query);
                 calibratedBackfill = SuppressNavigationalNoise(req.Query, calibratedBackfill);
+                var selectionSw = Stopwatch.StartNew();
                 AddRankedMatches(
                     selected,
                     selectedKeys,
@@ -1616,6 +1643,8 @@ ORDER BY d.doc_path;
                     maxPerDoc,
                     Math.Max(maxPerPage, 2));
                 PruneNavigationalSelections(req.Query, selected);
+                selectionSw.Stop();
+                selectionMs += selectionSw.ElapsedMilliseconds;
             }
         }
 
@@ -1641,6 +1670,7 @@ ORDER BY d.doc_path;
                 getReturnedCount: static matches => matches.Count);
             profilePhaseMs += fallbackProfilesMs;
 
+            var selectionSw = Stopwatch.StartNew();
             AddRankedMatches(
                 selected,
                 selectedKeys,
@@ -1649,6 +1679,8 @@ ORDER BY d.doc_path;
                 minScore: 0.0,
                 maxPerDoc: 1,
                 maxPerPage: Math.Max(maxPerPage, 1));
+            selectionSw.Stop();
+            selectionMs += selectionSw.ElapsedMilliseconds;
         }
 
         swTotal.Stop();
@@ -1671,10 +1703,14 @@ ORDER BY d.doc_path;
                 SparseMs: sparseMs,
                 QdrantMs: qdrantMs,
                 ExactMs: exactMs,
+                QuotedTitleMs: quotedTitleMs,
                 SparsePhaseMs: sparsePhaseMs,
                 DenseMs: densePhaseMs,
                 ProfileMs: profilePhaseMs,
-                LinkedMs: linkedPhaseMs),
+                LinkedMs: linkedPhaseMs,
+                FusionMs: fusionMs,
+                RerankPhaseMs: rerankPhaseMs,
+                SelectionMs: selectionMs),
             Matches: selected,
             DegradedRetrievers: degradedRetrievers.Count == 0
                 ? null
@@ -9422,10 +9458,14 @@ public sealed record RagSearchRequest(
         long SparseMs,
         long QdrantMs,
         long ExactMs = 0,
+        long QuotedTitleMs = 0,
         long SparsePhaseMs = 0,
         long DenseMs = 0,
         long ProfileMs = 0,
-        long LinkedMs = 0);
+        long LinkedMs = 0,
+        long FusionMs = 0,
+        long RerankPhaseMs = 0,
+        long SelectionMs = 0);
 
 public sealed record RagSearchResponse(
     string RequestId,

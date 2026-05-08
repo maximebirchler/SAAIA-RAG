@@ -202,10 +202,14 @@ public sealed record RagMetricsDto(
     int? CandidatesEvaluated = null,
     IReadOnlyList<string>? DegradedRetrievers = null,
     long? ExactMs = null,
+    long? QuotedTitleMs = null,
     long? SparsePhaseMs = null,
     long? DenseMs = null,
     long? ProfileMs = null,
-    long? LinkedMs = null
+    long? LinkedMs = null,
+    long? FusionMs = null,
+    long? RerankPhaseMs = null,
+    long? SelectionMs = null
 );
 
 /// <summary>
