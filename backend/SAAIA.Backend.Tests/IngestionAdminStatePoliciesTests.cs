@@ -60,6 +60,60 @@ public sealed class IngestionAdminStatePoliciesTests
         Assert.Equal(expected, actual);
     }
 
+    [Fact]
+    public void ShouldRetryEmbeddingBatchWithSmallerBatch_accepts_timeout_when_root_is_alive()
+    {
+        var actual = IngestionWorker.ShouldRetryEmbeddingBatchWithSmallerBatch(
+            new TaskCanceledException("The request timed out."),
+            CancellationToken.None,
+            adaptiveRetryEnabled: true,
+            batchItemCount: 16);
+
+        Assert.True(actual);
+    }
+
+    [Fact]
+    public void ShouldRetryEmbeddingBatchWithSmallerBatch_rejects_shutdown_or_single_item()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        Assert.False(IngestionWorker.ShouldRetryEmbeddingBatchWithSmallerBatch(
+            new TaskCanceledException("The request timed out."),
+            cts.Token,
+            adaptiveRetryEnabled: true,
+            batchItemCount: 16));
+        Assert.False(IngestionWorker.ShouldRetryEmbeddingBatchWithSmallerBatch(
+            new Exception("TEI embeddings failed: 413 Payload Too Large"),
+            CancellationToken.None,
+            adaptiveRetryEnabled: true,
+            batchItemCount: 1));
+        Assert.False(IngestionWorker.ShouldRetryEmbeddingBatchWithSmallerBatch(
+            new Exception("TEI embeddings failed: 413 Payload Too Large"),
+            CancellationToken.None,
+            adaptiveRetryEnabled: false,
+            batchItemCount: 16));
+    }
+
+    [Theory]
+    [InlineData("TEI embeddings failed: 413 Payload Too Large", true)]
+    [InlineData("TEI embeddings failed: max batch size exceeded", true)]
+    [InlineData("TEI embeddings failed: CUDA out of memory", true)]
+    [InlineData("Connection refused", false)]
+    [InlineData("TEI bulkhead: wait timeout after 30s", false)]
+    public void ShouldRetryEmbeddingBatchWithSmallerBatch_splits_only_likely_batch_pressure(
+        string message,
+        bool expected)
+    {
+        var actual = IngestionWorker.ShouldRetryEmbeddingBatchWithSmallerBatch(
+            new Exception(message),
+            CancellationToken.None,
+            adaptiveRetryEnabled: true,
+            batchItemCount: 8);
+
+        Assert.Equal(expected, actual);
+    }
+
     [Theory]
     [InlineData("upsert", "paused", true, "admin_cancel", "pending", 0)]
     [InlineData("upsert", "paused", true, "admin_pause", "pending", 0)]

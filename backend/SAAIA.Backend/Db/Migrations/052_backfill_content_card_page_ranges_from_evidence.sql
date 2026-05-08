@@ -25,7 +25,11 @@ profile_evidence AS (
   FROM document_profile_content_cards pcc
   JOIN document_profiles p
     ON p.document_profile_id = pcc.document_profile_id
-  CROSS JOIN LATERAL jsonb_array_elements(COALESCE(p.metadata -> 'contentCards', '[]'::jsonb)) AS card(item)
+  CROSS JOIN LATERAL jsonb_array_elements(
+    CASE
+      WHEN jsonb_typeof(p.metadata -> 'contentCards') = 'array' THEN p.metadata -> 'contentCards'
+      ELSE '[]'::jsonb
+    END) AS card(item)
   WHERE pcc.page_start IS NULL
     AND card.item ? 'evidence'
     AND card.item -> 'evidence' IS NOT NULL
@@ -47,15 +51,19 @@ fact_pages AS (
   SELECT
     es.content_card_id,
     CASE
-      WHEN raw.page_start_text ~ '^[0-9]+$' THEN raw.page_start_text::int
+      WHEN raw.page_start_text ~ '^[0-9]{1,6}$' THEN raw.page_start_text::int
       ELSE NULL
     END AS page_start,
     CASE
-      WHEN raw.page_end_text ~ '^[0-9]+$' THEN raw.page_end_text::int
+      WHEN raw.page_end_text ~ '^[0-9]{1,6}$' THEN raw.page_end_text::int
       ELSE NULL
     END AS page_end
   FROM evidence_sources es
-  CROSS JOIN LATERAL jsonb_array_elements(COALESCE(es.evidence -> 'facts', '[]'::jsonb)) AS fact(item)
+  CROSS JOIN LATERAL jsonb_array_elements(
+    CASE
+      WHEN jsonb_typeof(es.evidence -> 'facts') = 'array' THEN es.evidence -> 'facts'
+      ELSE '[]'::jsonb
+    END) AS fact(item)
   CROSS JOIN LATERAL (
     SELECT
       NULLIF(BTRIM(fact.item ->> 'pageStart'), '') AS page_start_text,

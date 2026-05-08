@@ -20,6 +20,7 @@ sealed class IngestionOptions
     public int ChunkOverlapWords { get; set; } = 35;
     public int ChunkMinWords { get; set; } = 25;
     public int EmbeddingsBatchSize { get; set; } = DefaultEmbeddingsBatchSize;
+    public bool EmbeddingsBatchAdaptiveRetryEnabled { get; set; } = true;
 
     // Worker
     public int WorkerConcurrency { get; set; } = 2;

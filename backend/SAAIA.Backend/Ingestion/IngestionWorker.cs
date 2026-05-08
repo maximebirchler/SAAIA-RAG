@@ -248,6 +248,161 @@ WHERE job_id=@job_id
             throw new JobCanceledException("canceled_by_admin");
     }
 
+    private async Task<float[][]> EmbedBatchWithAdaptiveRetryAsync(
+        NpgsqlDataSource ds,
+        IngestionJob job,
+        string workerId,
+        HttpClient tei,
+        string model,
+        string[] inputs,
+        IngestionOptions ingest,
+        int configuredBatchSize,
+        CancellationToken ct)
+        => await EmbedBatchSegmentWithAdaptiveRetryAsync(
+            ds,
+            job,
+            workerId,
+            tei,
+            model,
+            inputs,
+            offset: 0,
+            count: inputs.Length,
+            ingest,
+            configuredBatchSize,
+            ct);
+
+    private async Task<float[][]> EmbedBatchSegmentWithAdaptiveRetryAsync(
+        NpgsqlDataSource ds,
+        IngestionJob job,
+        string workerId,
+        HttpClient tei,
+        string model,
+        string[] inputs,
+        int offset,
+        int count,
+        IngestionOptions ingest,
+        int configuredBatchSize,
+        CancellationToken ct)
+    {
+        try
+        {
+            return await EmbedBatchOnceAsync(
+                ds,
+                job,
+                workerId,
+                tei,
+                model,
+                SliceEmbeddingInputs(inputs, offset, count),
+                ingest,
+                ct);
+        }
+        catch (Exception ex) when (ShouldRetryEmbeddingBatchWithSmallerBatch(
+            ex,
+            ct,
+            ingest.EmbeddingsBatchAdaptiveRetryEnabled,
+            count))
+        {
+            var leftCount = Math.Max(1, count / 2);
+            var rightCount = count - leftCount;
+            _log.LogWarning(
+                ex,
+                "TEI embedding batch failed; retrying with smaller batches job={JobId} doc={DocPath} configured_batch={ConfiguredBatch} failed_batch={FailedBatch} next_batches={LeftBatch}+{RightBatch}",
+                job.JobId,
+                job.DocPath,
+                configuredBatchSize,
+                count,
+                leftCount,
+                rightCount);
+
+            var left = await EmbedBatchSegmentWithAdaptiveRetryAsync(
+                ds,
+                job,
+                workerId,
+                tei,
+                model,
+                inputs,
+                offset,
+                leftCount,
+                ingest,
+                configuredBatchSize,
+                ct);
+            var right = await EmbedBatchSegmentWithAdaptiveRetryAsync(
+                ds,
+                job,
+                workerId,
+                tei,
+                model,
+                inputs,
+                offset + leftCount,
+                rightCount,
+                ingest,
+                configuredBatchSize,
+                ct);
+
+            return left.Concat(right).ToArray();
+        }
+    }
+
+    private async Task<float[][]> EmbedBatchOnceAsync(
+        NpgsqlDataSource ds,
+        IngestionJob job,
+        string workerId,
+        HttpClient tei,
+        string model,
+        string[] inputs,
+        IngestionOptions ingest,
+        CancellationToken ct)
+    {
+        using var bTeiCts = CreateTimeoutCts(ct, ingest.TeiTimeoutSeconds);
+        var bTeiToken = bTeiCts?.Token ?? ct;
+
+        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+        await ThrowIfJobCanceledAsync(ds, job, ct);
+        using (await _bulkheads.AcquireTeiAsync(bTeiToken))
+        {
+            return await TeiClient.EmbedAsync(tei, model, inputs, bTeiToken);
+        }
+    }
+
+    private static string[] SliceEmbeddingInputs(string[] inputs, int offset, int count)
+    {
+        if (offset == 0 && count == inputs.Length)
+            return inputs;
+
+        var slice = new string[count];
+        Array.Copy(inputs, offset, slice, 0, count);
+        return slice;
+    }
+
+    internal static bool ShouldRetryEmbeddingBatchWithSmallerBatch(
+        Exception ex,
+        CancellationToken rootToken,
+        bool adaptiveRetryEnabled,
+        int batchItemCount)
+    {
+        if (!adaptiveRetryEnabled || batchItemCount <= 1 || rootToken.IsCancellationRequested || ex is JobCanceledException)
+            return false;
+
+        if (ex is OperationCanceledException)
+            return true;
+
+        var message = ex.Message ?? string.Empty;
+        if (message.Contains("bulkhead", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return message.Contains("413", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("payload too large", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("request entity too large", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("too large", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("maximum request", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("max batch", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("batch size", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("out of memory", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("oom", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("timeout", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("timed out", StringComparison.OrdinalIgnoreCase);
+    }
+
     private async Task<bool> ProcessDeleteAsync(
         NpgsqlDataSource ds,
         IHttpClientFactory httpFactory,
@@ -641,19 +796,17 @@ WHERE job_id=@job_id
                 .ToList();
             var inputs = workItems.Select(item => item.EmbeddingText).ToArray();
 
-            // TEI embeddings
             var swTei = Stopwatch.StartNew();
-            using var bTeiCts = CreateTimeoutCts(ct, ingest.TeiTimeoutSeconds);
-            var bTeiToken = bTeiCts?.Token ?? ct;
-
-            await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-
-            float[][] vectors;
-            await ThrowIfJobCanceledAsync(ds, job, ct);
-            using (await _bulkheads.AcquireTeiAsync(bTeiToken))
-            {
-                vectors = await TeiClient.EmbedAsync(tei, rag.EmbeddingsModel, inputs, bTeiToken);
-            }
+            var vectors = await EmbedBatchWithAdaptiveRetryAsync(
+                ds,
+                job,
+                workerId,
+                tei,
+                rag.EmbeddingsModel,
+                inputs,
+                ingest,
+                configuredBatchSize: batchSize,
+                ct);
             swTei.Stop();
             embeddingTotalMs += swTei.ElapsedMilliseconds;
             await TouchJobLockAsync(ds, job.JobId, workerId, ct);

@@ -138,7 +138,8 @@ public sealed class ReadyEndpointOcrReadinessTests
         Assert.Equal(16, details["ingestion_embeddings_batch_size_configured"]);
         Assert.Equal(IngestionOptions.MinEmbeddingsBatchSize, details["ingestion_embeddings_batch_size_min"]);
         Assert.Equal(IngestionOptions.MaxEmbeddingsBatchSize, details["ingestion_embeddings_batch_size_max"]);
-        Assert.False((bool)details["ingestion_embeddings_batch_size_dynamic"]!);
+        Assert.True((bool)details["ingestion_embeddings_batch_size_dynamic"]!);
+        Assert.True((bool)details["ingestion_embeddings_batch_adaptive_retry_enabled"]!);
         Assert.Equal("all", details["ingestion_ocr_image_page_max_pages"]);
         Assert.Equal("complete", details["ingestion_ocr_image_page_reliability"]);
     }
