@@ -230,6 +230,7 @@ public sealed class RagChatAgent
             .OrderByDescending(x => x.Score)
             .Take(8)
             .ToList();
+        var answerItems = SelectSearchOnlyFallbackAnswerItems(items);
 
         var sources = items.Select(BuildSearchOnlyFallbackSourcePayload).ToList();
 
@@ -240,7 +241,7 @@ public sealed class RagChatAgent
             : LocalizedStrings.NormalizeLanguage(forcedLanguage);
         var ans = items.Count == 0
             ? LocalizedStrings.NoDocumentsFound(detectedLanguage)
-            : BuildSearchOnlyFallbackAnswer(resp, items, detectedLanguage);
+            : BuildSearchOnlyFallbackAnswer(resp, answerItems, detectedLanguage);
 
         _mem.LastLanguage = detectedLanguage;
         _mem.LastUserMessage = userText;
@@ -308,6 +309,37 @@ public sealed class RagChatAgent
 
         sb.AppendLine();
         sb.Append(trimmed);
+    }
+
+    private static IReadOnlyList<RagItem> SelectSearchOnlyFallbackAnswerItems(IReadOnlyList<RagItem> items)
+    {
+        if (items.Count == 0)
+            return items;
+
+        var preferred = items
+            .Where(static item => !IsLowSignalFallbackItem(item))
+            .ToList();
+
+        return preferred.Count == 0 ? items : preferred;
+    }
+
+    private static bool IsLowSignalFallbackItem(RagItem item)
+    {
+        var role = item.SelectionHints?.EvidenceRole;
+        if (string.Equals(role, "navigation", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(role, "fragment", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(role, "low_confidence", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var contextRole = item.Context?.ContentRole;
+        if (string.Equals(contextRole, "navigation", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        var navigationScore = item.Context?.NavigationScore;
+        var contentDensityScore = item.Context?.ContentDensityScore;
+        return navigationScore is >= 0.72 && contentDensityScore is null or < 0.50;
     }
 
     private static string BuildFallbackSourceLabel(RagItem item, string language)
@@ -387,6 +419,20 @@ public sealed class RagChatAgent
             categoryRef = item.CategoryRef,
             categoryPath = item.CategoryPath,
             chunkId = item.ChunkId,
+            context = item.Context is null ? null : new
+            {
+                item.Context.ChunkType,
+                item.Context.SectionTitle,
+                item.Context.HeadingPath,
+                item.Context.PrevChunkId,
+                item.Context.NextChunkId,
+                item.Context.SameSectionChunkId,
+                item.Context.ContentRole,
+                item.Context.NavigationReason,
+                item.Context.OriginalChunkType,
+                item.Context.NavigationScore,
+                item.Context.ContentDensityScore
+            },
             extractionQuality = item.ExtractionQuality is null ? null : new
             {
                 item.ExtractionQuality.ExtractionSource,

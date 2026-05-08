@@ -120,6 +120,21 @@ public sealed class RagItemContext
 
     [JsonPropertyName("sameSectionChunkId")]
     public string? SameSectionChunkId { get; set; }
+
+    [JsonPropertyName("contentRole")]
+    public string? ContentRole { get; set; }
+
+    [JsonPropertyName("navigationReason")]
+    public string? NavigationReason { get; set; }
+
+    [JsonPropertyName("originalChunkType")]
+    public string? OriginalChunkType { get; set; }
+
+    [JsonPropertyName("navigationScore")]
+    public double? NavigationScore { get; set; }
+
+    [JsonPropertyName("contentDensityScore")]
+    public double? ContentDensityScore { get; set; }
 }
 
 public sealed class RagItemExtractionQuality

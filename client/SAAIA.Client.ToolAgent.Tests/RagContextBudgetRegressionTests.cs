@@ -405,6 +405,88 @@ public sealed class RagContextBudgetRegressionTests
     }
 
     [Fact]
+    public async Task RagChatAgent_degraded_no_llm_does_not_promote_navigation_hits()
+    {
+        var api = CreateApiClient(new StubHttpHandler(request =>
+        {
+            Assert.Equal("/rag/search", request.RequestUri!.AbsolutePath);
+            var body = """
+            {
+              "requestId": "req-1",
+              "query": "trouver le contenu utile",
+              "topK": 8,
+              "minScore": 0.0,
+              "candidates": 2,
+              "maxPerDoc": 3,
+              "maxPerPage": 2,
+              "metrics": {},
+              "items": [
+                {
+                  "score": 0.99,
+                  "docName": "index.pdf",
+                  "docPath": "Knowledge/index.pdf",
+                  "pageStart": 1,
+                  "text": "Table of contents Procedure utile 12 Maintenance 18",
+                  "snippet": "Sommaire et liste de pages.",
+                  "context": {
+                    "chunkType": "navigation_index_v1",
+                    "contentRole": "navigation",
+                    "navigationReason": "inline_page_number_list",
+                    "navigationScore": 0.92,
+                    "contentDensityScore": 0.20
+                  },
+                  "selectionHints": {
+                    "evidenceRole": "navigation",
+                    "actionabilityScore": 0,
+                    "supportScore": 0,
+                    "fragmentScore": 0,
+                    "navigationScore": 12,
+                    "qualityPenalty": 0
+                  }
+                },
+                {
+                  "score": 0.71,
+                  "docName": "procedure.pdf",
+                  "docPath": "Knowledge/procedure.pdf",
+                  "pageStart": 12,
+                  "text": "Procedure utile: 1. Isoler la machine. 2. Verifier zero energie.",
+                  "snippet": "Procedure utile et exploitable.",
+                  "selectionHints": {
+                    "evidenceRole": "actionable_item",
+                    "actionabilityScore": 13,
+                    "supportScore": 1,
+                    "fragmentScore": 0,
+                    "navigationScore": 0,
+                    "qualityPenalty": 0
+                  }
+                }
+              ]
+            }
+            """;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json")
+            };
+        }));
+
+        var agent = new RagChatAgent(api, new OpenAiLlmClient());
+        agent.ApplySettings(new AppSettings { UseLocalLlm = false, RagQualityPreset = "balanced" });
+
+        var (answer, sourcesPayload) = await agent.RunAsync(
+            "trouver le contenu utile",
+            category: "",
+            conversationTail: Array.Empty<ChatMessageItem>(),
+            onDelta: _ => { },
+            ct: CancellationToken.None);
+
+        Assert.Contains("procedure.pdf (p.12)", answer);
+        Assert.Contains("Procedure utile et exploitable", answer);
+        Assert.DoesNotContain("index.pdf", answer);
+        Assert.NotNull(sourcesPayload);
+        Assert.Equal(2, SourceCardParser.Parse(JsonSerializer.Serialize(sourcesPayload)).Count);
+    }
+
+    [Fact]
     public void NormalizeRagHits_accepts_backend_contentCards_alias()
     {
         var payload = JsonSerializer.Serialize(new
