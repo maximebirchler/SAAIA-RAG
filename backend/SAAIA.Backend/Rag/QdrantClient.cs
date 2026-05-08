@@ -165,6 +165,9 @@ static class QdrantClient
             int? GetInt(string k)
                 => payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : null;
 
+            double? GetDouble(string k)
+                => payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : null;
+
             var m = new RagMatch(
                 Score: score,
                 DocId: GetStr("doc_id"),
@@ -189,7 +192,12 @@ static class QdrantClient
                 SameSectionChunkId: GetStr("same_section_chunk_id"),
                 OffsetStart: GetInt("offset_start"),
                 OffsetEnd: GetInt("offset_end"),
-                Category: GetStr("category")
+                Category: GetStr("category"),
+                ContentRole: GetStr("content_role"),
+                NavigationReason: GetStr("navigation_reason"),
+                OriginalChunkType: GetStr("original_chunk_type"),
+                NavigationScore: GetDouble("navigation_score"),
+                ContentDensityScore: GetDouble("content_density_score")
             );
 
             list.Add(m);
@@ -250,5 +258,10 @@ public sealed record RagMatch(
     int? OffsetStart = null,
     int? OffsetEnd = null,
     IReadOnlyList<RagMatchedContentCard>? MatchedContentCards = null,
-    string? Category = null
+    string? Category = null,
+    string? ContentRole = null,
+    string? NavigationReason = null,
+    string? OriginalChunkType = null,
+    double? NavigationScore = null,
+    double? ContentDensityScore = null
 );

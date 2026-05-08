@@ -2407,6 +2407,11 @@ SELECT
     COALESCE(rc.metadata->>'sectionTitle', s.title) AS "SectionTitle",
     COALESCE(rc.metadata->>'headingPath', s.title) AS "HeadingPath",
     COALESCE(rc.metadata->>'chunkType', 'contextual_text_v1') AS "ChunkType",
+    COALESCE(rc.metadata->>'contentRole', 'content') AS "ContentRole",
+    rc.metadata->>'navigationReason' AS "NavigationReason",
+    rc.metadata->>'originalChunkType' AS "OriginalChunkType",
+    NULLIF(rc.metadata->>'navigationScore', '')::double precision AS "NavigationScore",
+    NULLIF(rc.metadata->>'contentDensityScore', '')::double precision AS "ContentDensityScore",
     rc.metadata->>'prevChunkId' AS "PrevChunkId",
     rc.metadata->>'nextChunkId' AS "NextChunkId",
     rc.metadata->>'sameSectionChunkId' AS "SameSectionChunkId",
@@ -2511,6 +2516,11 @@ LIMIT @candidate_limit;
             SectionTitle: row.SectionTitle,
             HeadingPath: row.HeadingPath,
             ChunkType: row.ChunkType,
+            ContentRole: row.ContentRole,
+            NavigationReason: row.NavigationReason,
+            OriginalChunkType: row.OriginalChunkType,
+            NavigationScore: row.NavigationScore,
+            ContentDensityScore: row.ContentDensityScore,
             PrevChunkId: row.PrevChunkId,
             NextChunkId: row.NextChunkId,
                     SameSectionChunkId: row.SameSectionChunkId,
@@ -2803,6 +2813,11 @@ SELECT
     COALESCE(rc.metadata->>'sectionTitle', s.title) AS "SectionTitle",
     COALESCE(rc.metadata->>'headingPath', s.title) AS "HeadingPath",
     COALESCE(rc.metadata->>'chunkType', 'contextual_text_v1') AS "ChunkType",
+    COALESCE(rc.metadata->>'contentRole', 'content') AS "ContentRole",
+    rc.metadata->>'navigationReason' AS "NavigationReason",
+    rc.metadata->>'originalChunkType' AS "OriginalChunkType",
+    NULLIF(rc.metadata->>'navigationScore', '')::double precision AS "NavigationScore",
+    NULLIF(rc.metadata->>'contentDensityScore', '')::double precision AS "ContentDensityScore",
     rc.metadata->>'prevChunkId' AS "PrevChunkId",
     rc.metadata->>'nextChunkId' AS "NextChunkId",
     rc.metadata->>'sameSectionChunkId' AS "SameSectionChunkId",
@@ -2908,6 +2923,11 @@ LIMIT @top_k;
                 SectionTitle: row.SectionTitle,
                 HeadingPath: row.HeadingPath,
                 ChunkType: row.ChunkType,
+                ContentRole: row.ContentRole,
+                NavigationReason: row.NavigationReason,
+                OriginalChunkType: row.OriginalChunkType,
+                NavigationScore: row.NavigationScore,
+                ContentDensityScore: row.ContentDensityScore,
                 PrevChunkId: row.PrevChunkId,
                 NextChunkId: row.NextChunkId,
                 SameSectionChunkId: row.SameSectionChunkId,
@@ -3215,6 +3235,11 @@ SELECT
     COALESCE(rc.metadata->>'sectionTitle', s.title) AS "SectionTitle",
     COALESCE(rc.metadata->>'headingPath', s.title) AS "HeadingPath",
     COALESCE(rc.metadata->>'chunkType', 'contextual_text_v1') AS "ChunkType",
+    COALESCE(rc.metadata->>'contentRole', 'content') AS "ContentRole",
+    rc.metadata->>'navigationReason' AS "NavigationReason",
+    rc.metadata->>'originalChunkType' AS "OriginalChunkType",
+    NULLIF(rc.metadata->>'navigationScore', '')::double precision AS "NavigationScore",
+    NULLIF(rc.metadata->>'contentDensityScore', '')::double precision AS "ContentDensityScore",
     rc.metadata->>'prevChunkId' AS "PrevChunkId",
     rc.metadata->>'nextChunkId' AS "NextChunkId",
     rc.metadata->>'sameSectionChunkId' AS "SameSectionChunkId",
@@ -4139,7 +4164,7 @@ LIMIT @top_k;
             supportScore += 2;
 
         if (LooksLikeNavigationalChunk(match))
-            navigationScore += 10;
+            navigationScore += ComputeNavigationHintScore(match);
         if (LooksLikeGlossaryChunk(match))
             navigationScore += 6;
         if (LooksLikeSourceListChunk(match))
@@ -4204,6 +4229,28 @@ LIMIT @top_k;
         }
 
         return Math.Clamp(penalty, 0, 24);
+    }
+
+    private static int ComputeNavigationHintScore(RagMatch match)
+    {
+        if (match.NavigationScore is double score)
+        {
+            if (score >= 0.90)
+                return 12;
+            if (score >= 0.80)
+                return 10;
+            if (score >= 0.72)
+                return 8;
+            if (score >= 0.55)
+                return 4;
+        }
+
+        if (string.Equals(match.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.OrdinalIgnoreCase))
+            return 10;
+        if (string.Equals(match.ContentRole, RetrievalContentClassifier.MixedNavigationContentRole, StringComparison.OrdinalIgnoreCase))
+            return 4;
+
+        return 10;
     }
 
     internal static bool ShouldSupplementSparseWithLexicalFallback(string? category, string query)
@@ -4748,6 +4795,11 @@ GROUP BY d.doc_id;
         string? SectionTitle,
         string? HeadingPath,
         string ChunkType,
+        string? ContentRole,
+        string? NavigationReason,
+        string? OriginalChunkType,
+        double? NavigationScore,
+        double? ContentDensityScore,
         string? PrevChunkId,
         string? NextChunkId,
         string? SameSectionChunkId,
@@ -4784,6 +4836,11 @@ GROUP BY d.doc_id;
         int IngestionVersion,
         string? HashDoc,
         string ChunkType,
+        string? ContentRole,
+        string? NavigationReason,
+        string? OriginalChunkType,
+        double? NavigationScore,
+        double? ContentDensityScore,
         string? SectionTitle,
         string? HeadingPath,
         string LinkType,
@@ -5047,6 +5104,11 @@ SELECT
     d.indexed_version AS "IngestionVersion",
     LOWER(ENCODE(d.content_hash, 'hex')) AS "HashDoc",
     COALESCE(rc.metadata->>'chunkType', 'linked_context_v1') AS "ChunkType",
+    COALESCE(rc.metadata->>'contentRole', 'content') AS "ContentRole",
+    rc.metadata->>'navigationReason' AS "NavigationReason",
+    rc.metadata->>'originalChunkType' AS "OriginalChunkType",
+    NULLIF(rc.metadata->>'navigationScore', '')::double precision AS "NavigationScore",
+    NULLIF(rc.metadata->>'contentDensityScore', '')::double precision AS "ContentDensityScore",
     COALESCE(rc.metadata->>'sectionTitle', s.title) AS "SectionTitle",
     COALESCE(rc.metadata->>'headingPath', s.title) AS "HeadingPath",
     l.link_type AS "LinkType",
@@ -5129,6 +5191,11 @@ LIMIT @top_k;
                 SectionTitle: row.SectionTitle,
                 HeadingPath: row.HeadingPath,
                 ChunkType: row.ChunkType,
+                ContentRole: row.ContentRole,
+                NavigationReason: row.NavigationReason,
+                OriginalChunkType: row.OriginalChunkType,
+                NavigationScore: row.NavigationScore,
+                ContentDensityScore: row.ContentDensityScore,
                 PrevChunkId: row.PrevChunkId,
                 NextChunkId: row.NextChunkId,
                 SameSectionChunkId: row.SameSectionChunkId);
@@ -6884,6 +6951,13 @@ LIMIT @top_k;
         if (IsDocumentProfileMatch(match))
             return false;
 
+        if (string.Equals(match.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (match.NavigationScore is >= 0.72
+            && (match.ContentDensityScore is null or < 0.50))
+            return true;
+
         if (RetrievalContentClassifier.IsNavigationChunkType(match.ChunkType))
             return true;
 
@@ -6993,6 +7067,10 @@ LIMIT @top_k;
 
     internal static bool LooksLikeStrongNavigationalChunk(RagMatch match)
     {
+        if (match.NavigationScore is >= 0.85
+            && (match.ContentDensityScore is null or < 0.45))
+            return true;
+
         if (RetrievalContentClassifier.IsNavigationChunkType(match.ChunkType))
             return true;
 
@@ -8147,7 +8225,12 @@ LIMIT @top_k;
             HeadingPath: match.HeadingPath,
             PrevChunkId: match.PrevChunkId,
             NextChunkId: match.NextChunkId,
-            SameSectionChunkId: match.SameSectionChunkId);
+            SameSectionChunkId: match.SameSectionChunkId,
+            ContentRole: match.ContentRole,
+            NavigationReason: match.NavigationReason,
+            OriginalChunkType: match.OriginalChunkType,
+            NavigationScore: match.NavigationScore,
+            ContentDensityScore: match.ContentDensityScore);
 
     internal static async Task<IReadOnlyDictionary<string, string>> LoadTopCategoryRefsAsync(
         NpgsqlDataSource ds,

@@ -90,6 +90,8 @@ public sealed class DocumentProfileProjectorTests
         Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "LOCKOUT TAGOUT PROCEDURE", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => card.Title.Contains("contents", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(profile.ContentCards, card => card.Title.Contains("Index of procedures", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain("Index of procedures", profile.SummaryText, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("LOCKOUT TAGOUT PROCEDURE", profile.SummaryText, StringComparison.Ordinal);
     }
 
     [Fact]

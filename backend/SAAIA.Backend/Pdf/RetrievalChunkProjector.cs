@@ -345,7 +345,9 @@ internal static partial class RetrievalChunkProjector
             OffsetEnd: offsetEnd,
             ContentRole: classification.ContentRole,
             NavigationReason: classification.NavigationReason,
-            OriginalChunkType: classification.OriginalChunkType);
+            OriginalChunkType: classification.OriginalChunkType,
+            NavigationScore: classification.NavigationScore,
+            ContentDensityScore: classification.ContentDensityScore);
     }
 
     private static string NormalizeRetrievalText(string text)
@@ -625,4 +627,6 @@ internal sealed record ProjectedRetrievalChunk(
     int? OffsetEnd = null,
     string ContentRole = RetrievalContentClassifier.ContentRole,
     string? NavigationReason = null,
-    string? OriginalChunkType = null);
+    string? OriginalChunkType = null,
+    double NavigationScore = 0.0,
+    double ContentDensityScore = 0.0);

@@ -16,6 +16,43 @@ public sealed class RetrievalContentClassifierTests
     }
 
     [Fact]
+    public void AnalyzeChunk_scores_dot_leader_toc_as_navigation()
+    {
+        var text = """
+Safety overview .................... 3
+Lockout procedure .................. 8
+Alarm reset ........................ 12
+Maintenance plan ................... 18
+Appendix ........................... 24
+""";
+
+        var signal = RetrievalContentClassifier.AnalyzeChunk(text);
+
+        Assert.Equal(RetrievalContentClassifier.NavigationRole, signal.ContentRole);
+        Assert.True(signal.NavigationScore >= 0.80);
+        Assert.NotNull(signal.NavigationReason);
+    }
+
+    [Fact]
+    public void AnalyzeChunk_marks_title_catalog_with_real_body_as_mixed()
+    {
+        var text = """
+Controls overview 3
+Maintenance plan 18
+Alarm reset 22
+Lockout checklist 27
+Appendix 31
+Procedure body: Materials lock padlock warning tag. Procedure 1. Isolate the machine. 2. Verify zero energy and document the result.
+""";
+
+        var signal = RetrievalContentClassifier.AnalyzeChunk(text);
+
+        Assert.Equal(RetrievalContentClassifier.MixedNavigationContentRole, signal.ContentRole);
+        Assert.True(signal.NavigationScore >= 0.55);
+        Assert.True(signal.ContentDensityScore >= 0.50);
+    }
+
+    [Fact]
     public void DetectNavigationReason_keeps_structured_content_with_pdf_index_artifact()
     {
         var text = "16 Maintenance lockout [Index: ] ASSET-042 Materials padlock warning tag. Procedure 1. Isolate machine. 2. Verify zero energy.";
@@ -35,5 +72,6 @@ public sealed class RetrievalContentClassifierTests
         Assert.Equal(RetrievalContentClassifier.NavigationRole, classification.ContentRole);
         Assert.Equal(RetrievalContentClassifier.NavigationChunkType, classification.ChunkType);
         Assert.Equal("unit_exact_v1", classification.OriginalChunkType);
+        Assert.True(classification.NavigationScore >= 0.70);
     }
 }

@@ -1175,6 +1175,8 @@ WHERE job_id=@job_id
             ["content_role"] = projectedChunk.ContentRole,
             ["navigation_reason"] = projectedChunk.NavigationReason,
             ["original_chunk_type"] = projectedChunk.OriginalChunkType,
+            ["navigation_score"] = Math.Round(projectedChunk.NavigationScore, 4),
+            ["content_density_score"] = Math.Round(projectedChunk.ContentDensityScore, 4),
             ["section_title"] = sectionTitle,
             ["heading_path"] = headingPath ?? sectionTitle,
             ["prev_chunk_id"] = chunkLinks?.PreviousChunkId?.ToString(),
@@ -1242,7 +1244,9 @@ WHERE job_id=@job_id
             OffsetEnd: null,
             ContentRole: RetrievalContentClassifier.ContentRole,
             NavigationReason: null,
-            OriginalChunkType: null);
+            OriginalChunkType: null,
+            NavigationScore: 0.0,
+            ContentDensityScore: 0.0);
     }
 
     internal static string? ResolveSectionTitle(

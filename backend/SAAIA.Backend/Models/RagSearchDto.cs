@@ -57,7 +57,12 @@ public sealed record RagItemContextDto(
     string? HeadingPath = null,
     string? PrevChunkId = null,
     string? NextChunkId = null,
-    string? SameSectionChunkId = null
+    string? SameSectionChunkId = null,
+    string? ContentRole = null,
+    string? NavigationReason = null,
+    string? OriginalChunkType = null,
+    double? NavigationScore = null,
+    double? ContentDensityScore = null
 );
 
 /// <summary>

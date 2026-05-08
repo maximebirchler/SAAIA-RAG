@@ -6,25 +6,30 @@ internal static partial class RetrievalContentClassifier
 {
     internal const string ContentRole = "content";
     internal const string NavigationRole = "navigation";
+    internal const string MixedNavigationContentRole = "mixed_navigation_content";
     internal const string NavigationChunkType = "navigation_index_v1";
 
     public static RetrievalChunkClassification ClassifyChunk(string text, string chunkType)
     {
-        var navigationReason = DetectNavigationReason(text);
-        if (navigationReason is null)
+        var signal = AnalyzeChunk(text);
+        if (!string.Equals(signal.ContentRole, NavigationRole, StringComparison.Ordinal))
         {
             return new RetrievalChunkClassification(
-                ContentRole,
+                signal.ContentRole,
                 chunkType,
-                NavigationReason: null,
-                OriginalChunkType: null);
+                signal.NavigationReason,
+                OriginalChunkType: null,
+                signal.NavigationScore,
+                signal.ContentDensityScore);
         }
 
         return new RetrievalChunkClassification(
             NavigationRole,
             NavigationChunkType,
-            navigationReason,
-            chunkType);
+            signal.NavigationReason,
+            chunkType,
+            signal.NavigationScore,
+            signal.ContentDensityScore);
     }
 
     public static bool IsNavigationChunkType(string? chunkType)
@@ -32,53 +37,147 @@ internal static partial class RetrievalContentClassifier
 
     internal static string? DetectNavigationReason(string? text)
     {
+        var signal = AnalyzeChunk(text);
+        return string.Equals(signal.ContentRole, ContentRole, StringComparison.Ordinal)
+            ? null
+            : signal.NavigationReason;
+    }
+
+    internal static RetrievalNavigationSignal AnalyzeChunk(string? text)
+    {
         if (string.IsNullOrWhiteSpace(text))
-            return null;
+            return new RetrievalNavigationSignal(ContentRole, null, 0.0, 0.0);
 
         var folded = FoldDiacritics(text).ToLowerInvariant();
         var padded = $" {NormalizeForNavigationLookup(folded)} ";
         var hasStrongMarker = HasStrongNavigationMarker(folded, padded);
+        var inlinePageNumberBoundaries = CountInlinePageNumberBoundaries(text);
+        var shape = AnalyzeShape(text);
         var hasListShape = CountBulletMarkers(text) >= 8
-            || CountInlinePageNumberBoundaries(text) >= 5
+            || inlinePageNumberBoundaries >= 5
+            || CountShortNumberTokens(text) >= 8
+            || shape.DotLeaderLineCount >= 3
+            || shape.PageReferenceLineCount >= 5
+            || LooksLikeCompactIndexCatalog(text, padded)
             || LooksLikeTitleListChunk(text);
+        var contentDensityScore = ComputeContentDensityScore(text, folded, shape);
+        var hasLayoutIndexArtifact = ContainsLayoutIndexArtifact(folded);
+
+        string? reason = null;
+        var navigationScore = 0.0;
 
         if (folded.Contains("table des matieres", StringComparison.Ordinal)
             || folded.Contains("table of contents", StringComparison.Ordinal)
             || padded.Contains(" sommaire ", StringComparison.Ordinal)
             || padded.Contains(" contents ", StringComparison.Ordinal))
         {
-            return "table_of_contents";
+            reason = "table_of_contents";
+            navigationScore = 0.95;
         }
 
-        if (LooksLikeStructuredContent(folded)
+        var looksStructured = LooksLikeStructuredContent(folded);
+        if (reason is null
+            && looksStructured
             && !hasListShape
             && !folded.Contains("fiche-index", StringComparison.Ordinal)
             && !folded.Contains("fiche index", StringComparison.Ordinal))
         {
-            return null;
+            return new RetrievalNavigationSignal(ContentRole, null, 0.0, contentDensityScore);
         }
 
-        if (hasStrongMarker
-            || folded.Contains("fiche-index", StringComparison.Ordinal)
-            || folded.Contains("fiche index", StringComparison.Ordinal))
+        if (reason is null
+            && hasLayoutIndexArtifact
+            && looksStructured
+            && inlinePageNumberBoundaries < 5
+            && shape.PageReferenceLineCount < 5)
         {
-            return "explicit_index_marker";
+            return new RetrievalNavigationSignal(ContentRole, null, 0.0, contentDensityScore);
         }
 
-        if (padded.Contains(" index ", StringComparison.Ordinal))
+        if (reason is null && hasLayoutIndexArtifact && !hasListShape)
+            return new RetrievalNavigationSignal(ContentRole, null, 0.0, contentDensityScore);
+
+        if (reason is null
+            && (hasStrongMarker
+            || folded.Contains("fiche-index", StringComparison.Ordinal)
+            || folded.Contains("fiche index", StringComparison.Ordinal)))
+        {
+            reason = "explicit_index_marker";
+            navigationScore = Math.Max(navigationScore, 0.88);
+        }
+
+        if (reason is null && padded.Contains(" index ", StringComparison.Ordinal))
         {
             if (hasListShape)
-                return "weak_index_marker_with_list_shape";
+            {
+                reason = "weak_index_marker_with_list_shape";
+                navigationScore = Math.Max(navigationScore, 0.76);
+            }
 
-            return null;
+            if (reason is null)
+                return new RetrievalNavigationSignal(ContentRole, null, 0.0, contentDensityScore);
         }
 
-        if (hasListShape && CountInlinePageNumberBoundaries(text) >= 5)
-            return "inline_page_number_list";
+        if (reason is null && hasListShape && inlinePageNumberBoundaries >= 5)
+        {
+            reason = "inline_page_number_list";
+            navigationScore = Math.Max(navigationScore, 0.82);
+        }
 
-        return hasListShape
-            ? "title_list_shape"
-            : null;
+        if (reason is null && hasListShape && CountShortNumberTokens(text) >= 8)
+        {
+            reason = "numeric_title_catalog";
+            navigationScore = Math.Max(navigationScore, 0.76);
+        }
+
+        if (reason is null && shape.DotLeaderLineCount >= 3)
+        {
+            reason = "title_list_with_page_refs";
+            navigationScore = Math.Max(navigationScore, 0.80);
+        }
+
+        if (reason is null && LooksLikeTitleListChunk(text))
+        {
+            reason = inlinePageNumberBoundaries >= 3
+                ? "compact_title_catalog_with_page_refs"
+                : "dense_title_catalog";
+            navigationScore = Math.Max(navigationScore, inlinePageNumberBoundaries >= 3 ? 0.78 : 0.76);
+        }
+
+        if (reason is null && hasListShape)
+        {
+            reason = "title_list_shape";
+            navigationScore = Math.Max(navigationScore, 0.64);
+        }
+
+        if (reason is null)
+            return new RetrievalNavigationSignal(ContentRole, null, 0.0, contentDensityScore);
+
+        if (shape.ShortLineRatio >= 0.65 && shape.PageReferenceLineCount >= 3)
+            navigationScore = Math.Max(navigationScore, 0.82);
+        if (shape.LongLineRatio >= 0.35 || looksStructured)
+            contentDensityScore = Math.Max(contentDensityScore, looksStructured ? 0.70 : 0.50);
+        if (!looksStructured
+            && (inlinePageNumberBoundaries >= 5
+                || (shape.LongLineRatio < 0.30
+                    && (shape.DotLeaderLineCount >= 3 || shape.PageReferenceLineCount >= 5))))
+        {
+            contentDensityScore = Math.Min(contentDensityScore, 0.35);
+        }
+        if (contentDensityScore >= 0.55 && navigationScore < 0.90)
+            navigationScore = Math.Min(navigationScore, 0.69);
+
+        var role = navigationScore >= 0.90 || (navigationScore >= 0.72 && contentDensityScore < 0.50)
+            ? NavigationRole
+            : navigationScore >= 0.55
+                ? MixedNavigationContentRole
+                : ContentRole;
+
+        return new RetrievalNavigationSignal(
+            role,
+            string.Equals(role, ContentRole, StringComparison.Ordinal) ? null : reason,
+            Math.Clamp(navigationScore, 0.0, 1.0),
+            Math.Clamp(contentDensityScore, 0.0, 1.0));
     }
 
     private static bool LooksLikeStructuredContent(string foldedText)
@@ -120,23 +219,37 @@ internal static partial class RetrievalContentClassifier
             return 0;
 
         var count = 0;
-        var digitRun = 0;
-        foreach (var ch in text)
+        for (var i = 0; i < text.Length; i++)
         {
-            if (char.IsDigit(ch))
-            {
-                digitRun++;
+            if (!char.IsDigit(text[i]))
                 continue;
-            }
 
-            if (digitRun is > 0 and <= 4 && char.IsLetter(ch) && char.IsUpper(ch))
+            var start = i;
+            while (i < text.Length && char.IsDigit(text[i]))
+                i++;
+
+            var digitRun = i - start;
+            if (digitRun is <= 0 or > 4)
+                continue;
+
+            var j = i;
+            while (j < text.Length && (char.IsWhiteSpace(text[j]) || text[j] is '-' or '\u2013' or '\u2014' or '.' or ')'))
+                j++;
+
+            if (j < text.Length && char.IsLetter(text[j]) && char.IsUpper(text[j]))
                 count++;
 
-            digitRun = 0;
+            i--;
         }
 
         return count;
     }
+
+    private static bool LooksLikeCompactIndexCatalog(string text, string paddedNormalizedText)
+        => (paddedNormalizedText.Contains(" index ", StringComparison.Ordinal)
+            || paddedNormalizedText.TrimStart().StartsWith("index", StringComparison.Ordinal))
+            && CountWords(text) >= 20
+            && (CountInlinePageNumberBoundaries(text) >= 3 || CountShortNumberTokens(text) >= 5);
 
     private static bool LooksLikeTitleListChunk(string text)
     {
@@ -178,6 +291,112 @@ internal static partial class RetrievalContentClassifier
                 && sentenceMarkers <= 2)
             || (CountLowerToUpperTransitions(text) >= 8 && sentenceMarkers <= 3);
     }
+
+    private static int CountShortNumberTokens(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return 0;
+
+        var count = 0;
+        foreach (Match _ in ShortNumberTokenRegex().Matches(text))
+            count++;
+
+        return count;
+    }
+
+    private static RetrievalNavigationShape AnalyzeShape(string text)
+    {
+        var lines = text
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (lines.Length == 0)
+            lines = [text.Trim()];
+
+        var shortLines = 0;
+        var longLines = 0;
+        var pageReferenceLines = 0;
+        var dotLeaderLines = 0;
+        foreach (var line in lines)
+        {
+            var trimmed = line.Trim();
+            var words = CountWords(line);
+            if (words is > 0 and <= 7)
+                shortLines++;
+            if (words >= 14 || line.Length >= 120)
+                longLines++;
+            if (LooksLikePageReferenceLine(trimmed))
+                pageReferenceLines++;
+            if (LooksLikeDotLeaderLine(trimmed))
+                dotLeaderLines++;
+        }
+
+        return new RetrievalNavigationShape(
+            LineCount: lines.Length,
+            ShortLineRatio: lines.Length == 0 ? 0.0 : shortLines / (double)lines.Length,
+            LongLineRatio: lines.Length == 0 ? 0.0 : longLines / (double)lines.Length,
+            PageReferenceLineCount: pageReferenceLines,
+            DotLeaderLineCount: dotLeaderLines);
+    }
+
+    private static bool LooksLikeDotLeaderLine(string line)
+        => !string.IsNullOrWhiteSpace(line)
+            && line.Contains("..", StringComparison.Ordinal)
+            && PageNumberAtLineEndRegex().IsMatch(line);
+
+    private static bool LooksLikePageReferenceLine(string line)
+        => !string.IsNullOrWhiteSpace(line)
+            && CountWords(line) <= 12
+            && PageNumberAtLineEndRegex().IsMatch(line);
+
+    private static double ComputeContentDensityScore(string text, string foldedText, RetrievalNavigationShape shape)
+    {
+        var words = CountWords(text);
+        if (words == 0)
+            return 0.0;
+
+        var textWithoutDotLeaders = DotLeaderSequenceRegex().Replace(text, " ");
+        var sentenceMarkers = textWithoutDotLeaders.Count(static ch => ch is '.' or '!' or '?' or ';');
+        var sentenceDensity = Math.Clamp(sentenceMarkers / Math.Max(1.0, words / 20.0), 0.0, 1.0);
+        var longLineSignal = Math.Clamp(shape.LongLineRatio * 1.4, 0.0, 1.0);
+        var structuredSignal = LooksLikeStructuredContent(foldedText) ? 1.0 : 0.0;
+
+        return Math.Clamp(
+            (sentenceDensity * 0.35)
+            + (longLineSignal * 0.35)
+            + (structuredSignal * 0.30),
+            0.0,
+            1.0);
+    }
+
+    private static int CountWords(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return 0;
+
+        var count = 0;
+        var inWord = false;
+        foreach (var ch in text)
+        {
+            if (char.IsLetterOrDigit(ch))
+            {
+                if (!inWord)
+                    count++;
+                inWord = true;
+            }
+            else
+            {
+                inWord = false;
+            }
+        }
+
+        return count;
+    }
+
+    private static bool ContainsLayoutIndexArtifact(string foldedText)
+        => foldedText.Contains("[index", StringComparison.Ordinal)
+            || foldedText.Contains(" index: ", StringComparison.Ordinal)
+            || foldedText.EndsWith(" index:", StringComparison.Ordinal);
 
     private static int CountLowerToUpperTransitions(string text)
     {
@@ -237,10 +456,34 @@ internal static partial class RetrievalContentClassifier
 
     [GeneratedRegex(@"(?:^|[^\p{L}\p{N}])\d+\s*[\.)]\s+\p{L}", RegexOptions.CultureInvariant)]
     private static partial Regex NumberedStepRegex();
+
+    [GeneratedRegex(@"(?<![\p{L}\p{N}])\d{1,4}(?![\p{L}\p{N}])", RegexOptions.CultureInvariant)]
+    private static partial Regex ShortNumberTokenRegex();
+
+    [GeneratedRegex(@"\d{1,5}\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex PageNumberAtLineEndRegex();
+
+    [GeneratedRegex(@"\.{2,}", RegexOptions.CultureInvariant)]
+    private static partial Regex DotLeaderSequenceRegex();
 }
 
 internal sealed record RetrievalChunkClassification(
     string ContentRole,
     string ChunkType,
     string? NavigationReason,
-    string? OriginalChunkType);
+    string? OriginalChunkType,
+    double NavigationScore,
+    double ContentDensityScore);
+
+internal sealed record RetrievalNavigationSignal(
+    string ContentRole,
+    string? NavigationReason,
+    double NavigationScore,
+    double ContentDensityScore);
+
+internal sealed record RetrievalNavigationShape(
+    int LineCount,
+    double ShortLineRatio,
+    double LongLineRatio,
+    int PageReferenceLineCount,
+    int DotLeaderLineCount);

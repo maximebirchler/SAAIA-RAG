@@ -451,6 +451,8 @@ public sealed class RetrievalChunkProjectorTests
         Assert.Equal(RetrievalContentClassifier.NavigationRole, chunk.ContentRole);
         Assert.NotNull(chunk.NavigationReason);
         Assert.Equal("unit_exact_v1", chunk.OriginalChunkType);
+        Assert.True(chunk.NavigationScore >= 0.72);
+        Assert.True(chunk.ContentDensityScore < 0.50);
     }
 
     [Fact]
@@ -487,5 +489,42 @@ public sealed class RetrievalChunkProjectorTests
         Assert.Equal(RetrievalContentClassifier.ContentRole, chunk.ContentRole);
         Assert.Null(chunk.NavigationReason);
         Assert.Null(chunk.OriginalChunkType);
+        Assert.True(chunk.ContentDensityScore >= 0.50);
+    }
+
+    [Fact]
+    public void ProjectStructureAware_keeps_mixed_navigation_content_searchable_with_scores()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 1, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "Safety overview 3 Maintenance plan 18 Alarm reset 22 Lockout checklist 27 Appendix 31 Procedure body: Materials lock padlock warning tag. Procedure 1. Isolate the machine. 2. Verify zero energy and document the result.",
+                160,
+                23,
+                [1],
+                0,
+                160)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 0,
+            minWords: 1);
+
+        var chunk = Assert.Single(projected);
+        Assert.NotEqual(RetrievalContentClassifier.NavigationChunkType, chunk.ChunkType);
+        Assert.Equal(RetrievalContentClassifier.MixedNavigationContentRole, chunk.ContentRole);
+        Assert.True(chunk.NavigationScore >= 0.55);
+        Assert.True(chunk.ContentDensityScore >= 0.50);
     }
 }

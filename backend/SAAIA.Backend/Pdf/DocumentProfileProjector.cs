@@ -19,7 +19,8 @@ internal static partial class DocumentProfileProjector
         IReadOnlyList<ExtractedExactMatchEntry> exactMatchEntries)
     {
         var docName = Path.GetFileName(docPath.Replace('\\', '/'));
-        var corpus = BuildCorpus(docName, sections, units);
+        var profileUnits = SelectProfileContentUnits(units);
+        var corpus = BuildCorpus(docName, sections, profileUnits);
         var language = DetectLanguage(corpus);
         var sectionTitles = sections
             .OrderBy(static section => section.Ordinal)
@@ -35,10 +36,10 @@ internal static partial class DocumentProfileProjector
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(14)
             .ToArray();
-        var summary = BuildSummary(docName, pages.Count, sectionTitles, units, language);
+        var summary = BuildSummary(docName, pages.Count, sectionTitles, profileUnits, language);
         var hypotheticalQuestions = BuildHypotheticalQuestions(docName, keywords, entities, language);
         var limits = BuildLimits(language);
-        var contentCards = BuildContentCards(sections, units, exactMatchEntries, keywords);
+        var contentCards = BuildContentCards(sections, profileUnits, exactMatchEntries, keywords);
         return BuildProfile(
             profileVersion: "deterministic_v1",
             language,
@@ -113,6 +114,21 @@ internal static partial class DocumentProfileProjector
         foreach (var unit in units.OrderBy(static unit => unit.Ordinal).Take(160))
             sb.AppendLine(unit.Text);
         return sb.ToString();
+    }
+
+    private static IReadOnlyList<ExtractedDocumentUnit> SelectProfileContentUnits(IReadOnlyList<ExtractedDocumentUnit> units)
+    {
+        if (units.Count == 0)
+            return units;
+
+        var contentUnits = units
+            .Where(static unit => !string.Equals(
+                RetrievalContentClassifier.AnalyzeChunk(unit.Text).ContentRole,
+                RetrievalContentClassifier.NavigationRole,
+                StringComparison.Ordinal))
+            .ToArray();
+
+        return contentUnits.Length == 0 ? units : contentUnits;
     }
 
     private static string DetectLanguage(string text)
