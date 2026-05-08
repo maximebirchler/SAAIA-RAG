@@ -337,11 +337,8 @@ public static class ReadyEndpoints
         bool canProbeLanguages)
     {
         var configured = PdfOcrTextExtractor.ResolveExplicitConfiguredOcrLanguagesForReadiness(ingestion).ToArray();
-        if (configured.Length == 0)
-            return new OcrLanguageReadiness(true, true, [], 0, []);
-
         if (!canProbeLanguages)
-            return new OcrLanguageReadiness(true, false, configured, 0, []);
+            return new OcrLanguageReadiness(true, configured.Length == 0, configured, 0, []);
 
         var installed = PdfOcrTextExtractor.LoadInstalledTesseractLanguagesForReadiness(ingestion).ToArray();
         return ResolveOcrLanguageReadiness(configured, installed);

@@ -91,6 +91,20 @@ public sealed class ReadyEndpointOcrReadinessTests
     }
 
     [Fact]
+    public void ResolveOcrLanguageReadiness_reports_installed_count_for_auto_language_mode()
+    {
+        var readiness = ReadyEndpoints.ResolveOcrLanguageReadiness(
+            [],
+            ["eng", "fra", "deu"]);
+
+        Assert.True(readiness.Ready);
+        Assert.True(readiness.Verified);
+        Assert.Empty(readiness.ConfiguredLanguages);
+        Assert.Equal(3, readiness.InstalledLanguageCount);
+        Assert.Empty(readiness.MissingLanguages);
+    }
+
+    [Fact]
     public void ProbeOcrReadiness_reports_auto_language_mode_with_bounded_limit()
     {
         var details = new Dictionary<string, object?>();
