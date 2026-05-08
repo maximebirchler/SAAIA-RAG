@@ -1284,7 +1284,7 @@ ORDER BY d.doc_path;
             : req.Category.Trim().ToLowerInvariant();
         var categoryPath = await ResolveRagCategoryPathAsync(ds, tenantId, req.CategoryPath, req.CategoryRef, ct);
 
-        var retrievalQuery = ExpandRetrievalQuery(req.Query, category);
+        var retrievalQuery = ResolvePrimaryRetrievalQuery(req.Query, category);
         var queryNorm = NormalizeQuery(req.Query);
         var retrievalQueryNorm = NormalizeQuery(retrievalQuery);
 
@@ -4111,7 +4111,7 @@ LIMIT @top_k;
             return false;
 
         var normalized = " " + FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query)).ToLowerInvariant() + " ";
-        if (ContainsEnumerativeLookupIntent(normalized))
+        if (ContainsEnumerativeLookupIntent(normalized) || ExtractFocusedLookupPhrases(query).Count > 0)
         {
             return BuildFocusedLexicalBackfillQuery(query).Length > 0;
         }
@@ -4163,6 +4163,10 @@ LIMIT @top_k;
 
     internal static string BuildFocusedLexicalBackfillQuery(string query)
     {
+        var focusedLookupPhrase = ExtractFocusedLookupPhrases(query).FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(focusedLookupPhrase))
+            return focusedLookupPhrase.Trim();
+
         var lookup = ExactMatchEntryExtractor.NormalizeForLookup(query);
         var foldedLookup = FoldDiacritics(lookup);
         var phrase = BuildLexicalContentFallbackTerms(query)
@@ -4185,6 +4189,91 @@ LIMIT @top_k;
             ? string.Empty
             : string.Join(' ', tokens);
     }
+
+    internal static IReadOnlyList<string> ExtractFocusedLookupPhrases(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return Array.Empty<string>();
+
+        var phrases = new List<string>();
+        foreach (var quotedPhrase in ExtractQuotedLookupPhrases(query))
+            AddFocusedLookupPhrase(phrases, quotedPhrase);
+
+        var surface = FoldDiacritics(query).ToLowerInvariant();
+        surface = Regex.Replace(surface, @"[\u2010-\u2015_\-]+", " ", RegexOptions.CultureInvariant);
+        surface = Regex.Replace(surface, @"\s+", " ", RegexOptions.CultureInvariant).Trim();
+        if (string.IsNullOrWhiteSpace(surface))
+            return phrases.Distinct(StringComparer.Ordinal).ToArray();
+
+        foreach (Match match in FocusedLookupTargetPattern.Matches(surface))
+        {
+            AddFocusedLookupPhrase(phrases, match.Groups["target"].Value);
+        }
+
+        return phrases
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static void AddFocusedLookupPhrase(List<string> phrases, string candidate)
+    {
+        var phrase = NormalizeFocusedLookupPhrase(candidate);
+        if (!string.IsNullOrWhiteSpace(phrase))
+            phrases.Add(phrase);
+    }
+
+    private static string? NormalizeFocusedLookupPhrase(string candidate)
+    {
+        var normalized = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(candidate)).ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(normalized))
+            return null;
+
+        var tokens = normalized
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Take(8)
+            .ToList();
+
+        while (tokens.Count > 0 && IsFocusedLookupLeadingEdgeToken(tokens[0]))
+            tokens.RemoveAt(0);
+        while (tokens.Count > 0 && IsFocusedLookupTrailingEdgeToken(tokens[^1]))
+            tokens.RemoveAt(tokens.Count - 1);
+
+        if (tokens.Count == 0)
+            return null;
+
+        var signalCount = tokens.Count(IsFocusedLookupSignalToken);
+        if (signalCount < 2 && !tokens.Any(static token => token.Length >= 6 || token.Any(char.IsDigit)))
+            return null;
+
+        var phrase = string.Join(' ', tokens);
+        return phrase.Length is >= 4 and <= 80 ? phrase : null;
+    }
+
+    private static bool IsFocusedLookupLeadingEdgeToken(string token)
+        => TitleConnectorTokens.Contains(token)
+           || LexicalStopwords.Contains(token)
+           || SpecificAnchorStopwords.Contains(token)
+           || PrimaryAnchorStopwords.Contains(token);
+
+    private static bool IsFocusedLookupTrailingEdgeToken(string token)
+        => !IsShortTitleSuffixToken(token)
+           && IsFocusedLookupLeadingEdgeToken(token);
+
+    private static bool IsShortTitleSuffixToken(string token)
+        => token.Length == 1 && token.All(char.IsLetterOrDigit);
+
+    private static bool IsFocusedLookupSignalToken(string token)
+        => token.Length >= 3
+           && token.Any(char.IsLetter)
+           && !TitleConnectorTokens.Contains(token)
+           && !LexicalStopwords.Contains(token)
+           && !SpecificAnchorStopwords.Contains(token)
+           && !PrimaryAnchorStopwords.Contains(token);
+
+    private static readonly Regex FocusedLookupTargetPattern = new(
+        @"\b(?:(?:fiche|ficha|scheda|karte|card|procedure|procedures|procedimiento|procedimientos|procedimento|procedimentos|process|processus|processo|processi|section|seccion|secao|sezione|abschnitt|chapitre|chapter|capitulo|capitolo|kapitel|topic|sujet|subject|tema|assunto|argomento)\b(?:\s+(?:claire|clair|clear|detaillee|detailee|detailed|simple|complete|completa|completo|klar)){0,3}|(?:donne|donner|montre|trouve|chercher|cherche|veux|souhaite|give|show|find|get|want|need|dame|muestra|mostrar|encuentra|encontrar|quero|procura|procurar|mostra|trova|cerca|voglio|zeige|finde|finden|suche|such|mochte|will|brauche)\b(?:\s+[\p{L}\p{Nd}']{1,24}){0,8}?)\s+(?:de|du|des|d['’]?|pour|sur|of|for|about|on|para|sobre|por|per|su|di|del|della|do|da|dos|das|em|zu|zum|zur|uber|ueber)\s+(?<target>[\p{L}\p{Nd}][\p{L}\p{Nd}\s\-]{2,80}?)(?=\s+(?:dans|depuis|from|in|aus|im|von|vom|source|sources|fonte|fontes|fuente|fuentes|quelle|quellen|etape|etapes|step|steps|schritt|schritte|passo|passos|temps|time|duree|duration|duracion|duracao|dauer|pdf|document|documents|doc|docs|fichier|fichiers|arquivo|arquivos|archivo|archivos|file|files|livre|livres|book|books|libro|libros|manuale|manuel|manuels|manual|manuals|guide|guides|guia|guias|handbuch|handbucher|avec|with|com|con|mit|senza|sans|without|compare|comparer|compara|comparar|vergleiche|si|oui|ja)\b|[\?:;,\.\r\n]|$)",
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(100));
 
     private static bool PhraseOccursInQuery(string phrase, string lookup, string foldedLookup)
     {
@@ -7068,6 +7157,14 @@ LIMIT @top_k;
                 terms.Add(foldedPhrase);
         }
 
+        foreach (var focusedPhrase in ExtractFocusedLookupPhrases(query))
+        {
+            terms.Add(focusedPhrase);
+            var foldedPhrase = FoldDiacritics(focusedPhrase);
+            if (!string.Equals(foldedPhrase, focusedPhrase, StringComparison.Ordinal))
+                terms.Add(foldedPhrase);
+        }
+
         var filteredTerms = terms
             .Where(static term => term.Length >= 4)
             .Where(static term => !LexicalStopwords.Contains(term))
@@ -7428,6 +7525,14 @@ LIMIT @top_k;
         return additions.Count == 0
             ? trimmed
             : $"{trimmed} {string.Join(' ', additions.Distinct(StringComparer.OrdinalIgnoreCase))}";
+    }
+
+    internal static string ResolvePrimaryRetrievalQuery(string query, string? category)
+    {
+        var focusedLookupPhrase = ExtractFocusedLookupPhrases(query).FirstOrDefault();
+        return ExpandRetrievalQuery(
+            string.IsNullOrWhiteSpace(focusedLookupPhrase) ? query : focusedLookupPhrase,
+            category);
     }
 
     internal static IReadOnlyList<string> BuildQueryExpansionTerms(string normalizedQuery)

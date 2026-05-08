@@ -497,6 +497,36 @@ public sealed class DocumentProfileProjectorTests
     }
 
     [Fact]
+    public void BuildProfile_discards_generic_dangling_fragment_content_card_titles()
+    {
+        var profile = DocumentProfileProjector.BuildProfile(
+            profileVersion: "llm_backoffice_v1",
+            language: "en",
+            summaryText: "Profile with externally supplied card titles.",
+            keywords: [],
+            entities: [],
+            topics: [],
+            hypotheticalQuestions: [],
+            limits: [],
+            docPath: "Generic/Fragments.pdf",
+            docName: "Fragments.pdf",
+            contentCards:
+            [
+                new DocumentProfileContentCard("l evolution de la", 2, 2, "section", [], null),
+                new DocumentProfileContentCard("on nn . il \u00ab Sauces salees et", 3, 3, "section", [], null),
+                new DocumentProfileContentCard("Safety symbols", 4, 4, "section", [], null),
+                new DocumentProfileContentCard("Vitamin A", 5, 5, "section", [], null),
+                new DocumentProfileContentCard("Access mode A", 6, 6, "section", [], null)
+            ]);
+
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "l evolution de la", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.Contains("Sauces salees et", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Safety symbols", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Vitamin A", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Access mode A", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Project_extracts_embedded_uppercase_title_when_followed_by_measurement()
     {
         var pages = new[]

@@ -47,6 +47,53 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Theory]
+    [InlineData("Donne-moi la recette du coq au vin dans le livre international.", "coq au vin")]
+    [InlineData("Tu peux me faire une fiche claire pour Patatas Bravas : ingredients, etapes, temps et source ?", "patatas bravas")]
+    [InlineData("Je veux une fiche pour Cr\u00e8me au citron avec source.", "creme au citron")]
+    [InlineData("Give me the procedure for access mode A from the manual.", "access mode a")]
+    [InlineData("Dame una ficha para modo acceso A con fuente.", "modo acceso a")]
+    [InlineData("Quero uma ficha para modo acesso A com fonte.", "modo acesso a")]
+    [InlineData("Zeige eine Karte zu Zugang Modus A aus dem Handbuch.", "zugang modus a")]
+    [InlineData("Mostra una scheda per modalita accesso A con fonte.", "modalita accesso a")]
+    public void BuildFocusedLexicalBackfillQuery_extracts_unquoted_content_targets(string query, string expected)
+    {
+        var focused = RagEndpoints.BuildFocusedLexicalBackfillQuery(query);
+
+        Assert.Equal(expected, focused);
+    }
+
+    [Theory]
+    [InlineData("Donne-moi la recette du coq au vin dans le livre international.")]
+    [InlineData("Tu peux me faire une fiche claire pour Patatas Bravas : ingredients, etapes, temps et source ?")]
+    public void ShouldBackfillEnumerativeSearch_detects_precise_content_lookup_requests(string query)
+    {
+        Assert.True(RagEndpoints.ShouldBackfillEnumerativeSearch(query, selectedCount: 0, topK: 8));
+    }
+
+    [Fact]
+    public void BuildLexicalContentFallbackTerms_keeps_unquoted_short_title_words_in_focused_targets()
+    {
+        var terms = RagEndpoints.BuildLexicalContentFallbackTerms(
+            "Donne-moi la recette du coq au vin dans le livre international.");
+
+        Assert.Contains("coq au vin", terms);
+    }
+
+    [Fact]
+    public void ResolvePrimaryRetrievalQuery_uses_focused_target_without_touching_broad_queries()
+    {
+        var focused = RagEndpoints.ResolvePrimaryRetrievalQuery(
+            "Donne-moi la recette du coq au vin dans le livre international.",
+            "cuisine");
+        var broad = RagEndpoints.ResolvePrimaryRetrievalQuery(
+            "Quelles recettes avec des lentilles corail existent dans les PDF ?",
+            "cuisine");
+
+        Assert.Equal("coq au vin", focused);
+        Assert.Equal("Quelles recettes avec des lentilles corail existent dans les PDF ?", broad);
+    }
+
+    [Theory]
     [InlineData("Quels documents parlent d'inertage ?", true)]
     [InlineData("Which documents mention inerting?", true)]
     [InlineData("Explique l'inertage dans ce passage.", false)]

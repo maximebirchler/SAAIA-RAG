@@ -718,6 +718,8 @@ internal static partial class DocumentProfileProjector
             return false;
         if (LooksLikeOcrNoiseTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
             return false;
+        if (LooksLikeDanglingFragmentContentCardTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
+            return false;
         if (PageReferenceFragmentRegex().IsMatch(normalizedFolded)
             && !hasTechnicalIdentifier
             && (tokenCount >= 4 || normalizedFolded.Contains("table des matieres", StringComparison.Ordinal)))
@@ -819,6 +821,53 @@ internal static partial class DocumentProfileProjector
 
         var invertedPunctuation = title.Count(static ch => ch is '¡' or '¿');
         return invertedPunctuation > 0 && noiseTokens >= 2;
+    }
+
+    private static bool LooksLikeDanglingFragmentContentCardTitle(string title, string normalizedFolded, int tokenCount)
+    {
+        if (tokenCount < 2)
+            return false;
+
+        var tokens = normalizedFolded.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (tokens.Length == 0)
+            return false;
+
+        var strongTokens = tokens.Count(static token =>
+            token.Length >= 4
+            && !DanglingFragmentTitleTokens.Contains(token)
+            && !ContentCardLeadStopwords.Contains(token));
+        var firstToken = tokens[0];
+        var lastToken = tokens[^1];
+        var startsWithFragment = DanglingFragmentTitleTokens.Contains(firstToken);
+        var endsWithFragment = DanglingFragmentTitleTokens.Contains(lastToken);
+
+        if (startsWithFragment && tokenCount <= 6 && strongTokens <= 2)
+            return true;
+
+        if (endsWithFragment
+            && tokenCount >= 3
+            && tokenCount <= 8
+            && (startsWithFragment
+                || LooksLikeLowercaseLead(title)
+                || strongTokens <= 1
+                || ContainsNoisyInlinePunctuation(title, tokenCount)))
+        {
+            return true;
+        }
+
+        return HasUnbalancedContentCardQuote(title)
+            && (LooksLikeLowercaseLead(title) || strongTokens <= 2 || tokenCount <= 6);
+    }
+
+    private static bool HasUnbalancedContentCardQuote(string title)
+    {
+        var leftFrenchQuoteCount = title.Count(static ch => ch == '\u00ab');
+        var rightFrenchQuoteCount = title.Count(static ch => ch == '\u00bb');
+        if (leftFrenchQuoteCount != rightFrenchQuoteCount)
+            return true;
+
+        var doubleQuoteCount = title.Count(static ch => ch is '"');
+        return doubleQuoteCount % 2 != 0;
     }
 
     private static bool IsShortRomanNumeral(string token)
@@ -1560,6 +1609,14 @@ internal static partial class DocumentProfileProjector
         "this", "that", "these", "those", "cette", "cela", "voici", "pour", "avec",
         "dans", "vous", "nous", "the", "and", "from", "para", "como", "esta",
         "este", "oder", "und", "der", "die", "das", "per", "con"
+    };
+
+    private static readonly HashSet<string> DanglingFragmentTitleTokens = new(StringComparer.Ordinal)
+    {
+        "a", "an", "and", "as", "at", "by", "d", "da", "dans", "das", "de", "del",
+        "della", "des", "di", "die", "du", "el", "en", "et", "for", "from", "in",
+        "l", "la", "las", "le", "les", "lo", "los", "mit", "of", "on", "or", "ou",
+        "para", "per", "por", "sur", "the", "to", "und", "with", "y", "zu"
     };
 
     [GeneratedRegex(@"[\p{L}\p{N}][\p{L}\p{N}\-/]{2,}", RegexOptions.CultureInvariant)]
