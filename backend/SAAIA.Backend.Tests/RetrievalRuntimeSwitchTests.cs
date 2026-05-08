@@ -2756,6 +2756,47 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void PruneUnpagedProfileSelectionsForPreciseLookup_keeps_paged_title_evidence()
+    {
+        var unpagedProfile = new RagMatch(
+            1.02,
+            "doc-profile",
+            "Generic/Profile.pdf",
+            "Profile.pdf",
+            null,
+            null,
+            "profile",
+            null,
+            "This profile gives a broad overview of the document.",
+            1,
+            "hash-profile",
+            "This profile gives a broad overview of the document.",
+            "document_profile_v1",
+            null,
+            null,
+            null,
+            null,
+            "document_profile",
+            null,
+            null,
+            null);
+        var pagedTitle = TestMatch(
+            text: "Index entry and details for Alpha Beta are available on this page.",
+            embedText: "Index entry and details for Alpha Beta are available on this page.",
+            docPath: "Generic/Details.pdf",
+            page: 4,
+            score: 0.82,
+            chunkId: "paged-title",
+            chunkType: "unit_exact_v1");
+        var selected = new List<RagMatch> { unpagedProfile, pagedTitle };
+
+        RagEndpoints.PruneUnpagedProfileSelectionsForPreciseLookup("alpha beta", selected);
+
+        Assert.Single(selected);
+        Assert.Equal("paged-title", selected[0].ChunkId);
+    }
+
+    [Fact]
     public void ExtractMatchedDocHints_derives_generic_reference_and_alpha_hints()
     {
         var matches = new[]

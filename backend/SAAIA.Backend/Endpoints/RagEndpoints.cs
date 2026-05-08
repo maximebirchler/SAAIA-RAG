@@ -1561,6 +1561,7 @@ ORDER BY d.doc_path;
         PruneWeakAdjacentSiblingSelections(selectionRankingQuery, selected);
         PrunePreciseTitleTailSelections(selectionRankingQuery, selected);
         PruneUnmatchedPreciseTitleSelections(selectionRankingQuery, selected);
+        PruneUnpagedProfileSelectionsForPreciseLookup(selectionRankingQuery, selected);
         PruneNavigationalSelections(req.Query, selected);
         if (!skipChunkRetrieversForDocumentOverview)
             ApplyAutocut(selected, minScore);
@@ -5890,6 +5891,27 @@ LIMIT @top_k;
             return true;
 
         return ContainsPrimarySpecificLexicalAnchor(primaryTokens, GetPreciseTitleSignalText(match));
+    }
+
+    internal static void PruneUnpagedProfileSelectionsForPreciseLookup(string query, List<RagMatch> selected)
+    {
+        if (selected.Count <= 1)
+            return;
+
+        var lexicalTokens = ExtractTitlePruneTokens(query);
+        if (lexicalTokens.Length is < 2 or > 6)
+            return;
+
+        var hasPagedTitleEvidence = selected.Any(match =>
+            match.PageStart.HasValue
+            && (ComputeExactTitleCandidateScore(query, match) > 0.0
+                || ContainsOrderedTitleTokenSubstrings(GetTitleSignalText(match), lexicalTokens, maxGapChars: 60)));
+        if (!hasPagedTitleEvidence)
+            return;
+
+        selected.RemoveAll(static match =>
+            !match.PageStart.HasValue
+            && string.Equals(match.ChunkType, "document_profile", StringComparison.Ordinal));
     }
 
     private static bool IsUsefulLinkedSelectionNearPrimaryAnchor(
