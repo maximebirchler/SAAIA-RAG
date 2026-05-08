@@ -149,12 +149,18 @@ public sealed class DocumentProfileProjectorTests
         var sections = new[]
         {
             new ExtractedDocumentSection(0, "WARNING een 6 ¡PASO i iii 6", 1, 1, 1, 1, null),
-            new ExtractedDocumentSection(1, "Safety symbols", 1, 1, 1, 2, null)
+            new ExtractedDocumentSection(1, "Xjs qz Aew", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(2, "RRRREEEE RERERERERE TTTTEEEE 0", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(3, "T T N", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(4, "Safety symbols", 1, 1, 1, 2, null)
         };
         var units = new[]
         {
             new ExtractedDocumentUnit(0, 0, 1, 1, "WARNING een 6 ¡PASO i iii 6", 30, 6, [2]),
-            new ExtractedDocumentUnit(1, 1, 1, 1, "Safety symbols are used to identify hazards.", 44, 6, [3])
+            new ExtractedDocumentUnit(1, 1, 1, 1, "Xjs qz Aew", 10, 3, [3]),
+            new ExtractedDocumentUnit(2, 2, 1, 1, "RRRREEEE RERERERERE TTTTEEEE 0", 33, 4, [4]),
+            new ExtractedDocumentUnit(3, 3, 1, 1, "T T N", 5, 3, [5]),
+            new ExtractedDocumentUnit(4, 4, 1, 1, "Safety symbols are used to identify hazards.", 44, 6, [6])
         };
 
         var profile = DocumentProfileProjector.Project(
@@ -165,6 +171,9 @@ public sealed class DocumentProfileProjectorTests
             exactMatchEntries: []);
 
         Assert.DoesNotContain(profile.ContentCards, card => card.Title.Contains("¡PASO", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Xjs qz Aew", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.Contains("RERERERERE", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "T T N", StringComparison.Ordinal));
         Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Safety symbols", StringComparison.Ordinal));
     }
 

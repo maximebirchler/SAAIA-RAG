@@ -790,7 +790,7 @@ internal static partial class DocumentProfileProjector
 
     private static bool LooksLikeOcrNoiseTitle(string title, string normalizedFolded, int tokenCount)
     {
-        if (tokenCount < 4)
+        if (tokenCount < 2)
             return false;
 
         var tokens = normalizedFolded.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -798,6 +798,22 @@ internal static partial class DocumentProfileProjector
             token.Length == 1
             || token.All(char.IsDigit)
             || IsShortRomanNumeral(token));
+        if (noiseTokens >= Math.Max(2, (int)Math.Ceiling(tokens.Length * 0.60)))
+            return true;
+
+        if (tokens.Length is >= 3 and <= 4
+            && tokens.All(static token => token.Length <= 3 && !token.Any(char.IsDigit))
+            && tokens.Average(static token => token.Length) < 2.8)
+        {
+            return true;
+        }
+
+        var repeatedRunTokens = tokens.Count(static token =>
+            token.Length >= 8
+            && (RepeatedOcrCharacterRunRegex().IsMatch(token) || RepeatedOcrSyllableRunRegex().IsMatch(token)));
+        if (repeatedRunTokens > 0 && (repeatedRunTokens >= 2 || tokenCount <= 4))
+            return true;
+
         if (noiseTokens >= Math.Max(2, (int)Math.Ceiling(tokens.Length * 0.45)))
             return true;
 
@@ -1614,6 +1630,12 @@ internal static partial class DocumentProfileProjector
 
     [GeneratedRegex("(?<=[\\p{Lu}]{3})\\d{1,4}$", RegexOptions.CultureInvariant)]
     private static partial Regex CompactTrailingMeasureNumberRegex();
+
+    [GeneratedRegex(@"(.)\1{3,}", RegexOptions.CultureInvariant)]
+    private static partial Regex RepeatedOcrCharacterRunRegex();
+
+    [GeneratedRegex(@"([a-z]{1,3})\1{2,}", RegexOptions.CultureInvariant)]
+    private static partial Regex RepeatedOcrSyllableRunRegex();
 }
 
 internal sealed record DocumentProfileContentCard(
