@@ -170,6 +170,9 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.Equal("Introduction", payload["section_title"]);
         Assert.Equal("Chapter 1 > Introduction", payload["heading_path"]);
         Assert.Equal("section_window_v1", payload["chunk_type"]);
+        Assert.Equal("content", payload["content_role"]);
+        Assert.Null(payload["navigation_reason"]);
+        Assert.Null(payload["original_chunk_type"]);
         Assert.Equal("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", payload["prev_chunk_id"]);
         Assert.Equal("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", payload["next_chunk_id"]);
         Assert.Equal("cccccccc-cccc-cccc-cccc-cccccccccccc", payload["same_section_chunk_id"]);

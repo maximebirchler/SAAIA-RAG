@@ -6884,6 +6884,9 @@ LIMIT @top_k;
         if (IsDocumentProfileMatch(match))
             return false;
 
+        if (RetrievalContentClassifier.IsNavigationChunkType(match.ChunkType))
+            return true;
+
         var text = match.Text ?? string.Empty;
         var context = $"{match.SectionTitle} {match.HeadingPath} {text}";
         var folded = FoldDiacritics(context).ToLowerInvariant();
@@ -6990,6 +6993,9 @@ LIMIT @top_k;
 
     internal static bool LooksLikeStrongNavigationalChunk(RagMatch match)
     {
+        if (RetrievalContentClassifier.IsNavigationChunkType(match.ChunkType))
+            return true;
+
         var text = match.Text ?? string.Empty;
         var context = $"{match.SectionTitle} {match.HeadingPath} {text}";
         var folded = FoldDiacritics(context).ToLowerInvariant();

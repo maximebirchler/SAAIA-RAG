@@ -416,4 +416,76 @@ public sealed class RetrievalChunkProjectorTests
         Assert.StartsWith("N'ATTENDEZ PAS", chunk.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("19N'ATTENDEZ", chunk.Text, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void ProjectStructureAware_marks_compact_index_chunks_as_navigation()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 158, 158, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                158,
+                158,
+                "IndexA, BAioli 78Boeuf bourguignon 70Boeuf Stroganoff 129Bortsch 126Bouillon de mangue au vivaneau 148Boulettes de viande suedoises accompagnees de sauce 12Boulgour aux crevettes et aux gombos 142Brioches fourrees aux cerises 110Brochettes de poulet grille a l'indonesienne 41Canard en feuille de riz 156Cannelloni aux epinards 102Carpaccio 93Churros avec sauce au chocolat 89Coq au vin 68Creme brulee 72",
+                402,
+                45,
+                [1],
+                0,
+                402)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 0,
+            minWords: 1);
+
+        var chunk = Assert.Single(projected);
+        Assert.Equal(RetrievalContentClassifier.NavigationChunkType, chunk.ChunkType);
+        Assert.Equal(RetrievalContentClassifier.NavigationRole, chunk.ContentRole);
+        Assert.NotNull(chunk.NavigationReason);
+        Assert.Equal("unit_exact_v1", chunk.OriginalChunkType);
+    }
+
+    [Fact]
+    public void ProjectStructureAware_keeps_structured_content_with_pdf_index_artifact_as_content()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 16, 16, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                16,
+                16,
+                "16 Asperges vertes au miel [Index: ] MCRC01072833_BO_Gruener_Spargel_m_Honig-010 INGREDIENTS : 50 g de cerneaux de noix, 1 botte d'asperges vertes, 3 c. a s. de miel. PREPARATION 1. Faire chauffer la poele comme indique. 2. Faire griller les asperges.",
+                257,
+                34,
+                [1],
+                0,
+                257)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 0,
+            minWords: 1);
+
+        var chunk = Assert.Single(projected);
+        Assert.NotEqual(RetrievalContentClassifier.NavigationChunkType, chunk.ChunkType);
+        Assert.Equal(RetrievalContentClassifier.ContentRole, chunk.ContentRole);
+        Assert.Null(chunk.NavigationReason);
+        Assert.Null(chunk.OriginalChunkType);
+    }
 }

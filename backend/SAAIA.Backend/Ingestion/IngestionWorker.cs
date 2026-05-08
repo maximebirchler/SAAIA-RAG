@@ -1057,6 +1057,9 @@ WHERE job_id=@job_id
             ["section_ordinal"] = projectedChunk.SectionOrdinal,
             ["unit_ordinal"] = projectedChunk.UnitOrdinal,
             ["chunk_type"] = projectedChunk.ChunkType,
+            ["content_role"] = projectedChunk.ContentRole,
+            ["navigation_reason"] = projectedChunk.NavigationReason,
+            ["original_chunk_type"] = projectedChunk.OriginalChunkType,
             ["section_title"] = sectionTitle,
             ["heading_path"] = headingPath ?? sectionTitle,
             ["prev_chunk_id"] = chunkLinks?.PreviousChunkId?.ToString(),
@@ -1121,7 +1124,10 @@ WHERE job_id=@job_id
             Checksum: SHA256.HashData(Encoding.UTF8.GetBytes(chunk.Text)),
             ChunkType: "legacy_word_window_v1",
             OffsetStart: null,
-            OffsetEnd: null);
+            OffsetEnd: null,
+            ContentRole: RetrievalContentClassifier.ContentRole,
+            NavigationReason: null,
+            OriginalChunkType: null);
     }
 
     internal static string? ResolveSectionTitle(

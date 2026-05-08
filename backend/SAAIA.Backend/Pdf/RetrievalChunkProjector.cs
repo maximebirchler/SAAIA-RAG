@@ -171,7 +171,7 @@ internal static partial class RetrievalChunkProjector
         ref int chunkIndex)
     {
         var existingExactUnitOrdinals = chunks
-            .Where(static chunk => string.Equals(chunk.ChunkType, "unit_exact_v1", StringComparison.Ordinal))
+            .Where(static chunk => chunk.UnitOrdinal.HasValue)
             .Select(static chunk => chunk.UnitOrdinal)
             .Where(static ordinal => ordinal.HasValue)
             .Select(static ordinal => ordinal!.Value)
@@ -329,6 +329,7 @@ internal static partial class RetrievalChunkProjector
     {
         var normalizedText = NormalizeRetrievalText(text);
         var prefixedText = PrefixDetectedEmbeddedTitle(normalizedText);
+        var classification = RetrievalContentClassifier.ClassifyChunk(prefixedText, chunkType);
 
         return new(
             ChunkIndex: chunkIndex,
@@ -339,9 +340,12 @@ internal static partial class RetrievalChunkProjector
             Text: prefixedText,
             TokenCount: CountTokens(prefixedText),
             Checksum: SHA256.HashData(Encoding.UTF8.GetBytes(prefixedText)),
-            ChunkType: chunkType,
+            ChunkType: classification.ChunkType,
             OffsetStart: offsetStart,
-            OffsetEnd: offsetEnd);
+            OffsetEnd: offsetEnd,
+            ContentRole: classification.ContentRole,
+            NavigationReason: classification.NavigationReason,
+            OriginalChunkType: classification.OriginalChunkType);
     }
 
     private static string NormalizeRetrievalText(string text)
@@ -618,4 +622,7 @@ internal sealed record ProjectedRetrievalChunk(
     byte[] Checksum,
     string ChunkType,
     int? OffsetStart = null,
-    int? OffsetEnd = null);
+    int? OffsetEnd = null,
+    string ContentRole = RetrievalContentClassifier.ContentRole,
+    string? NavigationReason = null,
+    string? OriginalChunkType = null);
