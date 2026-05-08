@@ -3694,8 +3694,8 @@ LEFT JOIN LATERAL (
     CROSS JOIN lexical_terms
     WHERE CASE
         WHEN lexical_terms.term LIKE '% %'
-            THEN LOWER(card.search_text) ~ REPLACE(lexical_terms.term, ' ', '([^[:alnum:]]+[[:alnum:]]{1,3}){0,2}[^[:alnum:]]+')
-                 OR card.normalized_title ~ REPLACE(lexical_terms.term, ' ', '([^[:alnum:]]+[[:alnum:]]{1,3}){0,2}[^[:alnum:]]+')
+            THEN LOWER(card.search_text) LIKE '%' || REPLACE(lexical_terms.term, ' ', '%') || '%'
+                 OR card.normalized_title LIKE '%' || REPLACE(lexical_terms.term, ' ', '%') || '%'
         ELSE LOWER(card.search_text) LIKE '%' || lexical_terms.term || '%'
              OR card.normalized_title LIKE '%' || lexical_terms.term || '%'
       END
@@ -3718,7 +3718,7 @@ LEFT JOIN LATERAL (
       AND question_profile.revision_id = r.revision_id
       AND CASE
           WHEN lexical_terms.term LIKE '% %'
-              THEN LOWER(question.text) ~ REPLACE(lexical_terms.term, ' ', '([^[:alnum:]]+[[:alnum:]]{1,3}){0,2}[^[:alnum:]]+')
+              THEN LOWER(question.text) LIKE '%' || REPLACE(lexical_terms.term, ' ', '%') || '%'
           ELSE LOWER(question.text) LIKE '%' || lexical_terms.term || '%'
       END
 ) hm ON TRUE
@@ -3736,7 +3736,7 @@ CROSS JOIN LATERAL (
     FROM lexical_terms
     WHERE CASE
         WHEN lexical_terms.term LIKE '% %'
-            THEN LOWER(effective_profile.search_text) ~ REPLACE(lexical_terms.term, ' ', '([^[:alnum:]]+[[:alnum:]]{1,3}){0,2}[^[:alnum:]]+')
+            THEN LOWER(effective_profile.search_text) LIKE '%' || REPLACE(lexical_terms.term, ' ', '%') || '%'
         ELSE LOWER(effective_profile.search_text) LIKE '%' || lexical_terms.term || '%'
     END
 ) lm
