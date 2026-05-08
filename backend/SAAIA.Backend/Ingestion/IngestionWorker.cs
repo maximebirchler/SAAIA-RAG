@@ -615,7 +615,12 @@ WHERE job_id=@job_id
             PdfOcrDiagnostics? imageOcrDiagnostics = null;
             var fullOcrApplied = false;
             var imageOcrApplied = false;
-            using (await _bulkheads.AcquireOcrAsync(ct))
+            using (await RunWithJobHeartbeatAsync(
+                ds,
+                job,
+                workerId,
+                operationCt => _bulkheads.AcquireOcrAsync(operationCt),
+                ct))
             {
                 ocrLanguages = PdfOcrTextExtractor.ResolveLanguagesForDocument(absPath, ingest, nativeExtraction);
                 if (fullDocumentOcrRecommended)
