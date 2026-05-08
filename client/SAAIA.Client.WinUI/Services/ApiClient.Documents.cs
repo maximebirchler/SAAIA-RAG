@@ -105,7 +105,7 @@ public sealed partial class ApiClient
 
     /// <summary>
     /// Tool-agent friendly: returns raw JSON as <see cref="JsonElement"/> (cloned) so it can be stored safely.
-    /// Expected shape: ["atex","general",...]
+    /// Expected shape: ["category-a","category-b",...]
     /// </summary>
     public async Task<JsonElement> RagCategoriesAsync(CancellationToken ct)
     {
@@ -236,12 +236,24 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
             var i = 0;
             foreach (var it in value.EnumerateArray())
             {
+                var status = TryGetString(it, "status") ?? TryGetString(it, "Status") ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(status)
+                    && !string.Equals(status, "indexed", StringComparison.OrdinalIgnoreCase))
+                {
+                    i++;
+                    continue;
+                }
+
                 var docId = TryGetString(it, "docId") ?? string.Empty;
                 var docPath = TryGetString(it, "docPath") ?? string.Empty;
                 var docName = TryGetString(it, "canonicalName") ?? TryGetString(it, "docName") ?? string.Empty;
+                var categoryRef = TryGetString(it, "categoryRef") ?? TryGetString(it, "CategoryRef");
                 var cat = TryGetString(it, "categoryCanonicalName") ?? string.Empty;
                 var itemCategoryPath = TryGetString(it, "categoryPath") ?? string.Empty;
                 var pages = TryGetInt(it, "pages") ?? TryGetInt(it, "pageCount");
+                var sourceHash = TryGetString(it, "sourceHash") ?? TryGetString(it, "SourceHash");
+                var docLanguage = TryGetString(it, "docLanguage") ?? TryGetString(it, "DocLanguage");
+                var profileLanguage = TryGetString(it, "profileLanguage") ?? TryGetString(it, "ProfileLanguage");
                 var pdfIndex = offset + i + 1;
                 var pdfRef = $"PDF{pdfIndex:00}";
 
@@ -258,8 +270,12 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
                     docPath = normalizedDocPath,
                     docName,
                     category = normalizedCategory,
+                    categoryRef,
                     categoryPath = normalizedCategoryPath,
-                    pages
+                    pages,
+                    sourceHash,
+                    docLanguage,
+                    profileLanguage
                 });
                 i++;
             }
@@ -286,14 +302,23 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
             foreach (var it in itemsEl.EnumerateArray())
             {
                 var status = TryGetString(it, "status") ?? string.Empty;
-                if (string.Equals(status, "missing", StringComparison.OrdinalIgnoreCase)) { i++; continue; }
+                if (!string.IsNullOrWhiteSpace(status)
+                    && !string.Equals(status, "indexed", StringComparison.OrdinalIgnoreCase))
+                {
+                    i++;
+                    continue;
+                }
 
                 var docId = TryGetString(it, "docId") ?? TryGetString(it, "DocId") ?? string.Empty;
                 var docPath = TryGetString(it, "docPath") ?? TryGetString(it, "DocPath") ?? string.Empty;
                 var docName = TryGetString(it, "docName") ?? TryGetString(it, "DocName") ?? string.Empty;
                 var cat = TryGetString(it, "category") ?? TryGetString(it, "Category") ?? string.Empty;
+                var categoryRef = TryGetString(it, "categoryRef") ?? TryGetString(it, "CategoryRef");
                 var itemCategoryPath = TryGetString(it, "categoryPath") ?? TryGetString(it, "CategoryPath") ?? string.Empty;
                 var pages = TryGetInt(it, "pages") ?? TryGetInt(it, "pageCount");
+                var sourceHash = TryGetString(it, "sourceHash") ?? TryGetString(it, "SourceHash");
+                var docLanguage = TryGetString(it, "docLanguage") ?? TryGetString(it, "DocLanguage");
+                var profileLanguage = TryGetString(it, "profileLanguage") ?? TryGetString(it, "ProfileLanguage");
                 var pdfIndex = offset + i + 1;
                 var pdfRef = $"PDF{pdfIndex:00}";
 
@@ -310,8 +335,12 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
                     docPath = normalizedDocPath,
                     docName,
                     category = normalizedCategory,
+                    categoryRef,
                     categoryPath = normalizedCategoryPath,
-                    pages
+                    pages,
+                    sourceHash,
+                    docLanguage,
+                    profileLanguage
                 });
                 i++;
             }
@@ -399,11 +428,14 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
     public async Task<JsonElement> RagSearchToolAsync(string query, int topK, string? category, string? mode, CancellationToken ct)
     {
         var m = NormalizeRagSearchApiMode(mode);
+        var categoryScope = BuildRagCategoryScope(category);
 
         var body = JsonSerializer.Serialize(new
         {
             query,
-            category,
+            category = categoryScope.LegacyCategory,
+            categoryPath = categoryScope.CategoryPath,
+            categoryRef = categoryScope.CategoryRef,
             topK,
             mode = m,
             includeContextualSnippet = true
@@ -434,7 +466,12 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
             var docPath = TryGetString(it, "docPath") ?? "";
             var docName = TryGetString(it, "docName") ?? "";
             var cat = TryGetString(it, "category") ?? "";
+            var categoryRef = TryGetString(it, "categoryRef") ?? "";
+            var categoryPath = TryGetString(it, "categoryPath") ?? GuessCategoryPath(docPath);
             var pages = TryGetInt(it, "pages");
+            var sourceHash = TryGetString(it, "sourceHash") ?? TryGetString(it, "SourceHash");
+            var docLanguage = TryGetString(it, "docLanguage") ?? TryGetString(it, "DocLanguage");
+            var profileLanguage = TryGetString(it, "profileLanguage") ?? TryGetString(it, "ProfileLanguage");
 
             items.Add(new ToolMemory.DocumentItem
             {
@@ -443,7 +480,12 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
                 DocPath = docPath,
                 DocName = docName,
                 Category = cat,
-                Pages = pages
+                CategoryRef = categoryRef,
+                CategoryPath = categoryPath,
+                Pages = pages,
+                SourceHash = sourceHash,
+                DocLanguage = docLanguage,
+                ProfileLanguage = profileLanguage
             });
         }
 
@@ -455,6 +497,63 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
         var s = (p ?? "").Trim().Replace('\\', '/');
         while (s.Contains("//", StringComparison.Ordinal)) s = s.Replace("//", "/", StringComparison.Ordinal);
         return s;
+    }
+
+    private static string? NormalizeRagCategoryScope(string? category)
+    {
+        var normalized = NormalizeDocPath(category).Trim('/');
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
+    private static (string? LegacyCategory, string? CategoryPath, string? CategoryRef) BuildRagCategoryScope(string? category)
+    {
+        var normalized = NormalizeRagCategoryScope(category);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return (null, null, null);
+
+        if (LooksLikeCategoryRef(normalized))
+            return (null, null, normalized);
+
+        if (normalized.Contains('/', StringComparison.Ordinal))
+            return (null, normalized, null);
+
+        return (normalized, normalized, null);
+    }
+
+    private static bool LooksLikeCategoryRef(string value)
+    {
+        var trimmed = value.Trim();
+        if (trimmed.Contains('/', StringComparison.Ordinal))
+            return false;
+
+        var compact = trimmed
+            .Replace("-", string.Empty, StringComparison.Ordinal)
+            .Replace("_", string.Empty, StringComparison.Ordinal);
+
+        if (compact.Length > 3
+            && compact.StartsWith("cat", StringComparison.OrdinalIgnoreCase)
+            && compact[3..].All(char.IsDigit))
+        {
+            return true;
+        }
+
+        if (trimmed.Length <= 4
+            || (!trimmed.StartsWith("cat_", StringComparison.OrdinalIgnoreCase)
+                && !trimmed.StartsWith("cat-", StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        var suffix = trimmed[4..];
+        return suffix.Any(char.IsLetterOrDigit)
+            && suffix.All(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-');
+    }
+
+    private static string GuessCategoryPath(string? docPath)
+    {
+        var normalized = NormalizeDocPath(docPath).Trim('/');
+        var slash = normalized.LastIndexOf('/');
+        return slash > 0 ? normalized[..slash] : string.Empty;
     }
 
     private static string? TryGetString(JsonElement obj, string prop)
@@ -485,10 +584,13 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
         string? docId = null,
         string? docPath = null)
     {
+        var categoryScope = BuildRagCategoryScope(category);
         var body = JsonSerializer.Serialize(new
         {
             query,
-            category,
+            category = categoryScope.LegacyCategory,
+            categoryPath = categoryScope.CategoryPath,
+            categoryRef = categoryScope.CategoryRef,
             topK,
             mode = NormalizeRagSearchApiMode(mode),
             docId = string.IsNullOrWhiteSpace(docId) ? null : docId.Trim(),

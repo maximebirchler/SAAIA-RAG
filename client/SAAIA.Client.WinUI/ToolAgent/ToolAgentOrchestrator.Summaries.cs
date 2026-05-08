@@ -112,20 +112,27 @@ Rules:
         }
     }
 
-    private (string answer, object? sourcesPayload) TryBuildSummaryAnswer(ToolResults toolResults)
+    private (string answer, object? sourcesPayload, string? docLanguage, string? sourceHash, string? updatedAt) TryBuildSummaryAnswer(ToolResults toolResults)
     {
         try
         {
             var item = toolResults.Items.LastOrDefault(x => x.ToolName is "summary.get" or "rag.summarize_live");
             if (item is null || item.Result.ValueKind != JsonValueKind.Object)
-                return (string.Empty, null);
+                return (string.Empty, null, null, null, null);
 
             if (!item.Result.TryGetProperty("summaryText", out var st) || st.ValueKind != JsonValueKind.String)
-                return (string.Empty, null);
+                return (string.Empty, null, null, null, null);
 
             var answer = (st.GetString() ?? string.Empty).Trim();
             if (string.IsNullOrWhiteSpace(answer))
-                return (string.Empty, null);
+                return (string.Empty, null, null, null, null);
+
+            var rootDirectSource = TryBuildSourceRefFromJsonElement(item.Result);
+            var sourceElement = TryGetObject(item.Result, "source") ?? TryGetObject(item.Result, "Source");
+            var nestedSource = sourceElement.HasValue
+                ? TryBuildSourceRefFromJsonElement(sourceElement.Value)
+                : null;
+            var rootSource = MergeSummarySourceRefs(rootDirectSource, nestedSource);
 
             var anchors = new List<object>();
             if (item.Result.TryGetProperty("anchors", out var arr) && arr.ValueKind == JsonValueKind.Array)
@@ -133,16 +140,41 @@ Rules:
                 foreach (var a in arr.EnumerateArray())
                 {
                     if (a.ValueKind != JsonValueKind.Object) continue;
-                    var docPath = a.TryGetProperty("docPath", out var dp) && dp.ValueKind == JsonValueKind.String ? (dp.GetString() ?? string.Empty) : string.Empty;
-                    var pageStart = a.TryGetProperty("pageStart", out var ps) && ps.ValueKind == JsonValueKind.Number ? ps.GetInt32() : 1;
-                    var pageEnd = a.TryGetProperty("pageEnd", out var pe) && pe.ValueKind == JsonValueKind.Number ? pe.GetInt32() : pageStart;
-                    var label = a.TryGetProperty("label", out var lb) && lb.ValueKind == JsonValueKind.String ? (lb.GetString() ?? string.Empty) : string.Empty;
+                    var anchorSource = MergeSummarySourceRefs(TryBuildSourceRefFromJsonElement(a), rootSource);
+                    var docPath = a.TryGetProperty("docPath", out var dp) && dp.ValueKind == JsonValueKind.String ? (dp.GetString() ?? string.Empty) : anchorSource?.DocPath ?? string.Empty;
+                    var pageStart = a.TryGetProperty("pageStart", out var ps) && ps.ValueKind == JsonValueKind.Number ? ps.GetInt32() : anchorSource?.PageStart ?? 1;
+                    var pageEnd = a.TryGetProperty("pageEnd", out var pe) && pe.ValueKind == JsonValueKind.Number ? pe.GetInt32() : anchorSource?.PageEnd ?? pageStart;
+                    var label = a.TryGetProperty("label", out var lb) && lb.ValueKind == JsonValueKind.String ? (lb.GetString() ?? string.Empty) : anchorSource?.Label ?? string.Empty;
                     if (!string.IsNullOrWhiteSpace(docPath))
-                        anchors.Add(new { docPath, pageStart, pageEnd, label });
+                    {
+                        var anchor = new Dictionary<string, object?>(StringComparer.Ordinal)
+                        {
+                            ["docId"] = anchorSource?.DocId ?? TryGetString(a, "docId") ?? TryGetString(a, "DocId") ?? rootSource?.DocId,
+                            ["docPath"] = docPath,
+                            ["pageStart"] = pageStart,
+                            ["pageEnd"] = pageEnd,
+                            ["label"] = label,
+                            ["sourceHash"] = anchorSource?.SourceHash ?? TryGetString(a, "sourceHash") ?? TryGetString(a, "SourceHash") ?? rootSource?.SourceHash,
+                            ["docLanguage"] = anchorSource?.DocLanguage ?? TryGetDocumentLanguage(a) ?? rootSource?.DocLanguage,
+                            ["profileLanguage"] = anchorSource?.ProfileLanguage ?? TryGetString(a, "profileLanguage") ?? TryGetString(a, "ProfileLanguage") ?? rootSource?.ProfileLanguage,
+                            ["category"] = anchorSource?.Category ?? TryGetString(a, "category") ?? TryGetString(a, "Category") ?? rootSource?.Category,
+                            ["categoryRef"] = anchorSource?.CategoryRef ?? TryGetString(a, "categoryRef") ?? TryGetString(a, "CategoryRef") ?? rootSource?.CategoryRef,
+                            ["categoryPath"] = anchorSource?.CategoryPath ?? TryGetString(a, "categoryPath") ?? TryGetString(a, "CategoryPath") ?? rootSource?.CategoryPath,
+                            ["chunkId"] = anchorSource?.ChunkId ?? TryGetString(a, "chunkId") ?? TryGetString(a, "ChunkId") ?? rootSource?.ChunkId,
+                            ["extractionQuality"] = CompactExtractionQualityForPrompt(a) ?? (anchorSource is null ? null : BuildSourceExtractionQualityPayload(anchorSource)) ?? (rootSource is null ? null : BuildSourceExtractionQualityPayload(rootSource)),
+                            ["matchedContentCards"] = CompactMatchedContentCardsForPrompt(a) ?? (anchorSource is null ? null : BuildSourceContentCardsPayload(anchorSource)) ?? (rootSource is null ? null : BuildSourceContentCardsPayload(rootSource)),
+                            ["selectionHints"] = CompactSelectionHintsForPrompt(a) ?? (anchorSource is null ? null : BuildSourceSelectionHintsPayload(anchorSource)) ?? (rootSource is null ? null : BuildSourceSelectionHintsPayload(rootSource))
+                        };
+                        anchors.Add(anchor.Where(static pair => pair.Value is not null).ToDictionary(static pair => pair.Key, static pair => pair.Value!, StringComparer.Ordinal));
+                    }
                 }
             }
 
-            if (anchors.Count == 0
+            if (anchors.Count == 0 && rootSource is not null)
+            {
+                anchors.Add(BuildSummaryAnchorPayload(rootSource));
+            }
+            else if (anchors.Count == 0
                 && item.Result.TryGetProperty("docPath", out var dp2) && dp2.ValueKind == JsonValueKind.String)
             {
                 var docPath = (dp2.GetString() ?? string.Empty).Trim();
@@ -150,19 +182,190 @@ Rules:
                     ? (dn.GetString() ?? string.Empty)
                     : Path.GetFileName(docPath);
                 if (!string.IsNullOrWhiteSpace(docPath))
-                    anchors.Add(new { docPath, pageStart = 1, pageEnd = 1, label });
+                {
+                    var anchor = new Dictionary<string, object?>(StringComparer.Ordinal)
+                    {
+                        ["docId"] = TryGetString(item.Result, "docId") ?? TryGetString(item.Result, "DocId"),
+                        ["docPath"] = docPath,
+                        ["pageStart"] = 1,
+                        ["pageEnd"] = 1,
+                        ["label"] = label,
+                        ["sourceHash"] = TryGetString(item.Result, "sourceHash") ?? TryGetString(item.Result, "SourceHash"),
+                        ["docLanguage"] = TryGetDocumentLanguage(item.Result),
+                        ["profileLanguage"] = TryGetString(item.Result, "profileLanguage") ?? TryGetString(item.Result, "ProfileLanguage"),
+                        ["category"] = TryGetString(item.Result, "category") ?? TryGetString(item.Result, "Category"),
+                        ["categoryRef"] = TryGetString(item.Result, "categoryRef") ?? TryGetString(item.Result, "CategoryRef"),
+                        ["categoryPath"] = TryGetString(item.Result, "categoryPath") ?? TryGetString(item.Result, "CategoryPath"),
+                        ["chunkId"] = TryGetString(item.Result, "chunkId") ?? TryGetString(item.Result, "ChunkId"),
+                        ["extractionQuality"] = CompactExtractionQualityForPrompt(item.Result),
+                        ["matchedContentCards"] = CompactMatchedContentCardsForPrompt(item.Result),
+                        ["selectionHints"] = CompactSelectionHintsForPrompt(item.Result)
+                    };
+                    anchors.Add(anchor.Where(static pair => pair.Value is not null).ToDictionary(static pair => pair.Key, static pair => pair.Value!, StringComparer.Ordinal));
+                }
             }
 
-            object? payload = anchors.Count > 0 ? new { sources = anchors } : null;
-            return (answer, payload);
+            var rootDocLanguage = TryGetDocumentLanguage(item.Result);
+            var docLanguage = item.ToolName == "summary.get"
+                ? rootDocLanguage ?? rootSource?.DocLanguage
+                : rootSource?.DocLanguage ?? rootDocLanguage;
+            var sourceHash = rootSource?.SourceHash ?? TryGetString(item.Result, "sourceHash") ?? TryGetString(item.Result, "SourceHash");
+            var updatedAt = TryGetString(item.Result, "updatedAt") ?? TryGetString(item.Result, "UpdatedAt");
+            object? meta = null;
+            if (item.Result.TryGetProperty("meta", out var metaEl) && metaEl.ValueKind is not JsonValueKind.Null and not JsonValueKind.Undefined)
+            {
+                try
+                {
+                    meta = JsonSerializer.Deserialize<object>(metaEl.GetRawText());
+                }
+                catch
+                {
+                    meta = null;
+                }
+            }
+
+            object? payload = anchors.Count > 0
+                || !string.IsNullOrWhiteSpace(docLanguage)
+                || !string.IsNullOrWhiteSpace(sourceHash)
+                || !string.IsNullOrWhiteSpace(updatedAt)
+                || meta is not null
+                ? new
+                {
+                    sources = anchors,
+                    docLanguage,
+                    sourceHash,
+                    updatedAt,
+                    meta
+                }
+                : null;
+            return (answer, payload, docLanguage, sourceHash, updatedAt);
         }
         catch
         {
-            return (string.Empty, null);
+            return (string.Empty, null, null, null, null);
         }
     }
 
-    private sealed record StoredSummaryHit(string SummaryText, object? SourcesPayload, string SourceLanguage);
+    private static List<ToolMemory.SourceRef> DeriveSourcesFromSummarySearch(ToolResults toolResults)
+    {
+        try
+        {
+            var sources = new List<ToolMemory.SourceRef>();
+            foreach (var item in toolResults.Items.Where(static x => x.ToolName == "summary.search" && string.IsNullOrWhiteSpace(x.Error)))
+            {
+                if (item.Result.ValueKind != JsonValueKind.Object
+                    || !item.Result.TryGetProperty("items", out var items)
+                    || items.ValueKind != JsonValueKind.Array)
+                {
+                    continue;
+                }
+
+                foreach (var entry in items.EnumerateArray())
+                {
+                    var source = TryBuildSourceRefFromSummarySearchItem(entry);
+                    if (source is null || string.IsNullOrWhiteSpace(source.DocPath))
+                        continue;
+
+                    sources.Add(source);
+                }
+            }
+
+            return MergeSourceRefsByPage(sources)
+                .Take(8)
+                .ToList();
+        }
+        catch
+        {
+            return new List<ToolMemory.SourceRef>();
+        }
+    }
+
+    private static ToolMemory.SourceRef? TryBuildSourceRefFromSummarySearchItem(JsonElement item)
+    {
+        if (item.ValueKind != JsonValueKind.Object)
+            return null;
+
+        var direct = TryBuildSourceRefFromJsonElement(item);
+        var sourceElement = TryGetObject(item, "source") ?? TryGetObject(item, "Source");
+        var nested = sourceElement.HasValue
+            ? TryBuildSourceRefFromJsonElement(sourceElement.Value)
+            : null;
+
+        return MergeSummarySourceRefs(direct, nested);
+    }
+
+    private static ToolMemory.SourceRef? MergeSummarySourceRefs(
+        ToolMemory.SourceRef? fallback,
+        ToolMemory.SourceRef? preferred)
+    {
+        if (fallback is null)
+            return preferred;
+        if (preferred is null)
+            return fallback;
+
+        var cards = preferred.MatchedContentCards.Count > 0
+            ? preferred.MatchedContentCards
+            : fallback.MatchedContentCards;
+        var qualitySignals = preferred.QualitySignals
+            .Concat(fallback.QualitySignals)
+            .Where(static signal => !string.IsNullOrWhiteSpace(signal))
+            .Select(static signal => signal.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(8)
+            .ToList();
+
+        return new ToolMemory.SourceRef
+        {
+            DocId = NullIfWhiteSpace(preferred.DocId) ?? NullIfWhiteSpace(fallback.DocId),
+            DocPath = NullIfWhiteSpace(preferred.DocPath) ?? fallback.DocPath,
+            PageStart = preferred.PageStart > 0 ? preferred.PageStart : fallback.PageStart,
+            PageEnd = preferred.PageEnd > 0 ? Math.Max(preferred.PageStart, preferred.PageEnd) : fallback.PageEnd,
+            Label = NullIfWhiteSpace(preferred.Label) ?? fallback.Label,
+            SourceHash = NullIfWhiteSpace(preferred.SourceHash) ?? NullIfWhiteSpace(fallback.SourceHash),
+            DocLanguage = NullIfWhiteSpace(preferred.DocLanguage) ?? NullIfWhiteSpace(fallback.DocLanguage),
+            ProfileLanguage = NullIfWhiteSpace(preferred.ProfileLanguage) ?? NullIfWhiteSpace(fallback.ProfileLanguage),
+            Category = NullIfWhiteSpace(preferred.Category) ?? NullIfWhiteSpace(fallback.Category),
+            CategoryRef = NullIfWhiteSpace(preferred.CategoryRef) ?? NullIfWhiteSpace(fallback.CategoryRef),
+            CategoryPath = NullIfWhiteSpace(preferred.CategoryPath) ?? NullIfWhiteSpace(fallback.CategoryPath),
+            ChunkId = NullIfWhiteSpace(preferred.ChunkId) ?? NullIfWhiteSpace(fallback.ChunkId),
+            ExtractionSource = NullIfWhiteSpace(preferred.ExtractionSource) ?? NullIfWhiteSpace(fallback.ExtractionSource),
+            DocumentQualityStatus = NullIfWhiteSpace(preferred.DocumentQualityStatus) ?? NullIfWhiteSpace(fallback.DocumentQualityStatus),
+            PageQualityStatus = NullIfWhiteSpace(preferred.PageQualityStatus) ?? NullIfWhiteSpace(fallback.PageQualityStatus),
+            TextStatus = NullIfWhiteSpace(preferred.TextStatus) ?? NullIfWhiteSpace(fallback.TextStatus),
+            QualityStatus = NullIfWhiteSpace(preferred.QualityStatus) ?? NullIfWhiteSpace(fallback.QualityStatus),
+            ExtractionConfidence = preferred.ExtractionConfidence ?? fallback.ExtractionConfidence,
+            DocumentExtractionConfidence = preferred.DocumentExtractionConfidence ?? fallback.DocumentExtractionConfidence,
+            PageExtractionConfidence = preferred.PageExtractionConfidence ?? fallback.PageExtractionConfidence,
+            ManualReviewRecommended = preferred.ManualReviewRecommended || fallback.ManualReviewRecommended,
+            DocumentManualReviewRecommended = preferred.DocumentManualReviewRecommended || fallback.DocumentManualReviewRecommended,
+            PageManualReviewRecommended = preferred.PageManualReviewRecommended || fallback.PageManualReviewRecommended,
+            OcrAttempted = preferred.OcrAttempted || fallback.OcrAttempted,
+            OcrApplied = preferred.OcrApplied || fallback.OcrApplied,
+            OcrRecommended = preferred.OcrRecommended || fallback.OcrRecommended,
+            ExtractionDiagnosticSummary = CloneSourceExtractionDiagnostic(preferred.ExtractionDiagnosticSummary ?? fallback.ExtractionDiagnosticSummary),
+            QualitySignals = qualitySignals,
+            MatchedContentCards = cards
+                .Select(static card => new ToolMemory.SourceContentCardRef
+                {
+                    Title = card.Title,
+                    ContentCardId = card.ContentCardId,
+                    PageStart = card.PageStart,
+                    PageEnd = card.PageEnd,
+                    Kind = card.Kind,
+                    Signals = card.Signals.ToList(),
+                    Evidence = card.Evidence
+                })
+                .ToList(),
+            SelectionHintEvidenceRole = NullIfWhiteSpace(preferred.SelectionHintEvidenceRole) ?? NullIfWhiteSpace(fallback.SelectionHintEvidenceRole),
+            SelectionHintActionabilityScore = preferred.SelectionHintActionabilityScore ?? fallback.SelectionHintActionabilityScore,
+            SelectionHintSupportScore = preferred.SelectionHintSupportScore ?? fallback.SelectionHintSupportScore,
+            SelectionHintFragmentScore = preferred.SelectionHintFragmentScore ?? fallback.SelectionHintFragmentScore,
+            SelectionHintNavigationScore = preferred.SelectionHintNavigationScore ?? fallback.SelectionHintNavigationScore,
+            SelectionHintQualityPenalty = preferred.SelectionHintQualityPenalty ?? fallback.SelectionHintQualityPenalty
+        };
+    }
+
+    private sealed record StoredSummaryHit(string SummaryText, object? SourcesPayload, string SourceLanguage, string? SourceHash, string? UpdatedAt);
 
     private async Task<(string finalAnswer, object? sourcesPayload)> GetStoredSummaryForDisplayAsync(
         string docRef,
@@ -174,15 +377,21 @@ Rules:
         if (hit is null || string.IsNullOrWhiteSpace(hit.SummaryText))
             return (string.Empty, null);
 
-        var sourceLanguage = NormalizeLanguageCode(hit.SourceLanguage);
+        var sourceLanguage = NormalizeDocumentLanguageTag(hit.SourceLanguage);
         var requestedLanguage = NormalizeLanguageCode(targetLanguage);
-        if (string.IsNullOrWhiteSpace(requestedLanguage) || string.Equals(requestedLanguage, sourceLanguage, StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(requestedLanguage)
+            || string.Equals(requestedLanguage, sourceLanguage, StringComparison.OrdinalIgnoreCase))
         {
             await EmitDeterministicTextAsync(hit.SummaryText, onDelta, ct).ConfigureAwait(false);
             return (hit.SummaryText, hit.SourcesPayload);
         }
 
-        var cacheKey = $"{docRef}|{requestedLanguage}";
+        var sourceVersion = !string.IsNullOrWhiteSpace(hit.SourceHash)
+            ? hit.SourceHash!.Trim()
+            : !string.IsNullOrWhiteSpace(hit.UpdatedAt)
+                ? hit.UpdatedAt!.Trim()
+                : "unknown-source-version";
+        var cacheKey = $"{docRef}|{sourceLanguage}|{sourceVersion}|{requestedLanguage}";
         if (_mem.SummaryTranslationCache.TryGetValue(cacheKey, out var cachedTranslation) && !string.IsNullOrWhiteSpace(cachedTranslation))
         {
             await EmitDeterministicTextAsync(cachedTranslation, onDelta, ct).ConfigureAwait(false);
@@ -219,9 +428,12 @@ Rules:
         var streamed = new StringBuilder();
         try
         {
+            var sourceLanguageForPrompt = string.Equals(sourceLanguage, "und", StringComparison.OrdinalIgnoreCase)
+                ? "unknown; detect it from the source text"
+                : sourceLanguage;
             var system = $@"You are SAAIA assistant.
 Translate the stored summary faithfully.
-Source language: {sourceLanguage}
+Source language: {sourceLanguageForPrompt}
 Target language: {targetLanguage}
 Rules:
 - Preserve all concrete facts.
@@ -366,6 +578,7 @@ Rules:
             level = "short",
             strategy = "about",
             language,
+            responseLanguage = language,
             maxWords = 90,
             maxChunks = 5,
             maxBatches = 1,
@@ -430,6 +643,7 @@ Rules:
             level = "medium",
             strategy = "summary",
             language,
+            responseLanguage = language,
             maxWords = 220,
             maxChunks = 18,
             maxBatches = 4,
@@ -478,20 +692,31 @@ Rules:
 
         onProgress?.Invoke(DeterministicAgentText.ProgressGenerateAndStoreReusableSummary(language));
 
-        var storedByAdmin = await TryGenerateAndStoreAdminSummaryAsync(docRef, language, ct).ConfigureAwait(false);
-        if (storedByAdmin is not null && !string.IsNullOrWhiteSpace(storedByAdmin.SummaryText))
+        var generatedByServer = await TryQueueAdminSummaryGenerationAsync(docRef, ct).ConfigureAwait(false);
+        if (generatedByServer.Stored is not null && !string.IsNullOrWhiteSpace(generatedByServer.Stored.SummaryText))
         {
-            if (string.Equals(NormalizeLanguageCode(storedByAdmin.SourceLanguage), NormalizeLanguageCode(language), StringComparison.OrdinalIgnoreCase))
+            var sourceLanguage = NormalizeDocumentLanguageTag(generatedByServer.Stored.SourceLanguage);
+            var requestedLanguage = NormalizeLanguageCode(language);
+            if (string.Equals(sourceLanguage, requestedLanguage, StringComparison.OrdinalIgnoreCase))
             {
-                await EmitDeterministicTextAsync(storedByAdmin.SummaryText, onDelta, ct).ConfigureAwait(false);
-                return (storedByAdmin.SummaryText, storedByAdmin.SourcesPayload);
+                await EmitDeterministicTextAsync(generatedByServer.Stored.SummaryText, onDelta, ct).ConfigureAwait(false);
+                return (generatedByServer.Stored.SummaryText, generatedByServer.Stored.SourcesPayload);
             }
 
-            var translated = await TranslateStoredSummaryAsync(storedByAdmin.SummaryText, NormalizeLanguageCode(storedByAdmin.SourceLanguage), NormalizeLanguageCode(language), onDelta, ct).ConfigureAwait(false);
-            return (string.IsNullOrWhiteSpace(translated) ? storedByAdmin.SummaryText : translated, storedByAdmin.SourcesPayload);
+            var translated = await TranslateStoredSummaryAsync(generatedByServer.Stored.SummaryText, sourceLanguage, requestedLanguage, onDelta, ct).ConfigureAwait(false);
+            return (string.IsNullOrWhiteSpace(translated) ? generatedByServer.Stored.SummaryText : translated, generatedByServer.Stored.SourcesPayload);
         }
 
-        var failed = LocalizedStrings.SummaryStoreFailed(language);
+        if (generatedByServer.Queued)
+        {
+            var queued = LocalizedStrings.SummaryStoreQueued(language);
+            await EmitDeterministicTextAsync(queued, onDelta, ct).ConfigureAwait(false);
+            return (queued, null);
+        }
+
+        var failed = string.Equals(generatedByServer.Error, "backoffice_unavailable", StringComparison.OrdinalIgnoreCase)
+            ? LocalizedStrings.SummaryStoreBackofficeUnavailable(language)
+            : LocalizedStrings.SummaryStoreFailed(language);
         await EmitDeterministicTextAsync(failed, onDelta, ct).ConfigureAwait(false);
         return (failed, null);
     }
@@ -518,8 +743,10 @@ Rules:
             if (string.IsNullOrWhiteSpace(fast.answer))
                 return null;
 
-            var sourceLanguage = TryGetString(summary, "docLanguage") ?? TryGetString(summary, "DocLanguage") ?? string.Empty;
-            return new StoredSummaryHit(fast.answer, fast.sourcesPayload, sourceLanguage);
+            var sourceLanguage = fast.docLanguage ?? TryGetDocumentLanguage(summary) ?? string.Empty;
+            var sourceHash = fast.sourceHash ?? TryGetString(summary, "sourceHash") ?? TryGetString(summary, "SourceHash");
+            var updatedAt = fast.updatedAt ?? TryGetString(summary, "updatedAt") ?? TryGetString(summary, "UpdatedAt");
+            return new StoredSummaryHit(fast.answer, fast.sourcesPayload, sourceLanguage, sourceHash, updatedAt);
         }
         catch
         {
@@ -527,9 +754,10 @@ Rules:
         }
     }
 
-    private async Task<StoredSummaryHit?> TryGenerateAndStoreAdminSummaryAsync(
+    private sealed record AdminSummaryQueueOutcome(StoredSummaryHit? Stored, bool Queued, string? JobId, string? Error = null);
+
+    private async Task<AdminSummaryQueueOutcome> TryQueueAdminSummaryGenerationAsync(
         string docRef,
-        string language,
         CancellationToken ct)
     {
         string? jobId = null;
@@ -540,69 +768,47 @@ Rules:
             var generateArgs = CreateJsonArgs(new { docRef, level = "medium", force = false });
             var generate = await ExecAdminSummaryGenerateAsync(generateArgs, ct).ConfigureAwait(false);
             jobId = TryGetString(generate, "jobId");
-            ClientLog.Info($"summary.admin.generate:queued docRef={docRef} jobId={jobId}");
+            var queued = TryGetBoolProp(generate, "queued");
+            var status = TryGetString(generate, "status");
+            var error = TryGetString(generate, "error");
+
+            if (queued == false || !string.IsNullOrWhiteSpace(error))
+            {
+                var reason = !string.IsNullOrWhiteSpace(error) ? error : status ?? "not_queued";
+                ClientLog.Warn($"summary.admin.generate:not_queued docRef={docRef} status={status} error={error}");
+                return new AdminSummaryQueueOutcome(null, false, null, reason);
+            }
+
+            if (string.IsNullOrWhiteSpace(jobId))
+            {
+                var reason = status ?? "missing_job_id";
+                ClientLog.Warn($"summary.admin.generate:missing_job_id docRef={docRef} status={status}");
+                return new AdminSummaryQueueOutcome(null, false, null, reason);
+            }
+
+            ClientLog.Info($"summary.admin.generate:queued docRef={docRef} jobId={jobId} status={status}");
         }
         catch (Exception ex)
         {
             ClientLog.Warn($"summary.admin.generate:failed docRef={docRef} error={ex.Message}");
-            return null;
+            return new AdminSummaryQueueOutcome(null, false, null, ex.Message);
         }
 
-        try
+        for (var attempt = 0; attempt < 4; attempt++)
         {
-            var liveArgs = CreateJsonArgs(new
-            {
-                docRef,
-                level = "long",
-                strategy = "store",
-                language,
-                maxWords = 2400,
-                maxChunks = 120,
-                maxBatches = 18,
-                maxCharsPerBatch = 12000
-            });
-
-            var live = await ExecRagSummarizeLiveAsync(liveArgs, ct).ConfigureAwait(false);
-            var liveSummary = TryBuildSummaryAnswer(BuildSingleToolResult("rag.summarize_live", live));
-            if (string.IsNullOrWhiteSpace(liveSummary.answer))
-            {
-                ClientLog.Warn($"summary.admin.live:empty docRef={docRef} jobId={jobId}");
-                return null;
-            }
-
-            var submitArgs = CreateJsonArgs(new
-            {
-                jobId,
-                docRef,
-                level = "medium",
-                docLanguage = language,
-                summaryText = liveSummary.answer,
-                meta = new
-                {
-                    generationMode = "client_admin_cache",
-                    cachedForUsers = true,
-                    generatedAtUtc = DateTimeOffset.UtcNow.ToString("O")
-                }
-            });
-
-            var submit = await ExecAdminSummarySubmitAsync(submitArgs, ct).ConfigureAwait(false);
-            ClientLog.Info($"summary.admin.submit:done docRef={docRef} jobId={jobId} stored={TryGetBoolProp(submit, "stored").GetValueOrDefault()}");
-
             var cached = await TryGetStoredSummaryHitAsync(docRef, ct).ConfigureAwait(false);
             if (cached is not null && !string.IsNullOrWhiteSpace(cached.SummaryText))
             {
                 ClientLog.Info($"summary.admin.verify:hit docRef={docRef} jobId={jobId}");
-                return cached;
+                return new AdminSummaryQueueOutcome(cached, true, jobId);
             }
 
-            ClientLog.Warn($"summary.admin.verify:miss docRef={docRef} jobId={jobId}");
-            return new StoredSummaryHit(liveSummary.answer, liveSummary.sourcesPayload, language);
+            if (attempt < 3)
+                await Task.Delay(TimeSpan.FromMilliseconds(350), ct).ConfigureAwait(false);
         }
-        catch (Exception ex)
-        {
-            ClientLog.Warn($"summary.admin.submit:failed docRef={docRef} jobId={jobId} error={ex.Message}");
-            return null;
-        }
+
+        ClientLog.Info($"summary.admin.generate:pending docRef={docRef} jobId={jobId}");
+        return new AdminSummaryQueueOutcome(null, true, jobId);
     }
 
     private static ToolResults BuildSingleToolResult(string toolName, JsonElement result)

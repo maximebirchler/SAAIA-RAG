@@ -1,5 +1,11 @@
+using System.Net;
+using System.Reflection;
+using System.Text;
 using System.Text.Json;
+using SAAIA.Client.WinUI.Models;
+using SAAIA.Client.WinUI.Services;
 using SAAIA.Client.WinUI.Services.ToolAgent;
+using SAAIA.Contracts;
 using Xunit;
 
 namespace SAAIA.Client.ToolAgent.Tests;
@@ -7,13 +13,14 @@ namespace SAAIA.Client.ToolAgent.Tests;
 public sealed class RagContextBudgetRegressionTests
 {
     [Fact]
-    public void NormalizeRagHits_compacts_already_normalized_hits_before_writer_prompt()
+    public void NormalizeRagHits_preserves_backend_hits_before_later_prompt_budgeting()
     {
         var longExcerpt = new string('x', 1000);
         var payload = JsonSerializer.Serialize(new
         {
             hits = Enumerable.Range(1, 12).Select(i => new
             {
+                docId = $"doc-{i}",
                 docPath = $"Manual{i}.pdf",
                 docName = $"Manual {i}",
                 pageStart = i,
@@ -28,12 +35,461 @@ public sealed class RagContextBudgetRegressionTests
         var firstHit = normalized.GetProperty("hits").EnumerateArray().First();
         var excerpt = firstHit.GetProperty("excerpt").GetString();
 
-        Assert.Equal(8, hits.Count);
+        Assert.Equal(12, hits.Count);
+        Assert.Equal("doc-1", firstHit.GetProperty("docId").GetString());
         Assert.Equal("Manual1.pdf", firstHit.GetProperty("docPath").GetString());
         Assert.Equal(1, firstHit.GetProperty("pageStart").GetInt32());
         Assert.NotNull(excerpt);
         Assert.True(excerpt!.Length <= 423);
         Assert.EndsWith("...", excerpt);
+    }
+
+    [Fact]
+    public void Normalized_rag_hits_keep_doc_id_when_building_source_cards()
+    {
+        const string payload = """
+        {
+          "items": [
+            {
+              "docId": "doc-42",
+              "docPath": "Knowledge/manual.pdf",
+              "docName": "manual.pdf",
+              "pageStart": 7,
+              "pageEnd": 8,
+              "text": "Procedure source-backed text.",
+              "score": 0.87
+            }
+          ]
+        }
+        """;
+
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var sourcesJson = ToolAgentOrchestrator.BuildRagSearchSourcesPayloadForTests(normalized.GetRawText());
+        var card = Assert.Single(SourceCardParser.Parse(sourcesJson));
+
+        Assert.Equal("doc-42", normalized.GetProperty("hits")[0].GetProperty("docId").GetString());
+        Assert.Equal("doc-42", card.DocId);
+    }
+
+    [Fact]
+    public void Derive_rag_sources_merges_same_page_cards_without_losing_evidence()
+    {
+        const string payload = """
+        {
+          "hits": [
+            {
+              "docPath": "Knowledge/source.pdf",
+              "docName": "source.pdf",
+              "pageStart": 3,
+              "pageEnd": 3,
+              "text": "Alpha same-page item.",
+              "sourceHash": "src-a",
+              "matchedContentCards": [
+                {
+                  "title": "Alpha card",
+                  "kind": "section",
+                  "pageStart": 3,
+                  "evidence": { "schemaVersion": "debug_card_v1", "confidence": 0.77 }
+                }
+              ]
+            },
+            {
+              "docPath": "Knowledge/source.pdf",
+              "docName": "source.pdf",
+              "pageStart": 3,
+              "pageEnd": 3,
+              "text": "Beta same-page item.",
+              "sourceHash": "src-b",
+              "matchedContentCards": [
+                {
+                  "title": "Beta card",
+                  "kind": "section",
+                  "pageStart": 3,
+                  "evidence": { "schemaVersion": "debug_card_v1", "confidence": 0.88 }
+                }
+              ]
+            }
+          ]
+        }
+        """;
+
+        var json = ToolAgentOrchestrator.BuildRagSearchSourcesPayloadForTests(payload);
+        using var doc = JsonDocument.Parse(json);
+
+        var source = Assert.Single(doc.RootElement.GetProperty("sources").EnumerateArray());
+        var cards = source.GetProperty("matchedContentCards").EnumerateArray().ToArray();
+        Assert.Equal(2, cards.Length);
+        Assert.Contains(cards, card => card.GetProperty("title").GetString() == "Alpha card");
+        Assert.Contains(cards, card => card.GetProperty("title").GetString() == "Beta card");
+        Assert.All(cards, card => Assert.Equal("debug_card_v1", card.GetProperty("evidence").GetProperty("schemaVersion").GetString()));
+    }
+
+    [Fact]
+    public void Rag_hit_role_uses_structural_metadata_without_domain_words()
+    {
+        const string payload = """
+        {
+          "docPath": "Knowledge/neutral-source.pdf",
+          "docName": "neutral-source.pdf",
+          "pageStart": 3,
+          "pageEnd": 3,
+          "excerpt": "Alpha: 12\\nBeta: 34\\n1. Alpha beta gamma delta.\\n2. Epsilon zeta eta theta.\\n3. Iota kappa lambda mu.",
+          "matchedContentCards": [
+            {
+              "title": "Section 4.2",
+              "kind": "unit_exact_v1",
+              "signals": [ "structured" ]
+            }
+          ]
+        }
+        """;
+
+        var role = ToolAgentOrchestrator.ClassifyRagHitRoleForTests(payload);
+
+        Assert.Equal("actionable_item", role);
+    }
+
+    [Fact]
+    public void Rag_hit_role_respects_backend_navigation_hint_over_structural_shape()
+    {
+        const string payload = """
+        {
+          "docPath": "Knowledge/neutral-index.pdf",
+          "docName": "neutral-index.pdf",
+          "pageStart": 1,
+          "pageEnd": 1,
+          "excerpt": "Alpha: 12\\nBeta: 34\\n1. Alpha beta gamma delta.\\n2. Epsilon zeta eta theta.\\n3. Iota kappa lambda mu.",
+          "matchedContentCards": [
+            {
+              "title": "Section 4.2",
+              "kind": "unit_exact_v1",
+              "signals": [ "structured" ]
+            }
+          ],
+          "selectionHints": {
+            "evidenceRole": "navigation",
+            "navigationScore": 10,
+            "actionabilityScore": 9
+          }
+        }
+        """;
+
+        var role = ToolAgentOrchestrator.ClassifyRagHitRoleForTests(payload);
+
+        Assert.Equal("navigation", role);
+    }
+
+    [Fact]
+    public void Rag_hit_role_preserves_unknown_backend_evidence_role()
+    {
+        const string payload = """
+        {
+          "docPath": "Knowledge/source.pdf",
+          "docName": "source.pdf",
+          "pageStart": 4,
+          "pageEnd": 4,
+          "excerpt": "A source-backed control point with enough context to answer.",
+          "selectionHints": {
+            "evidenceRole": "regulatory_requirement",
+            "supportScore": 9
+          }
+        }
+        """;
+
+        var role = ToolAgentOrchestrator.ClassifyRagHitRoleForTests(payload, "control point");
+
+        Assert.Equal("regulatory_requirement", role);
+    }
+
+    [Fact]
+    public void Backend_actionable_hint_prevents_navigation_shape_from_dropping_writer_hit()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/source.pdf",
+                    docName = "source.pdf",
+                    pageStart = 1,
+                    pageEnd = 1,
+                    excerpt = "Sommaire table des matieres contents index sections principales.",
+                    fullText = "Sommaire table des matieres contents index sections principales.",
+                    matchedContentCards = new[] { new { title = "Control point", kind = "unit_exact_v1" } },
+                    selectionHints = new
+                    {
+                        evidenceRole = "actionable_item",
+                        actionabilityScore = 10,
+                        supportScore = 8,
+                        navigationScore = 0,
+                        fragmentScore = 0
+                    },
+                    score = 0.20
+                }
+            }
+        });
+
+        var serialized = ToolAgentOrchestrator.SerializeWriterRagResultsForTests(
+            "rag.search",
+            payload,
+            "Explique le control point.");
+
+        using var doc = JsonDocument.Parse(serialized);
+        var hit = Assert.Single(doc.RootElement[0].GetProperty("result").GetProperty("hits").EnumerateArray());
+
+        Assert.Equal("Knowledge/source.pdf", hit.GetProperty("docPath").GetString());
+        Assert.Equal("actionable_item", hit.GetProperty("selectionHints").GetProperty("evidenceRole").GetString());
+    }
+
+    [Fact]
+    public void Writer_ranking_prefers_backend_selection_hints_over_lexical_only_shape()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                new
+                {
+                    docPath = "Knowledge/lexical.pdf",
+                    docName = "lexical.pdf",
+                    pageStart = 3,
+                    pageEnd = 3,
+                    excerpt = "alpha alpha alpha alpha alpha loosely related context",
+                    fullText = "alpha alpha alpha alpha alpha loosely related context",
+                    score = 0.99
+                },
+                new
+                {
+                    docPath = "Knowledge/backend.pdf",
+                    docName = "backend.pdf",
+                    pageStart = 5,
+                    pageEnd = 5,
+                    excerpt = "Structured source-backed answer candidate.",
+                    fullText = "Structured source-backed answer candidate.",
+                    matchedContentCards = new[] { new { title = "Backend selected card", kind = "unit_exact_v1" } },
+                    selectionHints = new
+                    {
+                        evidenceRole = "actionable_item",
+                        actionabilityScore = 10,
+                        supportScore = 8,
+                        navigationScore = 0,
+                        fragmentScore = 0
+                    },
+                    score = 0.40
+                }
+            }
+        });
+
+        var serialized = ToolAgentOrchestrator.SerializeWriterRagResultsForTests(
+            "rag.search",
+            payload,
+            "alpha");
+
+        using var doc = JsonDocument.Parse(serialized);
+        var first = doc.RootElement[0].GetProperty("result").GetProperty("hits")[0];
+
+        Assert.Equal("Knowledge/backend.pdf", first.GetProperty("docPath").GetString());
+        Assert.Equal("actionable_item", first.GetProperty("selectionHints").GetProperty("evidenceRole").GetString());
+    }
+
+    [Fact]
+    public void Exact_item_match_requires_requested_title_not_only_structural_headings()
+    {
+        const string unrelatedStructuredText = """
+        Alpha control
+        Items: 12 units, 5 checks
+        Procedure: 1. Open the record. 2. Validate the record. 3. Close the record.
+        """;
+
+        Assert.False(ToolAgentOrchestrator.ExactItemTextMatchesRequestOrStructureForTests(
+            "Omega policy",
+            unrelatedStructuredText));
+        Assert.True(ToolAgentOrchestrator.ExactItemTextMatchesRequestOrStructureForTests(
+            "Alpha control",
+            unrelatedStructuredText));
+    }
+
+    [Fact]
+    public void Exact_item_boundary_trimming_is_structural_not_difficulty_word_based()
+    {
+        var prefix = new string('x', 260);
+        var text = $"{prefix} easy medium hard 12 \u2022 Structured boundary";
+
+        var trimmed = ToolAgentOrchestrator.TrimAfterLikelyExactItemBoundaryForTests(text);
+
+        var structuralMarker = text.IndexOf("12 \u2022", StringComparison.Ordinal);
+        Assert.Equal(text[..structuralMarker].TrimEnd(), trimmed.TrimEnd());
+        Assert.Contains("easy medium hard", trimmed);
+    }
+
+    [Fact]
+    public async Task RagChatAgent_degraded_no_llm_uses_backend_guidance_and_rich_sources()
+    {
+        var api = CreateApiClient(new StubHttpHandler(request =>
+        {
+            Assert.Equal("/rag/search", request.RequestUri!.AbsolutePath);
+            var body = """
+            {
+              "requestId": "req-1",
+              "query": "question sourcee",
+              "topK": 8,
+              "minScore": 0.0,
+              "candidates": 1,
+              "maxPerDoc": 3,
+              "maxPerPage": 2,
+              "metrics": {},
+              "guidance": {
+                "behavior": "answer_with_caveat",
+                "qualificationNote": "Les sources couvrent seulement une partie de la demande.",
+                "clarifyingQuestion": "Souhaitez-vous limiter la recherche a une categorie ?"
+              },
+              "items": [
+                {
+                  "score": 0.93,
+                  "docName": "manual.pdf",
+                  "docPath": "Knowledge/manual.pdf",
+                  "pageStart": 4,
+                  "pageEnd": 5,
+                  "text": "Texte brut moins ciblé qui ne doit pas être affiché quand un snippet backend existe.",
+                  "snippet": "Extrait préféré fourni par le backend.",
+                  "contextualSnippet": "Contexte enrichi à utiliser seulement si le snippet est absent.",
+                  "extractionQuality": {
+                    "documentQualityStatus": "ocr_applied_ok",
+                    "ocrAttempted": true,
+                    "diagnosticSummary": {
+                      "nativeTextStatus": "low_text",
+                      "ocrFailureReason": "exception",
+                      "ocrAttemptedPageCount": 2
+                    }
+                  },
+                  "matchedContentCards": [
+                    { "title": "Controle qualite", "kind": "section", "pageStart": 4 }
+                  ]
+                }
+              ]
+            }
+            """;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json")
+            };
+        }));
+
+        var agent = new RagChatAgent(api, new OpenAiLlmClient());
+        agent.ApplySettings(new AppSettings { UseLocalLlm = false, RagQualityPreset = "balanced" });
+
+        var streamed = new StringBuilder();
+        var (answer, sourcesPayload) = await agent.RunAsync(
+            "question sourcee",
+            category: "",
+            conversationTail: Array.Empty<ChatMessageItem>(),
+            onDelta: delta => streamed.Append(delta),
+            ct: CancellationToken.None);
+
+        Assert.NotNull(sourcesPayload);
+        var card = Assert.Single(SourceCardParser.Parse(JsonSerializer.Serialize(sourcesPayload)));
+        Assert.NotNull(card.ExtractionDiagnosticSummary);
+        Assert.Equal("low_text", card.ExtractionDiagnosticSummary!.NativeTextStatus);
+        Assert.Equal("exception", card.ExtractionDiagnosticSummary.OcrFailureReason);
+        Assert.Equal(2, card.ExtractionDiagnosticSummary.OcrAttemptedPageCount);
+        Assert.Contains("Les sources couvrent seulement une partie", answer);
+        Assert.Contains("Souhaitez-vous limiter", answer);
+        Assert.Contains("manual.pdf (p.4-5)", answer);
+        Assert.Contains("Controle qualite", answer);
+        Assert.Contains("Extrait préféré fourni par le backend", answer);
+        Assert.DoesNotContain("Texte brut moins ciblé", answer);
+        Assert.DoesNotContain("Contexte enrichi", answer);
+        Assert.Equal("Extrait préféré fourni par le backend.", card.Snippet);
+        Assert.Equal(answer, streamed.ToString());
+    }
+
+    [Fact]
+    public void NormalizeRagHits_accepts_backend_contentCards_alias()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            items = new[]
+            {
+                new
+                {
+                    docId = "doc-guid-1",
+                    docPath = "Knowledge/manual.pdf",
+                    docName = "manual.pdf",
+                    pageStart = 4,
+                    text = "Structured source text.",
+                    score = 0.91,
+                    contentCards = new[]
+                    {
+                        new { title = "Structured section", kind = "section", pageStart = 4 }
+                    }
+                }
+            }
+        });
+
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var hit = normalized.GetProperty("hits").EnumerateArray().Single();
+        var card = hit.GetProperty("matchedContentCards").EnumerateArray().Single();
+
+        Assert.Equal("Structured section", card.GetProperty("title").GetString());
+        Assert.Equal("section", card.GetProperty("kind").GetString());
+    }
+
+    [Fact]
+    public void NormalizeRagHits_preserves_generic_content_card_evidence_facts()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            items = new[]
+            {
+                new
+                {
+                    docId = "doc-guid-1",
+                    docPath = "Knowledge/manual.pdf",
+                    docName = "manual.pdf",
+                    pageStart = 4,
+                    text = "Structured source text.",
+                    score = 0.91,
+                    matchedContentCards = new[]
+                    {
+                        new
+                        {
+                            title = "Structured section",
+                            kind = "section",
+                            evidence = new
+                            {
+                                schemaVersion = "content_card_evidence_v1",
+                                language = "en",
+                                facts = new[]
+                                {
+                                    new
+                                    {
+                                        kind = "requirement",
+                                        label = "release gate",
+                                        value = "3",
+                                        unit = "checks",
+                                        sourceText = "Release requires 3 inspection checks.",
+                                        pageStart = 4,
+                                        pageEnd = 4,
+                                        confidence = 0.88
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var evidence = normalized.GetProperty("hits")[0]
+            .GetProperty("matchedContentCards")[0]
+            .GetProperty("evidence");
+
+        Assert.Equal("en", evidence.GetProperty("language").GetString());
+        Assert.Equal("requirement", evidence.GetProperty("facts")[0].GetProperty("kind").GetString());
+        Assert.Equal("release gate", evidence.GetProperty("facts")[0].GetProperty("label").GetString());
+        Assert.Equal("Release requires 3 inspection checks.", evidence.GetProperty("facts")[0].GetProperty("sourceText").GetString());
     }
 
     [Fact]
@@ -64,10 +520,2023 @@ public sealed class RagContextBudgetRegressionTests
         var hits = doc.RootElement[0].GetProperty("result").GetProperty("hits").EnumerateArray().ToList();
         var first = hits[0];
 
-        Assert.Equal(6, hits.Count);
-        Assert.True(first.GetProperty("excerpt").GetString()!.Length <= 323);
-        Assert.True(first.GetProperty("fullText").GetString()!.Length <= 653);
-        Assert.True(first.GetProperty("contextualSnippet").GetString()!.Length <= 363);
+        Assert.Equal(4, hits.Count);
+        Assert.True(first.GetProperty("excerpt").GetString()!.Length <= 263);
+        Assert.True(first.GetProperty("fullText").GetString()!.Length <= 363);
+        Assert.True(first.GetProperty("contextualSnippet").GetString()!.Length <= 223);
+    }
+
+    [Fact]
+    public void Writer_rag_results_preserve_backend_guidance_metrics_and_hit_signals()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            metrics = new
+            {
+                tookMs = 42,
+                returned = 1,
+                retrieversUsed = new[] { "profile", "sparse" },
+                dataHash = "hash-1"
+            },
+            guidance = new
+            {
+                behavior = "answer_with_caveat",
+                reason = "partial_evidence",
+                qualificationNote = "Les sources couvrent seulement une partie de la question."
+            },
+            items = new[]
+            {
+                new
+                {
+                    docId = "doc-guid-1",
+                    docPath = "Knowledge/manual.pdf",
+                    docName = "manual.pdf",
+                    categoryPath = "Knowledge/Procedures",
+                    categoryRef = "cat_042",
+                    docLanguage = "de",
+                    profileLanguage = "de",
+                    pageStart = 8,
+                    pageEnd = 8,
+                    text = "Procedure documentee avec avertissement.",
+                    score = 0.91,
+                    rerankScore = 0.88,
+                    retriever = "profile",
+                    exactMatchHit = true,
+                    provenanceInfo = new
+                    {
+                        channel = "profile",
+                        label = "manual.pdf p.8",
+                        chunkId = "chunk-1",
+                        pageStart = 8,
+                        pageEnd = 8
+                    },
+                    sourceHash = "src-1",
+                    embeddingBasis = "contextual",
+                    chunkId = "chunk-root-1",
+                    chunkType = "unit_exact_v1",
+                    prevChunkId = "prev-1",
+                    nextChunkId = "next-1",
+                    sameSectionChunkId = "same-1",
+                    hasTable = true,
+                    hasWarning = true,
+                    hypQuestionsMatched = true,
+                    extractionQuality = new
+                    {
+                        extractionSource = "pdf_text_plus_image_ocr",
+                        ocrAttempted = true,
+                        ocrApplied = true,
+                        documentQualityStatus = "ocr_applied_ok_with_page_warnings",
+                        documentExtractionConfidence = 0.86,
+                        documentManualReviewRecommended = false,
+                        pageQualityStatus = "manual_review_low_text",
+                        pageExtractionConfidence = 0.35,
+                        pageManualReviewRecommended = true,
+                        textStatus = "low_text",
+                        ocrRecommended = true,
+                        signals = new[] { "low_text_extraction", "ocr_recommended", "page_contains_images", "no_units_on_page", "no_chunks_on_page", "extra_signal" }
+                    },
+                    matchedContentCards = new[]
+                    {
+                        new
+                        {
+                            title = "Controle avant validation",
+                            pageStart = 8,
+                            pageEnd = 9,
+                            kind = "procedure",
+                            signals = new[] { "title_match", "structured_item" }
+                        }
+                    },
+                    context = new
+                    {
+                        sectionTitle = "Procedure",
+                        headingPath = "Manual > Procedure",
+                        prevChunkId = "prev-ctx",
+                        nextChunkId = "next-ctx",
+                        sameSectionChunkId = "same-ctx"
+                    }
+                }
+            }
+        });
+
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var serialized = ToolAgentOrchestrator.SerializeWriterRagResultsForTests(
+            "rag.search",
+            normalized.GetRawText(),
+            "Tu peux me faire une fiche claire pour \"Procedure documentee\" : source ?");
+
+        using var doc = JsonDocument.Parse(serialized);
+        var result = doc.RootElement[0].GetProperty("result");
+        var first = result.GetProperty("hits")[0];
+
+        Assert.Equal("answer_with_caveat", result.GetProperty("guidance").GetProperty("behavior").GetString());
+        Assert.Equal(42, result.GetProperty("meta").GetProperty("metrics").GetProperty("tookMs").GetInt32());
+        Assert.Equal("doc-guid-1", first.GetProperty("docId").GetString());
+        Assert.Equal("Knowledge/Procedures", first.GetProperty("categoryPath").GetString());
+        Assert.Equal("cat_042", first.GetProperty("categoryRef").GetString());
+        Assert.Equal("de", first.GetProperty("docLanguage").GetString());
+        Assert.Equal("de", first.GetProperty("profileLanguage").GetString());
+        Assert.Equal("profile", first.GetProperty("provenanceInfo").GetProperty("channel").GetString());
+        Assert.Equal("Procedure", first.GetProperty("context").GetProperty("sectionTitle").GetString());
+        Assert.Equal(0.88, first.GetProperty("rerankScore").GetDouble());
+        Assert.Equal("src-1", first.GetProperty("sourceHash").GetString());
+        Assert.Equal("contextual", first.GetProperty("embeddingBasis").GetString());
+        Assert.Equal("prev-1", first.GetProperty("prevChunkId").GetString());
+        Assert.Equal("next-1", first.GetProperty("nextChunkId").GetString());
+        Assert.Equal("same-1", first.GetProperty("sameSectionChunkId").GetString());
+        Assert.True(first.GetProperty("exactMatchHit").GetBoolean());
+        Assert.True(first.GetProperty("hasWarning").GetBoolean());
+        Assert.True(first.GetProperty("hypQuestionsMatched").GetBoolean());
+        Assert.Equal("chunk-root-1", first.GetProperty("chunkId").GetString());
+        Assert.Equal("unit_exact_v1", first.GetProperty("chunkType").GetString());
+        var cards = first.GetProperty("matchedContentCards").EnumerateArray().ToList();
+        Assert.Single(cards);
+        Assert.Equal("Controle avant validation", cards[0].GetProperty("title").GetString());
+        Assert.Equal("procedure", cards[0].GetProperty("kind").GetString());
+        Assert.Equal("structured_item", cards[0].GetProperty("signals")[1].GetString());
+        var extractionQuality = first.GetProperty("extractionQuality");
+        Assert.Equal("manual_review_low_text", extractionQuality.GetProperty("pageQualityStatus").GetString());
+        Assert.True(extractionQuality.GetProperty("pageManualReviewRecommended").GetBoolean());
+        Assert.Equal(5, extractionQuality.GetProperty("signals").GetArrayLength());
+        Assert.DoesNotContain("extra_signal", extractionQuality.GetProperty("signals").EnumerateArray().Select(static signal => signal.GetString()));
+        Assert.Equal("actionable_item", first.GetProperty("selectionHints").GetProperty("evidenceRole").GetString());
+        Assert.True(first.GetProperty("selectionHints").GetProperty("qualityPenalty").GetInt32() > 0);
+    }
+
+    [Fact]
+    public void Backend_selection_hints_are_preserved_and_prevent_option_promotion()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                new
+                {
+                    docPath = "Knowledge/process.pdf",
+                    docName = "process.pdf",
+                    pageStart = 7,
+                    excerpt = "CONTROLE HEBDOMADAIRE Procedure. Etapes : 1. verifier le capteur. 2. ajuster le seuil. 3. consigner le resultat.",
+                    contextualSnippet = "Matched profile title: Controle hebdomadaire\nDocument: process.pdf\nExcerpt:\nCONTROLE HEBDOMADAIRE Procedure. Etapes : 1. verifier le capteur. 2. ajuster le seuil. 3. consigner le resultat.",
+                    matchedContentCards = new[] { new { title = "Controle hebdomadaire", kind = "unit_lead" } },
+                    selectionHints = new
+                    {
+                        evidenceRole = "supporting_context",
+                        actionabilityScore = 1,
+                        supportScore = 12,
+                        fragmentScore = 0,
+                        navigationScore = 0,
+                        qualityPenalty = 0
+                    },
+                    score = 0.99
+                }
+            }
+        });
+
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var first = normalized.GetProperty("hits")[0];
+        var hints = first.GetProperty("selectionHints");
+
+        Assert.Equal("supporting_context", hints.GetProperty("evidenceRole").GetString());
+        Assert.Equal(1, hints.GetProperty("actionabilityScore").GetInt32());
+        Assert.Equal("supporting_context", ToolAgentOrchestrator.ClassifyRagHitRoleForTests(first.GetRawText(), "controle hebdomadaire"));
+
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = normalized.Clone() });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedOptionAnswerForTests(
+            toolResults,
+            "Propose des options sourcees pour organiser le controle hebdomadaire.",
+            "fr");
+
+        Assert.True(string.IsNullOrWhiteSpace(answer));
+    }
+
+    [Fact]
+    public void Typed_rag_response_preserves_backend_selection_hints_for_probe_payload()
+    {
+        const string json = """
+        {
+          "requestId": "req-1",
+          "query": "generic procedure",
+          "queryNormalized": "generic procedure",
+          "topK": 1,
+          "minScore": 0.25,
+          "candidates": 1,
+          "metrics": { "tookMs": 1, "returned": 1 },
+          "items": [
+            {
+              "score": 0.91,
+              "docId": "doc-1",
+              "docName": "procedure.pdf",
+              "docPath": "Knowledge/procedure.pdf",
+              "pageStart": 2,
+              "pageEnd": 2,
+              "chunkId": "chunk-1",
+              "chunkIndex": 1,
+              "text": "Procedure: verify the sensor and record the result.",
+              "selectionHints": {
+                "evidenceRole": "low_confidence",
+                "actionabilityScore": 10,
+                "supportScore": 1,
+                "fragmentScore": 0,
+                "navigationScore": 0,
+                "qualityPenalty": 12
+              }
+            }
+          ]
+        }
+        """;
+
+        var response = JsonSerializer.Deserialize<RagSearchResponse>(json, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        Assert.NotNull(response);
+        var hints = response!.Items[0].SelectionHints;
+        Assert.NotNull(hints);
+        Assert.Equal("low_confidence", hints.EvidenceRole);
+        Assert.Equal(12, hints.QualityPenalty);
+
+        var probeJson = ToolAgentOrchestrator.BuildProbeRagToolResultsJsonForTests(response.Items);
+        using var probeDoc = JsonDocument.Parse(probeJson);
+        var probeHints = probeDoc.RootElement.GetProperty("hits")[0].GetProperty("selectionHints");
+        Assert.Equal("low_confidence", probeHints.GetProperty("evidenceRole").GetString());
+        Assert.Equal(12, probeHints.GetProperty("qualityPenalty").GetInt32());
+    }
+
+    [Fact]
+    public void Backend_guidance_ask_clarification_is_available_before_deterministic_source_answer()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            guidance = new
+            {
+                behavior = "ask_clarification",
+                responseShape = "clarify",
+                clarifyingQuestion = "Quel perimetre exact dois-je verifier ?"
+            },
+            hits = new object[]
+            {
+                new
+                {
+                    docPath = "Knowledge/process.pdf",
+                    docName = "process.pdf",
+                    pageStart = 7,
+                    excerpt = "CONTROLE HEBDOMADAIRE Procedure. Etapes : 1. verifier le capteur. 2. ajuster le seuil. 3. consigner le resultat.",
+                    contextualSnippet = "Matched profile title: Controle hebdomadaire\nDocument: process.pdf\nExcerpt:\nCONTROLE HEBDOMADAIRE Procedure. Etapes : 1. verifier le capteur. 2. ajuster le seuil. 3. consigner le resultat.",
+                    matchedContentCards = new[] { new { title = "Controle hebdomadaire", kind = "unit_lead" } },
+                    score = 0.99
+                }
+            }
+        });
+
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = normalized.Clone() });
+
+        var clarification = ToolAgentOrchestrator.TryBuildBackendGuidanceClarificationAnswerForTests(toolResults, "fr");
+
+        Assert.Equal("Quel perimetre exact dois-je verifier ?", clarification);
+    }
+
+    [Fact]
+    public async Task Backend_guidance_ask_clarification_beats_deterministic_source_bypass()
+    {
+        var handler = new StubHttpHandler(req => req.RequestUri!.AbsolutePath switch
+        {
+            "/rag/search" => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {
+                      "guidance": {
+                        "behavior": "ask_clarification",
+                        "responseShape": "clarify",
+                        "clarifyingQuestion": "Quel perimetre exact dois-je verifier ?"
+                      },
+                      "items": [
+                        {
+                          "score": 0.99,
+                          "docPath": "Knowledge/process.pdf",
+                          "docName": "process.pdf",
+                          "pageStart": 7,
+                          "pageEnd": 7,
+                          "text": "CONTROLE HEBDOMADAIRE Procedure. Etapes : 1. verifier le capteur. 2. ajuster le seuil. 3. consigner le resultat.",
+                          "contextualSnippet": "Matched profile title: Controle hebdomadaire\nDocument: process.pdf\nExcerpt:\nCONTROLE HEBDOMADAIRE Procedure. Etapes : 1. verifier le capteur. 2. ajuster le seuil. 3. consigner le resultat.",
+                          "matchedContentCards": [
+                            { "title": "Controle hebdomadaire", "kind": "unit_lead" }
+                          ]
+                        }
+                      ]
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            },
+            _ => new HttpResponseMessage(HttpStatusCode.NotFound)
+        });
+
+        var llm = new StubLlmClient(
+            """
+            {
+              "mode": "strict",
+              "language": "fr",
+              "intent": "rag.answer",
+              "responseFormat": "auto",
+              "needClarification": false,
+              "clarificationQuestions": [],
+              "reasoningTracePublic": [],
+              "riskFlags": [],
+              "memoryUpdate": null,
+              "routerConfidence": 0.99,
+              "toolCalls": [
+                {
+                  "name": "rag.multi_search",
+                  "args": {
+                    "queries": [ "controle hebdomadaire" ],
+                    "topK": 4,
+                    "mode": "balanced"
+                  }
+                }
+              ]
+            }
+            """);
+
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm, new ToolMemory());
+
+        var (answer, sources) = await sut.RunAsync(
+            Array.Empty<(string role, string content)>(),
+            "Propose des options sourcees pour organiser le controle hebdomadaire.",
+            CancellationToken.None);
+
+        Assert.Equal("Quel perimetre exact dois-je verifier ?", answer);
+        Assert.Null(sources);
+        Assert.Single(llm.Requests);
+        Assert.DoesNotContain("Option 1", answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Rag_hit_classifier_roles_are_generic_and_do_not_depend_on_business_content()
+    {
+        var actionable = JsonSerializer.Serialize(new
+        {
+            docPath = "Knowledge/process.pdf",
+            docName = "process.pdf",
+            pageStart = 7,
+            excerpt = "CONTROLE HEBDOMADAIRE Procedure. Etapes : 1. verifier le capteur. 2. ajuster le seuil. 3. consigner le resultat.",
+            matchedContentCards = new[] { new { title = "Controle hebdomadaire", kind = "unit_lead" } },
+            score = 0.99
+        });
+        var support = JsonSerializer.Serialize(new
+        {
+            docPath = "Knowledge/process.pdf",
+            docName = "process.pdf",
+            pageStart = 8,
+            excerpt = "Note pour le controle hebdomadaire : le seuil nominal est de 12 bar et la tolerance admise est de 0,5 bar.",
+            score = 0.85
+        });
+        var fragment = JsonSerializer.Serialize(new
+        {
+            docPath = "Knowledge/process.pdf",
+            docName = "process.pdf",
+            pageStart = 9,
+            excerpt = "... ajuster ensuite selon la valeur observee puis noter.",
+            score = 0.82
+        });
+        var navigation = JsonSerializer.Serialize(new
+        {
+            docPath = "Knowledge/process.pdf",
+            docName = "process.pdf",
+            pageStart = 1,
+            excerpt = "Table des matieres. Controle initial 12. Parametres 18. Annexes 44.",
+            score = 0.8
+        });
+
+        Assert.Equal("actionable_item", ToolAgentOrchestrator.ClassifyRagHitRoleForTests(actionable, "controle hebdomadaire"));
+        Assert.Equal("advisory", ToolAgentOrchestrator.ClassifyRagHitRoleForTests(support, "controle hebdomadaire"));
+        Assert.Equal("fragment", ToolAgentOrchestrator.ClassifyRagHitRoleForTests(fragment, "controle hebdomadaire"));
+        Assert.Equal("navigation", ToolAgentOrchestrator.ClassifyRagHitRoleForTests(navigation, "controle hebdomadaire"));
+    }
+
+    [Fact]
+    public void Source_backed_extract_refuses_when_explicit_required_term_is_absent_from_sources()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/process.pdf",
+                    docName = "process.pdf",
+                    pageStart = 7,
+                    excerpt = "Module ALPHA. Procedure : verifier le capteur, ajuster le seuil, consigner le resultat.",
+                    score = 0.99
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(
+            toolResults,
+            "Fais une procedure pour le module ALPHA avec le terme obligatoire \"omega-77\".",
+            "fr");
+
+        Assert.Contains("omega-77", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("pas trouve", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Option 1", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("verifier le capteur", answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Source_backed_extract_accepts_when_explicit_required_term_is_present_in_actionable_hit()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/process.pdf",
+                    docName = "process.pdf",
+                    pageStart = 7,
+                    excerpt = "Module ALPHA omega-77. Procedure : 1. verifier le capteur. 2. ajuster le seuil. 3. consigner le resultat.",
+                    matchedContentCards = new[] { new { title = "Procedure module ALPHA omega-77", kind = "unit_lead" } },
+                    score = 0.99
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(
+            toolResults,
+            "Fais une procedure pour le module ALPHA avec le terme obligatoire \"omega-77\".",
+            "fr");
+
+        Assert.Contains("omega-77", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("process.pdf p.7", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("pas trouve", answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Available_item_request_extracts_user_anchor_as_source_focus()
+    {
+        Assert.Equal(
+            "module ALPHA",
+            ToolAgentOrchestrator.TryExtractRequestedItemTitleForTests("J'ai du module ALPHA, tu as une procedure ?"));
+    }
+
+    [Fact]
+    public void Exact_item_card_prefers_hit_with_visible_requested_anchor_over_noisy_structured_neighbor()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                new
+                {
+                    docPath = "Knowledge/noisy.pdf",
+                    docName = "noisy.pdf",
+                    pageStart = 50,
+                    excerpt = "Procedure voisine. Etapes : 1. ouvrir le dossier. 2. verifier le journal. 3. consigner le resultat. Quantites : 400 g, 700 g, 2 bacs.",
+                    fullText = "Procedure voisine. Etapes : 1. ouvrir le dossier. 2. verifier le journal. 3. consigner le resultat. Annexe: module ZEPHYR.",
+                    score = 1.02
+                },
+                new
+                {
+                    docPath = "Knowledge/target.pdf",
+                    docName = "target.pdf",
+                    pageStart = 17,
+                    excerpt = "MODULE ZEPHYR. Procedure : 1. preparer la zone. 2. verifier le seuil. 3. consigner le resultat.",
+                    contextualSnippet = "Matched profile title: Module ZEPHYR\nDocument: target.pdf\nExcerpt:\nMODULE ZEPHYR. Procedure : 1. preparer la zone. 2. verifier le seuil. 3. consigner le resultat.",
+                    matchedContentCards = new[] { new { title = "Module ZEPHYR", kind = "unit_lead" } },
+                    score = 0.98
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(
+            toolResults,
+            "J'ai du module ZEPHYR, tu as une procedure ?",
+            "fr");
+
+        Assert.Contains("Source principale : target.pdf p.17", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Source principale : noisy.pdf p.50", answer, StringComparison.OrdinalIgnoreCase);
+
+        var labels = ToolAgentOrchestrator.DeriveSourceBackedExtractiveSourceLabelsForTests(
+            toolResults,
+            "J'ai du module ZEPHYR, tu as une procedure ?");
+        Assert.Contains(labels, label => label.Contains("target.pdf", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(labels, label => label.Contains("noisy.pdf", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Option_answer_does_not_promote_support_advice_or_fragments_to_options()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/support.pdf",
+                    docName = "support.pdf",
+                    pageStart = 4,
+                    excerpt = "Conseil : documenter les anomalies et verifier la coherence du journal.",
+                    score = 0.92
+                },
+                new
+                {
+                    docPath = "Knowledge/support.pdf",
+                    docName = "support.pdf",
+                    pageStart = 5,
+                    excerpt = "... ajuster ensuite selon la valeur observee puis noter.",
+                    score = 0.9
+                },
+                new
+                {
+                    docPath = "Knowledge/support.pdf",
+                    docName = "support.pdf",
+                    pageStart = 1,
+                    excerpt = "Table des matieres. Controle initial 12. Parametres 18. Annexes 44.",
+                    score = 0.88
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedOptionAnswerForTests(
+            toolResults,
+            "Propose des options sourcees pour organiser le controle hebdomadaire.",
+            "fr");
+
+        Assert.True(string.IsNullOrWhiteSpace(answer));
+    }
+
+    [Fact]
+    public void Simple_option_request_filters_candidates_to_query_anchors()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/unrelated.pdf",
+                    docName = "unrelated.pdf",
+                    pageStart = 12,
+                    excerpt = "PROCEDURE STRUCTUREE. Etapes : 1. preparer le support. 2. appliquer la couche. 3. laisser agir 35 min.",
+                    contextualSnippet = "Matched profile title: Procedure structuree\nDocument: unrelated.pdf\nExcerpt:\nPROCEDURE STRUCTUREE. Etapes : 1. preparer le support. 2. appliquer la couche. 3. laisser agir 35 min.",
+                    matchedContentCards = new[] { new { title = "Procedure structuree", kind = "unit_lead" } },
+                    score = 1.02
+                },
+                new
+                {
+                    docPath = "Knowledge/target.pdf",
+                    docName = "target.pdf",
+                    pageStart = 8,
+                    excerpt = "MODULE ZEPHYR. Procedure : 1. preparer la zone. 2. verifier le seuil. 3. consigner le resultat.",
+                    contextualSnippet = "Matched profile title: Module zephyr\nDocument: target.pdf\nExcerpt:\nMODULE ZEPHYR. Procedure : 1. preparer la zone. 2. verifier le seuil. 3. consigner le resultat.",
+                    matchedContentCards = new[] { new { title = "Module zephyr", kind = "unit_lead" } },
+                    score = 0.98
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedOptionAnswerForTests(
+            toolResults,
+            "Propose une option facile pour zephyr.",
+            "fr");
+
+        Assert.Contains("Module zephyr", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Procedure structuree", answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Broad_composition_refuses_when_core_anchor_terms_are_missing_from_hits()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/support.pdf",
+                    docName = "support.pdf",
+                    pageStart = 4,
+                    excerpt = "Procedure generale : preparer plusieurs elements et verifier les contraintes de temps.",
+                    score = 0.92
+                },
+                new
+                {
+                    docPath = "Knowledge/support.pdf",
+                    docName = "support.pdf",
+                    pageStart = 5,
+                    excerpt = "Conseil : organiser les operations compatibles sur des postes differents.",
+                    score = 0.9
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.TryBuildMissingBroadCompositionAnchorAnswerForTests(
+            toolResults,
+            "Tu peux me faire une idee de flux zephyr avec execution parallele ?",
+            "fr");
+
+        Assert.Contains("zephyr", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("pas trouve", answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Broad_composition_refuses_when_one_specific_anchor_is_missing_from_hits()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/support.pdf",
+                    docName = "support.pdf",
+                    pageStart = 4,
+                    excerpt = "Procedure generale : organiser une execution parallele et verifier les contraintes de temps.",
+                    score = 0.92
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.TryBuildMissingBroadCompositionAnchorAnswerForTests(
+            toolResults,
+            "Tu peux me faire une idee de flux zephyr avec execution parallele ?",
+            "fr");
+
+        Assert.Contains("zephyr", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("pas trouve", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("parallele", answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Rag_fallback_does_not_claim_partial_evidence_when_query_anchor_is_absent()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/support.pdf",
+                    docName = "support.pdf",
+                    pageStart = 4,
+                    excerpt = "Procedure generale : preparer plusieurs elements et verifier les contraintes de temps.",
+                    score = 0.92
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.BuildRagEvidenceFallbackAnswerForTests(
+            toolResults,
+            "Resume zephyr.",
+            "fr");
+
+        Assert.DoesNotContain("zephyr", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("passages voisins", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("elements documentaires partiels", answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static ApiClient CreateApiClient(HttpMessageHandler handler)
+    {
+        var sut = new ApiClient();
+        sut.Configure("http://localhost:5122", "test-api-key", "test-user");
+
+        var field = typeof(ApiClient).GetField("_http", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(field);
+        field!.SetValue(sut, new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://localhost:5122")
+        });
+
+        return sut;
+    }
+
+    private sealed class StubHttpHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(responder(request));
+    }
+
+    private sealed class StubLlmClient(string completion) : ILlmClient
+    {
+        public List<IReadOnlyList<(string role, string content)>> Requests { get; } = new();
+
+        public Task<string> CompleteAsync(IReadOnlyList<(string role, string content)> messages, bool forceJson, CancellationToken ct)
+        {
+            Requests.Add(messages);
+            return Task.FromResult(completion);
+        }
+
+        public Task StreamAsync(IReadOnlyList<(string role, string content)> messages, bool forceJson, Action<string> onDelta, CancellationToken ct)
+            => throw new NotSupportedException("The writer must not run when backend guidance asks for clarification.");
+    }
+
+    [Fact]
+    public void Pairing_recommendation_refuses_when_target_anchor_is_absent_from_sources()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/options.pdf",
+                    docName = "options.pdf",
+                    pageStart = 14,
+                    excerpt = "SAUCE VERTE. Procedure : 1. mixer les herbes. 2. ajuster le sel. 3. servir.",
+                    matchedContentCards = new[] { new { title = "Sauce verte", kind = "unit_lead" } },
+                    score = 0.97
+                },
+                new
+                {
+                    docPath = "Knowledge/options.pdf",
+                    docName = "options.pdf",
+                    pageStart = 15,
+                    excerpt = "SAUCE CLAIRE. Procedure : 1. fouetter la base. 2. reduire. 3. servir.",
+                    matchedContentCards = new[] { new { title = "Sauce claire", kind = "unit_lead" } },
+                    score = 0.93
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedOptionAnswerForTests(
+            toolResults,
+            "Quelle sauce irait bien avec module ZEPHYR ?",
+            "fr");
+
+        Assert.Contains("zephyr", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("sauce", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("pas trouve", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Option 1", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Sauce verte", answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Source_backed_extract_answer_adds_quality_caveat_for_low_confidence_hits()
+    {
+        const string payload = """
+        {
+          "hits": [
+            {
+              "docPath": "Knowledge/manual.pdf",
+              "docName": "manual.pdf",
+              "pageStart": 4,
+              "pageEnd": 4,
+              "excerpt": "La procedure indique de verifier le journal de controle avant validation.",
+              "fullText": "La procedure indique de verifier le journal de controle avant validation.",
+              "score": 0.92,
+              "extractionQuality": {
+                "pageQualityStatus": "manual_review_probable_ocr_noise",
+                "pageExtractionConfidence": 0.25,
+                "pageManualReviewRecommended": true,
+                "ocrApplied": true
+              }
+            }
+          ]
+        }
+        """;
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(
+            toolResults,
+            "Que disent les documents disponibles ?",
+            "fr");
+
+        Assert.Contains("manual.pdf p.4", answer);
+        Assert.Contains("confiance faible", answer);
+    }
+
+    [Fact]
+    public void Source_payload_preserves_rag_metadata_for_source_cards()
+    {
+        const string payload = """
+        {
+          "hits": [
+            {
+              "docId": "doc-1",
+              "docPath": "Knowledge/manual.pdf",
+              "docName": "manual.pdf",
+              "category": "Knowledge",
+              "categoryPath": "Knowledge/Procedures",
+              "categoryRef": "cat_042",
+              "pageStart": 8,
+              "pageEnd": 9,
+              "chunkId": "chunk-1",
+              "sourceHash": "src-1",
+              "docLanguage": "en",
+              "profileLanguage": "en",
+              "excerpt": "The procedure asks operators to verify the control log before validation.",
+              "fullText": "The procedure asks operators to verify the control log before validation.",
+              "score": 0.92,
+              "extractionQuality": {
+                "extractionSource": "pdf_text_plus_image_ocr",
+                "documentQualityStatus": "ocr_applied_ok_with_page_warnings",
+                "pageQualityStatus": "manual_review_low_text",
+                "textStatus": "low_text",
+                "pageExtractionConfidence": 0.35,
+                "pageManualReviewRecommended": true,
+                "ocrApplied": true,
+                "ocrRecommended": true,
+                "signals": ["low_text_extraction", "page_contains_images"]
+              },
+              "matchedContentCards": [
+                {
+                  "title": "Control before validation",
+                  "pageStart": 8,
+                  "pageEnd": 9,
+                  "kind": "procedure",
+                  "signals": ["title_match", "structured_item"]
+                }
+              ]
+            }
+          ]
+        }
+        """;
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var sourcesJson = ToolAgentOrchestrator.BuildSourceBackedExtractiveSourcesPayloadForTests(
+            toolResults,
+            "Que dit le document ?");
+        var cards = SourceCardParser.Parse(sourcesJson);
+        var card = Assert.Single(cards);
+
+        Assert.Equal("doc-1", card.DocId);
+        Assert.Equal("src-1", card.SourceHash);
+        Assert.Equal("en", card.DocLanguage);
+        Assert.Equal("en", card.ProfileLanguage);
+        Assert.Equal("Knowledge", card.Category);
+        Assert.Equal("cat_042", card.CategoryRef);
+        Assert.Equal("Knowledge/Procedures", card.CategoryPath);
+        Assert.Equal("chunk-1", card.ChunkId);
+        Assert.Equal("pdf_text_plus_image_ocr", card.ExtractionSource);
+        Assert.Equal("ocr_applied_ok_with_page_warnings", card.DocumentQualityStatus);
+        Assert.Equal("manual_review_low_text", card.PageQualityStatus);
+        Assert.Equal("low_text", card.TextStatus);
+        Assert.Equal("manual_review_low_text", card.QualityStatus);
+        Assert.Equal(0.35, card.ExtractionConfidence);
+        Assert.True(card.ManualReviewRecommended);
+        Assert.True(card.OcrApplied);
+        Assert.True(card.OcrRecommended);
+        Assert.Contains("page_contains_images", card.QualitySignals);
+        var contentCard = Assert.Single(card.MatchedContentCards);
+        Assert.Equal("Control before validation", contentCard.Title);
+        Assert.Equal("procedure", contentCard.Kind);
+        Assert.Contains("structured_item", contentCard.Signals);
+    }
+
+    [Fact]
+    public void Source_resolve_payload_preserves_backend_metadata_for_source_cards()
+    {
+        const string payload = """
+        {
+          "requestedRef": "manual.pdf",
+          "source": {
+            "docId": "doc-1",
+            "docPath": "Knowledge/manual.pdf",
+            "docName": "manual.pdf",
+            "category": "Knowledge",
+            "categoryPath": "Knowledge/Procedures",
+            "categoryRef": "cat_042",
+            "pageStart": 1,
+            "pageEnd": 12,
+            "label": "manual.pdf",
+            "chunkId": "profile-1",
+            "sourceHash": "src-1",
+            "docLanguage": "de",
+            "profileLanguage": "de",
+              "extractionQuality": {
+                "extractionSource": "pdf_text_plus_image_ocr",
+                "documentQualityStatus": "ocr_applied_ok",
+                "documentExtractionConfidence": 0.9,
+                "documentManualReviewRecommended": false,
+                "textStatus": "ok",
+                "ocrAttempted": true,
+                "ocrApplied": true,
+                "ocrRecommended": false,
+                "signals": ["text_extraction_ok"]
+            },
+            "matchedContentCards": [
+              {
+                "title": "Control before validation",
+                "pageStart": 8,
+                "pageEnd": 9,
+                "kind": "procedure",
+                "signals": ["structured_item"]
+              }
+            ],
+            "selectionHints": {
+              "evidenceRole": "actionable_item",
+              "actionabilityScore": 77,
+              "supportScore": 50,
+              "fragmentScore": 3,
+              "navigationScore": 0,
+              "qualityPenalty": 2
+            }
+          }
+        }
+        """;
+
+        var sourcesJson = ToolAgentOrchestrator.BuildSourceResolveSourcesPayloadForTests(payload);
+        var cards = SourceCardParser.Parse(sourcesJson);
+        var card = Assert.Single(cards);
+
+        Assert.Equal("doc-1", card.DocId);
+        Assert.Equal("src-1", card.SourceHash);
+        Assert.Equal("de", card.DocLanguage);
+        Assert.Equal("de", card.ProfileLanguage);
+        Assert.Equal("Knowledge", card.Category);
+        Assert.Equal("cat_042", card.CategoryRef);
+        Assert.Equal("Knowledge/Procedures", card.CategoryPath);
+        Assert.Equal("profile-1", card.ChunkId);
+        Assert.Equal("ocr_applied_ok", card.QualityStatus);
+        Assert.Equal(0.9, card.ExtractionConfidence);
+        Assert.True(card.OcrAttempted);
+        Assert.True(card.OcrApplied);
+        var contentCard = Assert.Single(card.MatchedContentCards);
+        Assert.Equal("Control before validation", contentCard.Title);
+        Assert.Equal("actionable_item", card.SelectionHintEvidenceRole);
+        Assert.Equal(77, card.SelectionHintActionabilityScore);
+        Assert.Equal(2, card.SelectionHintQualityPenalty);
+    }
+
+    [Fact]
+    public void Source_resolve_payload_preserves_raw_content_card_evidence_without_typing_loss()
+    {
+        const string payload = """
+        {
+          "requestedRef": "manual.pdf",
+          "source": {
+            "docId": "doc-1",
+            "docPath": "Knowledge/manual.pdf",
+            "docName": "manual.pdf",
+            "pageStart": 8,
+            "pageEnd": 8,
+            "matchedContentCards": [
+              {
+                "title": "Control before validation",
+                "kind": "procedure",
+                "evidence": {
+                  "schemaVersion": "content_card_evidence_v2",
+                  "scaleBasis": { "count": 4, "label": "units", "basisNote": "kept raw" },
+                  "quantityFacts": [
+                    { "value": 0, "unit": "mm", "label": "clearance", "sourceText": "0 mm clearance", "rawIndex": 17 },
+                    { "value": 0.125, "unit": "l", "label": "fluid", "sourceText": "0.125 l fluid" }
+                  ],
+                  "facts": [
+                    { "kind": "constraint", "label": "mode", "value": "locked", "sourceText": "mode locked", "confidence": 0.67 }
+                  ],
+                  "nonScalableReasons": [ "technical_parameter_context" ],
+                  "unknownVendorPayload": { "zeroAllowed": 0, "decimal": 0.125 }
+                }
+              }
+            ]
+          }
+        }
+        """;
+
+        var sourcesJson = ToolAgentOrchestrator.BuildSourceResolveSourcesPayloadForTests(payload);
+        using var doc = JsonDocument.Parse(sourcesJson);
+        var evidence = doc.RootElement
+            .GetProperty("sources")[0]
+            .GetProperty("matchedContentCards")[0]
+            .GetProperty("evidence");
+
+        Assert.Equal("content_card_evidence_v2", evidence.GetProperty("schemaVersion").GetString());
+        Assert.Equal("kept raw", evidence.GetProperty("scaleBasis").GetProperty("basisNote").GetString());
+        Assert.Equal(0, evidence.GetProperty("quantityFacts")[0].GetProperty("value").GetInt32());
+        Assert.Equal(17, evidence.GetProperty("quantityFacts")[0].GetProperty("rawIndex").GetInt32());
+        Assert.Equal(0.125, evidence.GetProperty("unknownVendorPayload").GetProperty("decimal").GetDouble(), precision: 3);
+        Assert.Equal("technical_parameter_context", evidence.GetProperty("nonScalableReasons")[0].GetString());
+    }
+
+    [Fact]
+    public void Source_resolve_payload_accepts_legacy_root_level_quality_metadata_for_source_cards()
+    {
+        const string payload = """
+        {
+          "requestedRef": "manual.pdf",
+          "source": {
+            "docId": "doc-1",
+            "docPath": "Knowledge/manual.pdf",
+            "docName": "manual.pdf",
+            "pageStart": 2,
+            "pageEnd": 3,
+            "label": "manual.pdf",
+            "sourceHash": "src-1",
+            "docLanguage": "it",
+            "profileLanguage": "it",
+            "extractionSource": "pdf_text_plus_image_ocr",
+            "documentQualityStatus": "ocr_applied_ok",
+            "pageQualityStatus": "page_ok_with_images",
+            "documentExtractionConfidence": 0.93,
+            "pageExtractionConfidence": 0.82,
+            "documentManualReviewRecommended": false,
+            "pageManualReviewRecommended": true,
+            "ocrApplied": true,
+            "signals": ["page_contains_images"]
+          }
+        }
+        """;
+
+        var sourcesJson = ToolAgentOrchestrator.BuildSourceResolveSourcesPayloadForTests(payload);
+        var card = Assert.Single(SourceCardParser.Parse(sourcesJson));
+
+        Assert.Equal("it", card.DocLanguage);
+        Assert.Equal("pdf_text_plus_image_ocr", card.ExtractionSource);
+        Assert.Equal("ocr_applied_ok", card.DocumentQualityStatus);
+        Assert.Equal("page_ok_with_images", card.PageQualityStatus);
+        Assert.Equal(0.93, card.DocumentExtractionConfidence);
+        Assert.Equal(0.82, card.PageExtractionConfidence);
+        Assert.False(card.DocumentManualReviewRecommended);
+        Assert.True(card.PageManualReviewRecommended);
+        Assert.True(card.OcrApplied);
+        Assert.Contains("page_contains_images", card.QualitySignals);
+    }
+
+    [Fact]
+    public void Source_resolve_enrichment_fills_partial_quality_metadata_from_memory()
+    {
+        var mem = new ToolMemory();
+        mem.LastSourcesUsed.Add(new ToolMemory.SourceRef
+        {
+            DocId = "doc-1",
+            DocPath = "Knowledge/manual.pdf",
+            PageStart = 4,
+            PageEnd = 5,
+            Label = "manual.pdf (p.4-5)",
+            SourceHash = "src-1",
+            DocLanguage = "en",
+            ProfileLanguage = "en",
+            Category = "Knowledge",
+            CategoryPath = "Knowledge/Procedures",
+            ExtractionSource = "pdf_text_plus_image_ocr",
+            DocumentQualityStatus = "ocr_applied_ok",
+            PageQualityStatus = "manual_review_low_text",
+            TextStatus = "low_text",
+            ExtractionConfidence = 0.44,
+            DocumentExtractionConfidence = 0.91,
+            PageExtractionConfidence = 0.44,
+            PageManualReviewRecommended = true,
+            ManualReviewRecommended = true,
+            OcrApplied = true,
+            QualitySignals = new() { "page_contains_images" }
+        });
+
+        const string payload = """
+        {
+          "requestedRef": "manual.pdf",
+          "source": {
+            "docId": "doc-1",
+            "docPath": "Knowledge/manual.pdf",
+            "pageStart": 4,
+            "pageEnd": 5,
+            "label": "manual.pdf",
+            "extractionQuality": {
+              "documentQualityStatus": "ocr_applied_ok"
+            }
+          }
+        }
+        """;
+
+        var sourcesJson = ToolAgentOrchestrator.BuildEnrichedSourceResolveSourcesPayloadForTests(
+            mem,
+            "manual.pdf",
+            "manual.pdf",
+            payload);
+        var card = Assert.Single(SourceCardParser.Parse(sourcesJson));
+
+        Assert.Equal("ocr_applied_ok", card.DocumentQualityStatus);
+        Assert.Equal("Knowledge", card.Category);
+        Assert.Equal("manual_review_low_text", card.PageQualityStatus);
+        Assert.Equal(0.91, card.DocumentExtractionConfidence);
+        Assert.Equal(0.44, card.PageExtractionConfidence);
+        Assert.True(card.PageManualReviewRecommended);
+        Assert.True(card.OcrApplied);
+        Assert.Contains("page_contains_images", card.QualitySignals);
+    }
+
+    [Fact]
+    public void Source_resolve_local_fallback_preserves_memory_metadata_when_backend_is_unavailable()
+    {
+        var mem = new ToolMemory();
+        var document = new ToolMemory.DocumentItem
+        {
+            DocId = "doc-1",
+            DocPath = "Knowledge/manual.pdf",
+            DocName = "manual.pdf",
+            Category = "Knowledge",
+            CategoryRef = "cat_042",
+            CategoryPath = "Knowledge/Procedures",
+            PdfRef = "PDF01"
+        };
+        mem.PdfMap["PDF01"] = document;
+        mem.LastListedDocuments.Add(document);
+        mem.LastSourcesUsed.Add(new ToolMemory.SourceRef
+        {
+            DocId = "doc-1",
+            DocPath = "Knowledge/manual.pdf",
+            PageStart = 4,
+            PageEnd = 5,
+            Label = "manual.pdf (p.4-5)",
+            SourceHash = "src-1",
+            DocLanguage = "en",
+            ProfileLanguage = "en",
+            Category = "Knowledge",
+            CategoryRef = "cat_042",
+            CategoryPath = "Knowledge/Procedures",
+            ChunkId = "chunk-1",
+            ExtractionSource = "pdf_text_plus_image_ocr",
+            DocumentQualityStatus = "ocr_applied_ok",
+            PageQualityStatus = "page_ok_with_images",
+            TextStatus = "ok",
+            QualityStatus = "page_ok_with_images",
+            ExtractionConfidence = 0.86,
+            DocumentExtractionConfidence = 0.91,
+            PageExtractionConfidence = 0.86,
+            DocumentManualReviewRecommended = false,
+            PageManualReviewRecommended = true,
+            ManualReviewRecommended = true,
+            OcrAttempted = true,
+            OcrApplied = true,
+            QualitySignals = new() { "page_contains_images" },
+            SelectionHintEvidenceRole = "supporting_context",
+            SelectionHintActionabilityScore = 21,
+            SelectionHintSupportScore = 84,
+            SelectionHintFragmentScore = 4,
+            SelectionHintNavigationScore = 0,
+            SelectionHintQualityPenalty = 1,
+            MatchedContentCards = new()
+            {
+                new ToolMemory.SourceContentCardRef
+                {
+                    Title = "Control before validation",
+                    PageStart = 4,
+                    PageEnd = 5,
+                    Kind = "procedure",
+                    Signals = new() { "structured_item" }
+                }
+            }
+        });
+
+        var sourcesJson = ToolAgentOrchestrator.BuildLocalSourceResolveFallbackPayloadForTests(mem, "PDF01");
+        var card = Assert.Single(SourceCardParser.Parse(sourcesJson));
+
+        Assert.Equal("doc-1", card.DocId);
+        Assert.Equal("Knowledge/manual.pdf", card.DocPath);
+        Assert.Equal(4, card.PageStart);
+        Assert.Equal(5, card.PageEnd);
+        Assert.Equal("src-1", card.SourceHash);
+        Assert.Equal("en", card.DocLanguage);
+        Assert.Equal("Knowledge", card.Category);
+        Assert.Equal("cat_042", card.CategoryRef);
+        Assert.Equal("Knowledge/Procedures", card.CategoryPath);
+        Assert.Equal("chunk-1", card.ChunkId);
+        Assert.Equal("pdf_text_plus_image_ocr", card.ExtractionSource);
+        Assert.Equal("ocr_applied_ok", card.DocumentQualityStatus);
+        Assert.Equal(0.91, card.DocumentExtractionConfidence);
+        Assert.Equal(0.86, card.PageExtractionConfidence);
+        Assert.True(card.ManualReviewRecommended);
+        Assert.False(card.DocumentManualReviewRecommended);
+        Assert.True(card.PageManualReviewRecommended);
+        Assert.True(card.OcrAttempted);
+        Assert.True(card.OcrApplied);
+        Assert.Contains("page_contains_images", card.QualitySignals);
+        Assert.Equal("Control before validation", Assert.Single(card.MatchedContentCards).Title);
+        Assert.Equal("supporting_context", card.SelectionHintEvidenceRole);
+        Assert.Equal(84, card.SelectionHintSupportScore);
+        Assert.Equal(1, card.SelectionHintQualityPenalty);
+    }
+
+    [Fact]
+    public void Source_resolve_local_fallback_preserves_document_inventory_category_ref_without_prior_rag_hit()
+    {
+        var mem = new ToolMemory();
+        var document = new ToolMemory.DocumentItem
+        {
+            DocId = "doc-1",
+            DocPath = "Knowledge/manual.pdf",
+            DocName = "manual.pdf",
+            Category = "Knowledge",
+            CategoryRef = "cat_042",
+            CategoryPath = "Knowledge/Procedures",
+            PdfRef = "PDF01"
+        };
+
+        mem.PdfMap["PDF01"] = document;
+        mem.LastListedDocuments.Add(document);
+
+        var sourcesJson = ToolAgentOrchestrator.BuildLocalSourceResolveFallbackPayloadForTests(mem, "PDF01");
+        var card = Assert.Single(SourceCardParser.Parse(sourcesJson));
+
+        Assert.Equal("cat_042", card.CategoryRef);
+        Assert.Equal("Knowledge", card.Category);
+        Assert.Equal("Knowledge/Procedures", card.CategoryPath);
+    }
+
+    [Fact]
+    public void Summary_sources_payload_preserves_enriched_anchor_metadata_for_source_cards()
+    {
+        const string payload = """
+        {
+          "summaryText": "Résumé du document.",
+          "docLanguage": "it",
+          "sourceHash": "summary-src-1",
+          "anchors": [
+            {
+              "docId": "doc-1",
+              "docPath": "Knowledge/manual.pdf",
+              "pageStart": 3,
+              "pageEnd": 4,
+              "label": "manual.pdf",
+              "chunkId": "chunk-1",
+              "sourceHash": "summary-src-1",
+              "docLanguage": "it",
+              "profileLanguage": "it",
+              "category": "Knowledge",
+              "categoryRef": "cat_042",
+              "categoryPath": "Knowledge/Procedures",
+              "extractionQuality": {
+                "extractionSource": "pdf_text_plus_image_ocr",
+                "documentQualityStatus": "ocr_applied_ok",
+                "pageQualityStatus": "page_ok_with_images",
+                "textStatus": "ok",
+                "documentExtractionConfidence": 0.91,
+                "pageExtractionConfidence": 0.86,
+                "pageManualReviewRecommended": true,
+                "ocrAttempted": true,
+                "ocrApplied": true,
+                "ocrRecommended": false,
+                "signals": ["text_extraction_ok", "page_contains_images"]
+              },
+              "matchedContentCards": [
+                {
+                  "title": "Control before validation",
+                  "pageStart": 3,
+                  "pageEnd": 4,
+                  "kind": "procedure",
+                  "signals": ["structured_item"]
+                }
+              ],
+              "selectionHints": {
+                "evidenceRole": "supporting_context",
+                "actionabilityScore": 33,
+                "supportScore": 88,
+                "fragmentScore": 5,
+                "navigationScore": 0,
+                "qualityPenalty": 1
+              }
+            }
+          ]
+        }
+        """;
+
+        var sourcesJson = ToolAgentOrchestrator.BuildSummarySourcesPayloadForTests("rag.summarize_live", payload);
+        var cards = SourceCardParser.Parse(sourcesJson);
+        var card = Assert.Single(cards);
+
+        Assert.Equal("doc-1", card.DocId);
+        Assert.Equal("summary-src-1", card.SourceHash);
+        Assert.Equal("it", card.DocLanguage);
+        Assert.Equal("it", card.ProfileLanguage);
+        Assert.Equal("Knowledge", card.Category);
+        Assert.Equal("cat_042", card.CategoryRef);
+        Assert.Equal("Knowledge/Procedures", card.CategoryPath);
+        Assert.Equal("chunk-1", card.ChunkId);
+        Assert.Equal("pdf_text_plus_image_ocr", card.ExtractionSource);
+        Assert.Equal("ocr_applied_ok", card.DocumentQualityStatus);
+        Assert.Equal("page_ok_with_images", card.PageQualityStatus);
+        Assert.Equal(0.91, card.DocumentExtractionConfidence);
+        Assert.Equal(0.86, card.PageExtractionConfidence);
+        Assert.True(card.ManualReviewRecommended);
+        Assert.True(card.PageManualReviewRecommended);
+        Assert.True(card.OcrAttempted);
+        Assert.True(card.OcrApplied);
+        Assert.Contains("page_contains_images", card.QualitySignals);
+        Assert.Equal("Control before validation", Assert.Single(card.MatchedContentCards).Title);
+        Assert.Equal("supporting_context", card.SelectionHintEvidenceRole);
+        Assert.Equal(88, card.SelectionHintSupportScore);
+        Assert.Equal(1, card.SelectionHintQualityPenalty);
+    }
+
+    [Fact]
+    public void Summary_sources_payload_preserves_root_metadata_when_summary_has_no_anchors()
+    {
+        const string payload = """
+        {
+          "summaryText": "Stored summary.",
+          "docId": "doc-1",
+          "docPath": "Knowledge/manual.pdf",
+          "docName": "manual.pdf",
+          "docLanguage": "nl-BE",
+          "profileLanguage": "nl-BE",
+          "sourceHash": "summary-src-1",
+          "category": "Knowledge",
+          "categoryRef": "cat_042",
+          "categoryPath": "Knowledge/Procedures",
+          "extractionQuality": {
+            "extraction_source": "pdf_text_plus_image_ocr",
+            "document_quality_status": "ocr_applied_ok",
+            "page_quality_status": "page_ok_with_images",
+            "page_extraction_confidence": 0.91,
+            "ocr_applied": true,
+            "signals": ["page_contains_images"]
+          },
+          "matched_content_cards": [
+            {
+              "title": "Control before validation",
+              "page_start": 3,
+              "page_end": 4,
+              "kind": "section",
+              "signals": ["structured_item"]
+            }
+          ],
+          "selection_hints": {
+            "evidence_role": "supporting_context",
+            "support_score": 88
+          }
+        }
+        """;
+
+        var sourcesJson = ToolAgentOrchestrator.BuildSummarySourcesPayloadForTests("summary.get", payload);
+        var card = Assert.Single(SourceCardParser.Parse(sourcesJson));
+
+        Assert.Equal("doc-1", card.DocId);
+        Assert.Equal("summary-src-1", card.SourceHash);
+        Assert.Equal("nl-BE", card.DocLanguage);
+        Assert.Equal("Knowledge", card.Category);
+        Assert.Equal("cat_042", card.CategoryRef);
+        Assert.Equal("Knowledge/Procedures", card.CategoryPath);
+        Assert.Equal("pdf_text_plus_image_ocr", card.ExtractionSource);
+        Assert.Equal("ocr_applied_ok", card.DocumentQualityStatus);
+        Assert.True(card.OcrApplied);
+        Assert.Equal("Control before validation", Assert.Single(card.MatchedContentCards).Title);
+        Assert.Equal("supporting_context", card.SelectionHintEvidenceRole);
+        Assert.Equal(88, card.SelectionHintSupportScore);
+    }
+
+    [Fact]
+    public void Summary_sources_payload_prefers_nested_enriched_source_when_root_is_minimal()
+    {
+        const string payload = """
+        {
+          "summaryText": "Stored summary.",
+          "docId": "doc-1",
+          "docPath": "Knowledge/manual.pdf",
+          "docName": "manual.pdf",
+          "docLanguage": "fr",
+          "sourceHash": "root-source",
+          "source": {
+            "docId": "doc-1",
+            "docPath": "Knowledge/manual.pdf",
+            "docName": "manual.pdf",
+            "pageStart": 2,
+            "pageEnd": 9,
+            "label": "manual.pdf",
+            "docLanguage": "de",
+            "profileLanguage": "de",
+            "sourceHash": "nested-source",
+            "category": "Knowledge",
+            "categoryRef": "cat_042",
+            "categoryPath": "Knowledge/Manuals",
+            "chunkId": "profile-1",
+            "extractionQuality": {
+              "extractionSource": "pdf_text_plus_image_ocr",
+              "documentQualityStatus": "ocr_applied_ok",
+              "pageQualityStatus": "page_ok_with_images",
+              "ocrApplied": true,
+              "signals": ["page_contains_images"]
+            },
+            "matchedContentCards": [
+              { "title": "Document card", "pageStart": 2, "pageEnd": 3, "kind": "section" }
+            ],
+            "selectionHints": {
+              "evidenceRole": "supporting_context",
+              "supportScore": 77
+            }
+          }
+        }
+        """;
+
+        var sourcesJson = ToolAgentOrchestrator.BuildSummarySourcesPayloadForTests("summary.get", payload);
+        var card = Assert.Single(SourceCardParser.Parse(sourcesJson));
+        using var envelope = JsonDocument.Parse(sourcesJson);
+
+        Assert.Equal("fr", envelope.RootElement.GetProperty("docLanguage").GetString());
+        Assert.Equal("nested-source", card.SourceHash);
+        Assert.Equal("de", card.DocLanguage);
+        Assert.Equal("de", card.ProfileLanguage);
+        Assert.Equal("Knowledge", card.Category);
+        Assert.Equal("cat_042", card.CategoryRef);
+        Assert.Equal("Knowledge/Manuals", card.CategoryPath);
+        Assert.Equal("profile-1", card.ChunkId);
+        Assert.Equal(2, card.PageStart);
+        Assert.Equal(9, card.PageEnd);
+        Assert.Equal("pdf_text_plus_image_ocr", card.ExtractionSource);
+        Assert.True(card.OcrApplied);
+        Assert.Equal("Document card", Assert.Single(card.MatchedContentCards).Title);
+        Assert.Equal("supporting_context", card.SelectionHintEvidenceRole);
+        Assert.Equal(77, card.SelectionHintSupportScore);
+    }
+
+    [Fact]
+    public void Summary_sources_payload_builds_card_from_nested_source_without_root_doc_path()
+    {
+        const string payload = """
+        {
+          "summaryText": "Stored summary.",
+          "docLanguage": "it",
+          "source": {
+            "docId": "doc-2",
+            "docPath": "Knowledge/source-only.pdf",
+            "docName": "source-only.pdf",
+            "pageStart": 4,
+            "pageEnd": 6,
+            "sourceHash": "source-only-hash",
+            "docLanguage": "it",
+            "profileLanguage": "it",
+            "category": "Knowledge",
+            "categoryPath": "Knowledge/SourceOnly",
+            "matchedContentCards": [
+              { "title": "Only nested card", "kind": "section" }
+            ]
+          }
+        }
+        """;
+
+        var sourcesJson = ToolAgentOrchestrator.BuildSummarySourcesPayloadForTests("summary.get", payload);
+        var card = Assert.Single(SourceCardParser.Parse(sourcesJson));
+
+        Assert.Equal("doc-2", card.DocId);
+        Assert.Equal("Knowledge/source-only.pdf", card.DocPath);
+        Assert.Equal("source-only-hash", card.SourceHash);
+        Assert.Equal("it", card.DocLanguage);
+        Assert.Equal("Knowledge", card.Category);
+        Assert.Equal("Knowledge/SourceOnly", card.CategoryPath);
+        Assert.Equal(4, card.PageStart);
+        Assert.Equal(6, card.PageEnd);
+        Assert.Equal("Only nested card", Assert.Single(card.MatchedContentCards).Title);
+    }
+
+    [Fact]
+    public void Summary_search_sources_payload_preserves_nested_enriched_source_metadata()
+    {
+        const string payload = """
+        {
+          "items": [
+            {
+              "summaryText": "Stored searchable summary.",
+              "docId": "doc-1",
+              "docPath": "Knowledge/root.pdf",
+              "docName": "root.pdf",
+              "docLanguage": "fr",
+              "sourceHash": "root-hash",
+              "source": {
+                "docId": "doc-1",
+                "docPath": "Knowledge/root.pdf",
+                "docName": "root.pdf",
+                "pageStart": 5,
+                "pageEnd": 7,
+                "label": "root.pdf",
+                "sourceHash": "nested-hash",
+                "docLanguage": "en",
+                "profileLanguage": "en",
+                "category": "Knowledge",
+                "categoryRef": "cat_101",
+                "categoryPath": "Knowledge/Neutral",
+                "chunkId": "profile-chunk-1",
+                "extractionQuality": {
+                  "extractionSource": "pdf_text_plus_image_ocr",
+                  "documentQualityStatus": "ocr_applied_ok",
+                  "pageQualityStatus": "page_ok_with_images",
+                  "textStatus": "ok",
+                  "ocrApplied": true,
+                  "signals": ["page_contains_images"],
+                  "diagnosticSummary": {
+                    "nativeTextStatus": "low_text",
+                    "ocrAttemptedPageCount": 3
+                  }
+                },
+                "matchedContentCards": [
+                  {
+                    "title": "Neutral source card",
+                    "kind": "section",
+                    "pageStart": 5,
+                    "evidence": { "schemaVersion": "debug_card_v1", "confidence": 0.81 }
+                  }
+                ],
+                "selectionHints": {
+                  "evidenceRole": "supporting_context",
+                  "supportScore": 66,
+                  "qualityPenalty": 2
+                }
+              }
+            }
+          ],
+          "limit": 20,
+          "offset": 0
+        }
+        """;
+
+        var sourcesJson = ToolAgentOrchestrator.BuildSummarySearchSourcesPayloadForTests(payload);
+        var card = Assert.Single(SourceCardParser.Parse(sourcesJson));
+
+        Assert.Equal("doc-1", card.DocId);
+        Assert.Equal("Knowledge/root.pdf", card.DocPath);
+        Assert.Equal(5, card.PageStart);
+        Assert.Equal(7, card.PageEnd);
+        Assert.Equal("nested-hash", card.SourceHash);
+        Assert.Equal("en", card.DocLanguage);
+        Assert.Equal("en", card.ProfileLanguage);
+        Assert.Equal("Knowledge", card.Category);
+        Assert.Equal("cat_101", card.CategoryRef);
+        Assert.Equal("Knowledge/Neutral", card.CategoryPath);
+        Assert.Equal("profile-chunk-1", card.ChunkId);
+        Assert.Equal("pdf_text_plus_image_ocr", card.ExtractionSource);
+        Assert.Equal("ocr_applied_ok", card.DocumentQualityStatus);
+        Assert.True(card.OcrApplied);
+        Assert.Equal("low_text", card.ExtractionDiagnosticSummary!.NativeTextStatus);
+        Assert.Equal(3, card.ExtractionDiagnosticSummary.OcrAttemptedPageCount);
+        Assert.Contains("page_contains_images", card.QualitySignals);
+        Assert.Equal("Neutral source card", Assert.Single(card.MatchedContentCards).Title);
+        Assert.Equal("supporting_context", card.SelectionHintEvidenceRole);
+        Assert.Equal(66, card.SelectionHintSupportScore);
+        Assert.Equal(2, card.SelectionHintQualityPenalty);
+    }
+
+    [Fact]
+    public void Summary_search_writer_compaction_keeps_source_metadata_and_truncates_summary_text()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            items = new[]
+            {
+                new
+                {
+                    summaryText = new string('a', 2500),
+                    docId = "doc-1",
+                    docPath = "Knowledge/root.pdf",
+                    docName = "root.pdf",
+                    level = "medium",
+                    docLanguage = "fr",
+                    sourceHash = "root-hash",
+                    source = new
+                    {
+                        docId = "doc-1",
+                        docPath = "Knowledge/root.pdf",
+                        docName = "root.pdf",
+                        pageStart = 2,
+                        pageEnd = 3,
+                        profileLanguage = "fr",
+                        category = "Knowledge",
+                        categoryPath = "Knowledge/Neutral",
+                        matchedContentCards = new[]
+                        {
+                            new { title = "Compact card", kind = "section" }
+                        },
+                        selectionHints = new { evidenceRole = "supporting_context", supportScore = 55 }
+                    }
+                }
+            }
+        });
+
+        var serialized = ToolAgentOrchestrator.SerializeWriterRagResultsForTests(
+            "summary.search",
+            payload,
+            "Find stored summary evidence.");
+
+        using var doc = JsonDocument.Parse(serialized);
+        var result = doc.RootElement[0].GetProperty("result");
+        var item = Assert.Single(result.GetProperty("items").EnumerateArray());
+
+        Assert.Equal("doc-1", item.GetProperty("docId").GetString());
+        Assert.Equal("Knowledge/root.pdf", item.GetProperty("docPath").GetString());
+        Assert.Equal("fr", item.GetProperty("docLanguage").GetString());
+        Assert.Equal("Knowledge", item.GetProperty("category").GetString());
+        Assert.Equal("Knowledge/Neutral", item.GetProperty("categoryPath").GetString());
+        Assert.Equal("supporting_context", item.GetProperty("selectionHints").GetProperty("evidenceRole").GetString());
+        Assert.Equal("Compact card", item.GetProperty("matchedContentCards")[0].GetProperty("title").GetString());
+        Assert.True(item.GetProperty("summaryText").GetString()!.Length <= 1603);
+        Assert.EndsWith("...", item.GetProperty("summaryText").GetString());
+    }
+
+    [Fact]
+    public void Live_summary_fallback_source_payload_preserves_document_inventory_metadata()
+    {
+        var sourcesJson = ToolAgentOrchestrator.BuildLiveSummaryFallbackSourcePayloadForTests(
+            docId: "doc-live",
+            docPath: "Knowledge/live.pdf",
+            docName: "live.pdf",
+            categoryPath: "Knowledge/Live",
+            pages: 12,
+            categoryRef: "cat_077",
+            sourceHash: "live-source-hash",
+            docLanguage: "nl-BE",
+            profileLanguage: "nl-BE",
+            category: "Knowledge");
+
+        var card = Assert.Single(SourceCardParser.Parse(sourcesJson));
+
+        Assert.Equal("doc-live", card.DocId);
+        Assert.Equal("Knowledge/live.pdf", card.DocPath);
+        Assert.Equal(1, card.PageStart);
+        Assert.Equal(12, card.PageEnd);
+        Assert.Equal("Knowledge", card.Category);
+        Assert.Equal("cat_077", card.CategoryRef);
+        Assert.Equal("Knowledge/Live", card.CategoryPath);
+        Assert.Equal("live-source-hash", card.SourceHash);
+        Assert.Equal("nl-BE", card.DocLanguage);
+        Assert.Equal("nl-BE", card.ProfileLanguage);
+    }
+
+    [Theory]
+    [InlineData("documentLanguage")]
+    [InlineData("document_language")]
+    [InlineData("sourceLanguage")]
+    [InlineData("source_language")]
+    public void Source_card_parser_accepts_document_language_aliases(string propertyName)
+    {
+        var json = $$"""
+        {
+          "sources": [
+            {
+              "docPath": "Knowledge/alias.pdf",
+              "docName": "alias.pdf",
+              "{{propertyName}}": "nl-BE",
+              "profileLanguage": "nl-BE"
+            }
+          ]
+        }
+        """;
+
+        var card = Assert.Single(SourceCardParser.Parse(json));
+
+        Assert.Equal("nl-BE", card.DocLanguage);
+        Assert.Equal("nl-BE", card.ProfileLanguage);
+    }
+
+    [Fact]
+    public void Summary_search_writer_compaction_accepts_document_language_aliases()
+    {
+        const string payload = """
+        {
+          "items": [
+            {
+              "summaryText": "Stored summary.",
+              "docId": "doc-alias",
+              "docPath": "Knowledge/alias-summary.pdf",
+              "docName": "alias-summary.pdf",
+              "documentLanguage": "nl-BE",
+              "source": {
+                "docPath": "Knowledge/alias-summary.pdf",
+                "sourceLanguage": "de",
+                "profileLanguage": "de"
+              }
+            }
+          ]
+        }
+        """;
+
+        var serialized = ToolAgentOrchestrator.SerializeWriterRagResultsForTests(
+            "summary.search",
+            payload,
+            "Find stored summary evidence.");
+
+        using var doc = JsonDocument.Parse(serialized);
+        var item = Assert.Single(doc.RootElement[0].GetProperty("result").GetProperty("items").EnumerateArray());
+        Assert.Equal("de", item.GetProperty("docLanguage").GetString());
+
+        var sourcesJson = ToolAgentOrchestrator.BuildSummarySearchSourcesPayloadForTests(payload);
+        var card = Assert.Single(SourceCardParser.Parse(sourcesJson));
+        Assert.Equal("de", card.DocLanguage);
+    }
+
+    [Fact]
+    public async Task Admin_summary_generation_reports_not_queued_when_backoffice_is_unavailable()
+    {
+        var generateCalls = 0;
+        var existsCalls = 0;
+        var handler = new StubHttpHandler(req =>
+        {
+            var path = req.RequestUri!.AbsolutePath;
+            if (string.Equals(path, "/admin/summaries/generate", StringComparison.OrdinalIgnoreCase))
+            {
+                generateCalls++;
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        """
+                        {
+                          "jobId": null,
+                          "status": "backoffice_unavailable",
+                          "queued": false,
+                          "error": "backoffice_unavailable",
+                          "executionMode": "client_admin",
+                          "docId": "11111111-1111-1111-1111-111111111111",
+                          "level": "medium"
+                        }
+                        """,
+                        Encoding.UTF8,
+                        "application/json")
+                };
+            }
+
+            if (path.Contains("/summaries/", StringComparison.OrdinalIgnoreCase)
+                && path.EndsWith("/exists", StringComparison.OrdinalIgnoreCase))
+            {
+                existsCalls++;
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        var mem = new ToolMemory();
+        mem.PdfMap["manual.pdf"] = new ToolMemory.DocumentItem
+        {
+            DocId = "11111111-1111-1111-1111-111111111111",
+            DocPath = "Knowledge/manual.pdf",
+            DocName = "manual.pdf"
+        };
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem);
+
+        var outcome = await sut.TryQueueAdminSummaryGenerationForTests("manual.pdf", CancellationToken.None);
+
+        Assert.False(outcome.Queued);
+        Assert.Null(outcome.JobId);
+        Assert.Equal("backoffice_unavailable", outcome.Error);
+        Assert.Equal(1, generateCalls);
+        Assert.Equal(0, existsCalls);
+    }
+
+    [Fact]
+    public async Task Sources_resolve_translates_local_pdf_reference_to_backend_doc_id()
+    {
+        string? postedBody = null;
+        var handler = new StubHttpHandler(req =>
+        {
+            if (string.Equals(req.RequestUri!.AbsolutePath, "/sources/resolve", StringComparison.OrdinalIgnoreCase))
+            {
+                postedBody = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        """
+                        {
+                          "requestedRef": "PDF01",
+                          "source": {
+                            "docId": "22222222-2222-2222-2222-222222222222",
+                            "docPath": "Knowledge/manual.pdf",
+                            "docName": "manual.pdf",
+                            "pageStart": 1,
+                            "pageEnd": 4,
+                            "label": "manual.pdf",
+                            "sourceHash": "hash-222"
+                          }
+                        }
+                        """,
+                        Encoding.UTF8,
+                        "application/json")
+                };
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        var mem = new ToolMemory();
+        mem.PdfMap["PDF01"] = new ToolMemory.DocumentItem
+        {
+            DocId = "22222222-2222-2222-2222-222222222222",
+            DocPath = "Knowledge/manual.pdf",
+            DocName = "manual.pdf",
+            PdfRef = "PDF01"
+        };
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem);
+
+        var resolved = await sut.ExecuteSourcesResolveForTests("PDF01", CancellationToken.None);
+
+        Assert.NotNull(postedBody);
+        using var posted = JsonDocument.Parse(postedBody!);
+        Assert.Equal("22222222-2222-2222-2222-222222222222", posted.RootElement.GetProperty("ref").GetString());
+        Assert.Equal("PDF01", posted.RootElement.GetProperty("pdfRef").GetString());
+        Assert.Equal("Knowledge/manual.pdf", resolved.GetProperty("source").GetProperty("docPath").GetString());
+    }
+
+    [Theory]
+    [InlineData("fr", "resume objectif sections principales")]
+    [InlineData("en", "summary purpose main sections")]
+    [InlineData("es", "resumen objetivo secciones principales")]
+    [InlineData("pt", "resumo objetivo secoes principais")]
+    [InlineData("de", "zusammenfassung zweck hauptabschnitte")]
+    [InlineData("it", "riassunto scopo sezioni principali")]
+    [InlineData("nl-BE", "samenvatting doel hoofdsecties")]
+    [InlineData("pl", "streszczenie cel glowne sekcje")]
+    public void Live_summary_retrieval_query_uses_document_language_templates(string language, string expectedCue)
+    {
+        var query = ToolAgentOrchestrator.BuildSummaryRetrievalQueryForTests(
+            "Manual",
+            "summary",
+            language,
+            "medium");
+
+        Assert.Contains("Manual", query);
+        Assert.Contains(expectedCue, query);
+        if (!language.StartsWith("en", StringComparison.OrdinalIgnoreCase))
+        {
+            Assert.DoesNotContain("medium useful", query, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("short concise", query, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("detailed complete", query, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("summary purpose main sections", query, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Theory]
+    [InlineData("und")]
+    [InlineData("")]
+    [InlineData("zz")]
+    public void Live_summary_retrieval_query_uses_document_and_metadata_only_when_document_language_is_unknown_or_unsupported(string language)
+    {
+        var query = ToolAgentOrchestrator.BuildSummaryRetrievalQueryForTests(
+            "Instrukcja",
+            "summary",
+            language,
+            "medium");
+
+        Assert.Contains("Instrukcja", query);
+        Assert.DoesNotContain("summary", query, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("resume", query, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("resumen", query, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("zusammenfassung", query, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("medium useful", query, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("procedures", query, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("settings", query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Live_summary_retrieval_query_uses_ingestion_cards_for_non_ui_document_language()
+    {
+        var query = ToolAgentOrchestrator.BuildSummaryRetrievalQueryWithSourceCardsForTests(
+            "Handleiding",
+            "summary",
+            "nl-BE",
+            "medium",
+            "Kennisbank/Onderhoud",
+            "Onderhoud en veiligheidscontroles",
+            "Drukventiel inspectie");
+
+        Assert.Contains("Handleiding", query);
+        Assert.Contains("Kennisbank/Onderhoud", query);
+        Assert.Contains("Onderhoud en veiligheidscontroles", query);
+        Assert.Contains("Drukventiel inspectie", query);
+        Assert.DoesNotContain("procedures", query, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("settings", query, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("warnings", query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Live_summary_retrieval_query_uses_typed_content_card_evidence_terms()
+    {
+        using var evidence = JsonDocument.Parse(
+            """
+            {
+              "schemaVersion": "content_card_evidence_v1",
+              "scaleBasis": { "count": 4, "label": "elementy" },
+              "quantityFacts": [
+                { "value": 400, "unit": "g", "label": "material bazowy", "sourceText": "400 g material bazowy" },
+                { "value": 5, "unit": "cl", "label": "spoiwo", "sourceText": "5 cl spoiwo" }
+              ],
+              "facts": [
+                { "kind": "parameter", "label": "cisnienie", "value": "2", "unit": "bar", "sourceText": "Ustawienie cisnienia 2 bar" }
+              ],
+              "nonScalableReasons": [ "technical_parameter_context" ]
+            }
+            """);
+        var sourceMetadata = new ToolMemory.SourceRef
+        {
+            DocPath = "Docs/instrukcja.pdf",
+            CategoryPath = "Dokumenty/Techniczne",
+            MatchedContentCards = new()
+            {
+                new ToolMemory.SourceContentCardRef
+                {
+                    Title = "Modul kompaktowy",
+                    Signals = new() { "quantity_list" },
+                    Evidence = evidence.RootElement.Clone()
+                }
+            }
+        };
+
+        var orchestratorType = typeof(ToolAgentOrchestrator);
+        var resolvedDocRefType = orchestratorType.GetNestedType("ResolvedDocRef", BindingFlags.NonPublic);
+        Assert.NotNull(resolvedDocRefType);
+        var docRef = Activator.CreateInstance(
+            resolvedDocRefType!,
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null,
+            args: new object?[] { "doc-1", "Docs/instrukcja.pdf", "Instrukcja", null, "Dokumenty/Techniczne", null, null, null, "pl", "pl" },
+            culture: null);
+        Assert.NotNull(docRef);
+        var method = orchestratorType.GetMethod("BuildSummaryRetrievalQuery", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var query = Assert.IsType<string>(method!.Invoke(null, new object?[] { docRef, "summary", "pl", "medium", sourceMetadata }));
+
+        Assert.Contains("streszczenie cel glowne sekcje", query);
+        Assert.Contains("Modul kompaktowy", query);
+        Assert.Contains("4 elementy", query);
+        Assert.Contains("400 g material bazowy", query);
+        Assert.Contains("5 cl spoiwo", query);
+        Assert.Contains("Ustawienie cisnienia 2 bar", query);
+        Assert.Contains("technical_parameter_context", query);
+        Assert.DoesNotContain("summary purpose main sections", query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Writer_rag_results_filter_generic_frontmatter_before_prompting()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/cover.pdf",
+                    docName = "cover.pdf",
+                    pageStart = 1,
+                    pageEnd = 1,
+                    excerpt = "120 QUICK PRACTICAL GUIDES EASY ACCESSIBLE TIPS EDITION SIMPLE BUDGET WORKFLOW. Cuisiner avec des ingredients abordables.",
+                    fullText = "120 QUICK PRACTICAL GUIDES EASY ACCESSIBLE TIPS EDITION SIMPLE BUDGET WORKFLOW. Cuisiner avec des ingredients abordables.",
+                    score = 1.0
+                },
+                new
+                {
+                    docPath = "Knowledge/manual.pdf",
+                    docName = "manual.pdf",
+                    pageStart = 8,
+                    pageEnd = 8,
+                    excerpt = "Procedure rapide. Ingredients: 2 elements. Preparation: verifier les elements, assembler, servir.",
+                    fullText = "Procedure rapide. Ingredients: 2 elements. Preparation: verifier les elements, assembler, servir.",
+                    score = 0.9
+                }
+            }
+        });
+
+        var serialized = ToolAgentOrchestrator.SerializeWriterRagResultsForTests(
+            "rag.multi_search",
+            payload,
+            "Je veux une procedure rapide issue des documents avec ingredients et preparation.");
+
+        using var doc = JsonDocument.Parse(serialized);
+        var raw = doc.RootElement.GetRawText();
+        var hits = doc.RootElement[0].GetProperty("result").GetProperty("hits").EnumerateArray().ToList();
+
+        Assert.Single(hits);
+        Assert.Contains("manual.pdf", raw);
+        Assert.DoesNotContain("cover.pdf", raw, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("QUICK PRACTICAL", raw, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -118,7 +2587,7 @@ public sealed class RagContextBudgetRegressionTests
             Result = doc.RootElement.Clone()
         });
 
-        Assert.True(ToolAgentOrchestrator.ShouldUseSourceBackedExtractiveAnswerForTests("dessert au chocolat facile", toolResults));
+        Assert.False(ToolAgentOrchestrator.ShouldUseSourceBackedExtractiveAnswerForTests("dessert au chocolat facile", toolResults));
 
         var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(toolResults, "dessert au chocolat facile", "fr");
 
@@ -271,7 +2740,7 @@ public sealed class RagContextBudgetRegressionTests
             "fr");
 
         var answerLines = answer.Split('\n');
-        var ingredientsLine = answerLines.First(line => line.Contains("Ingredients / elements visibles", StringComparison.OrdinalIgnoreCase));
+        var ingredientsLine = answerLines.First(line => line.Contains("Elements / quantites visibles", StringComparison.OrdinalIgnoreCase));
         var stepsLine = answerLines.First(line => line.Contains("Etapes visibles", StringComparison.OrdinalIgnoreCase));
 
         Assert.Contains("2 concombres", ingredientsLine);
@@ -279,6 +2748,170 @@ public sealed class RagContextBudgetRegressionTests
         Assert.DoesNotContain("1saladier", ingredientsLine, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Mélanger la sauce", stepsLine);
         Assert.Contains("Hacher finement", stepsLine);
+    }
+
+    [Fact]
+    public void Exact_item_card_answer_uses_generic_card_evidence_for_non_procedural_documents()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/audit-sla.pdf",
+                    docName = "audit-sla.pdf",
+                    pageStart = 8,
+                    pageEnd = 8,
+                    excerpt = "Audit SLA",
+                    score = 1.0,
+                    matchedContentCards = new[]
+                    {
+                        new
+                        {
+                            title = "Audit SLA",
+                            kind = "unit_exact_v1",
+                            evidence = new
+                            {
+                                schemaVersion = "content_card_evidence_v1",
+                                facts = new[]
+                                {
+                                    new { kind = "owner", label = "Owner", sourceText = "Owner internal audit team" },
+                                    new { kind = "cadence", label = "Cadence", sourceText = "Quarterly review cadence" }
+                                },
+                                confidence = 0.91
+                            }
+                        }
+                    },
+                    selectionHints = new
+                    {
+                        evidenceRole = "actionable_item",
+                        actionabilityScore = 10,
+                        supportScore = 10,
+                        navigationScore = 0,
+                        fragmentScore = 0
+                    }
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(
+            toolResults,
+            "Tu peux me faire une fiche claire pour \"Audit SLA\" : elements et source ?",
+            "fr");
+
+        Assert.Contains("Informations visibles", answer);
+        Assert.Contains("Owner internal audit team", answer);
+        Assert.Contains("Quarterly review cadence", answer);
+        Assert.DoesNotContain("Elements / quantites visibles", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Etapes visibles", answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Exact_item_card_answer_does_not_promote_signal_only_cards_to_typed_rubrics()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/generic-card.pdf",
+                    docName = "generic-card.pdf",
+                    pageStart = 6,
+                    pageEnd = 6,
+                    excerpt = "Controle generique. Elements : 2 modules, 1 registre. Etapes : 1. verifier le module. 2. consigner le resultat.",
+                    fullText = "Controle generique. Elements : 2 modules, 1 registre. Etapes : 1. verifier le module. 2. consigner le resultat.",
+                    score = 1.0,
+                    matchedContentCards = new[]
+                    {
+                        new
+                        {
+                            title = "Controle generique",
+                            kind = "unit_exact_v1",
+                            signals = new[] { "structured_item", "quantity_list" }
+                        }
+                    }
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(
+            toolResults,
+            "Tu peux me faire une fiche claire pour \"Controle generique\" : elements, etapes et source ?",
+            "fr");
+
+        Assert.Contains("Informations visibles", answer);
+        Assert.DoesNotContain("Elements / quantites visibles", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Etapes visibles", answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Source_backed_extract_answer_preserves_card_evidence_when_excerpt_is_already_long()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/sla.pdf",
+                    docName = "sla.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = "Le controle SLA est documente dans le registre operationnel avec un responsable defini et une revue periodique tracee.",
+                    score = 0.91,
+                    matchedContentCards = new[]
+                    {
+                        new
+                        {
+                            title = "Controle SLA",
+                            kind = "unit_exact_v1",
+                            evidence = new
+                            {
+                                schemaVersion = "content_card_evidence_v1",
+                                facts = new[]
+                                {
+                                    new { kind = "owner", label = "Owner", sourceText = "Escalation owner: audit lead" }
+                                },
+                                confidence = 0.88
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(
+            toolResults,
+            "Que disent les sources sur le controle SLA ?",
+            "fr");
+
+        Assert.Contains("Escalation owner: audit lead", answer);
     }
 
     [Fact]
@@ -629,7 +3262,7 @@ public sealed class RagContextBudgetRegressionTests
 
         Assert.Contains("Source principale : top30.pdf p.28", answer);
         Assert.NotEmpty(sourceLabels);
-        Assert.Equal("top30.pdf (p.28-29)", sourceLabels[0]);
+        Assert.Equal("top30.pdf", sourceLabels[0]);
     }
 
     [Fact]
@@ -1746,7 +4379,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.Contains("30 feuilles d'estragon", answer);
         Assert.Contains("6 cl de vin blanc", answer);
         Assert.Contains("170 g de beurre", answer);
-        Assert.DoesNotContain("15 min", answer.Split('\n').First(line => line.Contains("Ingredients / elements visibles", StringComparison.OrdinalIgnoreCase)));
+        Assert.DoesNotContain("15 min", answer.Split('\n').First(line => line.Contains("Elements / quantites visibles", StringComparison.OrdinalIgnoreCase)));
         Assert.DoesNotContain("2 cl d'huile", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Maizena", answer, StringComparison.OrdinalIgnoreCase);
     }
@@ -1823,7 +4456,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             Result = doc.RootElement.Clone()
         });
 
-        Assert.True(ToolAgentOrchestrator.ShouldUseSourceBackedExtractiveAnswerForTests("Je vais faire une entrecôte, quelle sauce irait bien avec ?", toolResults));
+        Assert.False(ToolAgentOrchestrator.ShouldUseSourceBackedExtractiveAnswerForTests("Je vais faire une entrecôte, quelle sauce irait bien avec ?", toolResults));
         Assert.True(ToolAgentOrchestrator.LooksLikeSourceBackedActionRequestForTests("Je vais faire une entrecôte, quelle sauce irait bien avec ?"));
         Assert.True(ToolAgentOrchestrator.LooksLikeSourceBackedActionRequestForTests("Je veux un dessert au chocolat facile, tu proposes quoi ?"));
         Assert.True(ToolAgentOrchestrator.LooksLikeSourceBackedActionRequestForTests("J'ai du cabillaud, tu as une recette ?"));
@@ -1888,10 +4521,60 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
 
         var answer = ToolAgentOrchestrator.BuildSourceBackedPlanningAnswerForTests(toolResults, "fr");
 
-        Assert.Contains("Jour 1", answer);
+        Assert.Contains("Option 1", answer);
+        Assert.DoesNotContain("Jour 1", answer);
         Assert.Contains("FILET DE CABILLAUD", answer);
-        Assert.Contains("CHILI CON CARNE", answer);
+        Assert.True(answer.Contains("CHILI CON CARNE", StringComparison.Ordinal), answer);
         Assert.Contains("documents disponibles", answer);
+    }
+
+    [Fact]
+    public void Weekly_planning_with_partial_evidence_uses_options_and_clearly_marks_partial_coverage()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/operations.pdf",
+                    docName = "operations.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = "Procedure controle journalier. Elements: verifier le journal, noter les anomalies.",
+                    contextualSnippet = "Matched profile title: Controle journalier\nDocument: operations.pdf\nExcerpt:\nProcedure controle journalier. Elements: verifier le journal, noter les anomalies.",
+                    score = 1.0
+                },
+                new
+                {
+                    docPath = "Knowledge/maintenance.pdf",
+                    docName = "maintenance.pdf",
+                    pageStart = 8,
+                    pageEnd = 8,
+                    excerpt = "Procedure verification hebdomadaire. Elements: inspecter les points critiques.",
+                    contextualSnippet = "Matched profile title: Verification hebdomadaire\nDocument: maintenance.pdf\nExcerpt:\nProcedure verification hebdomadaire. Elements: inspecter les points critiques.",
+                    score = 0.99
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedPlanningAnswerForTests(
+            toolResults,
+            "fr",
+            "Peux-tu me faire un plan pour la semaine avec les documents ?");
+
+        Assert.Contains("plan partiel", answer);
+        Assert.Contains("Option 1", answer);
+        Assert.DoesNotContain("Jour 1", answer);
+        Assert.DoesNotContain("moins de sept", answer, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -1899,7 +4582,9 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
     {
         Assert.True(ToolAgentOrchestrator.LooksLikeSourceBackedPlanningRequestForTests(
             "Je ne sais pas quoi faire pour les repas de cette semaine, tu peux m'aider ?"));
-        Assert.True(ToolAgentOrchestrator.LooksLikeSourceBackedPlanningRequestForTests(
+        Assert.False(ToolAgentOrchestrator.LooksLikeSourceBackedPlanningRequestForTests(
+            "Tu peux me faire une idee de batch cooking avec cuisson parallele ?"));
+        Assert.True(ToolAgentOrchestrator.LooksLikeSourceBackedOptionRequestForTests(
             "Tu peux me faire une idee de batch cooking avec cuisson parallele ?"));
 
         Assert.False(ToolAgentOrchestrator.LooksLikeSourceBackedPlanningRequestForTests(
@@ -1939,8 +4624,615 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             "fr");
 
         Assert.False(string.IsNullOrWhiteSpace(answer));
-        Assert.Contains("documents disponibles", answer);
+        Assert.Contains("passages voisins", answer);
         Assert.Contains("week-end", answer);
+    }
+
+    [Fact]
+    public void One_off_menu_requests_render_source_backed_options_not_weekly_days()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Cuisine/demo.pdf",
+                    docName = "demo.pdf",
+                    pageStart = 12,
+                    pageEnd = 12,
+                    excerpt = "SALADE DE LEGUMINEUSES Pour 4 personnes Ingredients Preparation",
+                    score = 0.99
+                },
+                new
+                {
+                    docPath = "Cuisine/demo.pdf",
+                    docName = "demo.pdf",
+                    pageStart = 18,
+                    pageEnd = 18,
+                    excerpt = "MOUSSE AUX FRUITS Pour 4 personnes Ingredients Preparation",
+                    score = 0.98
+                },
+                new
+                {
+                    docPath = "Cuisine/noise.pdf",
+                    docName = "noise.pdf",
+                    pageStart = 3,
+                    pageEnd = 3,
+                    excerpt = "PPRÉPARATION 1 Sonde de rôtissage Position de rôtissage",
+                    score = 0.97
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedOptionAnswerForTests(
+            toolResults,
+            "Fais-moi un menu complet sans viande ni poisson.",
+            "fr");
+
+        Assert.Contains("Option 1", answer);
+        Assert.Contains("SALADE DE LEGUMINEUSES", answer);
+        Assert.Contains("MOUSSE AUX FRUITS", answer);
+        Assert.DoesNotContain("PPRÉPARATION", answer);
+        Assert.DoesNotContain("Jour 1", answer);
+    }
+
+    [Fact]
+    public void Pairing_recommendations_without_target_anchor_are_refused_instead_of_caveated_as_options()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/coatings.pdf",
+                    docName = "coatings.pdf",
+                    pageStart = 12,
+                    pageEnd = 12,
+                    excerpt = "REVETEMENT EPOXY Procedure : appliquer la couche primaire puis laisser secher 20 min.",
+                    contextualSnippet = "Matched profile title: Revetement epoxy\nDocument: coatings.pdf\nExcerpt:\nREVETEMENT EPOXY Procedure : appliquer la couche primaire puis laisser secher 20 min.",
+                    score = 1.0
+                },
+                new
+                {
+                    docPath = "Knowledge/cleaning.pdf",
+                    docName = "cleaning.pdf",
+                    pageStart = 30,
+                    pageEnd = 30,
+                    excerpt = "NETTOYAGE RAPIDE Procedure : rincer la surface puis laisser secher 5 min.",
+                    contextualSnippet = "Matched profile title: Nettoyage rapide\nDocument: cleaning.pdf\nExcerpt:\nNETTOYAGE RAPIDE Procedure : rincer la surface puis laisser secher 5 min.",
+                    score = 0.99
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedOptionAnswerForTests(
+            toolResults,
+            "Quel revetement irait bien avec acier ?",
+            "fr");
+
+        Assert.Contains("acier", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("revetement", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("pas trouve", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Option 1", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Revetement epoxy", answer);
+        Assert.DoesNotContain("Nettoyage rapide", answer);
+    }
+
+    [Fact]
+    public void One_off_menu_options_use_contextual_titles_and_filter_over_time_limit()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Cuisine/slow-dessert.pdf",
+                    docName = "slow-dessert.pdf",
+                    pageStart = 10,
+                    pageEnd = 10,
+                    excerpt = "INGREDIENTS PREPARATION 80 min 200 g de riz. Cuire longuement.",
+                    contextualSnippet = "Matched profile title: Riz au lait long\nDocument: slow-dessert.pdf\nExcerpt:\nINGREDIENTS PREPARATION 80 min 200 g de riz. Cuire longuement.",
+                    score = 1.02
+                },
+                new
+                {
+                    docPath = "Cuisine/robot.pdf",
+                    docName = "robot.pdf",
+                    pageStart = 22,
+                    pageEnd = 22,
+                    excerpt = "INGREDIENTS PREPARATION 25 min Programmer le robot en vitesse 6.",
+                    contextualSnippet = "Matched profile title: Sauce rapide au robot\nDocument: robot.pdf\nExcerpt:\nINGREDIENTS PREPARATION 25 min Programmer le robot en vitesse 6.",
+                    score = 0.91
+                },
+                new
+                {
+                    docPath = "Cuisine/dessert.pdf",
+                    docName = "dessert.pdf",
+                    pageStart = 18,
+                    pageEnd = 18,
+                    excerpt = "Dessert frais. INGREDIENTS PREPARATION 12 min Monter le dessert et servir.",
+                    contextualSnippet = "Matched profile title: Dessert minute\nDocument: dessert.pdf\nExcerpt:\nDessert frais. INGREDIENTS PREPARATION 12 min Monter le dessert et servir.",
+                    score = 0.9
+                },
+                new
+                {
+                    docPath = "Cuisine/poele.pdf",
+                    docName = "poele.pdf",
+                    pageStart = 30,
+                    pageEnd = 30,
+                    excerpt = "INGREDIENTS PREPARATION 10 min Faire chauffer la poele et servir.",
+                    contextualSnippet = "Matched profile title: Poelee minute\nDocument: poele.pdf\nExcerpt:\nINGREDIENTS PREPARATION 10 min Faire chauffer la poele et servir.",
+                    score = 0.89
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedOptionAnswerForTests(
+            toolResults,
+            "Il me faut diner + dessert en moins de 45 minutes au total.",
+            "fr");
+
+        Assert.True(ToolAgentOrchestrator.LooksLikeSourceBackedOptionRequestForTests(
+            "Il me faut diner + dessert en moins de 45 minutes au total."));
+        Assert.Contains("Dessert minute", answer);
+        Assert.Contains("Poelee minute", answer);
+        Assert.Contains("durees visibles respectent la contrainte", answer);
+        Assert.DoesNotContain("Riz au lait long", answer);
+        Assert.DoesNotContain("80 min", answer);
+    }
+
+    [Fact]
+    public void One_off_menu_options_sum_labeled_durations_before_certifying_total()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Cuisine/slow.pdf",
+                    docName = "slow.pdf",
+                    pageStart = 12,
+                    pageEnd = 12,
+                    excerpt = "INGREDIENTS PREPARATION : 35 min Cuisson : 25 min Servir chaud.",
+                    contextualSnippet = "Matched profile title: Plat trop long\nDocument: slow.pdf\nExcerpt:\nINGREDIENTS PREPARATION : 35 min Cuisson : 25 min Servir chaud.",
+                    score = 1.1
+                },
+                new
+                {
+                    docPath = "Cuisine/main.pdf",
+                    docName = "main.pdf",
+                    pageStart = 20,
+                    pageEnd = 20,
+                    excerpt = "INGREDIENTS PREPARATION : 15 min Cuisson : 10 min Servir chaud.",
+                    contextualSnippet = "Matched profile title: Plat rapide\nDocument: main.pdf\nExcerpt:\nINGREDIENTS PREPARATION : 15 min Cuisson : 10 min Servir chaud.",
+                    score = 1.0
+                },
+                new
+                {
+                    docPath = "Cuisine/dessert.pdf",
+                    docName = "dessert.pdf",
+                    pageStart = 30,
+                    pageEnd = 30,
+                    excerpt = "Dessert. INGREDIENTS PREPARATION : 12 min Servir frais.",
+                    contextualSnippet = "Matched profile title: Dessert frais\nDocument: dessert.pdf\nExcerpt:\nDessert. INGREDIENTS PREPARATION : 12 min Servir frais.",
+                    score = 0.99
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedOptionAnswerForTests(
+            toolResults,
+            "Il me faut diner + dessert en moins de 45 minutes au total.",
+            "fr");
+
+        Assert.Contains("Plat rapide", answer);
+        Assert.Contains("Dessert frais", answer);
+        Assert.Contains("37 minutes", answer);
+        Assert.DoesNotContain("Plat trop long", answer);
+    }
+
+    [Fact]
+    public void One_off_menu_options_keep_longest_unlabeled_duration_for_total_pairing()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Cuisine/main.pdf",
+                    docName = "main.pdf",
+                    pageStart = 20,
+                    pageEnd = 20,
+                    excerpt = "INGREDIENTS PREPARATION 18 min Servir chaud.",
+                    contextualSnippet = "Matched profile title: Plat minute\nDocument: main.pdf\nExcerpt:\nINGREDIENTS PREPARATION 18 min Servir chaud.",
+                    score = 1.0
+                },
+                new
+                {
+                    docPath = "Cuisine/dessert.pdf",
+                    docName = "dessert.pdf",
+                    pageStart = 30,
+                    pageEnd = 30,
+                    excerpt = "Dessert. Pour 4 personnes. Laisser cuire 20 minutes puis mixer 4 minutes.",
+                    contextualSnippet = "Matched profile title: Dessert express\nDocument: dessert.pdf\nExcerpt:\nDessert. Pour 4 personnes. Laisser cuire 20 minutes puis mixer 4 minutes.",
+                    score = 0.99
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedOptionAnswerForTests(
+            toolResults,
+            "Il me faut diner + dessert en moins de 45 minutes au total.",
+            "fr");
+
+        Assert.Contains("Plat minute", answer);
+        Assert.Contains("Dessert express", answer);
+        Assert.Contains("38 minutes", answer);
+        Assert.DoesNotContain("22 minutes", answer);
+    }
+
+    [Fact]
+    public void One_off_menu_options_do_not_read_step_number_before_h_word_as_hours()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Cuisine/main.pdf",
+                    docName = "main.pdf",
+                    pageStart = 20,
+                    pageEnd = 20,
+                    excerpt = "INGREDIENTS PREPARATION 18 min Servir chaud.",
+                    contextualSnippet = "Matched profile title: Plat minute\nDocument: main.pdf\nExcerpt:\nINGREDIENTS PREPARATION 18 min Servir chaud.",
+                    score = 1.0
+                },
+                new
+                {
+                    docPath = "Cuisine/dessert.pdf",
+                    docName = "dessert.pdf",
+                    pageStart = 30,
+                    pageEnd = 30,
+                    excerpt = "Dessert. Pour 4 personnes. Cuire 20 minutes. 4 Hachez les fruits puis servir.",
+                    contextualSnippet = "Matched profile title: Dessert express\nDocument: dessert.pdf\nExcerpt:\nDessert. Pour 4 personnes. Cuire 20 minutes. 4 Hachez les fruits puis servir.",
+                    score = 0.99
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedOptionAnswerForTests(
+            toolResults,
+            "Il me faut diner + dessert en moins de 45 minutes au total.",
+            "fr");
+
+        Assert.Contains("38 minutes", answer);
+        Assert.DoesNotContain("240 min", answer);
+    }
+
+    [Fact]
+    public void Option_answer_sources_match_the_rendered_option_candidates()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Cuisine/unrelated.pdf",
+                    docName = "unrelated.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = "INGREDIENTS PREPARATION 20 min cuire a la poele.",
+                    contextualSnippet = "Matched profile title: Poelee unrelated\nDocument: unrelated.pdf\nExcerpt:\nINGREDIENTS PREPARATION 20 min cuire a la poele.",
+                    score = 1.02
+                },
+                new
+                {
+                    docPath = "Cuisine/robot.pdf",
+                    docName = "robot.pdf",
+                    pageStart = 101,
+                    pageEnd = 101,
+                    excerpt = "Chefbot INGREDIENTS PREPARATION 25 min programmer vitesse 6.",
+                    contextualSnippet = "Matched profile title: Croquettes au Chefbot\nDocument: robot.pdf\nExcerpt:\nChefbot INGREDIENTS PREPARATION 25 min programmer vitesse 6.",
+                    score = 0.98
+                },
+                new
+                {
+                    docPath = "Cuisine/cover.pdf",
+                    docName = "cover.pdf",
+                    pageStart = 1,
+                    pageEnd = 2,
+                    excerpt = "EN MOINS DE 20 MINUTES Des conseilszerodechet 100 SUPER RECETTESFACILE, RAPIDE, BON ! Des recettes simples et accessibles Preparez des plats rapidement.",
+                    contextualSnippet = "Matched profile title: SUPER RECETTES ETUDIANTS\nDocument: cover.pdf\nExcerpt:\nEN MOINS DE 20 MINUTES Des conseilszerodechet 100 SUPER RECETTESFACILE, RAPIDE, BON ! Des recettes simples et accessibles Preparez des plats rapidement.",
+                    score = 1.2
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var query = "Je veux cuisiner au Companion/Chefbot uniquement : menu complet.";
+        var answer = ToolAgentOrchestrator.BuildSourceBackedOptionAnswerForTests(toolResults, query, "fr");
+        var sourceLabels = ToolAgentOrchestrator.DeriveSourceBackedOptionSourceLabelsForTests(toolResults, query);
+
+        Assert.Contains("Croquettes au Chefbot", answer);
+        Assert.Single(sourceLabels);
+        Assert.Contains(sourceLabels, label => label.Contains("robot.pdf", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(sourceLabels, label => label.Contains("unrelated.pdf", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(sourceLabels, label => label.Contains("cover.pdf", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain("SUPER RECETTES", answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Countdown_planning_uses_visible_durations_instead_of_dumping_extracts()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Cuisine/plat.pdf",
+                    docName = "plat.pdf",
+                    pageStart = 12,
+                    pageEnd = 12,
+                    excerpt = "INGREDIENTS PREPARATION 50 min Faire cuire le plat principal.",
+                    contextualSnippet = "Matched profile title: Plat principal chaud\nDocument: plat.pdf\nExcerpt:\nINGREDIENTS PREPARATION 50 min Faire cuire le plat principal.",
+                    score = 1.0
+                },
+                new
+                {
+                    docPath = "Cuisine/dessert.pdf",
+                    docName = "dessert.pdf",
+                    pageStart = 18,
+                    pageEnd = 18,
+                    excerpt = "INGREDIENTS PREPARATION 15 min Monter le dessert.",
+                    contextualSnippet = "Matched profile title: Dessert rapide\nDocument: dessert.pdf\nExcerpt:\nINGREDIENTS PREPARATION 15 min Monter le dessert.",
+                    score = 0.98
+                },
+                new
+                {
+                    docPath = "Cuisine/advice.pdf",
+                    docName = "advice.pdf",
+                    pageStart = 10,
+                    pageEnd = 10,
+                    excerpt = "Si la cuisson a lieu en exterieur, observer les consignes generales et prevoir de la marge.",
+                    contextualSnippet = "Matched profile title: Si la cuisson a lieu en exterieur\nDocument: advice.pdf\nExcerpt:\nSi la cuisson a lieu en exterieur, observer les consignes generales et prevoir de la marge.",
+                    score = 1.2
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var query = "Prepare un planning de cuisson a rebours pour un repas a 19h.";
+        var answer = ToolAgentOrchestrator.BuildSourceBackedCountdownPlanningAnswerForTests(toolResults, query, "fr");
+        var sourceLabels = ToolAgentOrchestrator.DeriveSourceBackedCountdownSourceLabelsForTests(toolResults, query);
+
+        Assert.True(ToolAgentOrchestrator.LooksLikeSourceBackedCountdownPlanningRequestForTests(query));
+        Assert.Contains("18h10", answer);
+        Assert.Contains("18h45", answer);
+        Assert.Contains("Plat principal chaud", answer);
+        Assert.Contains("Dessert rapide", answer);
+        Assert.DoesNotContain("Voici les pistes", answer);
+        Assert.DoesNotContain("cuisson a lieu", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(2, sourceLabels.Length);
+        Assert.DoesNotContain(sourceLabels, label => label.Contains("advice.pdf", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Precise_typo_recipe_card_ignores_table_of_contents_when_recipe_page_exists()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Cuisine/toc.pdf",
+                    docName = "toc.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = "EN MOINS DE 45 MINUTES Omelette 104 Gateau 106 Nuggets 108 Patatas bravas 109 Saute 110 Penne 111 Wok 112 Riz 114 INDEX DES RECETTES 188",
+                    contextualSnippet = string.Empty,
+                    score = 1.02
+                },
+                new
+                {
+                    docPath = "Cuisine/recipes.pdf",
+                    docName = "recipes.pdf",
+                    pageStart = 22,
+                    pageEnd = 23,
+                    excerpt = "INGREDIENTS : pommes de terre, huile, sel. PREPARATION 1. Faire chauffer la poele. 2. Faire frire 7-10 minutes. 22 Patatas Bravas [Index:]",
+                    contextualSnippet = "Matched profile title: Patatas Bravas\nDocument: recipes.pdf\nExcerpt:\nINGREDIENTS : pommes de terre, huile, sel. PREPARATION 1. Faire chauffer la poele. 2. Faire frire 7-10 minutes. 22 Patatas Bravas [Index:]",
+                    score = 0.98
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(
+            toolResults,
+            "Donne la recette des patattas bravas.",
+            "fr");
+
+        Assert.Contains("recipes.pdf p.22", answer);
+        Assert.Contains("Patatas Bravas", answer);
+        Assert.DoesNotContain("toc.pdf p.4", answer);
+    }
+
+    [Fact]
+    public void Precise_recipe_card_prefers_structured_recipe_page_over_toc_even_when_title_is_contextual()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Cuisine/toc.pdf",
+                    docName = "toc.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = "EN MOINS DE 45 MINUTES Patatas bravas 109 Saute de poulet 110 Penne 111 INDEX DES RECETTES 188",
+                    contextualSnippet = string.Empty,
+                    score = 1.02
+                },
+                new
+                {
+                    docPath = "Cuisine/recipes.pdf",
+                    docName = "recipes.pdf",
+                    pageStart = 22,
+                    pageEnd = 23,
+                    excerpt = "INGREDIENTS : pommes de terre, huile, sel. PREPARATION 1. Faire chauffer la poele. 2. Faire frire 7-10 minutes.",
+                    contextualSnippet = "Matched profile title: Patatas Bravas\nDocument: recipes.pdf\nExcerpt:\nINGREDIENTS : pommes de terre, huile, sel. PREPARATION 1. Faire chauffer la poele. 2. Faire frire 7-10 minutes.",
+                    score = 0.98
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(
+            toolResults,
+            "Donne la recette des patattas bravas.",
+            "fr");
+
+        Assert.Contains("Source principale : recipes.pdf p.22", answer);
+        Assert.DoesNotContain("Source principale : toc.pdf p.4", answer);
+    }
+
+    [Fact]
+    public void Precise_recipe_card_refuses_index_asset_tail_as_recipe_body()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Cuisine/recipes.pdf",
+                    docName = "recipes.pdf",
+                    pageStart = 22,
+                    pageEnd = 23,
+                    excerpt = "PPRÉPARATION 1 INGRÉDIENTS : 200 g de fromage féta Poivre du moulin 2 œufs 2 c. à s. de farine 6 c. à s. de chapelure. PRÉPARATION 1. Couper la feta en huit gros morceaux. Conseil : Servir les sticks de feta avec de la salade. 22 Patatas Bravas [Index: ] MCRC01072883_BO_Patatas_Bravas-008 MCRC01072534_SE_Patatas_Bravas-025 MCRC01072958_NF_Patatas_Bravas-013",
+                    contextualSnippet = "Matched profile title: Patatas Bravas\nDocument: recipes.pdf\nExcerpt:\nPPRÉPARATION 1 INGRÉDIENTS : 200 g de fromage féta Poivre du moulin 2 œufs 2 c. à s. de farine 6 c. à s. de chapelure. PRÉPARATION 1. Couper la feta en huit gros morceaux. Conseil : Servir les sticks de feta avec de la salade. 22 Patatas Bravas [Index: ] MCRC01072883_BO_Patatas_Bravas-008 MCRC01072534_SE_Patatas_Bravas-025 MCRC01072958_NF_Patatas_Bravas-013",
+                    score = 1.02
+                },
+                new
+                {
+                    docPath = "Cuisine/toc.pdf",
+                    docName = "toc.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = "EN MOINS DE 45 MINUTES Patatas bravas 109 Saute de poulet 110 Penne 111 INDEX DES RECETTES 188",
+                    contextualSnippet = string.Empty,
+                    score = 1.01
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(
+            toolResults,
+            "Donne la recette des patattas bravas.",
+            "fr");
+
+        Assert.Contains("Je n'ai pas trouve", answer);
+        Assert.True(ToolAgentOrchestrator.LooksLikeMissingExactItemWithoutSourceLeadsForTests(answer));
+        Assert.DoesNotContain("fromage", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Source principale : recipes.pdf p.22", answer);
+
+        var sourceLabels = ToolAgentOrchestrator.DeriveSourceBackedExtractiveSourceLabelsForTests(
+            toolResults,
+            "Donne la recette des patattas bravas.");
+        Assert.Empty(sourceLabels);
     }
 
     [Fact]
@@ -2048,10 +5340,19 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         var answer = ToolAgentOrchestrator.BuildSourceBackedPlanningAnswerForTests(toolResults, "fr");
 
         Assert.Contains("Paella mixte", answer);
-        Assert.Contains("CHILI CON CARNE", answer);
+        Assert.True(answer.Contains("CHILI CON CARNE", StringComparison.Ordinal), answer);
         Assert.DoesNotContain("Sel et poivre", answer);
         Assert.DoesNotContain("Cela consiste", answer);
         Assert.DoesNotContain("Autriche", answer);
+    }
+
+    [Fact]
+    public void Plan_item_title_extraction_reads_ocr_glued_uppercase_title_before_duration()
+    {
+        var title = ToolAgentOrchestrator.ExtractPlanItemTitleV2ForTests(
+            "15MenuCHILI CON CARNEHEALTHY50 min4Items500g de boeuf hache Preparation cuire les elements.");
+
+        Assert.Contains("CHILI CON CARNE", title);
     }
 
     [Fact]
@@ -2135,8 +5436,14 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.Contains("process.pdf p.7", answer);
     }
 
-    [Fact]
-    public void Ranking_question_returns_source_backed_main_candidate()
+    [Theory]
+    [InlineData("fr", "advanced.pdf p.9", "Extrait:")]
+    [InlineData("en", "advanced.pdf p.9", "Excerpt:")]
+    [InlineData("de", "advanced.pdf S.9", "Auszug:")]
+    public void Ranking_question_returns_source_backed_main_candidate(
+        string language,
+        string expectedPageRef,
+        string expectedExcerptLabel)
     {
         var payload = JsonSerializer.Serialize(new
         {
@@ -2176,12 +5483,60 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(
             toolResults,
             "Quelle procedure est la plus technique ?",
+            language);
+
+        Assert.Contains(expectedPageRef, answer);
+        Assert.Contains(expectedExcerptLabel, answer);
+        Assert.Contains("materiel", answer, StringComparison.OrdinalIgnoreCase);
+        if (!string.Equals(language, "fr", StringComparison.OrdinalIgnoreCase))
+            Assert.DoesNotContain("Extrait:", answer, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Ranking_question_prefers_structured_measurable_evidence_without_domain_terms()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/simple.pdf",
+                    docName = "simple.pdf",
+                    pageStart = 2,
+                    pageEnd = 2,
+                    excerpt = "Procedure simple. Lire puis enregistrer.",
+                    fullText = "Procedure simple. Lire puis enregistrer.",
+                    score = 1.0
+                },
+                new
+                {
+                    docPath = "Knowledge/structured.pdf",
+                    docName = "structured.pdf",
+                    pageStart = 9,
+                    pageEnd = 9,
+                    excerpt = "Procedure avancee. Limite: <= 2 %. Duree: 14 min. 1. preparer le poste. 2. lancer le cycle. 3. noter trois valeurs. 4. comparer les resultats.",
+                    fullText = "Procedure avancee. Limite: <= 2 %. Duree: 14 min. 1. preparer le poste. 2. lancer le cycle. 3. noter trois valeurs. 4. comparer les resultats.",
+                    score = 0.91
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(
+            toolResults,
+            "Quelle procedure est la plus technique ?",
             "fr");
 
-        Assert.Contains("Candidat principal", answer);
-        Assert.Contains("advanced.pdf p.9", answer);
-        Assert.Contains("materiel", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("pas un classement absolu", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("structured.pdf p.9", answer);
+        Assert.Contains("contraintes mesurables", answer, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -2359,7 +5714,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             "Quel dessert est le plus technique ?",
             "fr");
 
-        Assert.Contains("vanilla-dessert.pdf p.73", answer);
+        Assert.True(answer.Contains("vanilla-dessert.pdf p.73", StringComparison.OrdinalIgnoreCase), answer);
         Assert.DoesNotContain("general-technique.pdf", answer, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -2604,15 +5959,15 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             toolResults,
             "Quel dessert est le plus technique ?");
 
-        Assert.True(ToolAgentOrchestrator.LooksLikeColdAssemblyProcedureTextForTests(coldRecipe));
+        Assert.True(ToolAgentOrchestrator.LooksLikeLowStructureShortProcedureTextForTests(coldRecipe));
         Assert.Contains("souffle.pdf p.75", answer);
-        Assert.DoesNotContain("frozen-yogurt.pdf", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.True(!answer.Contains("frozen-yogurt.pdf", StringComparison.OrdinalIgnoreCase), answer);
         Assert.DoesNotContain("FROZEN YOGURT", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(sourceLabels, label => label.Contains("frozen-yogurt.pdf", StringComparison.OrdinalIgnoreCase));
     }
 
     [Theory]
-    [InlineData("fr", "Ce qui vient des PDF", "Adaptation prudente")]
+    [InlineData("fr", "Ce qui vient des documents", "Adaptation prudente")]
     [InlineData("en", "From the documents", "Cautious adaptation")]
     [InlineData("es", "Lo que viene de los documentos", "Adaptacion prudente")]
     [InlineData("pt", "O que vem dos documentos", "Adaptacao prudente")]
@@ -2655,20 +6010,43 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
 
         Assert.Contains(expectedSourceLabel, answer);
         Assert.Contains(expectedAdaptationLabel, answer);
-        Assert.Contains("source.pdf p.4", answer);
+        Assert.Contains(language == "de" ? "source.pdf S.4" : "source.pdf p.4", answer);
     }
 
     [Fact]
-    public void Planning_retrieval_queries_add_domain_expansion_only_when_query_mentions_that_domain()
+    public void Planning_retrieval_queries_preserve_query_terms_without_domain_specific_expansion()
     {
         var foodQueries = ToolAgentOrchestrator.BuildPlanningRetrievalQueriesForTests(
             "Je ne sais pas quoi faire pour les repas de cette semaine.");
         var processQueries = ToolAgentOrchestrator.BuildPlanningRetrievalQueriesForTests(
             "Aide-moi a faire un plan de maintenance pour la semaine.");
 
-        Assert.Contains(foodQueries, q => q.Contains("recette", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(foodQueries, q => q.Contains("repas", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(foodQueries, q => q.Contains("recette", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(foodQueries, q => q.Contains("weekly plan", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(foodQueries, q => q.Contains("planning organisation procedure", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(foodQueries, q => q.Contains("source-backed", StringComparison.OrdinalIgnoreCase));
+        foreach (var forbidden in new[] { "document", "pdf", "corpus", "category", "procedure", "recette", "recipe" })
+        {
+            Assert.DoesNotContain(foodQueries, q => q.Contains(forbidden, StringComparison.OrdinalIgnoreCase));
+        }
+
         Assert.DoesNotContain(processQueries, q => q.Contains("recette", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(processQueries, q => q.Contains("maintenance", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(processQueries, q => q.Equals("planning organisation procedure sources", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Planning_retrieval_empty_signal_fallback_stays_domain_neutral()
+    {
+        var queries = ToolAgentOrchestrator.BuildPlanningRetrievalQueriesForTests("Peux-tu m'aider ?");
+
+        Assert.Single(queries);
+        Assert.Equal("Peux-tu m'aider", queries[0]);
+        foreach (var forbidden in new[] { "procedure", "preparation", "vorbereitung", "source-backed", "recette", "recipe", "cuisine", "document", "pdf", "corpus", "category" })
+        {
+            Assert.DoesNotContain(queries, q => q.Contains(forbidden, StringComparison.OrdinalIgnoreCase));
+        }
     }
 
     [Theory]
@@ -2768,6 +6146,101 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.DoesNotContain("Mettler", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("chefbot.pdf", answer);
         Assert.Contains("neff.pdf", answer);
+    }
+
+    [Fact]
+    public void Source_backed_answer_filters_generic_frontmatter_cover_hits()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/cover.pdf",
+                    docName = "cover.pdf",
+                    pageStart = 1,
+                    pageEnd = 1,
+                    excerpt = "120 QUICK PRACTICAL GUIDES EASY ACCESSIBLE TIPS EDITION SIMPLE BUDGET WORKFLOW. Cuisiner avec des ingredients abordables.",
+                    fullText = "120 QUICK PRACTICAL GUIDES EASY ACCESSIBLE TIPS EDITION SIMPLE BUDGET WORKFLOW. Cuisiner avec des ingredients abordables.",
+                    score = 1.5
+                },
+                new
+                {
+                    docPath = "Knowledge/manual.pdf",
+                    docName = "manual.pdf",
+                    pageStart = 8,
+                    pageEnd = 8,
+                    excerpt = "Procedure rapide. Ingredients: 2 elements. Preparation: verifier les elements, assembler, servir.",
+                    fullText = "Procedure rapide. Ingredients: 2 elements. Preparation: verifier les elements, assembler, servir.",
+                    score = 0.9
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.search",
+            Result = doc.RootElement.Clone()
+        });
+
+        Assert.True(ToolAgentOrchestrator.LooksLikeLowSignalContentCandidateForTests(
+            "120 QUICK PRACTICAL GUIDES EASY ACCESSIBLE TIPS EDITION SIMPLE BUDGET WORKFLOW. Cuisiner avec des ingredients abordables.",
+            pageStart: 1,
+            fullText: "120 QUICK PRACTICAL GUIDES EASY ACCESSIBLE TIPS EDITION SIMPLE BUDGET WORKFLOW. Cuisiner avec des ingredients abordables."));
+
+        var labels = ToolAgentOrchestrator.DeriveSourceBackedExtractiveSourceLabelsForTests(
+            toolResults,
+            "Je veux une procedure rapide issue des documents avec ingredients et preparation.");
+        Assert.DoesNotContain(labels, label => label.Contains("cover.pdf", StringComparison.OrdinalIgnoreCase));
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(
+            toolResults,
+            "Je veux une procedure rapide issue des documents avec ingredients et preparation.",
+            "fr");
+
+        Assert.DoesNotContain("cover.pdf", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("QUICK PRACTICAL", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("manual.pdf p.8", answer);
+    }
+
+    [Fact]
+    public void Source_backed_answer_keeps_first_page_when_body_structure_is_visible()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/manual.pdf",
+                    docName = "manual.pdf",
+                    pageStart = 1,
+                    pageEnd = 1,
+                    excerpt = "Procedure de base. Ingredients: 2 elements. Preparation: ajouter les elements, melanger, servir.",
+                    fullText = "Procedure de base. Ingredients: 2 elements. Preparation: ajouter les elements, melanger, servir.",
+                    score = 1.0
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(
+            toolResults,
+            "Fais une fiche procedure avec ingredients et preparation.",
+            "fr");
+
+        Assert.Contains("manual.pdf p.1", answer);
+        Assert.Contains("Preparation", answer);
     }
 
     [Fact]
@@ -2871,7 +6344,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.Contains("6 carottes", answer);
         Assert.Contains("9 c. a soupe de farine", answer);
         Assert.Contains("4,5 l de vin rouge", answer);
-        Assert.Contains("Sel et poivre (au gout)", answer);
+        Assert.Contains("Sel et poivre (sans quantite sourcee)", answer);
         Assert.DoesNotContain("1,2 kg par personne", answer);
 
         var labels = ToolAgentOrchestrator.DeriveSourceBackedExtractiveSourceLabelsForTests(
@@ -2882,7 +6355,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
     }
 
     [Fact]
-    public void Quantity_scaling_request_handles_bowls_and_compact_pdf_ingredient_text()
+    public void Quantity_scaling_request_handles_compact_pdf_itemized_text()
     {
         var payload = JsonSerializer.Serialize(new
         {
@@ -2890,12 +6363,12 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             {
                 new
                 {
-                    docPath = "Cuisine/livre-recette-sist-2025-web.pdf",
-                    docName = "livre-recette-sist-2025-web.pdf",
+                    docPath = "Operations/compact-itemized-guide.pdf",
+                    docName = "compact-itemized-guide.pdf",
                     pageStart = 6,
                     pageEnd = 6,
-                    excerpt = "VELOUTE DE LENTILLES CORAIL AUX SAVEURS COCO25min1,5E /pers.4Ingredients400 g de lentilles corail5 cl d'huile d'olive1 gros oignon20 g de concentre de tomates30 cl de lait de coco75 cl d'eau1 cuillere a soupe rase de curry1 bouquet garni Preparation1. Rincer les lentilles.",
-                    fullText = "VELOUTE DE LENTILLES CORAIL AUX SAVEURS COCO25min1,5E /pers.4Ingredients400 g de lentilles corail5 cl d'huile d'olive1 gros oignon20 g de concentre de tomates30 cl de lait de coco75 cl d'eau1 cuillere a soupe rase de curry1 bouquet garni Preparation1. Rincer les lentilles.",
+                    excerpt = "MODULE COMPACT ALPHA25min1,5E /unit Pour 4 elements Quantites400 g de matiere de base5 cl de liant1 grand support20 g de concentrat30 cl de fluide porteur75 cl d'eau1 marqueur de lot Procedure1. Rincer les elements.",
+                    fullText = "MODULE COMPACT ALPHA25min1,5E /unit Pour 4 elements Quantites400 g de matiere de base5 cl de liant1 grand support20 g de concentrat30 cl de fluide porteur75 cl d'eau1 marqueur de lot Procedure1. Rincer les elements.",
                     score = 1.0
                 }
             }
@@ -2911,13 +6384,211 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
 
         var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(
             toolResults,
-            "Calcule les quantites pour 10 bols de veloute.",
+            "Calcule les quantites pour 10 elements du module compact.",
             "fr");
 
         Assert.Contains("facteur x2,5", answer);
-        Assert.Contains("1000 g de lentilles corail", answer);
-        Assert.Contains("12,5 cl d'huile d'olive", answer);
-        Assert.Contains("75 cl de lait de coco", answer);
+        Assert.Contains("1000 g de matiere de base", answer);
+        Assert.Contains("12,5 cl de liant", answer);
+        Assert.Contains("75 cl de fluide porteur", answer);
+    }
+
+    [Fact]
+    public void Quantity_scaling_request_allows_generic_explicit_scalable_source()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "source",
+                    docName = "source",
+                    pageStart = 3,
+                    pageEnd = 3,
+                    excerpt = "Generic assembly kit for 4 units: Items 8 fasteners | 4 plates | 2 housings.",
+                    fullText = "Generic assembly kit for 4 units: Items 8 fasteners | 4 plates | 2 housings.",
+                    score = 1.0
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(
+            toolResults,
+            "Scale the generic assembly kit for 8 units.",
+            "en");
+
+        Assert.Contains("factor x2", answer);
+        Assert.Contains("16 fasteners", answer);
+        Assert.Contains("8 plates", answer);
+        Assert.Contains("4 housings", answer);
+    }
+
+    [Fact]
+    public void Quantity_scaling_request_prefers_structured_card_evidence()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Operations/compact-module.pdf",
+                    docName = "compact-module.pdf",
+                    pageStart = 3,
+                    pageEnd = 3,
+                    excerpt = "MODULE COMPACT ALPHA. Structured source card contains the scalable quantities.",
+                    fullText = "MODULE COMPACT ALPHA. Structured source card contains the scalable quantities.",
+                    score = 1.0,
+                    matchedContentCards = new[]
+                    {
+                        new
+                        {
+                            title = "MODULE COMPACT ALPHA",
+                            kind = "unit_lead",
+                            signals = new[] { "scale_basis", "scale_basis_count:4", "scale_basis_label:elements", "quantity_list", "scalable_quantities" },
+                            evidence = new
+                            {
+                                schemaVersion = "content_card_evidence_v1",
+                                scaleBasis = new { count = 4, label = "elements" },
+                                quantityFacts = new[]
+                                {
+                                    new { value = 400, unit = "g", label = "matiere de base", sourceText = "400 g de matiere de base" },
+                                    new { value = 5, unit = "cl", label = "liant", sourceText = "5 cl de liant" },
+                                    new { value = 30, unit = "cl", label = "fluide porteur", sourceText = "30 cl de fluide porteur" }
+                                },
+                                nonScalableReasons = Array.Empty<string>(),
+                                confidence = 0.82
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(
+            toolResults,
+            "Calcule les quantites pour 10 elements du module compact.",
+            "fr");
+
+        Assert.Contains("facteur x2,5", answer);
+        Assert.Contains("1000 g matiere de base", answer);
+        Assert.Contains("12,5 cl liant", answer);
+        Assert.Contains("75 cl fluide porteur", answer);
+    }
+
+    [Fact]
+    public void Quantity_scaling_request_does_not_scale_safety_or_technical_settings()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "source",
+                    docName = "source",
+                    pageStart = 7,
+                    pageEnd = 7,
+                    excerpt = "Safety setup for 4 units: Requirements 2 bar pressure | 24 V supply | 50 % duty cycle | 10 mm clearance | 3 fasteners.",
+                    fullText = "Safety setup for 4 units: Requirements 2 bar pressure | 24 V supply | 50 % duty cycle | 10 mm clearance | 3 fasteners.",
+                    score = 1.0
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(
+            toolResults,
+            "Scale the safety setup for 8 units.",
+            "en");
+
+        Assert.DoesNotContain("factor x2", answer);
+        Assert.DoesNotContain("4 bar", answer);
+        Assert.DoesNotContain("48 V", answer);
+        Assert.DoesNotContain("100 %", answer);
+        Assert.DoesNotContain("20 mm", answer);
+        Assert.DoesNotContain("6 fasteners", answer);
+    }
+
+    [Fact]
+    public void Quantity_scaling_request_respects_card_non_scalable_reasons_without_signal_tokens()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/setup-alpha.pdf",
+                    docName = "setup-alpha.pdf",
+                    pageStart = 7,
+                    pageEnd = 7,
+                    excerpt = "Setup alpha parameters for 4 units. Requirements: 2 bar pressure | 24 V supply | 3 fasteners.",
+                    fullText = "Setup alpha parameters for 4 units. Requirements: 2 bar pressure | 24 V supply | 3 fasteners.",
+                    score = 1.0,
+                    matchedContentCards = new[]
+                    {
+                        new
+                        {
+                            title = "Setup alpha",
+                            kind = "unit_exact_v1",
+                            evidence = new
+                            {
+                                schemaVersion = "content_card_evidence_v1",
+                                scaleBasis = new { count = 4, label = "units" },
+                                quantityFacts = new[]
+                                {
+                                    new { value = 2, unit = "bar", label = "pressure", sourceText = "2 bar pressure" },
+                                    new { value = 24, unit = "V", label = "supply", sourceText = "24 V supply" }
+                                },
+                                nonScalableReasons = new[] { "technical_parameter_context" }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(
+            toolResults,
+            "Scale the setup alpha for 8 units.",
+            "en");
+
+        Assert.DoesNotContain("factor x2", answer);
+        Assert.DoesNotContain("4 bar", answer);
+        Assert.DoesNotContain("48 V", answer);
     }
 
     [Fact]

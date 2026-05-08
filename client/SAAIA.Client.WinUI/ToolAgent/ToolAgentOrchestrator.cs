@@ -27,10 +27,10 @@ public sealed partial class ToolAgentOrchestrator
     private const int RagWriterContextualEvidenceChars = 480;
     private const int RagWriterContextualRawChars = 800;
     private const int RagWriterContextualTotalChars = 1200;
-    private const int RagWriterBroadMaxHits = 6;
-    private const int RagWriterBroadExcerptChars = 320;
-    private const int RagWriterBroadFullTextChars = 650;
-    private const int RagWriterBroadContextualChars = 360;
+    private const int RagWriterBroadMaxHits = 4;
+    private const int RagWriterBroadExcerptChars = 260;
+    private const int RagWriterBroadFullTextChars = 360;
+    private const int RagWriterBroadContextualChars = 220;
     private const int SourceBackedEvidenceMaxChars = 620;
     private readonly ApiClient _api;
     private readonly ILlmClient _llm;
@@ -440,6 +440,8 @@ public sealed partial class ToolAgentOrchestrator
 
         answer = (answer ?? string.Empty).Replace("**", string.Empty).Trim();
         if (toolResults.Items.Any(x => x.ToolName is "rag.search" or "rag.multi_search")
+            && !_lastAnswerSource.StartsWith("backend_guidance_ask_clarification:", StringComparison.Ordinal)
+            && !LooksLikeMissingExactItemWithoutSourceLeads(answer)
             && (sources is null || sources.Count == 0 || LooksLikeNoRagDataAnswer(answer)))
         {
             var repairedSources = (LooksLikeSourceBackedActionRequest(effectiveUserMessage)
@@ -460,6 +462,12 @@ public sealed partial class ToolAgentOrchestrator
             }
         }
 
+        if (LooksLikeMissingExactItemWithoutSourceLeads(answer))
+        {
+            sources?.Clear();
+            _mem.LastSourcesUsed = new List<ToolMemory.SourceRef>();
+        }
+
         if (sources is { Count: > 0 })
             _mem.LastSourcesUsed = sources;
 
@@ -468,12 +476,7 @@ public sealed partial class ToolAgentOrchestrator
 
         object? sourcesPayload = null;
         if (sources is { Count: > 0 })
-        {
-            sourcesPayload = new
-            {
-                sources = sources.Select(x => new { docPath = x.DocPath, pageStart = x.PageStart, pageEnd = x.PageEnd, label = x.Label }).ToList()
-            };
-        }
+            sourcesPayload = BuildSourcesPayload(plan.Intent, sources);
 
         _lastAnswerSource = _lastUsedInventoryRendered
             ? $"router+tools+inventory_bypass:{plan.Intent}"
@@ -608,7 +611,7 @@ public sealed partial class ToolAgentOrchestrator
             kind = "categories";
             data = BuildCategoriesInventoryData(toolResults);
         }
-        else if (toolResults.Items.Any(x => (x.ToolName is "summary.status.list" or "summary.present.list") && string.IsNullOrWhiteSpace(x.Error)))
+        else if (toolResults.Items.Any(x => (x.ToolName is "summary.status.list" or "summary.present.list" or "admin.summary.missing") && string.IsNullOrWhiteSpace(x.Error)))
         {
             kind = "summary_status_list";
             data = BuildSummaryStatusListInventoryData(toolResults);
@@ -617,6 +620,17 @@ public sealed partial class ToolAgentOrchestrator
         {
             kind = "summary_status_count";
             data = BuildSummaryStatusCountInventoryData(toolResults);
+        }
+        else if (toolResults.Items.LastOrDefault(x => x.ToolName == "documents.extraction_quality" && string.IsNullOrWhiteSpace(x.Error)) is { } extractionQualityItem)
+        {
+            kind = "extraction_quality";
+            data = BuildExtractionQualityInventoryData(toolResults);
+            UpdateLastListedDocumentsFromExtractionQualityResult(extractionQualityItem.Result);
+        }
+        else if (toolResults.Items.Any(x => x.ToolName == "documents.extraction_pages" && string.IsNullOrWhiteSpace(x.Error)))
+        {
+            kind = "extraction_pages";
+            data = BuildExtractionPagesInventoryData(toolResults);
         }
         else if (toolResults.Items.Any(x => x.ToolName == "documents.count" && string.IsNullOrWhiteSpace(x.Error)))
         {
@@ -667,6 +681,105 @@ public sealed partial class ToolAgentOrchestrator
             Result = JsonDocument.Parse(JsonSerializer.Serialize(payload)).RootElement,
             DurationMs = 0
         };
+    }
+
+    private void UpdateLastListedDocumentsFromExtractionQualityResult(JsonElement result)
+    {
+        if (result.ValueKind != JsonValueKind.Object
+            || !result.TryGetProperty("items", out var items)
+            || items.ValueKind != JsonValueKind.Array)
+        {
+            return;
+        }
+
+        var docs = new List<ToolMemory.DocumentItem>();
+        foreach (var entry in items.EnumerateArray())
+        {
+            if (entry.ValueKind != JsonValueKind.Object)
+                continue;
+
+            var docPath = (TryGetString(entry, "docPath") ?? TryGetString(entry, "DocPath") ?? string.Empty)
+                .Replace('\\', '/')
+                .TrimStart('/');
+            if (string.IsNullOrWhiteSpace(docPath))
+                continue;
+
+            var docName =
+                TryGetString(entry, "docName")
+                ?? TryGetString(entry, "DocName")
+                ?? TryGetString(entry, "canonicalName")
+                ?? TryGetString(entry, "CanonicalName")
+                ?? Path.GetFileName(docPath);
+            var categoryPath = (TryGetString(entry, "categoryPath") ?? TryGetString(entry, "CategoryPath") ?? GuessCategoryPath(docPath))
+                .Replace('\\', '/')
+                .Trim('/');
+            var category = TryGetString(entry, "category")
+                ?? TryGetString(entry, "Category")
+                ?? ExtractTopLevelCategoryFromPath(categoryPath);
+            var pdfRef = NormalizePdfRef(TryGetString(entry, "pdfRef") ?? TryGetString(entry, "PdfRef"))
+                ?? $"PDF{docs.Count + 1:00}";
+
+            var doc = new ToolMemory.DocumentItem
+            {
+                PdfRef = pdfRef,
+                DocId = TryGetString(entry, "docId") ?? TryGetString(entry, "DocId") ?? string.Empty,
+                DocPath = docPath,
+                DocName = string.IsNullOrWhiteSpace(docName) ? Path.GetFileName(docPath) : docName,
+                Category = category ?? string.Empty,
+                CategoryRef = NullIfWhiteSpace(TryGetString(entry, "categoryRef") ?? TryGetString(entry, "CategoryRef")),
+                CategoryPath = categoryPath,
+                SourceHash = NullIfWhiteSpace(TryGetString(entry, "sourceHash") ?? TryGetString(entry, "SourceHash")),
+                DocLanguage = NullIfWhiteSpace(TryGetDocumentLanguage(entry)),
+                ProfileLanguage = NullIfWhiteSpace(TryGetString(entry, "profileLanguage") ?? TryGetString(entry, "ProfileLanguage")),
+                Pages = TryGetInt(entry, "pageCount") ?? TryGetInt(entry, "PageCount") ?? TryGetInt(entry, "pages") ?? TryGetInt(entry, "Pages")
+            };
+
+            docs.Add(doc);
+            RegisterDocumentReference(doc.PdfRef, doc);
+            RegisterDocumentReference(doc.DocId, doc);
+            RegisterDocumentReference(doc.DocPath, doc);
+            RegisterDocumentReference(doc.DocName, doc);
+        }
+
+        if (docs.Count == 0)
+            return;
+
+        _mem.LastListedDocuments = docs;
+        _mem.LastListOffset = 0;
+        _mem.LastListLimit = TryGetInt(result, "limit") ?? docs.Count;
+        _mem.LastListTotal = TryGetInt(result, "total") ?? TryGetInt(TryGetObject(result, "summary") ?? default, "totalDocuments") ?? docs.Count;
+        _mem.LastListEndOfList = true;
+        _mem.LastListCategoryPath = TryGetString(result, "scopePath");
+        _mem.LastListQuery = null;
+        _mem.PromoteDocumentsToWorkspace(docs);
+    }
+
+    private void RegisterDocumentReference(string? key, ToolMemory.DocumentItem doc)
+    {
+        key = NullIfWhiteSpace(key);
+        if (key is null)
+            return;
+
+        _mem.PdfMap[key] = doc;
+    }
+
+    private static string? NormalizePdfRef(string? value)
+    {
+        value = NullIfWhiteSpace(value);
+        if (value is null)
+            return null;
+
+        var match = Regex.Match(value, @"(?i)^PDF\s*0*(?<n>\d{1,4})$");
+        return match.Success && int.TryParse(match.Groups["n"].Value, out var n) && n > 0
+            ? $"PDF{n:00}"
+            : value;
+    }
+
+    private static string ExtractTopLevelCategoryFromPath(string? path)
+    {
+        var normalized = (path ?? string.Empty).Replace('\\', '/').Trim('/');
+        var index = normalized.IndexOf('/');
+        return index > 0 ? normalized[..index] : normalized;
     }
 
     private object? BuildListInventoryData(ToolResults toolResults)
@@ -862,11 +975,16 @@ public sealed partial class ToolAgentOrchestrator
         if (item is null || item.Result.ValueKind != JsonValueKind.Object)
             return null;
 
+        var totals = item.Result.TryGetProperty("totals", out var totalsElement) && totalsElement.ValueKind == JsonValueKind.Object
+            ? totalsElement
+            : default;
+
         return new
         {
-            total = TryGetInt(item.Result, "total") ?? 0,
-            missingStored = TryGetInt(item.Result, "missingStored") ?? 0,
-            staleStored = TryGetInt(item.Result, "staleStored") ?? 0,
+            total = TryGetInt(item.Result, "total") ?? (totals.ValueKind == JsonValueKind.Object ? TryGetInt(totals, "total") : null) ?? 0,
+            missingStored = TryGetInt(item.Result, "missingStored") ?? (totals.ValueKind == JsonValueKind.Object ? TryGetInt(totals, "missingStored") : null) ?? 0,
+            staleStored = TryGetInt(item.Result, "staleStored") ?? (totals.ValueKind == JsonValueKind.Object ? TryGetInt(totals, "staleStored") : null) ?? 0,
+            profileMissing = TryGetInt(item.Result, "profileMissing") ?? (totals.ValueKind == JsonValueKind.Object ? TryGetInt(totals, "profileMissing") : null) ?? 0,
             scopePath = TryGetString(item.Result, "scopePath") ?? string.Empty,
             level = TryGetString(item.Result, "level") ?? "medium",
             mode = TryGetString(item.Result, "mode") ?? (string.Equals(item.ToolName, "summary.present.count", StringComparison.OrdinalIgnoreCase) ? "present" : "missing")
@@ -875,12 +993,16 @@ public sealed partial class ToolAgentOrchestrator
 
     private static object? BuildSummaryStatusListInventoryData(ToolResults toolResults)
     {
-        var item = toolResults.Items.LastOrDefault(x => (x.ToolName is "summary.status.list" or "summary.present.list") && string.IsNullOrWhiteSpace(x.Error));
+        var item = toolResults.Items.LastOrDefault(x => (x.ToolName is "summary.status.list" or "summary.present.list" or "admin.summary.missing") && string.IsNullOrWhiteSpace(x.Error));
         if (item is null || item.Result.ValueKind != JsonValueKind.Object)
             return null;
 
         var rows = new List<object>();
-        if (item.Result.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
+        var hasItems = item.Result.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array;
+        if (!hasItems)
+            hasItems = item.Result.TryGetProperty("value", out items) && items.ValueKind == JsonValueKind.Array;
+
+        if (hasItems)
         {
             foreach (var entry in items.EnumerateArray())
             {
@@ -891,25 +1013,293 @@ public sealed partial class ToolAgentOrchestrator
                 {
                     docId = TryGetString(entry, "DocId") ?? TryGetString(entry, "docId") ?? string.Empty,
                     docPath = TryGetString(entry, "DocPath") ?? TryGetString(entry, "docPath") ?? string.Empty,
-                    docName = TryGetString(entry, "DocName") ?? TryGetString(entry, "docName") ?? string.Empty,
-                    category = TryGetString(entry, "Category") ?? TryGetString(entry, "category") ?? string.Empty,
-                    summaryState = TryGetString(entry, "SummaryState") ?? TryGetString(entry, "summaryState") ?? "missing"
+                    docName = TryGetString(entry, "DocName") ?? TryGetString(entry, "docName") ?? TryGetString(entry, "CanonicalName") ?? TryGetString(entry, "canonicalName") ?? string.Empty,
+                    category = TryGetString(entry, "Category") ?? TryGetString(entry, "category") ?? TryGetString(entry, "CategoryCanonicalName") ?? TryGetString(entry, "categoryCanonicalName") ?? string.Empty,
+                    categoryRef = TryGetString(entry, "CategoryRef") ?? TryGetString(entry, "categoryRef"),
+                    categoryPath = TryGetString(entry, "CategoryPath") ?? TryGetString(entry, "categoryPath"),
+                    summaryState = TryGetString(entry, "SummaryState") ?? TryGetString(entry, "summaryState") ?? "missing",
+                    capabilityBProfileState = TryGetString(entry, "CapabilityBProfileState") ?? TryGetString(entry, "capabilityBProfileState"),
+                    capabilityBHasBackofficeProfile = TryGetBool(entry, "CapabilityBHasBackofficeProfile") ?? TryGetBool(entry, "capabilityBHasBackofficeProfile") ?? false,
+                    capabilityBReasons = ExtractCompactSignals(entry, "CapabilityBReasons").Concat(ExtractCompactSignals(entry, "capabilityBReasons")).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+                    hasActiveSummaryJob = TryGetBool(entry, "HasActiveSummaryJob") ?? TryGetBool(entry, "hasActiveSummaryJob") ?? false,
+                    activeSummaryJobId = TryGetString(entry, "ActiveSummaryJobId") ?? TryGetString(entry, "activeSummaryJobId"),
+                    activeSummaryJobType = TryGetString(entry, "ActiveSummaryJobType") ?? TryGetString(entry, "activeSummaryJobType"),
+                    activeSummaryJobStatus = TryGetString(entry, "ActiveSummaryJobStatus") ?? TryGetString(entry, "activeSummaryJobStatus"),
+                    activeSummaryJobExecutionMode = TryGetString(entry, "ActiveSummaryJobExecutionMode") ?? TryGetString(entry, "activeSummaryJobExecutionMode"),
+                    activeSummaryJobRuntimeCapabilityKey = TryGetString(entry, "ActiveSummaryJobRuntimeCapabilityKey") ?? TryGetString(entry, "activeSummaryJobRuntimeCapabilityKey"),
+                    activeSummaryJobRuntimeCapabilityStatus = TryGetString(entry, "ActiveSummaryJobRuntimeCapabilityStatus") ?? TryGetString(entry, "activeSummaryJobRuntimeCapabilityStatus"),
+                    activeSummaryJobEnqueueSource = TryGetString(entry, "ActiveSummaryJobEnqueueSource") ?? TryGetString(entry, "activeSummaryJobEnqueueSource"),
+                    activeSummaryJobCampaignId = TryGetString(entry, "ActiveSummaryJobCampaignId") ?? TryGetString(entry, "activeSummaryJobCampaignId"),
+                    capabilityBReadyToEnqueue = TryGetBool(entry, "CapabilityBReadyToEnqueue") ?? TryGetBool(entry, "capabilityBReadyToEnqueue") ?? false,
+                    capabilityBRecommendedAction = TryGetString(entry, "CapabilityBRecommendedAction") ?? TryGetString(entry, "capabilityBRecommendedAction"),
+                    capabilityBPolicyBlocked = TryGetBool(entry, "CapabilityBPolicyBlocked") ?? TryGetBool(entry, "capabilityBPolicyBlocked") ?? false,
+                    capabilityBPolicyBlockReason = TryGetString(entry, "CapabilityBPolicyBlockReason") ?? TryGetString(entry, "capabilityBPolicyBlockReason"),
+                    capabilityBPriorityScore = TryGetDouble(entry, "CapabilityBPriorityScore") ?? TryGetDouble(entry, "capabilityBPriorityScore"),
+                    capabilityBLastJobStatus = TryGetString(entry, "CapabilityBLastJobStatus") ?? TryGetString(entry, "capabilityBLastJobStatus"),
+                    capabilityBLastJobFinishedAt = TryGetString(entry, "CapabilityBLastJobFinishedAt") ?? TryGetString(entry, "capabilityBLastJobFinishedAt"),
+                    capabilityBLastJobError = TryGetString(entry, "CapabilityBLastJobError") ?? TryGetString(entry, "capabilityBLastJobError")
                 });
             }
         }
 
+        var totals = item.Result.TryGetProperty("totals", out var totalsElement) && totalsElement.ValueKind == JsonValueKind.Object
+            ? totalsElement
+            : default;
+        var mode = TryGetString(item.Result, "mode") ?? (string.Equals(item.ToolName, "summary.present.list", StringComparison.OrdinalIgnoreCase) ? "present" : "missing");
+
         return new
         {
-            total = TryGetInt(item.Result, "total") ?? rows.Count,
-            missingStored = TryGetInt(item.Result, "missingStored") ?? 0,
-            staleStored = TryGetInt(item.Result, "staleStored") ?? 0,
+            total = TryGetInt(item.Result, "total") ?? (totals.ValueKind == JsonValueKind.Object ? TryGetInt(totals, "total") : null) ?? rows.Count,
+            missingStored = TryGetInt(item.Result, "missingStored") ?? (totals.ValueKind == JsonValueKind.Object ? TryGetInt(totals, "missingStored") : null) ?? 0,
+            staleStored = TryGetInt(item.Result, "staleStored") ?? (totals.ValueKind == JsonValueKind.Object ? TryGetInt(totals, "staleStored") : null) ?? 0,
+            profileMissing = TryGetInt(item.Result, "profileMissing") ?? (totals.ValueKind == JsonValueKind.Object ? TryGetInt(totals, "profileMissing") : null) ?? 0,
             limit = TryGetInt(item.Result, "limit") ?? rows.Count,
             offset = TryGetInt(item.Result, "offset") ?? 0,
             scopePath = TryGetString(item.Result, "scopePath") ?? string.Empty,
             level = TryGetString(item.Result, "level") ?? "medium",
-            mode = TryGetString(item.Result, "mode") ?? (string.Equals(item.ToolName, "summary.present.list", StringComparison.OrdinalIgnoreCase) ? "present" : "missing"),
+            mode,
+            endOfList = TryGetBool(item.Result, "endOfList"),
+            nextLink = TryGetString(item.Result, "nextLink"),
             items = rows
         };
+    }
+
+    private static object? BuildExtractionQualityInventoryData(ToolResults toolResults)
+    {
+        var item = toolResults.Items.LastOrDefault(x => x.ToolName == "documents.extraction_quality" && string.IsNullOrWhiteSpace(x.Error));
+        if (item is null || item.Result.ValueKind != JsonValueKind.Object)
+            return null;
+
+        try
+        {
+            var summary = item.Result.TryGetProperty("summary", out var summaryElement) && summaryElement.ValueKind == JsonValueKind.Object
+                ? summaryElement
+                : default;
+            var rows = new List<object>();
+            if (item.Result.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var entry in items.EnumerateArray())
+                {
+                    if (entry.ValueKind != JsonValueKind.Object)
+                        continue;
+
+                    var signals = ExtractCompactSignals(entry, "signals")
+                        .Concat(ExtractCompactSignals(entry, "Signals"))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .Take(8)
+                        .ToArray();
+                    rows.Add(new
+                    {
+                        docId = TryGetString(entry, "docId") ?? TryGetString(entry, "DocId") ?? string.Empty,
+                        docPath = (TryGetString(entry, "docPath") ?? TryGetString(entry, "DocPath") ?? string.Empty).Replace('\\', '/').TrimStart('/'),
+                        documentStatus = TryGetString(entry, "documentStatus") ?? TryGetString(entry, "DocumentStatus") ?? string.Empty,
+                        processingRunStatus = TryGetString(entry, "processingRunStatus") ?? TryGetString(entry, "ProcessingRunStatus") ?? string.Empty,
+                        documentIndexable = TryGetBool(entry, "documentIndexable") ?? TryGetBool(entry, "DocumentIndexable") ?? true,
+                        failureReason = TryGetString(entry, "failureReason") ?? TryGetString(entry, "FailureReason") ?? string.Empty,
+                        ocrFailureReason = TryGetString(entry, "ocrFailureReason") ?? TryGetString(entry, "OcrFailureReason") ?? TryGetString(entry, "OCRFailureReason") ?? string.Empty,
+                        qualityStatus = TryGetString(entry, "qualityStatus") ?? TryGetString(entry, "QualityStatus") ?? string.Empty,
+                        extractionConfidence = TryGetDouble(entry, "extractionConfidence") ?? TryGetDouble(entry, "ExtractionConfidence"),
+                        manualReviewRecommended = TryGetBool(entry, "manualReviewRecommended") ?? TryGetBool(entry, "ManualReviewRecommended") ?? false,
+                        extractionSource = TryGetString(entry, "extractionSource") ?? TryGetString(entry, "ExtractionSource") ?? string.Empty,
+                        ocrAttempted = TryGetBool(entry, "ocrAttempted") ?? TryGetBool(entry, "OcrAttempted") ?? false,
+                        ocrApplied = TryGetBool(entry, "ocrApplied") ?? TryGetBool(entry, "OcrApplied") ?? false,
+                        ocrRecommended = TryGetBool(entry, "ocrRecommended") ?? TryGetBool(entry, "OcrRecommended") ?? false,
+                        ocrLanguages = TryGetString(entry, "ocrLanguages") ?? TryGetString(entry, "OcrLanguages") ?? string.Empty,
+                        ocrDurationMs = TryGetLong(entry, "ocrDurationMs") ?? TryGetLong(entry, "OcrDurationMs"),
+                        nativeTextStatus = TryGetString(entry, "nativeTextStatus") ?? TryGetString(entry, "NativeTextStatus") ?? string.Empty,
+                        nativeOcrRecommended = TryGetBool(entry, "nativeOcrRecommended") ?? TryGetBool(entry, "NativeOcrRecommended"),
+                        textStatus = TryGetString(entry, "textStatus") ?? TryGetString(entry, "TextStatus") ?? string.Empty,
+                        pageCount = TryGetInt(entry, "pageCount") ?? TryGetInt(entry, "PageCount") ?? 0,
+                        textPageCount = TryGetInt(entry, "textPageCount") ?? TryGetInt(entry, "TextPageCount") ?? 0,
+                        emptyPageCount = TryGetInt(entry, "emptyPageCount") ?? TryGetInt(entry, "EmptyPageCount") ?? 0,
+                        sparsePageCount = TryGetInt(entry, "sparsePageCount") ?? TryGetInt(entry, "SparsePageCount") ?? 0,
+                        imagePageCount = TryGetInt(entry, "imagePageCount") ?? TryGetInt(entry, "ImagePageCount") ?? 0,
+                        pageWarningCount = TryGetInt(entry, "pageWarningCount") ?? TryGetInt(entry, "PageWarningCount") ?? 0,
+                        pageReviewRecommendedCount = TryGetInt(entry, "pageReviewRecommendedCount") ?? TryGetInt(entry, "PageReviewRecommendedCount") ?? 0,
+                        totalWordCount = TryGetInt(entry, "totalWordCount") ?? TryGetInt(entry, "TotalWordCount"),
+                        totalCharCount = TryGetInt(entry, "totalCharCount") ?? TryGetInt(entry, "TotalCharCount"),
+                        averageWordsPerPage = TryGetDouble(entry, "averageWordsPerPage") ?? TryGetDouble(entry, "AverageWordsPerPage"),
+                        textPageRatio = TryGetDouble(entry, "textPageRatio") ?? TryGetDouble(entry, "TextPageRatio"),
+                        signals
+                    });
+                }
+            }
+
+            var categories = new List<object>();
+            if (item.Result.TryGetProperty("categories", out var categoryItems) && categoryItems.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var entry in categoryItems.EnumerateArray())
+                {
+                    if (entry.ValueKind != JsonValueKind.Object)
+                        continue;
+
+                    var categoryPath = (TryGetString(entry, "categoryPath") ?? TryGetString(entry, "CategoryPath") ?? string.Empty)
+                        .Replace('\\', '/')
+                        .Trim('/');
+                    if (string.IsNullOrWhiteSpace(categoryPath))
+                        continue;
+
+                    categories.Add(new
+                    {
+                        categoryPath,
+                        totalDocuments = TryGetInt(entry, "totalDocuments") ?? TryGetInt(entry, "TotalDocuments") ?? 0,
+                        okDocuments = TryGetInt(entry, "okDocuments") ?? TryGetInt(entry, "OkDocuments") ?? 0,
+                        lowTextDocuments = TryGetInt(entry, "lowTextDocuments") ?? TryGetInt(entry, "LowTextDocuments") ?? 0,
+                        emptyTextDocuments = TryGetInt(entry, "emptyTextDocuments") ?? TryGetInt(entry, "EmptyTextDocuments") ?? 0,
+                        unknownDocuments = TryGetInt(entry, "unknownDocuments") ?? TryGetInt(entry, "UnknownDocuments") ?? 0,
+                        ocrRecommendedDocuments = TryGetInt(entry, "ocrRecommendedDocuments") ?? TryGetInt(entry, "OcrRecommendedDocuments") ?? 0,
+                        ocrAppliedDocuments = TryGetInt(entry, "ocrAppliedDocuments") ?? TryGetInt(entry, "OcrAppliedDocuments") ?? 0,
+                        manualReviewRecommendedDocuments = TryGetInt(entry, "manualReviewRecommendedDocuments") ?? TryGetInt(entry, "ManualReviewRecommendedDocuments") ?? 0,
+                        pageReviewRecommendedPages = TryGetInt(entry, "pageReviewRecommendedPages") ?? TryGetInt(entry, "PageReviewRecommendedPages") ?? 0,
+                        pageWarningPages = TryGetInt(entry, "pageWarningPages") ?? TryGetInt(entry, "PageWarningPages") ?? 0
+                    });
+                }
+            }
+
+            return new
+            {
+                scopePath = TryGetString(item.Result, "scopePath") ?? string.Empty,
+                limit = TryGetInt(item.Result, "limit") ?? rows.Count,
+                summary = new
+                {
+                    totalDocuments = TryGetInt(summary, "totalDocuments") ?? 0,
+                    okDocuments = TryGetInt(summary, "okDocuments") ?? 0,
+                    lowTextDocuments = TryGetInt(summary, "lowTextDocuments") ?? 0,
+                    emptyTextDocuments = TryGetInt(summary, "emptyTextDocuments") ?? 0,
+                    unknownDocuments = TryGetInt(summary, "unknownDocuments") ?? 0,
+                    ocrRecommendedDocuments = TryGetInt(summary, "ocrRecommendedDocuments") ?? 0,
+                    ocrAttemptedDocuments = TryGetInt(summary, "ocrAttemptedDocuments") ?? 0,
+                    ocrAppliedDocuments = TryGetInt(summary, "ocrAppliedDocuments") ?? 0,
+                    manualReviewRecommendedDocuments = TryGetInt(summary, "manualReviewRecommendedDocuments") ?? 0,
+                    pageReviewRecommendedDocuments = TryGetInt(summary, "pageReviewRecommendedDocuments") ?? 0,
+                    pageReviewRecommendedPages = TryGetInt(summary, "pageReviewRecommendedPages") ?? 0,
+                    pageWarningDocuments = TryGetInt(summary, "pageWarningDocuments") ?? 0,
+                    pageWarningPages = TryGetInt(summary, "pageWarningPages") ?? 0,
+                    llmEnrichmentPendingDocuments = TryGetInt(summary, "llmEnrichmentPendingDocuments") ?? 0,
+                    summaryEnrichmentPendingDocuments = TryGetInt(summary, "summaryEnrichmentPendingDocuments") ?? 0,
+                    profileEnrichmentPendingDocuments = TryGetInt(summary, "profileEnrichmentPendingDocuments") ?? 0,
+                    contentCardEvidencePendingDocuments = TryGetInt(summary, "contentCardEvidencePendingDocuments") ?? 0
+                },
+                categories,
+                items = rows
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static object? BuildExtractionPagesInventoryData(ToolResults toolResults)
+    {
+        var item = toolResults.Items.LastOrDefault(x => x.ToolName == "documents.extraction_pages" && string.IsNullOrWhiteSpace(x.Error));
+        if (item is null || item.Result.ValueKind != JsonValueKind.Object)
+            return null;
+
+        try
+        {
+            var summary = item.Result.TryGetProperty("summary", out var summaryElement) && summaryElement.ValueKind == JsonValueKind.Object
+                ? summaryElement
+                : default;
+            var rows = new List<object>();
+            if (item.Result.TryGetProperty("pages", out var pages) && pages.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var entry in pages.EnumerateArray())
+                {
+                    if (entry.ValueKind != JsonValueKind.Object)
+                        continue;
+
+                    var signals = ExtractCompactSignals(entry, "signals")
+                        .Concat(ExtractCompactSignals(entry, "Signals"))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .Take(8)
+                        .ToArray();
+                    var unitPreviews = ExtractCompactSignals(entry, "unitPreviews")
+                        .Concat(ExtractCompactSignals(entry, "UnitPreviews"))
+                        .Distinct(StringComparer.Ordinal)
+                        .Take(3)
+                        .ToArray();
+                    var chunkPreviews = ExtractCompactSignals(entry, "chunkPreviews")
+                        .Concat(ExtractCompactSignals(entry, "ChunkPreviews"))
+                        .Distinct(StringComparer.Ordinal)
+                        .Take(3)
+                        .ToArray();
+                    rows.Add(new
+                    {
+                        pageNumber = TryGetInt(entry, "pageNumber") ?? TryGetInt(entry, "PageNumber") ?? 0,
+                        qualityStatus = TryGetString(entry, "qualityStatus") ?? TryGetString(entry, "QualityStatus") ?? string.Empty,
+                        extractionConfidence = TryGetDouble(entry, "extractionConfidence") ?? TryGetDouble(entry, "ExtractionConfidence"),
+                        manualReviewRecommended = TryGetBool(entry, "manualReviewRecommended") ?? TryGetBool(entry, "ManualReviewRecommended") ?? false,
+                        charCount = TryGetInt(entry, "charCount") ?? TryGetInt(entry, "CharCount") ?? 0,
+                        wordCount = TryGetInt(entry, "wordCount") ?? TryGetInt(entry, "WordCount") ?? 0,
+                        imageCount = TryGetInt(entry, "imageCount") ?? TryGetInt(entry, "ImageCount") ?? 0,
+                        unitCount = TryGetInt(entry, "unitCount") ?? TryGetInt(entry, "UnitCount") ?? 0,
+                        suspiciousUnitCount = TryGetInt(entry, "suspiciousUnitCount") ?? TryGetInt(entry, "SuspiciousUnitCount") ?? 0,
+                        chunkCount = TryGetInt(entry, "chunkCount") ?? TryGetInt(entry, "ChunkCount") ?? 0,
+                        textStatus = TryGetString(entry, "textStatus") ?? TryGetString(entry, "TextStatus") ?? string.Empty,
+                        textEmpty = TryGetBool(entry, "textEmpty") ?? TryGetBool(entry, "TextEmpty") ?? false,
+                        textSparse = TryGetBool(entry, "textSparse") ?? TryGetBool(entry, "TextSparse") ?? false,
+                        ocrCandidate = TryGetBool(entry, "ocrCandidate") ?? TryGetBool(entry, "OcrCandidate") ?? false,
+                        imageOcrStatus = TryGetString(entry, "imageOcrStatus") ?? TryGetString(entry, "ImageOcrStatus") ?? string.Empty,
+                        imageOcrReason = TryGetString(entry, "imageOcrReason") ?? TryGetString(entry, "ImageOcrReason") ?? string.Empty,
+                        imageOcrWordCount = TryGetInt(entry, "imageOcrWordCount") ?? TryGetInt(entry, "ImageOcrWordCount"),
+                        imageOcrCharCount = TryGetInt(entry, "imageOcrCharCount") ?? TryGetInt(entry, "ImageOcrCharCount"),
+                        imageOcrExitCode = TryGetInt(entry, "imageOcrExitCode") ?? TryGetInt(entry, "ImageOcrExitCode"),
+                        imageOcrTimedOut = TryGetBool(entry, "imageOcrTimedOut") ?? TryGetBool(entry, "ImageOcrTimedOut"),
+                        averageCharsPerWord = TryGetDouble(entry, "averageCharsPerWord") ?? TryGetDouble(entry, "AverageCharsPerWord"),
+                        signals,
+                        unitPreviews,
+                        chunkPreviews
+                    });
+                }
+            }
+
+            return new
+            {
+                docId = TryGetString(item.Result, "docId") ?? TryGetString(item.Result, "DocId") ?? string.Empty,
+                docPath = (TryGetString(item.Result, "docPath") ?? TryGetString(item.Result, "DocPath") ?? string.Empty).Replace('\\', '/').TrimStart('/'),
+                documentStatus = TryGetString(item.Result, "documentStatus") ?? TryGetString(item.Result, "DocumentStatus") ?? string.Empty,
+                processingRunStatus = TryGetString(item.Result, "processingRunStatus") ?? TryGetString(item.Result, "ProcessingRunStatus") ?? string.Empty,
+                documentIndexable = TryGetBool(item.Result, "documentIndexable") ?? TryGetBool(item.Result, "DocumentIndexable") ?? true,
+                failureReason = TryGetString(item.Result, "failureReason") ?? TryGetString(item.Result, "FailureReason") ?? string.Empty,
+                ocrFailureReason =
+                    TryGetString(item.Result, "ocrFailureReason")
+                    ?? TryGetString(item.Result, "OcrFailureReason")
+                    ?? TryGetString(item.Result, "OCRFailureReason")
+                    ?? TryGetOcrDiagnosticsString(item.Result, "failureReason"),
+                ocrAppliedReason = TryGetOcrDiagnosticsString(item.Result, "appliedReason"),
+                ocrMode = TryGetOcrDiagnosticsString(item.Result, "mode"),
+                indexedVersion = TryGetInt(item.Result, "indexedVersion") ?? TryGetInt(item.Result, "IndexedVersion"),
+                extractionSource = TryGetString(item.Result, "extractionSource") ?? TryGetString(item.Result, "ExtractionSource") ?? string.Empty,
+                ocrAttempted = TryGetBool(item.Result, "ocrAttempted") ?? TryGetBool(item.Result, "OcrAttempted") ?? false,
+                ocrApplied = TryGetBool(item.Result, "ocrApplied") ?? TryGetBool(item.Result, "OcrApplied") ?? false,
+                ocrLanguages = TryGetString(item.Result, "ocrLanguages") ?? TryGetString(item.Result, "OcrLanguages") ?? string.Empty,
+                ocrDurationMs = TryGetLong(item.Result, "ocrDurationMs") ?? TryGetLong(item.Result, "OcrDurationMs"),
+                summary = new
+                {
+                    pageCount = TryGetInt(summary, "pageCount") ?? 0,
+                    manualReviewRecommendedPages = TryGetInt(summary, "manualReviewRecommendedPages") ?? 0,
+                    probableOcrNoisePages = TryGetInt(summary, "probableOcrNoisePages") ?? 0,
+                    emptyTextPages = TryGetInt(summary, "emptyTextPages") ?? 0,
+                    lowTextPages = TryGetInt(summary, "lowTextPages") ?? 0,
+                    indexedByContextPages = TryGetInt(summary, "indexedByContextPages") ?? 0,
+                    imagePages = TryGetInt(summary, "imagePages") ?? 0
+                },
+                pages = rows
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? TryGetOcrDiagnosticsString(JsonElement root, string propertyName)
+    {
+        var diagnostics = TryGetObject(root, "ocrDiagnostics") ?? TryGetObject(root, "OcrDiagnostics");
+        return diagnostics is null
+            ? null
+            : TryGetString(diagnostics.Value, propertyName);
     }
 
     private static object? BuildCountInventoryData(ToolResults toolResults, string toolName)
@@ -1073,7 +1463,43 @@ public sealed partial class ToolAgentOrchestrator
     {
         var dp = (src.DocPath ?? string.Empty).Replace('\\', '/').TrimStart('/');
         var label = SanitizeOpenTokenLabel((src.Label ?? string.Empty).Trim());
-        payload = new { sources = new[] { new { docPath = dp, pageStart = src.PageStart, pageEnd = src.PageEnd, label } } };
+        var payloadSource = new ToolMemory.SourceRef
+        {
+            DocId = src.DocId,
+            DocPath = dp,
+            PageStart = src.PageStart,
+            PageEnd = src.PageEnd,
+            Label = label,
+            SourceHash = src.SourceHash,
+            DocLanguage = src.DocLanguage,
+            ProfileLanguage = src.ProfileLanguage,
+            CategoryRef = src.CategoryRef,
+            CategoryPath = src.CategoryPath,
+            ChunkId = src.ChunkId,
+            ExtractionSource = src.ExtractionSource,
+            DocumentQualityStatus = src.DocumentQualityStatus,
+            PageQualityStatus = src.PageQualityStatus,
+            TextStatus = src.TextStatus,
+            QualityStatus = src.QualityStatus,
+            ExtractionConfidence = src.ExtractionConfidence,
+            DocumentExtractionConfidence = src.DocumentExtractionConfidence,
+            PageExtractionConfidence = src.PageExtractionConfidence,
+            ManualReviewRecommended = src.ManualReviewRecommended,
+            DocumentManualReviewRecommended = src.DocumentManualReviewRecommended,
+            PageManualReviewRecommended = src.PageManualReviewRecommended,
+            OcrAttempted = src.OcrAttempted,
+            OcrApplied = src.OcrApplied,
+            OcrRecommended = src.OcrRecommended,
+            QualitySignals = src.QualitySignals.ToList(),
+            MatchedContentCards = src.MatchedContentCards.ToList(),
+            SelectionHintEvidenceRole = src.SelectionHintEvidenceRole,
+            SelectionHintActionabilityScore = src.SelectionHintActionabilityScore,
+            SelectionHintSupportScore = src.SelectionHintSupportScore,
+            SelectionHintFragmentScore = src.SelectionHintFragmentScore,
+            SelectionHintNavigationScore = src.SelectionHintNavigationScore,
+            SelectionHintQualityPenalty = src.SelectionHintQualityPenalty
+        };
+        payload = BuildSourcesPayload([payloadSource]);
 
         var heading = DeterministicAgentText.SourceHeading(language);
         return $"{heading}:\n1. [[open|{dp}|{Math.Max(1, src.PageStart)}|{label}]]";
@@ -1150,7 +1576,11 @@ public sealed partial class ToolAgentOrchestrator
         if (item is null || item.Result.ValueKind != JsonValueKind.Object)
             return string.Empty;
 
-        var total = TryGetInt(item.Result, "total") ?? 0;
+        var totals = item.Result.TryGetProperty("totals", out var totalsElement) && totalsElement.ValueKind == JsonValueKind.Object
+            ? totalsElement
+            : default;
+        var total = TryGetInt(item.Result, "total") ?? (totals.ValueKind == JsonValueKind.Object ? TryGetInt(totals, "total") : null) ?? 0;
+        var profileMissing = TryGetInt(item.Result, "profileMissing") ?? (totals.ValueKind == JsonValueKind.Object ? TryGetInt(totals, "profileMissing") : null) ?? 0;
         var mode = TryGetString(item.Result, "mode") ?? (string.Equals(item.ToolName, "summary.present.count", StringComparison.OrdinalIgnoreCase) ? "present" : "missing");
         if (string.Equals(mode, "present", StringComparison.OrdinalIgnoreCase))
         {
@@ -1159,6 +1589,11 @@ public sealed partial class ToolAgentOrchestrator
                 : DeterministicAgentText.StoredSummariesCount(total, language);
         }
 
+        if (profileMissing > 0 && total > 0)
+            return DeterministicAgentText.MissingSummariesCount(total, language)
+                + Environment.NewLine
+                + DeterministicAgentText.BackofficeProfilesMissingCount(profileMissing, language);
+
         return total <= 0
             ? DeterministicAgentText.NoMissingSummaries(language)
             : DeterministicAgentText.MissingSummariesCount(total, language);
@@ -1166,14 +1601,17 @@ public sealed partial class ToolAgentOrchestrator
 
     private string TryBuildSummaryStatusListAnswer(ToolResults toolResults, string language)
     {
-        var item = toolResults.Items.LastOrDefault(x => (x.ToolName is "summary.status.list" or "summary.present.list") && string.IsNullOrWhiteSpace(x.Error));
+        var item = toolResults.Items.LastOrDefault(x => (x.ToolName is "summary.status.list" or "summary.present.list" or "admin.summary.missing") && string.IsNullOrWhiteSpace(x.Error));
         if (item is null || item.Result.ValueKind != JsonValueKind.Object)
             return string.Empty;
 
-        if (!item.Result.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+        var hasItems = item.Result.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array;
+        if (!hasItems)
+            hasItems = item.Result.TryGetProperty("value", out items) && items.ValueKind == JsonValueKind.Array;
+        if (!hasItems)
             return string.Empty;
 
-        var rows = new List<(string path, string state)>();
+        var rows = new List<(string path, string state, bool profileMissing)>();
         foreach (var entry in items.EnumerateArray())
         {
             if (entry.ValueKind != JsonValueKind.Object)
@@ -1181,8 +1619,12 @@ public sealed partial class ToolAgentOrchestrator
 
             var path = TryGetString(entry, "DocPath") ?? TryGetString(entry, "docPath") ?? string.Empty;
             var state = TryGetString(entry, "SummaryState") ?? TryGetString(entry, "summaryState") ?? string.Empty;
+            var profileState = TryGetString(entry, "CapabilityBProfileState") ?? TryGetString(entry, "capabilityBProfileState") ?? string.Empty;
+            var hasBackofficeProfile = TryGetBool(entry, "CapabilityBHasBackofficeProfile") ?? TryGetBool(entry, "capabilityBHasBackofficeProfile");
+            var profileMissing = string.Equals(profileState, "missing", StringComparison.OrdinalIgnoreCase)
+                || (hasBackofficeProfile.HasValue && !hasBackofficeProfile.Value && HasReason(entry, "profile_missing"));
             if (!string.IsNullOrWhiteSpace(path))
-                rows.Add((path, state));
+                rows.Add((path, state, profileMissing));
         }
 
         var mode = TryGetString(item.Result, "mode") ?? (string.Equals(item.ToolName, "summary.present.list", StringComparison.OrdinalIgnoreCase) ? "present" : "missing");
@@ -1200,6 +1642,8 @@ public sealed partial class ToolAgentOrchestrator
             var suffix = rows[i].state.Equals("stale", StringComparison.OrdinalIgnoreCase)
                 ? " [stale]"
                 : string.Empty;
+            if (rows[i].profileMissing)
+                suffix += $" [{DeterministicAgentText.BackofficeProfileMissingSuffix(language)}]";
             sb.AppendLine($"{i + 1}. {rows[i].path}{suffix}");
         }
 
@@ -1381,22 +1825,9 @@ public sealed partial class ToolAgentOrchestrator
             }
 
             var answer = BuildDocumentaryProbeClarification(hits, plan.Language);
-            var sourcesPayload = new
-            {
-                intent = "rag_probe",
-                sources = hits.Select(x => new
-                {
-                    docPath = (x.DocPath ?? string.Empty).Replace('\\', '/'),
-                    docName = x.DocName ?? string.Empty,
-                    pageStart = x.PageStart ?? 1,
-                    pageEnd = x.PageEnd ?? x.PageStart ?? 1,
-                    label = $"{(x.DocName ?? x.DocPath ?? "document")} (p.{(x.PageStart ?? 1)})",
-                    snippet = string.IsNullOrWhiteSpace(x.Text)
-                        ? string.Empty
-                        : (x.Text!.Length > 220 ? x.Text[..220] + "…" : x.Text)
-                }).ToList()
-            };
-
+            var sourcesPayload = BuildSourcesPayload(
+                "rag_probe",
+                DeriveSourcesFromRagHits(probeToolResults));
             await EmitDeterministicTextAsync(answer, onDelta, ct).ConfigureAwait(false);
             RememberPendingClarification("rag_probe", effectiveUserMessage, "documentary_probe", plan.Language);
             onProgress?.Invoke(string.Empty);
@@ -1418,11 +1849,37 @@ public sealed partial class ToolAgentOrchestrator
                 docId = x.DocId,
                 docName = x.DocName,
                 docPath = x.DocPath,
+                category = x.Category,
+                categoryPath = x.CategoryPath,
+                categoryRef = x.CategoryRef,
+                docLanguage = x.DocLanguage,
+                profileLanguage = x.ProfileLanguage,
                 pageStart = x.PageStart ?? 1,
                 pageEnd = x.PageEnd ?? x.PageStart ?? 1,
+                chunkId = x.ChunkId,
+                chunkIndex = x.ChunkIndex,
                 excerpt = string.IsNullOrWhiteSpace(x.Snippet) ? x.Text : x.Snippet,
                 fullText = x.Text,
-                contextualSnippet = x.ContextualSnippet
+                sectionTitle = x.SectionTitle ?? x.Context?.SectionTitle,
+                headingPath = x.HeadingPath ?? x.Context?.HeadingPath,
+                retriever = x.Retriever,
+                provenanceInfo = x.ProvenanceInfo,
+                context = x.Context,
+                rerankScore = x.RerankScore,
+                exactMatchHit = x.ExactMatchHit ?? false,
+                sourceHash = x.SourceHash,
+                embeddingBasis = x.EmbeddingBasis,
+                chunkType = x.ChunkType ?? x.Context?.ChunkType,
+                prevChunkId = x.PrevChunkId ?? x.Context?.PrevChunkId,
+                nextChunkId = x.NextChunkId ?? x.Context?.NextChunkId,
+                sameSectionChunkId = x.SameSectionChunkId ?? x.Context?.SameSectionChunkId,
+                hasTable = x.HasTable,
+                hasWarning = x.HasWarning,
+                hypQuestionsMatched = x.HypQuestionsMatched,
+                extractionQuality = x.ExtractionQuality,
+                contextualSnippet = x.ContextualSnippet,
+                matchedContentCards = x.MatchedContentCards,
+                selectionHints = x.SelectionHints
             }).ToList()
         };
 
@@ -1477,34 +1934,38 @@ public sealed partial class ToolAgentOrchestrator
                 var multiResult = await ExecRagMultiSearchAsync(multiArgs, ct).ConfigureAwait(false);
                 if (HasRagHits(multiResult))
                 {
-                    var mealToolResults = new ToolResults();
-                    mealToolResults.Items.Add(new ToolResults.Item
+                    var planningToolResults = new ToolResults();
+                    planningToolResults.Items.Add(new ToolResults.Item
                     {
                         ToolName = "rag.multi_search",
                         Result = multiResult
                     });
 
-                    var mealAnswer = BuildSourceBackedPlanningAnswer(mealToolResults, plan.Language, minItems: 3, query: effectiveUserMessage);
-                    if (!string.IsNullOrWhiteSpace(mealAnswer))
+                    if (string.IsNullOrWhiteSpace(categoryScope))
                     {
-                        var mealSources = DeriveSourcesFromPlanningHits(mealToolResults, effectiveUserMessage);
-                        object? mealSourcesPayload = null;
-                        if (mealSources.Count > 0)
+                        var inferredCategoryScope = TryInferDominantTopLevelCategoryScope(planningToolResults, effectiveUserMessage);
+                        if (!string.IsNullOrWhiteSpace(inferredCategoryScope))
                         {
-                            _mem.LastSourcesUsed = mealSources;
-                            mealAnswer = InjectInlineSources(mealAnswer, mealSources, plan.Language);
-                            mealSourcesPayload = BuildSourcesPayload(mealSources);
+                            var scopedMultiArgs = CreateJsonArgs(new
+                            {
+                                queries = BuildPlanningRetrievalQueries(effectiveUserMessage),
+                                topK = 8,
+                                category = inferredCategoryScope,
+                                mode = "balanced"
+                            });
+                            var scopedMultiResult = await ExecRagMultiSearchAsync(scopedMultiArgs, ct).ConfigureAwait(false);
+                            if (HasRagHits(scopedMultiResult))
+                            {
+                                multiArgs = scopedMultiArgs;
+                                multiResult = scopedMultiResult;
+                                planningToolResults = new ToolResults();
+                                planningToolResults.Items.Add(new ToolResults.Item
+                                {
+                                    ToolName = "rag.multi_search",
+                                    Result = multiResult
+                                });
+                            }
                         }
-
-                        _lastAnswerSource = "standalone_topic_rag:source_backed_planning";
-                        _lastToolDurations = new List<(string tool, long durationMs, bool ok)> { ("rag.multi_search", 0, true) };
-                        _lastToolsMs = 0;
-                        _lastWriterMs = 0;
-                        _mem.LastToolNames = new List<string> { "rag.multi_search" };
-                        onProgress?.Invoke(string.Empty);
-
-                        var finalizedMealPlan = FinalizeAndReturn(swTotalPipeline, displayUserMessage, mealAnswer, mealSourcesPayload, "rag.answer", _mem.LastToolNames, _mem.LastReasoningTracePublic);
-                        return (true, finalizedMealPlan.finalAnswer, mealSourcesPayload);
                     }
 
                     var planningWriterPlan = new RouterPlan
@@ -1528,16 +1989,16 @@ public sealed partial class ToolAgentOrchestrator
 
                     onPhase?.Invoke(DeterministicAgentText.PhaseWriting(plan.Language));
                     onProgress?.Invoke(DeterministicAgentText.ProgressDraftFinalAnswer(plan.Language));
-                    var (writerAnswer, writerSources) = await AnswerAsync(chatHistory, effectiveUserMessage, planningWriterPlan, mealToolResults, ct, onDelta, onProgress).ConfigureAwait(false);
+                    var (writerAnswer, writerSources) = await AnswerAsync(chatHistory, effectiveUserMessage, planningWriterPlan, planningToolResults, ct, onDelta, onProgress).ConfigureAwait(false);
                     writerAnswer = (writerAnswer ?? string.Empty).Replace("**", string.Empty).Trim();
                     if (string.IsNullOrWhiteSpace(writerAnswer) || LooksLikeNoRagDataAnswer(writerAnswer))
                     {
-                        writerAnswer = BuildRagEvidenceFallbackAnswer(mealToolResults, effectiveUserMessage, plan.Language);
-                        writerSources = DeriveSourcesFromExtractiveHits(mealToolResults, effectiveUserMessage);
+                        writerAnswer = BuildRagEvidenceFallbackAnswer(planningToolResults, effectiveUserMessage, plan.Language);
+                        writerSources = DeriveSourcesFromExtractiveHits(planningToolResults, effectiveUserMessage);
                     }
 
                     if (writerSources is null || writerSources.Count == 0)
-                        writerSources = DeriveSourcesFromPlanningHits(mealToolResults, effectiveUserMessage);
+                        writerSources = DeriveSourcesFromPlanningHits(planningToolResults, effectiveUserMessage);
 
                     object? writerSourcesPayload = null;
                     if (writerSources is { Count: > 0 })
@@ -1558,13 +2019,20 @@ public sealed partial class ToolAgentOrchestrator
                 }
             }
 
-            var useMultiSearch = !string.IsNullOrWhiteSpace(exactItemTitle) || isComparativeDocumentaryRequest;
+            var isSourceBackedActionRequest = LooksLikeSourceBackedActionRequest(effectiveUserMessage);
+            var isDocumentaryContentRequest = LooksLikeDocumentaryContentRequest(effectiveUserMessage);
+            var useMultiSearch = !string.IsNullOrWhiteSpace(exactItemTitle)
+                || isComparativeDocumentaryRequest
+                || isSourceBackedActionRequest
+                || isDocumentaryContentRequest;
             var args = useMultiSearch
                 ? CreateJsonArgs(new
                 {
                     queries = !string.IsNullOrWhiteSpace(exactItemTitle)
                         ? BuildPreciseRetrievalQueries(exactItemTitle!, retrievalQuery)
-                        : BuildComparativeRetrievalQueries(effectiveUserMessage),
+                        : isComparativeDocumentaryRequest
+                            ? BuildComparativeRetrievalQueries(effectiveUserMessage)
+                            : BuildSourceBackedActionRetrievalQueries(effectiveUserMessage),
                     topK = !string.IsNullOrWhiteSpace(exactItemTitle) ? 20 : 12,
                     category = categoryScope,
                     mode = "balanced"
@@ -1615,23 +2083,69 @@ public sealed partial class ToolAgentOrchestrator
             answer = (answer ?? string.Empty).Replace("**", string.Empty).Trim();
             if (string.IsNullOrWhiteSpace(answer) || LooksLikeNoRagDataAnswer(answer))
             {
-                answer = BuildRagEvidenceFallbackAnswer(toolResults, effectiveUserMessage, plan.Language);
-                sources = DeriveSourcesFromExtractiveHits(toolResults, effectiveUserMessage);
+                if (LooksLikeSourceBackedCountdownPlanningRequest(effectiveUserMessage))
+                {
+                    answer = BuildSourceBackedCountdownPlanningAnswer(toolResults, effectiveUserMessage, plan.Language);
+                    sources = DeriveSourcesFromCountdownPlanningHits(toolResults, effectiveUserMessage);
+                }
+                else if (ShouldUseSourceBackedOptionAnswer(exactItemTitle, effectiveUserMessage))
+                {
+                    answer = BuildSourceBackedOptionAnswer(toolResults, plan.Language, minItems: 1, query: effectiveUserMessage);
+                    sources = DeriveSourcesFromOptionHits(toolResults, effectiveUserMessage);
+                }
+
+                if (string.IsNullOrWhiteSpace(answer))
+                {
+                    answer = BuildRagEvidenceFallbackAnswer(toolResults, effectiveUserMessage, plan.Language);
+                    sources = DeriveSourcesFromExtractiveHits(toolResults, effectiveUserMessage);
+                }
             }
             else if (ShouldUseSourceBackedExtractiveAnswer(effectiveUserMessage, toolResults)
-                || LooksLikeSourceBackedActionRequest(effectiveUserMessage)
-                || LooksLikeComparativeDocumentaryRequest(effectiveUserMessage))
+                || LooksLikeSourceBackedCountdownPlanningRequest(effectiveUserMessage))
             {
-                var deterministicAnswer = BuildSourceBackedExtractiveAnswer(toolResults, effectiveUserMessage, plan.Language);
-                if (!string.IsNullOrWhiteSpace(deterministicAnswer))
-                    answer = deterministicAnswer;
+                string deterministicAnswer;
+                List<ToolMemory.SourceRef> deterministicSources;
+                if (LooksLikeSourceBackedCountdownPlanningRequest(effectiveUserMessage))
+                {
+                    deterministicAnswer = BuildSourceBackedCountdownPlanningAnswer(toolResults, effectiveUserMessage, plan.Language);
+                    deterministicSources = DeriveSourcesFromCountdownPlanningHits(toolResults, effectiveUserMessage);
+                    if (string.IsNullOrWhiteSpace(deterministicAnswer))
+                    {
+                        deterministicAnswer = BuildSourceBackedExtractiveAnswer(toolResults, effectiveUserMessage, plan.Language);
+                        deterministicSources = DeriveSourcesFromExtractiveHits(toolResults, effectiveUserMessage);
+                    }
+                }
+                else if (ShouldUseSourceBackedOptionAnswer(exactItemTitle, effectiveUserMessage))
+                {
+                    deterministicAnswer = BuildSourceBackedOptionAnswer(toolResults, plan.Language, minItems: 1, query: effectiveUserMessage);
+                    deterministicSources = DeriveSourcesFromOptionHits(toolResults, effectiveUserMessage);
+                    if (string.IsNullOrWhiteSpace(deterministicAnswer))
+                    {
+                        deterministicAnswer = BuildSourceBackedExtractiveAnswer(toolResults, effectiveUserMessage, plan.Language);
+                        deterministicSources = DeriveSourcesFromExtractiveHits(toolResults, effectiveUserMessage);
+                    }
+                }
+                else
+                {
+                    deterministicAnswer = BuildSourceBackedExtractiveAnswer(toolResults, effectiveUserMessage, plan.Language);
+                    deterministicSources = DeriveSourcesFromExtractiveHits(toolResults, effectiveUserMessage);
+                }
 
-                var deterministicSources = DeriveSourcesFromExtractiveHits(toolResults, effectiveUserMessage);
-                if (deterministicSources.Count > 0)
+                if (!string.IsNullOrWhiteSpace(deterministicAnswer))
+                {
+                    answer = deterministicAnswer;
                     sources = deterministicSources;
+                    if (LooksLikeMissingExactItemWithoutSourceLeads(answer))
+                        sources.Clear();
+                }
             }
 
             object? sourcesPayload = null;
+            if (LooksLikeMissingExactItemWithoutSourceLeads(answer))
+            {
+                sources?.Clear();
+                _mem.LastSourcesUsed = new List<ToolMemory.SourceRef>();
+            }
             if (sources is { Count: > 0 })
             {
                 _mem.LastSourcesUsed = sources;
@@ -1853,6 +2367,7 @@ USER_MESSAGE:
                 ["total"] = _mem.LastSummaryStatusSnapshot.Total,
                 ["missingStored"] = _mem.LastSummaryStatusSnapshot.MissingStored,
                 ["staleStored"] = _mem.LastSummaryStatusSnapshot.StaleStored,
+                ["profileMissing"] = _mem.LastSummaryStatusSnapshot.ProfileMissing,
                 ["itemsCount"] = _mem.LastSummaryStatusSnapshot.Items?.Count ?? 0
             },
             ["resolverHint"] = new Dictionary<string, object?>
@@ -2019,6 +2534,13 @@ USER_MESSAGE:
         _lastUsedInventoryRendered = _lastUsedInventoryRendered || _lastWriterToolNames.Any(x => string.Equals(x, "inventory.rendered", StringComparison.OrdinalIgnoreCase));
         var inventoryRenderedText = TryRenderInventoryFallbackText(writerToolResults, plan.Language);
         var inventoryRenderedDataJson = TryExtractInventoryRenderedDataJson(writerToolResults);
+        var backendClarification = TryBuildBackendGuidanceClarificationAnswer(writerToolResults, plan.Language);
+        if (!string.IsNullOrWhiteSpace(backendClarification))
+        {
+            RememberPendingClarification("rag_guidance", userMessage, "backend_ask_clarification", plan.Language);
+            _lastAnswerSource = $"backend_guidance_ask_clarification:{plan.Intent}";
+            return (backendClarification, null);
+        }
 
         if (ShouldBypassWriterForDeterministicInventory(plan, writerToolResults, inventoryRenderedText))
         {
@@ -2037,23 +2559,64 @@ USER_MESSAGE:
             if (ragHits.Count > 0 && !RagHitsContainRequestedTitle(ragHits, requestedItemTitle!))
             {
                 _lastAnswerSource = $"writer_bypass_missing_exact_item:{plan.Intent}";
-                return (BuildMissingExactItemAnswer(plan.Language, requestedItemTitle!, ragHits), DeriveSourcesFromMissingExactItemCloseLeads(requestedItemTitle!, ragHits));
+                var missingExactAnswer = BuildMissingExactItemAnswer(plan.Language, requestedItemTitle!, ragHits);
+                var missingExactSources = DeriveSourcesFromMissingExactItemCloseLeads(requestedItemTitle!, ragHits);
+                if (LooksLikeMissingExactItemWithoutSourceLeads(missingExactAnswer))
+                    missingExactSources.Clear();
+                return (missingExactAnswer, missingExactSources);
             }
         }
 
-        if (ShouldUseSourceBackedExtractiveAnswer(userMessage, writerToolResults)
-            || LooksLikeSourceBackedActionRequest(userMessage)
-            || LooksLikeComparativeDocumentaryRequest(userMessage))
+        var shouldUseSourceBackedOptionAnswer = ShouldUseSourceBackedOptionAnswer(requestedItemTitle, userMessage);
+        var shouldUseSourceBackedCountdownAnswer = LooksLikeSourceBackedCountdownPlanningRequest(userMessage);
+        var shouldUseSourceBackedExtractiveAnswer = ShouldUseSourceBackedExtractiveAnswer(userMessage, writerToolResults);
+        var shouldUseSourceBackedPairingAnswer = LooksLikeSourceBackedPairingRecommendationRequest(userMessage);
+
+        if (shouldUseSourceBackedExtractiveAnswer || shouldUseSourceBackedCountdownAnswer || shouldUseSourceBackedPairingAnswer || shouldUseSourceBackedOptionAnswer)
         {
-            var isPlanningRequest = LooksLikeSourceBackedPlanningRequest(userMessage);
             string deterministicAnswer;
             List<ToolMemory.SourceRef> deterministicSources;
-            if (isPlanningRequest)
+            if (shouldUseSourceBackedCountdownAnswer)
             {
-                deterministicAnswer = BuildSourceBackedPlanningAnswer(writerToolResults, plan.Language, minItems: 3, query: userMessage);
+                deterministicAnswer = BuildSourceBackedCountdownPlanningAnswer(writerToolResults, userMessage, plan.Language);
                 if (!string.IsNullOrWhiteSpace(deterministicAnswer))
                 {
-                    deterministicSources = DeriveSourcesFromPlanningHits(writerToolResults, userMessage);
+                    deterministicSources = DeriveSourcesFromCountdownPlanningHits(writerToolResults, userMessage);
+                }
+                else
+                {
+                    deterministicAnswer = BuildSourceBackedExtractiveAnswer(writerToolResults, userMessage, plan.Language);
+                    deterministicSources = DeriveSourcesFromExtractiveHits(writerToolResults, userMessage);
+                }
+            }
+            else if (shouldUseSourceBackedOptionAnswer && !shouldUseSourceBackedPairingAnswer)
+            {
+                deterministicAnswer = TryBuildMissingBroadCompositionAnchorAnswer(writerToolResults, userMessage, plan.Language);
+                if (string.IsNullOrWhiteSpace(deterministicAnswer) && ShouldUseFallbackForBroadMethodOptionRequest(userMessage))
+                    deterministicAnswer = BuildRagEvidenceFallbackAnswer(writerToolResults, userMessage, plan.Language);
+                if (string.IsNullOrWhiteSpace(deterministicAnswer))
+                    deterministicAnswer = BuildSourceBackedOptionAnswer(writerToolResults, plan.Language, minItems: 1, query: userMessage);
+
+                if (!string.IsNullOrWhiteSpace(deterministicAnswer))
+                {
+                    deterministicSources = LooksLikeOverPromotedSourceBackedOptionAnswer(deterministicAnswer)
+                        ? DeriveSourcesFromOptionHits(writerToolResults, userMessage)
+                        : DeriveSourcesFromExtractiveHits(writerToolResults, userMessage);
+                }
+                else
+                {
+                    deterministicAnswer = BuildSourceBackedExtractiveAnswer(writerToolResults, userMessage, plan.Language);
+                    deterministicSources = DeriveSourcesFromExtractiveHits(writerToolResults, userMessage);
+                }
+            }
+            else if (shouldUseSourceBackedPairingAnswer)
+            {
+                deterministicAnswer = BuildSourceBackedOptionAnswer(writerToolResults, plan.Language, minItems: 1, query: userMessage);
+                if (!string.IsNullOrWhiteSpace(deterministicAnswer))
+                {
+                    deterministicSources = LooksLikeMissingPairingAnchorAnswer(deterministicAnswer)
+                        ? DeriveSourcesFromRagHits(writerToolResults).Take(5).ToList()
+                        : DeriveSourcesFromOptionHits(writerToolResults, userMessage);
                 }
                 else
                 {
@@ -2068,6 +2631,8 @@ USER_MESSAGE:
             }
             if (!string.IsNullOrWhiteSpace(deterministicAnswer))
             {
+                if (LooksLikeMissingExactItemWithoutSourceLeads(deterministicAnswer))
+                    deterministicSources.Clear();
                 _lastAnswerSource = $"writer_bypass_source_backed_extractive:{plan.Intent}";
                 return (deterministicAnswer, deterministicSources);
             }
@@ -2109,8 +2674,9 @@ AUTHORITATIVE_INVENTORY_DATA (json):
         List<ToolMemory.SourceRef>? sources = null;
         var usedRagSearch = toolResults.Items.Any(x => x.ToolName is "rag.search" or "rag.multi_search");
         var usedSourcesResolve = toolResults.Items.Any(x => x.ToolName == "sources.resolve");
+        var usedSummarySearch = toolResults.Items.Any(x => x.ToolName == "summary.search");
 
-        if (usedRagSearch && LooksLikeDegenerateLlmOutput(finalAnswer))
+        if (usedRagSearch && LooksLikeDegenerateLlmOutput(finalAnswer) && !LooksLikeWeeklyPlanningRequest(userMessage))
         {
             var guardedAnswer = BuildSourceBackedPlanningOrExtractiveAnswer(toolResults, userMessage, plan.Language, minPlanningItems: 1);
             finalAnswer = string.IsNullOrWhiteSpace(guardedAnswer)
@@ -2121,57 +2687,113 @@ AUTHORITATIVE_INVENTORY_DATA (json):
 
         if (usedRagSearch)
         {
-            sources = DeriveSourcesFromRagHits(toolResults);
-            if (ShouldUseSourceBackedExtractiveAnswer(userMessage, toolResults)
+            if (LooksLikeSourceBackedCountdownPlanningRequest(userMessage))
+                sources = DeriveSourcesFromCountdownPlanningHits(toolResults, userMessage);
+            else if (LooksLikeSourceBackedPlanningRequest(userMessage))
+                sources = DeriveSourcesFromPlanningHits(toolResults, userMessage);
+            else if (LooksLikeSourceBackedPairingRecommendationRequest(userMessage))
+                sources = DeriveSourcesFromOptionHits(toolResults, userMessage);
+            else if (ShouldUseSourceBackedOptionAnswer(requestedItemTitle, userMessage))
+                sources = DeriveSourcesFromOptionHits(toolResults, userMessage);
+            else if (ShouldUseSourceBackedExtractiveAnswer(userMessage, toolResults)
                 || LooksLikeSourceBackedActionRequest(userMessage)
                 || LooksLikeComparativeDocumentaryRequest(userMessage))
+                sources = DeriveSourcesFromExtractiveHits(toolResults, userMessage);
+            else
+                sources = DeriveSourcesFromRagHits(toolResults);
+
+            if (sources.Count == 0)
+                sources = DeriveSourcesFromRagHits(toolResults);
+
+            if (LooksLikeSourceBackedCountdownPlanningRequest(userMessage))
             {
-                if (LooksLikeSourceBackedPlanningRequest(userMessage))
+                var countdownAnswer = BuildSourceBackedCountdownPlanningAnswer(toolResults, userMessage, plan.Language);
+                if (!string.IsNullOrWhiteSpace(countdownAnswer))
                 {
-                    var planningAnswer = BuildSourceBackedPlanningAnswer(toolResults, plan.Language, minItems: 3, query: userMessage);
-                    if (!string.IsNullOrWhiteSpace(planningAnswer))
-                    {
-                        finalAnswer = planningAnswer;
-                        sources = DeriveSourcesFromPlanningHits(toolResults, userMessage);
-                        if (sources.Count == 0)
-                            sources = DeriveSourcesFromRankedRagHits(toolResults, userMessage);
-                    }
-                    else
-                    {
-                        var extractiveAnswer = BuildSourceBackedExtractiveAnswer(toolResults, userMessage, plan.Language);
-                        if (!string.IsNullOrWhiteSpace(extractiveAnswer))
-                        {
-                            finalAnswer = extractiveAnswer;
-                            sources = DeriveSourcesFromExtractiveHits(toolResults, userMessage);
-                        }
-                        else
-                        {
-                            sources = DeriveSourcesFromExtractiveHits(toolResults, userMessage);
-                        }
-                    }
-                }
-                else
-                {
-                    var extractiveAnswer = BuildSourceBackedExtractiveAnswer(toolResults, userMessage, plan.Language);
-                    if (!string.IsNullOrWhiteSpace(extractiveAnswer))
-                    {
-                        finalAnswer = extractiveAnswer;
+                    finalAnswer = countdownAnswer;
+                    sources = DeriveSourcesFromCountdownPlanningHits(toolResults, userMessage);
+                    if (sources.Count == 0)
                         sources = DeriveSourcesFromExtractiveHits(toolResults, userMessage);
-                    }
-                    else
-                    {
-                        sources = DeriveSourcesFromExtractiveHits(toolResults, userMessage);
-                    }
                 }
             }
-            if (sources.Count > 0 && LooksLikeNoRagDataAnswer(finalAnswer))
-                finalAnswer = BuildRagEvidenceFallbackAnswer(toolResults, userMessage, plan.Language);
+
+            if (LooksLikeNoRagDataAnswer(finalAnswer))
+            {
+                var repairAnswer = LooksLikeWeeklyPlanningRequest(userMessage)
+                    ? await TryRepairWeeklyPlanningAnswerWithWriterAsync(chatHistory, userMessage, plan, writerToolResults, ct).ConfigureAwait(false)
+                    : BuildSourceBackedPlanningOrExtractiveAnswer(toolResults, userMessage, plan.Language, minPlanningItems: 1);
+                if (string.IsNullOrWhiteSpace(repairAnswer))
+                    repairAnswer = BuildRagEvidenceFallbackAnswer(toolResults, userMessage, plan.Language);
+
+                if (!string.IsNullOrWhiteSpace(repairAnswer))
+                {
+                    finalAnswer = repairAnswer;
+                    sources = DeriveSourcesFromExtractiveHits(toolResults, userMessage);
+                }
+            }
+
+            var missingRequiredAnswer = TryBuildMissingRequiredEvidenceAnswer(toolResults, userMessage, plan.Language);
+            if (!string.IsNullOrWhiteSpace(missingRequiredAnswer))
+            {
+                finalAnswer = missingRequiredAnswer;
+                sources = DeriveSourcesFromRagHits(toolResults).Take(5).ToList();
+                _lastAnswerSource = $"writer_guard_missing_required_evidence:{plan.Intent}";
+            }
+
+            var missingPairingAnchorAnswer = TryBuildMissingPairingAnchorAnswer(toolResults, userMessage, plan.Language);
+            if (!string.IsNullOrWhiteSpace(missingPairingAnchorAnswer))
+            {
+                finalAnswer = missingPairingAnchorAnswer;
+                sources = DeriveSourcesFromRagHits(toolResults).Take(5).ToList();
+                _lastAnswerSource = $"writer_guard_missing_pairing_anchor:{plan.Intent}";
+            }
+
+            var missingBroadAnchorAnswer = TryBuildMissingBroadCompositionAnchorAnswer(toolResults, userMessage, plan.Language);
+            if (!string.IsNullOrWhiteSpace(missingBroadAnchorAnswer))
+            {
+                finalAnswer = missingBroadAnchorAnswer;
+                sources = DeriveSourcesFromRagHits(toolResults).Take(5).ToList();
+                _lastAnswerSource = $"writer_guard_missing_broad_anchor:{plan.Intent}";
+            }
+
+            if ((ShouldPreferPartialEvidenceFallbackOverOptions(toolResults, userMessage)
+                    || LooksLikeUnsupportedBroadOptionComposition(userMessage, finalAnswer))
+                && LooksLikeOverPromotedSourceBackedOptionAnswer(finalAnswer))
+            {
+                var fallbackAnswer = BuildRagEvidenceFallbackAnswer(toolResults, userMessage, plan.Language);
+                if (!string.IsNullOrWhiteSpace(fallbackAnswer))
+                {
+                    finalAnswer = fallbackAnswer;
+                    sources = DeriveSourcesFromExtractiveHits(toolResults, userMessage);
+                    _lastAnswerSource = $"writer_guard_overpromoted_options:{plan.Intent}";
+                }
+            }
+
+            if (LooksLikeUnderusedSourceBackedPlanningAnswer(finalAnswer, toolResults, userMessage))
+            {
+                var planningAnswer = BuildSourceBackedPlanningAnswer(toolResults, plan.Language, minItems: 2, query: userMessage);
+                if (!string.IsNullOrWhiteSpace(planningAnswer))
+                {
+                    finalAnswer = planningAnswer;
+                    sources = DeriveSourcesFromPlanningHits(toolResults, userMessage);
+                    _lastAnswerSource = $"writer_guard_underused_planning_sources:{plan.Intent}";
+                }
+            }
+
+            if (sources.Count > 0 && LooksLikeMissingExactItemWithoutSourceLeads(finalAnswer))
+            {
+                sources.Clear();
+            }
         }
         else if (usedSourcesResolve)
         {
             var resolved = TryBuildSourceFromResolveResult(toolResults);
             if (resolved is not null)
                 sources = new List<ToolMemory.SourceRef> { resolved };
+        }
+        else if (usedSummarySearch)
+        {
+            sources = DeriveSourcesFromSummarySearch(toolResults);
         }
 
         if (ShouldRunCriticPass(plan, toolResults, useGeneralChatPrompt))
@@ -2181,7 +2803,11 @@ AUTHORITATIVE_INVENTORY_DATA (json):
             finalAnswer = await RunCriticPassAsync(chatHistory, userMessage, plan, toolResults, finalAnswer, ct).ConfigureAwait(false);
         }
 
-        if (usedRagSearch && sources is { Count: > 0 } && LooksLikeNoRagDataAnswer(finalAnswer))
+        if (usedRagSearch && sources is { Count: > 0 } && LooksLikeMissingExactItemWithoutSourceLeads(finalAnswer))
+        {
+            sources.Clear();
+        }
+        else if (usedRagSearch && sources is { Count: > 0 } && LooksLikeNoRagDataAnswer(finalAnswer))
         {
             finalAnswer = BuildRagEvidenceFallbackAnswer(toolResults, userMessage, plan.Language);
             if (ShouldUseSourceBackedExtractiveAnswer(userMessage, toolResults)
@@ -2193,6 +2819,62 @@ AUTHORITATIVE_INVENTORY_DATA (json):
         }
 
         return (finalAnswer, sources);
+    }
+
+    private async Task<string> TryRepairWeeklyPlanningAnswerWithWriterAsync(
+        IReadOnlyList<(string role, string content)> chatHistory,
+        string userMessage,
+        RouterPlan plan,
+        ToolResults writerToolResults,
+        CancellationToken ct)
+    {
+        if (!LooksLikeWeeklyPlanningRequest(userMessage)
+            || !writerToolResults.Items.Any(item => item.ToolName is "rag.search" or "rag.multi_search"))
+        {
+            return string.Empty;
+        }
+
+        var language = NormalizeLanguageCode(plan.Language);
+        var system = $@"
+You are SAAIA assistant.
+Target language: {language}.
+
+The tool results contain partial source-backed leads for a broad planning or composition request.
+
+Rules:
+- Answer only from the tool results.
+- Do not say there is no data when hits are present.
+- Do not dump raw excerpts.
+- Do not invent a complete weekly plan when the sources do not support enough distinct items.
+- Build a short, useful partial answer from the sourced leads: practical guidance, candidate items/actions, caveat for missing coverage, and source names/pages.
+- Keep at most 5 compact bullets.
+- For every concrete item, action, quantity, timing or citation, preserve only what appears in the hits.
+- Return plain text only.
+";
+
+        var user = $@"
+CHAT_TAIL:
+{SerializeTail(chatHistory, maxTurns: 6)}
+
+USER_MESSAGE:
+{userMessage}
+
+TOOL_RESULTS (json):
+{SerializeToolResults(writerToolResults)}
+";
+
+        var messages = new[]
+        {
+            ("system", system),
+            ("user", user)
+        };
+
+        var repair = await StreamOrCompleteWithRetryAsync(messages, onDelta: null, ct).ConfigureAwait(false);
+        repair = (repair ?? string.Empty).Replace("**", string.Empty).Trim();
+
+        return LooksLikeNoRagDataAnswer(repair)
+            ? string.Empty
+            : repair;
     }
 
     internal static string? ClassifyToolExecutionError(Exception ex, bool isAdminTool)
@@ -2388,7 +3070,7 @@ TOOL_RESULTS (json):
             DocumentSummaryRequestKind.About => "rag.summarize_doc",
             DocumentSummaryRequestKind.SummaryReadStoredExact => "summary.get",
             DocumentSummaryRequestKind.SummaryCheckOnly => "summary.exists",
-            DocumentSummaryRequestKind.SummaryStore => "admin.summary.submit",
+            DocumentSummaryRequestKind.SummaryStore => "admin.summary.generate",
             _ => "rag.summarize_doc"
         };
 
@@ -2416,7 +3098,7 @@ TOOL_RESULTS (json):
             return true;
         }
 
-        if (intent == "admin.summary.submit")
+        if (intent is "admin.summary.generate" or "admin.summary.submit")
         {
             requestKind = DocumentSummaryRequestKind.SummaryStore;
             return true;
@@ -2436,7 +3118,7 @@ TOOL_RESULTS (json):
             return true;
         }
 
-        var hasSummaryTool = plan.ToolCalls.Any(call => call.Name is "summary.exists" or "summary.get" or "rag.summarize_live" or "admin.summary.generate" or "admin.summary.submit" or "admin.summary.request");
+        var hasSummaryTool = plan.ToolCalls.Any(call => call.Name is "summary.exists" or "summary.get" or "rag.summarize_live" or "admin.summary.generate" or "admin.summary.request");
         if (!hasSummaryTool)
             return false;
 
@@ -2599,6 +3281,16 @@ TOOL_RESULTS (json):
                 limit = NormalizeIntArg(GetIntArg(args, "limit"), 200, 1, 2000),
                 offset = NormalizeIntArg(GetIntArg(args, "offset"), 0, 0, 100000)
             },
+            "documents.extraction_quality" => new
+            {
+                path = NormalizeCategoryPathArg(GetStringArg(args, "path") ?? GetStringArg(args, "categoryPath")),
+                categoryRef = GetStringArg(args, "categoryRef"),
+                limit = NormalizeIntArg(GetIntArg(args, "limit"), 200, 1, 2000)
+            },
+            "documents.extraction_pages" => new
+            {
+                docRef = GetDocRefFromArgs(args) ?? string.Empty
+            },
             "sources.resolve" => new
             {
                 @ref = (GetStringArg(args, "ref") ?? GetStringArg(args, "pdfRef") ?? string.Empty).Trim()
@@ -2608,6 +3300,7 @@ TOOL_RESULTS (json):
                 query = (GetStringArg(args, "query") ?? string.Empty).Trim(),
                 topK = NormalizeIntArg(GetIntArg(args, "topK"), 8, 1, 20),
                 categoryPath = NormalizeCategoryPathArg(GetStringArg(args, "categoryPath") ?? GetNestedStringArg(args, "filters", "categoryPath") ?? GetStringArg(args, "category") ?? GetNestedStringArg(args, "filters", "category")),
+                categoryRef = GetStringArg(args, "categoryRef") ?? GetNestedStringArg(args, "filters", "categoryRef"),
                 mode = NormalizeRagMode(GetStringArg(args, "mode"))
             },
             "rag.multi_search" => new
@@ -2615,6 +3308,7 @@ TOOL_RESULTS (json):
                 queries = NormalizeRagMultiSearchQueries(args),
                 topK = NormalizeIntArg(GetIntArg(args, "topK"), 8, 1, 20),
                 categoryPath = NormalizeCategoryPathArg(GetStringArg(args, "categoryPath") ?? GetNestedStringArg(args, "filters", "categoryPath") ?? GetStringArg(args, "category") ?? GetNestedStringArg(args, "filters", "category")),
+                categoryRef = GetStringArg(args, "categoryRef") ?? GetNestedStringArg(args, "filters", "categoryRef"),
                 mode = NormalizeRagMode(GetStringArg(args, "mode"))
             },
             "rag.summarize_live" => new
@@ -2623,6 +3317,8 @@ TOOL_RESULTS (json):
                 level = NormalizeLiveSummaryLevel(GetStringArg(args, "level")),
                 strategy = NormalizeSummaryStrategy(GetStringArg(args, "strategy")),
                 language = NormalizeSummaryLanguage(GetStringArg(args, "language")),
+                responseLanguage = NormalizeSummaryLanguage(GetStringArg(args, "responseLanguage") ?? GetStringArg(args, "language")),
+                docLanguage = NormalizeDocumentLanguageTag(GetStringArg(args, "docLanguage")),
                 maxWords = NormalizeNullableIntArg(GetIntArg(args, "maxWords"), 20, 1200),
                 maxChunks = NormalizeNullableIntArg(GetIntArg(args, "maxChunks"), 1, 40),
                 maxBatches = NormalizeNullableIntArg(GetIntArg(args, "maxBatches"), 1, 8),
@@ -2655,9 +3351,10 @@ TOOL_RESULTS (json):
             "admin.summary.submit" => new
             {
                 jobId = GetStringArg(args, "jobId"),
+                executionLeaseToken = GetStringArg(args, "executionLeaseToken") ?? GetStringArg(args, "leaseToken"),
                 docRef = GetDocRefFromArgs(args) ?? string.Empty,
                 level = "medium",
-                docLanguage = NormalizeSummaryLanguage(GetStringArg(args, "docLanguage") ?? GetStringArg(args, "language")),
+                docLanguage = NormalizeAdminSummarySubmitDocLanguage(GetStringArg(args, "docLanguage")),
                 sourceHash = GetStringArg(args, "sourceHash") ?? string.Empty,
                 summaryText = GetStringArg(args, "summaryText") ?? GetStringArg(args, "content") ?? string.Empty,
                 meta = TryGetObjectArg(args, "meta")
@@ -2759,6 +3456,38 @@ TOOL_RESULTS (json):
     {
         var normalized = (language ?? string.Empty).Trim().ToLowerInvariant();
         return normalized is "auto" or "fr" or "en" or "es" or "pt" or "de" or "it" ? normalized : "auto";
+    }
+
+    private static string NormalizeAdminSummarySubmitDocLanguage(string? language)
+        => NormalizeDocumentLanguageTag(language);
+
+    private static string NormalizeDocumentLanguageTag(string? language)
+    {
+        var normalized = (language ?? string.Empty).Trim().Replace('_', '-').ToLowerInvariant();
+        if (normalized.Contains(',', StringComparison.Ordinal))
+            normalized = normalized.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? string.Empty;
+        if (normalized.Contains('+', StringComparison.Ordinal))
+            normalized = normalized.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? string.Empty;
+
+        return IsPlausibleDocumentLanguageTag(normalized) ? normalized : "und";
+    }
+
+    private static bool IsPlausibleDocumentLanguageTag(string language)
+    {
+        if (string.Equals(language, "und", StringComparison.Ordinal))
+            return true;
+        if (string.IsNullOrWhiteSpace(language) || language.Length is < 2 or > 35)
+            return false;
+
+        var parts = language.Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0 || parts.Length > 5)
+            return false;
+        if (parts[0].Length is < 2 or > 8 || !parts[0].All(char.IsLetter))
+            return false;
+
+        return parts.Skip(1).All(static part =>
+            part.Length is >= 2 and <= 8
+            && part.All(static ch => char.IsLetterOrDigit(ch)));
     }
 
     private static string NormalizeExportFormat(string? format)
@@ -2869,7 +3598,7 @@ TOOL_RESULTS (json):
             "summary.status" or "summary_status" or "inventory.summary_status" or "admin.summary.missing" or "summary.status.count" or "summary.status.list" or "summary.present.count" or "summary.present.list" => "inventory.summary_status",
             "document.about" or "document_about" or "rag.about_doc" => "rag.summarize_doc",
             "summary.exists" or "check_summary" => "summary.exists",
-            "summary.store" or "refresh_summary" => "admin.summary.submit",
+            "summary.store" or "refresh_summary" => "admin.summary.generate",
             _ => normalized
         };
     }
@@ -2935,7 +3664,7 @@ TOOL_RESULTS (json):
             : normalizedOriginalQuery;
         if (string.IsNullOrWhiteSpace(retrievalQuery))
             retrievalQuery = effectiveUserMessage;
-        var isMealPlanning = LooksLikeSourceBackedPlanningRequest(effectiveUserMessage);
+        var isDocumentaryPlanning = LooksLikeSourceBackedPlanningRequest(effectiveUserMessage);
         var topK = string.IsNullOrWhiteSpace(exactItemTitle) ? 8 : 20;
         var categoryScope = ResolveRagCategoryScope(effectiveUserMessage);
 
@@ -2949,7 +3678,7 @@ TOOL_RESULTS (json):
         {
             plan.Intent = "rag.answer";
             plan.ToolCalls.Clear();
-            if (isMealPlanning)
+            if (isDocumentaryPlanning && string.IsNullOrWhiteSpace(exactItemTitle))
             {
                 plan.ToolCalls.Add(new RouterPlan.ToolCall
                 {
@@ -2967,8 +3696,8 @@ TOOL_RESULTS (json):
             {
                 plan.ToolCalls.Add(new RouterPlan.ToolCall
                 {
-                    Name = string.IsNullOrWhiteSpace(exactItemTitle) && !isComparativeDocumentaryRequest && !isSourceBackedAdaptationRequest && !isDocumentaryContentRequest ? "rag.search" : "rag.multi_search",
-                    Args = string.IsNullOrWhiteSpace(exactItemTitle) && !isComparativeDocumentaryRequest && !isSourceBackedAdaptationRequest && !isDocumentaryContentRequest
+                    Name = string.IsNullOrWhiteSpace(exactItemTitle) && !isComparativeDocumentaryRequest && !isSourceBackedAdaptationRequest && !isDocumentaryContentRequest && !isSourceBackedActionRequest ? "rag.search" : "rag.multi_search",
+                    Args = string.IsNullOrWhiteSpace(exactItemTitle) && !isComparativeDocumentaryRequest && !isSourceBackedAdaptationRequest && !isDocumentaryContentRequest && !isSourceBackedActionRequest
                         ? CreateJsonArgs(new
                         {
                             query = retrievalQuery,
@@ -2984,7 +3713,9 @@ TOOL_RESULTS (json):
                                     ? BuildSourceBackedActionRetrievalQueries(effectiveUserMessage)
                                     : isDocumentaryContentRequest
                                         ? BuildSourceBackedActionRetrievalQueries(effectiveUserMessage)
-                                        : BuildComparativeRetrievalQueries(effectiveUserMessage),
+                                        : isSourceBackedActionRequest
+                                            ? BuildSourceBackedActionRetrievalQueries(effectiveUserMessage)
+                                            : BuildComparativeRetrievalQueries(effectiveUserMessage),
                             topK = !string.IsNullOrWhiteSpace(exactItemTitle) ? 20 : 12,
                             category = categoryScope,
                             mode = "balanced"
@@ -2998,7 +3729,7 @@ TOOL_RESULTS (json):
             call.Name = NormalizeToolName(call.Name);
             if (string.Equals(call.Name, "rag.search", StringComparison.OrdinalIgnoreCase))
             {
-                if (isMealPlanning)
+                if (isDocumentaryPlanning && string.IsNullOrWhiteSpace(exactItemTitle))
                 {
                     call.Name = "rag.multi_search";
                     call.Args = CreateJsonArgs(new
@@ -3038,7 +3769,7 @@ TOOL_RESULTS (json):
                     call.Name = "rag.multi_search";
                     call.Args = CreateJsonArgs(new
                     {
-                        queries = comparativeQueries.Take(8).ToArray(),
+                            queries = comparativeQueries.Take(12).ToArray(),
                         topK = Math.Max(12, NormalizeIntArg(TryGetIntArg(call.Args, "topK"), 12, 1, 20)),
                         category = TryGetStringArg(call.Args, "category") ?? categoryScope,
                         mode = "balanced"
@@ -3046,7 +3777,7 @@ TOOL_RESULTS (json):
                     continue;
                 }
 
-                if (isSourceBackedAdaptationRequest)
+                if (isSourceBackedAdaptationRequest || isSourceBackedActionRequest)
                 {
                     var actionQueries = BuildSourceBackedActionRetrievalQueries(effectiveUserMessage).ToList();
                     var existingQuery = NormalizeRagQueryForRetrieval(TryGetStringArg(call.Args, "query"));
@@ -3059,7 +3790,7 @@ TOOL_RESULTS (json):
                     call.Name = "rag.multi_search";
                     call.Args = CreateJsonArgs(new
                     {
-                        queries = actionQueries.Take(6).ToArray(),
+                        queries = actionQueries.Take(12).ToArray(),
                         topK = NormalizeIntArg(TryGetIntArg(call.Args, "topK"), 8, 1, 20),
                         category = TryGetStringArg(call.Args, "category") ?? categoryScope,
                         mode = "balanced"
@@ -3080,7 +3811,7 @@ TOOL_RESULTS (json):
                     call.Name = "rag.multi_search";
                     call.Args = CreateJsonArgs(new
                     {
-                        queries = actionQueries.Take(8).ToArray(),
+                        queries = actionQueries.Take(12).ToArray(),
                         topK = Math.Max(12, NormalizeIntArg(TryGetIntArg(call.Args, "topK"), 12, 1, 20)),
                         category = TryGetStringArg(call.Args, "category") ?? categoryScope,
                         mode = "balanced"
@@ -3101,18 +3832,21 @@ TOOL_RESULTS (json):
             else if (string.Equals(call.Name, "rag.multi_search", StringComparison.OrdinalIgnoreCase))
             {
                 var queries = TryGetStringArrayArg(call.Args, "queries");
-                if (isMealPlanning)
+                if (isDocumentaryPlanning && string.IsNullOrWhiteSpace(exactItemTitle))
                 {
-                    var planningQueries = BuildPlanningRetrievalQueries(effectiveUserMessage).ToList();
-                    foreach (var query in queries)
+                    var planningQueries = queries
+                        .Where(static q => !string.IsNullOrWhiteSpace(q))
+                        .Select(CollapseWhitespace)
+                        .ToList();
+                    foreach (var query in BuildPlanningRetrievalQueries(effectiveUserMessage))
                     {
-                        if (!planningQueries.Any(q => string.Equals(q, query, StringComparison.OrdinalIgnoreCase)))
+                        if (!planningQueries.Any(existing => string.Equals(existing, query, StringComparison.OrdinalIgnoreCase)))
                             planningQueries.Add(query);
                     }
 
                     call.Args = CreateJsonArgs(new
                     {
-                        queries = planningQueries.Take(8).ToArray(),
+                        queries = planningQueries.Take(12).ToArray(),
                         topK = NormalizeIntArg(TryGetIntArg(call.Args, "topK"), 5, 1, 20),
                         category = TryGetStringArg(call.Args, "category") ?? categoryScope,
                         mode = NormalizeRagMode(TryGetStringArg(call.Args, "mode"))
@@ -3138,7 +3872,7 @@ TOOL_RESULTS (json):
 
                     call.Args = CreateJsonArgs(new
                     {
-                        queries = comparativeQueries.Take(8).ToArray(),
+                        queries = comparativeQueries.Take(12).ToArray(),
                         topK = Math.Max(12, NormalizeIntArg(TryGetIntArg(call.Args, "topK"), 12, 1, 20)),
                         category = TryGetStringArg(call.Args, "category") ?? categoryScope,
                         mode = "balanced"
@@ -3146,7 +3880,7 @@ TOOL_RESULTS (json):
                     continue;
                 }
 
-                if (isSourceBackedAdaptationRequest && string.IsNullOrWhiteSpace(exactItemTitle))
+                if ((isSourceBackedAdaptationRequest || isSourceBackedActionRequest) && string.IsNullOrWhiteSpace(exactItemTitle))
                 {
                     var actionQueries = BuildSourceBackedActionRetrievalQueries(effectiveUserMessage).ToList();
                     foreach (var query in queries)
@@ -3157,7 +3891,7 @@ TOOL_RESULTS (json):
 
                     call.Args = CreateJsonArgs(new
                     {
-                        queries = actionQueries.Take(8).ToArray(),
+                        queries = actionQueries.Take(12).ToArray(),
                         topK = NormalizeIntArg(TryGetIntArg(call.Args, "topK"), 8, 1, 20),
                         category = TryGetStringArg(call.Args, "category") ?? categoryScope,
                         mode = NormalizeRagMode(TryGetStringArg(call.Args, "mode"))
@@ -3176,7 +3910,7 @@ TOOL_RESULTS (json):
 
                     call.Args = CreateJsonArgs(new
                     {
-                        queries = actionQueries.Take(8).ToArray(),
+                        queries = actionQueries.Take(12).ToArray(),
                         topK = Math.Max(12, NormalizeIntArg(TryGetIntArg(call.Args, "topK"), 12, 1, 20)),
                         category = TryGetStringArg(call.Args, "category") ?? categoryScope,
                         mode = NormalizeRagMode(TryGetStringArg(call.Args, "mode"))
@@ -3186,7 +3920,7 @@ TOOL_RESULTS (json):
 
                 if (queries.Count == 0)
                     queries.Add(retrievalQuery);
-                else if (!isMealPlanning
+                else if (!isDocumentaryPlanning
                     && string.IsNullOrWhiteSpace(exactItemTitle)
                     && !queries.Any(q => string.Equals(q, retrievalQuery, StringComparison.OrdinalIgnoreCase)))
                 {
@@ -3273,22 +4007,27 @@ TOOL_RESULTS (json):
         var queries = new List<string>();
         AddDistinctQuery(queries, title);
         AddDistinctQuery(queries, quotedTitle);
+        foreach (var variant in BuildTypoTolerantQueryVariants(title))
+        {
+            AddDistinctQuery(queries, variant);
+            AddDistinctQuery(queries, QuoteLookupTitle(variant));
+        }
 
         if (LooksLikeItemLocationLookupRequest(combined))
         {
             AddDistinctQuery(queries, $"{title} source");
             AddDistinctQuery(queries, $"{title} document");
             AddDistinctQuery(queries, $"{title} livre");
-            AddDistinctQuery(queries, $"{title} recipe");
+            AddDistinctQuery(queries, $"{title} reference");
             return queries.Take(8).ToArray();
         }
 
         if (LooksLikeStructuredItemCardRequest(combined))
         {
-            AddDistinctQuery(queries, $"{title} ingredients");
-            AddDistinctQuery(queries, $"{title} etapes");
-            AddDistinctQuery(queries, $"{title} preparation");
-            AddDistinctQuery(queries, $"{title} temps");
+            AddDistinctQuery(queries, $"{title} details");
+            AddDistinctQuery(queries, $"{title} procedure");
+            AddDistinctQuery(queries, $"{title} quantities");
+            AddDistinctQuery(queries, $"{title} timing");
             AddDistinctQuery(queries, $"{title} source");
         }
 
@@ -3491,7 +4230,7 @@ TOOL_RESULTS (json):
             "summary.exists" or "summary.get" => "summary.exists",
             "rag.search" or "rag.multi_search" => "rag.answer",
             "rag.summarize_live" => "rag.summarize_doc",
-            "admin.summary.request" or "admin.summary.generate" or "admin.summary.submit" => "admin.summary.submit",
+            "admin.summary.request" or "admin.summary.generate" => "admin.summary.generate",
             "diagnostic.performance" => "diagnostic.performance",
             "export.create" => "export.create",
             _ => null
@@ -3513,7 +4252,7 @@ TOOL_RESULTS (json):
     {
         return toolName switch
         {
-            "documents.list" or "documents.search" or "documents.get" or "documents.count" or "documents.categories" or "documents.tree" or "documents.stats" or "documents.empty_count" or "documents.empty_list" or
+            "documents.list" or "documents.search" or "documents.get" or "documents.count" or "documents.categories" or "documents.tree" or "documents.stats" or "documents.empty_count" or "documents.empty_list" or "documents.extraction_quality" or "documents.extraction_pages" or
             "inventory.rendered" or
             "rag.search" or "rag.multi_search" or "rag.summarize_live" or
             "summary.get" or "summary.exists" or "summary.search" or "summary.status.count" or "summary.status.list" or "summary.present.count" or "summary.present.list" or
@@ -3667,10 +4406,78 @@ TOOL_RESULTS (json):
                 continue;
             }
 
+            if (item.ToolName == "summary.search"
+                && string.IsNullOrWhiteSpace(item.Error)
+                && item.Result.ValueKind == JsonValueKind.Object)
+            {
+                compacted.Items.Add(new ToolResults.Item
+                {
+                    ToolName = item.ToolName,
+                    Error = item.Error,
+                    DurationMs = item.DurationMs,
+                    Result = CompactSummarySearchResultForWriter(item.Result)
+                });
+                continue;
+            }
+
             compacted.Items.Add(item);
         }
 
         return compacted;
+    }
+
+    private static JsonElement CompactSummarySearchResultForWriter(JsonElement result)
+    {
+        try
+        {
+            if (!result.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+                return result;
+
+            var list = new List<object?>();
+            foreach (var it in items.EnumerateArray().Where(static entry => entry.ValueKind == JsonValueKind.Object).Take(20))
+            {
+                var source = TryBuildSourceRefFromSummarySearchItem(it);
+                var sourcePayload = source is null
+                    ? null
+                    : BuildSourcePayloadItems(new List<ToolMemory.SourceRef> { source }).FirstOrDefault();
+                var docPath = source?.DocPath ?? TryGetString(it, "docPath") ?? TryGetString(it, "DocPath") ?? string.Empty;
+                var docName = TryGetString(it, "docName") ?? TryGetString(it, "DocName") ?? Path.GetFileName(docPath);
+
+                list.Add(new
+                {
+                    docId = source?.DocId ?? TryGetString(it, "docId") ?? TryGetString(it, "DocId"),
+                    docPath,
+                    docName,
+                    level = TryGetString(it, "level") ?? TryGetString(it, "Level"),
+                    docLanguage = source?.DocLanguage ?? TryGetDocumentLanguage(it),
+                    profileLanguage = source?.ProfileLanguage ?? TryGetString(it, "profileLanguage") ?? TryGetString(it, "ProfileLanguage"),
+                    category = source?.Category ?? TryGetString(it, "category") ?? TryGetString(it, "Category"),
+                    categoryRef = source?.CategoryRef ?? TryGetString(it, "categoryRef") ?? TryGetString(it, "CategoryRef"),
+                    categoryPath = source?.CategoryPath ?? TryGetString(it, "categoryPath") ?? TryGetString(it, "CategoryPath"),
+                    sourceHash = source?.SourceHash ?? TryGetString(it, "sourceHash") ?? TryGetString(it, "SourceHash"),
+                    pageStart = source?.PageStart ?? TryGetInt(it, "pageStart") ?? TryGetInt(it, "PageStart"),
+                    pageEnd = source?.PageEnd ?? TryGetInt(it, "pageEnd") ?? TryGetInt(it, "PageEnd"),
+                    label = source?.Label ?? TryGetString(it, "label") ?? TryGetString(it, "Label"),
+                    chunkId = source?.ChunkId ?? TryGetString(it, "chunkId") ?? TryGetString(it, "ChunkId"),
+                    summaryText = TruncateForPrompt(TryGetString(it, "summaryText") ?? TryGetString(it, "SummaryText"), 1600),
+                    extractionQuality = source is null ? CompactExtractionQualityForPrompt(it) : BuildSourceExtractionQualityPayload(source),
+                    matchedContentCards = source is null ? CompactMatchedContentCardsForPrompt(it) : BuildSourceContentCardsPayload(source),
+                    selectionHints = source is null ? CompactSelectionHintsForPrompt(it) : BuildSourceSelectionHintsPayload(source),
+                    source = sourcePayload
+                });
+            }
+
+            return JsonDocument.Parse(JsonSerializer.Serialize(new
+            {
+                items = list,
+                limit = TryGetInt(result, "limit"),
+                offset = TryGetInt(result, "offset")
+            })).RootElement.Clone();
+        }
+        catch
+        {
+            return result;
+        }
     }
 
     private static JsonElement CompactRagResultForWriter(JsonElement result, string userMessage, bool precise)
@@ -3690,10 +4497,10 @@ TOOL_RESULTS (json):
             var sourceHits = hits.EnumerateArray()
                 .Where(static it => it.ValueKind == JsonValueKind.Object)
                 .Select(static it => it.Clone())
+                .Where(static it => !LooksLikeNavigationOnlyHit(BuildRagHitSummary(it)))
+                .Where(static it => !LooksLikeLowSignalContentCandidateHit(BuildRagHitSummary(it)))
                 .ToList();
-            var selectedHits = prioritizeEvidence
-                ? RankRagHitsForWriter(sourceHits, userMessage)
-                : sourceHits;
+            var selectedHits = RankRagHitsForWriter(sourceHits, userMessage);
 
             foreach (var it in selectedHits.Take(maxHits))
             {
@@ -3704,9 +4511,18 @@ TOOL_RESULTS (json):
                 var excerpt = TruncateForPrompt(TryGetString(it, "excerpt"), excerptChars);
                 var fullText = TruncateForPrompt(TryGetString(it, "fullText"), fullTextChars);
                 var contextualSnippet = TruncateForPrompt(TryGetString(it, "contextualSnippet"), contextualChars);
+                var extractionQuality = CompactExtractionQualityForPrompt(it);
+                var matchedContentCards = CompactMatchedContentCardsForPrompt(it);
+                var provenanceInfo = prioritizeEvidence
+                    ? DeserializePromptObject(it, "provenanceInfo") ?? DeserializePromptObject(it, "ProvenanceInfo")
+                    : null;
+                var context = prioritizeEvidence
+                    ? DeserializePromptObject(it, "context") ?? DeserializePromptObject(it, "Context")
+                    : null;
 
                 list.Add(new
                 {
+                    docId = TryGetString(it, "docId") ?? TryGetString(it, "doc_id") ?? TryGetString(it, "DocId"),
                     docPath,
                     docName,
                     pageStart,
@@ -3717,7 +4533,28 @@ TOOL_RESULTS (json):
                     sectionTitle = TryGetString(it, "sectionTitle"),
                     headingPath = TryGetString(it, "headingPath"),
                     retriever = TryGetString(it, "retriever"),
+                    category = TryGetString(it, "category") ?? TryGetString(it, "Category"),
+                    categoryPath = TryGetString(it, "categoryPath") ?? TryGetString(it, "category_path") ?? TryGetString(it, "CategoryPath"),
+                    categoryRef = TryGetString(it, "categoryRef") ?? TryGetString(it, "category_ref") ?? TryGetString(it, "CategoryRef"),
+                    docLanguage = TryGetDocumentLanguage(it),
+                    profileLanguage = TryGetString(it, "profileLanguage") ?? TryGetString(it, "profile_language") ?? TryGetString(it, "ProfileLanguage"),
+                    provenanceInfo,
+                    context,
+                    rerankScore = TryGetDouble(it, "rerankScore"),
                     exactMatchHit = TryGetBool(it, "exactMatchHit") ?? false,
+                    sourceHash = TryGetString(it, "sourceHash") ?? TryGetString(it, "source_hash") ?? TryGetString(it, "SourceHash"),
+                    embeddingBasis = TryGetString(it, "embeddingBasis") ?? TryGetString(it, "embedding_basis") ?? TryGetString(it, "EmbeddingBasis"),
+                    chunkId = TryGetString(it, "chunkId") ?? TryGetString(it, "chunk_id") ?? TryGetString(it, "ChunkId"),
+                    prevChunkId = TryGetString(it, "prevChunkId") ?? TryGetNestedString(it, "context", "prevChunkId"),
+                    nextChunkId = TryGetString(it, "nextChunkId") ?? TryGetNestedString(it, "context", "nextChunkId"),
+                    sameSectionChunkId = TryGetString(it, "sameSectionChunkId") ?? TryGetNestedString(it, "context", "sameSectionChunkId"),
+                    chunkType = TryGetString(it, "chunkType"),
+                    hasTable = TryGetBool(it, "hasTable"),
+                    hasWarning = TryGetBool(it, "hasWarning"),
+                    hypQuestionsMatched = TryGetBool(it, "hypQuestionsMatched"),
+                    extractionQuality,
+                    matchedContentCards,
+                    selectionHints = BuildRagSelectionHintsPayload(BuildRagHitSummary(it), userMessage),
                     contextualSnippet = string.IsNullOrWhiteSpace(contextualSnippet) ? null : contextualSnippet
                 });
             }
@@ -3725,8 +4562,11 @@ TOOL_RESULTS (json):
             object? meta = null;
             if (result.TryGetProperty("meta", out var metaEl) && metaEl.ValueKind is JsonValueKind.Object or JsonValueKind.Array)
                 meta = JsonSerializer.Deserialize<object>(metaEl.GetRawText());
+            object? guidance = null;
+            if (result.TryGetProperty("guidance", out var guidanceEl) && guidanceEl.ValueKind == JsonValueKind.Object)
+                guidance = JsonSerializer.Deserialize<object>(guidanceEl.GetRawText());
 
-            return JsonDocument.Parse(JsonSerializer.Serialize(new { hits = list, meta })).RootElement.Clone();
+            return JsonDocument.Parse(JsonSerializer.Serialize(new { hits = list, guidance, meta })).RootElement.Clone();
         }
         catch
         {
@@ -3736,6 +4576,13 @@ TOOL_RESULTS (json):
 
     private static IReadOnlyList<JsonElement> RankRagHitsForWriter(IReadOnlyList<JsonElement> hits, string userMessage)
     {
+        if (hits.Count <= 1)
+            return hits;
+
+        hits = hits
+            .Where(static hit => !LooksLikeNavigationOnlyHit(BuildRagHitSummary(hit)))
+            .Where(static hit => !LooksLikeLowSignalContentCandidateHit(BuildRagHitSummary(hit)))
+            .ToList();
         if (hits.Count <= 1)
             return hits;
 
@@ -3778,6 +4625,7 @@ TOOL_RESULTS (json):
         if (string.IsNullOrWhiteSpace(evidenceQuery))
             return hits;
 
+        var broadAnchorTerms = ExtractBroadCompositionAnchorTerms(userMessage);
         return hits
             .Select((hit, index) => new
             {
@@ -3785,7 +4633,18 @@ TOOL_RESULTS (json):
                 Index = index,
                 Summary = BuildRagHitSummary(hit)
             })
+            .Select(item => new
+            {
+                item.Hit,
+                item.Index,
+                item.Summary,
+                AnchorMatchCount = broadAnchorTerms.Length == 0
+                    ? 0
+                    : broadAnchorTerms.Count(term => NormalizeLexicalLookup(GetRagHitLookupText(item.Summary)).Contains(term, StringComparison.Ordinal))
+            })
             .OrderBy(item => LooksLikeNavigationOnlyHit(item.Summary) ? 1 : 0)
+            .ThenByDescending(item => ComputeBackendSelectionPriority(item.Summary))
+            .ThenByDescending(item => item.AnchorMatchCount)
             .ThenByDescending(item => !string.IsNullOrWhiteSpace(requestedTitle) && RagHitContainsRequestedTitle(item.Summary, requestedTitle!) ? 1 : 0)
             .ThenByDescending(item => ComputeRagHitLexicalRelevance(evidenceQuery, GetRagHitPrimaryEvidenceText(item.Summary)))
             .ThenByDescending(item => ComputeRagHitLexicalRelevance(evidenceQuery, GetRagHitLookupText(item.Summary)))
@@ -3816,8 +4675,11 @@ TOOL_RESULTS (json):
             or "documents.count"
             or "documents.empty_count"
             or "documents.empty_list"
+            or "documents.extraction_quality"
+            or "documents.extraction_pages"
             or "summary.status.count"
             or "summary.status.list"
+            or "admin.summary.missing"
             or "summary.present.count"
             or "summary.present.list"
             or "diagnostic.performance";

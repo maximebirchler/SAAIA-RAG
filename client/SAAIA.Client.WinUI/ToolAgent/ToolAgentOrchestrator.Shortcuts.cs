@@ -521,6 +521,7 @@ public sealed partial class ToolAgentOrchestrator
             Total = TryGetInt(result, "total") ?? (totals.ValueKind == JsonValueKind.Object ? TryGetInt(totals, "total") : null) ?? 0,
             MissingStored = TryGetInt(result, "missingStored") ?? (totals.ValueKind == JsonValueKind.Object ? TryGetInt(totals, "missingStored") : null) ?? 0,
             StaleStored = TryGetInt(result, "staleStored") ?? (totals.ValueKind == JsonValueKind.Object ? TryGetInt(totals, "staleStored") : null) ?? 0,
+            ProfileMissing = TryGetInt(result, "profileMissing") ?? (totals.ValueKind == JsonValueKind.Object ? TryGetInt(totals, "profileMissing") : null) ?? 0,
             Items = new List<ToolMemory.SummaryStatusItem>()
         };
 
@@ -539,14 +540,7 @@ public sealed partial class ToolAgentOrchestrator
                 if (entry.ValueKind != JsonValueKind.Object)
                     continue;
 
-                snapshot.Items.Add(new ToolMemory.SummaryStatusItem
-                {
-                    DocId = TryGetString(entry, "DocId") ?? TryGetString(entry, "docId") ?? string.Empty,
-                    DocPath = TryGetString(entry, "DocPath") ?? TryGetString(entry, "docPath") ?? string.Empty,
-                    DocName = TryGetString(entry, "DocName") ?? TryGetString(entry, "docName") ?? TryGetString(entry, "canonicalName") ?? string.Empty,
-                    Category = TryGetString(entry, "Category") ?? TryGetString(entry, "category") ?? TryGetString(entry, "categoryCanonicalName") ?? string.Empty,
-                    SummaryState = TryGetString(entry, "SummaryState") ?? TryGetString(entry, "summaryState") ?? "missing"
-                });
+                snapshot.Items.Add(BuildSummaryStatusItemSnapshot(entry));
             }
         }
 
@@ -568,6 +562,7 @@ public sealed partial class ToolAgentOrchestrator
             Total = TryGetInt(result, "total") ?? (totals.ValueKind == JsonValueKind.Object ? TryGetInt(totals, "total") : null) ?? current?.Total ?? 0,
             MissingStored = TryGetInt(result, "missingStored") ?? (totals.ValueKind == JsonValueKind.Object ? TryGetInt(totals, "missingStored") : null) ?? current?.MissingStored ?? 0,
             StaleStored = TryGetInt(result, "staleStored") ?? (totals.ValueKind == JsonValueKind.Object ? TryGetInt(totals, "staleStored") : null) ?? current?.StaleStored ?? 0,
+            ProfileMissing = TryGetInt(result, "profileMissing") ?? (totals.ValueKind == JsonValueKind.Object ? TryGetInt(totals, "profileMissing") : null) ?? current?.ProfileMissing ?? 0,
             Items = new List<ToolMemory.SummaryStatusItem>()
         };
 
@@ -586,14 +581,7 @@ public sealed partial class ToolAgentOrchestrator
                 if (entry.ValueKind != JsonValueKind.Object)
                     continue;
 
-                snapshot.Items.Add(new ToolMemory.SummaryStatusItem
-                {
-                    DocId = TryGetString(entry, "DocId") ?? TryGetString(entry, "docId") ?? string.Empty,
-                    DocPath = TryGetString(entry, "DocPath") ?? TryGetString(entry, "docPath") ?? string.Empty,
-                    DocName = TryGetString(entry, "DocName") ?? TryGetString(entry, "docName") ?? TryGetString(entry, "canonicalName") ?? string.Empty,
-                    Category = TryGetString(entry, "Category") ?? TryGetString(entry, "category") ?? TryGetString(entry, "categoryCanonicalName") ?? string.Empty,
-                    SummaryState = TryGetString(entry, "SummaryState") ?? TryGetString(entry, "summaryState") ?? "missing"
-                });
+                snapshot.Items.Add(BuildSummaryStatusItemSnapshot(entry));
             }
         }
 
@@ -757,16 +745,84 @@ public sealed partial class ToolAgentOrchestrator
             total = snapshot.Total,
             missingStored = snapshot.MissingStored,
             staleStored = snapshot.StaleStored,
+            profileMissing = snapshot.ProfileMissing,
             items = snapshot.Items.Select(x => new
             {
                 docId = x.DocId,
                 docPath = x.DocPath,
                 docName = x.DocName,
                 category = x.Category,
-                summaryState = x.SummaryState
+                categoryRef = x.CategoryRef,
+                categoryPath = x.CategoryPath,
+                summaryState = x.SummaryState,
+                capabilityBProfileState = x.CapabilityBProfileState,
+                capabilityBHasBackofficeProfile = x.CapabilityBHasBackofficeProfile,
+                capabilityBReasons = x.CapabilityBReasons,
+                hasActiveSummaryJob = x.HasActiveSummaryJob,
+                activeSummaryJobId = x.ActiveSummaryJobId,
+                activeSummaryJobType = x.ActiveSummaryJobType,
+                activeSummaryJobStatus = x.ActiveSummaryJobStatus,
+                activeSummaryJobExecutionMode = x.ActiveSummaryJobExecutionMode,
+                activeSummaryJobRuntimeCapabilityKey = x.ActiveSummaryJobRuntimeCapabilityKey,
+                activeSummaryJobRuntimeCapabilityStatus = x.ActiveSummaryJobRuntimeCapabilityStatus,
+                activeSummaryJobEnqueueSource = x.ActiveSummaryJobEnqueueSource,
+                activeSummaryJobCampaignId = x.ActiveSummaryJobCampaignId,
+                capabilityBReadyToEnqueue = x.CapabilityBReadyToEnqueue,
+                capabilityBRecommendedAction = x.CapabilityBRecommendedAction,
+                capabilityBPolicyBlocked = x.CapabilityBPolicyBlocked,
+                capabilityBPolicyBlockReason = x.CapabilityBPolicyBlockReason,
+                capabilityBPriorityScore = x.CapabilityBPriorityScore,
+                capabilityBLastJobStatus = x.CapabilityBLastJobStatus,
+                capabilityBLastJobFinishedAt = x.CapabilityBLastJobFinishedAt,
+                capabilityBLastJobError = x.CapabilityBLastJobError
             }).ToList()
         }));
         return doc.RootElement.Clone();
+    }
+
+    private static ToolMemory.SummaryStatusItem BuildSummaryStatusItemSnapshot(JsonElement entry)
+        => new()
+        {
+            DocId = TryGetString(entry, "DocId") ?? TryGetString(entry, "docId") ?? string.Empty,
+            DocPath = TryGetString(entry, "DocPath") ?? TryGetString(entry, "docPath") ?? string.Empty,
+            DocName = TryGetString(entry, "DocName") ?? TryGetString(entry, "docName") ?? TryGetString(entry, "canonicalName") ?? string.Empty,
+            Category = TryGetString(entry, "Category") ?? TryGetString(entry, "category") ?? TryGetString(entry, "categoryCanonicalName") ?? string.Empty,
+            CategoryRef = TryGetString(entry, "CategoryRef") ?? TryGetString(entry, "categoryRef"),
+            CategoryPath = TryGetString(entry, "CategoryPath") ?? TryGetString(entry, "categoryPath"),
+            SummaryState = TryGetString(entry, "SummaryState") ?? TryGetString(entry, "summaryState") ?? "missing",
+            CapabilityBProfileState = TryGetString(entry, "CapabilityBProfileState") ?? TryGetString(entry, "capabilityBProfileState"),
+            CapabilityBHasBackofficeProfile = TryGetBool(entry, "CapabilityBHasBackofficeProfile") ?? TryGetBool(entry, "capabilityBHasBackofficeProfile") ?? false,
+            CapabilityBReasons = ReadStringArray(entry, "CapabilityBReasons").Concat(ReadStringArray(entry, "capabilityBReasons")).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            HasActiveSummaryJob = TryGetBool(entry, "HasActiveSummaryJob") ?? TryGetBool(entry, "hasActiveSummaryJob") ?? false,
+            ActiveSummaryJobId = TryGetString(entry, "ActiveSummaryJobId") ?? TryGetString(entry, "activeSummaryJobId"),
+            ActiveSummaryJobType = TryGetString(entry, "ActiveSummaryJobType") ?? TryGetString(entry, "activeSummaryJobType"),
+            ActiveSummaryJobStatus = TryGetString(entry, "ActiveSummaryJobStatus") ?? TryGetString(entry, "activeSummaryJobStatus"),
+            ActiveSummaryJobExecutionMode = TryGetString(entry, "ActiveSummaryJobExecutionMode") ?? TryGetString(entry, "activeSummaryJobExecutionMode"),
+            ActiveSummaryJobRuntimeCapabilityKey = TryGetString(entry, "ActiveSummaryJobRuntimeCapabilityKey") ?? TryGetString(entry, "activeSummaryJobRuntimeCapabilityKey"),
+            ActiveSummaryJobRuntimeCapabilityStatus = TryGetString(entry, "ActiveSummaryJobRuntimeCapabilityStatus") ?? TryGetString(entry, "activeSummaryJobRuntimeCapabilityStatus"),
+            ActiveSummaryJobEnqueueSource = TryGetString(entry, "ActiveSummaryJobEnqueueSource") ?? TryGetString(entry, "activeSummaryJobEnqueueSource"),
+            ActiveSummaryJobCampaignId = TryGetString(entry, "ActiveSummaryJobCampaignId") ?? TryGetString(entry, "activeSummaryJobCampaignId"),
+            CapabilityBReadyToEnqueue = TryGetBool(entry, "CapabilityBReadyToEnqueue") ?? TryGetBool(entry, "capabilityBReadyToEnqueue") ?? false,
+            CapabilityBRecommendedAction = TryGetString(entry, "CapabilityBRecommendedAction") ?? TryGetString(entry, "capabilityBRecommendedAction"),
+            CapabilityBPolicyBlocked = TryGetBool(entry, "CapabilityBPolicyBlocked") ?? TryGetBool(entry, "capabilityBPolicyBlocked") ?? false,
+            CapabilityBPolicyBlockReason = TryGetString(entry, "CapabilityBPolicyBlockReason") ?? TryGetString(entry, "capabilityBPolicyBlockReason"),
+            CapabilityBPriorityScore = TryGetDouble(entry, "CapabilityBPriorityScore") ?? TryGetDouble(entry, "capabilityBPriorityScore"),
+            CapabilityBLastJobStatus = TryGetString(entry, "CapabilityBLastJobStatus") ?? TryGetString(entry, "capabilityBLastJobStatus"),
+            CapabilityBLastJobFinishedAt = TryGetString(entry, "CapabilityBLastJobFinishedAt") ?? TryGetString(entry, "capabilityBLastJobFinishedAt"),
+            CapabilityBLastJobError = TryGetString(entry, "CapabilityBLastJobError") ?? TryGetString(entry, "capabilityBLastJobError")
+        };
+
+    private static List<string> ReadStringArray(JsonElement entry, string propertyName)
+    {
+        if (!entry.TryGetProperty(propertyName, out var arr) || arr.ValueKind != JsonValueKind.Array)
+            return new List<string>();
+
+        return arr.EnumerateArray()
+            .Where(static item => item.ValueKind == JsonValueKind.String)
+            .Select(static item => item.GetString()?.Trim() ?? string.Empty)
+            .Where(static item => !string.IsNullOrWhiteSpace(item))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private static List<ToolMemory.CategorySnapshot> ParsePresentedCategories(JsonElement result)
@@ -1561,7 +1617,7 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
         {
             var pages = d.Pages.Count == 0
                 ? string.Empty
-                : $" (p.{string.Join(", ", d.Pages)})";
+                : $" ({SourceBackedPagePrefix(language)}{string.Join(", ", d.Pages)})";
             return $"- {d.Label}{pages}";
         });
 

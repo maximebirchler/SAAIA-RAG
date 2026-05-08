@@ -143,6 +143,7 @@ public sealed partial class ApiClient
         string sourceHash,
         string summaryText,
         string? jobId,
+        string? executionLeaseToken,
         JsonElement? meta,
         CancellationToken ct)
     {
@@ -158,6 +159,7 @@ public sealed partial class ApiClient
             docLanguage,
             sourceHash,
             summaryText,
+            executionLeaseToken,
             meta = metaObj
         }, JsonOpts);
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
@@ -537,14 +537,14 @@ public sealed partial class ApiClient
         {
             if (el.ValueKind == JsonValueKind.Null) return null;
 
-            // âœ… cas principal : le backend renvoie une string qui contient du JSON
+            // Cas principal : le backend renvoie une string qui contient du JSON.
             if (el.ValueKind == JsonValueKind.String)
             {
                 var s = el.GetString();
                 return string.IsNullOrWhiteSpace(s) ? null : s;
             }
 
-            // âœ… sinon: objet/array => raw json
+            // Sinon : objet/array => raw json.
             if (el.ValueKind is JsonValueKind.Object or JsonValueKind.Array)
                 return el.GetRawText();
 

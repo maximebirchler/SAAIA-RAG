@@ -162,7 +162,29 @@ public sealed partial class ApiClient
                 docPath = TryGetString(entry, "docPath") ?? string.Empty,
                 docName = TryGetString(entry, "canonicalName") ?? TryGetString(entry, "docName") ?? string.Empty,
                 category = TryGetString(entry, "categoryCanonicalName") ?? TryGetString(entry, "category") ?? string.Empty,
-                summaryState = TryGetString(entry, "summaryState") ?? "missing"
+                categoryRef = TryGetString(entry, "categoryRef"),
+                categoryPath = TryGetString(entry, "categoryPath"),
+                summaryState = TryGetString(entry, "summaryState") ?? "missing",
+                capabilityBProfileState = TryGetString(entry, "capabilityBProfileState"),
+                capabilityBHasBackofficeProfile = TryGetBool(entry, "capabilityBHasBackofficeProfile") ?? false,
+                capabilityBReasons = ReadStringArray(entry, "capabilityBReasons"),
+                hasActiveSummaryJob = TryGetBool(entry, "hasActiveSummaryJob") ?? false,
+                activeSummaryJobId = TryGetString(entry, "activeSummaryJobId"),
+                activeSummaryJobType = TryGetString(entry, "activeSummaryJobType"),
+                activeSummaryJobStatus = TryGetString(entry, "activeSummaryJobStatus"),
+                activeSummaryJobExecutionMode = TryGetString(entry, "activeSummaryJobExecutionMode"),
+                activeSummaryJobRuntimeCapabilityKey = TryGetString(entry, "activeSummaryJobRuntimeCapabilityKey"),
+                activeSummaryJobRuntimeCapabilityStatus = TryGetString(entry, "activeSummaryJobRuntimeCapabilityStatus"),
+                activeSummaryJobEnqueueSource = TryGetString(entry, "activeSummaryJobEnqueueSource"),
+                activeSummaryJobCampaignId = TryGetString(entry, "activeSummaryJobCampaignId"),
+                capabilityBReadyToEnqueue = TryGetBool(entry, "capabilityBReadyToEnqueue") ?? false,
+                capabilityBRecommendedAction = TryGetString(entry, "capabilityBRecommendedAction"),
+                capabilityBPolicyBlocked = TryGetBool(entry, "capabilityBPolicyBlocked") ?? false,
+                capabilityBPolicyBlockReason = TryGetString(entry, "capabilityBPolicyBlockReason"),
+                capabilityBPriorityScore = TryGetDouble(entry, "capabilityBPriorityScore"),
+                capabilityBLastJobStatus = TryGetString(entry, "capabilityBLastJobStatus"),
+                capabilityBLastJobFinishedAt = TryGetString(entry, "capabilityBLastJobFinishedAt"),
+                capabilityBLastJobError = TryGetString(entry, "capabilityBLastJobError")
             }).ToList()
             : new List<object>();
 
@@ -179,9 +201,39 @@ public sealed partial class ApiClient
             endOfList,
             missingStored = root.TryGetProperty("totals", out totals) ? TryGetInt(totals, "missingStored") ?? items.Count : items.Count,
             staleStored = root.TryGetProperty("totals", out totals) ? TryGetInt(totals, "staleStored") ?? 0 : 0,
-            level = TryGetString(root, "level") ?? "medium"
+            profileMissing = root.TryGetProperty("totals", out totals) ? TryGetInt(totals, "profileMissing") ?? 0 : 0,
+            scopePath = TryGetString(root, "scopePath") ?? string.Empty,
+            level = TryGetString(root, "level") ?? "medium",
+            nextLink = TryGetString(root, "nextLink")
         }));
         return normalized.RootElement.Clone();
+    }
+
+    private static bool? TryGetBool(JsonElement obj, string propertyName)
+    {
+        if (!obj.TryGetProperty(propertyName, out var value))
+            return null;
+
+        return value.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.String when bool.TryParse(value.GetString(), out var parsed) => parsed,
+            _ => null
+        };
+    }
+
+    private static double? TryGetDouble(JsonElement obj, string propertyName)
+    {
+        if (!obj.TryGetProperty(propertyName, out var value))
+            return null;
+
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var number))
+            return number;
+        if (value.ValueKind == JsonValueKind.String && double.TryParse(value.GetString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+            return parsed;
+
+        return null;
     }
 
     private static List<string> ReadStringArray(JsonElement obj, string propertyName)

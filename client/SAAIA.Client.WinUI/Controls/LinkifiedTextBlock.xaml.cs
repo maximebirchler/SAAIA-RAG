@@ -11,7 +11,7 @@ namespace SAAIA.Client.WinUI.Controls;
 public sealed partial class LinkifiedTextBlock : UserControl
 {
     // Token: [[open|<docPath>|<page>|<label>]]
-    // Example: [[open|ATEX/EN 1127-1.pdf|12|EN 1127-1 (ATEX) p.12]]
+    // Example: [[open|Category/Document.pdf|12|Document.pdf p.12]]
     private static readonly Regex TokenRegex = new(
         "\\[\\[open\\|(?<path>[^|]+)\\|(?<page>[^|]+)\\|(?<label>[^\\]]+)\\]\\]",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);

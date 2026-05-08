@@ -53,7 +53,11 @@ internal static class DocumentListHelper
             var docPath = GetString(it, "docPath") ?? "";
             var docName = GetString(it, "docName") ?? "";
             var category = GetString(it, "category") ?? "";
+            var categoryRef = GetString(it, "categoryRef") ?? "";
             var categoryPath = GetString(it, "categoryPath") ?? "";
+            var sourceHash = GetString(it, "sourceHash");
+            var docLanguage = GetString(it, "docLanguage");
+            var profileLanguage = GetString(it, "profileLanguage");
             var pages = GetInt(it, "pages");
 
             // If backend doesn't provide a stable ref, synthesize one based on paging.
@@ -96,7 +100,11 @@ internal static class DocumentListHelper
                     ? (resolvedFileName ?? string.Empty)
                     : (string.IsNullOrWhiteSpace(docName) ? (resolvedFileName ?? string.Empty) : docName),
                 Category = normalizedCategory,
+                CategoryRef = string.IsNullOrWhiteSpace(categoryRef) ? null : categoryRef,
                 CategoryPath = normalizedCategoryPath,
+                SourceHash = string.IsNullOrWhiteSpace(sourceHash) ? null : sourceHash,
+                DocLanguage = string.IsNullOrWhiteSpace(docLanguage) ? null : docLanguage,
+                ProfileLanguage = string.IsNullOrWhiteSpace(profileLanguage) ? null : profileLanguage,
                 Pages = pages
             };
 

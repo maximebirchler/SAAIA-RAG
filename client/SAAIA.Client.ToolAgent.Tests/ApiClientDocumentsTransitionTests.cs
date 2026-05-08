@@ -2,7 +2,9 @@ using System.Net;
 using System.Net.Http;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 using SAAIA.Client.WinUI.Services;
+using SAAIA.Client.WinUI.Services.ToolAgent;
 using Xunit;
 
 namespace SAAIA.Client.ToolAgent.Tests;
@@ -120,10 +122,2102 @@ public sealed class ApiClientDocumentsTransitionTests
         Assert.Contains("/documents/catalog/" + docId, requestedPaths);
     }
 
-    private static ApiClient CreateApiClient(HttpMessageHandler handler)
+    [Fact]
+    public async Task DocumentsListAsync_legacy_fallback_filters_non_indexed_documents()
+    {
+        var handler = new StubHttpHandler(req =>
+        {
+            if (req.RequestUri!.AbsolutePath == "/catalog/documents")
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+
+            if (req.RequestUri!.AbsolutePath == "/documents")
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        """
+                        {
+                          "items": [
+                            {
+                              "docId": "11111111-1111-1111-1111-111111111111",
+                              "docPath": "Cuisine/indexed.pdf",
+                              "docName": "indexed.pdf",
+                              "category": "Cuisine",
+                              "categoryRef": "cat_cuisine",
+                              "status": "indexed"
+                            },
+                            {
+                              "docId": "22222222-2222-2222-2222-222222222222",
+                              "docPath": "ATEX/deleted.pdf",
+                              "docName": "deleted.pdf",
+                              "category": "ATEX",
+                              "status": "deleted"
+                            },
+                            {
+                              "docId": "33333333-3333-3333-3333-333333333333",
+                              "docPath": "General/missing.pdf",
+                              "docName": "missing.pdf",
+                              "category": "General",
+                              "status": "missing"
+                            },
+                            {
+                              "docId": "44444444-4444-4444-4444-444444444444",
+                              "docPath": "Cuisine/pending.pdf",
+                              "docName": "pending.pdf",
+                              "category": "Cuisine",
+                              "status": "pending"
+                            },
+                            {
+                              "docId": "55555555-5555-5555-5555-555555555555",
+                              "docPath": "Legacy/statusless.pdf",
+                              "docName": "statusless.pdf",
+                              "category": "Legacy",
+                              "categoryRef": "cat_legacy"
+                            }
+                          ],
+                          "limit": 10,
+                          "offset": 0
+                        }
+                        """,
+                        Encoding.UTF8,
+                        "application/json")
+                };
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.InternalServerError);
+        });
+
+        var sut = CreateApiClient(handler);
+        var response = await sut.DocumentsListAsync(null, null, null, 10, 0, CancellationToken.None);
+        var items = response.GetProperty("items").EnumerateArray().ToList();
+
+        Assert.Collection(
+            items,
+            item =>
+            {
+                Assert.Equal("Cuisine/indexed.pdf", item.GetProperty("docPath").GetString());
+                Assert.Equal("cat_cuisine", item.GetProperty("categoryRef").GetString());
+            },
+            item =>
+            {
+                Assert.Equal("Legacy/statusless.pdf", item.GetProperty("docPath").GetString());
+                Assert.Equal("cat_legacy", item.GetProperty("categoryRef").GetString());
+            });
+        Assert.DoesNotContain("ATEX/deleted.pdf", response.GetRawText(), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("General/missing.pdf", response.GetRawText(), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Cuisine/pending.pdf", response.GetRawText(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task DocumentsListAsync_catalog_response_filters_non_indexed_documents_defensively()
+    {
+        var handler = new StubHttpHandler(req =>
+        {
+            Assert.Equal("/catalog/documents", req.RequestUri!.AbsolutePath);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {
+                      "value": [
+                        {
+                          "docId": "11111111-1111-1111-1111-111111111111",
+                          "docPath": "Cuisine/indexed.pdf",
+                          "canonicalName": "indexed.pdf",
+                          "categoryRef": "cat_cuisine",
+                          "categoryPath": "Cuisine",
+                          "sourceHash": "hash-catalog",
+                          "docLanguage": "fr",
+                          "profileLanguage": "fr",
+                          "status": "indexed"
+                        },
+                        {
+                          "docId": "22222222-2222-2222-2222-222222222222",
+                          "docPath": "ATEX/deleted.pdf",
+                          "canonicalName": "deleted.pdf",
+                          "categoryPath": "ATEX",
+                          "status": "deleted"
+                        },
+                        {
+                          "docId": "33333333-3333-3333-3333-333333333333",
+                          "docPath": "General/missing.pdf",
+                          "canonicalName": "missing.pdf",
+                          "categoryPath": "General",
+                          "status": "missing"
+                        },
+                        {
+                          "docId": "44444444-4444-4444-4444-444444444444",
+                          "docPath": "Cuisine/pending.pdf",
+                          "canonicalName": "pending.pdf",
+                          "categoryPath": "Cuisine",
+                          "status": "pending"
+                        }
+                      ],
+                      "nextLink": null
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var sut = CreateApiClient(handler);
+        var response = await sut.DocumentsListAsync(null, null, null, 10, 0, CancellationToken.None);
+        var item = Assert.Single(response.GetProperty("items").EnumerateArray());
+
+        Assert.Equal("Cuisine/indexed.pdf", item.GetProperty("docPath").GetString());
+        Assert.Equal("cat_cuisine", item.GetProperty("categoryRef").GetString());
+        var parsedItem = Assert.Single(sut.ParseDocumentItems(response));
+        Assert.Equal("cat_cuisine", parsedItem.CategoryRef);
+        Assert.Equal("hash-catalog", parsedItem.SourceHash);
+        Assert.Equal("fr", parsedItem.DocLanguage);
+        Assert.Equal("fr", parsedItem.ProfileLanguage);
+        Assert.DoesNotContain("ATEX/deleted.pdf", response.GetRawText(), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("General/missing.pdf", response.GetRawText(), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Cuisine/pending.pdf", response.GetRawText(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task RagSearchToolAsync_serializes_nested_category_path_without_legacy_category()
+    {
+        string? capturedBody = null;
+        var handler = new StubHttpHandler(req =>
+        {
+            capturedBody = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"items":[]}""", Encoding.UTF8, "application/json")
+            };
+        });
+
+        var sut = CreateApiClient(handler);
+        await sut.RagSearchToolAsync("installation", 8, "Programmation/Mettler", "balanced", CancellationToken.None);
+
+        using var body = JsonDocument.Parse(capturedBody!);
+        Assert.Equal("Programmation/Mettler", body.RootElement.GetProperty("categoryPath").GetString());
+        Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("category").ValueKind);
+        Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("categoryRef").ValueKind);
+    }
+
+    [Fact]
+    public async Task RagSearchToolAsync_serializes_category_ref_without_legacy_category()
+    {
+        string? capturedBody = null;
+        var handler = new StubHttpHandler(req =>
+        {
+            capturedBody = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"items":[]}""", Encoding.UTF8, "application/json")
+            };
+        });
+
+        var sut = CreateApiClient(handler);
+        await sut.RagSearchToolAsync("inerting", 8, "cat_003", "balanced", CancellationToken.None);
+
+        using var body = JsonDocument.Parse(capturedBody!);
+        Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("category").ValueKind);
+        Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("categoryPath").ValueKind);
+        Assert.Equal("cat_003", body.RootElement.GetProperty("categoryRef").GetString());
+    }
+
+    [Theory]
+    [InlineData("cat_cuisine")]
+    [InlineData("cat-legacy")]
+    public async Task RagSearchToolAsync_serializes_non_ordinal_category_ref_without_legacy_category(string categoryRef)
+    {
+        string? capturedBody = null;
+        var handler = new StubHttpHandler(req =>
+        {
+            capturedBody = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"items":[]}""", Encoding.UTF8, "application/json")
+            };
+        });
+
+        var sut = CreateApiClient(handler);
+        await sut.RagSearchToolAsync("inerting", 8, categoryRef, "balanced", CancellationToken.None);
+
+        using var body = JsonDocument.Parse(capturedBody!);
+        Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("category").ValueKind);
+        Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("categoryPath").ValueKind);
+        Assert.Equal(categoryRef, body.RootElement.GetProperty("categoryRef").GetString());
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_search_preserves_nested_category_path_until_backend_call()
+    {
+        string? capturedBody = null;
+        var handler = new StubHttpHandler(req =>
+        {
+            capturedBody = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {
+                      "items": [
+                        {
+                          "score": 0.9,
+                          "docPath": "Programmation/Mettler/file.pdf",
+                          "docName": "file.pdf",
+                          "pageStart": 1,
+                          "pageEnd": 1,
+                          "text": "sample",
+                          "categoryPath": "Programmation/Mettler"
+                        }
+                      ]
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var api = CreateApiClient(handler);
+        var sut = new ToolAgentOrchestrator(api, llm: null!, mem: new ToolMemory());
+        using var args = JsonDocument.Parse("""{"query":"installation","topK":8,"categoryPath":"Programmation/Mettler","mode":"balanced"}""");
+        var method = typeof(ToolAgentOrchestrator).GetMethod("ExecRagSearchAsync", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(method);
+
+        var task = (Task<JsonElement>)method!.Invoke(sut, new object[] { args.RootElement.Clone(), CancellationToken.None })!;
+        _ = await task;
+
+        using var body = JsonDocument.Parse(capturedBody!);
+        Assert.Equal("Programmation/Mettler", body.RootElement.GetProperty("categoryPath").GetString());
+        Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("category").ValueKind);
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_multi_search_preserves_category_ref_guidance_and_metrics()
+    {
+        var capturedBodies = new List<string>();
+        var handler = new StubHttpHandler(req =>
+        {
+            capturedBodies.Add(req.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
+            var callNumber = capturedBodies.Count;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    callNumber == 1
+                    ? """
+                    {
+                      "metrics": { "tookMs": 33, "returned": 1 },
+                      "guidance": {
+                        "behavior": "answer_with_caveat",
+                        "reason": "partial_evidence",
+                        "qualificationNote": "La source est partielle."
+                      },
+                      "items": [
+                        {
+                          "score": 0.99,
+                          "docPath": "Guidance/file.pdf",
+                          "docName": "file.pdf",
+                          "pageStart": 1,
+                          "pageEnd": 1,
+                          "chunkId": "chunk-1",
+                          "text": "sample"
+                        }
+                      ]
+                    }
+                    """
+                    : """
+                    {
+                      "metrics": { "tookMs": 33, "returned": 1 },
+                      "guidance": {
+                        "behavior": "answer_with_caveat",
+                        "reason": "partial_evidence",
+                        "qualificationNote": "La source est partielle."
+                      },
+                      "items": [
+                        {
+                          "score": 0.7,
+                          "docPath": "Guidance/file.pdf",
+                          "docName": "file.pdf",
+                          "pageStart": 1,
+                          "pageEnd": 1,
+                          "chunkId": "chunk-1",
+                          "text": "sample enriched",
+                          "sourceHash": "hash-rich",
+                          "docLanguage": "en",
+                          "profileLanguage": "fr",
+                          "categoryRef": "cat_legacy",
+                          "categoryPath": "Guidance",
+                          "extractionQuality": {
+                            "documentQualityStatus": "extraction_ok",
+                            "pageQualityStatus": "page_ok",
+                            "diagnosticSummary": {
+                              "nativeTextStatus": "ok",
+                              "pageCount": 2
+                            }
+                          },
+                          "matchedContentCards": [
+                            { "title": "Rich source card", "kind": "section", "pageStart": 1 }
+                          ],
+                          "selectionHints": {
+                            "evidenceRole": "supporting_context",
+                            "supportScore": 8
+                          }
+                        }
+                      ]
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var api = CreateApiClient(handler);
+        var sut = new ToolAgentOrchestrator(api, llm: null!, mem: new ToolMemory());
+        using var args = JsonDocument.Parse("""{"queries":["pressure valve","valve limits"],"topK":4,"categoryRef":"cat_legacy","mode":"balanced"}""");
+        var method = typeof(ToolAgentOrchestrator).GetMethod("ExecRagMultiSearchAsync", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(method);
+
+        var task = (Task<JsonElement>)method!.Invoke(sut, new object[] { args.RootElement.Clone(), CancellationToken.None })!;
+        var result = await task;
+
+        Assert.Equal(2, capturedBodies.Count);
+        foreach (var capturedBody in capturedBodies)
+        {
+            using var body = JsonDocument.Parse(capturedBody);
+            Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("category").ValueKind);
+            Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("categoryPath").ValueKind);
+            Assert.Equal("cat_legacy", body.RootElement.GetProperty("categoryRef").GetString());
+        }
+
+        Assert.Equal("answer_with_caveat", result.GetProperty("guidance").GetProperty("behavior").GetString());
+        var queryRuns = result.GetProperty("meta").GetProperty("queryRuns").EnumerateArray().ToList();
+        Assert.Equal(2, queryRuns.Count);
+        Assert.Equal(33, queryRuns[0].GetProperty("meta").GetProperty("metrics").GetProperty("tookMs").GetInt32());
+        var hit = Assert.Single(result.GetProperty("hits").EnumerateArray());
+        Assert.Equal("hash-rich", hit.GetProperty("sourceHash").GetString());
+        Assert.Equal("en", hit.GetProperty("docLanguage").GetString());
+        Assert.Equal("fr", hit.GetProperty("profileLanguage").GetString());
+        Assert.Equal("Rich source card", hit.GetProperty("matchedContentCards")[0].GetProperty("title").GetString());
+        Assert.Equal("supporting_context", hit.GetProperty("selectionHints").GetProperty("evidenceRole").GetString());
+        Assert.Equal("ok", hit.GetProperty("extractionQuality").GetProperty("diagnosticSummary").GetProperty("nativeTextStatus").GetString());
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_multi_search_keeps_distinct_content_cards_on_same_page()
+    {
+        var handler = new StubHttpHandler(req =>
+        {
+            using var body = JsonDocument.Parse(req.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
+            var query = body.RootElement.GetProperty("query").GetString() ?? string.Empty;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    query.Contains("first", StringComparison.OrdinalIgnoreCase)
+                    ? """
+                    {
+                      "items": [
+                        {
+                          "score": 0.92,
+                          "docPath": "Knowledge/source.pdf",
+                          "docName": "source.pdf",
+                          "pageStart": 3,
+                          "pageEnd": 3,
+                          "text": "First same-page item.",
+                          "matchedContentCards": [
+                            { "title": "First card", "contentCardId": "card-first", "kind": "section" }
+                          ]
+                        }
+                      ]
+                    }
+                    """
+                    : """
+                    {
+                      "items": [
+                        {
+                          "score": 0.91,
+                          "docPath": "Knowledge/source.pdf",
+                          "docName": "source.pdf",
+                          "pageStart": 3,
+                          "pageEnd": 3,
+                          "text": "Second same-page item.",
+                          "matchedContentCards": [
+                            { "title": "Second card", "contentCardId": "card-second", "kind": "section" }
+                          ]
+                        }
+                      ]
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var api = CreateApiClient(handler);
+        var sut = new ToolAgentOrchestrator(api, llm: null!, mem: new ToolMemory());
+        using var args = JsonDocument.Parse("""{"queries":["first","second"],"topK":4,"mode":"balanced"}""");
+        var method = typeof(ToolAgentOrchestrator).GetMethod("ExecRagMultiSearchAsync", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(method);
+
+        var task = (Task<JsonElement>)method!.Invoke(sut, new object[] { args.RootElement.Clone(), CancellationToken.None })!;
+        var result = await task;
+
+        var hits = result.GetProperty("hits").EnumerateArray().ToArray();
+        Assert.Equal(2, hits.Length);
+        var cardIds = hits
+            .Select(hit => hit.GetProperty("matchedContentCards")[0].GetProperty("contentCardId").GetString())
+            .ToArray();
+        Assert.Contains("card-first", cardIds);
+        Assert.Contains("card-second", cardIds);
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_multi_search_keeps_distinct_content_cards_without_ids_on_same_page()
+    {
+        var handler = new StubHttpHandler(req =>
+        {
+            using var body = JsonDocument.Parse(req.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
+            var query = body.RootElement.GetProperty("query").GetString() ?? string.Empty;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    query.Contains("alpha", StringComparison.OrdinalIgnoreCase)
+                    ? """
+                    {
+                      "items": [
+                        {
+                          "score": 0.92,
+                          "docPath": "Knowledge/source.pdf",
+                          "docName": "source.pdf",
+                          "pageStart": 3,
+                          "pageEnd": 3,
+                          "text": "Alpha same-page item.",
+                          "matchedContentCards": [
+                            { "title": "Alpha card", "kind": "section", "pageStart": 3 }
+                          ]
+                        }
+                      ]
+                    }
+                    """
+                    : """
+                    {
+                      "items": [
+                        {
+                          "score": 0.91,
+                          "docPath": "Knowledge/source.pdf",
+                          "docName": "source.pdf",
+                          "pageStart": 3,
+                          "pageEnd": 3,
+                          "text": "Beta same-page item.",
+                          "matchedContentCards": [
+                            { "title": "Beta card", "kind": "section", "pageStart": 3 }
+                          ]
+                        }
+                      ]
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var api = CreateApiClient(handler);
+        var sut = new ToolAgentOrchestrator(api, llm: null!, mem: new ToolMemory());
+        using var args = JsonDocument.Parse("""{"queries":["alpha","beta"],"topK":4,"mode":"balanced"}""");
+        var method = typeof(ToolAgentOrchestrator).GetMethod("ExecRagMultiSearchAsync", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(method);
+
+        var task = (Task<JsonElement>)method!.Invoke(sut, new object[] { args.RootElement.Clone(), CancellationToken.None })!;
+        var result = await task;
+
+        var titles = result.GetProperty("hits")
+            .EnumerateArray()
+            .Select(hit => hit.GetProperty("matchedContentCards")[0].GetProperty("title").GetString())
+            .ToArray();
+        Assert.Equal(2, titles.Length);
+        Assert.Contains("Alpha card", titles);
+        Assert.Contains("Beta card", titles);
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_summarize_live_executes_with_debug_scroll_and_preserves_metadata()
+    {
+        var requestedPaths = new List<string>();
+        var handler = new StubHttpHandler(req =>
+        {
+            requestedPaths.Add(req.RequestUri!.PathAndQuery);
+            return req.RequestUri!.AbsolutePath switch
+            {
+                "/sources/resolve" => new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        """
+                        {
+                          "requestedRef": "doc-1",
+                          "source": {
+                            "docId": "doc-1",
+                            "docPath": "Knowledge/manual.pdf",
+                            "docName": "manual.pdf",
+                            "pageStart": 1,
+                            "pageEnd": 4,
+                            "label": "manual.pdf",
+                            "sourceHash": "src-1",
+                            "docLanguage": "de",
+                            "profileLanguage": "de",
+                            "categoryRef": "cat_042",
+                            "categoryPath": "Knowledge/Procedures",
+                            "extractionQuality": {
+                              "extractionSource": "pdf_text_plus_image_ocr",
+                              "documentQualityStatus": "ocr_applied_ok",
+                              "pageQualityStatus": "page_ok_with_images",
+                              "textStatus": "ok",
+                              "pageExtractionConfidence": 0.86,
+                              "ocrAttempted": true,
+                              "ocrApplied": true,
+                              "signals": [ "page_contains_images" ],
+                              "diagnosticSummary": {
+                                "nativeTextStatus": "low_text",
+                                "nativeOcrRecommended": true,
+                                "ocrMode": "image_page",
+                                "ocrLanguages": "deu+eng",
+                                "ocrDurationMs": 1200,
+                                "ocrAppliedReason": "image_ocr_merged_native_text",
+                                "ocrAttemptedPageCount": 4,
+                                "ocrPagesWithNovelTextCount": 2,
+                                "imagePageCount": 3,
+                                "pageWarningCount": 1
+                              }
+                            },
+                            "matchedContentCards": [
+                              {
+                                "title": "Control before validation",
+                                "contentCardId": "card-source-resolve",
+                                "pageStart": 2,
+                                "pageEnd": 2,
+                                "kind": "procedure",
+                                "evidence": {
+                                  "schemaVersion": "source_resolve_v1",
+                                  "scaleBasis": { "count": 2, "label": "validation set" },
+                                  "quantityFacts": [
+                                    { "value": 4, "unit": "checks", "label": "Control checks" }
+                                  ],
+                                  "confidence": 0.8
+                                }
+                              }
+                            ],
+                            "selectionHints": {
+                              "evidenceRole": "actionable_item",
+                              "actionabilityScore": 91,
+                              "supportScore": 42,
+                              "fragmentScore": 4,
+                              "navigationScore": 0,
+                              "qualityPenalty": 2
+                            }
+                          }
+                        }
+                        """,
+                        Encoding.UTF8,
+                        "application/json")
+                },
+                "/rag/debug/scroll" => new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        """
+                        {
+                          "result": {
+                            "points": [
+                              {
+                                "payload": {
+                                  "text": "Dieses Handbuch beschreibt die Validierungsschritte, die Kontrollpruefung und die dokumentierten Grenzen fuer die Bediener.",
+                                  "doc_path": "Knowledge/manual.pdf",
+                                  "doc_name": "manual.pdf",
+                                  "page_start": 2,
+                                  "page_end": 2,
+                                  "chunk_index": 0,
+                                  "source_hash": "src-debug",
+                                  "doc_language": "de",
+                                  "profile_language": "de",
+                                  "category_ref": "cat_debug",
+                                  "category_path": "Knowledge/Debug",
+                                  "chunk_id": "chunk-debug",
+                                  "extraction_quality": {
+                                    "extraction_source": "pdf_text",
+                                    "document_quality_status": "extraction_ok",
+                                    "page_quality_status": "page_ok",
+                                    "page_extraction_confidence": 0.97,
+                                    "ocr_attempted": true,
+                                    "ocr_applied": false,
+                                    "signals": [ "debug_signal" ],
+                                    "diagnostic_summary": {
+                                      "native_text_status": "ok",
+                                      "native_ocr_recommended": false,
+                                      "ocr_mode": "native_text",
+                                      "ocr_languages": "deu",
+                                      "ocr_duration_ms": 340,
+                                      "ocr_failure_reason": "no_novel_text",
+                                      "ocr_timed_out": false,
+                                      "ocr_attempted_page_count": 2,
+                                      "ocr_skipped_page_count": 1,
+                                      "ocr_pages_with_novel_text_count": 0,
+                                      "page_count": 4,
+                                      "text_page_count": 4,
+                                      "image_page_count": 1,
+                                      "page_review_recommended_count": 0
+                                    }
+                                  },
+                                  "matched_content_cards": [
+                                    {
+                                      "title": "Debug card",
+                                      "content_card_id": "card-debug",
+                                      "page_start": 2,
+                                      "page_end": 2,
+                                      "kind": "section",
+                                      "signals": [ "structured_item" ],
+                                      "evidence": {
+                                        "schemaVersion": "debug_card_v1",
+                                        "scaleBasis": { "count": 3, "label": "debug set" },
+                                        "quantityFacts": [
+                                          { "value": 9, "unit": "steps", "label": "Debug steps" }
+                                        ],
+                                        "confidence": 0.92
+                                      }
+                                    }
+                                  ],
+                                  "selection_hints": {
+                                    "evidence_role": "supporting_context",
+                                    "support_score": 97
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                        """,
+                        Encoding.UTF8,
+                        "application/json")
+                },
+                _ => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+            };
+        });
+
+        var api = CreateApiClient(handler, adminKey: "test-admin-key");
+        var llm = new StubLlmClient(
+            """
+            {"summaryText":"Ce document resume les etapes de validation, les controles a effectuer et les limites documentees pour les operateurs responsables."}
+            """);
+        var mem = new ToolMemory();
+        mem.PdfMap["PDF01"] = new ToolMemory.DocumentItem
+        {
+            DocId = "doc-1",
+            DocPath = "Knowledge/manual.pdf",
+            DocName = "manual.pdf",
+            Category = "Knowledge",
+            CategoryPath = "Knowledge/Procedures",
+            PdfRef = "PDF01"
+        };
+        mem.LastLanguage = "fr";
+
+        var sut = new ToolAgentOrchestrator(api, llm, mem);
+        using var args = JsonDocument.Parse("""{"docRef":"PDF01","responseLanguage":"fr","level":"short","maxWords":80,"maxChunks":4}""");
+        var method = typeof(ToolAgentOrchestrator).GetMethod("ExecRagSummarizeLiveAsync", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(method);
+
+        var task = (Task<JsonElement>)method!.Invoke(sut, new object[] { args.RootElement.Clone(), CancellationToken.None })!;
+        var result = await task;
+
+        Assert.Contains("/sources/resolve", requestedPaths);
+        Assert.Contains(requestedPaths, path => path.StartsWith("/rag/debug/scroll?", StringComparison.Ordinal));
+        Assert.Single(llm.Requests);
+        var userPrompt = llm.Requests[0].Single(message => message.role == "user").content;
+        Assert.Contains("TargetLanguage: fr", userPrompt);
+        Assert.Contains("Dieses Handbuch", userPrompt);
+        Assert.Contains("card-debug", userPrompt);
+        Assert.Contains("debug_card_v1", userPrompt);
+        Assert.Equal("fr", result.GetProperty("responseLanguage").GetString());
+        Assert.Equal("de", result.GetProperty("docLanguage").GetString());
+        Assert.Equal("de", result.GetProperty("profileLanguage").GetString());
+        Assert.Equal("src-debug", result.GetProperty("sourceHash").GetString());
+        Assert.Equal("cat_debug", result.GetProperty("categoryRef").GetString());
+        Assert.Equal("extraction_ok", result.GetProperty("extractionQuality").GetProperty("documentQualityStatus").GetString());
+        Assert.True(result.GetProperty("extractionQuality").GetProperty("ocrAttempted").GetBoolean());
+        var diagnostics = result.GetProperty("extractionQuality").GetProperty("diagnosticSummary");
+        Assert.Equal("ok", diagnostics.GetProperty("nativeTextStatus").GetString());
+        Assert.Equal("no_novel_text", diagnostics.GetProperty("ocrFailureReason").GetString());
+        Assert.Equal(2, diagnostics.GetProperty("ocrAttemptedPageCount").GetInt32());
+        Assert.Equal("supporting_context", result.GetProperty("selectionHints").GetProperty("evidenceRole").GetString());
+        Assert.Equal(97, result.GetProperty("selectionHints").GetProperty("supportScore").GetInt32());
+        var resultCard = result.GetProperty("matchedContentCards")[0];
+        Assert.Equal("card-debug", resultCard.GetProperty("contentCardId").GetString());
+        Assert.Equal("debug_card_v1", resultCard.GetProperty("evidence").GetProperty("schemaVersion").GetString());
+        var anchor = result.GetProperty("anchors")[0];
+        Assert.Equal("src-debug", anchor.GetProperty("sourceHash").GetString());
+        Assert.Equal("de", anchor.GetProperty("docLanguage").GetString());
+        Assert.True(anchor.GetProperty("extractionQuality").GetProperty("ocrAttempted").GetBoolean());
+        Assert.Equal(1, anchor.GetProperty("extractionQuality").GetProperty("diagnosticSummary").GetProperty("imagePageCount").GetInt32());
+        var anchorCard = anchor.GetProperty("matchedContentCards")[0];
+        Assert.Equal("Debug card", anchorCard.GetProperty("title").GetString());
+        Assert.Equal("card-debug", anchorCard.GetProperty("contentCardId").GetString());
+        Assert.Equal("debug_card_v1", anchorCard.GetProperty("evidence").GetProperty("schemaVersion").GetString());
+        Assert.Equal("supporting_context", anchor.GetProperty("selectionHints").GetProperty("evidenceRole").GetString());
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_summarize_live_enriches_partial_source_resolve_from_memory()
+    {
+        var handler = new StubHttpHandler(req => req.RequestUri!.AbsolutePath switch
+        {
+            "/sources/resolve" => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {
+                      "requestedRef": "doc-1",
+                      "source": {
+                        "docId": "doc-1",
+                        "docPath": "Knowledge/rich.pdf",
+                        "docName": "rich.pdf",
+                        "pageStart": 1,
+                        "pageEnd": 12,
+                        "label": "rich.pdf"
+                      }
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            },
+            "/rag/debug/scroll" => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {
+                      "result": {
+                        "points": [
+                          {
+                            "payload": {
+                              "text": "Dieses Dokument beschreibt Pruefschritte, Verantwortlichkeiten und konkrete Kontrollpunkte fuer den Betrieb.",
+                              "doc_path": "Knowledge/rich.pdf",
+                              "doc_name": "rich.pdf",
+                              "page_start": 3,
+                              "page_end": 3,
+                              "chunk_index": 1
+                            }
+                          }
+                        ]
+                      }
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            },
+            _ => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+        });
+
+        var api = CreateApiClient(handler, adminKey: "test-admin-key");
+        var llm = new StubLlmClient("""{"summaryText":"Ce document presente les controles operationnels et les responsabilites associees."}""");
+        var mem = new ToolMemory();
+        mem.PdfMap["PDF01"] = new ToolMemory.DocumentItem
+        {
+            DocId = "doc-1",
+            DocPath = "Knowledge/rich.pdf",
+            DocName = "rich.pdf",
+            Category = "Knowledge",
+            CategoryRef = "cat_rich",
+            CategoryPath = "Knowledge/Procedures",
+            PdfRef = "PDF01",
+            SourceHash = "hash-memory",
+            DocLanguage = "de",
+            ProfileLanguage = "de"
+        };
+        mem.LastListedDocuments.Add(mem.PdfMap["PDF01"]);
+        mem.LastSourcesUsed.Add(new ToolMemory.SourceRef
+        {
+            DocId = "doc-1",
+            DocPath = "Knowledge/rich.pdf",
+            DocName = "rich.pdf",
+            PageStart = 3,
+            PageEnd = 3,
+            Label = "rich.pdf (p.3)",
+            SourceHash = "hash-memory",
+            DocLanguage = "de",
+            ProfileLanguage = "de",
+            Category = "Knowledge",
+            CategoryRef = "cat_rich",
+            CategoryPath = "Knowledge/Procedures",
+            ChunkId = "chunk-memory",
+            DocumentQualityStatus = "extraction_ok",
+            MatchedContentCards =
+            [
+                new ToolMemory.SourceContentCardRef
+                {
+                    Title = "Operational controls",
+                    ContentCardId = "card-memory",
+                    PageStart = 3,
+                    PageEnd = 3,
+                    Kind = "section"
+                }
+            ],
+            SelectionHintEvidenceRole = "supporting_context",
+            SelectionHintSupportScore = 88
+        });
+
+        var sut = new ToolAgentOrchestrator(api, llm, mem);
+        using var args = JsonDocument.Parse("""{"docRef":"PDF01","responseLanguage":"fr","level":"short","maxWords":80,"maxChunks":2}""");
+        var result = await InvokePrivateToolAsync(sut, "ExecRagSummarizeLiveAsync", args.RootElement.Clone());
+
+        Assert.Single(llm.Requests);
+        var userPrompt = llm.Requests[0].Single(message => message.role == "user").content;
+        Assert.Contains("card-memory", userPrompt);
+        Assert.Contains("Knowledge/Procedures", userPrompt);
+        Assert.Equal("fr", result.GetProperty("responseLanguage").GetString());
+        Assert.Equal("de", result.GetProperty("docLanguage").GetString());
+        Assert.Equal("de", result.GetProperty("profileLanguage").GetString());
+        Assert.Equal("hash-memory", result.GetProperty("sourceHash").GetString());
+        Assert.Equal("Knowledge", result.GetProperty("category").GetString());
+        Assert.Equal("cat_rich", result.GetProperty("categoryRef").GetString());
+        Assert.Equal("Knowledge/Procedures", result.GetProperty("categoryPath").GetString());
+        Assert.Equal("extraction_ok", result.GetProperty("extractionQuality").GetProperty("documentQualityStatus").GetString());
+        Assert.Equal("Operational controls", result.GetProperty("matchedContentCards")[0].GetProperty("title").GetString());
+        Assert.Equal("card-memory", result.GetProperty("matchedContentCards")[0].GetProperty("contentCardId").GetString());
+        Assert.Equal("supporting_context", result.GetProperty("selectionHints").GetProperty("evidenceRole").GetString());
+        Assert.Equal(88, result.GetProperty("selectionHints").GetProperty("supportScore").GetInt32());
+        var anchor = result.GetProperty("anchors")[0];
+        Assert.Equal("hash-memory", anchor.GetProperty("sourceHash").GetString());
+        Assert.Equal("Knowledge", anchor.GetProperty("category").GetString());
+        Assert.Equal("cat_rich", anchor.GetProperty("categoryRef").GetString());
+        Assert.Equal("card-memory", anchor.GetProperty("matchedContentCards")[0].GetProperty("contentCardId").GetString());
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_summarize_live_falls_back_to_rag_search_when_debug_scroll_is_empty()
+    {
+        string? capturedRagBody = null;
+        var handler = new StubHttpHandler(req =>
+        {
+            return req.RequestUri!.AbsolutePath switch
+            {
+                "/sources/resolve" => new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        """
+                        {
+                          "source": {
+                            "docId": "doc-1",
+                            "docPath": "Knowledge/manual.pdf",
+                            "docName": "manual.pdf",
+                            "pageStart": 1,
+                            "pageEnd": 4,
+                            "sourceHash": "src-from-source",
+                            "docLanguage": "it",
+                            "profileLanguage": "it",
+                            "categoryRef": "cat_042",
+                            "categoryPath": "Knowledge/Procedures"
+                          }
+                        }
+                        """,
+                        Encoding.UTF8,
+                        "application/json")
+                },
+                "/rag/debug/scroll" => new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""{"result":{"points":[]}}""", Encoding.UTF8, "application/json")
+                },
+                "/rag/search" => CaptureRagSearch(req, body =>
+                {
+                    capturedRagBody = body;
+                    return """
+                    {
+                      "items": [
+                        {
+                          "score": 0.91,
+                          "docId": "doc-1",
+                          "docPath": "Knowledge/manual.pdf",
+                          "docName": "manual.pdf",
+                          "pageStart": 3,
+                          "pageEnd": 3,
+                          "chunkIndex": 7,
+                          "chunkId": "chunk-7",
+                          "text": "Questo manuale descrive i controlli di qualita, le verifiche operative e le condizioni limite documentate.",
+                          "sourceHash": "src-from-rag",
+                          "docLanguage": "it",
+                          "profileLanguage": "it",
+                          "categoryRef": "cat_042",
+                          "categoryPath": "Knowledge/Procedures",
+                          "extractionQuality": {
+                            "extractionSource": "pdf_text",
+                            "documentQualityStatus": "extraction_ok",
+                            "pageQualityStatus": "page_ok",
+                            "textStatus": "ok",
+                            "documentExtractionConfidence": 0.98,
+                            "pageExtractionConfidence": 0.94,
+                            "ocrAttempted": true,
+                            "ocrApplied": false
+                          },
+                          "matchedContentCards": [
+                            { "title": "Controlli qualita", "pageStart": 3, "pageEnd": 3, "kind": "section" }
+                          ]
+                        }
+                      ]
+                    }
+                    """;
+                }),
+                _ => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+            };
+        });
+
+        var api = CreateApiClient(handler, adminKey: "test-admin-key");
+        var llm = new StubLlmClient(
+            """
+            {"summaryText":"Ce document presente les controles de qualite, les verifications operationnelles et les conditions limite documentees dans la procedure."}
+            """);
+        var mem = new ToolMemory();
+        mem.PdfMap["PDF01"] = new ToolMemory.DocumentItem
+        {
+            DocId = "doc-1",
+            DocPath = "Knowledge/manual.pdf",
+            DocName = "manual.pdf",
+            Category = "Knowledge",
+            CategoryPath = "Knowledge/Procedures",
+            PdfRef = "PDF01"
+        };
+
+        var sut = new ToolAgentOrchestrator(api, llm, mem);
+        using var args = JsonDocument.Parse("""{"docRef":"PDF01","responseLanguage":"fr","level":"medium","maxChunks":4}""");
+        var result = await InvokePrivateToolAsync(sut, "ExecRagSummarizeLiveAsync", args.RootElement.Clone());
+
+        Assert.NotNull(capturedRagBody);
+        using (var ragBody = JsonDocument.Parse(capturedRagBody!))
+        {
+            Assert.Equal("doc-1", ragBody.RootElement.GetProperty("docId").GetString());
+            Assert.Equal("Knowledge/manual.pdf", ragBody.RootElement.GetProperty("docPath").GetString());
+            Assert.Equal("balanced", ragBody.RootElement.GetProperty("mode").GetString());
+            Assert.Contains("riassunto", ragBody.RootElement.GetProperty("query").GetString(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        Assert.Single(llm.Requests);
+        var prompt = llm.Requests[0].Single(message => message.role == "user").content;
+        Assert.Contains("TargetLanguage: fr", prompt);
+        Assert.Contains("DocumentLanguage: it", prompt);
+        Assert.Contains("IngestionMetadata:", prompt);
+        Assert.Contains("- sourceHash: src-from-rag", prompt);
+        Assert.Contains("- categoryRef: cat_042", prompt);
+        Assert.Contains("- chunkId: chunk-7", prompt);
+        Assert.Contains("- extractionSource: pdf_text", prompt);
+        Assert.Contains("- documentExtractionConfidence: 0.98", prompt);
+        Assert.Contains("- pageExtractionConfidence: 0.94", prompt);
+        Assert.Contains("Controlli qualita", prompt);
+        Assert.Contains("diagnosticFields: sourceHash/categoryRef/chunkId", prompt);
+        Assert.Contains("Questo manuale", prompt);
+        Assert.DoesNotContain("procedures/settings", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("fr", result.GetProperty("responseLanguage").GetString());
+        Assert.Equal("it", result.GetProperty("docLanguage").GetString());
+        Assert.Equal("src-from-rag", result.GetProperty("sourceHash").GetString());
+        Assert.Equal("extraction_ok", result.GetProperty("extractionQuality").GetProperty("documentQualityStatus").GetString());
+        Assert.True(result.GetProperty("extractionQuality").GetProperty("ocrAttempted").GetBoolean());
+        Assert.Equal("Controlli qualita", result.GetProperty("anchors")[0].GetProperty("matchedContentCards")[0].GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_summarize_live_includes_metadata_from_all_selected_chunks_in_prompt()
+    {
+        var handler = new StubHttpHandler(req =>
+        {
+            return req.RequestUri!.AbsolutePath switch
+            {
+                "/sources/resolve" => new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        """
+                        {
+                          "source": {
+                            "docId": "doc-multi",
+                            "docPath": "Knowledge/source.pdf",
+                            "docName": "source.pdf",
+                            "pageStart": 1,
+                            "pageEnd": 6,
+                            "sourceHash": "src-resolved",
+                            "docLanguage": "en",
+                            "profileLanguage": "en",
+                            "categoryRef": "cat_generic",
+                            "categoryPath": "Knowledge/Generic"
+                          }
+                        }
+                        """,
+                        Encoding.UTF8,
+                        "application/json")
+                },
+                "/rag/search" => CaptureRagSearch(req, body =>
+                {
+                    return """
+                    {
+                      "items": [
+                        {
+                          "score": 0.89,
+                          "docId": "doc-multi",
+                          "docPath": "Knowledge/source.pdf",
+                          "docName": "source.pdf",
+                          "pageStart": 1,
+                          "pageEnd": 1,
+                          "chunkIndex": 1,
+                          "chunkId": "chunk-first",
+                          "text": "The first selected passage gives the general frame and introductory constraints.",
+                          "sourceHash": "src-first",
+                          "docLanguage": "en",
+                          "profileLanguage": "en",
+                          "categoryRef": "cat_generic",
+                          "categoryPath": "Knowledge/Generic"
+                        },
+                        {
+                          "score": 0.86,
+                          "docId": "doc-multi",
+                          "docPath": "Knowledge/source.pdf",
+                          "docName": "source.pdf",
+                          "pageStart": 4,
+                          "pageEnd": 4,
+                          "chunkIndex": 4,
+                          "chunkId": "chunk-second",
+                          "text": "The later selected passage contains the concrete checks, numeric thresholds and review warnings.",
+                          "sourceHash": "src-second",
+                          "docLanguage": "en",
+                          "profileLanguage": "en",
+                          "categoryRef": "cat_generic",
+                          "categoryPath": "Knowledge/Generic",
+                          "extractionQuality": {
+                            "extractionSource": "pdf_text_plus_image_ocr",
+                            "documentQualityStatus": "extraction_ok",
+                            "pageQualityStatus": "page_ok_with_images",
+                            "pageExtractionConfidence": 0.83,
+                            "pageManualReviewRecommended": true,
+                            "ocrAttempted": true,
+                            "ocrApplied": true,
+                            "signals": [ "image_text_merged" ]
+                          },
+                          "matchedContentCards": [
+                            {
+                              "title": "Second metadata card",
+                              "contentCardId": "card-second",
+                              "pageStart": 4,
+                              "pageEnd": 4,
+                              "kind": "check",
+                              "signals": [ "numeric_fact" ],
+                              "evidence": {
+                                "schemaVersion": "card_schema_v2",
+                                "quantityFacts": [
+                                  { "value": 12, "unit": "checks", "label": "Required checks" }
+                                ],
+                                "confidence": 0.91
+                              }
+                            }
+                          ],
+                          "selectionHints": {
+                            "evidenceRole": "supporting_context",
+                            "actionabilityScore": 72,
+                            "supportScore": 88,
+                            "fragmentScore": 0,
+                            "navigationScore": 0,
+                            "qualityPenalty": 1
+                          }
+                        }
+                      ]
+                    }
+                    """;
+                }),
+                _ => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+            };
+        });
+
+        var api = CreateApiClient(handler);
+        var llm = new StubLlmClient("""{"summaryText":"This summary uses both selected passages and keeps the concrete checks from the later source."}""");
+        var mem = new ToolMemory();
+        mem.PdfMap["PDF01"] = new ToolMemory.DocumentItem
+        {
+            DocId = "doc-multi",
+            DocPath = "Knowledge/source.pdf",
+            DocName = "source.pdf",
+            Category = "Knowledge",
+            CategoryPath = "Knowledge/Generic",
+            PdfRef = "PDF01"
+        };
+
+        var sut = new ToolAgentOrchestrator(api, llm, mem);
+        using var args = JsonDocument.Parse("""{"docRef":"PDF01","responseLanguage":"en","level":"medium","maxChunks":4}""");
+        var result = await InvokePrivateToolAsync(sut, "ExecRagSummarizeLiveAsync", args.RootElement.Clone());
+
+        Assert.Single(llm.Requests);
+        var prompt = llm.Requests[0].Single(message => message.role == "user").content;
+        Assert.Contains("- source[1]:", prompt);
+        Assert.Contains("- source[2]:", prompt);
+        Assert.Contains("sourceHash=src-second", prompt);
+        Assert.Contains("chunkId=chunk-second", prompt);
+        Assert.Contains("extractionSource=pdf_text_plus_image_ocr", prompt);
+        Assert.Contains("manualReview=recommended", prompt);
+        Assert.Contains("contentCards=Second metadata card", prompt);
+        Assert.Contains("card_schema_v2", prompt);
+        Assert.Contains("selectionScores=actionability:72,support:88", prompt);
+        Assert.Equal("src-first", result.GetProperty("sourceHash").GetString());
+        Assert.Equal("src-second", result.GetProperty("sourceMetadataSample")[1].GetProperty("sourceHash").GetString());
+        Assert.Equal("Second metadata card", result.GetProperty("sourceMetadataSample")[1].GetProperty("matchedContentCards")[0].GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_summarize_live_keeps_all_selected_source_metadata_without_same_page_dedup_loss()
+    {
+        var handler = new StubHttpHandler(req =>
+        {
+            return req.RequestUri!.AbsolutePath switch
+            {
+                "/sources/resolve" => new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        """{"source":{"docId":"doc-many","docPath":"Knowledge/many.pdf","docName":"many.pdf","docLanguage":"en","profileLanguage":"en","sourceHash":"src-resolved"}}""",
+                        Encoding.UTF8,
+                        "application/json")
+                },
+                "/rag/search" => new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        JsonSerializer.Serialize(new
+                        {
+                            items = Enumerable.Range(1, 10).Select(i => new
+                            {
+                                score = 0.95 - (i * 0.01),
+                                docId = "doc-many",
+                                docPath = "Knowledge/many.pdf",
+                                docName = "many.pdf",
+                                pageStart = i <= 2 ? 2 : i,
+                                pageEnd = i <= 2 ? 2 : i,
+                                chunkIndex = i,
+                                text = $"Generic selected chunk {i} with useful factual document content for the summary.",
+                                sourceHash = i <= 2 ? "src-same-page" : $"src-{i}",
+                                docLanguage = "en",
+                                profileLanguage = "en",
+                                categoryRef = "cat_generic",
+                                categoryPath = "Knowledge/Generic",
+                                extractionQuality = new
+                                {
+                                    extractionSource = "pdf_text",
+                                    documentQualityStatus = "extraction_ok",
+                                    pageQualityStatus = "page_ok",
+                                    pageExtractionConfidence = 0.9
+                                },
+                                matchedContentCards = new[]
+                                {
+                                    new
+                                    {
+                                        title = i == 10 ? "Tenth metadata card" : $"Same-page metadata card {i}",
+                                        pageStart = i <= 2 ? 2 : i,
+                                        pageEnd = i <= 2 ? 2 : i,
+                                        kind = "section"
+                                    }
+                                },
+                                selectionHints = new
+                                {
+                                    evidenceRole = "supporting_context",
+                                    actionabilityScore = i,
+                                    supportScore = 100 - i,
+                                    fragmentScore = i % 3,
+                                    navigationScore = i % 2,
+                                    qualityPenalty = i % 4
+                                }
+                            }).ToArray()
+                        }),
+                        Encoding.UTF8,
+                        "application/json")
+                },
+                _ => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+            };
+        });
+
+        var api = CreateApiClient(handler);
+        var llm = new StubLlmClient("""{"summaryText":"The summary keeps the selected source metadata available."}""");
+        var mem = new ToolMemory();
+        mem.PdfMap["PDF01"] = new ToolMemory.DocumentItem
+        {
+            DocId = "doc-many",
+            DocPath = "Knowledge/many.pdf",
+            DocName = "many.pdf",
+            Category = "Knowledge",
+            CategoryPath = "Knowledge/Generic",
+            PdfRef = "PDF01"
+        };
+
+        var sut = new ToolAgentOrchestrator(api, llm, mem);
+        using var args = JsonDocument.Parse("""{"docRef":"PDF01","responseLanguage":"en","level":"medium","maxChunks":10,"maxCharsPerBatch":20000}""");
+        var result = await InvokePrivateToolAsync(sut, "ExecRagSummarizeLiveAsync", args.RootElement.Clone());
+
+        var prompt = Assert.Single(llm.Requests).Single(message => message.role == "user").content;
+        Assert.Contains("- source[1]: page=p.2", prompt);
+        Assert.Contains("- source[2]: page=p.2", prompt);
+        Assert.Contains("Same-page metadata card 1", prompt);
+        Assert.Contains("Same-page metadata card 2", prompt);
+        Assert.Contains("selectionScores=actionability:10,support:90,fragment:1,navigation:0,qualityPenalty:2", prompt);
+        Assert.Equal(10, result.GetProperty("sourceMetadataTotal").GetInt32());
+        Assert.False(result.GetProperty("sourceMetadataTruncated").GetBoolean());
+        Assert.Equal(10, result.GetProperty("sourceMetadata").GetArrayLength());
+        Assert.Equal("src-10", result.GetProperty("sourceMetadata")[9].GetProperty("sourceHash").GetString());
+        Assert.Equal("Tenth metadata card", result.GetProperty("sourceMetadata")[9].GetProperty("matchedContentCards")[0].GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_summarize_live_falls_back_to_language_aware_rag_search_when_debug_scroll_is_forbidden()
+    {
+        string? capturedRagBody = null;
+        var requestedPaths = new List<string>();
+        var handler = new StubHttpHandler(req =>
+        {
+            requestedPaths.Add(req.RequestUri!.PathAndQuery);
+            return req.RequestUri!.AbsolutePath switch
+            {
+                "/sources/resolve" => new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        """
+                        {
+                          "source": {
+                            "docId": "doc-nl",
+                            "docPath": "Knowledge/handleiding.pdf",
+                            "docName": "handleiding.pdf",
+                            "pageStart": 1,
+                            "pageEnd": 6,
+                            "sourceHash": "src-nl",
+                            "docLanguage": "nl-BE",
+                            "profileLanguage": "nl-BE",
+                            "categoryRef": "cat_nl",
+                            "categoryPath": "Knowledge/Onderhoud"
+                          }
+                        }
+                        """,
+                        Encoding.UTF8,
+                        "application/json")
+                },
+                "/rag/debug/scroll" => new HttpResponseMessage(HttpStatusCode.Forbidden)
+                {
+                    Content = new StringContent("""{"error":"admin_required"}""", Encoding.UTF8, "application/json")
+                },
+                "/rag/search" => CaptureRagSearch(req, body =>
+                {
+                    capturedRagBody = body;
+                    return """
+                    {
+                      "items": [
+                        {
+                          "score": 0.88,
+                          "docId": "doc-nl",
+                          "docPath": "Knowledge/handleiding.pdf",
+                          "docName": "handleiding.pdf",
+                          "pageStart": 2,
+                          "pageEnd": 2,
+                          "chunkIndex": 3,
+                          "chunkId": "chunk-nl",
+                          "text": "Deze handleiding beschrijft onderhoudscontroles, veiligheidslimieten en acties voor operators.",
+                          "sourceHash": "src-nl",
+                          "docLanguage": "nl-BE",
+                          "profileLanguage": "nl-BE",
+                          "categoryRef": "cat_nl",
+                          "categoryPath": "Knowledge/Onderhoud"
+                        }
+                      ]
+                    }
+                    """;
+                }),
+                _ => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+            };
+        });
+
+        var api = CreateApiClient(handler, adminKey: "test-admin-key");
+        var llm = new StubLlmClient(
+            """
+            {"summaryText":"Ce document décrit des contrôles de maintenance, des limites de sécurité et des actions opérateur."}
+            """);
+        var mem = new ToolMemory();
+        mem.PdfMap["PDF01"] = new ToolMemory.DocumentItem
+        {
+            DocId = "doc-nl",
+            DocPath = "Knowledge/handleiding.pdf",
+            DocName = "handleiding.pdf",
+            Category = "Knowledge",
+            CategoryPath = "Knowledge/Onderhoud",
+            PdfRef = "PDF01"
+        };
+
+        var sut = new ToolAgentOrchestrator(api, llm, mem);
+        using var args = JsonDocument.Parse("""{"docRef":"PDF01","responseLanguage":"fr","level":"medium","maxChunks":4}""");
+        var result = await InvokePrivateToolAsync(sut, "ExecRagSummarizeLiveAsync", args.RootElement.Clone());
+        var secondResult = await InvokePrivateToolAsync(sut, "ExecRagSummarizeLiveAsync", args.RootElement.Clone());
+
+        Assert.NotNull(capturedRagBody);
+        using (var ragBody = JsonDocument.Parse(capturedRagBody!))
+        {
+            Assert.Equal("doc-nl", ragBody.RootElement.GetProperty("docId").GetString());
+            Assert.Equal("Knowledge/handleiding.pdf", ragBody.RootElement.GetProperty("docPath").GetString());
+            Assert.Equal("balanced", ragBody.RootElement.GetProperty("mode").GetString());
+            var query = ragBody.RootElement.GetProperty("query").GetString() ?? string.Empty;
+            Assert.Contains("samenvatting doel hoofdsecties", query, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("summary purpose main sections", query, StringComparison.OrdinalIgnoreCase);
+        }
+
+        Assert.Equal(2, llm.Requests.Count);
+        var prompt = llm.Requests[0].Single(message => message.role == "user").content;
+        Assert.Contains("DocumentLanguage: nl-be", prompt);
+        Assert.Contains("Deze handleiding", prompt);
+        Assert.Equal("nl-be", result.GetProperty("docLanguage").GetString());
+        Assert.Equal("src-nl", result.GetProperty("sourceHash").GetString());
+        Assert.Equal("nl-be", secondResult.GetProperty("docLanguage").GetString());
+        Assert.Single(requestedPaths, path => path.StartsWith("/rag/debug/scroll?", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_summarize_live_prefers_backend_doc_language_over_tool_argument_hint()
+    {
+        string? capturedRagBody = null;
+        var handler = new StubHttpHandler(req => req.RequestUri!.AbsolutePath switch
+        {
+            "/sources/resolve" => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {
+                      "source": {
+                        "docId": "doc-de",
+                        "docPath": "Knowledge/handbuch.pdf",
+                        "docName": "handbuch.pdf",
+                        "pageStart": 1,
+                        "pageEnd": 4,
+                        "sourceHash": "src-de",
+                        "docLanguage": "de",
+                        "profileLanguage": "de"
+                      }
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            },
+            "/rag/search" => CaptureRagSearch(req, body =>
+            {
+                capturedRagBody = body;
+                return """
+                {
+                  "items": [
+                    {
+                      "docId": "doc-de",
+                      "docPath": "Knowledge/handbuch.pdf",
+                      "docName": "handbuch.pdf",
+                      "pageStart": 1,
+                      "pageEnd": 1,
+                      "chunkIndex": 1,
+                      "text": "Dieses Handbuch beschreibt Pruefschritte, Grenzwerte und Betreiberhinweise.",
+                      "sourceHash": "src-de",
+                      "docLanguage": "de",
+                      "profileLanguage": "de"
+                    }
+                  ]
+                }
+                """;
+            }),
+            _ => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+        });
+
+        var api = CreateApiClient(handler);
+        var llm = new StubLlmClient("""{"summaryText":"Ce document decrit des controles, des limites et des consignes operateur."}""");
+        var mem = new ToolMemory();
+        mem.PdfMap["PDF01"] = new ToolMemory.DocumentItem
+        {
+            DocId = "doc-de",
+            DocPath = "Knowledge/handbuch.pdf",
+            DocName = "handbuch.pdf",
+            Category = "Knowledge",
+            CategoryPath = "Knowledge",
+            PdfRef = "PDF01"
+        };
+
+        var sut = new ToolAgentOrchestrator(api, llm, mem);
+        using var args = JsonDocument.Parse("""{"docRef":"PDF01","responseLanguage":"fr","docLanguage":"fr","level":"medium","maxChunks":3}""");
+        var result = await InvokePrivateToolAsync(sut, "ExecRagSummarizeLiveAsync", args.RootElement.Clone());
+
+        Assert.NotNull(capturedRagBody);
+        using (var ragBody = JsonDocument.Parse(capturedRagBody!))
+        {
+            var query = ragBody.RootElement.GetProperty("query").GetString() ?? string.Empty;
+            Assert.Contains("zusammenfassung zweck hauptabschnitte", query, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("resume objectif sections principales", query, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("medium useful", query, StringComparison.OrdinalIgnoreCase);
+        }
+
+        var prompt = Assert.Single(llm.Requests).Single(message => message.role == "user").content;
+        Assert.Contains("TargetLanguage: fr", prompt);
+        Assert.Contains("DocumentLanguage: de", prompt);
+        Assert.Equal("de", result.GetProperty("docLanguage").GetString());
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_summarize_live_recomputes_doc_language_from_rag_hits_when_resolve_has_no_language()
+    {
+        string? capturedRagBody = null;
+        var handler = new StubHttpHandler(req => req.RequestUri!.AbsolutePath switch
+        {
+            "/sources/resolve" => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """{"source":{"docId":"doc-it","docPath":"Knowledge/manuale.pdf","docName":"manuale.pdf","pageStart":1,"pageEnd":3}}""",
+                    Encoding.UTF8,
+                    "application/json")
+            },
+            "/rag/search" => CaptureRagSearch(req, body =>
+            {
+                capturedRagBody = body;
+                return """
+                {
+                  "items": [
+                    {
+                      "docId": "doc-it",
+                      "docPath": "Knowledge/manuale.pdf",
+                      "docName": "manuale.pdf",
+                      "pageStart": 2,
+                      "pageEnd": 2,
+                      "chunkIndex": 2,
+                      "text": "Il manuale descrive controlli, limiti e indicazioni operative.",
+                      "sourceHash": "src-it",
+                      "docLanguage": "it",
+                      "profileLanguage": "it"
+                    }
+                  ]
+                }
+                """;
+            }),
+            _ => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+        });
+
+        var api = CreateApiClient(handler);
+        var llm = new StubLlmClient("""{"summaryText":"Ce document decrit des controles, des limites et des consignes operationnelles."}""");
+        var mem = new ToolMemory();
+        mem.PdfMap["PDF01"] = new ToolMemory.DocumentItem
+        {
+            DocId = "doc-it",
+            DocPath = "Knowledge/manuale.pdf",
+            DocName = "manuale.pdf",
+            Category = "Knowledge",
+            CategoryPath = "Knowledge",
+            PdfRef = "PDF01"
+        };
+
+        var sut = new ToolAgentOrchestrator(api, llm, mem);
+        using var args = JsonDocument.Parse("""{"docRef":"PDF01","responseLanguage":"fr","level":"medium","maxChunks":3}""");
+        var result = await InvokePrivateToolAsync(sut, "ExecRagSummarizeLiveAsync", args.RootElement.Clone());
+
+        Assert.NotNull(capturedRagBody);
+        using (var ragBody = JsonDocument.Parse(capturedRagBody!))
+        {
+            var query = ragBody.RootElement.GetProperty("query").GetString() ?? string.Empty;
+            Assert.Contains("manuale.pdf", query, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("medium useful", query, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("summary purpose", query, StringComparison.OrdinalIgnoreCase);
+        }
+
+        var prompt = Assert.Single(llm.Requests).Single(message => message.role == "user").content;
+        Assert.Contains("DocumentLanguage: it", prompt);
+        Assert.Equal("it", result.GetProperty("docLanguage").GetString());
+        Assert.Equal("it", result.GetProperty("profileLanguage").GetString());
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_summarize_live_skips_debug_scroll_without_admin_key()
+    {
+        var requestedPaths = new List<string>();
+        var handler = new StubHttpHandler(req =>
+        {
+            requestedPaths.Add(req.RequestUri!.PathAndQuery);
+            return req.RequestUri!.AbsolutePath switch
+            {
+                "/sources/resolve" => new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        """{"source":{"docId":"doc-plain","docPath":"Knowledge/plain.pdf","docName":"plain.pdf","docLanguage":"en","profileLanguage":"en","sourceHash":"src-plain"}}""",
+                        Encoding.UTF8,
+                        "application/json")
+                },
+                "/rag/search" => new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        """
+                        {
+                          "items": [
+                            {
+                              "docId": "doc-plain",
+                              "docPath": "Knowledge/plain.pdf",
+                              "docName": "plain.pdf",
+                              "pageStart": 1,
+                              "pageEnd": 1,
+                              "chunkIndex": 1,
+                              "text": "This document explains operator checks, acceptance limits and escalation notes.",
+                              "sourceHash": "src-plain",
+                              "docLanguage": "en",
+                              "profileLanguage": "en"
+                            }
+                          ]
+                        }
+                        """,
+                        Encoding.UTF8,
+                        "application/json")
+                },
+                "/rag/debug/scroll" => new HttpResponseMessage(HttpStatusCode.InternalServerError),
+                _ => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+            };
+        });
+
+        var api = CreateApiClient(handler);
+        var llm = new StubLlmClient("""{"summaryText":"Ce document explique les controles operateur, les limites d'acceptation et les notes d'escalade."}""");
+        var mem = new ToolMemory();
+        mem.PdfMap["PDF01"] = new ToolMemory.DocumentItem
+        {
+            DocId = "doc-plain",
+            DocPath = "Knowledge/plain.pdf",
+            DocName = "plain.pdf",
+            Category = "Knowledge",
+            CategoryPath = "Knowledge",
+            PdfRef = "PDF01"
+        };
+
+        var sut = new ToolAgentOrchestrator(api, llm, mem);
+        using var args = JsonDocument.Parse("""{"docRef":"PDF01","responseLanguage":"fr","level":"short","maxChunks":2}""");
+        var result = await InvokePrivateToolAsync(sut, "ExecRagSummarizeLiveAsync", args.RootElement.Clone());
+
+        Assert.DoesNotContain(requestedPaths, path => path.StartsWith("/rag/debug/scroll?", StringComparison.Ordinal));
+        Assert.Contains(requestedPaths, path => path.Equals("/rag/search", StringComparison.Ordinal));
+        Assert.Single(llm.Requests);
+        Assert.Equal("src-plain", result.GetProperty("sourceHash").GetString());
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_summarize_live_returns_no_chunks_without_calling_llm_when_retrieval_is_empty()
+    {
+        var handler = new StubHttpHandler(req => req.RequestUri!.AbsolutePath switch
+        {
+            "/sources/resolve" => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"source":{"docId":"doc-1","docPath":"Knowledge/empty.pdf","docName":"empty.pdf"}}""", Encoding.UTF8, "application/json")
+            },
+            "/rag/debug/scroll" => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"result":{"points":[]}}""", Encoding.UTF8, "application/json")
+            },
+            "/rag/search" => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"items":[]}""", Encoding.UTF8, "application/json")
+            },
+            _ => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+        });
+
+        var api = CreateApiClient(handler, adminKey: "test-admin-key");
+        var llm = new StubLlmClient("""{"summaryText":"should not be used"}""");
+        var mem = new ToolMemory();
+        mem.PdfMap["PDF01"] = new ToolMemory.DocumentItem
+        {
+            DocId = "doc-1",
+            DocPath = "Knowledge/empty.pdf",
+            DocName = "empty.pdf",
+            Category = "Knowledge",
+            CategoryPath = "Knowledge",
+            PdfRef = "PDF01"
+        };
+
+        var sut = new ToolAgentOrchestrator(api, llm, mem);
+        using var args = JsonDocument.Parse("""{"docRef":"PDF01","responseLanguage":"fr"}""");
+        var result = await InvokePrivateToolAsync(sut, "ExecRagSummarizeLiveAsync", args.RootElement.Clone());
+
+        Assert.Equal("no_chunks_found", result.GetProperty("error").GetString());
+        Assert.Empty(llm.Requests);
+    }
+
+    [Fact]
+    public async Task Admin_summary_submit_uses_backend_resolved_document_metadata_over_llm_args()
+    {
+        string? capturedSubmitBody = null;
+        var handler = new StubHttpHandler(req =>
+        {
+            return req.RequestUri!.AbsolutePath switch
+            {
+                "/sources/resolve" => new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        """
+                        {
+                          "source": {
+                            "docId": "doc-1",
+                            "docPath": "Knowledge/manual.pdf",
+                            "docName": "manual.pdf",
+                            "sourceHash": "resolved-source-hash",
+                            "docLanguage": "nl-BE",
+                            "profileLanguage": "nl-BE"
+                          }
+                        }
+                        """,
+                        Encoding.UTF8,
+                        "application/json")
+                },
+                "/admin/summaries/submit" => CaptureSubmit(req, body =>
+                {
+                    capturedSubmitBody = body;
+                    return """{"stored":true}""";
+                }),
+                _ => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+            };
+        });
+
+        var mem = new ToolMemory();
+        mem.PdfMap["PDF01"] = new ToolMemory.DocumentItem
+        {
+            DocId = "doc-1",
+            DocPath = "Knowledge/manual.pdf",
+            DocName = "manual.pdf",
+            Category = "Knowledge",
+            CategoryPath = "Knowledge",
+            PdfRef = "PDF01"
+        };
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem: mem);
+        using var args = JsonDocument.Parse(
+            """
+            {
+              "docRef": "PDF01",
+              "docLanguage": "fr",
+              "sourceHash": "llm-invented-hash",
+              "summaryText": "Resume stocke.",
+              "executionLeaseToken": "lease-123"
+            }
+            """);
+
+        await InvokePrivateToolAsync(sut, "ExecAdminSummarySubmitAsync", args.RootElement.Clone());
+
+        Assert.NotNull(capturedSubmitBody);
+        using var body = JsonDocument.Parse(capturedSubmitBody!);
+        Assert.Equal("nl-be", body.RootElement.GetProperty("docLanguage").GetString());
+        Assert.Equal("resolved-source-hash", body.RootElement.GetProperty("sourceHash").GetString());
+        Assert.Equal("lease-123", body.RootElement.GetProperty("executionLeaseToken").GetString());
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_summarize_live_falls_back_to_chunk_text_when_llm_json_is_invalid()
+    {
+        const string chunkText = "This document lists maintenance checks, inspection intervals, acceptance limits and escalation notes for operators.";
+        var handler = new StubHttpHandler(req => req.RequestUri!.AbsolutePath switch
+        {
+            "/sources/resolve" => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"source":{"docId":"doc-1","docPath":"Knowledge/fallback.pdf","docName":"fallback.pdf","docLanguage":"en","profileLanguage":"en","sourceHash":"src-fallback"}}""", Encoding.UTF8, "application/json")
+            },
+            "/rag/debug/scroll" => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    $$"""
+                    {
+                      "result": {
+                        "points": [
+                          {
+                            "payload": {
+                              "text": "{{chunkText}}",
+                              "doc_path": "Knowledge/fallback.pdf",
+                              "doc_name": "fallback.pdf",
+                              "page_start": 5,
+                              "page_end": 5,
+                              "chunk_index": 2
+                            }
+                          }
+                        ]
+                      }
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            },
+            _ => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+        });
+
+        var api = CreateApiClient(handler, adminKey: "test-admin-key");
+        var llm = new StubLlmClient("not valid json");
+        var mem = new ToolMemory();
+        mem.PdfMap["PDF01"] = new ToolMemory.DocumentItem
+        {
+            DocId = "doc-1",
+            DocPath = "Knowledge/fallback.pdf",
+            DocName = "fallback.pdf",
+            Category = "Knowledge",
+            CategoryPath = "Knowledge",
+            PdfRef = "PDF01"
+        };
+
+        var sut = new ToolAgentOrchestrator(api, llm, mem);
+        using var args = JsonDocument.Parse("""{"docRef":"PDF01","responseLanguage":"fr","strategy":"summary","maxChunks":3}""");
+        var result = await InvokePrivateToolAsync(sut, "ExecRagSummarizeLiveAsync", args.RootElement.Clone());
+
+        Assert.Single(llm.Requests);
+        Assert.Equal(chunkText, result.GetProperty("summaryText").GetString());
+        Assert.Equal("src-fallback", result.GetProperty("sourceHash").GetString());
+        Assert.Equal(5, result.GetProperty("anchors")[0].GetProperty("pageStart").GetInt32());
+    }
+
+    [Fact]
+    public async Task ToolAgent_sources_resolve_enriches_partial_backend_source_from_memory()
+    {
+        var handler = new StubHttpHandler(req => req.RequestUri!.AbsolutePath switch
+        {
+            "/sources/resolve" => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {
+                      "requestedRef": "PDF01",
+                      "source": {
+                        "docId": "doc-1",
+                        "docPath": "Knowledge/rich.pdf",
+                        "pageStart": 2,
+                        "pageEnd": 2,
+                        "label": "rich.pdf"
+                      }
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            },
+            _ => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+        });
+
+        var mem = new ToolMemory();
+        mem.PdfMap["PDF01"] = new ToolMemory.DocumentItem
+        {
+            DocId = "doc-1",
+            DocPath = "Knowledge/rich.pdf",
+            DocName = "rich.pdf",
+            Category = "Knowledge",
+            CategoryRef = "cat_rich",
+            CategoryPath = "Knowledge/Procedures",
+            PdfRef = "PDF01",
+            SourceHash = "hash-memory",
+            DocLanguage = "en",
+            ProfileLanguage = "fr"
+        };
+        mem.LastListedDocuments.Add(mem.PdfMap["PDF01"]);
+        mem.LastSourcesUsed.Add(new ToolMemory.SourceRef
+        {
+            DocId = "doc-1",
+            DocPath = "Knowledge/rich.pdf",
+            PageStart = 2,
+            PageEnd = 2,
+            SourceHash = "hash-memory",
+            DocLanguage = "en",
+            ProfileLanguage = "fr",
+            CategoryRef = "cat_rich",
+            CategoryPath = "Knowledge/Procedures",
+            DocumentQualityStatus = "extraction_ok",
+            OcrAttempted = true,
+            ExtractionDiagnosticSummary = new ToolMemory.SourceExtractionDiagnosticRef
+            {
+                NativeTextStatus = "ok",
+                OcrAttemptedPageCount = 1
+            },
+            MatchedContentCards =
+            [
+                new ToolMemory.SourceContentCardRef
+                {
+                    Title = "Relevant section",
+                    PageStart = 2,
+                    Kind = "section"
+                }
+            ],
+            SelectionHintEvidenceRole = "supporting_context",
+            SelectionHintSupportScore = 91
+        });
+
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem: mem);
+        using var args = JsonDocument.Parse("""{"ref":"PDF01"}""");
+        var result = await InvokePrivateToolAsync(sut, "ExecSourcesResolveV2Async", args.RootElement.Clone());
+        var source = result.GetProperty("source");
+
+        Assert.Equal("doc-1", source.GetProperty("docId").GetString());
+        Assert.Equal("Knowledge/rich.pdf", source.GetProperty("docPath").GetString());
+        Assert.Equal("rich.pdf", source.GetProperty("docName").GetString());
+        Assert.Equal("hash-memory", source.GetProperty("sourceHash").GetString());
+        Assert.Equal("en", source.GetProperty("docLanguage").GetString());
+        Assert.Equal("fr", source.GetProperty("profileLanguage").GetString());
+        Assert.Equal("Knowledge", source.GetProperty("category").GetString());
+        Assert.Equal("cat_rich", source.GetProperty("categoryRef").GetString());
+        Assert.Equal("Knowledge/Procedures", source.GetProperty("categoryPath").GetString());
+        Assert.Equal("extraction_ok", source.GetProperty("extractionQuality").GetProperty("documentQualityStatus").GetString());
+        Assert.True(source.GetProperty("extractionQuality").GetProperty("ocrAttempted").GetBoolean());
+        Assert.Equal("ok", source.GetProperty("extractionQuality").GetProperty("diagnosticSummary").GetProperty("nativeTextStatus").GetString());
+        Assert.Equal("Relevant section", source.GetProperty("matchedContentCards")[0].GetProperty("title").GetString());
+        Assert.Equal("supporting_context", source.GetProperty("selectionHints").GetProperty("evidenceRole").GetString());
+        Assert.Equal(91, source.GetProperty("selectionHints").GetProperty("supportScore").GetInt32());
+    }
+
+    [Fact]
+    public async Task ToolAgent_sources_resolve_prefers_precise_rag_memory_when_backend_returns_document_wide_source()
+    {
+        var handler = new StubHttpHandler(req => req.RequestUri!.AbsolutePath switch
+        {
+            "/sources/resolve" => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {
+                      "requestedRef": "PDF01",
+                      "source": {
+                        "docId": "doc-precise",
+                        "docPath": "Knowledge/precise.pdf",
+                        "docName": "precise.pdf",
+                        "pageStart": 1,
+                        "pageEnd": 12,
+                        "sourceHash": "hash-current",
+                        "docLanguage": "en",
+                        "matchedContentCards": [
+                          { "title": "Document overview", "pageStart": 1, "pageEnd": 12, "kind": "document" }
+                        ],
+                        "selectionHints": {
+                          "evidenceRole": "supporting_context",
+                          "supportScore": 20
+                        }
+                      }
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            },
+            _ => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+        });
+
+        var mem = new ToolMemory();
+        mem.PdfMap["PDF01"] = new ToolMemory.DocumentItem
+        {
+            DocId = "doc-precise",
+            DocPath = "Knowledge/precise.pdf",
+            DocName = "precise.pdf",
+            CategoryPath = "Knowledge",
+            PdfRef = "PDF01",
+            SourceHash = "hash-current"
+        };
+        mem.LastListedDocuments.Add(mem.PdfMap["PDF01"]);
+        mem.LastSourcesUsed.Add(new ToolMemory.SourceRef
+        {
+            DocId = "doc-precise",
+            DocPath = "Knowledge/precise.pdf",
+            PageStart = 4,
+            PageEnd = 4,
+            ChunkId = "chunk-004",
+            SourceHash = "hash-current",
+            PageQualityStatus = "page_ok",
+            PageExtractionConfidence = 0.97,
+            MatchedContentCards =
+            [
+                new ToolMemory.SourceContentCardRef
+                {
+                    Title = "Matched evidence card",
+                    ContentCardId = "card-004",
+                    PageStart = 4,
+                    PageEnd = 4,
+                    Kind = "unit_lead"
+                }
+            ],
+            SelectionHintEvidenceRole = "direct_evidence",
+            SelectionHintSupportScore = 97
+        });
+
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem: mem);
+        using var args = JsonDocument.Parse("""{"ref":"PDF01"}""");
+        var result = await InvokePrivateToolAsync(sut, "ExecSourcesResolveV2Async", args.RootElement.Clone());
+        var source = result.GetProperty("source");
+
+        Assert.Equal("doc-precise", source.GetProperty("docId").GetString());
+        Assert.Equal("Knowledge/precise.pdf", source.GetProperty("docPath").GetString());
+        Assert.Equal("hash-current", source.GetProperty("sourceHash").GetString());
+        Assert.Equal(4, source.GetProperty("pageStart").GetInt32());
+        Assert.Equal(4, source.GetProperty("pageEnd").GetInt32());
+        Assert.Equal("chunk-004", source.GetProperty("chunkId").GetString());
+        Assert.Equal("page_ok", source.GetProperty("extractionQuality").GetProperty("pageQualityStatus").GetString());
+        Assert.Equal(0.97, source.GetProperty("extractionQuality").GetProperty("pageExtractionConfidence").GetDouble());
+        var cards = source.GetProperty("matchedContentCards").EnumerateArray().ToList();
+        Assert.Contains(cards, card => string.Equals("Matched evidence card", card.GetProperty("title").GetString(), StringComparison.Ordinal));
+        Assert.Contains(cards, card => string.Equals("Document overview", card.GetProperty("title").GetString(), StringComparison.Ordinal));
+        var preciseCard = cards.Single(card => string.Equals("Matched evidence card", card.GetProperty("title").GetString(), StringComparison.Ordinal));
+        Assert.Equal("card-004", preciseCard.GetProperty("contentCardId").GetString());
+        Assert.Equal("direct_evidence", source.GetProperty("selectionHints").GetProperty("evidenceRole").GetString());
+        Assert.Equal(97, source.GetProperty("selectionHints").GetProperty("supportScore").GetInt32());
+    }
+
+    [Fact]
+    public async Task ToolAgent_sources_resolve_does_not_resurrect_deleted_doc_from_memory_after_backend_not_found()
+    {
+        var handler = new StubHttpHandler(req => req.RequestUri!.AbsolutePath switch
+        {
+            "/sources/resolve" => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """{"source":null,"error":"source_not_found","requestedRef":"PDF01"}""",
+                    Encoding.UTF8,
+                    "application/json")
+            },
+            _ => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+        });
+
+        var mem = new ToolMemory();
+        mem.PdfMap["PDF01"] = new ToolMemory.DocumentItem
+        {
+            DocId = "deleted-doc",
+            DocPath = "ATEX/deleted.pdf",
+            DocName = "deleted.pdf",
+            Category = "ATEX",
+            CategoryPath = "ATEX",
+            PdfRef = "PDF01"
+        };
+        mem.LastListedDocuments.Add(mem.PdfMap["PDF01"]);
+
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem: mem);
+        using var args = JsonDocument.Parse("""{"ref":"PDF01"}""");
+        var method = typeof(ToolAgentOrchestrator).GetMethod("ExecSourcesResolveV2Async", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(method);
+
+        var task = (Task<JsonElement>)method!.Invoke(sut, new object[] { args.RootElement.Clone(), CancellationToken.None })!;
+        var result = await task;
+
+        Assert.Equal("source_not_found", result.GetProperty("error").GetString());
+        Assert.Equal(JsonValueKind.Null, result.GetProperty("source").ValueKind);
+        Assert.DoesNotContain("ATEX/deleted.pdf", result.GetRawText(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ToolAgent_sources_resolve_does_not_resurrect_memory_source_after_backend_error()
+    {
+        var handler = new StubHttpHandler(req => req.RequestUri!.AbsolutePath switch
+        {
+            "/sources/resolve" => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+            {
+                Content = new StringContent("""{"error":"boom"}""", Encoding.UTF8, "application/json")
+            },
+            _ => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+        });
+
+        var api = CreateApiClient(handler);
+        var mem = new ToolMemory();
+        mem.PdfMap["PDF01"] = new ToolMemory.DocumentItem
+        {
+            DocId = "stale-doc",
+            DocPath = "ATEX/deleted.pdf",
+            DocName = "deleted.pdf",
+            Category = "ATEX",
+            CategoryPath = "ATEX",
+            PdfRef = "PDF01"
+        };
+        mem.LastListedDocuments.Add(mem.PdfMap["PDF01"]);
+
+        var sut = new ToolAgentOrchestrator(api, llm: null!, mem: mem);
+        using var args = JsonDocument.Parse("""{"ref":"PDF01"}""");
+        var method = typeof(ToolAgentOrchestrator).GetMethod("ExecSourcesResolveV2Async", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(method);
+
+        var task = (Task<JsonElement>)method!.Invoke(sut, new object[] { args.RootElement.Clone(), CancellationToken.None })!;
+        var result = await task;
+
+        Assert.Equal("sources_resolve_failed", result.GetProperty("error").GetString());
+        Assert.Equal(500, result.GetProperty("status").GetInt32());
+        Assert.Equal(JsonValueKind.Null, result.GetProperty("source").ValueKind);
+        Assert.DoesNotContain("ATEX/deleted.pdf", result.GetRawText(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task AdminSummaryMissingAsync_preserves_capability_b_governance_metadata_from_catalog_summaries()
+    {
+        var requestedPaths = new List<string>();
+        var handler = new StubHttpHandler(req =>
+        {
+            requestedPaths.Add(req.RequestUri!.PathAndQuery);
+            if (string.Equals(req.RequestUri!.AbsolutePath, "/catalog/summaries", StringComparison.OrdinalIgnoreCase))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        """
+                        {
+                          "value": [
+                            {
+                              "docId": "doc-1",
+                              "docPath": "Generic/governance.pdf",
+                              "canonicalName": "governance.pdf",
+                              "categoryCanonicalName": "Generic",
+                              "summaryState": "stale",
+                              "hasActiveSummaryJob": true,
+                              "activeSummaryJobId": "job-1",
+                              "activeSummaryJobStatus": "running",
+                              "activeSummaryJobExecutionMode": "server_backoffice",
+                              "activeSummaryJobRuntimeCapabilityKey": "capability_b",
+                              "activeSummaryJobRuntimeCapabilityStatus": "qualified",
+                              "activeSummaryJobEnqueueSource": "capability_b",
+                              "activeSummaryJobCampaignId": "campaign-1",
+                              "capabilityBReadyToEnqueue": true,
+                              "capabilityBRecommendedAction": "enqueue_profile_refresh",
+                              "capabilityBPolicyBlocked": false,
+                              "capabilityBPriorityScore": 42.5,
+                              "capabilityBLastJobStatus": "failed",
+                              "capabilityBLastJobFinishedAt": "2026-05-07T01:02:03Z",
+                              "capabilityBLastJobError": "timeout",
+                              "capabilityBProfileState": "stale",
+                              "capabilityBHasBackofficeProfile": true,
+                              "capabilityBReasons": ["summary_stale"]
+                            }
+                          ],
+                          "totals": { "total": 1, "staleStored": 1, "profileMissing": 0 },
+                          "level": "medium"
+                        }
+                        """,
+                        Encoding.UTF8,
+                        "application/json")
+                };
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        var api = CreateApiClient(handler, adminKey: "test-admin-key");
+        var result = await api.AdminSummaryMissingAsync(50, 0, "Generic", null, CancellationToken.None);
+
+        Assert.Contains("/catalog/summaries?pageSize=50&categoryPath=Generic", requestedPaths);
+        var item = Assert.Single(result.GetProperty("items").EnumerateArray());
+        Assert.True(item.GetProperty("hasActiveSummaryJob").GetBoolean());
+        Assert.Equal("job-1", item.GetProperty("activeSummaryJobId").GetString());
+        Assert.Equal("running", item.GetProperty("activeSummaryJobStatus").GetString());
+        Assert.Equal("server_backoffice", item.GetProperty("activeSummaryJobExecutionMode").GetString());
+        Assert.Equal("capability_b", item.GetProperty("activeSummaryJobRuntimeCapabilityKey").GetString());
+        Assert.True(item.GetProperty("capabilityBReadyToEnqueue").GetBoolean());
+        Assert.Equal("enqueue_profile_refresh", item.GetProperty("capabilityBRecommendedAction").GetString());
+        Assert.False(item.GetProperty("capabilityBPolicyBlocked").GetBoolean());
+        Assert.Equal(42.5, item.GetProperty("capabilityBPriorityScore").GetDouble());
+        Assert.Equal("failed", item.GetProperty("capabilityBLastJobStatus").GetString());
+        Assert.Equal("timeout", item.GetProperty("capabilityBLastJobError").GetString());
+        Assert.Equal("summary_stale", item.GetProperty("capabilityBReasons")[0].GetString());
+    }
+
+    private static HttpResponseMessage CaptureRagSearch(HttpRequestMessage request, Func<string, string> responseFactory)
+    {
+        var body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(responseFactory(body), Encoding.UTF8, "application/json")
+        };
+    }
+
+    private static HttpResponseMessage CaptureSubmit(HttpRequestMessage request, Func<string, string> responseFactory)
+    {
+        var body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(responseFactory(body), Encoding.UTF8, "application/json")
+        };
+    }
+
+    private static async Task<JsonElement> InvokePrivateToolAsync(ToolAgentOrchestrator sut, string methodName, JsonElement args)
+    {
+        var method = typeof(ToolAgentOrchestrator).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(method);
+
+        var task = (Task<JsonElement>)method!.Invoke(sut, new object[] { args, CancellationToken.None })!;
+        return await task;
+    }
+
+    private static ApiClient CreateApiClient(HttpMessageHandler handler, string? adminKey = null)
     {
         var sut = new ApiClient();
-        sut.Configure("http://localhost:5122", "test-api-key", "test-user");
+        sut.Configure("http://localhost:5122", "test-api-key", "test-user", adminKey);
 
         var field = typeof(ApiClient).GetField("_http", BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.NotNull(field);
@@ -139,5 +2233,20 @@ public sealed class ApiClientDocumentsTransitionTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => Task.FromResult(responder(request));
+    }
+
+    private sealed class StubLlmClient(string completion) : ILlmClient
+    {
+        public List<IReadOnlyList<(string role, string content)>> Requests { get; } = new();
+
+        public Task<string> CompleteAsync(IReadOnlyList<(string role, string content)> messages, bool forceJson, CancellationToken ct)
+        {
+            Assert.True(forceJson);
+            Requests.Add(messages);
+            return Task.FromResult(completion);
+        }
+
+        public Task StreamAsync(IReadOnlyList<(string role, string content)> messages, bool forceJson, Action<string> onDelta, CancellationToken ct)
+            => throw new NotSupportedException();
     }
 }

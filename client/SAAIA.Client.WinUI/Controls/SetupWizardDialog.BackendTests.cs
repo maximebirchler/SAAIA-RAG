@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -78,6 +78,11 @@ public sealed partial class SetupWizardDialog
             if (ok)
             {
                 ReadyStatusText.Text = $"OK ({label}) — " + FormatComponentList(summary);
+                if (!string.IsNullOrWhiteSpace(summary.FirstWarning))
+                {
+                    ReadyRawBox.Text = ExplainComponentWarning(summary.FirstWarning!);
+                    ReadyRawBox.Visibility = Visibility.Visible;
+                }
             }
             else
             {
@@ -101,20 +106,24 @@ public sealed partial class SetupWizardDialog
         }
     }
 
-    private readonly record struct ReadySummary(
+    internal readonly record struct ReadySummary(
         bool BodyOk,
         bool? Db,
         bool? Tei,
         bool? Qdrant,
         string? Llm,
-        string? FirstError);
+        bool? OcrEnabled,
+        bool? OcrReady,
+        string? FirstError,
+        string? FirstWarning);
 
-    private static ReadySummary ParseReadySummary(string raw)
+    internal static ReadySummary ParseReadySummary(string raw)
     {
         bool bodyOk = false;
-        bool? db = null, tei = null, qdrant = null;
+        bool? db = null, tei = null, qdrant = null, ocrEnabled = null, ocrReady = null;
         string? llm = null;
         string? firstError = null;
+        string? firstWarning = null;
 
         try
         {
@@ -133,6 +142,10 @@ public sealed partial class SetupWizardDialog
                     qdrant = qProp.ValueKind == JsonValueKind.True;
                 if (details.TryGetProperty("llm", out var llmProp) && llmProp.ValueKind == JsonValueKind.String)
                     llm = llmProp.GetString();
+                if (details.TryGetProperty("ocr_enabled", out var ocrEnabledProp))
+                    ocrEnabled = ocrEnabledProp.ValueKind == JsonValueKind.True;
+                if (details.TryGetProperty("ocr_ready", out var ocrReadyProp))
+                    ocrReady = ocrReadyProp.ValueKind == JsonValueKind.True;
 
                 // Surface the first component-level *_error string as the actionable hint.
                 foreach (var prop in details.EnumerateObject())
@@ -144,6 +157,16 @@ public sealed partial class SetupWizardDialog
                     firstError = $"{prop.Name}: {v}";
                     break;
                 }
+
+                foreach (var prop in details.EnumerateObject())
+                {
+                    if (!prop.Name.EndsWith("_warning", StringComparison.Ordinal)) continue;
+                    if (prop.Value.ValueKind != JsonValueKind.String) continue;
+                    var v = prop.Value.GetString();
+                    if (string.IsNullOrWhiteSpace(v)) continue;
+                    firstWarning = $"{prop.Name}: {v}";
+                    break;
+                }
             }
         }
         catch
@@ -151,15 +174,16 @@ public sealed partial class SetupWizardDialog
             // Non-JSON or unexpected shape — leave fields null; caller will say "non interpretable".
         }
 
-        return new ReadySummary(bodyOk, db, tei, qdrant, llm, firstError);
+        return new ReadySummary(bodyOk, db, tei, qdrant, llm, ocrEnabled, ocrReady, firstError, firstWarning);
     }
 
     private string FormatComponentList(ReadySummary s)
     {
-        var parts = new System.Collections.Generic.List<string>(4);
+        var parts = new System.Collections.Generic.List<string>(5);
         if (s.Db is bool d) parts.Add("DB " + Mark(d));
         if (s.Tei is bool t) parts.Add("TEI " + Mark(t));
         if (s.Qdrant is bool q) parts.Add("Qdrant " + Mark(q));
+        if (s.OcrEnabled == true && s.OcrReady is bool ocr) parts.Add("OCR " + Mark(ocr));
         if (!string.IsNullOrWhiteSpace(s.Llm)) parts.Add("LLM " + s.Llm);
 
         if (parts.Count == 0)
@@ -231,7 +255,38 @@ public sealed partial class SetupWizardDialog
                 $"Database: {detail}. Problema lato backend (Postgres o config).");
         }
 
+        if (lower.StartsWith("ocr_error", StringComparison.Ordinal))
+        {
+            var detail = ComponentErrorDetail(raw, "ocr_error");
+            return SZ(
+                $"OCR : {detail}. L'OCR est activé côté serveur, mais un exécutable requis manque ou n'est pas accessible.",
+                $"OCR: {detail}. OCR is enabled on the server, but a required executable is missing or unavailable.",
+                $"OCR: {detail}. El OCR está activado en el servidor, pero falta un ejecutable requerido o no está disponible.",
+                $"OCR: {detail}. O OCR está ativado no servidor, mas falta um executável obrigatório ou este não está disponível.",
+                $"OCR: {detail}. OCR ist serverseitig aktiviert, aber ein erforderliches Programm fehlt oder ist nicht erreichbar.",
+                $"OCR: {detail}. L'OCR è attivo sul server, ma un eseguibile richiesto manca o non è disponibile.");
+        }
+
         // Fallback: show the raw component error as-is.
+        return raw;
+    }
+
+    private string ExplainComponentWarning(string raw)
+    {
+        var lower = raw.ToLowerInvariant();
+
+        if (lower.StartsWith("ocr_warning", StringComparison.Ordinal)
+            && lower.Contains("ocr_languages_not_verified", StringComparison.Ordinal))
+        {
+            return SZ(
+                "OCR : le serveur répond, mais les langues OCR configurées n'ont pas pu être vérifiées. L'OCR peut fonctionner, mais il faut confirmer que les paquets de langue Tesseract requis sont bien installés côté serveur.",
+                "OCR: the server responds, but the configured OCR languages could not be verified. OCR may work, but confirm that the required Tesseract language packs are installed on the server.",
+                "OCR: el servidor responde, pero no se pudieron verificar los idiomas OCR configurados. El OCR puede funcionar, pero confirma que los paquetes de idioma de Tesseract necesarios estén instalados en el servidor.",
+                "OCR: o servidor responde, mas os idiomas OCR configurados não puderam ser verificados. O OCR pode funcionar, mas confirma que os pacotes de idioma Tesseract necessários estão instalados no servidor.",
+                "OCR: Der Server antwortet, aber die konfigurierten OCR-Sprachen konnten nicht verifiziert werden. OCR kann funktionieren, aber pruefe, ob die benoetigten Tesseract-Sprachpakete auf dem Server installiert sind.",
+                "OCR: il server risponde, ma non è stato possibile verificare le lingue OCR configurate. L'OCR può funzionare, ma verifica che i pacchetti lingua Tesseract richiesti siano installati sul server.");
+        }
+
         return raw;
     }
 

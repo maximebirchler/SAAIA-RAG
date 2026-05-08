@@ -12,7 +12,7 @@
         <ItemsControl x:Name="ItemsHost">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <Border CornerRadius="10"
+                    <Border CornerRadius="8"
                             Padding="10"
                             BorderThickness="1"
                             BorderBrush="{ThemeResource SystemControlForegroundBaseLowBrush}">
@@ -28,6 +28,11 @@
 
                                 <TextBlock Text="{Binding ScoreLabel}" Opacity="0.6"/>
                             </StackPanel>
+
+                            <TextBlock Text="{Binding MetadataLabel}"
+                                       TextWrapping="WrapWholeWords"
+                                       FontSize="12"
+                                       Opacity="0.68"/>
 
                             <TextBlock Text="{Binding Snippet}"
                                        TextWrapping="WrapWholeWords"

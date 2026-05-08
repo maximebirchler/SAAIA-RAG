@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace SAAIA.Client.WinUI.Services.ToolAgent;
 
 /// <summary>
@@ -362,8 +364,12 @@ public sealed class ToolMemory
         public string DocPath { get; set; } = "";
         public string DocName { get; set; } = "";
         public string Category { get; set; } = "";
+        public string? CategoryRef { get; set; }
         public string CategoryPath { get; set; } = "";
         public string PdfRef { get; set; } = "";
+        public string? SourceHash { get; set; }
+        public string? DocLanguage { get; set; }
+        public string? ProfileLanguage { get; set; }
         public int? Pages { get; set; }
         public DateTimeOffset? ModifiedAt { get; set; }
         public DateTimeOffset? IngestedAt { get; set; }
@@ -371,10 +377,75 @@ public sealed class ToolMemory
 
     public sealed class SourceRef
     {
+        public string? DocId { get; set; }
         public string DocPath { get; set; } = "";
+        public string? DocName { get; set; }
         public int PageStart { get; set; } = 1;
         public int PageEnd { get; set; } = 1;
         public string Label { get; set; } = "";
+        public string? SourceHash { get; set; }
+        public string? DocLanguage { get; set; }
+        public string? ProfileLanguage { get; set; }
+        public string? Category { get; set; }
+        public string? CategoryRef { get; set; }
+        public string? CategoryPath { get; set; }
+        public string? ChunkId { get; set; }
+        public string? ExtractionSource { get; set; }
+        public string? DocumentQualityStatus { get; set; }
+        public string? PageQualityStatus { get; set; }
+        public string? TextStatus { get; set; }
+        public string? QualityStatus { get; set; }
+        public double? ExtractionConfidence { get; set; }
+        public double? DocumentExtractionConfidence { get; set; }
+        public double? PageExtractionConfidence { get; set; }
+        public bool ManualReviewRecommended { get; set; }
+        public bool DocumentManualReviewRecommended { get; set; }
+        public bool PageManualReviewRecommended { get; set; }
+        public bool OcrAttempted { get; set; }
+        public bool OcrApplied { get; set; }
+        public bool OcrRecommended { get; set; }
+        public SourceExtractionDiagnosticRef? ExtractionDiagnosticSummary { get; set; }
+        public List<string> QualitySignals { get; set; } = new();
+        public List<SourceContentCardRef> MatchedContentCards { get; set; } = new();
+        public string? SelectionHintEvidenceRole { get; set; }
+        public int? SelectionHintActionabilityScore { get; set; }
+        public int? SelectionHintSupportScore { get; set; }
+        public int? SelectionHintFragmentScore { get; set; }
+        public int? SelectionHintNavigationScore { get; set; }
+        public int? SelectionHintQualityPenalty { get; set; }
+    }
+
+    public sealed class SourceExtractionDiagnosticRef
+    {
+        public string? NativeTextStatus { get; set; }
+        public bool? NativeOcrRecommended { get; set; }
+        public string? OcrMode { get; set; }
+        public string? OcrLanguages { get; set; }
+        public long? OcrDurationMs { get; set; }
+        public string? OcrFailureReason { get; set; }
+        public string? OcrAppliedReason { get; set; }
+        public bool? OcrTimedOut { get; set; }
+        public int? OcrAttemptedPageCount { get; set; }
+        public int? OcrSkippedPageCount { get; set; }
+        public int? OcrPagesWithNovelTextCount { get; set; }
+        public int? PageCount { get; set; }
+        public int? TextPageCount { get; set; }
+        public int? EmptyPageCount { get; set; }
+        public int? SparsePageCount { get; set; }
+        public int? ImagePageCount { get; set; }
+        public int? PageWarningCount { get; set; }
+        public int? PageReviewRecommendedCount { get; set; }
+    }
+
+    public sealed class SourceContentCardRef
+    {
+        public string Title { get; set; } = "";
+        public string? ContentCardId { get; set; }
+        public int? PageStart { get; set; }
+        public int? PageEnd { get; set; }
+        public string? Kind { get; set; }
+        public List<string> Signals { get; set; } = new();
+        public JsonElement? Evidence { get; set; }
     }
 
     public sealed class CategorySnapshot
@@ -395,6 +466,7 @@ public sealed class ToolMemory
         public int Total { get; set; }
         public int MissingStored { get; set; }
         public int StaleStored { get; set; }
+        public int ProfileMissing { get; set; }
         public List<SummaryStatusItem> Items { get; set; } = new();
     }
 
@@ -404,7 +476,29 @@ public sealed class ToolMemory
         public string DocPath { get; set; } = "";
         public string DocName { get; set; } = "";
         public string Category { get; set; } = "";
+        public string? CategoryRef { get; set; }
+        public string? CategoryPath { get; set; }
         public string SummaryState { get; set; } = "missing";
+        public string? CapabilityBProfileState { get; set; }
+        public bool CapabilityBHasBackofficeProfile { get; set; }
+        public List<string> CapabilityBReasons { get; set; } = new();
+        public bool HasActiveSummaryJob { get; set; }
+        public string? ActiveSummaryJobId { get; set; }
+        public string? ActiveSummaryJobType { get; set; }
+        public string? ActiveSummaryJobStatus { get; set; }
+        public string? ActiveSummaryJobExecutionMode { get; set; }
+        public string? ActiveSummaryJobRuntimeCapabilityKey { get; set; }
+        public string? ActiveSummaryJobRuntimeCapabilityStatus { get; set; }
+        public string? ActiveSummaryJobEnqueueSource { get; set; }
+        public string? ActiveSummaryJobCampaignId { get; set; }
+        public bool CapabilityBReadyToEnqueue { get; set; }
+        public string? CapabilityBRecommendedAction { get; set; }
+        public bool CapabilityBPolicyBlocked { get; set; }
+        public string? CapabilityBPolicyBlockReason { get; set; }
+        public double? CapabilityBPriorityScore { get; set; }
+        public string? CapabilityBLastJobStatus { get; set; }
+        public string? CapabilityBLastJobFinishedAt { get; set; }
+        public string? CapabilityBLastJobError { get; set; }
     }
 
     public sealed class DeterministicRenderState
@@ -624,8 +718,12 @@ public sealed class ToolMemory
             DocPath = source.DocPath,
             DocName = source.DocName,
             Category = source.Category,
+            CategoryRef = source.CategoryRef,
             CategoryPath = source.CategoryPath,
             PdfRef = source.PdfRef,
+            SourceHash = source.SourceHash,
+            DocLanguage = source.DocLanguage,
+            ProfileLanguage = source.ProfileLanguage,
             Pages = source.Pages,
             ModifiedAt = source.ModifiedAt,
             IngestedAt = source.IngestedAt
@@ -642,10 +740,18 @@ public sealed class ToolMemory
             merged.DocName = incoming.DocName;
         if (!string.IsNullOrWhiteSpace(incoming.Category))
             merged.Category = incoming.Category;
+        if (!string.IsNullOrWhiteSpace(incoming.CategoryRef))
+            merged.CategoryRef = incoming.CategoryRef;
         if (!string.IsNullOrWhiteSpace(incoming.CategoryPath))
             merged.CategoryPath = incoming.CategoryPath;
         if (!string.IsNullOrWhiteSpace(incoming.PdfRef))
             merged.PdfRef = incoming.PdfRef;
+        if (!string.IsNullOrWhiteSpace(incoming.SourceHash))
+            merged.SourceHash = incoming.SourceHash;
+        if (!string.IsNullOrWhiteSpace(incoming.DocLanguage))
+            merged.DocLanguage = incoming.DocLanguage;
+        if (!string.IsNullOrWhiteSpace(incoming.ProfileLanguage))
+            merged.ProfileLanguage = incoming.ProfileLanguage;
         merged.Pages ??= incoming.Pages;
         merged.ModifiedAt ??= incoming.ModifiedAt;
         merged.IngestedAt ??= incoming.IngestedAt;

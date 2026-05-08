@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -230,15 +231,7 @@ public sealed class RagChatAgent
             .Take(8)
             .ToList();
 
-        var sources = items.Select(x => new
-        {
-            docPath = (x.DocPath ?? string.Empty).Replace('\u005C', '/'),
-            docName = x.DocName ?? string.Empty,
-            pageStart = x.PageStart ?? 1,
-            pageEnd = x.PageEnd ?? x.PageStart ?? 1,
-            label = $"{(x.DocName ?? "document")} (p.{(x.PageStart ?? 1)}{(((x.PageEnd ?? x.PageStart ?? 1) != (x.PageStart ?? 1)) ? $"–{(x.PageEnd ?? x.PageStart ?? 1)}" : string.Empty)})",
-            snippet = (x.Text ?? string.Empty).Length > 240 ? (x.Text ?? string.Empty).Substring(0, 240) + "…" : (x.Text ?? string.Empty)
-        }).ToList();
+        var sources = items.Select(BuildSearchOnlyFallbackSourcePayload).ToList();
 
         var payload = new { intent = "rag_search", sources };
 
@@ -247,7 +240,7 @@ public sealed class RagChatAgent
             : LocalizedStrings.NormalizeLanguage(forcedLanguage);
         var ans = items.Count == 0
             ? LocalizedStrings.NoDocumentsFound(detectedLanguage)
-            : DeterministicAgentText.DegradedNoLlm(detectedLanguage);
+            : BuildSearchOnlyFallbackAnswer(resp, items, detectedLanguage);
 
         _mem.LastLanguage = detectedLanguage;
         _mem.LastUserMessage = userText;
@@ -256,6 +249,184 @@ public sealed class RagChatAgent
         _mem.LastSearchOnlyCategory = category;
 
         return (ans, payload);
+    }
+
+    private static string BuildSearchOnlyFallbackAnswer(
+        RagSearchResponse response,
+        IReadOnlyList<RagItem> items,
+        string language)
+    {
+        var sb = new StringBuilder(DeterministicAgentText.DegradedNoLlm(language).Trim());
+        var guidance = response.Guidance;
+
+        AppendGuidanceLine(sb, guidance?.QualificationNote);
+        AppendGuidanceLine(sb, guidance?.ClarifyingQuestion);
+
+        sb.AppendLine();
+        sb.AppendLine();
+        sb.AppendLine(FallbackSourcesHeader(language));
+
+        foreach (var item in items.Take(3))
+        {
+            var label = BuildFallbackSourceLabel(item, language);
+            if (string.IsNullOrWhiteSpace(label))
+                continue;
+
+            sb.Append("- ");
+            sb.Append(label);
+
+            var cards = item.MatchedContentCards?
+                .Where(static card => !string.IsNullOrWhiteSpace(card.Title))
+                .Select(static card => card.Title.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(2)
+                .ToArray();
+            if (cards is { Length: > 0 })
+            {
+                sb.Append(" - ");
+                sb.Append(string.Join(", ", cards));
+            }
+
+            var snippet = CompactFallbackSnippet(BestFallbackSnippet(item));
+            if (!string.IsNullOrWhiteSpace(snippet))
+            {
+                sb.Append(": ");
+                sb.Append(snippet);
+            }
+
+            sb.AppendLine();
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    private static void AppendGuidanceLine(StringBuilder sb, string? text)
+    {
+        var trimmed = (text ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+            return;
+
+        sb.AppendLine();
+        sb.Append(trimmed);
+    }
+
+    private static string BuildFallbackSourceLabel(RagItem item, string language)
+    {
+        var docName = string.IsNullOrWhiteSpace(item.DocName)
+            ? item.DocPath?.Split('/', '\\').LastOrDefault()
+            : item.DocName;
+
+        if (string.IsNullOrWhiteSpace(docName))
+            return string.Empty;
+
+        var pageStart = item.PageStart;
+        var pageEnd = item.PageEnd ?? item.PageStart;
+        if (pageStart is null)
+            return docName.Trim();
+
+        var pagePrefix = string.Equals(LocalizedStrings.NormalizeLanguage(language), "de", StringComparison.OrdinalIgnoreCase)
+            ? "S."
+            : "p.";
+        return pageEnd.HasValue && pageEnd.Value != pageStart.Value
+            ? $"{docName.Trim()} ({pagePrefix}{pageStart.Value}-{pageEnd.Value})"
+            : $"{docName.Trim()} ({pagePrefix}{pageStart.Value})";
+    }
+
+    private static string CompactFallbackSnippet(string? text)
+    {
+        var normalized = string.Join(
+            ' ',
+            (text ?? string.Empty)
+                .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+        if (normalized.Length <= 180)
+            return normalized;
+
+        return normalized[..180] + "...";
+    }
+
+    private static string? BestFallbackSnippet(RagItem item)
+        => FirstNonBlank(item.Snippet, item.ContextualSnippet, item.Text);
+
+    private static string? FirstNonBlank(params string?[] values)
+    {
+        foreach (var value in values)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+                return value;
+        }
+
+        return null;
+    }
+
+    private static string FallbackSourcesHeader(string? language)
+        => LocalizedStrings.RagDegradedSourcesHeader(language);
+
+    private static object BuildSearchOnlyFallbackSourcePayload(RagItem item)
+    {
+        var pageStart = item.PageStart ?? 1;
+        var pageEnd = item.PageEnd ?? item.PageStart ?? 1;
+        var docPath = (item.DocPath ?? string.Empty).Replace('\u005C', '/');
+        var docName = item.DocName ?? string.Empty;
+        var snippetText = BestFallbackSnippet(item) ?? string.Empty;
+
+        return new
+        {
+            docId = item.DocId,
+            docPath,
+            docName,
+            pageStart,
+            pageEnd,
+            label = string.IsNullOrWhiteSpace(docName) ? "document" : docName,
+            snippet = snippetText.Length > 240 ? snippetText[..240] + "..." : snippetText,
+            contextualSnippet = item.ContextualSnippet,
+            score = item.Score,
+            sourceHash = item.SourceHash,
+            docLanguage = item.DocLanguage,
+            profileLanguage = item.ProfileLanguage,
+            categoryRef = item.CategoryRef,
+            categoryPath = item.CategoryPath,
+            chunkId = item.ChunkId,
+            extractionQuality = item.ExtractionQuality is null ? null : new
+            {
+                item.ExtractionQuality.ExtractionSource,
+                item.ExtractionQuality.OcrAttempted,
+                item.ExtractionQuality.OcrApplied,
+                item.ExtractionQuality.DocumentQualityStatus,
+                item.ExtractionQuality.DocumentExtractionConfidence,
+                item.ExtractionQuality.DocumentManualReviewRecommended,
+                item.ExtractionQuality.PageQualityStatus,
+                item.ExtractionQuality.PageExtractionConfidence,
+                item.ExtractionQuality.PageManualReviewRecommended,
+                item.ExtractionQuality.TextStatus,
+                item.ExtractionQuality.OcrRecommended,
+                item.ExtractionQuality.Signals,
+                item.ExtractionQuality.DiagnosticSummary
+            },
+            matchedContentCards = item.MatchedContentCards?
+                .Where(static card => !string.IsNullOrWhiteSpace(card.Title))
+                .Select(static card => new
+                {
+                    card.ContentCardId,
+                    card.Title,
+                    card.PageStart,
+                    card.PageEnd,
+                    card.Kind,
+                    card.Signals,
+                    card.Evidence
+                })
+                .Take(5)
+                .ToList(),
+            selectionHints = item.SelectionHints is null ? null : new
+            {
+                item.SelectionHints.EvidenceRole,
+                item.SelectionHints.ActionabilityScore,
+                item.SelectionHints.SupportScore,
+                item.SelectionHints.FragmentScore,
+                item.SelectionHints.NavigationScore,
+                item.SelectionHints.QualityPenalty
+            }
+        };
     }
 
     private void ApplyDefaultCategoryScope(string? category)

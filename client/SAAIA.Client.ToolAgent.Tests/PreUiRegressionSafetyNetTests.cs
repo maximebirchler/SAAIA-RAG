@@ -27,8 +27,19 @@ public sealed class PreUiRegressionSafetyNetTests
         Assert.Contains("Do not fill gaps with plausible knowledge", prompt);
         Assert.Contains("components, quantities, times, temperatures", prompt);
         Assert.Contains("source-backed alternatives", prompt);
-        Assert.Contains("Do not infer suitability, compatibility or recommendation quality from a generic list", prompt);
-        Assert.Contains("If only raw lists are present, do not invent pairings, processes or recommendations", prompt);
+        Assert.Contains("build a partial answer from candidates actually present in the hits", prompt);
+        Assert.Contains("never certify suitability or compatibility unless the hit explicitly links", prompt);
+        Assert.Contains("source-backed leads or a partial construction", prompt);
+    }
+
+    [Fact]
+    public void Critic_prompt_preserves_partial_grounded_answers_instead_of_blanket_refusals()
+    {
+        var prompt = PromptCatalog.BuildCriticSystemPrompt("fr");
+
+        Assert.Contains("relevant partial evidence", prompt);
+        Assert.Contains("preserve a useful partial answer", prompt);
+        Assert.Contains("no relevant evidence at all", prompt);
     }
 
     [Theory]
@@ -159,6 +170,42 @@ public sealed class PreUiRegressionSafetyNetTests
         Assert.Contains("Here is the list of documents without a stored summary:", rendered);
         Assert.Contains("[[open|General/Overview.pdf|1|Overview.pdf]]", rendered);
         Assert.Contains("[[open|Programmation/Mettler/MettlerToledo_IND570.pdf|1|MettlerToledo_IND570.pdf]] [stale]", rendered);
+    }
+
+    [Fact]
+    public void Summary_status_list_replay_renders_capability_b_governance_suffixes()
+    {
+        using var doc = JsonDocument.Parse("""
+        {
+          "total": 2,
+          "items": [
+            {
+              "docPath": "Generic/ready.pdf",
+              "summaryState": "missing",
+              "hasActiveSummaryJob": true,
+              "activeSummaryJobStatus": "running",
+              "capabilityBReadyToEnqueue": true,
+              "capabilityBRecommendedAction": "enqueue_profile_refresh",
+              "capabilityBPriorityScore": 12
+            },
+            {
+              "docPath": "Generic/blocked.pdf",
+              "summaryState": "missing",
+              "capabilityBPolicyBlocked": true,
+              "capabilityBPolicyBlockReason": "runtime_unqualified",
+              "capabilityBLastJobStatus": "failed",
+              "capabilityBLastJobError": "timeout"
+            }
+          ]
+        }
+        """);
+
+        var rendered = ToolAgentOrchestrator.RenderDeterministicInventoryFromData("summary_status_list", doc.RootElement, "en");
+
+        Assert.Contains("[[open|Generic/ready.pdf|1|ready.pdf]] [active job running] [Capability B enqueue_profile_refresh] [priority 12]", rendered);
+        Assert.Contains("[[open|Generic/blocked.pdf|1|blocked.pdf]] [policy blocked: runtime_unqualified] [last job issue: failed / timeout]", rendered);
+        Assert.DoesNotContain("\"capabilityBRecommendedAction\"", rendered);
+        Assert.DoesNotContain("\"capabilityBPolicyBlocked\"", rendered);
     }
 
 

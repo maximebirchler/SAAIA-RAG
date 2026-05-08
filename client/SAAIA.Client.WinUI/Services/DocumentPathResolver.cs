@@ -5,7 +5,7 @@ using System.Linq;
 namespace SAAIA.Client.WinUI.Services;
 
 /// <summary>
-/// Resolves backend docPath (relative, e.g. "ATEX/...pdf") to a local file path.
+/// Resolves backend docPath (relative, e.g. "Category/...pdf") to a local file path.
 /// Also provides robust helpers to produce user-facing display paths.
 ///
 /// Design intent (prod/dev):

@@ -118,23 +118,38 @@ public sealed partial class MainWindow
                 ? (light ? UiBrush(0xC6, 0xE5, 0xD7) : UiBrush(0x2A, 0x54, 0x43))
                 : (light ? UiBrush(0xC9, 0xD4, 0xE1) : UiBrush(0x2B, 0x35, 0x41)),
             BorderThickness = new Thickness(1),
-            Child = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 10,
-                Children =
-                {
-                    new FontIcon { Glyph = positive ? "\uE73E" : "\uE946", FontFamily = new FontFamily("Segoe Fluent Icons"), Foreground = iconForeground },
-                    new TextBlock
-                    {
-                        Text = text,
-                        TextWrapping = TextWrapping.WrapWholeWords,
-                        VerticalAlignment = VerticalAlignment.Center,
-                        Foreground = foreground
-                    }
-                }
-            }
+            Child = BuildDialogInfoBannerContent(text, positive ? "\uE73E" : "\uE946", iconForeground, foreground)
         };
+    }
+
+    private static Grid BuildDialogInfoBannerContent(string text, string glyph, Brush iconForeground, Brush foreground)
+    {
+        var grid = new Grid { ColumnSpacing = 10 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var icon = new FontIcon
+        {
+            Glyph = glyph,
+            FontFamily = new FontFamily("Segoe Fluent Icons"),
+            Foreground = iconForeground,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0, 2, 0, 0)
+        };
+        var textBlock = new TextBlock
+        {
+            Text = text,
+            MinWidth = 0,
+            TextWrapping = TextWrapping.WrapWholeWords,
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = foreground
+        };
+
+        Grid.SetColumn(icon, 0);
+        Grid.SetColumn(textBlock, 1);
+        grid.Children.Add(icon);
+        grid.Children.Add(textBlock);
+        return grid;
     }
 
     private Border BuildDialogNameChip(string text)

@@ -779,7 +779,7 @@ private async Task RefreshSessionsAsync(string? preferSessionId, CancellationTok
     {
         var list = await _api.ListSessionsAsync(ct, limit: 200, offset: 0);
 
-        // Si aucune session: on en crÃ©e une
+        // Si aucune session: on en crée une
         if (list.Count == 0)
         {
             var created = await _api.CreateSessionAsync(GetDefaultSessionTitle(), Environment.UserName, ct);

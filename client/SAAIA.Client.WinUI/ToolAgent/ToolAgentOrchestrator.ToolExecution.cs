@@ -2,8 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -66,6 +69,26 @@ public sealed partial class ToolAgentOrchestrator
         var limit = GetIntArg(args, "limit") ?? 200;
         var offset = GetIntArg(args, "offset") ?? 0;
         return await _api.DocumentsEmptyFoldersListAsync(path, limit, offset, ct).ConfigureAwait(false);
+    }
+
+    private async Task<JsonElement> ExecDocumentsExtractionQualityAsync(JsonElement args, CancellationToken ct)
+    {
+        var (path, categoryRef) = await ResolveCategoryScopeArgsAsync(args, ct).ConfigureAwait(false);
+        var limit = GetIntArg(args, "limit") ?? 200;
+        return await _api.DocumentsExtractionQualityAsync(path, categoryRef, limit, ct).ConfigureAwait(false);
+    }
+
+    private async Task<JsonElement> ExecDocumentsExtractionPagesAsync(JsonElement args, CancellationToken ct)
+    {
+        var docRef = GetPreferredDocRef(args);
+        if (string.IsNullOrWhiteSpace(docRef))
+            return JsonDocument.Parse("{\"error\":\"missing_doc_ref\"}").RootElement.Clone();
+
+        var resolved = await ResolveDocRefAsync(docRef, ct).ConfigureAwait(false);
+        if (resolved is null)
+            return JsonDocument.Parse("{\"found\":false,\"error\":\"doc_not_found\"}").RootElement.Clone();
+
+        return await _api.DocumentExtractionPagesAsync(resolved.DocId, ct).ConfigureAwait(false);
     }
 
     private async Task<JsonElement> ExecSummaryGetAsync(JsonElement args, CancellationToken ct)
@@ -180,14 +203,22 @@ public sealed partial class ToolAgentOrchestrator
             return JsonDocument.Parse("{\"error\":\"doc_not_found\"}").RootElement;
 
         var level = GetStringArg(args, "level") ?? "medium";
-        var docLanguage = GetStringArg(args, "docLanguage") ?? GetStringArg(args, "language") ?? _mem.LastLanguage;
-        var sourceHash = GetStringArg(args, "sourceHash") ?? string.Empty;
+        var sourceMetadata = await ResolveLiveSummarySourceMetadataAsync(resolved, ct).ConfigureAwait(false);
+        var resolvedDocLanguage = NormalizeDocumentLanguageTag(sourceMetadata?.DocLanguage);
+        var docLanguage = !string.Equals(resolvedDocLanguage, "und", StringComparison.Ordinal)
+            ? resolvedDocLanguage
+            : ResolveLiveSummaryDocumentLanguage(ResolveAdminSummarySubmitDocLanguage(args), sourceMetadata);
+        var sourceHash = sourceMetadata?.SourceHash ?? GetStringArg(args, "sourceHash") ?? string.Empty;
         var summaryText = GetStringArg(args, "summaryText") ?? GetStringArg(args, "content") ?? string.Empty;
         var jobId = GetStringArg(args, "jobId");
+        var executionLeaseToken = GetStringArg(args, "executionLeaseToken") ?? GetStringArg(args, "leaseToken");
         JsonElement? meta = args.TryGetProperty("meta", out var metaEl) ? metaEl : null;
 
-        return await _api.AdminSummarySubmitAsync(resolved.DocId, level, docLanguage, sourceHash, summaryText, jobId, meta, ct).ConfigureAwait(false);
+        return await _api.AdminSummarySubmitAsync(resolved.DocId, level, docLanguage, sourceHash, summaryText, jobId, executionLeaseToken, meta, ct).ConfigureAwait(false);
     }
+
+    private static string ResolveAdminSummarySubmitDocLanguage(JsonElement args)
+        => NormalizeAdminSummarySubmitDocLanguage(GetStringArg(args, "docLanguage"));
 
     private async Task<JsonElement> ExecAdminSummaryStatusAsync(JsonElement args, CancellationToken ct)
     {
@@ -281,17 +312,78 @@ public sealed partial class ToolAgentOrchestrator
 
         try
         {
-            var backend = await _api.SourceResolveAsync(rawRef, rawRef, ct).ConfigureAwait(false);
+            var backendRef = rawRef.Trim();
+            var resolvedRef = await ResolveDocRefAsync(backendRef, ct).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(resolvedRef?.DocId))
+                backendRef = resolvedRef.DocId;
+
+            var backend = await _api.SourceResolveAsync(backendRef, rawRef, ct).ConfigureAwait(false);
             if (backend.ValueKind == JsonValueKind.Object
                 && backend.TryGetProperty("source", out var sourceEl)
                 && sourceEl.ValueKind == JsonValueKind.Object)
             {
-                return backend;
+                return EnrichSourceResolveResult(rawRef, backendRef, backend, sourceEl);
             }
+
+            if (backend.ValueKind == JsonValueKind.Object
+                && backend.TryGetProperty("error", out var errorEl)
+                && errorEl.ValueKind == JsonValueKind.String)
+            {
+                var error = errorEl.GetString();
+                if (string.Equals(error, "source_not_found", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(error, "missing_source_ref", StringComparison.OrdinalIgnoreCase))
+                {
+                    return backend;
+                }
+            }
+
+            var invalidPayload = new
+            {
+                source = (object?)null,
+                error = "sources_resolve_invalid_response",
+                requestedRef = rawRef.Trim()
+            };
+
+            return JsonDocument.Parse(JsonSerializer.Serialize(invalidPayload)).RootElement.Clone();
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed or HttpStatusCode.NotImplemented)
+        {
+            // Older backends may not expose /sources/resolve yet. In that one
+            // compatibility case, fall back to the already-resolved conversation memory.
+        }
+        catch (HttpRequestException ex)
+        {
+            var failedPayload = new
+            {
+                source = (object?)null,
+                error = "sources_resolve_failed",
+                status = ex.StatusCode is null ? null : (int?)ex.StatusCode.Value,
+                requestedRef = rawRef.Trim()
+            };
+
+            return JsonDocument.Parse(JsonSerializer.Serialize(failedPayload)).RootElement.Clone();
+        }
+        catch (JsonException)
+        {
+            var failedPayload = new
+            {
+                source = (object?)null,
+                error = "sources_resolve_invalid_response",
+                requestedRef = rawRef.Trim()
+            };
+
+            return JsonDocument.Parse(JsonSerializer.Serialize(failedPayload)).RootElement.Clone();
         }
         catch
         {
-            // Keep the local resolver fallback for compatibility.
+            var failedPayload = new
+            {
+                source = (object?)null,
+                error = "sources_resolve_failed",
+                requestedRef = rawRef.Trim()
+            };
+
+            return JsonDocument.Parse(JsonSerializer.Serialize(failedPayload)).RootElement.Clone();
         }
 
         var source = ResolveSourceRef(rawRef!);
@@ -309,16 +401,282 @@ public sealed partial class ToolAgentOrchestrator
 
         var payload = new
         {
-            source = new
-            {
-                docPath = source.DocPath,
-                pageStart = source.PageStart,
-                pageEnd = source.PageEnd,
-                label = source.Label
+            requestedRef = rawRef!.Trim(),
+                source = new
+                {
+                    docId = source.DocId,
+                    docPath = source.DocPath,
+                    docName = source.DocName,
+                    pageStart = source.PageStart,
+                    pageEnd = source.PageEnd,
+                label = source.Label,
+                sourceHash = source.SourceHash,
+                docLanguage = source.DocLanguage,
+                profileLanguage = source.ProfileLanguage,
+                category = source.Category,
+                categoryRef = source.CategoryRef,
+                categoryPath = source.CategoryPath,
+                chunkId = source.ChunkId,
+                extractionQuality = BuildSourceExtractionQualityPayload(source),
+                matchedContentCards = BuildSourceContentCardsPayload(source),
+                selectionHints = BuildSourceSelectionHintsPayload(source)
             }
         };
 
         return JsonDocument.Parse(JsonSerializer.Serialize(payload)).RootElement;
+    }
+
+    private JsonElement EnrichSourceResolveResult(string rawRef, string backendRef, JsonElement backend, JsonElement sourceEl)
+    {
+        var backendSource = TryBuildSourceRefFromJsonElement(sourceEl);
+        if (backendSource is null)
+            return backend;
+
+        var memorySource =
+            ResolveSourceRef(rawRef)
+            ?? (string.Equals(rawRef, backendRef, StringComparison.OrdinalIgnoreCase) ? null : ResolveSourceRef(backendRef))
+            ?? ResolveSourceRef(backendSource.DocPath);
+
+        var preferPreciseMemory = memorySource is not null
+            && ShouldPreferPreciseFallbackSource(backendSource, memorySource);
+        var source = MergeSourceResolveMetadata(backendSource, memorySource);
+        var root = JsonNode.Parse(backend.GetRawText()) as JsonObject ?? new JsonObject();
+        var sourceNode = JsonNode.Parse(sourceEl.GetRawText()) as JsonObject ?? new JsonObject();
+
+        SetStringIfMissing(sourceNode, "docId", source.DocId);
+        SetStringIfMissing(sourceNode, "docPath", source.DocPath);
+        SetStringIfMissing(sourceNode, "docName", source.DocName);
+        SetNumberIfMissing(sourceNode, "pageStart", source.PageStart);
+        SetNumberIfMissing(sourceNode, "pageEnd", source.PageEnd);
+        SetStringIfMissing(sourceNode, "label", source.Label);
+        SetStringIfMissing(sourceNode, "sourceHash", source.SourceHash);
+        SetStringIfMissing(sourceNode, "docLanguage", source.DocLanguage);
+        SetStringIfMissing(sourceNode, "profileLanguage", source.ProfileLanguage);
+        SetStringIfMissing(sourceNode, "category", source.Category);
+        SetStringIfMissing(sourceNode, "categoryRef", source.CategoryRef);
+        SetStringIfMissing(sourceNode, "categoryPath", source.CategoryPath);
+        SetStringIfMissing(sourceNode, "chunkId", source.ChunkId);
+        MergeObjectFieldsIfMissing(sourceNode, "extractionQuality", BuildSourceExtractionQualityPayload(source));
+        SetObjectIfMissingOrEmpty(sourceNode, "matchedContentCards", BuildSourceContentCardsPayload(source));
+        SetObjectIfMissingOrEmpty(sourceNode, "selectionHints", BuildSourceSelectionHintsPayload(source));
+        if (preferPreciseMemory)
+            ApplyPreciseSourceOverride(sourceNode, source);
+
+        root["source"] = sourceNode;
+        SetStringIfMissing(root, "requestedRef", rawRef.Trim());
+
+        return JsonDocument.Parse(root.ToJsonString()).RootElement.Clone();
+    }
+
+    private static void ApplyPreciseSourceOverride(JsonObject sourceNode, ToolMemory.SourceRef source)
+    {
+        SetNumberIfPresent(sourceNode, "pageStart", source.PageStart);
+        SetNumberIfPresent(sourceNode, "pageEnd", source.PageEnd);
+        SetStringIfPresent(sourceNode, "chunkId", source.ChunkId);
+        SetObjectIfPresent(sourceNode, "extractionQuality", BuildSourceExtractionQualityPayload(source));
+        SetObjectIfPresent(sourceNode, "matchedContentCards", BuildSourceContentCardsPayload(source));
+        SetObjectIfPresent(sourceNode, "selectionHints", BuildSourceSelectionHintsPayload(source));
+    }
+
+    private static ToolMemory.SourceRef MergeSourceResolveMetadata(ToolMemory.SourceRef source, ToolMemory.SourceRef? fallback)
+    {
+        if (fallback is null)
+            return source;
+
+        var usePreciseFallback = ShouldPreferPreciseFallbackSource(source, fallback);
+        var pageSource = usePreciseFallback ? fallback : source;
+        var selectionHintSource = usePreciseFallback ? fallback : source;
+        var pageQualitySource = usePreciseFallback ? fallback : source;
+
+        return new ToolMemory.SourceRef
+        {
+            DocId = NullIfWhiteSpace(source.DocId) ?? NullIfWhiteSpace(fallback.DocId),
+            DocPath = NullIfWhiteSpace(source.DocPath) ?? NullIfWhiteSpace(fallback.DocPath) ?? "",
+            DocName = NullIfWhiteSpace(source.DocName) ?? NullIfWhiteSpace(fallback.DocName),
+            PageStart = pageSource.PageStart <= 0 ? Math.Max(1, fallback.PageStart) : pageSource.PageStart,
+            PageEnd = pageSource.PageEnd <= 0 ? Math.Max(Math.Max(1, fallback.PageStart), fallback.PageEnd) : pageSource.PageEnd,
+            Label = NullIfWhiteSpace(source.Label) ?? NullIfWhiteSpace(fallback.Label) ?? NullIfWhiteSpace(source.DocPath) ?? NullIfWhiteSpace(fallback.DocPath) ?? "",
+            SourceHash = NullIfWhiteSpace(source.SourceHash) ?? NullIfWhiteSpace(fallback.SourceHash),
+            DocLanguage = NullIfWhiteSpace(source.DocLanguage) ?? NullIfWhiteSpace(fallback.DocLanguage),
+            ProfileLanguage = NullIfWhiteSpace(source.ProfileLanguage) ?? NullIfWhiteSpace(fallback.ProfileLanguage),
+            Category = NullIfWhiteSpace(source.Category) ?? NullIfWhiteSpace(fallback.Category),
+            CategoryRef = NullIfWhiteSpace(source.CategoryRef) ?? NullIfWhiteSpace(fallback.CategoryRef),
+            CategoryPath = NullIfWhiteSpace(source.CategoryPath) ?? NullIfWhiteSpace(fallback.CategoryPath),
+            ChunkId = usePreciseFallback
+                ? NullIfWhiteSpace(fallback.ChunkId) ?? NullIfWhiteSpace(source.ChunkId)
+                : NullIfWhiteSpace(source.ChunkId) ?? NullIfWhiteSpace(fallback.ChunkId),
+            ExtractionSource = NullIfWhiteSpace(source.ExtractionSource) ?? NullIfWhiteSpace(fallback.ExtractionSource),
+            DocumentQualityStatus = NullIfWhiteSpace(source.DocumentQualityStatus) ?? NullIfWhiteSpace(fallback.DocumentQualityStatus),
+            PageQualityStatus = NullIfWhiteSpace(pageQualitySource.PageQualityStatus) ?? NullIfWhiteSpace(source.PageQualityStatus) ?? NullIfWhiteSpace(fallback.PageQualityStatus),
+            TextStatus = NullIfWhiteSpace(pageQualitySource.TextStatus) ?? NullIfWhiteSpace(source.TextStatus) ?? NullIfWhiteSpace(fallback.TextStatus),
+            QualityStatus = NullIfWhiteSpace(pageQualitySource.QualityStatus) ?? NullIfWhiteSpace(source.QualityStatus) ?? NullIfWhiteSpace(fallback.QualityStatus),
+            ExtractionConfidence = source.ExtractionConfidence ?? fallback.ExtractionConfidence,
+            DocumentExtractionConfidence = source.DocumentExtractionConfidence ?? fallback.DocumentExtractionConfidence,
+            PageExtractionConfidence = pageQualitySource.PageExtractionConfidence ?? source.PageExtractionConfidence ?? fallback.PageExtractionConfidence,
+            ManualReviewRecommended = source.ManualReviewRecommended || fallback.ManualReviewRecommended,
+            DocumentManualReviewRecommended = source.DocumentManualReviewRecommended || fallback.DocumentManualReviewRecommended,
+            PageManualReviewRecommended = pageQualitySource.PageManualReviewRecommended || source.PageManualReviewRecommended || fallback.PageManualReviewRecommended,
+            OcrAttempted = source.OcrAttempted || fallback.OcrAttempted,
+            OcrApplied = source.OcrApplied || fallback.OcrApplied,
+            OcrRecommended = source.OcrRecommended || fallback.OcrRecommended,
+            ExtractionDiagnosticSummary = CloneSourceExtractionDiagnostic(source.ExtractionDiagnosticSummary ?? fallback.ExtractionDiagnosticSummary),
+            QualitySignals = source.QualitySignals
+                .Concat(fallback.QualitySignals)
+                .Where(static signal => !string.IsNullOrWhiteSpace(signal))
+                .Select(static signal => signal.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(8)
+                .ToList(),
+            MatchedContentCards = MergeSourceContentCards(
+                usePreciseFallback
+                    ? new[] { fallback, source }
+                    : new[] { source, fallback },
+                maxCards: 5),
+            SelectionHintEvidenceRole = NullIfWhiteSpace(selectionHintSource.SelectionHintEvidenceRole) ?? NullIfWhiteSpace(source.SelectionHintEvidenceRole) ?? NullIfWhiteSpace(fallback.SelectionHintEvidenceRole),
+            SelectionHintActionabilityScore = selectionHintSource.SelectionHintActionabilityScore ?? source.SelectionHintActionabilityScore ?? fallback.SelectionHintActionabilityScore,
+            SelectionHintSupportScore = selectionHintSource.SelectionHintSupportScore ?? source.SelectionHintSupportScore ?? fallback.SelectionHintSupportScore,
+            SelectionHintFragmentScore = selectionHintSource.SelectionHintFragmentScore ?? source.SelectionHintFragmentScore ?? fallback.SelectionHintFragmentScore,
+            SelectionHintNavigationScore = selectionHintSource.SelectionHintNavigationScore ?? source.SelectionHintNavigationScore ?? fallback.SelectionHintNavigationScore,
+            SelectionHintQualityPenalty = selectionHintSource.SelectionHintQualityPenalty ?? source.SelectionHintQualityPenalty ?? fallback.SelectionHintQualityPenalty
+        };
+    }
+
+    private static bool ShouldPreferPreciseFallbackSource(ToolMemory.SourceRef source, ToolMemory.SourceRef fallback)
+    {
+        if (!LooksLikeSameSourceDocument(source, fallback))
+            return false;
+
+        var sourceHash = NullIfWhiteSpace(source.SourceHash);
+        var fallbackHash = NullIfWhiteSpace(fallback.SourceHash);
+        if (sourceHash is not null
+            && fallbackHash is not null
+            && !string.Equals(sourceHash, fallbackHash, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var sourceStart = Math.Max(1, source.PageStart);
+        var sourceEnd = Math.Max(sourceStart, source.PageEnd);
+        var fallbackStart = Math.Max(1, fallback.PageStart);
+        var fallbackEnd = Math.Max(fallbackStart, fallback.PageEnd);
+        var sourceSpan = sourceEnd - sourceStart;
+        var fallbackSpan = fallbackEnd - fallbackStart;
+
+        var fallbackHasPrecisePage = fallbackStart > sourceStart
+            || fallbackEnd < sourceEnd
+            || fallbackSpan < sourceSpan;
+        var fallbackHasHitEvidence = !string.IsNullOrWhiteSpace(fallback.ChunkId)
+            || fallback.MatchedContentCards.Count > 0
+            || fallback.PageExtractionConfidence is not null
+            || !string.IsNullOrWhiteSpace(fallback.PageQualityStatus);
+        var sourceLooksDocumentWide = sourceStart <= 1
+            && sourceSpan >= 2
+            && string.IsNullOrWhiteSpace(source.ChunkId);
+
+        return sourceLooksDocumentWide
+            && fallbackHasHitEvidence
+            && fallbackHasPrecisePage;
+    }
+
+    private static bool LooksLikeSameSourceDocument(ToolMemory.SourceRef source, ToolMemory.SourceRef fallback)
+    {
+        var sourceDocId = NullIfWhiteSpace(source.DocId);
+        var fallbackDocId = NullIfWhiteSpace(fallback.DocId);
+        if (sourceDocId is not null && fallbackDocId is not null)
+            return string.Equals(sourceDocId, fallbackDocId, StringComparison.OrdinalIgnoreCase);
+
+        var sourcePath = NullIfWhiteSpace(source.DocPath)?.Replace('\\', '/');
+        var fallbackPath = NullIfWhiteSpace(fallback.DocPath)?.Replace('\\', '/');
+        return sourcePath is not null
+            && fallbackPath is not null
+            && string.Equals(sourcePath, fallbackPath, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void SetStringIfMissing(JsonObject obj, string propertyName, string? value)
+    {
+        value = NullIfWhiteSpace(value);
+        if (value is null || !IsMissingOrEmpty(obj, propertyName))
+            return;
+
+        obj[propertyName] = value;
+    }
+
+    private static void SetNumberIfMissing(JsonObject obj, string propertyName, int value)
+    {
+        if (value <= 0 || !IsMissingOrEmpty(obj, propertyName))
+            return;
+
+        obj[propertyName] = value;
+    }
+
+    private static void SetStringIfPresent(JsonObject obj, string propertyName, string? value)
+    {
+        value = NullIfWhiteSpace(value);
+        if (value is not null)
+            obj[propertyName] = value;
+    }
+
+    private static void SetNumberIfPresent(JsonObject obj, string propertyName, int value)
+    {
+        if (value > 0)
+            obj[propertyName] = value;
+    }
+
+    private static void SetObjectIfPresent(JsonObject obj, string propertyName, object? value)
+    {
+        if (value is not null)
+            obj[propertyName] = JsonSerializer.SerializeToNode(value);
+    }
+
+    private static void SetObjectIfMissingOrEmpty(JsonObject obj, string propertyName, object? value)
+    {
+        if (value is null || !IsMissingOrEmpty(obj, propertyName))
+            return;
+
+        obj[propertyName] = JsonSerializer.SerializeToNode(value);
+    }
+
+    private static void MergeObjectFieldsIfMissing(JsonObject obj, string propertyName, object? value)
+    {
+        if (value is null)
+            return;
+
+        var fallback = JsonSerializer.SerializeToNode(value) as JsonObject;
+        if (fallback is null || fallback.Count == 0)
+            return;
+
+        if (IsMissingOrEmpty(obj, propertyName))
+        {
+            obj[propertyName] = fallback;
+            return;
+        }
+
+        if (!obj.TryGetPropertyValue(propertyName, out var existingNode)
+            || existingNode is not JsonObject existing)
+        {
+            return;
+        }
+
+        foreach (var property in fallback)
+        {
+            if (IsMissingOrEmpty(existing, property.Key))
+                existing[property.Key] = property.Value?.DeepClone();
+        }
+    }
+
+    private static bool IsMissingOrEmpty(JsonObject obj, string propertyName)
+    {
+        if (!obj.TryGetPropertyValue(propertyName, out var node) || node is null)
+            return true;
+
+        return node.GetValueKind() switch
+        {
+            JsonValueKind.Null => true,
+            JsonValueKind.String => string.IsNullOrWhiteSpace(node.GetValue<string>()),
+            JsonValueKind.Array => node.AsArray().Count == 0,
+            JsonValueKind.Object => !node.AsObject().Any(),
+            _ => false
+        };
     }
 
 }

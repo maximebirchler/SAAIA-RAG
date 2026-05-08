@@ -127,4 +127,40 @@ public sealed class DeterministicLocalizationTests
         Assert.Equal(expected, DeterministicAgentText.ToolFailureSourceNotFound(language));
     }
 
+    [Theory]
+    [InlineData("fr", "Diagnostic qualite d'extraction :", "Diagnostic des pages pour sample.pdf :")]
+    [InlineData("en", "Extraction quality diagnostics:", "Page diagnostics for sample.pdf:")]
+    [InlineData("es", "Diagnostico de calidad de extraccion:", "Diagnostico de paginas para sample.pdf:")]
+    [InlineData("pt", "Diagnostico de qualidade de extracao:", "Diagnostico de paginas para sample.pdf:")]
+    [InlineData("de", "Diagnose der Extraktionsqualitaet:", "Seitendiagnose fuer sample.pdf:")]
+    [InlineData("it", "Diagnostica qualita di estrazione:", "Diagnostica pagine per sample.pdf:")]
+    public void Extraction_diagnostics_labels_are_localized(string language, string expectedQuality, string expectedPages)
+    {
+        Assert.Equal(expectedQuality, DeterministicAgentText.ExtractionQualityHeader(language));
+        Assert.Equal(expectedPages, DeterministicAgentText.ExtractionPagesHeader("sample.pdf", language));
+        Assert.False(string.IsNullOrWhiteSpace(DeterministicAgentText.ExtractionOcrRecommended(language)));
+        Assert.False(string.IsNullOrWhiteSpace(DeterministicAgentText.ExtractionReviewRecommended(language)));
+        Assert.DoesNotContain("_", DeterministicAgentText.ExtractionStatusLabel("ocr_required_but_disabled", language));
+        Assert.DoesNotContain("_", DeterministicAgentText.ExtractionStatusLabel("scanned_pdf_not_indexable", language));
+        Assert.DoesNotContain("_", DeterministicAgentText.ExtractionStatusLabel("ocr_disabled", language));
+        foreach (var status in new[]
+                 {
+                     "image_ocr_applied_ok",
+                     "ocr_applied_ok_with_page_warnings",
+                     "ocr_applied_low_confidence",
+                     "manual_review_empty_text",
+                     "manual_review_low_text",
+                     "extraction_ok_with_page_warnings",
+                     "text_extraction_ok_with_images",
+                     "extraction_ok",
+                     "ocr_failed"
+                 })
+        {
+            Assert.DoesNotContain("_", DeterministicAgentText.ExtractionStatusLabel(status, language));
+        }
+
+        Assert.False(string.IsNullOrWhiteSpace(DeterministicAgentText.ExtractionDocumentStatus("error", language)));
+        Assert.False(string.IsNullOrWhiteSpace(DeterministicAgentText.ExtractionProcessingRunStatus("failed", language)));
+    }
+
 }

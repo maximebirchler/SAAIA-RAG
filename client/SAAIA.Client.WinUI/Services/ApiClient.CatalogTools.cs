@@ -206,4 +206,30 @@ public sealed partial class ApiClient
         return await SendJsonAsync(HttpMethod.Get, "/admin/catalog/empty-folders?" + string.Join("&", qs), null, admin: true, ct).ConfigureAwait(false);
     }
 
+    public async Task<JsonElement> DocumentsExtractionQualityAsync(string? path, string? categoryRef, int limit, CancellationToken ct)
+    {
+        var lim = Math.Clamp(limit, 1, 2000);
+        var qs = new List<string> { $"limit={lim}" };
+
+        if (!string.IsNullOrWhiteSpace(path))
+            qs.Add($"path={Uri.EscapeDataString(path.Trim().Replace('\\', '/').Trim('/'))}");
+        if (!string.IsNullOrWhiteSpace(categoryRef))
+            qs.Add($"categoryRef={Uri.EscapeDataString(categoryRef.Trim())}");
+
+        return await SendJsonAsync(HttpMethod.Get, "/admin/documents/extraction-quality?" + string.Join("&", qs), null, admin: true, ct).ConfigureAwait(false);
+    }
+
+    public async Task<JsonElement> DocumentExtractionPagesAsync(string docId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(docId))
+            throw new ArgumentException("Document id is required.", nameof(docId));
+
+        return await SendJsonAsync(
+            HttpMethod.Get,
+            $"/admin/documents/{Uri.EscapeDataString(docId.Trim())}/extraction-pages",
+            null,
+            admin: true,
+            ct).ConfigureAwait(false);
+    }
+
 }

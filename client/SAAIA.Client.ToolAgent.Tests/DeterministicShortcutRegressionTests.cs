@@ -563,6 +563,8 @@ public sealed class DeterministicShortcutRegressionTests
                         DocPath = "Programmation/Mettler/MettlerToledo_IND570.pdf",
                         DocName = "MettlerToledo_IND570.pdf",
                         Category = "Programmation/Mettler",
+                        CategoryRef = "cat_042",
+                        CategoryPath = "Programmation/Mettler",
                         SummaryState = "present"
                     }
                 }
@@ -578,6 +580,8 @@ public sealed class DeterministicShortcutRegressionTests
         var item = Assert.Single(mem.LastListedDocuments);
         Assert.Equal("MettlerToledo_IND570.pdf", item.DocName);
         Assert.Equal("Programmation/Mettler/MettlerToledo_IND570.pdf", item.DocPath);
+        Assert.Equal("cat_042", item.CategoryRef);
+        Assert.Equal("Programmation/Mettler", item.CategoryPath);
     }
 
     [Theory]

@@ -28,7 +28,22 @@ public sealed partial class MainWindow
         int CapabilityBBacklogCount,
         int CapabilityBReadyToEnqueueCount,
         int CapabilityBActiveJobCount,
-        int? CapabilityBLatestCampaignProgressPercent);
+        int? CapabilityBLatestCampaignProgressPercent,
+        AdminRuntimeCapabilityBIdleScheduler? CapabilityBIdleScheduler);
+
+    private sealed record AdminRuntimeCapabilityBIdleScheduler(
+        bool Enabled,
+        bool RequiresIngestionIdle,
+        bool AutoEnqueueEnabled,
+        bool IsIdle,
+        string State,
+        string Reason,
+        int ActiveIngestionJobs,
+        DateTimeOffset? LastIngestionActivityAt,
+        int RequiredIdleSeconds,
+        int? IdleForSeconds,
+        int AutoEnqueueBatchSize,
+        int RunningJobLeaseTimeoutSeconds);
 
     private sealed record AdminRuntimeOperationalItem(
         string Key,
@@ -52,8 +67,13 @@ public sealed partial class MainWindow
         int ActiveCampaignCount,
         int TerminalCapabilityJobCount,
         int StoredSummaryCount,
+        IReadOnlyDictionary<string, int> ReasonCounts,
         int? OffsetBackfillCandidateCount,
-        int? LatestCampaignProgressPercent);
+        int? LatestCampaignProgressPercent,
+        string? LatestCampaignId,
+        string? LatestCampaignStatus,
+        DateTimeOffset? LatestCampaignOccurredAt,
+        IReadOnlyDictionary<string, int> LlmFailureCounts);
 
     private async void HeaderRuntimeButton_Click(object sender, RoutedEventArgs e)
     {
@@ -83,6 +103,7 @@ public sealed partial class MainWindow
         var metricsGrid = new Grid { ColumnSpacing = 12, RowSpacing = 12 };
         for (var i = 0; i < 3; i++)
             metricsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        metricsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         metricsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         metricsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
@@ -293,7 +314,7 @@ public sealed partial class MainWindow
         void RenderMetrics(AdminRuntimeOperationalTotals summary)
         {
             metricsGrid.Children.Clear();
-            var tiles = new[]
+            var tiles = new List<FrameworkElement>
             {
                 BuildMetricTile(ClientUiText.Get("admin.runtime.metric.a_backlog", lang), summary.CapabilityACandidateCount.ToString()),
                 BuildMetricTile(ClientUiText.Get("admin.runtime.metric.a_ready", lang), summary.CapabilityAReadyToEnqueueCount.ToString()),
@@ -302,8 +323,14 @@ public sealed partial class MainWindow
                 BuildMetricTile(ClientUiText.Get("admin.runtime.metric.b_ready", lang), summary.CapabilityBReadyToEnqueueCount.ToString()),
                 BuildMetricTile(ClientUiText.Get("admin.runtime.metric.b_active", lang), summary.CapabilityBActiveJobCount.ToString())
             };
+            if (summary.CapabilityBLatestCampaignProgressPercent is int latestCampaignProgress)
+            {
+                tiles.Add(BuildMetricTile(
+                    LocalRuntimeText("Campagne B", "B campaign", "Campana B", "Campanha B", "B-Kampagne", "Campagna B", lang),
+                    latestCampaignProgress + "%"));
+            }
 
-            for (var index = 0; index < tiles.Length; index++)
+            for (var index = 0; index < tiles.Count; index++)
             {
                 Grid.SetColumn(tiles[index], index % 3);
                 Grid.SetRow(tiles[index], index / 3);
@@ -451,9 +478,10 @@ public sealed partial class MainWindow
 
         FrameworkElement BuildCapabilityCard(AdminRuntimeOperationalItem item)
         {
+            var isCapabilityB = string.Equals(item.Key, "capability_b.backoffice_generation", StringComparison.Ordinal);
             var title = string.Equals(item.Key, "capability_a.corpus_enrichment", StringComparison.Ordinal)
                 ? ClientUiText.Get("admin.runtime.section.capability_a", lang)
-                : string.Equals(item.Key, "capability_b.backoffice_generation", StringComparison.Ordinal)
+                : isCapabilityB
                     ? ClientUiText.Get("admin.runtime.section.capability_b", lang)
                     : item.DisplayName;
             var yesNo = ClientUiText.Get(item.Selected ? "admin.jobs.value.yes" : "admin.jobs.value.no", lang);
@@ -498,12 +526,50 @@ public sealed partial class MainWindow
                 });
             }
 
-            if (item.Summary.LatestCampaignProgressPercent is int progress)
+            if (isCapabilityB)
+            {
+                var campaignOperationalText = BuildCapabilityBCampaignOperationalText(item.Summary, lang);
+                if (!string.IsNullOrWhiteSpace(campaignOperationalText))
+                {
+                    facts.Children.Add(new TextBlock
+                    {
+                        Text = campaignOperationalText,
+                        TextWrapping = TextWrapping.WrapWholeWords
+                    });
+                }
+            }
+
+            var latestCampaignText = BuildLatestCampaignText(item.Summary, lang);
+            if (!string.IsNullOrWhiteSpace(latestCampaignText))
             {
                 facts.Children.Add(new TextBlock
                 {
-                    Text = ClientUiText.Format("admin.runtime.fact.latest_campaign", lang, progress)
+                    Text = latestCampaignText,
+                    TextWrapping = TextWrapping.WrapWholeWords
                 });
+            }
+
+            if (isCapabilityB)
+            {
+                var reasonCountsText = BuildCapabilityBReasonCountsText(item.Summary.ReasonCounts, lang);
+                if (!string.IsNullOrWhiteSpace(reasonCountsText))
+                {
+                    facts.Children.Add(new TextBlock
+                    {
+                        Text = reasonCountsText,
+                        TextWrapping = TextWrapping.WrapWholeWords
+                    });
+                }
+
+                var llmFailureCountsText = BuildLlmFailureCountsText(item.Summary.LlmFailureCounts, lang);
+                if (!string.IsNullOrWhiteSpace(llmFailureCountsText))
+                {
+                    facts.Children.Add(new TextBlock
+                    {
+                        Text = llmFailureCountsText,
+                        TextWrapping = TextWrapping.WrapWholeWords
+                    });
+                }
             }
 
             stack.Children.Add(facts);
@@ -577,7 +643,7 @@ public sealed partial class MainWindow
                 actions.Children.Add(openJobsButton);
             }
 
-            if (string.Equals(item.Key, "capability_b.backoffice_generation", StringComparison.Ordinal))
+            if (isCapabilityB)
             {
                 var openQualityButton = BuildDialogInlineButton(
                     ClientUiText.Get("admin.runtime.action.open_b_quality", lang),
@@ -614,7 +680,12 @@ public sealed partial class MainWindow
             generatedText.Text = snapshot.GeneratedAt.HasValue
                 ? ClientUiText.Format("admin.runtime.generated", lang, snapshot.GeneratedAt.Value.ToLocalTime().ToString("g"))
                 : string.Empty;
-            SetStateBanner($"{snapshot.Environment} | {ClientUiText.Get("status.ready", lang)}", positive: true);
+            var schedulerText = BuildCapabilityBIdleSchedulerText(snapshot.Summary.CapabilityBIdleScheduler, lang);
+            SetStateBanner(
+                string.IsNullOrWhiteSpace(schedulerText)
+                    ? $"{snapshot.Environment} | {ClientUiText.Get("status.ready", lang)}"
+                    : $"{snapshot.Environment} | {ClientUiText.Get("status.ready", lang)} | {schedulerText}",
+                positive: snapshot.Summary.CapabilityBIdleScheduler?.IsIdle != false);
             RenderMetrics(snapshot.Summary);
             actionButtons.Clear();
             capabilitiesHost.Children.Clear();
@@ -671,8 +742,9 @@ public sealed partial class MainWindow
         refreshButton.Click += async (_, __) => await LoadAsync().ConfigureAwait(true);
         closeButton.Click += (_, __) => overlay?.Close();
 
+        var dialogSize = GetDialogMaxSize(980, 760, horizontalMargin: 72, verticalMargin: 96);
         overlay = ShowOverlayDialog(
-            BuildCompactDialogShell(
+            BuildScrollableDialogShell(
                 ClientUiText.Get("help.section.admin", lang),
                 ClientUiText.Get("admin.runtime.title", lang),
                 ClientUiText.Get("admin.runtime.subtitle", lang),
@@ -685,7 +757,9 @@ public sealed partial class MainWindow
                     BuildDialogSurfaceCard(metricsGrid, new Thickness(12)),
                     BuildDialogSurfaceCard(capabilitiesHost, new Thickness(12))
                 },
-                footer),
+                footer,
+                dialogSize.Width,
+                dialogSize.Height),
             // Admin panel — must dismiss only via the explicit "Fermer" button so an
             // accidental click outside doesn't close mid-action. Other admin overlays
             // already follow this pattern.
@@ -716,8 +790,9 @@ public sealed partial class MainWindow
                 CapabilityBBacklogCount: TryGetInt(summaryElement, "capabilityBBacklogCount") ?? 0,
                 CapabilityBReadyToEnqueueCount: TryGetInt(summaryElement, "capabilityBReadyToEnqueueCount") ?? 0,
                 CapabilityBActiveJobCount: TryGetInt(summaryElement, "capabilityBActiveJobCount") ?? 0,
-                CapabilityBLatestCampaignProgressPercent: TryGetInt(summaryElement, "capabilityBLatestCampaignProgressPercent"))
-            : new AdminRuntimeOperationalTotals(0, 0, 0, 0, 0, 0, null);
+                CapabilityBLatestCampaignProgressPercent: TryGetInt(summaryElement, "capabilityBLatestCampaignProgressPercent"),
+                CapabilityBIdleScheduler: ParseCapabilityBIdleScheduler(summaryElement))
+            : new AdminRuntimeOperationalTotals(0, 0, 0, 0, 0, 0, null, null);
 
         var items = new List<AdminRuntimeOperationalItem>();
         if (TryGetPropertyIgnoreCase(root, "items", out var itemsElement) && itemsElement.ValueKind == JsonValueKind.Array)
@@ -747,8 +822,13 @@ public sealed partial class MainWindow
                         ActiveCampaignCount: TryGetInt(itemSummaryElement, "activeCampaignCount") ?? 0,
                         TerminalCapabilityJobCount: TryGetInt(itemSummaryElement, "terminalCapabilityJobCount") ?? 0,
                         StoredSummaryCount: TryGetInt(itemSummaryElement, "storedSummaryCount") ?? 0,
+                        ReasonCounts: ReadIntDictionary(itemSummaryElement, "reasonCounts"),
                         OffsetBackfillCandidateCount: TryGetInt(itemSummaryElement, "offsetBackfillCandidateCount"),
-                        LatestCampaignProgressPercent: TryGetInt(itemSummaryElement, "latestCampaignProgressPercent")),
+                        LatestCampaignProgressPercent: TryGetInt(itemSummaryElement, "latestCampaignProgressPercent"),
+                        LatestCampaignId: TryGetString(itemSummaryElement, "latestCampaignId"),
+                        LatestCampaignStatus: TryGetString(itemSummaryElement, "latestCampaignStatus"),
+                        LatestCampaignOccurredAt: TryGetDateTimeOffset(itemSummaryElement, "latestCampaignOccurredAt"),
+                        LlmFailureCounts: ReadIntDictionary(itemSummaryElement, "llmFailureCounts")),
                     Recommendations: recommendations));
             }
         }
@@ -758,6 +838,297 @@ public sealed partial class MainWindow
             GeneratedAt: TryGetDateTimeOffset(root, "generatedAt"),
             Summary: summary,
             Items: items);
+    }
+
+    private static IReadOnlyDictionary<string, int> ReadIntDictionary(JsonElement element, string propertyName)
+    {
+        if (!TryGetPropertyIgnoreCase(element, propertyName, out var property) || property.ValueKind != JsonValueKind.Object)
+            return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in property.EnumerateObject())
+        {
+            if (item.Value.ValueKind == JsonValueKind.Number && item.Value.TryGetInt32(out var numericValue))
+            {
+                result[item.Name] = numericValue;
+                continue;
+            }
+
+            if (item.Value.ValueKind == JsonValueKind.String && int.TryParse(item.Value.GetString(), out var stringValue))
+                result[item.Name] = stringValue;
+        }
+
+        return result;
+    }
+
+    private static string BuildCapabilityBCampaignOperationalText(AdminRuntimeOperationalItemSummary summary, string lang)
+    {
+        if (summary.ActiveCampaignCount <= 0
+            && summary.TerminalCapabilityJobCount <= 0
+            && summary.StoredSummaryCount <= 0)
+        {
+            return string.Empty;
+        }
+
+        return LocalRuntimeText(
+            $"Campagnes actives: {summary.ActiveCampaignCount} | Jobs termines: {summary.TerminalCapabilityJobCount} | resumes stockes: {summary.StoredSummaryCount}",
+            $"Active campaigns: {summary.ActiveCampaignCount} | Terminal jobs: {summary.TerminalCapabilityJobCount} | Stored summaries: {summary.StoredSummaryCount}",
+            $"Campanas activas: {summary.ActiveCampaignCount} | Jobs terminales: {summary.TerminalCapabilityJobCount} | resumenes guardados: {summary.StoredSummaryCount}",
+            $"Campanhas ativas: {summary.ActiveCampaignCount} | Jobs terminais: {summary.TerminalCapabilityJobCount} | resumos guardados: {summary.StoredSummaryCount}",
+            $"Aktive Kampagnen: {summary.ActiveCampaignCount} | Terminale Jobs: {summary.TerminalCapabilityJobCount} | Gespeicherte Zusammenfassungen: {summary.StoredSummaryCount}",
+            $"Campagne attive: {summary.ActiveCampaignCount} | Job terminali: {summary.TerminalCapabilityJobCount} | riepiloghi salvati: {summary.StoredSummaryCount}",
+            lang);
+    }
+
+    private static string BuildLatestCampaignText(AdminRuntimeOperationalItemSummary summary, string lang)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(summary.LatestCampaignStatus))
+        {
+            parts.Add(LocalRuntimeText(
+                $"statut {ResolveCampaignStatusLabel(summary.LatestCampaignStatus, lang)}",
+                $"status {ResolveCampaignStatusLabel(summary.LatestCampaignStatus, lang)}",
+                $"estado {ResolveCampaignStatusLabel(summary.LatestCampaignStatus, lang)}",
+                $"estado {ResolveCampaignStatusLabel(summary.LatestCampaignStatus, lang)}",
+                $"Status {ResolveCampaignStatusLabel(summary.LatestCampaignStatus, lang)}",
+                $"stato {ResolveCampaignStatusLabel(summary.LatestCampaignStatus, lang)}",
+                lang));
+        }
+
+        if (summary.LatestCampaignProgressPercent is int progress)
+        {
+            parts.Add(LocalRuntimeText(
+                $"progression {progress}%",
+                $"progress {progress}%",
+                $"progreso {progress}%",
+                $"progresso {progress}%",
+                $"Fortschritt {progress}%",
+                $"avanzamento {progress}%",
+                lang));
+        }
+
+        if (summary.LatestCampaignOccurredAt is DateTimeOffset occurredAt)
+        {
+            var occurredAtText = occurredAt.ToLocalTime().ToString("g");
+            parts.Add(LocalRuntimeText(
+                $"le {occurredAtText}",
+                $"at {occurredAtText}",
+                $"el {occurredAtText}",
+                $"em {occurredAtText}",
+                $"am {occurredAtText}",
+                $"il {occurredAtText}",
+                lang));
+        }
+
+        if (!string.IsNullOrWhiteSpace(summary.LatestCampaignId))
+        {
+            parts.Add("id " + ShortenCampaignId(summary.LatestCampaignId));
+        }
+
+        if (parts.Count == 0)
+            return string.Empty;
+
+        var detail = string.Join(" | ", parts);
+        return LocalRuntimeText(
+            $"Derniere campagne: {detail}",
+            $"Latest campaign: {detail}",
+            $"Ultima campana: {detail}",
+            $"Ultima campanha: {detail}",
+            $"Letzte Kampagne: {detail}",
+            $"Ultima campagna: {detail}",
+            lang);
+    }
+
+    private static string BuildCapabilityBReasonCountsText(IReadOnlyDictionary<string, int> reasonCounts, string lang)
+    {
+        var detail = string.Join(", ", reasonCounts
+            .Where(static item => item.Value > 0)
+            .OrderByDescending(static item => item.Value)
+            .ThenBy(static item => item.Key, StringComparer.OrdinalIgnoreCase)
+            .Take(3)
+            .Select(item => $"{ResolveCapabilityBReasonLabel(item.Key, lang)}: {item.Value}"));
+
+        if (string.IsNullOrWhiteSpace(detail))
+            return string.Empty;
+
+        return LocalRuntimeText(
+            $"Raisons principales: {detail}",
+            $"Top reasons: {detail}",
+            $"Motivos principales: {detail}",
+            $"Principais motivos: {detail}",
+            $"Hauptgruende: {detail}",
+            $"Motivi principali: {detail}",
+            lang);
+    }
+
+    private static string BuildLlmFailureCountsText(IReadOnlyDictionary<string, int> failureCounts, string lang)
+    {
+        var detail = string.Join(", ", failureCounts
+            .Where(static item => item.Value > 0)
+            .OrderByDescending(static item => item.Value)
+            .ThenBy(static item => item.Key, StringComparer.OrdinalIgnoreCase)
+            .Take(3)
+            .Select(item => $"{ResolveLlmFailureCategoryLabel(item.Key, lang)}: {item.Value}"));
+
+        if (string.IsNullOrWhiteSpace(detail))
+            return string.Empty;
+
+        return LocalRuntimeText(
+            $"Echecs LLM serveur: {detail}",
+            $"Server LLM failures: {detail}",
+            $"Fallos LLM servidor: {detail}",
+            $"Falhas LLM servidor: {detail}",
+            $"Server-LLM-Fehler: {detail}",
+            $"Errori LLM server: {detail}",
+            lang);
+    }
+
+    private static string ResolveLlmFailureCategoryLabel(string? category, string lang)
+        => category switch
+        {
+            "queue" => LocalRuntimeText("file pleine", "queue full", "cola llena", "fila cheia", "Warteschlange voll", "coda piena", lang),
+            "timeout" => LocalRuntimeText("timeout", "timeout", "timeout", "timeout", "Timeout", "timeout", lang),
+            "http" => LocalRuntimeText("HTTP/runtime", "HTTP/runtime", "HTTP/runtime", "HTTP/runtime", "HTTP/Runtime", "HTTP/runtime", lang),
+            "transport" => LocalRuntimeText("transport", "transport", "transporte", "transporte", "Transport", "trasporto", lang),
+            "empty" => LocalRuntimeText("reponse vide", "empty response", "respuesta vacia", "resposta vazia", "Leere Antwort", "risposta vuota", lang),
+            "configuration" => LocalRuntimeText("configuration", "configuration", "configuracion", "configuracao", "Konfiguration", "configurazione", lang),
+            "quality" => LocalRuntimeText("qualite sortie", "output quality", "calidad salida", "qualidade saida", "Ausgabequalitat", "qualita output", lang),
+            "exception" => LocalRuntimeText("exception", "exception", "excepcion", "excecao", "Exception", "eccezione", lang),
+            _ => string.IsNullOrWhiteSpace(category) ? LocalRuntimeText("inconnu", "unknown", "desconocido", "desconhecido", "Unbekannt", "sconosciuto", lang) : category
+        };
+
+    private static string ResolveCampaignStatusLabel(string? status, string? lang)
+        => status switch
+        {
+            "dry_run" => LocalRuntimeText("dry-run", "dry run", "dry-run", "dry-run", "Dry-Run", "dry-run", lang),
+            "executed" => LocalRuntimeText("executee", "executed", "ejecutada", "executada", "ausgefuehrt", "eseguita", lang),
+            null or "" => "-",
+            _ => HumanizeRuntimeIdentifier(status)
+        };
+
+    private static string ResolveCapabilityBReasonLabel(string reason, string? lang)
+        => reason switch
+        {
+            "summary_missing" => LocalRuntimeText("resume manquant", "summary missing", "resumen ausente", "resumo ausente", "Zusammenfassung fehlt", "riepilogo mancante", lang),
+            "summary_stale" => LocalRuntimeText("resume obsolete", "summary stale", "resumen obsoleto", "resumo obsoleto", "Zusammenfassung veraltet", "riepilogo obsoleto", lang),
+            "active_summary_job_exists" => LocalRuntimeText("job resume actif", "active summary job", "job resumen activo", "job resumo ativo", "aktiver Zusammenfassungsjob", "job riepilogo attivo", lang),
+            "recent_summary_job_failure" => LocalRuntimeText("echec recent", "recent failure", "fallo reciente", "falha recente", "letzter Fehler", "errore recente", lang),
+            "recent_summary_job_cancellation" => LocalRuntimeText("annulation recente", "recent cancellation", "cancelacion reciente", "cancelamento recente", "letzter Abbruch", "annullamento recente", lang),
+            _ => HumanizeRuntimeIdentifier(reason)
+        };
+
+    private static string HumanizeRuntimeIdentifier(string value)
+    {
+        var cleaned = value.Trim();
+        if (cleaned.Length == 0)
+            return "-";
+
+        return cleaned.Replace('_', ' ').Replace('-', ' ');
+    }
+
+    private static string ShortenCampaignId(string campaignId)
+    {
+        var trimmed = campaignId.Trim();
+        return trimmed.Length <= 8 ? trimmed : trimmed[..8];
+    }
+
+    private static AdminRuntimeCapabilityBIdleScheduler? ParseCapabilityBIdleScheduler(JsonElement summaryElement)
+    {
+        if (!TryGetPropertyIgnoreCase(summaryElement, "capabilityBIdleScheduler", out var scheduler)
+            || scheduler.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        return new AdminRuntimeCapabilityBIdleScheduler(
+            Enabled: TryGetBool(scheduler, "enabled") ?? false,
+            RequiresIngestionIdle: TryGetBool(scheduler, "requiresIngestionIdle") ?? false,
+            AutoEnqueueEnabled: TryGetBool(scheduler, "autoEnqueueEnabled") ?? false,
+            IsIdle: TryGetBool(scheduler, "isIdle") ?? false,
+            State: TryGetString(scheduler, "state") ?? string.Empty,
+            Reason: TryGetString(scheduler, "reason") ?? string.Empty,
+            ActiveIngestionJobs: TryGetInt(scheduler, "activeIngestionJobs") ?? 0,
+            LastIngestionActivityAt: TryGetDateTimeOffset(scheduler, "lastIngestionActivityAt"),
+            RequiredIdleSeconds: TryGetInt(scheduler, "requiredIdleSeconds") ?? 0,
+            IdleForSeconds: TryGetInt(scheduler, "idleForSeconds"),
+            AutoEnqueueBatchSize: TryGetInt(scheduler, "autoEnqueueBatchSize") ?? 0,
+            RunningJobLeaseTimeoutSeconds: TryGetInt(scheduler, "runningJobLeaseTimeoutSeconds") ?? 0);
+    }
+
+    private string BuildCapabilityBIdleSchedulerText(AdminRuntimeCapabilityBIdleScheduler? scheduler, string lang)
+    {
+        if (scheduler is null)
+            return string.Empty;
+
+        if (!scheduler.Enabled)
+        {
+            return LocalRuntimeText(
+                "Resumes serveur: worker desactive",
+                "Server summaries: worker disabled",
+                "Resumenes servidor: worker desactivado",
+                "Resumos servidor: worker desativado",
+                "Server-Zusammenfassungen: Worker deaktiviert",
+                "Riassunti server: worker disattivato",
+                lang);
+        }
+
+        if (!scheduler.AutoEnqueueEnabled)
+        {
+            return LocalRuntimeText(
+                "Resumes serveur: file auto desactivee",
+                "Server summaries: auto queue disabled",
+                "Resumenes servidor: cola automatica desactivada",
+                "Resumos servidor: fila automatica desativada",
+                "Server-Zusammenfassungen: Auto-Warteschlange deaktiviert",
+                "Riassunti server: coda automatica disattivata",
+                lang);
+        }
+
+        if (!scheduler.RequiresIngestionIdle)
+        {
+            return LocalRuntimeText(
+                "Resumes serveur: execution libre",
+                "Server summaries: unrestricted execution",
+                "Resumenes servidor: ejecucion libre",
+                "Resumos servidor: execucao livre",
+                "Server-Zusammenfassungen: freie Ausfuehrung",
+                "Riassunti server: esecuzione libera",
+                lang);
+        }
+
+        if (scheduler.IsIdle)
+        {
+            return LocalRuntimeText(
+                $"Resumes serveur: ingestion inactive, lot max {scheduler.AutoEnqueueBatchSize}, lease {scheduler.RunningJobLeaseTimeoutSeconds}s",
+                $"Server summaries: ingestion idle, max batch {scheduler.AutoEnqueueBatchSize}, lease {scheduler.RunningJobLeaseTimeoutSeconds}s",
+                $"Resumenes servidor: ingestion inactiva, lote max {scheduler.AutoEnqueueBatchSize}, lease {scheduler.RunningJobLeaseTimeoutSeconds}s",
+                $"Resumos servidor: ingestao inativa, lote max {scheduler.AutoEnqueueBatchSize}, lease {scheduler.RunningJobLeaseTimeoutSeconds}s",
+                $"Server-Zusammenfassungen: Ingestion inaktiv, max. Batch {scheduler.AutoEnqueueBatchSize}, Lease {scheduler.RunningJobLeaseTimeoutSeconds}s",
+                $"Riassunti server: ingestione inattiva, batch max {scheduler.AutoEnqueueBatchSize}, lease {scheduler.RunningJobLeaseTimeoutSeconds}s",
+                lang);
+        }
+
+        if (scheduler.ActiveIngestionJobs > 0)
+        {
+            return LocalRuntimeText(
+                $"Resumes serveur en attente: {scheduler.ActiveIngestionJobs} ingestion(s) active(s)",
+                $"Server summaries waiting: {scheduler.ActiveIngestionJobs} active ingestion job(s)",
+                $"Resumenes servidor en espera: {scheduler.ActiveIngestionJobs} ingestion(es) activa(s)",
+                $"Resumos servidor aguardando: {scheduler.ActiveIngestionJobs} ingestao(oes) ativa(s)",
+                $"Server-Zusammenfassungen warten: {scheduler.ActiveIngestionJobs} aktive Ingestion(s)",
+                $"Riassunti server in attesa: {scheduler.ActiveIngestionJobs} ingestione/i attiva/e",
+                lang);
+        }
+
+        var idleFor = scheduler.IdleForSeconds.GetValueOrDefault();
+        return LocalRuntimeText(
+            $"Resumes serveur en attente: idle ingestion {idleFor}s/{scheduler.RequiredIdleSeconds}s",
+            $"Server summaries waiting: ingestion idle {idleFor}s/{scheduler.RequiredIdleSeconds}s",
+            $"Resumenes servidor en espera: ingestion inactiva {idleFor}s/{scheduler.RequiredIdleSeconds}s",
+            $"Resumos servidor aguardando: ingestao inativa {idleFor}s/{scheduler.RequiredIdleSeconds}s",
+            $"Server-Zusammenfassungen warten: Ingestion inaktiv {idleFor}s/{scheduler.RequiredIdleSeconds}s",
+            $"Riassunti server in attesa: ingestione inattiva {idleFor}s/{scheduler.RequiredIdleSeconds}s",
+            lang);
     }
 
     private static string BuildAdminRuntimeRequalifySummaryMessage(JsonElement root, string lang)

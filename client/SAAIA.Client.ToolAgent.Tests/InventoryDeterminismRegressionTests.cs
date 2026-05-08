@@ -310,7 +310,8 @@ public sealed class InventoryDeterminismRegressionTests
             DurationMs = 18
         });
 
-        var sut = new ToolAgentOrchestrator(new ApiClient(), null!, new ToolMemory());
+        var mem = new ToolMemory();
+        var sut = new ToolAgentOrchestrator(new ApiClient(), null!, mem);
         var method = typeof(ToolAgentOrchestrator).GetMethod("TryBuildInventoryRenderedItem", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(method);
 
@@ -325,6 +326,363 @@ public sealed class InventoryDeterminismRegressionTests
 
         Assert.Contains("Memory and performance diagnostics:", rendered);
         Assert.Contains("total 26 ms", rendered);
+    }
+
+    [Fact]
+    public void Admin_summary_missing_catalog_shape_generates_governance_inventory_rendered_payload()
+    {
+        using var doc = JsonDocument.Parse("""
+        {
+          "value": [
+            {
+              "docId": "doc-1",
+              "docPath": "Neutral/governance.pdf",
+              "canonicalName": "governance.pdf",
+              "categoryCanonicalName": "Neutral",
+              "summaryState": "stale",
+              "hasActiveSummaryJob": true,
+              "activeSummaryJobStatus": "running",
+              "capabilityBReadyToEnqueue": true,
+              "capabilityBRecommendedAction": "enqueue_profile_refresh",
+              "capabilityBPriorityScore": 12.5,
+              "capabilityBProfileState": "missing",
+              "capabilityBHasBackofficeProfile": false,
+              "capabilityBReasons": ["profile_missing"]
+            }
+          ],
+          "totals": {
+            "total": 1,
+            "missingStored": 0,
+            "staleStored": 1,
+            "profileMissing": 1
+          },
+          "scopePath": "Neutral",
+          "level": "medium",
+          "nextLink": null
+        }
+        """);
+
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "admin.summary.missing",
+            Result = doc.RootElement.Clone(),
+            DurationMs = 12
+        });
+
+        var mem = new ToolMemory();
+        var sut = new ToolAgentOrchestrator(new ApiClient(), null!, mem);
+        var method = typeof(ToolAgentOrchestrator).GetMethod("TryBuildInventoryRenderedItem", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(method);
+
+        var item = Assert.IsType<ToolResults.Item>(method!.Invoke(sut, new object?[] { toolResults, "en", CancellationToken.None }));
+        Assert.Equal("inventory.rendered", item.ToolName);
+        Assert.Equal("summary_status_list", item.Result.GetProperty("kind").GetString());
+
+        var data = item.Result.GetProperty("data");
+        Assert.Equal(1, data.GetProperty("profileMissing").GetInt32());
+        Assert.True(data.GetProperty("endOfList").ValueKind is JsonValueKind.Null or JsonValueKind.False);
+        Assert.Equal("Neutral", data.GetProperty("scopePath").GetString());
+        var renderedItem = Assert.Single(data.GetProperty("items").EnumerateArray());
+        Assert.Equal("governance.pdf", renderedItem.GetProperty("docName").GetString());
+        Assert.Equal("Neutral", renderedItem.GetProperty("category").GetString());
+        Assert.True(renderedItem.GetProperty("hasActiveSummaryJob").GetBoolean());
+        Assert.Equal("enqueue_profile_refresh", renderedItem.GetProperty("capabilityBRecommendedAction").GetString());
+
+        var rendered = ToolAgentOrchestrator.RenderDeterministicInventoryFromData("summary_status_list", data, "en");
+        Assert.Contains("[[open|Neutral/governance.pdf|1|governance.pdf]]", rendered);
+        Assert.Contains("[missing LLM profile]", rendered);
+        Assert.Contains("[active job running]", rendered);
+        Assert.Contains("[Capability B enqueue_profile_refresh]", rendered);
+    }
+
+    [Fact]
+    public void Extraction_quality_render_is_human_readable_and_does_not_leak_raw_json()
+    {
+        using var doc = JsonDocument.Parse("""
+        {
+          "scopePath": "Neutral",
+          "summary": {
+            "totalDocuments": 2,
+            "okDocuments": 1,
+            "lowTextDocuments": 1,
+            "emptyTextDocuments": 0,
+            "unknownDocuments": 0,
+            "ocrRecommendedDocuments": 1,
+            "ocrAppliedDocuments": 1,
+            "manualReviewRecommendedDocuments": 1,
+            "pageWarningPages": 2
+          },
+          "items": [
+            {
+              "docId": "doc-1",
+              "docPath": "Neutral/manual.pdf",
+              "qualityStatus": "low_text",
+              "extractionConfidence": 0.72,
+              "manualReviewRecommended": true,
+              "extractionSource": "pdf_text_plus_image_ocr",
+              "ocrApplied": true,
+              "ocrRecommended": false,
+              "ocrLanguages": "fra+eng",
+              "ocrDurationMs": 1530,
+              "nativeTextStatus": "low_text",
+              "textStatus": "low_text",
+              "pageCount": 10,
+              "textPageCount": 8,
+              "totalWordCount": 850,
+              "averageWordsPerPage": 85.0,
+              "textPageRatio": 0.8,
+              "pageWarningCount": 2,
+              "pageReviewRecommendedCount": 1,
+              "signals": ["low_text_density"]
+            }
+          ],
+          "categories": [
+            {
+              "categoryPath": "Neutral/Sub",
+              "totalDocuments": 2,
+              "lowTextDocuments": 1,
+              "emptyTextDocuments": 0,
+              "ocrRecommendedDocuments": 1,
+              "manualReviewRecommendedDocuments": 1,
+              "pageWarningPages": 2
+            }
+          ],
+          "limit": 20
+        }
+        """);
+
+        var rendered = ToolAgentOrchestrator.RenderDeterministicInventoryFromData("extraction_quality", doc.RootElement, "en");
+
+        Assert.Contains("Extraction quality diagnostics:", rendered);
+        Assert.Contains("Scope: Neutral", rendered);
+        Assert.Contains("2 document(s)", rendered);
+        Assert.Contains("[[open|Neutral/manual.pdf|1|manual.pdf]]", rendered);
+        Assert.Contains("low text", rendered);
+        Assert.Contains("confidence 72 %", rendered);
+        Assert.Contains("Categories to watch:", rendered);
+        Assert.Contains("Neutral/Sub", rendered);
+        Assert.Contains("OCR languages fra+eng", rendered);
+        Assert.Contains("OCR duration 1.5s", rendered);
+        Assert.Contains("native text low_text", rendered);
+        Assert.Contains("signals low_text_density", rendered);
+        Assert.Contains("850 words", rendered);
+        Assert.Contains("OCR applied", rendered);
+        Assert.Contains("manual review recommended", rendered);
+        Assert.DoesNotContain("\"summary\"", rendered);
+        Assert.DoesNotContain("\"qualityStatus\"", rendered);
+    }
+
+    [Fact]
+    public void Extraction_quality_render_includes_non_indexable_ocr_failure_metadata()
+    {
+        using var doc = JsonDocument.Parse("""
+        {
+          "scopePath": "OCR",
+          "summary": {
+            "totalDocuments": 1,
+            "okDocuments": 0,
+            "lowTextDocuments": 0,
+            "emptyTextDocuments": 1,
+            "unknownDocuments": 0,
+            "ocrRecommendedDocuments": 1,
+            "ocrAppliedDocuments": 0,
+            "manualReviewRecommendedDocuments": 1,
+            "pageWarningPages": 0
+          },
+          "items": [
+            {
+              "docId": "doc-ocr",
+              "docPath": "OCR/scanned.pdf",
+              "documentStatus": "error",
+              "processingRunStatus": "failed",
+              "documentIndexable": false,
+              "failureReason": "ocr_required_but_disabled",
+              "ocrFailureReason": "ocr_required_but_disabled",
+              "qualityStatus": "ocr_required_but_disabled",
+              "extractionConfidence": 0.10,
+              "manualReviewRecommended": true,
+              "textStatus": "empty_text",
+              "ocrRecommended": true,
+              "pageCount": 1,
+              "textPageCount": 0,
+              "signals": ["ocr_recommended"]
+            }
+          ],
+          "limit": 20
+        }
+        """);
+
+        var rendered = ToolAgentOrchestrator.RenderDeterministicInventoryFromData("extraction_quality", doc.RootElement, "en");
+
+        Assert.Contains("[[open|OCR/scanned.pdf|1|scanned.pdf]]", rendered);
+        Assert.Contains("OCR required but disabled", rendered);
+        Assert.Contains("document error", rendered);
+        Assert.Contains("processing failed", rendered);
+        Assert.Contains("document not indexable", rendered);
+        Assert.Contains("reason OCR required but disabled", rendered);
+        Assert.Contains("OCR failure OCR required but disabled", rendered);
+        Assert.DoesNotContain("ocr_required_but_disabled", rendered, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Extraction_pages_render_is_human_readable_and_links_to_pages()
+    {
+        using var doc = JsonDocument.Parse("""
+        {
+          "docId": "doc-1",
+          "docPath": "Neutral/manual.pdf",
+          "summary": {
+            "pageCount": 6,
+            "manualReviewRecommendedPages": 1,
+            "probableOcrNoisePages": 1,
+            "emptyTextPages": 0,
+            "lowTextPages": 1,
+            "imagePages": 2
+          },
+          "pages": [
+            {
+              "pageNumber": 4,
+              "qualityStatus": "page_ok_with_images",
+              "extractionConfidence": 0.81,
+              "manualReviewRecommended": true,
+              "wordCount": 120,
+              "charCount": 700,
+              "imageCount": 2,
+              "chunkCount": 3,
+              "textStatus": "ok",
+              "ocrCandidate": true,
+              "imageOcrStatus": "applied",
+              "imageOcrReason": "novel_text",
+              "imageOcrExitCode": 0,
+              "imageOcrTimedOut": false,
+              "suspiciousUnitCount": 1,
+              "signals": ["page_contains_images"],
+              "unitPreviews": ["short preview from extracted unit"]
+            }
+          ]
+        }
+        """);
+
+        var rendered = ToolAgentOrchestrator.RenderDeterministicInventoryFromData("extraction_pages", doc.RootElement, "en");
+
+        Assert.Contains("Page diagnostics for manual.pdf:", rendered);
+        Assert.Contains("6 page(s)", rendered);
+        Assert.Contains("[[open|Neutral/manual.pdf|4|manual.pdf p.4]]", rendered);
+        Assert.Contains("OK with images", rendered);
+        Assert.Contains("120 words", rendered);
+        Assert.Contains("OCR candidate", rendered);
+        Assert.Contains("OCR reason novel_text", rendered);
+        Assert.Contains("OCR code 0", rendered);
+        Assert.Contains("signals page_contains_images", rendered);
+        Assert.Contains("preview short preview from extracted unit", rendered);
+        Assert.Contains("manual review recommended", rendered);
+        Assert.DoesNotContain("\"pages\"", rendered);
+        Assert.DoesNotContain("\"pageNumber\"", rendered);
+    }
+
+    [Fact]
+    public void Extraction_pages_render_includes_doc_level_failure_when_no_pages_exist()
+    {
+        using var doc = JsonDocument.Parse("""
+        {
+          "docId": "doc-ocr",
+          "docPath": "OCR/scanned.pdf",
+          "documentStatus": "error",
+          "processingRunStatus": "failed",
+          "documentIndexable": false,
+          "failureReason": "ocr_required_but_disabled",
+          "ocrFailureReason": "ocr_required_but_disabled",
+          "ocrAppliedReason": "ocr_disabled",
+          "ocrMode": "ocr_disabled",
+          "summary": {
+            "pageCount": 1,
+            "manualReviewRecommendedPages": 1,
+            "probableOcrNoisePages": 0,
+            "emptyTextPages": 1,
+            "lowTextPages": 0,
+            "imagePages": 0
+          },
+          "pages": []
+        }
+        """);
+
+        var rendered = ToolAgentOrchestrator.RenderDeterministicInventoryFromData("extraction_pages", doc.RootElement, "en");
+
+        Assert.Contains("Page diagnostics for scanned.pdf:", rendered);
+        Assert.Contains("document error", rendered);
+        Assert.Contains("processing failed", rendered);
+        Assert.Contains("document not indexable", rendered);
+        Assert.Contains("reason OCR required but disabled", rendered);
+        Assert.Contains("OCR failure OCR required but disabled", rendered);
+        Assert.Contains("OCR decision OCR disabled", rendered);
+        Assert.Contains("OCR mode OCR disabled", rendered);
+        Assert.Contains("No diagnosable page.", rendered);
+        Assert.DoesNotContain("ocr_required_but_disabled", rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain("ocr_disabled", rendered, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Extraction_diagnostic_tool_results_can_generate_inventory_rendered_payloads()
+    {
+        using var qualityDoc = JsonDocument.Parse("""
+        {
+          "scopePath": "",
+          "summary": { "totalDocuments": 1, "okDocuments": 1 },
+          "items": [
+            {
+              "docPath": "Neutral/quality.pdf",
+              "qualityStatus": "ok",
+              "extractionConfidence": 0.95,
+              "pageCount": 2,
+              "textPageCount": 2
+            }
+          ]
+        }
+        """);
+        using var pagesDoc = JsonDocument.Parse("""
+        {
+          "docPath": "Neutral/pages.pdf",
+          "ocrFailureReason": "ocr_required_but_disabled",
+          "ocrDiagnostics": { "failureReason": "stale_diagnostic_should_not_win" },
+          "summary": { "pageCount": 2 },
+          "pages": [
+            {
+              "pageNumber": 1,
+              "qualityStatus": "ok",
+              "wordCount": 50,
+              "charCount": 300,
+              "imageCount": 0,
+              "chunkCount": 1
+            }
+          ]
+        }
+        """);
+
+        var mem = new ToolMemory();
+        var sut = new ToolAgentOrchestrator(new ApiClient(), null!, mem);
+        var method = typeof(ToolAgentOrchestrator).GetMethod("TryBuildInventoryRenderedItem", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(method);
+
+        var qualityResults = new ToolResults();
+        qualityResults.Items.Add(new ToolResults.Item { ToolName = "documents.extraction_quality", Result = qualityDoc.RootElement.Clone() });
+        var qualityItem = Assert.IsType<ToolResults.Item>(method!.Invoke(sut, new object?[] { qualityResults, "en", CancellationToken.None }));
+        Assert.Equal("inventory.rendered", qualityItem.ToolName);
+        Assert.Equal("extraction_quality", qualityItem.Result.GetProperty("kind").GetString());
+        var listed = Assert.Single(mem.LastListedDocuments);
+        Assert.Equal("Neutral/quality.pdf", listed.DocPath);
+        Assert.Equal("quality.pdf", listed.DocName);
+        Assert.Same(listed, mem.PdfMap["PDF01"]);
+        Assert.Same(listed, mem.PdfMap["Neutral/quality.pdf"]);
+
+        var pagesResults = new ToolResults();
+        pagesResults.Items.Add(new ToolResults.Item { ToolName = "documents.extraction_pages", Result = pagesDoc.RootElement.Clone() });
+        var pagesItem = Assert.IsType<ToolResults.Item>(method!.Invoke(sut, new object?[] { pagesResults, "en", CancellationToken.None }));
+        Assert.Equal("inventory.rendered", pagesItem.ToolName);
+        Assert.Equal("extraction_pages", pagesItem.Result.GetProperty("kind").GetString());
+        Assert.Equal(
+            "ocr_required_but_disabled",
+            pagesItem.Result.GetProperty("data").GetProperty("ocrFailureReason").GetString());
     }
 
     private static JsonElement InvokeCreateCanonicalDocumentsListJson(JsonElement root, string? scopePath = null, string? searchQuery = null)

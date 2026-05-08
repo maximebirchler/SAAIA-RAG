@@ -10,10 +10,14 @@ using SAAIA.Client.WinUI.Services;
 
 namespace SAAIA.Client.WinUI.Controls;
 
+// Legacy reference-only XAML implementation. The compiled dialog is the code-built
+// partial in UserSettingsDialog.cs; keep this file localized so it remains safe if
+// it is ever inspected or re-enabled.
 internal sealed partial class UserSettingsDialog : ContentDialog
 {
     private readonly AppSettings _settings;
     private readonly Func<Task>? _repairAssistantAsync;
+    private readonly string _uiLanguage;
 
     public AppSettings UpdatedSettings { get; private set; }
 
@@ -23,18 +27,66 @@ internal sealed partial class UserSettingsDialog : ContentDialog
 
         _settings = settings;
         _repairAssistantAsync = repairAssistantAsync;
+        _uiLanguage = ClientUiText.NormalizeLanguage(settings.UiLanguage);
         UpdatedSettings = settings;
 
+        ApplyUiText();
         LoadFromSettings();
 
         PrimaryButtonClick += OnPrimaryButtonClick;
     }
 
     public UserSettingsDialog(AppSettings settings, XamlRoot? xamlRoot, Func<Task>? repairAssistantAsync = null)
-    : this(settings, repairAssistantAsync)
+        : this(settings, repairAssistantAsync)
     {
         if (xamlRoot != null)
             XamlRoot = xamlRoot;
+    }
+
+    private string T(string key) => ClientUiText.Get(key, _uiLanguage);
+
+    private void ApplyUiText()
+    {
+        Title = T("settings.title");
+        PrimaryButtonText = T("settings.apply");
+        CloseButtonText = ClientUiText.Get("dialog.close", _uiLanguage);
+
+        SafeSettingsNoteText.Text = T("settings.safe_note");
+        AssistantEnabledToggle.Header = T("settings.toggle.assistant");
+        AssistantEnabledToggle.OnContent = T("settings.toggle.assistant.on");
+        AssistantEnabledToggle.OffContent = T("settings.toggle.assistant.off");
+        StrictModeToggle.Header = T("settings.toggle.strict");
+        StrictModeToggle.OnContent = T("settings.toggle.strict.on");
+        StrictModeToggle.OffContent = T("settings.toggle.strict.off");
+
+        RagQualityLabelText.Text = T("settings.rag_quality");
+        ResetComboItems(RagQualityCombo, T("settings.choice.quick"), T("settings.choice.balanced"), T("settings.choice.deep"));
+
+        StyleLabelText.Text = T("settings.style");
+        ResetComboItems(StyleCombo, T("settings.choice.precise"), T("settings.choice.balanced"), T("settings.choice.creative"));
+
+        AnswerLengthLabelText.Text = T("settings.length");
+        ResetComboItems(AnswerLengthCombo, T("settings.choice.short"), T("settings.choice.standard"), T("settings.choice.long"));
+
+        AssistantSectionText.Text = T("settings.section.assistant");
+        AssistantRepairNoteText.Text = T("settings.repair.note");
+        RepairAssistantButton.Content = T("settings.repair.button");
+
+        SupportSectionText.Text = T("settings.section.support");
+        SupportNoteText.Text = T("settings.support.note");
+        ExportSupportButton.Content = T("settings.support.button");
+        OpenSupportFolderButton.Content = T("settings.support.open_folder");
+    }
+
+    private static void ResetComboItems(ComboBox combo, params string[] items)
+    {
+        var selectedIndex = combo.SelectedIndex;
+        combo.Items.Clear();
+        foreach (var item in items)
+            combo.Items.Add(new ComboBoxItem { Content = item });
+
+        if (selectedIndex >= 0 && selectedIndex < items.Length)
+            combo.SelectedIndex = selectedIndex;
     }
 
     private async void RepairAssistant_Click(object sender, RoutedEventArgs e)
@@ -43,20 +95,20 @@ internal sealed partial class UserSettingsDialog : ContentDialog
         {
             if (_repairAssistantAsync is null)
             {
-                RepairStatusText.Text = "Non disponible.";
+                RepairStatusText.Text = T("settings.status.repair.unavailable");
                 return;
             }
 
             RepairAssistantButton.IsEnabled = false;
-            RepairStatusText.Text = "Installation / réparation en cours…";
+            RepairStatusText.Text = T("settings.status.repair.running");
 
             await _repairAssistantAsync().ConfigureAwait(true);
 
-            RepairStatusText.Text = "Terminé.";
+            RepairStatusText.Text = T("settings.status.repair.done");
         }
         catch (Exception ex)
         {
-            RepairStatusText.Text = "Échec : " + ex.Message;
+            RepairStatusText.Text = T("settings.status.failed_prefix") + ex.Message;
         }
         finally
         {
@@ -69,7 +121,6 @@ internal sealed partial class UserSettingsDialog : ContentDialog
         AssistantEnabledToggle.IsOn = _settings.UseLocalLlm;
         StrictModeToggle.IsOn = string.Equals(_settings.ActiveMode, "strict", StringComparison.OrdinalIgnoreCase);
 
-        // Rag preset
         var preset = (_settings.RagQualityPreset ?? "balanced").Trim().ToLowerInvariant();
         RagQualityCombo.SelectedIndex = preset switch
         {
@@ -78,23 +129,28 @@ internal sealed partial class UserSettingsDialog : ContentDialog
             _ => 1
         };
 
-        // Style (map temperature -> 3 user-friendly buckets)
         var t = _settings.LlmTemperature;
-        if (double.IsNaN(t) || double.IsInfinity(t)) t = 0.2;
-        if (t <= 0.15) StyleCombo.SelectedIndex = 0;         // factuel
-        else if (t <= 0.45) StyleCombo.SelectedIndex = 1;    // équilibré
-        else StyleCombo.SelectedIndex = 2;                   // créatif
+        if (double.IsNaN(t) || double.IsInfinity(t))
+            t = 0.2;
 
-        // Answer length (map tokens -> buckets)
+        if (t <= 0.15)
+            StyleCombo.SelectedIndex = 0;
+        else if (t <= 0.45)
+            StyleCombo.SelectedIndex = 1;
+        else
+            StyleCombo.SelectedIndex = 2;
+
         var mt = _settings.LlmMaxOutputTokens;
-        if (mt <= 650) AnswerLengthCombo.SelectedIndex = 0;
-        else if (mt <= 1150) AnswerLengthCombo.SelectedIndex = 1;
-        else AnswerLengthCombo.SelectedIndex = 2;
+        if (mt <= 650)
+            AnswerLengthCombo.SelectedIndex = 0;
+        else if (mt <= 1150)
+            AnswerLengthCombo.SelectedIndex = 1;
+        else
+            AnswerLengthCombo.SelectedIndex = 2;
     }
 
     private void OnPrimaryButtonClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
-        // Apply safe settings back to AppSettings.
         _settings.UseLocalLlm = AssistantEnabledToggle.IsOn;
         _settings.ActiveMode = StrictModeToggle.IsOn ? "strict" : "auto";
 
@@ -107,9 +163,9 @@ internal sealed partial class UserSettingsDialog : ContentDialog
 
         _settings.LlmTemperature = StyleCombo.SelectedIndex switch
         {
-            0 => 0.10, // factuel
-            2 => 0.70, // créatif
-            _ => 0.25  // équilibré
+            0 => 0.10,
+            2 => 0.70,
+            _ => 0.25
         };
 
         _settings.LlmMaxOutputTokens = AnswerLengthCombo.SelectedIndex switch
@@ -127,15 +183,15 @@ internal sealed partial class UserSettingsDialog : ContentDialog
         try
         {
             ExportSupportButton.IsEnabled = false;
-            ExportStatusText.Text = "Création du support-bundle…";
+            ExportStatusText.Text = T("settings.status.exporting");
 
             var zipPath = await SupportBundleBuilder.BuildAsync(_settings).ConfigureAwait(true);
 
-            ExportStatusText.Text = $"OK : {zipPath}";
+            ExportStatusText.Text = T("settings.status.exported") + Environment.NewLine + zipPath;
         }
         catch (Exception ex)
         {
-            ExportStatusText.Text = "Échec : " + ex.Message;
+            ExportStatusText.Text = T("settings.status.export_failed") + Environment.NewLine + ex.Message;
         }
         finally
         {
@@ -152,13 +208,12 @@ internal sealed partial class UserSettingsDialog : ContentDialog
             Process.Start(new ProcessStartInfo
             {
                 FileName = "explorer.exe",
-                Arguments = $""{dir}"",
+                Arguments = $"\"{dir}\"",
                 UseShellExecute = true
             });
         }
         catch
         {
-            // ignore
         }
     }
 }

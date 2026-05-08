@@ -12,17 +12,64 @@ namespace SAAIA.Client.WinUI.Services.ToolAgent;
 
 public sealed partial class ToolAgentOrchestrator
 {
-    private sealed record ResolvedDocRef(string DocId, string DocPath, string DocName, string? Category, string? CategoryPath, int? Pages);
-    private sealed record SummaryChunk(string Text, int PageStart, int PageEnd, int ChunkIndex, string DocPath, string DocName);
-    private static string? ExtractTopLevelCategoryForRag(string? categoryPath)
-    {
-        var normalized = (categoryPath ?? string.Empty).Replace('\\', '/').Trim().TrimStart('/').TrimEnd('/');
-        if (string.IsNullOrWhiteSpace(normalized))
-            return null;
+    private sealed record ResolvedDocRef(
+        string DocId,
+        string DocPath,
+        string DocName,
+        string? Category,
+        string? CategoryPath,
+        int? Pages,
+        string? CategoryRef = null,
+        string? SourceHash = null,
+        string? DocLanguage = null,
+        string? ProfileLanguage = null);
+    private sealed record SummaryChunk(
+        string Text,
+        int PageStart,
+        int PageEnd,
+        int ChunkIndex,
+        string DocPath,
+        string DocName,
+        string? DocId = null,
+        string? SourceHash = null,
+        string? DocLanguage = null,
+        string? ProfileLanguage = null,
+        string? Category = null,
+        string? CategoryRef = null,
+        string? CategoryPath = null,
+        string? ChunkId = null,
+        string? ExtractionSource = null,
+        string? DocumentQualityStatus = null,
+        string? PageQualityStatus = null,
+        string? TextStatus = null,
+        string? QualityStatus = null,
+        double? ExtractionConfidence = null,
+        double? DocumentExtractionConfidence = null,
+        double? PageExtractionConfidence = null,
+        bool ManualReviewRecommended = false,
+        bool DocumentManualReviewRecommended = false,
+        bool PageManualReviewRecommended = false,
+        bool OcrAttempted = false,
+        bool OcrApplied = false,
+        bool OcrRecommended = false,
+        ToolMemory.SourceExtractionDiagnosticRef? ExtractionDiagnosticSummary = null,
+        IReadOnlyList<string>? QualitySignals = null,
+        IReadOnlyList<ToolMemory.SourceContentCardRef>? MatchedContentCards = null,
+        string? SelectionHintEvidenceRole = null,
+        int? SelectionHintActionabilityScore = null,
+        int? SelectionHintSupportScore = null,
+        int? SelectionHintFragmentScore = null,
+        int? SelectionHintNavigationScore = null,
+        int? SelectionHintQualityPenalty = null);
 
-        var slash = normalized.IndexOf('/');
-        return slash > 0 ? normalized[..slash] : normalized;
-    }
+    private static string? GetRagCategoryScopeArg(JsonElement args)
+        => NormalizeCategoryPathArg(
+            GetStringArg(args, "categoryPath")
+            ?? GetNestedStringArg(args, "filters", "categoryPath")
+            ?? GetStringArg(args, "categoryRef")
+            ?? GetNestedStringArg(args, "filters", "categoryRef")
+            ?? GetStringArg(args, "category")
+            ?? GetNestedStringArg(args, "filters", "category"));
 
     private static bool LooksLikeReindexableDocumentPath(string? path)
     {
@@ -99,8 +146,12 @@ public sealed partial class ToolAgentOrchestrator
             DocPath = resolved.DocPath,
             DocName = resolved.DocName,
             Category = resolved.Category ?? string.Empty,
+            CategoryRef = resolved.CategoryRef,
             CategoryPath = resolved.CategoryPath ?? string.Empty,
             PdfRef = _mem.LastFocusedDocument?.PdfRef ?? string.Empty,
+            SourceHash = resolved.SourceHash,
+            DocLanguage = resolved.DocLanguage,
+            ProfileLanguage = resolved.ProfileLanguage,
             Pages = resolved.Pages
         };
 
@@ -112,6 +163,19 @@ public sealed partial class ToolAgentOrchestrator
 
         _mem.PromoteDocumentsToWorkspace(new[] { _mem.LastFocusedDocument });
     }
+
+    private static ResolvedDocRef BuildResolvedDocRefFromDocumentItem(ToolMemory.DocumentItem d)
+        => new(
+            d.DocId,
+            d.DocPath,
+            d.DocName,
+            d.Category,
+            d.CategoryPath,
+            d.Pages,
+            d.CategoryRef,
+            d.SourceHash,
+            d.DocLanguage,
+            d.ProfileLanguage);
 
     private IEnumerable<ToolMemory.DocumentItem> EnumerateKnownDocuments()
     {
@@ -321,7 +385,7 @@ public sealed partial class ToolAgentOrchestrator
         if (secondScore > 0 && bestScore - secondScore < 40)
             return null;
 
-        return new ResolvedDocRef(best.DocId, best.DocPath, best.DocName, best.Category, best.CategoryPath, best.Pages);
+        return BuildResolvedDocRefFromDocumentItem(best);
     }
 
     private static bool QueryLooksSpecificEnoughForFuzzyResolution(string? query)
@@ -365,7 +429,7 @@ public sealed partial class ToolAgentOrchestrator
                 || string.Equals(d.DocName, s, StringComparison.OrdinalIgnoreCase)
                 || IsExactDocumentReferenceMatch(s, d.DocName, d.DocPath))
             {
-                return new ResolvedDocRef(d.DocId, d.DocPath, d.DocName, d.Category, d.CategoryPath, d.Pages);
+                return BuildResolvedDocRefFromDocumentItem(d);
             }
         }
 
@@ -455,7 +519,7 @@ public sealed partial class ToolAgentOrchestrator
 
         if (_mem.PdfMap.TryGetValue(s, out var mapped) && mapped is not null)
         {
-            var resolved = new ResolvedDocRef(mapped.DocId, mapped.DocPath, mapped.DocName, mapped.Category, mapped.CategoryPath, mapped.Pages);
+            var resolved = BuildResolvedDocRefFromDocumentItem(mapped);
             RememberFocusedDocument(resolved);
             return new ExplicitDocumentResolution { IsResolved = true, Document = resolved };
         }
@@ -552,9 +616,20 @@ public sealed partial class ToolAgentOrchestrator
 
         var name = TryGetString(doc, "DocName") ?? TryGetString(doc, "docName") ?? path;
         var category = TryGetString(doc, "Category") ?? TryGetString(doc, "category");
+        var categoryRef = TryGetString(doc, "CategoryRef") ?? TryGetString(doc, "categoryRef");
         var categoryPath = TryGetString(doc, "CategoryPath") ?? TryGetString(doc, "categoryPath") ?? GuessCategoryPath(path);
         var pages = TryGetInt(doc, "PageCount") ?? TryGetInt(doc, "pageCount") ?? TryGetInt(doc, "pages");
-        return new ResolvedDocRef(gotId, path, name, category, categoryPath, pages);
+        return new ResolvedDocRef(
+            gotId,
+            path,
+            name,
+            category,
+            categoryPath,
+            pages,
+            categoryRef,
+            NullIfWhiteSpace(TryGetString(doc, "SourceHash") ?? TryGetString(doc, "sourceHash")),
+            NullIfWhiteSpace(TryGetDocumentLanguage(doc)),
+            NullIfWhiteSpace(TryGetString(doc, "ProfileLanguage") ?? TryGetString(doc, "profileLanguage")));
     }
 
     private ResolvedDocRef? TryBuildResolvedDocRefFromSearchItem(JsonElement item)
@@ -566,9 +641,20 @@ public sealed partial class ToolAgentOrchestrator
 
         var docName = TryGetString(item, "docName") ?? TryGetString(item, "DocName") ?? docPath;
         var category = TryGetString(item, "category") ?? TryGetString(item, "Category");
+        var categoryRef = TryGetString(item, "categoryRef") ?? TryGetString(item, "CategoryRef");
         var categoryPath = TryGetString(item, "categoryPath") ?? TryGetString(item, "CategoryPath") ?? GuessCategoryPath(docPath);
         var pages = TryGetInt(item, "pages") ?? TryGetInt(item, "PageCount") ?? TryGetInt(item, "pageCount");
-        return new ResolvedDocRef(docId, docPath, docName, category, categoryPath, pages);
+        return new ResolvedDocRef(
+            docId,
+            docPath,
+            docName,
+            category,
+            categoryPath,
+            pages,
+            categoryRef,
+            NullIfWhiteSpace(TryGetString(item, "sourceHash") ?? TryGetString(item, "SourceHash")),
+            NullIfWhiteSpace(TryGetDocumentLanguage(item)),
+            NullIfWhiteSpace(TryGetString(item, "profileLanguage") ?? TryGetString(item, "ProfileLanguage")));
     }
 
     private async Task<ExplicitDocumentResolution> ResolveExplicitDocumentReferenceAsync(string docRef, CancellationToken ct)
@@ -581,7 +667,7 @@ public sealed partial class ToolAgentOrchestrator
 
         if (_mem.PdfMap.TryGetValue(s, out var mapped) && mapped is not null)
         {
-            var resolved = new ResolvedDocRef(mapped.DocId, mapped.DocPath, mapped.DocName, mapped.Category, mapped.CategoryPath, mapped.Pages);
+            var resolved = BuildResolvedDocRefFromDocumentItem(mapped);
             RememberFocusedDocument(resolved);
             return new ExplicitDocumentResolution { IsResolved = true, Document = resolved };
         }
@@ -599,15 +685,9 @@ public sealed partial class ToolAgentOrchestrator
         if (Guid.TryParse(s, out _))
         {
             var doc = await _api.DocumentsGetAsync(s, ct).ConfigureAwait(false);
-            var gotId = TryGetString(doc, "DocId") ?? TryGetString(doc, "docId") ?? s;
-            var path = TryGetString(doc, "DocPath") ?? TryGetString(doc, "docPath") ?? string.Empty;
-            var name = TryGetString(doc, "DocName") ?? TryGetString(doc, "docName") ?? path;
-            var category = TryGetString(doc, "Category") ?? TryGetString(doc, "category");
-            var categoryPath = TryGetString(doc, "CategoryPath") ?? TryGetString(doc, "categoryPath") ?? GuessCategoryPath(path);
-            var pages = TryGetInt(doc, "PageCount") ?? TryGetInt(doc, "pageCount") ?? TryGetInt(doc, "pages");
-            if (!string.IsNullOrWhiteSpace(path))
+            var resolved = TryBuildResolvedDocRefFromDocumentJson(doc, s);
+            if (resolved is not null)
             {
-                var resolved = new ResolvedDocRef(gotId, path, name, category, categoryPath, pages);
                 RememberFocusedDocument(resolved);
                 return new ExplicitDocumentResolution { IsResolved = true, Document = resolved };
             }
@@ -617,7 +697,7 @@ public sealed partial class ToolAgentOrchestrator
         if (!allowSearchResolution)
             return new ExplicitDocumentResolution();
 
-        var candidateMap = new Dictionary<string, (string docId, string docPath, string docName, string? category, string? categoryPath, int? pages, int score)>(StringComparer.OrdinalIgnoreCase);
+        var candidateMap = new Dictionary<string, (string docId, string docPath, string docName, string? category, string? categoryRef, string? categoryPath, int? pages, string? sourceHash, string? docLanguage, string? profileLanguage, int score)>(StringComparer.OrdinalIgnoreCase);
         foreach (var query in BuildDocumentSearchVariants(s).Take(5))
         {
             var search = await _api.DocumentsSearchAsync(query, categoryPath: null, categoryRef: null, limit: 20, offset: 0, ct: ct).ConfigureAwait(false);
@@ -643,8 +723,12 @@ public sealed partial class ToolAgentOrchestrator
                         docPath,
                         docName,
                         TryGetString(it, "category"),
+                        TryGetString(it, "categoryRef"),
                         TryGetString(it, "categoryPath") ?? GuessCategoryPath(docPath),
                         TryGetInt(it, "pages"),
+                        NullIfWhiteSpace(TryGetString(it, "sourceHash") ?? TryGetString(it, "SourceHash")),
+                        NullIfWhiteSpace(TryGetDocumentLanguage(it)),
+                        NullIfWhiteSpace(TryGetString(it, "profileLanguage") ?? TryGetString(it, "ProfileLanguage")),
                         score);
                 }
             }
@@ -661,7 +745,7 @@ public sealed partial class ToolAgentOrchestrator
         if (exactMatches.Count == 1)
         {
             var winner = exactMatches[0];
-            var resolved = new ResolvedDocRef(winner.docId, winner.docPath, winner.docName, winner.category, winner.categoryPath, winner.pages);
+            var resolved = new ResolvedDocRef(winner.docId, winner.docPath, winner.docName, winner.category, winner.categoryPath, winner.pages, winner.categoryRef, winner.sourceHash, winner.docLanguage, winner.profileLanguage);
             RememberFocusedDocument(resolved);
             return new ExplicitDocumentResolution { IsResolved = true, Document = resolved };
         }
@@ -681,7 +765,7 @@ public sealed partial class ToolAgentOrchestrator
         var secondScore = ranked.Count > 1 ? ranked[1].score : 0;
         if (best.score >= 220 && (secondScore == 0 || best.score - secondScore >= 60))
         {
-            var resolved = new ResolvedDocRef(best.docId, best.docPath, best.docName, best.category, best.categoryPath, best.pages);
+            var resolved = new ResolvedDocRef(best.docId, best.docPath, best.docName, best.category, best.categoryPath, best.pages, best.categoryRef, best.sourceHash, best.docLanguage, best.profileLanguage);
             RememberFocusedDocument(resolved);
             return new ExplicitDocumentResolution { IsResolved = true, Document = resolved };
         }
@@ -738,6 +822,17 @@ public sealed partial class ToolAgentOrchestrator
                 return BuildSourceFromDocument(mapped);
         }
 
+        foreach (var used in _mem.LastSourcesUsed)
+        {
+            if (string.Equals(used.DocPath, s, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(used.Label, s, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(used.DocId, s, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(used.SourceHash, s, StringComparison.OrdinalIgnoreCase))
+            {
+                return used;
+            }
+        }
+
         foreach (var doc in _mem.LastListedDocuments)
         {
             if (string.Equals(doc.DocPath, s, StringComparison.OrdinalIgnoreCase)
@@ -775,10 +870,42 @@ public sealed partial class ToolAgentOrchestrator
 
         return new ToolMemory.SourceRef
         {
+            DocId = NullIfWhiteSpace(doc.DocId) ?? used?.DocId,
             DocPath = doc.DocPath,
+            DocName = NullIfWhiteSpace(doc.DocName) ?? used?.DocName,
             PageStart = pageStart,
             PageEnd = pageEnd,
-            Label = string.IsNullOrWhiteSpace(doc.DocName) ? doc.DocPath : $"{doc.DocName} (p.{pageStart})"
+            Label = string.IsNullOrWhiteSpace(doc.DocName) ? doc.DocPath : doc.DocName,
+            SourceHash = NullIfWhiteSpace(used?.SourceHash) ?? NullIfWhiteSpace(doc.SourceHash),
+            DocLanguage = NullIfWhiteSpace(used?.DocLanguage) ?? NullIfWhiteSpace(doc.DocLanguage),
+            ProfileLanguage = NullIfWhiteSpace(used?.ProfileLanguage) ?? NullIfWhiteSpace(doc.ProfileLanguage),
+            Category = NullIfWhiteSpace(used?.Category) ?? NullIfWhiteSpace(doc.Category),
+            CategoryRef = NullIfWhiteSpace(used?.CategoryRef) ?? NullIfWhiteSpace(doc.CategoryRef),
+            CategoryPath = NullIfWhiteSpace(used?.CategoryPath) ?? NullIfWhiteSpace(doc.CategoryPath) ?? NullIfWhiteSpace(doc.Category),
+            ChunkId = used?.ChunkId,
+            ExtractionSource = used?.ExtractionSource,
+            DocumentQualityStatus = used?.DocumentQualityStatus,
+            PageQualityStatus = used?.PageQualityStatus,
+            TextStatus = used?.TextStatus,
+            QualityStatus = used?.QualityStatus,
+            ExtractionConfidence = used?.ExtractionConfidence,
+            DocumentExtractionConfidence = used?.DocumentExtractionConfidence,
+            PageExtractionConfidence = used?.PageExtractionConfidence,
+            ManualReviewRecommended = used?.ManualReviewRecommended ?? false,
+            DocumentManualReviewRecommended = used?.DocumentManualReviewRecommended ?? false,
+            PageManualReviewRecommended = used?.PageManualReviewRecommended ?? false,
+            OcrAttempted = used?.OcrAttempted ?? false,
+            OcrApplied = used?.OcrApplied ?? false,
+            OcrRecommended = used?.OcrRecommended ?? false,
+            ExtractionDiagnosticSummary = CloneSourceExtractionDiagnostic(used?.ExtractionDiagnosticSummary),
+            QualitySignals = used?.QualitySignals.ToList() ?? new List<string>(),
+            MatchedContentCards = used?.MatchedContentCards.ToList() ?? new List<ToolMemory.SourceContentCardRef>(),
+            SelectionHintEvidenceRole = used?.SelectionHintEvidenceRole,
+            SelectionHintActionabilityScore = used?.SelectionHintActionabilityScore,
+            SelectionHintSupportScore = used?.SelectionHintSupportScore,
+            SelectionHintFragmentScore = used?.SelectionHintFragmentScore,
+            SelectionHintNavigationScore = used?.SelectionHintNavigationScore,
+            SelectionHintQualityPenalty = used?.SelectionHintQualityPenalty
         };
     }
 
@@ -792,7 +919,7 @@ public sealed partial class ToolAgentOrchestrator
 
         if (_mem.PdfMap.TryGetValue(s, out var mapped) && mapped is not null)
         {
-            var resolved = new ResolvedDocRef(mapped.DocId, mapped.DocPath, mapped.DocName, mapped.Category, mapped.CategoryPath, mapped.Pages);
+            var resolved = BuildResolvedDocRefFromDocumentItem(mapped);
             RememberFocusedDocument(resolved);
             return resolved;
         }
@@ -803,7 +930,7 @@ public sealed partial class ToolAgentOrchestrator
             var key = $"PDF{nPdf:00}";
             if (_mem.PdfMap.TryGetValue(key, out var pdfDoc) && pdfDoc is not null)
             {
-                var resolved = new ResolvedDocRef(pdfDoc.DocId, pdfDoc.DocPath, pdfDoc.DocName, pdfDoc.Category, pdfDoc.CategoryPath, pdfDoc.Pages);
+                var resolved = BuildResolvedDocRefFromDocumentItem(pdfDoc);
                 RememberFocusedDocument(resolved);
                 return resolved;
             }
@@ -812,7 +939,7 @@ public sealed partial class ToolAgentOrchestrator
         if (int.TryParse(s, out var idx) && idx > 0 && _mem.LastListedDocuments is { Count: > 0 } && idx <= _mem.LastListedDocuments.Count)
         {
             var d = _mem.LastListedDocuments[idx - 1];
-            var resolved = new ResolvedDocRef(d.DocId, d.DocPath, d.DocName, d.Category, d.CategoryPath, d.Pages);
+            var resolved = BuildResolvedDocRefFromDocumentItem(d);
             RememberFocusedDocument(resolved);
             return resolved;
         }
@@ -824,7 +951,7 @@ public sealed partial class ToolAgentOrchestrator
                 || string.Equals(d.DocName, s, StringComparison.OrdinalIgnoreCase)
                 || IsExactDocumentReferenceMatch(s, d.DocName, d.DocPath))
             {
-                var resolved = new ResolvedDocRef(d.DocId, d.DocPath, d.DocName, d.Category, d.CategoryPath, d.Pages);
+                var resolved = BuildResolvedDocRefFromDocumentItem(d);
                 RememberFocusedDocument(resolved);
                 return resolved;
             }
@@ -843,15 +970,9 @@ public sealed partial class ToolAgentOrchestrator
         if (Guid.TryParse(s, out _))
         {
             var doc = await _api.DocumentsGetAsync(s, ct).ConfigureAwait(false);
-            var gotId = TryGetString(doc, "DocId") ?? TryGetString(doc, "docId") ?? s;
-            var path = TryGetString(doc, "DocPath") ?? TryGetString(doc, "docPath") ?? string.Empty;
-            var name = TryGetString(doc, "DocName") ?? TryGetString(doc, "docName") ?? path;
-            var category = TryGetString(doc, "Category") ?? TryGetString(doc, "category");
-            var categoryPath = TryGetString(doc, "CategoryPath") ?? TryGetString(doc, "categoryPath") ?? GuessCategoryPath(path);
-            var pages = TryGetInt(doc, "PageCount") ?? TryGetInt(doc, "pageCount") ?? TryGetInt(doc, "pages");
-            if (!string.IsNullOrWhiteSpace(path))
+            var resolved = TryBuildResolvedDocRefFromDocumentJson(doc, s);
+            if (resolved is not null)
             {
-                var resolved = new ResolvedDocRef(gotId, path, name, category, categoryPath, pages);
                 RememberFocusedDocument(resolved);
                 return resolved;
             }
@@ -861,7 +982,7 @@ public sealed partial class ToolAgentOrchestrator
         if (!allowSearchResolution)
             return null;
 
-        var candidateMap = new Dictionary<string, (string docId, string docPath, string docName, string? category, string? categoryPath, int? pages, int score)>(StringComparer.OrdinalIgnoreCase);
+        var candidateMap = new Dictionary<string, (string docId, string docPath, string docName, string? category, string? categoryRef, string? categoryPath, int? pages, string? sourceHash, string? docLanguage, string? profileLanguage, int score)>(StringComparer.OrdinalIgnoreCase);
         foreach (var query in BuildDocumentSearchVariants(s).Take(5))
         {
             var search = await _api.DocumentsSearchAsync(query, categoryPath: null, categoryRef: null, limit: 20, offset: 0, ct: ct).ConfigureAwait(false);
@@ -891,8 +1012,12 @@ public sealed partial class ToolAgentOrchestrator
                         docPath,
                         docName,
                         TryGetString(it, "category"),
+                        TryGetString(it, "categoryRef"),
                         TryGetString(it, "categoryPath") ?? GuessCategoryPath(docPath),
                         TryGetInt(it, "pages"),
+                        NullIfWhiteSpace(TryGetString(it, "sourceHash") ?? TryGetString(it, "SourceHash")),
+                        NullIfWhiteSpace(TryGetDocumentLanguage(it)),
+                        NullIfWhiteSpace(TryGetString(it, "profileLanguage") ?? TryGetString(it, "ProfileLanguage")),
                         score);
                 }
             }
@@ -905,7 +1030,7 @@ public sealed partial class ToolAgentOrchestrator
 
         if (!string.IsNullOrWhiteSpace(best.docId) && best.score >= 90)
         {
-            var resolved = new ResolvedDocRef(best.docId, best.docPath, best.docName, best.category, best.categoryPath, best.pages);
+            var resolved = new ResolvedDocRef(best.docId, best.docPath, best.docName, best.category, best.categoryPath, best.pages, best.categoryRef, best.sourceHash, best.docLanguage, best.profileLanguage);
             RememberFocusedDocument(resolved);
             return resolved;
         }

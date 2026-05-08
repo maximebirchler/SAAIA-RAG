@@ -130,6 +130,24 @@ internal static class LocalizedStrings
                 ["de"] = "Die wiederverwendbare Zusammenfassung wurde erfolgreich gespeichert. Hier ist die verfügbare Version.",
                 ["it"] = "Il riassunto riutilizzabile è stato salvato correttamente. Ecco la versione disponibile."
             },
+            ["summary_store_queued"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "La génération du résumé réutilisable a été confiée au serveur. Il sera disponible dès que le traitement backend sera terminé.",
+                ["en"] = "Reusable summary generation has been queued on the server. It will be available once backend processing completes.",
+                ["es"] = "La generación del resumen reutilizable se ha enviado al servidor. Estará disponible cuando termine el procesamiento backend.",
+                ["pt"] = "A geração do resumo reutilizável foi enviada ao servidor. Ele ficará disponível quando o processamento backend terminar.",
+                ["de"] = "Die Erstellung der wiederverwendbaren Zusammenfassung wurde an den Server übergeben. Sie ist verfügbar, sobald die Backend-Verarbeitung abgeschlossen ist.",
+                ["it"] = "La generazione del riassunto riutilizzabile è stata affidata al server. Sarà disponibile quando l'elaborazione backend sarà terminata."
+            },
+            ["summary_store_backoffice_unavailable"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "Le serveur ne peut pas générer ce résumé réutilisable pour le moment : le LLM backoffice n'est pas disponible.",
+                ["en"] = "The server cannot generate this reusable summary right now because the backoffice LLM is unavailable.",
+                ["es"] = "El servidor no puede generar este resumen reutilizable ahora porque el LLM backoffice no está disponible.",
+                ["pt"] = "O servidor não pode gerar este resumo reutilizável agora porque o LLM backoffice não está disponível.",
+                ["de"] = "Der Server kann diese wiederverwendbare Zusammenfassung gerade nicht erstellen, weil das Backoffice-LLM nicht verfügbar ist.",
+                ["it"] = "Il server non può generare ora questo riassunto riutilizzabile perché il LLM backoffice non è disponibile."
+            },
             ["summary_store_failed"] = new(StringComparer.OrdinalIgnoreCase)
             {
                 ["fr"] = "Je n'ai pas réussi à stocker un résumé réutilisable pour ce document.",
@@ -167,6 +185,935 @@ internal static class LocalizedStrings
                 ["it"] = "Sto preparando una risposta breve…"
             }
 ,
+            ["source_card.language"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "langue",
+                ["en"] = "language",
+                ["es"] = "idioma",
+                ["pt"] = "idioma",
+                ["de"] = "Sprache",
+                ["it"] = "lingua"
+            },
+            ["source_card.document_language"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "langue document",
+                ["en"] = "document language",
+                ["es"] = "idioma del documento",
+                ["pt"] = "idioma do documento",
+                ["de"] = "Dokumentsprache",
+                ["it"] = "lingua documento"
+            },
+            ["source_card.profile_language"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "langue profil",
+                ["en"] = "profile language",
+                ["es"] = "idioma del perfil",
+                ["pt"] = "idioma do perfil",
+                ["de"] = "Profilsprache",
+                ["it"] = "lingua profilo"
+            },
+            ["source_card.quality"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "qualité",
+                ["en"] = "quality",
+                ["es"] = "calidad",
+                ["pt"] = "qualidade",
+                ["de"] = "Qualität",
+                ["it"] = "qualità"
+            },
+            ["source_card.page_quality"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "qualité page",
+                ["en"] = "page quality",
+                ["es"] = "calidad página",
+                ["pt"] = "qualidade página",
+                ["de"] = "Seitenqualität",
+                ["it"] = "qualità pagina"
+            },
+            ["source_card.document_quality"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "qualité document",
+                ["en"] = "document quality",
+                ["es"] = "calidad documento",
+                ["pt"] = "qualidade documento",
+                ["de"] = "Dokumentqualität",
+                ["it"] = "qualità documento"
+            },
+            ["source_card.ocr_applied"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "OCR appliqué",
+                ["en"] = "OCR applied",
+                ["es"] = "OCR aplicado",
+                ["pt"] = "OCR aplicado",
+                ["de"] = "OCR angewendet",
+                ["it"] = "OCR applicato"
+            },
+            ["source_card.ocr_recommended"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "OCR recommandé",
+                ["en"] = "OCR recommended",
+                ["es"] = "OCR recomendado",
+                ["pt"] = "OCR recomendado",
+                ["de"] = "OCR empfohlen",
+                ["it"] = "OCR consigliato"
+            },
+            ["source_card.ocr_attempted"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "OCR tenté",
+                ["en"] = "OCR attempted",
+                ["es"] = "OCR intentado",
+                ["pt"] = "OCR tentado",
+                ["de"] = "OCR versucht",
+                ["it"] = "OCR tentato"
+            },
+            ["source_card.ocr_failure"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "incident OCR",
+                ["en"] = "OCR issue",
+                ["es"] = "incidencia OCR",
+                ["pt"] = "incidente OCR",
+                ["de"] = "OCR-Hinweis",
+                ["it"] = "problema OCR"
+            },
+            ["source_card.ocr_reason"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "raison OCR",
+                ["en"] = "OCR reason",
+                ["es"] = "motivo OCR",
+                ["pt"] = "motivo OCR",
+                ["de"] = "OCR-Grund",
+                ["it"] = "motivo OCR"
+            },
+            ["source_card.ocr_pages"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "pages OCR",
+                ["en"] = "OCR pages",
+                ["es"] = "páginas OCR",
+                ["pt"] = "páginas OCR",
+                ["de"] = "OCR-Seiten",
+                ["it"] = "pagine OCR"
+            },
+            ["source_card.ocr_novel_pages"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "pages OCR utiles",
+                ["en"] = "useful OCR pages",
+                ["es"] = "páginas OCR útiles",
+                ["pt"] = "páginas OCR úteis",
+                ["de"] = "nützliche OCR-Seiten",
+                ["it"] = "pagine OCR utili"
+            },
+            ["source_card.native_text"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "texte natif",
+                ["en"] = "native text",
+                ["es"] = "texto nativo",
+                ["pt"] = "texto nativo",
+                ["de"] = "nativer Text",
+                ["it"] = "testo nativo"
+            },
+            ["source_card.page_review_count"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "pages à revoir",
+                ["en"] = "pages to review",
+                ["es"] = "páginas a revisar",
+                ["pt"] = "páginas a rever",
+                ["de"] = "Seiten zur Prüfung",
+                ["it"] = "pagine da rivedere"
+            },
+            ["source_card.page_warning_count"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "pages avec alerte",
+                ["en"] = "warning pages",
+                ["es"] = "páginas con aviso",
+                ["pt"] = "páginas com aviso",
+                ["de"] = "Warnseiten",
+                ["it"] = "pagine con avviso"
+            },
+            ["source_card.image_pages"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "pages image",
+                ["en"] = "image pages",
+                ["es"] = "páginas con imagen",
+                ["pt"] = "páginas com imagem",
+                ["de"] = "Bildseiten",
+                ["it"] = "pagine immagine"
+            },
+            ["source_card.native_ocr_recommended"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "OCR natif recommandé",
+                ["en"] = "native OCR recommended",
+                ["es"] = "OCR nativo recomendado",
+                ["pt"] = "OCR nativo recomendado",
+                ["de"] = "native OCR empfohlen",
+                ["it"] = "OCR nativo consigliato"
+            },
+            ["source_card.ocr_mode"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "mode OCR",
+                ["en"] = "OCR mode",
+                ["es"] = "modo OCR",
+                ["pt"] = "modo OCR",
+                ["de"] = "OCR-Modus",
+                ["it"] = "modalità OCR"
+            },
+            ["source_card.ocr_languages"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "langues OCR",
+                ["en"] = "OCR languages",
+                ["es"] = "idiomas OCR",
+                ["pt"] = "idiomas OCR",
+                ["de"] = "OCR-Sprachen",
+                ["it"] = "lingue OCR"
+            },
+            ["source_card.ocr_duration"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "durée OCR",
+                ["en"] = "OCR duration",
+                ["es"] = "duración OCR",
+                ["pt"] = "duração OCR",
+                ["de"] = "OCR-Dauer",
+                ["it"] = "durata OCR"
+            },
+            ["source_card.document_pages"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "pages",
+                ["en"] = "pages",
+                ["es"] = "páginas",
+                ["pt"] = "páginas",
+                ["de"] = "Seiten",
+                ["it"] = "pagine"
+            },
+            ["source_card.text_pages"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "pages texte",
+                ["en"] = "text pages",
+                ["es"] = "páginas con texto",
+                ["pt"] = "páginas com texto",
+                ["de"] = "Textseiten",
+                ["it"] = "pagine testo"
+            },
+            ["source_card.empty_pages"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "pages vides",
+                ["en"] = "empty pages",
+                ["es"] = "páginas vacías",
+                ["pt"] = "páginas vazias",
+                ["de"] = "leere Seiten",
+                ["it"] = "pagine vuote"
+            },
+            ["source_card.sparse_pages"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "pages pauvres",
+                ["en"] = "sparse pages",
+                ["es"] = "páginas escasas",
+                ["pt"] = "páginas escassas",
+                ["de"] = "seiten mit wenig Text",
+                ["it"] = "pagine scarne"
+            },
+            ["source_card.ocr_mode.image_page"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "OCR image page",
+                ["en"] = "image-page OCR",
+                ["es"] = "OCR de página imagen",
+                ["pt"] = "OCR de página imagem",
+                ["de"] = "Bildseiten-OCR",
+                ["it"] = "OCR pagina immagine"
+            },
+            ["source_card.ocr_mode.full_document"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "OCR document complet",
+                ["en"] = "full-document OCR",
+                ["es"] = "OCR de documento completo",
+                ["pt"] = "OCR de documento completo",
+                ["de"] = "Vollständige Dokument-OCR",
+                ["it"] = "OCR documento completo"
+            },
+            ["source_card.ocr_mode.full_document_force"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "OCR document complet forcé",
+                ["en"] = "forced full-document OCR",
+                ["es"] = "OCR completo forzado",
+                ["pt"] = "OCR completo forçado",
+                ["de"] = "erzwungene vollständige Dokument-OCR",
+                ["it"] = "OCR completo forzato"
+            },
+            ["source_card.ocr_mode.full_document_plus_image_page"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "OCR complet + images",
+                ["en"] = "full OCR + images",
+                ["es"] = "OCR completo + imágenes",
+                ["pt"] = "OCR completo + imagens",
+                ["de"] = "vollständige OCR + Bilder",
+                ["it"] = "OCR completo + immagini"
+            },
+            ["source_card.ocr_mode.full_document_force_plus_image_page"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "OCR complet forcé + images",
+                ["en"] = "forced full OCR + images",
+                ["es"] = "OCR completo forzado + imágenes",
+                ["pt"] = "OCR completo forçado + imagens",
+                ["de"] = "erzwungene vollständige OCR + Bilder",
+                ["it"] = "OCR completo forzato + immagini"
+            },
+            ["source_card.ocr_mode.ocr_disabled"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "OCR désactivé",
+                ["en"] = "OCR disabled",
+                ["es"] = "OCR desactivado",
+                ["pt"] = "OCR desativado",
+                ["de"] = "OCR deaktiviert",
+                ["it"] = "OCR disattivato"
+            },
+            ["source_card.ocr_reason.timeout"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "délai dépassé",
+                ["en"] = "timeout",
+                ["es"] = "tiempo agotado",
+                ["pt"] = "tempo esgotado",
+                ["de"] = "Zeitüberschreitung",
+                ["it"] = "tempo scaduto"
+            },
+            ["source_card.ocr_reason.command_missing"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "commande absente",
+                ["en"] = "command missing",
+                ["es"] = "comando ausente",
+                ["pt"] = "comando ausente",
+                ["de"] = "Befehl fehlt",
+                ["it"] = "comando mancante"
+            },
+            ["source_card.ocr_reason.process_start_failed"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "démarrage impossible",
+                ["en"] = "start failed",
+                ["es"] = "inicio fallido",
+                ["pt"] = "arranque falhou",
+                ["de"] = "Start fehlgeschlagen",
+                ["it"] = "avvio non riuscito"
+            },
+            ["source_card.ocr_reason.exit_code_non_zero"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "sortie en erreur",
+                ["en"] = "error exit",
+                ["es"] = "salida con error",
+                ["pt"] = "saída com erro",
+                ["de"] = "Fehlercode",
+                ["it"] = "uscita con errore"
+            },
+            ["source_card.ocr_reason.sidecar_missing"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "fichier OCR absent",
+                ["en"] = "OCR file missing",
+                ["es"] = "archivo OCR ausente",
+                ["pt"] = "ficheiro OCR ausente",
+                ["de"] = "OCR-Datei fehlt",
+                ["it"] = "file OCR mancante"
+            },
+            ["source_card.ocr_reason.below_min_words"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "trop peu de mots",
+                ["en"] = "too few words",
+                ["es"] = "muy pocas palabras",
+                ["pt"] = "poucas palavras",
+                ["de"] = "zu wenige Wörter",
+                ["it"] = "troppo poche parole"
+            },
+            ["source_card.ocr_reason.ocr_extraction_failed"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "extraction OCR échouée",
+                ["en"] = "OCR extraction failed",
+                ["es"] = "extracción OCR fallida",
+                ["pt"] = "extração OCR falhou",
+                ["de"] = "OCR-Extraktion fehlgeschlagen",
+                ["it"] = "estrazione OCR non riuscita"
+            },
+            ["source_card.ocr_reason.ocr_failed"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "OCR échoué",
+                ["en"] = "OCR failed",
+                ["es"] = "OCR fallido",
+                ["pt"] = "OCR falhou",
+                ["de"] = "OCR fehlgeschlagen",
+                ["it"] = "OCR non riuscito"
+            },
+            ["source_card.ocr_reason.ocr_disabled"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "OCR désactivé",
+                ["en"] = "OCR disabled",
+                ["es"] = "OCR desactivado",
+                ["pt"] = "OCR desativado",
+                ["de"] = "OCR deaktiviert",
+                ["it"] = "OCR disattivato"
+            },
+            ["source_card.ocr_reason.ocr_required_but_disabled"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "OCR requis mais désactivé",
+                ["en"] = "OCR required but disabled",
+                ["es"] = "OCR requerido pero desactivado",
+                ["pt"] = "OCR necessário mas desativado",
+                ["de"] = "OCR erforderlich, aber deaktiviert",
+                ["it"] = "OCR richiesto ma disattivato"
+            },
+            ["source_card.ocr_reason.ocr_output_missing"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "sortie OCR absente",
+                ["en"] = "OCR output missing",
+                ["es"] = "salida OCR ausente",
+                ["pt"] = "saída OCR ausente",
+                ["de"] = "OCR-Ausgabe fehlt",
+                ["it"] = "output OCR mancante"
+            },
+            ["source_card.ocr_reason.scanned_pdf_not_indexable"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "PDF scanné non indexable",
+                ["en"] = "scanned PDF not indexable",
+                ["es"] = "PDF escaneado no indexable",
+                ["pt"] = "PDF digitalizado não indexável",
+                ["de"] = "gescanntes PDF nicht indexierbar",
+                ["it"] = "PDF scansionato non indicizzabile"
+            },
+            ["source_card.ocr_reason.no_indexable_text"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "aucun texte indexable",
+                ["en"] = "no indexable text",
+                ["es"] = "sin texto indexable",
+                ["pt"] = "sem texto indexável",
+                ["de"] = "kein indexierbarer Text",
+                ["it"] = "nessun testo indicizzabile"
+            },
+            ["source_card.ocr_reason.document_not_indexable"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "document non indexable",
+                ["en"] = "document not indexable",
+                ["es"] = "documento no indexable",
+                ["pt"] = "documento não indexável",
+                ["de"] = "Dokument nicht indexierbar",
+                ["it"] = "documento non indicizzabile"
+            },
+            ["source_card.ocr_reason.render_failed"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "rendu page échoué",
+                ["en"] = "page render failed",
+                ["es"] = "renderizado fallido",
+                ["pt"] = "renderização falhou",
+                ["de"] = "Seitenrendering fehlgeschlagen",
+                ["it"] = "rendering pagina non riuscito"
+            },
+            ["source_card.ocr_reason.exception"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "exception OCR",
+                ["en"] = "OCR exception",
+                ["es"] = "excepción OCR",
+                ["pt"] = "exceção OCR",
+                ["de"] = "OCR-Ausnahme",
+                ["it"] = "eccezione OCR"
+            },
+            ["source_card.ocr_reason.image_ocr_no_novel_text"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "aucun texte image utile",
+                ["en"] = "no useful image text",
+                ["es"] = "sin texto útil en imagen",
+                ["pt"] = "sem texto útil na imagem",
+                ["de"] = "kein nützlicher Bildtext",
+                ["it"] = "nessun testo immagine utile"
+            },
+            ["source_card.ocr_reason.ocr_not_better_than_native_text"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "texte natif meilleur",
+                ["en"] = "native text better",
+                ["es"] = "texto nativo mejor",
+                ["pt"] = "texto nativo melhor",
+                ["de"] = "nativer Text besser",
+                ["it"] = "testo nativo migliore"
+            },
+            ["source_card.ocr_reason.image_ocr_not_better_than_native_text"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "texte natif meilleur",
+                ["en"] = "native text better",
+                ["es"] = "texto nativo mejor",
+                ["pt"] = "texto nativo melhor",
+                ["de"] = "nativer Text besser",
+                ["it"] = "testo nativo migliore"
+            },
+            ["source_card.ocr_reason.image_ocr_merged_native_text"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "texte image ajouté",
+                ["en"] = "image text merged",
+                ["es"] = "texto de imagen añadido",
+                ["pt"] = "texto de imagem adicionado",
+                ["de"] = "Bildtext ergänzt",
+                ["it"] = "testo immagine aggiunto"
+            },
+            ["source_card.ocr_reason.force_ocr_replaced_native_text"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "OCR forcé retenu",
+                ["en"] = "forced OCR used",
+                ["es"] = "OCR forzado usado",
+                ["pt"] = "OCR forçado usado",
+                ["de"] = "erzwungene OCR genutzt",
+                ["it"] = "OCR forzato usato"
+            },
+            ["source_card.ocr_reason.ocr_replaced_native_text"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "OCR retenu",
+                ["en"] = "OCR used",
+                ["es"] = "OCR usado",
+                ["pt"] = "OCR usado",
+                ["de"] = "OCR genutzt",
+                ["it"] = "OCR usato"
+            },
+            ["source_card.ocr_reason.duplicate_or_below_threshold"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "doublon ou seuil trop bas",
+                ["en"] = "duplicate or too short",
+                ["es"] = "duplicado o demasiado corto",
+                ["pt"] = "duplicado ou curto demais",
+                ["de"] = "Duplikat oder zu kurz",
+                ["it"] = "duplicato o troppo breve"
+            },
+            ["source_card.ocr_reason.novel_text_applied"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "texte nouveau ajouté",
+                ["en"] = "new text added",
+                ["es"] = "texto nuevo añadido",
+                ["pt"] = "texto novo adicionado",
+                ["de"] = "neuer Text ergänzt",
+                ["it"] = "nuovo testo aggiunto"
+            },
+            ["source_card.ocr_reason.no_novel_text"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "pas de texte nouveau",
+                ["en"] = "no new text",
+                ["es"] = "sin texto nuevo",
+                ["pt"] = "sem texto novo",
+                ["de"] = "kein neuer Text",
+                ["it"] = "nessun testo nuovo"
+            },
+            ["source_card.review_recommended"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "revue recommandée",
+                ["en"] = "review recommended",
+                ["es"] = "revisión recomendada",
+                ["pt"] = "revisão recomendada",
+                ["de"] = "Prüfung empfohlen",
+                ["it"] = "revisione consigliata"
+            },
+            ["source_card.hash"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "rév.",
+                ["en"] = "rev",
+                ["es"] = "rev.",
+                ["pt"] = "rev.",
+                ["de"] = "Rev.",
+                ["it"] = "rev."
+            },
+            ["source_card.content_cards"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "cartes",
+                ["en"] = "cards",
+                ["es"] = "tarjetas",
+                ["pt"] = "cartões",
+                ["de"] = "Karten",
+                ["it"] = "schede"
+            },
+            ["source_card.content_card_ids"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "cartes ID",
+                ["en"] = "card IDs",
+                ["es"] = "ID tarjetas",
+                ["pt"] = "IDs cartões",
+                ["de"] = "Karten-IDs",
+                ["it"] = "ID schede"
+            },
+            ["source_card.content_card_evidence"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "preuve cartes",
+                ["en"] = "card evidence",
+                ["es"] = "evidencia tarjetas",
+                ["pt"] = "evidência cartões",
+                ["de"] = "Kartenbeleg",
+                ["it"] = "evidenza schede"
+            },
+            ["source_card.content_card_facts"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "faits",
+                ["en"] = "facts",
+                ["es"] = "hechos",
+                ["pt"] = "factos",
+                ["de"] = "Fakten",
+                ["it"] = "fatti"
+            },
+            ["source_card.content_card_scale_basis"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "base",
+                ["en"] = "basis",
+                ["es"] = "base",
+                ["pt"] = "base",
+                ["de"] = "Basis",
+                ["it"] = "base"
+            },
+            ["source_card.content_card_non_scalable"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "non adaptable",
+                ["en"] = "non-scalable",
+                ["es"] = "no adaptable",
+                ["pt"] = "não adaptável",
+                ["de"] = "nicht skalierbar",
+                ["it"] = "non scalabile"
+            },
+            ["source_card.content_card_values"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "valeurs",
+                ["en"] = "values",
+                ["es"] = "valores",
+                ["pt"] = "valores",
+                ["de"] = "Werte",
+                ["it"] = "valori"
+            },
+            ["source_card.content_card_reasons"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "raisons",
+                ["en"] = "reasons",
+                ["es"] = "razones",
+                ["pt"] = "razões",
+                ["de"] = "Gründe",
+                ["it"] = "ragioni"
+            },
+            ["source_card.category"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "catégorie",
+                ["en"] = "category",
+                ["es"] = "categoría",
+                ["pt"] = "categoria",
+                ["de"] = "Kategorie",
+                ["it"] = "categoria"
+            },
+            ["source_card.selection_score"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "sélection",
+                ["en"] = "selection",
+                ["es"] = "selección",
+                ["pt"] = "seleção",
+                ["de"] = "Auswahl",
+                ["it"] = "selezione"
+            },
+            ["source_card.evidence_role"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "preuve",
+                ["en"] = "evidence",
+                ["es"] = "evidencia",
+                ["pt"] = "evidencia",
+                ["de"] = "Beleg",
+                ["it"] = "evidenza"
+            },
+            ["source_card.evidence_role.actionable_item"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "utilisable",
+                ["en"] = "usable",
+                ["es"] = "utilizable",
+                ["pt"] = "utilizavel",
+                ["de"] = "nutzbar",
+                ["it"] = "utilizzabile"
+            },
+            ["source_card.evidence_role.supporting_context"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "contexte",
+                ["en"] = "context",
+                ["es"] = "contexto",
+                ["pt"] = "contexto",
+                ["de"] = "Kontext",
+                ["it"] = "contesto"
+            },
+            ["source_card.evidence_role.navigation"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "navigation",
+                ["en"] = "navigation",
+                ["es"] = "navegacion",
+                ["pt"] = "navegacao",
+                ["de"] = "Navigation",
+                ["it"] = "navigazione"
+            },
+            ["source_card.evidence_role.fragment"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "fragment",
+                ["en"] = "fragment",
+                ["es"] = "fragmento",
+                ["pt"] = "fragmento",
+                ["de"] = "Fragment",
+                ["it"] = "frammento"
+            },
+            ["source_card.evidence_role.low_confidence"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "confiance faible",
+                ["en"] = "low confidence",
+                ["es"] = "confianza baja",
+                ["pt"] = "confianca baixa",
+                ["de"] = "geringe Sicherheit",
+                ["it"] = "bassa fiducia"
+            },
+            ["source_card.evidence_role.advisory"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "conseil",
+                ["en"] = "advisory",
+                ["es"] = "asesoría",
+                ["pt"] = "aconselhamento",
+                ["de"] = "Hinweis",
+                ["it"] = "consiglio"
+            },
+            ["source_card.quality.ok"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "texte OK",
+                ["en"] = "text OK",
+                ["es"] = "texto correcto",
+                ["pt"] = "texto OK",
+                ["de"] = "Text OK",
+                ["it"] = "testo OK"
+            },
+            ["source_card.quality.document_ok"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "document OK",
+                ["en"] = "document OK",
+                ["es"] = "documento correcto",
+                ["pt"] = "documento OK",
+                ["de"] = "Dokument OK",
+                ["it"] = "documento OK"
+            },
+            ["source_card.quality.page_ok"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "page OK",
+                ["en"] = "page OK",
+                ["es"] = "página correcta",
+                ["pt"] = "página OK",
+                ["de"] = "Seite OK",
+                ["it"] = "pagina OK"
+            },
+            ["source_card.quality.page_ok_with_images"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "page OK avec images",
+                ["en"] = "page OK with images",
+                ["es"] = "página correcta con imágenes",
+                ["pt"] = "página OK com imagens",
+                ["de"] = "Seite OK mit Bildern",
+                ["it"] = "pagina OK con immagini"
+            },
+            ["source_card.quality.page_ok_indexed_by_context"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "page OK via contexte",
+                ["en"] = "page OK via context",
+                ["es"] = "página correcta por contexto",
+                ["pt"] = "página OK por contexto",
+                ["de"] = "Seite OK über Kontext",
+                ["it"] = "pagina OK tramite contesto"
+            },
+            ["source_card.quality.page_ok_empty_text"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "page vide OK",
+                ["en"] = "empty page OK",
+                ["es"] = "página vacía correcta",
+                ["pt"] = "página vazia OK",
+                ["de"] = "leere Seite OK",
+                ["it"] = "pagina vuota OK"
+            },
+            ["source_card.quality.page_ok_low_value_text"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "texte faible valeur OK",
+                ["en"] = "low-value text OK",
+                ["es"] = "texto de bajo valor correcto",
+                ["pt"] = "texto de baixo valor OK",
+                ["de"] = "Text mit geringem Wert OK",
+                ["it"] = "testo a basso valore OK"
+            },
+            ["source_card.quality.low_text"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "texte faible",
+                ["en"] = "low text",
+                ["es"] = "texto insuficiente",
+                ["pt"] = "texto insuficiente",
+                ["de"] = "wenig Text",
+                ["it"] = "testo scarso"
+            },
+            ["source_card.quality.empty_text"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "texte vide",
+                ["en"] = "empty text",
+                ["es"] = "texto vacío",
+                ["pt"] = "texto vazio",
+                ["de"] = "leerer Text",
+                ["it"] = "testo vuoto"
+            },
+            ["source_card.quality.manual_review_low_text"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "texte faible, revue requise",
+                ["en"] = "low text, review required",
+                ["es"] = "texto insuficiente, revisión requerida",
+                ["pt"] = "texto insuficiente, revisão necessária",
+                ["de"] = "wenig Text, Prüfung nötig",
+                ["it"] = "testo scarso, revisione richiesta"
+            },
+            ["source_card.quality.ocr_applied_ok"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "OCR appliqué, texte OK",
+                ["en"] = "OCR applied, text OK",
+                ["es"] = "OCR aplicado, texto correcto",
+                ["pt"] = "OCR aplicado, texto OK",
+                ["de"] = "OCR angewendet, Text OK",
+                ["it"] = "OCR applicato, testo OK"
+            },
+            ["source_card.quality.ocr_applied_ok_with_page_warnings"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "OCR appliqué, alertes page",
+                ["en"] = "OCR applied, page warnings",
+                ["es"] = "OCR aplicado, avisos de página",
+                ["pt"] = "OCR aplicado, avisos de página",
+                ["de"] = "OCR angewendet, Seitenhinweise",
+                ["it"] = "OCR applicato, avvisi pagina"
+            },
+            ["source_card.quality.extraction_ok"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "extraction OK",
+                ["en"] = "extraction OK",
+                ["es"] = "extracción correcta",
+                ["pt"] = "extração OK",
+                ["de"] = "Extraktion OK",
+                ["it"] = "estrazione OK"
+            },
+            ["source_card.quality.extraction_ok_with_page_review"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "extraction OK, revue page",
+                ["en"] = "extraction OK, page review",
+                ["es"] = "extracción correcta, revisar página",
+                ["pt"] = "extração OK, rever página",
+                ["de"] = "Extraktion OK, Seitenprüfung",
+                ["it"] = "estrazione OK, revisione pagina"
+            },
+            ["source_card.quality.extraction_ok_with_page_warnings"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "extraction OK, alertes page",
+                ["en"] = "extraction OK, page warnings",
+                ["es"] = "extracción correcta, avisos de página",
+                ["pt"] = "extração OK, avisos de página",
+                ["de"] = "Extraktion OK, Seitenhinweise",
+                ["it"] = "estrazione OK, avvisi pagina"
+            },
+            ["source_card.quality.text_extraction_ok_with_images"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "texte OK avec images",
+                ["en"] = "text OK with images",
+                ["es"] = "texto correcto con imágenes",
+                ["pt"] = "texto OK com imagens",
+                ["de"] = "Text OK mit Bildern",
+                ["it"] = "testo OK con immagini"
+            },
+            ["source_card.quality.image_ocr_applied_ok"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "OCR image appliqué",
+                ["en"] = "image OCR applied",
+                ["es"] = "OCR de imagen aplicado",
+                ["pt"] = "OCR de imagem aplicado",
+                ["de"] = "Bild-OCR angewendet",
+                ["it"] = "OCR immagine applicato"
+            },
+            ["source_card.quality.ocr_failed_or_insufficient"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "OCR insuffisant",
+                ["en"] = "OCR insufficient",
+                ["es"] = "OCR insuficiente",
+                ["pt"] = "OCR insuficiente",
+                ["de"] = "OCR unzureichend",
+                ["it"] = "OCR insufficiente"
+            },
+            ["source_card.quality.ocr_applied_low_confidence"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "OCR appliqué, confiance faible",
+                ["en"] = "OCR applied, low confidence",
+                ["es"] = "OCR aplicado, confianza baja",
+                ["pt"] = "OCR aplicado, baixa confiança",
+                ["de"] = "OCR angewendet, geringe Sicherheit",
+                ["it"] = "OCR applicato, fiducia bassa"
+            },
+            ["source_card.quality.manual_review_empty_text"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "texte vide, revue requise",
+                ["en"] = "empty text, review required",
+                ["es"] = "texto vacío, revisión requerida",
+                ["pt"] = "texto vazio, revisão necessária",
+                ["de"] = "leerer Text, Prüfung nötig",
+                ["it"] = "testo vuoto, revisione richiesta"
+            },
+            ["source_card.quality.manual_review_probable_ocr_noise"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "bruit OCR probable",
+                ["en"] = "probable OCR noise",
+                ["es"] = "probable ruido OCR",
+                ["pt"] = "provável ruído OCR",
+                ["de"] = "wahrscheinliches OCR-Rauschen",
+                ["it"] = "probabile rumore OCR"
+            },
+            ["source_card.quality.manual_review_text_not_indexed"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "texte non indexé, revue requise",
+                ["en"] = "text not indexed, review required",
+                ["es"] = "texto no indexado, revisión requerida",
+                ["pt"] = "texto não indexado, revisão necessária",
+                ["de"] = "Text nicht indexiert, Prüfung nötig",
+                ["it"] = "testo non indicizzato, revisione richiesta"
+            },
+            ["source_card.quality.ocr_required_but_disabled"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "OCR requis mais désactivé",
+                ["en"] = "OCR required but disabled",
+                ["es"] = "OCR requerido pero desactivado",
+                ["pt"] = "OCR necessário mas desativado",
+                ["de"] = "OCR erforderlich, aber deaktiviert",
+                ["it"] = "OCR richiesto ma disattivato"
+            },
+            ["source_card.quality.no_indexable_text"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "aucun texte indexable",
+                ["en"] = "no indexable text",
+                ["es"] = "sin texto indexable",
+                ["pt"] = "sem texto indexável",
+                ["de"] = "kein indexierbarer Text",
+                ["it"] = "nessun testo indicizzabile"
+            },
+            ["source_card.quality.scanned_pdf_not_indexable"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "PDF scanné non indexable",
+                ["en"] = "scanned PDF not indexable",
+                ["es"] = "PDF escaneado no indexable",
+                ["pt"] = "PDF digitalizado não indexável",
+                ["de"] = "gescanntes PDF nicht indexierbar",
+                ["it"] = "PDF scansionato non indicizzabile"
+            },
+            ["source_card.quality.document_not_indexable"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "document non indexable",
+                ["en"] = "document not indexable",
+                ["es"] = "documento no indexable",
+                ["pt"] = "documento não indexável",
+                ["de"] = "Dokument nicht indexierbar",
+                ["it"] = "documento non indicizzabile"
+            },
+            ["source_card.quality.unknown"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "qualité inconnue",
+                ["en"] = "unknown quality",
+                ["es"] = "calidad desconocida",
+                ["pt"] = "qualidade desconhecida",
+                ["de"] = "unbekannte Qualität",
+                ["it"] = "qualità sconosciuta"
+            }
+,
+            ["rag_degraded_sources_header"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "Meilleures sources trouvées :",
+                ["en"] = "Best sources found:",
+                ["es"] = "Mejores fuentes encontradas:",
+                ["pt"] = "Melhores fontes encontradas:",
+                ["de"] = "Beste gefundene Quellen:",
+                ["it"] = "Migliori fonti trovate:"
+            }
+,
             ["guided_command_help_required"] = new(StringComparer.OrdinalIgnoreCase)
             {
                 ["fr"] = "Cette demande ressemble à une commande guidée catalogue/admin, mais elle ne correspond pas exactement à une commande supportée. Je n'ai lancé aucun outil pour éviter une action partielle ou incorrecte. Ouvre le bouton ? puis clique sur la commande voulue pour insérer la formulation exacte attendue. Garde le langage naturel pour les recherches, les questions sur le contenu d'un document et les résumés.",
@@ -202,7 +1149,7 @@ internal static class LocalizedStrings
     private static readonly Dictionary<string, string[]> LanguageSignals =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            ["fr"] = new[] { "bonjour", "salut", "coucou", "donne", "liste", "serveur", "arborescence", "résumé", "resume", "français", "francais", "merci", "stp", "comment", "documents", "document", "quels", "quelles", "présents", "present", "présent", "combien", "qui", "tu", "quoi", "categorie", "catégorie", "statistiques", "sans", "vient", "viens", "lister", "atex" },
+            ["fr"] = new[] { "bonjour", "salut", "coucou", "donne", "liste", "serveur", "arborescence", "résumé", "resume", "français", "francais", "merci", "stp", "comment", "documents", "document", "quels", "quelles", "présents", "present", "présent", "combien", "qui", "tu", "quoi", "categorie", "catégorie", "statistiques", "sans", "vient", "viens", "lister" },
             ["en"] = new[] { "hello", "hi", "hey", "give", "list", "server", "tree", "summary", "please", "what", "how", "english", "document", "file", "documents", "category", "categories", "which", "many", "present", "thank", "thanks", "who", "are", "you" },
             ["es"] = new[] { "hola", "dame", "lista", "servidor", "árbol", "arbol", "resumen", "español", "espanol", "archivo", "qué", "significa", "cuántos", "cuantos", "documentos", "hay", "estadísticas", "estadisticas", "categoria", "categoría", "quien", "eres" },
             ["pt"] = new[] { "olá", "ola", "lista", "servidor", "árvore", "arvore", "resumo", "português", "portugues", "arquivo", "quantos", "documentos", "estatísticas", "estatisticas", "categoria", "quem", "és", "voce" },
@@ -255,9 +1202,108 @@ internal static class LocalizedStrings
     public static string SummaryStoreRequiresAdmin(string? language) => Get("summary_store_requires_admin", language);
     public static string SummaryAlreadyStored(string? language) => Get("summary_already_stored", language);
     public static string SummaryStoreDone(string? language) => Get("summary_store_done", language);
+    public static string SummaryStoreQueued(string? language) => Get("summary_store_queued", language);
+    public static string SummaryStoreBackofficeUnavailable(string? language) => Get("summary_store_backoffice_unavailable", language);
     public static string SummaryStoreFailed(string? language) => Get("summary_store_failed", language);
     public static string GuidedCommandHelpRequired(string? language) => Get("guided_command_help_required", language);
     public static string HelpOnlyCommandUseHelp(string? language) => Get("help_only_command_use_help", language);
+    public static string RagDegradedSourcesHeader(string? language) => Get("rag_degraded_sources_header", language);
+
+    public static string SourceCardLabel(string key, string? language)
+        => Get($"source_card.{key}", language);
+
+    public static string LocalizedSourceSelectionHintRole(string? role, string? uiLanguage)
+    {
+        var normalized = NormalizeIdentifier(role);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return string.Empty;
+
+        var key = $"source_card.evidence_role.{normalized}";
+        var value = Get(key, uiLanguage);
+        return !string.Equals(value, key, StringComparison.OrdinalIgnoreCase)
+            ? value
+            : HumanizeIdentifier(role!);
+    }
+
+    public static string LocalizedSourceQualityStatus(string? status, string? uiLanguage)
+    {
+        var normalized = NormalizeIdentifier(status);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return string.Empty;
+
+        var key = $"source_card.quality.{normalized}";
+        var value = Get(key, uiLanguage);
+        return !string.Equals(value, key, StringComparison.OrdinalIgnoreCase)
+            ? value
+            : HumanizeIdentifier(status!);
+    }
+
+    public static string LocalizedSourceOcrReason(string? reason, string? uiLanguage)
+    {
+        var normalized = NormalizeIdentifier(reason);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return string.Empty;
+
+        var key = $"source_card.ocr_reason.{normalized}";
+        var value = Get(key, uiLanguage);
+        return !string.Equals(value, key, StringComparison.OrdinalIgnoreCase)
+            ? value
+            : HumanizeIdentifier(reason!);
+    }
+
+    public static string LocalizedSourceOcrMode(string? mode, string? uiLanguage)
+    {
+        var normalized = NormalizeIdentifier(mode);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return string.Empty;
+
+        var key = $"source_card.ocr_mode.{normalized}";
+        var value = Get(key, uiLanguage);
+        return !string.Equals(value, key, StringComparison.OrdinalIgnoreCase)
+            ? value
+            : HumanizeIdentifier(mode!);
+    }
+
+    public static string LocalizedSourceLanguageName(string? language, string? uiLanguage)
+    {
+        if (string.IsNullOrWhiteSpace(language))
+            return string.Empty;
+
+        var trimmed = language.Trim();
+        if (TryMapLanguageAlias(trimmed, out var mapped))
+            return LocalizedLanguageName(mapped, uiLanguage);
+
+        var candidate = trimmed.Replace('_', '-');
+        var dash = candidate.IndexOf('-', StringComparison.Ordinal);
+        if (dash > 0 && TryMapLanguageAlias(candidate[..dash], out mapped))
+            return LocalizedLanguageName(mapped, uiLanguage);
+
+        try
+        {
+            var culture = CultureInfo.GetCultureInfo(candidate);
+            return culture.NativeName;
+        }
+        catch (CultureNotFoundException)
+        {
+            return LooksLikeLanguageCode(trimmed)
+                ? trimmed.ToUpperInvariant()
+                : HumanizeIdentifier(trimmed);
+        }
+    }
+
+    public static string NormalizeSourceLanguageIdentifier(string? language)
+    {
+        if (string.IsNullOrWhiteSpace(language))
+            return string.Empty;
+
+        var trimmed = language.Trim();
+        if (TryMapLanguageAlias(trimmed, out var mapped))
+            return mapped;
+
+        var token = NormalizeIdentifier(trimmed.Replace('_', '-'));
+        var dash = token.IndexOf('-', StringComparison.Ordinal);
+        return dash > 0 ? token[..dash] : token;
+    }
 
     public static string LocalizedLanguageName(string language, string? uiLanguage)
     {
@@ -605,6 +1651,26 @@ internal static class LocalizedStrings
         language = string.Empty;
         return false;
     }
+
+    private static string NormalizeIdentifier(string? value)
+        => StripDiacritics(value ?? string.Empty).Trim().Replace(' ', '_').ToLowerInvariant();
+
+    private static string HumanizeIdentifier(string value)
+    {
+        var words = Regex.Split(value.Trim(), @"[\s_\-]+")
+            .Where(static word => !string.IsNullOrWhiteSpace(word))
+            .ToArray();
+        if (words.Length == 0)
+            return string.Empty;
+
+        var text = string.Join(" ", words.Select(static word => word.Equals("ocr", StringComparison.OrdinalIgnoreCase)
+            ? "OCR"
+            : word.ToLowerInvariant()));
+        return char.ToUpperInvariant(text[0]) + text[1..];
+    }
+
+    private static bool LooksLikeLanguageCode(string value)
+        => Regex.IsMatch(value.Trim(), @"^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{2,8})*$", RegexOptions.CultureInvariant);
 
     private static string StripDiacritics(string value)
     {

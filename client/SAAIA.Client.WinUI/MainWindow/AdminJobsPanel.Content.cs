@@ -1,6 +1,8 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using System.Text.Json;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using SAAIA.Client.WinUI.Localization;
 
 namespace SAAIA.Client.WinUI;
 
@@ -77,36 +79,43 @@ public sealed partial class MainWindow
     }
 
     private string BuildAdminJobErrorText(AdminJobListItem item)
+        => BuildAdminJobErrorTextForDiagnostics(item.LastError, item.IsCanceled, UiLang);
+
+    internal static string BuildAdminJobErrorTextForDiagnostics(string? lastError, bool isCanceled, string uiLanguage)
     {
-        var raw = item.LastError?.Trim();
+        var raw = lastError?.Trim();
         if (string.IsNullOrWhiteSpace(raw))
             return string.Empty;
 
         var normalized = raw.ToLowerInvariant();
-        if (item.IsCanceled
+        if (isCanceled
             && (normalized == "timeout_or_canceled"
                 || normalized == "timeout"
                 || normalized.Contains("timeout", StringComparison.OrdinalIgnoreCase)
                 || normalized.Contains("bulkhead", StringComparison.OrdinalIgnoreCase)))
         {
-            return ClientUiText.Get("admin.jobs.error.canceled_by_admin", UiLang);
+            return ClientUiText.Get("admin.jobs.error.canceled_by_admin", uiLanguage);
         }
+
+        var diagnosticReason = TranslateAdminJobDiagnosticReason(raw, uiLanguage);
+        if (!string.IsNullOrWhiteSpace(diagnosticReason))
+            return diagnosticReason!;
 
         return normalized switch
         {
-            "timeout" => ClientUiText.Get("admin.jobs.error.timeout", UiLang),
-            "timeout_or_canceled" => ClientUiText.Get("admin.jobs.error.timeout", UiLang),
-            "canceled_by_admin" or "canceled_by_admin_token" or "canceled_by_admin_document" or "canceled_by_worker" or "canceled_by_admin_exception" => ClientUiText.Get("admin.jobs.error.canceled_by_admin", UiLang),
-            "canceled_at_commit" => ClientUiText.Get("admin.jobs.error.canceled_after_commit", UiLang),
-            "superseded_version" or "superseded_at_commit" => ClientUiText.Get("admin.jobs.error.superseded", UiLang),
-            "coalesced_by_missing" => ClientUiText.Get("admin.jobs.error.coalesced_by_missing", UiLang),
-            "coalesced_by_upsert" => ClientUiText.Get("admin.jobs.error.coalesced_by_upsert", UiLang),
-            "file_missing" => ClientUiText.Get("admin.jobs.error.file_missing", UiLang),
-            "canceled_stale_running" => ClientUiText.Get("admin.jobs.error.canceled_by_admin", UiLang),
-            "requeued_stale_running" or "stale_running_scanner" => ClientUiText.Get("admin.jobs.error.stale_running", UiLang),
-            "source_removed_during_ingestion" => ClientUiText.Get("admin.jobs.error.source_removed_during_ingestion", UiLang),
-            _ when normalized.Contains("timeout", StringComparison.OrdinalIgnoreCase) => ClientUiText.Get("admin.jobs.error.timeout", UiLang),
-            _ when normalized.Contains("bulkhead", StringComparison.OrdinalIgnoreCase) => ClientUiText.Get("admin.jobs.error.timeout", UiLang),
+            "timeout" => ClientUiText.Get("admin.jobs.error.timeout", uiLanguage),
+            "timeout_or_canceled" => ClientUiText.Get("admin.jobs.error.timeout", uiLanguage),
+            "canceled_by_admin" or "canceled_by_admin_token" or "canceled_by_admin_document" or "canceled_by_worker" or "canceled_by_admin_exception" => ClientUiText.Get("admin.jobs.error.canceled_by_admin", uiLanguage),
+            "canceled_at_commit" => ClientUiText.Get("admin.jobs.error.canceled_after_commit", uiLanguage),
+            "superseded_version" or "superseded_at_commit" => ClientUiText.Get("admin.jobs.error.superseded", uiLanguage),
+            "coalesced_by_missing" => ClientUiText.Get("admin.jobs.error.coalesced_by_missing", uiLanguage),
+            "coalesced_by_upsert" => ClientUiText.Get("admin.jobs.error.coalesced_by_upsert", uiLanguage),
+            "file_missing" => ClientUiText.Get("admin.jobs.error.file_missing", uiLanguage),
+            "canceled_stale_running" => ClientUiText.Get("admin.jobs.error.canceled_by_admin", uiLanguage),
+            "requeued_stale_running" or "stale_running_scanner" => ClientUiText.Get("admin.jobs.error.stale_running", uiLanguage),
+            "source_removed_during_ingestion" => ClientUiText.Get("admin.jobs.error.source_removed_during_ingestion", uiLanguage),
+            _ when normalized.Contains("timeout", StringComparison.OrdinalIgnoreCase) => ClientUiText.Get("admin.jobs.error.timeout", uiLanguage),
+            _ when normalized.Contains("bulkhead", StringComparison.OrdinalIgnoreCase) => ClientUiText.Get("admin.jobs.error.timeout", uiLanguage),
             _ => raw
         };
     }
@@ -214,9 +223,6 @@ public sealed partial class MainWindow
         if (IsAdminJobDocumentUnavailable(item))
             return null;
 
-        if (item.IsTerminal && !item.IsPaused)
-            return null;
-
         var reason = TranslateAdminJobAutoPauseReason(item.DocumentAutoIngestPauseReason);
         if (!string.IsNullOrWhiteSpace(reason))
             return ClientUiText.Format("admin.jobs.auto_pause.on_reason", UiLang, reason);
@@ -288,6 +294,7 @@ public sealed partial class MainWindow
             "outdated" => ClientUiText.Get("admin.jobs.document_status.outdated", UiLang),
             "missing" => ClientUiText.Get("admin.jobs.document_status.missing", UiLang),
             "deleted" => ClientUiText.Get("admin.jobs.document_status.deleted", UiLang),
+            "error" => ClientUiText.Get("admin.jobs.document_status.error", UiLang),
             "failed" => ClientUiText.Get("admin.jobs.document_status.failed", UiLang),
             "active" => ClientUiText.Get("admin.jobs.document_status.active", UiLang),
             "inactive" => ClientUiText.Get("admin.jobs.document_status.inactive", UiLang),
@@ -296,16 +303,89 @@ public sealed partial class MainWindow
     }
 
     private string? TranslateAdminJobAutoPauseReason(string? reason)
+        => TranslateAdminJobAutoPauseReasonForDiagnostics(reason, UiLang);
+
+    internal static string? TranslateAdminJobAutoPauseReasonForDiagnostics(string? reason, string uiLanguage)
     {
         var normalized = (reason ?? string.Empty).Trim().ToLowerInvariant();
         return normalized switch
         {
-            "admin_cancel" => ClientUiText.Get("admin.jobs.auto_pause.reason.admin_cancel", UiLang),
-            "admin_pause" => ClientUiText.Get("admin.jobs.auto_pause.reason.admin_pause", UiLang),
-            "repeated_failures" => ClientUiText.Get("admin.jobs.auto_pause.reason.repeated_failures", UiLang),
+            "admin_cancel" => ClientUiText.Get("admin.jobs.auto_pause.reason.admin_cancel", uiLanguage),
+            "admin_pause" => ClientUiText.Get("admin.jobs.auto_pause.reason.admin_pause", uiLanguage),
+            "repeated_failures" => ClientUiText.Get("admin.jobs.auto_pause.reason.repeated_failures", uiLanguage),
+            _ when IsKnownAdminJobExtractionDiagnosticReason(normalized) => DeterministicAgentText.ExtractionStatusLabel(normalized, uiLanguage),
             _ => reason
         };
     }
+
+    internal static string? TranslateAdminJobDiagnosticReason(string? value, string uiLanguage)
+    {
+        var reason = ResolveAdminJobDiagnosticReasonCode(value);
+        if (string.IsNullOrWhiteSpace(reason))
+            return null;
+
+        return DeterministicAgentText.ExtractionStatusLabel(reason, uiLanguage);
+    }
+
+    internal static string? ResolveAdminJobDiagnosticReasonCode(string? value)
+    {
+        var normalized = (value ?? string.Empty).Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(normalized))
+            return null;
+
+        if (IsKnownAdminJobExtractionDiagnosticReason(normalized))
+            return normalized;
+
+        foreach (var property in new[] { "failure_reason", "ocr_failure", "text_status", "quality_status" })
+        {
+            var match = Regex.Match(
+                normalized,
+                $@"(?:^|[;\s,]){property}\s*[:=]\s*(?<code>[a-z0-9_]+)",
+                RegexOptions.CultureInvariant);
+            if (match.Success)
+            {
+                var code = match.Groups["code"].Value;
+                if (IsKnownAdminJobExtractionDiagnosticReason(code))
+                    return code;
+            }
+        }
+
+        foreach (var code in AdminJobExtractionDiagnosticReasonCodes)
+        {
+            if (Regex.IsMatch(
+                    normalized,
+                    $@"(^|[^\p{{L}}\p{{N}}_]){Regex.Escape(code)}([^\p{{L}}\p{{N}}_]|$)",
+                    RegexOptions.CultureInvariant))
+            {
+                return code;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsKnownAdminJobExtractionDiagnosticReason(string? value)
+        => !string.IsNullOrWhiteSpace(value)
+           && AdminJobExtractionDiagnosticReasonCodes.Contains(value.Trim().ToLowerInvariant());
+
+    private static readonly HashSet<string> AdminJobExtractionDiagnosticReasonCodes = new(StringComparer.Ordinal)
+    {
+        "ocr_required_but_disabled",
+        "scanned_pdf_not_indexable",
+        "no_indexable_text",
+        "document_not_indexable",
+        "ocr_disabled",
+        "ocr_extraction_failed",
+        "ocr_failed",
+        "exit_code_non_zero",
+        "ocr_output_missing",
+        "no_novel_text",
+        "low_text",
+        "empty_text",
+        "manual_review_empty_text",
+        "manual_review_low_text",
+        "ocr_failed_or_insufficient"
+    };
 
     private bool IsAdminJobsCardInteractiveSource(DependencyObject? source, DependencyObject cardRoot)
     {

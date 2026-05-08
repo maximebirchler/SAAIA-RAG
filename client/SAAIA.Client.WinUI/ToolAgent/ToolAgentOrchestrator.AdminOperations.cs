@@ -245,7 +245,8 @@ public sealed partial class ToolAgentOrchestrator
                 DocPath = x.DocPath,
                 DocName = string.IsNullOrWhiteSpace(x.DocName) ? System.IO.Path.GetFileName(x.DocPath) : x.DocName,
                 Category = x.Category,
-                CategoryPath = x.Category,
+                CategoryRef = x.CategoryRef,
+                CategoryPath = !string.IsNullOrWhiteSpace(x.CategoryPath) ? x.CategoryPath : x.Category,
                 PdfRef = string.Empty
             })
             .ToList();

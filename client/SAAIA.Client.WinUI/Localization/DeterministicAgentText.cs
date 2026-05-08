@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using SAAIA.Client.WinUI.Services.ToolAgent;
 
@@ -333,6 +334,311 @@ internal static class DeterministicAgentText
             $"- Reset: behaelt M1-lite {BoolWord(preservesM1Lite, language)}, Praeferenzen {BoolWord(preservesPreferences, language)}, leert M3 {BoolWord(clearsM3, language)}, leert M6 {BoolWord(clearsM6, language)}, setzt Modus auf auto {BoolWord(resetsModeToAuto, language)}",
             $"- Reset: preserva M1-lite {BoolWord(preservesM1Lite, language)}, preferenze {BoolWord(preservesPreferences, language)}, pulisce M3 {BoolWord(clearsM3, language)}, pulisce M6 {BoolWord(clearsM6, language)}, riporta la modalita ad auto {BoolWord(resetsModeToAuto, language)}");
 
+    public static string ExtractionQualityHeader(string? language)
+        => Pick(language,
+            "Diagnostic qualite d'extraction :",
+            "Extraction quality diagnostics:",
+            "Diagnostico de calidad de extraccion:",
+            "Diagnostico de qualidade de extracao:",
+            "Diagnose der Extraktionsqualitaet:",
+            "Diagnostica qualita di estrazione:");
+
+    public static string ExtractionPagesHeader(string docLabel, string? language)
+    {
+        docLabel = string.IsNullOrWhiteSpace(docLabel) ? Pick(language, "document", "document", "documento", "documento", "Dokument", "documento") : docLabel.Trim();
+        return Pick(language,
+            $"Diagnostic des pages pour {docLabel} :",
+            $"Page diagnostics for {docLabel}:",
+            $"Diagnostico de paginas para {docLabel}:",
+            $"Diagnostico de paginas para {docLabel}:",
+            $"Seitendiagnose fuer {docLabel}:",
+            $"Diagnostica pagine per {docLabel}:");
+    }
+
+    public static string ExtractionScope(string scopePath, string? language)
+        => Pick(language,
+            $"- Perimetre : {scopePath}",
+            $"- Scope: {scopePath}",
+            $"- Ambito: {scopePath}",
+            $"- Escopo: {scopePath}",
+            $"- Bereich: {scopePath}",
+            $"- Ambito: {scopePath}");
+
+    public static string ExtractionQualitySummary(
+        int total,
+        int ok,
+        int lowText,
+        int emptyText,
+        int unknown,
+        int ocrRecommended,
+        int ocrApplied,
+        int manualReview,
+        int warningPages,
+        string? language)
+        => Pick(language,
+            $"- Synthese : {total} document(s), {ok} OK, {lowText} texte faible, {emptyText} vide(s), {unknown} inconnu(s), OCR conseille {ocrRecommended}, OCR applique {ocrApplied}, revue manuelle {manualReview}, pages avec avertissements {warningPages}.",
+            $"- Summary: {total} document(s), {ok} OK, {lowText} low text, {emptyText} empty, {unknown} unknown, OCR recommended {ocrRecommended}, OCR applied {ocrApplied}, manual review {manualReview}, warning pages {warningPages}.",
+            $"- Sintesis: {total} documento(s), {ok} OK, {lowText} texto bajo, {emptyText} vacio(s), {unknown} desconocido(s), OCR recomendado {ocrRecommended}, OCR aplicado {ocrApplied}, revision manual {manualReview}, paginas con avisos {warningPages}.",
+            $"- Sintese: {total} documento(s), {ok} OK, {lowText} texto fraco, {emptyText} vazio(s), {unknown} desconhecido(s), OCR recomendado {ocrRecommended}, OCR aplicado {ocrApplied}, revisao manual {manualReview}, paginas com avisos {warningPages}.",
+            $"- Zusammenfassung: {total} Dokument(e), {ok} OK, {lowText} wenig Text, {emptyText} leer, {unknown} unbekannt, OCR empfohlen {ocrRecommended}, OCR angewendet {ocrApplied}, manuelle Pruefung {manualReview}, Warnseiten {warningPages}.",
+            $"- Sintesi: {total} documento/i, {ok} OK, {lowText} testo scarso, {emptyText} vuoto/i, {unknown} sconosciuto/i, OCR consigliato {ocrRecommended}, OCR applicato {ocrApplied}, revisione manuale {manualReview}, pagine con avvisi {warningPages}.");
+
+    public static string ExtractionPagesSummary(int pages, int reviewPages, int noisePages, int emptyPages, int lowTextPages, int imagePages, string? language)
+        => Pick(language,
+            $"- Synthese : {pages} page(s), revue manuelle {reviewPages}, bruit OCR probable {noisePages}, vides {emptyPages}, texte faible {lowTextPages}, images {imagePages}.",
+            $"- Summary: {pages} page(s), manual review {reviewPages}, probable OCR noise {noisePages}, empty {emptyPages}, low text {lowTextPages}, images {imagePages}.",
+            $"- Sintesis: {pages} pagina(s), revision manual {reviewPages}, ruido OCR probable {noisePages}, vacias {emptyPages}, texto bajo {lowTextPages}, imagenes {imagePages}.",
+            $"- Sintese: {pages} pagina(s), revisao manual {reviewPages}, ruido OCR provavel {noisePages}, vazias {emptyPages}, texto fraco {lowTextPages}, imagens {imagePages}.",
+            $"- Zusammenfassung: {pages} Seite(n), manuelle Pruefung {reviewPages}, wahrscheinliches OCR-Rauschen {noisePages}, leer {emptyPages}, wenig Text {lowTextPages}, Bilder {imagePages}.",
+            $"- Sintesi: {pages} pagina/e, revisione manuale {reviewPages}, probabile rumore OCR {noisePages}, vuote {emptyPages}, testo scarso {lowTextPages}, immagini {imagePages}.");
+
+    public static string ExtractionNoDocuments(string? language)
+        => Pick(language, "- Aucun document diagnosticable.", "- No diagnosable document.", "- Ningun documento diagnosticable.", "- Nenhum documento diagnosticavel.", "- Kein diagnostizierbares Dokument.", "- Nessun documento diagnosticabile.");
+
+    public static string ExtractionNoPages(string? language)
+        => Pick(language, "- Aucune page diagnosticable.", "- No diagnosable page.", "- Ninguna pagina diagnosticable.", "- Nenhuma pagina diagnosticavel.", "- Keine diagnostizierbare Seite.", "- Nessuna pagina diagnosticabile.");
+
+    public static string ExtractionConfidenceLabel(string? language)
+        => Pick(language, "confiance", "confidence", "confianza", "confianca", "Konfidenz", "confidenza");
+
+    public static string ExtractionSourceLabel(string? language)
+        => Pick(language, "source", "source", "fuente", "fonte", "Quelle", "fonte");
+
+    public static string ExtractionDocumentStatusLabel(string? language)
+        => Pick(language, "document", "document", "documento", "documento", "Dokument", "documento");
+
+    public static string ExtractionProcessingRunStatusLabel(string? language)
+        => Pick(language, "traitement", "processing", "procesamiento", "processamento", "Verarbeitung", "elaborazione");
+
+    public static string ExtractionDocumentStatus(string? status, string? language)
+    {
+        var label = ExtractionOperationalStatusLabel(status, language);
+        return string.IsNullOrWhiteSpace(label)
+            ? string.Empty
+            : $"{ExtractionDocumentStatusLabel(language)} {label}";
+    }
+
+    public static string ExtractionProcessingRunStatus(string? status, string? language)
+    {
+        var label = ExtractionOperationalStatusLabel(status, language);
+        return string.IsNullOrWhiteSpace(label)
+            ? string.Empty
+            : $"{ExtractionProcessingRunStatusLabel(language)} {label}";
+    }
+
+    public static string ExtractionTextStatusLabel(string? language)
+        => Pick(language, "texte", "text", "texto", "texto", "Text", "testo");
+
+    public static string ExtractionImageOcrStatusLabel(string? language)
+        => Pick(language, "OCR image", "image OCR", "OCR imagen", "OCR imagem", "Bild-OCR", "OCR immagine");
+
+    public static string ExtractionTextPages(int textPages, int pageCount, string? language)
+        => Pick(language,
+            $"pages texte {textPages}/{pageCount}",
+            $"text pages {textPages}/{pageCount}",
+            $"paginas con texto {textPages}/{pageCount}",
+            $"paginas com texto {textPages}/{pageCount}",
+            $"Textseiten {textPages}/{pageCount}",
+            $"pagine testo {textPages}/{pageCount}");
+
+    public static string ExtractionOcrApplied(string? language)
+        => Pick(language, "OCR applique", "OCR applied", "OCR aplicado", "OCR aplicado", "OCR angewendet", "OCR applicato");
+
+    public static string ExtractionOcrRecommended(string? language)
+        => Pick(language, "OCR conseille", "OCR recommended", "OCR recomendado", "OCR recomendado", "OCR empfohlen", "OCR consigliato");
+
+    public static string ExtractionOcrCandidate(string? language)
+        => Pick(language, "candidat OCR", "OCR candidate", "candidato OCR", "candidato OCR", "OCR-Kandidat", "candidato OCR");
+
+    public static string ExtractionOcrTimedOut(string? language)
+        => Pick(language, "OCR timeout", "OCR timeout", "timeout OCR", "timeout OCR", "OCR-Timeout", "timeout OCR");
+
+    public static string ExtractionReviewRecommended(string? language)
+        => Pick(language, "revue manuelle conseillee", "manual review recommended", "revision manual recomendada", "revisao manual recomendada", "manuelle Pruefung empfohlen", "revisione manuale consigliata");
+
+    public static string ExtractionCategoriesHeader(string? language)
+        => Pick(language, "- Categories a surveiller :", "- Categories to watch:", "- Categorias a vigilar:", "- Categorias a observar:", "- Zu beobachtende Kategorien:", "- Categorie da monitorare:");
+
+    public static string ExtractionCategorySummary(
+        string categoryPath,
+        int total,
+        int lowText,
+        int emptyText,
+        int ocrRecommended,
+        int manualReview,
+        int warningPages,
+        string? language)
+        => Pick(language,
+            $"{categoryPath}: {total} doc(s), texte faible {lowText}, vide {emptyText}, OCR conseille {ocrRecommended}, revue {manualReview}, avertissements pages {warningPages}",
+            $"{categoryPath}: {total} doc(s), low text {lowText}, empty {emptyText}, OCR recommended {ocrRecommended}, review {manualReview}, warning pages {warningPages}",
+            $"{categoryPath}: {total} doc(s), texto bajo {lowText}, vacio {emptyText}, OCR recomendado {ocrRecommended}, revision {manualReview}, paginas con avisos {warningPages}",
+            $"{categoryPath}: {total} doc(s), texto fraco {lowText}, vazio {emptyText}, OCR recomendado {ocrRecommended}, revisao {manualReview}, paginas com avisos {warningPages}",
+            $"{categoryPath}: {total} Dok., wenig Text {lowText}, leer {emptyText}, OCR empfohlen {ocrRecommended}, Pruefung {manualReview}, Warnseiten {warningPages}",
+            $"{categoryPath}: {total} doc, testo scarso {lowText}, vuoto {emptyText}, OCR consigliato {ocrRecommended}, revisione {manualReview}, pagine con avvisi {warningPages}");
+
+    public static string ExtractionSignalsLabel(string? language)
+        => Pick(language, "signaux", "signals", "senales", "sinais", "Signale", "segnali");
+
+    public static string ExtractionNativeTextLabel(string? language)
+        => Pick(language, "texte natif", "native text", "texto nativo", "texto nativo", "nativer Text", "testo nativo");
+
+    public static string ExtractionOcrLanguagesLabel(string? language)
+        => Pick(language, "langues OCR", "OCR languages", "idiomas OCR", "idiomas OCR", "OCR-Sprachen", "lingue OCR");
+
+    public static string ExtractionOcrDurationLabel(string? language)
+        => Pick(language, "duree OCR", "OCR duration", "duracion OCR", "duracao OCR", "OCR-Dauer", "durata OCR");
+
+    public static string ExtractionOcrReasonLabel(string? language)
+        => Pick(language, "raison OCR", "OCR reason", "razon OCR", "razao OCR", "OCR-Grund", "ragione OCR");
+
+    public static string ExtractionOcrModeLabel(string? language)
+        => Pick(language, "mode OCR", "OCR mode", "modo OCR", "modo OCR", "OCR-Modus", "modalita OCR");
+
+    public static string ExtractionOcrMode(string? mode, string? language)
+    {
+        var label = ExtractionStatusLabel(mode, language);
+        if (string.IsNullOrWhiteSpace(label))
+            return string.Empty;
+
+        return $"{ExtractionOcrModeLabel(language)} {label}";
+    }
+
+    public static string ExtractionOcrExitCodeLabel(string? language)
+        => Pick(language, "code OCR", "OCR code", "codigo OCR", "codigo OCR", "OCR-Code", "codice OCR");
+
+    public static string ExtractionPreviewLabel(string? language)
+        => Pick(language, "apercu", "preview", "vista previa", "pre-visualizacao", "Vorschau", "anteprima");
+
+    public static string ExtractionWordStats(int totalWords, double? averageWordsPerPage, double? textPageRatio, string? language)
+    {
+        var parts = new List<string> { Pick(language, $"{totalWords} mots", $"{totalWords} words", $"{totalWords} palabras", $"{totalWords} palavras", $"{totalWords} Woerter", $"{totalWords} parole") };
+        if (averageWordsPerPage.HasValue)
+            parts.Add(Pick(language,
+                $"{averageWordsPerPage.Value:0.#}/page",
+                $"{averageWordsPerPage.Value:0.#}/page",
+                $"{averageWordsPerPage.Value:0.#}/pagina",
+                $"{averageWordsPerPage.Value:0.#}/pagina",
+                $"{averageWordsPerPage.Value:0.#}/Seite",
+                $"{averageWordsPerPage.Value:0.#}/pagina"));
+        if (textPageRatio.HasValue)
+            parts.Add(Pick(language,
+                $"pages texte {textPageRatio.Value:0%}",
+                $"text pages {textPageRatio.Value:0%}",
+                $"paginas texto {textPageRatio.Value:0%}",
+                $"paginas texto {textPageRatio.Value:0%}",
+                $"Textseiten {textPageRatio.Value:0%}",
+                $"pagine testo {textPageRatio.Value:0%}"));
+
+        return string.Join(", ", parts);
+    }
+
+    public static string ExtractionPageIssues(int warningPages, int reviewPages, string? language)
+        => Pick(language,
+            $"pages a verifier {reviewPages}, avertissements {warningPages}",
+            $"review pages {reviewPages}, warnings {warningPages}",
+            $"paginas a revisar {reviewPages}, avisos {warningPages}",
+            $"paginas a rever {reviewPages}, avisos {warningPages}",
+            $"Pruefseiten {reviewPages}, Warnungen {warningPages}",
+            $"pagine da rivedere {reviewPages}, avvisi {warningPages}");
+
+    public static string ExtractionPageCounters(int words, int chars, int images, int chunks, string? language)
+        => Pick(language,
+            $"{words} mots, {chars} caracteres, {images} image(s), {chunks} chunk(s)",
+            $"{words} words, {chars} chars, {images} image(s), {chunks} chunk(s)",
+            $"{words} palabras, {chars} caracteres, {images} imagen(es), {chunks} chunk(s)",
+            $"{words} palavras, {chars} caracteres, {images} imagem(ns), {chunks} chunk(s)",
+            $"{words} Woerter, {chars} Zeichen, {images} Bild(er), {chunks} Chunk(s)",
+            $"{words} parole, {chars} caratteri, {images} immagine/i, {chunks} chunk(s)");
+
+    public static string ExtractionStatusLabel(string? code, string? language)
+    {
+        var normalized = (code ?? string.Empty).Trim();
+        if (normalized.Length == 0)
+            return string.Empty;
+
+        return normalized.ToLowerInvariant() switch
+        {
+            "ok" or "page_ok" or "text_ok" => "OK",
+            "low_text" or "page_low_text" => Pick(language, "texte faible", "low text", "texto bajo", "texto fraco", "wenig Text", "testo scarso"),
+            "empty_text" or "page_empty_text" => Pick(language, "texte vide", "empty text", "texto vacio", "texto vazio", "leerer Text", "testo vuoto"),
+            "unknown" => Pick(language, "inconnu", "unknown", "desconocido", "desconhecido", "unbekannt", "sconosciuto"),
+            "ocr_recommended" => ExtractionOcrRecommended(language),
+            "ocr_applied_ok" => ExtractionOcrApplied(language),
+            "image_ocr_applied_ok" => Pick(language, "OCR image applique", "image OCR applied", "OCR de imagen aplicado", "OCR de imagem aplicado", "Bild-OCR angewendet", "OCR immagine applicato"),
+            "ocr_applied_ok_with_page_warnings" => Pick(language, "OCR applique avec avertissements", "OCR applied with warnings", "OCR aplicado con avisos", "OCR aplicado com avisos", "OCR mit Warnungen angewendet", "OCR applicato con avvisi"),
+            "ocr_applied_low_confidence" => Pick(language, "OCR applique avec confiance faible", "OCR applied with low confidence", "OCR aplicado con baja confianza", "OCR aplicado com baixa confianca", "OCR mit niedriger Konfidenz angewendet", "OCR applicato con bassa confidenza"),
+            "manual_review_empty_text" => Pick(language, "revision manuelle texte vide", "manual review empty text", "revision manual texto vacio", "revisao manual texto vazio", "manuelle Pruefung leerer Text", "revisione manuale testo vuoto"),
+            "manual_review_low_text" => Pick(language, "revision manuelle texte faible", "manual review low text", "revision manual texto bajo", "revisao manual texto fraco", "manuelle Pruefung wenig Text", "revisione manuale testo scarso"),
+            "extraction_ok_with_page_warnings" => Pick(language, "extraction OK avec avertissements", "extraction OK with warnings", "extraccion OK con avisos", "extracao OK com avisos", "Extraktion OK mit Warnungen", "estrazione OK con avvisi"),
+            "text_extraction_ok_with_images" => Pick(language, "extraction texte OK avec images", "text extraction OK with images", "extraccion de texto OK con imagenes", "extracao de texto OK com imagens", "Textextraktion OK mit Bildern", "estrazione testo OK con immagini"),
+            "extraction_ok" => Pick(language, "extraction OK", "extraction OK", "extraccion OK", "extracao OK", "Extraktion OK", "estrazione OK"),
+            "page_ok_with_images" => Pick(language, "OK avec images", "OK with images", "OK con imagenes", "OK com imagens", "OK mit Bildern", "OK con immagini"),
+            "page_ok_indexed_by_context" => Pick(language, "OK par contexte", "OK by context", "OK por contexto", "OK por contexto", "OK durch Kontext", "OK da contesto"),
+            "ocr_failed_or_insufficient" => Pick(language, "OCR echec ou insuffisant", "OCR failed or insufficient", "OCR fallido o insuficiente", "OCR falhou ou insuficiente", "OCR fehlgeschlagen oder unzureichend", "OCR fallito o insufficiente"),
+            "ocr_required_but_disabled" => Pick(language, "OCR requis mais desactive", "OCR required but disabled", "OCR requerido pero desactivado", "OCR necessario mas desativado", "OCR erforderlich aber deaktiviert", "OCR richiesto ma disattivato"),
+            "ocr_disabled" => Pick(language, "OCR desactive", "OCR disabled", "OCR desactivado", "OCR desativado", "OCR deaktiviert", "OCR disattivato"),
+            "ocr_extraction_failed" => Pick(language, "extraction OCR echouee", "OCR extraction failed", "extraccion OCR fallida", "extracao OCR falhou", "OCR-Extraktion fehlgeschlagen", "estrazione OCR fallita"),
+            "ocr_failed" => Pick(language, "OCR echoue", "OCR failed", "OCR fallido", "OCR falhou", "OCR fehlgeschlagen", "OCR fallito"),
+            "exit_code_non_zero" => Pick(language, "code de sortie non nul", "non-zero exit code", "codigo de salida no cero", "codigo de saida nao zero", "Exit-Code ungleich null", "codice di uscita non zero"),
+            "ocr_output_missing" => Pick(language, "sortie OCR manquante", "OCR output missing", "salida OCR ausente", "saida OCR ausente", "OCR-Ausgabe fehlt", "output OCR mancante"),
+            "no_novel_text" => Pick(language, "aucun texte OCR nouveau", "no new OCR text", "sin texto OCR nuevo", "sem texto OCR novo", "kein neuer OCR-Text", "nessun nuovo testo OCR"),
+            "scanned_pdf_not_indexable" => Pick(language, "PDF scanne non indexable", "scanned PDF not indexable", "PDF escaneado no indexable", "PDF digitalizado nao indexavel", "gescanntes PDF nicht indexierbar", "PDF scansionato non indicizzabile"),
+            "no_indexable_text" => Pick(language, "aucun texte indexable", "no indexable text", "sin texto indexable", "sem texto indexavel", "kein indexierbarer Text", "nessun testo indicizzabile"),
+            "document_not_indexable" => Pick(language, "document non indexable", "document not indexable", "documento no indexable", "documento nao indexavel", "Dokument nicht indexierbar", "documento non indicizzabile"),
+            _ => normalized
+        };
+    }
+
+    private static string ExtractionOperationalStatusLabel(string? status, string? language)
+    {
+        var normalized = (status ?? string.Empty).Trim().ToLowerInvariant();
+        if (normalized.Length == 0)
+            return string.Empty;
+
+        return normalized switch
+        {
+            "indexed" => Pick(language, "indexe", "indexed", "indexado", "indexado", "indexiert", "indicizzato"),
+            "error" => Pick(language, "en erreur", "error", "error", "erro", "Fehler", "errore"),
+            "done" => Pick(language, "termine", "done", "terminado", "concluido", "fertig", "completato"),
+            "failed" => Pick(language, "echoue", "failed", "fallido", "falhou", "fehlgeschlagen", "fallito"),
+            "running" => Pick(language, "en cours", "running", "en curso", "em curso", "laufend", "in corso"),
+            "queued" => Pick(language, "en attente", "queued", "en cola", "na fila", "wartend", "in coda"),
+            "paused" => Pick(language, "en pause", "paused", "pausado", "pausado", "pausiert", "in pausa"),
+            "canceled" or "cancelled" => Pick(language, "annule", "canceled", "cancelado", "cancelado", "abgebrochen", "annullato"),
+            _ => normalized
+        };
+    }
+
+    public static string ExtractionDocumentNotIndexable(string? language)
+        => Pick(language, "document non indexable", "document not indexable", "documento no indexable", "documento nao indexavel", "Dokument nicht indexierbar", "documento non indicizzabile");
+
+    public static string ExtractionFailureReason(string? reason, string? language)
+    {
+        var label = ExtractionStatusLabel(reason, language);
+        if (string.IsNullOrWhiteSpace(label))
+            return string.Empty;
+
+        return Pick(language, $"raison {label}", $"reason {label}", $"razon {label}", $"razao {label}", $"Grund {label}", $"ragione {label}");
+    }
+
+    public static string ExtractionOcrFailureReason(string? reason, string? language)
+    {
+        var label = ExtractionStatusLabel(reason, language);
+        if (string.IsNullOrWhiteSpace(label))
+            return string.Empty;
+
+        return Pick(language, $"echec OCR {label}", $"OCR failure {label}", $"fallo OCR {label}", $"falha OCR {label}", $"OCR-Fehler {label}", $"errore OCR {label}");
+    }
+
+    public static string ExtractionOcrAppliedReason(string? reason, string? language)
+    {
+        var label = ExtractionStatusLabel(reason, language);
+        if (string.IsNullOrWhiteSpace(label))
+            return string.Empty;
+
+        return Pick(language, $"decision OCR {label}", $"OCR decision {label}", $"decision OCR {label}", $"decisao OCR {label}", $"OCR-Entscheid {label}", $"decisione OCR {label}");
+    }
+
     public static string MissingSummariesHeader(string? language)
         => Pick(language,
             "Voici la liste des documents sans résumé stocké :",
@@ -350,6 +656,85 @@ internal static class DeterministicAgentText
             $"Atualmente há {total} documento(s) indexado(s) sem resumo armazenado.",
             $"Derzeit gibt es {total} indexierte Dokument(e) ohne gespeicherte Zusammenfassung.",
             $"Attualmente ci sono {total} documento/i indicizzato/i senza riassunto salvato.");
+
+    public static string BackofficeProfilesMissingCount(int total, string? language)
+        => Pick(language,
+            $"Dont {total} document(s) avec un profil backoffice LLM manquant.",
+            $"Including {total} document(s) with a missing LLM backoffice profile.",
+            $"Incluye {total} documento(s) con un perfil LLM backoffice faltante.",
+            $"Inclui {total} documento(s) com perfil LLM backoffice em falta.",
+            $"Davon {total} Dokument(e) mit fehlendem LLM-Backoffice-Profil.",
+            $"Inclusi {total} documento/i con profilo LLM backoffice mancante.");
+
+    public static string BackofficeProfileMissingSuffix(string? language)
+        => Pick(language,
+            "profil LLM manquant",
+            "missing LLM profile",
+            "perfil LLM faltante",
+            "perfil LLM em falta",
+            "LLM-Profil fehlt",
+            "profilo LLM mancante");
+
+    public static string SummaryStatusActiveJobSuffix(string? status, string? language)
+    {
+        status = string.IsNullOrWhiteSpace(status) ? Pick(language, "actif", "active", "activo", "ativo", "aktiv", "attivo") : status.Trim();
+        return Pick(language,
+            $"job actif {status}",
+            $"active job {status}",
+            $"job activo {status}",
+            $"job ativo {status}",
+            $"aktiver Job {status}",
+            $"job attivo {status}");
+    }
+
+    public static string SummaryStatusCapabilityActionSuffix(string? action, string? language)
+    {
+        action = string.IsNullOrWhiteSpace(action) ? Pick(language, "pret", "ready", "listo", "pronto", "bereit", "pronto") : action.Trim();
+        return Pick(language,
+            $"Capability B {action}",
+            $"Capability B {action}",
+            $"Capability B {action}",
+            $"Capability B {action}",
+            $"Capability B {action}",
+            $"Capability B {action}");
+    }
+
+    public static string SummaryStatusPolicyBlockedSuffix(string? reason, string? language)
+    {
+        reason = string.IsNullOrWhiteSpace(reason) ? string.Empty : $": {reason.Trim()}";
+        return Pick(language,
+            $"politique bloquee{reason}",
+            $"policy blocked{reason}",
+            $"politica bloqueada{reason}",
+            $"politica bloqueada{reason}",
+            $"Policy blockiert{reason}",
+            $"policy bloccata{reason}");
+    }
+
+    public static string SummaryStatusLastJobIssueSuffix(string? status, string? error, string? language)
+    {
+        var details = string.Join(" / ", new[] { status, error }.Where(static value => !string.IsNullOrWhiteSpace(value)).Select(static value => value!.Trim()));
+        details = string.IsNullOrWhiteSpace(details) ? string.Empty : $": {details}";
+        return Pick(language,
+            $"dernier job en anomalie{details}",
+            $"last job issue{details}",
+            $"anomalia ultimo job{details}",
+            $"anomalia no ultimo job{details}",
+            $"letzter Job auffaellig{details}",
+            $"anomalia ultimo job{details}");
+    }
+
+    public static string SummaryStatusPrioritySuffix(double score, string? language)
+    {
+        var rounded = Math.Round(score, 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return Pick(language,
+            $"priorite {rounded}",
+            $"priority {rounded}",
+            $"prioridad {rounded}",
+            $"prioridade {rounded}",
+            $"Prioritaet {rounded}",
+            $"priorita {rounded}");
+    }
 
     public static string NoMissingSummaries(string? language)
         => Pick(language,

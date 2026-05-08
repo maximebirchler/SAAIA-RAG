@@ -21,6 +21,25 @@ public sealed class ToolRouterPlanNormalizationTests
     }
 
     [Fact]
+    public void Stored_summary_store_intent_routes_to_backoffice_generate()
+    {
+        Assert.Equal("admin.summary.generate", ToolAgentOrchestrator.NormalizeRouterIntentForTests("summary.store"));
+        Assert.Equal("admin.summary.generate", ToolAgentOrchestrator.NormalizeRouterIntentForTests("refresh_summary"));
+    }
+
+    [Fact]
+    public void Sanitize_tool_calls_drops_client_side_admin_summary_submit()
+    {
+        var calls = ToolAgentOrchestrator.SanitizeToolCallsForTests(new RouterPlan.ToolCall
+        {
+            Name = "admin.summary.submit",
+            Args = ParseArgs("""{"docRef":"manual.pdf","summaryText":"client generated"}""")
+        });
+
+        Assert.Empty(calls);
+    }
+
+    [Fact]
     public void Infer_intent_uses_documents_search_as_inventory_find()
     {
         var toolCall = new RouterPlan.ToolCall
@@ -66,6 +85,36 @@ public sealed class ToolRouterPlanNormalizationTests
 
         Assert.Equal("guidance", normalized.GetProperty("q").GetString());
         Assert.Equal("cat_002", normalized.GetProperty("categoryRef").GetString());
+    }
+
+    [Fact]
+    public void Normalize_admin_summary_submit_does_not_promote_ui_language_to_docLanguage()
+    {
+        var uiOnly = ToolAgentOrchestrator.NormalizeToolArgsForTests(
+            "admin.summary.submit",
+            """{"docRef":"manual.pdf","language":"fr","summaryText":"x"}""");
+        var explicitDocLanguage = ToolAgentOrchestrator.NormalizeToolArgsForTests(
+            "admin.summary.submit",
+            """{"docRef":"manual.pdf","docLanguage":"de","language":"fr","summaryText":"x"}""");
+        var arbitraryDocLanguage = ToolAgentOrchestrator.NormalizeToolArgsForTests(
+            "admin.summary.submit",
+            """{"docRef":"manual.pdf","docLanguage":"nl","language":"fr","summaryText":"x"}""");
+
+        Assert.Equal("und", uiOnly.GetProperty("docLanguage").GetString());
+        Assert.Equal("de", explicitDocLanguage.GetProperty("docLanguage").GetString());
+        Assert.Equal("nl", arbitraryDocLanguage.GetProperty("docLanguage").GetString());
+    }
+
+    [Fact]
+    public void Normalize_live_summary_keeps_response_language_separate_from_document_language()
+    {
+        var normalized = ToolAgentOrchestrator.NormalizeToolArgsForTests(
+            "rag.summarize_live",
+            """{"docRef":"manual.pdf","language":"fr","responseLanguage":"de","docLanguage":"nl-BE","maxWords":90}""");
+
+        Assert.Equal("fr", normalized.GetProperty("language").GetString());
+        Assert.Equal("de", normalized.GetProperty("responseLanguage").GetString());
+        Assert.Equal("nl-be", normalized.GetProperty("docLanguage").GetString());
     }
 
     [Theory]
@@ -126,7 +175,7 @@ public sealed class ToolRouterPlanNormalizationTests
     }
 
     [Fact]
-    public void Documentary_defaults_replace_router_multi_search_with_robust_planning_queries()
+    public void Documentary_defaults_merge_router_multi_search_with_robust_planning_queries()
     {
         var plan = new RouterPlan
         {
@@ -151,7 +200,83 @@ public sealed class ToolRouterPlanNormalizationTests
         Assert.Equal("rag.multi_search", call.Name);
         var queries = call.Args.GetProperty("queries").EnumerateArray().Select(x => x.GetString() ?? "").ToArray();
         Assert.Contains(queries, q => q.Contains("batch cooking", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain("parallel cooking methods", queries);
+        Assert.Contains("parallel cooking methods", queries);
+    }
+
+    [Fact]
+    public void Documentary_defaults_convert_broad_source_backed_menu_search_to_multi_search()
+    {
+        var plan = new RouterPlan
+        {
+            Intent = "rag.answer",
+            Language = "fr",
+            Mode = "strict",
+            ToolCalls = new()
+            {
+                new RouterPlan.ToolCall
+                {
+                    Name = "rag.search",
+                    Args = ParseArgs("""{"query":"J'ai pas de four, propose un menu faisable a la poele ou au robot","topK":8,"mode":"balanced"}""")
+                }
+            }
+        };
+
+        ToolAgentOrchestrator.ApplyDocumentaryRagDefaultsForTests(
+            plan,
+            "J'ai pas de four, propose un menu faisable a la poele ou au robot.");
+
+        var call = Assert.Single(plan.ToolCalls);
+        Assert.Equal("rag.multi_search", call.Name);
+        var queries = call.Args.GetProperty("queries").EnumerateArray().Select(x => x.GetString() ?? "").ToArray();
+        Assert.Contains(queries, q => q.Contains("four", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, q => q.Contains("robot", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Source_backed_action_queries_include_individual_user_terms_for_broad_recall()
+    {
+        var queries = ToolAgentOrchestrator.BuildSourceBackedActionRetrievalQueriesForTests(
+            "Je veux cuisiner au Companion/Chefbot uniquement : menu complet.");
+
+        Assert.Contains(queries, q => string.Equals(q, "companion", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, q => string.Equals(q, "chefbot", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Source_backed_planning_does_not_turn_countdown_cooking_into_weekly_days()
+    {
+        Assert.False(ToolAgentOrchestrator.LooksLikeSourceBackedPlanningRequestForTests(
+            "Prepare un planning de cuisson a rebours pour un repas a 19h."));
+        Assert.True(ToolAgentOrchestrator.LooksLikeSourceBackedCountdownPlanningRequestForTests(
+            "Prépare un planning de cuisson à rebours pour un repas à 19h."));
+    }
+
+    [Fact]
+    public void Documentary_defaults_add_typo_tolerant_queries_for_requested_recipe_titles()
+    {
+        var plan = new RouterPlan
+        {
+            Intent = "rag.answer",
+            Language = "fr",
+            Mode = "strict",
+            ToolCalls = new()
+            {
+                new RouterPlan.ToolCall
+                {
+                    Name = "rag.search",
+                    Args = ParseArgs("""{"query":"Tu as la recette du boeuf bourguingnon ?","topK":8,"mode":"balanced"}""")
+                }
+            }
+        };
+
+        ToolAgentOrchestrator.ApplyDocumentaryRagDefaultsForTests(
+            plan,
+            "Tu as la recette du boeuf bourguingnon ?");
+
+        var call = Assert.Single(plan.ToolCalls);
+        Assert.Equal("rag.multi_search", call.Name);
+        var queries = call.Args.GetProperty("queries").EnumerateArray().Select(x => x.GetString() ?? "").ToArray();
+        Assert.Contains(queries, q => q.Contains("bourguignon", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -231,6 +356,16 @@ public sealed class ToolRouterPlanNormalizationTests
         var queries = normalized.GetProperty("queries").EnumerateArray().Select(x => x.GetString() ?? "").ToArray();
         Assert.Contains(queries, q => q.Contains("Compare la paella", StringComparison.OrdinalIgnoreCase));
         Assert.Contains("paella", queries);
+    }
+
+    [Theory]
+    [InlineData("rag.search", """{"query":"pressure valve","categoryRef":"cat_003","topK":4,"mode":"balanced"}""")]
+    [InlineData("rag.multi_search", """{"queries":["pressure valve"],"categoryRef":"cat_003","topK":4,"mode":"balanced"}""")]
+    public void Normalize_rag_tools_preserves_category_ref_scope(string toolName, string jsonArgs)
+    {
+        var normalized = ToolAgentOrchestrator.NormalizeToolArgsForTests(toolName, jsonArgs);
+
+        Assert.Equal("cat_003", normalized.GetProperty("categoryRef").GetString());
     }
 
     [Theory]
