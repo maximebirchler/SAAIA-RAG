@@ -376,7 +376,8 @@ public sealed class ApiClientDocumentsTransitionTests
         });
 
         var api = CreateApiClient(handler);
-        var sut = new ToolAgentOrchestrator(api, llm: null!, mem: new ToolMemory());
+        var mem = new ToolMemory();
+        var sut = new ToolAgentOrchestrator(api, llm: null!, mem);
         using var args = JsonDocument.Parse("""{"query":"installation","topK":8,"categoryPath":"Programmation/Mettler","mode":"balanced"}""");
         var method = typeof(ToolAgentOrchestrator).GetMethod("ExecRagSearchAsync", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(method);
@@ -469,7 +470,8 @@ public sealed class ApiClientDocumentsTransitionTests
         });
 
         var api = CreateApiClient(handler);
-        var sut = new ToolAgentOrchestrator(api, llm: null!, mem: new ToolMemory());
+        var mem = new ToolMemory();
+        var sut = new ToolAgentOrchestrator(api, llm: null!, mem);
         using var args = JsonDocument.Parse("""{"queries":["pressure valve","valve limits"],"topK":4,"categoryRef":"cat_legacy","mode":"balanced"}""");
         var method = typeof(ToolAgentOrchestrator).GetMethod("ExecRagMultiSearchAsync", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(method);
@@ -492,6 +494,7 @@ public sealed class ApiClientDocumentsTransitionTests
         Assert.Equal(33, queryRuns[0].GetProperty("meta").GetProperty("metrics").GetProperty("tookMs").GetInt32());
         var degradedRetrievers = result.GetProperty("meta").GetProperty("degradedRetrievers").EnumerateArray().Select(static item => item.GetString()).ToList();
         Assert.Equal(["document_profile_v1", "sparse_bm25"], degradedRetrievers);
+        Assert.Equal(["document_profile_v1", "sparse_bm25"], mem.LastRagDegradedRetrievers);
         var hit = Assert.Single(result.GetProperty("hits").EnumerateArray());
         Assert.Equal("hash-rich", hit.GetProperty("sourceHash").GetString());
         Assert.Equal("en", hit.GetProperty("docLanguage").GetString());

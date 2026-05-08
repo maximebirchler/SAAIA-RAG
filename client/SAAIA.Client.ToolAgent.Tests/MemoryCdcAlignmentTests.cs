@@ -135,6 +135,9 @@ public sealed class MemoryCdcAlignmentTests
             StagedDirectCommand = new ToolMemory.PendingDirectCommand { CommandId = "documents.list" },
             LastAdminOperation = new ToolMemory.AdminOperationState { OperationKind = "reindex" },
             LastToolNames = new() { "rag.search" },
+            LastRagQueries = new() { "inertage" },
+            LastRagHitLabels = new() { "Doc.pdf p.1 score=0.9" },
+            LastRagDegradedRetrievers = new() { "document_profile_v1" },
             LastRiskFlags = new() { "broad_query" }
         };
         mem.LastListedDocuments.Add(new ToolMemory.DocumentItem { DocId = "doc-1", DocName = "Doc.pdf" });
@@ -170,11 +173,19 @@ public sealed class MemoryCdcAlignmentTests
         Assert.Equal("strict", m6["lastMode"]);
         Assert.Equal("rag.search", m6["lastRouterIntent"]);
         Assert.Equal(1, m6["lastToolNamesCount"]);
+        Assert.Equal(1, m6["lastRagQueriesCount"]);
+        Assert.Equal(1, m6["lastRagHitLabelsCount"]);
+        Assert.Equal(1, m6["lastRagDegradedRetrieversCount"]);
         Assert.Equal(1, m6["lastRiskFlagsCount"]);
         Assert.True((bool)m6["hasPlannerMemoryUpdate"]!);
         Assert.Equal(0.82, Assert.IsType<double>(m6["routerConfidence"]!));
         Assert.True((bool)m6["hasAdminOperation"]!);
         Assert.True((bool)m6["hasStagedDirectCommand"]!);
+
+        var rag = Assert.IsAssignableFrom<Dictionary<string, object?>>(snapshot["rag"]);
+        Assert.Equal(new[] { "inertage" }, Assert.IsAssignableFrom<string[]>(rag["queries"]));
+        Assert.Equal(new[] { "Doc.pdf p.1 score=0.9" }, Assert.IsAssignableFrom<string[]>(rag["hitLabels"]));
+        Assert.Equal(new[] { "document_profile_v1" }, Assert.IsAssignableFrom<string[]>(rag["degradedRetrievers"]));
     }
 
     [Fact]

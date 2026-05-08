@@ -981,15 +981,47 @@ public sealed partial class ToolAgentOrchestrator
         if (!meta.HasValue)
             return;
 
-        var metrics = TryGetObject(meta.Value, "metrics")
-                      ?? TryGetObject(meta.Value, "Metrics");
+        CollectRagDegradedRetrieversFromMeta(meta.Value, degradedRetrievers);
+
+        var queryRuns = TryGetArray(meta.Value, "queryRuns")
+                        ?? TryGetArray(meta.Value, "QueryRuns")
+                        ?? TryGetArray(meta.Value, "query_runs");
+        if (!queryRuns.HasValue)
+            return;
+
+        foreach (var run in queryRuns.Value.EnumerateArray())
+        {
+            if (run.ValueKind != JsonValueKind.Object)
+                continue;
+
+            var runMeta = TryGetObject(run, "meta")
+                          ?? TryGetObject(run, "Meta");
+            if (runMeta.HasValue)
+                CollectRagDegradedRetrieversFromMeta(runMeta.Value, degradedRetrievers);
+        }
+    }
+
+    private static void CollectRagDegradedRetrieversFromMeta(JsonElement meta, ISet<string> degradedRetrievers)
+    {
+        var directValues = TryGetArray(meta, "degradedRetrievers")
+                           ?? TryGetArray(meta, "DegradedRetrievers")
+                           ?? TryGetArray(meta, "degraded_retrievers");
+        AddRagDegradedRetrieverValues(directValues, degradedRetrievers);
+
+        var metrics = TryGetObject(meta, "metrics")
+                      ?? TryGetObject(meta, "Metrics");
         if (!metrics.HasValue)
             return;
 
         var values = TryGetArray(metrics.Value, "degradedRetrievers")
                      ?? TryGetArray(metrics.Value, "DegradedRetrievers")
                      ?? TryGetArray(metrics.Value, "degraded_retrievers");
-        if (!values.HasValue)
+        AddRagDegradedRetrieverValues(values, degradedRetrievers);
+    }
+
+    private static void AddRagDegradedRetrieverValues(JsonElement? values, ISet<string> degradedRetrievers)
+    {
+        if (!values.HasValue || values.Value.ValueKind != JsonValueKind.Array)
             return;
 
         foreach (var value in values.Value.EnumerateArray())
@@ -1021,6 +1053,13 @@ public sealed partial class ToolAgentOrchestrator
             .Select(CollapseWhitespace)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(8)
+            .ToList();
+
+        var degradedRetrievers = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (result.ValueKind == JsonValueKind.Object)
+            CollectRagDegradedRetrievers(result, degradedRetrievers);
+        _mem.LastRagDegradedRetrievers = degradedRetrievers
+            .Take(16)
             .ToList();
 
         if (result.ValueKind != JsonValueKind.Object

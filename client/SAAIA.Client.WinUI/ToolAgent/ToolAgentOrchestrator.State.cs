@@ -92,6 +92,12 @@ public sealed partial class ToolAgentOrchestrator
                 ["usedSummaryFlow"] = _lastUsedSummaryFlow,
                 ["answerSource"] = _lastAnswerSource
             },
+            ["rag"] = new Dictionary<string, object?>
+            {
+                ["queries"] = _mem.LastRagQueries?.Take(8).ToArray() ?? Array.Empty<string>(),
+                ["hitLabels"] = _mem.LastRagHitLabels?.Take(30).ToArray() ?? Array.Empty<string>(),
+                ["degradedRetrievers"] = _mem.LastRagDegradedRetrievers?.Take(16).ToArray() ?? Array.Empty<string>()
+            },
             ["memorySummary"] = memorySummary,
             ["memory"] = new Dictionary<string, object?>
             {
@@ -129,6 +135,9 @@ public sealed partial class ToolAgentOrchestrator
                     ["lastMode"] = _mem.LastMode,
                     ["lastRouterIntent"] = _mem.LastRouterIntent,
                     ["lastToolNamesCount"] = _mem.LastToolNames?.Count ?? 0,
+                    ["lastRagQueriesCount"] = _mem.LastRagQueries?.Count ?? 0,
+                    ["lastRagHitLabelsCount"] = _mem.LastRagHitLabels?.Count ?? 0,
+                    ["lastRagDegradedRetrieversCount"] = _mem.LastRagDegradedRetrievers?.Count ?? 0,
                     ["lastRiskFlagsCount"] = _mem.LastRiskFlags?.Count ?? 0,
                     ["hasPlannerMemoryUpdate"] = !string.IsNullOrWhiteSpace(_mem.LastPlannerMemoryUpdate),
                     ["routerConfidence"] = _mem.LastRouterConfidence,
@@ -194,6 +203,9 @@ public sealed partial class ToolAgentOrchestrator
                 ["mode"] = _mem.LastMode,
                 ["hasRouterIntent"] = !string.IsNullOrWhiteSpace(_mem.LastRouterIntent),
                 ["toolNamesCount"] = _mem.LastToolNames?.Count ?? 0,
+                ["lastRagQueriesCount"] = _mem.LastRagQueries?.Count ?? 0,
+                ["lastRagHitLabelsCount"] = _mem.LastRagHitLabels?.Count ?? 0,
+                ["lastRagDegradedRetrieversCount"] = _mem.LastRagDegradedRetrievers?.Count ?? 0,
                 ["hasAdminOperation"] = _mem.LastAdminOperation is not null
             }
         };

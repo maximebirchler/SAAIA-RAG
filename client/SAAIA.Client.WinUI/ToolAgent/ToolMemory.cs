@@ -166,6 +166,12 @@ public sealed class ToolMemory
         set => Execution.LastRagHitLabels = value ?? new();
     }
 
+    public List<string> LastRagDegradedRetrievers
+    {
+        get => Execution.LastRagDegradedRetrievers;
+        set => Execution.LastRagDegradedRetrievers = value ?? new();
+    }
+
     public List<string> LastReasoningTracePublic
     {
         get => Execution.LastReasoningTracePublic;
@@ -344,6 +350,8 @@ public sealed class ToolMemory
         public List<string> LastRagQueries { get; set; } = new();
 
         public List<string> LastRagHitLabels { get; set; } = new();
+
+        public List<string> LastRagDegradedRetrievers { get; set; } = new();
 
         public List<string> LastReasoningTracePublic { get; set; } = new();
 
@@ -799,6 +807,7 @@ public sealed class ToolMemory
         Execution.LastToolNames = new();
         Execution.LastRagQueries = new();
         Execution.LastRagHitLabels = new();
+        Execution.LastRagDegradedRetrievers = new();
         Execution.LastReasoningTracePublic = new();
         Execution.LastRiskFlags = new();
         Execution.LastPlannerMemoryUpdate = null;
