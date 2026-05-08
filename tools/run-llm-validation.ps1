@@ -20,7 +20,8 @@ param(
     [int]$MaxLlmTokens = 900,
     [int]$TimeoutSeconds = 120,
     [int]$DelayMs = 0,
-    [int]$Parallelism = 1
+    [int]$Parallelism = 1,
+    [switch]$DisableDiagnosticQueryExpansion
 )
 
 $ErrorActionPreference = "Stop"
@@ -938,7 +939,7 @@ function Invoke-RagSearch {
 
     $preciseTitle = Get-PreciseCuisineTitle ([string]$Case.question)
     $retrievalQueries = New-Object System.Collections.Generic.List[string]
-    if ([string]::IsNullOrWhiteSpace($preciseTitle)) {
+    if ($DisableDiagnosticQueryExpansion -or [string]::IsNullOrWhiteSpace($preciseTitle)) {
         $retrievalQueries.Add([string]$Case.question)
     } else {
         $retrievalQueries.Add($preciseTitle)
@@ -1219,6 +1220,9 @@ if ($Parallelism -gt 1 -and $Mode -eq "retrieval") {
             "-DelayMs", ([string]$DelayMs),
             "-Parallelism", "1"
         )
+        if ($DisableDiagnosticQueryExpansion) {
+            $arguments += @("-DisableDiagnosticQueryExpansion")
+        }
 
         if (-not [string]::IsNullOrWhiteSpace($BackendBaseUrl)) {
             $arguments += @("-BackendBaseUrl", $BackendBaseUrl)
@@ -1342,6 +1346,7 @@ if ($Parallelism -gt 1 -and $Mode -eq "retrieval") {
         maxLlmContextChars = $MaxLlmContextChars
         maxCharsPerLlmSource = $MaxCharsPerLlmSource
         maxLlmTokens = $MaxLlmTokens
+        disableDiagnosticQueryExpansion = [bool]$DisableDiagnosticQueryExpansion
         selectedCount = $cases.Count
         parallelism = $partCount
         filters = [ordered]@{
@@ -1511,6 +1516,7 @@ $summary = [ordered]@{
     maxLlmContextChars = $MaxLlmContextChars
     maxCharsPerLlmSource = $MaxCharsPerLlmSource
     maxLlmTokens = $MaxLlmTokens
+    disableDiagnosticQueryExpansion = [bool]$DisableDiagnosticQueryExpansion
     selectedCount = $cases.Count
     parallelism = 1
     filters = [ordered]@{

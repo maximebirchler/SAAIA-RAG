@@ -79,6 +79,14 @@ powershell -ExecutionPolicy Bypass -File tools\run-llm-validation.ps1 `
   -BackendBaseUrl "https://saaia-server.taila2196b.ts.net" `
   -Parallelism 8
 
+# Runtime-like retrieval: no diagnostic title/ingredient/step query expansion.
+powershell -ExecutionPolicy Bypass -File tools\run-llm-validation.ps1 `
+  -Mode retrieval `
+  -BackendBaseUrl "https://saaia-server.taila2196b.ts.net" `
+  -Category "Cuisine" `
+  -DisableDiagnosticQueryExpansion `
+  -Parallelism 8
+
 # Resume a slice without changing the bank.
 powershell -ExecutionPolicy Bypass -File tools\run-llm-validation.ps1 `
   -Mode plan `
