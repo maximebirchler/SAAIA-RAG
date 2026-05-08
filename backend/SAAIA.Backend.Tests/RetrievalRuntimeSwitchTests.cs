@@ -70,6 +70,22 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.True(RagEndpoints.ShouldBackfillEnumerativeSearch(query, selectedCount: 0, topK: 8));
     }
 
+    [Theory]
+    [InlineData("Aide-moi a preparer 4 options en 2h en reutilisant des bases communes.", true)]
+    [InlineData("Suggest a complete weekly plan from this category.", true)]
+    [InlineData("Tu as une entree precise absente du corpus ?", false)]
+    public void ShouldUseScopedProfileFallback_detects_broad_scoped_synthesis_requests(string query, bool expected)
+    {
+        Assert.Equal(expected, RagEndpoints.ShouldUseScopedProfileFallback(query, hasCategoryFilter: true, mode: "balanced"));
+    }
+
+    [Fact]
+    public void ShouldUseScopedProfileFallback_requires_scope_and_non_focused_mode()
+    {
+        Assert.False(RagEndpoints.ShouldUseScopedProfileFallback("Suggest a complete weekly plan.", hasCategoryFilter: false, mode: "balanced"));
+        Assert.False(RagEndpoints.ShouldUseScopedProfileFallback("Suggest a complete weekly plan.", hasCategoryFilter: true, mode: "focused"));
+    }
+
     [Fact]
     public void BuildLexicalContentFallbackTerms_keeps_unquoted_short_title_words_in_focused_targets()
     {

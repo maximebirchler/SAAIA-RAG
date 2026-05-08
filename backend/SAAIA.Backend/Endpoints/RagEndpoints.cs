@@ -1606,6 +1606,38 @@ ORDER BY d.doc_path;
             }
         }
 
+        if (!skipChunkRetrieversForDocumentOverview
+            && selected.Count == 0
+            && ShouldUseScopedProfileFallback(req.Query, hasCategoryFilter, mode))
+        {
+            var (fallbackProfiles, fallbackProfilesMs) = await MeasurePhaseAsync(
+                phaseName: "retrieval_scoped_profile_fallback",
+                retriever: "document_profile_fallback",
+                action: () => SearchDocumentOverviewProfileMatchesAsync(
+                    ds,
+                    tenantId,
+                    req.Query,
+                    category,
+                    req.DocId,
+                    req.DocPath,
+                    Math.Min(topK, 6),
+                    ct,
+                    categoryPath,
+                    requireLexicalMatch: false,
+                    degradedRetrieverRef: MarkRetrieverDegraded),
+                getReturnedCount: static matches => matches.Count);
+            profilePhaseMs += fallbackProfilesMs;
+
+            AddRankedMatches(
+                selected,
+                selectedKeys,
+                fallbackProfiles,
+                topK,
+                minScore: 0.0,
+                maxPerDoc: 1,
+                maxPerPage: Math.Max(maxPerPage, 1));
+        }
+
         swTotal.Stop();
 
         var response = new RagSearchResponse(
@@ -1693,6 +1725,86 @@ ORDER BY d.doc_path;
         => !hasDocScope
            && !string.Equals(mode, "focused", StringComparison.Ordinal)
            && ContainsDocumentOverviewIntent(query);
+
+    internal static bool ShouldUseScopedProfileFallback(string query, bool hasCategoryFilter, string mode)
+    {
+        if (!hasCategoryFilter
+            || string.IsNullOrWhiteSpace(query)
+            || string.Equals(mode, "focused", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var normalized = " " + FoldDiacritics(query).ToLowerInvariant() + " ";
+        return ContainsAny(normalized,
+            " propose ",
+            " proposer ",
+            " proposes ",
+            " suggere ",
+            " suggerer ",
+            " recommande ",
+            " recommander ",
+            " conseille ",
+            " conseiller ",
+            " aide moi ",
+            " aider ",
+            " prepare ",
+            " preparer ",
+            " plan ",
+            " planning ",
+            " planifier ",
+            " organiser ",
+            " organise ",
+            " menu ",
+            " il me faut ",
+            " suggest ",
+            " suggests ",
+            " recommend ",
+            " recommends ",
+            " help me ",
+            " prepare ",
+            " plan ",
+            " planning ",
+            " organize ",
+            " organise ",
+            " need ",
+            " propone ",
+            " proponer ",
+            " sugiere ",
+            " sugerir ",
+            " recomienda ",
+            " recomendar ",
+            " ayudame ",
+            " preparar ",
+            " planificar ",
+            " organizar ",
+            " preciso ",
+            " sugere ",
+            " sugerir ",
+            " recomenda ",
+            " recomendar ",
+            " ajuda me ",
+            " preparar ",
+            " planear ",
+            " organizar ",
+            " consiglia ",
+            " consigliare ",
+            " suggerisci ",
+            " suggerire ",
+            " aiutami ",
+            " preparare ",
+            " pianifica ",
+            " organizzare ",
+            " vorschlag ",
+            " vorschlagen ",
+            " empfiehl ",
+            " empfehlen ",
+            " hilf mir ",
+            " vorbereiten ",
+            " plane ",
+            " planen ",
+            " organisieren ");
+    }
 
     internal static bool ShouldRequireDocumentOverviewProfileMatch(string query)
     {
