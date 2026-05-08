@@ -1476,7 +1476,7 @@ ORDER BY d.doc_path;
             var fusedMatches = FuseWithRrf(exactMatches, sparseMatches, denseMatches, profileMatches);
             fusedMatches = CalibrateFusedMatches(retrievalQuery, fusedMatches, req.Query);
             fusedMatches = SuppressNavigationalNoise(req.Query, fusedMatches);
-            if (ShouldSuppressUnanchoredSpecificResults(retrievalQuery, fusedMatches))
+            if (!useScopedProfileFallback && ShouldSuppressUnanchoredSpecificResults(retrievalQuery, fusedMatches))
             {
                 fusedMatches = [];
             }
