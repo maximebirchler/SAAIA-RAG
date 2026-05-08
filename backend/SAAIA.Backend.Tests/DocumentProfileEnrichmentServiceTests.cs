@@ -861,6 +861,158 @@ public sealed class DocumentProfileEnrichmentServiceTests
     }
 
     [Fact]
+    public async Task BuildEnrichedProfileAsync_preserves_baseline_card_pages_when_llm_reuses_title_without_pages()
+    {
+        var service = CreateService(
+            BuildChatResponse(
+                """
+                {
+                  "language": "en",
+                  "summary": "LLM profile for release checks.",
+                  "keywords": ["release checks"],
+                  "entities": [],
+                  "topics": ["release workflow"],
+                  "questions": [],
+                  "limits": [],
+                  "cards": [
+                    {
+                      "title": "Release validation checklist",
+                      "kind": "llm_content_card",
+                      "signals": ["release checks"]
+                    }
+                  ]
+                }
+                """),
+            HttpStatusCode.OK);
+
+        var baseline = new DocumentProfileSnapshot(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "deterministic_v1",
+            "en",
+            "Baseline profile.",
+            ["release checks"],
+            [],
+            [],
+            [],
+            [],
+            "release validation checklist release checks",
+            4,
+            ContentCards:
+            [
+                new DocumentProfileContentCard(
+                    "Release validation checklist",
+                    6,
+                    7,
+                    "unit_lead",
+                    ["release checks"])
+            ]);
+
+        var profile = await service.BuildEnrichedProfileAsync(
+            new CapabilityBDocumentRow(
+                baseline.DocId,
+                "Operations/Release.pdf",
+                "Release.pdf",
+                "operations",
+                PageCount: 12,
+                IndexedVersion: 1),
+            baseline,
+            ["Release validation checklist"],
+            ["The release validation checklist describes the release checks."],
+            CancellationToken.None);
+
+        Assert.NotNull(profile);
+        var card = Assert.Single(profile!.ContentCards, card => string.Equals(card.Title, "Release validation checklist", StringComparison.Ordinal));
+        Assert.Equal(6, card.PageStart);
+        Assert.Equal(7, card.PageEnd);
+    }
+
+    [Fact]
+    public async Task BuildEnrichedProfileAsync_derives_card_pages_from_grounded_evidence_facts()
+    {
+        var service = CreateService(
+            BuildChatResponse(
+                """
+                {
+                  "language": "en",
+                  "summary": "LLM profile for release checks.",
+                  "keywords": ["release checks"],
+                  "entities": [],
+                  "topics": ["release workflow"],
+                  "questions": [],
+                  "limits": [],
+                  "cards": [
+                    {
+                      "title": "Release validation checklist",
+                      "kind": "llm_content_card",
+                      "signals": ["release checks"],
+                      "evidence": {
+                        "schemaVersion": "content_card_evidence_v1",
+                        "language": "en",
+                        "facts": [
+                          {
+                            "kind": "requirement",
+                            "label": "release validation",
+                            "sourceText": "Release validation requires supervisor approval before shipment.",
+                            "pageStart": 5,
+                            "pageEnd": 6,
+                            "confidence": 0.86
+                          },
+                          {
+                            "kind": "procedure",
+                            "label": "release checklist",
+                            "sourceText": "The release checklist is archived after approval.",
+                            "pageStart": 7,
+                            "confidence": 0.82
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+                """),
+            HttpStatusCode.OK);
+
+        var baseline = new DocumentProfileSnapshot(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "deterministic_v1",
+            "en",
+            "Baseline profile.",
+            ["release checks"],
+            [],
+            [],
+            [],
+            [],
+            "release validation release checklist supervisor approval shipment archived",
+            8);
+
+        var profile = await service.BuildEnrichedProfileAsync(
+            new CapabilityBDocumentRow(
+                baseline.DocId,
+                "Operations/Release.pdf",
+                "Release.pdf",
+                "operations",
+                PageCount: 12,
+                IndexedVersion: 1),
+            baseline,
+            ["Release validation checklist"],
+            [
+                "Release validation requires supervisor approval before shipment.",
+                "The release checklist is archived after approval."
+            ],
+            CancellationToken.None);
+
+        Assert.NotNull(profile);
+        var card = Assert.Single(profile!.ContentCards, card => string.Equals(card.Title, "Release validation checklist", StringComparison.Ordinal));
+        Assert.Equal(5, card.PageStart);
+        Assert.Equal(7, card.PageEnd);
+        Assert.NotNull(card.Evidence);
+        Assert.Contains(card.Evidence!.Facts!, fact => fact.PageStart == 5);
+        Assert.Contains(card.Evidence.Facts!, fact => fact.PageStart == 7);
+    }
+
+    [Fact]
     public async Task BuildEnrichedProfileAsync_returns_null_when_runtime_is_unavailable()
     {
         var service = CreateService("""{ "error": "runtime_unavailable" }""", HttpStatusCode.ServiceUnavailable);

@@ -401,6 +401,93 @@ public sealed class DocumentProfileProjectorTests
     }
 
     [Fact]
+    public void BuildProfile_derives_content_card_page_range_from_supplied_card_evidence()
+    {
+        var profile = DocumentProfileProjector.BuildProfile(
+            profileVersion: "llm_backoffice_v1",
+            language: "en",
+            summaryText: "Profile with externally supplied page evidence.",
+            keywords: [],
+            entities: [],
+            topics: [],
+            hypotheticalQuestions: [],
+            limits: [],
+            docPath: "Generic/PageEvidence.pdf",
+            docName: "PageEvidence.pdf",
+            contentCards:
+            [
+                new DocumentProfileContentCard(
+                    "Release evidence card",
+                    null,
+                    null,
+                    "llm_content_card",
+                    ["release"],
+                    new DocumentProfileCardEvidence(
+                        "content_card_evidence_v1",
+                        null,
+                        [],
+                        [],
+                        0.84,
+                        "en",
+                        [
+                            new DocumentProfileEvidenceFact(
+                                "requirement",
+                                "release approval",
+                                null,
+                                null,
+                                "Release approval is required.",
+                                9,
+                                10,
+                                0.84)
+                        ]))
+            ]);
+
+        var card = Assert.Single(profile.ContentCards);
+        Assert.Equal(9, card.PageStart);
+        Assert.Equal(10, card.PageEnd);
+    }
+
+    [Fact]
+    public void BuildProfile_keeps_broad_evidence_only_cards_document_scoped()
+    {
+        var profile = DocumentProfileProjector.BuildProfile(
+            profileVersion: "llm_backoffice_v1",
+            language: "en",
+            summaryText: "Profile with broad page evidence.",
+            keywords: [],
+            entities: [],
+            topics: [],
+            hypotheticalQuestions: [],
+            limits: [],
+            docPath: "Generic/BroadEvidence.pdf",
+            docName: "BroadEvidence.pdf",
+            contentCards:
+            [
+                new DocumentProfileContentCard(
+                    "Broad evidence card",
+                    null,
+                    null,
+                    "llm_content_card",
+                    ["release"],
+                    new DocumentProfileCardEvidence(
+                        "content_card_evidence_v1",
+                        null,
+                        [],
+                        [],
+                        0.74,
+                        "en",
+                        [
+                            new DocumentProfileEvidenceFact("requirement", "first fact", null, null, "First fact.", 1, 1, 0.74),
+                            new DocumentProfileEvidenceFact("requirement", "later fact", null, null, "Later fact.", 30, 30, 0.74)
+                        ]))
+            ]);
+
+        var card = Assert.Single(profile.ContentCards);
+        Assert.Null(card.PageStart);
+        Assert.Null(card.PageEnd);
+    }
+
+    [Fact]
     public void Project_extracts_embedded_uppercase_title_when_followed_by_measurement()
     {
         var pages = new[]

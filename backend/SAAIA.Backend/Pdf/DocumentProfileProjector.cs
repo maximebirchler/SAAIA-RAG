@@ -9,6 +9,7 @@ internal static partial class DocumentProfileProjector
 {
     private const int MaxSummaryChars = 1100;
     private const int MaxContentCards = 240;
+    private const int MaxEvidenceDerivedContentCardPageSpan = 8;
 
     public static ProjectedDocumentProfile Project(
         string docPath,
@@ -1323,6 +1324,7 @@ internal static partial class DocumentProfileProjector
                 continue;
 
             var normalizedEvidence = NormalizeContentCardEvidence(card.Evidence);
+            var (pageStart, pageEnd) = NormalizeContentCardPageRange(card.PageStart, card.PageEnd, normalizedEvidence);
             var normalizedSignals = NormalizeList(
                 BuildStructuredCardSignals(normalizedEvidence)
                     .Concat(card.Signals ?? []),
@@ -1330,8 +1332,8 @@ internal static partial class DocumentProfileProjector
 
             normalized.Add(new DocumentProfileContentCard(
                 title,
-                card.PageStart,
-                card.PageEnd,
+                pageStart,
+                pageEnd,
                 string.IsNullOrWhiteSpace(card.Kind) ? "content_item" : CollapseWhitespace(card.Kind),
                 normalizedSignals,
                 normalizedEvidence,
@@ -1342,6 +1344,60 @@ internal static partial class DocumentProfileProjector
         }
 
         return normalized;
+    }
+
+    private static (int? PageStart, int? PageEnd) NormalizeContentCardPageRange(
+        int? rawPageStart,
+        int? rawPageEnd,
+        DocumentProfileCardEvidence? evidence)
+    {
+        var pageStart = rawPageStart is > 0 and <= 100000 ? rawPageStart : null;
+        var pageEnd = rawPageEnd is > 0 and <= 100000 ? rawPageEnd : null;
+        if (pageStart is > 0 && pageEnd is > 0 && pageEnd < pageStart)
+            pageEnd = pageStart;
+
+        if (pageStart is null)
+        {
+            var derived = DeriveContentCardPageRangeFromEvidence(evidence);
+            pageStart = derived.PageStart;
+            pageEnd = derived.PageEnd;
+        }
+
+        if (pageStart is > 0 && pageEnd is null)
+            pageEnd = pageStart;
+
+        return (pageStart, pageEnd);
+    }
+
+    private static (int? PageStart, int? PageEnd) DeriveContentCardPageRangeFromEvidence(
+        DocumentProfileCardEvidence? evidence)
+    {
+        if (evidence?.Facts is not { Count: > 0 } facts)
+            return (null, null);
+
+        int? pageStart = null;
+        int? pageEnd = null;
+        foreach (var fact in facts)
+        {
+            if (fact.PageStart is not > 0)
+                continue;
+
+            var factStart = fact.PageStart.Value;
+            var factEnd = fact.PageEnd is > 0 ? fact.PageEnd.Value : factStart;
+            if (factEnd < factStart)
+                factEnd = factStart;
+
+            pageStart = pageStart is null ? factStart : Math.Min(pageStart.Value, factStart);
+            pageEnd = pageEnd is null ? factEnd : Math.Max(pageEnd.Value, factEnd);
+        }
+
+        if (pageStart is null || pageEnd is null)
+            return (null, null);
+
+        if (pageEnd.Value - pageStart.Value + 1 > MaxEvidenceDerivedContentCardPageSpan)
+            return (null, null);
+
+        return (pageStart, pageEnd);
     }
 
     internal static IReadOnlyList<DocumentProfileContentCard> ParseContentCards(string? metadataJson)

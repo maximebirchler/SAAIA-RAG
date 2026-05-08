@@ -341,6 +341,45 @@ public sealed class RagMatchedContentCardsTests
     }
 
     [Fact]
+    public void BuildMatchedContentCards_uses_evidence_derived_page_range_for_page_scoped_hits()
+    {
+        const string metadataJson = """
+        {
+          "contentCards": [
+            {
+              "title": "Release validation checklist",
+              "kind": "llm_content_card",
+              "signals": ["release", "validation"],
+              "evidence": {
+                "schemaVersion": "content_card_evidence_v1",
+                "facts": [
+                  { "kind": "requirement", "label": "release validation", "sourceText": "Release validation requires approval.", "pageStart": 12, "pageEnd": 13 }
+                ]
+              }
+            },
+            {
+              "title": "Document-wide release glossary",
+              "kind": "llm_content_card",
+              "signals": ["release", "glossary"]
+            }
+          ]
+        }
+        """;
+
+        var cards = RagEndpoints.BuildMatchedContentCards(
+            metadataJson,
+            "release validation approval",
+            limit: 4,
+            pageStart: 12,
+            pageEnd: 12);
+
+        var card = Assert.Single(cards);
+        Assert.Equal("Release validation checklist", card.Title);
+        Assert.Equal(12, card.PageStart);
+        Assert.Equal(13, card.PageEnd);
+    }
+
+    [Fact]
     public void BuildMatchedContentCards_keeps_document_level_cards_for_document_profile_hits()
     {
         const string metadataJson = """

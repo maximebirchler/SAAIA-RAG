@@ -7,6 +7,8 @@ namespace SAAIA.Backend;
 
 internal sealed partial class DocumentProfileEnrichmentService
 {
+    private const int MaxEvidenceDerivedContentCardPageSpan = 8;
+
     private readonly LocalLlmChatClient _llmClient;
 
     public DocumentProfileEnrichmentService(LocalLlmChatClient llmClient)
@@ -175,6 +177,9 @@ Representative excerpts: {string.Join(" | ", excerpts.Where(static excerpt => !s
     {
         var cards = group.ToArray();
         var primary = cards[0];
+        var pageRangeFallback = cards
+            .Skip(1)
+            .FirstOrDefault(static card => card.PageStart is > 0 || card.PageEnd is > 0);
         var evidence = cards.Select(static card => card.Evidence).FirstOrDefault(static evidence => evidence is not null);
         var signals = cards
             .SelectMany(static card => card.Signals ?? [])
@@ -184,6 +189,8 @@ Representative excerpts: {string.Join(" | ", excerpts.Where(static excerpt => !s
 
         return primary with
         {
+            PageStart = primary.PageStart ?? pageRangeFallback?.PageStart,
+            PageEnd = primary.PageEnd ?? pageRangeFallback?.PageEnd,
             Evidence = primary.Evidence ?? evidence,
             Signals = signals.Length == 0 ? primary.Signals : signals
         };
@@ -203,6 +210,7 @@ Representative excerpts: {string.Join(" | ", excerpts.Where(static excerpt => !s
         return cards
             .Select(card => NormalizeCardPageRange(card, doc.PageCount))
             .Select(card => card with { Evidence = NormalizeEvidencePageRanges(FilterGroundedEvidence(card.Evidence, groundingCorpus), doc.PageCount) })
+            .Select(card => DeriveCardPageRangeFromEvidence(card, doc.PageCount))
             .Select(SanitizeUngroundedStructuredSignals)
             .Where(card => card.Evidence is not null || IsGroundedCard(card, groundingCorpus))
             .ToArray();
@@ -297,6 +305,44 @@ Representative excerpts: {string.Join(" | ", excerpts.Where(static excerpt => !s
             PageStart = pageStart,
             PageEnd = pageEnd
         };
+    }
+
+    private static DocumentProfileContentCard DeriveCardPageRangeFromEvidence(
+        DocumentProfileContentCard card,
+        int? pageCount)
+    {
+        if (card.PageStart is > 0 || card.Evidence?.Facts is not { Count: > 0 } facts)
+            return card;
+
+        var pageStart = facts
+            .Where(static fact => fact.PageStart is > 0)
+            .Select(static fact => fact.PageStart!.Value)
+            .DefaultIfEmpty()
+            .Min();
+        if (pageStart <= 0)
+            return card;
+
+        var pageEnd = facts
+            .Where(static fact => fact.PageStart is > 0)
+            .Select(static fact =>
+            {
+                var start = fact.PageStart!.Value;
+                var end = fact.PageEnd is > 0 ? fact.PageEnd.Value : start;
+                return Math.Max(end, start);
+            })
+            .DefaultIfEmpty(pageStart)
+            .Max();
+
+        if (pageEnd - pageStart + 1 > MaxEvidenceDerivedContentCardPageSpan)
+            return card;
+
+        return NormalizeCardPageRange(
+            card with
+            {
+                PageStart = pageStart,
+                PageEnd = pageEnd
+            },
+            pageCount);
     }
 
     private static bool IsGroundedEvidenceText(string? value, string groundingCorpus)
