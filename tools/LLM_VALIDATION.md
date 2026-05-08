@@ -51,6 +51,14 @@ Outputs are written under `artifacts/llm-validation/`:
 
 The TSV includes `answerFlags` for quick triage. Current automatic flags catch internal validation leaks, invented web links for local documents, repetitive loops, suspicious scaling answers, explicit exclusion terms that reappear, and likely degenerate output. These flags are conservative review aids, not a final quality grade.
 
+The TSV/JSON also includes retrieval diagnostics for the selected sources:
+
+- `top1DocHit` / `top3DocHit`: whether the first/top-three sources match a single expected document target when the question declares one.
+- `distinctDocCount`: number of distinct documents returned.
+- `navigationTop1` / `navigationReturned`: whether table-of-contents/index-like chunks are dominating retrieval.
+- `top1ContentRole`, `top1NavigationScore`, `top1ContentDensityScore`: backend content-shape signals propagated into the validation output.
+- `queryExpansionUsed` and `retrievalQueryCount`: whether the validation harness used extra diagnostic queries. A high success rate that depends heavily on expansions is a warning that the product runtime still needs improvement.
+
 In LLM mode, the runner also injects deterministic helper facts when it can derive them from retrieved sources:
 
 - quantity scaling facts, for example `Pour 4 personnes -> 12 personnes`, factor `x3`, and scaled numeric quantities

@@ -262,7 +262,18 @@ function Write-Tsv {
         "httpStatus",
         "elapsedMs",
         "sourceCount",
+        "distinctDocCount",
         "targetMatched",
+        "top1DocHit",
+        "top3DocHit",
+        "navigationTop1",
+        "navigationReturned",
+        "top1ContentRole",
+        "top1NavigationScore",
+        "top1ContentDensityScore",
+        "queryExpansionUsed",
+        "retrievalQueryCount",
+        "preciseTitle",
         "answerChars",
         "answerFlags",
         "question",
@@ -346,6 +357,8 @@ function Get-RagSources {
     }
 
     return @($hits | ForEach-Object {
+        $context = Get-OptionalProperty $_ "context"
+        $selectionHints = Get-OptionalProperty $_ "selectionHints"
         [ordered]@{
             docName = $_.docName
             docPath = $_.docPath
@@ -354,8 +367,61 @@ function Get-RagSources {
             score = $_.score
             text = $_.text
             contextualSnippet = $_.contextualSnippet
+            contentRole = Coalesce-String (Get-OptionalProperty $context "contentRole") (Get-OptionalProperty $_ "contentRole")
+            navigationReason = Coalesce-String (Get-OptionalProperty $context "navigationReason") (Get-OptionalProperty $_ "navigationReason")
+            navigationScore = Coalesce-Object (Get-OptionalProperty $context "navigationScore") (Get-OptionalProperty $_ "navigationScore")
+            contentDensityScore = Coalesce-Object (Get-OptionalProperty $context "contentDensityScore") (Get-OptionalProperty $_ "contentDensityScore")
+            evidenceRole = Get-OptionalProperty $selectionHints "evidenceRole"
         }
     })
+}
+
+function Get-OptionalProperty {
+    param(
+        [object]$Object,
+        [string]$Name
+    )
+
+    if ($null -eq $Object) {
+        return $null
+    }
+
+    $property = $Object.PSObject.Properties[$Name]
+    if ($null -eq $property) {
+        return $null
+    }
+
+    return $property.Value
+}
+
+function Coalesce-String {
+    param(
+        [object]$First,
+        [object]$Second
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace([string]$First)) {
+        return [string]$First
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace([string]$Second)) {
+        return [string]$Second
+    }
+
+    return ""
+}
+
+function Coalesce-Object {
+    param(
+        [object]$First,
+        [object]$Second
+    )
+
+    if ($null -ne $First -and -not [string]::IsNullOrWhiteSpace([string]$First)) {
+        return $First
+    }
+
+    return $Second
 }
 
 function Format-SourcesForPrompt {
@@ -665,6 +731,105 @@ function Test-TargetMatched {
     return "yes"
 }
 
+function Test-TargetTopNMatched {
+    param(
+        [string]$Target,
+        [object[]]$Sources,
+        [int]$TopN
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Target) -or $Target -in @("Tous", "Multi-PDF", "Contexte conversationnel")) {
+        return ""
+    }
+
+    $parts = @(Split-TargetParts $Target)
+    if ($parts.Count -ne 1) {
+        return ""
+    }
+
+    $candidates = @(Get-TargetAliases $parts[0])
+    if ($candidates.Count -eq 0) {
+        return ""
+    }
+
+    foreach ($source in @($Sources | Select-Object -First $TopN)) {
+        $haystack = "$($source.docName) $($source.docPath)"
+        foreach ($candidate in $candidates) {
+            if ($haystack.IndexOf($candidate, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                return "yes"
+            }
+        }
+    }
+
+    return "no"
+}
+
+function ConvertTo-NullableDouble {
+    param([object]$Value)
+
+    if ($null -eq $Value -or [string]::IsNullOrWhiteSpace([string]$Value)) {
+        return $null
+    }
+
+    $parsed = 0.0
+    if ([double]::TryParse(
+            ([string]$Value).Replace(",", "."),
+            [System.Globalization.NumberStyles]::Float,
+            [System.Globalization.CultureInfo]::InvariantCulture,
+            [ref]$parsed)) {
+        return $parsed
+    }
+
+    return $null
+}
+
+function Test-NavigationLikeSource {
+    param([object]$Source)
+
+    if ($null -eq $Source) {
+        return $false
+    }
+
+    $contentRole = [string]$Source.contentRole
+    $evidenceRole = [string]$Source.evidenceRole
+    if ($contentRole -eq "navigation" -or $evidenceRole -eq "navigation") {
+        return $true
+    }
+
+    $navigationScore = ConvertTo-NullableDouble $Source.navigationScore
+    $contentDensityScore = ConvertTo-NullableDouble $Source.contentDensityScore
+    return $null -ne $navigationScore `
+        -and $navigationScore -ge 0.72 `
+        -and ($null -eq $contentDensityScore -or $contentDensityScore -lt 0.50)
+}
+
+function Get-RetrievalMetrics {
+    param(
+        [string]$Target,
+        [object[]]$Sources
+    )
+
+    $sourceArray = @($Sources)
+    $top1 = if ($sourceArray.Count -gt 0) { $sourceArray[0] } else { $null }
+    $distinctDocCount = @($sourceArray |
+        ForEach-Object { [string]$_.docPath } |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        Select-Object -Unique).Count
+    $navigationReturned = @($sourceArray | Where-Object { Test-NavigationLikeSource $_ }).Count
+    $top1Navigation = Test-NavigationLikeSource $top1
+
+    return [ordered]@{
+        distinctDocCount = $distinctDocCount
+        top1DocHit = Test-TargetTopNMatched -Target $Target -Sources $sourceArray -TopN 1
+        top3DocHit = Test-TargetTopNMatched -Target $Target -Sources $sourceArray -TopN 3
+        navigationTop1 = $top1Navigation
+        navigationReturned = $navigationReturned
+        top1ContentRole = if ($null -eq $top1) { "" } else { [string]$top1.contentRole }
+        top1NavigationScore = if ($null -eq $top1) { "" } else { [string]$top1.navigationScore }
+        top1ContentDensityScore = if ($null -eq $top1) { "" } else { [string]$top1.contentDensityScore }
+    }
+}
+
 function Get-PreciseCuisineTitle {
     param([string]$Question)
 
@@ -832,6 +997,9 @@ function Invoke-RagSearch {
         response = $response
         parsed = $parsed
         sources = @($sources)
+        preciseTitle = $preciseTitle
+        retrievalQueryCount = $retrievalQueries.Count
+        queryExpansionUsed = $retrievalQueries.Count -gt 1
     }
 }
 
@@ -1192,9 +1360,15 @@ if ($Parallelism -gt 1 -and $Mode -eq "retrieval") {
         partOutputs = $partOutputs
         totals = [ordered]@{
             errors = @($rows | Where-Object { -not [string]::IsNullOrWhiteSpace($_.error) }).Count
+            zeroSources = @($rows | Where-Object { $_.sourceCount -eq 0 }).Count
             withSources = @($rows | Where-Object { $_.sourceCount -gt 0 }).Count
             targetMatched = @($rows | Where-Object { $_.targetMatched -eq "yes" }).Count
             targetMissed = @($rows | Where-Object { $_.targetMatched -eq "no" }).Count
+            top1DocHit = @($rows | Where-Object { $_.top1DocHit -eq "yes" }).Count
+            top3DocHit = @($rows | Where-Object { $_.top3DocHit -eq "yes" }).Count
+            navigationTop1 = @($rows | Where-Object { $_.navigationTop1 -eq $true }).Count
+            navigationReturnedRows = @($rows | Where-Object { $_.navigationReturned -gt 0 }).Count
+            queryExpansionUsed = @($rows | Where-Object { $_.queryExpansionUsed -eq $true }).Count
             withAnswer = @($rows | Where-Object { $_.answerChars -gt 0 }).Count
             answerFlagged = @($rows | Where-Object { -not [string]::IsNullOrWhiteSpace($_.answerFlags) }).Count
         }
@@ -1227,6 +1401,9 @@ try {
         $httpStatus = ""
         $elapsedMs = 0
         $errorText = ""
+        $queryExpansionUsed = $false
+        $retrievalQueryCount = 0
+        $preciseTitle = ""
 
         try {
             if ($Mode -eq "retrieval" -or $Mode -eq "llm") {
@@ -1234,6 +1411,9 @@ try {
                 $sources = @($rag.sources)
                 $httpStatus = $rag.response.statusCode
                 $elapsedMs += [int]$rag.response.elapsedMs
+                $queryExpansionUsed = [bool]$rag.queryExpansionUsed
+                $retrievalQueryCount = [int]$rag.retrievalQueryCount
+                $preciseTitle = [string]$rag.preciseTitle
             }
 
             if ($Mode -eq "llm") {
@@ -1249,6 +1429,7 @@ try {
 
         $sourcesPreview = Get-TextPreview (($sources | ForEach-Object { "$($_.docName) p.$($_.pageStart)" }) -join " | ") 640
         $answerFlags = @(Get-AnswerQualityFlags -Answer $answer -Question ([string]$case.question))
+        $retrievalMetrics = Get-RetrievalMetrics -Target ([string]$case.corpusTarget) -Sources $sources
         $row = [ordered]@{
             id = $case.id
             axis = $case.axis
@@ -1259,7 +1440,18 @@ try {
             httpStatus = $httpStatus
             elapsedMs = $elapsedMs
             sourceCount = $sources.Count
+            distinctDocCount = $retrievalMetrics.distinctDocCount
             targetMatched = Test-TargetMatched -Target ([string]$case.corpusTarget) -Sources $sources
+            top1DocHit = $retrievalMetrics.top1DocHit
+            top3DocHit = $retrievalMetrics.top3DocHit
+            navigationTop1 = $retrievalMetrics.navigationTop1
+            navigationReturned = $retrievalMetrics.navigationReturned
+            top1ContentRole = $retrievalMetrics.top1ContentRole
+            top1NavigationScore = $retrievalMetrics.top1NavigationScore
+            top1ContentDensityScore = $retrievalMetrics.top1ContentDensityScore
+            queryExpansionUsed = $queryExpansionUsed
+            retrievalQueryCount = $retrievalQueryCount
+            preciseTitle = $preciseTitle
             answerChars = $answer.Length
             answerFlags = ($answerFlags -join ",")
             question = $case.question
@@ -1284,6 +1476,10 @@ try {
             httpStatus = $httpStatus
             elapsedMs = $elapsedMs
             sources = $sources
+            retrievalMetrics = $retrievalMetrics
+            queryExpansionUsed = $queryExpansionUsed
+            retrievalQueryCount = $retrievalQueryCount
+            preciseTitle = $preciseTitle
             answer = $answer
             answerFlags = $answerFlags
             error = $errorText
@@ -1331,9 +1527,15 @@ $summary = [ordered]@{
     }
     totals = [ordered]@{
         errors = @($rows | Where-Object { -not [string]::IsNullOrWhiteSpace($_.error) }).Count
+        zeroSources = @($rows | Where-Object { $_.sourceCount -eq 0 }).Count
         withSources = @($rows | Where-Object { $_.sourceCount -gt 0 }).Count
         targetMatched = @($rows | Where-Object { $_.targetMatched -eq "yes" }).Count
         targetMissed = @($rows | Where-Object { $_.targetMatched -eq "no" }).Count
+        top1DocHit = @($rows | Where-Object { $_.top1DocHit -eq "yes" }).Count
+        top3DocHit = @($rows | Where-Object { $_.top3DocHit -eq "yes" }).Count
+        navigationTop1 = @($rows | Where-Object { $_.navigationTop1 -eq $true }).Count
+        navigationReturnedRows = @($rows | Where-Object { $_.navigationReturned -gt 0 }).Count
+        queryExpansionUsed = @($rows | Where-Object { $_.queryExpansionUsed -eq $true }).Count
         withAnswer = @($rows | Where-Object { $_.answerChars -gt 0 }).Count
         answerFlagged = @($rows | Where-Object { -not [string]::IsNullOrWhiteSpace($_.answerFlags) }).Count
     }
