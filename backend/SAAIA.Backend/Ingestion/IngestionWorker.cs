@@ -848,6 +848,22 @@ WHERE job_id=@job_id
         qdrantEnsureMs = swEnsureCollection.ElapsedMilliseconds;
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
 
+        if (resumeFromChunk == 0)
+        {
+            await ThrowIfJobCanceledAsync(ds, job, ct);
+            using (await _bulkheads.AcquireQdrantAsync(qdrantToken))
+            {
+                await QdrantClient.DeleteVersionByDocAsync(
+                    qdrant,
+                    rag.QdrantCollection,
+                    tenantId,
+                    docId,
+                    job.Version,
+                    qdrantToken);
+            }
+            await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+        }
+
         // embed + upsert by batches
         var batchSize = IngestionOptions.ResolveEmbeddingsBatchSize(ingest.EmbeddingsBatchSize);
 

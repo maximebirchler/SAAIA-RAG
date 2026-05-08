@@ -102,6 +102,34 @@ static class QdrantClient
         }
     }
 
+    public static async Task DeleteVersionByDocAsync(HttpClient qdrant, string collection, Guid tenantId, Guid docId, int version, CancellationToken ct)
+    {
+        var filter = new
+        {
+            must = new object[]
+            {
+                new { key = "tenant_id", match = new { value = tenantId.ToString() } },
+                new { key = "doc_id", match = new { value = docId.ToString() } },
+                new { key = "ingestion_version", match = new { value = version } }
+            }
+        };
+        var body = new { filter };
+
+        using var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+
+        using var resp = await qdrant.PostAsync(
+            $"/collections/{collection}/points/delete?wait=true",
+            content,
+            ct);
+
+        if (resp.StatusCode == HttpStatusCode.NotFound) return;
+        if (!resp.IsSuccessStatusCode)
+        {
+            var err = await TryReadErrorBodyAsync(resp, ct);
+            throw new Exception($"Qdrant delete version failed: {(int)resp.StatusCode} {resp.ReasonPhrase} {err}".Trim());
+        }
+    }
+
     public static async Task UpsertPointsAsync(HttpClient qdrant, string collection, List<object> points, CancellationToken ct)
     {
         var body = new { points };

@@ -3,10 +3,14 @@ param(
     [string]$PostgresContainer = "infra-postgres-1",
     [string]$PostgresUser = "saaia-admin",
     [string]$Database = "saaia",
+    [string]$BackendContainer = "infra-backend-1",
+    [string]$QdrantBaseUrl = "http://qdrant:6333",
+    [string]$QdrantCollection = "knowledge_base",
     [string]$Category = "",
     [int]$RecentHours = 24,
     [switch]$RequireIdle,
-    [switch]$StrictFailedJobs
+    [switch]$StrictFailedJobs,
+    [switch]$SkipQdrantVectorCheck
 )
 
 $ErrorActionPreference = "Stop"
@@ -14,6 +18,95 @@ Set-StrictMode -Version Latest
 
 function Escape-SqlLiteral([string]$Value) {
     return $Value.Replace("'", "''")
+}
+
+function Invoke-PostgresQuery([string]$Query) {
+    if ([string]::IsNullOrWhiteSpace($SshTarget)) {
+        return $Query | docker exec -i $PostgresContainer psql -U $PostgresUser -d $Database -v ON_ERROR_STOP=1 -tA -F "|"
+    }
+
+    $remote = "docker exec -i $PostgresContainer psql -U $PostgresUser -d $Database -v ON_ERROR_STOP=1 -tA -F '|'"
+    return $Query | ssh $SshTarget $remote
+}
+
+function Quote-Sh([string]$Value) {
+    return "'" + $Value.Replace("'", "'""'""'") + "'"
+}
+
+function Invoke-QdrantVectorCountCheck([string]$TargetsJson) {
+    if ([string]::IsNullOrWhiteSpace($TargetsJson) -or $TargetsJson.Trim() -eq "[]") {
+        return @()
+    }
+
+    $python = @'
+import json
+import os
+import sys
+import urllib.error
+import urllib.request
+
+base_url = sys.argv[1].rstrip("/")
+collection = sys.argv[2]
+api_key = os.environ.get("QDRANT_API_KEY") or os.environ.get("QDRANT__SERVICE__API_KEY") or ""
+targets_json = sys.stdin.buffer.read().decode("utf-8-sig")
+targets = json.loads(targets_json or "[]")
+
+def emit(check, scope, metric, value):
+    print(json.dumps({
+        "check": check,
+        "scope": scope or "",
+        "metric": metric,
+        "value": str(value)
+    }, ensure_ascii=True))
+
+for target in targets:
+    tenant_id = target["tenantId"]
+    doc_id = target["docId"]
+    version = int(target["indexedVersion"])
+    expected = int(target["expectedChunks"])
+    category = target.get("category") or ""
+    doc_path = target.get("docPath") or ""
+    body = {
+        "exact": True,
+        "filter": {
+            "must": [
+                {"key": "tenant_id", "match": {"value": tenant_id}},
+                {"key": "doc_id", "match": {"value": doc_id}},
+                {"key": "ingestion_version", "match": {"value": version}},
+            ]
+        }
+    }
+    request = urllib.request.Request(
+        f"{base_url}/collections/{collection}/points/count",
+        data=json.dumps(body).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST")
+    if api_key:
+        request.add_header("api-key", api_key)
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            actual = int(payload.get("result", {}).get("count", -1))
+        delta = actual - expected
+        metric = f"doc={doc_path};expected={expected};actual={actual};version={version}"
+        emit("qdrant_vectors", category, metric, 0 if delta == 0 else delta)
+    except Exception as exc:
+        metric = f"doc={doc_path};version={version};error={type(exc).__name__}:{str(exc)[:180]}"
+        emit("qdrant_vector_check_error", category, metric, 1)
+'@
+
+    $encodedPython = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($python))
+    $bootstrap = 'import base64,sys;code=base64.b64decode(sys.argv[1]).decode();sys.argv=[sys.argv[0]]+sys.argv[2:];exec(code)'
+    $scriptArg = Quote-Sh $encodedPython
+    $baseArg = Quote-Sh $QdrantBaseUrl
+    $collectionArg = Quote-Sh $QdrantCollection
+
+    if ([string]::IsNullOrWhiteSpace($SshTarget)) {
+        return $TargetsJson | docker exec -i $BackendContainer python3 -c $bootstrap $encodedPython $QdrantBaseUrl $QdrantCollection
+    }
+
+    $remote = "docker exec -i $BackendContainer python3 -c " + (Quote-Sh $bootstrap) + " $scriptArg $baseArg $collectionArg"
+    return $TargetsJson | ssh $SshTarget $remote
 }
 
 $categoryFilterDocuments = ""
@@ -135,12 +228,7 @@ GROUP BY category
 ORDER BY 1, 2, 3;
 "@
 
-if ([string]::IsNullOrWhiteSpace($SshTarget)) {
-    $raw = $sql | docker exec -i $PostgresContainer psql -U $PostgresUser -d $Database -v ON_ERROR_STOP=1 -tA -F "|"
-} else {
-    $remote = "docker exec -i $PostgresContainer psql -U $PostgresUser -d $Database -v ON_ERROR_STOP=1 -tA -F '|'"
-    $raw = $sql | ssh $SshTarget $remote
-}
+$raw = Invoke-PostgresQuery $sql
 
 $rows = @()
 foreach ($line in $raw) {
@@ -152,6 +240,73 @@ foreach ($line in $raw) {
         Scope = $parts[1]
         Metric = $parts[2]
         Value = $parts[3]
+    }
+}
+
+if (-not $SkipQdrantVectorCheck) {
+    $vectorSql = @"
+WITH current_rev AS (
+  SELECT d.tenant_id,
+         d.doc_id,
+         d.doc_path,
+         d.category,
+         d.indexed_version,
+         r.revision_id,
+         EXISTS (
+           SELECT 1 FROM ingestion_jobs j
+           WHERE j.tenant_id=d.tenant_id
+             AND j.doc_path=d.doc_path
+             AND j.status IN ('queued','running','paused')
+         ) AS has_active_job
+  FROM documents d
+  LEFT JOIN document_revisions r
+    ON r.tenant_id=d.tenant_id
+   AND r.doc_id=d.doc_id
+   AND r.indexed_version=d.indexed_version
+  WHERE d.status='indexed'
+    AND COALESCE(d.indexed_version, 0) > 0
+    $categoryFilterDocuments
+),
+coverage AS (
+  SELECT cr.*,
+    (SELECT count(*) FROM retrieval_chunks c WHERE c.revision_id=cr.revision_id) AS chunks
+  FROM current_rev cr
+)
+SELECT COALESCE(json_agg(json_build_object(
+  'tenantId', tenant_id::text,
+  'docId', doc_id::text,
+  'docPath', doc_path,
+  'category', category,
+  'indexedVersion', indexed_version,
+  'expectedChunks', chunks
+) ORDER BY category, doc_path)::text, '[]')
+FROM coverage
+WHERE revision_id IS NOT NULL
+  AND chunks > 0
+  AND NOT has_active_job;
+"@
+
+    try {
+        $targetsJson = (Invoke-PostgresQuery $vectorSql) -join "`n"
+        $qdrantRaw = Invoke-QdrantVectorCountCheck $targetsJson
+        foreach ($line in $qdrantRaw) {
+            if ([string]::IsNullOrWhiteSpace($line)) { continue }
+            $item = $line | ConvertFrom-Json
+            $rows += [pscustomobject]@{
+                Check = [string]$item.check
+                Scope = [string]$item.scope
+                Metric = [string]$item.metric
+                Value = [string]$item.value
+            }
+        }
+    }
+    catch {
+        $rows += [pscustomobject]@{
+            Check = "qdrant_vector_check_error"
+            Scope = ""
+            Metric = $_.Exception.Message
+            Value = "1"
+        }
     }
 }
 
@@ -189,6 +344,12 @@ foreach ($row in $rows) {
         "profile_card_problem" {
             if ($valueNumber -gt 0) { $warnings.Add("profile cards missing page/evidence metadata: category='$($row.Scope)' count=$valueNumber") }
         }
+        "qdrant_vectors" {
+            if ($valueNumber -ne 0) { $issues.Add("DB/Qdrant vector mismatch: category='$($row.Scope)' $($row.Metric)") }
+        }
+        "qdrant_vector_check_error" {
+            if ($valueNumber -gt 0) { $warnings.Add("DB/Qdrant vector check error: category='$($row.Scope)' $($row.Metric)") }
+        }
     }
 }
 
@@ -197,6 +358,7 @@ $result = [pscustomobject]@{
     category = if ([string]::IsNullOrWhiteSpace($Category)) { $null } else { $Category }
     requireIdle = [bool]$RequireIdle
     strictFailedJobs = [bool]$StrictFailedJobs
+    qdrantVectorCheck = -not [bool]$SkipQdrantVectorCheck
     issues = $issues
     warnings = $warnings
     rows = $rows
