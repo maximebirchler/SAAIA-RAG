@@ -249,6 +249,30 @@ public sealed class PdfOcrTextExtractorTests
     }
 
     [Fact]
+    public void BuildImagePageOcrPlan_can_render_empty_pages_even_without_detected_images()
+    {
+        var nativePage = new ExtractedPdfPage(
+            1,
+            "",
+            0,
+            0,
+            [1],
+            PdfPageExtractionQuality.FromText("", 0, 0),
+            ImageCount: 0);
+        var native = new PdfExtractionResult(
+            [],
+            [nativePage],
+            PdfExtractionQualitySummary.FromPages([nativePage]));
+
+        var plan = PdfOcrTextExtractor.BuildImagePageOcrPlan(
+            native,
+            new IngestionOptions { OcrImagePageEnabled = true });
+
+        Assert.Equal([1], plan.CandidatePages);
+        Assert.Equal([1], plan.AttemptedPages);
+    }
+
+    [Fact]
     public void MergeImageOcrText_does_not_replace_corrupt_native_text_with_partial_ocr()
     {
         var nativeText = "Configuration and protec\uFFFDion requirements remain active. The document owner, revision table, approval workflow and deployment notes stay available.";
@@ -866,9 +890,9 @@ public sealed class PdfOcrTextExtractorTests
         {
             new(
                 1,
-                "Readable native page without image content",
-                6,
-                42,
+                "Readable native page without image content and enough words to avoid text recovery OCR candidates",
+                14,
+                91,
                 [1],
                 ImageCount: 0),
             new(
