@@ -30,6 +30,55 @@ function Require-Command([string]$Name) {
   }
 }
 
+function Quote-RemoteShellArg([string]$Value) {
+  if ($null -eq $Value) { return "''" }
+  if ($Value.Contains("'") -or $Value -match "[`r`n]") {
+    throw "Unsafe remote shell argument."
+  }
+
+  return "'" + $Value + "'"
+}
+
+function Assert-SafeRemoteUserName([string]$Value) {
+  if ([string]::IsNullOrWhiteSpace($Value) -or $Value -notmatch '^[a-z_][a-z0-9_-]*[$]?$') {
+    throw "Unsafe remote user name '$Value'."
+  }
+}
+
+function Assert-SafeRemoteInstallPath([string]$Label, [string]$Path) {
+  if ([string]::IsNullOrWhiteSpace($Path)) {
+    throw "$Label is required."
+  }
+
+  $normalized = $Path.Trim().Replace('\', '/')
+  if ($normalized -match "[`r`n]") {
+    throw "$Label contains a newline, refusing remote provisioning."
+  }
+  if ($normalized.Contains("'")) {
+    throw "$Label contains a single quote, refusing remote provisioning."
+  }
+  if (-not $normalized.StartsWith('/')) {
+    throw "$Label must be an absolute Linux path. Got '$Path'."
+  }
+
+  $trimmed = $normalized.TrimEnd('/')
+  if ([string]::IsNullOrWhiteSpace($trimmed)) {
+    throw "$Label cannot be the filesystem root."
+  }
+
+  $blocked = @('/', '/bin', '/boot', '/dev', '/etc', '/home', '/lib', '/lib64', '/opt', '/proc', '/root', '/run', '/sbin', '/srv', '/sys', '/tmp', '/usr', '/var')
+  if ($blocked -contains $trimmed) {
+    throw "$Label '$trimmed' is too broad for remote provisioning."
+  }
+
+  $segments = $trimmed.Split('/', [System.StringSplitOptions]::RemoveEmptyEntries)
+  if ($segments.Count -lt 2) {
+    throw "$Label '$trimmed' is too broad for remote provisioning."
+  }
+
+  return $trimmed
+}
+
 function Ensure-DockerContext([string]$Name, [string]$ServerSpec) {
   $exists = $false
   try {
@@ -79,6 +128,8 @@ if (-not $envMap.ContainsKey('SAAIA_INSTALL_ROOT') -or [string]::IsNullOrWhiteSp
 }
 
 $installRoot = ([string]$envMap['SAAIA_INSTALL_ROOT']).Trim()
+Assert-SafeRemoteUserName $serverUser
+$installRoot = Assert-SafeRemoteInstallPath -Label 'SAAIA_INSTALL_ROOT' -Path $installRoot
 
 $deployDirName = if ($envMap.ContainsKey('SAAIA_DEPLOY_DIR') -and -not [string]::IsNullOrWhiteSpace($envMap['SAAIA_DEPLOY_DIR'])) {
   ([string]$envMap['SAAIA_DEPLOY_DIR']).Trim()
@@ -93,6 +144,7 @@ if ($deployDirName.StartsWith('/')) {
 else {
   $deployDirRemote = "$($installRoot.TrimEnd('/'))/$deployDirName"
 }
+$deployDirRemote = Assert-SafeRemoteInstallPath -Label 'SAAIA_DEPLOY_DIR' -Path $deployDirRemote
 $backendPort = if ($envMap.ContainsKey('BACKEND_HOST_PORT') -and -not [string]::IsNullOrWhiteSpace($envMap['BACKEND_HOST_PORT'])) { [string]$envMap['BACKEND_HOST_PORT'] } else { '5122' }
 
 Write-Host "== Remote deploy target ==" -ForegroundColor Cyan
@@ -105,16 +157,20 @@ Write-Host "EnvFile:      $envPath"
 
 # Ensure remote runtime directories exist.
 if (-not $SkipRemoteProvision) {
-  $mkdirCmd = @(
-    "sudo mkdir -p '$installRoot'",
-    "sudo mkdir -p '$deployDirRemote'",
-    "sudo mkdir -p '$installRoot/documents'",
-    "sudo mkdir -p '$installRoot/data/backend'",
-    "sudo mkdir -p '$installRoot/data/postgres'",
-    "sudo mkdir -p '$installRoot/data/qdrant'",
-    "sudo mkdir -p '$installRoot/cache/tei'",
-    "sudo chown -R '$serverUser':'$serverUser' '$installRoot'"
-  ) -join ' && '
+  $qUser = Quote-RemoteShellArg $serverUser
+  $dirs = @(
+    $installRoot,
+    $deployDirRemote,
+    "$installRoot/documents",
+    "$installRoot/data/backend",
+    "$installRoot/data/postgres",
+    "$installRoot/data/qdrant",
+    "$installRoot/cache/tei"
+  )
+  $mkdirCmd = ($dirs | ForEach-Object {
+    $qPath = Quote-RemoteShellArg $_
+    "sudo install -d -o $qUser -g $qUser -m 0755 $qPath"
+  }) -join ' && '
 
   Write-Host "== Ensure remote runtime directories ==" -ForegroundColor Cyan
   & ssh $Server $mkdirCmd

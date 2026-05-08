@@ -38,6 +38,12 @@ else
   SAAIA_BOOTSTRAP_API_KEY="${SAAIA_BOOTSTRAP_API_KEY:-}"
 fi
 
+LICENSE_SEATS="${SAAIA_LICENSE_SEATS:-1}"
+if ! [[ "$LICENSE_SEATS" =~ ^[1-9][0-9]*$ ]]; then
+  echo "SAAIA_LICENSE_SEATS must be a positive integer." >&2
+  exit 2
+fi
+
 REQ_QDRANT=false
 if [[ -n "${REQUIRE_QDRANT_AUTH_IN_PROD:-}" ]]; then
   if [[ "${REQUIRE_QDRANT_AUTH_IN_PROD,,}" =~ ^(1|true|yes|on)$ ]]; then
@@ -108,7 +114,14 @@ sed \
   -e "s/__POSTGRES_USER__/${POSTGRES_USER:-saaia}/g" \
   -e "s#__TEI_MODEL_ID__#${TEI_MODEL_ID:-intfloat/multilingual-e5-base}#g" \
   -e "s/__REQUIRE_QDRANT_AUTH__/${REQ_QDRANT}/g" \
+  -e "s/__LICENSE_SEATS__/${LICENSE_SEATS}/g" \
   "$TEMPLATE" > "$CFG"
+
+if grep -Eq '__[A-Z0-9_]+__' "$CFG"; then
+  echo "Rendered deployment config still contains unresolved placeholders:" >&2
+  grep -Eo '__[A-Z0-9_]+__' "$CFG" | sort -u >&2
+  exit 2
+fi
 
 # Sign
 dotnet run --project "$ROOT/tools/ConfigSigner/ConfigSigner.csproj" -- sign "$CFG" "@${SAAIA_CONFIG_PRIVATE_KEY_PATH}" "$SIG"

@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using NSec.Cryptography;
 
 namespace ConfigSigner;
@@ -122,6 +124,8 @@ NOTES
             ? args[3].Trim().Trim('"')
             : DefaultSigPath(configPath);
 
+        ValidateRenderedConfig(configPath);
+
         var privBytes = Convert.FromBase64String(privB64.Trim());
         var key = Key.Import(SignatureAlgorithm.Ed25519, privBytes, KeyBlobFormat.RawPrivateKey);
 
@@ -133,6 +137,18 @@ NOTES
 
         Console.WriteLine($"OK: signature written to {sigOut}");
         return 0;
+    }
+
+    private static void ValidateRenderedConfig(string configPath)
+    {
+        var text = File.ReadAllText(configPath, Encoding.UTF8);
+        using (JsonDocument.Parse(text))
+        {
+        }
+
+        var placeholder = Regex.Match(text, "__[A-Z0-9_]+__");
+        if (placeholder.Success)
+            throw new InvalidOperationException($"Unresolved config placeholder: {placeholder.Value}");
     }
 
     private static int Verify(string[] args)

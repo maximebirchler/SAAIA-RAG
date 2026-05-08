@@ -86,6 +86,7 @@ req*.json
 infra/req*.json
 
 # Local CI/runtime reports
+out/
 artifacts/runtime-ci/
 artifacts/llm-validation/
 artifacts/llama-*/

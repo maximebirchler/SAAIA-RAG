@@ -60,8 +60,53 @@ services:
       QDRANT_API_KEY: ${QDRANT_API_KEY:-}
       SAAIA_LICENSE_SEATS: ${SAAIA_LICENSE_SEATS:-1}
       BACKOFFICE_LLM_ENABLED: ${BACKOFFICE_LLM_ENABLED:-false}
+      BACKOFFICE_LLM_MULTI_INSTANCE_ROUTER_ENABLED: ${BACKOFFICE_LLM_MULTI_INSTANCE_ROUTER_ENABLED:-false}
       Chat__LlmBaseUrl: ${CHAT_LLM_BASE_URL:-}
       Chat__LlmModel: ${CHAT_LLM_MODEL:-local}
+      Ingestion__ChunkMaxWords: ${SAAIA_INGESTION_CHUNK_MAX_WORDS:-200}
+      Ingestion__ChunkOverlapWords: ${SAAIA_INGESTION_CHUNK_OVERLAP_WORDS:-35}
+      Ingestion__ChunkMinWords: ${SAAIA_INGESTION_CHUNK_MIN_WORDS:-25}
+      Ingestion__EmbeddingsBatchSize: ${SAAIA_INGESTION_EMBEDDINGS_BATCH_SIZE:-32}
+      Ingestion__WorkerConcurrency: ${SAAIA_INGESTION_WORKER_CONCURRENCY:-2}
+      Ingestion__WorkerEmptyDelayMs: ${SAAIA_INGESTION_WORKER_EMPTY_DELAY_MS:-500}
+      Ingestion__ScannerEnabled: ${SAAIA_INGESTION_SCANNER_ENABLED:-true}
+      Ingestion__ScanIntervalSeconds: ${SAAIA_INGESTION_SCAN_INTERVAL_SECONDS:-10}
+      Ingestion__MinFileAgeSeconds: ${SAAIA_INGESTION_MIN_FILE_AGE_SECONDS:-2}
+      Ingestion__MaxFilesPerScan: ${SAAIA_INGESTION_MAX_FILES_PER_SCAN:-5000}
+      Ingestion__TeiTimeoutSeconds: ${SAAIA_INGESTION_TEI_TIMEOUT_SECONDS:-180}
+      Ingestion__QdrantTimeoutSeconds: ${SAAIA_INGESTION_QDRANT_TIMEOUT_SECONDS:-180}
+      Ingestion__TeiMaxConcurrency: ${SAAIA_INGESTION_TEI_MAX_CONCURRENCY:-2}
+      Ingestion__QdrantMaxConcurrency: ${SAAIA_INGESTION_QDRANT_MAX_CONCURRENCY:-4}
+      Ingestion__BulkheadAcquireTimeoutSeconds: ${SAAIA_INGESTION_BULKHEAD_ACQUIRE_TIMEOUT_SECONDS:-30}
+      Ingestion__OcrEnabled: ${SAAIA_OCR_ENABLED:-true}
+      Ingestion__OcrCommand: ${SAAIA_OCR_COMMAND:-ocrmypdf}
+      Ingestion__OcrArguments: ${SAAIA_OCR_ARGUMENTS:-}
+      Ingestion__OcrForceArguments: ${SAAIA_OCR_FORCE_ARGUMENTS:-}
+      Ingestion__OcrLanguages: ${SAAIA_OCR_LANGUAGES:-auto}
+      Ingestion__OcrAutoFallbackLanguages: ${SAAIA_OCR_AUTO_FALLBACK_LANGUAGES:-fra+eng+deu+ita}
+      Ingestion__OcrMaxLanguages: ${SAAIA_OCR_MAX_LANGUAGES:-4}
+      Ingestion__OcrAutoDetectLanguages: ${SAAIA_OCR_AUTO_DETECT_LANGUAGES:-true}
+      Ingestion__OcrTimeoutSeconds: ${SAAIA_OCR_TIMEOUT_SECONDS:-900}
+      Ingestion__OcrMinWords: ${SAAIA_OCR_MIN_WORDS:-5}
+      Ingestion__OcrMaxConcurrency: ${SAAIA_OCR_MAX_CONCURRENCY:-1}
+      Ingestion__OcrImagePageEnabled: ${SAAIA_OCR_IMAGE_PAGE_ENABLED:-true}
+      Ingestion__OcrImageRendererCommand: ${SAAIA_OCR_IMAGE_RENDERER_COMMAND:-gs}
+      Ingestion__OcrImageTextCommand: ${SAAIA_OCR_IMAGE_TEXT_COMMAND:-tesseract}
+      Ingestion__OcrImagePageMaxPages: ${SAAIA_OCR_IMAGE_PAGE_MAX_PAGES:-0}
+      Ingestion__OcrImagePageRenderDpi: ${SAAIA_OCR_IMAGE_PAGE_RENDER_DPI:-220}
+      Ingestion__OcrImagePageSegmentationMode: ${SAAIA_OCR_IMAGE_PAGE_SEGMENTATION_MODE:-3}
+      Ingestion__OcrImagePageTimeoutSeconds: ${SAAIA_OCR_IMAGE_PAGE_TIMEOUT_SECONDS:-120}
+      Ingestion__OcrImagePageMaxTotalSeconds: ${SAAIA_OCR_IMAGE_PAGE_MAX_TOTAL_SECONDS:-1800}
+      Ingestion__OcrImagePageMinWords: ${SAAIA_OCR_IMAGE_PAGE_MIN_WORDS:-3}
+      RuntimeGovernance__CapabilityBWorkerEnabled: ${SAAIA_CAPABILITY_B_WORKER_ENABLED:-true}
+      RuntimeGovernance__CapabilityBRequireIngestionIdleForExecution: ${SAAIA_CAPABILITY_B_REQUIRE_INGESTION_IDLE:-true}
+      RuntimeGovernance__CapabilityBAutoEnqueueWhenIngestionIdleEnabled: ${SAAIA_CAPABILITY_B_AUTO_ENQUEUE_IDLE:-true}
+      RuntimeGovernance__CapabilityBIngestionIdleDelaySeconds: ${SAAIA_CAPABILITY_B_INGESTION_IDLE_DELAY_SECONDS:-900}
+      RuntimeGovernance__CapabilityBRunningJobLeaseTimeoutSeconds: ${SAAIA_CAPABILITY_B_RUNNING_JOB_LEASE_TIMEOUT_SECONDS:-3600}
+      RuntimeGovernance__CapabilityBAutoEnqueueBatchSize: ${SAAIA_CAPABILITY_B_AUTO_ENQUEUE_BATCH_SIZE:-25}
+      RuntimeGovernance__CapabilityBAutoEnqueueTenantLimit: ${SAAIA_CAPABILITY_B_AUTO_ENQUEUE_TENANT_LIMIT:-8}
+      RuntimeGovernance__CapabilityBDocumentProfileSectionTitleLimit: ${SAAIA_CAPABILITY_B_PROFILE_SECTION_TITLE_LIMIT:-12}
+      RuntimeGovernance__CapabilityBDocumentProfileExcerptLimit: ${SAAIA_CAPABILITY_B_PROFILE_EXCERPT_LIMIT:-10}
     depends_on:
       postgres:
         condition: service_healthy

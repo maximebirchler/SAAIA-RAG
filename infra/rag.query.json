@@ -1,5 +1,5 @@
 {
   "query": "Résume le passage le plus pertinent.",
-  "category": "programmation",
+  "category": "",
   "topK": 5
 }
