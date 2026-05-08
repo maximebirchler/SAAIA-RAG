@@ -485,7 +485,7 @@ internal static class PdfOcrTextExtractor
         IngestionOptions options)
     {
         var candidatePages = nativeExtraction.Pages
-            .Where(static page => page.ImageCount > 0 || HasReplacementCharacters(page.Text))
+            .Where(static page => page.ImageCount > 0 || HasReplacementSignal(page))
             .Select(static page => page.PageNumber)
             .Distinct()
             .Order()
@@ -867,6 +867,18 @@ internal static class PdfOcrTextExtractor
 
     internal static bool HasReplacementCharacters(string? text)
         => !string.IsNullOrEmpty(text) && text.Contains('\uFFFD', StringComparison.Ordinal);
+
+    internal static bool HasReplacementSignal(ExtractedPdfPage page)
+    {
+        if (HasReplacementCharacters(page.Text))
+            return true;
+
+        var quality = page.Quality;
+        return quality is not null
+               && (quality.RawReplacementCharCount > 0
+                   || quality.SanitizedReplacementCharCount > 0
+                   || quality.Signals.Contains("replacement_chars_detected", StringComparer.Ordinal));
+    }
 
     private static bool ShouldReplaceCorruptNativeText(string nativeText, string cleanedOcrText, int minWords)
     {

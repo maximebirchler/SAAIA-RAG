@@ -1065,7 +1065,7 @@ WHERE job_id=@job_id
     internal static bool ShouldAttemptImagePageOcr(IngestionOptions options, PdfExtractionResult extraction)
         => options.OcrImagePageEnabled
            && extraction.Pages.Any(static page =>
-               page.ImageCount > 0 || PdfOcrTextExtractor.HasReplacementCharacters(page.Text));
+               page.ImageCount > 0 || PdfOcrTextExtractor.HasReplacementSignal(page));
 
     internal static bool IsOcrRequiredButDisabled(
         IngestionOptions options,

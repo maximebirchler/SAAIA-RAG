@@ -214,6 +214,41 @@ public sealed class PdfOcrTextExtractorTests
     }
 
     [Fact]
+    public void BuildImagePageOcrPlan_uses_repaired_replacement_signal_even_when_text_is_now_clean()
+    {
+        const string text = "Configuration and protection requirements";
+        var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var quality = PdfPageExtractionQuality.FromSanitizedText(
+            text,
+            words.Length,
+            text.Length,
+            rawReplacementCharCount: 1,
+            sanitizedReplacementCharCount: 0);
+        var nativePage = new ExtractedPdfPage(
+            1,
+            text,
+            words.Length,
+            text.Length,
+            [1],
+            quality,
+            ImageCount: 0);
+        var native = new PdfExtractionResult(
+            words.Select(word => new WordToken(word, 1)).ToList(),
+            [nativePage],
+            PdfExtractionQualitySummary.FromPages([nativePage]));
+
+        var plan = PdfOcrTextExtractor.BuildImagePageOcrPlan(
+            native,
+            new IngestionOptions { OcrImagePageEnabled = true });
+
+        Assert.Contains("replacement_chars_detected", quality.Signals);
+        Assert.Contains("replacement_chars_repaired", quality.Signals);
+        Assert.True(quality.EncodingRepairApplied);
+        Assert.Equal([1], plan.CandidatePages);
+        Assert.Equal([1], plan.AttemptedPages);
+    }
+
+    [Fact]
     public void MergeImageOcrText_does_not_replace_corrupt_native_text_with_partial_ocr()
     {
         var nativeText = "Configuration and protec\uFFFDion requirements remain active. The document owner, revision table, approval workflow and deployment notes stay available.";

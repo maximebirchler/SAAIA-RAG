@@ -12,14 +12,19 @@ static class PdfExtractor
         var tokens = new List<WordToken>();
         var pages = new List<ExtractedPdfPage>();
         var rawPages = new List<(int PageNumber, string Text, int ImageCount)>();
+        var replacementStatsByPage = new Dictionary<int, (int RawReplacementCharCount, int SanitizedReplacementCharCount)>();
 
         using var doc = PdfPig.PdfDocument.Open(pdfPath);
         foreach (var page in doc.GetPages())
         {
             ct.ThrowIfCancellationRequested();
 
-            var text = PdfTextSanitizer.ForStorage(page.Text);
+            var rawText = page.Text ?? string.Empty;
+            var text = PdfTextSanitizer.ForStorage(rawText);
             rawPages.Add((page.Number, text, CountPageImages(page)));
+            replacementStatsByPage[page.Number] = (
+                CountReplacementCharacters(rawText),
+                CountReplacementCharacters(text));
         }
 
         foreach (var rawPage in RemoveRepeatedPageBoilerplate(rawPages))
@@ -35,13 +40,21 @@ static class PdfExtractor
                 tokens.Add(new WordToken(w, rawPage.PageNumber)); // PageNumber is 1-based
             }
 
+            var replacementStats = replacementStatsByPage.TryGetValue(rawPage.PageNumber, out var stats)
+                ? stats
+                : (RawReplacementCharCount: 0, SanitizedReplacementCharCount: CountReplacementCharacters(text));
             pages.Add(new ExtractedPdfPage(
                 PageNumber: rawPage.PageNumber,
                 Text: text,
                 WordCount: words.Length,
                 CharCount: text.Length,
                 Checksum: SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text)),
-                Quality: PdfPageExtractionQuality.FromText(text, words.Length, text.Length),
+                Quality: PdfPageExtractionQuality.FromSanitizedText(
+                    text,
+                    words.Length,
+                    text.Length,
+                    replacementStats.RawReplacementCharCount,
+                    replacementStats.SanitizedReplacementCharCount),
                 ImageCount: rawPage.ImageCount));
         }
 
@@ -68,6 +81,11 @@ static class PdfExtractor
             return 0;
         }
     }
+
+    private static int CountReplacementCharacters(string? text)
+        => string.IsNullOrEmpty(text)
+            ? 0
+            : text.Count(static ch => ch == '\uFFFD');
 
     internal static IReadOnlyList<(int PageNumber, string Text, int ImageCount)> RemoveRepeatedPageBoilerplate(
         IReadOnlyList<(int PageNumber, string Text, int ImageCount)> pages)
@@ -147,7 +165,10 @@ sealed record PdfPageExtractionQuality(
     bool TextSparse,
     bool OcrCandidate,
     double AverageCharsPerWord,
-    string[] Signals)
+    string[] Signals,
+    int RawReplacementCharCount = 0,
+    int SanitizedReplacementCharCount = 0,
+    bool EncodingRepairApplied = false)
 {
     private const int SparseWordThreshold = 12;
     private const int SparseCharThreshold = 80;
@@ -175,22 +196,57 @@ sealed record PdfPageExtractionQuality(
 
     public static PdfPageExtractionQuality FromText(string? text, int wordCount, int charCount)
     {
+        var replacementCharCount = CountReplacementCharacters(text);
+        return FromSanitizedText(
+            text,
+            wordCount,
+            charCount,
+            replacementCharCount,
+            replacementCharCount);
+    }
+
+    public static PdfPageExtractionQuality FromSanitizedText(
+        string? text,
+        int wordCount,
+        int charCount,
+        int rawReplacementCharCount,
+        int sanitizedReplacementCharCount)
+    {
         var quality = FromCounts(wordCount, charCount);
-        if (string.IsNullOrEmpty(text) || !text.Contains('\uFFFD', StringComparison.Ordinal))
+        rawReplacementCharCount = Math.Max(0, rawReplacementCharCount);
+        sanitizedReplacementCharCount = Math.Max(0, sanitizedReplacementCharCount);
+        if (rawReplacementCharCount == 0 && sanitizedReplacementCharCount == 0)
             return quality;
+
+        var hasRemainingReplacementCharacters = sanitizedReplacementCharCount > 0
+            || (!string.IsNullOrEmpty(text) && text.Contains('\uFFFD', StringComparison.Ordinal));
 
         return quality with
         {
-            TextStatus = "low_text",
-            TextSparse = true,
-            OcrCandidate = true,
+            TextStatus = hasRemainingReplacementCharacters ? "low_text" : quality.TextStatus,
+            TextSparse = hasRemainingReplacementCharacters || quality.TextSparse,
+            OcrCandidate = hasRemainingReplacementCharacters || quality.OcrCandidate,
             Signals = quality.Signals
                 .Where(static signal => !string.Equals(signal, "text_extraction_ok", StringComparison.Ordinal))
                 .Concat(["replacement_chars_detected"])
+                .Concat(rawReplacementCharCount > sanitizedReplacementCharCount
+                    ? ["replacement_chars_repaired"]
+                    : Array.Empty<string>())
+                .Concat(hasRemainingReplacementCharacters
+                    ? ["replacement_chars_remaining"]
+                    : Array.Empty<string>())
                 .Distinct(StringComparer.Ordinal)
-                .ToArray()
+                .ToArray(),
+            RawReplacementCharCount = rawReplacementCharCount,
+            SanitizedReplacementCharCount = sanitizedReplacementCharCount,
+            EncodingRepairApplied = rawReplacementCharCount > sanitizedReplacementCharCount
         };
     }
+
+    private static int CountReplacementCharacters(string? text)
+        => string.IsNullOrEmpty(text)
+            ? 0
+            : text.Count(static ch => ch == '\uFFFD');
 }
 
 sealed record PdfExtractionQualitySummary(
