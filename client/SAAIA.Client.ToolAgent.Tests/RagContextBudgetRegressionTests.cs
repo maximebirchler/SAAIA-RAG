@@ -536,7 +536,8 @@ public sealed class RagContextBudgetRegressionTests
                 tookMs = 42,
                 returned = 1,
                 retrieversUsed = new[] { "profile", "sparse" },
-                dataHash = "hash-1"
+                dataHash = "hash-1",
+                degradedRetrievers = new[] { "document_profile_v1" }
             },
             guidance = new
             {
@@ -630,6 +631,7 @@ public sealed class RagContextBudgetRegressionTests
 
         Assert.Equal("answer_with_caveat", result.GetProperty("guidance").GetProperty("behavior").GetString());
         Assert.Equal(42, result.GetProperty("meta").GetProperty("metrics").GetProperty("tookMs").GetInt32());
+        Assert.Equal("document_profile_v1", result.GetProperty("meta").GetProperty("metrics").GetProperty("degradedRetrievers")[0].GetString());
         Assert.Equal("doc-guid-1", first.GetProperty("docId").GetString());
         Assert.Equal("Knowledge/Procedures", first.GetProperty("categoryPath").GetString());
         Assert.Equal("cat_042", first.GetProperty("categoryRef").GetString());

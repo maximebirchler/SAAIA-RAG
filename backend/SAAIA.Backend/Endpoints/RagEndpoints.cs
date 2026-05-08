@@ -172,7 +172,8 @@ ORDER BY display_order, name;
                 RerankMs: resp.Timings.RerankMs,
                 SparseMs: resp.Timings.SparseMs,
                 QdrantMs: resp.Timings.QdrantMs,
-                CandidatesEvaluated: resp.Candidates
+                CandidatesEvaluated: resp.Candidates,
+                DegradedRetrievers: resp.DegradedRetrievers
             ),
             Items: qualityAdjustedMatches
                 .Select(item =>
@@ -1374,6 +1375,17 @@ ORDER BY d.doc_path;
         long linkedPhaseMs = 0;
         long profilePhaseMs = 0;
         int qdrantStatus = 0;
+        var degradedRetrievers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        object degradedRetrieversLock = new();
+
+        void MarkRetrieverDegraded(string retriever)
+        {
+            if (string.IsNullOrWhiteSpace(retriever))
+                return;
+
+            lock (degradedRetrieversLock)
+                degradedRetrievers.Add(retriever.Trim().ToLowerInvariant());
+        }
 
         if (shortCircuitAfterExact)
         {
@@ -1399,7 +1411,8 @@ ORDER BY d.doc_path;
                         ct,
                         sparseMsRef: value => sparseMs = value,
                         lexicalExpansionQuery: retrievalQuery,
-                        categoryPath: categoryPath),
+                        categoryPath: categoryPath,
+                        degradedRetrieverRef: MarkRetrieverDegraded),
                     getReturnedCount: static matches => matches.Count);
             Task<(List<RagMatch> Result, long DurationMs)> denseMatchesTask = skipChunkRetrieversForDocumentOverview
                 ? Task.FromResult((new List<RagMatch>(), 0L))
@@ -1436,7 +1449,8 @@ ORDER BY d.doc_path;
                         Math.Min(candidates, Math.Max(topK, 12)),
                         ct,
                         categoryPath,
-                        requireDocumentOverviewProfileMatch)
+                        requireDocumentOverviewProfileMatch,
+                        degradedRetrieverRef: MarkRetrieverDegraded)
                     : SearchDocumentProfileMatchesAsync(
                         ds,
                         tenantId,
@@ -1446,7 +1460,8 @@ ORDER BY d.doc_path;
                         req.DocPath,
                         Math.Min(candidates, Math.Max(topK, 12)),
                         ct,
-                        categoryPath),
+                        categoryPath,
+                        degradedRetrieverRef: MarkRetrieverDegraded),
                 getReturnedCount: static matches => matches.Count);
 
             await Task.WhenAll(sparseMatchesTask, denseMatchesTask, profileMatchesTask);
@@ -1567,7 +1582,8 @@ ORDER BY d.doc_path;
                         ct,
                         sparseMsRef: value => sparseMs += value,
                         lexicalExpansionQuery: focusedLexicalQuery,
-                        categoryPath: categoryPath),
+                        categoryPath: categoryPath,
+                        degradedRetrieverRef: MarkRetrieverDegraded),
                     getReturnedCount: static matches => matches.Count);
                 sparsePhaseMs += backfillDurationMs;
 
@@ -1604,7 +1620,10 @@ ORDER BY d.doc_path;
                 RerankMs: rerankMs,
                 SparseMs: sparseMs,
                 QdrantMs: qdrantMs),
-            Matches: selected);
+            Matches: selected,
+            DegradedRetrievers: degradedRetrievers.Count == 0
+                ? null
+                : degradedRetrievers.OrderBy(static retriever => retriever, StringComparer.Ordinal).ToArray());
 
         RetrievalTelemetry.CompleteSearch(searchActivity, response, mode, hasCategoryFilter, hasDocScope);
         RetrievalTelemetry.RecordSearch(response, mode, hasCategoryFilter, hasDocScope, exactMs, sparsePhaseMs + profilePhaseMs, densePhaseMs, linkedPhaseMs);
@@ -2526,7 +2545,8 @@ LIMIT @candidate_limit;
         CancellationToken ct,
         Action<long> sparseMsRef,
         string? lexicalExpansionQuery = null,
-        string? categoryPath = null)
+        string? categoryPath = null,
+        Action<string>? degradedRetrieverRef = null)
     {
         if (string.IsNullOrWhiteSpace(query) || topK <= 0)
         {
@@ -2775,6 +2795,7 @@ LIMIT @top_k;
         catch (PostgresException ex)
         {
             RetrievalTelemetry.RecordRetrieverDegraded("sparse_bm25", ex);
+            degradedRetrieverRef?.Invoke("sparse_bm25");
             return [];
         }
         finally
@@ -3111,7 +3132,8 @@ LIMIT @top_k;
         int topK,
         CancellationToken ct,
         string? categoryPath = null,
-        bool requireLexicalMatch = false)
+        bool requireLexicalMatch = false,
+        Action<string>? degradedRetrieverRef = null)
     {
         if (topK <= 0)
             return [];
@@ -3309,6 +3331,7 @@ LIMIT @top_k;
         catch (PostgresException ex)
         {
             RetrievalTelemetry.RecordRetrieverDegraded("document_profile_overview_v1", ex);
+            degradedRetrieverRef?.Invoke("document_profile_overview_v1");
             return [];
         }
     }
@@ -3322,7 +3345,8 @@ LIMIT @top_k;
         string? docPath,
         int topK,
         CancellationToken ct,
-        string? categoryPath = null)
+        string? categoryPath = null,
+        Action<string>? degradedRetrieverRef = null)
     {
         if (string.IsNullOrWhiteSpace(query) || topK <= 0)
             return [];
@@ -3635,6 +3659,7 @@ LIMIT @top_k;
         catch (PostgresException ex)
         {
             RetrievalTelemetry.RecordRetrieverDegraded("document_profile_v1", ex);
+            degradedRetrieverRef?.Invoke("document_profile_v1");
             return [];
         }
     }
@@ -3753,7 +3778,7 @@ LIMIT @top_k;
         var matchEnd = pageEnd is > 0 ? Math.Max(pageEnd.Value, matchStart) : matchStart;
 
         if (card.PageStart is null or <= 0)
-            return true;
+            return false;
 
         var cardStart = card.PageStart.Value;
         var cardEnd = card.PageEnd is > 0 ? Math.Max(card.PageEnd.Value, cardStart) : cardStart;
@@ -9054,5 +9079,6 @@ public sealed record RagSearchResponse(
     int MaxPerPage,
     int QdrantStatus,
     RagSearchTimings Timings,
-    IReadOnlyList<RagMatch> Matches
+    IReadOnlyList<RagMatch> Matches,
+    IReadOnlyList<string>? DegradedRetrievers = null
 );

@@ -403,7 +403,7 @@ public sealed class ApiClientDocumentsTransitionTests
                     callNumber == 1
                     ? """
                     {
-                      "metrics": { "tookMs": 33, "returned": 1 },
+                      "metrics": { "tookMs": 33, "returned": 1, "degradedRetrievers": ["document_profile_v1"] },
                       "guidance": {
                         "behavior": "answer_with_caveat",
                         "reason": "partial_evidence",
@@ -424,7 +424,7 @@ public sealed class ApiClientDocumentsTransitionTests
                     """
                     : """
                     {
-                      "metrics": { "tookMs": 33, "returned": 1 },
+                      "metrics": { "tookMs": 33, "returned": 1, "degradedRetrievers": ["sparse_bm25"] },
                       "guidance": {
                         "behavior": "answer_with_caveat",
                         "reason": "partial_evidence",
@@ -490,6 +490,8 @@ public sealed class ApiClientDocumentsTransitionTests
         var queryRuns = result.GetProperty("meta").GetProperty("queryRuns").EnumerateArray().ToList();
         Assert.Equal(2, queryRuns.Count);
         Assert.Equal(33, queryRuns[0].GetProperty("meta").GetProperty("metrics").GetProperty("tookMs").GetInt32());
+        var degradedRetrievers = result.GetProperty("meta").GetProperty("degradedRetrievers").EnumerateArray().Select(static item => item.GetString()).ToList();
+        Assert.Equal(["document_profile_v1", "sparse_bm25"], degradedRetrievers);
         var hit = Assert.Single(result.GetProperty("hits").EnumerateArray());
         Assert.Equal("hash-rich", hit.GetProperty("sourceHash").GetString());
         Assert.Equal("en", hit.GetProperty("docLanguage").GetString());

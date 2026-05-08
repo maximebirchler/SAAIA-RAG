@@ -194,7 +194,8 @@ public sealed record RagMetricsDto(
     long? RerankMs = null,
     long? SparseMs = null,
     long? QdrantMs = null,
-    int? CandidatesEvaluated = null
+    int? CandidatesEvaluated = null,
+    IReadOnlyList<string>? DegradedRetrievers = null
 );
 
 /// <summary>

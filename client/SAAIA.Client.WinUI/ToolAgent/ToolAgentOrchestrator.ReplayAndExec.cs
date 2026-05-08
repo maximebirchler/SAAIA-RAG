@@ -883,12 +883,14 @@ public sealed partial class ToolAgentOrchestrator
         {
             var merged = new List<JsonElement>();
             var queryRuns = new List<object?>();
+            var degradedRetrievers = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
             object? selectedGuidance = null;
             string? selectedGuidanceBehavior = null;
             foreach (var q in queries.Take(8))
             {
                 var raw = await _api.RagSearchToolAsync(q, topK, scope, mode, ct);
                 var norm = NormalizeRagHits(raw);
+                CollectRagDegradedRetrievers(norm, degradedRetrievers);
                 var guidance = DeserializePromptObject(norm, "guidance");
                 var guidanceBehavior = norm.TryGetProperty("guidance", out var guidanceEl) && guidanceEl.ValueKind == JsonValueKind.Object
                     ? TryGetString(guidanceEl, "behavior")
@@ -939,6 +941,7 @@ public sealed partial class ToolAgentOrchestrator
                     category = scope,
                     categoryPath = scope,
                     categoryInferred,
+                    degradedRetrievers = degradedRetrievers.Count == 0 ? null : degradedRetrievers.ToArray(),
                     queryRuns
                 }
             };
@@ -966,6 +969,37 @@ public sealed partial class ToolAgentOrchestrator
 
         RememberLastRagDiagnostics(queries.Take(8), result);
         return result;
+    }
+
+    private static void CollectRagDegradedRetrievers(JsonElement normalizedRagResult, ISet<string> degradedRetrievers)
+    {
+        if (degradedRetrievers is null)
+            return;
+
+        var meta = TryGetObject(normalizedRagResult, "meta")
+                   ?? TryGetObject(normalizedRagResult, "Meta");
+        if (!meta.HasValue)
+            return;
+
+        var metrics = TryGetObject(meta.Value, "metrics")
+                      ?? TryGetObject(meta.Value, "Metrics");
+        if (!metrics.HasValue)
+            return;
+
+        var values = TryGetArray(metrics.Value, "degradedRetrievers")
+                     ?? TryGetArray(metrics.Value, "DegradedRetrievers")
+                     ?? TryGetArray(metrics.Value, "degraded_retrievers");
+        if (!values.HasValue)
+            return;
+
+        foreach (var value in values.Value.EnumerateArray())
+        {
+            var retriever = value.ValueKind == JsonValueKind.String
+                ? value.GetString()
+                : value.ToString();
+            if (!string.IsNullOrWhiteSpace(retriever))
+                degradedRetrievers.Add(retriever.Trim());
+        }
     }
 
     private static bool ShouldPreferMultiSearchGuidance(string? currentBehavior, string? candidateBehavior)

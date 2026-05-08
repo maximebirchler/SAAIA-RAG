@@ -69,6 +69,9 @@ public sealed class RagMetrics
 
     [JsonPropertyName("candidatesEvaluated")]
     public int? CandidatesEvaluated { get; set; }
+
+    [JsonPropertyName("degradedRetrievers")]
+    public List<string>? DegradedRetrievers { get; set; }
 }
 
 public sealed class RagItemProvenance
