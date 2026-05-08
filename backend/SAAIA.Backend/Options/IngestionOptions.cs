@@ -48,6 +48,7 @@ sealed class IngestionOptions
 
     // Temps max d'attente pour entrer dans un bulkhead (évite deadlocks)
     public int BulkheadAcquireTimeoutSeconds { get; set; } = 30;
+    public int OcrBulkheadAcquireTimeoutSeconds { get; set; } = 1800;
 
     // Auto-heal si Qdrant est vide alors que la DB contient des documents
     public bool ReindexIfQdrantEmpty { get; set; } = true;

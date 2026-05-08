@@ -392,6 +392,8 @@ public static class ReadyEndpoints
         details["ingestion_tei_max_concurrency"] = Math.Max(1, ingestion.TeiMaxConcurrency);
         details["ingestion_qdrant_max_concurrency"] = Math.Max(1, ingestion.QdrantMaxConcurrency);
         details["ingestion_ocr_max_concurrency"] = Math.Max(1, ingestion.OcrMaxConcurrency);
+        details["ingestion_bulkhead_acquire_timeout_seconds"] = Math.Clamp(ingestion.BulkheadAcquireTimeoutSeconds, 1, 3600);
+        details["ingestion_ocr_bulkhead_acquire_timeout_seconds"] = Math.Clamp(ingestion.OcrBulkheadAcquireTimeoutSeconds, 1, 86400);
         details["ingestion_ocr_image_page_max_pages"] = ingestion.OcrImagePageMaxPages <= 0
             ? "all"
             : Math.Clamp(ingestion.OcrImagePageMaxPages, 1, 500).ToString(CultureInfo.InvariantCulture);

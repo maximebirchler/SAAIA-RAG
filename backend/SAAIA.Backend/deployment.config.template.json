@@ -34,7 +34,8 @@
     "QdrantTimeoutSeconds": 180,
     "TeiMaxConcurrency": 2,
     "QdrantMaxConcurrency": 4,
-    "BulkheadAcquireTimeoutSeconds": 30
+    "BulkheadAcquireTimeoutSeconds": 30,
+    "OcrBulkheadAcquireTimeoutSeconds": 1800
   },
   "Bootstrap": {
     "Enabled": false
