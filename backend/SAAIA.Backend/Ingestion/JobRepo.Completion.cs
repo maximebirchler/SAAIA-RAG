@@ -34,6 +34,7 @@ static partial class JobRepo
         const string lockSql = """
 SELECT
     status AS "Status",
+    priority AS "Priority",
     COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) AS "CancelRequested"
 FROM ingestion_jobs
 WHERE job_id=@job_id
@@ -144,7 +145,10 @@ SET auto_ingest_paused = CASE
         WHEN COALESCE(indexed_version, 0) > 0 THEN 'indexed'
         ELSE status
     END,
-    ingestion_version = GREATEST(COALESCE(ingestion_version, 0), COALESCE(indexed_version, 0)),
+    ingestion_version = CASE
+        WHEN COALESCE(indexed_version, 0) > 0 THEN COALESCE(indexed_version, 0)
+        ELSE GREATEST(COALESCE(ingestion_version, 0), COALESCE(indexed_version, 0))
+    END,
     updated_at = now()
 WHERE tenant_id=@tenant_id AND doc_path=@doc_path
   AND COALESCE(status, '') NOT IN ('missing','deleted');";
@@ -157,6 +161,8 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path
 
         const string versionSql = @"SELECT
     doc_id AS ""DocId"",
+    status AS ""Status"",
+    category AS ""Category"",
     ingestion_version AS ""IngestionVersion"",
     indexed_version AS ""IndexedVersion"",
     COALESCE(auto_ingest_paused, false) AS ""AutoIngestPaused"",
@@ -199,6 +205,8 @@ SET status='canceled',
     locked_at=NULL
 WHERE job_id=@job_id AND status='running';";
             await conn.ExecuteAsync(new CommandDefinition(supersededSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
+            await QueueCurrentVersionAfterSupersededAsync(conn, tx, tenantId, docPath, currentDocState, version, row.Priority ?? 100, ct);
+            await FreezeTerminalSnapshotAsync(conn, jobId, tx, ct);
             await tx.CommitAsync(ct);
             return false;
         }
@@ -288,6 +296,7 @@ WHERE job_id=@job_id AND status='running';";
         const string lockSql = """
 SELECT
     status AS "Status",
+    priority AS "Priority",
     COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) AS "CancelRequested"
 FROM ingestion_jobs
 WHERE job_id=@job_id
@@ -319,6 +328,8 @@ WHERE job_id=@job_id AND status='running';";
 
         const string versionSql = @"SELECT
     doc_id AS ""DocId"",
+    status AS ""Status"",
+    category AS ""Category"",
     ingestion_version AS ""IngestionVersion"",
     indexed_version AS ""IndexedVersion"",
     COALESCE(auto_ingest_paused, false) AS ""AutoIngestPaused"",
@@ -343,6 +354,7 @@ SET status='canceled',
     locked_at=NULL
 WHERE job_id=@job_id AND status='running';";
             await conn.ExecuteAsync(new CommandDefinition(supersededSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
+            await QueueCurrentVersionAfterSupersededAsync(conn, tx, tenantId, docPath, currentDocState, version, row.Priority ?? 100, ct);
             await FreezeTerminalSnapshotAsync(conn, jobId, tx, ct);
             await tx.CommitAsync(ct);
             return false;
@@ -395,6 +407,164 @@ WHERE job_id=@job_id AND status='running';";
 
     internal static async Task FreezeTerminalSnapshotAsync(NpgsqlConnection conn, Guid jobId, NpgsqlTransaction? tx, CancellationToken ct)
         => await IngestionJobSnapshotStore.FreezeTerminalSnapshotAsync(conn, jobId, tx, ct);
+
+    public static async Task<bool> MarkSupersededAndQueueCurrentAsync(
+        NpgsqlDataSource ds,
+        Guid tenantId,
+        Guid jobId,
+        string docPath,
+        int supersededVersion,
+        CancellationToken ct)
+    {
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        await using var tx = await conn.BeginTransactionAsync(ct);
+
+        const string lockSql = """
+SELECT
+    status AS "Status",
+    priority AS "Priority"
+FROM ingestion_jobs
+WHERE job_id=@job_id
+FOR UPDATE;
+""";
+
+        var row = await conn.QueryFirstOrDefaultAsync<JobCancelState>(
+            new CommandDefinition(lockSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
+        if (row is null)
+        {
+            await tx.CommitAsync(ct);
+            return false;
+        }
+
+        const string cancelSql = """
+UPDATE ingestion_jobs
+SET status='canceled',
+    finished_at=COALESCE(finished_at, now()),
+    last_error='superseded_version',
+    locked_by=NULL,
+    locked_at=NULL,
+    available_at=now(),
+    payload=((COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}')
+WHERE job_id=@job_id
+  AND status IN ('queued','running','paused');
+""";
+
+        var affected = await conn.ExecuteAsync(
+            new CommandDefinition(cancelSql, new { job_id = jobId }, transaction: tx, cancellationToken: ct));
+        if (affected == 0)
+        {
+            await tx.CommitAsync(ct);
+            return false;
+        }
+
+        var currentDocState = await LoadCurrentDocumentVersionStateAsync(conn, tx, tenantId, docPath, ct);
+        await QueueCurrentVersionAfterSupersededAsync(conn, tx, tenantId, docPath, currentDocState, supersededVersion, row.Priority ?? 100, ct);
+        await FreezeTerminalSnapshotAsync(conn, jobId, tx, ct);
+        await tx.CommitAsync(ct);
+        return true;
+    }
+
+    private static async Task<DocumentVersionState?> LoadCurrentDocumentVersionStateAsync(
+        NpgsqlConnection conn,
+        NpgsqlTransaction tx,
+        Guid tenantId,
+        string docPath,
+        CancellationToken ct)
+    {
+        const string sql = """
+SELECT
+    doc_id AS "DocId",
+    status AS "Status",
+    category AS "Category",
+    ingestion_version AS "IngestionVersion",
+    indexed_version AS "IndexedVersion",
+    COALESCE(auto_ingest_paused, false) AS "AutoIngestPaused",
+    auto_ingest_pause_reason AS "AutoIngestPauseReason"
+FROM documents
+WHERE tenant_id=@tenant_id AND doc_path=@doc_path
+FOR UPDATE;
+""";
+
+        return await conn.QueryFirstOrDefaultAsync<DocumentVersionState>(
+            new CommandDefinition(sql, new { tenant_id = tenantId, doc_path = docPath }, transaction: tx, cancellationToken: ct));
+    }
+
+    private static async Task<Guid?> QueueCurrentVersionAfterSupersededAsync(
+        NpgsqlConnection conn,
+        NpgsqlTransaction tx,
+        Guid tenantId,
+        string docPath,
+        DocumentVersionState? currentDocState,
+        int supersededVersion,
+        int priority,
+        CancellationToken ct)
+    {
+        if (currentDocState?.IngestionVersion is not int currentVersion
+            || currentVersion <= 0
+            || currentVersion <= supersededVersion)
+            return null;
+
+        var status = currentDocState.Status ?? string.Empty;
+        var action = string.Equals(status, "missing", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(status, "deleted", StringComparison.OrdinalIgnoreCase)
+                ? "delete"
+                : "upsert";
+        var docId = currentDocState.DocId ?? IdUtil.DeterministicGuid($"{tenantId}:{docPath}");
+        var indexedVersionBefore = Math.Max(0, currentDocState.IndexedVersion ?? 0);
+        var payload = IngestionJobPayloadJson.Serialize(
+            docId,
+            currentVersion,
+            source: "superseded",
+            indexedVersionBefore: indexedVersionBefore);
+        var nextJobId = Guid.NewGuid();
+        var normalizedPriority = Math.Max(0, priority);
+        var category = string.Equals(action, "upsert", StringComparison.OrdinalIgnoreCase)
+            ? IngestionCategoryResolver.Normalize(
+                string.IsNullOrWhiteSpace(currentDocState.Category)
+                    ? IngestionCategoryResolver.DeriveFromDocumentPath(docPath)
+                    : currentDocState.Category)
+            : null;
+
+        const string sql = """
+INSERT INTO ingestion_jobs(job_id, tenant_id, action, doc_path, category, priority, status, payload, available_at)
+VALUES(@job_id, @tenant_id, @action, @doc_path, @category, @priority, 'queued', @payload::jsonb, now())
+ON CONFLICT (tenant_id, doc_path, action) WHERE status IN ('queued','running','paused')
+DO UPDATE SET
+  available_at = CASE
+      WHEN ingestion_jobs.status='running' THEN ingestion_jobs.available_at
+      ELSE now()
+  END,
+  payload = CASE
+      WHEN ingestion_jobs.status='running' THEN ingestion_jobs.payload
+      ELSE EXCLUDED.payload
+  END,
+  category = CASE
+      WHEN ingestion_jobs.status='running' THEN ingestion_jobs.category
+      ELSE EXCLUDED.category
+  END,
+  priority = CASE
+      WHEN ingestion_jobs.status='running' THEN ingestion_jobs.priority
+      ELSE LEAST(ingestion_jobs.priority, EXCLUDED.priority)
+  END,
+  last_error = CASE
+      WHEN ingestion_jobs.status='running' THEN ingestion_jobs.last_error
+      ELSE NULL
+  END
+RETURNING job_id;
+""";
+
+        return await conn.ExecuteScalarAsync<Guid?>(
+            new CommandDefinition(sql, new
+            {
+                job_id = nextJobId,
+                tenant_id = tenantId,
+                action,
+                doc_path = docPath,
+                category,
+                priority = normalizedPriority,
+                payload
+            }, transaction: tx, cancellationToken: ct));
+    }
 
     public static async Task UpdateProgressAsync(NpgsqlDataSource ds, Guid jobId, string phase, int? current, int? total, CancellationToken ct)
         => await IngestionJobSnapshotStore.UpdateProgressAsync(ds, jobId, phase, current, total, ct);

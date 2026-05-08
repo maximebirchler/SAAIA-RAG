@@ -473,6 +473,66 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
+    public async Task PublishFailedOcrExtractionAsync_does_not_publish_when_version_is_superseded()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("11111111-1212-1111-1111-111111111111");
+        var docId = Guid.Parse("22222222-3434-2222-2222-222222222223");
+        var jobId = Guid.Parse("33333333-5656-3333-3333-333333333335");
+        const string docPath = "OCR/stale-non-indexable.pdf";
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 2, indexedVersion: 0);
+
+        var page = new ExtractedPdfPage(1, "", 0, 0, [1], ImageCount: 1);
+        var extractionQuality = PdfExtractionQualitySummary.FromPages([page]);
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        await DocumentFoundationRepo.PublishFailedOcrExtractionAsync(
+            ds,
+            tenantId,
+            docId,
+            jobId,
+            docPath,
+            sourceHash: [9, 8, 7],
+            sourceSize: 123,
+            sourceMtimeUtc: DateTime.UtcNow,
+            ingestionVersion: 1,
+            extractionSource: "pdf_text",
+            ocrAttempted: true,
+            ocrLanguages: "eng",
+            ocrDurationMs: 456,
+            ocrDiagnostics: null,
+            extractionQuality,
+            nativeExtractionQuality: extractionQuality,
+            failureReason: "scanned_pdf_not_indexable",
+            CancellationToken.None);
+
+        await using var conn = new NpgsqlConnection(db.ConnectionString);
+        await conn.OpenAsync();
+
+        var document = await conn.QuerySingleAsync<(string status, int ingestion_version, int indexed_version, bool auto_ingest_paused)>(
+            "SELECT status, ingestion_version, indexed_version, auto_ingest_paused FROM documents WHERE tenant_id=@tenant_id AND doc_path=@doc_path;",
+            new { tenant_id = tenantId, doc_path = docPath });
+        var runCount = await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM document_processing_runs WHERE job_id=@job_id;",
+            new { job_id = jobId });
+        var job = await conn.QuerySingleAsync<(string status, string last_error)>(
+            "SELECT status, last_error FROM ingestion_jobs WHERE job_id=@job_id;",
+            new { job_id = jobId });
+
+        Assert.Equal("pending", document.status);
+        Assert.Equal(2, document.ingestion_version);
+        Assert.Equal(0, document.indexed_version);
+        Assert.False(document.auto_ingest_paused);
+        Assert.Equal(0, runCount);
+        Assert.Equal("canceled", job.status);
+        Assert.Equal("superseded_failed_ocr_publish", job.last_error);
+    }
+
+    [Fact]
     public async Task Extraction_quality_admin_endpoints_include_failed_non_indexable_ocr_documents()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
@@ -1057,6 +1117,76 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
+    public async Task EnqueueUpsertAsync_while_running_job_is_superseded_queues_current_version_after_commit()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("88888888-2222-2222-2222-999999999999");
+        var docId = Guid.Parse("99999999-3333-3333-3333-aaaaaaaaaaaa");
+        var runningJobId = Guid.Parse("aaaaaaaa-4444-4444-4444-bbbbbbbbbbbb");
+        const string docPath = "Generic/SupersededRunning.pdf";
+
+        await db.SeedRunningJobAsync(tenantId, docId, runningJobId, docPath, ingestionVersion: 1, indexedVersion: 0);
+
+        await using var conn = new NpgsqlConnection(db.ConnectionString);
+        await conn.OpenAsync();
+        var enqueued = await IngestionEnqueue.EnqueueUpsertAsync(
+            conn,
+            tenantId,
+            docPath,
+            "Generic",
+            fi: null,
+            CancellationToken.None,
+            enqueueSource: "admin");
+
+        Assert.Equal(runningJobId, enqueued.JobId);
+        Assert.Equal(2, enqueued.Version);
+
+        var runningPayloadVersion = await conn.ExecuteScalarAsync<string?>(
+            "SELECT payload #>> '{version}' FROM ingestion_jobs WHERE job_id=@jobId;",
+            new { jobId = runningJobId });
+        Assert.Null(runningPayloadVersion);
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var committed = await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            runningJobId,
+            docPath,
+            hash: [1, 2, 3],
+            size: 10,
+            mtimeUtc: DateTime.UtcNow,
+            version: 1,
+            pages: [],
+            sections: [],
+            units: [],
+            retrievalChunks: [],
+            exactMatchEntries: [],
+            contextualTextEntries: [],
+            CancellationToken.None);
+
+        Assert.False(committed);
+
+        var oldStatus = await conn.ExecuteScalarAsync<string>(
+            "SELECT status FROM ingestion_jobs WHERE job_id=@jobId;",
+            new { jobId = runningJobId });
+        var followUp = await conn.QuerySingleAsync<(Guid job_id, string status, string? version, string? source)>(
+            """
+            SELECT job_id, status, payload #>> '{version}' AS version, payload #>> '{source}' AS source
+            FROM ingestion_jobs
+            WHERE tenant_id=@tenant AND doc_path=@docPath AND action='upsert' AND status='queued';
+            """,
+            new { tenant = tenantId, docPath });
+
+        Assert.Equal("canceled", oldStatus);
+        Assert.Equal("queued", followUp.status);
+        Assert.Equal("2", followUp.version);
+        Assert.Equal("superseded", followUp.source);
+    }
+
+    [Fact]
     public async Task SearchDocumentProfileMatchesAsync_uses_materialized_content_cards_when_profile_search_text_is_stale()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
@@ -1607,6 +1737,39 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal(0, revisionCount);
         Assert.Equal(0, artifactCount);
         Assert.Equal("canceled", jobStatus);
+    }
+
+    [Fact]
+    public async Task StabilizeDocumentAfterCancelAsync_reverts_indexed_document_to_published_version()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("78787878-1212-1111-1111-111111111111");
+        var docId = Guid.Parse("90909090-3434-2222-2222-222222222222");
+        var jobId = Guid.Parse("abababab-5656-3333-3333-333333333333");
+        const string docPath = "General/CanceledIndexed.pdf";
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 5, indexedVersion: 3);
+
+        await using var conn = new NpgsqlConnection(db.ConnectionString);
+        await conn.OpenAsync();
+        await conn.ExecuteAsync(
+            "UPDATE documents SET status='indexed' WHERE tenant_id=@tenant AND doc_path=@docPath;",
+            new { tenant = tenantId, docPath });
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        await JobRepo.StabilizeDocumentAfterCancelAsync(ds, tenantId, docPath, CancellationToken.None);
+
+        var document = await conn.QuerySingleAsync<(string status, int ingestion_version, int indexed_version, bool auto_ingest_paused)>(
+            "SELECT status, ingestion_version, indexed_version, auto_ingest_paused FROM documents WHERE tenant_id=@tenant AND doc_path=@docPath;",
+            new { tenant = tenantId, docPath });
+
+        Assert.Equal("indexed", document.status);
+        Assert.Equal(3, document.ingestion_version);
+        Assert.Equal(3, document.indexed_version);
+        Assert.False(document.auto_ingest_paused);
     }
 
     [Fact]

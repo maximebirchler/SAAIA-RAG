@@ -208,6 +208,7 @@ SET doc_path = EXCLUDED.doc_path,
         const string stateSql = """
 SELECT
     doc_id AS "DocId",
+    COALESCE(ingestion_version, 0) AS "IngestionVersion",
     COALESCE(indexed_version, 0) AS "IndexedVersion"
 FROM documents
 WHERE tenant_id=@tenant_id
@@ -223,6 +224,28 @@ FOR UPDATE;
 
         var persistedDocId = state?.DocId ?? docId;
         var indexedVersionBefore = Math.Max(0, state?.IndexedVersion ?? 0);
+        if (state is null || state.IngestionVersion != ingestionVersion)
+        {
+            const string supersededSql = """
+UPDATE ingestion_jobs
+SET status='canceled',
+    finished_at=COALESCE(finished_at, now()),
+    last_error='superseded_failed_ocr_publish',
+    locked_by=NULL,
+    locked_at=NULL,
+    payload=((COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}')
+WHERE job_id=@job_id
+  AND status='running';
+""";
+            await conn.ExecuteAsync(new CommandDefinition(
+                supersededSql,
+                new { job_id = jobId },
+                transaction: tx,
+                cancellationToken: ct));
+            await tx.CommitAsync(ct);
+            return;
+        }
+
         var pageCount = Math.Max(0, extractionQuality.PageCount);
 
         const string documentSql = """
@@ -1799,5 +1822,6 @@ internal sealed class DocumentProfileContentCardRow
 internal sealed class FailedExtractionDocumentState
 {
     public Guid DocId { get; set; }
+    public int IngestionVersion { get; set; }
     public int IndexedVersion { get; set; }
 }

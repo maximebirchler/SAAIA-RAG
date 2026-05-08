@@ -518,6 +518,7 @@ WHERE status='running'
     private sealed class JobCancelState
     {
         public string? Status { get; set; }
+        public int? Priority { get; set; }
         public bool CancelRequested { get; set; }
         public string? RequestedAction { get; set; }
     }
@@ -538,7 +539,14 @@ WHERE status='running'
         bool DocumentAutoIngestPaused,
         string? DocumentAutoIngestPauseReason);
 
-    private sealed record DocumentVersionState(Guid? DocId, int? IngestionVersion, int? IndexedVersion, bool AutoIngestPaused, string? AutoIngestPauseReason);
+    private sealed record DocumentVersionState(
+        Guid? DocId,
+        string? Status,
+        string? Category,
+        int? IngestionVersion,
+        int? IndexedVersion,
+        bool AutoIngestPaused,
+        string? AutoIngestPauseReason);
 
     private sealed record IngestionJobRow(Guid JobId, Guid TenantId, string Action, string DocPath, string? Category, string Payload)
     {

@@ -472,7 +472,10 @@ WHERE job_id=@job_id
         {
             var ok = await IsCurrentDocVersionAsync(ds, tenantId, relDocPath, job.Version, ct);
             if (!ok)
-                throw new JobCanceledException("superseded_version");
+            {
+                await JobRepo.MarkSupersededAndQueueCurrentAsync(ds, tenantId, job.JobId, relDocPath, job.Version, ct);
+                return false;
+            }
         }
 
         using var qdrantCts = CreateTimeoutCts(ct, ingest.QdrantTimeoutSeconds);
@@ -554,7 +557,10 @@ WHERE job_id=@job_id
         {
             var ok = await IsCurrentDocVersionAsync(ds, tenantId, relDocPath, job.Version, ct);
             if (!ok)
-                throw new JobCanceledException("superseded_version");
+            {
+                await JobRepo.MarkSupersededAndQueueCurrentAsync(ds, tenantId, job.JobId, relDocPath, job.Version, ct);
+                return false;
+            }
         }
 
         if (!File.Exists(absPath))
@@ -701,6 +707,16 @@ WHERE job_id=@job_id
         swUnits.Stop();
         unitMs = swUnits.ElapsedMilliseconds;
         await ThrowIfJobCanceledAsync(ds, job, ct);
+        if (job.Version > 0)
+        {
+            var ok = await IsCurrentDocVersionAsync(ds, tenantId, relDocPath, job.Version, ct);
+            if (!ok)
+            {
+                await JobRepo.MarkSupersededAndQueueCurrentAsync(ds, tenantId, job.JobId, relDocPath, job.Version, ct);
+                return false;
+            }
+        }
+
         if (tokens.Count == 0)
         {
             var failureReason = ResolveNoTextFailureReason(ocrAttempted, ocrRequiredButDisabled);

@@ -145,8 +145,13 @@ INSERT INTO ingestion_jobs(job_id, tenant_id, action, doc_path, category, status
 VALUES(@job_id, @tenant_id, 'upsert', @doc_path, @category, 'queued', @payload::jsonb, now())
 ON CONFLICT (tenant_id, doc_path, action) WHERE status IN ('queued','running','paused')
 DO UPDATE SET
-  available_at = now(),
+  available_at = CASE
+      WHEN ingestion_jobs.status='running' THEN ingestion_jobs.available_at
+      ELSE now()
+  END,
   payload = CASE
+      WHEN ingestion_jobs.status='running'
+          THEN ingestion_jobs.payload
       WHEN COALESCE((ingestion_jobs.payload #>> '{control,cancelRequested}')::boolean, false)
           THEN jsonb_set(
               jsonb_set(EXCLUDED.payload, '{control,cancelRequested}', 'true'::jsonb, true),
@@ -155,8 +160,14 @@ DO UPDATE SET
               true)
       ELSE EXCLUDED.payload
   END,
-  category = EXCLUDED.category,
-  last_error = NULL
+  category = CASE
+      WHEN ingestion_jobs.status='running' THEN ingestion_jobs.category
+      ELSE EXCLUDED.category
+  END,
+  last_error = CASE
+      WHEN ingestion_jobs.status='running' THEN ingestion_jobs.last_error
+      ELSE NULL
+  END
 RETURNING job_id;
 """;
 

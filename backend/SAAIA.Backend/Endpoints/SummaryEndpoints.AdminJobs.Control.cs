@@ -302,7 +302,7 @@ WHERE tenant_id=@tenant
                 """
 UPDATE documents
 SET status='indexed',
-    ingestion_version=GREATEST(COALESCE(ingestion_version, 0), COALESCE(indexed_version, 0)),
+    ingestion_version=COALESCE(indexed_version, 0),
     auto_ingest_paused=false,
     auto_ingest_paused_at=NULL,
     auto_ingest_pause_reason=NULL,

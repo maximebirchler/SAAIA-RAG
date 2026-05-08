@@ -24,7 +24,10 @@ SET auto_ingest_paused = CASE
         WHEN COALESCE(indexed_version, 0) > 0 THEN 'indexed'
         ELSE status
     END,
-    ingestion_version = GREATEST(COALESCE(ingestion_version, 0), COALESCE(indexed_version, 0)),
+    ingestion_version = CASE
+        WHEN COALESCE(indexed_version, 0) > 0 THEN COALESCE(indexed_version, 0)
+        ELSE GREATEST(COALESCE(ingestion_version, 0), COALESCE(indexed_version, 0))
+    END,
     updated_at = now()
 WHERE tenant_id = @tenant_id
   AND doc_path = @doc_path
