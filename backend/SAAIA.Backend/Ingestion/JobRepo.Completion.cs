@@ -203,9 +203,9 @@ WHERE job_id=@job_id AND status='running';";
             return false;
         }
 
-        var nextIndexedVersion = Math.Max(0, currentDocState?.IndexedVersion ?? 0) + 1;
         var docId = currentDocState?.DocId ?? IdUtil.DeterministicGuid($"{tenantId}:{docPath}");
         var indexedVersionBefore = Math.Max(0, currentDocState?.IndexedVersion ?? 0);
+        var nextIndexedVersion = version;
 
         const string docSql = @"UPDATE documents
 SET content_hash=@hash,

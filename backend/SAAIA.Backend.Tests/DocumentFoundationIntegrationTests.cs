@@ -208,6 +208,86 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
+    public async Task CompleteUpsertAsync_publishes_job_version_when_indexed_version_has_gap()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("11111111-aaaa-1111-1111-111111111111");
+        var docId = Guid.Parse("22222222-bbbb-2222-2222-222222222222");
+        var jobId = Guid.Parse("33333333-cccc-3333-3333-333333333333");
+        const string docPath = "Generic/RetryGap.pdf";
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 5, indexedVersion: 3);
+
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, "Retry gap content", 3, 17, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Retry gap", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, "Retry gap content", 17, 3, [2])
+        };
+        var retrievalChunks = new[]
+        {
+            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "Retry gap content", 3, [3], "unit_exact_v1")
+        };
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var committed = await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            jobId,
+            docPath,
+            hash: [5, 5, 5],
+            size: 55,
+            mtimeUtc: DateTime.UtcNow,
+            version: 5,
+            pages,
+            sections,
+            units,
+            retrievalChunks,
+            exactMatchEntries: [],
+            contextualTextEntries: [],
+            CancellationToken.None);
+
+        Assert.True(committed);
+
+        await using var conn = new NpgsqlConnection(db.ConnectionString);
+        await conn.OpenAsync();
+
+        var documentVersion = await conn.QuerySingleAsync<(int ingestion_version, int indexed_version)>(
+            "SELECT ingestion_version, indexed_version FROM documents WHERE tenant_id=@tenant_id AND doc_id=@doc_id;",
+            new { tenant_id = tenantId, doc_id = docId });
+        Assert.Equal(5, documentVersion.ingestion_version);
+        Assert.Equal(5, documentVersion.indexed_version);
+
+        var revisionVersion = await conn.QuerySingleAsync<(Guid revision_id, int ingestion_version, int indexed_version)>(
+            "SELECT revision_id, ingestion_version, indexed_version FROM document_revisions WHERE tenant_id=@tenant_id AND doc_id=@doc_id;",
+            new { tenant_id = tenantId, doc_id = docId });
+        Assert.Equal(DocumentFoundationRepo.BuildStableRevisionId(tenantId, docId, 5), revisionVersion.revision_id);
+        Assert.Equal(5, revisionVersion.ingestion_version);
+        Assert.Equal(5, revisionVersion.indexed_version);
+
+        var processingRun = await conn.QuerySingleAsync<(int ingestion_version, int indexed_version_before, int indexed_version_after)>(
+            "SELECT ingestion_version, indexed_version_before, indexed_version_after FROM document_processing_runs WHERE tenant_id=@tenant_id AND job_id=@job_id;",
+            new { tenant_id = tenantId, job_id = jobId });
+        Assert.Equal(5, processingRun.ingestion_version);
+        Assert.Equal(3, processingRun.indexed_version_before);
+        Assert.Equal(5, processingRun.indexed_version_after);
+
+        var retrievalChunkId = await conn.ExecuteScalarAsync<Guid>(
+            "SELECT retrieval_chunk_id FROM retrieval_chunks WHERE tenant_id=@tenant_id AND doc_id=@doc_id;",
+            new { tenant_id = tenantId, doc_id = docId });
+        Assert.Equal(DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 5, 0), retrievalChunkId);
+    }
+
+    [Fact]
     public async Task CompleteUpsertAsync_publishes_ocr_diagnostics_in_processing_payload()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
