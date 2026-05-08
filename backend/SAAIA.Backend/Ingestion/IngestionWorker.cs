@@ -222,6 +222,52 @@ sealed class IngestionWorker : BackgroundService
         => !string.Equals(reason, "superseded_version", StringComparison.OrdinalIgnoreCase);
 
     // Heartbeat: rafraîchit locked_at pour éviter qu’un job long soit considéré "stale" alors qu’il tourne.
+    private async Task<T> RunWithJobHeartbeatAsync<T>(
+        NpgsqlDataSource ds,
+        IngestionJob job,
+        string workerId,
+        Func<CancellationToken, Task<T>> operation,
+        CancellationToken ct)
+    {
+        using var heartbeatCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var heartbeatTask = Task.Run(async () =>
+        {
+            while (!heartbeatCts.Token.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(20), heartbeatCts.Token);
+                    await TouchJobLockAsync(ds, job.JobId, workerId, heartbeatCts.Token);
+                }
+                catch (OperationCanceledException) when (heartbeatCts.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _log.LogDebug(ex, "Failed to refresh ingestion heartbeat job={JobId}", job.JobId);
+                }
+            }
+        }, CancellationToken.None);
+
+        try
+        {
+            return await operation(ct);
+        }
+        finally
+        {
+            heartbeatCts.Cancel();
+            try
+            {
+                await heartbeatTask;
+            }
+            catch (OperationCanceledException) when (heartbeatCts.IsCancellationRequested)
+            {
+                // Expected when the operation finishes before the next heartbeat tick.
+            }
+        }
+    }
+
     private static async Task TouchJobLockAsync(NpgsqlDataSource ds, Guid jobId, string workerId, CancellationToken ct)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
@@ -574,7 +620,12 @@ WHERE job_id=@job_id
                 ocrLanguages = PdfOcrTextExtractor.ResolveLanguagesForDocument(absPath, ingest, nativeExtraction);
                 if (fullDocumentOcrRecommended)
                 {
-                    var fullOcrResult = await PdfOcrTextExtractor.TryExtractWithDiagnosticsAsync(absPath, ingest, ct, ocrLanguages, forceFullDocumentOcr);
+                    var fullOcrResult = await RunWithJobHeartbeatAsync(
+                        ds,
+                        job,
+                        workerId,
+                        operationCt => PdfOcrTextExtractor.TryExtractWithDiagnosticsAsync(absPath, ingest, operationCt, ocrLanguages, forceFullDocumentOcr),
+                        ct);
                     fullOcrDiagnostics = fullOcrResult?.Diagnostics;
                     fullOcrExtraction = fullOcrResult?.Extraction;
                     fullOcrApplied = fullOcrExtraction is not null
@@ -596,7 +647,12 @@ WHERE job_id=@job_id
                     }
 
                     var imageMergeBase = ocrExtraction ?? nativeExtraction;
-                    var imageOcrResult = await PdfOcrTextExtractor.TryMergeImagePageOcrAsync(absPath, ingest, imageMergeBase, ct, ocrLanguages);
+                    var imageOcrResult = await RunWithJobHeartbeatAsync(
+                        ds,
+                        job,
+                        workerId,
+                        operationCt => PdfOcrTextExtractor.TryMergeImagePageOcrAsync(absPath, ingest, imageMergeBase, operationCt, ocrLanguages),
+                        ct);
                     imageOcrDiagnostics = imageOcrResult?.Diagnostics;
                     imageOcrExtraction = imageOcrResult?.Extraction;
                     imageOcrApplied = imageOcrExtraction is not null
