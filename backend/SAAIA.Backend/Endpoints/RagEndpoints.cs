@@ -1324,6 +1324,7 @@ ORDER BY d.doc_path;
         var hasCategoryFilter = !string.IsNullOrWhiteSpace(category) || !string.IsNullOrWhiteSpace(categoryPath);
         var hasDocScope = !string.IsNullOrWhiteSpace(req.DocId) || !string.IsNullOrWhiteSpace(req.DocPath);
         var skipChunkRetrieversForDocumentOverview = ShouldSkipChunkRetrieversForDocumentOverview(req.Query, hasDocScope, mode);
+        var useScopedProfileFallback = !hasDocScope && ShouldUseScopedProfileFallback(req.Query, hasCategoryFilter, mode);
         var requireDocumentOverviewProfileMatch = skipChunkRetrieversForDocumentOverview
             && ShouldRequireDocumentOverviewProfileMatch(req.Query);
         using var searchActivity = RetrievalTelemetry.StartSearchActivity(mode, hasCategoryFilter, hasDocScope, topK, candidates, req.Query);
@@ -1395,7 +1396,7 @@ ORDER BY d.doc_path;
         {
             AddRankedMatches(selected, selectedKeys, quotedTitleMatches, topK, minScore: 0.0, maxPerDoc, Math.Max(maxPerPage, 2));
 
-            Task<(List<RagMatch> Result, long DurationMs)> sparseMatchesTask = skipChunkRetrieversForDocumentOverview
+            Task<(List<RagMatch> Result, long DurationMs)> sparseMatchesTask = skipChunkRetrieversForDocumentOverview || useScopedProfileFallback
                 ? Task.FromResult((new List<RagMatch>(), 0L))
                 : MeasurePhaseAsync(
                     phaseName: "retrieval_sparse",
@@ -1414,7 +1415,7 @@ ORDER BY d.doc_path;
                         categoryPath: categoryPath,
                         degradedRetrieverRef: MarkRetrieverDegraded),
                     getReturnedCount: static matches => matches.Count);
-            Task<(List<RagMatch> Result, long DurationMs)> denseMatchesTask = skipChunkRetrieversForDocumentOverview
+            Task<(List<RagMatch> Result, long DurationMs)> denseMatchesTask = skipChunkRetrieversForDocumentOverview || useScopedProfileFallback
                 ? Task.FromResult((new List<RagMatch>(), 0L))
                 : MeasurePhaseAsync(
                     phaseName: "retrieval_dense",
@@ -1438,7 +1439,7 @@ ORDER BY d.doc_path;
             var profileMatchesTask = MeasurePhaseAsync(
                 phaseName: "retrieval_document_profile",
                 retriever: "document_profile",
-                action: () => skipChunkRetrieversForDocumentOverview
+                action: () => skipChunkRetrieversForDocumentOverview || useScopedProfileFallback
                     ? SearchDocumentOverviewProfileMatchesAsync(
                         ds,
                         tenantId,
