@@ -218,6 +218,18 @@ sealed class IngestionWorker : BackgroundService
         return v.HasValue && v.Value == version;
     }
 
+    private static async Task<int?> GetIndexedDocVersionAsync(NpgsqlDataSource ds, Guid tenantId, string docPath, CancellationToken ct)
+    {
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        const string sql = "SELECT indexed_version FROM documents WHERE tenant_id=@tenant_id AND doc_path=@doc_path;";
+        return await conn.ExecuteScalarAsync<int?>(new CommandDefinition(sql, new { tenant_id = tenantId, doc_path = docPath }, cancellationToken: ct));
+    }
+
+    internal static bool ShouldPurgeQdrantVersionBeforeFullEmbedding(int resumeFromChunk, int? indexedVersion, int jobVersion)
+        => resumeFromChunk == 0
+           && jobVersion > 0
+           && (!indexedVersion.HasValue || indexedVersion.Value != jobVersion);
+
     internal static bool ShouldStabilizeDocumentAfterCancel(string? reason)
         => !string.Equals(reason, "superseded_version", StringComparison.OrdinalIgnoreCase);
 
@@ -848,7 +860,8 @@ WHERE job_id=@job_id
         qdrantEnsureMs = swEnsureCollection.ElapsedMilliseconds;
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
 
-        if (resumeFromChunk == 0)
+        var indexedVersionBeforeEmbedding = await GetIndexedDocVersionAsync(ds, tenantId, relDocPath, ct);
+        if (ShouldPurgeQdrantVersionBeforeFullEmbedding(resumeFromChunk, indexedVersionBeforeEmbedding, job.Version))
         {
             await ThrowIfJobCanceledAsync(ds, job, ct);
             using (await _bulkheads.AcquireQdrantAsync(qdrantToken))
@@ -862,6 +875,14 @@ WHERE job_id=@job_id
                     qdrantToken);
             }
             await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+        }
+        else if (resumeFromChunk == 0 && indexedVersionBeforeEmbedding == job.Version)
+        {
+            _log.LogWarning(
+                "Skipping Qdrant version pre-cleanup for already published version job={JobId} doc={DocPath} version={Version}",
+                job.JobId,
+                relDocPath,
+                job.Version);
         }
 
         // embed + upsert by batches
