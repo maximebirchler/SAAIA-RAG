@@ -41,4 +41,17 @@ public sealed class TextEncodingSanitizerTests
         Assert.Equal("l’utilisateur", cleanedDoc.RootElement.GetProperty("quote").GetString());
         Assert.Equal("NÃO", cleanedDoc.RootElement.GetProperty("languageSample").GetString());
     }
+
+    [Fact]
+    public void PdfTextSanitizer_repairs_pdf_replacement_characters_without_storing_unknown_glyphs()
+    {
+        var sanitized = PdfTextSanitizer.ForStorage(
+            "organiza\uFFFDon con\uFFFDngency iden\uFFFDfy \uFFFD heading");
+
+        Assert.DoesNotContain('\uFFFD', sanitized);
+        Assert.Contains("organization", sanitized, StringComparison.Ordinal);
+        Assert.Contains("contingency", sanitized, StringComparison.Ordinal);
+        Assert.Contains("identify", sanitized, StringComparison.Ordinal);
+        Assert.Contains(" heading", sanitized, StringComparison.Ordinal);
+    }
 }

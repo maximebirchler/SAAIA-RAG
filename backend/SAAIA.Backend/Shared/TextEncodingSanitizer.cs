@@ -1,5 +1,7 @@
 internal static class TextEncodingSanitizer
 {
+    private const char ReplacementCharacter = '\uFFFD';
+
     private static readonly (string Mojibake, string Replacement)[] CommonMojibakeReplacements =
     [
         ("\u00c3\u0080", "\u00c0"),
@@ -54,18 +56,49 @@ internal static class TextEncodingSanitizer
 
     internal static string RepairCommonMojibake(string text)
     {
-        if (string.IsNullOrEmpty(text) || !MayContainCommonMojibake(text))
+        if (string.IsNullOrEmpty(text))
             return text;
 
         var repaired = text;
-        foreach (var (mojibake, replacement) in CommonMojibakeReplacements)
-            repaired = repaired.Replace(mojibake, replacement, StringComparison.Ordinal);
+        if (MayContainCommonMojibake(repaired))
+        {
+            foreach (var (mojibake, replacement) in CommonMojibakeReplacements)
+                repaired = repaired.Replace(mojibake, replacement, StringComparison.Ordinal);
+        }
 
-        return repaired;
+        return repaired.Contains(ReplacementCharacter, StringComparison.Ordinal)
+            ? RepairReplacementCharacters(repaired)
+            : repaired;
     }
 
     private static bool MayContainCommonMojibake(string text)
         => text.Contains('\u00c2', StringComparison.Ordinal)
            || text.Contains('\u00c3', StringComparison.Ordinal)
            || text.Contains('\u00e2', StringComparison.Ordinal);
+
+    private static string RepairReplacementCharacters(string text)
+    {
+        var builder = new System.Text.StringBuilder(text.Length);
+        for (var i = 0; i < text.Length; i++)
+        {
+            var ch = text[i];
+            if (ch != ReplacementCharacter)
+            {
+                builder.Append(ch);
+                continue;
+            }
+
+            var previous = i > 0 ? text[i - 1] : '\0';
+            var next = i + 1 < text.Length ? text[i + 1] : '\0';
+            if (IsLowerLatinLetter(previous) && IsLowerLatinLetter(next))
+                builder.Append("ti");
+            else
+                builder.Append(' ');
+        }
+
+        return builder.ToString();
+    }
+
+    private static bool IsLowerLatinLetter(char ch)
+        => ch is >= 'a' and <= 'z';
 }
