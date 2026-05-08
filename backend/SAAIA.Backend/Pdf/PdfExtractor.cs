@@ -41,7 +41,7 @@ static class PdfExtractor
                 WordCount: words.Length,
                 CharCount: text.Length,
                 Checksum: SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text)),
-                Quality: PdfPageExtractionQuality.FromCounts(words.Length, text.Length),
+                Quality: PdfPageExtractionQuality.FromText(text, words.Length, text.Length),
                 ImageCount: rawPage.ImageCount));
         }
 
@@ -172,6 +172,25 @@ sealed record PdfPageExtractionQuality(
             AverageCharsPerWord: wordCount <= 0 ? 0 : Math.Round((double)charCount / wordCount, 2),
             Signals: signals.ToArray());
     }
+
+    public static PdfPageExtractionQuality FromText(string? text, int wordCount, int charCount)
+    {
+        var quality = FromCounts(wordCount, charCount);
+        if (string.IsNullOrEmpty(text) || !text.Contains('\uFFFD', StringComparison.Ordinal))
+            return quality;
+
+        return quality with
+        {
+            TextStatus = "low_text",
+            TextSparse = true,
+            OcrCandidate = true,
+            Signals = quality.Signals
+                .Where(static signal => !string.Equals(signal, "text_extraction_ok", StringComparison.Ordinal))
+                .Concat(["replacement_chars_detected"])
+                .Distinct(StringComparer.Ordinal)
+                .ToArray()
+        };
+    }
 }
 
 sealed record PdfExtractionQualitySummary(
@@ -212,12 +231,13 @@ sealed record PdfExtractionQualitySummary(
         }
 
         var qualities = pages
-            .Select(static page => page.Quality ?? PdfPageExtractionQuality.FromCounts(page.WordCount, page.CharCount))
+            .Select(static page => page.Quality ?? PdfPageExtractionQuality.FromText(page.Text, page.WordCount, page.CharCount))
             .ToArray();
         var totalWords = pages.Sum(static page => page.WordCount);
         var totalChars = pages.Sum(static page => page.CharCount);
         var emptyPages = qualities.Count(static quality => quality.TextEmpty);
         var sparsePages = qualities.Count(static quality => quality.TextSparse);
+        var replacementCharPages = qualities.Count(static quality => quality.Signals.Contains("replacement_chars_detected"));
         var textPages = pages.Count - emptyPages;
         var averageWords = Math.Round((double)totalWords / pages.Count, 2);
         var averageChars = Math.Round((double)totalChars / pages.Count, 2);
@@ -256,6 +276,8 @@ sealed record PdfExtractionQualitySummary(
         var ocrRecommended = !string.Equals(textStatus, "ok", StringComparison.Ordinal);
         if (ocrRecommended)
             signals.Add("ocr_recommended");
+        if (replacementCharPages > 0)
+            signals.Add("replacement_chars_detected");
 
         return new PdfExtractionQualitySummary(
             PageCount: pages.Count,

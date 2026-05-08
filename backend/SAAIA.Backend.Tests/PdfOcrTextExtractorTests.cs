@@ -180,6 +180,71 @@ public sealed class PdfOcrTextExtractorTests
     }
 
     [Fact]
+    public void MergeImageOcrText_replaces_corrupt_native_text_when_ocr_is_cleaner()
+    {
+        var nativeText = "Configuration and protec\uFFFDion requirements\nDocument owner approval required";
+        var nativeWords = nativeText.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        var nativePage = new ExtractedPdfPage(
+            1,
+            nativeText,
+            nativeWords.Length,
+            nativeText.Length,
+            [1],
+            ImageCount: 0);
+        var native = new PdfExtractionResult(
+            [new WordToken("Configuration", 1)],
+            [nativePage],
+            PdfExtractionQualitySummary.FromPages([nativePage]));
+
+        var merged = PdfOcrTextExtractor.MergeImageOcrText(
+            native,
+            new Dictionary<int, string>
+            {
+                [1] = "Configuration and protection requirements\nDocument owner approval required"
+            },
+            "eng",
+            minWords: 3);
+
+        Assert.NotNull(merged);
+        Assert.Equal("pdf_text_plus_image_ocr", merged!.Source);
+        Assert.Equal("Configuration and protection requirements\nDocument owner approval required", merged.Pages[0].Text);
+        Assert.DoesNotContain('\uFFFD', merged.Pages[0].Text);
+        Assert.Contains("image_ocr_replaced_corrupt_text", merged.Pages[0].Quality!.Signals);
+        Assert.Contains("image_ocr_text_extracted", merged.Quality.Signals);
+    }
+
+    [Fact]
+    public void MergeImageOcrText_does_not_replace_corrupt_native_text_with_partial_ocr()
+    {
+        var nativeText = "Configuration and protec\uFFFDion requirements remain active. The document owner, revision table, approval workflow and deployment notes stay available.";
+        var nativePage = new ExtractedPdfPage(
+            1,
+            nativeText,
+            17,
+            nativeText.Length,
+            [1],
+            ImageCount: 0);
+        var native = new PdfExtractionResult(
+            [new WordToken("Configuration", 1)],
+            [nativePage],
+            PdfExtractionQualitySummary.FromPages([nativePage]));
+
+        var merged = PdfOcrTextExtractor.MergeImageOcrText(
+            native,
+            new Dictionary<int, string>
+            {
+                [1] = "Configuration and protection requirements"
+            },
+            "eng",
+            minWords: 3);
+
+        Assert.NotNull(merged);
+        Assert.Contains('\uFFFD', merged!.Pages[0].Text);
+        Assert.Contains("Configuration and protection requirements", merged.Pages[0].Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("image_ocr_replaced_corrupt_text", merged.Pages[0].Quality!.Signals);
+    }
+
+    [Fact]
     public void MergeImageOcrText_keeps_short_important_image_ocr_lines_below_word_threshold()
     {
         var nativePage = new ExtractedPdfPage(
@@ -760,6 +825,50 @@ public sealed class PdfOcrTextExtractorTests
     }
 
     [Fact]
+    public void BuildImagePageOcrPlan_includes_text_pages_with_replacement_characters()
+    {
+        var pages = new List<ExtractedPdfPage>
+        {
+            new(
+                1,
+                "Readable native page without image content",
+                6,
+                42,
+                [1],
+                ImageCount: 0),
+            new(
+                2,
+                "Readable but corr\uFFFDpt native page",
+                5,
+                33,
+                [2],
+                ImageCount: 0),
+            new(
+                3,
+                "Readable page with image",
+                4,
+                24,
+                [3],
+                ImageCount: 1)
+        };
+        var native = new PdfExtractionResult(
+            pages
+                .SelectMany(page => page.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(word => new WordToken(word, page.PageNumber)))
+                .ToList(),
+            pages,
+            PdfExtractionQualitySummary.FromPages(pages));
+
+        var plan = PdfOcrTextExtractor.BuildImagePageOcrPlan(
+            native,
+            new IngestionOptions { OcrImagePageMaxPages = 10 });
+
+        Assert.Equal(2, plan.CandidatePageCount);
+        Assert.Equal([2, 3], plan.CandidatePages);
+        Assert.Equal([2, 3], plan.AttemptedPages);
+        Assert.Equal(0, plan.SkippedPageCount);
+    }
+
+    [Fact]
     public void BuildImagePageOcrDiagnostics_reports_page_statuses_without_raw_ocr_text()
     {
         var nativePages = new List<ExtractedPdfPage>
@@ -833,6 +942,25 @@ public sealed class PdfOcrTextExtractorTests
 
         Assert.True(extraction.Quality.OcrRecommended);
         Assert.True(IngestionWorker.ShouldAttemptImagePageOcr(new IngestionOptions { OcrImagePageEnabled = true }, extraction));
+    }
+
+    [Fact]
+    public void ShouldAttemptImagePageOcr_detects_replacement_characters_without_images()
+    {
+        var page = new ExtractedPdfPage(
+            1,
+            "Readable but corr\uFFFDpt native text",
+            5,
+            33,
+            [1],
+            ImageCount: 0);
+        var extraction = new PdfExtractionResult(
+            [new WordToken("Readable", 1)],
+            [page],
+            PdfExtractionQualitySummary.FromPages([page]));
+
+        Assert.True(IngestionWorker.ShouldAttemptImagePageOcr(new IngestionOptions { OcrImagePageEnabled = true }, extraction));
+        Assert.False(IngestionWorker.ShouldAttemptImagePageOcr(new IngestionOptions { OcrImagePageEnabled = false }, extraction));
     }
 
     [Fact]

@@ -59,4 +59,30 @@ public sealed class PdfExtractionQualityTests
         Assert.Equal(0, quality.SparsePageCount);
         Assert.Contains("text_extraction_ok", quality.Signals);
     }
+
+    [Fact]
+    public void FromText_flags_replacement_characters_as_ocr_candidates()
+    {
+        var text = "Configuration and protec\uFFFDion requirements";
+        var quality = PdfPageExtractionQuality.FromText(text, 4, text.Length);
+
+        Assert.Equal("low_text", quality.TextStatus);
+        Assert.True(quality.TextSparse);
+        Assert.True(quality.OcrCandidate);
+        Assert.Contains("replacement_chars_detected", quality.Signals);
+        Assert.DoesNotContain("text_extraction_ok", quality.Signals);
+    }
+
+    [Fact]
+    public void FromPages_detects_replacement_characters_when_page_quality_is_missing()
+    {
+        var text = string.Join(' ', Enumerable.Range(0, 60).Select(index => index == 30 ? "protec\uFFFDion" : $"token{index}"));
+        var page = new ExtractedPdfPage(1, text, 60, text.Length, [1], Quality: null);
+
+        var quality = PdfExtractionQualitySummary.FromPages([page]);
+
+        Assert.Equal("ok", quality.TextStatus);
+        Assert.Contains("replacement_chars_detected", quality.Signals);
+        Assert.Equal(1, quality.SparsePageCount);
+    }
 }

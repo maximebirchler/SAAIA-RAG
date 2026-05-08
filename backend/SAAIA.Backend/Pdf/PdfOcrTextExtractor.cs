@@ -485,7 +485,7 @@ internal static class PdfOcrTextExtractor
         IngestionOptions options)
     {
         var candidatePages = nativeExtraction.Pages
-            .Where(static page => page.ImageCount > 0)
+            .Where(static page => page.ImageCount > 0 || HasReplacementCharacters(page.Text))
             .Select(static page => page.PageNumber)
             .Distinct()
             .Order()
@@ -585,8 +585,8 @@ internal static class PdfOcrTextExtractor
                 if (!pagesByNumber.TryGetValue(pageNumber, out var page))
                     return false;
 
-                var quality = page.Quality ?? PdfPageExtractionQuality.FromCounts(page.WordCount, page.CharCount);
-                return quality.TextEmpty || quality.TextSparse;
+                var quality = page.Quality ?? PdfPageExtractionQuality.FromText(page.Text, page.WordCount, page.CharCount);
+                return quality.TextEmpty || quality.TextSparse || quality.OcrCandidate;
             })
             .Order()
             .ToArray();
@@ -798,13 +798,22 @@ internal static class PdfOcrTextExtractor
             var text = page.Text;
             if (ocrTextByPage.TryGetValue(page.PageNumber, out var ocrText))
             {
-                var novelLines = ExtractNovelOcrLines(text, ocrText, minWords);
-                if (novelLines.Count > 0)
+                var cleanedOcrText = CleanOcrReplacementText(ocrText);
+                if (ShouldReplaceCorruptNativeText(text, cleanedOcrText, minWords))
                 {
-                    text = string.IsNullOrWhiteSpace(text)
-                        ? string.Join('\n', novelLines)
-                        : text.TrimEnd() + "\n" + string.Join('\n', novelLines);
+                    text = cleanedOcrText;
                     changed = true;
+                }
+                else
+                {
+                    var novelLines = ExtractNovelOcrLines(text, ocrText, minWords);
+                    if (novelLines.Count > 0)
+                    {
+                        text = string.IsNullOrWhiteSpace(text)
+                            ? string.Join('\n', novelLines)
+                            : text.TrimEnd() + "\n" + string.Join('\n', novelLines);
+                        changed = true;
+                    }
                 }
             }
 
@@ -812,13 +821,17 @@ internal static class PdfOcrTextExtractor
             foreach (var word in words)
                 tokens.Add(new WordToken(word, page.PageNumber));
 
-            var quality = PdfPageExtractionQuality.FromCounts(words.Length, text.Length);
+            var quality = PdfPageExtractionQuality.FromText(text, words.Length, text.Length);
             if (!string.Equals(text, page.Text, StringComparison.Ordinal))
             {
+                var appliedSignals = HasReplacementCharacters(page.Text) && !HasReplacementCharacters(text)
+                    ? new[] { "image_ocr_text_extracted", "image_ocr_replaced_corrupt_text" }
+                    : ["image_ocr_text_extracted"];
+
                 quality = quality with
                 {
                     Signals = quality.Signals
-                        .Concat(["image_ocr_text_extracted"])
+                        .Concat(appliedSignals)
                         .Distinct(StringComparer.Ordinal)
                         .ToArray()
                 };
@@ -850,6 +863,78 @@ internal static class PdfOcrTextExtractor
             },
             Source: "pdf_text_plus_image_ocr",
             OcrLanguages: string.IsNullOrWhiteSpace(ocrLanguages) ? null : ocrLanguages.Trim());
+    }
+
+    internal static bool HasReplacementCharacters(string? text)
+        => !string.IsNullOrEmpty(text) && text.Contains('\uFFFD', StringComparison.Ordinal);
+
+    private static bool ShouldReplaceCorruptNativeText(string nativeText, string cleanedOcrText, int minWords)
+    {
+        if (!HasReplacementCharacters(nativeText) || string.IsNullOrWhiteSpace(cleanedOcrText))
+            return false;
+
+        var nativeReplacementCount = CountReplacementCharacters(nativeText);
+        var ocrReplacementCount = CountReplacementCharacters(cleanedOcrText);
+        if (ocrReplacementCount >= nativeReplacementCount)
+            return false;
+
+        var words = SplitWords(cleanedOcrText).ToArray();
+        if (words.Length < Math.Max(1, minWords))
+            return false;
+
+        return HasSufficientNativeCoverageForReplacement(nativeText, cleanedOcrText)
+               && !OcrNoiseFilter.LooksLikeProbableNoiseText(cleanedOcrText);
+    }
+
+    private static int CountReplacementCharacters(string text)
+        => text.Count(static ch => ch == '\uFFFD');
+
+    private static string CleanOcrReplacementText(string ocrText)
+    {
+        var lines = ocrText
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Replace('\f', '\n')
+            .Split('\n')
+            .Select(static line => CollapseWhitespace(PdfTextSanitizer.ForStorage(line)))
+            .Where(static line => !string.IsNullOrWhiteSpace(line))
+            .ToArray();
+
+        return string.Join('\n', lines);
+    }
+
+    private static bool HasSufficientNativeCoverageForReplacement(string nativeText, string ocrText)
+    {
+        var nativeTokens = ExtractComparableTokens(nativeText, skipTokensWithReplacementCharacters: true)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (nativeTokens.Length == 0)
+            return true;
+
+        var ocrTokens = ExtractComparableTokens(ocrText, skipTokensWithReplacementCharacters: false)
+            .Distinct(StringComparer.Ordinal)
+            .ToHashSet(StringComparer.Ordinal);
+        if (ocrTokens.Count == 0)
+            return false;
+
+        var covered = nativeTokens.Count(ocrTokens.Contains);
+        var coverage = (double)covered / nativeTokens.Length;
+        var relativeTokenVolume = (double)ocrTokens.Count / nativeTokens.Length;
+
+        return coverage >= 0.7 && relativeTokenVolume >= 0.65;
+    }
+
+    private static IEnumerable<string> ExtractComparableTokens(string text, bool skipTokensWithReplacementCharacters)
+    {
+        foreach (var token in SplitWords(text))
+        {
+            if (skipTokensWithReplacementCharacters && HasReplacementCharacters(token))
+                continue;
+
+            var normalized = NormalizeCompactForOcrMerge(token);
+            if (normalized.Length >= 2)
+                yield return normalized;
+        }
     }
 
     internal static string ResolveLanguagesForDocument(
