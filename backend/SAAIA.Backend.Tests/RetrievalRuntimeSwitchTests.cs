@@ -193,6 +193,70 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void ShouldDeferDocumentProfileSearch_only_defers_scoped_profile_queries_with_sparse_assist()
+    {
+        Assert.True(RagEndpoints.ShouldDeferDocumentProfileSearch(
+            canSearchDocumentProfiles: true,
+            skipChunkRetrieversForDocumentOverview: false,
+            useScopedProfileFallback: true,
+            allowSparseAssistForScopedProfileFallback: true));
+        Assert.False(RagEndpoints.ShouldDeferDocumentProfileSearch(
+            canSearchDocumentProfiles: true,
+            skipChunkRetrieversForDocumentOverview: true,
+            useScopedProfileFallback: true,
+            allowSparseAssistForScopedProfileFallback: true));
+        Assert.False(RagEndpoints.ShouldDeferDocumentProfileSearch(
+            canSearchDocumentProfiles: true,
+            skipChunkRetrieversForDocumentOverview: false,
+            useScopedProfileFallback: true,
+            allowSparseAssistForScopedProfileFallback: false));
+        Assert.False(RagEndpoints.ShouldDeferDocumentProfileSearch(
+            canSearchDocumentProfiles: false,
+            skipChunkRetrieversForDocumentOverview: false,
+            useScopedProfileFallback: true,
+            allowSparseAssistForScopedProfileFallback: true));
+    }
+
+    [Fact]
+    public void ShouldRunDeferredDocumentProfileSearch_runs_only_when_sparse_results_are_insufficient()
+    {
+        Assert.True(RagEndpoints.ShouldRunDeferredDocumentProfileSearch(
+            selected: [],
+            topK: 8,
+            preferDocumentDiversity: true,
+            useScopedProfileFallback: true,
+            allowSparseAssistForScopedProfileFallback: true));
+
+        var enoughDiverseMatches = new[]
+        {
+            TestMatch("Procedure one with material and risks.", docPath: "Docs/A.pdf", chunkId: "a"),
+            TestMatch("Procedure two with material and risks.", docPath: "Docs/B.pdf", chunkId: "b"),
+            TestMatch("Procedure three with material and risks.", docPath: "Docs/C.pdf", chunkId: "c"),
+            TestMatch("Procedure four with material and risks.", docPath: "Docs/D.pdf", chunkId: "d")
+        };
+        Assert.False(RagEndpoints.ShouldRunDeferredDocumentProfileSearch(
+            enoughDiverseMatches,
+            topK: 8,
+            preferDocumentDiversity: true,
+            useScopedProfileFallback: true,
+            allowSparseAssistForScopedProfileFallback: true));
+
+        var sameDocumentMatches = new[]
+        {
+            TestMatch("Procedure one with material and risks.", docPath: "Docs/A.pdf", chunkId: "a", page: 1),
+            TestMatch("Procedure two with material and risks.", docPath: "Docs/A.pdf", chunkId: "b", page: 2),
+            TestMatch("Procedure three with material and risks.", docPath: "Docs/A.pdf", chunkId: "c", page: 3),
+            TestMatch("Procedure four with material and risks.", docPath: "Docs/A.pdf", chunkId: "d", page: 4)
+        };
+        Assert.True(RagEndpoints.ShouldRunDeferredDocumentProfileSearch(
+            sameDocumentMatches,
+            topK: 8,
+            preferDocumentDiversity: true,
+            useScopedProfileFallback: true,
+            allowSparseAssistForScopedProfileFallback: true));
+    }
+
+    [Fact]
     public void ComputeDocumentProfileSpecificityBoost_rewards_rare_constraints_over_common_profile_words()
     {
         const string query = "Compare three onboarding procedures for apprentices: material, failure risk and setup notes.";
@@ -238,6 +302,12 @@ public sealed class RetrievalRuntimeSwitchTests
     [InlineData("Traduis en anglais les noms mais garde les parametres en francais.", true)]
     [InlineData("Ajoute les points critiques a surveiller pour eviter une erreur.", true)]
     [InlineData("Suggest a complete weekly plan from this category.", true)]
+    [InlineData("Busco una opcion: que versiones encuentras y como distinguirlas?", true)]
+    [InlineData("Procuro uma opcao: que versoes encontras e como as distinguir?", true)]
+    [InlineData("Cerco una opzione: quali versioni trovi e come distinguerle?", true)]
+    [InlineData("Quiero trabajar con ninos: que fichas parecen adecuadas y por que?", true)]
+    [InlineData("Quero trabalhar com criancas: que fichas parecem adequadas e porque?", true)]
+    [InlineData("Voglio lavorare con bambini: quali schede sembrano adatte e perche?", true)]
     [InlineData("Il me faut la tartiflette, ingredients + etapes en version claire.", false)]
     [InlineData("I need access mode A from the manual.", false)]
     [InlineData("Je veux le mode acces A du manuel.", false)]

@@ -1509,13 +1509,22 @@ ORDER BY d.doc_path;
                 candidates,
                 topK,
                 skipChunkRetrieversForDocumentOverview || useScopedProfileFallback);
-            Task<(List<RagMatch> Result, long DurationMs)> profileMatchesTask = skipDocumentProfileSearchForPreciseLookup
-                || ShouldSkipDocumentProfileSearchForQuantityLookup(req.Query)
-                || (!skipChunkRetrieversForDocumentOverview
-                    && !useScopedProfileFallback
-                    && ShouldSkipDocumentProfileSearchForLowCostBroadQuery(req.Query, mode))
+            var canSearchDocumentProfiles = !skipDocumentProfileSearchForPreciseLookup
+                && !ShouldSkipDocumentProfileSearchForQuantityLookup(req.Query)
+                && (skipChunkRetrieversForDocumentOverview
+                    || useScopedProfileFallback
+                    || !ShouldSkipDocumentProfileSearchForLowCostBroadQuery(req.Query, mode));
+            var deferDocumentProfileSearch = ShouldDeferDocumentProfileSearch(
+                canSearchDocumentProfiles,
+                skipChunkRetrieversForDocumentOverview,
+                useScopedProfileFallback,
+                allowSparseAssistForScopedProfileFallback);
+            Task<(List<RagMatch> Result, long DurationMs)> profileMatchesTask = !canSearchDocumentProfiles || deferDocumentProfileSearch
                 ? Task.FromResult((new List<RagMatch>(), 0L))
-                : MeasurePhaseAsync(
+                : SearchDocumentProfilesMeasuredAsync();
+
+            Task<(List<RagMatch> Result, long DurationMs)> SearchDocumentProfilesMeasuredAsync()
+                => MeasurePhaseAsync(
                     phaseName: "retrieval_document_profile",
                     retriever: "document_profile",
                     action: () => skipChunkRetrieversForDocumentOverview || useScopedProfileFallback
@@ -1613,6 +1622,33 @@ ORDER BY d.doc_path;
                     allowSparseAssistForScopedProfileFallback));
             selectionSw.Stop();
             selectionMs += selectionSw.ElapsedMilliseconds;
+
+            if (deferDocumentProfileSearch
+                && ShouldRunDeferredDocumentProfileSearch(
+                    selected,
+                    topK,
+                    preferDocumentDiversity,
+                    useScopedProfileFallback,
+                    allowSparseAssistForScopedProfileFallback))
+            {
+                var (deferredProfileMatches, deferredProfileMs) = await SearchDocumentProfilesMeasuredAsync();
+                profilePhaseMs += deferredProfileMs;
+
+                var selectionSwDeferred = Stopwatch.StartNew();
+                AddRankedMatches(
+                    selected,
+                    selectedKeys,
+                    RankDeferredDocumentProfileMatches(deferredProfileMatches),
+                    topK,
+                    minScore: 0.0,
+                    maxPerDoc,
+                    maxPerPage,
+                    prioritizeDocumentProfiles: ShouldPrioritizeDocumentProfilesForSelection(
+                        preferDocumentDiversity,
+                        allowSparseAssistForScopedProfileFallback));
+                selectionSwDeferred.Stop();
+                selectionMs += selectionSwDeferred.ElapsedMilliseconds;
+            }
 
             if (!useScopedProfileFallback && selected.Count < topK)
             {
@@ -2121,6 +2157,11 @@ ORDER BY d.doc_path;
                " multiple ",
                " several ",
                " options ",
+               " versions ",
+               " versiones ",
+               " versoes ",
+               " versioni ",
+               " versionen ",
                " menu ",
                " menus ",
                " selection ",
@@ -2198,6 +2239,21 @@ ORDER BY d.doc_path;
             " propose ",
             " proposer ",
             " proposes ",
+            " cherche ",
+            " chercher ",
+            " search ",
+            " searching ",
+            " busca ",
+            " buscar ",
+            " busco ",
+            " procura ",
+            " procurar ",
+            " procuro ",
+            " cerca ",
+            " cercare ",
+            " cerco ",
+            " suche ",
+            " suchen ",
             " suggere ",
             " suggerer ",
             " recommande ",
@@ -2209,6 +2265,11 @@ ORDER BY d.doc_path;
             " selectionne ",
             " selectionner ",
             " selection ",
+            " versions ",
+            " versiones ",
+            " versoes ",
+            " versioni ",
+            " versionen ",
             " select ",
             " selected ",
             " menu ",
@@ -2385,19 +2446,19 @@ ORDER BY d.doc_path;
 
         return Regex.IsMatch(
                 normalized,
-                @"\b(?:je\s+(?:veux|dois|voudrais)|j\s+aimerais|i\s+(?:want|need|would\s+like|have\s+to)|quiero|necesito|gostaria|preciso|ich\s+(?:mochte|muss|brauche))\b.{0,120}\b(?:avec|pour|adapte|adapter|adaptes|adapted|adapt|adaptar|adattare|anpassen|suitable|options?|choisir|choix|choose|select|selection|recommande|recommend|plan|planning|organis|prepare|preparer|preparar|priorise|prioriser|privilegie|privilegier|prioritize|prioritise|prefer|favor|favour|bevorzugen|vorbereiten)\b",
+                @"\b(?:je\s+(?:veux|dois|voudrais)|j\s+aimerais|i\s+(?:want|need|would\s+like|have\s+to)|quiero|necesito|gostaria|preciso|quero|voglio|ich\s+(?:mochte|muss|brauche))\b.{0,120}\b(?:avec|pour|con|com|per|mit|adapte|adapter|adaptes|adapted|adapt|adaptar|adequad\w*|adattare|adatt\w*|anpassen|geeignet|suitable|options?|choisir|choix|choose|select|selection|recommande|recommend|plan|planning|organis|prepare|preparer|preparar|priorise|prioriser|privilegie|privilegier|prioritize|prioritise|prefer|favor|favour|bevorzugen|vorbereiten)\b",
                 RegexOptions.CultureInvariant)
             || Regex.IsMatch(
                 normalized,
-                @"\b(?:quels?|quelle|quelles|which|what|cuales?|quais|welche)\b.{0,100}\b(?:choisir|choix|choose|select|selection|recommande|recommend|adapte|adapter|adapt|adaptar|adattare|anpassen|suitable|priorise|prioriser|privilegie|privilegier|prioritize|prioritise|prefer|favor|favour|bevorzugen)\b",
+                @"\b(?:quels?|quelle|quelles|which|what|que|cuales?|quais|quali|welche)\b.{0,100}\b(?:choisir|choix|choose|select|selection|recommande|recommend|adapte|adapter|adapt|adaptar|adequad\w*|adattare|adatt\w*|anpassen|geeignet|suitable|priorise|prioriser|privilegie|privilegier|prioritize|prioritise|prefer|favor|favour|bevorzugen)\b",
                 RegexOptions.CultureInvariant)
             || Regex.IsMatch(
                 normalized,
-                @"\b(?:quels?|quelle|quelles|which|what|cuales?|quais|welche)\b.{0,120}\b(?:peuvent|peut|can|could|possono|pueden|podem|konnen)\b.{0,120}\b(?:prepar\w*|prepared|advance|avance|adapt|adapte|adapter|suitable|priorise|prioriser|privilegie|privilegier|prefer|favor|favour)\b",
+                @"\b(?:quels?|quelle|quelles|which|what|que|cuales?|quais|quali|welche)\b.{0,120}\b(?:peuvent|peut|can|could|possono|pueden|podem|konnen)\b.{0,120}\b(?:prepar\w*|prepared|advance|avance|adapt|adapte|adapter|adequad\w*|adatt\w*|geeignet|suitable|priorise|prioriser|privilegie|privilegier|prefer|favor|favour)\b",
                 RegexOptions.CultureInvariant)
             || Regex.IsMatch(
                 normalized,
-                @"\b(?:quels?|quelle|quelles|which|what|cuales?|quais|welche)\b.{0,120}\b(?:utilisent|utilise|uses?|contiennent|contient|contains?|mentionnent|mentionne|mentions?)\b.{0,120}\b(?:gerer|gere|handle|manage|eviter|avoid|sans|without)\b",
+                @"\b(?:quels?|quelle|quelles|which|what|que|cuales?|quais|quali|welche)\b.{0,120}\b(?:utilisent|utilise|uses?|contiennent|contient|contains?|mentionnent|mentionne|mentions?)\b.{0,120}\b(?:gerer|gere|handle|manage|eviter|avoid|sans|without)\b",
                 RegexOptions.CultureInvariant)
             || Regex.IsMatch(
                 normalized,
@@ -7050,6 +7111,48 @@ GROUP BY d.doc_id;
         bool preferDocumentDiversity,
         bool allowSparseAssistForScopedProfileFallback)
         => preferDocumentDiversity && !allowSparseAssistForScopedProfileFallback;
+
+    internal static bool ShouldDeferDocumentProfileSearch(
+        bool canSearchDocumentProfiles,
+        bool skipChunkRetrieversForDocumentOverview,
+        bool useScopedProfileFallback,
+        bool allowSparseAssistForScopedProfileFallback)
+        => canSearchDocumentProfiles
+           && !skipChunkRetrieversForDocumentOverview
+           && useScopedProfileFallback
+           && allowSparseAssistForScopedProfileFallback;
+
+    internal static bool ShouldRunDeferredDocumentProfileSearch(
+        IReadOnlyList<RagMatch> selected,
+        int topK,
+        bool preferDocumentDiversity,
+        bool useScopedProfileFallback,
+        bool allowSparseAssistForScopedProfileFallback)
+    {
+        if (!useScopedProfileFallback || !allowSparseAssistForScopedProfileFallback)
+            return false;
+        if (selected.Count == 0)
+            return true;
+        if (selected.Count < Math.Min(topK, 4))
+            return true;
+        if (!preferDocumentDiversity)
+            return false;
+
+        var distinctDocuments = selected
+            .Where(static match => !string.IsNullOrWhiteSpace(match.DocPath))
+            .Select(static match => match.DocPath!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+
+        return distinctDocuments < Math.Min(selected.Count, 3);
+    }
+
+    internal static IReadOnlyList<RagMatch> RankDeferredDocumentProfileMatches(IEnumerable<RagMatch> matches)
+        => matches
+            .OrderByDescending(static match => match.Score)
+            .ThenBy(static match => match.DocPath, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(static match => match.ChunkIndex)
+            .ToArray();
 
     private static bool IsDocumentProfileMatch(RagMatch match)
         => string.Equals(match.ChunkType, "document_profile", StringComparison.Ordinal)
