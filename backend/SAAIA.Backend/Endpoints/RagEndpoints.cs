@@ -6291,8 +6291,8 @@ LIMIT @top_k;
                     StructuredAnswerPriority = GetStructuredAnswerPriority(match)
                 };
             })
-            .OrderByDescending(item => item.ExactTitleScore > 0.0 ? 1 : 0)
-            .ThenByDescending(static item => item.DirectChunkTitleSignal)
+            .OrderByDescending(static item => item.DirectChunkTitleSignal)
+            .ThenByDescending(item => item.ExactTitleScore > 0.0 ? 1 : 0)
             .ThenByDescending(item => useSpecificCoverageTitlePriority && item.SpecificAnchorCount >= 2 ? 1 : 0)
             .ThenByDescending(item => useSpecificCoverageTitlePriority ? item.StructuredAnswerPriority : 0)
             .ThenByDescending(item => useSpecificCoverageTitlePriority ? item.SpecificAnchorCount : 0)

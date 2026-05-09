@@ -508,6 +508,46 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void CalibrateFusedMatches_prefers_direct_title_chunk_over_neighbor_context_title()
+    {
+        var neighbor = new RagMatch(1.02, "doc-a", "Ops/Robot.pdf", "Robot.pdf", 66, 66, "neighbor", 10,
+            "Mijote details and timings without the requested item title.",
+            1,
+            "hash-a",
+            "document_name: Robot.pdf\nprevious_context:\nBoeuf bourguignon Pour 4 personnes\nexcerpt:\nMijote details and timings without the requested item title.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Mijote details",
+            "Mijote details",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+        var direct = new RagMatch(0.91, "doc-b", "Ops/Top30.pdf", "Top30.pdf", 5, 5, "direct", 2,
+            "Boeuf bourguignon Pour 4 personnes ingredients and preparation.",
+            1,
+            "hash-b",
+            "Matched profile title: Boeuf bourguignon\nBoeuf bourguignon Pour 4 personnes ingredients and preparation.",
+            "sparse_bm25_v1",
+            1,
+            1,
+            "Boeuf bourguignon",
+            "Boeuf bourguignon",
+            "unit_exact_v1",
+            null,
+            null,
+            null);
+
+        var calibrated = RagEndpoints.CalibrateFusedMatches(
+            "boeuf bourguignon",
+            [neighbor, direct],
+            "C'est quoi les grandes etapes du boeuf bourguignon ?");
+
+        Assert.Equal("direct", calibrated[0].ChunkId);
+    }
+
+    [Fact]
     public void CalibrateFusedMatches_penalizes_navigation_chunks_for_content_queries()
     {
         var navigation = new RagMatch(
