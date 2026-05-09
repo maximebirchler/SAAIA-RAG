@@ -1249,4 +1249,88 @@ public sealed class DocumentProfileProjectorTests
         Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, title, StringComparison.Ordinal));
         Assert.Contains(title, profile.SearchText, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Project_balanced_content_cards_try_next_page_candidate_when_top_candidate_is_duplicate()
+    {
+        const string duplicateTitle = "COMMON DUPLICATE TITLE";
+        const string fallbackTitle = "UNIQUE PAGE TWO ANCHOR";
+        const int pageCount = 241;
+
+        static string BuildPageText(int page)
+            => page switch
+            {
+                1 => duplicateTitle,
+                2 => fallbackTitle,
+                _ => $"FILLER TOPIC {page:000} Field notes and validation details."
+            };
+
+        var pages = Enumerable.Range(1, pageCount)
+            .Select(page =>
+            {
+                var text = BuildPageText(page);
+                return new ExtractedPdfPage(page, text, 8, text.Length, [1]);
+            })
+            .ToArray();
+
+        var sections = Enumerable.Range(1, pageCount)
+            .Select(page => new ExtractedDocumentSection(
+                page - 1,
+                page == 1 ? duplicateTitle : $"FILLER TOPIC {page:000}",
+                1,
+                page,
+                page,
+                page,
+                null))
+            .ToArray();
+
+        var units = Enumerable.Range(1, pageCount)
+            .Select(page =>
+            {
+                var text = BuildPageText(page);
+                return new ExtractedDocumentUnit(page - 1, page - 1, page, page, text, text.Length, 8, [1]);
+            })
+            .ToArray();
+
+        var exact = new[]
+        {
+            new ExtractedExactMatchEntry(
+                0,
+                0,
+                0,
+                1,
+                1,
+                duplicateTitle,
+                "common duplicate title",
+                duplicateTitle.Length,
+                3,
+                [1],
+                "verbatim_excerpt"),
+            new ExtractedExactMatchEntry(
+                1,
+                1,
+                1,
+                2,
+                2,
+                duplicateTitle,
+                "common duplicate title",
+                duplicateTitle.Length,
+                3,
+                [2],
+                "verbatim_excerpt")
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/BalancedCoverage.pdf",
+            pages,
+            sections,
+            units,
+            exact);
+
+        Assert.Equal(240, profile.ContentCards.Count);
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, fallbackTitle, StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            profile.ContentCards,
+            card => string.Equals(card.Title, "FILLER TOPIC 241", StringComparison.Ordinal));
+    }
 }

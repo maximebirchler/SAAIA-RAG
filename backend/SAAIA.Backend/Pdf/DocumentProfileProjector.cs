@@ -426,7 +426,11 @@ internal static partial class DocumentProfileProjector
             if (selected.Count >= MaxContentCards)
                 break;
 
-            AddBalancedCandidate(selected, seen, group[0]);
+            foreach (var candidate in group)
+            {
+                if (AddBalancedCandidate(selected, seen, candidate))
+                    break;
+            }
         }
 
         foreach (var candidate in candidates
