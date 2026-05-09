@@ -397,15 +397,36 @@ internal static partial class DocumentTitleNavigationProjector
             .ThenBy(static chunk => chunk.ChunkIndex)
             .FirstOrDefault();
 
-        return targetChunk is null
-            ? new NavigationResolution(entry.TargetPage, entry.TargetPage, null, null, "page_unresolved", 0.48)
-            : new NavigationResolution(
+        if (targetChunk is not null)
+        {
+            return new NavigationResolution(
                 targetChunk.PageStart,
                 targetChunk.PageEnd,
                 null,
                 targetChunk.ChunkIndex,
                 "page_content_chunk",
                 0.72);
+        }
+
+        var nearbyTargetChunk = retrievalChunks
+            .Where(chunk =>
+                chunk.PageStart <= entry.TargetPage + 2
+                && chunk.PageEnd >= entry.TargetPage - 2
+                && !string.Equals(chunk.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(chunk => PageRangeDistance(chunk.PageStart, chunk.PageEnd, entry.TargetPage))
+            .ThenByDescending(static chunk => chunk.ContentDensityScore)
+            .ThenBy(static chunk => chunk.ChunkIndex)
+            .FirstOrDefault();
+
+        return nearbyTargetChunk is null
+            ? new NavigationResolution(entry.TargetPage, entry.TargetPage, null, null, "page_unresolved", 0.48)
+            : new NavigationResolution(
+                nearbyTargetChunk.PageStart,
+                nearbyTargetChunk.PageEnd,
+                null,
+                nearbyTargetChunk.ChunkIndex,
+                "nearby_page_content_chunk",
+                0.70);
     }
 
     private static void AddAnchorCandidate(
@@ -476,6 +497,15 @@ internal static partial class DocumentTitleNavigationProjector
 
     private static int PageDistance(int? page, int targetPage)
         => page is null ? int.MaxValue : Math.Abs(page.Value - targetPage);
+
+    private static int PageRangeDistance(int pageStart, int pageEnd, int targetPage)
+    {
+        if (pageStart <= targetPage && targetPage <= pageEnd)
+            return 0;
+        if (targetPage < pageStart)
+            return pageStart - targetPage;
+        return targetPage - pageEnd;
+    }
 
     private static int SourceKindPriority(string sourceKind)
         => sourceKind switch

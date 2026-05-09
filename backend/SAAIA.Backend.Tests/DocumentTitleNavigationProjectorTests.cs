@@ -306,6 +306,162 @@ public sealed class DocumentTitleNavigationProjectorTests
     }
 
     [Fact]
+    public void Project_parses_comma_separated_inline_index_entries()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Index des recettes", 1, 67, 68, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                67,
+                68,
+                "Index des recettes F Filet mignon de porc enrobe de lard, 40 Fruits en beignets, 64 O Omelette aux pommes de terre, 60",
+                122,
+                18,
+                [1]),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                66,
+                66,
+                "Ingredients fruits de saison, pate et huile. Preparation faire frire les fruits.",
+                78,
+                10,
+                [2])
+        };
+        var chunks = new[]
+        {
+            new ProjectedRetrievalChunk(
+                0,
+                0,
+                0,
+                67,
+                68,
+                "Index des recettes F Filet mignon de porc enrobe de lard, 40 Fruits en beignets, 64 O Omelette aux pommes de terre, 60",
+                18,
+                [3],
+                "navigation",
+                ContentRole: RetrievalContentClassifier.NavigationRole,
+                NavigationReason: "explicit_index_marker",
+                NavigationScore: 0.98),
+            new ProjectedRetrievalChunk(
+                1,
+                0,
+                1,
+                66,
+                66,
+                "Ingredients fruits de saison, pate et huile. Preparation faire frire les fruits.",
+                10,
+                [4],
+                "section",
+                ContentRole: RetrievalContentClassifier.ContentRole,
+                ContentDensityScore: 0.90)
+        };
+        var profile = DocumentProfileProjector.BuildProfile(
+            "deterministic_v1",
+            "fr",
+            "Index de recettes avec entree separee par virgule.",
+            [],
+            [],
+            [],
+            [],
+            [],
+            "Cuisine/Index.pdf",
+            "Index.pdf",
+            [
+                new DocumentProfileContentCard("Fruits en beignets", 65, 65, "content_item", ["fruits", "beignets"])
+            ]);
+
+        var index = DocumentTitleNavigationProjector.Project(sections, units, chunks, profile);
+
+        Assert.Contains(index.NavigationEntries, entry =>
+            entry.Label == "Fruits en beignets"
+            && entry.TargetPageStart == 65
+            && entry.ResolutionMethod == "title_exact");
+    }
+
+    [Fact]
+    public void Project_resolves_index_entries_to_nearby_content_when_printed_page_is_offset()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Index des recettes", 1, 67, 68, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                67,
+                68,
+                "Index des recettes F Filet mignon, 40 Fruits en beignets, 64 O Omelette, 60",
+                83,
+                12,
+                [1]),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                66,
+                66,
+                "Ingredients fruits de saison, pate et huile. Preparation faire frire les fruits.",
+                78,
+                10,
+                [2])
+        };
+        var chunks = new[]
+        {
+            new ProjectedRetrievalChunk(
+                0,
+                0,
+                0,
+                67,
+                68,
+                "Index des recettes F Filet mignon, 40 Fruits en beignets, 64 O Omelette, 60",
+                12,
+                [3],
+                "navigation",
+                ContentRole: RetrievalContentClassifier.NavigationRole,
+                NavigationReason: "explicit_index_marker",
+                NavigationScore: 0.98),
+            new ProjectedRetrievalChunk(
+                1,
+                0,
+                1,
+                66,
+                66,
+                "Ingredients fruits de saison, pate et huile. Preparation faire frire les fruits.",
+                10,
+                [4],
+                "section",
+                ContentRole: RetrievalContentClassifier.ContentRole,
+                ContentDensityScore: 0.90)
+        };
+        var profile = DocumentProfileProjector.BuildProfile(
+            "deterministic_v1",
+            "fr",
+            "Index de recettes sans ancre de titre exacte.",
+            [],
+            [],
+            [],
+            [],
+            [],
+            "Cuisine/Index.pdf",
+            "Index.pdf");
+
+        var index = DocumentTitleNavigationProjector.Project(sections, units, chunks, profile);
+
+        Assert.Contains(index.NavigationEntries, entry =>
+            entry.Label == "Fruits en beignets"
+            && entry.TargetPageStart == 66
+            && entry.TargetChunkIndex == 1
+            && entry.ResolutionMethod == "nearby_page_content_chunk");
+    }
+
+    [Fact]
     public void Project_ignores_unanchored_direct_lines_from_weak_navigation_chunks()
     {
         var sections = new[]
