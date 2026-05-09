@@ -1353,7 +1353,14 @@ ORDER BY d.doc_path;
         var hasCategoryFilter = !string.IsNullOrWhiteSpace(category) || !string.IsNullOrWhiteSpace(categoryPath);
         var hasDocScope = !string.IsNullOrWhiteSpace(req.DocId) || !string.IsNullOrWhiteSpace(req.DocPath);
         var skipChunkRetrieversForDocumentOverview = ShouldSkipChunkRetrieversForDocumentOverview(req.Query, hasDocScope, mode);
-        var useScopedProfileFallback = !hasDocScope && ShouldUseScopedProfileFallback(req.Query, hasCategoryFilter, mode);
+        var preferUnquotedTitleAnchorRoute = !hasDocScope
+            && ShouldProbeUnquotedTitleAnchorRoute(
+                req.Query,
+                skipChunkRetrieversForDocumentOverview,
+                useScopedProfileFallback: false);
+        var useScopedProfileFallback = !hasDocScope
+            && !preferUnquotedTitleAnchorRoute
+            && ShouldUseScopedProfileFallback(req.Query, hasCategoryFilter, mode);
         var allowSparseAssistForScopedProfileFallback =
             useScopedProfileFallback && ShouldAllowSparseAssistForScopedProfileFallback(req.Query);
         var skipSparseRetrieverForBroadDiversity = !hasDocScope
@@ -1436,6 +1443,33 @@ ORDER BY d.doc_path;
             }
         }
 
+        List<RagMatch>? earlyTitleAnchorRouteMatches = null;
+        long earlyTitleAnchorRouteMs = 0;
+        var shortCircuitAfterTitleAnchorRoute = false;
+        if (!shortCircuitAfterExact
+            && !shortCircuitAfterQuotedTitle
+            && ShouldProbeUnquotedTitleAnchorRoute(req.Query, skipChunkRetrieversForDocumentOverview, useScopedProfileFallback))
+        {
+            var (probedTitleAnchorRouteMatches, measuredTitleAnchorRouteMs) = await MeasurePhaseAsync(
+                phaseName: "retrieval_title_anchor_route",
+                retriever: "title_anchor_route",
+                action: () => SearchTitleAnchorRouteMatchesAsync(
+                    ds,
+                    tenantId,
+                    req.Query,
+                    category,
+                    req.DocId,
+                    req.DocPath,
+                    Math.Min(candidates, Math.Max(topK, 16)),
+                    ct,
+                    categoryPath,
+                    degradedRetrieverRef: MarkRetrieverDegraded),
+                getReturnedCount: static matches => matches.Count);
+            earlyTitleAnchorRouteMatches = probedTitleAnchorRouteMatches;
+            earlyTitleAnchorRouteMs = measuredTitleAnchorRouteMs;
+            shortCircuitAfterTitleAnchorRoute = ShouldShortCircuitAfterTitleAnchorRoute(req.Query, probedTitleAnchorRouteMatches);
+        }
+
         if (shortCircuitAfterExact)
         {
             AddRankedMatches(selected, selectedKeys, exactMatches, topK, minScore: 0.0, maxPerDoc, maxPerPage);
@@ -1451,9 +1485,25 @@ ORDER BY d.doc_path;
                 maxPerDoc,
                 maxPerPage);
         }
+        else if (shortCircuitAfterTitleAnchorRoute && earlyTitleAnchorRouteMatches is not null)
+        {
+            titleAnchorRoutePhaseMs = earlyTitleAnchorRouteMs;
+            AddRankedMatches(
+                selected,
+                selectedKeys,
+                exactMatches
+                    .Concat(quotedTitleMatches)
+                    .Concat(RankTitleAnchorRouteShortCircuitMatches(earlyTitleAnchorRouteMatches)),
+                topK,
+                minScore: 0.0,
+                maxPerDoc,
+                maxPerPage);
+        }
         else
         {
-            Task<(List<RagMatch> Result, long DurationMs)> titleAnchorRouteMatchesTask = skipChunkRetrieversForDocumentOverview || useScopedProfileFallback
+            Task<(List<RagMatch> Result, long DurationMs)> titleAnchorRouteMatchesTask = earlyTitleAnchorRouteMatches is not null
+                ? Task.FromResult((earlyTitleAnchorRouteMatches, earlyTitleAnchorRouteMs))
+                : skipChunkRetrieversForDocumentOverview || useScopedProfileFallback
                 ? Task.FromResult((new List<RagMatch>(), 0L))
                 : MeasurePhaseAsync(
                     phaseName: "retrieval_title_anchor_route",
@@ -3461,9 +3511,23 @@ LIMIT @candidate_limit;
         var hasExplicitFocusedLookupPhrase = focusedPhrases.Length > 0;
         if (focusedPhrases.Length == 0)
         {
-            var normalizedQueryPhrase = TitleAnchorNormalizer.NormalizeTitle(query);
-            if (normalizedQueryPhrase.Length >= 4)
-                focusedPhrases = [normalizedQueryPhrase];
+            var focusedBackfillPhrase = ShouldProbeUnquotedTitleAnchorRoute(
+                    query,
+                    skipChunkRetrieversForDocumentOverview: false,
+                    useScopedProfileFallback: false)
+                ? TitleAnchorNormalizer.NormalizeTitle(BuildFocusedLexicalBackfillQuery(query))
+                : string.Empty;
+            if (focusedBackfillPhrase.Length >= 4)
+            {
+                focusedPhrases = [focusedBackfillPhrase];
+                hasExplicitFocusedLookupPhrase = true;
+            }
+            else
+            {
+                var normalizedQueryPhrase = TitleAnchorNormalizer.NormalizeTitle(query);
+                if (normalizedQueryPhrase.Length >= 4)
+                    focusedPhrases = [normalizedQueryPhrase];
+            }
         }
 
         var tokenSource = focusedPhrases.Length > 0 ? string.Join(' ', focusedPhrases) : query;
@@ -3489,7 +3553,11 @@ LIMIT @candidate_limit;
             : Math.Min(queryTokens.Length, 3);
         var directChunkRouteEnabled = hasExplicitFocusedLookupPhrase
             && (ShouldSkipDocumentProfileSearchForPreciseLookup(query)
-                || ShouldSkipDocumentProfileSearchForComparativeLookup(query));
+                || ShouldSkipDocumentProfileSearchForComparativeLookup(query)
+                || ShouldProbeUnquotedTitleAnchorRoute(
+                    query,
+                    skipChunkRetrieversForDocumentOverview: false,
+                    useScopedProfileFallback: false));
         var directMinOverlap = directChunkRouteEnabled
             ? ResolveDirectTitleTokenRouteMinimumOverlap(queryTokens.Length)
             : Math.Max(1, minOverlap);
@@ -10809,6 +10877,127 @@ LIMIT @top_k;
 
         var second = exactMatches[1];
         return top.Score - second.Score >= 0.04;
+    }
+
+    internal static bool ShouldProbeUnquotedTitleAnchorRoute(
+        string query,
+        bool skipChunkRetrieversForDocumentOverview,
+        bool useScopedProfileFallback)
+    {
+        if (skipChunkRetrieversForDocumentOverview || useScopedProfileFallback)
+            return false;
+        if (ExtractQuotedLookupPhrases(query).Count > 0)
+            return false;
+
+        var normalized = $" {FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query))} ";
+        var focusedPhrases = ExtractFocusedLookupPhrases(query)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var focusedBackfillQuery = BuildFocusedLexicalBackfillQuery(query);
+        var focusedBackfillTokens = ExtractLexicalQueryTokens(focusedBackfillQuery);
+        var hasPreciseLookupVerbTarget = ContainsPreciseLookupVerb(normalized)
+            && focusedBackfillTokens.Count is >= 2 and <= 6;
+
+        if (ShouldPreferComparativeDocumentDiversity(query)
+            || ContainsDocumentOverviewIntent(query)
+            || ContainsExplicitBroadScopedSynthesisIntent(normalized)
+            || ContainsSituationalBroadSelectionIntent(normalized)
+            || ContainsGuidanceOrAdviceSelectionIntent(normalized)
+            || IsRecommendationSelectionQuery(normalized))
+        {
+            return false;
+        }
+        if (ContainsBroadScopedSynthesisIntent(normalized) && !hasPreciseLookupVerbTarget)
+            return false;
+
+        if (focusedPhrases.Length == 1 || ShouldConstrainPreciseTitleLookup(query))
+            return true;
+
+        return hasPreciseLookupVerbTarget;
+    }
+
+    private static bool ContainsPreciseLookupVerb(string normalized)
+        => ContainsAny(
+            normalized,
+            " cherche ",
+            " recherche ",
+            " chercher ",
+            " rechercher ",
+            " trouve ",
+            " trouver ",
+            " find ",
+            " search ",
+            " looking ",
+            " busca ",
+            " buscar ",
+            " busco ",
+            " procura ",
+            " procurar ",
+            " procuro ",
+            " cerca ",
+            " cercare ",
+            " cerco ",
+            " suche ",
+            " such ",
+            " finde ",
+            " finden ");
+
+    internal static bool ShouldShortCircuitAfterTitleAnchorRoute(string query, IReadOnlyList<RagMatch> titleAnchorRouteMatches)
+    {
+        if (titleAnchorRouteMatches.Count == 0)
+            return false;
+        if (!ShouldProbeUnquotedTitleAnchorRoute(
+                query,
+                skipChunkRetrieversForDocumentOverview: false,
+                useScopedProfileFallback: false))
+        {
+            return false;
+        }
+
+        var candidates = RankTitleAnchorRouteShortCircuitMatches(titleAnchorRouteMatches);
+        if (candidates.Count == 0)
+            return false;
+
+        var top = candidates[0];
+        var minimumScore = string.Equals(ResolveRetriever(top), "direct_title_token_route", StringComparison.Ordinal)
+            ? 0.78
+            : 0.90;
+        if (top.Score < minimumScore)
+            return false;
+
+        var second = candidates.FirstOrDefault(match => !IsSameDocument(top, match));
+        if (second is null)
+            return true;
+
+        return top.Score - second.Score >= 0.04;
+    }
+
+    internal static IReadOnlyList<RagMatch> RankTitleAnchorRouteShortCircuitMatches(IReadOnlyList<RagMatch> titleAnchorRouteMatches)
+        => titleAnchorRouteMatches
+            .Where(IsTitleAnchorRouteShortCircuitCandidate)
+            .OrderByDescending(static match => match.Score)
+            .ThenBy(static match => match.DocPath, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(static match => match.ChunkIndex)
+            .ToArray();
+
+    private static bool IsTitleAnchorRouteShortCircuitCandidate(RagMatch match)
+        => IsResolvedTitleOrNavigationRoute(match)
+            && !LooksLikeNavigationalChunk(match)
+            && !HasBorderlineNavigationShortcutRisk(match)
+            && HasUsefulResolvedTitleBody(match);
+
+    private static bool HasBorderlineNavigationShortcutRisk(RagMatch match)
+        => match.NavigationScore is >= 0.72
+            && match.ContentDensityScore is null or <= 0.55;
+
+    private static bool HasUsefulResolvedTitleBody(RagMatch match)
+    {
+        if (GetStructuredAnswerPriority(match) >= 2)
+            return true;
+        if (match.MatchedContentCards is { Count: > 0 })
+            return true;
+
+        return (match.Text?.Trim().Length ?? 0) >= 160;
     }
 
     internal static bool ShouldShortCircuitAfterQuotedTitle(string query, IReadOnlyList<RagMatch> quotedTitleMatches)

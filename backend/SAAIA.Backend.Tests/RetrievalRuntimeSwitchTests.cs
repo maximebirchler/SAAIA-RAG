@@ -54,6 +54,7 @@ public sealed class RetrievalRuntimeSwitchTests
     [InlineData("C'est quoi la Tentation de Jansson et comment la faire ?", "tentation de jansson")]
     [InlineData("Il me faut la tartiflette, ingredients + etapes en version claire.", "tartiflette")]
     [InlineData("Donne-moi le one pot pasta brocoli dinde bacon.", "one pot pasta brocoli dinde bacon")]
+    [InlineData("Je cherche le gateau chocolat courgette.", "gateau chocolat courgett")]
     [InlineData("Je cherche la tartiflet ou un truc fromage pomme de terre.", "tartiflet")]
     [InlineData("Tu as la recette du boeuf bourguingnon ?", "boeuf bourguingnon")]
     [InlineData("Est-ce que la sauce aux 4 fromages vient de Chefbot ou Moulinex ?", "sauce aux 4 fromages")]
@@ -3083,6 +3084,121 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.False(RagEndpoints.ShouldShortCircuitAfterQuotedTitle(
             "Donne-moi « Sauce tomate ».",
             [first, second]));
+    }
+
+    [Fact]
+    public void ShouldProbeUnquotedTitleAnchorRoute_detects_precise_unquoted_title_without_broad_intent()
+    {
+        Assert.True(RagEndpoints.ShouldProbeUnquotedTitleAnchorRoute(
+            "Je cherche le gateau chocolat courgette.",
+            skipChunkRetrieversForDocumentOverview: false,
+            useScopedProfileFallback: false));
+
+        Assert.False(RagEndpoints.ShouldProbeUnquotedTitleAnchorRoute(
+            "Je cherche « gateau chocolat courgette ».",
+            skipChunkRetrieversForDocumentOverview: false,
+            useScopedProfileFallback: false));
+
+        Assert.False(RagEndpoints.ShouldProbeUnquotedTitleAnchorRoute(
+            "Quelles recettes avec du chocolat peux-tu proposer pour la semaine ?",
+            skipChunkRetrieversForDocumentOverview: false,
+            useScopedProfileFallback: false));
+
+        Assert.False(RagEndpoints.ShouldProbeUnquotedTitleAnchorRoute(
+            "Je cherche des recettes pour organiser les repas de la semaine.",
+            skipChunkRetrieversForDocumentOverview: false,
+            useScopedProfileFallback: false));
+    }
+
+    [Fact]
+    public void ShouldShortCircuitAfterTitleAnchorRoute_prefers_single_strong_unquoted_title_route()
+    {
+        var hit = TestMatch(
+            text: "Gateau chocolat courgette. Ingredients chocolat, courgette, farine et oeufs. Preparation: melanger, verser dans le moule, cuire, puis laisser refroidir avant de servir avec la source du document.",
+            embedText: "Matched title_anchor_route: Gateau chocolat courgette\nGateau chocolat courgette ingredients and preparation.",
+            docPath: "Cuisine/Desserts.pdf",
+            chunkId: "route",
+            embeddingBasis: "title_anchor_route_v1",
+            score: 0.93);
+
+        Assert.True(RagEndpoints.ShouldShortCircuitAfterTitleAnchorRoute(
+            "Je cherche le gateau chocolat courgette.",
+            [hit]));
+    }
+
+    [Fact]
+    public void ShouldShortCircuitAfterTitleAnchorRoute_allows_direct_token_route_when_body_is_useful()
+    {
+        var hit = TestMatch(
+            text: "MenuGATEAUCHOCOLAT-COURGETTE30 min 4 Ingredients 150 g de chocolat noir, 4 oeufs, 300 g de courgettes, farine, levure et sel. Preparation: melanger, incorporer les courgettes, enfourner puis verifier la cuisson.",
+            embedText: "Matched direct_title_token_route: gateau chocolat courgett\nMenuGATEAUCHOCOLAT-COURGETTE ingredients and preparation.",
+            docPath: "Cuisine/Desserts.pdf",
+            chunkId: "direct-route",
+            embeddingBasis: "direct_title_token_route_v1",
+            score: 0.80);
+
+        Assert.True(RagEndpoints.ShouldShortCircuitAfterTitleAnchorRoute(
+            "Je cherche le gateau chocolat courgette.",
+            [hit]));
+    }
+
+    [Fact]
+    public void ShouldShortCircuitAfterTitleAnchorRoute_keeps_search_open_for_ambiguous_or_navigation_route()
+    {
+        var first = TestMatch(
+            text: "Sauce tomate classique. Ingredients tomates, ail, oignon et herbes. Preparation detaillee avec cuisson lente et source documentaire pour distinguer cette version.",
+            embedText: "Matched title_anchor_route: Sauce tomate\nSauce tomate classique ingredients and preparation.",
+            docPath: "Cuisine/BookA.pdf",
+            chunkId: "a",
+            embeddingBasis: "title_anchor_route_v1",
+            score: 0.94);
+        var second = TestMatch(
+            text: "Sauce tomate rapide. Ingredients tomates, huile et basilic. Preparation courte avec une autre version clairement issue d'un document distinct.",
+            embedText: "Matched title_anchor_route: Sauce tomate\nSauce tomate rapide ingredients and preparation.",
+            docPath: "Cuisine/BookB.pdf",
+            chunkId: "b",
+            embeddingBasis: "title_anchor_route_v1",
+            score: 0.92) with
+        {
+            DocId = "doc-2"
+        };
+
+        Assert.False(RagEndpoints.ShouldShortCircuitAfterTitleAnchorRoute(
+            "Je cherche la sauce tomate.",
+            [first, second]));
+
+        var navigation = TestMatch(
+            text: "Index Gateau chocolat courgette 12 Gateau citron 13 Gateau vanille 14",
+            embedText: "Matched title_anchor_route: Gateau chocolat courgette\nIndex Gateau chocolat courgette 12 Gateau citron 13",
+            docPath: "Cuisine/Index.pdf",
+            chunkId: "index",
+            embeddingBasis: "title_anchor_route_v1",
+            score: 0.98) with
+        {
+            ContentRole = "navigation",
+            NavigationScore = 0.86,
+            ContentDensityScore = 0.18
+        };
+
+        Assert.False(RagEndpoints.ShouldShortCircuitAfterTitleAnchorRoute(
+            "Je cherche le gateau chocolat courgette.",
+            [navigation]));
+
+        var borderlineNavigation = TestMatch(
+            text: "Les recettes Gateau chocolat courgette 23 Fondant chocolat 45 Entremets chocolat 47 autres entrees de sommaire et de liste.",
+            embedText: "Matched direct_title_token_route: gateau chocolat courgett\nLes recettes Gateau chocolat courgette 23 Fondant chocolat 45.",
+            docPath: "Cuisine/Table.pdf",
+            chunkId: "toc-direct",
+            embeddingBasis: "direct_title_token_route_v1",
+            score: 0.99) with
+        {
+            NavigationScore = 0.76,
+            ContentDensityScore = 0.50
+        };
+
+        Assert.False(RagEndpoints.ShouldShortCircuitAfterTitleAnchorRoute(
+            "Je cherche le gateau chocolat courgette.",
+            [borderlineNavigation]));
     }
 
     [Fact]
