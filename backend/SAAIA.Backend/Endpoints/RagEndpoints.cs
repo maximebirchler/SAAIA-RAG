@@ -5043,13 +5043,19 @@ LIMIT @top_k;
         RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
         TimeSpan.FromMilliseconds(100));
 
+    private static readonly Regex StructuredInfoFocusedLookupTargetPattern = new(
+        @"\b(?:c\s+est\s+quoi|qu\s+est\s+ce\s+qu(?:il|elle|ils|elles)?\s+faut|what\s+(?:is|are)|which\s+(?:is|are))\b[\p{L}\p{Nd}\s'’\-/]{0,90}?\s+(?:pour|for|de|du|des|d['\u2019]|sur|about|on|of)\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + FocusedLookupTargetStopLookahead,
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(100));
+
     private static readonly Regex[] FocusedLookupTargetPatterns =
     [
         FocusedLookupTargetPattern,
         DirectObjectFocusedLookupTargetPattern,
         ActionQuestionFocusedLookupTargetPattern,
         ExplainFocusedLookupTargetPattern,
-        ParameterFocusedLookupTargetPattern
+        ParameterFocusedLookupTargetPattern,
+        StructuredInfoFocusedLookupTargetPattern
     ];
 
     private static bool PhraseOccursInQuery(string phrase, string lookup, string foldedLookup)
