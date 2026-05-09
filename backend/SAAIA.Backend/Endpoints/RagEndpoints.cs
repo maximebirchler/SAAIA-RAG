@@ -4965,8 +4965,70 @@ LIMIT @top_k;
     {
         var phrase = NormalizeFocusedLookupPhrase(candidate);
         if (!string.IsNullOrWhiteSpace(phrase))
-            phrases.Add(phrase);
+        {
+            foreach (var variant in BuildFocusedLookupPhraseVariants(phrase))
+                phrases.Add(variant);
+        }
     }
+
+    private static IEnumerable<string> BuildFocusedLookupPhraseVariants(string phrase)
+    {
+        var withoutContext = TrimTrailingFocusedLookupContext(phrase);
+        if (!string.IsNullOrWhiteSpace(withoutContext)
+            && !string.Equals(withoutContext, phrase, StringComparison.Ordinal))
+        {
+            yield return withoutContext;
+        }
+
+        yield return phrase;
+    }
+
+    private static string TrimTrailingFocusedLookupContext(string phrase)
+    {
+        var tokens = phrase
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToArray();
+        if (tokens.Length < 4)
+            return phrase;
+
+        for (var i = tokens.Length - 2; i >= 1; i--)
+        {
+            if (!IsFocusedLookupContextPreposition(tokens[i]))
+                continue;
+
+            var head = tokens[..i];
+            var headSignalCount = head.Count(IsFocusedLookupSignalToken);
+            if (headSignalCount < 2)
+                continue;
+            if (IsWeakFocusedLookupContextPreposition(tokens[i])
+                && (tokens.Length < 5 || headSignalCount < 3))
+            {
+                continue;
+            }
+
+            var tail = tokens[(i + 1)..];
+            if (tail.Length == 0 || tail.Length > 4)
+                continue;
+
+            if (tail.Any(static token => token.Length <= 1 || token.All(char.IsDigit)))
+                continue;
+
+            return string.Join(' ', head);
+        }
+
+        return phrase;
+    }
+
+    private static bool IsFocusedLookupContextPreposition(string token)
+        => token is "a" or "au" or "aux" or "avec" or "chez" or "dans" or "de" or "du" or "en" or "pour" or "sur"
+            or "about" or "for" or "from" or "in" or "on" or "with"
+            or "con" or "para" or "sobre"
+            or "com" or "em"
+            or "mit" or "uber" or "ueber" or "von"
+            or "per" or "su";
+
+    private static bool IsWeakFocusedLookupContextPreposition(string token)
+        => token is "a" or "au" or "aux" or "de" or "du" or "en" or "per" or "su";
 
     private static bool IsCurrentPassageScopedLookup(string normalizedSurface)
         => Regex.IsMatch(
