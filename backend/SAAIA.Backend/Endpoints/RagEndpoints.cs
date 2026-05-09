@@ -6010,12 +6010,13 @@ LIMIT @top_k;
             .ToArray();
         var quotedPhrases = ExtractQuotedLookupPhrases(rankingQuery);
         var comparativeSubjectTokens = ExtractComparativeSubjectAnchorTokens(rankingQuery);
-        var titleTokens = ExtractLexicalQueryTokens(rankingQuery)
+        var titleScoringQuery = string.IsNullOrWhiteSpace(query) ? rankingQuery : query;
+        var titleTokens = ExtractLexicalQueryTokens(titleScoringQuery)
             .Where(static token => !PrimaryAnchorStopwords.Contains(token))
             .Distinct(StringComparer.Ordinal)
             .Take(9)
             .ToArray();
-        var normalizedRankingQuery = NormalizeForLexicalSignal(rankingQuery);
+        var normalizedTitleScoringQuery = NormalizeForLexicalSignal(titleScoringQuery);
         var titleScoringEnabled = !(quotedPhrases.Count == 0 && ContainsExactTitleActionMarker(rankingQuery));
         var calibrationCandidates = candidates
             .Select(match =>
@@ -6063,7 +6064,7 @@ LIMIT @top_k;
                         item.NormalizedMatchText,
                         titleTokens,
                         phraseTerms,
-                        normalizedRankingQuery)
+                        normalizedTitleScoringQuery)
                     : 0.0;
                 var quotedLookupScore = quotedPhrases.Count > 0
                     ? ComputeQuotedLookupCandidateScore(
@@ -6284,7 +6285,7 @@ LIMIT @top_k;
                     DirectChunkTitleSignal = ComputeDirectChunkTitleSignalCore(
                         item.NormalizedMatchText,
                         titleTokens,
-                        normalizedRankingQuery),
+                        normalizedTitleScoringQuery),
                     QuotedLookupScore = quotedLookupScore,
                     LexicalCoverage = lexicalCoverage,
                     SpecificAnchorCount = specificAnchorCount,
