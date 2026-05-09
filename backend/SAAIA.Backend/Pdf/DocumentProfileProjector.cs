@@ -11,6 +11,8 @@ internal static partial class DocumentProfileProjector
     private const int MaxContentCards = 240;
     private const int LeadTitleCompactHeadLength = 220;
     private const int EmbeddedTitleScanLength = 1200;
+    private const int MaxUnitLeadContentCardCandidates = 8;
+    private const int MaxExactLeadContentCardCandidates = 4;
     private const int MaxEvidenceDerivedContentCardPageSpan = 8;
 
     public static ProjectedDocumentProfile Project(
@@ -41,7 +43,7 @@ internal static partial class DocumentProfileProjector
         var summary = BuildSummary(docName, pages.Count, sectionTitles, profileUnits, language);
         var hypotheticalQuestions = BuildHypotheticalQuestions(docName, keywords, entities, language);
         var limits = BuildLimits(language);
-        var contentCards = BuildContentCards(sections, profileUnits, exactMatchEntries, keywords);
+        var contentCards = BuildContentCards(sections, units, exactMatchEntries, keywords);
         return BuildProfile(
             profileVersion: "deterministic_v1",
             language,
@@ -371,7 +373,7 @@ internal static partial class DocumentProfileProjector
                     score: ComputeContentCardScore("unit_lead", title, unit.Text, 75)))
                 {
                     acceptedTitles++;
-                    if (acceptedTitles >= 3)
+                    if (acceptedTitles >= MaxUnitLeadContentCardCandidates)
                         break;
                 }
             }
@@ -395,7 +397,7 @@ internal static partial class DocumentProfileProjector
                     score: ComputeContentCardScore("exact_lead", title, entry.Text, 90)))
                 {
                     acceptedTitles++;
-                    if (acceptedTitles >= 2)
+                    if (acceptedTitles >= MaxExactLeadContentCardCandidates)
                         break;
                 }
             }

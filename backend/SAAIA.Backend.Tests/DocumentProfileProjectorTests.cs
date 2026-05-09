@@ -1106,4 +1106,38 @@ public sealed class DocumentProfileProjectorTests
         Assert.Contains(title, profile.SearchText, StringComparison.Ordinal);
         Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Validate the equipment", StringComparison.OrdinalIgnoreCase));
     }
+
+    [Fact]
+    public void Project_extracts_strong_content_cards_from_navigation_classified_units()
+    {
+        const string title = "CONTROL HANDOVER PLAN";
+        var text =
+            "Overview 10 Setup 12 Safety 14 Runtime 16 Reports 18 Appendix 20 " +
+            "Validate the equipment status and record the operator notes before closing the shift. " +
+            $"4 operators12 min5 min{title}L'operator uses this card to track handover steps, checkpoints, and exceptions.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(44, text, 56, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Operations index", 1, 1, 44, 44, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 44, 44, text, text.Length, 39, [2])
+        };
+
+        Assert.NotEqual(RetrievalContentClassifier.ContentRole, RetrievalContentClassifier.AnalyzeChunk(text).ContentRole);
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/OperationsIndex.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, title, StringComparison.Ordinal));
+        Assert.Contains(title, profile.SearchText, StringComparison.Ordinal);
+    }
 }
