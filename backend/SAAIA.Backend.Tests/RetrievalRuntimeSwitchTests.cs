@@ -481,6 +481,15 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void NavigationRouteMinimumConfidence_includes_projected_point_seven_values()
+    {
+        var projectedPointSeven = (double)0.70f;
+
+        Assert.True(projectedPointSeven < 0.70d);
+        Assert.True(projectedPointSeven >= RagEndpoints.NavigationRouteMinimumConfidence);
+    }
+
+    [Fact]
     public void CalibrateFusedMatches_prefers_sparse_for_high_overlap_lexical_query()
     {
         var sparse = new RagMatch(0.74, "doc-a", "ATEX/CEN.pdf", "CEN.pdf", 1, 1, "sparse-1", 0, "Inerting safety controls and gas flow monitoring requirements", 1, "hash-a", "Inerting safety controls and gas flow monitoring requirements", "sparse_bm25_v1", 1, 1, "Inerting", "Chapter 2 > Inerting", "unit_exact_v1", null, null, null);

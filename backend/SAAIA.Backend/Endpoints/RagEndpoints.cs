@@ -17,6 +17,8 @@ namespace SAAIA.Backend.Endpoints;
 
 public static class RagEndpoints
 {
+    internal const double NavigationRouteMinimumConfidence = 0.699;
+
     public static void Map(WebApplication app)
     {
         app.MapGet("/rag/categories", CategoriesAsync);
@@ -2826,7 +2828,7 @@ navigation_routes AS (
     JOIN document_navigation_entries ne
       ON ne.tenant_id = d.tenant_id
      AND ne.revision_id = d.revision_id
-     AND ne.confidence >= 0.70
+     AND ne.confidence >= @navigation_route_min_confidence
      AND ne.resolution_method <> 'page_unresolved'
      AND (ne.target_chunk_id IS NOT NULL OR ne.target_anchor_id IS NOT NULL)
     CROSS JOIN LATERAL (
@@ -2982,6 +2984,7 @@ LIMIT @candidate_limit;
                 query_tokens = queryTokens,
                 query_token_count = Math.Max(1, queryTokens.Length),
                 min_overlap = Math.Max(1, minOverlap),
+                navigation_route_min_confidence = NavigationRouteMinimumConfidence,
                 category,
                 category_path = normalizedCategoryPath,
                 doc_id = normalizedDocId,
