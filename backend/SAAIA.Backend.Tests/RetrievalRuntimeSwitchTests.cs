@@ -120,6 +120,96 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void BuildTitleTokens_adds_singular_variants_for_plural_lookup_terms()
+    {
+        var tokens = TitleAnchorNormalizer.BuildTitleTokens("Terrines de legumes", maxTokens: 12);
+
+        Assert.Contains("terrines", tokens);
+        Assert.Contains("terrine", tokens);
+        Assert.Contains("legumes", tokens);
+    }
+
+    [Fact]
+    public void ComputeDocumentProfileSearchResultLimit_overfetches_for_generic_profile_reranking()
+    {
+        Assert.Equal(32, RagEndpoints.ComputeDocumentProfileSearchResultLimit(8));
+        Assert.Equal(80, RagEndpoints.ComputeDocumentProfileSearchResultLimit(64));
+    }
+
+    [Fact]
+    public void BuildDocumentProfileSpecificityTokens_keeps_domain_constraints_without_primary_intent_noise()
+    {
+        var tokens = RagEndpoints.BuildDocumentProfileSpecificityTokens(
+            "Compare three onboarding procedures for apprentices: material, failure risk and setup notes.");
+
+        Assert.Contains("apprentices", tokens);
+        Assert.Contains("material", tokens);
+        Assert.Contains("failure", tokens);
+        Assert.Contains("setup", tokens);
+        Assert.DoesNotContain("compare", tokens);
+    }
+
+    [Fact]
+    public void BuildDocumentProfileLexicalTerms_restores_profile_constraints_filtered_from_chunk_terms()
+    {
+        const string query = "Compare three onboarding procedures for apprentices: material, failure risk and setup notes.";
+
+        var chunkTerms = RagEndpoints.BuildLexicalContentFallbackTerms(query);
+        var profileTerms = RagEndpoints.BuildDocumentProfileLexicalTerms(query);
+
+        Assert.DoesNotContain("material", chunkTerms);
+        Assert.Contains("material", profileTerms);
+        Assert.Contains("apprentices", profileTerms);
+        Assert.Contains("mat\u00e9riel", RagEndpoints.BuildDocumentProfileLexicalTerms(
+            "Compare trois procedures pour apprentis : mat\u00e9riel, risques et consignes."));
+    }
+
+    [Fact]
+    public void ResolveDocumentProfileCandidateCount_keeps_profile_window_bounded()
+    {
+        Assert.Equal(12, RagEndpoints.ResolveDocumentProfileCandidateCount(candidates: 80, topK: 8, profileOnly: true));
+        Assert.Equal(12, RagEndpoints.ResolveDocumentProfileCandidateCount(candidates: 80, topK: 8, profileOnly: false));
+        Assert.Equal(10, RagEndpoints.ResolveDocumentProfileCandidateCount(candidates: 10, topK: 8, profileOnly: true));
+    }
+
+    [Fact]
+    public void ShouldAllowSparseAssistForScopedProfileFallback_detects_broad_queries_with_strong_constraints()
+    {
+        Assert.True(RagEndpoints.ShouldAllowSparseAssistForScopedProfileFallback(
+            "Compare trois procedures pour apprentis : materiel, risques et consignes."));
+        Assert.False(RagEndpoints.ShouldAllowSparseAssistForScopedProfileFallback(
+            "Fais une vue d'ensemble des documents disponibles."));
+    }
+
+    [Fact]
+    public void ShouldPrioritizeDocumentProfilesForSelection_yields_to_sparse_assist_when_constraints_are_strong()
+    {
+        Assert.True(RagEndpoints.ShouldPrioritizeDocumentProfilesForSelection(
+            preferDocumentDiversity: true,
+            allowSparseAssistForScopedProfileFallback: false));
+        Assert.False(RagEndpoints.ShouldPrioritizeDocumentProfilesForSelection(
+            preferDocumentDiversity: true,
+            allowSparseAssistForScopedProfileFallback: true));
+    }
+
+    [Fact]
+    public void ComputeDocumentProfileSpecificityBoost_rewards_rare_constraints_over_common_profile_words()
+    {
+        const string query = "Compare three onboarding procedures for apprentices: material, failure risk and setup notes.";
+        var peerTexts = new[]
+        {
+            "Procedure catalogue with setup notes and common operating procedure references.",
+            "Procedure guide for apprentices with material checklist, failure risk notes and setup controls.",
+            "General procedure overview with setup notes and operating constraints."
+        };
+
+        var genericBoost = RagEndpoints.ComputeDocumentProfileSpecificityBoost(query, peerTexts[0], peerTexts);
+        var targetedBoost = RagEndpoints.ComputeDocumentProfileSpecificityBoost(query, peerTexts[1], peerTexts);
+
+        Assert.True(targetedBoost > genericBoost);
+    }
+
+    [Fact]
     public void ExtractQuotedLookupPhrases_keeps_single_strong_quoted_title()
     {
         var phrases = RagEndpoints.ExtractQuotedLookupPhrases(
@@ -1039,6 +1129,35 @@ public sealed class RetrievalRuntimeSwitchTests
             null);
 
         Assert.True(RagEndpoints.LooksLikeDocumentOverviewChunk(overview));
+    }
+
+    [Fact]
+    public void LooksLikeDocumentOverviewChunk_keeps_multilingual_actionable_profiles()
+    {
+        var profile = new RagMatch(
+            0.82,
+            "doc-profile",
+            "Docs/Guide.pdf",
+            "Guide.pdf",
+            7,
+            7,
+            "profile",
+            0,
+            "Ce document presente des options pour apprentis avec materiel, etapes, risques et consignes.",
+            1,
+            "hash-profile",
+            "Ce document presente des options pour apprentis avec materiel, etapes, risques et consignes.",
+            "document_profile_v1",
+            1,
+            1,
+            "Profil documentaire",
+            "Profil documentaire",
+            "document_profile",
+            null,
+            null,
+            null);
+
+        Assert.False(RagEndpoints.LooksLikeDocumentOverviewChunk(profile));
     }
 
     [Fact]

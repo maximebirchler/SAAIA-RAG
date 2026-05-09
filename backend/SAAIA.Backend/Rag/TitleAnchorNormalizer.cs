@@ -25,6 +25,7 @@ internal static partial class TitleAnchorNormalizer
         return TokenRegex().Matches(normalized)
             .Select(static match => match.Value)
             .Where(IsUsefulToken)
+            .SelectMany(BuildTokenSurfaceVariants)
             .Distinct(StringComparer.Ordinal)
             .Take(maxTokens)
             .ToArray();
@@ -90,6 +91,18 @@ internal static partial class TitleAnchorNormalizer
             return false;
 
         return !GenericStopwords.Contains(token);
+    }
+
+    private static IEnumerable<string> BuildTokenSurfaceVariants(string token)
+    {
+        yield return token;
+
+        if (token.Length >= 6 && token.EndsWith("es", StringComparison.Ordinal))
+            yield return token[..^1];
+        if (token.Length >= 6 && (token.EndsWith("s", StringComparison.Ordinal) || token.EndsWith("x", StringComparison.Ordinal)))
+            yield return token[..^1];
+        if (token.Length >= 7 && token.EndsWith("eux", StringComparison.Ordinal))
+            yield return token[..^3] + "e";
     }
 
     private static bool HasTechnicalSignal(string value)

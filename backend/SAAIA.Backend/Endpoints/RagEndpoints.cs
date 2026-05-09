@@ -1328,6 +1328,7 @@ ORDER BY d.doc_path;
         var maxPerDoc = Math.Clamp(req.MaxPerDoc ?? defMaxPerDoc, 1, topK);
         var maxPerPage = Math.Clamp(req.MaxPerPage ?? 1, 1, topK);
         var hasExplicitMaxPerDoc = req.MaxPerDoc.HasValue;
+        var hasExplicitMaxPerPage = req.MaxPerPage.HasValue;
 
         if (req.Diversity != null)
         {
@@ -1337,17 +1338,24 @@ ORDER BY d.doc_path;
                 hasExplicitMaxPerDoc = true;
             }
             if (req.Diversity.PreferDistinctPages == true)
+            {
                 maxPerPage = 1;
+                hasExplicitMaxPerPage = true;
+            }
         }
 
         if (!hasExplicitMaxPerDoc && ShouldConstrainPreciseTitleLookup(req.Query))
-            maxPerDoc = 1;
+            maxPerDoc = Math.Min(topK, Math.Max(maxPerDoc, 2));
+        if (!hasExplicitMaxPerPage && ShouldConstrainPreciseTitleLookup(req.Query))
+            maxPerPage = Math.Min(topK, Math.Max(maxPerPage, 2));
 
         var swTotal = Stopwatch.StartNew();
         var hasCategoryFilter = !string.IsNullOrWhiteSpace(category) || !string.IsNullOrWhiteSpace(categoryPath);
         var hasDocScope = !string.IsNullOrWhiteSpace(req.DocId) || !string.IsNullOrWhiteSpace(req.DocPath);
         var skipChunkRetrieversForDocumentOverview = ShouldSkipChunkRetrieversForDocumentOverview(req.Query, hasDocScope, mode);
         var useScopedProfileFallback = !hasDocScope && ShouldUseScopedProfileFallback(req.Query, hasCategoryFilter, mode);
+        var allowSparseAssistForScopedProfileFallback =
+            useScopedProfileFallback && ShouldAllowSparseAssistForScopedProfileFallback(req.Query);
         var skipSparseRetrieverForBroadDiversity = !hasDocScope
             && (ShouldSkipSparseRetrieverForBroadDiversity(req.Query, mode)
                 || ShouldSkipSparseRetrieverForQuantityLookup(req.Query, mode));
@@ -1449,7 +1457,9 @@ ORDER BY d.doc_path;
                         categoryPath,
                         degradedRetrieverRef: MarkRetrieverDegraded),
                     getReturnedCount: static matches => matches.Count);
-            Task<(List<RagMatch> Result, long DurationMs)> sparseMatchesTask = skipChunkRetrieversForDocumentOverview || useScopedProfileFallback || skipSparseRetrieverForBroadDiversity
+            Task<(List<RagMatch> Result, long DurationMs)> sparseMatchesTask = skipChunkRetrieversForDocumentOverview
+                || (useScopedProfileFallback && !allowSparseAssistForScopedProfileFallback)
+                || (skipSparseRetrieverForBroadDiversity && !allowSparseAssistForScopedProfileFallback)
                 ? Task.FromResult((new List<RagMatch>(), 0L))
                 : MeasurePhaseAsync(
                     phaseName: "retrieval_sparse",
@@ -1495,6 +1505,10 @@ ORDER BY d.doc_path;
                 && !useScopedProfileFallback
                 && (ShouldSkipDocumentProfileSearchForPreciseLookup(req.Query)
                     || ShouldSkipDocumentProfileSearchForComparativeLookup(req.Query));
+            var documentProfileCandidateCount = ResolveDocumentProfileCandidateCount(
+                candidates,
+                topK,
+                skipChunkRetrieversForDocumentOverview || useScopedProfileFallback);
             Task<(List<RagMatch> Result, long DurationMs)> profileMatchesTask = skipDocumentProfileSearchForPreciseLookup
                 || ShouldSkipDocumentProfileSearchForQuantityLookup(req.Query)
                 || (!skipChunkRetrieversForDocumentOverview
@@ -1512,7 +1526,7 @@ ORDER BY d.doc_path;
                             category,
                             req.DocId,
                             req.DocPath,
-                            Math.Min(candidates, Math.Max(topK, 12)),
+                            documentProfileCandidateCount,
                             ct,
                             categoryPath,
                             requireDocumentOverviewProfileMatch,
@@ -1524,7 +1538,7 @@ ORDER BY d.doc_path;
                             category,
                             req.DocId,
                             req.DocPath,
-                            Math.Min(candidates, Math.Max(topK, 12)),
+                            documentProfileCandidateCount,
                             ct,
                             categoryPath,
                             degradedRetrieverRef: MarkRetrieverDegraded),
@@ -1594,7 +1608,9 @@ ORDER BY d.doc_path;
                 useScopedProfileFallback ? 0.0 : minScore,
                 maxPerDoc,
                 maxPerPage,
-                prioritizeDocumentProfiles: preferDocumentDiversity);
+                prioritizeDocumentProfiles: ShouldPrioritizeDocumentProfilesForSelection(
+                    preferDocumentDiversity,
+                    allowSparseAssistForScopedProfileFallback));
             selectionSw.Stop();
             selectionMs += selectionSw.ElapsedMilliseconds;
 
@@ -2107,9 +2123,6 @@ ORDER BY d.doc_path;
                " options ",
                " menu ",
                " menus ",
-               " repas ",
-               " meal ",
-               " meals ",
                " selection ",
                " selectionne ",
                " selectionner ",
@@ -2200,9 +2213,6 @@ ORDER BY d.doc_path;
             " selected ",
             " menu ",
             " menus ",
-            " repas ",
-            " meal ",
-            " meals ",
             " adapte ",
             " adapter ",
             " adaptes ",
@@ -2401,6 +2411,17 @@ ORDER BY d.doc_path;
                 normalized,
                 @"\b(?:points?\s+critiques?|critical\s+points?|a\s+surveiller|to\s+watch|watch\s+outs?)\b.{0,80}\b(?:eviter|avoid|rater|ratage|failure|fail)\b",
                 RegexOptions.CultureInvariant);
+    }
+
+    internal static bool ShouldAllowSparseAssistForScopedProfileFallback(string query)
+    {
+        var tokens = BuildDocumentProfileSpecificityTokens(query)
+            .Where(static token => !DocumentOverviewTopicStopwords.Contains(token))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        return tokens.Length >= 2
+            && tokens.Any(static token => SpecificAnchorStopwords.Contains(token));
     }
 
     internal static bool ShouldRequireDocumentOverviewProfileMatch(string query)
@@ -2682,6 +2703,15 @@ ORDER BY d.doc_path;
             "broad" => topK * (preferComparativeDiversity ? 15 : 12),
             _ => topK * 10
         };
+
+    internal static int ResolveDocumentProfileCandidateCount(int candidates, int topK, bool profileOnly)
+    {
+        if (topK <= 0 || candidates <= 0)
+            return 0;
+
+        var desired = Math.Max(topK, 12);
+        return Math.Min(candidates, desired);
+    }
 
     internal static int ResolveDefaultMaxPerDoc(string mode, bool preferComparativeDiversity, int topK)
         => preferComparativeDiversity && mode != "focused"
@@ -3231,7 +3261,13 @@ LEFT JOIN profile_card_matches pcm
  AND rc.page_start <= pcm.card_page_end
  AND rc.page_end >= pcm.card_page_start
 CROSS JOIN LATERAL (
-    SELECT LOWER(rc.text_content) AS text_lc
+    SELECT LOWER(CONCAT_WS(
+        E'\n',
+        rc.text_content,
+        cte.text_content,
+        COALESCE(rc.metadata->>'sectionTitle', s.title),
+        COALESCE(rc.metadata->>'headingPath', s.title)
+    )) AS text_lc
 ) normalized_chunk
 CROSS JOIN LATERAL (
     SELECT
@@ -4926,12 +4962,13 @@ LIMIT @top_k;
         if (topK <= 0)
             return [];
 
-        var lexicalTerms = BuildLexicalContentFallbackTerms(query).ToArray();
+        var lexicalTerms = BuildDocumentProfileLexicalTerms(query).ToArray();
         var normalizedDocPath = string.IsNullOrWhiteSpace(docPath)
             ? null
             : docPath.Trim().Replace('\\', '/').TrimStart('/');
         var normalizedCategoryPath = NormalizeRagCategoryPathForSql(categoryPath);
         Guid? normalizedDocId = Guid.TryParse(docId, out var parsedDocId) ? parsedDocId : null;
+        var resultLimit = ComputeDocumentProfileSearchResultLimit(topK);
 
         await using var conn = await ds.OpenConnectionAsync(ct);
         const string sql = """
@@ -5068,7 +5105,7 @@ ORDER BY
     CASE WHEN COALESCE(lm.match_count, 0) > 0 THEN 0 ELSE 1 END,
     COALESCE(lm.match_weight, 0.0) DESC,
     d.doc_path ASC
-LIMIT @top_k;
+LIMIT @result_limit;
 """;
 
         try
@@ -5081,17 +5118,20 @@ LIMIT @top_k;
                 category_path = normalizedCategoryPath,
                 doc_id = normalizedDocId,
                 doc_path = normalizedDocPath,
-                top_k = topK,
+                result_limit = resultLimit,
                 require_lexical_match = requireLexicalMatch
             }, cancellationToken: ct))).ToList();
 
-            return rows.Select(row =>
+            return RankDocumentProfileRows(query, rows)
+                .Take(topK)
+                .Select(scored =>
             {
+                var row = scored.Row;
                 var pageRange = ResolveDocumentProfileMatchPageRange(row.MetadataJson, query);
                 var matchedContentCards = BuildMatchedContentCards(row.MetadataJson, query);
                 var profileSectionTitle = BuildDocumentProfileSectionTitle(row.Language);
                 return new RagMatch(
-                    Score: NormalizeDocumentProfileScore(row.SparseRank, (int)Math.Min(row.MatchCount, int.MaxValue)),
+                    Score: scored.Score,
                     DocId: row.DocId.ToString(),
                     DocPath: row.DocPath,
                     DocName: row.DocName,
@@ -5139,7 +5179,7 @@ LIMIT @top_k;
         if (string.IsNullOrWhiteSpace(query) || topK <= 0)
             return [];
 
-        var lexicalTerms = BuildLexicalContentFallbackTerms(query);
+        var lexicalTerms = BuildDocumentProfileLexicalTerms(query);
         if (lexicalTerms.Count == 0)
             return [];
 
@@ -5148,6 +5188,7 @@ LIMIT @top_k;
             : docPath.Trim().Replace('\\', '/').TrimStart('/');
         var normalizedCategoryPath = NormalizeRagCategoryPathForSql(categoryPath);
         Guid? normalizedDocId = Guid.TryParse(docId, out var parsedDocId) ? parsedDocId : null;
+        var resultLimit = ComputeDocumentProfileSearchResultLimit(topK);
 
         await using var conn = await ds.OpenConnectionAsync(ct);
         const string sql = """
@@ -5396,7 +5437,7 @@ ORDER BY
     (ts_rank_cd(to_tsvector('simple', effective_profile.search_text), sparse_query.q, 32)
         + ((lm.match_weight + COALESCE(cm.match_weight, 0.0) + (COALESCE(hm.match_weight, 0.0) * 1.2))::real * 0.04)) DESC,
     d.updated_at DESC
-LIMIT @top_k;
+LIMIT @result_limit;
 """;
 
         try
@@ -5410,16 +5451,19 @@ LIMIT @top_k;
                 category_path = normalizedCategoryPath,
                 doc_id = normalizedDocId,
                 doc_path = normalizedDocPath,
-                top_k = topK
+                result_limit = resultLimit
             }, cancellationToken: ct))).ToList();
 
-            return rows.Select(row =>
+            return RankDocumentProfileRows(query, rows)
+                .Take(topK)
+                .Select(scored =>
             {
+                var row = scored.Row;
                 var pageRange = ResolveDocumentProfileMatchPageRange(row.MetadataJson, query);
                 var matchedContentCards = BuildMatchedContentCards(row.MetadataJson, query);
                 var profileSectionTitle = BuildDocumentProfileSectionTitle(row.Language);
                 return new RagMatch(
-                    Score: NormalizeDocumentProfileScore(row.SparseRank, (int)Math.Min(row.MatchCount, int.MaxValue)),
+                    Score: scored.Score,
                     DocId: row.DocId.ToString(),
                     DocPath: row.DocPath,
                     DocName: row.DocName,
@@ -5451,6 +5495,50 @@ LIMIT @top_k;
             return [];
         }
     }
+
+    internal static int ComputeDocumentProfileSearchResultLimit(int topK)
+    {
+        if (topK <= 0)
+            return 0;
+
+        return Math.Clamp(Math.Max(topK + 8, topK * 4), topK, 80);
+    }
+
+    private static IReadOnlyList<ScoredDocumentProfileMatchRow> RankDocumentProfileRows(
+        string query,
+        IReadOnlyList<DocumentProfileMatchRow> rows)
+    {
+        if (rows.Count == 0)
+            return [];
+
+        var peerTexts = rows
+            .Select(static row => BuildDocumentProfileCandidateLookupText(row))
+            .ToArray();
+
+        return rows
+            .Select((row, index) =>
+            {
+                var baseScore = NormalizeDocumentProfileScore(row.SparseRank, (int)Math.Min(row.MatchCount, int.MaxValue));
+                var specificityBoost = ComputeDocumentProfileSpecificityBoost(query, peerTexts[index], peerTexts);
+                var score = Math.Clamp(baseScore + specificityBoost, 0.0, 0.92);
+                return new ScoredDocumentProfileMatchRow(row, score, specificityBoost, baseScore);
+            })
+            .OrderByDescending(static item => item.Score)
+            .ThenByDescending(static item => item.SpecificityBoost)
+            .ThenByDescending(static item => item.BaseScore)
+            .ThenBy(static item => item.Row.DocName, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static string BuildDocumentProfileCandidateLookupText(DocumentProfileMatchRow row)
+        => CollapseWhitespace(string.Join(' ', new[]
+        {
+            row.DocPath,
+            row.DocName,
+            row.Text,
+            row.SearchText,
+            row.MetadataJson
+        }));
 
     private static string FormatPostgresRetrieverError(PostgresException ex)
         => string.IsNullOrWhiteSpace(ex.MessageText)
@@ -6793,6 +6881,12 @@ GROUP BY d.doc_id;
         double SparseRank,
         long MatchCount);
 
+    private sealed record ScoredDocumentProfileMatchRow(
+        DocumentProfileMatchRow Row,
+        double Score,
+        double SpecificityBoost,
+        double BaseScore);
+
     private sealed record LinkedMatchRow(
         Guid DocId,
         string DocPath,
@@ -6932,14 +7026,30 @@ GROUP BY d.doc_id;
         var orderedMatches = matches as IReadOnlyList<RagMatch> ?? matches.ToList();
         return prioritizeDocumentProfiles
             ? orderedMatches
-                .OrderByDescending(static match => IsResolvedTitleOrNavigationRoute(match))
+                .OrderByDescending(static match => IsDocumentProfileMatch(match))
+                .ThenByDescending(static match => IsResolvedTitleOrNavigationRoute(match))
+                .ThenByDescending(static match => match.Score)
+                .ThenBy(static match => match.DocPath, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(static match => match.ChunkIndex)
                 .ToList()
             : orderedMatches
                 .Where(static match => !IsDocumentProfileMatch(match))
                 .OrderByDescending(static match => IsResolvedTitleOrNavigationRoute(match))
-                .Concat(orderedMatches.Where(IsDocumentProfileMatch))
+                .ThenByDescending(static match => match.Score)
+                .ThenBy(static match => match.DocPath, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(static match => match.ChunkIndex)
+                .Concat(orderedMatches
+                    .Where(IsDocumentProfileMatch)
+                    .OrderByDescending(static match => match.Score)
+                    .ThenBy(static match => match.DocPath, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(static match => match.ChunkIndex))
                 .ToList();
     }
+
+    internal static bool ShouldPrioritizeDocumentProfilesForSelection(
+        bool preferDocumentDiversity,
+        bool allowSparseAssistForScopedProfileFallback)
+        => preferDocumentDiversity && !allowSparseAssistForScopedProfileFallback;
 
     private static bool IsDocumentProfileMatch(RagMatch match)
         => string.Equals(match.ChunkType, "document_profile", StringComparison.Ordinal)
@@ -9471,11 +9581,51 @@ LIMIT @top_k;
         if (!hasOverviewLanguage)
             return false;
 
-        return !text.Contains("procedure", StringComparison.Ordinal)
-            && !text.Contains("materials", StringComparison.Ordinal)
-            && !text.Contains("components", StringComparison.Ordinal)
-            && !text.Contains("instructions", StringComparison.Ordinal);
+        return !ContainsActionableDocumentProfileLanguage(text);
     }
+
+    private static bool ContainsActionableDocumentProfileLanguage(string normalizedText)
+        => ContainsAny(
+            normalizedText,
+            "procedure",
+            "procedures",
+            "materials",
+            "material",
+            "materiel",
+            "materiaux",
+            "materiales",
+            "materiali",
+            "materialien",
+            "components",
+            "component",
+            "composants",
+            "componentes",
+            "componenti",
+            "komponenten",
+            "instructions",
+            "instruction",
+            "consignes",
+            "instrucciones",
+            "instrucoes",
+            "istruzioni",
+            "anweisungen",
+            "steps",
+            "step",
+            "etapes",
+            "pasos",
+            "passos",
+            "schritte",
+            "tools",
+            "outils",
+            "herramientas",
+            "ferramentas",
+            "strumenti",
+            "werkzeug",
+            "equipment",
+            "equipement",
+            "equipamentos",
+            "attrezzatura",
+            "ausrustung");
 
     internal static bool LooksLikeNavigationalChunk(RagMatch match)
     {
@@ -9852,6 +10002,63 @@ LIMIT @top_k;
         return Math.Clamp(combined, 0.0, 0.86);
     }
 
+    internal static double ComputeDocumentProfileSpecificityBoost(
+        string query,
+        string? candidateText,
+        IReadOnlyList<string> peerCandidateTexts)
+    {
+        if (string.IsNullOrWhiteSpace(candidateText) || peerCandidateTexts.Count == 0)
+            return 0.0;
+
+        var tokens = BuildDocumentProfileSpecificityTokens(query);
+        if (tokens.Count == 0)
+            return 0.0;
+
+        var normalizedCandidate = NormalizeForLexicalSignal(candidateText);
+        if (string.IsNullOrWhiteSpace(normalizedCandidate))
+            return 0.0;
+
+        var normalizedPeers = peerCandidateTexts
+            .Select(NormalizeForLexicalSignal)
+            .Where(static text => !string.IsNullOrWhiteSpace(text))
+            .ToArray();
+        if (normalizedPeers.Length == 0)
+            return 0.0;
+
+        var rawBoost = 0.0;
+        foreach (var token in tokens)
+        {
+            var variants = BuildLexicalTokenVariants(token);
+            if (variants.Count == 0)
+                continue;
+
+            if (!variants.Any(variant => normalizedCandidate.Contains(variant, StringComparison.Ordinal)))
+                continue;
+
+            var documentFrequency = normalizedPeers.Count(peer =>
+                variants.Any(variant => peer.Contains(variant, StringComparison.Ordinal)));
+            if (documentFrequency <= 0)
+                continue;
+
+            var inverseFrequency = Math.Log((normalizedPeers.Length + 1.0) / (documentFrequency + 0.5)) + 1.0;
+            var tokenWeight =
+                IsReferenceLikeLookupTerm(token) ? 1.45 :
+                token.Length >= 10 ? 1.25 :
+                token.Length >= 7 ? 1.10 :
+                1.0;
+            rawBoost += inverseFrequency * tokenWeight;
+        }
+
+        return Math.Clamp(rawBoost * 0.025, 0.0, 0.24);
+    }
+
+    internal static IReadOnlyList<string> BuildDocumentProfileSpecificityTokens(string query)
+        => ExtractLexicalQueryTokens(query)
+            .Where(static token => token.Length >= 5 || IsReferenceLikeLookupTerm(token))
+            .Where(static token => !PrimaryAnchorStopwords.Contains(token))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
     internal static IReadOnlyList<string> ExtractLexicalQueryTokens(string query)
     {
         if (string.IsNullOrWhiteSpace(query))
@@ -9940,6 +10147,25 @@ LIMIT @top_k;
         return phraseTerms
             .Concat(singleTerms)
             .Distinct(StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    internal static IReadOnlyList<string> BuildDocumentProfileLexicalTerms(string query)
+    {
+        var terms = new HashSet<string>(BuildLexicalContentFallbackTerms(query), StringComparer.Ordinal);
+        foreach (var token in ExtractLexicalQuerySurfaceTokens(query))
+            terms.Add(token);
+        foreach (var token in BuildDocumentProfileSpecificityTokens(query))
+        {
+            foreach (var variant in BuildLexicalTokenVariants(token))
+                terms.Add(variant);
+        }
+
+        return terms
+            .Where(static term => term.Length >= 4)
+            .OrderByDescending(static term => term.Contains(' '))
+            .ThenBy(static term => term, StringComparer.Ordinal)
+            .Take(96)
             .ToArray();
     }
 
