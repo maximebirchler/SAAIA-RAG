@@ -6089,6 +6089,8 @@ LIMIT @top_k;
                     adjusted += retriever switch
                     {
                         "sparse_bm25" => Math.Min(0.32, 0.12 + (exactTitleScore * 0.006)),
+                        "title_anchor_route" => Math.Min(0.30, 0.12 + (exactTitleScore * 0.006)),
+                        "navigation_route" => Math.Min(0.26, 0.10 + (exactTitleScore * 0.005)),
                         "dense_qdrant" => Math.Min(0.16, 0.06 + (exactTitleScore * 0.004)),
                         "document_profile" => Math.Min(0.20, 0.08 + (exactTitleScore * 0.004)),
                         "exact_match" => Math.Min(0.18, 0.08 + (exactTitleScore * 0.004)),
@@ -6104,6 +6106,8 @@ LIMIT @top_k;
                     adjusted += retriever switch
                     {
                         "sparse_bm25" => 0.25,
+                        "title_anchor_route" => 0.22,
+                        "navigation_route" => 0.18,
                         "dense_qdrant" => 0.12,
                         "document_profile" => 0.08,
                         _ => 0.06
@@ -6183,6 +6187,8 @@ LIMIT @top_k;
                     adjusted += retriever switch
                     {
                         "sparse_bm25" => 0.28,
+                        "title_anchor_route" => 0.24,
+                        "navigation_route" => 0.18,
                         "dense_qdrant" => 0.0,
                         "document_profile" => 0.08,
                         _ => 0.10
@@ -6816,25 +6822,26 @@ LIMIT @top_k;
     {
         return string.Join("\n", new[]
         {
-            ExtractMatchedProfileTitle(match.EmbedText),
+            ExtractMatchedRouteOrProfileTitle(match.EmbedText),
             match.Text,
             match.SectionTitle,
             match.HeadingPath
         }.Where(static value => !string.IsNullOrWhiteSpace(value)));
     }
 
-    private static string? ExtractMatchedProfileTitle(string? embedText)
+    private static string? ExtractMatchedRouteOrProfileTitle(string? embedText)
     {
         if (string.IsNullOrWhiteSpace(embedText))
             return null;
 
-        const string profilePrefix = "Matched profile title:";
-        const string quotedPrefix = "Matched quoted title:";
-        var prefix = embedText.StartsWith(profilePrefix, StringComparison.Ordinal)
-            ? profilePrefix
-            : embedText.StartsWith(quotedPrefix, StringComparison.Ordinal)
-                ? quotedPrefix
-                : null;
+        string[] prefixes =
+        [
+            "Matched profile title:",
+            "Matched quoted title:",
+            "Matched title_anchor_route:",
+            "Matched navigation_route:"
+        ];
+        var prefix = prefixes.FirstOrDefault(prefix => embedText.StartsWith(prefix, StringComparison.Ordinal));
         if (prefix is null)
             return null;
 
@@ -7054,7 +7061,9 @@ LIMIT @top_k;
     internal static bool HasProfileTitleHint(RagMatch match)
         => !string.IsNullOrWhiteSpace(match.EmbedText)
             && (match.EmbedText!.StartsWith("Matched profile title:", StringComparison.Ordinal)
-                || match.EmbedText!.StartsWith("Matched quoted title:", StringComparison.Ordinal));
+                || match.EmbedText!.StartsWith("Matched quoted title:", StringComparison.Ordinal)
+                || match.EmbedText!.StartsWith("Matched title_anchor_route:", StringComparison.Ordinal)
+                || match.EmbedText!.StartsWith("Matched navigation_route:", StringComparison.Ordinal));
 
     internal static bool ContainsSpecificLexicalAnchor(IReadOnlyList<string> lexicalTokens, string? candidateText)
         => CountSpecificLexicalAnchors(lexicalTokens, candidateText) > 0;

@@ -2820,6 +2820,52 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void ComputeExactTitleCandidateScore_uses_title_anchor_route_label()
+    {
+        var routeMatch = TestMatch(
+            text: "The target page contains instructions but does not repeat the heading.",
+            embedText: "Matched title_anchor_route: Beta Checklist\nThe target page contains instructions but does not repeat the heading.",
+            chunkId: "route",
+            embeddingBasis: "title_anchor_route_v1",
+            chunkType: "section_window_v1",
+            score: 0.86);
+        var looseOverlap = TestMatch(
+            text: "The beta subsystem references a separate checklist appendix.",
+            embedText: "The beta subsystem references a separate checklist appendix.",
+            chunkId: "loose",
+            embeddingBasis: "sparse_bm25_v1",
+            chunkType: "section_window_v1",
+            score: 0.94);
+
+        Assert.True(RagEndpoints.HasProfileTitleHint(routeMatch));
+        Assert.True(RagEndpoints.ComputeExactTitleCandidateScore("beta checklist", routeMatch)
+            > RagEndpoints.ComputeExactTitleCandidateScore("beta checklist", looseOverlap));
+    }
+
+    [Fact]
+    public void CalibrateFusedMatches_prefers_route_exact_label_over_loose_overlap()
+    {
+        var looseOverlap = TestMatch(
+            text: "The beta appendix references alpha separately without a combined title.",
+            embedText: "The beta appendix references alpha separately without a combined title.",
+            chunkId: "loose-overlap",
+            embeddingBasis: "sparse_bm25_v1",
+            chunkType: "section_window_v1",
+            score: 1.02);
+        var navigationRoute = TestMatch(
+            text: "This page has the operational details but the title is only in the source navigation.",
+            embedText: "Matched navigation_route: Alpha Beta\nThis page has the operational details but the title is only in the source navigation.",
+            chunkId: "navigation-route",
+            embeddingBasis: "navigation_route_v1",
+            chunkType: "section_window_v1",
+            score: 0.86);
+
+        var calibrated = RagEndpoints.CalibrateFusedMatches("alpha beta", [looseOverlap, navigationRoute]);
+
+        Assert.Equal("navigation-route", calibrated[0].ChunkId);
+    }
+
+    [Fact]
     public void PruneUnpagedProfileSelectionsForPreciseLookup_keeps_paged_title_evidence()
     {
         var unpagedProfile = new RagMatch(
