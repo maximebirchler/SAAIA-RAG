@@ -6789,8 +6789,9 @@ LIMIT @top_k;
         if (primaryTokens.Length == 0)
             return;
 
+        var requiredPrimaryAnchorCount = Math.Min(2, primaryTokens.Length);
         var primaryAnchors = selected
-            .Where(match => ContainsPrimarySpecificSelectionAnchor(primaryTokens, match))
+            .Where(match => CountPrimarySpecificSelectionAnchors(primaryTokens, match) >= requiredPrimaryAnchorCount)
             .ToArray();
         if (primaryAnchors.Length == 0)
         {
@@ -6800,11 +6801,23 @@ LIMIT @top_k;
 
         selected.RemoveAll(match =>
         {
-            if (ContainsPrimarySpecificSelectionAnchor(primaryTokens, match))
+            if (CountPrimarySpecificSelectionAnchors(primaryTokens, match) >= requiredPrimaryAnchorCount)
                 return false;
 
             return !IsUsefulLinkedSelectionNearPrimaryAnchor(primaryTokens, match, primaryAnchors);
         });
+    }
+
+    private static int CountPrimarySpecificSelectionAnchors(IReadOnlyList<string> primaryTokens, RagMatch match)
+    {
+        if (primaryTokens.Count == 0)
+            return 0;
+
+        var titleSignalText = GetPreciseTitleSignalText(match);
+        if (string.IsNullOrWhiteSpace(titleSignalText))
+            return 0;
+
+        return CountSpecificLexicalAnchors(primaryTokens, titleSignalText);
     }
 
     private static bool ContainsPrimarySpecificSelectionAnchor(IReadOnlyList<string> primaryTokens, RagMatch match)
@@ -7258,7 +7271,7 @@ LIMIT @top_k;
     private static bool IsPrimarySpecificLexicalAnchorToken(string token)
         => !SpecificAnchorStopwords.Contains(token)
             && !PrimaryAnchorStopwords.Contains(token)
-            && (token.Length >= 8 || token.Any(char.IsDigit) || IsReferenceLikeLookupTerm(token));
+            && (token.Length >= 6 || token.Any(char.IsDigit) || IsReferenceLikeLookupTerm(token));
 
     internal static double ComputeExactTitleCandidateScore(string query, RagMatch match)
     {
