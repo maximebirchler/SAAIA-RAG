@@ -136,20 +136,7 @@ ORDER BY display_order, name;
         var extractionQualityByMatch = await extractionQualityTask;
         var documentLanguagesByDocId = await documentLanguagesTask;
         var documentSourceHashesByDocId = await documentSourceHashesTask;
-        var qualityAdjustedMatches = resp.Matches
-            .Select(m =>
-            {
-                var extractionQuality = ResolveExtractionQuality(m, extractionQualityByMatch);
-                return new
-                {
-                    Match = m,
-                    ExtractionQuality = extractionQuality,
-                    AdjustedScore = ApplyExtractionQualityScorePenalty(m.Score, extractionQuality)
-                };
-            })
-            .OrderByDescending(static item => item.AdjustedScore)
-            .ThenByDescending(static item => item.Match.Score)
-            .ToList();
+        var qualityAdjustedMatches = BuildQualityAdjustedMatchesPreservingRank(resp.Matches, extractionQualityByMatch);
 
         return new RagSearchResponseDto(
             RequestId: resp.RequestId,
@@ -675,6 +662,23 @@ ORDER BY sd.doc_path, pi.page_number;
         => extractionQualityByMatch.TryGetValue(BuildExtractionQualityMatchKey(match), out var quality)
             ? quality
             : null;
+
+    internal static List<RagQualityAdjustedMatch> BuildQualityAdjustedMatchesPreservingRank(
+        IReadOnlyList<RagMatch> matches,
+        IReadOnlyDictionary<string, RagItemExtractionQualityDto> extractionQualityByMatch)
+    {
+        var adjusted = new List<RagQualityAdjustedMatch>(matches.Count);
+        foreach (var match in matches)
+        {
+            var extractionQuality = ResolveExtractionQuality(match, extractionQualityByMatch);
+            adjusted.Add(new RagQualityAdjustedMatch(
+                match,
+                extractionQuality,
+                ApplyExtractionQualityScorePenalty(match.Score, extractionQuality)));
+        }
+
+        return adjusted;
+    }
 
     internal static async Task<IReadOnlyDictionary<string, RagDocumentLanguageInfo>> LoadRagDocumentLanguagesAsync(
         NpgsqlDataSource ds,
@@ -10306,6 +10310,11 @@ LIMIT 500;
 }
 
 public sealed record RagDocumentLanguageInfo(string DocLanguage, string? ProfileLanguage);
+
+internal sealed record RagQualityAdjustedMatch(
+    RagMatch Match,
+    RagItemExtractionQualityDto? ExtractionQuality,
+    double AdjustedScore);
 
 public sealed class RagDocumentLanguageRow
 {
