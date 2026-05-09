@@ -389,6 +389,7 @@ public static class ReadyEndpoints
         details["ingestion_embeddings_batch_size_dynamic"] = ingestion.EmbeddingsBatchAdaptiveRetryEnabled;
         details["ingestion_embeddings_batch_adaptive_retry_enabled"] = ingestion.EmbeddingsBatchAdaptiveRetryEnabled;
         details["ingestion_worker_concurrency"] = Math.Max(1, ingestion.WorkerConcurrency);
+        details["ingestion_stale_running_minutes"] = Math.Clamp(ingestion.StaleRunningMinutes, 5, 24 * 60);
         details["ingestion_tei_max_concurrency"] = Math.Max(1, ingestion.TeiMaxConcurrency);
         details["ingestion_qdrant_max_concurrency"] = Math.Max(1, ingestion.QdrantMaxConcurrency);
         details["ingestion_ocr_max_concurrency"] = Math.Max(1, ingestion.OcrMaxConcurrency);
