@@ -3016,6 +3016,76 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void ShouldShortCircuitAfterQuotedTitle_prefers_single_strong_quoted_content_hit()
+    {
+        var hit = TestMatch(
+            text: "Gratin dauphinois ingredients potatoes cream garlic. Preparation steps and timing.",
+            embedText: "Matched quoted title: Gratin dauphinois\nGratin dauphinois ingredients potatoes cream garlic.",
+            docPath: "Cuisine/Top30.pdf",
+            chunkId: "quoted",
+            score: 0.92);
+
+        Assert.True(RagEndpoints.ShouldShortCircuitAfterQuotedTitle(
+            "Tu peux me faire une fiche claire pour « Gratin dauphinois » : ingredients, etapes, temps et source ?",
+            [hit]));
+    }
+
+    [Fact]
+    public void ShouldShortCircuitAfterQuotedTitle_keeps_search_open_for_comparative_or_navigation_hits()
+    {
+        var hit = TestMatch(
+            text: "Quiche lorraine ingredients and preparation.",
+            embedText: "Matched quoted title: Quiche lorraine\nQuiche lorraine ingredients and preparation.",
+            docPath: "Cuisine/Top30.pdf",
+            chunkId: "quoted",
+            score: 0.96);
+
+        Assert.False(RagEndpoints.ShouldShortCircuitAfterQuotedTitle(
+            "Compare « Quiche lorraine » avec une autre version du corpus.",
+            [hit]));
+
+        var navigation = TestMatch(
+            text: "Index Gratin dauphinois 7 Quiche lorraine 8 Tarte tatin 9",
+            embedText: "Matched quoted title: Gratin dauphinois\nIndex Gratin dauphinois 7 Quiche lorraine 8",
+            docPath: "Cuisine/Index.pdf",
+            chunkId: "index",
+            score: 1.02) with
+        {
+            ContentRole = "navigation",
+            NavigationScore = 0.82,
+            ContentDensityScore = 0.2
+        };
+
+        Assert.False(RagEndpoints.ShouldShortCircuitAfterQuotedTitle(
+            "Donne-moi « Gratin dauphinois ».",
+            [navigation]));
+    }
+
+    [Fact]
+    public void ShouldShortCircuitAfterQuotedTitle_keeps_search_open_for_near_tie_across_documents()
+    {
+        var first = TestMatch(
+            text: "Sauce tomate ingredients and preparation.",
+            embedText: "Matched quoted title: Sauce tomate\nSauce tomate ingredients and preparation.",
+            docPath: "Cuisine/BookA.pdf",
+            chunkId: "a",
+            score: 0.94);
+        var second = TestMatch(
+            text: "Sauce tomate another version with preparation.",
+            embedText: "Matched quoted title: Sauce tomate\nSauce tomate another version with preparation.",
+            docPath: "Cuisine/BookB.pdf",
+            chunkId: "b",
+            score: 0.92) with
+        {
+            DocId = "doc-2"
+        };
+
+        Assert.False(RagEndpoints.ShouldShortCircuitAfterQuotedTitle(
+            "Donne-moi « Sauce tomate ».",
+            [first, second]));
+    }
+
+    [Fact]
     public void ComputeDataHash_is_stable_and_sensitive_to_match_changes()
     {
         var left = new[]

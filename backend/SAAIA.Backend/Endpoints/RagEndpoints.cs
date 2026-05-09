@@ -1400,6 +1400,8 @@ ORDER BY d.doc_path;
             action: () => SearchQuotedTitleMatchesAsync(ds, tenantId, req.Query, category, req.DocId, req.DocPath, topK, ct, categoryPath),
             getReturnedCount: static matches => matches.Count);
         var shortCircuitAfterExact = ShouldShortCircuitAfterExact(exactMatches);
+        var shortCircuitAfterQuotedTitle = !shortCircuitAfterExact
+            && ShouldShortCircuitAfterQuotedTitle(req.Query, quotedTitleMatches);
         var selected = new List<RagMatch>(capacity: topK);
         var selectedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -1437,6 +1439,17 @@ ORDER BY d.doc_path;
         if (shortCircuitAfterExact)
         {
             AddRankedMatches(selected, selectedKeys, exactMatches, topK, minScore: 0.0, maxPerDoc, maxPerPage);
+        }
+        else if (shortCircuitAfterQuotedTitle)
+        {
+            AddRankedMatches(
+                selected,
+                selectedKeys,
+                exactMatches.Concat(quotedTitleMatches),
+                topK,
+                minScore: 0.0,
+                maxPerDoc,
+                maxPerPage);
         }
         else
         {
@@ -10796,6 +10809,50 @@ LIMIT @top_k;
 
         var second = exactMatches[1];
         return top.Score - second.Score >= 0.04;
+    }
+
+    internal static bool ShouldShortCircuitAfterQuotedTitle(string query, IReadOnlyList<RagMatch> quotedTitleMatches)
+    {
+        if (quotedTitleMatches.Count == 0)
+            return false;
+        if (ExtractQuotedLookupPhrases(query).Count != 1)
+            return false;
+
+        var normalized = $" {FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query))} ";
+        if (ShouldPreferComparativeDocumentDiversity(query)
+            || ContainsDocumentOverviewIntent(query)
+            || ContainsEnumerativeLookupIntent(normalized)
+            || ContainsGuidanceOrAdviceSelectionIntent(normalized))
+        {
+            return false;
+        }
+
+        var top = quotedTitleMatches[0];
+        if (top.Score < 0.90 || LooksLikeNavigationalChunk(top))
+            return false;
+
+        if (quotedTitleMatches.Count == 1)
+            return true;
+
+        var second = quotedTitleMatches[1];
+        if (IsSameDocument(top, second))
+            return true;
+
+        return top.Score - second.Score >= 0.04;
+    }
+
+    private static bool IsSameDocument(RagMatch left, RagMatch right)
+    {
+        if (!string.IsNullOrWhiteSpace(left.DocId)
+            && !string.IsNullOrWhiteSpace(right.DocId)
+            && string.Equals(left.DocId, right.DocId, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return !string.IsNullOrWhiteSpace(left.DocPath)
+            && !string.IsNullOrWhiteSpace(right.DocPath)
+            && string.Equals(left.DocPath, right.DocPath, StringComparison.OrdinalIgnoreCase);
     }
 
     internal static string ResolveRetriever(RagMatch match)
