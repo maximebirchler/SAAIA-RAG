@@ -131,16 +131,23 @@ internal static class RetrievalTelemetry
             { "saaia.retrieval.retriever", normalizedRetriever },
             { "exception.type", ex.GetType().FullName ?? ex.GetType().Name }
         };
+        if (ex is Npgsql.PostgresException pg)
+            tags.Add("db.postgresql.sql_state", pg.SqlState);
 
         RetrieverDegraded.Add(1, tags);
-        Activity.Current?.AddEvent(new ActivityEvent(
-            "retriever.degraded",
-            tags: new ActivityTagsCollection
-            {
-                { "saaia.retrieval.retriever", normalizedRetriever },
-                { "exception.type", ex.GetType().FullName ?? ex.GetType().Name },
-                { "exception.message", ex.Message }
-            }));
+        var activityTags = new ActivityTagsCollection
+        {
+            { "saaia.retrieval.retriever", normalizedRetriever },
+            { "exception.type", ex.GetType().FullName ?? ex.GetType().Name },
+            { "exception.message", ex.Message }
+        };
+        if (ex is Npgsql.PostgresException pgActivity)
+        {
+            activityTags.Add("db.postgresql.sql_state", pgActivity.SqlState);
+            activityTags.Add("db.postgresql.message_text", pgActivity.MessageText);
+        }
+
+        Activity.Current?.AddEvent(new ActivityEvent("retriever.degraded", tags: activityTags));
     }
 
     internal static void CompleteSearch(

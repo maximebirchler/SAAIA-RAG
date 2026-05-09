@@ -178,6 +178,7 @@ ORDER BY display_order, name;
                 QdrantMs: resp.Timings.QdrantMs,
                 CandidatesEvaluated: resp.Candidates,
                 DegradedRetrievers: resp.DegradedRetrievers,
+                DegradedRetrieverErrors: resp.DegradedRetrieverErrors,
                 ExactMs: resp.Timings.ExactMs,
                 QuotedTitleMs: resp.Timings.QuotedTitleMs,
                 SparsePhaseMs: resp.Timings.SparsePhaseMs,
@@ -1393,15 +1394,21 @@ ORDER BY d.doc_path;
         long selectionMs = 0;
         int qdrantStatus = 0;
         var degradedRetrievers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var degradedRetrieverErrors = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         object degradedRetrieversLock = new();
 
-        void MarkRetrieverDegraded(string retriever)
+        void MarkRetrieverDegraded(string retriever, string? reason = null)
         {
             if (string.IsNullOrWhiteSpace(retriever))
                 return;
 
+            var normalized = retriever.Trim().ToLowerInvariant();
             lock (degradedRetrieversLock)
-                degradedRetrievers.Add(retriever.Trim().ToLowerInvariant());
+            {
+                degradedRetrievers.Add(normalized);
+                if (!string.IsNullOrWhiteSpace(reason))
+                    degradedRetrieverErrors[normalized] = reason.Trim();
+            }
         }
 
         if (shortCircuitAfterExact)
@@ -1504,7 +1511,7 @@ ORDER BY d.doc_path;
             }
             else
             {
-                var (rerankedMatches, measuredRerankPhaseMs) = await MeasurePhaseAsync(
+                var (rerankAttempt, measuredRerankPhaseMs) = await MeasurePhaseAsync(
                     phaseName: "retrieval_rerank",
                     retriever: "tei_rerank",
                     action: () => TryRerankWithTeiAsync(
@@ -1514,14 +1521,21 @@ ORDER BY d.doc_path;
                         fusedMatches,
                         ct,
                         rerankMsRef: value => rerankMs = value),
-                    getReturnedCount: static matches => matches.Count);
+                    getReturnedCount: static attempt => attempt.Matches.Count);
                 rerankPhaseMs += measuredRerankPhaseMs;
-                fusionSw.Restart();
-                fusedMatches = rerankedMatches;
-                fusedMatches = CalibrateFusedMatches(retrievalQuery, fusedMatches, req.Query);
-                fusedMatches = SuppressNavigationalNoise(req.Query, fusedMatches);
-                fusionSw.Stop();
-                fusionMs += fusionSw.ElapsedMilliseconds;
+                if (rerankAttempt.Applied)
+                {
+                    fusionSw.Restart();
+                    fusedMatches = rerankAttempt.Matches;
+                    fusedMatches = CalibrateFusedMatches(retrievalQuery, fusedMatches, req.Query);
+                    fusedMatches = SuppressNavigationalNoise(req.Query, fusedMatches);
+                    fusionSw.Stop();
+                    fusionMs += fusionSw.ElapsedMilliseconds;
+                }
+                else
+                {
+                    fusedMatches = rerankAttempt.Matches;
+                }
             }
 
             var selectionSw = Stopwatch.StartNew();
@@ -1714,7 +1728,12 @@ ORDER BY d.doc_path;
             Matches: selected,
             DegradedRetrievers: degradedRetrievers.Count == 0
                 ? null
-                : degradedRetrievers.OrderBy(static retriever => retriever, StringComparer.Ordinal).ToArray());
+                : degradedRetrievers.OrderBy(static retriever => retriever, StringComparer.Ordinal).ToArray(),
+            DegradedRetrieverErrors: degradedRetrieverErrors.Count == 0
+                ? null
+                : degradedRetrieverErrors
+                    .OrderBy(static pair => pair.Key, StringComparer.Ordinal)
+                    .ToDictionary(static pair => pair.Key, static pair => pair.Value, StringComparer.Ordinal));
 
         RetrievalTelemetry.CompleteSearch(searchActivity, response, mode, hasCategoryFilter, hasDocScope);
         RetrievalTelemetry.RecordSearch(response, mode, hasCategoryFilter, hasDocScope, exactMs, sparsePhaseMs + profilePhaseMs, densePhaseMs, linkedPhaseMs);
@@ -2203,8 +2222,24 @@ SELECT
     d.category AS "Category",
     e.page_start AS "PageStart",
     e.page_end AS "PageEnd",
-    (e.metadata->>'offsetStart')::int AS "OffsetStart",
-    (e.metadata->>'offsetEnd')::int AS "OffsetEnd",
+    CASE
+        WHEN NULLIF(e.metadata->>'offsetStart', '') ~ '^[-+]?[0-9]+$'
+            THEN CASE
+                WHEN (e.metadata->>'offsetStart')::numeric BETWEEN -2147483648 AND 2147483647
+                    THEN (e.metadata->>'offsetStart')::int
+                ELSE NULL
+            END
+        ELSE NULL
+    END AS "OffsetStart",
+    CASE
+        WHEN NULLIF(e.metadata->>'offsetEnd', '') ~ '^[-+]?[0-9]+$'
+            THEN CASE
+                WHEN (e.metadata->>'offsetEnd')::numeric BETWEEN -2147483648 AND 2147483647
+                    THEN (e.metadata->>'offsetEnd')::int
+                ELSE NULL
+            END
+        ELSE NULL
+    END AS "OffsetEnd",
     e.exact_match_entry_id AS "ExactMatchEntryId",
     e.entry_index AS "ChunkIndex",
     e.text_content AS "Text",
@@ -2439,8 +2474,24 @@ SELECT
     d.category AS "Category",
     rc.page_start AS "PageStart",
     rc.page_end AS "PageEnd",
-    (rc.metadata->>'offsetStart')::int AS "OffsetStart",
-    (rc.metadata->>'offsetEnd')::int AS "OffsetEnd",
+    CASE
+        WHEN NULLIF(rc.metadata->>'offsetStart', '') ~ '^[-+]?[0-9]+$'
+            THEN CASE
+                WHEN (rc.metadata->>'offsetStart')::numeric BETWEEN -2147483648 AND 2147483647
+                    THEN (rc.metadata->>'offsetStart')::int
+                ELSE NULL
+            END
+        ELSE NULL
+    END AS "OffsetStart",
+    CASE
+        WHEN NULLIF(rc.metadata->>'offsetEnd', '') ~ '^[-+]?[0-9]+$'
+            THEN CASE
+                WHEN (rc.metadata->>'offsetEnd')::numeric BETWEEN -2147483648 AND 2147483647
+                    THEN (rc.metadata->>'offsetEnd')::int
+                ELSE NULL
+            END
+        ELSE NULL
+    END AS "OffsetEnd",
     rc.retrieval_chunk_id AS "ChunkId",
     rc.chunk_index AS "ChunkIndex",
     rc.text_content AS "Text",
@@ -2460,8 +2511,16 @@ SELECT
     COALESCE(rc.metadata->>'contentRole', 'content') AS "ContentRole",
     rc.metadata->>'navigationReason' AS "NavigationReason",
     rc.metadata->>'originalChunkType' AS "OriginalChunkType",
-    NULLIF(rc.metadata->>'navigationScore', '')::double precision AS "NavigationScore",
-    NULLIF(rc.metadata->>'contentDensityScore', '')::double precision AS "ContentDensityScore",
+    CASE
+        WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+            THEN (rc.metadata->>'navigationScore')::double precision
+        ELSE NULL
+    END AS "NavigationScore",
+    CASE
+        WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+            THEN (rc.metadata->>'contentDensityScore')::double precision
+        ELSE NULL
+    END AS "ContentDensityScore",
     rc.metadata->>'prevChunkId' AS "PrevChunkId",
     rc.metadata->>'nextChunkId' AS "NextChunkId",
     rc.metadata->>'sameSectionChunkId' AS "SameSectionChunkId",
@@ -2672,7 +2731,9 @@ LIMIT @candidate_limit;
         }
     }
 
-    private static async Task<List<RagMatch>> TryRerankWithTeiAsync(
+    private sealed record RerankAttempt(List<RagMatch> Matches, bool Applied);
+
+    private static async Task<RerankAttempt> TryRerankWithTeiAsync(
         IHttpClientFactory httpFactory,
         RagOptions rag,
         string query,
@@ -2683,7 +2744,7 @@ LIMIT @candidate_limit;
         if (!rag.EnableRerank || candidates.Count <= 1)
         {
             rerankMsRef(0);
-            return candidates.ToList();
+            return new RerankAttempt(candidates.ToList(), Applied: false);
         }
 
         var rerankBaseUrl = string.IsNullOrWhiteSpace(rag.RerankBaseUrl)
@@ -2702,11 +2763,11 @@ LIMIT @candidate_limit;
         try
         {
             var reranked = await TeiClient.RerankAsync(tei, rag.RerankModel, query, texts, ct);
-            return ApplyRerankScores(candidates, reranked, rerankSlice.Count);
+            return new RerankAttempt(ApplyRerankScores(candidates, reranked, rerankSlice.Count), Applied: true);
         }
         catch
         {
-            return candidates.ToList();
+            return new RerankAttempt(candidates.ToList(), Applied: false);
         }
         finally
         {
@@ -2727,7 +2788,7 @@ LIMIT @candidate_limit;
         Action<long> sparseMsRef,
         string? lexicalExpansionQuery = null,
         string? categoryPath = null,
-        Action<string>? degradedRetrieverRef = null)
+        Action<string, string?>? degradedRetrieverRef = null)
     {
         if (string.IsNullOrWhiteSpace(query) || topK <= 0)
         {
@@ -2847,8 +2908,24 @@ SELECT
     d.category AS "Category",
     rc.page_start AS "PageStart",
     rc.page_end AS "PageEnd",
-    (rc.metadata->>'offsetStart')::int AS "OffsetStart",
-    (rc.metadata->>'offsetEnd')::int AS "OffsetEnd",
+    CASE
+        WHEN NULLIF(rc.metadata->>'offsetStart', '') ~ '^[-+]?[0-9]+$'
+            THEN CASE
+                WHEN (rc.metadata->>'offsetStart')::numeric BETWEEN -2147483648 AND 2147483647
+                    THEN (rc.metadata->>'offsetStart')::int
+                ELSE NULL
+            END
+        ELSE NULL
+    END AS "OffsetStart",
+    CASE
+        WHEN NULLIF(rc.metadata->>'offsetEnd', '') ~ '^[-+]?[0-9]+$'
+            THEN CASE
+                WHEN (rc.metadata->>'offsetEnd')::numeric BETWEEN -2147483648 AND 2147483647
+                    THEN (rc.metadata->>'offsetEnd')::int
+                ELSE NULL
+            END
+        ELSE NULL
+    END AS "OffsetEnd",
     rc.retrieval_chunk_id AS "ChunkId",
     rc.chunk_index AS "ChunkIndex",
     rc.text_content AS "Text",
@@ -2866,8 +2943,16 @@ SELECT
     COALESCE(rc.metadata->>'contentRole', 'content') AS "ContentRole",
     rc.metadata->>'navigationReason' AS "NavigationReason",
     rc.metadata->>'originalChunkType' AS "OriginalChunkType",
-    NULLIF(rc.metadata->>'navigationScore', '')::double precision AS "NavigationScore",
-    NULLIF(rc.metadata->>'contentDensityScore', '')::double precision AS "ContentDensityScore",
+    CASE
+        WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+            THEN (rc.metadata->>'navigationScore')::double precision
+        ELSE NULL
+    END AS "NavigationScore",
+    CASE
+        WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+            THEN (rc.metadata->>'contentDensityScore')::double precision
+        ELSE NULL
+    END AS "ContentDensityScore",
     rc.metadata->>'prevChunkId' AS "PrevChunkId",
     rc.metadata->>'nextChunkId' AS "NextChunkId",
     rc.metadata->>'sameSectionChunkId' AS "SameSectionChunkId",
@@ -2986,7 +3071,7 @@ LIMIT @top_k;
         catch (PostgresException ex)
         {
             RetrievalTelemetry.RecordRetrieverDegraded("sparse_bm25", ex);
-            degradedRetrieverRef?.Invoke("sparse_bm25");
+            degradedRetrieverRef?.Invoke("sparse_bm25", FormatPostgresRetrieverError(ex));
             return [];
         }
         finally
@@ -3018,6 +3103,7 @@ scoped_docs AS (
         d.doc_id,
         d.doc_path,
         d.doc_name,
+        d.category,
         d.indexed_version,
         d.content_hash,
         r.revision_id
@@ -3269,8 +3355,24 @@ SELECT
     d.category AS "Category",
     rc.page_start AS "PageStart",
     rc.page_end AS "PageEnd",
-    (rc.metadata->>'offsetStart')::int AS "OffsetStart",
-    (rc.metadata->>'offsetEnd')::int AS "OffsetEnd",
+    CASE
+        WHEN NULLIF(rc.metadata->>'offsetStart', '') ~ '^[-+]?[0-9]+$'
+            THEN CASE
+                WHEN (rc.metadata->>'offsetStart')::numeric BETWEEN -2147483648 AND 2147483647
+                    THEN (rc.metadata->>'offsetStart')::int
+                ELSE NULL
+            END
+        ELSE NULL
+    END AS "OffsetStart",
+    CASE
+        WHEN NULLIF(rc.metadata->>'offsetEnd', '') ~ '^[-+]?[0-9]+$'
+            THEN CASE
+                WHEN (rc.metadata->>'offsetEnd')::numeric BETWEEN -2147483648 AND 2147483647
+                    THEN (rc.metadata->>'offsetEnd')::int
+                ELSE NULL
+            END
+        ELSE NULL
+    END AS "OffsetEnd",
     rc.retrieval_chunk_id AS "ChunkId",
     rc.chunk_index AS "ChunkIndex",
     rc.text_content AS "Text",
@@ -3288,8 +3390,16 @@ SELECT
     COALESCE(rc.metadata->>'contentRole', 'content') AS "ContentRole",
     rc.metadata->>'navigationReason' AS "NavigationReason",
     rc.metadata->>'originalChunkType' AS "OriginalChunkType",
-    NULLIF(rc.metadata->>'navigationScore', '')::double precision AS "NavigationScore",
-    NULLIF(rc.metadata->>'contentDensityScore', '')::double precision AS "ContentDensityScore",
+    CASE
+        WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+            THEN (rc.metadata->>'navigationScore')::double precision
+        ELSE NULL
+    END AS "NavigationScore",
+    CASE
+        WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+            THEN (rc.metadata->>'contentDensityScore')::double precision
+        ELSE NULL
+    END AS "ContentDensityScore",
     rc.metadata->>'prevChunkId' AS "PrevChunkId",
     rc.metadata->>'nextChunkId' AS "NextChunkId",
     rc.metadata->>'sameSectionChunkId' AS "SameSectionChunkId",
@@ -3329,7 +3439,7 @@ LIMIT @top_k;
         CancellationToken ct,
         string? categoryPath = null,
         bool requireLexicalMatch = false,
-        Action<string>? degradedRetrieverRef = null)
+        Action<string, string?>? degradedRetrieverRef = null)
     {
         if (topK <= 0)
             return [];
@@ -3527,7 +3637,7 @@ LIMIT @top_k;
         catch (PostgresException ex)
         {
             RetrievalTelemetry.RecordRetrieverDegraded("document_profile_overview_v1", ex);
-            degradedRetrieverRef?.Invoke("document_profile_overview_v1");
+            degradedRetrieverRef?.Invoke("document_profile_overview_v1", FormatPostgresRetrieverError(ex));
             return [];
         }
     }
@@ -3542,7 +3652,7 @@ LIMIT @top_k;
         int topK,
         CancellationToken ct,
         string? categoryPath = null,
-        Action<string>? degradedRetrieverRef = null)
+        Action<string, string?>? degradedRetrieverRef = null)
     {
         if (string.IsNullOrWhiteSpace(query) || topK <= 0)
             return [];
@@ -3855,10 +3965,15 @@ LIMIT @top_k;
         catch (PostgresException ex)
         {
             RetrievalTelemetry.RecordRetrieverDegraded("document_profile_v1", ex);
-            degradedRetrieverRef?.Invoke("document_profile_v1");
+            degradedRetrieverRef?.Invoke("document_profile_v1", FormatPostgresRetrieverError(ex));
             return [];
         }
     }
+
+    private static string FormatPostgresRetrieverError(PostgresException ex)
+        => string.IsNullOrWhiteSpace(ex.MessageText)
+            ? ex.SqlState
+            : $"{ex.SqlState}: {ex.MessageText}";
 
     private static List<SparseMatchRow> MergeSparseRows(
         IReadOnlyList<SparseMatchRow> preferred,
@@ -5146,8 +5261,24 @@ SELECT
     d.category AS "Category",
     rc.page_start AS "PageStart",
     rc.page_end AS "PageEnd",
-    (rc.metadata->>'offsetStart')::int AS "OffsetStart",
-    (rc.metadata->>'offsetEnd')::int AS "OffsetEnd",
+    CASE
+        WHEN NULLIF(rc.metadata->>'offsetStart', '') ~ '^[-+]?[0-9]+$'
+            THEN CASE
+                WHEN (rc.metadata->>'offsetStart')::numeric BETWEEN -2147483648 AND 2147483647
+                    THEN (rc.metadata->>'offsetStart')::int
+                ELSE NULL
+            END
+        ELSE NULL
+    END AS "OffsetStart",
+    CASE
+        WHEN NULLIF(rc.metadata->>'offsetEnd', '') ~ '^[-+]?[0-9]+$'
+            THEN CASE
+                WHEN (rc.metadata->>'offsetEnd')::numeric BETWEEN -2147483648 AND 2147483647
+                    THEN (rc.metadata->>'offsetEnd')::int
+                ELSE NULL
+            END
+        ELSE NULL
+    END AS "OffsetEnd",
     rc.retrieval_chunk_id AS "ChunkId",
     rc.chunk_index AS "ChunkIndex",
     rc.text_content AS "Text",
@@ -5157,8 +5288,16 @@ SELECT
     COALESCE(rc.metadata->>'contentRole', 'content') AS "ContentRole",
     rc.metadata->>'navigationReason' AS "NavigationReason",
     rc.metadata->>'originalChunkType' AS "OriginalChunkType",
-    NULLIF(rc.metadata->>'navigationScore', '')::double precision AS "NavigationScore",
-    NULLIF(rc.metadata->>'contentDensityScore', '')::double precision AS "ContentDensityScore",
+    CASE
+        WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+            THEN (rc.metadata->>'navigationScore')::double precision
+        ELSE NULL
+    END AS "NavigationScore",
+    CASE
+        WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+            THEN (rc.metadata->>'contentDensityScore')::double precision
+        ELSE NULL
+    END AS "ContentDensityScore",
     COALESCE(rc.metadata->>'sectionTitle', s.title) AS "SectionTitle",
     COALESCE(rc.metadata->>'headingPath', s.title) AS "HeadingPath",
     l.link_type AS "LinkType",
@@ -5300,7 +5439,13 @@ LIMIT @top_k;
     }
 
     internal static string BuildMatchDedupKey(RagMatch match)
-        => $"{match.DocId}|{match.PageStart}|{match.PageEnd}|{ExactMatchEntryExtractor.NormalizeForLookup(match.Text ?? string.Empty)}";
+    {
+        var normalizedText = ExactMatchEntryExtractor.NormalizeForLookup(match.Text ?? string.Empty);
+        var textKey = normalizedText.Length <= 512
+            ? normalizedText
+            : $"{normalizedText.Length}:{Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalizedText)))}";
+        return $"{match.DocId}|{match.PageStart}|{match.PageEnd}|{textKey}";
+    }
 
     internal static bool IsNearDuplicatePageOverlap(RagMatch left, RagMatch right)
     {
@@ -5389,11 +5534,21 @@ LIMIT @top_k;
             .ToList();
     }
 
+    private sealed record CalibrationCandidate(
+        RagMatch Match,
+        string Retriever,
+        string TextForSignals,
+        string TitleSignalText,
+        string NormalizedTextForSignals,
+        string NormalizedTitleSignalText,
+        string NormalizedMatchText);
+
     internal static List<RagMatch> CalibrateFusedMatches(string query, IReadOnlyList<RagMatch> candidates, string? originalQuery = null)
     {
         if (candidates.Count <= 1)
             return candidates.ToList();
 
+        var rankingQuery = originalQuery ?? query;
         var normalizedWhole = ExactMatchEntryExtractor.NormalizeForLookup(query);
         var referenceTerms = ExactMatchEntryExtractor.ExtractLookupTerms(query)
             .Where(term => !string.Equals(term, normalizedWhole, StringComparison.Ordinal))
@@ -5404,56 +5559,84 @@ LIMIT @top_k;
             .Where(static term => term.Contains(' '))
             .Take(16)
             .ToArray();
-        var quotedPhrases = ExtractQuotedLookupPhrases(originalQuery ?? query);
-        var comparativeSubjectTokens = ExtractComparativeSubjectAnchorTokens(originalQuery ?? query);
+        var quotedPhrases = ExtractQuotedLookupPhrases(rankingQuery);
+        var comparativeSubjectTokens = ExtractComparativeSubjectAnchorTokens(rankingQuery);
+        var titleTokens = ExtractLexicalQueryTokens(rankingQuery)
+            .Where(static token => !PrimaryAnchorStopwords.Contains(token))
+            .Distinct(StringComparer.Ordinal)
+            .Take(9)
+            .ToArray();
+        var normalizedRankingQuery = NormalizeForLexicalSignal(rankingQuery);
+        var titleScoringEnabled = !(quotedPhrases.Count == 0 && ContainsExactTitleActionMarker(rankingQuery));
+        var calibrationCandidates = candidates
+            .Select(match =>
+            {
+                var textForSignals = GetLexicalSignalText(match);
+                var titleSignalText = GetTitleSignalText(match);
+                return new CalibrationCandidate(
+                    match,
+                    ResolveRetriever(match),
+                    textForSignals,
+                    titleSignalText,
+                    NormalizeForLexicalSignal(textForSignals),
+                    NormalizeForLexicalSignal(titleSignalText),
+                    NormalizeForLexicalSignal(match.Text));
+            })
+            .ToList();
         var useSpecificCoverageTitlePriority = ShouldApplySpecificCoverageTitlePriority(
-            originalQuery ?? query,
+            rankingQuery,
             lexicalTokens,
             comparativeSubjectTokens);
         var hasLexicalAnchor = lexicalTokens.Count >= 1
-            && candidates.Any(match =>
+            && calibrationCandidates.Any(item =>
             {
-                var retriever = ResolveRetriever(match);
-                if (string.Equals(retriever, "dense_qdrant", StringComparison.Ordinal)
-                    || string.Equals(retriever, "linked_context", StringComparison.Ordinal))
+                if (string.Equals(item.Retriever, "dense_qdrant", StringComparison.Ordinal)
+                    || string.Equals(item.Retriever, "linked_context", StringComparison.Ordinal))
                     return false;
 
-                return match.Score >= 0.70
-                    && ComputeLexicalCoverage(lexicalTokens, GetLexicalSignalText(match)) >= 0.5;
+                return item.Match.Score >= 0.70
+                    && ComputeLexicalCoverageInNormalizedText(lexicalTokens, item.NormalizedTextForSignals) >= 0.5;
             });
 
-        return candidates
-            .Select(match =>
+        return calibrationCandidates
+            .Select(item =>
             {
-                var retriever = ResolveRetriever(match);
+                var match = item.Match;
+                var retriever = item.Retriever;
                 var adjusted = match.Score;
-                var textForSignals = GetLexicalSignalText(match);
-                var titleSignalText = GetTitleSignalText(match);
                 var lexicalCoverage = lexicalTokens.Count > 0
-                    ? ComputeLexicalCoverage(lexicalTokens, textForSignals)
+                    ? ComputeLexicalCoverageInNormalizedText(lexicalTokens, item.NormalizedTextForSignals)
                     : 0.0;
-                var exactTitleScore = ComputeExactTitleCandidateScore(originalQuery ?? query, match);
+                var exactTitleScore = titleScoringEnabled
+                    ? ComputeExactTitleCandidateScoreCore(
+                        match,
+                        item.NormalizedTitleSignalText,
+                        item.NormalizedMatchText,
+                        titleTokens,
+                        phraseTerms,
+                        normalizedRankingQuery)
+                    : 0.0;
                 var quotedLookupScore = quotedPhrases.Count > 0
                     ? ComputeQuotedLookupCandidateScore(
                         quotedPhrases,
                         string.Join("\n", new[]
                         {
-                            textForSignals,
+                            item.TextForSignals,
                             match.Text,
                             match.SectionTitle,
                             match.HeadingPath
                         }.Where(static value => !string.IsNullOrWhiteSpace(value))))
                     : 0.0;
-                var specificAnchorCount = CountSpecificLexicalAnchors(lexicalTokens, textForSignals);
+                var specificAnchorCount = CountSpecificLexicalAnchorsInNormalizedText(lexicalTokens, item.NormalizedTextForSignals);
                 var requiresComparativeSubjectAnchor = comparativeSubjectTokens.Count > 0;
                 var requiresPrimarySpecificAnchor = !requiresComparativeSubjectAnchor
                     && RequiresPrimarySpecificLexicalAnchor(lexicalTokens);
                 var containsPrimarySpecificAnchor = !requiresPrimarySpecificAnchor
-                    || ContainsPrimarySpecificLexicalAnchor(lexicalTokens, textForSignals);
+                    || ContainsPrimarySpecificLexicalAnchorInNormalizedText(lexicalTokens, item.NormalizedTextForSignals);
                 var containsComparativeSubjectAnchor = !requiresComparativeSubjectAnchor
-                    || ContainsComparativeSubjectAnchor(comparativeSubjectTokens, textForSignals);
+                    || ContainsComparativeSubjectAnchorInNormalizedText(comparativeSubjectTokens, item.NormalizedTextForSignals);
                 var hasClosePhraseMatch = phraseTerms.Length > 0
-                    && phraseTerms.Any(term => ContainsOrderedPhraseWindow(textForSignals, term, maxGapChars: 40));
+                    && phraseTerms.Any(term => ContainsOrderedPhraseWindowInNormalizedText(item.NormalizedTextForSignals, term, maxGapChars: 40));
 
                 if (referenceTerms.Length > 0)
                 {
@@ -5643,7 +5826,10 @@ LIMIT @top_k;
                 {
                     Match = match with { Score = Math.Clamp(adjusted, 0.0, 1.02) },
                     ExactTitleScore = exactTitleScore,
-                    DirectChunkTitleSignal = ComputeDirectChunkTitleSignal(originalQuery ?? query, match),
+                    DirectChunkTitleSignal = ComputeDirectChunkTitleSignalCore(
+                        item.NormalizedMatchText,
+                        titleTokens,
+                        normalizedRankingQuery),
                     QuotedLookupScore = quotedLookupScore,
                     LexicalCoverage = lexicalCoverage,
                     SpecificAnchorCount = specificAnchorCount,
@@ -5698,14 +5884,26 @@ LIMIT @top_k;
             return candidates.ToList();
 
         var allowGlossary = ShouldAllowGlossaryResults(query);
-        var hasContentCandidate = candidates.Any(match => !LooksLikeNavigationalChunk(match)
-            && (allowGlossary || !LooksLikeGlossaryChunk(match)));
+        var classified = candidates
+            .Select(match =>
+            {
+                var isNavigational = LooksLikeNavigationalChunk(match);
+                var isGlossary = !allowGlossary && LooksLikeGlossaryChunk(match);
+                return new
+                {
+                    Match = match,
+                    IsNavigational = isNavigational,
+                    IsGlossary = isGlossary
+                };
+            })
+            .ToList();
+        var hasContentCandidate = classified.Any(static item => !item.IsNavigational && !item.IsGlossary);
         if (!hasContentCandidate)
             return candidates.ToList();
 
-        return candidates
-            .Where(match => !LooksLikeNavigationalChunk(match))
-            .Where(match => allowGlossary || !LooksLikeGlossaryChunk(match))
+        return classified
+            .Where(static item => !item.IsNavigational && !item.IsGlossary)
+            .Select(static item => item.Match)
             .ToList();
     }
 
@@ -6306,13 +6504,25 @@ LIMIT @top_k;
             System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     }
 
+    private static string NormalizeForLexicalSignal(string? value)
+        => string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(value));
+
     internal static bool ContainsOrderedPhraseWindow(string? candidateText, string phrase, int maxGapChars)
     {
         if (string.IsNullOrWhiteSpace(candidateText) || string.IsNullOrWhiteSpace(phrase))
             return false;
 
-        var normalizedCandidate = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(candidateText));
         var normalizedPhrase = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(phrase));
+        return ContainsOrderedPhraseWindowInNormalizedText(
+            NormalizeForLexicalSignal(candidateText),
+            normalizedPhrase,
+            maxGapChars);
+    }
+
+    private static bool ContainsOrderedPhraseWindowInNormalizedText(string normalizedCandidate, string normalizedPhrase, int maxGapChars)
+    {
         if (string.IsNullOrWhiteSpace(normalizedCandidate) || string.IsNullOrWhiteSpace(normalizedPhrase))
             return false;
 
@@ -6341,10 +6551,19 @@ LIMIT @top_k;
         return true;
     }
 
+    private const int MaxCalibrationProfileSignalChars = 24000;
+    private const int MaxCalibrationCardSignalChars = 8000;
+    private const int MaxCalibrationCardCount = 32;
+
     private static string GetLexicalSignalText(RagMatch match)
-        => string.IsNullOrWhiteSpace(match.EmbedText)
+    {
+        if (IsDocumentProfileMatch(match))
+            return BuildDocumentProfileCalibrationSignal(match, includeEmbedFallback: true);
+
+        return string.IsNullOrWhiteSpace(match.EmbedText)
             ? match.Text ?? string.Empty
             : match.EmbedText!;
+    }
 
     private static string GetDirectChunkSignalText(RagMatch match)
         => string.Join("\n", new[]
@@ -6356,6 +6575,9 @@ LIMIT @top_k;
 
     private static string GetTitleSignalText(RagMatch match)
     {
+        if (IsDocumentProfileMatch(match))
+            return BuildDocumentProfileCalibrationSignal(match, includeEmbedFallback: true);
+
         var includeEmbedText = string.Equals(match.ChunkType, "document_profile", StringComparison.Ordinal)
             || HasProfileTitleHint(match);
         return string.Join("\n", new[]
@@ -6365,6 +6587,61 @@ LIMIT @top_k;
             match.SectionTitle,
             match.HeadingPath
         }.Where(static value => !string.IsNullOrWhiteSpace(value)));
+    }
+
+    private static string BuildDocumentProfileCalibrationSignal(RagMatch match, bool includeEmbedFallback)
+    {
+        var sb = new StringBuilder();
+        AppendCalibrationSignalPart(sb, match.Text, maxChars: 5000);
+        AppendCalibrationSignalPart(sb, match.SectionTitle, maxChars: 500);
+        AppendCalibrationSignalPart(sb, match.HeadingPath, maxChars: 500);
+
+        if (match.MatchedContentCards is { Count: > 0 })
+        {
+            var cardsSb = new StringBuilder();
+            foreach (var card in match.MatchedContentCards.Take(MaxCalibrationCardCount))
+            {
+                AppendCalibrationSignalPart(cardsSb, card.Title, maxChars: 500);
+                AppendCalibrationSignalPart(cardsSb, card.Kind, maxChars: 120);
+                if (card.Signals is { Count: > 0 })
+                {
+                    foreach (var signal in card.Signals.Take(12))
+                        AppendCalibrationSignalPart(cardsSb, signal, maxChars: 240);
+                }
+
+                if (cardsSb.Length >= MaxCalibrationCardSignalChars)
+                    break;
+            }
+
+            AppendCalibrationSignalPart(sb, cardsSb.ToString(), MaxCalibrationCardSignalChars);
+        }
+
+        if (includeEmbedFallback)
+            AppendCalibrationSignalPart(sb, match.EmbedText, MaxCalibrationProfileSignalChars);
+
+        return sb.ToString();
+    }
+
+    private static void AppendCalibrationSignalPart(StringBuilder sb, string? value, int maxChars)
+    {
+        if (string.IsNullOrWhiteSpace(value) || maxChars <= 0)
+            return;
+
+        if (sb.Length > 0)
+            sb.Append('\n');
+
+        var trimmed = value.Trim();
+        if (trimmed.Length <= maxChars)
+        {
+            sb.Append(trimmed);
+            return;
+        }
+
+        var headChars = Math.Max(1, maxChars / 2);
+        var tailChars = Math.Max(1, maxChars - headChars);
+        sb.Append(trimmed, 0, headChars);
+        sb.Append('\n');
+        sb.Append(trimmed, trimmed.Length - tailChars, tailChars);
     }
 
     internal static bool HasProfileTitleHint(RagMatch match)
@@ -6383,6 +6660,16 @@ LIMIT @top_k;
         if (lexicalTokens.Count == 0 || string.IsNullOrWhiteSpace(candidateText))
             return false;
 
+        return ContainsPrimarySpecificLexicalAnchorInNormalizedText(
+            lexicalTokens,
+            NormalizeForLexicalSignal(candidateText));
+    }
+
+    private static bool ContainsPrimarySpecificLexicalAnchorInNormalizedText(IReadOnlyList<string> lexicalTokens, string normalizedCandidate)
+    {
+        if (lexicalTokens.Count == 0 || string.IsNullOrWhiteSpace(normalizedCandidate))
+            return false;
+
         var primaryTokens = lexicalTokens
             .Where(IsPrimarySpecificLexicalAnchorToken)
             .OrderByDescending(static token => token.Length)
@@ -6392,13 +6679,12 @@ LIMIT @top_k;
         if (primaryTokens.Length == 0)
             return true;
 
-        var normalized = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(candidateText));
         foreach (var token in primaryTokens)
         {
             foreach (var variant in BuildLexicalTokenVariants(token))
             {
                 var foldedVariant = FoldDiacritics(variant);
-                if (foldedVariant.Length >= 4 && normalized.Contains(foldedVariant, StringComparison.Ordinal))
+                if (foldedVariant.Length >= 4 && normalizedCandidate.Contains(foldedVariant, StringComparison.Ordinal))
                     return true;
             }
         }
@@ -6441,7 +6727,13 @@ LIMIT @top_k;
         if (string.IsNullOrWhiteSpace(candidateText))
             return false;
 
-        var normalizedCandidate = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(candidateText));
+        return ContainsComparativeSubjectAnchorInNormalizedText(subjectTokens, NormalizeForLexicalSignal(candidateText));
+    }
+
+    private static bool ContainsComparativeSubjectAnchorInNormalizedText(IReadOnlyList<string> subjectTokens, string normalizedCandidate)
+    {
+        if (subjectTokens.Count == 0)
+            return true;
         if (string.IsNullOrWhiteSpace(normalizedCandidate))
             return false;
 
@@ -6490,13 +6782,35 @@ LIMIT @top_k;
         if (string.IsNullOrWhiteSpace(candidateText))
             return 0.0;
 
-        var normalizedCandidate = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(candidateText));
+        var phraseTerms = BuildLexicalContentFallbackTerms(query)
+            .Where(static term => term.Contains(' '))
+            .Take(16)
+            .ToArray();
+        return ComputeExactTitleCandidateScoreCore(
+            match,
+            NormalizeForLexicalSignal(candidateText),
+            NormalizeForLexicalSignal(match.Text),
+            titleTokens,
+            phraseTerms,
+            NormalizeForLexicalSignal(query));
+    }
+
+    private static double ComputeExactTitleCandidateScoreCore(
+        RagMatch match,
+        string normalizedCandidate,
+        string normalizedChunkText,
+        IReadOnlyList<string> titleTokens,
+        IReadOnlyList<string> phraseTerms,
+        string normalizedQuery)
+    {
+        if (titleTokens.Count < 2 || titleTokens.Count > 8)
+            return 0.0;
         if (string.IsNullOrWhiteSpace(normalizedCandidate))
             return 0.0;
 
-        var normalizedQuery = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query));
-        var normalizedChunkText = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(match.Text ?? string.Empty));
-        var score = ComputeRawOrderedTitleScore(query, candidateText);
+        var score = ContainsOrderedTitleTokenSubstringsInNormalizedText(normalizedCandidate, titleTokens, maxGapChars: 80)
+            ? 16.0 + Math.Min(4.0, titleTokens.Count)
+            : 0.0;
         if (normalizedQuery.Length >= 8
             && normalizedQuery.Count(static ch => ch == ' ') >= 1
             && normalizedCandidate.Contains(normalizedQuery, StringComparison.Ordinal))
@@ -6511,14 +6825,11 @@ LIMIT @top_k;
             score += 14.0;
         }
 
-        var orderedPhraseMatch = BuildLexicalContentFallbackTerms(query)
-            .Where(static term => term.Contains(' '))
-            .Take(16)
-            .Any(term => ContainsOrderedPhraseWindow(candidateText, term, maxGapChars: 40));
+        var orderedPhraseMatch = phraseTerms.Any(term => ContainsOrderedPhraseWindowInNormalizedText(normalizedCandidate, term, maxGapChars: 40));
         if (orderedPhraseMatch)
             score += 10.0;
 
-        if (ContainsOrderedTitleTokenSubstrings(candidateText, titleTokens, maxGapChars: 60))
+        if (ContainsOrderedTitleTokenSubstringsInNormalizedText(normalizedCandidate, titleTokens, maxGapChars: 60))
             score += 14.0;
 
         if (ContainsTitleLikeLexicalSequence(normalizedCandidate, titleTokens))
@@ -6559,8 +6870,20 @@ LIMIT @top_k;
         if (titleTokens.Length < 2 || titleTokens.Length > 8)
             return 0;
 
-        var normalizedQuery = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query));
-        var normalizedChunkText = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(match.Text));
+        return ComputeDirectChunkTitleSignalCore(
+            NormalizeForLexicalSignal(match.Text),
+            titleTokens,
+            NormalizeForLexicalSignal(query));
+    }
+
+    private static int ComputeDirectChunkTitleSignalCore(
+        string normalizedChunkText,
+        IReadOnlyList<string> titleTokens,
+        string normalizedQuery)
+    {
+        if (titleTokens.Count < 2 || titleTokens.Count > 8 || string.IsNullOrWhiteSpace(normalizedChunkText))
+            return 0;
+
         if (normalizedQuery.Length >= 8
             && normalizedQuery.Count(static ch => ch == ' ') >= 1
             && normalizedChunkText.Contains(normalizedQuery, StringComparison.Ordinal))
@@ -6568,7 +6891,7 @@ LIMIT @top_k;
             return 3;
         }
 
-        if (ContainsOrderedTitleTokenSubstrings(match.Text, titleTokens, maxGapChars: 60))
+        if (ContainsOrderedTitleTokenSubstringsInNormalizedText(normalizedChunkText, titleTokens, maxGapChars: 60))
             return 2;
 
         return ContainsTitleLikeLexicalSequence(normalizedChunkText, titleTokens) ? 1 : 0;
@@ -6677,7 +7000,20 @@ LIMIT @top_k;
         if (string.IsNullOrWhiteSpace(candidateText) || titleTokens.Count < 2)
             return false;
 
-        var normalizedCandidate = FoldDiacritics(candidateText).ToLowerInvariant();
+        return ContainsOrderedTitleTokenSubstringsInNormalizedText(
+            FoldDiacritics(candidateText).ToLowerInvariant(),
+            titleTokens,
+            maxGapChars);
+    }
+
+    private static bool ContainsOrderedTitleTokenSubstringsInNormalizedText(
+        string normalizedCandidate,
+        IReadOnlyList<string> titleTokens,
+        int maxGapChars)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedCandidate) || titleTokens.Count < 2)
+            return false;
+
         var variantGroups = titleTokens
             .Select(token => BuildLexicalTokenVariants(token)
                 .Select(FoldDiacritics)
@@ -6881,7 +7217,14 @@ LIMIT @top_k;
         if (lexicalTokens.Count == 0 || string.IsNullOrWhiteSpace(candidateText))
             return 0;
 
-        var normalized = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(candidateText));
+        return CountSpecificLexicalAnchorsInNormalizedText(lexicalTokens, NormalizeForLexicalSignal(candidateText));
+    }
+
+    private static int CountSpecificLexicalAnchorsInNormalizedText(IReadOnlyList<string> lexicalTokens, string normalized)
+    {
+        if (lexicalTokens.Count == 0 || string.IsNullOrWhiteSpace(normalized))
+            return 0;
+
         var matched = 0;
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var token in lexicalTokens)
@@ -7858,14 +8201,18 @@ LIMIT @top_k;
         if (queryTokens.Count == 0 || string.IsNullOrWhiteSpace(candidateText))
             return 0.0;
 
-        var normalizedCandidate = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(candidateText));
-        if (string.IsNullOrWhiteSpace(normalizedCandidate))
+        return ComputeLexicalCoverageInNormalizedText(queryTokens, NormalizeForLexicalSignal(candidateText));
+    }
+
+    private static double ComputeLexicalCoverageInNormalizedText(IReadOnlyList<string> queryTokens, string normalizedCandidate)
+    {
+        if (queryTokens.Count == 0 || string.IsNullOrWhiteSpace(normalizedCandidate))
             return 0.0;
 
         var matched = 0;
         foreach (var token in queryTokens)
         {
-            var variants = new HashSet<string>(BuildLexicalTokenVariants(token), StringComparer.Ordinal);
+            var variants = BuildLexicalTokenVariants(token);
             if (variants.Any(variant => normalizedCandidate.Contains(variant, StringComparison.Ordinal)))
                 matched++;
         }
@@ -9480,5 +9827,6 @@ public sealed record RagSearchResponse(
     int QdrantStatus,
     RagSearchTimings Timings,
     IReadOnlyList<RagMatch> Matches,
-    IReadOnlyList<string>? DegradedRetrievers = null
+    IReadOnlyList<string>? DegradedRetrievers = null,
+    IReadOnlyDictionary<string, string>? DegradedRetrieverErrors = null
 );

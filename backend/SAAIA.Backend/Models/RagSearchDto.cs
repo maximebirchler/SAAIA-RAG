@@ -201,6 +201,7 @@ public sealed record RagMetricsDto(
     long? QdrantMs = null,
     int? CandidatesEvaluated = null,
     IReadOnlyList<string>? DegradedRetrievers = null,
+    IReadOnlyDictionary<string, string>? DegradedRetrieverErrors = null,
     long? ExactMs = null,
     long? QuotedTitleMs = null,
     long? SparsePhaseMs = null,

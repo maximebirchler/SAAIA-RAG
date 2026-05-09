@@ -399,6 +399,41 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void BuildMatchDedupKey_keeps_long_text_keys_compact_and_stable()
+    {
+        var text = string.Join(" ", Enumerable.Range(0, 800).Select(i => $"section-{i}"));
+        var first = new RagMatch(
+            Score: 0.82,
+            DocId: "doc-1",
+            DocPath: "Docs/Long.pdf",
+            DocName: "Long.pdf",
+            PageStart: 4,
+            PageEnd: 4,
+            ChunkId: "dense-1",
+            ChunkIndex: 3,
+            Text: text,
+            IngestionVersion: 2,
+            HashDoc: "hash",
+            EmbedText: text,
+            EmbeddingBasis: "contextual_text_v1",
+            SectionOrdinal: 1,
+            UnitOrdinal: 5,
+            SectionTitle: "Long",
+            HeadingPath: "Chapter 1 > Long",
+            ChunkType: "unit_exact_v1",
+            PrevChunkId: null,
+            NextChunkId: null,
+            SameSectionChunkId: null);
+
+        var second = first with { ChunkId = "linked-1", EmbeddingBasis = "linked_context_v1" };
+
+        var firstKey = RagEndpoints.BuildMatchDedupKey(first);
+        Assert.Equal(firstKey, RagEndpoints.BuildMatchDedupKey(second));
+        Assert.True(firstKey.Length < 180);
+    }
+
+
+    [Fact]
     public void BuildChunkLinkMap_returns_prev_next_and_same_section_links()
     {
         var docId = Guid.Parse("99999999-9999-9999-9999-999999999999");
