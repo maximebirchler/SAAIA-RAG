@@ -138,6 +138,8 @@ SET doc_path = EXCLUDED.doc_path,
         await UpsertExactMatchEntriesAsync(conn, tx, tenantId, revisionId, sections, units, exactMatchEntries, ct);
         await UpsertContextualTextEntriesAsync(conn, tx, tenantId, docId, revisionId, ingestionVersion, sections, units, contextualTextEntries, ct);
         await UpsertDocumentProfileAsync(conn, tx, tenantId, docId, revisionId, documentProfile, ct);
+        var titleNavigationIndex = DocumentTitleNavigationProjector.Project(sections, units, retrievalChunks, documentProfile);
+        await UpsertDocumentTitleNavigationIndexAsync(conn, tx, tenantId, docId, revisionId, ingestionVersion, documentProfile, titleNavigationIndex, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "page_index", pages, p => $"page:{p.PageNumber}:{p.CharCount}:{Convert.ToHexString(p.Checksum)}", p => p.CharCount, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "sections", sections, s => $"section:{s.Ordinal}:{s.Level}:{s.PageStart}:{s.PageEnd}:{s.Title}", _ => 0, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "units", units, u => $"unit:{u.Ordinal}:{u.PageStart}:{u.PageEnd}:{u.TokenCount}:{u.Text}", u => u.CharCount, ct);
@@ -146,6 +148,8 @@ SET doc_path = EXCLUDED.doc_path,
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "contextual_text_entries", contextualTextEntries, e => $"contextual:{e.EntryIndex}:{e.PageStart}:{e.PageEnd}:{e.Text}", e => e.CharCount, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "document_profile", new[] { documentProfile }, p => $"profile:{p.ProfileVersion}:{p.Language}:{p.SearchText}", p => p.SearchText.Length, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "document_profile_content_cards", documentProfile.ContentCards, c => $"card:{c.Title}:{c.PageStart}:{c.PageEnd}:{c.Kind}:{string.Join('|', c.Signals)}", c => BuildContentCardSearchText(c).Length, ct);
+        await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "document_title_anchors", titleNavigationIndex.TitleAnchors, a => $"title-anchor:{a.AnchorIndex}:{a.SourceKind}:{a.SourceOrdinal}:{a.NormalizedTitle}:{a.PageStart}:{a.PageEnd}:{a.Confidence}", a => a.Title.Length, ct);
+        await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "document_navigation_entries", titleNavigationIndex.NavigationEntries, e => $"navigation-entry:{e.EntryIndex}:{e.SourcePage}:{e.NormalizedLabel}:{e.TargetPageStart}:{e.TargetPageEnd}:{e.ResolutionMethod}:{e.Confidence}", e => e.Label.Length, ct);
     }
 
     public static async Task PublishDeleteCompletionAsync(
@@ -346,6 +350,12 @@ WHERE tenant_id=@tenant_id
 
     internal static Guid BuildStableDocumentProfileContentCardId(Guid documentProfileId, string normalizedTitle)
         => IdUtil.DeterministicGuid($"{documentProfileId:N}|content-card|{NormalizeContentCardLookupText(normalizedTitle)}");
+
+    internal static Guid BuildStableDocumentTitleAnchorId(Guid revisionId, int anchorIndex)
+        => IdUtil.DeterministicGuid($"{revisionId:N}|title-anchor|{anchorIndex}");
+
+    internal static Guid BuildStableDocumentNavigationEntryId(Guid revisionId, int entryIndex)
+        => IdUtil.DeterministicGuid($"{revisionId:N}|navigation-entry|{entryIndex}");
 
     internal static string NormalizePostgresTextForStorage(string? text)
         => PostgresTextSanitizer.Clean(text);
@@ -981,6 +991,242 @@ SET card_index = EXCLUDED.card_index,
             }, transaction: tx, cancellationToken: ct));
 
             cardIndex++;
+        }
+    }
+
+    private static async Task UpsertDocumentTitleNavigationIndexAsync(
+        NpgsqlConnection conn,
+        NpgsqlTransaction tx,
+        Guid tenantId,
+        Guid docId,
+        Guid revisionId,
+        int ingestionVersion,
+        ProjectedDocumentProfile documentProfile,
+        ProjectedDocumentTitleNavigationIndex index,
+        CancellationToken ct)
+    {
+        const string purgeNavigationSql = @"
+DELETE FROM document_navigation_entries
+WHERE tenant_id = @tenant_id
+  AND revision_id = @revision_id;";
+        await conn.ExecuteAsync(new CommandDefinition(
+            purgeNavigationSql,
+            new { tenant_id = tenantId, revision_id = revisionId },
+            transaction: tx,
+            cancellationToken: ct));
+
+        const string purgeAnchorsSql = @"
+DELETE FROM document_title_anchors
+WHERE tenant_id = @tenant_id
+  AND revision_id = @revision_id;";
+        await conn.ExecuteAsync(new CommandDefinition(
+            purgeAnchorsSql,
+            new { tenant_id = tenantId, revision_id = revisionId },
+            transaction: tx,
+            cancellationToken: ct));
+
+        var documentProfileId = BuildStableDocumentProfileId(revisionId, documentProfile.ProfileVersion);
+        var anchorIdsByIndex = new Dictionary<int, Guid>();
+        if (index.TitleAnchors.Count > 0)
+        {
+            const string anchorSql = @"
+INSERT INTO document_title_anchors(
+    title_anchor_id,
+    tenant_id,
+    revision_id,
+    doc_id,
+    anchor_index,
+    source_kind,
+    source_ordinal,
+    section_id,
+    unit_id,
+    retrieval_chunk_id,
+    content_card_id,
+    title,
+    normalized_title,
+    title_tokens,
+    page_start,
+    page_end,
+    confidence,
+    metadata)
+VALUES(
+    @title_anchor_id,
+    @tenant_id,
+    @revision_id,
+    @doc_id,
+    @anchor_index,
+    @source_kind,
+    @source_ordinal,
+    @section_id,
+    @unit_id,
+    @retrieval_chunk_id,
+    @content_card_id,
+    @title,
+    @normalized_title,
+    @title_tokens,
+    @page_start,
+    @page_end,
+    @confidence,
+    CAST(@metadata AS jsonb))
+ON CONFLICT (revision_id, anchor_index) DO UPDATE
+SET source_kind = EXCLUDED.source_kind,
+    source_ordinal = EXCLUDED.source_ordinal,
+    section_id = EXCLUDED.section_id,
+    unit_id = EXCLUDED.unit_id,
+    retrieval_chunk_id = EXCLUDED.retrieval_chunk_id,
+    content_card_id = EXCLUDED.content_card_id,
+    title = EXCLUDED.title,
+    normalized_title = EXCLUDED.normalized_title,
+    title_tokens = EXCLUDED.title_tokens,
+    page_start = EXCLUDED.page_start,
+    page_end = EXCLUDED.page_end,
+    confidence = EXCLUDED.confidence,
+    metadata = EXCLUDED.metadata,
+    updated_at = now();";
+
+            foreach (var anchor in index.TitleAnchors)
+            {
+                var titleAnchorId = BuildStableDocumentTitleAnchorId(revisionId, anchor.AnchorIndex);
+                anchorIdsByIndex[anchor.AnchorIndex] = titleAnchorId;
+                var normalizedTitle = NormalizePostgresTextForStorage(anchor.NormalizedTitle);
+                var contentCardId = anchor.ContentCardIndex is null || string.IsNullOrWhiteSpace(normalizedTitle)
+                    ? (Guid?)null
+                    : BuildStableDocumentProfileContentCardId(documentProfileId, normalizedTitle);
+                var metadata = JsonSerializer.Serialize(new
+                {
+                    generatedBy = "document_title_navigation_projector",
+                    schemaVersion = "title_navigation_v1",
+                    ingestionVersion,
+                    documentProfileVersion = NormalizePostgresTextForStorage(documentProfile.ProfileVersion),
+                    sourceKind = NormalizePostgresTextForStorage(anchor.SourceKind),
+                    sourceOrdinal = anchor.SourceOrdinal,
+                    contentCardIndex = anchor.ContentCardIndex,
+                    tokenCount = anchor.TitleTokens.Count
+                });
+
+                await conn.ExecuteAsync(new CommandDefinition(anchorSql, new
+                {
+                    title_anchor_id = titleAnchorId,
+                    tenant_id = tenantId,
+                    revision_id = revisionId,
+                    doc_id = docId,
+                    anchor_index = anchor.AnchorIndex,
+                    source_kind = NormalizePostgresTextForStorage(anchor.SourceKind),
+                    source_ordinal = anchor.SourceOrdinal,
+                    section_id = anchor.SectionOrdinal is null ? (Guid?)null : BuildStableSectionId(revisionId, anchor.SectionOrdinal.Value),
+                    unit_id = anchor.UnitOrdinal is null ? (Guid?)null : BuildStableUnitId(revisionId, anchor.UnitOrdinal.Value),
+                    retrieval_chunk_id = anchor.ChunkIndex is null ? (Guid?)null : BuildStableRetrievalChunkId(docId, ingestionVersion, anchor.ChunkIndex.Value),
+                    content_card_id = contentCardId,
+                    title = NormalizePostgresTextForStorage(anchor.Title),
+                    normalized_title = normalizedTitle,
+                    title_tokens = NormalizePostgresTextArrayForStorage(anchor.TitleTokens),
+                    page_start = anchor.PageStart,
+                    page_end = anchor.PageEnd,
+                    confidence = anchor.Confidence,
+                    metadata
+                }, transaction: tx, cancellationToken: ct));
+            }
+        }
+
+        if (index.NavigationEntries.Count == 0)
+            return;
+
+        const string navigationSql = @"
+INSERT INTO document_navigation_entries(
+    navigation_entry_id,
+    tenant_id,
+    revision_id,
+    doc_id,
+    entry_index,
+    source_page,
+    source_chunk_id,
+    source_unit_id,
+    label,
+    normalized_label,
+    label_tokens,
+    target_anchor_id,
+    target_chunk_id,
+    target_page_start,
+    target_page_end,
+    resolution_method,
+    confidence,
+    metadata)
+VALUES(
+    @navigation_entry_id,
+    @tenant_id,
+    @revision_id,
+    @doc_id,
+    @entry_index,
+    @source_page,
+    @source_chunk_id,
+    @source_unit_id,
+    @label,
+    @normalized_label,
+    @label_tokens,
+    @target_anchor_id,
+    @target_chunk_id,
+    @target_page_start,
+    @target_page_end,
+    @resolution_method,
+    @confidence,
+    CAST(@metadata AS jsonb))
+ON CONFLICT (revision_id, entry_index) DO UPDATE
+SET source_page = EXCLUDED.source_page,
+    source_chunk_id = EXCLUDED.source_chunk_id,
+    source_unit_id = EXCLUDED.source_unit_id,
+    label = EXCLUDED.label,
+    normalized_label = EXCLUDED.normalized_label,
+    label_tokens = EXCLUDED.label_tokens,
+    target_anchor_id = EXCLUDED.target_anchor_id,
+    target_chunk_id = EXCLUDED.target_chunk_id,
+    target_page_start = EXCLUDED.target_page_start,
+    target_page_end = EXCLUDED.target_page_end,
+    resolution_method = EXCLUDED.resolution_method,
+    confidence = EXCLUDED.confidence,
+    metadata = EXCLUDED.metadata,
+    updated_at = now();";
+
+        foreach (var entry in index.NavigationEntries)
+        {
+            Guid? targetAnchorId = null;
+            if (entry.TargetAnchorIndex is not null
+                && anchorIdsByIndex.TryGetValue(entry.TargetAnchorIndex.Value, out var resolvedAnchorId))
+            {
+                targetAnchorId = resolvedAnchorId;
+            }
+
+            var metadata = JsonSerializer.Serialize(new
+            {
+                generatedBy = "document_title_navigation_projector",
+                schemaVersion = "title_navigation_v1",
+                ingestionVersion,
+                resolutionMethod = NormalizePostgresTextForStorage(entry.ResolutionMethod),
+                targetAnchorIndex = entry.TargetAnchorIndex,
+                targetChunkIndex = entry.TargetChunkIndex,
+                tokenCount = entry.LabelTokens.Count
+            });
+
+            await conn.ExecuteAsync(new CommandDefinition(navigationSql, new
+            {
+                navigation_entry_id = BuildStableDocumentNavigationEntryId(revisionId, entry.EntryIndex),
+                tenant_id = tenantId,
+                revision_id = revisionId,
+                doc_id = docId,
+                entry_index = entry.EntryIndex,
+                source_page = entry.SourcePage,
+                source_chunk_id = entry.SourceChunkIndex is null ? (Guid?)null : BuildStableRetrievalChunkId(docId, ingestionVersion, entry.SourceChunkIndex.Value),
+                source_unit_id = entry.SourceUnitOrdinal is null ? (Guid?)null : BuildStableUnitId(revisionId, entry.SourceUnitOrdinal.Value),
+                label = NormalizePostgresTextForStorage(entry.Label),
+                normalized_label = NormalizePostgresTextForStorage(entry.NormalizedLabel),
+                label_tokens = NormalizePostgresTextArrayForStorage(entry.LabelTokens),
+                target_anchor_id = targetAnchorId,
+                target_chunk_id = entry.TargetChunkIndex is null ? (Guid?)null : BuildStableRetrievalChunkId(docId, ingestionVersion, entry.TargetChunkIndex.Value),
+                target_page_start = entry.TargetPageStart,
+                target_page_end = entry.TargetPageEnd,
+                resolution_method = NormalizePostgresTextForStorage(entry.ResolutionMethod),
+                confidence = entry.Confidence,
+                metadata
+            }, transaction: tx, cancellationToken: ct));
         }
     }
 

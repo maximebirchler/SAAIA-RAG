@@ -470,6 +470,16 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void ResolveRetriever_maps_title_and_navigation_routes_explicitly()
+    {
+        var titleRoute = new RagMatch(0.90, "doc-a", "Ops/Guide.pdf", "Guide.pdf", 5, 5, "chunk-a", 3, "Release checklist", 1, "hash-a", "Release checklist", "title_anchor_route_v1", null, null, "Release", "Release", "section", null, null, null);
+        var navigationRoute = titleRoute with { EmbeddingBasis = "navigation_route_v1" };
+
+        Assert.Equal("title_anchor_route", RagEndpoints.ResolveRetriever(titleRoute));
+        Assert.Equal("navigation_route", RagEndpoints.ResolveRetriever(navigationRoute));
+    }
+
+    [Fact]
     public void CalibrateFusedMatches_prefers_sparse_for_high_overlap_lexical_query()
     {
         var sparse = new RagMatch(0.74, "doc-a", "ATEX/CEN.pdf", "CEN.pdf", 1, 1, "sparse-1", 0, "Inerting safety controls and gas flow monitoring requirements", 1, "hash-a", "Inerting safety controls and gas flow monitoring requirements", "sparse_bm25_v1", 1, 1, "Inerting", "Chapter 2 > Inerting", "unit_exact_v1", null, null, null);

@@ -1,0 +1,619 @@
+using System.Text.RegularExpressions;
+
+internal static partial class DocumentTitleNavigationProjector
+{
+    private const int MaxTitleAnchors = 600;
+    private const int MaxNavigationEntries = 1200;
+
+    internal static ProjectedDocumentTitleNavigationIndex Project(
+        IReadOnlyList<ExtractedDocumentSection> sections,
+        IReadOnlyList<ExtractedDocumentUnit> units,
+        IReadOnlyList<ProjectedRetrievalChunk> retrievalChunks,
+        ProjectedDocumentProfile documentProfile)
+    {
+        var anchors = BuildTitleAnchors(sections, retrievalChunks, documentProfile);
+        var navigationEntries = BuildNavigationEntries(units, retrievalChunks, anchors);
+
+        return new ProjectedDocumentTitleNavigationIndex(anchors, navigationEntries);
+    }
+
+    private static IReadOnlyList<ProjectedDocumentTitleAnchor> BuildTitleAnchors(
+        IReadOnlyList<ExtractedDocumentSection> sections,
+        IReadOnlyList<ProjectedRetrievalChunk> retrievalChunks,
+        ProjectedDocumentProfile documentProfile)
+    {
+        var candidates = new List<TitleAnchorCandidate>();
+        foreach (var section in sections.OrderBy(static section => section.Ordinal))
+        {
+            AddAnchorCandidate(
+                candidates,
+                sourceKind: "section",
+                sourceOrdinal: section.Ordinal,
+                title: section.Title,
+                pageStart: section.PageStart,
+                pageEnd: section.PageEnd,
+                sectionOrdinal: section.Ordinal,
+                unitOrdinal: null,
+                chunkIndex: null,
+                contentCardIndex: null,
+                confidence: 0.94);
+        }
+
+        var cardIndex = 0;
+        foreach (var card in documentProfile.ContentCards)
+        {
+            AddAnchorCandidate(
+                candidates,
+                sourceKind: "content_card",
+                sourceOrdinal: cardIndex,
+                title: card.Title,
+                pageStart: card.PageStart,
+                pageEnd: card.PageEnd,
+                sectionOrdinal: null,
+                unitOrdinal: null,
+                chunkIndex: null,
+                contentCardIndex: cardIndex,
+                confidence: string.Equals(card.Kind, "section", StringComparison.OrdinalIgnoreCase) ? 0.90 : 0.82);
+            cardIndex++;
+        }
+
+        foreach (var chunk in retrievalChunks
+            .Where(static chunk => !string.Equals(chunk.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(static chunk => chunk.ChunkIndex))
+        {
+            var leadTitle = ExtractLeadTitle(chunk.Text);
+            if (string.IsNullOrWhiteSpace(leadTitle))
+                continue;
+
+            AddAnchorCandidate(
+                candidates,
+                sourceKind: "chunk_lead",
+                sourceOrdinal: chunk.ChunkIndex,
+                title: leadTitle,
+                pageStart: chunk.PageStart,
+                pageEnd: chunk.PageEnd,
+                sectionOrdinal: chunk.SectionOrdinal,
+                unitOrdinal: chunk.UnitOrdinal,
+                chunkIndex: chunk.ChunkIndex,
+                contentCardIndex: null,
+                confidence: 0.70);
+        }
+
+        return candidates
+            .GroupBy(static candidate => $"{candidate.NormalizedTitle}|{candidate.PageStart}|{candidate.PageEnd}", StringComparer.Ordinal)
+            .Select(static group => group
+                .OrderByDescending(static candidate => candidate.Confidence)
+                .ThenBy(static candidate => SourceKindPriority(candidate.SourceKind))
+                .ThenBy(static candidate => candidate.SourceOrdinal ?? int.MaxValue)
+                .First())
+            .OrderBy(static candidate => candidate.PageStart ?? int.MaxValue)
+            .ThenBy(static candidate => SourceKindPriority(candidate.SourceKind))
+            .ThenBy(static candidate => candidate.SourceOrdinal ?? int.MaxValue)
+            .Take(MaxTitleAnchors)
+            .Select(static (candidate, index) => new ProjectedDocumentTitleAnchor(
+                AnchorIndex: index,
+                SourceKind: candidate.SourceKind,
+                SourceOrdinal: candidate.SourceOrdinal,
+                Title: candidate.Title,
+                NormalizedTitle: candidate.NormalizedTitle,
+                TitleTokens: candidate.TitleTokens,
+                PageStart: candidate.PageStart,
+                PageEnd: candidate.PageEnd,
+                SectionOrdinal: candidate.SectionOrdinal,
+                UnitOrdinal: candidate.UnitOrdinal,
+                ChunkIndex: candidate.ChunkIndex,
+                ContentCardIndex: candidate.ContentCardIndex,
+                Confidence: candidate.Confidence))
+            .ToArray();
+    }
+
+    private static IReadOnlyList<ProjectedDocumentNavigationEntry> BuildNavigationEntries(
+        IReadOnlyList<ExtractedDocumentUnit> units,
+        IReadOnlyList<ProjectedRetrievalChunk> retrievalChunks,
+        IReadOnlyList<ProjectedDocumentTitleAnchor> anchors)
+    {
+        var entries = new List<ProjectedDocumentNavigationEntry>();
+        var seenEntryKeys = new HashSet<string>(StringComparer.Ordinal);
+        var maxPage = Math.Max(
+            units.Count == 0 ? 0 : units.Max(static unit => unit.PageEnd),
+            retrievalChunks.Count == 0 ? 0 : retrievalChunks.Max(static chunk => chunk.PageEnd));
+
+        foreach (var chunk in retrievalChunks
+            .Where(static chunk =>
+                string.Equals(chunk.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(chunk.ContentRole, RetrievalContentClassifier.MixedNavigationContentRole, StringComparison.OrdinalIgnoreCase)
+                || RetrievalContentClassifier.IsNavigationChunkType(chunk.ChunkType))
+            .OrderBy(static chunk => chunk.ChunkIndex))
+        {
+            foreach (var parsed in ParseNavigationLines(
+                chunk.Text,
+                maxPage,
+                anchors,
+                IsStrongInlineNavigationSource(chunk, maxPage)))
+            {
+                if (entries.Count >= MaxNavigationEntries)
+                    break;
+
+                if (!seenEntryKeys.Add($"{parsed.NormalizedLabel}|{parsed.TargetPage}"))
+                    continue;
+
+                var resolved = ResolveNavigationTarget(parsed, anchors, retrievalChunks);
+                entries.Add(new ProjectedDocumentNavigationEntry(
+                    EntryIndex: entries.Count,
+                    SourcePage: chunk.PageStart,
+                    SourceChunkIndex: chunk.ChunkIndex,
+                    SourceUnitOrdinal: chunk.UnitOrdinal,
+                    Label: parsed.Label,
+                    NormalizedLabel: parsed.NormalizedLabel,
+                    LabelTokens: parsed.LabelTokens,
+                    TargetPageStart: resolved.TargetPageStart,
+                    TargetPageEnd: resolved.TargetPageEnd,
+                    TargetAnchorIndex: resolved.TargetAnchorIndex,
+                    TargetChunkIndex: resolved.TargetChunkIndex,
+                    ResolutionMethod: resolved.ResolutionMethod,
+                    Confidence: resolved.Confidence));
+            }
+        }
+
+        return entries;
+    }
+
+    private static IEnumerable<ParsedNavigationEntry> ParseNavigationLines(
+        string text,
+        int maxPage,
+        IReadOnlyList<ProjectedDocumentTitleAnchor> anchors,
+        bool allowInlineNavigation)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            yield break;
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var rawLine in SplitNavigationCandidateLines(text))
+        {
+            var line = CollapseWhitespace(rawLine);
+            if (line.Length < 5 || line.Length > 220)
+                continue;
+
+            if (InlinePageNumberRegex().Matches(line).Count > 1)
+                continue;
+
+            var parsed = TryParseNavigationLine(line, maxPage);
+            if (parsed is not null && seen.Add($"{parsed.NormalizedLabel}|{parsed.TargetPage}"))
+                yield return parsed;
+        }
+
+        if (!allowInlineNavigation)
+            yield break;
+
+        var inlineEntries = ParseInlineNavigationEntries(text, maxPage, anchors).ToArray();
+        if (inlineEntries.Length < 2)
+            yield break;
+
+        foreach (var parsed in inlineEntries)
+        {
+            if (seen.Add($"{parsed.NormalizedLabel}|{parsed.TargetPage}"))
+                yield return parsed;
+        }
+    }
+
+    private static IReadOnlyList<string> SplitNavigationCandidateLines(string text)
+    {
+        var normalized = text.Replace("\r\n", "\n").Replace('\r', '\n');
+        var lines = normalized
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(static line => !string.IsNullOrWhiteSpace(line))
+            .ToArray();
+
+        if (lines.Length > 1)
+            return lines;
+
+        return CleanSoftNavigationBreakRegex()
+            .Split(normalized)
+            .Select(CollapseWhitespace)
+            .Where(static line => !string.IsNullOrWhiteSpace(line))
+            .ToArray();
+    }
+
+    private static ParsedNavigationEntry? TryParseNavigationLine(string line, int maxPage)
+    {
+        foreach (var regex in NavigationLineRegexes())
+        {
+            var match = regex.Match(line);
+            if (!match.Success)
+                continue;
+
+            if (!int.TryParse(match.Groups["page"].Value, out var page))
+                continue;
+
+            var parsed = CreateParsedNavigationEntry(match.Groups["label"].Value, page, maxPage);
+            if (parsed is not null)
+                return parsed;
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<ParsedNavigationEntry> ParseInlineNavigationEntries(
+        string text,
+        int maxPage,
+        IReadOnlyList<ProjectedDocumentTitleAnchor> anchors)
+    {
+        var compactText = CollapseWhitespace(text);
+        if (compactText.Length < 12)
+            yield break;
+
+        var pageMatches = InlinePageNumberRegex().Matches(compactText);
+        if (pageMatches.Count < 2)
+            yield break;
+
+        var previousPageEnd = 0;
+        foreach (Match pageMatch in pageMatches)
+        {
+            if (!int.TryParse(pageMatch.Groups["page"].Value, out var page))
+            {
+                previousPageEnd = pageMatch.Index + pageMatch.Length;
+                continue;
+            }
+
+            var segmentLength = pageMatch.Index - previousPageEnd;
+            var segment = segmentLength <= 0 ? string.Empty : compactText.Substring(previousPageEnd, segmentLength);
+            previousPageEnd = pageMatch.Index + pageMatch.Length;
+
+            var label = ResolveInlineNavigationLabel(segment, page, anchors);
+            if (string.IsNullOrWhiteSpace(label))
+                continue;
+
+            var parsed = CreateParsedNavigationEntry(label, page, maxPage);
+            if (parsed is not null)
+                yield return parsed;
+        }
+    }
+
+    private static string? ResolveInlineNavigationLabel(
+        string segment,
+        int targetPage,
+        IReadOnlyList<ProjectedDocumentTitleAnchor> anchors)
+    {
+        var label = StripNavigationDecorations(CollapseWhitespace(segment));
+        if (string.IsNullOrWhiteSpace(label))
+            return null;
+
+        var normalizedSegment = TitleAnchorNormalizer.NormalizeTitle(label);
+        var anchorMatch = anchors
+            .Where(anchor => ContainsNormalizedPhrase(normalizedSegment, anchor.NormalizedTitle))
+            .Select(anchor => new
+            {
+                Anchor = anchor,
+                MatchRank = EndsWithNormalizedPhrase(normalizedSegment, anchor.NormalizedTitle)
+                    ? 0
+                    : ContainsNormalizedPhrase(normalizedSegment, anchor.NormalizedTitle)
+                        ? 1
+                        : 2,
+                Distance = PageDistance(anchor.PageStart, targetPage)
+            })
+            .OrderBy(static item => item.Distance)
+            .ThenBy(static item => item.MatchRank)
+            .ThenByDescending(static item => item.Anchor.TitleTokens.Count)
+            .ThenByDescending(static item => item.Anchor.NormalizedTitle.Length)
+            .ThenByDescending(static item => item.Anchor.Confidence)
+            .FirstOrDefault();
+
+        if (anchorMatch is not null)
+            return anchorMatch.Anchor.Title;
+
+        return null;
+    }
+
+    private static ParsedNavigationEntry? CreateParsedNavigationEntry(string label, int page, int maxPage)
+    {
+        if (page <= 0 || (maxPage > 0 && page > Math.Max(maxPage + 25, maxPage * 2)))
+            return null;
+
+        label = StripNavigationDecorations(label);
+        if (label.Length > 180)
+            label = label[..180].Trim();
+
+        if (!TitleAnchorNormalizer.IsUsefulTitleCandidate(label))
+            return null;
+
+        var normalized = TitleAnchorNormalizer.NormalizeTitle(label);
+        var tokens = TitleAnchorNormalizer.BuildTitleTokens(label);
+        return tokens.Length == 0
+            ? null
+            : new ParsedNavigationEntry(label, normalized, tokens, page);
+    }
+
+    private static NavigationResolution ResolveNavigationTarget(
+        ParsedNavigationEntry entry,
+        IReadOnlyList<ProjectedDocumentTitleAnchor> anchors,
+        IReadOnlyList<ProjectedRetrievalChunk> retrievalChunks)
+    {
+        var exactAnchor = anchors
+            .Where(anchor => string.Equals(anchor.NormalizedTitle, entry.NormalizedLabel, StringComparison.Ordinal))
+            .OrderBy(anchor => PageDistance(anchor.PageStart, entry.TargetPage))
+            .ThenByDescending(static anchor => anchor.Confidence)
+            .FirstOrDefault();
+
+        if (exactAnchor is not null)
+        {
+            return new NavigationResolution(
+                exactAnchor.PageStart ?? entry.TargetPage,
+                exactAnchor.PageEnd ?? exactAnchor.PageStart ?? entry.TargetPage,
+                exactAnchor.AnchorIndex,
+                exactAnchor.ChunkIndex,
+                "title_exact",
+                exactAnchor.PageStart == entry.TargetPage ? 0.96 : 0.88);
+        }
+
+        var tokenAnchor = anchors
+            .Select(anchor => new
+            {
+                Anchor = anchor,
+                Score = TitleAnchorNormalizer.ComputeTokenOverlapScore(entry.LabelTokens, anchor.TitleTokens)
+            })
+            .Where(item => item.Score >= 0.80)
+            .OrderBy(item => PageDistance(item.Anchor.PageStart, entry.TargetPage))
+            .ThenByDescending(item => item.Score)
+            .ThenByDescending(item => item.Anchor.Confidence)
+            .FirstOrDefault();
+
+        if (tokenAnchor is not null)
+        {
+            return new NavigationResolution(
+                tokenAnchor.Anchor.PageStart ?? entry.TargetPage,
+                tokenAnchor.Anchor.PageEnd ?? tokenAnchor.Anchor.PageStart ?? entry.TargetPage,
+                tokenAnchor.Anchor.AnchorIndex,
+                tokenAnchor.Anchor.ChunkIndex,
+                "title_token_overlap",
+                Math.Min(0.86, 0.70 + (tokenAnchor.Score * 0.16)));
+        }
+
+        var targetChunk = retrievalChunks
+            .Where(chunk =>
+                chunk.PageStart <= entry.TargetPage
+                && entry.TargetPage <= chunk.PageEnd
+                && !string.Equals(chunk.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(static chunk => chunk.ContentDensityScore)
+            .ThenBy(static chunk => chunk.ChunkIndex)
+            .FirstOrDefault();
+
+        return targetChunk is null
+            ? new NavigationResolution(entry.TargetPage, entry.TargetPage, null, null, "page_unresolved", 0.48)
+            : new NavigationResolution(
+                targetChunk.PageStart,
+                targetChunk.PageEnd,
+                null,
+                targetChunk.ChunkIndex,
+                "page_content_chunk",
+                0.72);
+    }
+
+    private static void AddAnchorCandidate(
+        List<TitleAnchorCandidate> candidates,
+        string sourceKind,
+        int? sourceOrdinal,
+        string? title,
+        int? pageStart,
+        int? pageEnd,
+        int? sectionOrdinal,
+        int? unitOrdinal,
+        int? chunkIndex,
+        int? contentCardIndex,
+        double confidence)
+    {
+        title = CollapseWhitespace(title ?? string.Empty);
+        if (!TitleAnchorNormalizer.IsUsefulTitleCandidate(title))
+            return;
+
+        var normalized = TitleAnchorNormalizer.NormalizeTitle(title);
+        var tokens = TitleAnchorNormalizer.BuildTitleTokens(title);
+        if (tokens.Length == 0)
+            return;
+
+        candidates.Add(new TitleAnchorCandidate(
+            sourceKind,
+            sourceOrdinal,
+            title,
+            normalized,
+            tokens,
+            pageStart,
+            pageEnd ?? pageStart,
+            sectionOrdinal,
+            unitOrdinal,
+            chunkIndex,
+            contentCardIndex,
+            confidence));
+    }
+
+    private static string? ExtractLeadTitle(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        var line = text.Replace("\r\n", "\n")
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault(static value => !string.IsNullOrWhiteSpace(value));
+
+        if (string.IsNullOrWhiteSpace(line))
+            line = text;
+
+        line = CollapseWhitespace(line);
+        var match = CleanLeadTitleRegex().Match(line);
+        return match.Success ? CollapseWhitespace(match.Groups["title"].Value) : null;
+    }
+
+    private static string StripNavigationDecorations(string label)
+    {
+        label = LeadingNavigationNumberRegex().Replace(label, string.Empty);
+        label = label.Trim(' ', '.', '-', '\u2013', '\u2014', '\u2022', '\u00b7');
+        return CollapseWhitespace(label);
+    }
+
+    private static string CollapseWhitespace(string value)
+        => string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : WhitespaceRegex().Replace(value, " ").Trim();
+
+    private static int PageDistance(int? page, int targetPage)
+        => page is null ? int.MaxValue : Math.Abs(page.Value - targetPage);
+
+    private static int SourceKindPriority(string sourceKind)
+        => sourceKind switch
+        {
+            "section" => 0,
+            "content_card" => 1,
+            "chunk_lead" => 2,
+            _ => 9
+        };
+
+    private static bool IsStrongInlineNavigationSource(ProjectedRetrievalChunk chunk, int maxPage)
+    {
+        var reason = chunk.NavigationReason ?? string.Empty;
+        if (string.Equals(reason, "table_of_contents", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(reason, "explicit_index_marker", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (chunk.NavigationScore >= 0.90)
+            return true;
+
+        if (chunk.NavigationScore < 0.80)
+            return false;
+
+        if (!string.Equals(reason, "inline_page_number_list", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(reason, "numeric_title_catalog", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var earlyWindow = maxPage <= 0 ? 6 : Math.Max(6, (int)Math.Ceiling(maxPage * 0.08));
+        return chunk.PageStart <= earlyWindow;
+    }
+
+    private static bool ContainsNormalizedPhrase(string haystack, string needle)
+        => !string.IsNullOrWhiteSpace(haystack)
+            && !string.IsNullOrWhiteSpace(needle)
+            && (string.Equals(haystack, needle, StringComparison.Ordinal)
+                || haystack.StartsWith(needle + " ", StringComparison.Ordinal)
+                || haystack.EndsWith(" " + needle, StringComparison.Ordinal)
+                || haystack.Contains(" " + needle + " ", StringComparison.Ordinal));
+
+    private static bool EndsWithNormalizedPhrase(string haystack, string needle)
+        => !string.IsNullOrWhiteSpace(haystack)
+            && !string.IsNullOrWhiteSpace(needle)
+            && (string.Equals(haystack, needle, StringComparison.Ordinal)
+                || haystack.EndsWith(" " + needle, StringComparison.Ordinal));
+
+    private static Regex[] NavigationLineRegexes()
+        =>
+        [
+            CleanLabelLeaderPageRegex(),
+            CleanNumberedLabelLeaderPageRegex(),
+            CleanCompactLabelPageRegex(),
+            CleanPageThenLabelRegex()
+        ];
+
+    [GeneratedRegex(@"\s+", RegexOptions.CultureInvariant)]
+    private static partial Regex WhitespaceRegex();
+
+    [GeneratedRegex(@"(?:\s{3,}|\s+[\.\u00b7\u2022]{2,}\s+)", RegexOptions.CultureInvariant)]
+    private static partial Regex CleanSoftNavigationBreakRegex();
+
+    [GeneratedRegex(@"^(?<label>.{3,180}?)(?:\s*[\.\u00b7\u2022]{2,}\s*|\s+[-\u2013\u2014]\s+|\s{2,})(?<page>\d{1,4})\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex CleanLabelLeaderPageRegex();
+
+    [GeneratedRegex(@"^(?:\d{1,3}(?:[.)\-:]\d{1,3})*[.)\-:]?\s+)?(?<label>.{3,180}?)(?:\s*[\.\u00b7\u2022]{2,}\s*|\s+[-\u2013\u2014]\s+|\s{2,}|\s+page\s+)(?<page>\d{1,4})\s*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex CleanNumberedLabelLeaderPageRegex();
+
+    [GeneratedRegex(@"^(?<label>[\p{L}\p{N}][\p{L}\p{N}'\u2019/&+(),:;.\-\s]{3,170}?[^\d\s])\s+(?<page>\d{1,4})\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex CleanCompactLabelPageRegex();
+
+    [GeneratedRegex(@"^(?:p(?:age)?\.?\s*)?(?<page>\d{1,4})\s+[-\u2013\u2014:]\s+(?<label>.{3,180})$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex CleanPageThenLabelRegex();
+
+    [GeneratedRegex(@"(?<!\d)(?<page>\d{1,4})(?!\d)", RegexOptions.CultureInvariant)]
+    private static partial Regex InlinePageNumberRegex();
+
+    [GeneratedRegex(@"^(?<title>.{4,120}?)(?:\s{2,}|[.:;\u2013\u2014-]\s+|$)", RegexOptions.CultureInvariant)]
+    private static partial Regex CleanLeadTitleRegex();
+
+    [GeneratedRegex(@"(?:\s{3,}|\s+[\.·•]{2,}\s+)", RegexOptions.CultureInvariant)]
+    private static partial Regex SoftNavigationBreakRegex();
+
+    [GeneratedRegex(@"^(?<label>.{3,180}?)(?:\s*[\.·•]{2,}\s*|\s+[-–—]\s+|\s{2,})(?<page>\d{1,4})\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex LabelLeaderPageRegex();
+
+    [GeneratedRegex(@"^(?:\d{1,3}(?:[.)\-:]\d{1,3})*[.)\-:]?\s+)?(?<label>.{3,180}?)(?:\s*[\.·•]{2,}\s*|\s+[-–—]\s+|\s{2,}|\s+page\s+)(?<page>\d{1,4})\s*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex NumberedLabelLeaderPageRegex();
+
+    [GeneratedRegex(@"^(?<label>[\p{L}\p{N}][\p{L}\p{N}'’/&+(),:;.\-\s]{3,170}?[^\d\s])\s+(?<page>\d{1,4})\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex CompactLabelPageRegex();
+
+    [GeneratedRegex(@"^(?:p(?:age)?\.?\s*)?(?<page>\d{1,4})\s+[-–—:]\s+(?<label>.{3,180})$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex PageThenLabelRegex();
+
+    [GeneratedRegex(@"^\s*(?:\d{1,3}(?:[.)\-:]\d{1,3})*[.)\-:]?\s+|[ivxlcdm]{1,8}[.)\-:]\s+)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex LeadingNavigationNumberRegex();
+
+    [GeneratedRegex(@"^(?<title>.{4,120}?)(?:\s{2,}|[.:;–—-]\s+|$)", RegexOptions.CultureInvariant)]
+    private static partial Regex LeadTitleRegex();
+
+    private sealed record TitleAnchorCandidate(
+        string SourceKind,
+        int? SourceOrdinal,
+        string Title,
+        string NormalizedTitle,
+        IReadOnlyList<string> TitleTokens,
+        int? PageStart,
+        int? PageEnd,
+        int? SectionOrdinal,
+        int? UnitOrdinal,
+        int? ChunkIndex,
+        int? ContentCardIndex,
+        double Confidence);
+
+    private sealed record ParsedNavigationEntry(
+        string Label,
+        string NormalizedLabel,
+        IReadOnlyList<string> LabelTokens,
+        int TargetPage);
+
+    private sealed record NavigationResolution(
+        int? TargetPageStart,
+        int? TargetPageEnd,
+        int? TargetAnchorIndex,
+        int? TargetChunkIndex,
+        string ResolutionMethod,
+        double Confidence);
+}
+
+internal sealed record ProjectedDocumentTitleNavigationIndex(
+    IReadOnlyList<ProjectedDocumentTitleAnchor> TitleAnchors,
+    IReadOnlyList<ProjectedDocumentNavigationEntry> NavigationEntries);
+
+internal sealed record ProjectedDocumentTitleAnchor(
+    int AnchorIndex,
+    string SourceKind,
+    int? SourceOrdinal,
+    string Title,
+    string NormalizedTitle,
+    IReadOnlyList<string> TitleTokens,
+    int? PageStart,
+    int? PageEnd,
+    int? SectionOrdinal,
+    int? UnitOrdinal,
+    int? ChunkIndex,
+    int? ContentCardIndex,
+    double Confidence);
+
+internal sealed record ProjectedDocumentNavigationEntry(
+    int EntryIndex,
+    int SourcePage,
+    int? SourceChunkIndex,
+    int? SourceUnitOrdinal,
+    string Label,
+    string NormalizedLabel,
+    IReadOnlyList<string> LabelTokens,
+    int? TargetPageStart,
+    int? TargetPageEnd,
+    int? TargetAnchorIndex,
+    int? TargetChunkIndex,
+    string ResolutionMethod,
+    double Confidence);
