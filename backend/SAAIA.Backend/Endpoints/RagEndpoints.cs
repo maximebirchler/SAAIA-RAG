@@ -6444,6 +6444,10 @@ LIMIT @top_k;
                 Match = match,
                 ExactTitleScore = ComputeExactTitleCandidateScore(query, match),
                 DirectChunkTitleSignal = ComputeDirectChunkTitleSignal(query, match),
+                MatchedCardTitleSignal = ComputeMatchedContentCardTitleSignal(
+                    match,
+                    lexicalTokens,
+                    NormalizeForLexicalSignal(query)),
                 SpecificAnchorCount = lexicalTokens.Length > 0
                     ? CountSpecificLexicalAnchors(lexicalTokens, GetTitleSignalText(match))
                     : 0,
@@ -6451,7 +6455,7 @@ LIMIT @top_k;
             })
             .ToList();
 
-        var hasExactTitleSignal = ranked.Any(static item => item.ExactTitleScore > 0.0);
+        var hasExactTitleSignal = ranked.Any(static item => item.ExactTitleScore > 0.0 || item.MatchedCardTitleSignal > 0);
         var hasFullSpecificCoverage = useSpecificCoverageTitlePriority
             && ranked.Any(static item => item.SpecificAnchorCount >= 2);
         if (!hasExactTitleSignal && !hasFullSpecificCoverage)
@@ -6459,8 +6463,9 @@ LIMIT @top_k;
 
         selected.Clear();
         selected.AddRange(ranked
-            .OrderByDescending(static item => item.ExactTitleScore > 0.0 ? 1 : 0)
-            .ThenByDescending(static item => item.DirectChunkTitleSignal)
+            .OrderByDescending(static item => item.DirectChunkTitleSignal)
+            .ThenByDescending(static item => item.MatchedCardTitleSignal)
+            .ThenByDescending(static item => item.ExactTitleScore > 0.0 ? 1 : 0)
             .ThenByDescending(item => useSpecificCoverageTitlePriority && item.SpecificAnchorCount >= 2 ? 1 : 0)
             .ThenByDescending(item => useSpecificCoverageTitlePriority ? item.StructuredAnswerPriority : 0)
             .ThenByDescending(item => useSpecificCoverageTitlePriority ? item.SpecificAnchorCount : 0)
@@ -6875,6 +6880,9 @@ LIMIT @top_k;
         return string.Join("\n", new[]
         {
             ExtractMatchedRouteOrProfileTitle(match.EmbedText),
+            match.MatchedContentCards is { Count: > 0 }
+                ? string.Join("\n", match.MatchedContentCards.Take(MaxCalibrationCardCount).Select(static card => card.Title))
+                : null,
             match.Text,
             match.SectionTitle,
             match.HeadingPath
