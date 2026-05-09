@@ -50,6 +50,7 @@ public sealed class RetrievalRuntimeSwitchTests
     [InlineData("Donne-moi la recette du coq au vin dans le livre international.", "coq au vin")]
     [InlineData("Donne-moi la methode pour les fruits en beignets.", "fruits en beignets")]
     [InlineData("C'est quoi les grandes etapes du boeuf bourguignon ?", "boeuf bourguignon")]
+    [InlineData("C’est quoi les grandes étapes du bœuf bourguignon ?", "boeuf bourguignon")]
     [InlineData("Il me faut la tartiflette, ingredients + etapes en version claire.", "tartiflette")]
     [InlineData("Combien de temps et quels ingredients pour le gratin dauphinois ?", "gratin dauphinois")]
     [InlineData("Comment cuire les asperges vertes au miel avec la sonde de rotissage ?", "asperges vertes au miel")]

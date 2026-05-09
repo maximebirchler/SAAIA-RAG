@@ -4939,8 +4939,11 @@ LIMIT @top_k;
 
         var surface = FoldDiacritics(query).ToLowerInvariant();
         surface = Regex.Replace(surface, @"[\u2010-\u2015_\-]+", " ", RegexOptions.CultureInvariant);
+        surface = Regex.Replace(surface, @"['\u2019]", " ", RegexOptions.CultureInvariant);
         surface = Regex.Replace(surface, @"\s+", " ", RegexOptions.CultureInvariant).Trim();
         if (string.IsNullOrWhiteSpace(surface))
+            return phrases.Distinct(StringComparer.Ordinal).ToArray();
+        if (IsCurrentPassageScopedLookup(surface))
             return phrases.Distinct(StringComparer.Ordinal).ToArray();
 
         foreach (var pattern in FocusedLookupTargetPatterns)
@@ -4960,6 +4963,13 @@ LIMIT @top_k;
         if (!string.IsNullOrWhiteSpace(phrase))
             phrases.Add(phrase);
     }
+
+    private static bool IsCurrentPassageScopedLookup(string normalizedSurface)
+        => Regex.IsMatch(
+            normalizedSurface,
+            @"\b(?:dans|depuis|from|in)\s+(?:ce|cet|cette|this|the)\s+(?:passage|extrait|texte|text|snippet|section)\b",
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+            TimeSpan.FromMilliseconds(100));
 
     private static string? NormalizeFocusedLookupPhrase(string candidate)
     {
