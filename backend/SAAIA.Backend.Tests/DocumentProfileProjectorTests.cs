@@ -1140,4 +1140,113 @@ public sealed class DocumentProfileProjectorTests
         Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, title, StringComparison.Ordinal));
         Assert.Contains(title, profile.SearchText, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Project_extracts_embedded_uppercase_title_before_typographic_elision()
+    {
+        const string title = "CONTROL HANDOVER PLAN";
+        var lead = string.Join(
+            ' ',
+            Enumerable.Repeat(
+                "Run the equipment sequence, collect the measurements, and confirm the operator notes.",
+                6));
+        var text = $"{lead} 4 operators13 min12 min15 min{title}L\u2019ideal configuration keeps the handover steps regular.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(45, text, 88, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Operations", 1, 1, 45, 45, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 45, 45, text, text.Length, 88, [2])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/OperationsElision.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, title, StringComparison.Ordinal));
+        Assert.Contains(title, profile.SearchText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Project_extracts_embedded_uppercase_title_from_short_verbatim_tail()
+    {
+        const string title = "CONTROL HANDOVER PLAN";
+        var text =
+            "Review the notes and close the checklist.4 operators13 min12 min15 min" +
+            $"{title}L\u2019ideal configuration keeps the handover steps regular.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(46, text, 88, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Operations", 1, 1, 46, 46, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 46, 46, text, text.Length, 88, [2])
+        };
+        var exact = new[]
+        {
+            new ExtractedExactMatchEntry(
+                0,
+                0,
+                0,
+                46,
+                46,
+                text,
+                "review the notes and close the checklist 4 operators13 min12 min15 mincontrol handover planl ideal configuration",
+                text.Length,
+                16,
+                [3],
+                "verbatim_excerpt")
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/OperationsVerbatimTail.pdf",
+            pages,
+            sections,
+            units,
+            exact);
+
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, title, StringComparison.Ordinal));
+        Assert.Contains(title, profile.SearchText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Project_extracts_realistic_trailing_uppercase_title_after_long_instructions()
+    {
+        const string title = "CHURROS SAUCE CHOCOLAT";
+        const string text = "Lancez le robot en vitesse 6 à 100°C pour 4 min. Ajoutez la farine, le blanc d’œuf, la levure et le sel, mixez en vitesse 4 pendant 30 s avec le bouchon.2 Formez des boudins en les roulant sur le plan de travail fariné, puis faites-les cuire à la friteuse. Déposez-les sur du papier absorbant.3 Dans le robot muni du couteau pour pétrir/concasser, mettez le chocolat en morceaux, le reste de lait et la vanille. Lancez le robot à 80°C en vitesse 5 pendant 8 min avec le bou-chon. Mixez ensuite en vitesse 10 pendant 20 s. Versez dans un bol. Trempez les churros dans la sauce au chocolat et dégustez.4 personnes13 min12 min15 minCHURROS SAUCE CHOCOLATL’idéal pour cette recette est d’avoir un appareil à churros qui vous permettra d’avoir des boudins de forme régulière.Individuels• DESSERTS •Individuels• DESSERTS • 4 Préchauffez le four à 180°C {th 6).";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(123, text, 152, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Generic trailing title", 1, 1, 123, 123, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 123, 123, text, text.Length, 152, [2])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/TrailingTitle.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, title, StringComparison.Ordinal));
+        Assert.Contains(title, profile.SearchText, StringComparison.Ordinal);
+    }
 }

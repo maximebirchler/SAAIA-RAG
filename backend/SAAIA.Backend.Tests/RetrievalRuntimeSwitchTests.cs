@@ -57,6 +57,7 @@ public sealed class RetrievalRuntimeSwitchTests
     [InlineData("Tu peux m'expliquer les patatas bravas du livre NEFF ?", "patatas bravas")]
     [InlineData("Comment faire la mayonnaise au tofu ?", "mayonnaise au tofu")]
     [InlineData("Detaille le curry de crevettes et riz basmati.", "curry de crevettes et riz basmati")]
+    [InlineData("Explique-moi les churros sauce chocolat au Companion.", "churros sauce chocolat au companion")]
     [InlineData("Tu peux me faire une fiche claire pour Patatas Bravas : ingredients, etapes, temps et source ?", "patatas bravas")]
     [InlineData("Je veux une fiche pour Cr\u00e8me au citron avec source.", "creme au citron")]
     [InlineData("Give me the procedure for access mode A from the manual.", "access mode a")]

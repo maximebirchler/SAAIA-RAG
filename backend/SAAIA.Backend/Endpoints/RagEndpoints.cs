@@ -5006,7 +5006,8 @@ LIMIT @top_k;
         => TitleConnectorTokens.Contains(token)
            || LexicalStopwords.Contains(token)
            || SpecificAnchorStopwords.Contains(token)
-           || PrimaryAnchorStopwords.Contains(token);
+           || PrimaryAnchorStopwords.Contains(token)
+           || token is "l" or "s";
 
     private static bool IsFocusedLookupTrailingEdgeToken(string token)
         => !IsShortTitleSuffixToken(token)
@@ -5024,7 +5025,7 @@ LIMIT @top_k;
            && !PrimaryAnchorStopwords.Contains(token);
 
     private const string FocusedLookupArticlePattern =
-        @"(?:les|le|la|l['\u2019]|une|un|des|du|de\s+la|de\s+l['\u2019]|the|some|an|a)\s+";
+        @"(?:(?:de\s+la|de\s+l|les|des|the|some|une|un|du|le|la|l|an|a)\b|l['\u2019])\s+";
 
     private const string FocusedLookupTargetPatternText =
         @"(?<target>[\p{L}\p{Nd}][\p{L}\p{Nd}\s\-]{2,80}?)";
