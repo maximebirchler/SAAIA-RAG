@@ -124,7 +124,7 @@ public sealed class ReadyEndpointOcrReadinessTests
         Assert.Equal("ready", details["ocr_status"]);
         Assert.Equal("auto", details["ocr_language_mode"]);
         Assert.Equal(IngestionOptions.DefaultAutoOcrMaxLanguages, details["ocr_auto_max_languages"]);
-        Assert.Equal("fra+eng+deu+ita", details["ocr_auto_fallback_languages"]);
+        Assert.Equal(new IngestionOptions().OcrAutoFallbackLanguages, details["ocr_auto_fallback_languages"]);
     }
 
     [Fact]

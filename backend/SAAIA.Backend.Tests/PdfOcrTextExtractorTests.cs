@@ -337,6 +337,35 @@ public sealed class PdfOcrTextExtractorTests
     }
 
     [Fact]
+    public void MergeImageOcrText_keeps_short_title_like_image_ocr_lines_below_word_threshold()
+    {
+        var nativePage = new ExtractedPdfPage(
+            1,
+            "M I X I N G V A L V E Overview Components Process mode Categories For 2 sections",
+            20,
+            81,
+            [1],
+            ImageCount: 1);
+        var native = new PdfExtractionResult(
+            [new WordToken("Native", 1)],
+            [nativePage],
+            PdfExtractionQualitySummary.FromPages([nativePage]));
+
+        var merged = PdfOcrTextExtractor.MergeImageOcrText(
+            native,
+            new Dictionary<int, string>
+            {
+                [1] = "MIXING VALVE\uFFFD\n\nFor 2 sections\n\n22"
+            },
+            "eng",
+            minWords: 4);
+
+        Assert.NotNull(merged);
+        Assert.Contains("MIXING VALVE", merged!.Pages[0].Text, StringComparison.Ordinal);
+        Assert.Contains("image_ocr_text_extracted", merged.Quality.Signals);
+    }
+
+    [Fact]
     public void MergeImageOcrText_still_skips_short_isolated_ocr_noise_lines()
     {
         var nativePage = new ExtractedPdfPage(
@@ -618,14 +647,14 @@ public sealed class PdfOcrTextExtractorTests
     }
 
     [Fact]
-    public void ResolveDetectedAutoOcrLanguages_prefers_detected_installed_language_outside_fallback_pool()
+    public void ResolveDetectedAutoOcrLanguages_prefers_detected_language_and_fills_auto_pool()
     {
         var languages = PdfOcrTextExtractor.ResolveDetectedAutoOcrLanguages(
             "nl",
             ["fra", "eng", "deu", "ita"],
             ["eng", "fra", "deu", "ita", "nld", "ara"]);
 
-        Assert.Equal(["nld", "eng"], languages);
+        Assert.Equal(["nld", "eng", "fra", "deu"], languages);
     }
 
     [Fact]
@@ -642,7 +671,7 @@ public sealed class PdfOcrTextExtractorTests
             options,
             ["eng", "fra", "deu", "ita", "spa", "por"]);
 
-        Assert.Equal(["fra", "eng", "deu", "ita"], languages);
+        Assert.Equal(["fra", "eng", "deu", "ita", "spa"], languages);
     }
 
     [Fact]

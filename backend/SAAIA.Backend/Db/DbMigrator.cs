@@ -51,9 +51,21 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
             var sql = await File.ReadAllTextAsync(file, Encoding.UTF8, ct);
 
             await using var tx = await conn.BeginTransactionAsync(ct);
+            await using (var guard = new NpgsqlCommand(
+                "SET LOCAL lock_timeout = '15s'; SET LOCAL statement_timeout = '30min';",
+                conn,
+                tx))
+            {
+                await guard.ExecuteNonQueryAsync(ct);
+            }
 
             await using (var run = new NpgsqlCommand(sql, conn, tx))
+            {
+                // Some operational indexes are built during startup migrations and can
+                // legitimately exceed the provider's default 30s command timeout.
+                run.CommandTimeout = 1800;
                 await run.ExecuteNonQueryAsync(ct);
+            }
 
             await using (var ins = new NpgsqlCommand("INSERT INTO schema_migrations(version) VALUES(@v)", conn, tx))
             {

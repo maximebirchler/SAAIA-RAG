@@ -51,10 +51,18 @@ public sealed class RetrievalRuntimeSwitchTests
     [InlineData("Donne-moi la methode pour les fruits en beignets.", "fruits en beignets")]
     [InlineData("C'est quoi les grandes etapes du boeuf bourguignon ?", "boeuf bourguignon")]
     [InlineData("C’est quoi les grandes étapes du bœuf bourguignon ?", "boeuf bourguignon")]
+    [InlineData("C'est quoi la Tentation de Jansson et comment la faire ?", "tentation de jansson")]
     [InlineData("Il me faut la tartiflette, ingredients + etapes en version claire.", "tartiflette")]
+    [InlineData("Donne-moi le one pot pasta brocoli dinde bacon.", "one pot pasta brocoli dinde bacon")]
+    [InlineData("Je cherche la tartiflet ou un truc fromage pomme de terre.", "tartiflet")]
+    [InlineData("Tu as la recette du boeuf bourguingnon ?", "boeuf bourguingnon")]
+    [InlineData("Est-ce que la sauce aux 4 fromages vient de Chefbot ou Moulinex ?", "sauce aux 4 fromages")]
     [InlineData("Combien de temps et quels ingredients pour le gratin dauphinois ?", "gratin dauphinois")]
+    [InlineData("Calcule les quantites pour 10 bols de veloute.", "veloute")]
+    [InlineData("D'ou vient la recette de la Tentation de Jansson ? Donne le PDF et la page si possible.", "tentation de jansson")]
     [InlineData("Comment cuire les asperges vertes au miel avec la sonde de rotissage ?", "asperges vertes au miel")]
     [InlineData("Tu peux m'expliquer les patatas bravas du livre NEFF ?", "patatas bravas")]
+    [InlineData("Donne la recette des patattas bravas.", "patattas bravas")]
     [InlineData("Comment faire la mayonnaise au tofu ?", "mayonnaise au tofu")]
     [InlineData("Detaille le curry de crevettes et riz basmati.", "curry de crevettes et riz basmati")]
     [InlineData("Explique-moi les churros sauce chocolat au Companion.", "churros sauce chocolat")]
@@ -85,6 +93,42 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Theory]
+    [InlineData("Compare les deux quiches lorraines du corpus : differences ingredients, methode et style.", "quiches lorraines")]
+    [InlineData("Il y a plusieurs cremes brulees ? Compare-les si oui.", "cremes brulees")]
+    [InlineData("Compare les sauces tomate des deux documents.", "sauces tomate")]
+    public void ExtractComparativeLookupPhrases_extracts_subject_without_corpus_noise(string query, string expected)
+    {
+        var phrases = RagEndpoints.ExtractComparativeLookupPhrases(query);
+
+        Assert.Contains(expected, phrases);
+    }
+
+    [Fact]
+    public void ShouldSkipDocumentProfileSearchForComparativeLookup_detects_precise_comparison_subject()
+    {
+        Assert.True(RagEndpoints.ShouldSkipDocumentProfileSearchForComparativeLookup(
+            "Compare les deux quiches lorraines du corpus : differences ingredients, methode et style."));
+    }
+
+    [Fact]
+    public void ExtractFocusedLookupPhrases_reads_french_guillemet_title_in_larger_request()
+    {
+        var phrases = RagEndpoints.ExtractFocusedLookupPhrases(
+            "Tu peux me faire une fiche claire pour \u00ab Asperges vertes au miel \u00bb : ingredients, etapes, temps et source ?");
+
+        Assert.Contains("asperges vertes au miel", phrases);
+    }
+
+    [Fact]
+    public void ExtractQuotedLookupPhrases_keeps_single_strong_quoted_title()
+    {
+        var phrases = RagEndpoints.ExtractQuotedLookupPhrases(
+            "Tu peux me faire une fiche claire pour \u00ab Chouquettes \u00bb : ingredients, etapes, temps et source ?");
+
+        Assert.Contains("chouquettes", phrases);
+    }
+
+    [Theory]
     [InlineData("Donne-moi la recette du coq au vin dans le livre international.")]
     [InlineData("Tu peux me faire une fiche claire pour Patatas Bravas : ingredients, etapes, temps et source ?")]
     public void ShouldBackfillEnumerativeSearch_detects_precise_content_lookup_requests(string query)
@@ -94,7 +138,22 @@ public sealed class RetrievalRuntimeSwitchTests
 
     [Theory]
     [InlineData("Aide-moi a preparer 4 options en 2h en reutilisant des bases communes.", true)]
+    [InlineData("J’ai des champignons, propose-moi plusieurs options.", true)]
+    [InlineData("Fais-moi 5 options pas trop cheres a partir des PDF.", true)]
+    [InlineData("Cree une FAQ a partir des conseils du guide.", true)]
+    [InlineData("Fais un retroplanning de preparation pour deux sujets.", true)]
+    [InlineData("Je veux un dossier avec options adaptees pour 15 personnes.", true)]
+    [InlineData("Je dois animer un atelier avec 12 personnes : quelles fiches choisir ?", true)]
+    [InlineData("Regroupe les exigences communes de 4 documents pour limiter les achats.", true)]
+    [InlineData("Traduis en anglais les noms mais garde les parametres en francais.", true)]
+    [InlineData("Ajoute les points critiques a surveiller pour eviter une erreur.", true)]
     [InlineData("Suggest a complete weekly plan from this category.", true)]
+    [InlineData("Il me faut la tartiflette, ingredients + etapes en version claire.", false)]
+    [InlineData("I need access mode A from the manual.", false)]
+    [InlineData("Je veux le mode acces A du manuel.", false)]
+    [InlineData("Quels sont les risques du variateur VX-12 ?", false)]
+    [InlineData("Risk controls for valve ABC-123.", false)]
+    [InlineData("Points critiques de la procedure LOTO-42.", false)]
     [InlineData("Tu as une entree precise absente du corpus ?", false)]
     public void ShouldUseScopedProfileFallback_detects_broad_scoped_synthesis_requests(string query, bool expected)
     {
@@ -106,6 +165,197 @@ public sealed class RetrievalRuntimeSwitchTests
     {
         Assert.False(RagEndpoints.ShouldUseScopedProfileFallback("Suggest a complete weekly plan.", hasCategoryFilter: false, mode: "balanced"));
         Assert.False(RagEndpoints.ShouldUseScopedProfileFallback("Suggest a complete weekly plan.", hasCategoryFilter: true, mode: "focused"));
+    }
+
+    [Theory]
+    [InlineData("Fais-moi 5 options pas trop cheres a partir des PDF.", "balanced")]
+    [InlineData("Compare deux procedures proches.", "broad")]
+    [InlineData("Mets les elements avec un mot-cle dans un tableau : nom, source, type.", "balanced")]
+    [InlineData("Reponds en JSON avec des candidats pour un plan vegetarien.", "balanced")]
+    [InlineData("Je dois eviter une contrainte : quels elements semblent risques et lesquels sont plus faciles a adapter ?", "balanced")]
+    [InlineData("Tu peux me faire une vue d'ensemble des documents disponibles, par grands themes ?", "broad")]
+    [InlineData("Tu peux me faire une vue d’ensemble des elements disponibles, par grands themes ?", "broad")]
+    [InlineData("Menu complet utilisant les elements concus pour la sonde X.", "balanced")]
+    [InlineData("Rends le mode A ou le mode B un peu plus robuste sans pretendre que c'est officiel.", "balanced")]
+    [InlineData("Je recois des invites : choisis entre option alpha, option beta, option gamma ou option delta et justifie.", "broad")]
+    [InlineData("Pose-toi 5 questions de verification avant de repondre a une demande ambigue.", "balanced")]
+    [InlineData("Quelles entrees utilisent le produit Alpha et comment les gerer sans le produit Beta ?", "balanced")]
+    [InlineData("Compare les options.", "focused")]
+    [InlineData("Compare \"Mode acces A\" et \"Mode acces B\".", "focused")]
+    [InlineData("Il me faut la tartiflette, ingredients + etapes en version claire.", "focused")]
+    [InlineData("Donne-moi le mode acces A.", "focused")]
+    public void ResolveEffectiveSearchMode_promotes_focused_only_for_broad_intents(string query, string expected)
+    {
+        Assert.Equal(expected, RagEndpoints.ResolveEffectiveSearchMode("focused", query));
+    }
+
+    [Theory]
+    [InlineData("Compare les styles de trois procedures presentes.", "broad", true)]
+    [InlineData("Compare les sauces robotisees : lesquelles sont adaptees a un debutant ?", "broad", true)]
+    [InlineData("Compare les options.", "broad", false)]
+    [InlineData("Quelle procedure choisir pour un deploiement pilote ?", "balanced", false)]
+    [InlineData("Quelle procedure choisir pour l'erreur E42 ?", "balanced", false)]
+    [InlineData("Which valve should I choose for pressure class PN16?", "balanced", false)]
+    [InlineData("Compare \"Mode acces A\" et \"Mode acces B\".", "broad", false)]
+    [InlineData("Donne-moi le mode acces A.", "focused", false)]
+    public void ShouldSkipSparseRetrieverForBroadDiversity_only_skips_unquoted_diversity_queries(
+        string query,
+        string mode,
+        bool expected)
+    {
+        Assert.Equal(expected, RagEndpoints.ShouldSkipSparseRetrieverForBroadDiversity(query, mode));
+    }
+
+    [Theory]
+    [InlineData("Combien de composants pour assembler le kit Alpha ?", "balanced", false)]
+    [InlineData("Calcule les quantites pour 10 lots de module Alpha.", "balanced", false)]
+    [InlineData("Combien de vis M6 pour assembler le kit Alpha ?", "balanced", false)]
+    [InlineData("How many O-rings for pump HPX-2000?", "balanced", false)]
+    [InlineData("Calcule les quantites pour \"Mode acces A\".", "balanced", false)]
+    [InlineData("Combien de composants pour assembler le kit Alpha ?", "focused", false)]
+    public void ShouldSkipSparseRetrieverForQuantityLookup_keeps_lexical_retrieval_for_factual_values(
+        string query,
+        string mode,
+        bool expected)
+    {
+        Assert.Equal(expected, RagEndpoints.ShouldSkipSparseRetrieverForQuantityLookup(query, mode));
+    }
+
+    [Theory]
+    [InlineData("Je veux un dossier avec options adaptees pour 15 personnes.", "balanced", true)]
+    [InlineData("Reponds en JSON avec un tableau de candidats.", "balanced", true)]
+    [InlineData("Traduis les noms et garde les parametres en francais.", "balanced", true)]
+    [InlineData("Tu peux me faire une vue d’ensemble des documents disponibles, par grands themes ?", "balanced", true)]
+    [InlineData("Menu complet utilisant les elements concus pour la sonde X.", "balanced", true)]
+    [InlineData("Rends le mode A ou le mode B un peu plus robuste sans pretendre que c'est officiel.", "balanced", true)]
+    [InlineData("Pose-toi 5 questions de verification avant de repondre a une demande ambigue.", "balanced", true)]
+    [InlineData("Which valve should I choose for pressure class PN16?", "balanced", false)]
+    [InlineData("Quels sont les risques du variateur VX-12 ?", "balanced", false)]
+    [InlineData("Combien de vis M6 pour assembler le kit Alpha ?", "balanced", false)]
+    [InlineData("How many O-rings for pump HPX-2000?", "balanced", false)]
+    [InlineData("Compare \"Mode acces A\" et \"Mode acces B\".", "broad", false)]
+    public void ShouldSkipSparseProfileCardAssist_only_for_unanchored_broad_work(
+        string query,
+        string mode,
+        bool expected)
+    {
+        Assert.Equal(expected, RagEndpoints.ShouldSkipSparseProfileCardAssist(query, mode));
+    }
+
+    [Theory]
+    [InlineData("Je veux un dossier avec options adaptees pour 15 personnes.", "balanced", true)]
+    [InlineData("Reponds en JSON avec un tableau de candidats.", "balanced", true)]
+    [InlineData("Traduis les noms et garde les parametres en francais.", "balanced", true)]
+    [InlineData("Tu peux me faire une vue d’ensemble des documents disponibles, par grands themes ?", "balanced", false)]
+    [InlineData("Menu complet utilisant les elements concus pour la sonde X.", "balanced", true)]
+    [InlineData("Rends le mode A ou le mode B un peu plus robuste sans pretendre que c'est officiel.", "balanced", true)]
+    [InlineData("Pose-toi 5 questions de verification avant de repondre a une demande ambigue.", "balanced", true)]
+    [InlineData("Which valve should I choose for pressure class PN16?", "balanced", false)]
+    [InlineData("Quels sont les risques du variateur VX-12 ?", "balanced", false)]
+    [InlineData("Combien de vis M6 pour assembler le kit Alpha ?", "balanced", false)]
+    [InlineData("How many O-rings for pump HPX-2000?", "balanced", false)]
+    [InlineData("Compare \"Mode acces A\" et \"Mode acces B\".", "broad", false)]
+    public void ShouldSkipDocumentProfileSearchForLowCostBroadQuery_preserves_precise_anchors(
+        string query,
+        string mode,
+        bool expected)
+    {
+        Assert.Equal(expected, RagEndpoints.ShouldSkipDocumentProfileSearchForLowCostBroadQuery(query, mode));
+    }
+
+    [Theory]
+    [InlineData("Est-ce que la sauce aux 4 fromages vient de Chefbot ou Moulinex ?", true)]
+    [InlineData("Tu as la recette du boeuf bourguingnon ?", true)]
+    [InlineData("Donne-moi le one pot pasta brocoli dinde bacon.", true)]
+    [InlineData("Tu peux me faire une fiche claire pour Patatas Bravas : ingredients, etapes, temps et source ?", true)]
+    [InlineData("J'ai des champignons, propose-moi plusieurs options.", false)]
+    [InlineData("Quels documents parlent d'inertage ?", false)]
+    [InlineData("Montre-moi les documents qui parlent d'inertage.", false)]
+    [InlineData("Comment choisir un capteur pour zone dangereuse ?", false)]
+    [InlineData("How should I choose the right sensor from these manuals?", false)]
+    [InlineData("Suggest a complete weekly plan from this category.", false)]
+    [InlineData("Pour la procedure Alpha Beta, quels sont les parametres et le reglage ?", true)]
+    [InlineData("Quels reglages de temperature pour le module Alpha Beta ?", true)]
+    public void ShouldSkipDocumentProfileSearchForPreciseLookup_only_skips_focused_title_requests(string query, bool expected)
+    {
+        Assert.Equal(expected, RagEndpoints.ShouldSkipDocumentProfileSearchForPreciseLookup(query));
+    }
+
+    [Theory]
+    [InlineData("Combien de composants pour assembler le kit Alpha ?", true)]
+    [InlineData("Calcule les quantites pour 10 lots de module Alpha.", true)]
+    [InlineData("Combien de vis M6 pour assembler le kit Alpha ?", false)]
+    [InlineData("How many O-rings for pump HPX-2000?", false)]
+    [InlineData("Combien de documents parlent d'inertage ?", false)]
+    [InlineData("Fais une liste de quantites communes a partir des documents.", false)]
+    public void ShouldSkipDocumentProfileSearchForQuantityLookup_handles_precise_quantity_requests(string query, bool expected)
+    {
+        Assert.Equal(expected, RagEndpoints.ShouldSkipDocumentProfileSearchForQuantityLookup(query));
+    }
+
+    [Fact]
+    public void RebuildSelectedKeys_drops_pruned_matches_from_dedup_state()
+    {
+        var kept = TestMatch(
+            text: "Primary retained content about Alpha.",
+            embedText: "Primary retained content about Alpha.",
+            page: 1) with
+        {
+            ChunkId = "kept"
+        };
+        var pruned = TestMatch(
+            text: "Pruned weak navigation about Alpha.",
+            embedText: "Pruned weak navigation about Alpha.",
+            page: 2) with
+        {
+            ChunkId = "pruned"
+        };
+        var selected = new List<RagMatch> { kept };
+        var selectedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            RagEndpoints.BuildMatchDedupKey(kept),
+            RagEndpoints.BuildMatchDedupKey(pruned)
+        };
+
+        RagEndpoints.RebuildSelectedKeys(selected, selectedKeys);
+
+        Assert.Contains(RagEndpoints.BuildMatchDedupKey(kept), selectedKeys);
+        Assert.DoesNotContain(RagEndpoints.BuildMatchDedupKey(pruned), selectedKeys);
+    }
+
+    [Fact]
+    public void ShouldBackfillFuzzyTitleLead_runs_when_precise_lookup_only_found_navigation()
+    {
+        var navigation = TestMatch(
+            text: "Index des recettes Patatas Bravas 22 Poelee au riz 50.",
+            embedText: "Index des recettes Patatas Bravas 22 Poelee au riz 50.",
+            chunkType: "navigation_index_v1") with
+        {
+            ContentRole = "navigation",
+            NavigationScore = 0.88
+        };
+
+        Assert.True(RagEndpoints.ShouldBackfillFuzzyTitleLead("Donne la recette des patattas bravas.", [navigation]));
+    }
+
+    [Fact]
+    public void ShouldBackfillFuzzyTitleLead_skips_when_content_candidate_exists()
+    {
+        var content = TestMatch(
+            text: "Patatas Bravas ingredients pommes de terre preparation.",
+            embedText: "Patatas Bravas ingredients pommes de terre preparation.");
+
+        Assert.False(RagEndpoints.ShouldBackfillFuzzyTitleLead("Donne la recette des patatas bravas.", [content]));
+    }
+
+    [Fact]
+    public void ShouldBackfillFuzzyTitleLead_runs_when_content_lacks_focused_title_coverage()
+    {
+        var weakContent = TestMatch(
+            text: "Techniques de cuisson du boeuf hache et conservation.",
+            embedText: "Techniques de cuisson du boeuf hache et conservation.");
+
+        Assert.True(RagEndpoints.ShouldBackfillFuzzyTitleLead("Tu as la recette du boeuf bourguingnon ?", [weakContent]));
     }
 
     [Fact]
@@ -968,6 +1218,17 @@ public sealed class RetrievalRuntimeSwitchTests
             "Tu peux me faire une fiche claire pour « Asperges vertes au miel » : ingredients, etapes, temps et source ?"));
     }
 
+    [Theory]
+    [InlineData("Je veux un dossier avec options adaptees pour 15 personnes.")]
+    [InlineData("Je dois animer un atelier avec 12 personnes : quelles fiches choisir ?")]
+    [InlineData("Traduis en anglais les noms mais garde les parametres en francais.")]
+    [InlineData("Compare les styles de trois procedures presentes dans la categorie.")]
+    [InlineData("Combien de composants pour assembler le kit Alpha ?")]
+    public void ShouldSupplementSparseWithLexicalFallback_skips_expensive_unanchored_queries(string query)
+    {
+        Assert.False(RagEndpoints.ShouldSupplementSparseWithLexicalFallback("generic", query));
+    }
+
     [Fact]
     public void CalibrateFusedMatches_boosts_serving_fit_chunks_with_multiple_specific_anchors()
     {
@@ -1555,6 +1816,126 @@ public sealed class RetrievalRuntimeSwitchTests
         RagEndpoints.PruneNavigationalSelections("boeuf bourguignon grandes etapes", selected);
 
         Assert.Equal("recipe", Assert.Single(selected).ChunkId);
+    }
+
+    [Fact]
+    public void SuppressNavigationalNoise_keeps_resolved_title_route_when_target_chunk_looks_mixed_navigation()
+    {
+        var route = TestMatch(
+            text: "P PREPARATION INGREDIENTS 1 botte d'asperges vertes miel. Faire chauffer la poele puis cuire.",
+            embedText: "Matched title_anchor_route: Asperges vertes au miel\nP PREPARATION INGREDIENTS 1 botte d'asperges vertes miel. Faire chauffer la poele puis cuire.",
+            docPath: "Cuisine/Robot.pdf",
+            page: 18,
+            chunkId: "route",
+            embeddingBasis: "title_anchor_route_v1",
+            chunkType: "section_window_v1",
+            score: 1.02) with
+        {
+            ContentRole = "mixed_navigation_content",
+            NavigationScore = 0.69,
+            ContentDensityScore = 0.42
+        };
+        var competingContent = TestMatch(
+            text: "Terrine de legumes aux oeufs. Cassez les oeufs et enfournez.",
+            docPath: "Cuisine/Other.pdf",
+            page: 41,
+            chunkId: "content",
+            score: 0.92);
+
+        var suppressed = RagEndpoints.SuppressNavigationalNoise(
+            "fiche Asperges vertes au miel ingredients etapes temps source",
+            [route, competingContent]);
+
+        Assert.Contains(suppressed, match => match.ChunkId == "route");
+        Assert.True(RagEndpoints.IsResolvedTitleOrNavigationRoute(route));
+    }
+
+    [Fact]
+    public void SuppressNavigationalNoise_removes_navigation_only_matches_for_content_lookup()
+    {
+        var indexOnly = TestMatch(
+            text: "Index Alpha Beta Procedure, 42 Other Procedure, 44",
+            embedText: "Index Alpha Beta Procedure, 42 Other Procedure, 44",
+            docPath: "Ops/Manual.pdf",
+            page: 99,
+            chunkId: "index",
+            embeddingBasis: "sparse_bm25_v1",
+            chunkType: "navigation_index_v1",
+            score: 0.72) with
+        {
+            ContentRole = "navigation",
+            NavigationReason = "explicit_index_marker",
+            NavigationScore = 0.88,
+            ContentDensityScore = 0.20
+        };
+
+        var suppressed = RagEndpoints.SuppressNavigationalNoise(
+            "Donne la procedure Alpha Beta.",
+            [indexOnly]);
+
+        Assert.Empty(suppressed);
+    }
+
+    [Fact]
+    public void PruneNavigationalSelections_keeps_resolved_navigation_route_after_selection()
+    {
+        var route = TestMatch(
+            text: "Alpha Beta Procedure. The destination page contains the procedure body but still has index-like extraction noise.",
+            embedText: "Matched navigation_route: Alpha Beta Procedure\nAlpha Beta Procedure. The destination page contains the procedure body but still has index-like extraction noise.",
+            docPath: "Ops/Manual.pdf",
+            page: 12,
+            chunkId: "route",
+            embeddingBasis: "navigation_route_v1",
+            chunkType: "navigation_index_v1",
+            score: 1.02) with
+        {
+            ContentRole = "navigation",
+            NavigationScore = 0.90,
+            ContentDensityScore = 0.20
+        };
+        var content = TestMatch(
+            text: "Other content candidate with enough body text to make pruning active.",
+            docPath: "Ops/Other.pdf",
+            page: 2,
+            chunkId: "content",
+            score: 0.80);
+        var selected = new List<RagMatch> { route, content };
+
+        RagEndpoints.PruneNavigationalSelections("Alpha Beta Procedure", selected);
+
+        Assert.Contains(selected, match => match.ChunkId == "route");
+        Assert.Contains(selected, match => match.ChunkId == "content");
+    }
+
+    [Fact]
+    public void PruneNavigationalSelections_removes_unconfirmed_navigation_route_after_selection()
+    {
+        var route = TestMatch(
+            text: "The destination page contains operational details but not the requested title.",
+            embedText: "Matched navigation_route: Alpha Beta Procedure\nThe destination page contains operational details but not the requested title.",
+            docPath: "Ops/Manual.pdf",
+            page: 12,
+            chunkId: "route",
+            embeddingBasis: "navigation_route_v1",
+            chunkType: "navigation_index_v1",
+            score: 1.02) with
+        {
+            ContentRole = "navigation",
+            NavigationScore = 0.90,
+            ContentDensityScore = 0.20
+        };
+        var content = TestMatch(
+            text: "Other content candidate with enough body text to make pruning active.",
+            docPath: "Ops/Other.pdf",
+            page: 2,
+            chunkId: "content",
+            score: 0.80);
+        var selected = new List<RagMatch> { route, content };
+
+        RagEndpoints.PruneNavigationalSelections("Alpha Beta Procedure", selected);
+
+        Assert.DoesNotContain(selected, match => match.ChunkId == "route");
+        Assert.Contains(selected, match => match.ChunkId == "content");
     }
 
     [Fact]
@@ -2771,6 +3152,68 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void PruneUnmatchedPreciseTitleSelections_keeps_minor_typo_title_match()
+    {
+        var selected = new List<RagMatch>
+        {
+            TestMatch(
+                text: "Mixing valve Components pressure temperature calibration.",
+                embedText: "Matched title_anchor_route: Mixing Valve\nMixing valve Components pressure temperature calibration."),
+            TestMatch(
+                text: "Safety valve unrelated pressure relief notes.",
+                embedText: "Safety valve unrelated pressure relief notes.",
+                page: 8,
+                chunkId: "chunk-tail")
+        };
+
+        RagEndpoints.PruneUnmatchedPreciseTitleSelections("fiche mixxing valve", selected);
+
+        var remaining = Assert.Single(selected);
+        Assert.Contains("Mixing valve", remaining.Text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void PruneUnmatchedPreciseTitleSelections_keeps_exact_short_recipe_title_tokens()
+    {
+        var selected = new List<RagMatch>
+        {
+            TestMatch(
+                text: "One pot pasta with turkey and bacon. Ingredients pasta broccoli turkey bacon.",
+                embedText: "Matched title_anchor_route: DINDE ET BACON\nOne pot pasta with turkey and bacon. Ingredients pasta broccoli turkey bacon."),
+            TestMatch(
+                text: "Broccoli noodles with sesame sauce and minced meat.",
+                embedText: "Broccoli noodles with sesame sauce and minced meat.",
+                page: 8,
+                chunkId: "chunk-tail")
+        };
+
+        RagEndpoints.PruneUnmatchedPreciseTitleSelections("one pot pasta brocoli dinde bacon", selected);
+
+        Assert.Contains(selected, match => match.Text?.Contains("bacon", StringComparison.OrdinalIgnoreCase) == true);
+    }
+
+    [Fact]
+    public void PruneUnmatchedPreciseTitleSelections_keeps_numeric_title_anchor()
+    {
+        var selected = new List<RagMatch>
+        {
+            TestMatch(
+                text: "SAUCE AUX 4 FROMAGES Temps total 10 min creme fromages preparation.",
+                embedText: "Matched profile title: SAUCE AUX 4 FROMAGES\nSAUCE AUX 4 FROMAGES Temps total 10 min creme fromages preparation."),
+            TestMatch(
+                text: "Sauce tomate fromages et creme, sans titre numerique.",
+                embedText: "Sauce tomate fromages et creme.",
+                page: 8,
+                chunkId: "chunk-tail")
+        };
+
+        RagEndpoints.PruneUnmatchedPreciseTitleSelections("SAUCE AUX 4 FROMAGES", selected);
+
+        var remaining = Assert.Single(selected);
+        Assert.Contains("4 FROMAGES", remaining.Text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void PruneUnmatchedPreciseTitleSelections_does_not_apply_to_open_advice_queries()
     {
         var selected = new List<RagMatch>
@@ -2925,8 +3368,8 @@ public sealed class RetrievalRuntimeSwitchTests
             chunkType: "section_window_v1",
             score: 1.02);
         var navigationRoute = TestMatch(
-            text: "This page has the operational details but the title is only in the source navigation.",
-            embedText: "Matched navigation_route: Alpha Beta\nThis page has the operational details but the title is only in the source navigation.",
+            text: "Alpha Beta. This page has the operational details and confirms the title from navigation.",
+            embedText: "Matched navigation_route: Alpha Beta\nAlpha Beta. This page has the operational details and confirms the title from navigation.",
             chunkId: "navigation-route",
             embeddingBasis: "navigation_route_v1",
             chunkType: "section_window_v1",
@@ -2935,6 +3378,152 @@ public sealed class RetrievalRuntimeSwitchTests
         var calibrated = RagEndpoints.CalibrateFusedMatches("alpha beta", [looseOverlap, navigationRoute]);
 
         Assert.Equal("navigation-route", calibrated[0].ChunkId);
+    }
+
+    [Fact]
+    public void ComputeExactTitleCandidateScore_ignores_unconfirmed_navigation_route_label()
+    {
+        var unconfirmedNavigationRoute = TestMatch(
+            text: "This page has operational details but the requested title is only present in the source navigation.",
+            embedText: "Matched navigation_route: Alpha Beta\nThis page has operational details but the requested title is only present in the source navigation.",
+            chunkId: "navigation-route",
+            embeddingBasis: "navigation_route_v1",
+            chunkType: "section_window_v1",
+            score: 0.86);
+        var confirmedNavigationRoute = unconfirmedNavigationRoute with
+        {
+            ChunkId = "confirmed-navigation-route",
+            Text = "Alpha Beta. This page has operational details.",
+            EmbedText = "Matched navigation_route: Alpha Beta\nAlpha Beta. This page has operational details."
+        };
+
+        Assert.False(RagEndpoints.HasProfileTitleHint(unconfirmedNavigationRoute));
+        Assert.True(RagEndpoints.HasProfileTitleHint(confirmedNavigationRoute));
+        Assert.Equal(0.0, RagEndpoints.ComputeExactTitleCandidateScore("alpha beta", unconfirmedNavigationRoute));
+        Assert.True(RagEndpoints.ComputeExactTitleCandidateScore("alpha beta", confirmedNavigationRoute) > 0.0);
+    }
+
+    [Theory]
+    [InlineData(2, 2)]
+    [InlineData(3, 3)]
+    [InlineData(5, 3)]
+    [InlineData(6, 4)]
+    public void ResolveDirectTitleTokenRouteMinimumOverlap_requires_strong_title_coverage(
+        int tokenCount,
+        int expected)
+    {
+        Assert.Equal(expected, RagEndpoints.ResolveDirectTitleTokenRouteMinimumOverlap(tokenCount));
+    }
+
+    [Fact]
+    public void CalibrateFusedMatches_prefers_direct_title_token_route_over_partial_sparse_overlap()
+    {
+        var partialSparse = TestMatch(
+            text: "Broccoli noodles with a bacon garnish and unrelated notes.",
+            embedText: "Broccoli noodles with a bacon garnish and unrelated notes.",
+            page: 8,
+            chunkId: "partial-sparse",
+            embeddingBasis: "sparse_bm25_v1",
+            score: 0.96);
+        var directRoute = TestMatch(
+            text: "ONE POT PASTA BROCOLI DINDE ET BACONPLATS PRINCIPAUX. Ingredients: pasta, broccoli, cooked turkey and bacon.",
+            embedText: "Matched direct_title_token_route: ONE POT PASTA BROCOLI DINDE ET BACON\nONE POT PASTA BROCOLI DINDE ET BACONPLATS PRINCIPAUX. Ingredients: pasta, broccoli, cooked turkey and bacon.",
+            page: 44,
+            chunkId: "direct-route",
+            embeddingBasis: "direct_title_token_route_v1",
+            chunkType: "unit_exact_v1",
+            score: 0.88);
+
+        var calibrated = RagEndpoints.CalibrateFusedMatches(
+            "one pot pasta brocoli dinde bacon",
+            [partialSparse, directRoute]);
+
+        Assert.Equal("direct-route", calibrated[0].ChunkId);
+        Assert.True(RagEndpoints.IsResolvedTitleOrNavigationRoute(calibrated[0]));
+    }
+
+    [Fact]
+    public void ResolveRetriever_maps_fuzzy_title_lead_separately_from_dense_qdrant()
+    {
+        var fuzzy = TestMatch(
+            text: "Alpha beta target body.",
+            embedText: "Matched fuzzy_title_lead: Alpha Beta\nAlpha beta target body.",
+            embeddingBasis: "fuzzy_title_lead_v1",
+            chunkType: "section_window_v1");
+
+        Assert.Equal("fuzzy_title_lead", RagEndpoints.ResolveRetriever(fuzzy));
+        Assert.True(RagEndpoints.IsResolvedTitleOrNavigationRoute(fuzzy));
+    }
+
+    [Fact]
+    public void CalibrateFusedMatches_prefers_document_hint_match_for_homonymous_titles()
+    {
+        var otherBook = TestMatch(
+            text: "Coq au vin ingredients and steps from a generic recipe book.",
+            docPath: "Cuisine/chefbot_livre_de_recettes_fr.pdf",
+            chunkId: "other-book",
+            embeddingBasis: "dense_qdrant_v1",
+            score: 0.72);
+        var hintedBook = TestMatch(
+            text: "Coq au vin ingredients and steps from the international collection.",
+            docPath: "Cuisine/nobilia-recettes-internationales-FR.pdf",
+            chunkId: "hinted-book",
+            embeddingBasis: "sparse_bm25_v1",
+            score: 0.62);
+
+        var calibrated = RagEndpoints.CalibrateFusedMatches(
+            "coq au vin",
+            [otherBook, hintedBook],
+            "Donne-moi la recette du coq au vin dans le livre international.");
+
+        Assert.Equal("hinted-book", calibrated[0].ChunkId);
+    }
+
+    [Fact]
+    public void OrderMatchesForSelection_prioritizes_resolved_title_routes_before_neighboring_sparse_chunks()
+    {
+        var sparseChunk = TestMatch(
+            text: "Ingredients and steps mention asparagus, honey and walnuts but the title was on the previous page.",
+            embedText: "Ingredients and steps mention asparagus, honey and walnuts but the title was on the previous page.",
+            chunkId: "sparse-neighbor",
+            embeddingBasis: "sparse_bm25_v1",
+            chunkType: "unit_exact_v1",
+            score: 1.02);
+        var titleRoute = TestMatch(
+            text: "Ingredients and steps mention asparagus, honey and walnuts but the title was on the previous page.",
+            embedText: "Matched title_anchor_route: Green asparagus with honey\nIngredients and steps mention asparagus, honey and walnuts.",
+            chunkId: "title-route",
+            embeddingBasis: "title_anchor_route_v1",
+            chunkType: "section_window_v1",
+            score: 0.91);
+
+        var ordered = RagEndpoints.OrderMatchesForSelection([sparseChunk, titleRoute], prioritizeDocumentProfiles: false);
+
+        Assert.Equal("title-route", ordered[0].ChunkId);
+        Assert.True(RagEndpoints.IsResolvedTitleOrNavigationRoute(ordered[0]));
+    }
+
+    [Fact]
+    public void OrderMatchesForSelection_keeps_resolved_routes_first_when_document_diversity_is_active()
+    {
+        var sparseChunk = TestMatch(
+            text: "A different page in the same document mentions honey but not the requested title.",
+            embedText: "A different page in the same document mentions honey but not the requested title.",
+            chunkId: "sparse-same-doc",
+            embeddingBasis: "sparse_bm25_v1",
+            chunkType: "unit_exact_v1",
+            score: 1.02);
+        var titleRoute = TestMatch(
+            text: "The routed page contains the concrete procedure.",
+            embedText: "Matched title_anchor_route: Green asparagus with honey\nThe routed page contains the concrete procedure.",
+            chunkId: "title-route",
+            embeddingBasis: "title_anchor_route_v1",
+            chunkType: "section_window_v1",
+            score: 0.91);
+
+        var ordered = RagEndpoints.OrderMatchesForSelection([sparseChunk, titleRoute], prioritizeDocumentProfiles: true);
+
+        Assert.Equal("title-route", ordered[0].ChunkId);
     }
 
     [Fact]

@@ -3016,6 +3016,186 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
+    public async Task SearchLinkedMatchesAsync_accepts_direct_title_token_route_anchor_for_same_page_expansion()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("4444aaaa-7777-1111-1111-222222222222");
+        var docId = Guid.Parse("5555bbbb-8888-2222-2222-333333333333");
+        var jobId = Guid.Parse("6666cccc-9999-3333-3333-444444444444");
+        const string docPath = "ATEX/DirectRouteLinkedContext.pdf";
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 6, indexedVersion: 5);
+
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, "alpha beta target body follow up detail", 6, 39, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Procedure", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, "alpha beta target body", 10, 4, [2]),
+            new ExtractedDocumentUnit(1, 0, 1, 1, "follow up detail", 11, 3, [3])
+        };
+        var retrievalChunks = new[]
+        {
+            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "alpha beta target body", 4, [4], "unit_exact_v1"),
+            new ProjectedRetrievalChunk(1, 0, 1, 1, 1, "follow up detail", 3, [5], "section_window_v1")
+        };
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        Assert.True(await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            jobId,
+            docPath,
+            [8, 8, 8],
+            70,
+            DateTime.UtcNow,
+            6,
+            pages,
+            sections,
+            units,
+            retrievalChunks,
+            exactMatchEntries: [],
+            contextualTextEntries: [],
+            CancellationToken.None));
+
+        var routeAnchor = new RagMatch(
+            Score: 0.91,
+            DocId: docId.ToString(),
+            DocPath: docPath,
+            DocName: "DirectRouteLinkedContext.pdf",
+            PageStart: 1,
+            PageEnd: 1,
+            ChunkId: DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 6, 0).ToString(),
+            ChunkIndex: 0,
+            Text: "alpha beta target body",
+            IngestionVersion: 6,
+            HashDoc: "hash",
+            EmbedText: "Matched direct_title_token_route: alpha beta target\nalpha beta target body",
+            EmbeddingBasis: "direct_title_token_route_v1",
+            SectionOrdinal: 0,
+            UnitOrdinal: 0,
+            SectionTitle: "Procedure",
+            HeadingPath: "Procedure",
+            ChunkType: "unit_exact_v1",
+            PrevChunkId: null,
+            NextChunkId: DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 6, 1).ToString(),
+            SameSectionChunkId: DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 6, 1).ToString());
+
+        var linkedMatches = await RagEndpoints.SearchLinkedMatchesAsync(
+            ds,
+            tenantId,
+            [routeAnchor],
+            category: "atex",
+            docId: docId.ToString(),
+            docPath: docPath,
+            topK: 3,
+            CancellationToken.None);
+
+        var linked = Assert.Single(linkedMatches, item => item.ChunkId == DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 6, 1).ToString());
+        Assert.Equal("linked_context_v1", linked.EmbeddingBasis);
+        Assert.Equal("section_window_v1", linked.ChunkType);
+        Assert.True(linked.Score < routeAnchor.Score);
+    }
+
+    [Fact]
+    public async Task SearchTitleAnchorRouteMatchesAsync_direct_route_handles_accents_and_ignores_navigation_chunks()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("1212aaaa-7777-1111-1111-222222222222");
+        var docId = Guid.Parse("3434bbbb-8888-2222-2222-333333333333");
+        var jobId = Guid.Parse("5656cccc-9999-3333-3333-444444444444");
+        const string docPath = "ATEX/AccentRoute.pdf";
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 7, indexedVersion: 6);
+
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, "ÉPICE DOUCE index entry ÉPICE DOUCE operating details", 7, 54, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Procedure", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, "ÉPICE DOUCE index entry", 10, 4, [2]),
+            new ExtractedDocumentUnit(1, 0, 1, 1, "ÉPICE DOUCE operating details", 11, 4, [3])
+        };
+        var retrievalChunks = new[]
+        {
+            new ProjectedRetrievalChunk(
+                0,
+                0,
+                0,
+                1,
+                1,
+                "ÉPICE DOUCE index entry",
+                4,
+                [4],
+                "navigation_index_v1",
+                ContentRole: "navigation",
+                NavigationReason: "explicit_index_marker",
+                NavigationScore: 0.95,
+                ContentDensityScore: 0.10),
+            new ProjectedRetrievalChunk(
+                1,
+                0,
+                1,
+                1,
+                1,
+                "ÉPICE DOUCE operating details and concrete execution steps.",
+                7,
+                [5],
+                "unit_exact_v1",
+                ContentDensityScore: 0.70)
+        };
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        Assert.True(await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            jobId,
+            docPath,
+            [9, 8, 7],
+            80,
+            DateTime.UtcNow,
+            7,
+            pages,
+            sections,
+            units,
+            retrievalChunks,
+            exactMatchEntries: [],
+            contextualTextEntries: [],
+            CancellationToken.None));
+
+        var matches = await RagEndpoints.SearchTitleAnchorRouteMatchesAsync(
+            ds,
+            tenantId,
+            "Donne-moi le epice douce.",
+            category: "atex",
+            docId: docId.ToString(),
+            docPath: docPath,
+            topK: 5,
+            CancellationToken.None);
+
+        var match = Assert.Single(matches);
+        Assert.Equal(DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 7, 1).ToString(), match.ChunkId);
+        Assert.Equal("direct_title_token_route_v1", match.EmbeddingBasis);
+        Assert.Equal("direct_title_token_route", RagEndpoints.ResolveRetriever(match));
+    }
+
+    [Fact]
     public async Task SearchLinkedMatchesAsync_returns_enriched_results_and_accepts_linked_context_anchor()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();

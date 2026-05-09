@@ -83,8 +83,8 @@ services:
       Ingestion__OcrArguments: ${SAAIA_OCR_ARGUMENTS:-}
       Ingestion__OcrForceArguments: ${SAAIA_OCR_FORCE_ARGUMENTS:-}
       Ingestion__OcrLanguages: ${SAAIA_OCR_LANGUAGES:-auto}
-      Ingestion__OcrAutoFallbackLanguages: ${SAAIA_OCR_AUTO_FALLBACK_LANGUAGES:-fra+eng+deu+ita}
-      Ingestion__OcrMaxLanguages: ${SAAIA_OCR_MAX_LANGUAGES:-4}
+      Ingestion__OcrAutoFallbackLanguages: ${SAAIA_OCR_AUTO_FALLBACK_LANGUAGES:-fra+eng+deu+ita+spa}
+      Ingestion__OcrMaxLanguages: ${SAAIA_OCR_MAX_LANGUAGES:-5}
       Ingestion__OcrAutoDetectLanguages: ${SAAIA_OCR_AUTO_DETECT_LANGUAGES:-true}
       Ingestion__OcrTimeoutSeconds: ${SAAIA_OCR_TIMEOUT_SECONDS:-900}
       Ingestion__OcrMinWords: ${SAAIA_OCR_MIN_WORDS:-5}

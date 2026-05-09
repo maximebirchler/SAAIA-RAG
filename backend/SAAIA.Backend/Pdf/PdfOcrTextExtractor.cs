@@ -11,7 +11,8 @@ internal static class PdfOcrTextExtractor
     {
         None,
         Label,
-        Code
+        Code,
+        Heading
     }
 
     private static readonly HashSet<string> ImportantShortOcrLabels = new(StringComparer.OrdinalIgnoreCase)
@@ -1135,6 +1136,16 @@ internal static class PdfOcrTextExtractor
             selected.Add("eng");
         }
 
+        foreach (var language in configuredLanguages.Select(NormalizeConfiguredOcrLanguage))
+        {
+            if (selected.Count >= configured.Count)
+                break;
+            if (!installed.Contains(language) || selected.Contains(language, StringComparer.OrdinalIgnoreCase))
+                continue;
+
+            selected.Add(language);
+        }
+
         return selected;
     }
 
@@ -1441,6 +1452,8 @@ internal static class PdfOcrTextExtractor
             return ShortOcrLineKind.Label;
         if (IsShortReferenceCode(tokens) || IsSingleCompactCode(tokens))
             return ShortOcrLineKind.Code;
+        if (IsShortTitleLikeLine(line, tokens))
+            return ShortOcrLineKind.Heading;
 
         return ShortOcrLineKind.None;
     }
@@ -1451,7 +1464,7 @@ internal static class PdfOcrTextExtractor
         {
             if (char.IsLetterOrDigit(ch) || char.IsWhiteSpace(ch))
                 continue;
-            if (ch is '-' or '/' or '.' or '_' or '+' or ':')
+            if (ch is '-' or '/' or '.' or '_' or '+' or ':' or '\'' or '\u2019' or '\uFFFD')
                 continue;
 
             return false;
@@ -1538,6 +1551,48 @@ internal static class PdfOcrTextExtractor
         return token.Count(char.IsLetter) >= 2 && token.Count(char.IsDigit) >= 2;
     }
 
+    private static bool IsShortTitleLikeLine(string line, IReadOnlyList<string> tokens)
+    {
+        if (tokens.Count < 2 || tokens.Count > 5)
+            return false;
+        if (tokens.Any(static token => token.Any(static ch => !char.IsLetter(ch))))
+            return false;
+
+        var letterCount = tokens.Sum(static token => token.Length);
+        if (letterCount < 7)
+            return false;
+
+        var strongTokenCount = tokens.Count(static token => token.Length >= 3);
+        if (strongTokenCount < 2 && !tokens.Any(static token => token.Length >= 5))
+            return false;
+
+        return HasTitleLikeOcrCasing(line, tokens);
+    }
+
+    private static bool HasTitleLikeOcrCasing(string line, IReadOnlyList<string> tokens)
+    {
+        var letters = line.Where(char.IsLetter).ToArray();
+        if (letters.Length == 0)
+            return false;
+
+        var upperLetters = letters.Count(char.IsUpper);
+        if (upperLetters == letters.Length)
+            return true;
+
+        var casedTokenCount = 0;
+        foreach (var token in tokens)
+        {
+            if (token.Length <= 2)
+                continue;
+
+            var firstLetter = token.FirstOrDefault(char.IsLetter);
+            if (firstLetter != default && char.IsUpper(firstLetter))
+                casedTokenCount++;
+        }
+
+        return casedTokenCount >= Math.Min(2, tokens.Count(static token => token.Length > 2));
+    }
+
     private static bool IsUpperAlphaToken(string token, int minLength, int maxLength)
         => token.Length >= minLength
             && token.Length <= maxLength
@@ -1576,6 +1631,9 @@ internal static class PdfOcrTextExtractor
         string compact,
         ShortOcrLineKind shortLineKind)
     {
+        if (shortLineKind == ShortOcrLineKind.Heading)
+            return false;
+
         if (shortLineKind != ShortOcrLineKind.Label)
             return nativeCompact.Contains(compact, StringComparison.Ordinal);
 

@@ -204,6 +204,7 @@ public sealed record RagMetricsDto(
     IReadOnlyDictionary<string, string>? DegradedRetrieverErrors = null,
     long? ExactMs = null,
     long? QuotedTitleMs = null,
+    long? TitleAnchorRouteMs = null,
     long? SparsePhaseMs = null,
     long? DenseMs = null,
     long? ProfileMs = null,

@@ -18,6 +18,8 @@ namespace SAAIA.Backend.Endpoints;
 public static class RagEndpoints
 {
     internal const double NavigationRouteMinimumConfidence = 0.699;
+    internal const double FuzzyTitleSimilarityMinimum = 0.68;
+    internal const double FuzzyTitleLeadSimilarityMinimum = 0.66;
 
     public static void Map(WebApplication app)
     {
@@ -170,6 +172,7 @@ ORDER BY display_order, name;
                 DegradedRetrieverErrors: resp.DegradedRetrieverErrors,
                 ExactMs: resp.Timings.ExactMs,
                 QuotedTitleMs: resp.Timings.QuotedTitleMs,
+                TitleAnchorRouteMs: resp.Timings.TitleAnchorRouteMs,
                 SparsePhaseMs: resp.Timings.SparsePhaseMs,
                 DenseMs: resp.Timings.DenseMs,
                 ProfileMs: resp.Timings.ProfileMs,
@@ -1345,6 +1348,11 @@ ORDER BY d.doc_path;
         var hasDocScope = !string.IsNullOrWhiteSpace(req.DocId) || !string.IsNullOrWhiteSpace(req.DocPath);
         var skipChunkRetrieversForDocumentOverview = ShouldSkipChunkRetrieversForDocumentOverview(req.Query, hasDocScope, mode);
         var useScopedProfileFallback = !hasDocScope && ShouldUseScopedProfileFallback(req.Query, hasCategoryFilter, mode);
+        var skipSparseRetrieverForBroadDiversity = !hasDocScope
+            && (ShouldSkipSparseRetrieverForBroadDiversity(req.Query, mode)
+                || ShouldSkipSparseRetrieverForQuantityLookup(req.Query, mode));
+        var skipSparseProfileCardAssist = !hasDocScope
+            && ShouldSkipSparseProfileCardAssist(req.Query, mode);
         var requireDocumentOverviewProfileMatch = skipChunkRetrieversForDocumentOverview
             && ShouldRequireDocumentOverviewProfileMatch(req.Query);
         using var searchActivity = RetrievalTelemetry.StartSearchActivity(mode, hasCategoryFilter, hasDocScope, topK, candidates, req.Query);
@@ -1424,8 +1432,6 @@ ORDER BY d.doc_path;
         }
         else
         {
-            AddRankedMatches(selected, selectedKeys, quotedTitleMatches, topK, minScore: 0.0, maxPerDoc, Math.Max(maxPerPage, 2));
-
             Task<(List<RagMatch> Result, long DurationMs)> titleAnchorRouteMatchesTask = skipChunkRetrieversForDocumentOverview || useScopedProfileFallback
                 ? Task.FromResult((new List<RagMatch>(), 0L))
                 : MeasurePhaseAsync(
@@ -1443,7 +1449,7 @@ ORDER BY d.doc_path;
                         categoryPath,
                         degradedRetrieverRef: MarkRetrieverDegraded),
                     getReturnedCount: static matches => matches.Count);
-            Task<(List<RagMatch> Result, long DurationMs)> sparseMatchesTask = skipChunkRetrieversForDocumentOverview || useScopedProfileFallback
+            Task<(List<RagMatch> Result, long DurationMs)> sparseMatchesTask = skipChunkRetrieversForDocumentOverview || useScopedProfileFallback || skipSparseRetrieverForBroadDiversity
                 ? Task.FromResult((new List<RagMatch>(), 0L))
                 : MeasurePhaseAsync(
                     phaseName: "retrieval_sparse",
@@ -1460,6 +1466,7 @@ ORDER BY d.doc_path;
                         sparseMsRef: value => sparseMs = value,
                         lexicalExpansionQuery: retrievalQuery,
                         categoryPath: categoryPath,
+                        includeProfileCardMatches: !skipSparseProfileCardAssist,
                         degradedRetrieverRef: MarkRetrieverDegraded),
                     getReturnedCount: static matches => matches.Count);
             Task<(List<RagMatch> Result, long DurationMs)> denseMatchesTask = skipChunkRetrieversForDocumentOverview || useScopedProfileFallback
@@ -1483,34 +1490,45 @@ ORDER BY d.doc_path;
                         qdrantStatusRef: value => qdrantStatus = value,
                         categoryPath: categoryPath),
                     getReturnedCount: static matches => matches.Count);
-            var profileMatchesTask = MeasurePhaseAsync(
-                phaseName: "retrieval_document_profile",
-                retriever: "document_profile",
-                action: () => skipChunkRetrieversForDocumentOverview || useScopedProfileFallback
-                    ? SearchDocumentOverviewProfileMatchesAsync(
-                        ds,
-                        tenantId,
-                        retrievalQuery,
-                        category,
-                        req.DocId,
-                        req.DocPath,
-                        Math.Min(candidates, Math.Max(topK, 12)),
-                        ct,
-                        categoryPath,
-                        requireDocumentOverviewProfileMatch,
-                        degradedRetrieverRef: MarkRetrieverDegraded)
-                    : SearchDocumentProfileMatchesAsync(
-                        ds,
-                        tenantId,
-                        retrievalQuery,
-                        category,
-                        req.DocId,
-                        req.DocPath,
-                        Math.Min(candidates, Math.Max(topK, 12)),
-                        ct,
-                        categoryPath,
-                        degradedRetrieverRef: MarkRetrieverDegraded),
-                getReturnedCount: static matches => matches.Count);
+            var skipDocumentProfileSearchForPreciseLookup =
+                !skipChunkRetrieversForDocumentOverview
+                && !useScopedProfileFallback
+                && (ShouldSkipDocumentProfileSearchForPreciseLookup(req.Query)
+                    || ShouldSkipDocumentProfileSearchForComparativeLookup(req.Query));
+            Task<(List<RagMatch> Result, long DurationMs)> profileMatchesTask = skipDocumentProfileSearchForPreciseLookup
+                || ShouldSkipDocumentProfileSearchForQuantityLookup(req.Query)
+                || (!skipChunkRetrieversForDocumentOverview
+                    && !useScopedProfileFallback
+                    && ShouldSkipDocumentProfileSearchForLowCostBroadQuery(req.Query, mode))
+                ? Task.FromResult((new List<RagMatch>(), 0L))
+                : MeasurePhaseAsync(
+                    phaseName: "retrieval_document_profile",
+                    retriever: "document_profile",
+                    action: () => skipChunkRetrieversForDocumentOverview || useScopedProfileFallback
+                        ? SearchDocumentOverviewProfileMatchesAsync(
+                            ds,
+                            tenantId,
+                            retrievalQuery,
+                            category,
+                            req.DocId,
+                            req.DocPath,
+                            Math.Min(candidates, Math.Max(topK, 12)),
+                            ct,
+                            categoryPath,
+                            requireDocumentOverviewProfileMatch,
+                            degradedRetrieverRef: MarkRetrieverDegraded)
+                        : SearchDocumentProfileMatchesAsync(
+                            ds,
+                            tenantId,
+                            retrievalQuery,
+                            category,
+                            req.DocId,
+                            req.DocPath,
+                            Math.Min(candidates, Math.Max(topK, 12)),
+                            ct,
+                            categoryPath,
+                            degradedRetrieverRef: MarkRetrieverDegraded),
+                    getReturnedCount: static matches => matches.Count);
 
             await Task.WhenAll(titleAnchorRouteMatchesTask, sparseMatchesTask, denseMatchesTask, profileMatchesTask);
 
@@ -1524,7 +1542,10 @@ ORDER BY d.doc_path;
             profilePhaseMs = measuredProfilePhaseMs;
 
             var fusionSw = Stopwatch.StartNew();
-            var fusedMatches = FuseWithRrf(exactMatches, sparseMatches, denseMatches, profileMatches, titleAnchorRouteMatches);
+            var exactAndQuotedMatches = quotedTitleMatches.Count == 0
+                ? exactMatches
+                : exactMatches.Concat(quotedTitleMatches).ToList();
+            var fusedMatches = FuseWithRrf(exactAndQuotedMatches, sparseMatches, denseMatches, profileMatches, titleAnchorRouteMatches);
             fusedMatches = CalibrateFusedMatches(retrievalQuery, fusedMatches, req.Query);
             fusedMatches = SuppressNavigationalNoise(req.Query, fusedMatches);
             var suppressUnanchoredSpecificResults = !useScopedProfileFallback && ShouldSuppressUnanchoredSpecificResults(retrievalQuery, fusedMatches);
@@ -1642,8 +1663,52 @@ ORDER BY d.doc_path;
         PruneNavigationalSelections(req.Query, selected);
         if (!skipChunkRetrieversForDocumentOverview)
             ApplyAutocut(selected, minScore);
+        RebuildSelectedKeys(selected, selectedKeys);
         finalSelectionSw.Stop();
         selectionMs += finalSelectionSw.ElapsedMilliseconds;
+
+        if (!skipChunkRetrieversForDocumentOverview
+            && ShouldBackfillFuzzyTitleLead(req.Query, selected))
+        {
+            var focusedFuzzyQuery = BuildFocusedLexicalBackfillQuery(req.Query);
+            if (!string.IsNullOrWhiteSpace(focusedFuzzyQuery))
+            {
+                var (fuzzyTitleLeadMatches, fuzzyTitleLeadMs) = await MeasurePhaseAsync(
+                    phaseName: "retrieval_fuzzy_title_lead",
+                    retriever: "fuzzy_title_lead",
+                    action: () => SearchFuzzyTitleLeadMatchesAsync(
+                        ds,
+                        tenantId,
+                        focusedFuzzyQuery,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        Math.Max(topK, 8),
+                        ct,
+                        categoryPath,
+                        degradedRetrieverRef: MarkRetrieverDegraded),
+                    getReturnedCount: static matches => matches.Count);
+                sparsePhaseMs += fuzzyTitleLeadMs;
+
+                var calibratedFuzzyMatches = CalibrateFusedMatches(focusedFuzzyQuery, fuzzyTitleLeadMatches, req.Query);
+                calibratedFuzzyMatches = SuppressNavigationalNoise(req.Query, calibratedFuzzyMatches);
+                var selectionSw = Stopwatch.StartNew();
+                AddRankedMatches(
+                    selected,
+                    selectedKeys,
+                    calibratedFuzzyMatches,
+                    topK,
+                    minScore: 0.0,
+                    maxPerDoc,
+                    Math.Max(maxPerPage, 2));
+                PruneNavigationalSelections(req.Query, selected);
+                if (!skipChunkRetrieversForDocumentOverview)
+                    ApplyAutocut(selected, minScore);
+                RebuildSelectedKeys(selected, selectedKeys);
+                selectionSw.Stop();
+                selectionMs += selectionSw.ElapsedMilliseconds;
+            }
+        }
 
         if (!skipChunkRetrieversForDocumentOverview
             && ShouldBackfillEnumerativeSearch(req.Query, selected.Count, topK))
@@ -1667,6 +1732,7 @@ ORDER BY d.doc_path;
                         sparseMsRef: value => sparseMs += value,
                         lexicalExpansionQuery: focusedLexicalQuery,
                         categoryPath: categoryPath,
+                        includeProfileCardMatches: false,
                         degradedRetrieverRef: MarkRetrieverDegraded),
                     getReturnedCount: static matches => matches.Count);
                 sparsePhaseMs += backfillDurationMs;
@@ -1683,6 +1749,7 @@ ORDER BY d.doc_path;
                     maxPerDoc,
                     Math.Max(maxPerPage, 2));
                 PruneNavigationalSelections(req.Query, selected);
+                RebuildSelectedKeys(selected, selectedKeys);
                 selectionSw.Stop();
                 selectionMs += selectionSw.ElapsedMilliseconds;
             }
@@ -1744,7 +1811,8 @@ ORDER BY d.doc_path;
                 QdrantMs: qdrantMs,
                 ExactMs: exactMs,
                 QuotedTitleMs: quotedTitleMs,
-                SparsePhaseMs: sparsePhaseMs + titleAnchorRoutePhaseMs,
+                TitleAnchorRouteMs: titleAnchorRoutePhaseMs,
+                SparsePhaseMs: sparsePhaseMs,
                 DenseMs: densePhaseMs,
                 ProfileMs: profilePhaseMs,
                 LinkedMs: linkedPhaseMs,
@@ -1808,6 +1876,12 @@ ORDER BY d.doc_path;
     internal static string ResolveEffectiveSearchMode(string? requestedMode, string query)
     {
         var mode = (requestedMode ?? string.Empty).Trim().ToLowerInvariant();
+        if (string.Equals(mode, "focused", StringComparison.Ordinal)
+            && ShouldPromoteFocusedSearchForBroadIntent(query))
+        {
+            return ShouldPreferDocumentDiversity(query) ? "broad" : "balanced";
+        }
+
         if (mode is "focused" or "balanced" or "broad")
             return mode;
 
@@ -1825,6 +1899,132 @@ ORDER BY d.doc_path;
            && !string.Equals(mode, "focused", StringComparison.Ordinal)
            && ContainsDocumentOverviewIntent(query);
 
+    internal static bool ShouldSkipSparseRetrieverForBroadDiversity(string query, string mode)
+        => !string.Equals(mode, "focused", StringComparison.Ordinal)
+           && ExtractQuotedLookupPhrases(query).Count == 0
+           && ShouldTreatAsBroadDiversityQuery(query);
+
+    internal static bool ShouldSkipSparseRetrieverForQuantityLookup(string query, string mode)
+        => false;
+
+    internal static bool ShouldSkipSparseProfileCardAssist(string query, string mode)
+    {
+        if (string.IsNullOrWhiteSpace(query)
+            || ExtractQuotedLookupPhrases(query).Count > 0
+            || HasReferenceLikeQueryToken(query))
+        {
+            return false;
+        }
+
+        var normalized = " " + FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query)).ToLowerInvariant() + " ";
+        return ContainsDocumentOverviewIntent(query)
+            || ContainsExplicitBroadScopedSynthesisIntent(normalized)
+            || ContainsBroadScopedSynthesisIntent(normalized)
+            || ContainsSituationalBroadSelectionIntent(normalized)
+            || ContainsQuantityComputationIntent(normalized)
+            || (string.Equals(mode, "broad", StringComparison.Ordinal) && ShouldPreferDocumentDiversity(query));
+    }
+
+    internal static bool ShouldSkipDocumentProfileSearchForLowCostBroadQuery(string query, string mode)
+    {
+        if (string.IsNullOrWhiteSpace(query)
+            || ExtractQuotedLookupPhrases(query).Count > 0
+            || HasReferenceLikeQueryToken(query)
+            || ContainsDocumentOverviewIntent(query))
+        {
+            return false;
+        }
+
+        var normalized = " " + FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query)).ToLowerInvariant() + " ";
+        return ContainsExplicitBroadScopedSynthesisIntent(normalized)
+            || ContainsBroadScopedSynthesisIntent(normalized)
+            || ContainsSituationalBroadSelectionIntent(normalized)
+            || ContainsQuantityComputationIntent(normalized)
+            || (string.Equals(mode, "broad", StringComparison.Ordinal) && ShouldPreferDocumentDiversity(query));
+    }
+
+    internal static bool ShouldTreatAsBroadDiversityQuery(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return false;
+
+        var normalized = " " + FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query)).ToLowerInvariant() + " ";
+        return ShouldTreatAsBroadDiversityQuery(query, normalized);
+    }
+
+    private static bool ShouldTreatAsBroadDiversityQuery(string query, string normalized)
+    {
+        if (!ShouldPreferComparativeDocumentDiversity(query)
+            || ExtractQuotedLookupPhrases(query).Count > 0
+            || HasReferenceLikeQueryToken(query))
+        {
+            return false;
+        }
+
+        var hasComparisonMarker = ContainsAny(normalized,
+            " compare ",
+            " comparer ",
+            " compares ",
+            " comparing ",
+            " comparative ",
+            " comparaison ",
+            " comparatif ",
+            " compara ",
+            " comparar ",
+            " comparacion ",
+            " comparacao ",
+            " confronto ",
+            " choisir entre ",
+            " choisis entre ",
+            " choose between ",
+            " vergleiche ",
+            " vergleichen ");
+        if (ContainsGuidanceOrAdviceSelectionIntent(normalized)
+            && !hasComparisonMarker)
+        {
+            return false;
+        }
+
+        var hasExplicitDiversityMarker = ContainsAny(normalized,
+                " deux ",
+                " trois ",
+                " plusieurs ",
+                " multiple ",
+                " several ",
+                " versions ",
+                " variantes ",
+                " styles ",
+                " familles ",
+                " entre ",
+                " between ",
+                " corpus ",
+                " documents ",
+                " docs ",
+                " pdf ",
+                " pdfs ");
+        return hasExplicitDiversityMarker
+            || (hasComparisonMarker && HasSpecificComparativeSubject(query))
+            || (ContainsAny(normalized, " le plus ", " la plus ", " les plus ", " most ", " mas ", " mais ", " am meisten ")
+                && ContainsAny(normalized, " quel ", " quelle ", " quels ", " quelles ", " which ", " what ", " cual ", " qual ", " quale ", " welches ", " welche "));
+    }
+
+    private static bool HasSpecificComparativeSubject(string query)
+        => ExtractComparativeLookupPhrases(query)
+            .SelectMany(ExtractLexicalQueryTokens)
+            .Any(static token => token.Length >= 5 && !BroadDiversityGenericSubjectTokens.Contains(token));
+
+    private static readonly HashSet<string> BroadDiversityGenericSubjectTokens = new(StringComparer.Ordinal)
+    {
+        "option",
+        "options",
+        "available",
+        "disponible",
+        "disponibles",
+        "choix",
+        "choice",
+        "choices"
+    };
+
     internal static bool ShouldUseScopedProfileFallback(string query, bool hasCategoryFilter, string mode)
     {
         if (!hasCategoryFilter
@@ -1834,8 +2034,154 @@ ORDER BY d.doc_path;
             return false;
         }
 
-        var normalized = " " + FoldDiacritics(query).ToLowerInvariant() + " ";
-        return ContainsAny(normalized,
+        var normalized = " " + FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query)).ToLowerInvariant() + " ";
+        if (ContainsSituationalBroadSelectionIntent(normalized)
+            && ExtractQuotedLookupPhrases(query).Count == 0
+            && !HasReferenceLikeQueryToken(query))
+        {
+            return true;
+        }
+
+        if (ExtractFocusedLookupPhrases(query).Count > 0
+            && !ContainsExplicitBroadScopedSynthesisIntent(normalized))
+        {
+            return false;
+        }
+        if (HasReferenceLikeQueryToken(query)
+            && !ContainsExplicitBroadScopedSynthesisIntent(normalized))
+        {
+            return false;
+        }
+
+        return ContainsExplicitBroadScopedSynthesisIntent(normalized)
+            || ContainsBroadScopedSynthesisIntent(normalized)
+            || ContainsSituationalBroadSelectionIntent(normalized);
+    }
+
+    internal static bool ShouldPromoteFocusedSearchForBroadIntent(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return false;
+
+        var normalized = " " + FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query)).ToLowerInvariant() + " ";
+        if (ContainsDocumentOverviewIntent(query))
+            return true;
+
+        if (ContainsSituationalBroadSelectionIntent(normalized)
+            && ExtractQuotedLookupPhrases(query).Count == 0
+            && !HasReferenceLikeQueryToken(query))
+        {
+            return true;
+        }
+
+        if (ExtractQuotedLookupPhrases(query).Count > 0
+            && !ContainsExplicitBroadScopedSynthesisIntent(normalized))
+        {
+            return false;
+        }
+
+        if (ExtractFocusedLookupPhrases(query).Count > 0
+            && !ContainsExplicitBroadScopedSynthesisIntent(normalized))
+        {
+            return false;
+        }
+        if (HasReferenceLikeQueryToken(query)
+            && !ContainsExplicitBroadScopedSynthesisIntent(normalized))
+        {
+            return false;
+        }
+
+        if (ShouldPreferComparativeDocumentDiversity(query))
+            return ShouldTreatAsBroadDiversityQuery(query, normalized);
+
+        return ContainsExplicitBroadScopedSynthesisIntent(normalized)
+            || ContainsBroadScopedSynthesisIntent(normalized)
+            || ContainsSituationalBroadSelectionIntent(normalized);
+    }
+
+    private static bool ContainsExplicitBroadScopedSynthesisIntent(string normalized)
+        => ContainsAny(normalized,
+               " plusieurs ",
+               " multiple ",
+               " several ",
+               " options ",
+               " menu ",
+               " menus ",
+               " repas ",
+               " meal ",
+               " meals ",
+               " selection ",
+               " selectionne ",
+               " selectionner ",
+               " select ",
+               " selected ",
+               " liste ",
+               " list ",
+               " json ",
+               " markdown ",
+               " checklist ",
+               " questions de verification ",
+               " verification questions ",
+               " familles ",
+               " families ",
+               " manquent ",
+               " manque ",
+               " missing ",
+               " inventaire ",
+               " inventory ",
+               " pour chaque ",
+               " chaque ",
+               " for each ",
+               " each ",
+               " tableau ",
+               " table ",
+               " matrice ",
+               " matrix ",
+               " format ",
+               " formatte ",
+               " formatted ",
+               " complet utilisant ",
+               " complete using ",
+               " complete with ",
+               " cout ",
+               " couts ",
+               " cost ",
+               " costs ",
+               " budget ",
+               " chf ",
+               " rends ",
+               " rendre ",
+               " transforme ",
+               " transformer ",
+               " convertis ",
+               " convertir ",
+               " planning ",
+               " planifier ",
+               " organiser ",
+               " organise ",
+               " faq ",
+               " retroplanning ",
+               " synthese ",
+               " synthetise ",
+               " synthetiser ",
+               " a partir de ",
+               " depuis le corpus ",
+               " dans le corpus ",
+               " depuis les documents ",
+               " dans les documents ",
+               " from this corpus ",
+               " from the corpus ",
+               " from documents ",
+               " from the documents ",
+               " aus dem corpus ",
+               " aus den dokumenten ")
+           || Regex.IsMatch(
+               normalized,
+               @"\b(?:fais moi|fais nous|cree|creer|make me|create|build|draft|hazme|crea|crie|criar|erstelle|mach mir)\s+\d+\b",
+               RegexOptions.CultureInvariant);
+
+    private static bool ContainsBroadScopedSynthesisIntent(string normalized)
+        => ContainsAny(normalized,
             " propose ",
             " proposer ",
             " proposes ",
@@ -1847,6 +2193,42 @@ ORDER BY d.doc_path;
             " conseiller ",
             " aide moi ",
             " aider ",
+            " selectionne ",
+            " selectionner ",
+            " selection ",
+            " select ",
+            " selected ",
+            " menu ",
+            " menus ",
+            " repas ",
+            " meal ",
+            " meals ",
+            " adapte ",
+            " adapter ",
+            " adaptes ",
+            " adaptation ",
+            " rends ",
+            " rendre ",
+            " transforme ",
+            " transformer ",
+            " priorise ",
+            " prioriser ",
+            " privilegie ",
+            " privilegier ",
+            " favorise ",
+            " favoriser ",
+            " evite ",
+            " eviter ",
+            " attention ",
+            " risque ",
+            " risques ",
+            " budget ",
+            " cout ",
+            " couts ",
+            " chf ",
+            " manquent ",
+            " manque ",
+            " missing ",
             " prepare ",
             " preparer ",
             " plan ",
@@ -1854,13 +2236,67 @@ ORDER BY d.doc_path;
             " planifier ",
             " organiser ",
             " organise ",
-            " menu ",
+            " pour chaque ",
+            " chaque ",
+            " fais moi ",
+            " fais nous ",
+            " fais un ",
+            " fais une ",
+            " fais des ",
+            " cree ",
+            " creer ",
+            " cree un ",
+            " cree une ",
+            " cree des ",
+            " construis ",
+            " construire ",
+            " elabore ",
+            " elaborer ",
+            " compose ",
+            " composer ",
+            " complet utilisant ",
+            " complete using ",
+            " complete with ",
+            " synthese ",
+            " synthetise ",
+            " synthetiser ",
+            " retroplanning ",
+            " faq ",
+            " questions de verification ",
+            " verification questions ",
+            " a partir de ",
+            " depuis le corpus ",
+            " dans le corpus ",
+            " depuis les documents ",
+            " dans les documents ",
             " il me faut ",
             " suggest ",
             " suggests ",
             " recommend ",
             " recommends ",
             " help me ",
+            " adapt ",
+            " adapted ",
+            " adaptation ",
+            " transform ",
+            " transform into ",
+            " for each ",
+            " each ",
+            " prioritize ",
+            " prioritise ",
+            " prefer ",
+            " favor ",
+            " favour ",
+            " make me ",
+            " create ",
+            " build ",
+            " draft ",
+            " synthesize ",
+            " synthesis ",
+            " from this corpus ",
+            " from the corpus ",
+            " from documents ",
+            " from the documents ",
             " prepare ",
             " plan ",
             " planning ",
@@ -1874,6 +2310,12 @@ ORDER BY d.doc_path;
             " recomienda ",
             " recomendar ",
             " ayudame ",
+            " hazme ",
+            " crea ",
+            " crear ",
+            " elabora ",
+            " elaborar ",
+            " sintetiza ",
             " preparar ",
             " planificar ",
             " organizar ",
@@ -1883,6 +2325,12 @@ ORDER BY d.doc_path;
             " recomenda ",
             " recomendar ",
             " ajuda me ",
+            " crie ",
+            " criar ",
+            " elabore ",
+            " elaborar ",
+            " sintetiza ",
+            " sintetizar ",
             " preparar ",
             " planear ",
             " organizar ",
@@ -1891,6 +2339,14 @@ ORDER BY d.doc_path;
             " suggerisci ",
             " suggerire ",
             " aiutami ",
+            " adatta ",
+            " adattare ",
+            " preferisci ",
+            " crea ",
+            " creare ",
+            " componi ",
+            " comporre ",
+            " sintetizza ",
             " preparare ",
             " pianifica ",
             " organizzare ",
@@ -1899,10 +2355,52 @@ ORDER BY d.doc_path;
             " empfiehl ",
             " empfehlen ",
             " hilf mir ",
+            " anpassen ",
+            " bevorzuge ",
+            " bevorzugen ",
+            " erstelle ",
+            " erstellen ",
+            " mach mir ",
+            " aus dem corpus ",
+            " aus den dokumenten ",
             " vorbereiten ",
             " plane ",
             " planen ",
             " organisieren ");
+
+    private static bool ContainsSituationalBroadSelectionIntent(string normalized)
+    {
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return Regex.IsMatch(
+                normalized,
+                @"\b(?:je\s+(?:veux|dois|voudrais)|j\s+aimerais|i\s+(?:want|need|would\s+like|have\s+to)|quiero|necesito|gostaria|preciso|ich\s+(?:mochte|muss|brauche))\b.{0,120}\b(?:avec|pour|adapte|adapter|adaptes|adapted|adapt|adaptar|adattare|anpassen|suitable|options?|choisir|choix|choose|select|selection|recommande|recommend|plan|planning|organis|prepare|preparer|preparar|priorise|prioriser|privilegie|privilegier|prioritize|prioritise|prefer|favor|favour|bevorzugen|vorbereiten)\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:quels?|quelle|quelles|which|what|cuales?|quais|welche)\b.{0,100}\b(?:choisir|choix|choose|select|selection|recommande|recommend|adapte|adapter|adapt|adaptar|adattare|anpassen|suitable|priorise|prioriser|privilegie|privilegier|prioritize|prioritise|prefer|favor|favour|bevorzugen)\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:quels?|quelle|quelles|which|what|cuales?|quais|welche)\b.{0,120}\b(?:peuvent|peut|can|could|possono|pueden|podem|konnen)\b.{0,120}\b(?:prepar\w*|prepared|advance|avance|adapt|adapte|adapter|suitable|priorise|prioriser|privilegie|privilegier|prefer|favor|favour)\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:quels?|quelle|quelles|which|what|cuales?|quais|welche)\b.{0,120}\b(?:utilisent|utilise|uses?|contiennent|contient|contains?|mentionnent|mentionne|mentions?)\b.{0,120}\b(?:gerer|gere|handle|manage|eviter|avoid|sans|without)\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:regroupe|regrouper|group|group\s+by|combine|traduis|traduire|translate|ubersetze|traduce|traduz)\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:ajoute|ajouter|liste|lister|extrais|extraire|resume|resumer|add|list|extract|summarize)\b.{0,80}\b(?:points?\s+critiques?|critical\s+points?|a\s+surveiller|to\s+watch|watch\s+outs?|risques?|risks?)\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:points?\s+critiques?|critical\s+points?|a\s+surveiller|to\s+watch|watch\s+outs?)\b.{0,80}\b(?:eviter|avoid|rater|ratage|failure|fail)\b",
+                RegexOptions.CultureInvariant);
     }
 
     internal static bool ShouldRequireDocumentOverviewProfileMatch(string query)
@@ -1984,7 +2482,7 @@ ORDER BY d.doc_path;
         if (string.IsNullOrWhiteSpace(query))
             return false;
 
-        var normalized = " " + FoldDiacritics(query).ToLowerInvariant() + " ";
+        var normalized = " " + FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query)).ToLowerInvariant() + " ";
         if (ContainsAny(normalized,
                 " compare ",
                 " comparer ",
@@ -2003,7 +2501,10 @@ ORDER BY d.doc_path;
                 " vergleich ",
                 " vergleichen ",
                 " choisir ",
+                " choisis ",
+                " choix entre ",
                 " choose ",
+                " choose between ",
                 " escoge ",
                 " escolher ",
                 " scegliere ",
@@ -2035,7 +2536,7 @@ ORDER BY d.doc_path;
         if (string.IsNullOrWhiteSpace(query))
             return false;
 
-        var normalized = " " + FoldDiacritics(query).ToLowerInvariant() + " ";
+        var normalized = " " + FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query)).ToLowerInvariant() + " ";
         if (ContainsAny(normalized,
                 " quels documents ",
                 " quelles sources ",
@@ -2115,6 +2616,20 @@ ORDER BY d.doc_path;
             " disponibili ");
         if (!hasOverviewIntent)
             return false;
+
+        if (ContainsAny(normalized,
+            " vue d ensemble ",
+            " vue globale ",
+            " par grands themes ",
+            " high level view ",
+            " overview ",
+            " inventory ",
+            " panorama ",
+            " uberblick ",
+            " panoramica "))
+        {
+            return true;
+        }
 
         return ContainsAny(normalized,
             " document ",
@@ -2206,6 +2721,97 @@ ORDER BY d.doc_path;
             " differentes ");
     }
 
+    internal static bool ShouldSkipDocumentProfileSearchForPreciseLookup(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return false;
+        var hasFocusedLookup = ExtractFocusedLookupPhrases(query).Count > 0;
+        var hasPreciseTitleShape = ShouldConstrainPreciseTitleLookup(query);
+        var normalized = $" {FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query))} ";
+        var hasParameterLookup = ContainsParameterDetailLookupIntent(normalized);
+        if (!hasFocusedLookup && !hasPreciseTitleShape && !hasParameterLookup)
+            return false;
+        if (ContainsDocumentOverviewIntent(query))
+            return false;
+        if (ShouldUseScopedProfileFallback(query, hasCategoryFilter: true, mode: "balanced"))
+            return false;
+
+        if (ContainsEnumerativeLookupIntent(normalized) && !hasParameterLookup)
+            return false;
+        if (IsRecommendationSelectionQuery(normalized))
+            return false;
+        if (ContainsGuidanceOrAdviceSelectionIntent(normalized))
+            return false;
+
+        return true;
+    }
+
+    private static bool ContainsParameterDetailLookupIntent(string normalized)
+        => ContainsAny(normalized,
+            " composant ",
+            " composants ",
+            " component ",
+            " components ",
+            " material ",
+            " materials ",
+            " materiel ",
+            " materiaux ",
+            " parametre ",
+            " parametres ",
+            " parameter ",
+            " parameters ",
+            " reglage ",
+            " reglages ",
+            " setting ",
+            " settings ",
+            " temperature ",
+            " temperatures ",
+            " vitesse ",
+            " vitesses ",
+            " speed ",
+            " speeds ",
+            " duree ",
+            " duration ",
+            " temps ",
+            " time ");
+
+    internal static bool ShouldSkipDocumentProfileSearchForComparativeLookup(string query)
+        => ShouldPreferComparativeDocumentDiversity(query)
+           && ExtractComparativeLookupPhrases(query).Count > 0;
+
+    private static bool ContainsGuidanceOrAdviceSelectionIntent(string normalized)
+        => ContainsAny(normalized,
+            " comment choisir ",
+            " comment selectionner ",
+            " comment decider ",
+            " que choisir ",
+            " lequel choisir ",
+            " laquelle choisir ",
+            " lesquels choisir ",
+            " lesquelles choisir ",
+            " conseille ",
+            " conseiller ",
+            " recommande ",
+            " recommander ",
+            " how to choose ",
+            " how should ",
+            " which should ",
+            " what should ",
+            " choose between ",
+            " recommend ",
+            " recommendation ",
+            " seleccionar ",
+            " elegir ",
+            " escoger ",
+            " scegliere ",
+            " scegliere tra ",
+            " escolher ",
+            " escolher entre ",
+            " auswahl ",
+            " auswahlen ",
+            " waehlen ",
+            " wahlen ");
+
     private static bool ContainsAny(string value, params string[] needles)
     {
         foreach (var needle in needles)
@@ -2215,6 +2821,62 @@ ORDER BY d.doc_path;
         }
 
         return false;
+    }
+
+    private static IReadOnlyList<string> ExtractDocumentHintTokens(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return Array.Empty<string>();
+
+        var normalized = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query)).ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(normalized))
+            return Array.Empty<string>();
+
+        var hints = new List<string>();
+        foreach (Match match in DocumentHintPattern.Matches(normalized))
+        {
+            var rawHint = match.Groups["hint"].Value;
+            var tokens = ExtractLexicalQueryTokens(rawHint)
+                .Where(IsDocumentHintSignalToken)
+                .Take(4);
+            hints.AddRange(tokens);
+        }
+
+        return hints
+            .Distinct(StringComparer.Ordinal)
+            .Take(6)
+            .ToArray();
+    }
+
+    private static readonly Regex DocumentHintPattern = new(
+        @"\b(?:dans|depuis|from|in|aus|im|von|nel|nella|del|della|do|da|em)\s+(?:(?:le|la|les|l|un|une|des|du|de\s+la|the|a|an|some|el|la|los|las|o|a|os|as|il|lo|gli|die|der|das)\s+)?(?:document|documents|pdf|fichier|fichiers|file|files|source|sources|livre|livres|book|books|manuel|manuels|manual|manuals|guide|guides|rapport|rapports|report|reports|libro|libros|arquivo|arquivos|documento|documentos|handbuch|handbucher|buch|bucher|manuale|manuali)\s+(?<hint>[\p{L}\p{Nd}][\p{L}\p{Nd}\s\-]{1,60}?)(?=\s+(?:avec|with|com|con|mit|pour|for|para|per|sur|about|source|sources|page|pages|et|and|y|e|und)\b|[\?:;,\.\r\n]|$)",
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(100));
+
+    private static bool IsDocumentHintSignalToken(string token)
+        => token.Length >= 3
+           && token.Any(char.IsLetterOrDigit)
+           && !LexicalStopwords.Contains(token)
+           && !PrimaryAnchorStopwords.Contains(token)
+           && !SpecificAnchorStopwords.Contains(token);
+
+    private static bool DocumentMatchesHint(IReadOnlyList<string> documentHintTokens, RagMatch match)
+    {
+        if (documentHintTokens.Count == 0)
+            return false;
+
+        var docSignal = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(
+            string.Join(' ', new[] { match.DocName, match.DocPath }.Where(static value => !string.IsNullOrWhiteSpace(value)))));
+        if (string.IsNullOrWhiteSpace(docSignal))
+            return false;
+
+        var compactDocSignal = docSignal.Replace(" ", string.Empty, StringComparison.Ordinal);
+        return documentHintTokens.Any(token =>
+        {
+            var folded = FoldDiacritics(token);
+            return docSignal.Contains(folded, StringComparison.Ordinal)
+                || (folded.Length >= 4 && compactDocSignal.Contains(folded.Replace(" ", string.Empty, StringComparison.Ordinal), StringComparison.Ordinal));
+        });
     }
 
     internal static async Task<List<RagMatch>> SearchExactMatchesAsync(
@@ -2680,11 +3342,20 @@ LIMIT @candidate_limit;
             return [];
 
         var focusedPhrases = ExtractFocusedLookupPhrases(query)
+            .Concat(ExtractComparativeLookupPhrases(query))
             .Select(TitleAnchorNormalizer.NormalizeTitle)
             .Where(static phrase => phrase.Length >= 4)
             .Distinct(StringComparer.Ordinal)
             .Take(4)
             .ToArray();
+        var hasExplicitFocusedLookupPhrase = focusedPhrases.Length > 0;
+        if (focusedPhrases.Length == 0)
+        {
+            var normalizedQueryPhrase = TitleAnchorNormalizer.NormalizeTitle(query);
+            if (normalizedQueryPhrase.Length >= 4)
+                focusedPhrases = [normalizedQueryPhrase];
+        }
+
         var tokenSource = focusedPhrases.Length > 0 ? string.Join(' ', focusedPhrases) : query;
         var queryTokens = TitleAnchorNormalizer.BuildTitleTokens(tokenSource, maxTokens: 12)
             .Where(static token => !LexicalStopwords.Contains(token))
@@ -2706,6 +3377,13 @@ LIMIT @candidate_limit;
         var minOverlap = focusedPhrases.Length > 0
             ? (queryTokens.Length <= 2 ? queryTokens.Length : 2)
             : Math.Min(queryTokens.Length, 3);
+        var directChunkRouteEnabled = hasExplicitFocusedLookupPhrase
+            && (ShouldSkipDocumentProfileSearchForPreciseLookup(query)
+                || ShouldSkipDocumentProfileSearchForComparativeLookup(query));
+        var directMinOverlap = directChunkRouteEnabled
+            ? ResolveDirectTitleTokenRouteMinimumOverlap(queryTokens.Length)
+            : Math.Max(1, minOverlap);
+        var directRouteTitle = focusedPhrases.FirstOrDefault() ?? tokenSource;
 
         await using var conn = await ds.OpenConnectionAsync(ct);
         const string sql = """
@@ -2773,12 +3451,14 @@ anchor_routes AS (
             WHEN a.normalized_title = qp.phrase THEN 0.34
             WHEN a.normalized_title LIKE '%' || qp.phrase || '%' THEN 0.24
             WHEN qp.phrase LIKE '%' || a.normalized_title || '%' THEN 0.20
+            WHEN similarity(a.normalized_title, qp.phrase) >= @fuzzy_title_similarity_min THEN 0.26
             ELSE 0.0
         END) AS phrase_score
         FROM query_phrases qp
         WHERE a.normalized_title = qp.phrase
            OR a.normalized_title LIKE '%' || qp.phrase || '%'
            OR qp.phrase LIKE '%' || a.normalized_title || '%'
+           OR similarity(a.normalized_title, qp.phrase) >= @fuzzy_title_similarity_min
     ) phrase_match
     JOIN LATERAL (
         SELECT rc.retrieval_chunk_id
@@ -2789,12 +3469,42 @@ anchor_routes AS (
                 (a.retrieval_chunk_id IS NOT NULL AND rc.retrieval_chunk_id = a.retrieval_chunk_id)
              OR (a.retrieval_chunk_id IS NULL
                  AND a.page_start IS NOT NULL
-                 AND rc.page_start <= COALESCE(a.page_end, a.page_start)
-                 AND rc.page_end >= a.page_start)
+                 AND rc.page_start <= COALESCE(a.page_end, a.page_start) + 1
+                 AND rc.page_end >= GREATEST(1, a.page_start - 1))
           )
           AND COALESCE(rc.metadata->>'contentRole', 'content') <> 'navigation'
         ORDER BY
-            CASE WHEN a.retrieval_chunk_id IS NOT NULL AND rc.retrieval_chunk_id = a.retrieval_chunk_id THEN 0 ELSE 1 END,
+            CASE
+                WHEN a.source_kind = 'content_card'
+                 AND a.page_start IS NOT NULL
+                 AND rc.page_start BETWEEN a.page_start AND COALESCE(a.page_end, a.page_start) + 1
+                 AND EXISTS (
+                     SELECT 1
+                     FROM unnest(a.title_tokens) AS title_token
+                     WHERE length(title_token) >= 5
+                       AND lower(rc.text_content) LIKE ('%' || title_token || '%')
+                 )
+                    THEN 0
+                WHEN a.source_kind = 'content_card'
+                 AND a.page_start IS NOT NULL
+                 AND rc.page_start BETWEEN a.page_start + 1 AND COALESCE(a.page_end, a.page_start) + 1
+                 AND COALESCE(rc.metadata->>'chunkType', '') IN ('section_window_v1', 'unit_exact_v1')
+                    THEN 1
+                WHEN a.retrieval_chunk_id IS NOT NULL AND rc.retrieval_chunk_id = a.retrieval_chunk_id THEN 2
+                ELSE 3
+            END,
+            CASE
+                WHEN a.retrieval_chunk_id IS NULL
+                 AND a.page_start IS NOT NULL
+                 AND rc.page_start <= COALESCE(a.page_end, a.page_start)
+                 AND rc.page_end >= a.page_start THEN 0
+                ELSE 1
+            END,
+            CASE
+                WHEN a.retrieval_chunk_id IS NULL AND a.page_start IS NOT NULL
+                    THEN LEAST(ABS(rc.page_start - a.page_start), ABS(rc.page_end - a.page_start))
+                ELSE 0
+            END,
             CASE
                 WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
                     THEN (rc.metadata->>'contentDensityScore')::double precision
@@ -2845,12 +3555,14 @@ navigation_routes AS (
             WHEN ne.normalized_label = qp.phrase THEN 0.34
             WHEN ne.normalized_label LIKE '%' || qp.phrase || '%' THEN 0.24
             WHEN qp.phrase LIKE '%' || ne.normalized_label || '%' THEN 0.20
+            WHEN similarity(ne.normalized_label, qp.phrase) >= @fuzzy_title_similarity_min THEN 0.26
             ELSE 0.0
         END) AS phrase_score
         FROM query_phrases qp
         WHERE ne.normalized_label = qp.phrase
            OR ne.normalized_label LIKE '%' || qp.phrase || '%'
            OR qp.phrase LIKE '%' || ne.normalized_label || '%'
+           OR similarity(ne.normalized_label, qp.phrase) >= @fuzzy_title_similarity_min
     ) phrase_match
     JOIN LATERAL (
         SELECT rc.retrieval_chunk_id
@@ -2861,12 +3573,24 @@ navigation_routes AS (
                 (ne.target_chunk_id IS NOT NULL AND rc.retrieval_chunk_id = ne.target_chunk_id)
              OR (ne.target_chunk_id IS NULL
                  AND ne.target_page_start IS NOT NULL
-                 AND rc.page_start <= COALESCE(ne.target_page_end, ne.target_page_start)
-                 AND rc.page_end >= ne.target_page_start)
+                 AND rc.page_start <= COALESCE(ne.target_page_end, ne.target_page_start) + 1
+                 AND rc.page_end >= GREATEST(1, ne.target_page_start - 1))
           )
           AND COALESCE(rc.metadata->>'contentRole', 'content') <> 'navigation'
         ORDER BY
             CASE WHEN ne.target_chunk_id IS NOT NULL AND rc.retrieval_chunk_id = ne.target_chunk_id THEN 0 ELSE 1 END,
+            CASE
+                WHEN ne.target_chunk_id IS NULL
+                 AND ne.target_page_start IS NOT NULL
+                 AND rc.page_start <= COALESCE(ne.target_page_end, ne.target_page_start)
+                 AND rc.page_end >= ne.target_page_start THEN 0
+                ELSE 1
+            END,
+            CASE
+                WHEN ne.target_chunk_id IS NULL AND ne.target_page_start IS NOT NULL
+                    THEN LEAST(ABS(rc.page_start - ne.target_page_start), ABS(rc.page_end - ne.target_page_start))
+                ELSE 0
+            END,
             CASE
                 WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
                     THEN (rc.metadata->>'contentDensityScore')::double precision
@@ -2878,10 +3602,100 @@ navigation_routes AS (
     WHERE COALESCE(phrase_match.phrase_score, 0.0) > 0.0
        OR token_match.overlap_count >= @min_overlap
 ),
+direct_chunk_routes AS (
+    SELECT
+        d.doc_id,
+        d.doc_path,
+        d.doc_name,
+        d.category,
+        d.indexed_version,
+        d.content_hash,
+        d.revision_id,
+        @direct_route_title AS route_title,
+        'direct_title_token_route'::text AS route_source,
+        rc.retrieval_chunk_id AS route_chunk_id,
+        LEAST(
+            1.00,
+            0.50
+            + CASE
+                WHEN @query_token_count > 0 THEN LEAST(0.34, (direct_match.overlap_count::double precision / @query_token_count::double precision) * 0.34)
+                ELSE 0.0
+              END
+            + CASE
+                WHEN direct_match.overlap_count >= @query_token_count THEN 0.08
+                WHEN direct_match.overlap_count >= GREATEST(1, @query_token_count - 1) THEN 0.04
+                ELSE 0.0
+              END
+            + CASE
+                WHEN COALESCE(rc.metadata->>'chunkType', '') = 'unit_exact_v1' THEN 0.05
+                WHEN COALESCE(rc.metadata->>'chunkType', '') = 'section_window_v1' THEN 0.04
+                ELSE 0.0
+              END
+            + LEAST(0.05, direct_stats.content_density_score * 0.05)
+        )::real AS route_rank
+    FROM scoped_docs d
+    JOIN retrieval_chunks rc
+      ON rc.tenant_id = d.tenant_id
+     AND rc.revision_id = d.revision_id
+    CROSS JOIN LATERAL (
+        SELECT
+            lower(translate(
+                COALESCE(rc.text_content, '') || ' ' || COALESCE(rc.metadata->>'sectionTitle', '') || ' ' || COALESCE(rc.metadata->>'headingPath', ''),
+                'ÀÁÂÃÄÅàáâãäåÇçÈÉÊËèéêëÌÍÎÏìíîïÑñÒÓÔÕÖØòóôõöøÙÚÛÜùúûüÝýÿ',
+                'AAAAAAaaaaaaCcEEEEeeeeIIIIiiiiNnOOOOOOooooooUUUUuuuuYyy'
+            )) AS searchable_text,
+            ' ' || regexp_replace(lower(translate(
+                COALESCE(rc.text_content, '') || ' ' || COALESCE(rc.metadata->>'sectionTitle', '') || ' ' || COALESCE(rc.metadata->>'headingPath', ''),
+                'ÀÁÂÃÄÅàáâãäåÇçÈÉÊËèéêëÌÍÎÏìíîïÑñÒÓÔÕÖØòóôõöøÙÚÛÜùúûüÝýÿ',
+                'AAAAAAaaaaaaCcEEEEeeeeIIIIiiiiNnOOOOOOooooooUUUUuuuuYyy'
+            )), '[^[:alnum:]]+', ' ', 'g') || ' ' AS searchable_words,
+            CASE
+                WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+                    THEN (rc.metadata->>'contentDensityScore')::double precision
+                ELSE 0.0
+            END AS content_density_score
+    ) direct_stats
+    CROSS JOIN LATERAL (
+        SELECT COUNT(*)::int AS overlap_count
+        FROM unnest(@query_tokens::text[]) AS token
+        WHERE length(token) >= 3
+          AND (
+                (length(token) >= 5 AND direct_stats.searchable_text LIKE ('%' || token || '%'))
+             OR (length(token) < 5 AND direct_stats.searchable_words LIKE ('% ' || token || ' %'))
+          )
+    ) direct_match
+    WHERE @direct_chunk_route_enabled
+      AND @query_token_count >= 2
+      AND EXISTS (
+          SELECT 1
+          FROM unnest(@query_tokens::text[]) AS token
+          WHERE length(token) >= 5
+            AND lower(translate(
+                COALESCE(rc.text_content, ''),
+                'ÀÁÂÃÄÅàáâãäåÇçÈÉÊËèéêëÌÍÎÏìíîïÑñÒÓÔÕÖØòóôõöøÙÚÛÜùúûüÝýÿ',
+                'AAAAAAaaaaaaCcEEEEeeeeIIIIiiiiNnOOOOOOooooooUUUUuuuuYyy'
+            )) LIKE ('%' || token || '%')
+      )
+      AND direct_match.overlap_count >= @direct_min_overlap
+      AND COALESCE(rc.metadata->>'contentRole', 'content') <> 'navigation'
+      AND COALESCE(rc.metadata->>'chunkType', '') <> 'navigation_index_v1'
+      AND (
+            NULLIF(rc.metadata->>'navigationScore', '') IS NULL
+         OR NULLIF(rc.metadata->>'navigationScore', '') !~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+         OR (rc.metadata->>'navigationScore')::double precision < 0.82
+         OR direct_stats.content_density_score >= 0.50
+      )
+      AND (
+            direct_stats.content_density_score >= 0.25
+         OR COALESCE(rc.metadata->>'chunkType', '') IN ('section_window_v1', 'unit_exact_v1')
+      )
+),
 routes AS (
     SELECT * FROM anchor_routes
     UNION ALL
     SELECT * FROM navigation_routes
+    UNION ALL
+    SELECT * FROM direct_chunk_routes
 ),
 ranked_routes AS (
     SELECT
@@ -2988,7 +3802,11 @@ LIMIT @candidate_limit;
                 query_tokens = queryTokens,
                 query_token_count = Math.Max(1, queryTokens.Length),
                 min_overlap = Math.Max(1, minOverlap),
+                direct_min_overlap = directMinOverlap,
+                direct_route_title = directRouteTitle,
                 navigation_route_min_confidence = NavigationRouteMinimumConfidence,
+                fuzzy_title_similarity_min = FuzzyTitleSimilarityMinimum,
+                direct_chunk_route_enabled = directChunkRouteEnabled,
                 category,
                 category_path = normalizedCategoryPath,
                 doc_id = normalizedDocId,
@@ -3021,7 +3839,261 @@ LIMIT @candidate_limit;
                     EmbedText: row.EmbedText,
                     EmbeddingBasis: row.EmbedText.StartsWith("Matched navigation_route", StringComparison.Ordinal)
                         ? "navigation_route_v1"
+                        : row.EmbedText.StartsWith("Matched direct_title_token_route", StringComparison.Ordinal)
+                            ? "direct_title_token_route_v1"
                         : "title_anchor_route_v1",
+                    SectionOrdinal: null,
+                    UnitOrdinal: null,
+                    SectionTitle: row.SectionTitle,
+                    HeadingPath: row.HeadingPath,
+                    ChunkType: row.ChunkType,
+                    ContentRole: row.ContentRole,
+                    NavigationReason: row.NavigationReason,
+                    OriginalChunkType: row.OriginalChunkType,
+                    NavigationScore: row.NavigationScore,
+                    ContentDensityScore: row.ContentDensityScore,
+                    PrevChunkId: row.PrevChunkId,
+                    NextChunkId: row.NextChunkId,
+                    SameSectionChunkId: row.SameSectionChunkId))
+                .Where(static match => !IsNavigationRouteMatch(match) || NavigationRouteHasTargetTitleEvidence(match))
+                .ToList();
+
+            return await AttachDocumentProfileContentCardsAsync(ds, tenantId, matches, tokenSource, ct);
+        }
+        catch (PostgresException ex)
+        {
+            RetrievalTelemetry.RecordRetrieverDegraded("title_anchor_route", ex);
+            degradedRetrieverRef?.Invoke("title_anchor_route", FormatPostgresRetrieverError(ex));
+            return [];
+        }
+    }
+
+    internal static async Task<List<RagMatch>> SearchFuzzyTitleLeadMatchesAsync(
+        NpgsqlDataSource ds,
+        Guid tenantId,
+        string query,
+        string? category,
+        string? docId,
+        string? docPath,
+        int topK,
+        CancellationToken ct,
+        string? categoryPath = null,
+        Action<string, string?>? degradedRetrieverRef = null)
+    {
+        if (topK <= 0)
+            return [];
+
+        var focusedPhrases = ExtractFocusedLookupPhrases(query)
+            .Select(TitleAnchorNormalizer.NormalizeTitle)
+            .Where(static phrase => phrase.Length >= 4)
+            .Distinct(StringComparer.Ordinal)
+            .Take(4)
+            .ToArray();
+        if (focusedPhrases.Length == 0)
+        {
+            var normalizedQueryPhrase = TitleAnchorNormalizer.NormalizeTitle(query);
+            if (normalizedQueryPhrase.Length >= 4)
+                focusedPhrases = [normalizedQueryPhrase];
+        }
+
+        if (focusedPhrases.Length == 0)
+            return [];
+
+        var normalizedDocPath = string.IsNullOrWhiteSpace(docPath)
+            ? null
+            : docPath.Trim().Replace('\\', '/').TrimStart('/');
+        var normalizedCategoryPath = NormalizeRagCategoryPathForSql(categoryPath);
+        Guid? normalizedDocId = Guid.TryParse(docId, out var parsedDocId) ? parsedDocId : null;
+        var candidateLimit = Math.Clamp(topK * 4, topK, 80);
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        const string sql = """
+WITH query_phrases AS (
+    SELECT DISTINCT phrase
+    FROM unnest(@query_phrases::text[]) AS phrase
+    WHERE phrase IS NOT NULL AND length(phrase) >= 4
+),
+scoped_docs AS (
+    SELECT
+        d.doc_id,
+        d.doc_path,
+        d.doc_name,
+        d.category,
+        d.indexed_version,
+        d.content_hash,
+        r.revision_id,
+        r.tenant_id
+    FROM documents d
+    JOIN document_revisions r
+      ON r.tenant_id = d.tenant_id
+     AND r.doc_id = d.doc_id
+     AND r.indexed_version = d.indexed_version
+    WHERE d.tenant_id = @tenant_id
+      AND d.status = 'indexed'
+      AND d.indexed_version > 0
+      AND (@category IS NULL OR LOWER(d.category) = @category)
+      AND (@category_path IS NULL OR d.doc_path = @category_path OR d.doc_path LIKE (@category_path || '/%'))
+      AND (@doc_id IS NULL OR d.doc_id = @doc_id)
+      AND (@doc_path IS NULL OR d.doc_path = @doc_path)
+),
+candidate_chunks AS (
+    SELECT
+        d.doc_id,
+        d.doc_path,
+        d.doc_name,
+        d.category,
+        d.indexed_version,
+        d.content_hash,
+        rc.retrieval_chunk_id,
+        rc.chunk_index,
+        rc.page_start,
+        rc.page_end,
+        rc.text_content,
+        rc.metadata,
+        rc.section_id,
+        qp.phrase,
+        fuzzy.fuzzy_score,
+        CASE
+            WHEN COALESCE(rc.metadata->>'chunkType', '') = 'unit_exact_v1' THEN 2
+            WHEN COALESCE(rc.metadata->>'chunkType', '') = 'section_window_v1' THEN 1
+            ELSE 0
+        END AS structured_priority
+    FROM scoped_docs d
+    JOIN retrieval_chunks rc
+      ON rc.tenant_id = d.tenant_id
+     AND rc.revision_id = d.revision_id
+    CROSS JOIN query_phrases qp
+    CROSS JOIN LATERAL (
+        SELECT LOWER(regexp_replace(
+            translate(
+                replace(
+                    replace(
+                        replace(
+                            replace(LOWER(LEFT(rc.text_content, @lead_chars)), U&'\0153', 'oe'),
+                            U&'\0152',
+                            'oe'),
+                        U&'\00E6',
+                        'ae'),
+                    U&'\00C6',
+                    'ae'),
+                'àáâãäåçèéêëìíîïñòóôõöùúûüýÿ',
+                'aaaaaaceeeeiiiinooooouuuuyy'),
+            '[^[:alnum:]]+',
+            ' ',
+            'g')) AS lead_text
+    ) lead
+    CROSS JOIN LATERAL (
+        SELECT GREATEST(
+            word_similarity(qp.phrase, lead.lead_text),
+            strict_word_similarity(qp.phrase, lead.lead_text)) AS fuzzy_score
+    ) fuzzy
+    WHERE COALESCE(rc.metadata->>'contentRole', 'content') <> 'navigation'
+      AND COALESCE(rc.metadata->>'chunkType', 'contextual_text_v1') <> 'navigation_index_v1'
+      AND fuzzy.fuzzy_score >= @fuzzy_title_lead_similarity_min
+)
+SELECT
+    cc.doc_id AS "DocId",
+    cc.doc_path AS "DocPath",
+    cc.doc_name AS "DocName",
+    cc.category AS "Category",
+    cc.page_start AS "PageStart",
+    cc.page_end AS "PageEnd",
+    CASE
+        WHEN NULLIF(cc.metadata->>'offsetStart', '') ~ '^[-+]?[0-9]+$'
+            THEN CASE
+                WHEN (cc.metadata->>'offsetStart')::numeric BETWEEN -2147483648 AND 2147483647
+                    THEN (cc.metadata->>'offsetStart')::int
+                ELSE NULL
+            END
+        ELSE NULL
+    END AS "OffsetStart",
+    CASE
+        WHEN NULLIF(cc.metadata->>'offsetEnd', '') ~ '^[-+]?[0-9]+$'
+            THEN CASE
+                WHEN (cc.metadata->>'offsetEnd')::numeric BETWEEN -2147483648 AND 2147483647
+                    THEN (cc.metadata->>'offsetEnd')::int
+                ELSE NULL
+            END
+        ELSE NULL
+    END AS "OffsetEnd",
+    cc.retrieval_chunk_id AS "ChunkId",
+    cc.chunk_index AS "ChunkIndex",
+    cc.text_content AS "Text",
+    cc.indexed_version AS "IngestionVersion",
+    LOWER(ENCODE(cc.content_hash, 'hex')) AS "HashDoc",
+    ('Matched fuzzy_title_lead: ' || cc.phrase || E'\n' || cc.text_content) AS "EmbedText",
+    cc.section_id AS "SectionOrdinalPlaceholder",
+    COALESCE(cc.metadata->>'sectionTitle', s.title) AS "SectionTitle",
+    COALESCE(cc.metadata->>'headingPath', s.title) AS "HeadingPath",
+    COALESCE(cc.metadata->>'chunkType', 'contextual_text_v1') AS "ChunkType",
+    COALESCE(cc.metadata->>'contentRole', 'content') AS "ContentRole",
+    cc.metadata->>'navigationReason' AS "NavigationReason",
+    cc.metadata->>'originalChunkType' AS "OriginalChunkType",
+    CASE
+        WHEN NULLIF(cc.metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+            THEN (cc.metadata->>'navigationScore')::double precision
+        ELSE NULL
+    END AS "NavigationScore",
+    CASE
+        WHEN NULLIF(cc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+            THEN (cc.metadata->>'contentDensityScore')::double precision
+        ELSE NULL
+    END AS "ContentDensityScore",
+    cc.metadata->>'prevChunkId' AS "PrevChunkId",
+    cc.metadata->>'nextChunkId' AS "NextChunkId",
+    cc.metadata->>'sameSectionChunkId' AS "SameSectionChunkId",
+    NULL::text AS "MatchedContentCardsJson",
+    LEAST(0.98, 0.66 + (cc.fuzzy_score * 0.24) + (cc.structured_priority * 0.03))::real AS "SparseRank"
+FROM candidate_chunks cc
+LEFT JOIN document_sections s
+  ON s.section_id = cc.section_id
+ORDER BY
+    "SparseRank" DESC,
+    cc.structured_priority DESC,
+    cc.doc_path ASC,
+    cc.chunk_index ASC
+LIMIT @candidate_limit;
+""";
+
+        try
+        {
+            var rows = await conn.QueryAsync<SparseMatchRow>(new CommandDefinition(sql, new
+            {
+                tenant_id = tenantId,
+                query_phrases = focusedPhrases,
+                lead_chars = 260,
+                fuzzy_title_lead_similarity_min = FuzzyTitleLeadSimilarityMinimum,
+                category,
+                category_path = normalizedCategoryPath,
+                doc_id = normalizedDocId,
+                doc_path = normalizedDocPath,
+                candidate_limit = candidateLimit
+            }, cancellationToken: ct));
+
+            var matches = rows
+                .OrderByDescending(static row => row.SparseRank)
+                .ThenBy(static row => row.DocPath, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(static row => row.ChunkIndex)
+                .GroupBy(static row => row.ChunkId)
+                .Select(static group => group.First())
+                .Take(topK)
+                .Select(row => new RagMatch(
+                    Score: Math.Clamp(row.SparseRank, 0.0, 0.98),
+                    DocId: row.DocId.ToString(),
+                    DocPath: row.DocPath,
+                    DocName: row.DocName,
+                    Category: row.Category,
+                    PageStart: row.PageStart,
+                    PageEnd: row.PageEnd,
+                    OffsetStart: row.OffsetStart,
+                    OffsetEnd: row.OffsetEnd,
+                    ChunkId: row.ChunkId.ToString(),
+                    ChunkIndex: row.ChunkIndex,
+                    Text: row.Text,
+                    IngestionVersion: row.IngestionVersion,
+                    HashDoc: row.HashDoc,
+                    EmbedText: row.EmbedText,
+                    EmbeddingBasis: "fuzzy_title_lead_v1",
                     SectionOrdinal: null,
                     UnitOrdinal: null,
                     SectionTitle: row.SectionTitle,
@@ -3037,12 +4109,12 @@ LIMIT @candidate_limit;
                     SameSectionChunkId: row.SameSectionChunkId))
                 .ToList();
 
-            return await AttachDocumentProfileContentCardsAsync(ds, tenantId, matches, tokenSource, ct);
+            return await AttachDocumentProfileContentCardsAsync(ds, tenantId, matches, query, ct);
         }
         catch (PostgresException ex)
         {
-            RetrievalTelemetry.RecordRetrieverDegraded("title_anchor_route", ex);
-            degradedRetrieverRef?.Invoke("title_anchor_route", FormatPostgresRetrieverError(ex));
+            RetrievalTelemetry.RecordRetrieverDegraded("fuzzy_title_lead", ex);
+            degradedRetrieverRef?.Invoke("fuzzy_title_lead", FormatPostgresRetrieverError(ex));
             return [];
         }
     }
@@ -3197,6 +4269,7 @@ LIMIT @candidate_limit;
         Action<long> sparseMsRef,
         string? lexicalExpansionQuery = null,
         string? categoryPath = null,
+        bool includeProfileCardMatches = true,
         Action<string, string?>? degradedRetrieverRef = null)
     {
         if (string.IsNullOrWhiteSpace(query) || topK <= 0)
@@ -3288,6 +4361,7 @@ profile_card_matches AS (
     ) pcc ON TRUE
     CROSS JOIN lexical_terms
     WHERE d.tenant_id = @tenant_id
+      AND @include_profile_card_matches
       AND d.status = 'indexed'
       AND d.indexed_version > 0
       AND (@category IS NULL OR LOWER(d.category) = @category)
@@ -3412,6 +4486,7 @@ LIMIT @top_k;
                 tenant_id = tenantId,
                 query_text = sparseQueryText,
                 lexical_terms = lexicalTerms.ToArray(),
+                include_profile_card_matches = includeProfileCardMatches,
                 category,
                 category_path = normalizedCategoryPath,
                 doc_id = normalizedDocId,
@@ -3419,15 +4494,13 @@ LIMIT @top_k;
                 top_k = topK
             }, cancellationToken: ct))).ToList();
 
+            var hasScopedSparseSearch = !string.IsNullOrWhiteSpace(category)
+                || !string.IsNullOrWhiteSpace(normalizedCategoryPath)
+                || normalizedDocId.HasValue
+                || !string.IsNullOrWhiteSpace(normalizedDocPath);
             if (lexicalTerms.Count > 0
                 && (rows.Count == 0
-                    || !string.IsNullOrWhiteSpace(category)
-                    || ShouldSupplementSparseWithLexicalFallback(
-                        !string.IsNullOrWhiteSpace(category)
-                        || !string.IsNullOrWhiteSpace(normalizedCategoryPath)
-                        || normalizedDocId.HasValue
-                        || !string.IsNullOrWhiteSpace(normalizedDocPath),
-                        sparseQueryText)))
+                    || ShouldSupplementSparseWithLexicalFallback(hasScopedSparseSearch, sparseQueryText)))
             {
                 var fallbackRows = (await conn.QueryAsync<SparseMatchRow>(new CommandDefinition(LexicalContentFallbackSql, new
                 {
@@ -4836,6 +5909,15 @@ LIMIT @top_k;
         if (tokens.Count == 0)
             return false;
 
+        if (ContainsQuantityComputationIntent(query)
+            && ExtractQuotedLookupPhrases(query).Count == 0)
+        {
+            return false;
+        }
+
+        if (ContainsBroadOnlySparseQueryIntent(query))
+            return false;
+
         var hasStrongToken = tokens.Any(static token =>
             token.Length >= 7
             || token.Any(char.IsDigit)
@@ -4846,6 +5928,92 @@ LIMIT @top_k;
 
         return hasStrongToken && tokens.Count <= 4;
     }
+
+    internal static bool ContainsBroadOnlySparseQueryIntent(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return false;
+
+        var normalized = " " + FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query)).ToLowerInvariant() + " ";
+        var hasBroadIntent = ContainsBroadScopedSynthesisIntent(normalized)
+            || ContainsSituationalBroadSelectionIntent(normalized)
+            || ShouldPreferDocumentDiversity(query)
+            || ContainsDocumentOverviewIntent(query);
+        if (ExtractQuotedLookupPhrases(query).Count > 0)
+        {
+            return false;
+        }
+
+        if (ExtractFocusedLookupPhrases(query).Count > 0
+            && !ContainsExplicitBroadScopedSynthesisIntent(normalized)
+            && !ContainsSituationalBroadSelectionIntent(normalized)
+            && !ShouldPreferComparativeDocumentDiversity(query))
+        {
+            return false;
+        }
+
+        return hasBroadIntent;
+    }
+
+    internal static bool ContainsQuantityComputationIntent(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return false;
+
+        var normalized = " " + FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query)).ToLowerInvariant() + " ";
+        return ContainsAny(normalized,
+            " combien ",
+            " quantite ",
+            " quantites ",
+            " how many ",
+            " quantity ",
+            " quantities ",
+            " calculate ",
+            " calcula ",
+            " calcular ",
+            " calcular ",
+            " quante ",
+            " quanti ",
+            " wie viele ",
+            " menge ",
+            " mengen ");
+    }
+
+    internal static bool ShouldSkipDocumentProfileSearchForQuantityLookup(string query)
+    {
+        if (!ContainsQuantityComputationIntent(query))
+            return false;
+
+        var normalized = " " + FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query)).ToLowerInvariant() + " ";
+        return !HasReferenceLikeQueryToken(query)
+            && !ContainsDocumentOverviewIntent(query)
+            && !ContainsDocumentCorpusCountIntent(normalized)
+            && !ContainsBroadScopedSynthesisIntent(normalized)
+            && !ContainsSituationalBroadSelectionIntent(normalized);
+    }
+
+    private static bool ContainsDocumentCorpusCountIntent(string normalized)
+        => ContainsAny(normalized,
+            " document ",
+            " documents ",
+            " source ",
+            " sources ",
+            " fichier ",
+            " fichiers ",
+            " file ",
+            " files ",
+            " manual ",
+            " manuals ",
+            " rapport ",
+            " rapports ",
+            " report ",
+            " reports ",
+            " documento ",
+            " documentos ",
+            " documento ",
+            " documenti ",
+            " dokument ",
+            " dokumente ");
 
     internal static bool ShouldBackfillEnumerativeSearch(string query, int selectedCount, int topK)
     {
@@ -4859,6 +6027,31 @@ LIMIT @top_k;
         }
 
         return false;
+    }
+
+    internal static bool ShouldBackfillFuzzyTitleLead(string query, IReadOnlyList<RagMatch> selected)
+    {
+        if (string.IsNullOrWhiteSpace(query) || ExtractFocusedLookupPhrases(query).Count == 0)
+            return false;
+
+        if (selected.Count == 0 || !selected.Any(static match => IsContentSelectionCandidate(match)))
+            return true;
+        if (selected.Any(static match => IsResolvedTitleOrNavigationRoute(match)))
+            return false;
+
+        var focusedLookupPhrase = BuildFocusedLexicalBackfillQuery(query);
+        var lexicalTokens = ExtractTitlePruneTokens(focusedLookupPhrase)
+            .Where(static token => !LexicalStopwords.Contains(token))
+            .Where(static token => !PrimaryAnchorStopwords.Contains(token))
+            .Where(static token => !SpecificAnchorStopwords.Contains(token))
+            .Distinct(StringComparer.Ordinal)
+            .Take(4)
+            .ToArray();
+        if (lexicalTokens.Length < 2)
+            return false;
+
+        var requiredAnchorCount = Math.Min(2, lexicalTokens.Length);
+        return !selected.Any(match => CountSpecificLexicalAnchors(lexicalTokens, GetPreciseTitleSignalText(match)) >= requiredAnchorCount);
     }
 
     private static bool ContainsEnumerativeLookupIntent(string normalized)
@@ -4961,6 +6154,30 @@ LIMIT @top_k;
             .ToArray();
     }
 
+    internal static IReadOnlyList<string> ExtractComparativeLookupPhrases(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query) || !ShouldPreferComparativeDocumentDiversity(query))
+            return Array.Empty<string>();
+
+        var surface = FoldDiacritics(query).ToLowerInvariant();
+        surface = Regex.Replace(surface, @"[\u2010-\u2015_\-]+", " ", RegexOptions.CultureInvariant);
+        surface = Regex.Replace(surface, @"['\u2019]", " ", RegexOptions.CultureInvariant);
+        surface = Regex.Replace(surface, @"\s+", " ", RegexOptions.CultureInvariant).Trim();
+        if (string.IsNullOrWhiteSpace(surface))
+            return Array.Empty<string>();
+
+        var phrases = new List<string>();
+        foreach (var pattern in ComparativeLookupTargetPatterns)
+        {
+            foreach (Match match in pattern.Matches(surface))
+                AddFocusedLookupPhrase(phrases, match.Groups["target"].Value);
+        }
+
+        return phrases
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+    }
+
     private static void AddFocusedLookupPhrase(List<string> phrases, string candidate)
     {
         var phrase = NormalizeFocusedLookupPhrase(candidate);
@@ -5050,6 +6267,13 @@ LIMIT @top_k;
 
         while (tokens.Count > 0 && IsFocusedLookupLeadingEdgeToken(tokens[0]))
             tokens.RemoveAt(0);
+        while (tokens.Count > 1 && IsFocusedLookupLeadingDescriptorToken(tokens[0]))
+            tokens.RemoveAt(0);
+        while (tokens.Count > 0 && IsFocusedLookupLeadingEdgeToken(tokens[0]))
+            tokens.RemoveAt(0);
+        var alternativeIndex = tokens.FindIndex(static token => IsFocusedLookupAlternativeSeparatorToken(token));
+        if (alternativeIndex > 0)
+            tokens = tokens.Take(alternativeIndex).ToList();
         while (tokens.Count > 0 && IsFocusedLookupTrailingEdgeToken(tokens[^1]))
             tokens.RemoveAt(tokens.Count - 1);
 
@@ -5070,6 +6294,16 @@ LIMIT @top_k;
            || SpecificAnchorStopwords.Contains(token)
            || PrimaryAnchorStopwords.Contains(token)
            || token is "l" or "s";
+
+    private static bool IsFocusedLookupLeadingDescriptorToken(string token)
+        => token is "grand" or "grande" or "grands" or "grandes"
+            or "principal" or "principale" or "principaux" or "principales"
+            or "etape" or "etapes"
+            or "step" or "steps" or "main" or "major"
+            or "procedure" or "procedures";
+
+    private static bool IsFocusedLookupAlternativeSeparatorToken(string token)
+        => token is "ou" or "or" or "oder" or "oppure";
 
     private static bool IsFocusedLookupTrailingEdgeToken(string token)
         => !IsShortTitleSuffixToken(token)
@@ -5093,7 +6327,7 @@ LIMIT @top_k;
         @"(?<target>[\p{L}\p{Nd}][\p{L}\p{Nd}\s\-]{2,80}?)";
 
     private const string FocusedLookupTargetStopLookahead =
-        @"(?=\s+(?:dans|depuis|from|in|aus|im|von|vom|source|sources|fonte|fontes|fuente|fuentes|quelle|quellen|ingredient|ingredients|etape|etapes|step|steps|schritt|schritte|passo|passos|temps|time|duree|duration|duracion|duracao|dauer|pdf|document|documents|doc|docs|fichier|fichiers|arquivo|arquivos|archivo|archivos|file|files|livre|livres|book|books|libro|libros|manuale|manuel|manuels|manual|manuals|guide|guides|guia|guias|handbuch|handbucher|version|mode|reglage|reglages|setting|settings|parametre|parametres|avec|with|com|con|mit|senza|sans|without|compare|comparer|compara|comparar|vergleiche|si|oui|ja)\b|[\?:;,\.\r\n]|$)";
+        @"(?=\s+(?:dans|depuis|from|in|aus|im|von|vom|source|sources|fonte|fontes|fuente|fuentes|quelle|quellen|etape|etapes|step|steps|schritt|schritte|passo|passos|temps|time|duree|duration|duracion|duracao|dauer|pdf|document|documents|doc|docs|fichier|fichiers|arquivo|arquivos|archivo|archivos|file|files|livre|livres|book|books|libro|libros|manuale|manuel|manuels|manual|manuals|guide|guides|guia|guias|handbuch|handbucher|version|mode|reglage|reglages|setting|settings|parametre|parametres|avec|with|com|con|mit|senza|sans|without|compare|comparer|compara|comparar|vergleiche|si|oui|ja)\b|[\?:;,\.\r\n]|$)";
 
     private static readonly Regex FocusedLookupTargetPattern = new(
         @"\b(?:(?:fiche|ficha|scheda|karte|card|procedure|procedures|procedimiento|procedimientos|procedimento|procedimentos|process|processus|processo|processi|section|seccion|secao|sezione|abschnitt|chapitre|chapter|capitulo|capitolo|kapitel|topic|sujet|subject|tema|assunto|argomento)\b(?:\s+(?:claire|clair|clear|detaillee|detailee|detailed|simple|complete|completa|completo|klar)){0,3}|(?:donne|donner|montre|trouve|chercher|cherche|veux|souhaite|give|show|find|get|want|need|dame|muestra|mostrar|encuentra|encontrar|quero|procura|procurar|mostra|trova|cerca|voglio|zeige|finde|finden|suche|such|mochte|will|brauche)\b(?:\s+[\p{L}\p{Nd}']{1,24}){0,8}?)\s+(?:de|du|des|d['’]?|pour|sur|of|for|about|on|para|sobre|por|per|su|di|del|della|do|da|dos|das|em|zu|zum|zur|uber|ueber)\s+(?<target>[\p{L}\p{Nd}][\p{L}\p{Nd}\s\-]{2,80}?)(?=\s+(?:dans|depuis|from|in|aus|im|von|vom|source|sources|fonte|fontes|fuente|fuentes|quelle|quellen|etape|etapes|step|steps|schritt|schritte|passo|passos|temps|time|duree|duration|duracion|duracao|dauer|pdf|document|documents|doc|docs|fichier|fichiers|arquivo|arquivos|archivo|archivos|file|files|livre|livres|book|books|libro|libros|manuale|manuel|manuels|manual|manuals|guide|guides|guia|guias|handbuch|handbucher|avec|with|com|con|mit|senza|sans|without|compare|comparer|compara|comparar|vergleiche|si|oui|ja)\b|[\?:;,\.\r\n]|$)",
@@ -5101,12 +6335,53 @@ LIMIT @top_k;
         TimeSpan.FromMilliseconds(100));
 
     private static readonly Regex DirectObjectFocusedLookupTargetPattern = new(
-        @"\b(?:il\s+me\s+faut|il\s+nous\s+faut|je\s+veux|j['\u2019]ai\s+besoin\s+de|i\s+need|we\s+need|quiero|quero|voglio|ich\s+brauche)\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + FocusedLookupTargetStopLookahead,
+        @"\b(?:il\s+me\s+faut|il\s+nous\s+faut|je\s+veux|j['\u2019]ai\s+besoin\s+de|donne\s+moi|donnez\s+moi|montre\s+moi|montrez\s+moi|trouve\s+moi|trouvez\s+moi|give\s+me|show\s+me|get\s+me|find\s+me|i\s+need|we\s+need|quiero|quero|voglio|ich\s+brauche)\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + FocusedLookupTargetStopLookahead,
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(100));
+
+    private static readonly Regex AvailabilityFocusedLookupTargetPattern = new(
+        @"\b(?:tu\s+as|as\s+tu|avez\s+vous|vous\s+avez|est\s+ce\s+que\s+tu\s+as|est\s+ce\s+que\s+vous\s+avez|do\s+you\s+have|have\s+you\s+got|have\s+you|hay|tienes|tem|tens|hai|hast\s+du|haben\s+sie|gibt\s+es)\s+(?:" + FocusedLookupArticlePattern + @")?(?:[\p{L}\p{Nd}]{3,24}\s+(?:de|du|des|d['\u2019]|of|for)\s+)?" + FocusedLookupTargetPatternText + FocusedLookupTargetStopLookahead,
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(100));
+
+    private static readonly Regex SourceAttributionFocusedLookupTargetPattern = new(
+        @"\b(?:est\s+ce\s+que|is|does|viene|vem|stammt)\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + @"(?=\s+(?:vient|provient|come|comes|viene|vem|stammt)\s+(?:de|du|des|d['\u2019]|from|di|da|do|de|aus|von)\b)",
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(100));
+
+    private static readonly Regex ProvenanceFocusedLookupTargetPattern = new(
+        @"\b(?:d\s+ou\s+(?:vient|provient|sort|est\s+issu|est\s+issue)|source\s+(?:de|du|des|d['\u2019]|for|of)|origine\s+(?:de|du|des|d['\u2019]|for|of)|where\s+(?:does|is)\s+[\p{L}\p{Nd}\s'’\-/]{0,40}?\s+(?:come|from))\s+(?:" + FocusedLookupArticlePattern + @")?(?:[\p{L}\p{Nd}]{3,24}\s+(?:de|du|des|d['\u2019]|of)\s+)?" + FocusedLookupTargetPatternText + FocusedLookupTargetStopLookahead,
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(100));
+
+    private static readonly Regex[] ComparativeLookupTargetPatterns =
+    [
+        new(
+            @"\b(?:compare|comparer|comparez|comparison|comparaison|comparar|compara|confronta|vergleiche|vergleichen)\s+(?:(?:les|des|deux|plusieurs|the|some|multiple|several)\s+){0,3}(?<target>[\p{L}\p{Nd}][\p{L}\p{Nd}\s\-]{2,80}?)(?=\s+(?:du|de|des|dans|depuis|from|in|of|del|do|dos|delle|aus)\s+(?:corpus|base|documents?|docs?|pdfs?|fichiers?|files?|category|categorie|categoria)|\s*[:\?;\.,\r\n]|$)",
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+            TimeSpan.FromMilliseconds(100)),
+        new(
+            @"\b(?:choisir|choisis|choisissez|choose|select|escoge|escolher|scegliere)\s+(?:entre|between|tra|zwischen)\s+(?<target>[\p{L}\p{Nd}][\p{L}\p{Nd}\s,\-]{2,120}?)(?=\s+(?:et|and|e|und)?\s*(?:justifie|justify|explique|explain)\b|[\?:;\.\r\n]|$)",
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+            TimeSpan.FromMilliseconds(100)),
+        new(
+            @"\b(?:plusieurs|multiple|several|varias|varios|diverses|diversi|mehrere)\s+(?<target>[\p{L}\p{Nd}][\p{L}\p{Nd}\s\-]{2,80}?)(?=\s*[\?;,\.\r\n]\s*(?:compare|comparer|comparez|comparison|comparaison|comparar|compara|confronta|vergleiche|vergleichen)\b)",
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+            TimeSpan.FromMilliseconds(100))
+    ];
+
+    private static readonly Regex AlternativeFocusedLookupTargetPattern = new(
+        @"\b(?:je\s+cherche|je\s+recherche|cherche|chercher|recherche|rechercher|trouve|trouver|i\s+(?:am\s+)?(?:looking\s+for|need|want)|find|get|want|need|busco|busca|buscar|quero|procuro|procurar|cerco|cerca|cercare|voglio|suche|such|finde|finden|will|brauche)\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + @"(?=\s+(?:ou|or|oder|oppure)\b)",
         RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
         TimeSpan.FromMilliseconds(100));
 
     private static readonly Regex ActionQuestionFocusedLookupTargetPattern = new(
-        @"\b(?:comment|how|como|come|wie)\s+(?:faire|preparer|cuire|utiliser|make|prepare|cook|use|usar|fare|preparare|cucinare|machen|kochen)\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + FocusedLookupTargetStopLookahead,
+        @"\b(?:comment|how|como|come|wie)\s+[\p{L}]{3,24}\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + FocusedLookupTargetStopLookahead,
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(100));
+
+    private static readonly Regex DefinitionThenActionFocusedLookupTargetPattern = new(
+        @"\b(?:c\s+est\s+quoi|qu\s+est\s+ce\s+que|qu\s+est\s+ce\s+qu(?:il|elle|ils|elles)?|what\s+is|what\s+are|que\s+es|o\s+que\s+e|che\s+cos\s+e|was\s+ist)\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + @"(?=\s+(?:et|and|y|e|und)\s+(?:comment|how|como|come|wie|lequel|laquelle|which)\b|[\?:;,\.\r\n]|$)",
         RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
         TimeSpan.FromMilliseconds(100));
 
@@ -5116,7 +6391,7 @@ LIMIT @top_k;
         TimeSpan.FromMilliseconds(100));
 
     private static readonly Regex ParameterFocusedLookupTargetPattern = new(
-        @"\b(?:combien\s+de\s+temps|quels?\s+ingredients|ingredients?|etapes?|temps|reglages?|parametres?|vitesses?|temperatures?|how\s+long|what\s+ingredients|which\s+settings|settings?|parameters?)\b[\p{L}\p{Nd}\s'’\-/]{0,90}?\s+(?:pour|for|de|du|des|d['\u2019]|sur|about|on|para|sobre|per|su)\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + FocusedLookupTargetStopLookahead,
+        @"\b(?:combien\s+de\s+temps|quantites?|quantities?|amounts?|etapes?|temps|reglages?|parametres?|vitesses?|temperatures?|how\s+long|which\s+settings|settings?|parameters?)\b[\p{L}\p{Nd}\s'’\-/]{0,90}?\s+(?:pour|for|de|du|des|d['\u2019]|sur|about|on|para|sobre|per|su)\s+(?:(?:\d+|[a-z]+)\s+[\p{L}]{2,24}\s+(?:de|d['\u2019]|of)\s+)?(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + FocusedLookupTargetStopLookahead,
         RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
         TimeSpan.FromMilliseconds(100));
 
@@ -5127,9 +6402,14 @@ LIMIT @top_k;
 
     private static readonly Regex[] FocusedLookupTargetPatterns =
     [
+        SourceAttributionFocusedLookupTargetPattern,
+        ProvenanceFocusedLookupTargetPattern,
+        AvailabilityFocusedLookupTargetPattern,
+        AlternativeFocusedLookupTargetPattern,
         FocusedLookupTargetPattern,
         DirectObjectFocusedLookupTargetPattern,
         ActionQuestionFocusedLookupTargetPattern,
+        DefinitionThenActionFocusedLookupTargetPattern,
         ExplainFocusedLookupTargetPattern,
         ParameterFocusedLookupTargetPattern,
         StructuredInfoFocusedLookupTargetPattern
@@ -5594,8 +6874,9 @@ GROUP BY d.doc_id;
                 continue;
             }
 
-            if (LooksLikeNavigationalChunk(match)
-                && selected.Any(static existing => !LooksLikeNavigationalChunk(existing)))
+            if (!IsResolvedTitleOrNavigationRoute(match)
+                && LooksLikeNavigationalChunk(match)
+                && selected.Any(static existing => IsContentSelectionCandidate(existing)))
             {
                 selectedKeys.Remove(dedupKey);
                 continue;
@@ -5637,15 +6918,25 @@ GROUP BY d.doc_id;
         }
     }
 
+    internal static void RebuildSelectedKeys(IReadOnlyList<RagMatch> selected, HashSet<string> selectedKeys)
+    {
+        selectedKeys.Clear();
+        foreach (var match in selected)
+            selectedKeys.Add(BuildMatchDedupKey(match));
+    }
+
     internal static IReadOnlyList<RagMatch> OrderMatchesForSelection(
         IEnumerable<RagMatch> matches,
         bool prioritizeDocumentProfiles)
     {
         var orderedMatches = matches as IReadOnlyList<RagMatch> ?? matches.ToList();
         return prioritizeDocumentProfiles
-            ? orderedMatches.ToList()
+            ? orderedMatches
+                .OrderByDescending(static match => IsResolvedTitleOrNavigationRoute(match))
+                .ToList()
             : orderedMatches
                 .Where(static match => !IsDocumentProfileMatch(match))
+                .OrderByDescending(static match => IsResolvedTitleOrNavigationRoute(match))
                 .Concat(orderedMatches.Where(IsDocumentProfileMatch))
                 .ToList();
     }
@@ -5691,7 +6982,9 @@ GROUP BY d.doc_id;
                         || string.Equals(retriever, "linked_context", StringComparison.Ordinal)
                         || string.Equals(retriever, "sparse_bm25", StringComparison.Ordinal)
                         || string.Equals(retriever, "title_anchor_route", StringComparison.Ordinal)
-                        || string.Equals(retriever, "navigation_route", StringComparison.Ordinal))
+                        || string.Equals(retriever, "navigation_route", StringComparison.Ordinal)
+                        || string.Equals(retriever, "direct_title_token_route", StringComparison.Ordinal)
+                        || string.Equals(retriever, "fuzzy_title_lead", StringComparison.Ordinal))
                     && Guid.TryParse(match.ChunkId, out _);
             })
             .Select(match => new LinkedAnchorCandidate(
@@ -5734,6 +7027,14 @@ GROUP BY d.doc_id;
             .Where(item => string.Equals(item.SourceRetriever, "sparse_bm25", StringComparison.Ordinal))
             .Select(item => item.SourceId)
             .ToArray();
+        var routeAnchorIds = anchorCandidates
+            .Where(item =>
+                string.Equals(item.SourceRetriever, "title_anchor_route", StringComparison.Ordinal)
+                || string.Equals(item.SourceRetriever, "navigation_route", StringComparison.Ordinal)
+                || string.Equals(item.SourceRetriever, "direct_title_token_route", StringComparison.Ordinal)
+                || string.Equals(item.SourceRetriever, "fuzzy_title_lead", StringComparison.Ordinal))
+            .Select(item => item.SourceId)
+            .ToArray();
         var exactAnchorIds = anchorCandidates
             .Where(item => string.Equals(item.SourceRetriever, "exact_match", StringComparison.Ordinal))
             .Select(item => item.SourceId)
@@ -5752,6 +7053,9 @@ WITH requested_anchors AS (
         UNION ALL
         SELECT anchor_chunk_id AS source_anchor_id, anchor_chunk_id, 'sparse_bm25'::text AS anchor_retriever
         FROM unnest(@sparse_anchor_chunk_ids::uuid[]) AS anchor_chunk_id
+        UNION ALL
+        SELECT anchor_chunk_id AS source_anchor_id, anchor_chunk_id, 'route_context'::text AS anchor_retriever
+        FROM unnest(@route_anchor_chunk_ids::uuid[]) AS anchor_chunk_id
         UNION ALL
         SELECT
             exact_anchors.exact_match_entry_id AS source_anchor_id,
@@ -5873,10 +7177,11 @@ LIMIT @top_k;
         var rows = await conn.QueryAsync<LinkedMatchRow>(new CommandDefinition(sql, new
         {
             tenant_id = tenantId,
-            dense_anchor_chunk_ids = denseAnchorIds,
-            linked_anchor_chunk_ids = linkedAnchorIds,
-            sparse_anchor_chunk_ids = sparseAnchorIds,
-            exact_anchor_entry_ids = exactAnchorIds,
+                dense_anchor_chunk_ids = denseAnchorIds,
+                linked_anchor_chunk_ids = linkedAnchorIds,
+                sparse_anchor_chunk_ids = sparseAnchorIds,
+                route_anchor_chunk_ids = routeAnchorIds,
+                exact_anchor_entry_ids = exactAnchorIds,
             category,
             category_path = normalizedCategoryPath,
             doc_id = normalizedDocId,
@@ -6092,6 +7397,7 @@ LIMIT @top_k;
             .Take(16)
             .ToArray();
         var quotedPhrases = ExtractQuotedLookupPhrases(rankingQuery);
+        var documentHintTokens = ExtractDocumentHintTokens(rankingQuery);
         var comparativeSubjectTokens = ExtractComparativeSubjectAnchorTokens(rankingQuery);
         var titleScoringQuery = string.IsNullOrWhiteSpace(query) ? rankingQuery : query;
         var titleTokens = ExtractLexicalQueryTokens(titleScoringQuery)
@@ -6174,6 +7480,7 @@ LIMIT @top_k;
                     match,
                     titleTokens,
                     normalizedTitleScoringQuery);
+                var matchesDocumentHint = DocumentMatchesHint(documentHintTokens, match);
 
                 if (referenceTerms.Length > 0)
                 {
@@ -6188,7 +7495,37 @@ LIMIT @top_k;
                         adjusted -= 0.01;
                     }
                 }
-                else if (lexicalTokens.Count > 0)
+
+                if (documentHintTokens.Count > 0)
+                {
+                    if (matchesDocumentHint)
+                    {
+                        adjusted += retriever switch
+                        {
+                            "exact_match" => 0.20,
+                            "title_anchor_route" => 0.18,
+                            "navigation_route" => 0.16,
+                            "direct_title_token_route" => 0.16,
+                            "fuzzy_title_lead" => 0.15,
+                            "sparse_bm25" => 0.18,
+                            "dense_qdrant" => 0.14,
+                            "document_profile" => 0.12,
+                            _ => 0.10
+                        };
+                    }
+                    else if (!string.Equals(retriever, "linked_context", StringComparison.Ordinal))
+                    {
+                        adjusted -= retriever switch
+                        {
+                            "dense_qdrant" => 0.10,
+                            "sparse_bm25" => 0.08,
+                            "document_profile" => 0.06,
+                            _ => 0.05
+                        };
+                    }
+                }
+
+                if (lexicalTokens.Count > 0)
                 {
                     if (string.Equals(retriever, "sparse_bm25", StringComparison.Ordinal))
                     {
@@ -6221,6 +7558,8 @@ LIMIT @top_k;
                         "sparse_bm25" => Math.Min(0.32, 0.12 + (exactTitleScore * 0.006)),
                         "title_anchor_route" => Math.Min(0.30, 0.12 + (exactTitleScore * 0.006)),
                         "navigation_route" => Math.Min(0.26, 0.10 + (exactTitleScore * 0.005)),
+                        "direct_title_token_route" => Math.Min(0.28, 0.11 + (exactTitleScore * 0.005)),
+                        "fuzzy_title_lead" => Math.Min(0.24, 0.09 + (exactTitleScore * 0.005)),
                         "dense_qdrant" => Math.Min(0.16, 0.06 + (exactTitleScore * 0.004)),
                         "document_profile" => Math.Min(0.20, 0.08 + (exactTitleScore * 0.004)),
                         "exact_match" => Math.Min(0.18, 0.08 + (exactTitleScore * 0.004)),
@@ -6241,6 +7580,8 @@ LIMIT @top_k;
                         "sparse_bm25" => 0.25,
                         "title_anchor_route" => 0.22,
                         "navigation_route" => 0.18,
+                        "direct_title_token_route" => 0.20,
+                        "fuzzy_title_lead" => 0.18,
                         "dense_qdrant" => 0.12,
                         "document_profile" => 0.08,
                         _ => 0.06
@@ -6322,6 +7663,8 @@ LIMIT @top_k;
                         "sparse_bm25" => 0.28,
                         "title_anchor_route" => 0.24,
                         "navigation_route" => 0.18,
+                        "direct_title_token_route" => 0.20,
+                        "fuzzy_title_lead" => 0.18,
                         "dense_qdrant" => 0.0,
                         "document_profile" => 0.08,
                         _ => 0.10
@@ -6380,12 +7723,14 @@ LIMIT @top_k;
                     QuotedLookupScore = quotedLookupScore,
                     LexicalCoverage = lexicalCoverage,
                     SpecificAnchorCount = specificAnchorCount,
+                    DocumentHintMatched = matchesDocumentHint,
                     StructuredAnswerPriority = GetStructuredAnswerPriority(match)
                 };
             })
             .OrderByDescending(static item => item.DirectChunkTitleSignal)
             .ThenByDescending(static item => item.MatchedCardTitleSignal)
             .ThenByDescending(item => item.ExactTitleScore > 0.0 ? 1 : 0)
+            .ThenByDescending(static item => item.DocumentHintMatched)
             .ThenByDescending(item => useSpecificCoverageTitlePriority && item.SpecificAnchorCount >= 2 ? 1 : 0)
             .ThenByDescending(item => useSpecificCoverageTitlePriority ? item.StructuredAnswerPriority : 0)
             .ThenByDescending(item => useSpecificCoverageTitlePriority ? item.SpecificAnchorCount : 0)
@@ -6428,14 +7773,15 @@ LIMIT @top_k;
 
     internal static List<RagMatch> SuppressNavigationalNoise(string query, IReadOnlyList<RagMatch> candidates)
     {
-        if (candidates.Count <= 1 || ShouldAllowNavigationalResults(query))
+        if (candidates.Count == 0 || ShouldAllowNavigationalResults(query))
             return candidates.ToList();
 
         var allowGlossary = ShouldAllowGlossaryResults(query);
         var classified = candidates
             .Select(match =>
             {
-                var isNavigational = LooksLikeNavigationalChunk(match);
+                var keepResolvedRoute = IsResolvedTitleOrNavigationRoute(match);
+                var isNavigational = !keepResolvedRoute && LooksLikeNavigationalChunk(match);
                 var isGlossary = !allowGlossary && LooksLikeGlossaryChunk(match);
                 return new
                 {
@@ -6445,10 +7791,6 @@ LIMIT @top_k;
                 };
             })
             .ToList();
-        var hasContentCandidate = classified.Any(static item => !item.IsNavigational && !item.IsGlossary);
-        if (!hasContentCandidate)
-            return candidates.ToList();
-
         return classified
             .Where(static item => !item.IsNavigational && !item.IsGlossary)
             .Select(static item => item.Match)
@@ -6457,18 +7799,34 @@ LIMIT @top_k;
 
     internal static void PruneNavigationalSelections(string query, List<RagMatch> selected)
     {
-        if (selected.Count <= 1 || ShouldAllowNavigationalResults(query))
+        if (selected.Count == 0 || ShouldAllowNavigationalResults(query))
             return;
 
         var allowGlossary = ShouldAllowGlossaryResults(query);
-        var hasContentCandidate = selected.Any(match => !LooksLikeNavigationalChunk(match)
-            && (allowGlossary || !LooksLikeGlossaryChunk(match)));
-        if (!hasContentCandidate)
-            return;
-
-        selected.RemoveAll(match => LooksLikeNavigationalChunk(match)
-            || (!allowGlossary && LooksLikeGlossaryChunk(match)));
+        selected.RemoveAll(match => !IsResolvedTitleOrNavigationRoute(match)
+            && (LooksLikeNavigationalChunk(match)
+                || (!allowGlossary && LooksLikeGlossaryChunk(match))));
     }
+
+    internal static bool IsResolvedTitleOrNavigationRoute(RagMatch match)
+    {
+        var retriever = ResolveRetriever(match);
+        if (string.IsNullOrWhiteSpace(match.ChunkId))
+            return false;
+
+        if (string.Equals(retriever, "title_anchor_route", StringComparison.Ordinal)
+            || string.Equals(retriever, "direct_title_token_route", StringComparison.Ordinal)
+            || string.Equals(retriever, "fuzzy_title_lead", StringComparison.Ordinal))
+            return HasProfileTitleHint(match);
+
+        return string.Equals(retriever, "navigation_route", StringComparison.Ordinal)
+            && HasProfileTitleHint(match)
+            && NavigationRouteHasTargetTitleEvidence(match);
+    }
+
+    private static bool IsContentSelectionCandidate(RagMatch match)
+        => IsResolvedTitleOrNavigationRoute(match)
+           || !LooksLikeNavigationalChunk(match);
 
     internal static void PrioritizeQuotedTitleSelections(string query, List<RagMatch> selected)
     {
@@ -6995,7 +8353,9 @@ LIMIT @top_k;
             "Matched profile title:",
             "Matched quoted title:",
             "Matched title_anchor_route:",
-            "Matched navigation_route:"
+            "Matched navigation_route:",
+            "Matched direct_title_token_route:",
+            "Matched fuzzy_title_lead:"
         ];
         var prefix = prefixes.FirstOrDefault(prefix => embedText.StartsWith(prefix, StringComparison.Ordinal));
         if (prefix is null)
@@ -7215,11 +8575,98 @@ LIMIT @top_k;
     }
 
     internal static bool HasProfileTitleHint(RagMatch match)
-        => !string.IsNullOrWhiteSpace(match.EmbedText)
-            && (match.EmbedText!.StartsWith("Matched profile title:", StringComparison.Ordinal)
-                || match.EmbedText!.StartsWith("Matched quoted title:", StringComparison.Ordinal)
-                || match.EmbedText!.StartsWith("Matched title_anchor_route:", StringComparison.Ordinal)
-                || match.EmbedText!.StartsWith("Matched navigation_route:", StringComparison.Ordinal));
+    {
+        if (string.IsNullOrWhiteSpace(match.EmbedText))
+            return false;
+
+        if (match.EmbedText!.StartsWith("Matched navigation_route:", StringComparison.Ordinal))
+            return NavigationRouteHasTargetTitleEvidence(match);
+
+        return match.EmbedText.StartsWith("Matched profile title:", StringComparison.Ordinal)
+            || match.EmbedText.StartsWith("Matched quoted title:", StringComparison.Ordinal)
+            || match.EmbedText.StartsWith("Matched title_anchor_route:", StringComparison.Ordinal)
+            || match.EmbedText.StartsWith("Matched direct_title_token_route:", StringComparison.Ordinal)
+            || match.EmbedText.StartsWith("Matched fuzzy_title_lead:", StringComparison.Ordinal);
+    }
+
+    internal static bool NavigationRouteHasTargetTitleEvidence(RagMatch match)
+    {
+        if (!IsNavigationRouteMatch(match))
+            return true;
+
+        var routeTitle = ExtractMatchedRouteOrProfileTitle(match.EmbedText);
+        if (string.IsNullOrWhiteSpace(routeTitle))
+            return false;
+
+        var directSignal = GetDirectChunkSignalText(match);
+        if (string.IsNullOrWhiteSpace(directSignal))
+            return false;
+
+        var normalizedRouteTitle = NormalizeNavigationRouteEvidenceTitle(routeTitle);
+        if (string.IsNullOrWhiteSpace(normalizedRouteTitle))
+            return false;
+
+        var normalizedDirect = NormalizeForLexicalSignal(directSignal);
+        if (string.IsNullOrWhiteSpace(normalizedDirect))
+            return false;
+
+        if (normalizedRouteTitle.Length >= 4
+            && normalizedDirect.Contains(normalizedRouteTitle, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var titleTokens = normalizedRouteTitle
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(static token => token.Length >= 3 || token.Any(char.IsDigit))
+            .Where(static token => !TitleConnectorTokens.Contains(token))
+            .Where(static token => !LexicalStopwords.Contains(token))
+            .Where(static token => !SpecificAnchorStopwords.Contains(token))
+            .Where(static token => !PrimaryAnchorStopwords.Contains(token))
+            .Distinct(StringComparer.Ordinal)
+            .Take(8)
+            .ToArray();
+
+        if (titleTokens.Length == 1)
+            return ContainsExactNormalizedToken(normalizedDirect, titleTokens[0]);
+
+        return titleTokens.Length >= 2
+            && ContainsTitleLikeLexicalSequence(normalizedDirect, titleTokens);
+    }
+
+    private static bool IsNavigationRouteMatch(RagMatch match)
+        => string.Equals(ResolveRetriever(match), "navigation_route", StringComparison.Ordinal)
+           || string.Equals(match.EmbeddingBasis, "navigation_route_v1", StringComparison.Ordinal);
+
+    internal static int ResolveDirectTitleTokenRouteMinimumOverlap(int queryTokenCount)
+    {
+        if (queryTokenCount <= 0)
+            return 1;
+
+        return queryTokenCount switch
+        {
+            <= 2 => queryTokenCount,
+            <= 4 => 3,
+            _ => Math.Max(3, (int)Math.Ceiling(queryTokenCount * 0.60))
+        };
+    }
+
+    private static string NormalizeNavigationRouteEvidenceTitle(string title)
+    {
+        var tokens = NormalizeForLexicalSignal(title)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+
+        while (tokens.Count > 1
+               && (tokens[0].Length == 1
+                   || tokens[0].All(char.IsDigit)
+                   || IsFocusedLookupLeadingEdgeToken(tokens[0])))
+        {
+            tokens.RemoveAt(0);
+        }
+
+        return string.Join(' ', tokens);
+    }
 
     internal static bool ContainsSpecificLexicalAnchor(IReadOnlyList<string> lexicalTokens, string? candidateText)
         => CountSpecificLexicalAnchors(lexicalTokens, candidateText) > 0;
@@ -7253,10 +8700,20 @@ LIMIT @top_k;
 
         foreach (var token in primaryTokens)
         {
+            if (token.Any(char.IsDigit)
+                && ContainsExactNormalizedToken(normalizedCandidate, token))
+            {
+                return true;
+            }
+
             foreach (var variant in BuildLexicalTokenVariants(token))
             {
                 var foldedVariant = FoldDiacritics(variant);
-                if (foldedVariant.Length >= 4 && normalizedCandidate.Contains(foldedVariant, StringComparison.Ordinal))
+                if (foldedVariant.Length >= 5 && ContainsExactNormalizedToken(normalizedCandidate, foldedVariant))
+                    return true;
+                if (foldedVariant.Length >= 6 && normalizedCandidate.Contains(foldedVariant, StringComparison.Ordinal))
+                    return true;
+                if (foldedVariant.Length >= 6 && ContainsNearNormalizedToken(normalizedCandidate, foldedVariant))
                     return true;
             }
         }
@@ -7843,14 +9300,25 @@ LIMIT @top_k;
         {
             if (SpecificAnchorStopwords.Contains(token))
                 continue;
-            if (token.Length < 6 && !token.Any(char.IsDigit))
+            if (token.Any(char.IsDigit)
+                && ContainsExactNormalizedToken(normalized, token))
+            {
+                if (seen.Add(token))
+                    matched++;
+                continue;
+            }
+
+            if (token.Length < 5 && !token.Any(char.IsDigit))
                 continue;
 
             foreach (var variant in BuildLexicalTokenVariants(token))
             {
                 var foldedVariant = FoldDiacritics(variant);
-                if (foldedVariant.Length >= 6
-                    && normalized.Contains(foldedVariant, StringComparison.Ordinal))
+                if ((foldedVariant.Length >= 5 && ContainsExactNormalizedToken(normalized, foldedVariant))
+                    || (foldedVariant.Length >= 6
+                    && (normalized.Contains(foldedVariant, StringComparison.Ordinal)
+                        || ContainsNearNormalizedToken(normalized, foldedVariant)))
+                   )
                 {
                     if (seen.Add(token))
                         matched++;
@@ -7860,6 +9328,64 @@ LIMIT @top_k;
         }
 
         return matched;
+    }
+
+    private static bool ContainsNearNormalizedToken(string normalizedCandidate, string token)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedCandidate) || string.IsNullOrWhiteSpace(token) || token.Length < 6)
+            return false;
+
+        foreach (var candidate in normalizedCandidate.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (candidate.Length < 6 || Math.Abs(candidate.Length - token.Length) > 1)
+                continue;
+            if (ComputeBoundedEditDistance(candidate, token, maxDistance: 1) <= 1)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static int ComputeBoundedEditDistance(string left, string right, int maxDistance)
+    {
+        if (Math.Abs(left.Length - right.Length) > maxDistance)
+            return maxDistance + 1;
+
+        var previous = new int[right.Length + 1];
+        var current = new int[right.Length + 1];
+        for (var j = 0; j <= right.Length; j++)
+            previous[j] = j;
+
+        for (var i = 1; i <= left.Length; i++)
+        {
+            current[0] = i;
+            var rowMin = current[0];
+            for (var j = 1; j <= right.Length; j++)
+            {
+                var cost = left[i - 1] == right[j - 1] ? 0 : 1;
+                current[j] = Math.Min(
+                    Math.Min(current[j - 1] + 1, previous[j] + 1),
+                    previous[j - 1] + cost);
+                rowMin = Math.Min(rowMin, current[j]);
+            }
+
+            if (rowMin > maxDistance)
+                return maxDistance + 1;
+
+            (previous, current) = (current, previous);
+        }
+
+        return previous[right.Length];
+    }
+
+    private static bool ContainsExactNormalizedToken(string normalizedCandidate, string token)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedCandidate) || string.IsNullOrWhiteSpace(token))
+            return false;
+
+        return normalizedCandidate
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Contains(token, StringComparer.Ordinal);
     }
 
     internal static bool LooksLikeStructuredAnswerUnit(RagMatch match)
@@ -8432,9 +9958,20 @@ LIMIT @top_k;
         return matches
             .Select(match => ExactMatchEntryExtractor.NormalizeForLookup(match.Groups["phrase"].Value))
             .Where(static phrase => phrase.Length >= 4)
-            .Where(static phrase => phrase.Count(static ch => ch == ' ') >= 1)
+            .Where(static phrase => phrase.Count(static ch => ch == ' ') >= 1 || IsSingleTokenQuotedLookupPhrase(phrase))
             .Distinct(StringComparer.Ordinal)
             .ToArray();
+    }
+
+    private static bool IsSingleTokenQuotedLookupPhrase(string phrase)
+    {
+        var normalized = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(phrase));
+        if (string.IsNullOrWhiteSpace(normalized) || normalized.Contains(' '))
+            return false;
+
+        return IsQuotedLookupSignalToken(normalized)
+            && !SpecificAnchorStopwords.Contains(normalized)
+            && !PrimaryAnchorStopwords.Contains(normalized);
     }
 
     internal static double ComputeQuotedLookupCandidateScore(IReadOnlyList<string> quotedPhrases, string? candidateText)
@@ -8941,6 +10478,8 @@ LIMIT @top_k;
             "linked_context_v1" => "linked_context",
             "title_anchor_route_v1" => "title_anchor_route",
             "navigation_route_v1" => "navigation_route",
+            "direct_title_token_route_v1" => "direct_title_token_route",
+            "fuzzy_title_lead_v1" => "fuzzy_title_lead",
             _ => "dense_qdrant"
         };
 
@@ -8985,6 +10524,8 @@ LIMIT @top_k;
             "exact_match" => 5,
             "title_anchor_route" => 4,
             "navigation_route" => 4,
+            "direct_title_token_route" => 4,
+            "fuzzy_title_lead" => 4,
             "sparse_bm25" => 3,
             "dense_qdrant" => 2,
             _ => 1
@@ -10333,7 +11874,24 @@ LIMIT 500;
         if (string.IsNullOrWhiteSpace(term))
             return false;
 
-        return term.Length >= 6 && term.Any(char.IsDigit);
+        return term.Length >= 2 && term.Any(char.IsDigit) && term.Any(char.IsLetter);
+    }
+
+    private static bool HasReferenceLikeQueryToken(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return false;
+
+        if (ExtractLexicalQueryTokens(query).Any(IsReferenceLikeLookupTerm)
+            || ExtractLexicalQuerySurfaceTokens(query).Any(IsReferenceLikeLookupTerm))
+        {
+            return true;
+        }
+
+        return Regex.IsMatch(
+            query,
+            @"\b[\p{L}]{1,12}[-_][\p{L}\p{Nd}]*\d[\p{L}\p{Nd}]*\b|\b[A-Z]{1,8}\d{1,6}[A-Z0-9]*\b|\b[A-Z]{1,8}\s+\d{1,6}[A-Z0-9]*\b",
+            RegexOptions.CultureInvariant);
     }
 
     private static async Task<IResult> ScrollAsync(
@@ -10428,6 +11986,7 @@ public sealed record RagSearchRequest(
         long QdrantMs,
         long ExactMs = 0,
         long QuotedTitleMs = 0,
+        long TitleAnchorRouteMs = 0,
         long SparsePhaseMs = 0,
         long DenseMs = 0,
         long ProfileMs = 0,

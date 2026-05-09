@@ -1,6 +1,6 @@
 sealed class IngestionOptions
 {
-    public const int DefaultAutoOcrMaxLanguages = 4;
+    public const int DefaultAutoOcrMaxLanguages = 5;
     public const int AbsoluteAutoOcrMaxLanguages = 32;
     public const int MinEmbeddingsBatchSize = 1;
     public const int DefaultEmbeddingsBatchSize = 32;
@@ -61,8 +61,8 @@ sealed class IngestionOptions
     public string OcrArguments { get; set; } = "";
     public string OcrForceArguments { get; set; } = "";
     public string OcrLanguages { get; set; } = "auto";
-    public string OcrAutoFallbackLanguages { get; set; } = "fra+eng+deu+ita";
-    public int OcrMaxLanguages { get; set; } = DefaultAutoOcrMaxLanguages;
+    public string OcrAutoFallbackLanguages { get; set; } = "fra+eng+deu+ita+spa";
+    public int OcrMaxLanguages { get; set; } = 5;
     public bool OcrAutoDetectLanguages { get; set; } = true;
     public int OcrTimeoutSeconds { get; set; } = 900;
     public int OcrMinWords { get; set; } = 5;

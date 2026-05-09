@@ -21,6 +21,8 @@ param(
     [int]$TimeoutSeconds = 120,
     [int]$DelayMs = 0,
     [int]$Parallelism = 1,
+    [ValidateSet("diagnostic", "runtime", "lean")]
+    [string]$RetrievalProfile = "diagnostic",
     [switch]$DisableDiagnosticQueryExpansion
 )
 
@@ -262,6 +264,18 @@ function Write-Tsv {
         "mode",
         "httpStatus",
         "elapsedMs",
+        "backendTookMs",
+        "exactMs",
+        "quotedTitleMs",
+        "titleAnchorMs",
+        "sparsePhaseMs",
+        "denseMs",
+        "profileMs",
+        "linkedMs",
+        "rerankPhaseMs",
+        "selectionMs",
+        "teiMs",
+        "qdrantMs",
         "sourceCount",
         "distinctDocCount",
         "targetMatched",
@@ -879,6 +893,46 @@ function Get-RetrievalMetrics {
     }
 }
 
+function ConvertTo-IntMetric {
+    param([object]$Value)
+
+    if ($null -eq $Value) {
+        return ""
+    }
+
+    $text = [string]$Value
+    if ([string]::IsNullOrWhiteSpace($text)) {
+        return ""
+    }
+
+    $parsed = 0
+    if ([int]::TryParse($text, [ref]$parsed)) {
+        return $parsed
+    }
+
+    return ""
+}
+
+function Get-BackendPhaseMetrics {
+    param([object]$Parsed)
+
+    $metrics = if ($null -eq $Parsed) { $null } else { $Parsed.metrics }
+    return [ordered]@{
+        backendTookMs = ConvertTo-IntMetric $metrics.tookMs
+        exactMs = ConvertTo-IntMetric $metrics.exactMs
+        quotedTitleMs = ConvertTo-IntMetric $metrics.quotedTitleMs
+        titleAnchorMs = ConvertTo-IntMetric $metrics.titleAnchorRouteMs
+        sparsePhaseMs = ConvertTo-IntMetric $metrics.sparsePhaseMs
+        denseMs = ConvertTo-IntMetric $metrics.denseMs
+        profileMs = ConvertTo-IntMetric $metrics.profileMs
+        linkedMs = ConvertTo-IntMetric $metrics.linkedMs
+        rerankPhaseMs = ConvertTo-IntMetric $metrics.rerankPhaseMs
+        selectionMs = ConvertTo-IntMetric $metrics.selectionMs
+        teiMs = ConvertTo-IntMetric $metrics.teiMs
+        qdrantMs = ConvertTo-IntMetric $metrics.qdrantMs
+    }
+}
+
 function Get-PreciseCuisineTitle {
     param([string]$Question)
 
@@ -985,6 +1039,9 @@ function Invoke-RagSearch {
         throw "BackendBaseUrl is required in retrieval/llm mode. Set -BackendBaseUrl or SAAIA_VALIDATION_BACKEND_URL."
     }
 
+    $useDiagnosticExpansion = -not $DisableDiagnosticQueryExpansion -and $RetrievalProfile -eq "diagnostic"
+    $includeContextualSnippet = $RetrievalProfile -eq "diagnostic"
+    $ragMode = if ($RetrievalProfile -eq "lean") { "focused" } else { "balanced" }
     $headers = @{}
     if (-not [string]::IsNullOrWhiteSpace($ApiKey)) {
         $headers["X-Api-Key"] = $ApiKey
@@ -992,7 +1049,7 @@ function Invoke-RagSearch {
 
     $preciseTitle = Get-PreciseCuisineTitle ([string]$Case.question)
     $retrievalQueries = New-Object System.Collections.Generic.List[string]
-    if ($DisableDiagnosticQueryExpansion -or [string]::IsNullOrWhiteSpace($preciseTitle)) {
+    if (-not $useDiagnosticExpansion -or [string]::IsNullOrWhiteSpace($preciseTitle)) {
         $retrievalQueries.Add([string]$Case.question)
     } else {
         $retrievalQueries.Add($preciseTitle)
@@ -1018,9 +1075,9 @@ function Invoke-RagSearch {
 
         $body = [ordered]@{
             query = $query
-            topK = if ([string]::IsNullOrWhiteSpace($preciseTitle)) { $TopK } else { [Math]::Max(20, $TopK) }
-            includeContextualSnippet = $true
-            mode = "balanced"
+            topK = if ($RetrievalProfile -eq "diagnostic" -and -not [string]::IsNullOrWhiteSpace($preciseTitle)) { [Math]::Max(20, $TopK) } else { $TopK }
+            includeContextualSnippet = $includeContextualSnippet
+            mode = $ragMode
         }
         if (-not [string]::IsNullOrWhiteSpace($Category)) {
             $body.category = $Category
@@ -1036,6 +1093,9 @@ function Invoke-RagSearch {
             $currentParsed = $currentResponse.body | ConvertFrom-Json
         }
         if ($null -eq $parsed) {
+            $parsed = $currentParsed
+        }
+        elseif ($null -ne $currentParsed -and $currentParsed.items -and @($currentParsed.items).Count -gt 0) {
             $parsed = $currentParsed
         }
 
@@ -1265,6 +1325,7 @@ if ($Parallelism -gt 1 -and $Mode -eq "retrieval") {
             "-OutputDir", $partDir,
             "-Ids", $partIds,
             "-TopK", ([string]$TopK),
+            "-RetrievalProfile", $RetrievalProfile,
             "-MaxLlmSources", ([string]$MaxLlmSources),
             "-MaxLlmContextChars", ([string]$MaxLlmContextChars),
             "-MaxCharsPerLlmSource", ([string]$MaxCharsPerLlmSource),
@@ -1395,6 +1456,7 @@ if ($Parallelism -gt 1 -and $Mode -eq "retrieval") {
         llmBaseUrl = $LlmBaseUrl
         llmModel = $LlmModel
         category = $Category
+        retrievalProfile = $RetrievalProfile
         maxLlmSources = $MaxLlmSources
         maxLlmContextChars = $MaxLlmContextChars
         maxCharsPerLlmSource = $MaxCharsPerLlmSource
@@ -1462,6 +1524,7 @@ try {
         $queryExpansionUsed = $false
         $retrievalQueryCount = 0
         $preciseTitle = ""
+        $backendPhaseMetrics = Get-BackendPhaseMetrics $null
 
         try {
             if ($Mode -eq "retrieval" -or $Mode -eq "llm") {
@@ -1472,6 +1535,7 @@ try {
                 $queryExpansionUsed = [bool]$rag.queryExpansionUsed
                 $retrievalQueryCount = [int]$rag.retrievalQueryCount
                 $preciseTitle = [string]$rag.preciseTitle
+                $backendPhaseMetrics = Get-BackendPhaseMetrics $rag.parsed
             }
 
             if ($Mode -eq "llm") {
@@ -1497,6 +1561,18 @@ try {
             mode = $Mode
             httpStatus = $httpStatus
             elapsedMs = $elapsedMs
+            backendTookMs = $backendPhaseMetrics.backendTookMs
+            exactMs = $backendPhaseMetrics.exactMs
+            quotedTitleMs = $backendPhaseMetrics.quotedTitleMs
+            titleAnchorMs = $backendPhaseMetrics.titleAnchorMs
+            sparsePhaseMs = $backendPhaseMetrics.sparsePhaseMs
+            denseMs = $backendPhaseMetrics.denseMs
+            profileMs = $backendPhaseMetrics.profileMs
+            linkedMs = $backendPhaseMetrics.linkedMs
+            rerankPhaseMs = $backendPhaseMetrics.rerankPhaseMs
+            selectionMs = $backendPhaseMetrics.selectionMs
+            teiMs = $backendPhaseMetrics.teiMs
+            qdrantMs = $backendPhaseMetrics.qdrantMs
             sourceCount = $sources.Count
             distinctDocCount = $retrievalMetrics.distinctDocCount
             targetMatched = Test-TargetMatched -Target ([string]$case.corpusTarget) -Sources $sources
@@ -1536,6 +1612,7 @@ try {
             validationPoints = $case.validationPoints
             httpStatus = $httpStatus
             elapsedMs = $elapsedMs
+            backendPhaseMetrics = $backendPhaseMetrics
             sources = $sources
             retrievalMetrics = $retrievalMetrics
             queryExpansionUsed = $queryExpansionUsed
@@ -1568,6 +1645,7 @@ $summary = [ordered]@{
     llmBaseUrl = $LlmBaseUrl
     llmModel = $LlmModel
     category = $Category
+    retrievalProfile = $RetrievalProfile
     maxLlmSources = $MaxLlmSources
     maxLlmContextChars = $MaxLlmContextChars
     maxCharsPerLlmSource = $MaxCharsPerLlmSource
