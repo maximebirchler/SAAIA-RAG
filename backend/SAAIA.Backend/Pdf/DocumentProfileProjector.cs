@@ -9,6 +9,8 @@ internal static partial class DocumentProfileProjector
 {
     private const int MaxSummaryChars = 1100;
     private const int MaxContentCards = 240;
+    private const int LeadTitleCompactHeadLength = 220;
+    private const int EmbeddedTitleScanLength = 1200;
     private const int MaxEvidenceDerivedContentCardPageSpan = 8;
 
     public static ProjectedDocumentProfile Project(
@@ -355,9 +357,10 @@ internal static partial class DocumentProfileProjector
         foreach (var unit in units.OrderBy(static unit => unit.Ordinal))
         {
             sectionTitleByOrdinal.TryGetValue(unit.SectionOrdinal ?? -1, out var sectionTitle);
-            foreach (var title in ExtractLeadTitles(unit.Text).Take(3))
+            var acceptedTitles = 0;
+            foreach (var title in ExtractLeadTitles(unit.Text))
             {
-                AddContentCardCandidate(
+                if (AddContentCardCandidate(
                     candidates,
                     title,
                     unit.PageStart,
@@ -365,7 +368,12 @@ internal static partial class DocumentProfileProjector
                     "unit_lead",
                     $"{sectionTitle} {unit.Text}",
                     keywords,
-                    score: ComputeContentCardScore("unit_lead", title, unit.Text, 75));
+                    score: ComputeContentCardScore("unit_lead", title, unit.Text, 75)))
+                {
+                    acceptedTitles++;
+                    if (acceptedTitles >= 3)
+                        break;
+                }
             }
         }
 
@@ -373,9 +381,10 @@ internal static partial class DocumentProfileProjector
                      .Where(static entry => entry.Kind == "verbatim_excerpt")
                      .OrderBy(static entry => entry.EntryIndex))
         {
-            foreach (var title in ExtractLeadTitles(entry.Text).Take(2))
+            var acceptedTitles = 0;
+            foreach (var title in ExtractLeadTitles(entry.Text))
             {
-                AddContentCardCandidate(
+                if (AddContentCardCandidate(
                     candidates,
                     title,
                     entry.PageStart,
@@ -383,7 +392,12 @@ internal static partial class DocumentProfileProjector
                     "exact_lead",
                     entry.Text,
                     keywords,
-                    score: ComputeContentCardScore("exact_lead", title, entry.Text, 90));
+                    score: ComputeContentCardScore("exact_lead", title, entry.Text, 90)))
+                {
+                    acceptedTitles++;
+                    if (acceptedTitles >= 2)
+                        break;
+                }
             }
         }
 
@@ -440,7 +454,7 @@ internal static partial class DocumentProfileProjector
         return true;
     }
 
-    private static void AddContentCardCandidate(
+    private static bool AddContentCardCandidate(
         List<DocumentProfileContentCardCandidate> candidates,
         string? title,
         int? pageStart,
@@ -452,9 +466,9 @@ internal static partial class DocumentProfileProjector
     {
         var cleanTitle = CleanTitleCandidate(title);
         if (!IsUsefulContentCardTitle(cleanTitle))
-            return;
+            return false;
         if (LooksLikeLowSignalContentCardLead(cleanTitle, kind))
-            return;
+            return false;
 
         var evidence = BuildStructuredCardEvidence($"{cleanTitle} {context}");
         var signals = BuildCardSignals(cleanTitle, context, documentKeywords, evidence);
@@ -468,6 +482,7 @@ internal static partial class DocumentProfileProjector
                 evidence,
                 ContentCardId: null),
             score));
+        return true;
     }
 
     private static IEnumerable<string> ExtractLeadTitles(string? text)
@@ -485,11 +500,17 @@ internal static partial class DocumentProfileProjector
                 yield return candidate;
         }
 
-        var compactHead = CollapseWhitespace(text);
-        if (compactHead.Length > 0)
+        var compactText = CollapseWhitespace(text);
+        if (compactText.Length > 0)
         {
-            foreach (var candidate in ExtractLeadTitleCandidatesFromLine(TrimTo(compactHead, 220)))
+            foreach (var candidate in ExtractLeadTitleCandidatesFromLine(TrimTo(compactText, LeadTitleCompactHeadLength)))
                 yield return candidate;
+
+            if (compactText.Length > LeadTitleCompactHeadLength)
+            {
+                foreach (var candidate in ExtractWideEmbeddedTitleCandidates(TrimTo(compactText, EmbeddedTitleScanLength)))
+                    yield return candidate;
+            }
         }
     }
 
@@ -545,6 +566,23 @@ internal static partial class DocumentProfileProjector
         {
             var candidate = CleanTitleCandidate(match.Groups["title"].Value);
             if (IsUsefulContentCardTitle(candidate))
+                yield return candidate;
+        }
+    }
+
+    private static IEnumerable<string> ExtractWideEmbeddedTitleCandidates(string text)
+    {
+        var spacedText = LowerOrDigitToUpperTitleBoundaryRegex().Replace(text, " ");
+
+        foreach (var candidate in ExtractCompactNumericSuffixTitleCandidates(spacedText))
+            yield return candidate;
+
+        foreach (var candidate in ExtractEmbeddedUppercaseTitleCandidates(spacedText))
+            yield return candidate;
+
+        if (!string.Equals(spacedText, text, StringComparison.Ordinal))
+        {
+            foreach (var candidate in ExtractEmbeddedUppercaseTitleCandidates(text))
                 yield return candidate;
         }
     }
@@ -1694,10 +1732,10 @@ internal static partial class DocumentProfileProjector
     [GeneratedRegex(@"^\s*(?<title>.{4,90}?)(?:\s{2,}|[\.:\-\u2013\u2014]\s+|(?=\b(?:for|pour|para|per|mit|avec|with|materials?|components?|procedure|procedures|method|steps?|requirements?|instructions?)\b))", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex LeadBoundaryRegex();
 
-    [GeneratedRegex(@"(?<title>\b[\p{Lu}][\p{Lu}\p{Nd}'’\-\s]{4,90})(?=\d|\s{2,}|[\.:\-\u2013\u2014]|$)", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<title>\b[\p{Lu}][\p{Lu}\p{Nd}'\u2019\-\s]{4,90})(?=\d|\s{2,}|[\.:\-\u2013\u2014]|$)", RegexOptions.CultureInvariant)]
     private static partial Regex UppercaseTitleRegex();
 
-    [GeneratedRegex(@"(?<![\p{Lu}\p{Nd}])(?<title>[\p{Lu}][\p{Lu}\p{Nd}'’\-\s]{4,90}?)(?=\p{Lu}\p{Ll}{2,})", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<![\p{Lu}\p{Nd}])(?<title>[\p{Lu}][\p{Lu}\p{Nd}'\u2019\-\s]{4,90}?)(?=\p{Lu}(?:['\u2019])?\p{Ll}{2,})", RegexOptions.CultureInvariant)]
     private static partial Regex GluedUppercaseTitleRegex();
 
     [GeneratedRegex("(?:^|(?<=[\\d.!?;:\\)]))(?<title>[\\p{Lu}][\\p{L}'\\u2019\\-\\s]{3,90}?)[0-9]{5,}(?=\\s|\\p{Lu}|$)", RegexOptions.CultureInvariant)]

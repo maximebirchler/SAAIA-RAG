@@ -1071,4 +1071,39 @@ public sealed class DocumentProfileProjectorTests
         Assert.Contains("SAUCE BÉARNAISE", pageTitles);
         Assert.DoesNotContain(pageTitles, title => title.StartsWith("vitesse ", StringComparison.OrdinalIgnoreCase));
     }
+
+    [Fact]
+    public void Project_extracts_embedded_uppercase_title_after_long_layout_lead()
+    {
+        var lead = string.Join(
+            ' ',
+            Enumerable.Repeat(
+                "Validate the equipment status and record the operator notes before closing the shift.",
+                7));
+        const string title = "CONTROL HANDOVER PLAN";
+        var text = $"{lead} 4 operators12 min5 min{title}L'operator uses this card to track handover steps, checkpoints, and exceptions.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(42, text, 76, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Operations", 1, 1, 42, 42, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 42, 42, text, text.Length, 76, [2])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/Operations.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, title, StringComparison.Ordinal));
+        Assert.Contains(title, profile.SearchText, StringComparison.Ordinal);
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Validate the equipment", StringComparison.OrdinalIgnoreCase));
+    }
 }
