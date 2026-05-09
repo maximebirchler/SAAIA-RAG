@@ -265,8 +265,11 @@ function Write-Tsv {
         "sourceCount",
         "distinctDocCount",
         "targetMatched",
+        "targetRank",
         "top1DocHit",
         "top3DocHit",
+        "top1DocPath",
+        "top1Score",
         "navigationTop1",
         "navigationReturned",
         "top1ContentRole",
@@ -765,6 +768,40 @@ function Test-TargetTopNMatched {
     return "no"
 }
 
+function Get-TargetRank {
+    param(
+        [string]$Target,
+        [object[]]$Sources
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Target) -or $Target -in @("Tous", "Multi-PDF", "Contexte conversationnel")) {
+        return ""
+    }
+
+    $parts = @(Split-TargetParts $Target)
+    if ($parts.Count -ne 1) {
+        return ""
+    }
+
+    $candidates = @(Get-TargetAliases $parts[0])
+    if ($candidates.Count -eq 0) {
+        return ""
+    }
+
+    $rank = 0
+    foreach ($source in @($Sources)) {
+        $rank++
+        $haystack = "$($source.docName) $($source.docPath)"
+        foreach ($candidate in $candidates) {
+            if ($haystack.IndexOf($candidate, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                return $rank
+            }
+        }
+    }
+
+    return ""
+}
+
 function ConvertTo-NullableDouble {
     param([object]$Value)
 
@@ -823,6 +860,9 @@ function Get-RetrievalMetrics {
         distinctDocCount = $distinctDocCount
         top1DocHit = Test-TargetTopNMatched -Target $Target -Sources $sourceArray -TopN 1
         top3DocHit = Test-TargetTopNMatched -Target $Target -Sources $sourceArray -TopN 3
+        targetRank = Get-TargetRank -Target $Target -Sources $sourceArray
+        top1DocPath = if ($null -eq $top1) { "" } else { [string]$top1.docPath }
+        top1Score = if ($null -eq $top1) { "" } else { [string]$top1.score }
         navigationTop1 = $top1Navigation
         navigationReturned = $navigationReturned
         top1ContentRole = if ($null -eq $top1) { "" } else { [string]$top1.contentRole }
@@ -1447,8 +1487,11 @@ try {
             sourceCount = $sources.Count
             distinctDocCount = $retrievalMetrics.distinctDocCount
             targetMatched = Test-TargetMatched -Target ([string]$case.corpusTarget) -Sources $sources
+            targetRank = $retrievalMetrics.targetRank
             top1DocHit = $retrievalMetrics.top1DocHit
             top3DocHit = $retrievalMetrics.top3DocHit
+            top1DocPath = $retrievalMetrics.top1DocPath
+            top1Score = $retrievalMetrics.top1Score
             navigationTop1 = $retrievalMetrics.navigationTop1
             navigationReturned = $retrievalMetrics.navigationReturned
             top1ContentRole = $retrievalMetrics.top1ContentRole
