@@ -48,6 +48,7 @@ public sealed class RetrievalRuntimeSwitchTests
 
     [Theory]
     [InlineData("Donne-moi la recette du coq au vin dans le livre international.", "coq au vin")]
+    [InlineData("Donne-moi la methode pour les fruits en beignets.", "fruits en beignets")]
     [InlineData("Tu peux me faire une fiche claire pour Patatas Bravas : ingredients, etapes, temps et source ?", "patatas bravas")]
     [InlineData("Je veux une fiche pour Cr\u00e8me au citron avec source.", "creme au citron")]
     [InlineData("Give me the procedure for access mode A from the manual.", "access mode a")]

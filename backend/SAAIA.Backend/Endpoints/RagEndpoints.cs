@@ -8805,6 +8805,7 @@ LIMIT @top_k;
         "would", "could", "should", "well", "goes",
         "this", "that", "those", "these", "what", "into", "pdf", "doc", "document",
         "manuel", "manual", "guide", "please", "stp", "svp", "cherche", "show",
+        "donne", "donner", "donnez", "give",
         "need", "have", "has", "just", "juste", "moi", "peux", "avoir",
         "faire", "fais", "fait", "make", "help", "aide", "aider",
         "parle", "parler", "documents", "compare", "comparer", "comparison",
