@@ -11,7 +11,9 @@ internal static partial class DocumentProfileProjector
     private const int MaxContentCards = 240;
     private const int LeadTitleCompactHeadLength = 220;
     private const int EmbeddedTitleScanLength = 1200;
+    private const int PageEmbeddedTitleScanLength = 2400;
     private const int MaxUnitLeadContentCardCandidates = 8;
+    private const int MaxPageContentCardCandidates = 8;
     private const int MaxExactLeadContentCardCandidates = 4;
     private const int MaxEvidenceDerivedContentCardPageSpan = 8;
 
@@ -43,7 +45,7 @@ internal static partial class DocumentProfileProjector
         var summary = BuildSummary(docName, pages.Count, sectionTitles, profileUnits, language);
         var hypotheticalQuestions = BuildHypotheticalQuestions(docName, keywords, entities, language);
         var limits = BuildLimits(language);
-        var contentCards = BuildContentCards(sections, units, exactMatchEntries, keywords);
+        var contentCards = BuildContentCards(sections, units, pages, exactMatchEntries, keywords);
         return BuildProfile(
             profileVersion: "deterministic_v1",
             language,
@@ -316,6 +318,7 @@ internal static partial class DocumentProfileProjector
     private static IReadOnlyList<DocumentProfileContentCard> BuildContentCards(
         IReadOnlyList<ExtractedDocumentSection> sections,
         IReadOnlyList<ExtractedDocumentUnit> units,
+        IReadOnlyList<ExtractedPdfPage> pages,
         IReadOnlyList<ExtractedExactMatchEntry> exactMatchEntries,
         IReadOnlyList<string> keywords)
     {
@@ -374,6 +377,28 @@ internal static partial class DocumentProfileProjector
                 {
                     acceptedTitles++;
                     if (acceptedTitles >= MaxUnitLeadContentCardCandidates)
+                        break;
+                }
+            }
+        }
+
+        foreach (var page in pages.OrderBy(static page => page.PageNumber))
+        {
+            var acceptedTitles = 0;
+            foreach (var title in ExtractLeadTitles(page.Text, PageEmbeddedTitleScanLength))
+            {
+                if (AddContentCardCandidate(
+                    candidates,
+                    title,
+                    page.PageNumber,
+                    page.PageNumber,
+                    "page_embedded_title",
+                    page.Text,
+                    keywords,
+                    score: ComputeContentCardScore("page_embedded_title", title, page.Text, 82)))
+                {
+                    acceptedTitles++;
+                    if (acceptedTitles >= MaxPageContentCardCandidates)
                         break;
                 }
             }
@@ -491,7 +516,7 @@ internal static partial class DocumentProfileProjector
         return true;
     }
 
-    private static IEnumerable<string> ExtractLeadTitles(string? text)
+    private static IEnumerable<string> ExtractLeadTitles(string? text, int embeddedTitleScanLength = EmbeddedTitleScanLength)
     {
         if (string.IsNullOrWhiteSpace(text))
             yield break;
@@ -514,7 +539,7 @@ internal static partial class DocumentProfileProjector
 
             if (compactText.Length > LeadTitleCompactHeadLength)
             {
-                foreach (var candidate in ExtractWideEmbeddedTitleCandidates(TrimTo(compactText, EmbeddedTitleScanLength)))
+                foreach (var candidate in ExtractWideEmbeddedTitleCandidates(TrimTo(compactText, embeddedTitleScanLength)))
                     yield return candidate;
             }
         }

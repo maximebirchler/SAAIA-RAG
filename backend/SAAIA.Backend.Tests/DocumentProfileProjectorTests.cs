@@ -1251,6 +1251,46 @@ public sealed class DocumentProfileProjectorTests
     }
 
     [Fact]
+    public void Project_extracts_page_scoped_embedded_title_when_unit_window_misses_it()
+    {
+        const string title = "CONTROL HANDOVER PLAN";
+        var lead = string.Join(
+            ' ',
+            Enumerable.Repeat(
+                "Record measurements, inspect the equipment, verify the operator checklist, and close the work order.",
+                24));
+        var pageText = $"{lead} 4 operators13 min12 min15 min{title}L\u2019ideal configuration keeps the handover steps regular.";
+        var unitText = lead;
+        var pages = new[]
+        {
+            new ExtractedPdfPage(77, pageText, 240, pageText.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Operations", 1, 1, 77, 77, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 77, 77, unitText, unitText.Length, 180, [1])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/PageScopedTitle.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        var card = Assert.Single(
+            profile.ContentCards,
+            card => string.Equals(card.Title, title, StringComparison.Ordinal));
+        Assert.Equal(77, card.PageStart);
+        Assert.Equal(77, card.PageEnd);
+        Assert.Equal("page_embedded_title", card.Kind);
+        Assert.Contains(title, profile.SearchText, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Project_balanced_content_cards_try_next_page_candidate_when_top_candidate_is_duplicate()
     {
         const string duplicateTitle = "COMMON DUPLICATE TITLE";
