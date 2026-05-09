@@ -4943,9 +4943,10 @@ LIMIT @top_k;
         if (string.IsNullOrWhiteSpace(surface))
             return phrases.Distinct(StringComparer.Ordinal).ToArray();
 
-        foreach (Match match in FocusedLookupTargetPattern.Matches(surface))
+        foreach (var pattern in FocusedLookupTargetPatterns)
         {
-            AddFocusedLookupPhrase(phrases, match.Groups["target"].Value);
+            foreach (Match match in pattern.Matches(surface))
+                AddFocusedLookupPhrase(phrases, match.Groups["target"].Value);
         }
 
         return phrases
@@ -5008,10 +5009,48 @@ LIMIT @top_k;
            && !SpecificAnchorStopwords.Contains(token)
            && !PrimaryAnchorStopwords.Contains(token);
 
+    private const string FocusedLookupArticlePattern =
+        @"(?:les|le|la|l['\u2019]|une|un|des|du|de\s+la|de\s+l['\u2019]|the|some|an|a)\s+";
+
+    private const string FocusedLookupTargetPatternText =
+        @"(?<target>[\p{L}\p{Nd}][\p{L}\p{Nd}\s\-]{2,80}?)";
+
+    private const string FocusedLookupTargetStopLookahead =
+        @"(?=\s+(?:dans|depuis|from|in|aus|im|von|vom|source|sources|fonte|fontes|fuente|fuentes|quelle|quellen|ingredient|ingredients|etape|etapes|step|steps|schritt|schritte|passo|passos|temps|time|duree|duration|duracion|duracao|dauer|pdf|document|documents|doc|docs|fichier|fichiers|arquivo|arquivos|archivo|archivos|file|files|livre|livres|book|books|libro|libros|manuale|manuel|manuels|manual|manuals|guide|guides|guia|guias|handbuch|handbucher|version|mode|reglage|reglages|setting|settings|parametre|parametres|avec|with|com|con|mit|senza|sans|without|compare|comparer|compara|comparar|vergleiche|si|oui|ja)\b|[\?:;,\.\r\n]|$)";
+
     private static readonly Regex FocusedLookupTargetPattern = new(
         @"\b(?:(?:fiche|ficha|scheda|karte|card|procedure|procedures|procedimiento|procedimientos|procedimento|procedimentos|process|processus|processo|processi|section|seccion|secao|sezione|abschnitt|chapitre|chapter|capitulo|capitolo|kapitel|topic|sujet|subject|tema|assunto|argomento)\b(?:\s+(?:claire|clair|clear|detaillee|detailee|detailed|simple|complete|completa|completo|klar)){0,3}|(?:donne|donner|montre|trouve|chercher|cherche|veux|souhaite|give|show|find|get|want|need|dame|muestra|mostrar|encuentra|encontrar|quero|procura|procurar|mostra|trova|cerca|voglio|zeige|finde|finden|suche|such|mochte|will|brauche)\b(?:\s+[\p{L}\p{Nd}']{1,24}){0,8}?)\s+(?:de|du|des|d['’]?|pour|sur|of|for|about|on|para|sobre|por|per|su|di|del|della|do|da|dos|das|em|zu|zum|zur|uber|ueber)\s+(?<target>[\p{L}\p{Nd}][\p{L}\p{Nd}\s\-]{2,80}?)(?=\s+(?:dans|depuis|from|in|aus|im|von|vom|source|sources|fonte|fontes|fuente|fuentes|quelle|quellen|etape|etapes|step|steps|schritt|schritte|passo|passos|temps|time|duree|duration|duracion|duracao|dauer|pdf|document|documents|doc|docs|fichier|fichiers|arquivo|arquivos|archivo|archivos|file|files|livre|livres|book|books|libro|libros|manuale|manuel|manuels|manual|manuals|guide|guides|guia|guias|handbuch|handbucher|avec|with|com|con|mit|senza|sans|without|compare|comparer|compara|comparar|vergleiche|si|oui|ja)\b|[\?:;,\.\r\n]|$)",
         RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
         TimeSpan.FromMilliseconds(100));
+
+    private static readonly Regex DirectObjectFocusedLookupTargetPattern = new(
+        @"\b(?:il\s+me\s+faut|il\s+nous\s+faut|je\s+veux|j['\u2019]ai\s+besoin\s+de|i\s+need|we\s+need|quiero|quero|voglio|ich\s+brauche)\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + FocusedLookupTargetStopLookahead,
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(100));
+
+    private static readonly Regex ActionQuestionFocusedLookupTargetPattern = new(
+        @"\b(?:comment|how|como|come|wie)\s+(?:faire|preparer|cuire|utiliser|make|prepare|cook|use|usar|fare|preparare|cucinare|machen|kochen)\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + FocusedLookupTargetStopLookahead,
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(100));
+
+    private static readonly Regex ExplainFocusedLookupTargetPattern = new(
+        @"\b(?:explique(?:r|z)?|detaille|details?|resume(?:r)?|resumes?|summarize|explain|describe|decris|descris)\s*(?:moi)?\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + FocusedLookupTargetStopLookahead,
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(100));
+
+    private static readonly Regex ParameterFocusedLookupTargetPattern = new(
+        @"\b(?:combien\s+de\s+temps|quels?\s+ingredients|ingredients?|etapes?|temps|reglages?|parametres?|vitesses?|temperatures?|how\s+long|what\s+ingredients|which\s+settings|settings?|parameters?)\b[\p{L}\p{Nd}\s'’\-/]{0,90}?\s+(?:pour|for|de|du|des|d['\u2019]|sur|about|on|para|sobre|per|su)\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + FocusedLookupTargetStopLookahead,
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(100));
+
+    private static readonly Regex[] FocusedLookupTargetPatterns =
+    [
+        FocusedLookupTargetPattern,
+        DirectObjectFocusedLookupTargetPattern,
+        ActionQuestionFocusedLookupTargetPattern,
+        ExplainFocusedLookupTargetPattern,
+        ParameterFocusedLookupTargetPattern
+    ];
 
     private static bool PhraseOccursInQuery(string phrase, string lookup, string foldedLookup)
     {
