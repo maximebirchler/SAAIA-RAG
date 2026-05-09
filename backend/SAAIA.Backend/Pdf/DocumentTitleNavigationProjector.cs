@@ -413,9 +413,19 @@ internal static partial class DocumentTitleNavigationProjector
                 chunk.PageStart <= entry.TargetPage + 2
                 && chunk.PageEnd >= entry.TargetPage - 2
                 && !string.Equals(chunk.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(chunk => PageRangeDistance(chunk.PageStart, chunk.PageEnd, entry.TargetPage))
-            .ThenByDescending(static chunk => chunk.ContentDensityScore)
-            .ThenBy(static chunk => chunk.ChunkIndex)
+            .Select(chunk => new
+            {
+                Chunk = chunk,
+                LabelTokenOverlap = CountLabelTokenOverlap(entry.LabelTokens, chunk.Text),
+                Distance = PageRangeDistance(chunk.PageStart, chunk.PageEnd, entry.TargetPage),
+                IsBeforeTarget = chunk.PageEnd < entry.TargetPage
+            })
+            .OrderByDescending(static item => item.LabelTokenOverlap)
+            .ThenBy(static item => item.Distance)
+            .ThenBy(static item => item.IsBeforeTarget ? 1 : 0)
+            .ThenByDescending(static item => item.Chunk.ContentDensityScore)
+            .ThenBy(static item => item.Chunk.ChunkIndex)
+            .Select(static item => item.Chunk)
             .FirstOrDefault();
 
         return nearbyTargetChunk is null
@@ -505,6 +515,17 @@ internal static partial class DocumentTitleNavigationProjector
         if (targetPage < pageStart)
             return pageStart - targetPage;
         return targetPage - pageEnd;
+    }
+
+    private static int CountLabelTokenOverlap(IReadOnlyList<string> labelTokens, string? text)
+    {
+        if (labelTokens.Count == 0 || string.IsNullOrWhiteSpace(text))
+            return 0;
+
+        var normalizedText = " " + TitleAnchorNormalizer.NormalizeTitle(text) + " ";
+        return labelTokens
+            .Distinct(StringComparer.Ordinal)
+            .Count(token => normalizedText.Contains(" " + token + " ", StringComparison.Ordinal));
     }
 
     private static int SourceKindPriority(string sourceKind)

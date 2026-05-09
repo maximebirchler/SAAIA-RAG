@@ -326,12 +326,21 @@ public sealed class DocumentTitleNavigationProjectorTests
             new ExtractedDocumentUnit(
                 1,
                 0,
+                62,
+                62,
+                "Ingredients pommes de terre et oignons. Preparation cuire doucement.",
+                67,
+                8,
+                [2]),
+            new ExtractedDocumentUnit(
+                2,
+                0,
                 66,
                 66,
                 "Ingredients fruits de saison, pate et huile. Preparation faire frire les fruits.",
                 78,
                 10,
-                [2])
+                [3])
         };
         var chunks = new[]
         {
@@ -352,11 +361,23 @@ public sealed class DocumentTitleNavigationProjectorTests
                 1,
                 0,
                 1,
+                62,
+                62,
+                "Ingredients pommes de terre et oignons. Preparation cuire doucement.",
+                8,
+                [4],
+                "section",
+                ContentRole: RetrievalContentClassifier.ContentRole,
+                ContentDensityScore: 0.95),
+            new ProjectedRetrievalChunk(
+                2,
+                0,
+                2,
                 66,
                 66,
                 "Ingredients fruits de saison, pate et huile. Preparation faire frire les fruits.",
                 10,
-                [4],
+                [5],
                 "section",
                 ContentRole: RetrievalContentClassifier.ContentRole,
                 ContentDensityScore: 0.90)
@@ -405,12 +426,21 @@ public sealed class DocumentTitleNavigationProjectorTests
             new ExtractedDocumentUnit(
                 1,
                 0,
+                62,
+                62,
+                "Ingredients pommes de terre et oignons. Preparation cuire doucement.",
+                67,
+                8,
+                [2]),
+            new ExtractedDocumentUnit(
+                2,
+                0,
                 66,
                 66,
                 "Ingredients fruits de saison, pate et huile. Preparation faire frire les fruits.",
                 78,
                 10,
-                [2])
+                [3])
         };
         var chunks = new[]
         {
@@ -431,11 +461,23 @@ public sealed class DocumentTitleNavigationProjectorTests
                 1,
                 0,
                 1,
+                62,
+                62,
+                "Ingredients pommes de terre et oignons. Preparation cuire doucement.",
+                8,
+                [4],
+                "section",
+                ContentRole: RetrievalContentClassifier.ContentRole,
+                ContentDensityScore: 0.95),
+            new ProjectedRetrievalChunk(
+                2,
+                0,
+                2,
                 66,
                 66,
                 "Ingredients fruits de saison, pate et huile. Preparation faire frire les fruits.",
                 10,
-                [4],
+                [5],
                 "section",
                 ContentRole: RetrievalContentClassifier.ContentRole,
                 ContentDensityScore: 0.90)
@@ -457,7 +499,7 @@ public sealed class DocumentTitleNavigationProjectorTests
         Assert.Contains(index.NavigationEntries, entry =>
             entry.Label == "Fruits en beignets"
             && entry.TargetPageStart == 66
-            && entry.TargetChunkIndex == 1
+            && entry.TargetChunkIndex == 2
             && entry.ResolutionMethod == "nearby_page_content_chunk");
     }
 
