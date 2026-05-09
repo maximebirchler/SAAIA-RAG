@@ -537,7 +537,8 @@ public sealed class RetrievalRuntimeSwitchTests
             "unit_exact_v1",
             null,
             null,
-            null);
+            null,
+            MatchedContentCards: [new RagMatchedContentCard("Boeuf bourguignon")]);
 
         var calibrated = RagEndpoints.CalibrateFusedMatches(
             "boeuf bourguignon",

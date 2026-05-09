@@ -6087,6 +6087,10 @@ LIMIT @top_k;
                     || ContainsComparativeSubjectAnchorInNormalizedText(comparativeSubjectTokens, item.NormalizedTextForSignals);
                 var hasClosePhraseMatch = phraseTerms.Length > 0
                     && phraseTerms.Any(term => ContainsOrderedPhraseWindowInNormalizedText(item.NormalizedTextForSignals, term, maxGapChars: 40));
+                var matchedCardTitleSignal = ComputeMatchedContentCardTitleSignal(
+                    match,
+                    titleTokens,
+                    normalizedTitleScoringQuery);
 
                 if (referenceTerms.Length > 0)
                 {
@@ -6143,6 +6147,9 @@ LIMIT @top_k;
                     if (LooksLikeStructuredAnswerUnit(match))
                         adjusted += 0.06;
                 }
+
+                if (matchedCardTitleSignal > 0)
+                    adjusted += Math.Min(0.20, 0.05 * matchedCardTitleSignal);
 
                 if (hasClosePhraseMatch)
                 {
@@ -6286,6 +6293,7 @@ LIMIT @top_k;
                         item.NormalizedMatchText,
                         titleTokens,
                         normalizedTitleScoringQuery),
+                    MatchedCardTitleSignal = matchedCardTitleSignal,
                     QuotedLookupScore = quotedLookupScore,
                     LexicalCoverage = lexicalCoverage,
                     SpecificAnchorCount = specificAnchorCount,
@@ -6293,6 +6301,7 @@ LIMIT @top_k;
                 };
             })
             .OrderByDescending(static item => item.DirectChunkTitleSignal)
+            .ThenByDescending(static item => item.MatchedCardTitleSignal)
             .ThenByDescending(item => item.ExactTitleScore > 0.0 ? 1 : 0)
             .ThenByDescending(item => useSpecificCoverageTitlePriority && item.SpecificAnchorCount >= 2 ? 1 : 0)
             .ThenByDescending(item => useSpecificCoverageTitlePriority ? item.StructuredAnswerPriority : 0)
@@ -7354,6 +7363,46 @@ LIMIT @top_k;
             return 2;
 
         return ContainsTitleLikeLexicalSequence(normalizedChunkText, titleTokens) ? 1 : 0;
+    }
+
+    private static int ComputeMatchedContentCardTitleSignal(
+        RagMatch match,
+        IReadOnlyList<string> titleTokens,
+        string normalizedQuery)
+    {
+        if (titleTokens.Count < 2 || titleTokens.Count > 8)
+            return 0;
+        if (match.MatchedContentCards is not { Count: > 0 })
+            return 0;
+
+        var best = 0;
+        foreach (var card in match.MatchedContentCards.Take(MaxCalibrationCardCount))
+        {
+            var normalizedCard = NormalizeForLexicalSignal(string.Join(' ', new[]
+            {
+                card.Title,
+                card.Kind,
+                card.Signals is { Count: > 0 } ? string.Join(' ', card.Signals.Take(8)) : null
+            }.Where(static value => !string.IsNullOrWhiteSpace(value))));
+            if (string.IsNullOrWhiteSpace(normalizedCard))
+                continue;
+
+            if (normalizedQuery.Length >= 8
+                && normalizedQuery.Count(static ch => ch == ' ') >= 1
+                && normalizedCard.Contains(normalizedQuery, StringComparison.Ordinal))
+                best = Math.Max(best, 4);
+            else if (ContainsOrderedTitleTokenSubstringsInNormalizedText(normalizedCard, titleTokens, maxGapChars: 40))
+                best = Math.Max(best, 3);
+            else if (ContainsTitleLikeLexicalSequence(normalizedCard, titleTokens))
+                best = Math.Max(best, 2);
+            else if (ComputeLexicalCoverageInNormalizedText(titleTokens, normalizedCard) >= 0.80)
+                best = Math.Max(best, 1);
+
+            if (best >= 4)
+                break;
+        }
+
+        return best;
     }
 
     private static bool ContainsTitleLikeLexicalSequence(string normalizedCandidate, IReadOnlyList<string> titleTokens)
