@@ -465,7 +465,7 @@ internal static partial class DocumentTitleNavigationProjector
     private static string StripNavigationDecorations(string label)
     {
         label = LeadingNavigationNumberRegex().Replace(label, string.Empty);
-        label = label.Trim(' ', '.', '-', '\u2013', '\u2014', '\u2022', '\u00b7');
+        label = label.Trim(' ', '.', ',', ':', ';', '-', '\u2013', '\u2014', '\u2022', '\u00b7');
         return CollapseWhitespace(label);
     }
 
