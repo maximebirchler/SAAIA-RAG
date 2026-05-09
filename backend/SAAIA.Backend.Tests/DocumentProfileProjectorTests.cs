@@ -943,6 +943,9 @@ public sealed class DocumentProfileProjectorTests
             exactMatchEntries: []);
 
         Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, title, StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            profile.ContentCards,
+            card => card.Title.StartsWith("Mixez ensuite", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(title, profile.SearchText, StringComparison.Ordinal);
     }
 

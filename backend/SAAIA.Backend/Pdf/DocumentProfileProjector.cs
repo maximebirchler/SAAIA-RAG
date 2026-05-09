@@ -674,7 +674,8 @@ internal static partial class DocumentProfileProjector
             return false;
 
         var tokenCount = CountTokens(title);
-        if (ImperativeInstructionLeadRegex().IsMatch(normalized) && tokenCount >= 3)
+        if ((ImperativeInstructionLeadRegex().IsMatch(normalized) || AdditionalImperativeInstructionLeadRegex().IsMatch(normalized))
+            && tokenCount >= 3)
             return true;
 
         if (InfinitiveInstructionLeadRegex().IsMatch(normalized)
@@ -865,6 +866,9 @@ internal static partial class DocumentProfileProjector
     private static bool LooksLikeSentenceOrInstructionTitle(string normalizedFolded, int tokenCount)
     {
         if (InstructionLeadTitleRegex().IsMatch(normalizedFolded))
+            return true;
+
+        if (AdditionalImperativeInstructionLeadRegex().IsMatch(normalizedFolded))
             return true;
 
         if (SentenceLeadTitleRegex().IsMatch(normalizedFolded))
@@ -1744,6 +1748,9 @@ internal static partial class DocumentProfileProjector
 
     [GeneratedRegex(@"^(?:ajoutez?|appliquez|arretez|choisissez|configurez|connectez|copiez|demarrez|deconnectez|enlevez|fermez|installez|lancez?|ouvrez|placez|placez-les|posez|programmez|redemarrez|remettez|remplacez?|retirez|saisissez?|selectionnez|supprimez|utilisez?|validez|verifiez|v[ée]rifiez)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex ImperativeInstructionLeadRegex();
+
+    [GeneratedRegex(@"^(?:coupez?|couvrez?|deposez|enfournez|faites|formez|melangez|mixez?|servez|trempez|versez)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex AdditionalImperativeInstructionLeadRegex();
 
     [GeneratedRegex(@"^(?:ajouter|appliquer|arreter|choisir|configurer|connecter|copier|demarrer|deconnecter|enlever|fermer|installer|lancer|ouvrir|placer|programmer|redemarrer|remettre|remplacer|retirer|selectionner|supprimer|utiliser|valider|verifier|v[ée]rifier)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex InfinitiveInstructionLeadRegex();
