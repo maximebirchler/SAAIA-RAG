@@ -369,6 +369,8 @@ function Get-RagSources {
             pageStart = $_.pageStart
             pageEnd = $_.pageEnd
             score = $_.score
+            retriever = $_.retriever
+            embeddingBasis = $_.embeddingBasis
             text = $_.text
             contextualSnippet = $_.contextualSnippet
             contentRole = Coalesce-String (Get-OptionalProperty $context "contentRole") (Get-OptionalProperty $_ "contentRole")
@@ -830,6 +832,12 @@ function Test-NavigationLikeSource {
 
     $contentRole = [string]$Source.contentRole
     $evidenceRole = [string]$Source.evidenceRole
+    $retriever = [string]$Source.retriever
+    $embeddingBasis = [string]$Source.embeddingBasis
+    if ($retriever -eq "navigation_route" -or $embeddingBasis -eq "navigation_route_v1") {
+        return $true
+    }
+
     if ($contentRole -eq "navigation" -or $evidenceRole -eq "navigation") {
         return $true
     }
@@ -940,7 +948,12 @@ function Format-PreciseCuisineTitle {
 
     $title = [regex]::Replace(
         $title,
-        '(?i)^(?:le|la|les|l[''\u2019]|un|une|des|du|de\s+la|de\s+l[''\u2019]|the|a|an|some)\s+',
+        '(?i)^(?:les|le|la|l[''\u2019]|une|un|des|du|de\s+la|de\s+l[''\u2019]|the|some|an|a)\s+',
+        "").Trim()
+
+    $title = [regex]::Replace(
+        $title,
+        '(?i)^(?:m[e\u00e9]thode|method|proc[e\u00e9]dure|procedure|pr[e\u00e9]paration|preparation|modo|modalit[e\u00e9])\s+(?:pour|for|de|du|de\s+la|des|d[''\u2019]|sur|about|on|para|sobre|per|su)\s+(?:les|le|la|l[''\u2019]|une|un|des|the|some|an|a)?\s*',
         "").Trim()
 
     $title = [regex]::Replace(
