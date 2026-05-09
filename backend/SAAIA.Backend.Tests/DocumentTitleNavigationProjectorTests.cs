@@ -228,6 +228,169 @@ public sealed class DocumentTitleNavigationProjectorTests
     }
 
     [Fact]
+    public void Project_allows_unanchored_inline_navigation_from_explicit_indexes_only()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Index", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "Alpha Procedure 12 Beta Checklist 18",
+                38,
+                6,
+                [1]),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                18,
+                18,
+                "This page explains acceptance criteria, controls and handoff notes.",
+                66,
+                9,
+                [2])
+        };
+        var chunks = new[]
+        {
+            new ProjectedRetrievalChunk(
+                0,
+                0,
+                0,
+                1,
+                1,
+                "Alpha Procedure 12 Beta Checklist 18",
+                6,
+                [3],
+                "navigation",
+                ContentRole: RetrievalContentClassifier.NavigationRole,
+                NavigationReason: "explicit_index_marker",
+                NavigationScore: 0.98),
+            new ProjectedRetrievalChunk(
+                1,
+                0,
+                1,
+                18,
+                18,
+                "This page explains acceptance criteria, controls and handoff notes.",
+                9,
+                [4],
+                "section",
+                ContentRole: RetrievalContentClassifier.ContentRole,
+                ContentDensityScore: 0.90)
+        };
+        var profile = DocumentProfileProjector.BuildProfile(
+            "deterministic_v1",
+            "en",
+            "Explicit index with labels that are not repeated as section headings.",
+            [],
+            [],
+            [],
+            [],
+            [],
+            "Ops/Index.pdf",
+            "Index.pdf");
+
+        var index = DocumentTitleNavigationProjector.Project(sections, units, chunks, profile);
+
+        Assert.Single(index.NavigationEntries);
+        var entry = Assert.Single(index.NavigationEntries, entry => entry.Label == "Beta Checklist");
+        Assert.Equal(18, entry.TargetPageStart);
+        Assert.Equal("page_content_chunk", entry.ResolutionMethod);
+        Assert.Equal(1, entry.TargetChunkIndex);
+        Assert.Null(entry.TargetAnchorIndex);
+    }
+
+    [Fact]
+    public void Project_ignores_unanchored_direct_lines_from_weak_navigation_chunks()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Operations Notes", 1, 1, 18, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                12,
+                12,
+                "Dark ingredients and measurements are discussed in prose.",
+                58,
+                8,
+                [1]),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                18,
+                18,
+                "Acceptance details and operational caveats are discussed in prose.",
+                66,
+                8,
+                [2])
+        };
+        var chunks = new[]
+        {
+            new ProjectedRetrievalChunk(
+                0,
+                0,
+                0,
+                21,
+                21,
+                "Dark Chocolate 12\nAcceptance Criteria 18",
+                6,
+                [3],
+                "navigation",
+                ContentRole: RetrievalContentClassifier.NavigationRole,
+                NavigationReason: "inline_page_number_list",
+                NavigationScore: 0.82),
+            new ProjectedRetrievalChunk(
+                1,
+                0,
+                1,
+                12,
+                12,
+                "Dark ingredients and measurements are discussed in prose.",
+                8,
+                [4],
+                "section",
+                ContentRole: RetrievalContentClassifier.ContentRole,
+                ContentDensityScore: 0.86),
+            new ProjectedRetrievalChunk(
+                2,
+                0,
+                2,
+                18,
+                18,
+                "Acceptance details and operational caveats are discussed in prose.",
+                8,
+                [5],
+                "section",
+                ContentRole: RetrievalContentClassifier.ContentRole,
+                ContentDensityScore: 0.86)
+        };
+        var profile = DocumentProfileProjector.BuildProfile(
+            "deterministic_v1",
+            "en",
+            "Weak page-number list detected in normal content.",
+            [],
+            [],
+            [],
+            [],
+            [],
+            "Ops/Weak.pdf",
+            "Weak.pdf");
+
+        var index = DocumentTitleNavigationProjector.Project(sections, units, chunks, profile);
+
+        Assert.Empty(index.NavigationEntries);
+    }
+
+    [Fact]
     public void Project_ignores_weak_late_inline_number_lists_from_content()
     {
         var sections = new[]

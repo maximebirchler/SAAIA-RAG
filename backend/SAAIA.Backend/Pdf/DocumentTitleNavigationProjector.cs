@@ -129,7 +129,8 @@ internal static partial class DocumentTitleNavigationProjector
                 chunk.Text,
                 maxPage,
                 anchors,
-                IsStrongInlineNavigationSource(chunk, maxPage)))
+                IsStrongInlineNavigationSource(chunk, maxPage),
+                AllowsUnanchoredInlineNavigation(chunk)))
             {
                 if (entries.Count >= MaxNavigationEntries)
                     break;
@@ -138,6 +139,9 @@ internal static partial class DocumentTitleNavigationProjector
                     continue;
 
                 var resolved = ResolveNavigationTarget(parsed, anchors, retrievalChunks);
+                if (string.Equals(resolved.ResolutionMethod, "page_unresolved", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
                 entries.Add(new ProjectedDocumentNavigationEntry(
                     EntryIndex: entries.Count,
                     SourcePage: chunk.PageStart,
@@ -162,7 +166,8 @@ internal static partial class DocumentTitleNavigationProjector
         string text,
         int maxPage,
         IReadOnlyList<ProjectedDocumentTitleAnchor> anchors,
-        bool allowInlineNavigation)
+        bool allowInlineNavigation,
+        bool allowInlineFallback)
     {
         if (string.IsNullOrWhiteSpace(text))
             yield break;
@@ -178,14 +183,24 @@ internal static partial class DocumentTitleNavigationProjector
                 continue;
 
             var parsed = TryParseNavigationLine(line, maxPage);
-            if (parsed is not null && seen.Add($"{parsed.NormalizedLabel}|{parsed.TargetPage}"))
-                yield return parsed;
+            if (parsed is null)
+                continue;
+
+            var label = ResolveInlineNavigationLabel(parsed.Label, parsed.TargetPage, anchors, allowInlineFallback);
+            if (string.IsNullOrWhiteSpace(label))
+                continue;
+
+            var canonicalParsed = string.Equals(label, parsed.Label, StringComparison.Ordinal)
+                ? parsed
+                : CreateParsedNavigationEntry(label, parsed.TargetPage, maxPage);
+            if (canonicalParsed is not null && seen.Add($"{canonicalParsed.NormalizedLabel}|{canonicalParsed.TargetPage}"))
+                yield return canonicalParsed;
         }
 
         if (!allowInlineNavigation)
             yield break;
 
-        var inlineEntries = ParseInlineNavigationEntries(text, maxPage, anchors).ToArray();
+        var inlineEntries = ParseInlineNavigationEntries(text, maxPage, anchors, allowInlineFallback).ToArray();
         if (inlineEntries.Length < 2)
             yield break;
 
@@ -236,7 +251,8 @@ internal static partial class DocumentTitleNavigationProjector
     private static IEnumerable<ParsedNavigationEntry> ParseInlineNavigationEntries(
         string text,
         int maxPage,
-        IReadOnlyList<ProjectedDocumentTitleAnchor> anchors)
+        IReadOnlyList<ProjectedDocumentTitleAnchor> anchors,
+        bool allowFallback)
     {
         var compactText = CollapseWhitespace(text);
         if (compactText.Length < 12)
@@ -259,7 +275,7 @@ internal static partial class DocumentTitleNavigationProjector
             var segment = segmentLength <= 0 ? string.Empty : compactText.Substring(previousPageEnd, segmentLength);
             previousPageEnd = pageMatch.Index + pageMatch.Length;
 
-            var label = ResolveInlineNavigationLabel(segment, page, anchors);
+            var label = ResolveInlineNavigationLabel(segment, page, anchors, allowFallback);
             if (string.IsNullOrWhiteSpace(label))
                 continue;
 
@@ -272,7 +288,8 @@ internal static partial class DocumentTitleNavigationProjector
     private static string? ResolveInlineNavigationLabel(
         string segment,
         int targetPage,
-        IReadOnlyList<ProjectedDocumentTitleAnchor> anchors)
+        IReadOnlyList<ProjectedDocumentTitleAnchor> anchors,
+        bool allowFallback)
     {
         var label = StripNavigationDecorations(CollapseWhitespace(segment));
         if (string.IsNullOrWhiteSpace(label))
@@ -301,7 +318,10 @@ internal static partial class DocumentTitleNavigationProjector
         if (anchorMatch is not null)
             return anchorMatch.Anchor.Title;
 
-        return null;
+        var tokens = TitleAnchorNormalizer.BuildTitleTokens(label, maxTokens: 16);
+        return allowFallback && label.Length <= 90 && tokens.Length is >= 2 and <= 12
+            ? label
+            : null;
     }
 
     private static ParsedNavigationEntry? CreateParsedNavigationEntry(string label, int page, int maxPage)
@@ -485,6 +505,13 @@ internal static partial class DocumentTitleNavigationProjector
 
         var earlyWindow = maxPage <= 0 ? 6 : Math.Max(6, (int)Math.Ceiling(maxPage * 0.08));
         return chunk.PageStart <= earlyWindow;
+    }
+
+    private static bool AllowsUnanchoredInlineNavigation(ProjectedRetrievalChunk chunk)
+    {
+        var reason = chunk.NavigationReason ?? string.Empty;
+        return string.Equals(reason, "table_of_contents", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(reason, "explicit_index_marker", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool ContainsNormalizedPhrase(string haystack, string needle)
