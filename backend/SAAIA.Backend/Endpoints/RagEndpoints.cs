@@ -8403,13 +8403,11 @@ LIMIT @top_k;
                 Match = match,
                 QuotedScore = ComputeQuotedLookupCandidateScore(
                     quotedPhrases,
-                    string.Join("\n", new[]
-                    {
-                        match.EmbedText,
-                        match.Text,
-                        match.SectionTitle,
-                        match.HeadingPath
-                    }.Where(static value => !string.IsNullOrWhiteSpace(value))))
+                    GetQuotedLookupSelectionSignalText(match, includeSyntheticRouteTitle: true)),
+                LocalQuotedScore = ComputeQuotedLookupCandidateScore(
+                    quotedPhrases,
+                    GetQuotedLookupSelectionSignalText(match, includeSyntheticRouteTitle: false)),
+                ContentEvidencePriority = ComputeContentEvidencePriority(match)
             })
             .ToList();
 
@@ -8418,11 +8416,46 @@ LIMIT @top_k;
 
         selected.Clear();
         selected.AddRange(ranked
-            .OrderByDescending(static item => item.QuotedScore)
+            .OrderByDescending(static item => item.LocalQuotedScore > 0.0 ? 1 : 0)
+            .ThenByDescending(static item => item.ContentEvidencePriority)
+            .ThenByDescending(static item => item.LocalQuotedScore)
+            .ThenByDescending(static item => item.QuotedScore)
             .ThenByDescending(static item => item.Match.Score)
             .ThenBy(static item => item.Match.DocPath, StringComparer.OrdinalIgnoreCase)
             .ThenBy(static item => item.Match.ChunkIndex)
             .Select(static item => item.Match));
+    }
+
+    private static string GetQuotedLookupSelectionSignalText(RagMatch match, bool includeSyntheticRouteTitle)
+    {
+        if (IsDocumentProfileMatch(match))
+            return BuildDocumentProfileCalibrationSignal(match, includeEmbedFallback: includeSyntheticRouteTitle);
+
+        return string.Join("\n", new[]
+        {
+            includeSyntheticRouteTitle ? match.EmbedText : StripSyntheticMatchedTitleLine(match.EmbedText),
+            match.MatchedContentCards is { Count: > 0 }
+                ? string.Join("\n", match.MatchedContentCards.Take(MaxCalibrationCardCount).Select(static card => card.Title))
+                : null,
+            match.Text,
+            match.SectionTitle,
+            match.HeadingPath
+        }.Where(static value => !string.IsNullOrWhiteSpace(value)));
+    }
+
+    private static string? StripSyntheticMatchedTitleLine(string? embedText)
+    {
+        if (string.IsNullOrWhiteSpace(embedText))
+            return null;
+
+        if (ExtractMatchedRouteOrProfileTitle(embedText) is null)
+            return embedText;
+
+        var lineEnd = embedText.IndexOf('\n', StringComparison.Ordinal);
+        if (lineEnd < 0 || lineEnd + 1 >= embedText.Length)
+            return null;
+
+        return embedText[(lineEnd + 1)..];
     }
 
     internal static void PrioritizeDocumentHintSelections(string query, List<RagMatch> selected)
@@ -10935,8 +10968,16 @@ LIMIT @top_k;
                 .Contains(token, StringComparer.Ordinal);
         }
 
-        return normalizedCandidate.Contains(token, StringComparison.Ordinal)
-            || (token.Length >= 4 && compactCandidate.Contains(token, StringComparison.Ordinal));
+        foreach (var variant in BuildLexicalTokenVariants(token).DefaultIfEmpty(token))
+        {
+            if (normalizedCandidate.Contains(variant, StringComparison.Ordinal)
+                || (variant.Length >= 4 && compactCandidate.Contains(variant, StringComparison.Ordinal)))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static IReadOnlyList<string> ExtractLexicalQuerySurfaceTokens(string query)

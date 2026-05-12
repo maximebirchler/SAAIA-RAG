@@ -3912,6 +3912,42 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void PrioritizeQuotedTitleSelections_prefers_local_actionable_content_over_route_title_list()
+    {
+        var titleList = TestMatch(
+            text: "Contents Safety Valves 12 Gamma Delta 18 Calibration Steps 31 Backup Restore 42 Control Cabinet 57",
+            embedText: "Matched title_anchor_route: Safety Valves\nContents Safety Valves 12 Gamma Delta 18 Calibration Steps 31 Backup Restore 42 Control Cabinet 57",
+            page: 2,
+            score: 1.02,
+            chunkId: "title-list",
+            embeddingBasis: "title_anchor_route_v1",
+            chunkType: "section_window_v1") with
+        {
+            ContentRole = RetrievalContentClassifier.MixedNavigationContentRole,
+            NavigationScore = 0.76,
+            ContentDensityScore = 0.30
+        };
+        var actionablePage = TestMatch(
+            text: "Safety Valve. Materials: gasket wrench sealant. Procedure: 1. Isolate pressure. 2. Replace the valve. 3. Leak-test the assembly.",
+            embedText: "Matched direct_title_token_route: safety valves\nSafety Valve. Materials: gasket wrench sealant. Procedure: 1. Isolate pressure. 2. Replace the valve. 3. Leak-test the assembly.",
+            page: 12,
+            score: 0.98,
+            chunkId: "actionable-page",
+            embeddingBasis: "direct_title_token_route_v1",
+            chunkType: "unit_exact_v1") with
+        {
+            ContentRole = RetrievalContentClassifier.ContentRole,
+            NavigationScore = 0.0,
+            ContentDensityScore = 0.95
+        };
+        var selected = new List<RagMatch> { titleList, actionablePage };
+
+        RagEndpoints.PrioritizeQuotedTitleSelections("Give me a clear sheet for \"Safety Valves\".", selected);
+
+        Assert.Equal("actionable-page", selected[0].ChunkId);
+    }
+
+    [Fact]
     public void ComputeExactTitleCandidateScore_uses_title_anchor_route_label()
     {
         var routeMatch = TestMatch(
