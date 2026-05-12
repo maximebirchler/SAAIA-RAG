@@ -8409,6 +8409,17 @@ LIMIT @top_k;
                     GetQuotedLookupSelectionSignalText(match, includeSyntheticRouteTitle: false)),
                 ContentEvidencePriority = ComputeContentEvidencePriority(match)
             })
+            .Select(item => new
+            {
+                item.Match,
+                item.QuotedScore,
+                item.LocalQuotedScore,
+                item.ContentEvidencePriority,
+                LocalQuotedRankingScore = ComputeQuotedLookupSelectionRankingScore(
+                    item.Match,
+                    item.LocalQuotedScore,
+                    item.ContentEvidencePriority)
+            })
             .ToList();
 
         if (!ranked.Any(static item => item.QuotedScore > 0.0))
@@ -8417,13 +8428,31 @@ LIMIT @top_k;
         selected.Clear();
         selected.AddRange(ranked
             .OrderByDescending(static item => item.LocalQuotedScore > 0.0 ? 1 : 0)
-            .ThenByDescending(static item => item.ContentEvidencePriority)
+            .ThenByDescending(static item => item.LocalQuotedRankingScore)
             .ThenByDescending(static item => item.LocalQuotedScore)
+            .ThenByDescending(static item => item.ContentEvidencePriority)
             .ThenByDescending(static item => item.QuotedScore)
             .ThenByDescending(static item => item.Match.Score)
             .ThenBy(static item => item.Match.DocPath, StringComparer.OrdinalIgnoreCase)
             .ThenBy(static item => item.Match.ChunkIndex)
             .Select(static item => item.Match));
+    }
+
+    private static double ComputeQuotedLookupSelectionRankingScore(
+        RagMatch match,
+        double localQuotedScore,
+        double contentEvidencePriority)
+    {
+        if (localQuotedScore <= 0.0)
+            return 0.0;
+
+        var score = localQuotedScore + (contentEvidencePriority * 3.0);
+        if (LooksLikeNavigationalChunk(match))
+            score -= 24.0;
+        if (LooksLikeSourceListChunk(match) || LooksLikeGlossaryChunk(match))
+            score -= 12.0;
+
+        return score;
     }
 
     private static string GetQuotedLookupSelectionSignalText(RagMatch match, bool includeSyntheticRouteTitle)

@@ -3948,6 +3948,42 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void PrioritizeQuotedTitleSelections_prefers_exact_local_phrase_over_dense_token_overlap()
+    {
+        var denseTokenOverlap = TestMatch(
+            text: "Procedure. The pressure circuit uses a calibrated relief spring and valve body. Materials: wrench gasket sealant. Steps: isolate, replace, test.",
+            embedText: "Matched direct_title_token_route: pressure relief\nProcedure. The pressure circuit uses a calibrated relief spring and valve body.",
+            page: 4,
+            score: 1.02,
+            chunkId: "dense-token-overlap",
+            embeddingBasis: "direct_title_token_route_v1",
+            chunkType: "unit_exact_v1") with
+        {
+            ContentRole = RetrievalContentClassifier.ContentRole,
+            NavigationScore = 0.0,
+            ContentDensityScore = 1.0
+        };
+        var exactLocalPhrase = TestMatch(
+            text: "PRESSURE RELIEF. Materials: gauge valve gasket. Procedure: 1. Depressurize. 2. Inspect the relief path. 3. Record the setting.",
+            embedText: "Matched title_anchor_route: Pressure Relief\nPRESSURE RELIEF. Materials: gauge valve gasket. Procedure: 1. Depressurize.",
+            page: 9,
+            score: 0.94,
+            chunkId: "exact-local-phrase",
+            embeddingBasis: "title_anchor_route_v1",
+            chunkType: "unit_exact_v1") with
+        {
+            ContentRole = RetrievalContentClassifier.ContentRole,
+            NavigationScore = 0.0,
+            ContentDensityScore = 0.72
+        };
+        var selected = new List<RagMatch> { denseTokenOverlap, exactLocalPhrase };
+
+        RagEndpoints.PrioritizeQuotedTitleSelections("Give me a clear sheet for \"Pressure Relief\".", selected);
+
+        Assert.Equal("exact-local-phrase", selected[0].ChunkId);
+    }
+
+    [Fact]
     public void ComputeExactTitleCandidateScore_uses_title_anchor_route_label()
     {
         var routeMatch = TestMatch(
