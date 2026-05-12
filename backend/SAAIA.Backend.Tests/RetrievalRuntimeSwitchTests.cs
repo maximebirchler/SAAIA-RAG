@@ -149,6 +149,7 @@ public sealed class RetrievalRuntimeSwitchTests
     [InlineData("Cerco boeuf bourguingnon; riesci a trovare la ricetta giusta nonostante l'errore?", "boeuf bourguingnon")]
     [InlineData("Est-ce que la sauce aux 4 fromages vient de Chefbot ou Moulinex ?", "sauce aux 4 fromages")]
     [InlineData("Combien de temps et quels ingredients pour le gratin dauphinois ?", "gratin dauphinois")]
+    [InlineData("Combien d'ingredients pour faire des crepes pour 25 personnes ?", "crepes")]
     [InlineData("Calcule les quantites pour 10 bols de veloute.", "veloute")]
     [InlineData("D'ou vient la recette de la Tentation de Jansson ? Donne le PDF et la page si possible.", "tentation de jansson")]
     [InlineData("Comment cuire les asperges vertes au miel avec la sonde de rotissage ?", "asperges vertes au miel")]

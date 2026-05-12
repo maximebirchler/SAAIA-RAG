@@ -6860,6 +6860,11 @@ LIMIT @result_limit;
         RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
         TimeSpan.FromMilliseconds(100));
 
+    private static readonly Regex QuantityActionFocusedLookupTargetPattern = new(
+        @"\b(?:combien\s+(?:d|de)\s+(?:ingredients?|items?|elements?|pieces?|parts?)|how\s+many\s+(?:ingredients?|items?|elements?|pieces?|parts?)|cuantos?\s+(?:ingredientes?|elementos?)|quantos?\s+(?:ingredientes?|elementos?)|quanti\s+(?:ingredienti|elementi)|wie\s+viele\s+(?:zutaten|elemente|teile))\b[\p{L}\p{Nd}\s'’\-/]{0,80}?\b(?:faire|preparer|fabriquer|produire|make|prepare|build|create|hacer|preparar|fazer|fare|preparare|machen|zubereiten)\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + @"(?=\s+(?:pour|for|para|per|fur|fuer)\s+(?:\d+|[a-z]+)\b|\s+(?:dans|depuis|from|in|aus|im|von|vom|source|sources|fonte|fontes|fuente|fuentes|quelle|quellen|etape|etapes|step|steps|schritt|schritte|passo|passos|temps|time|duree|duration|duracion|duracao|dauer|pdf|document|documents|doc|docs|fichier|fichiers|arquivo|arquivos|archivo|archivos|file|files|livre|livres|book|books|libro|libros|manuale|manuel|manuels|manual|manuals|guide|guides|guia|guias|handbuch|handbucher|version|mode|reglage|reglages|setting|settings|parametre|parametres|avec|with|com|con|mit|senza|sans|without|compare|comparer|compara|comparar|vergleiche|si|oui|ja)\b|[\?:;,\.\r\n]|$)",
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(100));
+
     private static readonly Regex ParameterFocusedLookupTargetPattern = new(
         @"\b(?:combien\s+de\s+temps|quantites?|quantities?|amounts?|etapes?|temps|reglages?|parametres?|vitesses?|temperatures?|how\s+long|which\s+settings|settings?|parameters?)\b[\p{L}\p{Nd}\s'’\-/]{0,90}?\s+(?:pour|for|de|du|des|d['\u2019]|sur|about|on|para|sobre|per|su)\s+(?:(?:\d+|[a-z]+)\s+[\p{L}]{2,24}\s+(?:de|d['\u2019]|of)\s+)?(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + FocusedLookupTargetStopLookahead,
         RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
@@ -6886,6 +6891,7 @@ LIMIT @result_limit;
         DefinitionThenActionFocusedLookupTargetPattern,
         DefinitionFocusedLookupTargetPattern,
         ExplainFocusedLookupTargetPattern,
+        QuantityActionFocusedLookupTargetPattern,
         ParameterFocusedLookupTargetPattern,
         StructuredInfoFocusedLookupTargetPattern
     ];
