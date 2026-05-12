@@ -117,6 +117,53 @@ function Get-TextPreview {
     return $flat.Substring(0, $MaxChars) + "..."
 }
 
+function Get-JsonlRecordLineCount {
+    param([string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path $Path)) {
+        return 0
+    }
+
+    $count = 0
+    foreach ($line in Get-Content $Path -Encoding UTF8) {
+        if (-not [string]::IsNullOrWhiteSpace($line)) {
+            $count++
+        }
+    }
+
+    return $count
+}
+
+function Write-ValidationSuccessMarker {
+    param(
+        [string]$Path,
+        [string]$JsonPath,
+        [string]$JsonlPath,
+        [string]$TsvPath,
+        [int]$SelectedCount,
+        [int]$RowCount,
+        [int]$JsonlLineCount
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return
+    }
+
+    $marker = [ordered]@{
+        completedAt = (Get-Date).ToString("o")
+        selectedCount = $SelectedCount
+        rowCount = $RowCount
+        jsonlLineCount = $JsonlLineCount
+        outputs = [ordered]@{
+            json = $JsonPath
+            jsonl = $JsonlPath
+            tsv = $TsvPath
+        }
+    }
+
+    [System.IO.File]::WriteAllText($Path, (ConvertTo-Json $marker -Depth 20), [System.Text.UTF8Encoding]::new($false))
+}
+
 function Get-ValidationCaseLanguage {
     param([object]$Case)
 
@@ -1426,6 +1473,7 @@ $prefix = Join-Path $OutputDir "$($bank.version)-$Mode-$stamp"
 $jsonlPath = "$prefix.jsonl"
 $jsonPath = "$prefix.json"
 $tsvPath = "$prefix.tsv"
+$successPath = "$prefix.success.json"
 
 if ($Parallelism -gt 1 -and $Mode -eq "retrieval") {
     $partCount = [Math]::Min([Math]::Max(1, $Parallelism), $cases.Count)
@@ -1525,6 +1573,7 @@ if ($Parallelism -gt 1 -and $Mode -eq "retrieval") {
         $part.process.WaitForExit()
         $part.process.Refresh()
         $partSummaryPath = Get-ChildItem -Path $part.outputDir -Filter "$($bank.version)-$Mode-*.json" -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -notlike "*.success.json" } |
             Sort-Object LastWriteTime -Descending |
             Select-Object -First 1
 
@@ -1545,6 +1594,7 @@ if ($Parallelism -gt 1 -and $Mode -eq "retrieval") {
     $partOutputs = New-Object System.Collections.Generic.List[object]
     foreach ($part in $parts) {
         $partSummaryPath = Get-ChildItem -Path $part.outputDir -Filter "$($bank.version)-$Mode-*.json" |
+            Where-Object { $_.Name -notlike "*.success.json" } |
             Sort-Object LastWriteTime -Descending |
             Select-Object -First 1
         if ($null -eq $partSummaryPath) {
@@ -1554,28 +1604,52 @@ if ($Parallelism -gt 1 -and $Mode -eq "retrieval") {
         $partSummary = Get-Content $partSummaryPath.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
         $partJsonlPath = [string]$partSummary.outputs.jsonl
         $partTsvPath = [string]$partSummary.outputs.tsv
+        $partSuccessPath = [string]$partSummary.outputs.success
+        $expectedPartCount = @(([string]$part.ids -split ";") | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count
+        $partRows = @($partSummary.rows)
+        $partSelectedCount = [int]$partSummary.selectedCount
+        if ($partSelectedCount -ne $expectedPartCount) {
+            throw "Parallel validation part $($part.index) selectedCount=$partSelectedCount but expected $expectedPartCount from assigned ids."
+        }
+        if ($partRows.Count -ne $partSelectedCount) {
+            throw "Parallel validation part $($part.index) wrote $($partRows.Count) row(s) for selectedCount=$partSelectedCount."
+        }
+        if ([string]::IsNullOrWhiteSpace($partJsonlPath) -or -not (Test-Path $partJsonlPath)) {
+            throw "Parallel validation part $($part.index) did not write a JSONL file."
+        }
+        if ((Get-Item $partJsonlPath).Length -le 0) {
+            throw "Parallel validation part $($part.index) wrote an empty JSONL file."
+        }
+        $partJsonlLines = Get-JsonlRecordLineCount $partJsonlPath
+        if ($partJsonlLines -ne $partSelectedCount) {
+            throw "Parallel validation part $($part.index) wrote $partJsonlLines JSONL line(s) for selectedCount=$partSelectedCount."
+        }
+        if ([string]::IsNullOrWhiteSpace($partSuccessPath) -or -not (Test-Path $partSuccessPath)) {
+            throw "Parallel validation part $($part.index) has no success marker; it may be incomplete."
+        }
         $partOutputs.Add([ordered]@{
             part = $part.index
             json = $partSummaryPath.FullName
             jsonl = $partJsonlPath
             tsv = $partTsvPath
+            success = $partSuccessPath
             selectedCount = $partSummary.selectedCount
+            rowCount = $partRows.Count
+            jsonlLineCount = $partJsonlLines
             totals = $partSummary.totals
         })
 
-        foreach ($row in @($partSummary.rows)) {
+        foreach ($row in $partRows) {
             $rowsById[[string]$row.id] = $row
         }
 
-        if (Test-Path $partJsonlPath) {
-            foreach ($line in Get-Content $partJsonlPath -Encoding UTF8) {
-                if ([string]::IsNullOrWhiteSpace($line)) {
-                    continue
-                }
-
-                $record = $line | ConvertFrom-Json
-                $recordsById[[string]$record.id] = $line
+        foreach ($line in Get-Content $partJsonlPath -Encoding UTF8) {
+            if ([string]::IsNullOrWhiteSpace($line)) {
+                continue
             }
+
+            $record = $line | ConvertFrom-Json
+            $recordsById[[string]$record.id] = $line
         }
     }
 
@@ -1594,6 +1668,14 @@ if ($Parallelism -gt 1 -and $Mode -eq "retrieval") {
     }
     finally {
         $jsonlWriter.Dispose()
+    }
+
+    $mergedJsonlLines = Get-JsonlRecordLineCount $jsonlPath
+    if ($rows.Count -ne $cases.Count) {
+        throw "Parallel validation merge wrote $($rows.Count) row(s) for selectedCount=$($cases.Count)."
+    }
+    if ($mergedJsonlLines -ne $cases.Count) {
+        throw "Parallel validation merge wrote $mergedJsonlLines JSONL line(s) for selectedCount=$($cases.Count)."
     }
 
     $summary = [ordered]@{
@@ -1625,6 +1707,7 @@ if ($Parallelism -gt 1 -and $Mode -eq "retrieval") {
             jsonl = $jsonlPath
             tsv = $tsvPath
             parts = $partRoot
+            success = $successPath
         }
         partOutputs = $partOutputs
         totals = [ordered]@{
@@ -1649,6 +1732,7 @@ if ($Parallelism -gt 1 -and $Mode -eq "retrieval") {
 
     [System.IO.File]::WriteAllText($jsonPath, (ConvertTo-Json $summary -Depth 80), [System.Text.UTF8Encoding]::new($false))
     Write-Tsv -Rows $rows.ToArray() -Path $tsvPath
+    Write-ValidationSuccessMarker -Path $successPath -JsonPath $jsonPath -JsonlPath $jsonlPath -TsvPath $tsvPath -SelectedCount $cases.Count -RowCount $rows.Count -JsonlLineCount $mergedJsonlLines
 
     Write-Host ""
     Write-Host "Validation run written:"
@@ -1801,6 +1885,14 @@ finally {
     $jsonlWriter.Dispose()
 }
 
+$jsonlLineCount = Get-JsonlRecordLineCount $jsonlPath
+if ($rows.Count -ne $cases.Count) {
+    throw "Validation wrote $($rows.Count) row(s) for selectedCount=$($cases.Count)."
+}
+if ($jsonlLineCount -ne $cases.Count) {
+    throw "Validation wrote $jsonlLineCount JSONL line(s) for selectedCount=$($cases.Count)."
+}
+
 $summary = [ordered]@{
     generatedAt = (Get-Date).ToString("o")
     questionBankPath = $bankPath
@@ -1829,6 +1921,7 @@ $summary = [ordered]@{
         json = $jsonPath
         jsonl = $jsonlPath
         tsv = $tsvPath
+        success = $successPath
     }
     totals = [ordered]@{
         errors = @($rows | Where-Object { -not [string]::IsNullOrWhiteSpace($_.error) }).Count
@@ -1852,6 +1945,7 @@ $summary = [ordered]@{
 
 [System.IO.File]::WriteAllText($jsonPath, (ConvertTo-Json $summary -Depth 80), [System.Text.UTF8Encoding]::new($false))
 Write-Tsv -Rows $rows.ToArray() -Path $tsvPath
+Write-ValidationSuccessMarker -Path $successPath -JsonPath $jsonPath -JsonlPath $jsonlPath -TsvPath $tsvPath -SelectedCount $cases.Count -RowCount $rows.Count -JsonlLineCount $jsonlLineCount
 
 Write-Host ""
 Write-Host "Validation run written:"
