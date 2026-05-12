@@ -3876,6 +3876,42 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void PrioritizeExactTitleSelections_prefers_dense_content_when_title_signals_tie()
+    {
+        var titleList = TestMatch(
+            text: "Alpha Beta 12 Gamma Delta 18 Safety Reset 24 Calibration Steps 31 Backup Restore 42 Control Cabinet 57",
+            embedText: "Alpha Beta 12 Gamma Delta 18 Safety Reset 24 Calibration Steps 31 Backup Restore 42 Control Cabinet 57",
+            page: 2,
+            score: 1.02,
+            chunkId: "title-list",
+            chunkType: "section_window_v1") with
+        {
+            ContentRole = RetrievalContentClassifier.MixedNavigationContentRole,
+            NavigationScore = 0.69,
+            ContentDensityScore = 0.20
+        };
+        var actionablePage = TestMatch(
+            text: "Alpha Beta. Materials: lock padlock warning tag. Procedure: 1. Isolate the machine. 2. Verify zero energy. 3. Record the result.",
+            embedText: "Alpha Beta. Materials: lock padlock warning tag. Procedure: 1. Isolate the machine. 2. Verify zero energy. 3. Record the result.",
+            page: 12,
+            score: 0.98,
+            chunkId: "actionable-page",
+            chunkType: "unit_exact_v1") with
+        {
+            ContentRole = RetrievalContentClassifier.ContentRole,
+            NavigationScore = 0.0,
+            ContentDensityScore = 0.95
+        };
+        var selected = new List<RagMatch> { titleList, actionablePage };
+
+        RagEndpoints.PrioritizeExactTitleSelections("alpha beta", selected);
+
+        Assert.Equal("actionable-page", selected[0].ChunkId);
+        Assert.True(RagEndpoints.ComputeContentEvidencePriority(actionablePage)
+            > RagEndpoints.ComputeContentEvidencePriority(titleList));
+    }
+
+    [Fact]
     public void ComputeExactTitleCandidateScore_uses_title_anchor_route_label()
     {
         var routeMatch = TestMatch(

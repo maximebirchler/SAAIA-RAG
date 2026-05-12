@@ -8276,7 +8276,8 @@ LIMIT @top_k;
                     SpecificAnchorCount = specificAnchorCount,
                     StrongExactReferenceSignal = strongExactReferenceSignal,
                     DocumentHintMatched = matchesDocumentHint,
-                    StructuredAnswerPriority = GetStructuredAnswerPriority(match)
+                    StructuredAnswerPriority = GetStructuredAnswerPriority(match),
+                    ContentEvidencePriority = ComputeContentEvidencePriority(match)
                 };
             })
             .OrderByDescending(static item => item.StrongExactReferenceSignal)
@@ -8288,6 +8289,12 @@ LIMIT @top_k;
             .ThenByDescending(item => useSpecificCoverageTitlePriority ? item.StructuredAnswerPriority : 0)
             .ThenByDescending(item => useSpecificCoverageTitlePriority ? item.SpecificAnchorCount : 0)
             .ThenByDescending(item => item.ExactTitleScore)
+            .ThenByDescending(item =>
+                item.DirectChunkTitleSignal > 0
+                || item.MatchedCardTitleSignal > 0
+                || item.ExactTitleScore > 0.0
+                    ? item.ContentEvidencePriority
+                    : 0.0)
             .ThenByDescending(item => item.Match.Score)
             .ThenByDescending(static item => item.SpecificAnchorCount)
             .ThenByDescending(static item => item.LexicalCoverage)
@@ -8576,7 +8583,8 @@ LIMIT @top_k;
                 SpecificAnchorCount = lexicalTokens.Length > 0
                     ? CountSpecificLexicalAnchors(lexicalTokens, GetTitleSignalText(match))
                     : 0,
-                StructuredAnswerPriority = GetStructuredAnswerPriority(match)
+                StructuredAnswerPriority = GetStructuredAnswerPriority(match),
+                ContentEvidencePriority = ComputeContentEvidencePriority(match)
             })
             .ToList();
 
@@ -8595,6 +8603,7 @@ LIMIT @top_k;
             .ThenByDescending(item => useSpecificCoverageTitlePriority ? item.StructuredAnswerPriority : 0)
             .ThenByDescending(item => useSpecificCoverageTitlePriority ? item.SpecificAnchorCount : 0)
             .ThenByDescending(static item => item.ExactTitleScore)
+            .ThenByDescending(static item => item.ContentEvidencePriority)
             .ThenByDescending(static item => item.Match.Score)
             .ThenBy(static item => item.Match.DocPath, StringComparer.OrdinalIgnoreCase)
             .ThenBy(static item => item.Match.ChunkIndex)
@@ -10098,6 +10107,31 @@ LIMIT @top_k;
         if (string.Equals(match.ChunkType, "document_profile", StringComparison.Ordinal))
             return 1;
         return 0;
+    }
+
+    internal static double ComputeContentEvidencePriority(RagMatch match)
+    {
+        var priority = GetStructuredAnswerPriority(match) * 0.35;
+
+        if (match.ContentDensityScore is double density)
+            priority += Math.Clamp(density, 0.0, 1.0);
+
+        if (string.Equals(match.ContentRole, RetrievalContentClassifier.ContentRole, StringComparison.OrdinalIgnoreCase))
+            priority += 0.25;
+        else if (string.Equals(match.ContentRole, RetrievalContentClassifier.MixedNavigationContentRole, StringComparison.OrdinalIgnoreCase))
+            priority += 0.10;
+        else if (string.Equals(match.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.OrdinalIgnoreCase))
+            priority -= 0.25;
+
+        if (match.MatchedContentCards is { Count: > 0 })
+            priority += 0.10;
+
+        if (LooksLikeNavigationalChunk(match))
+            priority -= 0.45;
+        if (LooksLikeSourceListChunk(match) || LooksLikeGlossaryChunk(match))
+            priority -= 0.25;
+
+        return Math.Clamp(priority, -1.0, 3.0);
     }
 
     private static bool LooksLikeStructuredAnswerText(string? value)
