@@ -206,6 +206,34 @@ public sealed class RagMatchedContentCardsTests
     }
 
     [Fact]
+    public void BuildMatchedContentCards_ignores_weak_single_token_evidence_only_overlap()
+    {
+        const string metadataJson = """
+        {
+          "contentCards": [
+            {
+              "title": "Operational appendix",
+              "contentCardId": "card-evidence-weak",
+              "pageStart": 5,
+              "pageEnd": 6,
+              "kind": "section",
+              "signals": ["operations"],
+              "evidence": {
+                "schemaVersion": "structured_evidence_v1",
+                "scaleBasis": { "count": 1, "label": "safety" },
+                "confidence": 0.61
+              }
+            }
+          ]
+        }
+        """;
+
+        var cards = RagEndpoints.BuildMatchedContentCards(metadataJson, "alpha safety", limit: 2);
+
+        Assert.Empty(cards);
+    }
+
+    [Fact]
     public void BuildMatchedContentCards_accepts_loose_generic_evidence_shapes()
     {
         const string metadataJson = """

@@ -3059,6 +3059,7 @@ ORDER BY d.doc_path;
                 .Take(4);
             hints.AddRange(tokens);
         }
+        hints.AddRange(ExtractImplicitDocumentHintTokens(query));
 
         return hints
             .Distinct(StringComparer.Ordinal)
@@ -3077,6 +3078,110 @@ ORDER BY d.doc_path;
            && !LexicalStopwords.Contains(token)
            && !PrimaryAnchorStopwords.Contains(token)
            && !SpecificAnchorStopwords.Contains(token);
+
+    private static IReadOnlyList<string> ExtractImplicitDocumentHintTokens(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return Array.Empty<string>();
+
+        var hints = new List<string>();
+        foreach (Match match in ImplicitDocumentHintSurfacePattern.Matches(query))
+        {
+            var rawHint = match.Groups["hint"].Value;
+            if (!IsAcronymLikeDocumentHintSurface(rawHint)
+                || !LooksLikeImplicitDocumentHintContext(query, match.Index, match.Length))
+            {
+                continue;
+            }
+
+            var normalized = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(rawHint)).ToLowerInvariant();
+            if (IsDocumentHintSignalToken(normalized))
+                hints.Add(normalized);
+        }
+
+        return hints
+            .Distinct(StringComparer.Ordinal)
+            .Take(4)
+            .ToArray();
+    }
+
+    private static readonly Regex ImplicitDocumentHintSurfacePattern = new(
+        @"(?<![\p{L}\p{Nd}])(?<hint>[\p{Lu}\p{Nd}][\p{Lu}\p{Nd}\-]{2,})(?![\p{L}\p{Nd}])",
+        RegexOptions.CultureInvariant,
+        TimeSpan.FromMilliseconds(100));
+
+    private static bool IsAcronymLikeDocumentHintSurface(string value)
+    {
+        var letters = value.Where(char.IsLetter).ToArray();
+        if (letters.Length < 3)
+            return false;
+
+        return letters.All(char.IsUpper)
+            && !DocumentHintStopwords.Contains(value.ToUpperInvariant());
+    }
+
+    private static bool LooksLikeImplicitDocumentHintContext(string query, int hintIndex, int hintLength)
+    {
+        var before = query[..hintIndex];
+        var beforeClause = LastClauseSegment(before);
+        var normalizedBefore = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(beforeClause)).ToLowerInvariant();
+        if (!StartsWithImplicitDocumentHintCarrier(normalizedBefore))
+            return false;
+
+        var subjectTokens = ExtractLexicalQueryTokens(beforeClause)
+            .Where(static token => !PrimaryAnchorStopwords.Contains(token))
+            .Where(static token => !SpecificAnchorStopwords.Contains(token))
+            .Where(static token => !TitleConnectorTokens.Contains(token))
+            .Take(4)
+            .Count();
+        if (subjectTokens < 2)
+            return false;
+
+        var after = query[(hintIndex + hintLength)..];
+        if (string.IsNullOrWhiteSpace(after))
+            return true;
+
+        var trimmedAfter = after.TrimStart();
+        if (trimmedAfter.Length == 0)
+            return true;
+        if (trimmedAfter[0] is ',' or ';' or ':' or '?' or '.' or '\r' or '\n')
+            return true;
+
+        var normalizedAfter = $" {FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(trimmedAfter[..Math.Min(80, trimmedAfter.Length)])).ToLowerInvariant()} ";
+        return ContainsAny(normalizedAfter,
+            " quel ",
+            " quelle ",
+            " quels ",
+            " quelles ",
+            " what ",
+            " which ",
+            " cuales ",
+            " qual ",
+            " quais ",
+            " quale ",
+            " welches ",
+            " welche ",
+            " reglage ",
+            " reglages ",
+            " setting ",
+            " settings ",
+            " parametre ",
+            " parametres ");
+    }
+
+    private static string LastClauseSegment(string value)
+    {
+        var index = value.LastIndexOfAny(['.', '?', '!', ';', ':', '\r', '\n']);
+        return index < 0 ? value : value[(index + 1)..];
+    }
+
+    private static bool StartsWithImplicitDocumentHintCarrier(string normalizedBeforeClause)
+        => normalizedBeforeClause.StartsWith("pour ", StringComparison.Ordinal)
+           || normalizedBeforeClause.StartsWith("for ", StringComparison.Ordinal)
+           || normalizedBeforeClause.StartsWith("para ", StringComparison.Ordinal)
+           || normalizedBeforeClause.StartsWith("per ", StringComparison.Ordinal)
+           || normalizedBeforeClause.StartsWith("fur ", StringComparison.Ordinal)
+           || normalizedBeforeClause.StartsWith("fuer ", StringComparison.Ordinal);
 
     private static bool DocumentMatchesHint(IReadOnlyList<string> documentHintTokens, RagMatch match)
     {
@@ -5986,9 +6091,19 @@ LIMIT @result_limit;
         var coverage = ComputeLexicalCoverage(queryTokens, candidateText);
         var titleCoverage = ComputeLexicalCoverage(queryTokens, title);
         var signalCoverage = ComputeLexicalCoverage(queryTokens, signals);
+        var nonEvidenceSignalCoverage = ComputeLexicalCoverage(
+            queryTokens,
+            string.Join(' ', (card.Signals ?? Array.Empty<string>()).Where(static signal => !IsStructuredEvidenceDerivedContentCardSignal(signal))));
         var evidenceCoverage = ComputeLexicalCoverage(queryTokens, evidenceText);
         if (coverage <= 0.0 && titleCoverage <= 0.0 && signalCoverage <= 0.0 && evidenceCoverage <= 0.0)
             return 0.0;
+        if (titleCoverage <= 0.0
+            && nonEvidenceSignalCoverage <= 0.0
+            && (signalCoverage > 0.0 || evidenceCoverage > 0.0)
+            && !HasStrongEvidenceOnlyContentCardSupport(queryTokens, card.Evidence))
+        {
+            return 0.0;
+        }
 
         var score = (coverage * 100.0) + (titleCoverage * 70.0) + (signalCoverage * 18.0) + (evidenceCoverage * 42.0);
         var normalizedQuery = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query));
@@ -6025,6 +6140,66 @@ LIMIT @result_limit;
             score *= 0.95;
 
         return score;
+    }
+
+    private static bool HasStrongEvidenceOnlyContentCardSupport(
+        IReadOnlyList<string> queryTokens,
+        DocumentProfileCardEvidence? evidence)
+    {
+        if (evidence is null || queryTokens.Count == 0)
+            return false;
+
+        var parts = new List<string>();
+        AddMultiTokenEvidenceLabel(parts, evidence.ScaleBasis?.Label);
+
+        foreach (var fact in evidence.QuantityFacts ?? [])
+        {
+            AddMultiTokenEvidenceLabel(parts, fact.Label);
+            if (!string.IsNullOrWhiteSpace(fact.SourceText))
+                parts.Add(fact.SourceText);
+        }
+
+        foreach (var reason in evidence.NonScalableReasons ?? [])
+            AddMultiTokenEvidenceLabel(parts, reason);
+
+        foreach (var fact in evidence.Facts ?? [])
+        {
+            AddMultiTokenEvidenceLabel(parts, fact.Label);
+            if (!string.IsNullOrWhiteSpace(fact.SourceText))
+                parts.Add(fact.SourceText);
+        }
+
+        var strongEvidenceText = CollapseWhitespace(string.Join(' ', parts));
+        if (string.IsNullOrWhiteSpace(strongEvidenceText))
+            return false;
+
+        var coverage = ComputeLexicalCoverage(queryTokens, strongEvidenceText);
+        return queryTokens.Count <= 2
+            ? coverage >= 1.0
+            : coverage >= 0.50;
+    }
+
+    private static void AddMultiTokenEvidenceLabel(List<string> parts, string? label)
+    {
+        if (string.IsNullOrWhiteSpace(label))
+            return;
+
+        if (ExtractLexicalQueryTokens(label).Count >= 2)
+            parts.Add(label);
+    }
+
+    private static bool IsStructuredEvidenceDerivedContentCardSignal(string signal)
+    {
+        if (string.IsNullOrWhiteSpace(signal))
+            return false;
+
+        return signal.StartsWith("scale_basis", StringComparison.OrdinalIgnoreCase)
+            || signal.StartsWith("scale_basis_count:", StringComparison.OrdinalIgnoreCase)
+            || signal.StartsWith("scale_basis_label:", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(signal, "quantity_list", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(signal, "structured_facts", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(signal, "non_scalable_quantities", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(signal, "scalable_quantities", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string BuildDocumentProfileContentCardQueryLookupText(DocumentProfileContentCard card)
@@ -6505,7 +6680,7 @@ LIMIT @result_limit;
             .ThenBy(static term => term.Length)
             .FirstOrDefault();
         if (!string.IsNullOrWhiteSpace(phrase))
-            return phrase.Trim();
+            return NormalizeFocusedLookupPhraseForQuery(phrase, query) ?? phrase.Trim();
 
         var tokens = ExtractLexicalQueryTokens(query)
             .Where(static token => !PrimaryAnchorStopwords.Contains(token))
@@ -6525,7 +6700,7 @@ LIMIT @result_limit;
 
         var phrases = new List<string>();
         foreach (var quotedPhrase in ExtractQuotedLookupPhrases(query))
-            AddFocusedLookupPhrase(phrases, quotedPhrase);
+            AddFocusedLookupPhrase(phrases, quotedPhrase, query, allowImplicitDocumentHintTrim: false);
 
         var surface = FoldDiacritics(query).ToLowerInvariant();
         surface = Regex.Replace(surface, @"[\u2010-\u2015_\-]+", " ", RegexOptions.CultureInvariant);
@@ -6539,7 +6714,7 @@ LIMIT @result_limit;
         foreach (var pattern in FocusedLookupTargetPatterns)
         {
             foreach (Match match in pattern.Matches(surface))
-                AddFocusedLookupPhrase(phrases, match.Groups["target"].Value);
+                AddFocusedLookupPhrase(phrases, match.Groups["target"].Value, query);
         }
 
         return phrases
@@ -6571,18 +6746,31 @@ LIMIT @result_limit;
             .ToArray();
     }
 
-    private static void AddFocusedLookupPhrase(List<string> phrases, string candidate)
+    private static void AddFocusedLookupPhrase(
+        List<string> phrases,
+        string candidate,
+        string? sourceQuery = null,
+        bool allowImplicitDocumentHintTrim = true)
     {
-        var phrase = NormalizeFocusedLookupPhrase(candidate);
+        var phrase = NormalizeFocusedLookupPhraseForQuery(candidate, sourceQuery, allowImplicitDocumentHintTrim);
         if (!string.IsNullOrWhiteSpace(phrase))
         {
-            foreach (var variant in BuildFocusedLookupPhraseVariants(phrase))
+            foreach (var variant in BuildFocusedLookupPhraseVariants(phrase, sourceQuery, allowImplicitDocumentHintTrim))
                 phrases.Add(variant);
         }
     }
 
-    private static IEnumerable<string> BuildFocusedLookupPhraseVariants(string phrase)
+    private static IEnumerable<string> BuildFocusedLookupPhraseVariants(
+        string phrase,
+        string? sourceQuery,
+        bool allowImplicitDocumentHintTrim)
     {
+        if (allowImplicitDocumentHintTrim
+            && TryTrimTrailingImplicitDocumentHint(phrase, sourceQuery, out var withoutImplicitHint))
+        {
+            yield return withoutImplicitHint;
+        }
+
         var withoutContext = TrimTrailingFocusedLookupContext(phrase);
         if (!string.IsNullOrWhiteSpace(withoutContext)
             && !string.Equals(withoutContext, phrase, StringComparison.Ordinal))
@@ -6647,6 +6835,21 @@ LIMIT @result_limit;
             RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
             TimeSpan.FromMilliseconds(100));
 
+    private static string? NormalizeFocusedLookupPhraseForQuery(
+        string candidate,
+        string? sourceQuery,
+        bool allowImplicitDocumentHintTrim = true)
+    {
+        var phrase = NormalizeFocusedLookupPhrase(candidate);
+        if (string.IsNullOrWhiteSpace(phrase))
+            return phrase;
+
+        return allowImplicitDocumentHintTrim
+               && TryTrimTrailingImplicitDocumentHint(phrase, sourceQuery, out var trimmed)
+            ? trimmed
+            : phrase;
+    }
+
     private static string? NormalizeFocusedLookupPhrase(string candidate)
     {
         var normalized = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(candidate)).ToLowerInvariant();
@@ -6687,6 +6890,34 @@ LIMIT @result_limit;
             return null;
 
         return phrase.Length is >= 4 and <= 80 ? phrase : null;
+    }
+
+    private static bool TryTrimTrailingImplicitDocumentHint(
+        string phrase,
+        string? sourceQuery,
+        out string trimmed)
+    {
+        trimmed = string.Empty;
+        if (string.IsNullOrWhiteSpace(sourceQuery))
+            return false;
+
+        var tokens = phrase
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToArray();
+        if (tokens.Length < 3)
+            return false;
+
+        var hintTokens = ExtractImplicitDocumentHintTokens(sourceQuery);
+        if (hintTokens.Count == 0 || !hintTokens.Contains(tokens[^1], StringComparer.Ordinal))
+            return false;
+
+        var head = tokens[..^1];
+        if (head.Count(IsFocusedLookupSignalToken) < 2)
+            return false;
+
+        trimmed = string.Join(' ', head);
+        return !string.IsNullOrWhiteSpace(trimmed)
+            && !IsFocusedLookupMetaInstructionPhrase(trimmed);
     }
 
     private static List<string> TrimFocusedLookupScaffoldPrefix(List<string> tokens)
@@ -6848,6 +7079,11 @@ LIMIT @result_limit;
         RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
         TimeSpan.FromMilliseconds(100));
 
+    private static readonly Regex PurposeScopedFocusedLookupTargetPattern = new(
+        @"^(?:pour|for|para|per|fur|fuer|zu|zum|zur)\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + FocusedLookupTargetStopLookahead,
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(100));
+
     private static readonly Regex[] ComparativeLookupTargetPatterns =
     [
         new(
@@ -6917,6 +7153,7 @@ LIMIT @result_limit;
         SearchIntentFocusedLookupTargetPattern,
         PoliteActionFocusedLookupTargetPattern,
         AlternativeFocusedLookupTargetPattern,
+        PurposeScopedFocusedLookupTargetPattern,
         LeadingContextFocusedLookupTargetPattern,
         FocusedLookupTargetPattern,
         DirectObjectFocusedLookupTargetPattern,

@@ -172,6 +172,7 @@ public sealed class RetrievalRuntimeSwitchTests
     [InlineData("O que e a receita basica de bechamel?", "bechamel")]
     [InlineData("Che cos e la ricetta base di bechamel?", "bechamel")]
     [InlineData("Was ist das Grundrezept fuer Bechamel?", "bechamel")]
+    [InlineData("Pour les alpha beta VND, quels sont les reglages ?", "alpha beta")]
     [InlineData("Give me the procedure for access mode A from the manual.", "access mode a")]
     [InlineData("Dame una ficha para modo acceso A con fuente.", "modo acceso a")]
     [InlineData("Quero uma ficha para modo acesso A com fonte.", "modo acesso a")]
@@ -4201,6 +4202,30 @@ public sealed class RetrievalRuntimeSwitchTests
             "compote de pommes",
             [genericGuide, hintedGuide],
             "Comment faire la compote de pommes du guide Facilitemps ?");
+
+        Assert.Equal("hinted-guide", calibrated[0].ChunkId);
+    }
+
+    [Fact]
+    public void CalibrateFusedMatches_uses_trailing_acronym_as_implicit_document_hint()
+    {
+        var genericGuide = TestMatch(
+            text: "Alpha beta ingredients and settings from a generic guide.",
+            docPath: "Docs/general-guide.pdf",
+            chunkId: "generic-guide",
+            embeddingBasis: "sparse_bm25_v1",
+            score: 0.91);
+        var hintedGuide = TestMatch(
+            text: "Alpha beta ingredients and settings from the named guide.",
+            docPath: "Docs/VND-service-guide.pdf",
+            chunkId: "hinted-guide",
+            embeddingBasis: "sparse_bm25_v1",
+            score: 0.88);
+
+        var calibrated = RagEndpoints.CalibrateFusedMatches(
+            "alpha beta",
+            [genericGuide, hintedGuide],
+            "Pour les alpha beta VND, quels sont les reglages ?");
 
         Assert.Equal("hinted-guide", calibrated[0].ChunkId);
     }
