@@ -3980,6 +3980,38 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.True(RagEndpoints.ComputeExactTitleCandidateScore("alpha beta", confirmedNavigationRoute) > 0.0);
     }
 
+    [Fact]
+    public void HasProfileTitleHint_ignores_direct_title_route_without_local_title_evidence()
+    {
+        var unconfirmedDirectRoute = TestMatch(
+            text: "The alpha subsystem references beta as a separate appendix, but this is not the combined target.",
+            embedText: "Matched direct_title_token_route: Alpha Beta\nThe alpha subsystem references beta as a separate appendix.",
+            chunkId: "direct-route",
+            embeddingBasis: "direct_title_token_route_v1",
+            chunkType: "section_window_v1",
+            score: 0.88);
+        var confirmedDirectRoute = unconfirmedDirectRoute with
+        {
+            ChunkId = "confirmed-direct-route",
+            Text = "Alpha Beta. Materials: lock padlock warning tag. Procedure: isolate, verify, record.",
+            EmbedText = "Matched direct_title_token_route: Alpha Beta\nAlpha Beta. Materials: lock padlock warning tag. Procedure: isolate, verify, record."
+        };
+        var stemmedDirectRoute = unconfirmedDirectRoute with
+        {
+            ChunkId = "stemmed-direct-route",
+            Text = "Gateau chocolat courgette. Materials: chocolate, courgette and flour. Procedure: mix and bake.",
+            EmbedText = "Matched direct_title_token_route: gateau chocolat courgett\nGateau chocolat courgette. Materials: chocolate, courgette and flour. Procedure: mix and bake."
+        };
+
+        Assert.False(RagEndpoints.HasProfileTitleHint(unconfirmedDirectRoute));
+        Assert.False(RagEndpoints.IsResolvedTitleOrNavigationRoute(unconfirmedDirectRoute));
+        Assert.True(RagEndpoints.HasProfileTitleHint(confirmedDirectRoute));
+        Assert.True(RagEndpoints.DirectTitleTokenRouteHasTargetTitleEvidence(confirmedDirectRoute));
+        Assert.True(RagEndpoints.IsResolvedTitleOrNavigationRoute(confirmedDirectRoute));
+        Assert.True(RagEndpoints.HasProfileTitleHint(stemmedDirectRoute));
+        Assert.True(RagEndpoints.DirectTitleTokenRouteHasTargetTitleEvidence(stemmedDirectRoute));
+    }
+
     [Theory]
     [InlineData(2, 2)]
     [InlineData(3, 3)]

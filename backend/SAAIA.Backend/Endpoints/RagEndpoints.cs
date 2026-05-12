@@ -9274,11 +9274,12 @@ LIMIT @top_k;
 
         if (match.EmbedText!.StartsWith("Matched navigation_route:", StringComparison.Ordinal))
             return NavigationRouteHasTargetTitleEvidence(match);
+        if (match.EmbedText.StartsWith("Matched direct_title_token_route:", StringComparison.Ordinal))
+            return DirectTitleTokenRouteHasTargetTitleEvidence(match);
 
         return match.EmbedText.StartsWith("Matched profile title:", StringComparison.Ordinal)
             || match.EmbedText.StartsWith("Matched quoted title:", StringComparison.Ordinal)
             || match.EmbedText.StartsWith("Matched title_anchor_route:", StringComparison.Ordinal)
-            || match.EmbedText.StartsWith("Matched direct_title_token_route:", StringComparison.Ordinal)
             || match.EmbedText.StartsWith("Matched fuzzy_title_lead:", StringComparison.Ordinal);
     }
 
@@ -9287,6 +9288,19 @@ LIMIT @top_k;
         if (!IsNavigationRouteMatch(match))
             return true;
 
+        return RouteHasTargetTitleEvidence(match);
+    }
+
+    internal static bool DirectTitleTokenRouteHasTargetTitleEvidence(RagMatch match)
+    {
+        if (!IsDirectTitleTokenRouteMatch(match))
+            return true;
+
+        return RouteHasTargetTitleEvidence(match);
+    }
+
+    private static bool RouteHasTargetTitleEvidence(RagMatch match)
+    {
         var routeTitle = ExtractMatchedRouteOrProfileTitle(match.EmbedText);
         if (string.IsNullOrWhiteSpace(routeTitle))
             return false;
@@ -9323,6 +9337,12 @@ LIMIT @top_k;
         if (titleTokens.Length == 1)
             return ContainsExactNormalizedToken(normalizedDirect, titleTokens[0]);
 
+        if (titleTokens.Length >= 2
+            && ContainsOrderedTitleTokenSubstringsInNormalizedText(normalizedDirect, titleTokens, maxGapChars: 12))
+        {
+            return true;
+        }
+
         return titleTokens.Length >= 2
             && ContainsTitleLikeLexicalSequence(normalizedDirect, titleTokens);
     }
@@ -9330,6 +9350,10 @@ LIMIT @top_k;
     private static bool IsNavigationRouteMatch(RagMatch match)
         => string.Equals(ResolveRetriever(match), "navigation_route", StringComparison.Ordinal)
            || string.Equals(match.EmbeddingBasis, "navigation_route_v1", StringComparison.Ordinal);
+
+    private static bool IsDirectTitleTokenRouteMatch(RagMatch match)
+        => string.Equals(ResolveRetriever(match), "direct_title_token_route", StringComparison.Ordinal)
+           || string.Equals(match.EmbeddingBasis, "direct_title_token_route_v1", StringComparison.Ordinal);
 
     internal static int ResolveDirectTitleTokenRouteMinimumOverlap(int queryTokenCount)
     {
@@ -9748,7 +9772,8 @@ LIMIT @top_k;
 
             var suffix = candidateToken[variant.Length..];
             if (TitleConnectorTokens.Contains(suffix)
-                || suffix.All(char.IsDigit))
+                || suffix.All(char.IsDigit)
+                || (suffix.Length <= 2 && suffix.All(char.IsLetter)))
             {
                 return true;
             }
