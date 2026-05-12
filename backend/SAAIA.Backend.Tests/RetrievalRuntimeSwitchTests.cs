@@ -2249,18 +2249,18 @@ public sealed class RetrievalRuntimeSwitchTests
     public void PruneNavigationalSelections_keeps_resolved_navigation_route_after_selection()
     {
         var route = TestMatch(
-            text: "Alpha Beta Procedure. The destination page contains the procedure body but still has index-like extraction noise.",
-            embedText: "Matched navigation_route: Alpha Beta Procedure\nAlpha Beta Procedure. The destination page contains the procedure body but still has index-like extraction noise.",
+            text: "Alpha Beta Procedure. Materials: lock, tag and gauge. Procedure: isolate the device, verify zero energy and record the result.",
+            embedText: "Matched navigation_route: Alpha Beta Procedure\nAlpha Beta Procedure. Materials: lock, tag and gauge. Procedure: isolate the device, verify zero energy and record the result.",
             docPath: "Ops/Manual.pdf",
             page: 12,
             chunkId: "route",
             embeddingBasis: "navigation_route_v1",
-            chunkType: "navigation_index_v1",
+            chunkType: "section_window_v1",
             score: 1.02) with
         {
-            ContentRole = "navigation",
-            NavigationScore = 0.90,
-            ContentDensityScore = 0.20
+            ContentRole = RetrievalContentClassifier.ContentRole,
+            NavigationScore = 0.0,
+            ContentDensityScore = 0.82
         };
         var content = TestMatch(
             text: "Other content candidate with enough body text to make pruning active.",
@@ -3934,6 +3934,112 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void PrioritizeExactTitleSelections_prefers_trusted_route_over_card_only_header()
+    {
+        var cardOnlyHeader = TestMatch(
+            text: "Controls Device modes Preparation categories For 4 items",
+            embedText: "Controls Device modes Preparation categories For 4 items",
+            page: 12,
+            score: 1.02,
+            chunkId: "card-only-header",
+            chunkType: "unit_exact_v1") with
+        {
+            ContentRole = RetrievalContentClassifier.ContentRole,
+            NavigationScore = 0.0,
+            ContentDensityScore = 1.0,
+            MatchedContentCards = [new RagMatchedContentCard("Alpha Beta Procedure")]
+        };
+        var routedContent = TestMatch(
+            text: "Preparation. Materials: lock, tag, gauge, seal kit and wrench. Procedure: isolate the device, verify zero energy, replace the component, test the assembly and record the result.",
+            embedText: "Matched title_anchor_route: Alpha Beta Procedure\nPreparation. Materials: lock, tag, gauge, seal kit and wrench. Procedure: isolate the device, verify zero energy, replace the component, test the assembly and record the result.",
+            page: 13,
+            score: 0.91,
+            chunkId: "routed-content",
+            embeddingBasis: "title_anchor_route_v1",
+            chunkType: "section_window_v1") with
+        {
+            ContentRole = RetrievalContentClassifier.ContentRole,
+            NavigationScore = 0.0,
+            ContentDensityScore = 0.86
+        };
+        var selected = new List<RagMatch> { cardOnlyHeader, routedContent };
+
+        RagEndpoints.PrioritizeExactTitleSelections("Alpha Beta Procedure", selected);
+
+        Assert.Equal("routed-content", selected[0].ChunkId);
+    }
+
+    [Fact]
+    public void PromoteActionableSameDocumentEvidence_prefers_dense_same_doc_chunk_over_short_header_when_scores_tie()
+    {
+        var shortHeader = TestMatch(
+            text: "Controls Device modes Preparation categories For 4 items",
+            embedText: "Controls Device modes Preparation categories For 4 items",
+            docPath: "Ops/Manual.pdf",
+            page: 12,
+            score: 0.918,
+            chunkId: "short-header",
+            chunkType: "unit_exact_v1") with
+        {
+            ContentRole = RetrievalContentClassifier.ContentRole,
+            NavigationScore = 0.0,
+            ContentDensityScore = 1.0,
+            MatchedContentCards = [new RagMatchedContentCard("Alpha Beta Procedure")]
+        };
+        var denseRoute = TestMatch(
+            text: "Preparation. Materials: lock, tag, gauge, seal kit and wrench. Procedure: isolate the device, verify zero energy, replace the component, test the assembly and record the result.",
+            embedText: "Matched title_anchor_route: Alpha Beta Procedure\nPreparation. Materials: lock, tag, gauge, seal kit and wrench. Procedure: isolate the device, verify zero energy, replace the component, test the assembly and record the result.",
+            docPath: "Ops/Manual.pdf",
+            page: 13,
+            score: 0.918,
+            chunkId: "dense-route",
+            embeddingBasis: "title_anchor_route_v1",
+            chunkType: "section_window_v1") with
+        {
+            ContentRole = RetrievalContentClassifier.ContentRole,
+            NavigationScore = 0.0,
+            ContentDensityScore = 0.86
+        };
+        var selected = new List<RagMatch> { shortHeader, denseRoute };
+
+        RagEndpoints.PromoteActionableSameDocumentEvidence(selected);
+
+        Assert.Equal("dense-route", selected[0].ChunkId);
+        Assert.Equal("short-header", selected[1].ChunkId);
+    }
+
+    [Fact]
+    public void PromoteActionableSameDocumentEvidence_does_not_promote_low_score_or_far_same_doc_tail()
+    {
+        var shortHeader = TestMatch(
+            text: "Controls Device modes Preparation categories For 4 items",
+            docPath: "Ops/Manual.pdf",
+            page: 12,
+            score: 1.02,
+            chunkId: "short-header");
+        var lowScoreDense = TestMatch(
+            text: "Preparation. Materials: lock, tag, gauge, seal kit and wrench. Procedure: isolate, verify zero energy, replace, test and record the result.",
+            docPath: "Ops/Manual.pdf",
+            page: 13,
+            score: 0.70,
+            chunkId: "low-score-dense",
+            embeddingBasis: "title_anchor_route_v1",
+            chunkType: "section_window_v1");
+        var farDense = lowScoreDense with
+        {
+            ChunkId = "far-dense",
+            PageStart = 40,
+            PageEnd = 40,
+            Score = 1.01
+        };
+        var selected = new List<RagMatch> { shortHeader, lowScoreDense, farDense };
+
+        RagEndpoints.PromoteActionableSameDocumentEvidence(selected);
+
+        Assert.Equal("short-header", selected[0].ChunkId);
+    }
+
+    [Fact]
     public void PrioritizeQuotedTitleSelections_prefers_local_actionable_content_over_route_title_list()
     {
         var titleList = TestMatch(
@@ -4396,6 +4502,42 @@ public sealed class RetrievalRuntimeSwitchTests
             query: "Give me a clear sheet for \"Alpha Beta Procedure\".");
 
         Assert.Equal("content", ordered[0].ChunkId);
+    }
+
+    [Fact]
+    public void OrderMatchesForSelection_deprioritizes_route_when_title_only_appears_as_trailing_lead()
+    {
+        var trailingRoute = TestMatch(
+            text: "Materials: gasket and wrench. Procedure: inspect the previous assembly and close the checklist. Index entry Alpha Beta Procedure",
+            embedText: "Matched title_anchor_route: Alpha Beta Procedure\nMaterials: gasket and wrench. Procedure: inspect the previous assembly and close the checklist. Index entry Alpha Beta Procedure",
+            chunkId: "trailing-route",
+            embeddingBasis: "title_anchor_route_v1",
+            chunkType: "section_window_v1",
+            score: 1.02) with
+        {
+            ContentRole = RetrievalContentClassifier.MixedNavigationContentRole,
+            NavigationScore = 0.69,
+            ContentDensityScore = 0.95
+        };
+        var denseNeighbor = TestMatch(
+            text: "Materials: lock, tag, gauge, seal kit and wrench. Procedure: isolate the device, verify zero energy, replace the component, test the assembly and record the result.",
+            chunkId: "dense-neighbor",
+            embeddingBasis: "linked_context_v1",
+            chunkType: "unit_exact_v1",
+            score: 0.84) with
+        {
+            ContentRole = RetrievalContentClassifier.ContentRole,
+            NavigationScore = 0.0,
+            ContentDensityScore = 0.90
+        };
+
+        var ordered = RagEndpoints.OrderMatchesForSelection(
+            [trailingRoute, denseNeighbor],
+            prioritizeDocumentProfiles: false,
+            query: "Give me Alpha Beta Procedure.");
+
+        Assert.True(RagEndpoints.IsWeakResolvedRouteTarget(trailingRoute));
+        Assert.Equal("dense-neighbor", ordered[0].ChunkId);
     }
 
     [Fact]

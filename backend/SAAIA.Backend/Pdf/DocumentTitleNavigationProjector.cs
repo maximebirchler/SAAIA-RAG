@@ -356,11 +356,10 @@ internal static partial class DocumentTitleNavigationProjector
 
         if (exactAnchor is not null)
         {
-            return new NavigationResolution(
-                exactAnchor.PageStart ?? entry.TargetPage,
-                exactAnchor.PageEnd ?? exactAnchor.PageStart ?? entry.TargetPage,
-                exactAnchor.AnchorIndex,
-                exactAnchor.ChunkIndex,
+            return ResolveAnchoredNavigationTarget(
+                entry,
+                exactAnchor,
+                retrievalChunks,
                 "title_exact",
                 exactAnchor.PageStart == entry.TargetPage ? 0.96 : 0.88);
         }
@@ -379,11 +378,10 @@ internal static partial class DocumentTitleNavigationProjector
 
         if (tokenAnchor is not null)
         {
-            return new NavigationResolution(
-                tokenAnchor.Anchor.PageStart ?? entry.TargetPage,
-                tokenAnchor.Anchor.PageEnd ?? tokenAnchor.Anchor.PageStart ?? entry.TargetPage,
-                tokenAnchor.Anchor.AnchorIndex,
-                tokenAnchor.Anchor.ChunkIndex,
+            return ResolveAnchoredNavigationTarget(
+                entry,
+                tokenAnchor.Anchor,
+                retrievalChunks,
                 "title_token_overlap",
                 Math.Min(0.86, 0.70 + (tokenAnchor.Score * 0.16)));
         }
@@ -437,6 +435,169 @@ internal static partial class DocumentTitleNavigationProjector
                 nearbyTargetChunk.ChunkIndex,
                 "nearby_page_content_chunk",
                 0.70);
+    }
+
+    private static NavigationResolution ResolveAnchoredNavigationTarget(
+        ParsedNavigationEntry entry,
+        ProjectedDocumentTitleAnchor anchor,
+        IReadOnlyList<ProjectedRetrievalChunk> retrievalChunks,
+        string resolutionMethod,
+        double confidence)
+    {
+        var fallbackPageStart = anchor.PageStart ?? entry.TargetPage;
+        var fallbackPageEnd = anchor.PageEnd ?? anchor.PageStart ?? entry.TargetPage;
+        var resolvedChunk = FindBestSubstantiveContentChunkNearAnchor(entry, anchor, retrievalChunks);
+        if (resolvedChunk is null)
+        {
+            return new NavigationResolution(
+                fallbackPageStart,
+                fallbackPageEnd,
+                anchor.AnchorIndex,
+                anchor.ChunkIndex,
+                resolutionMethod,
+                confidence);
+        }
+
+        var method = resolutionMethod;
+        if (!PageRangesOverlap(resolvedChunk.PageStart, resolvedChunk.PageEnd, fallbackPageStart, fallbackPageEnd))
+        {
+            method = resolvedChunk.PageStart > fallbackPageEnd
+                ? $"{resolutionMethod}_forward_content_chunk"
+                : $"{resolutionMethod}_nearby_content_chunk";
+            confidence = Math.Min(confidence, 0.84);
+        }
+
+        return new NavigationResolution(
+            resolvedChunk.PageStart,
+            resolvedChunk.PageEnd,
+            anchor.AnchorIndex,
+            resolvedChunk.ChunkIndex,
+            method,
+            confidence);
+    }
+
+    private static ProjectedRetrievalChunk? FindBestSubstantiveContentChunkNearAnchor(
+        ParsedNavigationEntry entry,
+        ProjectedDocumentTitleAnchor anchor,
+        IReadOnlyList<ProjectedRetrievalChunk> retrievalChunks)
+    {
+        var pageStart = anchor.PageStart ?? entry.TargetPage;
+        var pageEnd = anchor.PageEnd ?? anchor.PageStart ?? entry.TargetPage;
+
+        if (anchor.ChunkIndex.HasValue)
+        {
+            var anchoredChunk = retrievalChunks.FirstOrDefault(chunk => chunk.ChunkIndex == anchor.ChunkIndex.Value);
+            if (anchoredChunk is not null
+                && IsSubstantiveContentChunk(anchoredChunk, anchor.TitleTokens)
+                && !LooksLikeTrailingTitleLead(anchoredChunk, anchor))
+            {
+                return anchoredChunk;
+            }
+        }
+
+        var overlappingChunks = retrievalChunks
+            .Where(chunk => PageRangesOverlap(chunk.PageStart, chunk.PageEnd, pageStart, pageEnd)
+                && IsSubstantiveContentChunk(chunk, anchor.TitleTokens)
+                && !LooksLikeTrailingTitleLead(chunk, anchor))
+            .OrderBy(chunk => PageRangeDistance(chunk.PageStart, chunk.PageEnd, entry.TargetPage))
+            .ThenByDescending(static chunk => chunk.ContentDensityScore)
+            .ThenByDescending(static chunk => chunk.TokenCount)
+            .ThenBy(static chunk => chunk.ChunkIndex)
+            .ToArray();
+        if (overlappingChunks.Length > 0)
+            return overlappingChunks[0];
+
+        var anchorPageLooksWeak = retrievalChunks
+            .Where(chunk => PageRangesOverlap(chunk.PageStart, chunk.PageEnd, pageStart, pageEnd)
+                && !IsNavigationChunk(chunk))
+            .All(chunk => LooksLikeHeaderOnlyChunk(chunk, anchor.TitleTokens) || LooksLikeTrailingTitleLead(chunk, anchor));
+
+        if (!anchorPageLooksWeak)
+            return null;
+
+        return retrievalChunks
+            .Where(chunk => chunk.PageStart <= pageEnd + 2
+                && chunk.PageEnd >= pageStart + 1
+                && IsSubstantiveContentChunk(chunk, anchor.TitleTokens))
+            .OrderBy(chunk => chunk.PageStart < pageStart ? 1 : 0)
+            .ThenBy(chunk => PageRangeDistance(chunk.PageStart, chunk.PageEnd, entry.TargetPage))
+            .ThenByDescending(static chunk => chunk.ContentDensityScore)
+            .ThenByDescending(static chunk => chunk.TokenCount)
+            .ThenBy(static chunk => chunk.ChunkIndex)
+            .FirstOrDefault();
+    }
+
+    private static bool IsSubstantiveContentChunk(ProjectedRetrievalChunk chunk, IReadOnlyList<string> titleTokens)
+    {
+        if (IsNavigationChunk(chunk) || LooksLikeHeaderOnlyChunk(chunk, titleTokens))
+            return false;
+
+        if (chunk.TokenCount >= 36)
+            return true;
+
+        if (chunk.TokenCount >= 24
+            && (chunk.ContentDensityScore >= 0.45 || StructuredContentLexicon.ContainsStructuredAnswerCue(chunk.Text)))
+        {
+            return true;
+        }
+
+        return string.Equals(chunk.ContentRole, RetrievalContentClassifier.ContentRole, StringComparison.OrdinalIgnoreCase)
+            && chunk.TokenCount >= 18
+            && chunk.ContentDensityScore >= 0.60;
+    }
+
+    private static bool LooksLikeHeaderOnlyChunk(ProjectedRetrievalChunk chunk, IReadOnlyList<string> titleTokens)
+    {
+        if (IsNavigationChunk(chunk))
+            return true;
+
+        var shortLimit = Math.Max(22, titleTokens.Count + 12);
+        if (chunk.TokenCount > shortLimit)
+            return false;
+
+        if (chunk.ContentDensityScore < 0.35)
+            return true;
+
+        var collapsed = CollapseWhitespace(chunk.Text);
+        if (collapsed.Length < 180)
+            return true;
+
+        return !StructuredContentLexicon.ContainsStructuredAnswerCue(collapsed);
+    }
+
+    private static bool LooksLikeTrailingTitleLead(ProjectedRetrievalChunk chunk, ProjectedDocumentTitleAnchor anchor)
+    {
+        if (chunk.PageStart >= (anchor.PageStart ?? int.MaxValue))
+            return false;
+
+        var normalizedText = TitleAnchorNormalizer.NormalizeTitle(chunk.Text);
+        if (string.IsNullOrWhiteSpace(normalizedText) || normalizedText.Length < 80)
+            return false;
+
+        var normalizedTitle = anchor.NormalizedTitle;
+        var position = normalizedText.IndexOf(normalizedTitle, StringComparison.Ordinal);
+        if (position < 0 && anchor.TitleTokens.Count >= 2)
+        {
+            var first = anchor.TitleTokens[0];
+            position = normalizedText.IndexOf(first, StringComparison.Ordinal);
+        }
+
+        if (position < 0)
+            return false;
+
+        return position >= Math.Max(80, (int)Math.Round(normalizedText.Length * 0.65, MidpointRounding.AwayFromZero));
+    }
+
+    private static bool IsNavigationChunk(ProjectedRetrievalChunk chunk)
+        => string.Equals(chunk.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.OrdinalIgnoreCase)
+           || RetrievalContentClassifier.IsNavigationChunkType(chunk.ChunkType);
+
+    private static bool PageRangesOverlap(int leftStart, int leftEnd, int? rightStart, int? rightEnd)
+    {
+        if (!rightStart.HasValue || !rightEnd.HasValue)
+            return false;
+
+        return leftStart <= rightEnd.Value && leftEnd >= rightStart.Value;
     }
 
     private static void AddAnchorCandidate(

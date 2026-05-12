@@ -1827,6 +1827,7 @@ ORDER BY d.doc_path;
         }
         var finalSelectionSw = Stopwatch.StartNew();
         PruneNavigationalSelections(req.Query, selected);
+        PromoteActionableSameDocumentEvidence(selected);
         if (!skipChunkRetrieversForDocumentOverview)
             ApplyAutocut(selected, minScore);
         RebuildSelectedKeys(selected, selectedKeys);
@@ -1868,6 +1869,7 @@ ORDER BY d.doc_path;
                     maxPerDoc,
                     Math.Max(maxPerPage, 2));
                 PruneNavigationalSelections(req.Query, selected);
+                PromoteActionableSameDocumentEvidence(selected);
                 if (!skipChunkRetrieversForDocumentOverview)
                     ApplyAutocut(selected, minScore);
                 RebuildSelectedKeys(selected, selectedKeys);
@@ -1915,6 +1917,7 @@ ORDER BY d.doc_path;
                     maxPerDoc,
                     Math.Max(maxPerPage, 2));
                 PruneNavigationalSelections(req.Query, selected);
+                PromoteActionableSameDocumentEvidence(selected);
                 RebuildSelectedKeys(selected, selectedKeys);
                 selectionSw.Stop();
                 selectionMs += selectionSw.ElapsedMilliseconds;
@@ -3835,7 +3838,15 @@ anchor_routes AS (
                     WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
                         THEN (rc.metadata->>'contentDensityScore')::double precision
                     ELSE 0.0
-                END AS content_density_score
+                END AS content_density_score,
+                length(replace(replace(replace(replace(replace(replace(
+                    lower(translate(
+                        COALESCE(rc.text_content, '') || ' ' || COALESCE(rc.metadata->>'sectionTitle', '') || ' ' || COALESCE(rc.metadata->>'headingPath', ''),
+                        'ÀÁÂÃÄÅàáâãäåÇçÈÉÊËèéêëÌÍÎÏìíîïÑñÒÓÔÕÖØòóôõöøÙÚÛÜùúûüÝýÿ',
+                        'AAAAAAaaaaaaCcEEEEeeeeIIIIiiiiNnOOOOOOooooooUUUUuuuuYyy'
+                    )),
+                    'œ', 'oe'), 'æ', 'ae'), 'ß', 'ss'), 'ø', 'o'), 'ł', 'l'), 'đ', 'd')) AS searchable_text_length,
+                COALESCE(array_length(regexp_split_to_array(btrim(COALESCE(rc.text_content, '')), '\s+'), 1), 0) AS token_count
         ) candidate_stats
         CROSS JOIN LATERAL (
             SELECT
@@ -3880,25 +3891,39 @@ anchor_routes AS (
                  AND candidate_title_match.full_title_hit = 1
                  AND candidate_title_match.full_title_position BETWEEN 1 AND 32
                     THEN 1
+                WHEN a.page_start IS NOT NULL
+                 AND rc.page_start BETWEEN a.page_start + 1 AND COALESCE(a.page_end, a.page_start) + 2
+                 AND COALESCE(rc.metadata->>'chunkType', '') IN ('section_window_v1', 'unit_exact_v1')
+                 AND candidate_stats.content_density_score >= 0.50
+                 AND candidate_stats.token_count >= 24
+                    THEN 2
                 WHEN a.source_kind = 'content_card'
                  AND a.page_start IS NOT NULL
                  AND rc.page_start <= COALESCE(a.page_end, a.page_start)
                  AND rc.page_end >= a.page_start
                  AND candidate_title_match.title_token_hits >= 1
-                    THEN 2
+                 AND (
+                        candidate_title_match.full_title_position <= 0
+                     OR candidate_title_match.full_title_position < GREATEST(80, (candidate_stats.searchable_text_length * 0.65)::int)
+                 )
+                    THEN 3
                 WHEN a.source_kind = 'content_card'
                  AND candidate_title_match.full_title_hit = 1
-                    THEN 3
+                    THEN 4
                 WHEN a.source_kind = 'content_card'
                  AND a.page_start IS NOT NULL
                  AND rc.page_start BETWEEN a.page_start AND COALESCE(a.page_end, a.page_start) + 1
                  AND candidate_title_match.title_token_hits >= 2
-                    THEN 4
+                 AND (
+                        candidate_title_match.full_title_position <= 0
+                     OR candidate_title_match.full_title_position < GREATEST(80, (candidate_stats.searchable_text_length * 0.65)::int)
+                 )
+                    THEN 5
                 WHEN a.source_kind = 'content_card'
                  AND a.page_start IS NOT NULL
                  AND rc.page_start BETWEEN a.page_start + 1 AND COALESCE(a.page_end, a.page_start) + 1
                  AND COALESCE(rc.metadata->>'chunkType', '') IN ('section_window_v1', 'unit_exact_v1')
-                    THEN 5
+                    THEN 6
                 ELSE 6
             END,
             CASE
@@ -6922,7 +6947,14 @@ LIMIT @result_limit;
 
     private static List<string> TrimFocusedLookupScaffoldPrefix(List<string> tokens)
     {
-        if (tokens.Count < 3 || !IsFocusedLookupScaffoldToken(tokens[0]))
+        if (tokens.Count < 3)
+            return tokens;
+
+        var embeddedTrim = TryTrimEmbeddedFocusedLookupScaffold(tokens);
+        if (embeddedTrim is not null)
+            return embeddedTrim;
+
+        if (!IsFocusedLookupScaffoldToken(tokens[0]))
             return tokens;
 
         var index = 0;
@@ -6941,14 +6973,42 @@ LIMIT @result_limit;
         return tail.Count(IsFocusedLookupSignalToken) == 0 ? tokens : tail;
     }
 
+    private static List<string>? TryTrimEmbeddedFocusedLookupScaffold(List<string> tokens)
+    {
+        var maxScaffoldIndex = Math.Min(tokens.Count - 2, 3);
+        for (var scaffoldIndex = 0; scaffoldIndex <= maxScaffoldIndex; scaffoldIndex++)
+        {
+            if (!IsFocusedLookupScaffoldToken(tokens[scaffoldIndex]))
+                continue;
+
+            var maxConnectorIndex = Math.Min(tokens.Count - 2, scaffoldIndex + 4);
+            for (var connectorIndex = scaffoldIndex + 1; connectorIndex <= maxConnectorIndex; connectorIndex++)
+            {
+                if (!IsFocusedLookupScaffoldConnectorToken(tokens[connectorIndex]))
+                    continue;
+
+                var tail = tokens.Skip(connectorIndex + 1).ToList();
+                while (tail.Count > 0 && IsFocusedLookupLeadingEdgeToken(tail[0]))
+                    tail.RemoveAt(0);
+
+                if (tail.Count(IsFocusedLookupSignalToken) > 0)
+                    return tail;
+            }
+        }
+
+        return null;
+    }
+
     private static bool IsFocusedLookupScaffoldToken(string token)
         => token is "base" or "basic" or "basique" or "basica" or "basico"
-            or "basis" or "basisrezept" or "grundrezept"
-            or "recette" or "recipe" or "receta" or "receita" or "ricetta" or "rezept";
+            or "basis" or "grundlage"
+            || token.StartsWith("grund", StringComparison.Ordinal)
+            || token.StartsWith("basis", StringComparison.Ordinal);
 
     private static bool IsFocusedLookupScaffoldConnectorToken(string token)
         => TitleConnectorTokens.Contains(token)
-            || token is "of" or "for" or "fur" or "fuer" or "para" or "per" or "pour";
+            || token is "of" or "for" or "fur" or "fuer" or "para" or "per" or "pour"
+                or "de" or "di" or "da" or "do";
 
     private static bool IsFocusedLookupMetaInstructionPhrase(string phrase)
     {
@@ -7131,7 +7191,7 @@ LIMIT @result_limit;
         TimeSpan.FromMilliseconds(100));
 
     private static readonly Regex QuantityActionFocusedLookupTargetPattern = new(
-        @"\b(?:combien\s+(?:d|de)\s+(?:ingredients?|items?|elements?|pieces?|parts?)|how\s+many\s+(?:ingredients?|items?|elements?|pieces?|parts?)|cuantos?\s+(?:ingredientes?|elementos?)|quantos?\s+(?:ingredientes?|elementos?)|quanti\s+(?:ingredienti|elementi)|wie\s+viele\s+(?:zutaten|elemente|teile))\b[\p{L}\p{Nd}\s'’\-/]{0,80}?\b(?:faire|preparer|fabriquer|produire|make|prepare|build|create|hacer|preparar|fazer|fare|preparare|machen|zubereiten)\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + @"(?=\s+(?:pour|for|para|per|fur|fuer)\s+(?:\d+|[a-z]+)\b|\s+(?:dans|depuis|from|in|aus|im|von|vom|source|sources|fonte|fontes|fuente|fuentes|quelle|quellen|etape|etapes|step|steps|schritt|schritte|passo|passos|temps|time|duree|duration|duracion|duracao|dauer|pdf|document|documents|doc|docs|fichier|fichiers|arquivo|arquivos|archivo|archivos|file|files|livre|livres|book|books|libro|libros|manuale|manuel|manuels|manual|manuals|guide|guides|guia|guias|handbuch|handbucher|version|mode|reglage|reglages|setting|settings|parametre|parametres|avec|with|com|con|mit|senza|sans|without|compare|comparer|compara|comparar|vergleiche|si|oui|ja)\b|[\?:;,\.\r\n]|$)",
+        @"\b(?:combien\s+(?:d|de)\s+[\p{L}][\p{L}\p{Mn}\-]{2,24}|how\s+many\s+[\p{L}][\p{L}\p{Mn}\-]{2,24}|cuantos?\s+[\p{L}][\p{L}\p{Mn}\-]{2,24}|quantos?\s+[\p{L}][\p{L}\p{Mn}\-]{2,24}|quanti\s+[\p{L}][\p{L}\p{Mn}\-]{2,24}|wie\s+viele\s+[\p{L}][\p{L}\p{Mn}\-]{2,24})\b[\p{L}\p{Nd}\s'’\-/]{0,80}?\b(?:faire|preparer|fabriquer|produire|make|prepare|build|create|hacer|preparar|fazer|fare|preparare|machen|zubereiten)\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + @"(?=\s+(?:pour|for|para|per|fur|fuer)\s+(?:\d+|[a-z]+)\b|\s+(?:dans|depuis|from|in|aus|im|von|vom|source|sources|fonte|fontes|fuente|fuentes|quelle|quellen|etape|etapes|step|steps|schritt|schritte|passo|passos|temps|time|duree|duration|duracion|duracao|dauer|pdf|document|documents|doc|docs|fichier|fichiers|arquivo|arquivos|archivo|archivos|file|files|livre|livres|book|books|libro|libros|manuale|manuel|manuels|manual|manuals|guide|guides|guia|guias|handbuch|handbucher|version|mode|reglage|reglages|setting|settings|parametre|parametres|avec|with|com|con|mit|senza|sans|without|compare|comparer|compara|comparar|vergleiche|si|oui|ja)\b|[\?:;,\.\r\n]|$)",
         RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
         TimeSpan.FromMilliseconds(100));
 
@@ -7701,14 +7761,16 @@ GROUP BY d.doc_id;
         return prioritizeDocumentProfiles
             ? orderedMatches
                 .OrderByDescending(static match => IsDocumentProfileMatch(match))
-                .ThenByDescending(static match => IsResolvedTitleOrNavigationRoute(match))
+                .ThenByDescending(static match => ComputeSelectionPriorityBucket(match))
+                .ThenByDescending(static match => ComputeContentEvidencePriority(match))
                 .ThenByDescending(static match => match.Score)
                 .ThenBy(static match => match.DocPath, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(static match => match.ChunkIndex)
                 .ToList()
             : orderedMatches
                 .Where(static match => !IsDocumentProfileMatch(match))
-                .OrderByDescending(static match => IsResolvedTitleOrNavigationRoute(match))
+                .OrderByDescending(static match => ComputeSelectionPriorityBucket(match))
+                .ThenByDescending(static match => ComputeContentEvidencePriority(match))
                 .ThenByDescending(static match => match.Score)
                 .ThenBy(static match => match.DocPath, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(static match => match.ChunkIndex)
@@ -7836,6 +7898,17 @@ GROUP BY d.doc_id;
     private static bool IsDocumentProfileMatch(RagMatch match)
         => string.Equals(match.ChunkType, "document_profile", StringComparison.Ordinal)
            || string.Equals(ResolveRetriever(match), "document_profile", StringComparison.Ordinal);
+
+    private static int ComputeSelectionPriorityBucket(RagMatch match)
+    {
+        if (IsResolvedTitleOrNavigationRoute(match))
+            return IsWeakResolvedRouteTarget(match) ? 2 : 4;
+
+        if (!LooksLikeNavigationalChunk(match))
+            return ComputeContentEvidencePriority(match) >= 0.80 ? 3 : 1;
+
+        return 0;
+    }
 
     private static bool CountsAgainstChunkQuota(RagMatch match)
         => !IsDocumentProfileMatch(match);
@@ -8056,6 +8129,16 @@ ORDER BY
         WHEN 'next' THEN 1
         ELSE 2
     END,
+    CASE
+        WHEN COALESCE(rc.metadata->>'contentRole', 'content') = 'content' THEN 0
+        WHEN COALESCE(rc.metadata->>'contentRole', 'content') = 'mixed_navigation_content' THEN 1
+        ELSE 2
+    END,
+    CASE
+        WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+            THEN (rc.metadata->>'contentDensityScore')::double precision
+        ELSE 0.0
+    END DESC,
     rc.chunk_index ASC
 LIMIT @top_k;
 """;
@@ -8710,9 +8793,141 @@ LIMIT @top_k;
             return;
 
         var allowGlossary = ShouldAllowGlossaryResults(query);
-        selected.RemoveAll(match => !IsResolvedTitleOrNavigationRoute(match)
+        var hasContentCandidate = selected.Any(static match => IsContentSelectionCandidate(match));
+        selected.RemoveAll(match =>
+            (IsWeakResolvedRouteTarget(match) && hasContentCandidate)
+            || (!IsResolvedTitleOrNavigationRoute(match)
+                && (LooksLikeNavigationalChunk(match)
+                    || (!allowGlossary && LooksLikeGlossaryChunk(match)))));
+    }
+
+    internal static void PromoteActionableSameDocumentEvidence(List<RagMatch> selected)
+    {
+        if (selected.Count <= 1)
+            return;
+
+        for (var index = 0; index < selected.Count - 1; index++)
+        {
+            var lead = selected[index];
+            if (!IsWeakSameDocumentLeadCandidate(lead))
+                continue;
+
+            var leadDocKey = BuildSameDocumentPromotionKey(lead);
+            if (leadDocKey is null)
+                continue;
+
+            var maxIndex = Math.Min(selected.Count - 1, index + 5);
+            var bestIndex = -1;
+            var bestScore = double.NegativeInfinity;
+            for (var candidateIndex = index + 1; candidateIndex <= maxIndex; candidateIndex++)
+            {
+                var candidate = selected[candidateIndex];
+                if (!string.Equals(leadDocKey, BuildSameDocumentPromotionKey(candidate), StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (candidate.Score < lead.Score - 0.08)
+                    continue;
+                if (!IsNearbySameDocumentEvidence(lead, candidate))
+                    continue;
+                if (!IsActionableSameDocumentEvidenceCandidate(lead, candidate))
+                    continue;
+
+                var candidateScore = ComputeSameDocumentPromotionScore(lead, candidate);
+                if (candidateScore > bestScore)
+                {
+                    bestScore = candidateScore;
+                    bestIndex = candidateIndex;
+                }
+            }
+
+            if (bestIndex <= index)
+                continue;
+
+            var promoted = selected[bestIndex];
+            selected.RemoveAt(bestIndex);
+            selected.Insert(index, promoted);
+        }
+    }
+
+    private static string? BuildSameDocumentPromotionKey(RagMatch match)
+    {
+        if (!string.IsNullOrWhiteSpace(match.DocPath))
+            return match.DocPath.Trim().Replace('\\', '/');
+        if (!string.IsNullOrWhiteSpace(match.DocId))
+            return match.DocId.Trim();
+        return null;
+    }
+
+    private static bool IsWeakSameDocumentLeadCandidate(RagMatch match)
+    {
+        if (IsDocumentProfileMatch(match))
+            return false;
+        if (IsWeakResolvedRouteTarget(match) || LooksLikeStrongNavigationalChunk(match))
+            return true;
+        if (string.Equals(match.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        var tokenCount = EstimateNormalizedTokenCount(match.Text);
+        if (tokenCount is > 0 and <= 24)
+            return true;
+
+        return tokenCount is > 0 and <= 32
             && (LooksLikeNavigationalChunk(match)
-                || (!allowGlossary && LooksLikeGlossaryChunk(match))));
+                || LooksLikeSourceListChunk(match)
+                || LooksLikeGlossaryChunk(match));
+    }
+
+    private static bool IsActionableSameDocumentEvidenceCandidate(RagMatch lead, RagMatch candidate)
+    {
+        if (IsDocumentProfileMatch(candidate))
+            return false;
+        if (string.Equals(candidate.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (IsWeakResolvedRouteTarget(candidate))
+            return false;
+        if (LooksLikeSourceListChunk(candidate) || LooksLikeGlossaryChunk(candidate))
+            return false;
+
+        var leadTokenCount = EstimateNormalizedTokenCount(lead.Text);
+        var candidateTokenCount = EstimateNormalizedTokenCount(candidate.Text);
+        if (candidateTokenCount < Math.Max(24, leadTokenCount * 2))
+            return false;
+
+        if (candidateTokenCount >= 48)
+            return true;
+
+        return candidateTokenCount >= 24
+            && (StructuredContentLexicon.ContainsStructuredAnswerCue(candidate.Text)
+                || LooksLikeStructuredAnswerChunk(candidate)
+                || ComputeContentEvidencePriority(candidate) >= 0.95);
+    }
+
+    private static bool IsNearbySameDocumentEvidence(RagMatch lead, RagMatch candidate)
+    {
+        if (!lead.PageStart.HasValue || !candidate.PageStart.HasValue)
+            return true;
+
+        var leadStart = lead.PageStart.Value;
+        var leadEnd = lead.PageEnd ?? leadStart;
+        var candidateStart = candidate.PageStart.Value;
+        var candidateEnd = candidate.PageEnd ?? candidateStart;
+        if (candidateStart <= leadEnd && candidateEnd >= leadStart)
+            return true;
+
+        var distance = candidateStart > leadEnd
+            ? candidateStart - leadEnd
+            : leadStart - candidateEnd;
+        return distance <= 3;
+    }
+
+    private static double ComputeSameDocumentPromotionScore(RagMatch lead, RagMatch candidate)
+    {
+        var score = EstimateNormalizedTokenCount(candidate.Text) * 0.01;
+        score += Math.Max(0.0, ComputeContentEvidencePriority(candidate)) * 2.0;
+        if (IsResolvedTitleOrNavigationRoute(candidate))
+            score += 1.0;
+        if (candidate.PageStart.HasValue && lead.PageStart.HasValue)
+            score -= Math.Abs(candidate.PageStart.Value - lead.PageStart.Value) * 0.05;
+        return score;
     }
 
     internal static bool IsResolvedTitleOrNavigationRoute(RagMatch match)
@@ -8731,9 +8946,88 @@ LIMIT @top_k;
             && NavigationRouteHasTargetTitleEvidence(match);
     }
 
+    internal static bool IsWeakResolvedRouteTarget(RagMatch match)
+    {
+        if (!IsResolvedTitleOrNavigationRoute(match))
+            return false;
+
+        if (RouteTitleAppearsOnlyAsTrailingLead(match))
+            return true;
+
+        if (LooksLikeStrongNavigationalChunk(match))
+            return true;
+
+        if (string.Equals(match.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (match.NavigationScore is >= 0.72
+            && (match.ContentDensityScore is null or < 0.55))
+            return true;
+
+        if (LooksLikeNavigationalChunk(match)
+            && ComputeContentEvidencePriority(match) < 0.70)
+        {
+            return true;
+        }
+
+        var tokenCount = EstimateNormalizedTokenCount(match.Text);
+        return tokenCount is > 0 and <= 22
+            && !LooksLikeStructuredAnswerChunk(match)
+            && !StructuredContentLexicon.ContainsStructuredAnswerCue(match.Text);
+    }
+
+    private static bool RouteTitleAppearsOnlyAsTrailingLead(RagMatch match)
+    {
+        var routeTitle = ExtractMatchedRouteOrProfileTitle(match.EmbedText);
+        if (string.IsNullOrWhiteSpace(routeTitle))
+            return false;
+
+        var normalizedTitle = NormalizeForLexicalSignal(routeTitle);
+        var normalizedText = NormalizeForLexicalSignal(GetDirectChunkSignalText(match));
+        if (string.IsNullOrWhiteSpace(normalizedTitle)
+            || string.IsNullOrWhiteSpace(normalizedText)
+            || normalizedText.Length < 80)
+        {
+            return false;
+        }
+
+        var position = normalizedText.IndexOf(normalizedTitle, StringComparison.Ordinal);
+        if (position < 0)
+        {
+            var titleTokens = normalizedTitle
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(static token => token.Length >= 3)
+                .Where(static token => !TitleConnectorTokens.Contains(token))
+                .Where(static token => !LexicalStopwords.Contains(token))
+                .Where(static token => !PrimaryAnchorStopwords.Contains(token))
+                .Take(6)
+                .ToArray();
+            if (titleTokens.Length < 2)
+                return false;
+
+            position = normalizedText.IndexOf(titleTokens[0], StringComparison.Ordinal);
+            if (position < 0
+                || !ContainsOrderedTitleTokenSubstringsInNormalizedText(normalizedText[position..], titleTokens, maxGapChars: 32))
+            {
+                return false;
+            }
+        }
+
+        return position >= Math.Max(80, (int)Math.Round(normalizedText.Length * 0.65, MidpointRounding.AwayFromZero));
+    }
+
+    private static int EstimateNormalizedTokenCount(string? value)
+    {
+        var normalized = NormalizeForLexicalSignal(value);
+        return string.IsNullOrWhiteSpace(normalized)
+            ? 0
+            : normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Length;
+    }
+
     private static bool IsContentSelectionCandidate(RagMatch match)
         => IsResolvedTitleOrNavigationRoute(match)
-           || !LooksLikeNavigationalChunk(match);
+            ? !IsWeakResolvedRouteTarget(match)
+            : !LooksLikeNavigationalChunk(match);
 
     internal static void PrioritizeQuotedTitleSelections(string query, List<RagMatch> selected)
     {
@@ -8980,20 +9274,25 @@ LIMIT @top_k;
             lexicalTokens,
             ExtractComparativeSubjectAnchorTokens(query));
         var ranked = selected
-            .Select(match => new
+            .Select(match =>
             {
-                Match = match,
-                ExactTitleScore = ComputeExactTitleCandidateScore(query, match),
-                DirectChunkTitleSignal = ComputeDirectChunkTitleSignal(query, match),
-                MatchedCardTitleSignal = ComputeMatchedContentCardTitleSignal(
-                    match,
-                    lexicalTokens,
-                    NormalizeForLexicalSignal(query)),
-                SpecificAnchorCount = lexicalTokens.Length > 0
-                    ? CountSpecificLexicalAnchors(lexicalTokens, GetTitleSignalText(match))
-                    : 0,
-                StructuredAnswerPriority = GetStructuredAnswerPriority(match),
-                ContentEvidencePriority = ComputeContentEvidencePriority(match)
+                var exactTitleScore = ComputeExactTitleCandidateScore(query, match);
+                return new
+                {
+                    Match = match,
+                    ExactTitleScore = exactTitleScore,
+                    DirectChunkTitleSignal = ComputeDirectChunkTitleSignal(query, match),
+                    MatchedCardTitleSignal = ComputeMatchedContentCardTitleSignal(
+                        match,
+                        lexicalTokens,
+                        NormalizeForLexicalSignal(query)),
+                    TrustedExactTitleSignal = exactTitleScore > 0.0 && !IsWeakResolvedRouteTarget(match),
+                    SpecificAnchorCount = lexicalTokens.Length > 0
+                        ? CountSpecificLexicalAnchors(lexicalTokens, GetTitleSignalText(match))
+                        : 0,
+                    StructuredAnswerPriority = GetStructuredAnswerPriority(match),
+                    ContentEvidencePriority = ComputeContentEvidencePriority(match)
+                };
             })
             .ToList();
 
@@ -9006,6 +9305,7 @@ LIMIT @top_k;
         selected.Clear();
         selected.AddRange(ranked
             .OrderByDescending(static item => item.DirectChunkTitleSignal)
+            .ThenByDescending(static item => item.TrustedExactTitleSignal ? 1 : 0)
             .ThenByDescending(static item => item.MatchedCardTitleSignal)
             .ThenByDescending(static item => item.ExactTitleScore > 0.0 ? 1 : 0)
             .ThenByDescending(item => useSpecificCoverageTitlePriority && item.SpecificAnchorCount >= 2 ? 1 : 0)

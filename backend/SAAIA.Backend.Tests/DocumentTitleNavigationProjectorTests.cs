@@ -504,6 +504,113 @@ public sealed class DocumentTitleNavigationProjectorTests
     }
 
     [Fact]
+    public void Project_resolves_title_anchor_on_header_only_page_to_following_content_chunk()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Index", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "Index\nAlpha Beta Procedure 12",
+                29,
+                5,
+                [1]),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                12,
+                12,
+                "Alpha Beta Procedure\nCategory: operational checklist",
+                52,
+                6,
+                [2]),
+            new ExtractedDocumentUnit(
+                2,
+                0,
+                13,
+                13,
+                "Materials: lock, tag, gauge, seal kit and wrench. Procedure: isolate the device, verify zero energy, remove the old component, install the replacement, test the assembly under load and record the result.",
+                183,
+                30,
+                [3])
+        };
+        var chunks = new[]
+        {
+            new ProjectedRetrievalChunk(
+                0,
+                0,
+                0,
+                1,
+                1,
+                "Index\nAlpha Beta Procedure 12",
+                5,
+                [4],
+                "navigation",
+                ContentRole: RetrievalContentClassifier.NavigationRole,
+                NavigationReason: "explicit_index_marker",
+                NavigationScore: 0.98),
+            new ProjectedRetrievalChunk(
+                1,
+                0,
+                1,
+                12,
+                12,
+                "Alpha Beta Procedure\nCategory: operational checklist",
+                6,
+                [5],
+                "unit_exact_v1",
+                ContentRole: RetrievalContentClassifier.ContentRole,
+                ContentDensityScore: 0.95),
+            new ProjectedRetrievalChunk(
+                2,
+                0,
+                2,
+                13,
+                13,
+                "Materials: lock, tag, gauge, seal kit and wrench. Procedure: isolate the device, verify zero energy, remove the old component, install the replacement, test the assembly under load and record the result.",
+                30,
+                [6],
+                "unit_exact_v1",
+                ContentRole: RetrievalContentClassifier.ContentRole,
+                ContentDensityScore: 0.90)
+        };
+        var profile = DocumentProfileProjector.BuildProfile(
+            "deterministic_v1",
+            "en",
+            "Operational procedures.",
+            [],
+            [],
+            [],
+            [],
+            [],
+            "Ops/Procedure.pdf",
+            "Procedure.pdf",
+            [
+                new DocumentProfileContentCard(
+                    "Alpha Beta Procedure",
+                    12,
+                    12,
+                    "content_item",
+                    ["alpha", "beta", "procedure"])
+            ]);
+
+        var index = DocumentTitleNavigationProjector.Project(sections, units, chunks, profile);
+
+        var entry = Assert.Single(index.NavigationEntries);
+        Assert.Equal("Alpha Beta Procedure", entry.Label);
+        Assert.Equal(13, entry.TargetPageStart);
+        Assert.Equal(2, entry.TargetChunkIndex);
+        Assert.NotNull(entry.TargetAnchorIndex);
+        Assert.Equal("title_exact_forward_content_chunk", entry.ResolutionMethod);
+    }
+
+    [Fact]
     public void Project_ignores_unanchored_direct_lines_from_weak_navigation_chunks()
     {
         var sections = new[]
