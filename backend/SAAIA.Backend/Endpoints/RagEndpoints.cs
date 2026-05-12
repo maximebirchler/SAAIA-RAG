@@ -3234,7 +3234,7 @@ ORDER BY d.doc_path;
         CancellationToken ct,
         string? categoryPath = null)
     {
-        var normalizedTerms = ExactMatchEntryExtractor.ExtractLookupTerms(query);
+        var normalizedTerms = BuildExactMatchLookupTerms(query);
         if (normalizedTerms.Count == 0)
             return [];
 
@@ -3274,7 +3274,13 @@ SELECT
     END AS "OffsetEnd",
     e.exact_match_entry_id AS "ExactMatchEntryId",
     e.entry_index AS "ChunkIndex",
-    e.text_content AS "Text",
+    CASE
+        WHEN COALESCE(e.metadata->>'kind', 'verbatim_excerpt') = 'verbatim_excerpt'
+          AND char_length(e.text_content) BETWEEN 12 AND 160
+          AND same_page_context.text_content IS NOT NULL
+            THEN e.text_content || E'\n' || same_page_context.text_content
+        ELSE e.text_content
+    END AS "Text",
     d.indexed_version AS "IngestionVersion",
     LOWER(ENCODE(d.content_hash, 'hex')) AS "HashDoc",
     COALESCE(e.metadata->>'kind', 'verbatim_excerpt') AS "MatchKind",
@@ -3290,8 +3296,35 @@ JOIN exact_match_entries e
  AND e.revision_id = r.revision_id
 JOIN lookup_terms
   ON lookup_terms.term = e.normalized_text
+  OR (
+      length(lookup_terms.term) >= 12
+      AND lookup_terms.term LIKE '% %'
+      AND e.normalized_text LIKE lookup_terms.term || '%'
+  )
 LEFT JOIN document_sections s
   ON s.section_id = e.section_id
+LEFT JOIN LATERAL (
+    SELECT rc.text_content
+    FROM retrieval_chunks rc
+    WHERE rc.tenant_id = e.tenant_id
+      AND rc.revision_id = e.revision_id
+      AND rc.page_start <= e.page_end
+      AND rc.page_end >= e.page_start
+      AND char_length(rc.text_content) > char_length(e.text_content) + 80
+    ORDER BY
+        CASE COALESCE(rc.metadata->>'contentRole', 'content')
+            WHEN 'content' THEN 0
+            WHEN 'mixed_navigation_content' THEN 1
+            ELSE 2
+        END,
+        CASE
+            WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+                THEN (rc.metadata->>'contentDensityScore')::double precision
+            ELSE 0.0
+        END DESC,
+        rc.chunk_index ASC
+    LIMIT 1
+) same_page_context ON TRUE
 WHERE d.tenant_id = @tenant_id
   AND d.status = 'indexed'
   AND d.indexed_version > 0
@@ -3329,7 +3362,11 @@ LIMIT @top_k;
             top_k = topK
         }, cancellationToken: ct));
 
-        var matches = rows.Select(row => new RagMatch(
+        var uniqueRows = rows
+            .GroupBy(static row => (row.DocId, row.PageStart, row.PageEnd, row.Text))
+            .Select(static group => group.First());
+
+        var matches = uniqueRows.Select(row => new RagMatch(
             Score: ComputeExactMatchScore(row.MatchKind, row.MatchedTerm, row.Text),
             DocId: row.DocId.ToString(),
             DocPath: row.DocPath,
@@ -3389,6 +3426,30 @@ LIMIT @top_k;
             matches,
             string.Join(' ', normalizedTerms),
             ct);
+    }
+
+    internal static IReadOnlyList<string> BuildExactMatchLookupTerms(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return Array.Empty<string>();
+
+        var terms = new HashSet<string>(
+            ExactMatchEntryExtractor.ExtractLookupTerms(query),
+            StringComparer.Ordinal);
+
+        foreach (var phrase in ExtractQuotedLookupPhrases(query).Concat(ExtractFocusedLookupPhrases(query)))
+        {
+            var normalized = ExactMatchEntryExtractor.NormalizeForLookup(phrase);
+            if (!string.IsNullOrWhiteSpace(normalized))
+                terms.Add(normalized);
+        }
+
+        return terms
+            .Where(static term => term.Length >= 4)
+            .OrderByDescending(static term => term.Length)
+            .ThenBy(static term => term, StringComparer.Ordinal)
+            .Take(64)
+            .ToArray();
     }
 
     internal static async Task<List<RagMatch>> SearchQuotedTitleMatchesAsync(
@@ -8048,7 +8109,7 @@ WITH requested_anchors AS (
         JOIN exact_match_entries exact_anchors
           ON exact_anchors.tenant_id = @tenant_id
          AND exact_anchors.exact_match_entry_id = exact_anchor_id
-        JOIN LATERAL (
+        LEFT JOIN LATERAL (
             SELECT rc.retrieval_chunk_id
             FROM retrieval_chunks rc
             WHERE rc.revision_id = exact_anchors.revision_id
@@ -8069,6 +8130,53 @@ WITH requested_anchors AS (
             LIMIT 1
         ) AS resolved_chunks ON TRUE
     ) anchors
+),
+linked_candidates AS (
+    SELECT DISTINCT ON (source_anchor_id, linked_chunk_id)
+        source_anchor_id,
+        anchor_chunk_id,
+        anchor_retriever,
+        linked_chunk_id,
+        link_type
+    FROM (
+        SELECT
+            a.source_anchor_id,
+            l.retrieval_chunk_id AS anchor_chunk_id,
+            a.anchor_retriever,
+            l.linked_chunk_id,
+            l.link_type
+        FROM requested_anchors a
+        JOIN retrieval_chunk_links l
+          ON l.tenant_id = @tenant_id
+         AND l.retrieval_chunk_id = a.anchor_chunk_id
+        UNION ALL
+        SELECT
+            a.source_anchor_id,
+            a.anchor_chunk_id,
+            a.anchor_retriever,
+            rc.retrieval_chunk_id AS linked_chunk_id,
+            'same_page_exact'::text AS link_type
+        FROM requested_anchors a
+        JOIN exact_match_entries exact_anchors
+          ON exact_anchors.tenant_id = @tenant_id
+         AND exact_anchors.exact_match_entry_id = a.source_anchor_id
+        JOIN retrieval_chunks rc
+          ON rc.tenant_id = @tenant_id
+         AND rc.revision_id = exact_anchors.revision_id
+         AND rc.page_start <= exact_anchors.page_end
+         AND rc.page_end >= exact_anchors.page_start
+        WHERE a.anchor_retriever = 'exact_match'
+    ) candidates
+    ORDER BY
+        source_anchor_id,
+        linked_chunk_id,
+        CASE link_type
+            WHEN 'same_section' THEN 0
+            WHEN 'next' THEN 1
+            WHEN 'prev' THEN 2
+            WHEN 'same_page_exact' THEN 3
+            ELSE 4
+        END
 )
 SELECT
     d.doc_id AS "DocId",
@@ -8100,8 +8208,14 @@ SELECT
     rc.text_content AS "Text",
     d.indexed_version AS "IngestionVersion",
     LOWER(ENCODE(d.content_hash, 'hex')) AS "HashDoc",
-    COALESCE(rc.metadata->>'chunkType', 'linked_context_v1') AS "ChunkType",
-    COALESCE(rc.metadata->>'contentRole', 'content') AS "ContentRole",
+    CASE
+        WHEN l.link_type = 'same_page_exact' THEN 'linked_context_v1'
+        ELSE COALESCE(rc.metadata->>'chunkType', 'linked_context_v1')
+    END AS "ChunkType",
+    CASE
+        WHEN l.link_type = 'same_page_exact' THEN 'content'
+        ELSE COALESCE(rc.metadata->>'contentRole', 'content')
+    END AS "ContentRole",
     rc.metadata->>'navigationReason' AS "NavigationReason",
     rc.metadata->>'originalChunkType' AS "OriginalChunkType",
     CASE
@@ -8118,14 +8232,13 @@ SELECT
     COALESCE(rc.metadata->>'headingPath', s.title) AS "HeadingPath",
     l.link_type AS "LinkType",
     a.source_anchor_id AS "AnchorSourceId",
-    l.retrieval_chunk_id AS "AnchorChunkId",
+    COALESCE(l.anchor_chunk_id, l.linked_chunk_id) AS "AnchorChunkId",
     rc.metadata->>'prevChunkId' AS "PrevChunkId",
     rc.metadata->>'nextChunkId' AS "NextChunkId",
     rc.metadata->>'sameSectionChunkId' AS "SameSectionChunkId"
 FROM requested_anchors a
-JOIN retrieval_chunk_links l
-  ON l.tenant_id = @tenant_id
- AND l.retrieval_chunk_id = a.anchor_chunk_id
+JOIN linked_candidates l
+  ON l.source_anchor_id = a.source_anchor_id
 JOIN retrieval_chunks rc
   ON rc.retrieval_chunk_id = l.linked_chunk_id
 JOIN document_revisions r
@@ -12051,7 +12164,15 @@ LIMIT @top_k;
         {
             score += Math.Min(0.01, normalizedMatchedTerm.Length / 500.0);
             if (string.Equals(normalizedMatchedTerm, normalizedText, StringComparison.Ordinal))
+            {
                 score += 0.005;
+            }
+            else if (normalizedMatchedTerm.Length >= 12
+                && normalizedMatchedTerm.Contains(' ')
+                && normalizedText.StartsWith(normalizedMatchedTerm, StringComparison.Ordinal))
+            {
+                score -= 0.006;
+            }
         }
 
         return Math.Min(1.02, score);

@@ -1973,6 +1973,87 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
+    public async Task SearchExactMatchesAsync_matches_quoted_heading_when_extraction_glues_following_text()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("aa55aa55-1111-1111-1111-111111111111");
+        var docId = Guid.Parse("bb66bb66-2222-2222-2222-222222222222");
+        var jobId = Guid.Parse("cc77cc77-3333-3333-3333-333333333333");
+        const string docPath = "Ops/Inspection.pdf";
+        const string gluedHeading = "Safety valve inspectionThe inspection schedule starts here.";
+        const string body = "Inspect the valve body, record the set pressure, verify the seal, confirm the technician name, capture the inspection date, and keep the signed checklist for audit.";
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 1, indexedVersion: 0);
+
+        var pages = new[]
+        {
+            new ExtractedPdfPage(4, $"{gluedHeading}\n{body}", 24, gluedHeading.Length + body.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Inspection", 4, 4, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 4, 4, gluedHeading, gluedHeading.Length, 7, [2]),
+            new ExtractedDocumentUnit(1, 0, 4, 4, body, body.Length, 17, [3])
+        };
+        var retrievalChunks = new[]
+        {
+            new ProjectedRetrievalChunk(0, 0, 0, 4, 4, gluedHeading, 7, [4], "unit_exact_v1"),
+            new ProjectedRetrievalChunk(1, 0, 1, 4, 4, body, 17, [5], "unit_exact_v1")
+        };
+        var exactMatchEntries = new[]
+        {
+            new ExtractedExactMatchEntry(0, 0, 0, 4, 4, gluedHeading, ExactMatchEntryExtractor.NormalizeForLookup(gluedHeading), gluedHeading.Length, 7, [6], "verbatim_excerpt"),
+            new ExtractedExactMatchEntry(1, 0, 0, 4, 4, gluedHeading, ExactMatchEntryExtractor.NormalizeForLookup(gluedHeading), gluedHeading.Length, 7, [7], "verbatim_excerpt")
+        };
+        var contextualTextEntries = new[]
+        {
+            new ProjectedContextualTextEntry(0, 0, 0, 0, 4, 4, $"Document: Inspection.pdf\nExcerpt:\n{gluedHeading}\n{body}", 180, 25, [8])
+        };
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        Assert.True(await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            jobId,
+            docPath,
+            [8, 8, 8],
+            64,
+            DateTime.UtcNow,
+            1,
+            pages,
+            sections,
+            units,
+            retrievalChunks,
+            exactMatchEntries,
+            contextualTextEntries,
+            CancellationToken.None));
+
+        var matches = await RagEndpoints.SearchExactMatchesAsync(
+            ds,
+            tenantId,
+            "Give me a clear sheet for \"Safety valve inspection\".",
+            "ops",
+            null,
+            null,
+            5,
+            CancellationToken.None);
+
+        var match = Assert.Single(matches);
+        Assert.Equal(docId.ToString(), match.DocId);
+        Assert.Equal(4, match.PageStart);
+        Assert.Contains("Safety valve inspectionThe inspection schedule starts here.", match.Text);
+        Assert.Contains("Inspect the valve body", match.Text);
+        Assert.Equal("exact_match_v1", match.EmbeddingBasis);
+        Assert.InRange(match.Score, 0.96, 0.969);
+    }
+
+    [Fact]
     public async Task SearchExactMatchesAsync_falls_back_to_document_metadata_for_reference_visible_in_filename()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
@@ -2664,6 +2745,94 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal("Safety", linked.HeadingPath);
         Assert.True(linked.Score < exactAnchor.Score);
         Assert.True(linked.Score >= 0.75);
+    }
+
+    [Fact]
+    public async Task SearchLinkedMatchesAsync_falls_back_to_same_page_chunks_for_exact_heading_anchor()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("1111aaaa-2222-3333-4444-555555555555");
+        var docId = Guid.Parse("2222bbbb-3333-4444-5555-666666666666");
+        var jobId = Guid.Parse("3333cccc-4444-5555-6666-777777777777");
+        const string docPath = "Ops/ExactHeading.pdf";
+        const string title = "Safety valve inspectionThe inspection schedule starts here.";
+        const string body = "Inspect the valve body, record the set pressure, and keep the signed checklist.";
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 1, indexedVersion: 0);
+
+        var pages = new[] { new ExtractedPdfPage(4, $"{title}\n{body}", 18, title.Length + body.Length, [1]) };
+        var sections = new[] { new ExtractedDocumentSection(0, "Inspection", 4, 4, 1, 1, null) };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 4, 4, title, title.Length, 7, [2]),
+            new ExtractedDocumentUnit(1, 0, 4, 4, body, body.Length, 13, [3])
+        };
+        var retrievalChunks = new[]
+        {
+            new ProjectedRetrievalChunk(0, 0, 0, 4, 4, title, 7, [4], "unit_exact_v1"),
+            new ProjectedRetrievalChunk(1, 0, 1, 4, 4, body, 13, [5], "unit_exact_v1")
+        };
+        var exactMatchEntries = new[]
+        {
+            new ExtractedExactMatchEntry(0, 0, 0, 4, 4, title, ExactMatchEntryExtractor.NormalizeForLookup(title), title.Length, 7, [6], "verbatim_excerpt")
+        };
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        Assert.True(await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            jobId,
+            docPath,
+            [3, 3, 7],
+            42,
+            DateTime.UtcNow,
+            1,
+            pages,
+            sections,
+            units,
+            retrievalChunks,
+            exactMatchEntries,
+            contextualTextEntries: [],
+            CancellationToken.None));
+
+        await using (var conn = await ds.OpenConnectionAsync())
+        {
+            await conn.ExecuteAsync("DELETE FROM retrieval_chunk_links WHERE tenant_id=@tenant;", new { tenant = tenantId });
+            await conn.ExecuteAsync(
+                "UPDATE exact_match_entries SET unit_id=NULL, section_id=NULL WHERE tenant_id=@tenant AND text_content=@title;",
+                new { tenant = tenantId, title });
+        }
+
+        var exactAnchor = Assert.Single(await RagEndpoints.SearchExactMatchesAsync(
+            ds,
+            tenantId,
+            "Give me a clear sheet for \"Safety valve inspection\".",
+            "ops",
+            docId.ToString(),
+            docPath,
+            5,
+            CancellationToken.None));
+
+        var linkedMatches = await RagEndpoints.SearchLinkedMatchesAsync(
+            ds,
+            tenantId,
+            [exactAnchor],
+            category: "ops",
+            docId: docId.ToString(),
+            docPath: docPath,
+            topK: 3,
+            CancellationToken.None);
+
+        var fallback = linkedMatches.FirstOrDefault(
+            item => item.ChunkId == DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 1, 1).ToString()
+                    && item.Text == body
+                    && item.EmbeddingBasis == "linked_context_v1");
+        Assert.NotNull(fallback);
+        Assert.Equal("linked_context_v1", fallback.ChunkType);
+        Assert.Equal("content", fallback.ContentRole);
     }
 
     [Fact]

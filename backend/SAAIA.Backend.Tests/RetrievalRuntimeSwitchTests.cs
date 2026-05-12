@@ -1426,6 +1426,26 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void BuildExactMatchLookupTerms_keeps_quoted_title_for_glued_heading_lookup()
+    {
+        var terms = RagEndpoints.BuildExactMatchLookupTerms(
+            "Give me a clear sheet for \"Safety valve inspection\".");
+
+        Assert.Contains("safety valve inspection", terms);
+    }
+
+    [Fact]
+    public void ComputeExactMatchScore_keeps_prefix_heading_match_below_short_circuit_threshold()
+    {
+        var score = RagEndpoints.ComputeExactMatchScore(
+            "verbatim_excerpt",
+            "safety valve inspection",
+            "Safety valve inspectionThe inspection schedule starts here.");
+
+        Assert.InRange(score, 0.96, 0.969);
+    }
+
+    [Fact]
     public void BuildLexicalContentFallbackTerms_ignores_comparison_quantity_words()
     {
         var terms = RagEndpoints.BuildLexicalContentFallbackTerms(
