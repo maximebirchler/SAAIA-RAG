@@ -224,6 +224,48 @@ public sealed partial class ToolAgentOrchestrator
             return FinalizeAndReturn(swTotalPipeline, userMessage, shortcut.finalAnswer, shortcut.sourcesPayload, shortcut.routerIntent, shortcut.toolNames, Array.Empty<string>());
         }
 
+        var sourcePolicyShortcut = await TryHandleSourcePolicyShortcutAsync(
+            effectiveUserMessage,
+            interactionLanguage,
+            ct,
+            onPhase,
+            onDelta,
+            onProgress).ConfigureAwait(false);
+        if (sourcePolicyShortcut.handled)
+        {
+            _lastAnswerSource = "shortcut:source_policy";
+            onProgress?.Invoke(string.Empty);
+            return FinalizeAndReturn(
+                swTotalPipeline,
+                userMessage,
+                sourcePolicyShortcut.finalAnswer,
+                sourcePolicyShortcut.sourcesPayload,
+                "rag.answer",
+                sourcePolicyShortcut.toolNames,
+                Array.Empty<string>());
+        }
+
+        var exactItemShortcut = await TryHandleExactItemPreRouterShortcutAsync(
+            effectiveUserMessage,
+            interactionLanguage,
+            ct,
+            onPhase,
+            onDelta,
+            onProgress).ConfigureAwait(false);
+        if (exactItemShortcut.handled)
+        {
+            _lastAnswerSource = "shortcut:rag.exact_item";
+            onProgress?.Invoke(string.Empty);
+            return FinalizeAndReturn(
+                swTotalPipeline,
+                userMessage,
+                exactItemShortcut.finalAnswer,
+                exactItemShortcut.sourcesPayload,
+                "rag.answer",
+                exactItemShortcut.toolNames,
+                Array.Empty<string>());
+        }
+
         onPhase?.Invoke(DeterministicAgentText.PhaseRouter(interactionLanguage));
         onProgress?.Invoke(LocalizedStrings.Get("phase.interpreting", interactionLanguage));
 
@@ -237,7 +279,7 @@ public sealed partial class ToolAgentOrchestrator
         swRouter.Stop();
         _lastRouterMs = swRouter.ElapsedMilliseconds;
 
-        plan.Language = NormalizeLanguageCode(interactionLanguage);
+        plan.Language = ResolveTurnLanguage(effectiveUserMessage, plan.Language, interactionLanguage);
         if (string.Equals(AppSettings.NormalizeActiveMode(_settings?.ActiveMode), "strict", StringComparison.OrdinalIgnoreCase)
             && !string.Equals(plan.Mode, "strict", StringComparison.OrdinalIgnoreCase))
             plan.Mode = "strict";
@@ -1812,6 +1854,24 @@ public sealed partial class ToolAgentOrchestrator
                 return (false, string.Empty, null, null, Array.Empty<string>(), true);
 
             var probeToolResults = BuildProbeRagToolResults(hits);
+            var sourcePolicyGuard = TryBuildSourcePolicyGuardAnswer(probeToolResults, effectiveUserMessage, plan.Language);
+            if (!string.IsNullOrWhiteSpace(sourcePolicyGuard))
+            {
+                var guardSources = DeriveSourcesFromRagHits(probeToolResults).Take(5).ToList();
+                if (guardSources.Count > 0)
+                {
+                    _mem.LastSourcesUsed = guardSources;
+                    sourcePolicyGuard = InjectInlineSources(sourcePolicyGuard, guardSources, plan.Language);
+                }
+
+                var guardPayload = guardSources.Count > 0
+                    ? BuildSourcesPayload("rag_probe", guardSources)
+                    : null;
+                await EmitDeterministicTextAsync(sourcePolicyGuard, onDelta, ct).ConfigureAwait(false);
+                onProgress?.Invoke(string.Empty);
+                return (true, sourcePolicyGuard, guardPayload, "rag.answer", new[] { "rag.search" }, true);
+            }
+
             var sourceBackedAnswer = BuildSourceBackedExtractiveAnswer(probeToolResults, effectiveUserMessage, plan.Language);
             var sourceBackedSources = DeriveSourcesFromExtractiveHits(probeToolResults, effectiveUserMessage);
             if (!string.IsNullOrWhiteSpace(sourceBackedAnswer) && sourceBackedSources.Count > 0)
@@ -1891,6 +1951,160 @@ public sealed partial class ToolAgentOrchestrator
             Result = doc.RootElement.Clone()
         });
         return toolResults;
+    }
+
+    private async Task<(bool handled, string finalAnswer, object? sourcesPayload, IReadOnlyList<string> toolNames)> TryHandleSourcePolicyShortcutAsync(
+        string effectiveUserMessage,
+        string language,
+        CancellationToken ct,
+        Action<string>? onPhase,
+        Action<string>? onDelta,
+        Action<string>? onProgress)
+    {
+        if (!LooksLikeSourceBypassOrUnsupportedInventionRequest(effectiveUserMessage))
+            return (false, string.Empty, null, Array.Empty<string>());
+
+        language = NormalizeLanguageCode(language);
+        onPhase?.Invoke(DeterministicAgentText.PhaseRag(language));
+        onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(language));
+
+        var retrievalQuery = BuildSourcePolicyRetrievalQuery(effectiveUserMessage);
+        if (string.IsNullOrWhiteSpace(retrievalQuery))
+            retrievalQuery = NormalizeRagQueryForRetrieval(effectiveUserMessage);
+
+        ToolResults? toolResults = null;
+        List<ToolMemory.SourceRef> sources = new();
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(retrievalQuery))
+            {
+                var args = CreateJsonArgs(new
+                {
+                    query = retrievalQuery,
+                    topK = 5,
+                    category = ResolveRagCategoryScope(effectiveUserMessage),
+                    mode = "balanced"
+                });
+                var ragResult = await ExecRagSearchAsync(args, ct).ConfigureAwait(false);
+                if (HasRagHits(ragResult))
+                {
+                    toolResults = new ToolResults();
+                    toolResults.Items.Add(new ToolResults.Item
+                    {
+                        ToolName = "rag.search",
+                        Result = ragResult
+                    });
+                    sources = DeriveSourcesFromRagHits(toolResults).Take(5).ToList();
+                }
+            }
+        }
+        catch
+        {
+            toolResults = null;
+            sources.Clear();
+        }
+
+        var answer = toolResults is null
+            ? ApplySourcePolicyGuardPrefix(DeterministicAgentText.AnswerNotEnoughUsableInfo(language), language)
+            : ApplySourcePolicyGuardPrefix(
+                BuildSourceBackedPlanningOrExtractiveAnswer(toolResults, retrievalQuery, language, minPlanningItems: 1),
+                language);
+        if (string.IsNullOrWhiteSpace(answer))
+            answer = ApplySourcePolicyGuardPrefix(DeterministicAgentText.AnswerNotEnoughUsableInfo(language), language);
+
+        object? sourcesPayload = null;
+        if (sources.Count > 0)
+        {
+            _mem.LastSourcesUsed = sources;
+            answer = InjectInlineSources(answer, sources, language);
+            sourcesPayload = BuildSourcesPayload(sources);
+        }
+
+        await EmitDeterministicTextAsync(answer, onDelta, ct).ConfigureAwait(false);
+        onProgress?.Invoke(string.Empty);
+        return (true, answer, sourcesPayload, sources.Count > 0 ? new[] { "rag.search" } : Array.Empty<string>());
+    }
+
+    private async Task<(bool handled, string finalAnswer, object? sourcesPayload, IReadOnlyList<string> toolNames)> TryHandleExactItemPreRouterShortcutAsync(
+        string effectiveUserMessage,
+        string language,
+        CancellationToken ct,
+        Action<string>? onPhase,
+        Action<string>? onDelta,
+        Action<string>? onProgress)
+    {
+        var exactItemTitle = TryExtractRequestedItemTitle(effectiveUserMessage);
+        if (string.IsNullOrWhiteSpace(exactItemTitle))
+            return (false, string.Empty, null, Array.Empty<string>());
+
+        var shouldHandle =
+            LooksLikeStructuredItemCardRequest(effectiveUserMessage)
+            || LooksLikeItemLocationLookupRequest(effectiveUserMessage)
+            || LooksLikeSourceBackedActionRequest(effectiveUserMessage);
+        if (!shouldHandle)
+            return (false, string.Empty, null, Array.Empty<string>());
+
+        language = NormalizeLanguageCode(language);
+        onPhase?.Invoke(DeterministicAgentText.PhaseRag(language));
+        onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(language));
+
+        try
+        {
+            var retrievalQuery = NormalizeRagQueryForRetrieval(effectiveUserMessage);
+            var categoryScope = ResolveRagCategoryScope(effectiveUserMessage);
+            var singleArgs = CreateJsonArgs(new
+            {
+                query = exactItemTitle,
+                topK = LooksLikeStructuredItemCardRequest(effectiveUserMessage) ? 12 : 8,
+                category = categoryScope,
+                mode = "balanced"
+            });
+            var ragResult = await ExecRagSearchAsync(singleArgs, ct).ConfigureAwait(false);
+            var toolName = "rag.search";
+            if (!HasRagHits(ragResult))
+            {
+                var queries = BuildPreciseRetrievalQueries(exactItemTitle!, retrievalQuery);
+                if (queries.Length == 0)
+                    return (false, string.Empty, null, Array.Empty<string>());
+
+                var args = CreateJsonArgs(new
+                {
+                    queries,
+                    topK = LooksLikeStructuredItemCardRequest(effectiveUserMessage) ? 12 : 8,
+                    category = categoryScope,
+                    mode = "balanced"
+                });
+                ragResult = await ExecRagMultiSearchAsync(args, ct).ConfigureAwait(false);
+                toolName = "rag.multi_search";
+            }
+
+            if (!HasRagHits(ragResult))
+                return (false, string.Empty, null, Array.Empty<string>());
+
+            var toolResults = new ToolResults();
+            toolResults.Items.Add(new ToolResults.Item
+            {
+                ToolName = toolName,
+                Result = ragResult
+            });
+
+            var answer = BuildSourceBackedExtractiveAnswer(toolResults, effectiveUserMessage, language);
+            var sources = DeriveSourcesFromExtractiveHits(toolResults, effectiveUserMessage);
+            if (string.IsNullOrWhiteSpace(answer) || sources.Count == 0)
+                return (false, string.Empty, null, Array.Empty<string>());
+
+            _mem.LastSourcesUsed = sources;
+            _mem.LastToolNames = new List<string> { toolName };
+            answer = InjectInlineSources(answer, sources, language);
+            var sourcesPayload = BuildSourcesPayload(sources);
+            await EmitDeterministicTextAsync(answer, onDelta, ct).ConfigureAwait(false);
+            onProgress?.Invoke(string.Empty);
+            return (true, answer, sourcesPayload, new[] { toolName });
+        }
+        catch
+        {
+            return (false, string.Empty, null, Array.Empty<string>());
+        }
     }
 
     private async Task<(bool handled, string finalAnswer, object? sourcesPayload)> TryHandleStandaloneTopicRagAsync(
@@ -2542,6 +2756,14 @@ USER_MESSAGE:
             return (backendClarification, null);
         }
 
+        var sourcePolicyGuard = TryBuildSourcePolicyGuardAnswer(writerToolResults, userMessage, plan.Language);
+        if (!string.IsNullOrWhiteSpace(sourcePolicyGuard))
+        {
+            var guardSources = DeriveSourcesFromRagHits(writerToolResults).Take(5).ToList();
+            _lastAnswerSource = $"writer_bypass_source_policy:{plan.Intent}";
+            return (sourcePolicyGuard, guardSources.Count > 0 ? guardSources : null);
+        }
+
         if (ShouldBypassWriterForDeterministicInventory(plan, writerToolResults, inventoryRenderedText))
         {
             var deterministicAnswer = (inventoryRenderedText ?? string.Empty).Trim();
@@ -2560,6 +2782,8 @@ USER_MESSAGE:
             {
                 _lastAnswerSource = $"writer_bypass_missing_exact_item:{plan.Intent}";
                 var missingExactAnswer = BuildMissingExactItemAnswer(plan.Language, requestedItemTitle!, ragHits);
+                if (LooksLikeSourceBypassOrUnsupportedInventionRequest(userMessage))
+                    missingExactAnswer = ApplySourcePolicyGuardPrefix(missingExactAnswer, plan.Language);
                 var missingExactSources = DeriveSourcesFromMissingExactItemCloseLeads(requestedItemTitle!, ragHits);
                 if (LooksLikeMissingExactItemWithoutSourceLeads(missingExactAnswer))
                     missingExactSources.Clear();

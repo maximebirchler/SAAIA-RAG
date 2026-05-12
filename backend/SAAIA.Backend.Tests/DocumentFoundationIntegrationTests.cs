@@ -3196,6 +3196,369 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
+    public async Task SearchTitleAnchorRouteMatchesAsync_prefers_content_card_full_title_lead_over_dense_partial_page_chunk()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("1a1a0000-7777-1111-1111-222222222222");
+        var docId = Guid.Parse("2b2b0000-8888-2222-2222-333333333333");
+        var jobId = Guid.Parse("3c3c0000-9999-3333-3333-444444444444");
+        const string docPath = "Operations/ContentCardAnchorRoute.pdf";
+        const string title = "Alpha Beta Control Matrix";
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 8, indexedVersion: 7);
+
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, "Alpha dense OCR fragment. Alpha Beta Control Matrix lead. Later Alpha Beta Control Matrix reference.", 13, 93, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Procedure", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, "Alpha dense OCR fragment.", 10, 4, [2]),
+            new ExtractedDocumentUnit(1, 0, 1, 1, "Alpha Beta Control Matrix lead with the actionable body.", 11, 9, [3]),
+            new ExtractedDocumentUnit(2, 0, 1, 1, "Later reference before Alpha Beta Control Matrix appears again.", 12, 9, [4])
+        };
+        var retrievalChunks = new[]
+        {
+            new ProjectedRetrievalChunk(
+                0,
+                0,
+                0,
+                1,
+                1,
+                "Dense OCR partial page with Alpha only and unrelated high-density operational filler.",
+                11,
+                [5],
+                "unit_exact_v1",
+                ContentDensityScore: 0.99),
+            new ProjectedRetrievalChunk(
+                1,
+                0,
+                1,
+                1,
+                1,
+                "Alpha Beta Control Matrix lead with the actionable body and concrete execution detail.",
+                12,
+                [6],
+                "unit_exact_v1",
+                ContentRole: "mixed_navigation_content",
+                NavigationReason: "numeric_title_catalog",
+                NavigationScore: 0.50,
+                ContentDensityScore: 0.50),
+            new ProjectedRetrievalChunk(
+                2,
+                0,
+                2,
+                1,
+                1,
+                "Later reference text. Extra context first, then Alpha Beta Control Matrix appears after the lead.",
+                12,
+                [7],
+                "unit_exact_v1",
+                ContentDensityScore: 0.85)
+        };
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        Assert.True(await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            jobId,
+            docPath,
+            [1, 2, 3],
+            93,
+            DateTime.UtcNow,
+            8,
+            pages,
+            sections,
+            units,
+            retrievalChunks,
+            exactMatchEntries: [],
+            contextualTextEntries: [],
+            CancellationToken.None));
+
+        await using (var conn = await ds.OpenConnectionAsync())
+        {
+            var revisionId = await conn.ExecuteScalarAsync<Guid>(
+                "SELECT revision_id FROM document_revisions WHERE tenant_id=@tenant AND doc_id=@docId AND indexed_version=8;",
+                new { tenant = tenantId, docId });
+
+            await conn.ExecuteAsync(
+                """
+INSERT INTO document_title_anchors(
+    title_anchor_id,
+    tenant_id,
+    revision_id,
+    doc_id,
+    anchor_index,
+    source_kind,
+    source_ordinal,
+    section_id,
+    unit_id,
+    retrieval_chunk_id,
+    content_card_id,
+    title,
+    normalized_title,
+    title_tokens,
+    page_start,
+    page_end,
+    confidence,
+    metadata)
+VALUES(
+    @anchorId,
+    @tenant,
+    @revisionId,
+    @docId,
+    100,
+    'content_card',
+    0,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    @title,
+    @normalizedTitle,
+    @titleTokens,
+    1,
+    1,
+    0.82,
+    '{}'::jsonb);
+""",
+                new
+                {
+                    anchorId = Guid.Parse("4d4d0000-aaaa-4444-4444-555555555555"),
+                    tenant = tenantId,
+                    revisionId,
+                    docId,
+                    title,
+                    normalizedTitle = TitleAnchorNormalizer.NormalizeTitle(title),
+                    titleTokens = TitleAnchorNormalizer.BuildTitleTokens(title)
+                });
+        }
+
+        var matches = await RagEndpoints.SearchTitleAnchorRouteMatchesAsync(
+            ds,
+            tenantId,
+            title,
+            category: "operations",
+            docId: docId.ToString(),
+            docPath: docPath,
+            topK: 3,
+            CancellationToken.None);
+
+        var match = Assert.Single(matches);
+        Assert.Equal(DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 8, 1).ToString(), match.ChunkId);
+        Assert.Equal("title_anchor_route_v1", match.EmbeddingBasis);
+        Assert.Equal("title_anchor_route", RagEndpoints.ResolveRetriever(match));
+        Assert.Contains(title, match.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Dense OCR partial", match.Text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task SearchTitleAnchorRouteMatchesAsync_prefers_anchor_page_over_adjacent_partial_token_hit()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("1a1a0000-7777-5555-5555-222222222222");
+        var docId = Guid.Parse("2b2b0000-8888-6666-6666-333333333333");
+        var jobId = Guid.Parse("3c3c0000-9999-7777-7777-444444444444");
+        const string docPath = "Operations/ContentCardAdjacentRoute.pdf";
+        const string title = "Alpha Beta Control Matrix";
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 9, indexedVersion: 8);
+
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, "Alpha Beta footer continuation unrelated to the target body.", 8, 56, [1]),
+            new ExtractedPdfPage(2, "Control Matrix operating body and the actionable content.", 8, 58, [2])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Procedure", 1, 2, 1, 2, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, "Alpha Beta footer continuation unrelated to the target body.", 10, 8, [3]),
+            new ExtractedDocumentUnit(1, 0, 2, 2, "Control Matrix operating body and the actionable content.", 11, 8, [4])
+        };
+        var retrievalChunks = new[]
+        {
+            new ProjectedRetrievalChunk(
+                0,
+                0,
+                0,
+                1,
+                1,
+                "Alpha Beta adjacent footer with unrelated high-density operational filler.",
+                10,
+                [5],
+                "unit_exact_v1",
+                ContentDensityScore: 0.99),
+            new ProjectedRetrievalChunk(
+                1,
+                0,
+                1,
+                2,
+                2,
+                "Control Matrix operating body and the actionable content for the anchored page.",
+                11,
+                [6],
+                "unit_exact_v1",
+                ContentDensityScore: 0.40)
+        };
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        Assert.True(await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            jobId,
+            docPath,
+            [2, 4, 6],
+            114,
+            DateTime.UtcNow,
+            9,
+            pages,
+            sections,
+            units,
+            retrievalChunks,
+            exactMatchEntries: [],
+            contextualTextEntries: [],
+            CancellationToken.None));
+
+        await using (var conn = await ds.OpenConnectionAsync())
+        {
+            var revisionId = await conn.ExecuteScalarAsync<Guid>(
+                "SELECT revision_id FROM document_revisions WHERE tenant_id=@tenant AND doc_id=@docId AND indexed_version=9;",
+                new { tenant = tenantId, docId });
+
+            await conn.ExecuteAsync(
+                """
+INSERT INTO document_title_anchors(
+    title_anchor_id,
+    tenant_id,
+    revision_id,
+    doc_id,
+    anchor_index,
+    source_kind,
+    source_ordinal,
+    section_id,
+    unit_id,
+    retrieval_chunk_id,
+    content_card_id,
+    title,
+    normalized_title,
+    title_tokens,
+    page_start,
+    page_end,
+    confidence,
+    metadata)
+VALUES(
+    @anchorId,
+    @tenant,
+    @revisionId,
+    @docId,
+    101,
+    'content_card',
+    0,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    @title,
+    @normalizedTitle,
+    @titleTokens,
+    2,
+    2,
+    0.82,
+    '{}'::jsonb);
+""",
+                new
+                {
+                    anchorId = Guid.Parse("4d4d0000-aaaa-8888-8888-555555555555"),
+                    tenant = tenantId,
+                    revisionId,
+                    docId,
+                    title,
+                    normalizedTitle = TitleAnchorNormalizer.NormalizeTitle(title),
+                    titleTokens = TitleAnchorNormalizer.BuildTitleTokens(title)
+                });
+        }
+
+        var matches = await RagEndpoints.SearchTitleAnchorRouteMatchesAsync(
+            ds,
+            tenantId,
+            title,
+            category: "operations",
+            docId: docId.ToString(),
+            docPath: docPath,
+            topK: 3,
+            CancellationToken.None);
+
+        var match = Assert.Single(matches);
+        Assert.Equal(DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 9, 1).ToString(), match.ChunkId);
+        Assert.Equal("title_anchor_route_v1", match.EmbeddingBasis);
+        Assert.Contains("anchored page", match.Text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("adjacent footer", match.Text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Resume_checkpoint_round_trips_embedding_model_and_input_format()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("5e5e0000-1111-2222-3333-444444444444");
+        var docId = Guid.Parse("6f6f0000-2222-3333-4444-555555555555");
+        var jobId = Guid.Parse("70700000-3333-4444-5555-666666666666");
+        const string docPath = "Operations/Checkpoint.pdf";
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 2, indexedVersion: 1);
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+
+        await JobRepo.UpdateProgressAsync(ds, jobId, "embedding", current: 16, total: 32, CancellationToken.None);
+        await JobRepo.StoreResumeCheckpointAsync(
+            ds,
+            jobId,
+            "abc123",
+            1234,
+            32,
+            "intfloat/multilingual-e5-base",
+            "e5_passage_v1",
+            CancellationToken.None);
+
+        var checkpoint = await JobRepo.GetResumeCheckpointAsync(ds, jobId, CancellationToken.None);
+
+        Assert.NotNull(checkpoint);
+        Assert.Equal(16, checkpoint!.ProgressCurrent);
+        Assert.Equal(32, checkpoint.ProgressTotal);
+        Assert.Equal("abc123", checkpoint.SourceHash);
+        Assert.Equal(1234, checkpoint.FileSize);
+        Assert.Equal(32, checkpoint.ChunkTotal);
+        Assert.Equal("intfloat/multilingual-e5-base", checkpoint.EmbeddingModel);
+        Assert.Equal("e5_passage_v1", checkpoint.EmbeddingInputFormat);
+        Assert.True(IngestionWorker.IsResumeCheckpointCompatible(
+            checkpoint,
+            "ABC123",
+            32,
+            "intfloat/multilingual-e5-base",
+            "e5_passage_v1"));
+        Assert.False(IngestionWorker.IsResumeCheckpointCompatible(
+            checkpoint,
+            "abc123",
+            32,
+            "sentence-transformers/all-MiniLM-L6-v2",
+            "raw_passage_v1"));
+    }
+
+    [Fact]
     public async Task SearchLinkedMatchesAsync_returns_enriched_results_and_accepts_linked_context_anchor()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();

@@ -1669,7 +1669,10 @@ CURRENT_USER_MESSAGE:
                 || !allHits.Any(hit => RagHitContainsRequestedTitle(hit, requestedTitle!)
                     && !LooksLikeExactItemReferenceOnlyHit(requestedTitle!, hit))))
         {
-            return BuildMissingExactItemAnswer(language, requestedTitle!, allHits);
+            var answer = BuildMissingExactItemAnswer(language, requestedTitle!, allHits);
+            return LooksLikeSourceBypassOrUnsupportedInventionRequest(query)
+                ? ApplySourcePolicyGuardPrefix(answer, language)
+                : answer;
         }
 
         var hits = SelectSourceBackedExtractiveHits(toolResults, query, maxHits: 4).ToList();
@@ -6703,14 +6706,28 @@ CURRENT_USER_MESSAGE:
         foreach (var hit in hits.Take(3))
         {
             var docLabel = string.IsNullOrWhiteSpace(hit.DocName) ? hit.DocPath : hit.DocName;
-            var excerpt = FormatReadableEvidenceExcerpt(GetBestRagEvidenceText(hit), maxLength: SourceBackedEvidenceMaxChars);
             sb.Append("- ");
             sb.Append(docLabel);
             sb.Append(' ');
             sb.Append(SourceBackedPagePrefix(language));
             sb.Append(hit.PageStart);
             sb.Append(" : ");
-            sb.AppendLine(excerpt);
+            if (ShouldIncludeRawSourceExcerptForAnswerLanguage(language, hit))
+            {
+                var excerpt = FormatReadableEvidenceExcerpt(GetBestRagEvidenceText(hit), maxLength: SourceBackedEvidenceMaxChars);
+                sb.AppendLine(excerpt);
+            }
+            else
+            {
+                sb.AppendLine(SourceBackedLabel(
+                    language,
+                    "extrait disponible dans la langue du document sur la page citee",
+                    "excerpt available in the document language on the cited page",
+                    "extracto disponible en el idioma del documento en la pagina citada",
+                    "excerto disponivel na lingua do documento na pagina citada",
+                    "Auszug in der Dokumentsprache auf der zitierten Seite verfuegbar",
+                    "estratto disponibile nella lingua del documento nella pagina citata"));
+            }
         }
 
         var note = language switch
@@ -7006,6 +7023,29 @@ CURRENT_USER_MESSAGE:
         sb.Append(' ');
         sb.Append(SourceBackedPagePrefix(language));
         sb.AppendLine(primary.PageStart.ToString(CultureInfo.InvariantCulture));
+
+        if (!ShouldIncludeRawSourceExcerptForAnswerLanguage(language, primary))
+        {
+            sb.Append("- ");
+            sb.Append(SourceBackedLabel(
+                language,
+                "Contenu visible",
+                "Visible content",
+                "Contenido visible",
+                "Conteudo visivel",
+                "Sichtbarer Inhalt",
+                "Contenuto visibile"));
+            sb.Append(" : ");
+            sb.AppendLine(SourceBackedLabel(
+                language,
+                "les elements, valeurs, temps et etapes doivent etre lus sur la page citee dans la langue du document.",
+                "items, values, timing and steps should be read on the cited page in the document language.",
+                "los elementos, valores, tiempos y pasos deben leerse en la pagina citada, en el idioma del documento.",
+                "os elementos, valores, tempos e etapas devem ser lidos na pagina citada, na lingua do documento.",
+                "Elemente, Werte, Zeiten und Schritte sind auf der zitierten Seite in der Dokumentsprache zu lesen.",
+                "elementi, valori, tempi e passaggi vanno letti nella pagina citata, nella lingua del documento."));
+            return sb.ToString().TrimEnd();
+        }
 
         if (hasAnyCardEvidence)
         {
@@ -7514,28 +7554,30 @@ CURRENT_USER_MESSAGE:
             var evidence = card.Evidence!;
             if (evidence.ScaleBasis is { Count: > 0 } basis)
             {
-                facts.Add(CollapseWhitespace(string.Join(' ', new[]
+                var label = CollapseWhitespace(basis.Label ?? string.Empty);
+                if (!string.IsNullOrWhiteSpace(label) && basis.Count is >= 1 and <= 50)
                 {
-                    basis.Count.ToString(CultureInfo.InvariantCulture),
-                    basis.Label
-                }.Where(static value => !string.IsNullOrWhiteSpace(value)))));
+                    facts.Add(CollapseWhitespace(string.Join(' ', new[]
+                    {
+                        basis.Count.ToString(CultureInfo.InvariantCulture),
+                        label
+                    })));
+                }
             }
 
             foreach (var fact in evidence.QuantityFacts.Take(8))
             {
-                facts.Add(CollapseWhitespace(
-                    fact.SourceText
-                    ?? string.Join(' ', new[]
-                    {
-                        fact.Value.ToString("0.###", CultureInfo.InvariantCulture),
-                        fact.Unit,
-                        fact.Label
-                    }.Where(static value => !string.IsNullOrWhiteSpace(value)))));
+                facts.Add(BuildContentCardDisplayFact(
+                    fact.SourceText,
+                    fact.Value.ToString("0.###", CultureInfo.InvariantCulture),
+                    fact.Unit,
+                    fact.Label));
             }
         }
 
         return facts
             .Where(static fact => !string.IsNullOrWhiteSpace(fact))
+            .Where(IsUsefulContentCardDisplayFact)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }
@@ -7550,21 +7592,73 @@ CURRENT_USER_MESSAGE:
         {
             foreach (var fact in (evidence!.Facts ?? []).Take(12))
             {
-                facts.Add(CollapseWhitespace(
-                    fact.SourceText
-                    ?? string.Join(' ', new[]
-                    {
-                        fact.Label,
-                        fact.Value,
-                        fact.Unit
-                    }.Where(static value => !string.IsNullOrWhiteSpace(value)))));
+                facts.Add(BuildContentCardDisplayFact(
+                    fact.SourceText,
+                    fact.Label,
+                    fact.Value,
+                    fact.Unit));
             }
         }
 
         return facts
             .Where(static fact => !string.IsNullOrWhiteSpace(fact))
+            .Where(IsUsefulContentCardDisplayFact)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    private static string BuildContentCardDisplayFact(string? sourceText, params string?[] structuredParts)
+    {
+        var structured = CollapseWhitespace(string.Join(' ', structuredParts.Where(static value => !string.IsNullOrWhiteSpace(value))));
+        var source = CollapseWhitespace(sourceText ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(source))
+            return CleanContentCardDisplayFactValue(structured);
+
+        if (!string.IsNullOrWhiteSpace(structured)
+            && (source.Length > 90 || LooksLikeNoisyContentCardSourceText(source)))
+        {
+            return CleanContentCardDisplayFactValue(structured);
+        }
+
+        var value = !string.IsNullOrWhiteSpace(structured) ? structured : source;
+        return CleanContentCardDisplayFactValue(value);
+    }
+
+    private static string CleanContentCardDisplayFactValue(string value)
+    {
+        value = Regex.Replace(value, @"(?i)\bscale_basis\b", string.Empty, RegexOptions.CultureInvariant);
+        value = Regex.Replace(value, @"\s+\+\s+.*$", string.Empty, RegexOptions.CultureInvariant);
+        value = Regex.Replace(value, @"(?i)\b(?:preparation|pr[ée]paration|portez|prechauffez|pr[ée]chauffez|epluchez|[ée]pluchez)\b.*$", string.Empty, RegexOptions.CultureInvariant);
+        value = Regex.Replace(value, @"(?i)\b(?:pr\u00e9paration|pr\u00e9chauffez|\u00e9pluchez)\b.*$", string.Empty, RegexOptions.CultureInvariant);
+        value = CollapseWhitespace(value.Trim(' ', ';', ',', ':', '-'));
+        return FormatReadableEvidenceExcerpt(value, maxLength: 90);
+    }
+
+    private static bool IsUsefulContentCardDisplayFact(string fact)
+    {
+        fact = CollapseWhitespace(fact);
+        if (fact.Length < 3)
+            return false;
+
+        var normalized = NormalizeLexicalLookup(fact);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        if (Regex.IsMatch(normalized, @"^\d+(?:[\.,]\d+)?$", RegexOptions.CultureInvariant))
+            return false;
+
+        return !normalized.Contains("scale_basis", StringComparison.Ordinal);
+    }
+
+    private static bool LooksLikeNoisyContentCardSourceText(string source)
+    {
+        var normalized = NormalizeLexicalLookup(source);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return normalized.Contains("scale_basis", StringComparison.Ordinal)
+            || Regex.Matches(source, @"[;,+]").Count >= 4
+            || Regex.Matches(source, @"\p{L}{2,}").Count > 18;
     }
 
     private static string[] ExtractContentCardNonScalableReasons(IEnumerable<RagHitSummary> hits)
@@ -7634,6 +7728,8 @@ CURRENT_USER_MESSAGE:
         var hit = hits.FirstOrDefault();
         if (hit is null)
             return;
+        if (!ShouldIncludeRawSourceExcerptForAnswerLanguage(language, hit))
+            return;
 
         var docLabel = string.IsNullOrWhiteSpace(hit.DocName) ? hit.DocPath : hit.DocName;
         sb.Append("- ");
@@ -7645,6 +7741,17 @@ CURRENT_USER_MESSAGE:
         sb.Append(hit.PageStart);
         sb.Append(" - ");
         sb.AppendLine(CleanReadableProcedureArtifacts(FormatReadableEvidenceExcerpt(GetFocusedExactItemStructuredEvidenceText(requestedTitle, hit), maxLength: 360)));
+    }
+
+    private static bool ShouldIncludeRawSourceExcerptForAnswerLanguage(string language, RagHitSummary hit)
+    {
+        var answerLanguage = NormalizeLanguageCode(language);
+        var docLanguage = NormalizeDocumentLanguageTag(hit.DocLanguage ?? hit.ProfileLanguage);
+        if (string.Equals(docLanguage, "und", StringComparison.Ordinal))
+            return string.Equals(answerLanguage, "fr", StringComparison.Ordinal);
+
+        var docPrimary = docLanguage.Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
+        return string.Equals(answerLanguage, docPrimary, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string SourceBackedLabel(string language, string fr, string en, string es, string pt, string de, string it)
@@ -9001,6 +9108,132 @@ CURRENT_USER_MESSAGE:
 
     private static string NormalizeLooseLookup(string? value)
         => NormalizeLexicalLookup(value);
+
+    private static string TryBuildSourcePolicyGuardAnswer(ToolResults toolResults, string query, string language)
+    {
+        if (!LooksLikeSourceBypassOrUnsupportedInventionRequest(query)
+            || !toolResults.Items.Any(static item => item.ToolName is "rag.search" or "rag.multi_search"))
+        {
+            return string.Empty;
+        }
+
+        language = NormalizeLanguageCode(language);
+        var prefix = BuildSourcePolicyGuardPrefix(language);
+
+        var evidence = BuildSourceBackedPlanningOrExtractiveAnswer(toolResults, query, language, minPlanningItems: 1);
+        if (string.IsNullOrWhiteSpace(evidence))
+            evidence = BuildRagEvidenceFallbackAnswer(toolResults, query, language);
+
+        return string.IsNullOrWhiteSpace(evidence)
+            ? prefix
+            : ApplySourcePolicyGuardPrefix(evidence, language);
+    }
+
+    private static string BuildSourcePolicyGuardPrefix(string language)
+        => SourceBackedLabel(
+            language,
+            "Je ne peux pas ignorer les sources ni inventer une reponse documentaire. Je reste donc strictement sur ce que les sources disponibles permettent.",
+            "I cannot ignore the sources or invent a documentary answer. I will stay strictly within what the available sources support.",
+            "No puedo ignorar las fuentes ni inventar una respuesta documental. Me limito estrictamente a lo que permiten las fuentes disponibles.",
+            "Nao posso ignorar as fontes nem inventar uma resposta documental. Vou limitar-me estritamente ao que as fontes disponiveis sustentam.",
+            "Ich kann die Quellen nicht ignorieren und keine dokumentarische Antwort erfinden. Ich bleibe daher strikt bei dem, was die verfuegbaren Quellen belegen.",
+            "Non posso ignorare le fonti ne inventare una risposta documentale. Mi limito quindi strettamente a cio che le fonti disponibili supportano.");
+
+    private static string ApplySourcePolicyGuardPrefix(string answer, string language)
+    {
+        var prefix = BuildSourcePolicyGuardPrefix(language);
+        if (string.IsNullOrWhiteSpace(answer))
+            return prefix;
+
+        return answer.Contains(prefix, StringComparison.OrdinalIgnoreCase)
+            ? answer.Trim()
+            : $"{prefix}{Environment.NewLine}{Environment.NewLine}{answer}".Trim();
+    }
+
+    private static bool LooksLikeSourceBypassOrUnsupportedInventionRequest(string? query)
+    {
+        var normalized = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        normalized = Regex.Replace(
+            normalized,
+            @"\b(?:sans\s+oublier|n\s*oublie\s+pas|ne\s+pas\s+oublier|without\s+forgetting|do\s+not\s+forget|don\s*t\s+forget|sin\s+olvidar|sem\s+esquecer|ohne\s+zu\s+vergessen|senza\s+dimenticare)\b",
+            " ",
+            RegexOptions.CultureInvariant);
+
+        var asksToIgnoreSources =
+            Regex.IsMatch(
+                normalized,
+                @"\b(?:ignore|ignorer|ignorez|oublie|oublier|disregard|ignora|ignorar|ignori|ignoren|ignorar|ignora|ignorar|ignora|ignora|ignori|ignora|ignori|ignori|ignori|ignorar|ignorare|ignoriere|ignorieren)\b.{0,60}\b(?:sources?|documents?|pdf|fuentes?|fontes?|quellen?|fonti)\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:sources?|documents?|pdf|fuentes?|fontes?|quellen?|fonti)\b.{0,60}\b(?:ignore|ignorer|ignorez|oublie|oublier|disregard|ignora|ignorar|ignori|ignorare|ignoriere|ignorieren)\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:sans|without|sin|sem|ohne|senza)\b.{0,24}\b(?:utiliser|using|use|usar|utilizar|nutzen|verwenden|usare|utilizzare)?\b.{0,16}\b(?:sources?|documents?|pdf|fuentes?|fontes?|quellen?|fonti)\b",
+                RegexOptions.CultureInvariant);
+
+        var asksToInvent =
+            Regex.IsMatch(
+                normalized,
+                @"\b(?:invente|inventer|inventez|invent|invented|make\s+up|hallucinate|inventa|inventar|inventare|erfinde|erfinden|erfunden)\b",
+                RegexOptions.CultureInvariant);
+
+        return asksToIgnoreSources || asksToInvent;
+    }
+
+    private static string BuildSourcePolicyRetrievalQuery(string? query)
+    {
+        var normalized = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return string.Empty;
+
+        normalized = Regex.Replace(
+            normalized,
+            @"\b(?:sans|without|sin|sem|ohne|senza)\b.{0,60}\b(?:sources?|documents?|pdf|fuentes?|fontes?|quellen?|fonti)\b",
+            " ",
+            RegexOptions.CultureInvariant);
+        normalized = Regex.Replace(
+            normalized,
+            @"\b(?:ignore|ignorer|ignorez|oublie|oublier|disregard|ignora|ignorar|ignori|ignorare|ignoriere|ignorieren)\b.{0,60}\b(?:sources?|documents?|pdf|fuentes?|fontes?|quellen?|fonti)\b",
+            " ",
+            RegexOptions.CultureInvariant);
+        normalized = Regex.Replace(
+            normalized,
+            @"\b(?:sources?|documents?|pdf|fuentes?|fontes?|quellen?|fonti)\b.{0,60}\b(?:ignore|ignorer|ignorez|oublie|oublier|disregard|ignora|ignorar|ignori|ignorare|ignoriere|ignorieren)\b",
+            " ",
+            RegexOptions.CultureInvariant);
+        normalized = Regex.Replace(
+            normalized,
+            @"\b(?:invente|inventer|inventez|invent|invented|make\s+up|hallucinate|inventa|inventar|inventare|erfinde|erfinden|erfunden)\b",
+            " ",
+            RegexOptions.CultureInvariant);
+        normalized = Regex.Replace(
+            normalized,
+            @"\b(?:une|un|an|a|una|uma|eine|uno|un)\s+(?:version|versao|versione|variante|variant)\s+(?:amelioree|improved|mejorada|melhorada|verbesserte|migliorata)\s+(?:de|du|des|of|da|do|das|der|die|della|del|di)?\b",
+            " ",
+            RegexOptions.CultureInvariant);
+        normalized = Regex.Replace(
+            normalized,
+            @"\b(?:une|un|an|a|una|uma|eine|uno|un)\s+(?:amelioree|improved|mejorada|melhorada|verbesserte|migliorata)\s+(?:version|versao|versione|variante|variant)\s+(?:de|du|des|of|da|do|das|der|die|della|del|di)?\b",
+            " ",
+            RegexOptions.CultureInvariant);
+        normalized = Regex.Replace(
+            normalized,
+            @"\b(?:version|versao|versione|variante|variant)\s+(?:amelioree|improved|mejorada|melhorada|verbesserte|migliorata)\b",
+            " ",
+            RegexOptions.CultureInvariant);
+        normalized = Regex.Replace(
+            normalized,
+            @"\b(?:amelioree|improved|mejorada|melhorada|verbesserte|migliorata)\s+(?:version|versao|versione|variante|variant)\b",
+            " ",
+            RegexOptions.CultureInvariant);
+
+        return NormalizeRagQueryForRetrieval(normalized);
+    }
 
     private static string BuildRagEvidenceFallbackAnswer(ToolResults toolResults, string query, string language)
     {

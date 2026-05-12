@@ -844,10 +844,111 @@ public sealed partial class ToolAgentOrchestrator
             return await ExecRagMultiSearchAsync(multiArgs, ct).ConfigureAwait(false);
         }
 
-        var raw = await _api.RagSearchToolAsync(query, topK, categoryScope, mode, ct);
+        JsonElement raw;
+        try
+        {
+            raw = await _api.RagSearchToolAsync(query, topK, categoryScope, mode, ct).ConfigureAwait(false);
+        }
+        catch (ApiClientBackendBusyException ex) when (!ct.IsCancellationRequested)
+        {
+            var busy = BuildRagSearchBusyPayload(new[] { query }, categoryScope, mode, ex);
+            RememberLastRagDiagnostics(new[] { query }, busy);
+            return busy;
+        }
+
         var normalized = NormalizeRagHits(raw);
         RememberLastRagDiagnostics(new[] { query }, normalized);
         return normalized;
+    }
+
+    private async Task<JsonElement> ExecRagSearchRawAsync(string query, int topK, string? categoryScope, string? mode, CancellationToken ct)
+    {
+        query = CollapseWhitespace(query ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(query))
+            return JsonDocument.Parse("{\"hits\":[]}").RootElement;
+
+        JsonElement raw;
+        try
+        {
+            raw = await _api.RagSearchToolAsync(query, topK, categoryScope, mode, ct).ConfigureAwait(false);
+        }
+        catch (ApiClientBackendBusyException ex) when (!ct.IsCancellationRequested)
+        {
+            var busy = BuildRagSearchBusyPayload(new[] { query }, categoryScope, mode, ex);
+            RememberLastRagDiagnostics(new[] { query }, busy);
+            return busy;
+        }
+
+        var normalized = NormalizeRagHits(raw);
+        RememberLastRagDiagnostics(new[] { query }, normalized);
+        return normalized;
+    }
+
+    private static JsonElement BuildRagSearchBusyPayload(
+        IEnumerable<string> queries,
+        string? categoryScope,
+        string? mode,
+        ApiClientBackendBusyException ex)
+    {
+        var payload = new
+        {
+            hits = Array.Empty<object>(),
+            error = "rag_search_busy",
+            busy = true,
+            retryAfterSeconds = ex.RetryAfterSeconds,
+            guidance = new
+            {
+                behavior = "retry_later",
+                qualificationNote = "RAG search is temporarily busy; ask the user to retry shortly instead of claiming no documents were found."
+            },
+            meta = new
+            {
+                queries = queries.Where(static q => !string.IsNullOrWhiteSpace(q)).Take(8).ToArray(),
+                mode = string.IsNullOrWhiteSpace(mode) ? "balanced" : mode,
+                category = categoryScope,
+                categoryPath = categoryScope,
+                degradedRetrievers = new[] { "rag_search_busy" }
+            }
+        };
+
+        using var doc = JsonDocument.Parse(JsonSerializer.Serialize(payload));
+        return doc.RootElement.Clone();
+    }
+
+    private async Task<JsonElement> TryExecRagSearchOrEmptyAsync(JsonElement args, CancellationToken ct)
+    {
+        try
+        {
+            return await ExecRagSearchAsync(args, ct).ConfigureAwait(false);
+        }
+        catch when (!ct.IsCancellationRequested)
+        {
+            return JsonDocument.Parse("{\"hits\":[]}").RootElement;
+        }
+    }
+
+    private async Task<JsonElement> TryExecRagSearchRawOrEmptyAsync(string query, int topK, string? categoryScope, string? mode, CancellationToken ct)
+    {
+        try
+        {
+            return await ExecRagSearchRawAsync(query, topK, categoryScope, mode, ct).ConfigureAwait(false);
+        }
+        catch when (!ct.IsCancellationRequested)
+        {
+            return JsonDocument.Parse("{\"hits\":[]}").RootElement;
+        }
+    }
+
+    private async Task<JsonElement> TryExecRagMultiSearchOrEmptyAsync(JsonElement args, CancellationToken ct)
+    {
+        try
+        {
+            return await ExecRagMultiSearchAsync(args, ct).ConfigureAwait(false);
+        }
+        catch when (!ct.IsCancellationRequested)
+        {
+            return JsonDocument.Parse("{\"hits\":[]}").RootElement;
+        }
     }
 
     private async Task<JsonElement> ExecRagMultiSearchAsync(JsonElement args, CancellationToken ct)
@@ -886,34 +987,79 @@ public sealed partial class ToolAgentOrchestrator
             var degradedRetrievers = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
             object? selectedGuidance = null;
             string? selectedGuidanceBehavior = null;
-            foreach (var q in queries.Take(8))
+            var selectedQueries = queries.Take(8).ToArray();
+            using var gate = new SemaphoreSlim(Math.Min(6, Math.Max(1, selectedQueries.Length)));
+            var runs = await Task.WhenAll(selectedQueries.Select(async (q, index) =>
             {
-                var raw = await _api.RagSearchToolAsync(q, topK, scope, mode, ct);
-                var norm = NormalizeRagHits(raw);
-                CollectRagDegradedRetrievers(norm, degradedRetrievers);
-                var guidance = DeserializePromptObject(norm, "guidance");
-                var guidanceBehavior = norm.TryGetProperty("guidance", out var guidanceEl) && guidanceEl.ValueKind == JsonValueKind.Object
-                    ? TryGetString(guidanceEl, "behavior")
-                    : null;
-                if (ShouldPreferMultiSearchGuidance(selectedGuidanceBehavior, guidanceBehavior))
+                await gate.WaitAsync(ct).ConfigureAwait(false);
+                try
                 {
-                    selectedGuidance = guidance;
-                    selectedGuidanceBehavior = guidanceBehavior;
+                    JsonElement norm;
+                    try
+                    {
+                        var raw = await _api.RagSearchToolAsync(q, topK, scope, mode, ct).ConfigureAwait(false);
+                        norm = NormalizeRagHits(raw);
+                    }
+                    catch (ApiClientBackendBusyException ex) when (!ct.IsCancellationRequested)
+                    {
+                        norm = BuildRagSearchBusyPayload(new[] { q }, scope, mode, ex);
+                    }
+
+                    var localDegradedRetrievers = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+                    CollectRagDegradedRetrievers(norm, localDegradedRetrievers);
+                    var guidance = DeserializePromptObject(norm, "guidance");
+                    var guidanceBehavior = norm.TryGetProperty("guidance", out var guidanceEl) && guidanceEl.ValueKind == JsonValueKind.Object
+                        ? TryGetString(guidanceEl, "behavior")
+                        : null;
+                    return new
+                    {
+                        Index = index,
+                        Query = q,
+                        Norm = norm.Clone(),
+                        Busy = IsRagSearchBusyPayload(norm),
+                        RetryAfterSeconds = TryGetInt(norm, "retryAfterSeconds") ?? 1,
+                        Guidance = guidance,
+                        GuidanceBehavior = guidanceBehavior,
+                        Meta = DeserializePromptObject(norm, "meta"),
+                        DegradedRetrievers = localDegradedRetrievers.ToArray()
+                    };
+                }
+                finally
+                {
+                    gate.Release();
+                }
+            })).ConfigureAwait(false);
+
+            foreach (var run in runs.OrderBy(static x => x.Index))
+            {
+                foreach (var degradedRetriever in run.DegradedRetrievers)
+                    degradedRetrievers.Add(degradedRetriever);
+
+                if (ShouldPreferMultiSearchGuidance(selectedGuidanceBehavior, run.GuidanceBehavior))
+                {
+                    selectedGuidance = run.Guidance;
+                    selectedGuidanceBehavior = run.GuidanceBehavior;
                 }
 
                 queryRuns.Add(new
                 {
-                    query = q,
-                    guidance,
-                    meta = DeserializePromptObject(norm, "meta")
+                    query = run.Query,
+                    guidance = run.Guidance,
+                    meta = run.Meta
                 });
 
-                if (norm.TryGetProperty("hits", out var hits) && hits.ValueKind == JsonValueKind.Array)
+                if (run.Norm.TryGetProperty("hits", out var hits) && hits.ValueKind == JsonValueKind.Array)
                 {
                     foreach (var h in hits.EnumerateArray())
                         merged.Add(h);
                 }
             }
+
+            var busyRuns = runs.Where(static run => run.Busy).ToArray();
+            var allBusy = busyRuns.Length == runs.Length;
+            var retryAfterSeconds = busyRuns.Length == 0
+                ? (int?)null
+                : Math.Clamp(busyRuns.Max(static run => run.RetryAfterSeconds), 1, 300);
 
             // Dedup by docPath + pageStart + pageEnd, keeping the richest metadata variant.
             var uniq = merged
@@ -933,6 +1079,9 @@ public sealed partial class ToolAgentOrchestrator
             var payload = new
             {
                 hits = uniq,
+                error = allBusy ? "rag_search_busy" : null,
+                busy = allBusy ? true : (bool?)null,
+                retryAfterSeconds = allBusy ? retryAfterSeconds : null,
                 guidance = selectedGuidance,
                 meta = new
                 {
@@ -941,6 +1090,7 @@ public sealed partial class ToolAgentOrchestrator
                     category = scope,
                     categoryPath = scope,
                     categoryInferred,
+                    busyQueries = busyRuns.Length == 0 ? null : busyRuns.Select(static run => run.Query).ToArray(),
                     degradedRetrievers = degradedRetrievers.Count == 0 ? null : degradedRetrievers.ToArray(),
                     queryRuns
                 }
@@ -970,6 +1120,14 @@ public sealed partial class ToolAgentOrchestrator
         RememberLastRagDiagnostics(queries.Take(8), result);
         return result;
     }
+
+    private static bool IsRagSearchBusyPayload(JsonElement value)
+        => value.ValueKind == JsonValueKind.Object
+           && ((value.TryGetProperty("busy", out var busy)
+                    && busy.ValueKind is JsonValueKind.True)
+               || (value.TryGetProperty("error", out var error)
+                   && error.ValueKind == JsonValueKind.String
+                   && string.Equals(error.GetString(), "rag_search_busy", StringComparison.OrdinalIgnoreCase)));
 
     private static void CollectRagDegradedRetrievers(JsonElement normalizedRagResult, ISet<string> degradedRetrievers)
     {

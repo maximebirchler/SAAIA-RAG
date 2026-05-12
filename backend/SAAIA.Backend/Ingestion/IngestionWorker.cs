@@ -230,6 +230,32 @@ sealed class IngestionWorker : BackgroundService
            && jobVersion > 0
            && (!indexedVersion.HasValue || indexedVersion.Value != jobVersion);
 
+    internal static string ResolveEmbeddingInputFormat(string? embeddingsModel)
+        => TeiClient.RequiresE5InstructionPrefix(embeddingsModel)
+            ? "e5_passage_v1"
+            : "raw_passage_v1";
+
+    internal static bool IsResumeCheckpointCompatible(
+        JobRepo.ResumeCheckpointState? checkpoint,
+        string sourceHash,
+        int chunkTotal,
+        string? embeddingsModel,
+        string embeddingInputFormat)
+    {
+        if (checkpoint is null
+            || !checkpoint.ProgressCurrent.HasValue
+            || checkpoint.ProgressCurrent.Value <= 0)
+            return false;
+
+        return string.Equals(checkpoint.SourceHash, sourceHash, StringComparison.OrdinalIgnoreCase)
+            && checkpoint.ChunkTotal == chunkTotal
+            && string.Equals(NormalizeEmbeddingModelMarker(checkpoint.EmbeddingModel), NormalizeEmbeddingModelMarker(embeddingsModel), StringComparison.OrdinalIgnoreCase)
+            && string.Equals(checkpoint.EmbeddingInputFormat, embeddingInputFormat, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeEmbeddingModelMarker(string? embeddingsModel)
+        => string.IsNullOrWhiteSpace(embeddingsModel) ? "unspecified" : embeddingsModel.Trim();
+
     internal static bool ShouldStabilizeDocumentAfterCancel(string? reason)
         => !string.Equals(reason, "superseded_version", StringComparison.OrdinalIgnoreCase)
            && !string.Equals(reason, "superseded_failed_ocr_publish", StringComparison.OrdinalIgnoreCase)
@@ -800,18 +826,19 @@ WHERE job_id=@job_id
         static string ToHex(byte[] bytes) => Convert.ToHexString(bytes).ToLowerInvariant();
 
         var hashHex = ToHex(hash);
-        var canResumeFromCheckpoint =
-            checkpoint is not null
-            && checkpoint.ProgressCurrent.HasValue
-            && checkpoint.ProgressCurrent.Value > 0
-            && string.Equals(checkpoint.SourceHash, hashHex, StringComparison.OrdinalIgnoreCase)
-            && checkpoint.ChunkTotal == chunks.Count;
+        var embeddingInputFormat = ResolveEmbeddingInputFormat(rag.EmbeddingsModel);
+        var canResumeFromCheckpoint = IsResumeCheckpointCompatible(
+            checkpoint,
+            hashHex,
+            chunks.Count,
+            rag.EmbeddingsModel,
+            embeddingInputFormat);
         var resumeFromChunk = canResumeFromCheckpoint
             ? Math.Clamp(checkpoint!.ProgressCurrent!.Value, 0, chunks.Count)
             : 0;
 
-        await JobRepo.StoreResumeCheckpointAsync(ds, job.JobId, hashHex, size, chunks.Count, ct);
         await JobRepo.UpdateProgressAsync(ds, job.JobId, "embedding", resumeFromChunk, chunks.Count, ct);
+        await JobRepo.StoreResumeCheckpointAsync(ds, job.JobId, hashHex, size, chunks.Count, rag.EmbeddingsModel, embeddingInputFormat, ct);
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
 
         if (resumeFromChunk > 0)
@@ -913,7 +940,12 @@ WHERE job_id=@job_id
                     return new EmbeddingChunkWorkItem(projectedChunk, embeddingText, sectionTitle, headingPath, chunkLinks);
                 })
                 .ToList();
-            var inputs = workItems.Select(item => item.EmbeddingText).ToArray();
+            var inputs = workItems
+                .Select(item => TeiClient.FormatEmbeddingInput(
+                    rag.EmbeddingsModel,
+                    item.EmbeddingText,
+                    TeiClient.EmbeddingInputKind.Passage))
+                .ToArray();
 
             var swTei = Stopwatch.StartNew();
             var vectors = await EmbedBatchWithAdaptiveRetryAsync(
@@ -952,7 +984,9 @@ WHERE job_id=@job_id
                         item.EmbeddingText,
                         item.SectionTitle,
                         item.HeadingPath,
-                        item.ChunkLinks)
+                        item.ChunkLinks,
+                        rag.EmbeddingsModel,
+                        embeddingInputFormat)
                 });
             }
 
@@ -1152,7 +1186,9 @@ WHERE job_id=@job_id
         string embeddingText,
         string? sectionTitle,
         string? headingPath,
-        ChunkLinkInfo? chunkLinks)
+        ChunkLinkInfo? chunkLinks,
+        string? embeddingModel = null,
+        string? embeddingInputFormat = null)
     {
         var chunkId = DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, ingestionVersion, projectedChunk.ChunkIndex);
         var usesContextualText = !string.Equals(projectedChunk.Text, embeddingText, StringComparison.Ordinal);
@@ -1176,6 +1212,8 @@ WHERE job_id=@job_id
             ["text"] = projectedChunk.Text,
             ["embed_text"] = embeddingText,
             ["embedding_basis"] = usesContextualText ? "contextual_text_v1" : "chunk_text",
+            ["embedding_model"] = embeddingModel,
+            ["embedding_input_format"] = embeddingInputFormat,
             ["section_ordinal"] = projectedChunk.SectionOrdinal,
             ["unit_ordinal"] = projectedChunk.UnitOrdinal,
             ["chunk_type"] = projectedChunk.ChunkType,

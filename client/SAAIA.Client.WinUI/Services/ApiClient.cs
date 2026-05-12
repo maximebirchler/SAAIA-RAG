@@ -15,6 +15,22 @@ using SAAIA.Contracts;
 
 namespace SAAIA.Client.WinUI.Services;
 
+internal sealed class ApiClientBackendBusyException : HttpRequestException
+{
+    public ApiClientBackendBusyException(int retryAfterSeconds, string? responseBody)
+        : base(
+            "Backend RAG search is busy. Retry shortly.",
+            inner: null,
+            statusCode: HttpStatusCode.TooManyRequests)
+    {
+        RetryAfterSeconds = Math.Clamp(retryAfterSeconds, 1, 300);
+        ResponseBody = responseBody;
+    }
+
+    public int RetryAfterSeconds { get; }
+    public string? ResponseBody { get; }
+}
+
 /// <summary>
 /// Client HTTP vers le backend SAAIA.
 /// </summary>
@@ -180,6 +196,53 @@ public sealed partial class ApiClient
         // unreachable
         throw new Exception(T("api.error.retry_loop_unexpected_end"));
     }
+
+    private static async Task EnsureSuccessOrThrowBackendBusyAsync(HttpResponseMessage resp, CancellationToken ct)
+    {
+        if (resp.IsSuccessStatusCode)
+            return;
+
+        if (resp.StatusCode == HttpStatusCode.TooManyRequests)
+        {
+            string? body = null;
+            try { body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false); }
+            catch { }
+
+            if (IsRagSearchBusyBody(body))
+            {
+                var retryAfter = GetRetryAfterDelay(resp);
+                var retryAfterSeconds = (int)Math.Ceiling(Math.Max(1, retryAfter.TotalSeconds));
+                throw new ApiClientBackendBusyException(retryAfterSeconds, body);
+            }
+        }
+
+        resp.EnsureSuccessStatusCode();
+    }
+
+    private static bool IsRagSearchBusyBody(string? body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return false;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+                return false;
+
+            return HasRagSearchBusyProperty(doc.RootElement, "error")
+                   || HasRagSearchBusyProperty(doc.RootElement, "code");
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool HasRagSearchBusyProperty(JsonElement root, string propertyName)
+        => root.TryGetProperty(propertyName, out var value)
+           && value.ValueKind == JsonValueKind.String
+           && string.Equals(value.GetString(), "rag_search_busy", StringComparison.OrdinalIgnoreCase);
 
     private static TimeSpan GetRetryAfterDelay(HttpResponseMessage resp)
     {

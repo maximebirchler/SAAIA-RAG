@@ -19,6 +19,15 @@ public sealed partial class ToolAgentOrchestrator
     internal static string InferIntentFromToolCallsForTests(params RouterPlan.ToolCall[] toolCalls)
         => InferIntentFromToolCalls(toolCalls) ?? string.Empty;
 
+    internal static string DetectMessageLanguageForTests(string? message)
+        => DetectMessageLanguage(message);
+
+    internal static string ResolveTurnLanguageForTests(string userMessage, string? routerLanguage, string interactionLanguage)
+    {
+        var sut = new ToolAgentOrchestrator(api: null!, llm: null!, mem: new ToolMemory());
+        return sut.ResolveTurnLanguage(userMessage, routerLanguage, interactionLanguage);
+    }
+
     internal static RouterPlan.ToolCall[] SanitizeToolCallsForTests(params RouterPlan.ToolCall[] toolCalls)
         => SanitizeToolCalls(toolCalls).ToArray();
 
@@ -283,6 +292,12 @@ public sealed partial class ToolAgentOrchestrator
     internal static string BuildRagEvidenceFallbackAnswerForTests(ToolResults toolResults, string query, string language)
         => BuildRagEvidenceFallbackAnswer(toolResults, query, language);
 
+    internal static string TryBuildSourcePolicyGuardAnswerForTests(ToolResults toolResults, string query, string language)
+        => TryBuildSourcePolicyGuardAnswer(toolResults, query, language);
+
+    internal static string BuildSourcePolicyRetrievalQueryForTests(string query)
+        => BuildSourcePolicyRetrievalQuery(query);
+
     internal static string[] DeriveSourceBackedOptionSourceLabelsForTests(ToolResults toolResults, string query)
         => DeriveSourcesFromOptionHits(toolResults, query).Select(source => source.Label).ToArray();
 
@@ -375,5 +390,8 @@ public sealed partial class ToolAgentOrchestrator
         var matched = TryExtractDocumentContentSearchTopic(query, out var topic);
         return (matched, topic);
     }
+
+    internal static string BuildDocumentContentSearchAnswerForTests(ToolResults toolResults, string topic, string language)
+        => BuildDocumentContentSearchAnswer(toolResults, topic, language);
 }
 #endif

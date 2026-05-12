@@ -576,8 +576,10 @@ RETURNING job_id;
         string sourceHash,
         long fileSize,
         int chunkTotal,
+        string embeddingModel,
+        string embeddingInputFormat,
         CancellationToken ct)
-        => await IngestionJobSnapshotStore.StoreResumeCheckpointAsync(ds, jobId, sourceHash, fileSize, chunkTotal, ct);
+        => await IngestionJobSnapshotStore.StoreResumeCheckpointAsync(ds, jobId, sourceHash, fileSize, chunkTotal, embeddingModel, embeddingInputFormat, ct);
 
     public static async Task<ResumeCheckpointState?> GetResumeCheckpointAsync(NpgsqlDataSource ds, Guid jobId, CancellationToken ct)
         => await IngestionJobSnapshotStore.GetResumeCheckpointAsync(ds, jobId, ct);

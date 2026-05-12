@@ -46,6 +46,90 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.DoesNotContain("recettes", focused, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void TitleAnchorNormalizer_folds_latin_ligatures_for_title_lookup()
+    {
+        var normalized = TitleAnchorNormalizer.NormalizeTitle("Bœuf à l'aïoli épicé et crème brûlée");
+        var tokens = TitleAnchorNormalizer.BuildTitleTokens("Bœuf à l'aïoli épicé et crème brûlée");
+
+        Assert.Equal("boeuf a l aioli epice et creme brulee", normalized);
+        Assert.Contains("boeuf", tokens);
+        Assert.Contains("aioli", tokens);
+        Assert.Contains("creme", tokens);
+        Assert.DoesNotContain("bœuf", tokens);
+    }
+
+    [Fact]
+    public void Content_card_ids_fold_latin_ligatures_like_title_anchors()
+    {
+        var profileId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+
+        var ligatureId = DocumentFoundationRepo.BuildStableDocumentProfileContentCardId(profileId, "Bœuf à l'aïoli");
+        var asciiId = DocumentFoundationRepo.BuildStableDocumentProfileContentCardId(profileId, "Boeuf a l'aioli");
+
+        Assert.Equal(asciiId, ligatureId);
+    }
+
+    [Fact]
+    public void TeiClient_formats_e5_query_and_passage_inputs()
+    {
+        Assert.Equal(
+            "query: sonde de rotissage",
+            TeiClient.FormatEmbeddingInput("intfloat/multilingual-e5-base", "sonde de rotissage", TeiClient.EmbeddingInputKind.Query));
+        Assert.Equal(
+            "passage: texte source",
+            TeiClient.FormatEmbeddingInput("intfloat/multilingual-e5-base", "texte source", TeiClient.EmbeddingInputKind.Passage));
+        Assert.Equal(
+            "passage: already formatted",
+            TeiClient.FormatEmbeddingInput("intfloat/multilingual-e5-base", "query: already formatted", TeiClient.EmbeddingInputKind.Passage));
+        Assert.Equal(
+            "query: already formatted",
+            TeiClient.FormatEmbeddingInput("intfloat/multilingual-e5-base", "passage: already formatted", TeiClient.EmbeddingInputKind.Query));
+        Assert.Equal(
+            "texte source",
+            TeiClient.FormatEmbeddingInput("sentence-transformers/all-MiniLM-L6-v2", "texte source", TeiClient.EmbeddingInputKind.Passage));
+    }
+
+    [Fact]
+    public void Dense_matches_require_matching_e5_embedding_format()
+    {
+        var e5Match = BuildDenseMatch("intfloat/multilingual-e5-base", "e5_passage_v1");
+        var rawMatch = BuildDenseMatch("sentence-transformers/all-MiniLM-L6-v2", "raw_passage_v1");
+        var legacyMatch = BuildDenseMatch(null, null);
+
+        Assert.True(RagEndpoints.IsDenseMatchEmbeddingCompatible(e5Match, "intfloat/multilingual-e5-base"));
+        Assert.False(RagEndpoints.IsDenseMatchEmbeddingCompatible(rawMatch, "intfloat/multilingual-e5-base"));
+        Assert.False(RagEndpoints.IsDenseMatchEmbeddingCompatible(legacyMatch, "intfloat/multilingual-e5-base"));
+        Assert.True(RagEndpoints.IsDenseMatchEmbeddingCompatible(rawMatch, "sentence-transformers/all-MiniLM-L6-v2"));
+        Assert.False(RagEndpoints.IsDenseMatchEmbeddingCompatible(legacyMatch, "sentence-transformers/all-MiniLM-L6-v2"));
+    }
+
+    private static RagMatch BuildDenseMatch(string? embeddingModel, string? embeddingInputFormat)
+        => new(
+            Score: 0.80,
+            DocId: "doc-a",
+            DocPath: "Docs/A.pdf",
+            DocName: "A.pdf",
+            PageStart: 1,
+            PageEnd: 1,
+            ChunkId: "chunk-a",
+            ChunkIndex: 0,
+            Text: "content",
+            IngestionVersion: 1,
+            HashDoc: "hash-a",
+            EmbedText: "content",
+            EmbeddingBasis: "contextual_text_v1",
+            SectionOrdinal: 0,
+            UnitOrdinal: 0,
+            SectionTitle: "Section",
+            HeadingPath: "Section",
+            ChunkType: "unit_exact_v1",
+            PrevChunkId: null,
+            NextChunkId: null,
+            SameSectionChunkId: null,
+            EmbeddingModel: embeddingModel,
+            EmbeddingInputFormat: embeddingInputFormat);
+
     [Theory]
     [InlineData("Donne-moi la recette du coq au vin dans le livre international.", "coq au vin")]
     [InlineData("Donne-moi la methode pour les fruits en beignets.", "fruits en beignets")]
@@ -54,9 +138,15 @@ public sealed class RetrievalRuntimeSwitchTests
     [InlineData("C'est quoi la Tentation de Jansson et comment la faire ?", "tentation de jansson")]
     [InlineData("Il me faut la tartiflette, ingredients + etapes en version claire.", "tartiflette")]
     [InlineData("Donne-moi le one pot pasta brocoli dinde bacon.", "one pot pasta brocoli dinde bacon")]
-    [InlineData("Je cherche le gateau chocolat courgette.", "gateau chocolat courgett")]
+    [InlineData("Je cherche le gateau chocolat courgette.", "gateau chocolat courgette")]
     [InlineData("Je cherche la tartiflet ou un truc fromage pomme de terre.", "tartiflet")]
     [InlineData("Tu as la recette du boeuf bourguingnon ?", "boeuf bourguingnon")]
+    [InlineData("Je cherche le boeuf bourguingnon, tu peux retrouver la bonne recette malgre la faute ?", "boeuf bourguingnon")]
+    [InlineData("I am looking for boeuf bourguingnon; can you find the right recipe despite the typo?", "boeuf bourguingnon")]
+    [InlineData("Busco boeuf bourguingnon; puedes encontrar la receta correcta pese al error?", "boeuf bourguingnon")]
+    [InlineData("Procuro boeuf bourguingnon; consegues encontrar a receita correta apesar do erro?", "boeuf bourguingnon")]
+    [InlineData("Ich suche boeuf bourguingnon; findest du trotz Tippfehler das richtige Rezept?", "boeuf bourguingnon")]
+    [InlineData("Cerco boeuf bourguingnon; riesci a trovare la ricetta giusta nonostante l'errore?", "boeuf bourguingnon")]
     [InlineData("Est-ce que la sauce aux 4 fromages vient de Chefbot ou Moulinex ?", "sauce aux 4 fromages")]
     [InlineData("Combien de temps et quels ingredients pour le gratin dauphinois ?", "gratin dauphinois")]
     [InlineData("Calcule les quantites pour 10 bols de veloute.", "veloute")]
@@ -91,6 +181,27 @@ public sealed class RetrievalRuntimeSwitchTests
             phrases.Take(2),
             first => Assert.Equal("churros sauce chocolat", first),
             second => Assert.Equal("churros sauce chocolat au companion", second));
+    }
+
+    [Theory]
+    [InlineData("Una procedure usa ToolA o ToolB, pero no tengo herramienta. Explica como adaptarla sin inventar.", "ToolA", "ToolB")]
+    [InlineData("A procedure uses ToolA or ToolB, but I do not have the tool. Explain how to adapt it without inventing.", "ToolA", "ToolB")]
+    [InlineData("Uma procedure usa ToolA ou ToolB, mas nao tenho ferramenta. Explica como adaptar sem inventar.", "ToolA", "ToolB")]
+    [InlineData("Eine procedure nutzt ToolA oder ToolB, aber ich habe kein Werkzeug. Erklare die Anpassung ohne zu erfinden.", "ToolA", "ToolB")]
+    [InlineData("Una procedure usa ToolA o ToolB, ma non ho lo strumento. Spiega come adattarla senza inventare.", "ToolA", "ToolB")]
+    public void ResolvePrimaryRetrievalQuery_ignores_meta_instruction_focus_phrases(
+        string query,
+        string firstTool,
+        string secondTool)
+    {
+        var retrievalQuery = RagEndpoints.ResolvePrimaryRetrievalQuery(query, category: "generic");
+
+        Assert.Contains(firstTool, retrievalQuery, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(secondTool, retrievalQuery, StringComparison.OrdinalIgnoreCase);
+        Assert.NotEqual("sin inventar", retrievalQuery, StringComparer.OrdinalIgnoreCase);
+        Assert.NotEqual("without inventing", retrievalQuery, StringComparer.OrdinalIgnoreCase);
+        Assert.NotEqual("sem inventar", retrievalQuery, StringComparer.OrdinalIgnoreCase);
+        Assert.NotEqual("senza inventare", retrievalQuery, StringComparer.OrdinalIgnoreCase);
     }
 
     [Theory]
@@ -180,6 +291,36 @@ public sealed class RetrievalRuntimeSwitchTests
             "Compare trois procedures pour apprentis : materiel, risques et consignes."));
         Assert.False(RagEndpoints.ShouldAllowSparseAssistForScopedProfileFallback(
             "Fais une vue d'ensemble des documents disponibles."));
+    }
+
+    [Theory]
+    [InlineData("Quels documents sont disponibles dans cette categorie ?", true)]
+    [InlineData("Which documents are available in this category?", true)]
+    [InlineData("Which documents mention nitrogen blanketing?", false)]
+    [InlineData("Que documentos hablan de nitrogen blanketing?", false)]
+    [InlineData("Quais documentos falam de nitrogen blanketing?", false)]
+    [InlineData("Welche Dokumente sprechen ueber nitrogen blanketing?", false)]
+    [InlineData("Ich suche Hinweise zu nitrogen blanketing. Welche Dokumente sprechen darueber?", false)]
+    [InlineData("Quali documenti parlano di nitrogen blanketing?", false)]
+    public void ShouldSkipChunkRetrieversForDocumentOverview_keeps_chunks_for_topical_source_lookup(
+        string query,
+        bool expected)
+    {
+        Assert.Equal(expected, RagEndpoints.ShouldSkipChunkRetrieversForDocumentOverview(
+            query,
+            hasDocScope: false,
+            mode: "balanced"));
+    }
+
+    [Fact]
+    public void ResolvePrimaryRetrievalQuery_keeps_full_text_for_topical_document_overview()
+    {
+        const string query = "I am looking for advice about a roasting probe and doneness levels. Which documents mention this?";
+
+        var retrievalQuery = RagEndpoints.ResolvePrimaryRetrievalQuery(query, category: "generic");
+
+        Assert.Contains("Which documents mention this", retrievalQuery, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("roasting probe", retrievalQuery, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -591,11 +732,15 @@ public sealed class RetrievalRuntimeSwitchTests
             new IngestionWorker.ChunkLinkInfo(
                 Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
                 Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
-                Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc")));
+                Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc")),
+            "intfloat/multilingual-e5-base",
+            "e5_passage_v1");
 
         Assert.Equal("Chunk snippet", payload["text"]);
         Assert.Equal("Document: CEN.pdf\nExcerpt:\nChunk snippet", payload["embed_text"]);
         Assert.Equal("contextual_text_v1", payload["embedding_basis"]);
+        Assert.Equal("intfloat/multilingual-e5-base", payload["embedding_model"]);
+        Assert.Equal("e5_passage_v1", payload["embedding_input_format"]);
         Assert.Equal(2, payload["section_ordinal"]);
         Assert.Equal(9, payload["unit_ordinal"]);
         Assert.Equal(120, payload["offset_start"]);
@@ -641,6 +786,8 @@ public sealed class RetrievalRuntimeSwitchTests
                 "prev_chunk_id": "prev-1",
                 "next_chunk_id": "next-1",
                 "same_section_chunk_id": "same-1",
+                "embedding_model": "intfloat/multilingual-e5-base",
+                "embedding_input_format": "e5_passage_v1",
                 "category": "canonical-safety",
                 "ingestion_version": 4,
                 "hash_doc": "deadbeef"
@@ -663,6 +810,8 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.Equal("prev-1", match.PrevChunkId);
         Assert.Equal("next-1", match.NextChunkId);
         Assert.Equal("same-1", match.SameSectionChunkId);
+        Assert.Equal("intfloat/multilingual-e5-base", match.EmbeddingModel);
+        Assert.Equal("e5_passage_v1", match.EmbeddingInputFormat);
         Assert.Equal("canonical-safety", match.Category);
     }
 

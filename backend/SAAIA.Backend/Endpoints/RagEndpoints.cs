@@ -81,8 +81,14 @@ ORDER BY display_order, name;
         NpgsqlDataSource ds,
         IOptions<RagOptions> ragOpt,
         IHttpClientFactory httpFactory,
+        RagSearchBulkhead searchBulkhead,
         RagSearchRequestDto req)
     {
+        using var admission = await searchBulkhead.AcquireAsync(ctx.RequestAborted);
+        if (admission is null)
+            return BuildRagSearchBusyResult(ctx, ragOpt.Value, searchBulkhead);
+
+        AddRagSearchAdmissionHeaders(ctx, admission, searchBulkhead.GetSnapshot());
         using var interactiveRetrieval = RuntimeCapabilityBRagIdleCoordinator.BeginInteractiveRetrieval(
             ctx.RequestServices.GetService<IOptions<RuntimeGovernanceOptions>>()?.Value);
         var responseDto = await BuildSearchResponseDtoAsync(ctx, ds, ragOpt.Value, httpFactory, req);
@@ -103,12 +109,52 @@ ORDER BY display_order, name;
         NpgsqlDataSource ds,
         IOptions<RagOptions> ragOpt,
         IHttpClientFactory httpFactory,
+        RagSearchBulkhead searchBulkhead,
         RagSearchRequestDto req)
     {
+        using var admission = await searchBulkhead.AcquireAsync(ctx.RequestAborted);
+        if (admission is null)
+            return BuildRagSearchBusyResult(ctx, ragOpt.Value, searchBulkhead);
+
+        AddRagSearchAdmissionHeaders(ctx, admission, searchBulkhead.GetSnapshot());
         using var interactiveRetrieval = RuntimeCapabilityBRagIdleCoordinator.BeginInteractiveRetrieval(
             ctx.RequestServices.GetService<IOptions<RuntimeGovernanceOptions>>()?.Value);
         var responseDto = await BuildSearchResponseDtoAsync(ctx, ds, ragOpt.Value, httpFactory, req);
         return Results.Ok(responseDto);
+    }
+
+    private static IResult BuildRagSearchBusyResult(HttpContext ctx, RagOptions rag, RagSearchBulkhead searchBulkhead)
+    {
+        var retryAfterSeconds = Math.Clamp(rag.SearchRetryAfterSeconds, 1, 300);
+        var snapshot = searchBulkhead.GetSnapshot();
+        ctx.Response.Headers.RetryAfter = retryAfterSeconds.ToString(CultureInfo.InvariantCulture);
+        ctx.Response.Headers["X-SAAIA-RAG-Active"] = snapshot.Active.ToString(CultureInfo.InvariantCulture);
+        ctx.Response.Headers["X-SAAIA-RAG-Queued"] = snapshot.Queued.ToString(CultureInfo.InvariantCulture);
+        ctx.Response.Headers["X-SAAIA-RAG-Max-Concurrency"] = snapshot.MaxConcurrency.ToString(CultureInfo.InvariantCulture);
+
+        return Results.Json(new
+        {
+            error = "rag_search_busy",
+            requestId = ctx.GetRequestId(),
+            retryAfterSeconds,
+            active = snapshot.Active,
+            queued = snapshot.Queued,
+            maxConcurrency = snapshot.MaxConcurrency,
+            queueLimit = snapshot.QueueLimit,
+            detail = "The RAG search service is busy. Retry shortly."
+        }, statusCode: StatusCodes.Status429TooManyRequests);
+    }
+
+    private static void AddRagSearchAdmissionHeaders(
+        HttpContext ctx,
+        RagSearchBulkhead.RagSearchBulkheadLease admission,
+        RagSearchBulkheadSnapshot snapshot)
+    {
+        ctx.Response.Headers["X-SAAIA-RAG-Queue-Wait-Ms"] = admission.WaitMs.ToString(CultureInfo.InvariantCulture);
+        ctx.Response.Headers["X-SAAIA-RAG-Waited-Queued"] = admission.WaitedQueued ? "true" : "false";
+        ctx.Response.Headers["X-SAAIA-RAG-Active"] = snapshot.Active.ToString(CultureInfo.InvariantCulture);
+        ctx.Response.Headers["X-SAAIA-RAG-Queued"] = snapshot.Queued.ToString(CultureInfo.InvariantCulture);
+        ctx.Response.Headers["X-SAAIA-RAG-Max-Concurrency"] = snapshot.MaxConcurrency.ToString(CultureInfo.InvariantCulture);
     }
 
     private static async Task<RagSearchResponseDto> BuildSearchResponseDtoAsync(
@@ -2012,7 +2058,8 @@ ORDER BY d.doc_path;
     internal static bool ShouldSkipChunkRetrieversForDocumentOverview(string query, bool hasDocScope, string mode)
         => !hasDocScope
            && !string.Equals(mode, "focused", StringComparison.Ordinal)
-           && ContainsDocumentOverviewIntent(query);
+           && ContainsDocumentOverviewIntent(query)
+           && !ShouldRequireDocumentOverviewProfileMatch(query);
 
     internal static bool ShouldSkipSparseRetrieverForBroadDiversity(string query, string mode)
         => !string.Equals(mode, "focused", StringComparison.Ordinal)
@@ -2613,6 +2660,8 @@ ORDER BY d.doc_path;
             " riguard ",
             " su ",
             " sprechen uber ",
+            " sprechen daruber ",
+            " sprechen darueber ",
             " sprechen ueber ",
             " erwahnt ",
             " erwahnen ",
@@ -3620,27 +3669,77 @@ anchor_routes AS (
       ON a.tenant_id = d.tenant_id
      AND a.revision_id = d.revision_id
     CROSS JOIN LATERAL (
+        SELECT replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
+            a.normalized_title,
+            'œ', 'oe'), 'Œ', 'oe'), 'æ', 'ae'), 'Æ', 'ae'), 'ß', 'ss'), 'ø', 'o'), 'Ø', 'o'), 'ł', 'l'), 'Ł', 'l'), 'đ', 'd'), 'Đ', 'd') AS normalized_title
+    ) title_search
+    CROSS JOIN LATERAL (
         SELECT COUNT(*)::int AS overlap_count
         FROM unnest(@query_tokens::text[]) AS token
         WHERE token = ANY(a.title_tokens)
     ) token_match
     CROSS JOIN LATERAL (
         SELECT MAX(CASE
-            WHEN a.normalized_title = qp.phrase THEN 0.34
-            WHEN a.normalized_title LIKE '%' || qp.phrase || '%' THEN 0.24
-            WHEN qp.phrase LIKE '%' || a.normalized_title || '%' THEN 0.20
-            WHEN similarity(a.normalized_title, qp.phrase) >= @fuzzy_title_similarity_min THEN 0.26
+            WHEN title_search.normalized_title = qp.phrase THEN 0.34
+            WHEN title_search.normalized_title LIKE '%' || qp.phrase || '%' THEN 0.24
+            WHEN qp.phrase LIKE '%' || title_search.normalized_title || '%' THEN 0.20
+            WHEN similarity(title_search.normalized_title, qp.phrase) >= @fuzzy_title_similarity_min THEN 0.26
             ELSE 0.0
         END) AS phrase_score
         FROM query_phrases qp
-        WHERE a.normalized_title = qp.phrase
-           OR a.normalized_title LIKE '%' || qp.phrase || '%'
-           OR qp.phrase LIKE '%' || a.normalized_title || '%'
-           OR similarity(a.normalized_title, qp.phrase) >= @fuzzy_title_similarity_min
+        WHERE title_search.normalized_title = qp.phrase
+           OR title_search.normalized_title LIKE '%' || qp.phrase || '%'
+           OR qp.phrase LIKE '%' || title_search.normalized_title || '%'
+           OR similarity(title_search.normalized_title, qp.phrase) >= @fuzzy_title_similarity_min
     ) phrase_match
     JOIN LATERAL (
         SELECT rc.retrieval_chunk_id
         FROM retrieval_chunks rc
+        CROSS JOIN LATERAL (
+            SELECT
+                replace(replace(replace(replace(replace(replace(
+                    lower(translate(
+                        COALESCE(rc.text_content, '') || ' ' || COALESCE(rc.metadata->>'sectionTitle', '') || ' ' || COALESCE(rc.metadata->>'headingPath', ''),
+                        'ÀÁÂÃÄÅàáâãäåÇçÈÉÊËèéêëÌÍÎÏìíîïÑñÒÓÔÕÖØòóôõöøÙÚÛÜùúûüÝýÿ',
+                        'AAAAAAaaaaaaCcEEEEeeeeIIIIiiiiNnOOOOOOooooooUUUUuuuuYyy'
+                    )),
+                    'œ', 'oe'), 'æ', 'ae'), 'ß', 'ss'), 'ø', 'o'), 'ł', 'l'), 'đ', 'd') AS searchable_text,
+                ' ' || regexp_replace(replace(replace(replace(replace(replace(replace(
+                    lower(translate(
+                        COALESCE(rc.text_content, '') || ' ' || COALESCE(rc.metadata->>'sectionTitle', '') || ' ' || COALESCE(rc.metadata->>'headingPath', ''),
+                        'ÀÁÂÃÄÅàáâãäåÇçÈÉÊËèéêëÌÍÎÏìíîïÑñÒÓÔÕÖØòóôõöøÙÚÛÜùúûüÝýÿ',
+                        'AAAAAAaaaaaaCcEEEEeeeeIIIIiiiiNnOOOOOOooooooUUUUuuuuYyy'
+                    )),
+                    'œ', 'oe'), 'æ', 'ae'), 'ß', 'ss'), 'ø', 'o'), 'ł', 'l'), 'đ', 'd'), '[^[:alnum:]]+', ' ', 'g') || ' ' AS searchable_words,
+                CASE
+                    WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+                        THEN (rc.metadata->>'contentDensityScore')::double precision
+                    ELSE 0.0
+                END AS content_density_score
+        ) candidate_stats
+        CROSS JOIN LATERAL (
+            SELECT
+                CASE
+                    WHEN length(title_search.normalized_title) >= 5
+                     AND candidate_stats.searchable_text LIKE ('%' || title_search.normalized_title || '%')
+                        THEN 1
+                    ELSE 0
+                END AS full_title_hit,
+                CASE
+                    WHEN length(title_search.normalized_title) >= 5
+                        THEN strpos(candidate_stats.searchable_text, title_search.normalized_title)
+                    ELSE 0
+                END AS full_title_position,
+                (
+                    SELECT COUNT(*)::int
+                    FROM unnest(a.title_tokens) AS title_token
+                    WHERE length(title_token) >= 3
+                      AND (
+                            (length(title_token) >= 5 AND candidate_stats.searchable_text LIKE ('%' || title_token || '%'))
+                         OR (length(title_token) < 5 AND candidate_stats.searchable_words LIKE ('% ' || title_token || ' %'))
+                      )
+                ) AS title_token_hits
+        ) candidate_title_match
         WHERE rc.tenant_id = d.tenant_id
           AND rc.revision_id = d.revision_id
           AND (
@@ -3653,23 +3752,39 @@ anchor_routes AS (
           AND COALESCE(rc.metadata->>'contentRole', 'content') <> 'navigation'
         ORDER BY
             CASE
+                WHEN a.retrieval_chunk_id IS NOT NULL AND rc.retrieval_chunk_id = a.retrieval_chunk_id THEN 0
+                WHEN a.source_kind = 'content_card'
+                 AND a.page_start IS NOT NULL
+                 AND rc.page_start <= COALESCE(a.page_end, a.page_start)
+                 AND rc.page_end >= a.page_start
+                 AND candidate_title_match.full_title_hit = 1
+                 AND candidate_title_match.full_title_position BETWEEN 1 AND 32
+                    THEN 1
+                WHEN a.source_kind = 'content_card'
+                 AND a.page_start IS NOT NULL
+                 AND rc.page_start <= COALESCE(a.page_end, a.page_start)
+                 AND rc.page_end >= a.page_start
+                 AND candidate_title_match.title_token_hits >= 1
+                    THEN 2
+                WHEN a.source_kind = 'content_card'
+                 AND candidate_title_match.full_title_hit = 1
+                    THEN 3
                 WHEN a.source_kind = 'content_card'
                  AND a.page_start IS NOT NULL
                  AND rc.page_start BETWEEN a.page_start AND COALESCE(a.page_end, a.page_start) + 1
-                 AND EXISTS (
-                     SELECT 1
-                     FROM unnest(a.title_tokens) AS title_token
-                     WHERE length(title_token) >= 5
-                       AND lower(rc.text_content) LIKE ('%' || title_token || '%')
-                 )
-                    THEN 0
+                 AND candidate_title_match.title_token_hits >= 2
+                    THEN 4
                 WHEN a.source_kind = 'content_card'
                  AND a.page_start IS NOT NULL
                  AND rc.page_start BETWEEN a.page_start + 1 AND COALESCE(a.page_end, a.page_start) + 1
                  AND COALESCE(rc.metadata->>'chunkType', '') IN ('section_window_v1', 'unit_exact_v1')
-                    THEN 1
-                WHEN a.retrieval_chunk_id IS NOT NULL AND rc.retrieval_chunk_id = a.retrieval_chunk_id THEN 2
-                ELSE 3
+                    THEN 5
+                ELSE 6
+            END,
+            CASE
+                WHEN COALESCE(rc.metadata->>'contentRole', 'content') = 'content' THEN 0
+                WHEN COALESCE(rc.metadata->>'contentRole', 'content') = 'mixed_navigation_content' THEN 1
+                ELSE 2
             END,
             CASE
                 WHEN a.retrieval_chunk_id IS NULL
@@ -3679,15 +3794,16 @@ anchor_routes AS (
                 ELSE 1
             END,
             CASE
+                WHEN candidate_title_match.full_title_position > 0 THEN candidate_title_match.full_title_position
+                ELSE 2147483647
+            END,
+            CASE
                 WHEN a.retrieval_chunk_id IS NULL AND a.page_start IS NOT NULL
                     THEN LEAST(ABS(rc.page_start - a.page_start), ABS(rc.page_end - a.page_start))
                 ELSE 0
             END,
-            CASE
-                WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
-                    THEN (rc.metadata->>'contentDensityScore')::double precision
-                ELSE 0.0
-            END DESC,
+            candidate_title_match.title_token_hits DESC,
+            candidate_stats.content_density_score DESC,
             rc.chunk_index ASC
         LIMIT 1
     ) target ON TRUE
@@ -3724,23 +3840,28 @@ navigation_routes AS (
      AND ne.resolution_method <> 'page_unresolved'
      AND (ne.target_chunk_id IS NOT NULL OR ne.target_anchor_id IS NOT NULL)
     CROSS JOIN LATERAL (
+        SELECT replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
+            ne.normalized_label,
+            'œ', 'oe'), 'Œ', 'oe'), 'æ', 'ae'), 'Æ', 'ae'), 'ß', 'ss'), 'ø', 'o'), 'Ø', 'o'), 'ł', 'l'), 'Ł', 'l'), 'đ', 'd'), 'Đ', 'd') AS normalized_label
+    ) label_search
+    CROSS JOIN LATERAL (
         SELECT COUNT(*)::int AS overlap_count
         FROM unnest(@query_tokens::text[]) AS token
         WHERE token = ANY(ne.label_tokens)
     ) token_match
     CROSS JOIN LATERAL (
         SELECT MAX(CASE
-            WHEN ne.normalized_label = qp.phrase THEN 0.34
-            WHEN ne.normalized_label LIKE '%' || qp.phrase || '%' THEN 0.24
-            WHEN qp.phrase LIKE '%' || ne.normalized_label || '%' THEN 0.20
-            WHEN similarity(ne.normalized_label, qp.phrase) >= @fuzzy_title_similarity_min THEN 0.26
+            WHEN label_search.normalized_label = qp.phrase THEN 0.34
+            WHEN label_search.normalized_label LIKE '%' || qp.phrase || '%' THEN 0.24
+            WHEN qp.phrase LIKE '%' || label_search.normalized_label || '%' THEN 0.20
+            WHEN similarity(label_search.normalized_label, qp.phrase) >= @fuzzy_title_similarity_min THEN 0.26
             ELSE 0.0
         END) AS phrase_score
         FROM query_phrases qp
-        WHERE ne.normalized_label = qp.phrase
-           OR ne.normalized_label LIKE '%' || qp.phrase || '%'
-           OR qp.phrase LIKE '%' || ne.normalized_label || '%'
-           OR similarity(ne.normalized_label, qp.phrase) >= @fuzzy_title_similarity_min
+        WHERE label_search.normalized_label = qp.phrase
+           OR label_search.normalized_label LIKE '%' || qp.phrase || '%'
+           OR qp.phrase LIKE '%' || label_search.normalized_label || '%'
+           OR similarity(label_search.normalized_label, qp.phrase) >= @fuzzy_title_similarity_min
     ) phrase_match
     JOIN LATERAL (
         SELECT rc.retrieval_chunk_id
@@ -4317,7 +4438,11 @@ LIMIT @candidate_limit;
         tei.BaseAddress = new Uri(rag.EmbeddingsBaseUrl);
 
         var swTei = Stopwatch.StartNew();
-        var emb = await TeiClient.EmbedAsync(tei, rag.EmbeddingsModel, [queryNorm], ct);
+        var queryEmbeddingInput = TeiClient.FormatEmbeddingInput(
+            rag.EmbeddingsModel,
+            queryNorm,
+            TeiClient.EmbeddingInputKind.Query);
+        var emb = await TeiClient.EmbedAsync(tei, rag.EmbeddingsModel, [queryEmbeddingInput], ct);
         swTei.Stop();
         teiMsRef(swTei.ElapsedMilliseconds);
 
@@ -4336,6 +4461,12 @@ LIMIT @candidate_limit;
             filterMust.Add(new { key = "doc_id", match = new { value = docId.Trim() } });
         if (!string.IsNullOrWhiteSpace(docPath))
             filterMust.Add(new { key = "doc_path", match = new { value = docPath.Trim().Replace('\\', '/') } });
+        var expectedEmbeddingInputFormat = TeiClient.RequiresE5InstructionPrefix(rag.EmbeddingsModel)
+            ? "e5_passage_v1"
+            : "raw_passage_v1";
+        filterMust.Add(new { key = "embedding_input_format", match = new { value = expectedEmbeddingInputFormat } });
+        if (!string.IsNullOrWhiteSpace(rag.EmbeddingsModel))
+            filterMust.Add(new { key = "embedding_model", match = new { value = rag.EmbeddingsModel.Trim() } });
 
         var qdrantLimit = string.IsNullOrWhiteSpace(categoryPath)
             ? candidates
@@ -4378,7 +4509,10 @@ LIMIT @candidate_limit;
             await using var stream = await resp.Content.ReadAsStreamAsync(ct);
             using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
             var rawMatches = QdrantClient.ParseSearchResults(doc);
-            var filtered = await FilterMatchesAgainstActiveDocumentVersionsAsync(ds, tenantId, rawMatches, ct, categoryPath);
+            var embeddingCompatibleMatches = rawMatches
+                .Where(match => IsDenseMatchEmbeddingCompatible(match, rag.EmbeddingsModel))
+                .ToList();
+            var filtered = await FilterMatchesAgainstActiveDocumentVersionsAsync(ds, tenantId, embeddingCompatibleMatches, ct, categoryPath);
             var enriched = await AttachDocumentProfileContentCardsAsync(ds, tenantId, filtered, queryNorm, ct);
             return RerankDenseMatches(enriched).Take(candidates).ToList();
         }
@@ -4391,6 +4525,20 @@ LIMIT @candidate_limit;
     }
 
     private sealed record RerankAttempt(List<RagMatch> Matches, bool Applied);
+
+    internal static bool IsDenseMatchEmbeddingCompatible(RagMatch match, string? embeddingsModel)
+    {
+        var expectedFormat = TeiClient.RequiresE5InstructionPrefix(embeddingsModel)
+            ? "e5_passage_v1"
+            : "raw_passage_v1";
+
+        if (!string.Equals(match.EmbeddingInputFormat, expectedFormat, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return string.IsNullOrWhiteSpace(embeddingsModel)
+            || (!string.IsNullOrWhiteSpace(match.EmbeddingModel)
+                && string.Equals(match.EmbeddingModel.Trim(), embeddingsModel.Trim(), StringComparison.OrdinalIgnoreCase));
+    }
 
     private static async Task<RerankAttempt> TryRerankWithTeiAsync(
         IHttpClientFactory httpFactory,
@@ -6515,7 +6663,45 @@ LIMIT @result_limit;
             return null;
 
         var phrase = string.Join(' ', tokens);
+        if (IsFocusedLookupMetaInstructionPhrase(phrase))
+            return null;
+
         return phrase.Length is >= 4 and <= 80 ? phrase : null;
+    }
+
+    private static bool IsFocusedLookupMetaInstructionPhrase(string phrase)
+    {
+        if (string.IsNullOrWhiteSpace(phrase))
+            return false;
+
+        var normalized = $" {NormalizeQuery(FoldDiacritics(phrase).ToLowerInvariant())} ";
+        return ContainsAny(
+            normalized,
+            " sans inventer ",
+            " sans invention ",
+            " without inventing ",
+            " without invention ",
+            " sin inventar ",
+            " sin inventos ",
+            " sem inventar ",
+            " sem inventar nada ",
+            " ohne zu erfinden ",
+            " ohne erfindung ",
+            " es anpasst ",
+            " sie anpasst ",
+            " anpasst ",
+            " senza inventare ",
+            " senza invenzione ",
+            " how to adapt it ",
+            " how to adapt them ",
+            " como adaptarla ",
+            " como adaptarlo ",
+            " como adaptar ",
+            " come adattarla ",
+            " come adattarlo ",
+            " wie anpassen ",
+            " wie man es anpasst ",
+            " anpassung ");
     }
 
     private static bool IsFocusedLookupLeadingEdgeToken(string token)
@@ -6584,6 +6770,11 @@ LIMIT @result_limit;
         RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
         TimeSpan.FromMilliseconds(100));
 
+    private static readonly Regex SearchIntentFocusedLookupTargetPattern = new(
+        @"\b(?:je\s+cherche|je\s+recherche|cherche|chercher|recherche|rechercher|trouve|trouver|i\s+(?:am\s+)?(?:looking\s+for|searching\s+for|seeking)|find|get|busco|busca|buscar|procuro|procura|procurar|cerco|cerca|cercare|ich\s+suche|suche|such|finde|finden)\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + FocusedLookupTargetStopLookahead,
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(100));
+
     private static readonly Regex[] ComparativeLookupTargetPatterns =
     [
         new(
@@ -6635,6 +6826,7 @@ LIMIT @result_limit;
         SourceAttributionFocusedLookupTargetPattern,
         ProvenanceFocusedLookupTargetPattern,
         AvailabilityFocusedLookupTargetPattern,
+        SearchIntentFocusedLookupTargetPattern,
         AlternativeFocusedLookupTargetPattern,
         FocusedLookupTargetPattern,
         DirectObjectFocusedLookupTargetPattern,
@@ -7701,6 +7893,7 @@ LIMIT @top_k;
             .ToArray();
         var normalizedTitleScoringQuery = NormalizeForLexicalSignal(titleScoringQuery);
         var titleScoringEnabled = !(quotedPhrases.Count == 0 && ContainsExactTitleActionMarker(rankingQuery));
+        var hasReferenceLikeQueryToken = HasReferenceLikeQueryToken(rankingQuery);
         var calibrationCandidates = candidates
             .Select(match =>
             {
@@ -7775,6 +7968,11 @@ LIMIT @top_k;
                     titleTokens,
                     normalizedTitleScoringQuery);
                 var matchesDocumentHint = DocumentMatchesHint(documentHintTokens, match);
+                var strongExactReferenceSignal = hasReferenceLikeQueryToken
+                    && referenceTerms.Length > 0
+                    && string.Equals(retriever, "exact_match", StringComparison.Ordinal)
+                    && (string.Equals(match.ChunkType, "exact_match_entry", StringComparison.Ordinal)
+                        || string.Equals(match.ChunkType, "document_metadata_ref", StringComparison.Ordinal));
 
                 if (referenceTerms.Length > 0)
                 {
@@ -8017,11 +8215,13 @@ LIMIT @top_k;
                     QuotedLookupScore = quotedLookupScore,
                     LexicalCoverage = lexicalCoverage,
                     SpecificAnchorCount = specificAnchorCount,
+                    StrongExactReferenceSignal = strongExactReferenceSignal,
                     DocumentHintMatched = matchesDocumentHint,
                     StructuredAnswerPriority = GetStructuredAnswerPriority(match)
                 };
             })
-            .OrderByDescending(static item => item.DirectChunkTitleSignal)
+            .OrderByDescending(static item => item.StrongExactReferenceSignal)
+            .ThenByDescending(static item => item.DirectChunkTitleSignal)
             .ThenByDescending(static item => item.MatchedCardTitleSignal)
             .ThenByDescending(item => item.ExactTitleScore > 0.0 ? 1 : 0)
             .ThenByDescending(static item => item.DocumentHintMatched)
@@ -10707,6 +10907,9 @@ LIMIT @top_k;
 
     internal static string ResolvePrimaryRetrievalQuery(string query, string? category)
     {
+        if (ContainsDocumentOverviewIntent(query))
+            return ExpandRetrievalQuery(query, category);
+
         var focusedLookupPhrase = ExtractFocusedLookupPhrases(query).FirstOrDefault();
         return ExpandRetrievalQuery(
             string.IsNullOrWhiteSpace(focusedLookupPhrase) ? query : focusedLookupPhrase,

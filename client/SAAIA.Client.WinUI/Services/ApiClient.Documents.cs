@@ -442,7 +442,7 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
         }, JsonOpts);
 
         using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Post, "/rag/search", body), ct);
-        resp.EnsureSuccessStatusCode();
+        await EnsureSuccessOrThrowBackendBusyAsync(resp, ct).ConfigureAwait(false);
 
         var json = await resp.Content.ReadAsStringAsync(ct);
         using var doc = JsonDocument.Parse(json);
@@ -599,7 +599,7 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
         }, JsonOpts);
 
         using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Post, "/rag/search", body), ct);
-        resp.EnsureSuccessStatusCode();
+        await EnsureSuccessOrThrowBackendBusyAsync(resp, ct).ConfigureAwait(false);
 
         var json = await resp.Content.ReadAsStringAsync(ct);
         return JsonSerializer.Deserialize<RagSearchResponse>(json, JsonOpts)

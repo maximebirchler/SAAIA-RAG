@@ -57,6 +57,15 @@ internal static class LocalizedStrings
                 ["de"] = "Keine Dokumente gefunden.",
                 ["it"] = "Nessun documento trovato."
             },
+            ["rag_search_busy"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "Le serveur documentaire est très sollicité pour le moment. Réessaie dans quelques secondes.",
+                ["en"] = "The document server is busy right now. Please retry in a few seconds.",
+                ["es"] = "El servidor documental está muy ocupado en este momento. Vuelve a intentarlo en unos segundos.",
+                ["pt"] = "O servidor documental está muito ocupado neste momento. Tenta novamente dentro de alguns segundos.",
+                ["de"] = "Der Dokumentserver ist gerade stark ausgelastet. Bitte versuche es in ein paar Sekunden erneut.",
+                ["it"] = "Il server documentale è molto occupato in questo momento. Riprova tra qualche secondo."
+            },
             ["document_list_error"] = new(StringComparer.OrdinalIgnoreCase)
             {
                 ["fr"] = "Impossible de lister les documents (erreur inattendue).",
@@ -1194,6 +1203,7 @@ internal static class LocalizedStrings
     public static string ModeChanged(string? mode, string? language)
         => Format("mode_changed", language, LocalizedModeName(mode, language));
     public static string NoDocumentsFound(string? language) => Get("no_documents_found", language);
+    public static string RagSearchBusy(string? language) => Get("rag_search_busy", language);
     public static string DocumentListError(string? language) => Get("document_list_error", language);
     public static string DocumentTreeError(string? language) => Get("document_tree_error", language);
     public static string ShortOverviewUnavailable(string? language) => Get("short_overview_unavailable", language);

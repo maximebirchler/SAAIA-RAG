@@ -53,6 +53,7 @@ public sealed class RagChatAgent
     {
         _effectiveSettings = s.Clone();
         _llmEnabled = s.UseLocalLlm;
+        _mem.LastLanguage = LocalizedStrings.Normalize(s.UiLanguage);
         var configuredMode = AppSettings.NormalizeActiveMode(s.ActiveMode);
         _activeMode = configuredMode;
         _mem.LastMode = _activeMode;
@@ -225,7 +226,35 @@ public sealed class RagChatAgent
             _ => 8
         };
 
-        var resp = await _api.RagSearchAsync(userText, category, topK: topK, mode: "balanced", ct).ConfigureAwait(false);
+        var detectedLanguage = string.IsNullOrWhiteSpace(forcedLanguage)
+            ? LocalizedStrings.DetectLanguage(userText, "fr")
+            : LocalizedStrings.NormalizeLanguage(forcedLanguage);
+
+        RagSearchResponse resp;
+        try
+        {
+            resp = await _api.RagSearchAsync(userText, category, topK: topK, mode: "balanced", ct).ConfigureAwait(false);
+        }
+        catch (ApiClientBackendBusyException ex) when (!ct.IsCancellationRequested)
+        {
+            var ansBusy = LocalizedStrings.RagSearchBusy(detectedLanguage);
+            var payloadBusy = new
+            {
+                intent = "rag_search",
+                busy = true,
+                retryAfterSeconds = ex.RetryAfterSeconds,
+                sources = Array.Empty<object>()
+            };
+
+            _mem.LastLanguage = detectedLanguage;
+            _mem.LastUserMessage = userText;
+            _mem.LastAssistantAnswer = ansBusy;
+            _mem.LastRouterIntent = "rag_search_busy";
+            _mem.LastSearchOnlyCategory = category;
+
+            return (ansBusy, payloadBusy);
+        }
+
         var items = (resp.Items ?? new List<RagItem>())
             .OrderByDescending(x => x.Score)
             .Take(8)
@@ -236,9 +265,6 @@ public sealed class RagChatAgent
 
         var payload = new { intent = "rag_search", sources };
 
-        var detectedLanguage = string.IsNullOrWhiteSpace(forcedLanguage)
-            ? LocalizedStrings.DetectLanguage(userText, "fr")
-            : LocalizedStrings.NormalizeLanguage(forcedLanguage);
         var ans = items.Count == 0
             ? LocalizedStrings.NoDocumentsFound(detectedLanguage)
             : BuildSearchOnlyFallbackAnswer(resp, answerItems, detectedLanguage);

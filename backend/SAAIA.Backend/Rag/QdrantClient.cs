@@ -182,6 +182,8 @@ static class QdrantClient
                 HashDoc: GetStr("hash_doc"),
                 EmbedText: GetStr("embed_text"),
                 EmbeddingBasis: GetStr("embedding_basis"),
+                EmbeddingModel: GetStr("embedding_model"),
+                EmbeddingInputFormat: GetStr("embedding_input_format"),
                 SectionOrdinal: GetInt("section_ordinal"),
                 UnitOrdinal: GetInt("unit_ordinal"),
                 SectionTitle: GetStr("section_title"),
@@ -263,5 +265,7 @@ public sealed record RagMatch(
     string? NavigationReason = null,
     string? OriginalChunkType = null,
     double? NavigationScore = null,
-    double? ContentDensityScore = null
+    double? ContentDensityScore = null,
+    string? EmbeddingModel = null,
+    string? EmbeddingInputFormat = null
 );

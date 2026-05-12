@@ -117,7 +117,23 @@ internal static partial class TitleAnchorNormalizer
         foreach (var ch in normalized)
         {
             if (CharUnicodeInfo.GetUnicodeCategory(ch) != UnicodeCategory.NonSpacingMark)
-                sb.Append(ch);
+            {
+                _ = ch switch
+                {
+                    'œ' => sb.Append("oe"),
+                    'Œ' => sb.Append("OE"),
+                    'æ' => sb.Append("ae"),
+                    'Æ' => sb.Append("AE"),
+                    'ß' => sb.Append("ss"),
+                    'ø' => sb.Append('o'),
+                    'Ø' => sb.Append('O'),
+                    'ł' => sb.Append('l'),
+                    'Ł' => sb.Append('L'),
+                    'đ' => sb.Append('d'),
+                    'Đ' => sb.Append('D'),
+                    _ => sb.Append(ch)
+                };
+            }
         }
 
         return sb.ToString().Normalize(NormalizationForm.FormC);

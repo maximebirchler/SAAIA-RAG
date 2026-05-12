@@ -130,6 +130,8 @@ WHERE job_id=@job_id;";
         string sourceHash,
         long fileSize,
         int chunkTotal,
+        string embeddingModel,
+        string embeddingInputFormat,
         CancellationToken ct)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
@@ -141,7 +143,9 @@ SET payload = jsonb_set(
         jsonb_build_object(
             'sourceHash', @sourceHash,
             'fileSize', @fileSize,
-            'chunkTotal', @chunkTotal
+            'chunkTotal', @chunkTotal,
+            'embeddingModel', @embeddingModel,
+            'embeddingInputFormat', @embeddingInputFormat
         ),
         true
     )
@@ -152,7 +156,9 @@ WHERE job_id=@job_id;";
             job_id = jobId,
             sourceHash,
             fileSize,
-            chunkTotal
+            chunkTotal,
+            embeddingModel,
+            embeddingInputFormat
         }, cancellationToken: ct));
     }
 
@@ -165,7 +171,9 @@ SELECT
     CASE WHEN jsonb_typeof(payload->'progress'->'total')='number' THEN (payload->'progress'->>'total')::int ELSE NULL END AS "ProgressTotal",
     payload #>> '{resume,sourceHash}' AS "SourceHash",
     CASE WHEN jsonb_typeof(payload->'resume'->'fileSize')='number' THEN (payload->'resume'->>'fileSize')::bigint ELSE NULL END AS "FileSize",
-    CASE WHEN jsonb_typeof(payload->'resume'->'chunkTotal')='number' THEN (payload->'resume'->>'chunkTotal')::int ELSE NULL END AS "ChunkTotal"
+    CASE WHEN jsonb_typeof(payload->'resume'->'chunkTotal')='number' THEN (payload->'resume'->>'chunkTotal')::int ELSE NULL END AS "ChunkTotal",
+    payload #>> '{resume,embeddingModel}' AS "EmbeddingModel",
+    payload #>> '{resume,embeddingInputFormat}' AS "EmbeddingInputFormat"
 FROM ingestion_jobs
 WHERE job_id=@job_id
 LIMIT 1;

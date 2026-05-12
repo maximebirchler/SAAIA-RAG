@@ -10,10 +10,16 @@ namespace SAAIA.Backend.Endpoints;
 public static class ReadyEndpoints
 {
     private static readonly SemaphoreSlim _gate = new(1, 1);
-    private const string ReadyCacheKey = "ready:v6";
+    private const string ReadyCacheKey = "ready:v8";
     private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(10);
 
-    private sealed record ReadinessSnapshot(bool Ok, object Payload);
+    private sealed record ReadinessPayload(
+        bool Ok,
+        DateTimeOffset Ts,
+        string RequestId,
+        Dictionary<string, object?> Details);
+
+    private sealed record ReadinessSnapshot(bool Ok, ReadinessPayload Payload);
 
     public static void Map(WebApplication app)
     {
@@ -30,6 +36,7 @@ public static class ReadyEndpoints
         IOptions<IngestionOptions> ingestionOpt,
         SignedConfigStatus? cfgStatus,
         IMemoryCache cache,
+        RagSearchBulkhead ragSearchBulkhead,
         CancellationToken ct)
     {
         var requestId = ctx.GetRequestId();
@@ -37,9 +44,10 @@ public static class ReadyEndpoints
         // 1) Cache rapide
         if (cache.TryGetValue(ReadyCacheKey, out ReadinessSnapshot? cached) && cached is not null)
         {
+            var freshPayload = WithFreshRagSearchReadiness(cached.Payload, ragOpt.Value, ragSearchBulkhead);
             return cached.Ok
-                ? Results.Ok(cached.Payload)
-                : Results.Json(cached.Payload, statusCode: 503);
+                ? Results.Ok(freshPayload)
+                : Results.Json(freshPayload, statusCode: 503);
         }
 
         // 2) Gate anti-parallélisme
@@ -48,9 +56,10 @@ public static class ReadyEndpoints
         {
             if (cache.TryGetValue(ReadyCacheKey, out cached) && cached is not null)
             {
+                var freshPayload = WithFreshRagSearchReadiness(cached.Payload, ragOpt.Value, ragSearchBulkhead);
                 return cached.Ok
-                    ? Results.Ok(cached.Payload)
-                    : Results.Json(cached.Payload, statusCode: 503);
+                    ? Results.Ok(freshPayload)
+                    : Results.Json(freshPayload, statusCode: 503);
             }
 
             var details = new Dictionary<string, object?>();
@@ -82,7 +91,11 @@ public static class ReadyEndpoints
                 using var teiCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 teiCts.CancelAfter(TimeSpan.FromSeconds(10));
 
-                var vectors = await TeiClient.EmbedAsync(tei, rag.EmbeddingsModel, new[] { "ping" }, teiCts.Token);
+                var probeInput = TeiClient.FormatEmbeddingInput(
+                    rag.EmbeddingsModel,
+                    "ping",
+                    TeiClient.EmbeddingInputKind.Query);
+                var vectors = await TeiClient.EmbedAsync(tei, rag.EmbeddingsModel, new[] { probeInput }, teiCts.Token);
                 teiDim = (vectors is { Length: > 0 }) ? vectors[0].Length : 0;
 
                 details["tei"] = teiDim > 0;
@@ -148,6 +161,7 @@ public static class ReadyEndpoints
             var llmReady = await ProbeLlmReadinessAsync(httpFactory, chatOpt.Value, details, ct);
             ApplyBackofficeLlmReadinessPolicy(chatOpt.Value, llmReady, details);
             ProbeIngestionReadiness(ingestionOpt.Value, details);
+            ProbeRagSearchReadiness(ragOpt.Value, ragSearchBulkhead, details);
             if (!ProbeOcrReadiness(ingestionOpt.Value, details))
                 ok = false;
 
@@ -159,7 +173,7 @@ public static class ReadyEndpoints
                 details["config_signature_verified"] = cfgStatus.Verified;
             }
 
-            var payload = new { ok, ts = DateTimeOffset.UtcNow, requestId, details };
+            var payload = new ReadinessPayload(ok, DateTimeOffset.UtcNow, requestId, details);
             var snap = new ReadinessSnapshot(ok, payload);
 
             cache.Set(ReadyCacheKey, snap, CacheTtl);
@@ -172,6 +186,16 @@ public static class ReadyEndpoints
         {
             _gate.Release();
         }
+    }
+
+    private static ReadinessPayload WithFreshRagSearchReadiness(
+        ReadinessPayload payload,
+        RagOptions rag,
+        RagSearchBulkhead ragSearchBulkhead)
+    {
+        var details = new Dictionary<string, object?>(payload.Details, StringComparer.OrdinalIgnoreCase);
+        ProbeRagSearchReadiness(rag, ragSearchBulkhead, details);
+        return payload with { Details = details };
     }
 
     internal static bool ApplyBackofficeLlmReadinessPolicy(
@@ -409,6 +433,21 @@ public static class ReadyEndpoints
                 : "budgeted";
         details["ingestion_tei_timeout_seconds"] = Math.Max(1, ingestion.TeiTimeoutSeconds);
         details["ingestion_qdrant_timeout_seconds"] = Math.Max(1, ingestion.QdrantTimeoutSeconds);
+    }
+
+    private static void ProbeRagSearchReadiness(
+        RagOptions rag,
+        RagSearchBulkhead ragSearchBulkhead,
+        Dictionary<string, object?> details)
+    {
+        var snapshot = ragSearchBulkhead.GetSnapshot();
+        details["rag_search_max_concurrency"] = snapshot.MaxConcurrency;
+        details["rag_search_queue_limit"] = snapshot.QueueLimit;
+        details["rag_search_queue_wait_timeout_seconds"] = snapshot.QueueWaitTimeoutSeconds;
+        details["rag_search_retry_after_seconds"] = Math.Clamp(rag.SearchRetryAfterSeconds, 1, 300);
+        details["rag_search_active"] = snapshot.Active;
+        details["rag_search_queued"] = snapshot.Queued;
+        details["rag_search_available_slots"] = snapshot.AvailableSlots;
     }
 
     private static string ResolveOcrLanguageMode(string? languages)

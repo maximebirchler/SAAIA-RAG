@@ -125,4 +125,23 @@ public sealed class LanguageSwitchRegressionTests
         Assert.Equal("en", LocalizedStrings.DetectLanguage("Who are you?", "fr"));
     }
 
+    [Theory]
+    [InlineData("Tu peux me dire combien de documents sont presents ?", "fr")]
+    [InlineData("Can you explain what this document says?", "en")]
+    [InlineData("Puedes mostrarme que fuentes hablan de eso?", "es")]
+    [InlineData("Podes explicar que documentos falam disso?", "pt")]
+    [InlineData("Wie mache ich die Wartung?", "de")]
+    [InlineData("Puoi spiegare quali documenti parlano di questo?", "it")]
+    public void Tool_agent_language_detector_uses_generic_multilingual_signals(string question, string expectedLanguage)
+    {
+        Assert.Equal(expectedLanguage, ToolAgentOrchestrator.DetectMessageLanguageForTests(question));
+    }
+
+    [Fact]
+    public void Tool_agent_turn_language_uses_router_language_when_local_detection_is_uncertain()
+    {
+        Assert.Equal("en", ToolAgentOrchestrator.ResolveTurnLanguageForTests("VX-12", routerLanguage: "en", interactionLanguage: "fr"));
+        Assert.Equal("de", ToolAgentOrchestrator.ResolveTurnLanguageForTests("Wie mache ich die Wartung?", routerLanguage: "fr", interactionLanguage: "fr"));
+    }
+
 }

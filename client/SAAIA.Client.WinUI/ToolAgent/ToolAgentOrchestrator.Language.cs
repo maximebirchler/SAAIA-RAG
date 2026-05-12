@@ -23,12 +23,12 @@ public sealed partial class ToolAgentOrchestrator
 
     private static readonly Dictionary<string, string[]> LanguageSignals = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["fr"] = new[] { "bonjour", "salut", "coucou", "donne", "liste", "serveur", "arborescence", "résumé", "resume", "français", "francais", "merci", "stp", "comment", "documents", "document", "quels", "quelles", "présents", "present", "présent", "combien", "qui", "tu", "quoi", "categorie", "catégorie", "statistiques", "sans", "vient", "viens", "lister" },
-        ["en"] = new[] { "hello", "hi", "hey", "give", "list", "server", "tree", "summary", "please", "what", "how", "english", "document", "file", "documents", "category", "categories", "which", "many", "present", "thank", "thanks", "who", "are", "you" },
-        ["es"] = new[] { "hola", "dame", "lista", "servidor", "árbol", "arbol", "resumen", "español", "espanol", "archivo", "qué", "significa", "cuántos", "cuantos", "documentos", "hay", "estadísticas", "estadisticas", "categoria", "categoría", "quien", "eres" },
-        ["pt"] = new[] { "olá", "ola", "lista", "servidor", "árvore", "arvore", "resumo", "português", "portugues", "arquivo", "quantos", "documentos", "estatísticas", "estatisticas", "categoria", "quem", "és", "voce" },
-        ["de"] = new[] { "hallo", "bitte", "baum", "server", "zusammenfassung", "deutsch", "dokument", "dokumente", "datei", "was", "bedeutet", "liste", "wieviele", "wie viele", "vorhanden", "wer", "bist", "du" },
-        ["it"] = new[] { "ciao", "elenco", "server", "albero", "riassunto", "italiano", "documento", "documenti", "file", "significa", "quali", "quanti", "presenti", "sono", "sul", "chi", "sei", "categoria", "statistiche" }
+        ["fr"] = new[] { "bonjour", "salut", "coucou", "merci", "stp", "svp", "je", "tu", "vous", "nous", "peux", "pouvez", "donne", "explique", "montre", "trouve", "cherche", "comment", "combien", "pourquoi", "quoi", "qui", "quel", "quels", "quelle", "quelles", "ou", "avec", "sans", "pour", "dans", "sur", "entre", "source", "sources", "document", "documents", "page", "pages", "reponds", "francais" },
+        ["en"] = new[] { "hello", "hi", "hey", "please", "thanks", "thank", "i", "you", "we", "can", "could", "should", "must", "give", "show", "find", "explain", "search", "what", "how", "many", "why", "which", "who", "where", "with", "without", "for", "from", "about", "source", "sources", "document", "documents", "page", "pages", "answer", "english" },
+        ["es"] = new[] { "hola", "gracias", "por favor", "yo", "tu", "usted", "puedes", "puede", "dame", "muestra", "busca", "busco", "consejo", "consejos", "coccion", "asado", "puntos", "hablan", "explica", "encuentra", "que", "como", "cuantos", "cuantas", "por que", "cual", "cuales", "quien", "donde", "con", "sin", "para", "desde", "sobre", "fuente", "fuentes", "documento", "documentos", "pagina", "paginas", "responde", "espanol" },
+        ["pt"] = new[] { "ola", "obrigado", "obrigada", "por favor", "eu", "tu", "voce", "podes", "pode", "da", "mostra", "procura", "procuro", "conselho", "conselhos", "cozedura", "assar", "pontos", "falam", "explica", "encontra", "que", "como", "quantos", "quantas", "porque", "qual", "quais", "quem", "onde", "com", "sem", "para", "desde", "sobre", "fonte", "fontes", "documento", "documentos", "pagina", "paginas", "responde", "portugues" },
+        ["de"] = new[] { "hallo", "bitte", "danke", "ich", "du", "sie", "wir", "kannst", "konnen", "gib", "zeige", "suche", "hinweise", "bratenthermometer", "garstufen", "darueber", "finde", "erklaere", "was", "wie", "wieviele", "warum", "welche", "wer", "wo", "mit", "ohne", "fur", "aus", "uber", "quelle", "quellen", "dokument", "dokumente", "seite", "seiten", "antworte", "deutsch", "mache", "wartung" },
+        ["it"] = new[] { "ciao", "grazie", "per favore", "io", "tu", "lei", "noi", "puoi", "puo", "dammi", "mostra", "cerca", "cerco", "consiglio", "consigli", "cottura", "arrosti", "livelli", "parlano", "trova", "spiega", "cosa", "come", "quanti", "quante", "perche", "quale", "quali", "chi", "dove", "con", "senza", "per", "da", "su", "fonte", "fonti", "documento", "documenti", "pagina", "pagine", "rispondi", "italiano" }
     };
 
     private static string StripDiacritics(string value)
@@ -103,7 +103,31 @@ public sealed partial class ToolAgentOrchestrator
         if (!string.IsNullOrWhiteSpace(detected))
             return detected;
 
+        return IsSupportedClientLanguageCode(_mem.LastLanguage) ? NormalizeLanguageCode(_mem.LastLanguage) : "fr";
+    }
+
+    private string ResolveTurnLanguage(string userMessage, string? routerLanguage, string interactionLanguage)
+    {
+        if (TryDetectExplicitLanguageSwitch(userMessage, out var requested))
+            return requested;
+
+        var detected = DetectMessageLanguage(userMessage);
+        if (!string.IsNullOrWhiteSpace(detected))
+            return NormalizeLanguageCode(detected);
+
+        if (IsSupportedClientLanguageCode(routerLanguage))
+            return NormalizeLanguageCode(routerLanguage);
+
+        if (IsSupportedClientLanguageCode(interactionLanguage))
+            return NormalizeLanguageCode(interactionLanguage);
+
         return "fr";
+    }
+
+    private static bool IsSupportedClientLanguageCode(string? language)
+    {
+        var normalized = StripDiacritics(language ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized is "fr" or "en" or "es" or "pt" or "de" or "it";
     }
 
     private static string DetectMessageLanguage(string? message)

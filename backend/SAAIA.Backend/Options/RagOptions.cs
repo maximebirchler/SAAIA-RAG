@@ -41,6 +41,28 @@ sealed class RagOptions
     public int DefaultTopK { get; set; } = 5;
     public int MaxTopK { get; set; } = 20;
 
+    /// <summary>
+    /// Maximum number of concurrent interactive RAG searches admitted by this backend instance.
+    /// Excess requests can wait in a short bounded queue instead of saturating TEI/Qdrant/Postgres.
+    /// </summary>
+    public int SearchMaxConcurrency { get; set; } = 4;
+
+    /// <summary>
+    /// Maximum number of interactive RAG searches allowed to wait for a slot.
+    /// Requests above this bound receive HTTP 429 with Retry-After.
+    /// </summary>
+    public int SearchQueueLimit { get; set; } = 16;
+
+    /// <summary>
+    /// Maximum time an interactive RAG search can wait for an execution slot.
+    /// </summary>
+    public int SearchQueueWaitTimeoutSeconds { get; set; } = 25;
+
+    /// <summary>
+    /// Retry-After value returned when the bounded RAG search queue is full or times out.
+    /// </summary>
+    public int SearchRetryAfterSeconds { get; set; } = 3;
+
     // ==========================
     // Backward compatible aliases
     // ==========================

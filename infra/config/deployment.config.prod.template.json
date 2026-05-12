@@ -26,7 +26,11 @@
     "RerankModel": "",
     "RerankMaxCandidates": 12,
     "DefaultTopK": 5,
-    "MaxTopK": 20
+    "MaxTopK": 20,
+    "SearchMaxConcurrency": 4,
+    "SearchQueueLimit": 16,
+    "SearchQueueWaitTimeoutSeconds": 25,
+    "SearchRetryAfterSeconds": 3
   },
   "Ingestion": {
     "DocumentsRoot": "/app/documents",

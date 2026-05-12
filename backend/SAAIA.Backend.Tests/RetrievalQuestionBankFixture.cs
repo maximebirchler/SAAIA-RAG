@@ -28,6 +28,14 @@ internal static class RetrievalQuestionBankFixture
             ?? throw new InvalidOperationException("Failed to load cuisine retrieval validation v1 pack.");
     }
 
+    public static RetrievalUiMultilingualValidationCorpus LoadUiMultilingualValidationV1()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "retrieval_ui_multilingual_validation.v1.json");
+        var json = File.ReadAllText(path);
+        return JsonSerializer.Deserialize<RetrievalUiMultilingualValidationCorpus>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web))
+            ?? throw new InvalidOperationException("Failed to load UI multilingual retrieval validation v1 pack.");
+    }
+
     internal sealed record RetrievalQuestionBankCorpus(
         string Version,
         IReadOnlyList<QuestionCase> QuestionCases);
@@ -42,6 +50,12 @@ internal static class RetrievalQuestionBankFixture
         string SourceFile,
         string Description,
         IReadOnlyList<CuisineValidationCase> ValidationCases);
+
+    internal sealed record RetrievalUiMultilingualValidationCorpus(
+        string Version,
+        string GeneratedAt,
+        IReadOnlyList<string> Languages,
+        IReadOnlyList<UiMultilingualValidationCase> ValidationCases);
 
     internal sealed record QuestionCase(
         string Name,
@@ -71,6 +85,18 @@ internal static class RetrievalQuestionBankFixture
 
     internal sealed record CuisineValidationCase(
         string Id,
+        string Axis,
+        string Difficulty,
+        string CorpusTarget,
+        string Theme,
+        string Question,
+        string ExpectedAnswerKind,
+        string ValidationPoints);
+
+    internal sealed record UiMultilingualValidationCase(
+        string Id,
+        string BaseId,
+        string Language,
         string Axis,
         string Difficulty,
         string CorpusTarget,

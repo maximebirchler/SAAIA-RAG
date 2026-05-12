@@ -9,6 +9,12 @@ using System.Net;
 /// </summary>
 static class TeiClient
 {
+    internal enum EmbeddingInputKind
+    {
+        Query,
+        Passage
+    }
+
     internal sealed record RerankItem(int Index, double Score);
     private const int DimCacheMaxEntries = 32;
 
@@ -30,7 +36,8 @@ static class TeiClient
         if (!string.IsNullOrWhiteSpace(model) && _dimCache.TryGetValue(model, out var cached) && cached > 0)
             return cached;
 
-        var vecs = await EmbedAsync(tei, model, new[] { "ping" }, ct);
+        var probeInput = FormatEmbeddingInput(model, "ping", EmbeddingInputKind.Query);
+        var vecs = await EmbedAsync(tei, model, new[] { probeInput }, ct);
         var dim = (vecs.Length > 0) ? vecs[0].Length : 0;
         if (dim <= 0)
             throw new Exception("TEI returned empty embedding dimension");
@@ -226,6 +233,27 @@ static class TeiClient
             .ThenBy(x => x.Index)
             .ToArray();
     }
+
+    internal static string FormatEmbeddingInput(string? model, string? input, EmbeddingInputKind kind)
+    {
+        var text = input ?? string.Empty;
+        if (!RequiresE5InstructionPrefix(model))
+            return text;
+
+        var expectedPrefix = kind == EmbeddingInputKind.Query ? "query:" : "passage:";
+        var otherPrefix = kind == EmbeddingInputKind.Query ? "passage:" : "query:";
+        if (text.StartsWith(expectedPrefix, StringComparison.OrdinalIgnoreCase))
+            return text;
+
+        if (text.StartsWith(otherPrefix, StringComparison.OrdinalIgnoreCase))
+            text = text[otherPrefix.Length..].TrimStart();
+
+        return $"{expectedPrefix} {text}";
+    }
+
+    internal static bool RequiresE5InstructionPrefix(string? model)
+        => !string.IsNullOrWhiteSpace(model)
+           && model.Contains("e5", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsTransient(HttpStatusCode code)
         => code is HttpStatusCode.TooManyRequests

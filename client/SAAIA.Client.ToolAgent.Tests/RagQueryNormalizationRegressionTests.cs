@@ -1,3 +1,4 @@
+using System.Text.Json;
 using SAAIA.Client.WinUI.Services.ToolAgent;
 using Xunit;
 
@@ -45,6 +46,11 @@ Continue the previous request using the clarification as the intended topic or s
     [Theory]
     [InlineData("Je veux que tu me trouves les documents qui parlent d'inertage", true, "inertage")]
     [InlineData("Cherche les documents qui mentionnent l'inertage", true, "inertage")]
+    [InlineData("I am looking for advice about a roasting probe and doneness levels. Which documents mention this?", true, "a roasting probe and doneness levels")]
+    [InlineData("Busco consejos sobre una sonda de asado y los puntos de coccion. Que documentos hablan de eso?", true, "una sonda de asado y los puntos de coccion")]
+    [InlineData("Procuro conselhos sobre uma sonda de assar e os pontos de cozedura. Que documentos falam disso?", true, "uma sonda de assar e os pontos de cozedura")]
+    [InlineData("Ich suche Hinweise zu Bratenthermometer und Garstufen. Welche Dokumente sprechen darueber?", true, "Bratenthermometer und Garstufen")]
+    [InlineData("Cerco consigli su una sonda per arrosti e sui livelli di cottura. Quali documenti ne parlano?", true, "una sonda per arrosti e sui livelli di cottura")]
     [InlineData("Cherche les documents qui correspondent a PumpManual.pdf", false, "")]
     public void Document_content_search_requests_are_not_treated_as_inventory_title_search(
         string input,
@@ -55,5 +61,56 @@ Continue the previous request using the clarification as the intended topic or s
 
         Assert.Equal(expectedMatched, matched);
         Assert.Equal(expectedTopic, topic);
+    }
+
+    [Theory]
+    [InlineData("en", "I found 2 document(s) with indexed content about roasting probe")]
+    [InlineData("es", "He encontrado 2 documento(s) con contenido indexado sobre roasting probe")]
+    [InlineData("pt", "Encontrei 2 documento(s) com conteudo indexado sobre roasting probe")]
+    [InlineData("de", "Ich habe 2 Dokument(e) mit indexiertem Inhalt zu roasting probe")]
+    [InlineData("it", "Ho trovato 2 documento/i con contenuti indicizzati su roasting probe")]
+    [InlineData("fr", "J'ai trouve 2 document(s) avec du contenu indexe sur roasting probe")]
+    public void Document_content_search_answer_is_deterministic_and_localized(string language, string expectedHeader)
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/GuideA.pdf",
+                    docName = "GuideA.pdf",
+                    pageStart = 12,
+                    excerpt = "Use the roasting probe and check doneness levels.",
+                    score = 0.99
+                },
+                new
+                {
+                    docPath = "Knowledge/GuideB.pdf",
+                    docName = "GuideB.pdf",
+                    pageStart = 5,
+                    excerpt = "Doneness levels are listed with probe guidance.",
+                    score = 0.91
+                },
+                new
+                {
+                    docPath = "Knowledge/GuideA.pdf",
+                    docName = "GuideA.pdf",
+                    pageStart = 13,
+                    excerpt = "More guidance for the same document.",
+                    score = 0.88
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.BuildDocumentContentSearchAnswerForTests(toolResults, "roasting probe", language);
+
+        Assert.Contains(expectedHeader, answer, StringComparison.Ordinal);
+        Assert.Contains("- GuideA.pdf", answer, StringComparison.Ordinal);
+        Assert.Contains("- GuideB.pdf", answer, StringComparison.Ordinal);
+        Assert.DoesNotContain("GuideA.pdf\n- GuideA.pdf", answer, StringComparison.Ordinal);
     }
 }

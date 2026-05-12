@@ -600,6 +600,8 @@ WHERE status='running'
         public string? SourceHash { get; set; }
         public long? FileSize { get; set; }
         public int? ChunkTotal { get; set; }
+        public string? EmbeddingModel { get; set; }
+        public string? EmbeddingInputFormat { get; set; }
     }
 
     private sealed record JobAndDocumentCancelState(

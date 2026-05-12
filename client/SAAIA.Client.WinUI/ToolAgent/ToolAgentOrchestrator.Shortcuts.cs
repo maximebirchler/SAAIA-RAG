@@ -228,30 +228,88 @@ public sealed partial class ToolAgentOrchestrator
             onPhase?.Invoke(DeterministicAgentText.PhaseRag(interactionLanguage));
             onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(interactionLanguage));
 
-            var args = CreateJsonArgs(new
+            var categoryScope = ResolveRagCategoryScope(effectiveUserMessage);
+            var primaryQuery = BuildDocumentContentSearchPrimaryQuery(documentContentTopic);
+            if (string.IsNullOrWhiteSpace(primaryQuery))
+                primaryQuery = CollapseWhitespace(documentContentTopic);
+            var singleArgs = CreateJsonArgs(new
             {
-                query = documentContentTopic,
-                topK = 12,
+                query = primaryQuery,
+                topK = 4,
+                category = categoryScope,
                 mode = "balanced"
             });
-            var ragResult = await ExecRagSearchAsync(args, ct).ConfigureAwait(false);
+            var ragResult = await TryExecRagSearchOrEmptyAsync(singleArgs, ct).ConfigureAwait(false);
+            var toolName = "rag.search";
+            if (!HasRagHits(ragResult))
+            {
+                var naturalQuery = BuildDocumentContentSearchNaturalQuery(effectiveUserMessage, primaryQuery);
+                if (!string.IsNullOrWhiteSpace(naturalQuery))
+                {
+                    ragResult = await TryExecRagSearchRawOrEmptyAsync(naturalQuery, 8, categoryScope, "balanced", ct).ConfigureAwait(false);
+                }
+            }
+
+            if (!HasRagHits(ragResult))
+            {
+                var queries = BuildDocumentContentSearchQueries(effectiveUserMessage, documentContentTopic)
+                    .Where(query => !string.Equals(NormalizeRagQueryForRetrieval(query), primaryQuery, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                if (queries.Count > 0)
+                {
+                    var args = CreateJsonArgs(new
+                    {
+                        queries,
+                        topK = 4,
+                        category = categoryScope,
+                        mode = "balanced"
+                    });
+                    ragResult = await TryExecRagMultiSearchOrEmptyAsync(args, ct).ConfigureAwait(false);
+                    toolName = "rag.multi_search";
+                }
+
+                if (!HasRagHits(ragResult))
+                {
+                    var expandedQueries = await TryBuildTranslatedDocumentContentSearchQueriesAsync(
+                        documentContentTopic,
+                        interactionLanguage,
+                        ct).ConfigureAwait(false);
+                    foreach (var query in expandedQueries)
+                        AddDistinctQuery(queries, query);
+
+                    if (queries.Count > 0)
+                    {
+                        var expandedArgs = CreateJsonArgs(new
+                        {
+                            queries = queries.Take(8).ToArray(),
+                            topK = 4,
+                            category = categoryScope,
+                            mode = "balanced"
+                        });
+                        ragResult = await TryExecRagMultiSearchOrEmptyAsync(expandedArgs, ct).ConfigureAwait(false);
+                        toolName = "rag.multi_search";
+                    }
+                }
+            }
+
             var toolResults = new ToolResults();
             toolResults.Items.Add(new ToolResults.Item
             {
-                ToolName = "rag.search",
+                ToolName = toolName,
                 Result = ragResult
             });
 
             var sources = DeriveSourcesFromRagHits(toolResults);
             var answer = BuildDocumentContentSearchAnswer(toolResults, documentContentTopic, interactionLanguage);
             _mem.LastSourcesUsed = sources;
-            _mem.LastToolNames = new List<string> { "rag.search" };
+            _mem.LastToolNames = new List<string> { toolName };
             _lastAnswerSource = "shortcut:rag.document_content_search";
             onProgress?.Invoke(string.Empty);
             await EmitDeterministicTextAsync(answer, onDelta, ct).ConfigureAwait(false);
 
             var sourcesPayload = sources.Count > 0 ? BuildSourcesPayload(sources) : null;
-            return (true, answer, sourcesPayload, "rag.search", new[] { "rag.search" });
+            return (true, answer, sourcesPayload, "rag.search", new[] { toolName });
         }
 
         if (TryExtractExactDocumentSearchQuery(effectiveUserMessage, out var exactDocumentSearchQuery))
@@ -1544,11 +1602,15 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
 
         var asksForDocuments = Regex.IsMatch(
             raw,
-            @"(?i)\b(?:trouve\w*|cherche\w*|liste\w*|donne\w*|montre\w*|affiche\w*|find|search|list|show|give)\b.{0,140}\b(?:documents?|sources?|fichiers?|files?)\b",
+            @"(?i)\b(?:trouve\w*|cherche\w*|liste\w*|donne\w*|montre\w*|affiche\w*|find|search|list|show|give|busc\w*|procuro|procur\w*|such\w*|zeig\w*|mostr\w*|cerc\w*)\b.{0,180}\b(?:documents?|sources?|fichiers?|files?|documentos?|fuentes?|fontes?|dokumente?|quellen?|documenti|fonti)\b",
             RegexOptions.CultureInvariant)
             || Regex.IsMatch(
                 raw,
-                @"(?i)\b(?:documents?|sources?|fichiers?|files?)\s+(?:qui\s+)?(?:parle\w*|mentionne\w*|traite\w*|contien\w*|about|regarding|concerning)\b",
+                @"(?i)\b(?:documents?|sources?|fichiers?|files?|documentos?|fuentes?|fontes?|dokumente?|quellen?|documenti|fonti)\s+(?:qui\s+|que\s+|die\s+|che\s+)?(?:parle\w*|mentionne\w*|traite\w*|contien\w*|about|regarding|concerning|habl\w*|mencion\w*|trat\w*|contien\w*|fal\w*|mencion\w*|trat\w*|contem|enth\w*|sprech\w*|erwaehn\w*|erw[a\u00e4]hn\w*|parl\w*|menzion\w*|riguard\w*)\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                raw,
+                @"(?i)\b(?:quels?|quelles?|which|what|qu[e\u00e9]|quais?|welche|quali)\s+(?:documents?|sources?|fichiers?|files?|documentos?|fuentes?|fontes?|dokumente?|quellen?|documenti|fonti)\b",
                 RegexOptions.CultureInvariant);
 
         if (!asksForDocuments)
@@ -1556,14 +1618,241 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
 
         var asksAboutContent = Regex.IsMatch(
             raw,
-            @"(?i)\b(?:parle\w*|mentionne\w*|traite\w*|contien\w*|about|regarding|concerning)\b",
+            @"(?i)\b(?:parle\w*|mentionne\w*|traite\w*|contien\w*|about|regarding|concerning|habl\w*|mencion\w*|trat\w*|contien\w*|fal\w*|contem|sprech\w*|erwaehn\w*|erw[a\u00e4]hn\w*|dar[u\u00fc]ber|parl\w*|menzion\w*|riguard\w*)\b",
             RegexOptions.CultureInvariant);
         if (!asksAboutContent)
             return false;
 
-        topic = NormalizeRagQueryForRetrieval(raw);
+        topic = TryExtractDocumentContentSearchTopicAnchor(raw);
+        if (string.IsNullOrWhiteSpace(topic))
+            topic = NormalizeRagQueryForRetrieval(raw);
+
         return !string.IsNullOrWhiteSpace(topic)
             && !string.Equals(topic, raw, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string TryExtractDocumentContentSearchTopicAnchor(string raw)
+    {
+        var prefix = Regex.Replace(
+            CollapseWhitespace(raw),
+            @"(?is)[\.\?!\u00bf\u00a1]*\s*(?:quels?|quelles?|which|what|qu[e\u00e9]|quais?|welche|quali)\s+(?:documents?|sources?|fichiers?|files?|documentos?|fuentes?|fontes?|dokumente?|quellen?|documenti|fonti)\b.*$",
+            string.Empty,
+            RegexOptions.CultureInvariant).Trim();
+
+        if (string.IsNullOrWhiteSpace(prefix))
+            prefix = raw;
+
+        var intentMatch = Regex.Match(
+            prefix,
+            @"(?i)\b(?:je\s+cherche|je\s+veux|j['\u2019]aimerais|i\s+(?:am\s+)?looking\s+for|i\s+need|busco|estoy\s+buscando|procuro|estou\s+a\s+procurar|ich\s+suche|cerco)\b\s*(?<topic>[^?.!\u00bf\u00a1]+)",
+            RegexOptions.CultureInvariant);
+        if (intentMatch.Success)
+        {
+            var cleaned = CleanupDocumentContentSearchTopic(intentMatch.Groups["topic"].Value);
+            if (!string.IsNullOrWhiteSpace(cleaned) && !ContainsDocumentSourceNoun(cleaned))
+                return cleaned;
+        }
+
+        var aboutMatch = Regex.Match(
+            prefix,
+            @"(?i)\b(?:about|regarding|concerning|sur|a\s+propos\s+de|sobre|zu|ueber|[u\u00fc]ber|su|riguardo\s+a)\s+(?<topic>[^?.!\u00bf\u00a1]+)",
+            RegexOptions.CultureInvariant);
+        if (aboutMatch.Success)
+        {
+            var cleaned = CleanupDocumentContentSearchTopic(aboutMatch.Groups["topic"].Value);
+            if (!string.IsNullOrWhiteSpace(cleaned) && !ContainsDocumentSourceNoun(cleaned))
+                return cleaned;
+        }
+
+        return string.Empty;
+    }
+
+    private static List<string> BuildDocumentContentSearchQueries(string raw, string topic)
+    {
+        var queries = new List<string>();
+        AddDistinctQuery(queries, BuildDocumentContentSearchPrimaryQuery(topic));
+
+        var signalTerms = ExtractQuerySignalTerms(NormalizeLexicalLookup(topic))
+            .Where(static term => term.Length >= 4)
+            .Where(static term => !IsDocumentContentSearchNoiseTerm(term))
+            .Take(6)
+            .ToArray();
+        if (signalTerms.Length > 0)
+            AddDistinctQuery(queries, string.Join(' ', signalTerms));
+
+        foreach (var pair in BuildDocumentContentSearchTermPairs(signalTerms).Take(10))
+            AddDistinctQuery(queries, pair);
+
+        return queries
+            .Where(static query => !string.IsNullOrWhiteSpace(query))
+            .Select(CollapseWhitespace)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(8)
+            .ToList();
+    }
+
+    private static string BuildDocumentContentSearchPrimaryQuery(string topic)
+        => CollapseWhitespace(NormalizeLexicalLookup(NormalizeRagQueryForRetrieval(topic)));
+
+    private static string BuildDocumentContentSearchNaturalQuery(string raw, string primaryQuery)
+    {
+        var query = CollapseWhitespace(NormalizeLexicalLookup(raw));
+        query = Regex.Replace(query, @"(?i)\b(?:about|regarding|concerning)\b", "on", RegexOptions.CultureInvariant);
+        if (query.Length is < 8 or > 240)
+            return string.Empty;
+
+        var normalizedPrimary = NormalizeRagQueryForRetrieval(primaryQuery);
+        if (!string.IsNullOrWhiteSpace(normalizedPrimary)
+            && string.Equals(query, normalizedPrimary, StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Empty;
+        }
+
+        return query;
+    }
+
+    private static IEnumerable<string> BuildDocumentContentSearchTermPairs(IReadOnlyList<string> signalTerms)
+    {
+        if (signalTerms.Count < 2)
+            yield break;
+
+        var max = Math.Min(signalTerms.Count, 6);
+        for (var i = 0; i < max; i++)
+        {
+            for (var j = i + 1; j < max; j++)
+            {
+                yield return $"{signalTerms[i]} {signalTerms[j]}";
+            }
+        }
+    }
+
+    private static bool IsDocumentContentSearchNoiseTerm(string term)
+    {
+        var normalized = NormalizeLexicalLookup(term);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return true;
+
+        return normalized is "document" or "documents" or "source" or "sources" or "fichier" or "fichiers"
+            or "file" or "files" or "documento" or "documentos" or "fuente" or "fuentes"
+            or "fonte" or "fontes" or "dokument" or "dokumente" or "quelle" or "quellen"
+            or "documenti" or "fonti" or "conseil" or "conseils" or "advice" or "tips"
+            or "consejo" or "consejos" or "conselho" or "conselhos" or "hinweise"
+            or "consiglio" or "consigli" or "cherche" or "looking" or "busco" or "procuro"
+            or "suche" or "cerco";
+    }
+
+    private async Task<IReadOnlyList<string>> TryBuildTranslatedDocumentContentSearchQueriesAsync(
+        string topic,
+        string language,
+        CancellationToken ct)
+    {
+        topic = CollapseWhitespace(topic);
+        if (string.IsNullOrWhiteSpace(topic) || topic.Length > 180)
+            return Array.Empty<string>();
+
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(TimeSpan.FromSeconds(18));
+            var system = """
+You generate retrieval query variants for a private document search system.
+Return only a JSON object with this shape: {"queries":["..."]}.
+Generate concise search queries that preserve the original meaning.
+Always include the original wording plus natural translations into French, English, Spanish, Portuguese, German and Italian.
+Do not skip a language because the source language is already English.
+Do not add explanations, categories, document names, or facts not present in the input.
+Keep each query under 90 characters.
+""";
+            var user = JsonSerializer.Serialize(new
+            {
+                sourceLanguage = NormalizeLanguageCode(language),
+                topic
+            });
+            var raw = await _llm.CompleteAsync(new[] { ("system", system), ("user", user) }, forceJson: true, timeout.Token).ConfigureAwait(false);
+            return ParseDocumentContentSearchQueryVariants(raw, topic);
+        }
+        catch
+        {
+            return Array.Empty<string>();
+        }
+    }
+
+    private static IReadOnlyList<string> ParseDocumentContentSearchQueryVariants(string? raw, string originalTopic)
+    {
+        var queries = new List<string>();
+        AddDistinctQuery(queries, originalTopic);
+        if (string.IsNullOrWhiteSpace(raw))
+            return queries;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(raw);
+            var root = doc.RootElement;
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("queries", out var nested))
+                root = nested;
+
+            if (root.ValueKind != JsonValueKind.Array)
+                return queries;
+
+            foreach (var item in root.EnumerateArray())
+            {
+                AddDocumentContentSearchQueryVariant(queries, item);
+            }
+        }
+        catch
+        {
+            return queries;
+        }
+
+        return queries.Take(12).ToArray();
+    }
+
+    private static void AddDocumentContentSearchQueryVariant(List<string> queries, JsonElement item)
+    {
+        switch (item.ValueKind)
+        {
+            case JsonValueKind.String:
+            {
+                var query = CollapseWhitespace(item.GetString() ?? string.Empty);
+                if (query.Length is >= 3 and <= 120)
+                    AddDistinctQuery(queries, query);
+                break;
+            }
+            case JsonValueKind.Object:
+            {
+                foreach (var property in item.EnumerateObject())
+                    AddDocumentContentSearchQueryVariant(queries, property.Value);
+                break;
+            }
+            case JsonValueKind.Array:
+            {
+                foreach (var nested in item.EnumerateArray())
+                    AddDocumentContentSearchQueryVariant(queries, nested);
+                break;
+            }
+        }
+    }
+
+    private static bool ContainsDocumentSourceNoun(string value)
+        => Regex.IsMatch(
+            value ?? string.Empty,
+            @"(?i)\b(?:documents?|sources?|fichiers?|files?|documentos?|fuentes?|fontes?|dokumente?|quellen?|documenti|fonti)\b",
+            RegexOptions.CultureInvariant);
+
+    private static string CleanupDocumentContentSearchTopic(string value)
+    {
+        var topic = CleanupStandaloneTopic(value);
+        topic = Regex.Replace(
+            topic,
+            @"(?i)^(?:des?\s+|les?\s+|the\s+|some\s+|unos?\s+|unas?\s+|os\s+|as\s+|uma?\s+|ein(?:e|en|em|er|es)?\s+|gli\s+|le\s+|i\s+)?(?:conseils?|advice|tips?|consejos?|conselhos?|hinweise|consigli|informazioni|infos?)\s*(?:avec|sur|about|regarding|concerning|sobre|zu|ueber|[u\u00fc]ber|su|riguardo\s+a)?\s*",
+            string.Empty,
+            RegexOptions.CultureInvariant).Trim();
+        topic = Regex.Replace(
+            topic,
+            @"(?i)\b(?:cela|ceci|this|that|eso|esto|isso|isto|dar[u\u00fc]ber|ne)\s*$",
+            string.Empty,
+            RegexOptions.CultureInvariant).Trim(' ', '.', '?', '!', ':', ';', ',', '"', '\'');
+        return topic;
     }
 
     private static string BuildDocumentContentSearchAnswer(ToolResults toolResults, string topic, string language)

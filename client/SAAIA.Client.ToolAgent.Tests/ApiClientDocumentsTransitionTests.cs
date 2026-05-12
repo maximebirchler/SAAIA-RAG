@@ -12,6 +12,180 @@ namespace SAAIA.Client.ToolAgent.Tests;
 public sealed class ApiClientDocumentsTransitionTests
 {
     [Fact]
+    public async Task RagSearchToolAsync_retries_one_busy_response_before_returning_success()
+    {
+        var calls = 0;
+        var handler = new StubHttpHandler(req =>
+        {
+            Assert.Equal("/rag/search", req.RequestUri!.AbsolutePath);
+            calls++;
+
+            if (calls == 1)
+            {
+                var busy = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+                busy.Headers.Add("Retry-After", "0");
+                busy.Content = new StringContent("""{"error":"rag_search_busy"}""", Encoding.UTF8, "application/json");
+                return busy;
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"items":[]}""", Encoding.UTF8, "application/json")
+            };
+        });
+
+        var sut = CreateApiClient(handler);
+        var result = await sut.RagSearchToolAsync("needle", 3, null, "balanced", CancellationToken.None);
+
+        Assert.Equal(2, calls);
+        Assert.True(result.TryGetProperty("items", out _));
+    }
+
+    [Fact]
+    public async Task RagSearchToolAsync_throws_backend_busy_after_retry_budget_is_exhausted()
+    {
+        var calls = 0;
+        var handler = new StubHttpHandler(_ =>
+        {
+            calls++;
+            var busy = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+            busy.Headers.Add("Retry-After", "0");
+            busy.Content = new StringContent("""{"error":"rag_search_busy"}""", Encoding.UTF8, "application/json");
+            return busy;
+        });
+
+        var sut = CreateApiClient(handler);
+        var ex = await Assert.ThrowsAsync<ApiClientBackendBusyException>(() =>
+            sut.RagSearchToolAsync("needle", 3, null, "balanced", CancellationToken.None));
+
+        Assert.Equal(2, calls);
+        Assert.Equal(1, ex.RetryAfterSeconds);
+        Assert.Contains("rag_search_busy", ex.ResponseBody);
+    }
+
+    [Fact]
+    public async Task RagSearchToolAsync_keeps_non_rag_busy_429_as_http_error()
+    {
+        var handler = new StubHttpHandler(_ =>
+        {
+            var rateLimited = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+            rateLimited.Headers.Add("Retry-After", "0");
+            rateLimited.Content = new StringContent("""{"error":"generic_rate_limit"}""", Encoding.UTF8, "application/json");
+            return rateLimited;
+        });
+
+        var sut = CreateApiClient(handler);
+        var ex = await Assert.ThrowsAsync<HttpRequestException>(() =>
+            sut.RagSearchToolAsync("needle", 3, null, "balanced", CancellationToken.None));
+
+        Assert.IsNotType<ApiClientBackendBusyException>(ex);
+        Assert.Equal(HttpStatusCode.TooManyRequests, ex.StatusCode);
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_search_busy_returns_structured_payload_instead_of_empty_hits()
+    {
+        var calls = 0;
+        var handler = new StubHttpHandler(_ =>
+        {
+            calls++;
+            var busy = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+            busy.Headers.Add("Retry-After", "0");
+            busy.Content = new StringContent("""{"error":"rag_search_busy"}""", Encoding.UTF8, "application/json");
+            return busy;
+        });
+
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem: new ToolMemory());
+        using var args = JsonDocument.Parse("""{"query":"needle","topK":3,"mode":"balanced"}""");
+
+        var result = await InvokePrivateToolAsync(sut, "ExecRagSearchAsync", args.RootElement);
+
+        Assert.Equal(2, calls);
+        Assert.Equal("rag_search_busy", result.GetProperty("error").GetString());
+        Assert.True(result.GetProperty("busy").GetBoolean());
+        Assert.Equal(1, result.GetProperty("retryAfterSeconds").GetInt32());
+        Assert.Empty(result.GetProperty("hits").EnumerateArray());
+        Assert.Equal("retry_later", result.GetProperty("guidance").GetProperty("behavior").GetString());
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_multi_search_all_busy_preserves_top_level_busy_payload()
+    {
+        var calls = 0;
+        var handler = new StubHttpHandler(_ =>
+        {
+            calls++;
+            var busy = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+            busy.Headers.Add("Retry-After", "0");
+            busy.Content = new StringContent("""{"error":"rag_search_busy"}""", Encoding.UTF8, "application/json");
+            return busy;
+        });
+
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem: new ToolMemory());
+        using var args = JsonDocument.Parse("""{"queries":["first","second"],"topK":3,"mode":"balanced"}""");
+
+        var result = await InvokePrivateToolAsync(sut, "ExecRagMultiSearchAsync", args.RootElement);
+
+        Assert.Equal(4, calls);
+        Assert.Equal("rag_search_busy", result.GetProperty("error").GetString());
+        Assert.True(result.GetProperty("busy").GetBoolean());
+        Assert.Equal(1, result.GetProperty("retryAfterSeconds").GetInt32());
+        Assert.Empty(result.GetProperty("hits").EnumerateArray());
+        var busyQueries = result.GetProperty("meta").GetProperty("busyQueries").EnumerateArray().Select(static item => item.GetString() ?? string.Empty).ToArray();
+        Assert.Equal(["first", "second"], busyQueries);
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_multi_search_partial_busy_keeps_hits_and_marks_busy_queries_only_in_meta()
+    {
+        var handler = new StubHttpHandler(req =>
+        {
+            var body = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            if (body.Contains("busy-query", StringComparison.Ordinal))
+            {
+                var busy = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+                busy.Headers.Add("Retry-After", "0");
+                busy.Content = new StringContent("""{"error":"rag_search_busy"}""", Encoding.UTF8, "application/json");
+                return busy;
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {
+                      "items": [
+                        {
+                          "score": 0.8,
+                          "docPath": "Docs/ok.pdf",
+                          "docName": "ok.pdf",
+                          "pageStart": 2,
+                          "pageEnd": 2,
+                          "chunkId": "ok-1",
+                          "text": "usable source"
+                        }
+                      ]
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem: new ToolMemory());
+        using var args = JsonDocument.Parse("""{"queries":["busy-query","ok-query"],"topK":3,"mode":"balanced"}""");
+
+        var result = await InvokePrivateToolAsync(sut, "ExecRagMultiSearchAsync", args.RootElement);
+
+        Assert.False(result.TryGetProperty("busy", out var busy) && busy.ValueKind == JsonValueKind.True);
+        Assert.False(result.TryGetProperty("error", out var error) && error.ValueKind == JsonValueKind.String);
+        var hit = Assert.Single(result.GetProperty("hits").EnumerateArray());
+        Assert.Equal("Docs/ok.pdf", hit.GetProperty("docPath").GetString());
+        var busyQueries = result.GetProperty("meta").GetProperty("busyQueries").EnumerateArray().Select(static item => item.GetString() ?? string.Empty).ToArray();
+        Assert.Equal(["busy-query"], busyQueries);
+    }
+
+    [Fact]
     public async Task DocumentsCatalogAsync_falls_back_to_catalog_alias_when_unified_route_is_missing()
     {
         var requestedPaths = new List<string>();

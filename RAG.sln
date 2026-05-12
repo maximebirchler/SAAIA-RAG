@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAAIA.Client.ToolAgent.Test
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAAIA.Backend.Tests", "backend\SAAIA.Backend.Tests\SAAIA.Backend.Tests.csproj", "{BB5B6736-C0B0-42DE-A750-A92652A51632}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{F2283F84-AA42-438A-A72B-2EB663078204}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
