@@ -1529,7 +1529,8 @@ ORDER BY d.doc_path;
                 topK,
                 minScore: 0.0,
                 maxPerDoc,
-                maxPerPage);
+                maxPerPage,
+                query: req.Query);
         }
         else if (shortCircuitAfterTitleAnchorRoute && earlyTitleAnchorRouteMatches is not null)
         {
@@ -1543,7 +1544,8 @@ ORDER BY d.doc_path;
                 topK,
                 minScore: 0.0,
                 maxPerDoc,
-                maxPerPage);
+                maxPerPage,
+                query: req.Query);
         }
         else
         {
@@ -1728,7 +1730,8 @@ ORDER BY d.doc_path;
                 maxPerPage,
                 prioritizeDocumentProfiles: ShouldPrioritizeDocumentProfilesForSelection(
                     preferDocumentDiversity,
-                    allowSparseAssistForScopedProfileFallback));
+                    allowSparseAssistForScopedProfileFallback),
+                query: req.Query);
             selectionSw.Stop();
             selectionMs += selectionSw.ElapsedMilliseconds;
 
@@ -7349,7 +7352,8 @@ GROUP BY d.doc_id;
         int maxPerDoc,
         int maxPerPage,
         int maxPerSection = 2,
-        bool prioritizeDocumentProfiles = false)
+        bool prioritizeDocumentProfiles = false,
+        string? query = null)
     {
         var perDoc = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var perPage = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -7371,7 +7375,7 @@ GROUP BY d.doc_id;
                 perSection[sectionKey] = perSection.TryGetValue(sectionKey, out var secCount) ? secCount + 1 : 1;
         }
 
-        var prioritizedMatches = OrderMatchesForSelection(matches, prioritizeDocumentProfiles);
+        var prioritizedMatches = OrderMatchesForSelection(matches, prioritizeDocumentProfiles, query);
 
         foreach (var match in prioritizedMatches)
         {
@@ -7445,9 +7449,18 @@ GROUP BY d.doc_id;
 
     internal static IReadOnlyList<RagMatch> OrderMatchesForSelection(
         IEnumerable<RagMatch> matches,
-        bool prioritizeDocumentProfiles)
+        bool prioritizeDocumentProfiles,
+        string? query = null)
     {
         var orderedMatches = matches as IReadOnlyList<RagMatch> ?? matches.ToList();
+        var quotedPhrases = string.IsNullOrWhiteSpace(query)
+            ? Array.Empty<string>()
+            : ExtractQuotedLookupPhrases(query);
+        if (quotedPhrases.Count > 0)
+        {
+            return OrderQuotedLookupMatchesForSelection(orderedMatches, quotedPhrases, prioritizeDocumentProfiles);
+        }
+
         return prioritizeDocumentProfiles
             ? orderedMatches
                 .OrderByDescending(static match => IsDocumentProfileMatch(match))
@@ -7468,6 +7481,72 @@ GROUP BY d.doc_id;
                     .ThenBy(static match => match.DocPath, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(static match => match.ChunkIndex))
                 .ToList();
+    }
+
+    private static IReadOnlyList<RagMatch> OrderQuotedLookupMatchesForSelection(
+        IReadOnlyList<RagMatch> matches,
+        IReadOnlyList<string> quotedPhrases,
+        bool prioritizeDocumentProfiles)
+    {
+        var ranked = matches
+            .Select(match =>
+            {
+                var localQuotedScore = ComputeQuotedLookupCandidateScore(
+                    quotedPhrases,
+                    GetQuotedLookupSelectionSignalText(match, includeSyntheticRouteTitle: false));
+                var contentEvidencePriority = ComputeContentEvidencePriority(match);
+                return new
+                {
+                    Match = match,
+                    IsProfile = IsDocumentProfileMatch(match),
+                    IsResolvedRoute = IsResolvedTitleOrNavigationRoute(match),
+                    LocalQuotedScore = localQuotedScore,
+                    LocalQuotedRankingScore = ComputeQuotedLookupSelectionRankingScore(
+                        match,
+                        localQuotedScore,
+                        contentEvidencePriority),
+                    ContentEvidencePriority = contentEvidencePriority
+                };
+            })
+            .ToList();
+
+        if (prioritizeDocumentProfiles)
+        {
+            return ranked
+                .OrderByDescending(static item => item.IsProfile)
+                .ThenByDescending(static item => item.LocalQuotedScore > 0.0)
+                .ThenByDescending(static item => item.LocalQuotedRankingScore)
+                .ThenByDescending(static item => item.LocalQuotedScore)
+                .ThenByDescending(static item => item.IsResolvedRoute)
+                .ThenByDescending(static item => item.ContentEvidencePriority)
+                .ThenByDescending(static item => item.Match.Score)
+                .ThenBy(static item => item.Match.DocPath, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(static item => item.Match.ChunkIndex)
+                .Select(static item => item.Match)
+                .ToList();
+        }
+
+        return ranked
+            .Where(static item => !item.IsProfile)
+            .OrderByDescending(static item => item.LocalQuotedScore > 0.0)
+            .ThenByDescending(static item => item.LocalQuotedRankingScore)
+            .ThenByDescending(static item => item.LocalQuotedScore)
+            .ThenByDescending(static item => item.IsResolvedRoute)
+            .ThenByDescending(static item => item.ContentEvidencePriority)
+            .ThenByDescending(static item => item.Match.Score)
+            .ThenBy(static item => item.Match.DocPath, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(static item => item.Match.ChunkIndex)
+            .Select(static item => item.Match)
+            .Concat(ranked
+                .Where(static item => item.IsProfile)
+                .OrderByDescending(static item => item.LocalQuotedScore > 0.0)
+                .ThenByDescending(static item => item.LocalQuotedRankingScore)
+                .ThenByDescending(static item => item.LocalQuotedScore)
+                .ThenByDescending(static item => item.Match.Score)
+                .ThenBy(static item => item.Match.DocPath, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(static item => item.Match.ChunkIndex)
+                .Select(static item => item.Match))
+            .ToList();
     }
 
     internal static bool ShouldPrioritizeDocumentProfilesForSelection(

@@ -4331,6 +4331,49 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void OrderMatchesForSelection_prefers_local_quoted_title_content_before_title_catalog()
+    {
+        var titleCatalog = TestMatch(
+            text: "Contents Alpha Beta Procedure 12 Alpha Gamma Procedure 18 Alpha Delta Procedure 24",
+            embedText: "Matched direct_title_token_route: Alpha Beta Procedure\nContents Alpha Beta Procedure 12 Alpha Gamma Procedure 18 Alpha Delta Procedure 24",
+            chunkId: "catalog",
+            embeddingBasis: "direct_title_token_route_v1",
+            chunkType: "unit_exact_v1",
+            score: 1.02) with
+        {
+            ContentRole = RetrievalContentClassifier.MixedNavigationContentRole,
+            NavigationScore = 0.76,
+            ContentDensityScore = 0.50
+        };
+        var content = TestMatch(
+            text: "Alpha Beta Procedure. Materials: valve gasket sealant. Procedure: isolate, replace and verify the assembly.",
+            embedText: "Alpha Beta Procedure. Materials: valve gasket sealant. Procedure: isolate, replace and verify the assembly.",
+            chunkId: "content",
+            embeddingBasis: "sparse_bm25_v1",
+            chunkType: "unit_exact_v1",
+            score: 0.82) with
+        {
+            ContentRole = RetrievalContentClassifier.ContentRole,
+            NavigationScore = 0.0,
+            ContentDensityScore = 0.72
+        };
+        var partial = TestMatch(
+            text: "Alpha and beta are separate entries in this glossary section.",
+            embedText: "Alpha and beta are separate entries in this glossary section.",
+            chunkId: "partial",
+            embeddingBasis: "sparse_bm25_v1",
+            chunkType: "unit_exact_v1",
+            score: 1.02);
+
+        var ordered = RagEndpoints.OrderMatchesForSelection(
+            [titleCatalog, partial, content],
+            prioritizeDocumentProfiles: false,
+            query: "Give me a clear sheet for \"Alpha Beta Procedure\".");
+
+        Assert.Equal("content", ordered[0].ChunkId);
+    }
+
+    [Fact]
     public void OrderMatchesForSelection_keeps_resolved_routes_first_when_document_diversity_is_active()
     {
         var sparseChunk = TestMatch(

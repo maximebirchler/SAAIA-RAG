@@ -2575,7 +2575,7 @@ public sealed class DocumentFoundationIntegrationTests
 
         var method = typeof(RagEndpoints).GetMethod("AddRankedMatches", BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
-        method!.Invoke(null, [selected, selectedKeys, new[] { profile, chunk }, 1, 0.0, 1, 1, 2, false]);
+        method!.Invoke(null, [selected, selectedKeys, new[] { profile, chunk }, 1, 0.0, 1, 1, 2, false, null]);
 
         var selectedMatch = Assert.Single(selected);
         Assert.Equal("Concrete chunk evidence", selectedMatch.Text);
