@@ -166,6 +166,12 @@ public sealed class RetrievalRuntimeSwitchTests
     [InlineData("Je veux la crème au citron, avec les paramètres robot.", "creme au citron")]
     [InlineData("C'est quoi la crepe a Jo ?", "crepe a jo")]
     [InlineData("Je veux une fiche pour Cr\u00e8me au citron avec source.", "creme au citron")]
+    [InlineData("Quelle est la recette de base de la bechamel ?", "bechamel")]
+    [InlineData("What is the basic recipe for bechamel?", "bechamel")]
+    [InlineData("Que es la receta basica de bechamel?", "bechamel")]
+    [InlineData("O que e a receita basica de bechamel?", "bechamel")]
+    [InlineData("Che cos e la ricetta base di bechamel?", "bechamel")]
+    [InlineData("Was ist das Grundrezept fuer Bechamel?", "bechamel")]
     [InlineData("Give me the procedure for access mode A from the manual.", "access mode a")]
     [InlineData("Dame una ficha para modo acceso A con fuente.", "modo acceso a")]
     [InlineData("Quero uma ficha para modo acesso A com fonte.", "modo acesso a")]
@@ -1455,6 +1461,21 @@ public sealed class RetrievalRuntimeSwitchTests
         var ingredientScore = RagEndpoints.ComputeQuotedLookupCandidateScore(phrases, ingredient);
 
         Assert.True(headingScore > ingredientScore);
+    }
+
+    [Fact]
+    public void ComputeQuotedLookupCandidateScore_requires_leading_signal_for_long_partial_title()
+    {
+        var phrases = RagEndpoints.ExtractQuotedLookupPhrases(
+            "Give me a clear sheet for \"Alpha Beta Gamma Delta\".");
+        var target = "Alpha Beta Gamma Delta procedure. Steps and controls follow.";
+        var partial = "Beta, gamma and delta are referenced together in a glossary row.";
+
+        var targetScore = RagEndpoints.ComputeQuotedLookupCandidateScore(phrases, target);
+        var partialScore = RagEndpoints.ComputeQuotedLookupCandidateScore(phrases, partial);
+
+        Assert.True(targetScore > 0);
+        Assert.Equal(0.0, partialScore);
     }
 
     [Fact]

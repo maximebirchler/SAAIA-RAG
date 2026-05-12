@@ -6661,6 +6661,7 @@ LIMIT @result_limit;
             tokens.RemoveAt(0);
         while (tokens.Count > 0 && IsFocusedLookupLeadingEdgeToken(tokens[0]))
             tokens.RemoveAt(0);
+        tokens = TrimFocusedLookupScaffoldPrefix(tokens);
         var alternativeIndex = tokens.FindIndex(static token => IsFocusedLookupAlternativeSeparatorToken(token));
         if (alternativeIndex > 0)
             tokens = tokens.Take(alternativeIndex).ToList();
@@ -6684,6 +6685,36 @@ LIMIT @result_limit;
 
         return phrase.Length is >= 4 and <= 80 ? phrase : null;
     }
+
+    private static List<string> TrimFocusedLookupScaffoldPrefix(List<string> tokens)
+    {
+        if (tokens.Count < 3 || !IsFocusedLookupScaffoldToken(tokens[0]))
+            return tokens;
+
+        var index = 0;
+        var sawConnector = false;
+        while (index < tokens.Count
+               && (IsFocusedLookupScaffoldToken(tokens[index]) || IsFocusedLookupScaffoldConnectorToken(tokens[index])))
+        {
+            sawConnector |= IsFocusedLookupScaffoldConnectorToken(tokens[index]);
+            index++;
+        }
+
+        if (index <= 0 || index >= tokens.Count || (!sawConnector && index < 2))
+            return tokens;
+
+        var tail = tokens.Skip(index).ToList();
+        return tail.Count(IsFocusedLookupSignalToken) == 0 ? tokens : tail;
+    }
+
+    private static bool IsFocusedLookupScaffoldToken(string token)
+        => token is "base" or "basic" or "basique" or "basica" or "basico"
+            or "basis" or "basisrezept" or "grundrezept"
+            or "recette" or "recipe" or "receta" or "receita" or "ricetta" or "rezept";
+
+    private static bool IsFocusedLookupScaffoldConnectorToken(string token)
+        => TitleConnectorTokens.Contains(token)
+            || token is "of" or "for" or "fur" or "fuer" or "para" or "per" or "pour";
 
     private static bool IsFocusedLookupMetaInstructionPhrase(string phrase)
     {
@@ -6764,7 +6795,7 @@ LIMIT @result_limit;
            && !PrimaryAnchorStopwords.Contains(tokens[^1]);
 
     private const string FocusedLookupArticlePattern =
-        @"(?:(?:de\s+la|de\s+l|les|des|the|some|une|un|du|le|la|l|an|a)\b|l['\u2019])\s+";
+        @"(?:(?:de\s+la|de\s+l|les|des|the|some|une|un|du|le|la|l|an|a|das|der|die|den|dem|ein|eine|einen|einem|einer)\b|l['\u2019])\s+";
 
     private const string FocusedLookupTargetPatternText =
         @"(?<target>[\p{L}\p{Nd}][\p{L}\p{Nd}\s\-]{2,80}?)";
@@ -6851,7 +6882,7 @@ LIMIT @result_limit;
         TimeSpan.FromMilliseconds(100));
 
     private static readonly Regex DefinitionFocusedLookupTargetPattern = new(
-        @"\b(?:c\s+est\s+quoi|qu\s+est\s+ce\s+que|qu\s+est\s+ce\s+qu(?:il|elle|ils|elles)?|what\s+is|what\s+are|que\s+es|o\s+que\s+e|che\s+cos\s+e|was\s+ist)\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + FocusedLookupTargetStopLookahead,
+        @"\b(?:c\s+est\s+quoi|qu\s+est\s+ce\s+que|qu\s+est\s+ce\s+qu(?:il|elle|ils|elles)?|quel\s+est|quelle\s+est|quels\s+sont|quelles\s+sont|what\s+is|what\s+are|que\s+es|o\s+que\s+e|che\s+cos\s+e|was\s+ist)\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + FocusedLookupTargetStopLookahead,
         RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
         TimeSpan.FromMilliseconds(100));
 
@@ -10922,8 +10953,14 @@ LIMIT @top_k;
                 || (compactPhrase.Length >= 8 && compactCandidate.Contains(compactPhrase, StringComparison.Ordinal));
 
             var matched = tokens.Count(token => ContainsQuotedLookupToken(normalizedCandidate, compactCandidate, token));
-            if (!hasExactPhrase && matched < Math.Min(tokens.Length, 2))
+            if (!hasExactPhrase && matched < ComputeRequiredQuotedLookupMatches(tokens.Length))
                 continue;
+            if (!hasExactPhrase
+                && tokens.Length >= 4
+                && !ContainsQuotedLookupToken(normalizedCandidate, compactCandidate, tokens[0]))
+            {
+                continue;
+            }
 
             var coverage = tokens.Length == 0
                 ? hasExactPhrase ? 1.0 : 0.0
@@ -10941,6 +10978,16 @@ LIMIT @top_k;
 
         return bestScore;
     }
+
+    private static int ComputeRequiredQuotedLookupMatches(int tokenCount)
+        => tokenCount switch
+        {
+            <= 0 => 0,
+            1 => 1,
+            2 => 2,
+            3 => 2,
+            _ => Math.Max(3, (int)Math.Ceiling(tokenCount * 0.75))
+        };
 
     private static double ComputeQuotedPhrasePlacementBonus(string quotedPhrase, string candidateText)
     {
