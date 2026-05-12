@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using SAAIA.Backend.Endpoints;
 using Xunit;
 
 namespace SAAIA.Backend.Tests;
@@ -111,6 +112,28 @@ public sealed class RagSearchBulkheadTests
         Assert.Equal(1, snapshot.Active);
         Assert.Equal(0, snapshot.Queued);
         first!.Dispose();
+    }
+
+    [Fact]
+    public void ComputeRagSearchRetryAfterSeconds_scales_with_queue_depth_and_timeout()
+    {
+        var rag = new RagOptions
+        {
+            SearchRetryAfterSeconds = 3
+        };
+        var saturated = new RagSearchBulkheadSnapshot(
+            Active: 4,
+            Queued: 16,
+            MaxConcurrency: 4,
+            QueueLimit: 16,
+            AvailableSlots: 0,
+            QueueWaitTimeoutSeconds: 25);
+        var shortTimeout = saturated with { QueueWaitTimeoutSeconds = 8 };
+        var empty = saturated with { Queued = 0, QueueWaitTimeoutSeconds = 25 };
+
+        Assert.Equal(15, RagEndpoints.ComputeRagSearchRetryAfterSeconds(rag, saturated));
+        Assert.Equal(8, RagEndpoints.ComputeRagSearchRetryAfterSeconds(rag, shortTimeout));
+        Assert.Equal(3, RagEndpoints.ComputeRagSearchRetryAfterSeconds(rag, empty));
     }
 
     private static async Task WaitForQueuedCountAsync(RagSearchBulkhead bulkhead, int expectedQueued)

@@ -125,12 +125,10 @@ ORDER BY display_order, name;
 
     private static IResult BuildRagSearchBusyResult(HttpContext ctx, RagOptions rag, RagSearchBulkhead searchBulkhead)
     {
-        var retryAfterSeconds = Math.Clamp(rag.SearchRetryAfterSeconds, 1, 300);
         var snapshot = searchBulkhead.GetSnapshot();
+        var retryAfterSeconds = ComputeRagSearchRetryAfterSeconds(rag, snapshot);
         ctx.Response.Headers.RetryAfter = retryAfterSeconds.ToString(CultureInfo.InvariantCulture);
-        ctx.Response.Headers["X-SAAIA-RAG-Active"] = snapshot.Active.ToString(CultureInfo.InvariantCulture);
-        ctx.Response.Headers["X-SAAIA-RAG-Queued"] = snapshot.Queued.ToString(CultureInfo.InvariantCulture);
-        ctx.Response.Headers["X-SAAIA-RAG-Max-Concurrency"] = snapshot.MaxConcurrency.ToString(CultureInfo.InvariantCulture);
+        AddRagSearchCapacityHeaders(ctx, snapshot);
 
         return Results.Json(new
         {
@@ -141,8 +139,30 @@ ORDER BY display_order, name;
             queued = snapshot.Queued,
             maxConcurrency = snapshot.MaxConcurrency,
             queueLimit = snapshot.QueueLimit,
+            availableSlots = snapshot.AvailableSlots,
+            queueWaitTimeoutSeconds = snapshot.QueueWaitTimeoutSeconds,
             detail = "The RAG search service is busy. Retry shortly."
         }, statusCode: StatusCodes.Status429TooManyRequests);
+    }
+
+    internal static int ComputeRagSearchRetryAfterSeconds(RagOptions rag, RagSearchBulkheadSnapshot snapshot)
+    {
+        var configured = Math.Clamp(rag.SearchRetryAfterSeconds, 1, 300);
+        var maxConcurrency = Math.Max(1, snapshot.MaxConcurrency);
+        var queueRounds = Math.Max(1, (int)Math.Ceiling((snapshot.Queued + 1) / (double)maxConcurrency));
+        var estimated = configured * queueRounds;
+        var upperBound = Math.Clamp(snapshot.QueueWaitTimeoutSeconds, configured, 300);
+        return Math.Clamp(estimated, configured, upperBound);
+    }
+
+    private static void AddRagSearchCapacityHeaders(HttpContext ctx, RagSearchBulkheadSnapshot snapshot)
+    {
+        ctx.Response.Headers["X-SAAIA-RAG-Active"] = snapshot.Active.ToString(CultureInfo.InvariantCulture);
+        ctx.Response.Headers["X-SAAIA-RAG-Queued"] = snapshot.Queued.ToString(CultureInfo.InvariantCulture);
+        ctx.Response.Headers["X-SAAIA-RAG-Max-Concurrency"] = snapshot.MaxConcurrency.ToString(CultureInfo.InvariantCulture);
+        ctx.Response.Headers["X-SAAIA-RAG-Queue-Limit"] = snapshot.QueueLimit.ToString(CultureInfo.InvariantCulture);
+        ctx.Response.Headers["X-SAAIA-RAG-Available-Slots"] = snapshot.AvailableSlots.ToString(CultureInfo.InvariantCulture);
+        ctx.Response.Headers["X-SAAIA-RAG-Queue-Wait-Timeout-Seconds"] = snapshot.QueueWaitTimeoutSeconds.ToString(CultureInfo.InvariantCulture);
     }
 
     private static void AddRagSearchAdmissionHeaders(
@@ -152,9 +172,7 @@ ORDER BY display_order, name;
     {
         ctx.Response.Headers["X-SAAIA-RAG-Queue-Wait-Ms"] = admission.WaitMs.ToString(CultureInfo.InvariantCulture);
         ctx.Response.Headers["X-SAAIA-RAG-Waited-Queued"] = admission.WaitedQueued ? "true" : "false";
-        ctx.Response.Headers["X-SAAIA-RAG-Active"] = snapshot.Active.ToString(CultureInfo.InvariantCulture);
-        ctx.Response.Headers["X-SAAIA-RAG-Queued"] = snapshot.Queued.ToString(CultureInfo.InvariantCulture);
-        ctx.Response.Headers["X-SAAIA-RAG-Max-Concurrency"] = snapshot.MaxConcurrency.ToString(CultureInfo.InvariantCulture);
+        AddRagSearchCapacityHeaders(ctx, snapshot);
     }
 
     private static async Task<RagSearchResponseDto> BuildSearchResponseDtoAsync(

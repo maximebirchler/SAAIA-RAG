@@ -186,6 +186,9 @@ public sealed partial class ApiClient
             if (resp.StatusCode != (HttpStatusCode)429 || attempt == maxAttempts)
                 return resp;
 
+            if (IsRagSearchBusyBody(await TryReadResponseBodyAsync(resp, ct).ConfigureAwait(false)))
+                return resp;
+
             var delay = GetRetryAfterDelay(resp);
             resp.Dispose();
 
@@ -197,6 +200,18 @@ public sealed partial class ApiClient
         throw new Exception(T("api.error.retry_loop_unexpected_end"));
     }
 
+    private static async Task<string?> TryReadResponseBodyAsync(HttpResponseMessage resp, CancellationToken ct)
+    {
+        try
+        {
+            return await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static async Task EnsureSuccessOrThrowBackendBusyAsync(HttpResponseMessage resp, CancellationToken ct)
     {
         if (resp.IsSuccessStatusCode)
@@ -204,9 +219,7 @@ public sealed partial class ApiClient
 
         if (resp.StatusCode == HttpStatusCode.TooManyRequests)
         {
-            string? body = null;
-            try { body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false); }
-            catch { }
+            var body = await TryReadResponseBodyAsync(resp, ct).ConfigureAwait(false);
 
             if (IsRagSearchBusyBody(body))
             {

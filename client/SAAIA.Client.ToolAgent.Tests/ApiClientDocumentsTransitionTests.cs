@@ -12,7 +12,31 @@ namespace SAAIA.Client.ToolAgent.Tests;
 public sealed class ApiClientDocumentsTransitionTests
 {
     [Fact]
-    public async Task RagSearchToolAsync_retries_one_busy_response_before_returning_success()
+    public async Task RagSearchToolAsync_does_not_retry_rag_search_busy()
+    {
+        var calls = 0;
+        var handler = new StubHttpHandler(req =>
+        {
+            Assert.Equal("/rag/search", req.RequestUri!.AbsolutePath);
+            calls++;
+
+            var busy = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+            busy.Headers.Add("Retry-After", "0");
+            busy.Content = new StringContent("""{"error":"rag_search_busy"}""", Encoding.UTF8, "application/json");
+            return busy;
+        });
+
+        var sut = CreateApiClient(handler);
+        var ex = await Assert.ThrowsAsync<ApiClientBackendBusyException>(() =>
+            sut.RagSearchToolAsync("needle", 3, null, "balanced", CancellationToken.None));
+
+        Assert.Equal(1, calls);
+        Assert.Equal(1, ex.RetryAfterSeconds);
+        Assert.Contains("rag_search_busy", ex.ResponseBody);
+    }
+
+    [Fact]
+    public async Task RagSearchToolAsync_retries_one_non_rag_429_response_before_returning_success()
     {
         var calls = 0;
         var handler = new StubHttpHandler(req =>
@@ -24,7 +48,7 @@ public sealed class ApiClientDocumentsTransitionTests
             {
                 var busy = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
                 busy.Headers.Add("Retry-After", "0");
-                busy.Content = new StringContent("""{"error":"rag_search_busy"}""", Encoding.UTF8, "application/json");
+                busy.Content = new StringContent("""{"error":"transient_rate_limit"}""", Encoding.UTF8, "application/json");
                 return busy;
             }
 
@@ -58,7 +82,7 @@ public sealed class ApiClientDocumentsTransitionTests
         var ex = await Assert.ThrowsAsync<ApiClientBackendBusyException>(() =>
             sut.RagSearchToolAsync("needle", 3, null, "balanced", CancellationToken.None));
 
-        Assert.Equal(2, calls);
+        Assert.Equal(1, calls);
         Assert.Equal(1, ex.RetryAfterSeconds);
         Assert.Contains("rag_search_busy", ex.ResponseBody);
     }
@@ -100,7 +124,7 @@ public sealed class ApiClientDocumentsTransitionTests
 
         var result = await InvokePrivateToolAsync(sut, "ExecRagSearchAsync", args.RootElement);
 
-        Assert.Equal(2, calls);
+        Assert.Equal(1, calls);
         Assert.Equal("rag_search_busy", result.GetProperty("error").GetString());
         Assert.True(result.GetProperty("busy").GetBoolean());
         Assert.Equal(1, result.GetProperty("retryAfterSeconds").GetInt32());
@@ -126,7 +150,7 @@ public sealed class ApiClientDocumentsTransitionTests
 
         var result = await InvokePrivateToolAsync(sut, "ExecRagMultiSearchAsync", args.RootElement);
 
-        Assert.Equal(4, calls);
+        Assert.Equal(2, calls);
         Assert.Equal("rag_search_busy", result.GetProperty("error").GetString());
         Assert.True(result.GetProperty("busy").GetBoolean());
         Assert.Equal(1, result.GetProperty("retryAfterSeconds").GetInt32());
@@ -138,8 +162,10 @@ public sealed class ApiClientDocumentsTransitionTests
     [Fact]
     public async Task ToolAgent_rag_multi_search_partial_busy_keeps_hits_and_marks_busy_queries_only_in_meta()
     {
+        var calls = 0;
         var handler = new StubHttpHandler(req =>
         {
+            calls++;
             var body = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
             if (body.Contains("busy-query", StringComparison.Ordinal))
             {
@@ -177,12 +203,56 @@ public sealed class ApiClientDocumentsTransitionTests
 
         var result = await InvokePrivateToolAsync(sut, "ExecRagMultiSearchAsync", args.RootElement);
 
+        Assert.Equal(2, calls);
         Assert.False(result.TryGetProperty("busy", out var busy) && busy.ValueKind == JsonValueKind.True);
         Assert.False(result.TryGetProperty("error", out var error) && error.ValueKind == JsonValueKind.String);
         var hit = Assert.Single(result.GetProperty("hits").EnumerateArray());
         Assert.Equal("Docs/ok.pdf", hit.GetProperty("docPath").GetString());
         var busyQueries = result.GetProperty("meta").GetProperty("busyQueries").EnumerateArray().Select(static item => item.GetString() ?? string.Empty).ToArray();
         Assert.Equal(["busy-query"], busyQueries);
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_multi_search_limits_client_side_fanout_parallelism()
+    {
+        var active = 0;
+        var maxActive = 0;
+        var calls = 0;
+        var handler = new AsyncStubHttpHandler(async (_, ct) =>
+        {
+            Interlocked.Increment(ref calls);
+            var current = Interlocked.Increment(ref active);
+            try
+            {
+                int observed;
+                do
+                {
+                    observed = Volatile.Read(ref maxActive);
+                    if (current <= observed)
+                        break;
+                }
+                while (Interlocked.CompareExchange(ref maxActive, current, observed) != observed);
+
+                await Task.Delay(50, ct);
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""{"items":[]}""", Encoding.UTF8, "application/json")
+                };
+            }
+            finally
+            {
+                Interlocked.Decrement(ref active);
+            }
+        });
+
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem: new ToolMemory());
+        using var args = JsonDocument.Parse("""{"queries":["q1","q2","q3","q4","q5","q6","q7","q8"],"topK":3,"mode":"balanced"}""");
+
+        var result = await InvokePrivateToolAsync(sut, "ExecRagMultiSearchAsync", args.RootElement);
+
+        Assert.Equal(8, calls);
+        Assert.True(maxActive <= 2, $"Expected at most 2 concurrent RAG calls, observed {maxActive}.");
+        Assert.Equal(2, result.GetProperty("meta").GetProperty("fanoutParallelism").GetInt32());
     }
 
     [Fact]
@@ -2412,6 +2482,12 @@ public sealed class ApiClientDocumentsTransitionTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => Task.FromResult(responder(request));
+    }
+
+    private sealed class AsyncStubHttpHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> responder) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => responder(request, cancellationToken);
     }
 
     private sealed class StubLlmClient(string completion) : ILlmClient

@@ -20,6 +20,8 @@ namespace SAAIA.Client.WinUI.Services.ToolAgent;
 
 public sealed partial class ToolAgentOrchestrator
 {
+    private const int RagMultiSearchMaxParallelism = 2;
+
     private static string BuildRagHitDedupeKey(JsonElement hit)
     {
         var docPath =
@@ -988,7 +990,8 @@ public sealed partial class ToolAgentOrchestrator
             object? selectedGuidance = null;
             string? selectedGuidanceBehavior = null;
             var selectedQueries = queries.Take(8).ToArray();
-            using var gate = new SemaphoreSlim(Math.Min(6, Math.Max(1, selectedQueries.Length)));
+            var fanoutParallelism = Math.Min(RagMultiSearchMaxParallelism, Math.Max(1, selectedQueries.Length));
+            using var gate = new SemaphoreSlim(fanoutParallelism);
             var runs = await Task.WhenAll(selectedQueries.Select(async (q, index) =>
             {
                 await gate.WaitAsync(ct).ConfigureAwait(false);
@@ -1090,6 +1093,7 @@ public sealed partial class ToolAgentOrchestrator
                     category = scope,
                     categoryPath = scope,
                     categoryInferred,
+                    fanoutParallelism,
                     busyQueries = busyRuns.Length == 0 ? null : busyRuns.Select(static run => run.Query).ToArray(),
                     degradedRetrievers = degradedRetrievers.Count == 0 ? null : degradedRetrievers.ToArray(),
                     queryRuns
@@ -1100,7 +1104,7 @@ public sealed partial class ToolAgentOrchestrator
         }
 
         var result = await RunMergedSearchAsync(categoryScope, categoryInferred: false).ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(categoryScope) && HasRagHits(result))
+        if (string.IsNullOrWhiteSpace(categoryScope) && HasRagHits(result) && !HasRagBusyQueries(result))
         {
             var inferenceResults = new ToolResults();
             inferenceResults.Items.Add(new ToolResults.Item
@@ -1119,6 +1123,20 @@ public sealed partial class ToolAgentOrchestrator
 
         RememberLastRagDiagnostics(queries.Take(8), result);
         return result;
+    }
+
+    private static bool HasRagBusyQueries(JsonElement value)
+    {
+        if (value.ValueKind != JsonValueKind.Object
+            || !value.TryGetProperty("meta", out var meta)
+            || meta.ValueKind != JsonValueKind.Object
+            || !meta.TryGetProperty("busyQueries", out var busyQueries)
+            || busyQueries.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        return busyQueries.EnumerateArray().Any();
     }
 
     private static bool IsRagSearchBusyPayload(JsonElement value)
