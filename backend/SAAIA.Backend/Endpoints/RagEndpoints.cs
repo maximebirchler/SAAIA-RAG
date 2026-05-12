@@ -1809,6 +1809,8 @@ ORDER BY d.doc_path;
 
         PrioritizeExactTitleSelections(selectionRankingQuery, selected);
         PrioritizeQuotedTitleSelections(req.Query, selected);
+        PrioritizeDocumentHintSelections(req.Query, selected);
+        PrioritizeOperationalSettingSelections(req.Query, selected);
         if (!useScopedProfileFallback)
         {
             var selectionSw = Stopwatch.StartNew();
@@ -2197,27 +2199,32 @@ ORDER BY d.doc_path;
         }
 
         var normalized = " " + FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query)).ToLowerInvariant() + " ";
-        if (ContainsSituationalBroadSelectionIntent(normalized)
+        var hasFocusedLookup = ExtractFocusedLookupPhrases(query).Count > 0;
+        var hasExplicitBroadScopedSynthesis = ContainsExplicitBroadScopedSynthesisIntent(normalized);
+        var hasSituationalBroadSelection = ContainsSituationalBroadSelectionIntent(normalized);
+        if (hasFocusedLookup
+            && !hasExplicitBroadScopedSynthesis
+            && (!hasSituationalBroadSelection || ContainsParameterDetailLookupIntent(normalized)))
+        {
+            return false;
+        }
+
+        if (hasSituationalBroadSelection
             && ExtractQuotedLookupPhrases(query).Count == 0
             && !HasReferenceLikeQueryToken(query))
         {
             return true;
         }
 
-        if (ExtractFocusedLookupPhrases(query).Count > 0
-            && !ContainsExplicitBroadScopedSynthesisIntent(normalized))
-        {
-            return false;
-        }
         if (HasReferenceLikeQueryToken(query)
-            && !ContainsExplicitBroadScopedSynthesisIntent(normalized))
+            && !hasExplicitBroadScopedSynthesis)
         {
             return false;
         }
 
-        return ContainsExplicitBroadScopedSynthesisIntent(normalized)
+        return hasExplicitBroadScopedSynthesis
             || ContainsBroadScopedSynthesisIntent(normalized)
-            || ContainsSituationalBroadSelectionIntent(normalized);
+            || hasSituationalBroadSelection;
     }
 
     internal static bool ShouldPromoteFocusedSearchForBroadIntent(string query)
@@ -2229,7 +2236,17 @@ ORDER BY d.doc_path;
         if (ContainsDocumentOverviewIntent(query))
             return true;
 
-        if (ContainsSituationalBroadSelectionIntent(normalized)
+        var hasFocusedLookup = ExtractFocusedLookupPhrases(query).Count > 0;
+        var hasExplicitBroadScopedSynthesis = ContainsExplicitBroadScopedSynthesisIntent(normalized);
+        var hasSituationalBroadSelection = ContainsSituationalBroadSelectionIntent(normalized);
+        if (hasFocusedLookup
+            && !hasExplicitBroadScopedSynthesis
+            && (!hasSituationalBroadSelection || ContainsParameterDetailLookupIntent(normalized)))
+        {
+            return false;
+        }
+
+        if (hasSituationalBroadSelection
             && ExtractQuotedLookupPhrases(query).Count == 0
             && !HasReferenceLikeQueryToken(query))
         {
@@ -2237,18 +2254,13 @@ ORDER BY d.doc_path;
         }
 
         if (ExtractQuotedLookupPhrases(query).Count > 0
-            && !ContainsExplicitBroadScopedSynthesisIntent(normalized))
+            && !hasExplicitBroadScopedSynthesis)
         {
             return false;
         }
 
-        if (ExtractFocusedLookupPhrases(query).Count > 0
-            && !ContainsExplicitBroadScopedSynthesisIntent(normalized))
-        {
-            return false;
-        }
         if (HasReferenceLikeQueryToken(query)
-            && !ContainsExplicitBroadScopedSynthesisIntent(normalized))
+            && !hasExplicitBroadScopedSynthesis)
         {
             return false;
         }
@@ -2256,9 +2268,9 @@ ORDER BY d.doc_path;
         if (ShouldPreferComparativeDocumentDiversity(query))
             return ShouldTreatAsBroadDiversityQuery(query, normalized);
 
-        return ContainsExplicitBroadScopedSynthesisIntent(normalized)
+        return hasExplicitBroadScopedSynthesis
             || ContainsBroadScopedSynthesisIntent(normalized)
-            || ContainsSituationalBroadSelectionIntent(normalized);
+            || hasSituationalBroadSelection;
     }
 
     private static bool ContainsExplicitBroadScopedSynthesisIntent(string normalized)
@@ -3052,7 +3064,7 @@ ORDER BY d.doc_path;
     }
 
     private static readonly Regex DocumentHintPattern = new(
-        @"\b(?:dans|depuis|from|in|aus|im|von|nel|nella|del|della|do|da|em)\s+(?:(?:le|la|les|l|un|une|des|du|de\s+la|the|a|an|some|el|la|los|las|o|a|os|as|il|lo|gli|die|der|das)\s+)?(?:document|documents|pdf|fichier|fichiers|file|files|source|sources|livre|livres|book|books|manuel|manuels|manual|manuals|guide|guides|rapport|rapports|report|reports|libro|libros|arquivo|arquivos|documento|documentos|handbuch|handbucher|buch|bucher|manuale|manuali)\s+(?<hint>[\p{L}\p{Nd}][\p{L}\p{Nd}\s\-]{1,60}?)(?=\s+(?:avec|with|com|con|mit|pour|for|para|per|sur|about|source|sources|page|pages|et|and|y|e|und)\b|[\?:;,\.\r\n]|$)",
+        @"\b(?:(?:(?:dans|depuis|from|in|aus|im|von|nel|nella|del|della|do|da|em)\s+(?:(?:le|la|les|l|un|une|des|du|de\s+la|the|a|an|some|el|la|los|las|o|a|os|as|il|lo|gli|die|der|das)\s+)?(?:document|documents|pdf|fichier|fichiers|file|files|source|sources|livre|livres|book|books|manuel|manuels|manual|manuals|guide|guides|rapport|rapports|report|reports|libro|libros|arquivo|arquivos|documento|documentos|handbuch|handbucher|buch|bucher|manuale|manuali)\s+)|(?:(?:du|de\s+la|des|de\s+l|from\s+the|of\s+the|del|della|do|da|dos|das|vom|aus\s+dem|aus\s+der)\s+(?:document|documents|pdf|fichier|fichiers|file|files|source|sources|livre|livres|book|books|manuel|manuels|manual|manuals|guide|guides|rapport|rapports|report|reports|libro|libros|arquivo|arquivos|documento|documentos|handbuch|handbucher|buch|bucher|manuale|manuali)\s+))(?<hint>[\p{L}\p{Nd}][\p{L}\p{Nd}\s\-]{1,60}?)(?=\s+(?:avec|with|com|con|mit|pour|for|para|per|sur|about|source|sources|page|pages|et|and|y|e|und)\b|[\?:;,\.\r\n]|$)",
         RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
         TimeSpan.FromMilliseconds(100));
 
@@ -6659,8 +6671,12 @@ LIMIT @result_limit;
             return null;
 
         var signalCount = tokens.Count(IsFocusedLookupSignalToken);
-        if (signalCount < 2 && !tokens.Any(static token => token.Length >= 6 || token.Any(char.IsDigit)))
+        if (signalCount < 2
+            && !tokens.Any(static token => token.Length >= 6 || token.Any(char.IsDigit))
+            && !HasShortSuffixTitleShape(tokens))
+        {
             return null;
+        }
 
         var phrase = string.Join(' ', tokens);
         if (IsFocusedLookupMetaInstructionPhrase(phrase))
@@ -6736,6 +6752,17 @@ LIMIT @result_limit;
            && !SpecificAnchorStopwords.Contains(token)
            && !PrimaryAnchorStopwords.Contains(token);
 
+    private static bool HasShortSuffixTitleShape(IReadOnlyList<string> tokens)
+        => tokens.Count is >= 3 and <= 6
+           && tokens.Take(tokens.Count - 1).Any(static token => TitleConnectorTokens.Contains(token))
+           && tokens.Take(tokens.Count - 1).Any(IsFocusedLookupSignalToken)
+           && tokens[^1].Length <= 3
+           && tokens[^1].Any(char.IsLetterOrDigit)
+           && !TitleConnectorTokens.Contains(tokens[^1])
+           && !LexicalStopwords.Contains(tokens[^1])
+           && !SpecificAnchorStopwords.Contains(tokens[^1])
+           && !PrimaryAnchorStopwords.Contains(tokens[^1]);
+
     private const string FocusedLookupArticlePattern =
         @"(?:(?:de\s+la|de\s+l|les|des|the|some|une|un|du|le|la|l|an|a)\b|l['\u2019])\s+";
 
@@ -6775,6 +6802,18 @@ LIMIT @result_limit;
         RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
         TimeSpan.FromMilliseconds(100));
 
+    private static readonly Regex PoliteActionFocusedLookupTargetPattern = new(
+        @"\b(?:tu\s+peux|peux\s+tu|pouvez\s+vous|vous\s+pouvez|can\s+you|could\s+you|puedes|podes|pode|puoi|potresti|kannst\s+du|konntest\s+du)\s+(?:me|moi|nous|us|me|mir|uns)?\s*(?:sortir|sors|donner|donne|donnez|montrer|montre|montrez|trouver|trouve|trouvez|chercher|cherche|ouvrir|ouvre|ouvrez|afficher|affiche|give|show|get|find|search|open|display|pull\s+up|mostrar|muestra|encontrar|encuentra|abrir|abre|dar|da|procurar|procura|mostra|trova|cerca|aprire|apri|zeigen|zeige|finden|finde|suchen|suche|offnen|offne)\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + FocusedLookupTargetStopLookahead,
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(100));
+
+    private static readonly Regex LeadingContextFocusedLookupTargetPattern = new(
+        @"^(?!" +
+        @"(?:compare|comparer|comparez|comparison|comparaison|liste|lister|list|quels|quelles|which|what|comment|how|combien|how\s+many|pourquoi|why)\b" +
+        @")(?<target>[\p{L}\p{Nd}][\p{L}\p{Nd}\s\-]{2,50}?)(?=\s+(?:pour|for|para|per|fur|fuer|zu|zum|zur)\s+(?:un|une|des|le|la|les|l|the|a|an|some|mon|ma|mes|notre|nos|my|our|mi|mis|meu|minha|mein|meine)\b)",
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(100));
+
     private static readonly Regex[] ComparativeLookupTargetPatterns =
     [
         new(
@@ -6801,8 +6840,18 @@ LIMIT @result_limit;
         RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
         TimeSpan.FromMilliseconds(100));
 
+    private static readonly Regex ShortSuffixDefinitionFocusedLookupTargetPattern = new(
+        @"\b(?:c\s+est\s+quoi|qu\s+est\s+ce\s+que|qu\s+est\s+ce\s+qu(?:il|elle|ils|elles)?|what\s+is|what\s+are|que\s+es|o\s+que\s+e|che\s+cos\s+e|was\s+ist)\s+(?:" + FocusedLookupArticlePattern + @")?(?<target>[\p{L}\p{Nd}]{3,40}\s+(?:a|de|du|d|of|di|da|do|von)\s+[\p{L}\p{Nd}]{1,24})(?=\s*[\?:;,\.\r\n]|$)",
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(100));
+
     private static readonly Regex DefinitionThenActionFocusedLookupTargetPattern = new(
         @"\b(?:c\s+est\s+quoi|qu\s+est\s+ce\s+que|qu\s+est\s+ce\s+qu(?:il|elle|ils|elles)?|what\s+is|what\s+are|que\s+es|o\s+que\s+e|che\s+cos\s+e|was\s+ist)\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + @"(?=\s+(?:et|and|y|e|und)\s+(?:comment|how|como|come|wie|lequel|laquelle|which)\b|[\?:;,\.\r\n]|$)",
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(100));
+
+    private static readonly Regex DefinitionFocusedLookupTargetPattern = new(
+        @"\b(?:c\s+est\s+quoi|qu\s+est\s+ce\s+que|qu\s+est\s+ce\s+qu(?:il|elle|ils|elles)?|what\s+is|what\s+are|que\s+es|o\s+que\s+e|che\s+cos\s+e|was\s+ist)\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + FocusedLookupTargetStopLookahead,
         RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
         TimeSpan.FromMilliseconds(100));
 
@@ -6827,11 +6876,15 @@ LIMIT @result_limit;
         ProvenanceFocusedLookupTargetPattern,
         AvailabilityFocusedLookupTargetPattern,
         SearchIntentFocusedLookupTargetPattern,
+        PoliteActionFocusedLookupTargetPattern,
         AlternativeFocusedLookupTargetPattern,
+        LeadingContextFocusedLookupTargetPattern,
         FocusedLookupTargetPattern,
         DirectObjectFocusedLookupTargetPattern,
         ActionQuestionFocusedLookupTargetPattern,
+        ShortSuffixDefinitionFocusedLookupTargetPattern,
         DefinitionThenActionFocusedLookupTargetPattern,
+        DefinitionFocusedLookupTargetPattern,
         ExplainFocusedLookupTargetPattern,
         ParameterFocusedLookupTargetPattern,
         StructuredInfoFocusedLookupTargetPattern
@@ -8357,6 +8410,137 @@ LIMIT @top_k;
             .ThenBy(static item => item.Match.DocPath, StringComparer.OrdinalIgnoreCase)
             .ThenBy(static item => item.Match.ChunkIndex)
             .Select(static item => item.Match));
+    }
+
+    internal static void PrioritizeDocumentHintSelections(string query, List<RagMatch> selected)
+    {
+        if (selected.Count <= 1)
+            return;
+
+        var documentHintTokens = ExtractDocumentHintTokens(query);
+        if (documentHintTokens.Count == 0)
+            return;
+
+        var ranked = selected
+            .Select((match, index) => new
+            {
+                Match = match,
+                Index = index,
+                MatchesDocumentHint = !IsDocumentProfileMatch(match)
+                    && IsContentSelectionCandidate(match)
+                    && DocumentMatchesHint(documentHintTokens, match)
+            })
+            .ToList();
+
+        if (!ranked.Any(static item => item.MatchesDocumentHint)
+            || ranked.All(static item => item.MatchesDocumentHint))
+            return;
+
+        selected.Clear();
+        selected.AddRange(ranked
+            .OrderByDescending(static item => item.MatchesDocumentHint ? 1 : 0)
+            .ThenBy(static item => item.Index)
+            .Select(static item => item.Match));
+    }
+
+    internal static void PrioritizeOperationalSettingSelections(string query, List<RagMatch> selected)
+    {
+        if (selected.Count <= 1)
+            return;
+
+        var normalizedQuery = $" {FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query)).ToLowerInvariant()} ";
+        if (!ContainsOperationalSettingLookupIntent(normalizedQuery))
+            return;
+
+        var ranked = selected
+            .Select((match, index) => new
+            {
+                Match = match,
+                Index = index,
+                SettingSignal = ComputeOperationalSettingCandidateSignal(normalizedQuery, match)
+            })
+            .ToList();
+
+        if (!ranked.Any(static item => item.SettingSignal > 0))
+            return;
+
+        selected.Clear();
+        selected.AddRange(ranked
+            .OrderByDescending(static item => item.SettingSignal)
+            .ThenBy(static item => item.Index)
+            .Select(static item => item.Match));
+    }
+
+    private static bool ContainsOperationalSettingLookupIntent(string normalized)
+        => ContainsAny(
+            normalized,
+            " robot ",
+            " machine ",
+            " appareil ",
+            " appliance ",
+            " device ",
+            " parametre ",
+            " parametres ",
+            " parameter ",
+            " parameters ",
+            " reglage ",
+            " reglages ",
+            " setting ",
+            " settings ",
+            " vitesse ",
+            " vitesses ",
+            " speed ",
+            " speeds ",
+            " temperature ",
+            " temperatures ",
+            " programme ",
+            " programmes ",
+            " program ",
+            " programs ",
+            " mode ",
+            " modes ",
+            " accessoire ",
+            " accessoires ",
+            " accessory ",
+            " accessories ");
+
+    private static int ComputeOperationalSettingCandidateSignal(string normalizedQuery, RagMatch match)
+    {
+        var normalizedText = $" {FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(string.Join(' ', new[]
+        {
+            match.Text,
+            match.EmbedText,
+            match.SectionTitle,
+            match.HeadingPath,
+            match.DocName,
+            match.DocPath
+        }.Where(static value => !string.IsNullOrWhiteSpace(value))))).ToLowerInvariant()} ";
+
+        if (string.IsNullOrWhiteSpace(normalizedText))
+            return 0;
+
+        var signal = 0;
+        if (ContainsAny(normalizedQuery, " robot ", " machine ", " appareil ", " appliance ", " device ")
+            && ContainsAny(normalizedText, " robot ", " machine ", " appareil ", " appliance ", " device "))
+        {
+            signal += 5;
+        }
+
+        if (ContainsAny(normalizedText, " vitesse ", " vitesses ", " speed ", " speeds "))
+            signal += 4;
+        if (ContainsAny(normalizedText, " temperature ", " temperatures ", " degre ", " degres ")
+            || Regex.IsMatch(normalizedText, @"\b\d{2,3}\s*c\b", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(50)))
+        {
+            signal += 3;
+        }
+        if (ContainsAny(normalizedText, " programme ", " programmes ", " program ", " programs ", " mode ", " modes "))
+            signal += 3;
+        if (ContainsAny(normalizedText, " accessoire ", " accessoires ", " accessory ", " accessories ", " attachment ", " attachments "))
+            signal += 2;
+        if (ContainsAny(normalizedText, " temps total ", " total time ", " duree totale "))
+            signal += 2;
+
+        return signal + Math.Min(GetStructuredAnswerPriority(match), 2);
     }
 
     internal static void PrioritizeExactTitleSelections(string query, List<RagMatch> selected)
@@ -11104,7 +11288,7 @@ LIMIT @top_k;
         if (ShouldPreferComparativeDocumentDiversity(query)
             || ContainsDocumentOverviewIntent(query)
             || ContainsExplicitBroadScopedSynthesisIntent(normalized)
-            || ContainsSituationalBroadSelectionIntent(normalized)
+            || (ContainsSituationalBroadSelectionIntent(normalized) && focusedPhrases.Length == 0)
             || ContainsGuidanceOrAdviceSelectionIntent(normalized)
             || IsRecommendationSelectionQuery(normalized))
         {

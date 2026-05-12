@@ -153,11 +153,17 @@ public sealed class RetrievalRuntimeSwitchTests
     [InlineData("D'ou vient la recette de la Tentation de Jansson ? Donne le PDF et la page si possible.", "tentation de jansson")]
     [InlineData("Comment cuire les asperges vertes au miel avec la sonde de rotissage ?", "asperges vertes au miel")]
     [InlineData("Tu peux m'expliquer les patatas bravas du livre NEFF ?", "patatas bravas")]
+    [InlineData("Tu peux me sortir la quiche ?", "quiche")]
+    [InlineData("Can you pull up safety valve from the manual?", "safety valve")]
     [InlineData("Donne la recette des patattas bravas.", "patattas bravas")]
     [InlineData("Comment faire la mayonnaise au tofu ?", "mayonnaise au tofu")]
     [InlineData("Detaille le curry de crevettes et riz basmati.", "curry de crevettes et riz basmati")]
     [InlineData("Explique-moi les churros sauce chocolat au Companion.", "churros sauce chocolat")]
     [InlineData("Tu peux me faire une fiche claire pour Patatas Bravas : ingredients, etapes, temps et source ?", "patatas bravas")]
+    [InlineData("Fondue chocolat pour un anniversaire de 18 enfants : organisation + quantites.", "fondue chocolat")]
+    [InlineData("Je veux la creme au citron, avec les parametres robot.", "creme au citron")]
+    [InlineData("Je veux la crème au citron, avec les paramètres robot.", "creme au citron")]
+    [InlineData("C'est quoi la crepe a Jo ?", "crepe a jo")]
     [InlineData("Je veux une fiche pour Cr\u00e8me au citron avec source.", "creme au citron")]
     [InlineData("Give me the procedure for access mode A from the manual.", "access mode a")]
     [InlineData("Dame una ficha para modo acceso A con fuente.", "modo acceso a")]
@@ -451,6 +457,7 @@ public sealed class RetrievalRuntimeSwitchTests
     [InlineData("Quero trabalhar com criancas: que fichas parecem adequadas e porque?", true)]
     [InlineData("Voglio lavorare con bambini: quali schede sembrano adatte e perche?", true)]
     [InlineData("Il me faut la tartiflette, ingredients + etapes en version claire.", false)]
+    [InlineData("Je veux la creme au citron, avec les parametres robot.", false)]
     [InlineData("I need access mode A from the manual.", false)]
     [InlineData("Je veux le mode acces A du manuel.", false)]
     [InlineData("Quels sont les risques du variateur VX-12 ?", false)]
@@ -3260,6 +3267,15 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void ShouldProbeUnquotedTitleAnchorRoute_keeps_precise_title_before_situational_broad_shape()
+    {
+        Assert.True(RagEndpoints.ShouldProbeUnquotedTitleAnchorRoute(
+            "Je veux la creme au citron, avec les parametres robot.",
+            skipChunkRetrieversForDocumentOverview: false,
+            useScopedProfileFallback: false));
+    }
+
+    [Fact]
     public void ShouldShortCircuitAfterTitleAnchorRoute_prefers_single_strong_unquoted_title_route()
     {
         var hit = TestMatch(
@@ -4001,6 +4017,131 @@ public sealed class RetrievalRuntimeSwitchTests
             "Donne-moi la recette du coq au vin dans le livre international.");
 
         Assert.Equal("hinted-book", calibrated[0].ChunkId);
+    }
+
+    [Fact]
+    public void CalibrateFusedMatches_prefers_document_hint_after_document_type_reference()
+    {
+        var genericGuide = TestMatch(
+            text: "Compote de pommes ingredients and steps from a generic guide.",
+            docPath: "Cuisine/chefbot_livre_de_recettes_fr.pdf",
+            chunkId: "generic-guide",
+            embeddingBasis: "title_anchor_route_v1",
+            score: 1.02);
+        var hintedGuide = TestMatch(
+            text: "Compote de pommes ingredients and steps from the named guide.",
+            docPath: "Cuisine/facilitemps.pdf",
+            chunkId: "hinted-guide",
+            embeddingBasis: "title_anchor_route_v1",
+            score: 1.02);
+
+        var calibrated = RagEndpoints.CalibrateFusedMatches(
+            "compote de pommes",
+            [genericGuide, hintedGuide],
+            "Comment faire la compote de pommes du guide Facilitemps ?");
+
+        Assert.Equal("hinted-guide", calibrated[0].ChunkId);
+    }
+
+    [Fact]
+    public void PrioritizeDocumentHintSelections_preserves_document_hint_after_title_priorities()
+    {
+        var genericGuide = TestMatch(
+            text: "Alpha procedure ingredients and steps from a generic guide.",
+            docPath: "Docs/general-guide.pdf",
+            chunkId: "generic-guide",
+            embeddingBasis: "title_anchor_route_v1",
+            score: 1.05);
+        var hintedGuide = TestMatch(
+            text: "Alpha procedure ingredients and steps from the named guide.",
+            docPath: "Docs/acme-guide.pdf",
+            chunkId: "hinted-guide",
+            embeddingBasis: "title_anchor_route_v1",
+            score: 1.01);
+        var unrelated = TestMatch(
+            text: "Alpha procedure ingredients and steps from another source.",
+            docPath: "Docs/another-source.pdf",
+            chunkId: "unrelated",
+            embeddingBasis: "title_anchor_route_v1",
+            score: 1.03);
+        var selected = new List<RagMatch> { genericGuide, unrelated, hintedGuide };
+
+        RagEndpoints.PrioritizeDocumentHintSelections("Comment appliquer alpha du guide Acme ?", selected);
+
+        Assert.Equal("hinted-guide", selected[0].ChunkId);
+        Assert.Equal("generic-guide", selected[1].ChunkId);
+        Assert.Equal("unrelated", selected[2].ChunkId);
+    }
+
+    [Fact]
+    public void PrioritizeDocumentHintSelections_does_not_promote_document_profile_over_content_chunk()
+    {
+        var contentChunk = TestMatch(
+            text: "Alpha procedure ingredients and steps from a generic guide.",
+            docPath: "Docs/general-guide.pdf",
+            chunkId: "content",
+            embeddingBasis: "title_anchor_route_v1",
+            chunkType: "section_window_v1",
+            score: 1.05);
+        var hintedProfile = TestMatch(
+            text: "Document profile for the named guide.",
+            docPath: "Docs/acme-guide.pdf",
+            chunkId: "profile",
+            embeddingBasis: "document_profile_v1",
+            chunkType: "document_profile",
+            score: 1.01);
+        var selected = new List<RagMatch> { contentChunk, hintedProfile };
+
+        RagEndpoints.PrioritizeDocumentHintSelections("Comment appliquer alpha du guide Acme ?", selected);
+
+        Assert.Equal("content", selected[0].ChunkId);
+        Assert.Equal("profile", selected[1].ChunkId);
+    }
+
+    [Fact]
+    public void PrioritizeOperationalSettingSelections_prefers_machine_settings_when_requested()
+    {
+        var plainRecipe = TestMatch(
+            text: "Alpha procedure with ingredients and preparation.",
+            docPath: "Docs/plain-guide.pdf",
+            chunkId: "plain",
+            embeddingBasis: "direct_title_token_route_v1",
+            score: 1.02);
+        var settingsRecipe = TestMatch(
+            text: "Alpha procedure. Put the ingredients in the machine bowl. Use speed 6 at 50 C for 8 minutes.",
+            docPath: "Docs/machine-guide.pdf",
+            chunkId: "settings",
+            embeddingBasis: "navigation_route_v1",
+            score: 0.96);
+        var selected = new List<RagMatch> { plainRecipe, settingsRecipe };
+
+        RagEndpoints.PrioritizeOperationalSettingSelections("Give me alpha with machine settings.", selected);
+
+        Assert.Equal("settings", selected[0].ChunkId);
+        Assert.Equal("plain", selected[1].ChunkId);
+    }
+
+    [Fact]
+    public void PrioritizeOperationalSettingSelections_does_not_change_plain_lookup()
+    {
+        var plainRecipe = TestMatch(
+            text: "Alpha procedure with ingredients and preparation.",
+            docPath: "Docs/plain-guide.pdf",
+            chunkId: "plain",
+            embeddingBasis: "direct_title_token_route_v1",
+            score: 1.02);
+        var settingsRecipe = TestMatch(
+            text: "Alpha procedure. Use speed 6 at 50 C for 8 minutes.",
+            docPath: "Docs/machine-guide.pdf",
+            chunkId: "settings",
+            embeddingBasis: "navigation_route_v1",
+            score: 0.96);
+        var selected = new List<RagMatch> { plainRecipe, settingsRecipe };
+
+        RagEndpoints.PrioritizeOperationalSettingSelections("Give me alpha.", selected);
+
+        Assert.Equal("plain", selected[0].ChunkId);
+        Assert.Equal("settings", selected[1].ChunkId);
     }
 
     [Fact]

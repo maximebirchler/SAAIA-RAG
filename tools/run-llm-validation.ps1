@@ -1084,17 +1084,20 @@ function Get-PreciseCuisineTitle {
 
     $explainNamed = [regex]::Match(
         $s,
-        '(?i)\b(?:explique(?:[-\s]+moi)?|expliquez(?:[-\s]+moi)?|explain(?:\s+me)?|details?|detaille)\s+(?:le|la|les|l[''\u2019]|un|une|des|du|de\s+la|de\s+l[''\u2019]|the|a|an|some)?\s*(?<title>[^:?.!,;]{3,90})')
+        '(?i)\b(?:explique(?:[-\s]+moi)?|expliquez(?:[-\s]+moi)?|explain(?:\s+me)?|details?|detaille)\s+(?:les|des|du|de\s+la|de\s+l[''\u2019]|le|la|l[''\u2019]|un|une|the|some|an|a)?\s*(?<title>[^:?.!,;]{3,90})')
     if ($explainNamed.Success) {
         return (Format-PreciseCuisineTitle $explainNamed.Groups["title"].Value)
     }
 
     if ($s -match '(?i)\b(?:vitesses?|speeds?|temp[e\u00e9]ratures?|temperatures?|r[e\u00e9]glages?|settings?|param[e\u00e8]tres?|parameters?|ingr[e\u00e9]dients?|ingredients?|[e\u00e9]tapes?|steps?|temps|time)\b') {
-        $parameterTarget = [regex]::Match(
+        $parameterTarget = [regex]::Matches(
             $s,
             '(?i)\b(?:pour|for|de|du|de\s+la|des|d[''\u2019]|sur|about|on)\s+(?:le|la|les|l[''\u2019]|the\s+)?(?<title>[^:?.!,;]{3,90})')
-        if ($parameterTarget.Success) {
-            return (Format-PreciseCuisineTitle $parameterTarget.Groups["title"].Value)
+        $preferredParameterTarget = @($parameterTarget |
+            Where-Object { $_.Groups["title"].Value -notmatch '(?i)^\s*(?:temps|time|ingr[e\u00e9]dients?|ingredients?|[e\u00e9]tapes?|steps?|r[e\u00e9]glages?|settings?)\b' } |
+            Select-Object -Last 1)[0]
+        if ($preferredParameterTarget -and $preferredParameterTarget.Success) {
+            return (Format-PreciseCuisineTitle $preferredParameterTarget.Groups["title"].Value)
         }
     }
 
