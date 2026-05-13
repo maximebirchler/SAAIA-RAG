@@ -557,7 +557,8 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Contains("Procedure utile et exploitable", answer);
         Assert.DoesNotContain("index.pdf", answer);
         Assert.NotNull(sourcesPayload);
-        Assert.Equal(2, SourceCardParser.Parse(JsonSerializer.Serialize(sourcesPayload)).Count);
+        var card = Assert.Single(SourceCardParser.Parse(JsonSerializer.Serialize(sourcesPayload)));
+        Assert.Equal("procedure.pdf", card.DocName);
     }
 
     [Fact]

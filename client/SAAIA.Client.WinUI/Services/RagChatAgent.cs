@@ -261,7 +261,7 @@ public sealed class RagChatAgent
             .ToList();
         var answerItems = SelectSearchOnlyFallbackAnswerItems(items);
 
-        var sources = items.Select(BuildSearchOnlyFallbackSourcePayload).ToList();
+        var sources = answerItems.Select(BuildSearchOnlyFallbackSourcePayload).ToList();
 
         var payload = new { intent = "rag_search", sources };
 
