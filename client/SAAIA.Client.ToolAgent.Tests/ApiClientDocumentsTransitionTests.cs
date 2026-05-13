@@ -1031,6 +1031,12 @@ public sealed class ApiClientDocumentsTransitionTests
                                   "selection_hints": {
                                     "evidence_role": "supporting_context",
                                     "support_score": 97
+                                  },
+                                  "content_signals": {
+                                    "content_role": "mixed_navigation_content",
+                                    "navigation_reason": "inline_page_number_list",
+                                    "navigation_score": 0.42,
+                                    "content_density_score": 0.76
                                   }
                                 }
                               }
@@ -1091,6 +1097,10 @@ public sealed class ApiClientDocumentsTransitionTests
         Assert.Equal(2, diagnostics.GetProperty("ocrAttemptedPageCount").GetInt32());
         Assert.Equal("supporting_context", result.GetProperty("selectionHints").GetProperty("evidenceRole").GetString());
         Assert.Equal(97, result.GetProperty("selectionHints").GetProperty("supportScore").GetInt32());
+        Assert.Equal("mixed_navigation_content", result.GetProperty("contentSignals").GetProperty("contentRole").GetString());
+        Assert.Equal("inline_page_number_list", result.GetProperty("contentSignals").GetProperty("navigationReason").GetString());
+        Assert.Equal(0.42, result.GetProperty("contentSignals").GetProperty("navigationScore").GetDouble());
+        Assert.Equal(0.76, result.GetProperty("contentSignals").GetProperty("contentDensityScore").GetDouble());
         var resultCard = result.GetProperty("matchedContentCards")[0];
         Assert.Equal("card-debug", resultCard.GetProperty("contentCardId").GetString());
         Assert.Equal("debug_card_v1", resultCard.GetProperty("evidence").GetProperty("schemaVersion").GetString());
@@ -1104,6 +1114,7 @@ public sealed class ApiClientDocumentsTransitionTests
         Assert.Equal("card-debug", anchorCard.GetProperty("contentCardId").GetString());
         Assert.Equal("debug_card_v1", anchorCard.GetProperty("evidence").GetProperty("schemaVersion").GetString());
         Assert.Equal("supporting_context", anchor.GetProperty("selectionHints").GetProperty("evidenceRole").GetString());
+        Assert.Equal("mixed_navigation_content", anchor.GetProperty("contentSignals").GetProperty("contentRole").GetString());
     }
 
     [Fact]

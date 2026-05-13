@@ -213,6 +213,7 @@ public sealed partial class ToolAgentOrchestrator
             extractionQuality = BuildSourceExtractionQualityPayload(primarySource),
             matchedContentCards = BuildSourceContentCardsPayload(primarySource),
             selectionHints = BuildSourceSelectionHintsPayload(primarySource),
+            contentSignals = BuildSourceContentSignalsPayload(primarySource),
             sourceMetadata = selectedSourcePayloads,
             sourceMetadataTotal = selectedSourcePayloads.Count,
             sourceMetadataTruncated = false,
@@ -459,7 +460,11 @@ public sealed partial class ToolAgentOrchestrator
             SelectionHintSupportScore: item.SelectionHints is not null ? item.SelectionHints.SupportScore : fallbackSource?.SelectionHintSupportScore,
             SelectionHintFragmentScore: item.SelectionHints is not null ? item.SelectionHints.FragmentScore : fallbackSource?.SelectionHintFragmentScore,
             SelectionHintNavigationScore: item.SelectionHints is not null ? item.SelectionHints.NavigationScore : fallbackSource?.SelectionHintNavigationScore,
-            SelectionHintQualityPenalty: item.SelectionHints is not null ? item.SelectionHints.QualityPenalty : fallbackSource?.SelectionHintQualityPenalty);
+            SelectionHintQualityPenalty: item.SelectionHints is not null ? item.SelectionHints.QualityPenalty : fallbackSource?.SelectionHintQualityPenalty,
+            ContentRole: NullIfWhiteSpace(item.Context?.ContentRole) ?? fallbackSource?.ContentRole,
+            NavigationReason: NullIfWhiteSpace(item.Context?.NavigationReason) ?? fallbackSource?.NavigationReason,
+            RetrievalNavigationScore: item.Context?.NavigationScore ?? fallbackSource?.RetrievalNavigationScore,
+            ContentDensityScore: item.Context?.ContentDensityScore ?? fallbackSource?.ContentDensityScore);
     }
 
     private static SummaryChunk ApplySourceMetadataToSummaryChunk(SummaryChunk chunk, ToolMemory.SourceRef? source)
@@ -499,7 +504,11 @@ public sealed partial class ToolAgentOrchestrator
             SelectionHintSupportScore = source.SelectionHintSupportScore ?? chunk.SelectionHintSupportScore,
             SelectionHintFragmentScore = source.SelectionHintFragmentScore ?? chunk.SelectionHintFragmentScore,
             SelectionHintNavigationScore = source.SelectionHintNavigationScore ?? chunk.SelectionHintNavigationScore,
-            SelectionHintQualityPenalty = source.SelectionHintQualityPenalty ?? chunk.SelectionHintQualityPenalty
+            SelectionHintQualityPenalty = source.SelectionHintQualityPenalty ?? chunk.SelectionHintQualityPenalty,
+            ContentRole = NullIfWhiteSpace(source.ContentRole) ?? chunk.ContentRole,
+            NavigationReason = NullIfWhiteSpace(source.NavigationReason) ?? chunk.NavigationReason,
+            RetrievalNavigationScore = source.RetrievalNavigationScore ?? chunk.RetrievalNavigationScore,
+            ContentDensityScore = source.ContentDensityScore ?? chunk.ContentDensityScore
         };
     }
 
@@ -1582,7 +1591,11 @@ public sealed partial class ToolAgentOrchestrator
             SelectionHintSupportScore = item?.SelectionHintSupportScore ?? fallbackSource?.SelectionHintSupportScore,
             SelectionHintFragmentScore = item?.SelectionHintFragmentScore ?? fallbackSource?.SelectionHintFragmentScore,
             SelectionHintNavigationScore = item?.SelectionHintNavigationScore ?? fallbackSource?.SelectionHintNavigationScore,
-            SelectionHintQualityPenalty = item?.SelectionHintQualityPenalty ?? fallbackSource?.SelectionHintQualityPenalty
+            SelectionHintQualityPenalty = item?.SelectionHintQualityPenalty ?? fallbackSource?.SelectionHintQualityPenalty,
+            ContentRole = item?.ContentRole ?? fallbackSource?.ContentRole,
+            NavigationReason = item?.NavigationReason ?? fallbackSource?.NavigationReason,
+            RetrievalNavigationScore = item?.RetrievalNavigationScore ?? fallbackSource?.RetrievalNavigationScore,
+            ContentDensityScore = item?.ContentDensityScore ?? fallbackSource?.ContentDensityScore
         };
     }
 
@@ -1604,7 +1617,8 @@ public sealed partial class ToolAgentOrchestrator
             chunkId = source.ChunkId,
             extractionQuality = BuildSourceExtractionQualityPayload(source),
             matchedContentCards = BuildSourceContentCardsPayload(source),
-            selectionHints = BuildSourceSelectionHintsPayload(source)
+            selectionHints = BuildSourceSelectionHintsPayload(source),
+            contentSignals = BuildSourceContentSignalsPayload(source)
         };
 
 }

@@ -97,6 +97,10 @@ public static class SourceCardParser
         score += source.SelectionHintFragmentScore is null ? 0 : 1;
         score += source.SelectionHintNavigationScore is null ? 0 : 1;
         score += source.SelectionHintQualityPenalty is null ? 0 : 1;
+        score += HasValue(source.ContentRole) * 3;
+        score += HasValue(source.NavigationReason) * 2;
+        score += source.RetrievalNavigationScore is null ? 0 : 1;
+        score += source.ContentDensityScore is null ? 0 : 1;
         return score;
     }
 

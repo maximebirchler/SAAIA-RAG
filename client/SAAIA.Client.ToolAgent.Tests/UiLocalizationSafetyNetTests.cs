@@ -641,6 +641,44 @@ public sealed class UiLocalizationSafetyNetTests
         Assert.Equal(8, card.SelectionHintSupportScore);
     }
 
+    [Fact]
+    public void Source_card_parser_keeps_content_signals_when_deduping_duplicate_source_card()
+    {
+        const string json = """
+        {
+          "sources": [
+            {
+              "docPath": "Knowledge/manual.pdf",
+              "docName": "manual.pdf",
+              "pageStart": 3,
+              "pageEnd": 4,
+              "snippet": "same evidence"
+            },
+            {
+              "docPath": "Knowledge/manual.pdf",
+              "docName": "manual.pdf",
+              "pageStart": 3,
+              "pageEnd": 4,
+              "snippet": "same evidence",
+              "contentSignals": {
+                "contentRole": "mixed_navigation_content",
+                "navigationReason": "inline_page_number_list",
+                "navigationScore": 0.42,
+                "contentDensityScore": 0.76
+              }
+            }
+          ]
+        }
+        """;
+
+        var card = Assert.Single(SourceCardParser.Parse(json));
+
+        Assert.Equal("mixed_navigation_content", card.ContentRole);
+        Assert.Equal("inline_page_number_list", card.NavigationReason);
+        Assert.Equal(0.42, card.RetrievalNavigationScore);
+        Assert.Equal(0.76, card.ContentDensityScore);
+    }
+
     [Theory]
     [InlineData("sources")]
     [InlineData("items")]

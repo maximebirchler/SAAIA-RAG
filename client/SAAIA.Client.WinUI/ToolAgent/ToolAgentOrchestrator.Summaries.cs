@@ -163,7 +163,8 @@ Rules:
                             ["chunkId"] = anchorSource?.ChunkId ?? TryGetString(a, "chunkId") ?? TryGetString(a, "ChunkId") ?? rootSource?.ChunkId,
                             ["extractionQuality"] = CompactExtractionQualityForPrompt(a) ?? (anchorSource is null ? null : BuildSourceExtractionQualityPayload(anchorSource)) ?? (rootSource is null ? null : BuildSourceExtractionQualityPayload(rootSource)),
                             ["matchedContentCards"] = CompactMatchedContentCardsForPrompt(a) ?? (anchorSource is null ? null : BuildSourceContentCardsPayload(anchorSource)) ?? (rootSource is null ? null : BuildSourceContentCardsPayload(rootSource)),
-                            ["selectionHints"] = CompactSelectionHintsForPrompt(a) ?? (anchorSource is null ? null : BuildSourceSelectionHintsPayload(anchorSource)) ?? (rootSource is null ? null : BuildSourceSelectionHintsPayload(rootSource))
+                            ["selectionHints"] = CompactSelectionHintsForPrompt(a) ?? (anchorSource is null ? null : BuildSourceSelectionHintsPayload(anchorSource)) ?? (rootSource is null ? null : BuildSourceSelectionHintsPayload(rootSource)),
+                            ["contentSignals"] = CompactRetrievalContentSignalsForPrompt(a) ?? (anchorSource is null ? null : BuildSourceContentSignalsPayload(anchorSource)) ?? (rootSource is null ? null : BuildSourceContentSignalsPayload(rootSource))
                         };
                         anchors.Add(anchor.Where(static pair => pair.Value is not null).ToDictionary(static pair => pair.Key, static pair => pair.Value!, StringComparer.Ordinal));
                     }
@@ -199,7 +200,8 @@ Rules:
                         ["chunkId"] = TryGetString(item.Result, "chunkId") ?? TryGetString(item.Result, "ChunkId"),
                         ["extractionQuality"] = CompactExtractionQualityForPrompt(item.Result),
                         ["matchedContentCards"] = CompactMatchedContentCardsForPrompt(item.Result),
-                        ["selectionHints"] = CompactSelectionHintsForPrompt(item.Result)
+                        ["selectionHints"] = CompactSelectionHintsForPrompt(item.Result),
+                        ["contentSignals"] = CompactRetrievalContentSignalsForPrompt(item.Result)
                     };
                     anchors.Add(anchor.Where(static pair => pair.Value is not null).ToDictionary(static pair => pair.Key, static pair => pair.Value!, StringComparer.Ordinal));
                 }

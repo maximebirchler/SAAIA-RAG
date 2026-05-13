@@ -2249,6 +2249,12 @@ public sealed class RagContextBudgetRegressionTests
                 "fragmentScore": 5,
                 "navigationScore": 0,
                 "qualityPenalty": 1
+              },
+              "contentSignals": {
+                "contentRole": "mixed_navigation_content",
+                "navigationReason": "inline_page_number_list",
+                "navigationScore": 0.42,
+                "contentDensityScore": 0.76
               }
             }
           ]
@@ -2281,6 +2287,10 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Equal("supporting_context", card.SelectionHintEvidenceRole);
         Assert.Equal(88, card.SelectionHintSupportScore);
         Assert.Equal(1, card.SelectionHintQualityPenalty);
+        Assert.Equal("mixed_navigation_content", card.ContentRole);
+        Assert.Equal("inline_page_number_list", card.NavigationReason);
+        Assert.Equal(0.42, card.RetrievalNavigationScore);
+        Assert.Equal(0.76, card.ContentDensityScore);
     }
 
     [Fact]
@@ -2318,6 +2328,12 @@ public sealed class RagContextBudgetRegressionTests
           "selection_hints": {
             "evidence_role": "supporting_context",
             "support_score": 88
+          },
+          "content_signals": {
+            "content_role": "mixed_navigation_content",
+            "navigation_reason": "inline_page_number_list",
+            "navigation_score": 0.42,
+            "content_density_score": 0.76
           }
         }
         """;
@@ -2337,6 +2353,10 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Equal("Control before validation", Assert.Single(card.MatchedContentCards).Title);
         Assert.Equal("supporting_context", card.SelectionHintEvidenceRole);
         Assert.Equal(88, card.SelectionHintSupportScore);
+        Assert.Equal("mixed_navigation_content", card.ContentRole);
+        Assert.Equal("inline_page_number_list", card.NavigationReason);
+        Assert.Equal(0.42, card.RetrievalNavigationScore);
+        Assert.Equal(0.76, card.ContentDensityScore);
     }
 
     [Fact]

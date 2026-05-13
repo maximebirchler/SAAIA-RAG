@@ -60,7 +60,11 @@ public sealed partial class ToolAgentOrchestrator
         int? SelectionHintSupportScore = null,
         int? SelectionHintFragmentScore = null,
         int? SelectionHintNavigationScore = null,
-        int? SelectionHintQualityPenalty = null);
+        int? SelectionHintQualityPenalty = null,
+        string? ContentRole = null,
+        string? NavigationReason = null,
+        double? RetrievalNavigationScore = null,
+        double? ContentDensityScore = null);
 
     private static string? GetRagCategoryScopeArg(JsonElement args)
         => NormalizeCategoryPathArg(
