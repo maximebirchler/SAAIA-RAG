@@ -580,6 +580,8 @@ internal static partial class DocumentProfileProjector
             return false;
 
         var evidence = BuildStructuredCardEvidence($"{cleanTitle} {context}");
+        if (LooksLikeLowercaseLead(cleanTitle) && !HasSourceBackedContentCardEvidence(evidence))
+            return false;
         if (LooksLikeLowSubstanceCoverOrMarketingCandidate(cleanTitle, context, evidence))
             return false;
 
@@ -1282,7 +1284,7 @@ internal static partial class DocumentProfileProjector
         if (!startsWithConnector)
             return false;
 
-        if (firstToken is "pour" or "for" or "para" or "per")
+        if (firstToken is "pour" or "for" or "para" or "per" or "sans" or "without" or "senza")
             return true;
 
         if (firstToken is "avec" or "with" or "mit" or "con" or "au" or "aux"
@@ -1993,6 +1995,8 @@ internal static partial class DocumentProfileProjector
                 continue;
             var kind = NormalizeContentCardKind(card.Kind);
             var normalizedEvidence = NormalizeContentCardEvidence(card.Evidence);
+            if (LooksLikeLowercaseLead(title) && !HasSourceBackedContentCardEvidence(normalizedEvidence))
+                continue;
             if (!HasGroundedContentCardEvidence(normalizedEvidence))
             {
                 if (LooksLikeLowSubstanceCoverOrMarketingCandidate(title, null, normalizedEvidence))
@@ -2256,7 +2260,7 @@ internal static partial class DocumentProfileProjector
     private static readonly HashSet<string> ContentCardLeadStopwords = new(StringComparer.Ordinal)
     {
         "this", "that", "these", "those", "cette", "cela", "voici", "pour", "avec",
-        "dans", "vous", "nous", "the", "and", "from", "para", "como", "esta",
+        "sans", "par", "un", "une", "dans", "vous", "nous", "the", "and", "from", "para", "como", "esta",
         "este", "oder", "und", "der", "die", "das", "per", "con"
     };
 
@@ -2265,7 +2269,7 @@ internal static partial class DocumentProfileProjector
         "a", "an", "and", "as", "at", "by", "d", "da", "dans", "das", "de", "del",
         "della", "des", "di", "die", "du", "el", "en", "et", "for", "from", "in",
         "l", "la", "las", "le", "les", "lo", "los", "mit", "of", "on", "or", "ou",
-        "au", "aux", "al",
+        "au", "aux", "al", "par", "un", "une",
         "para", "per", "por", "sur", "the", "to", "und", "with", "y", "zu"
     };
 
@@ -2362,7 +2366,7 @@ internal static partial class DocumentProfileProjector
     [GeneratedRegex(@"^(?:ajouter|appliquer|arreter|choisir|configurer|connecter|copier|demarrer|deconnecter|enlever|fermer|installer|lancer|ouvrir|placer|programmer|redemarrer|remettre|remplacer|retirer|selectionner|supprimer|utiliser|valider|verifier|v[ée]rifier)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex InfinitiveInstructionLeadRegex();
 
-    [GeneratedRegex(@"^(?:a l aide|a la fin|apres|bien|bonne nouvelle|c est|ca|ceci|cela|dans tous les cas|garder|gardez|l idee|mais la aussi|n hesitez|on|onne|pour connaitre|pour l|pour vous|pourtant|quant aux|quellesatisfaction|raison de plus|si vous|suivant le|voici)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:a l aide|a la fin|apres|bien|bonne nouvelle|c est|ca|ceci|cela|dans tous les cas|garder|gardez|l idee|mais la aussi|n hesitez|on|onne|par contre|pour connaitre|pour l|pour vous|pourtant|quant aux|quellesatisfaction|raison de plus|si vous|suivant le|une fois|voici)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex LowSignalSentenceLeadRegex();
 
     [GeneratedRegex(@"^(?:pour|for|para|per|fur|fuer|zu|a|da)\s+\d{1,3}\s+[\p{L}'\u2019.\-]{2,30}", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
