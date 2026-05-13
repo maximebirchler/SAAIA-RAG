@@ -229,6 +229,53 @@ WHERE (cc.page_start IS NULL
   AND NOT cr.has_active_job
 GROUP BY cr.category
 UNION ALL
+SELECT 'navigation_heavy_document', cr.category,
+       left(
+         cr.doc_path
+         || ': navigation_or_mixed='
+         || count(*) FILTER (WHERE COALESCE(c.metadata->>'contentRole', '') IN ('navigation','mixed_navigation_content')
+                              OR COALESCE(c.metadata->>'chunkType', '') IN ('navigation','mixed_navigation_content'))
+         || '/'
+         || count(*)
+         || ',ratio='
+         || round(
+              (
+                count(*) FILTER (WHERE COALESCE(c.metadata->>'contentRole', '') IN ('navigation','mixed_navigation_content')
+                                  OR COALESCE(c.metadata->>'chunkType', '') IN ('navigation','mixed_navigation_content'))
+              )::numeric / greatest(count(*), 1),
+              3),
+         500),
+       count(*) FILTER (WHERE COALESCE(c.metadata->>'contentRole', '') IN ('navigation','mixed_navigation_content')
+                         OR COALESCE(c.metadata->>'chunkType', '') IN ('navigation','mixed_navigation_content'))::text
+FROM current_rev cr
+JOIN retrieval_chunks c ON c.revision_id=cr.revision_id
+WHERE NOT cr.has_active_job
+GROUP BY cr.category, cr.doc_path
+HAVING count(*) >= 20
+   AND (
+     count(*) FILTER (WHERE COALESCE(c.metadata->>'contentRole', '') IN ('navigation','mixed_navigation_content')
+                       OR COALESCE(c.metadata->>'chunkType', '') IN ('navigation','mixed_navigation_content'))
+   )::numeric / greatest(count(*), 1) >= 0.35
+UNION ALL
+SELECT 'suspicious_profile_card_title', cr.category,
+       left(
+         string_agg(
+           left(cr.doc_path || ' => ' || cc.title, 160),
+           ' ; '
+           ORDER BY cr.doc_path, cc.card_index),
+         900),
+       count(*)::text
+FROM current_rev cr
+JOIN document_profile_content_cards cc ON cc.revision_id=cr.revision_id
+WHERE NOT cr.has_active_job
+  AND NULLIF(BTRIM(cc.title), '') IS NOT NULL
+  AND (
+    cc.title ~ '^[[:lower:]]'
+    OR lower(cc.title) ~ '^(a|à|au|aux|de|du|des|d[''’]|pour|par|avec|sans|sur|of|for|with|without|and|or|the|to|in|on|from|per|con|senza|su|di|del|della|para|por|com|do|da|dos|das|e|y|und|oder|zu|zur|zum|von|mit)([[:space:][:punct:]]|$)'
+    OR length(regexp_replace(cc.title, '[^[:alpha:]]', '', 'g')) < 4
+  )
+GROUP BY cr.category
+UNION ALL
 SELECT 'artifact_coverage', category,
        concat_ws(',',
          'docs=' || count(*),
@@ -362,6 +409,12 @@ foreach ($row in $rows) {
         }
         "profile_card_problem" {
             if ($valueNumber -gt 0) { $warnings.Add("profile cards missing page/evidence metadata: category='$($row.Scope)' count=$valueNumber") }
+        }
+        "navigation_heavy_document" {
+            if ($valueNumber -gt 0) { $warnings.Add("navigation-heavy document: category='$($row.Scope)' $($row.Metric)") }
+        }
+        "suspicious_profile_card_title" {
+            if ($valueNumber -gt 0) { $warnings.Add("suspicious profile card titles: category='$($row.Scope)' count=$valueNumber examples=$($row.Metric)") }
         }
         "qdrant_vectors" {
             if ($valueNumber -ne 0) { $issues.Add("DB/Qdrant vector mismatch: category='$($row.Scope)' $($row.Metric)") }

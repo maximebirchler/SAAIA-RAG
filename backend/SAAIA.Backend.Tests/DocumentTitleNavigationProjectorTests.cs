@@ -61,6 +61,34 @@ public sealed class DocumentTitleNavigationProjectorTests
     }
 
     [Fact]
+    public void Project_does_not_create_title_anchor_from_unpaged_profile_cards()
+    {
+        var profile = DocumentProfileProjector.BuildProfile(
+            "deterministic_v1",
+            "en",
+            "Document profile with one unpaged hint and one page-scoped card.",
+            [],
+            [],
+            [],
+            [],
+            [],
+            "Ops/Knowledge.pdf",
+            "Knowledge.pdf",
+            [
+                new DocumentProfileContentCard("Global Deployment Overview", null, null, "profile_hint", ["deployment"]),
+                new DocumentProfileContentCard("Rollback Decision Gate", 7, 7, "content_item", ["rollback", "decision"])
+            ]);
+
+        var index = DocumentTitleNavigationProjector.Project([], [], [], profile);
+
+        Assert.DoesNotContain(index.TitleAnchors, anchor => anchor.Title == "Global Deployment Overview");
+        Assert.Contains(index.TitleAnchors, anchor =>
+            anchor.SourceKind == "content_card"
+            && anchor.Title == "Rollback Decision Gate"
+            && anchor.PageStart == 7);
+    }
+
+    [Fact]
     public void Project_resolves_navigation_line_to_target_title_anchor()
     {
         var sections = new[]

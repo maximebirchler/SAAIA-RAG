@@ -42,6 +42,12 @@ internal static partial class DocumentTitleNavigationProjector
         var cardIndex = 0;
         foreach (var card in documentProfile.ContentCards)
         {
+            if (!ShouldUseContentCardAsTitleAnchor(card))
+            {
+                cardIndex++;
+                continue;
+            }
+
             AddAnchorCandidate(
                 candidates,
                 sourceKind: "content_card",
@@ -635,6 +641,17 @@ internal static partial class DocumentTitleNavigationProjector
             chunkIndex,
             contentCardIndex,
             confidence));
+    }
+
+    private static bool ShouldUseContentCardAsTitleAnchor(DocumentProfileContentCard card)
+    {
+        if (card.PageStart is not > 0)
+            return false;
+
+        if (card.PageEnd is > 0 && card.PageEnd < card.PageStart)
+            return false;
+
+        return true;
     }
 
     private static string? ExtractLeadTitle(string text)
