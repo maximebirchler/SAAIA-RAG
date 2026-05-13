@@ -253,6 +253,20 @@ public sealed partial class SourcesCardsControl : UserControl
         if (selectionScore.HasValue)
             parts.Add($"{SourceCardLabel("selection_score", uiLanguage)} {selectionScore.Value.ToString(CultureInfo.InvariantCulture)}");
 
+        var contentRole = LocalizedContentRole(source.ContentRole, uiLanguage);
+        if (!string.IsNullOrWhiteSpace(contentRole))
+            parts.Add($"{SourceCardLabel("content_role", uiLanguage)} {Shorten(contentRole, 32)}");
+
+        if (source.ContentDensityScore.HasValue)
+            parts.Add($"{SourceCardLabel("content_density", uiLanguage)} {source.ContentDensityScore.Value.ToString("0.##", CultureInfo.InvariantCulture)}");
+
+        if (source.RetrievalNavigationScore.HasValue)
+            parts.Add($"{SourceCardLabel("retrieval_navigation", uiLanguage)} {source.RetrievalNavigationScore.Value.ToString("0.##", CultureInfo.InvariantCulture)}");
+
+        var navigationReason = FormatBackendReason(source.NavigationReason);
+        if (!string.IsNullOrWhiteSpace(navigationReason))
+            parts.Add($"{SourceCardLabel("navigation_reason", uiLanguage)} {Shorten(navigationReason, 36)}");
+
         var sourceHash = ShortSourceHash(source.SourceHash);
         if (!string.IsNullOrWhiteSpace(sourceHash))
             parts.Add($"{SourceCardLabel("hash", uiLanguage)} {sourceHash}");
@@ -845,6 +859,29 @@ public sealed partial class SourcesCardsControl : UserControl
 
     private static string LocalizedSelectionHintRole(string? role, string? uiLanguage)
         => LocalizedStrings.LocalizedSourceSelectionHintRole(NormalizeBackendIdentifier(role), uiLanguage);
+
+    private static string LocalizedContentRole(string? role, string? uiLanguage)
+    {
+        var normalized = NormalizeBackendIdentifier(role);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return string.Empty;
+
+        return normalized switch
+        {
+            "content" => SourceCardLabel("content_role.content", uiLanguage),
+            "navigation" => SourceCardLabel("content_role.navigation", uiLanguage),
+            "mixed_navigation_content" => SourceCardLabel("content_role.mixed_navigation_content", uiLanguage),
+            _ => FormatBackendReason(normalized)
+        };
+    }
+
+    private static string FormatBackendReason(string? reason)
+    {
+        var normalized = NormalizeBackendIdentifier(reason);
+        return string.IsNullOrWhiteSpace(normalized)
+            ? string.Empty
+            : normalized.Replace('_', ' ');
+    }
 
     private static string LocalizedOcrReason(string? reason, string? uiLanguage)
         => LocalizedStrings.LocalizedSourceOcrReason(NormalizeBackendIdentifier(reason), uiLanguage);

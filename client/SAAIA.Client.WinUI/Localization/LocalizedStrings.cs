@@ -806,6 +806,69 @@ internal static class LocalizedStrings
                 ["de"] = "Auswahl",
                 ["it"] = "selezione"
             },
+            ["source_card.content_role"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "type contenu",
+                ["en"] = "content type",
+                ["es"] = "tipo contenido",
+                ["pt"] = "tipo conteúdo",
+                ["de"] = "Inhaltstyp",
+                ["it"] = "tipo contenuto"
+            },
+            ["source_card.content_density"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "densité",
+                ["en"] = "density",
+                ["es"] = "densidad",
+                ["pt"] = "densidade",
+                ["de"] = "Dichte",
+                ["it"] = "densità"
+            },
+            ["source_card.retrieval_navigation"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "navigation",
+                ["en"] = "navigation",
+                ["es"] = "navegación",
+                ["pt"] = "navegação",
+                ["de"] = "Navigation",
+                ["it"] = "navigazione"
+            },
+            ["source_card.navigation_reason"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "raison",
+                ["en"] = "reason",
+                ["es"] = "razón",
+                ["pt"] = "razão",
+                ["de"] = "Grund",
+                ["it"] = "motivo"
+            },
+            ["source_card.content_role.content"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "contenu",
+                ["en"] = "content",
+                ["es"] = "contenido",
+                ["pt"] = "conteúdo",
+                ["de"] = "Inhalt",
+                ["it"] = "contenuto"
+            },
+            ["source_card.content_role.navigation"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "navigation",
+                ["en"] = "navigation",
+                ["es"] = "navegación",
+                ["pt"] = "navegação",
+                ["de"] = "Navigation",
+                ["it"] = "navigazione"
+            },
+            ["source_card.content_role.mixed_navigation_content"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "mixte",
+                ["en"] = "mixed",
+                ["es"] = "mixto",
+                ["pt"] = "misto",
+                ["de"] = "gemischt",
+                ["it"] = "misto"
+            },
             ["source_card.evidence_role"] = new(StringComparer.OrdinalIgnoreCase)
             {
                 ["fr"] = "preuve",

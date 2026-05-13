@@ -150,6 +150,8 @@ public static class SourceCardParser
         var score = GetDoubleAny(el, "score", "Score", "similarity", "Similarity", "rerankScore", "RerankScore");
         var extractionQuality = TryGetObjectAny(el, "extractionQuality", "extraction_quality", "ExtractionQuality");
         var selectionHints = TryGetObjectAny(el, "selectionHints", "selection_hints", "SelectionHints");
+        var contentSignals = TryGetObjectAny(el, "contentSignals", "content_signals", "ContentSignals")
+                             ?? TryGetObjectAny(el, "context", "Context");
         var documentExtractionConfidence = GetDoubleFromQualityOrRoot(
             el,
             extractionQuality,
@@ -269,8 +271,79 @@ public static class SourceCardParser
                 : GetIntAny(selectionHints.Value, "navigationScore", "navigation_score", "NavigationScore"),
             SelectionHintQualityPenalty = selectionHints is null
                 ? GetIntAny(el, "selectionHintQualityPenalty", "selection_hint_quality_penalty", "qualityPenalty", "QualityPenalty")
-                : GetIntAny(selectionHints.Value, "qualityPenalty", "quality_penalty", "QualityPenalty")
+                : GetIntAny(selectionHints.Value, "qualityPenalty", "quality_penalty", "QualityPenalty"),
+            ContentRole = GetStringFromContextHintsOrRoot(
+                el,
+                contentSignals,
+                selectionHints,
+                "contentRole", "content_role", "ContentRole"),
+            NavigationReason = GetStringFromContextHintsOrRoot(
+                el,
+                contentSignals,
+                selectionHints,
+                "navigationReason", "navigation_reason", "NavigationReason"),
+            RetrievalNavigationScore = GetDoubleFromContextHintsOrRoot(
+                el,
+                contentSignals,
+                selectionHints,
+                "navigationScore", "navigation_score", "NavigationScore",
+                hintNames: new[] { "retrievalNavigationScore", "retrieval_navigation_score", "RetrievalNavigationScore" }),
+            ContentDensityScore = GetDoubleFromContextHintsOrRoot(
+                el,
+                contentSignals,
+                selectionHints,
+                "contentDensityScore", "content_density_score", "ContentDensityScore")
         });
+    }
+
+    private static string? GetStringFromContextHintsOrRoot(
+        JsonElement root,
+        JsonElement? contentSignals,
+        JsonElement? selectionHints,
+        params string[] names)
+    {
+        if (contentSignals is { } context)
+        {
+            var value = GetStringAny(context, names);
+            if (!string.IsNullOrWhiteSpace(value))
+                return value;
+        }
+
+        if (selectionHints is { } hints)
+        {
+            var value = GetStringAny(hints, names);
+            if (!string.IsNullOrWhiteSpace(value))
+                return value;
+        }
+
+        return GetStringAny(root, names);
+    }
+
+    private static double? GetDoubleFromContextHintsOrRoot(
+        JsonElement root,
+        JsonElement? contentSignals,
+        JsonElement? selectionHints,
+        string primaryName,
+        string snakeName,
+        string pascalName,
+        string[]? hintNames = null)
+    {
+        if (contentSignals is { } context)
+        {
+            var value = GetDoubleAny(context, primaryName, snakeName, pascalName);
+            if (value.HasValue)
+                return value;
+        }
+
+        if (selectionHints is { } hints)
+        {
+            var names = hintNames ?? new[] { primaryName, snakeName, pascalName };
+            var value = GetDoubleAny(hints, names);
+            if (value.HasValue)
+                return value;
+        }
+
+        return GetDoubleAny(root, primaryName, snakeName, pascalName);
     }
 
     private static SourceExtractionDiagnosticSummary? ParseExtractionDiagnosticSummary(JsonElement root, JsonElement? extractionQuality)

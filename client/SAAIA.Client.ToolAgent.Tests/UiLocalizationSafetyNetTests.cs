@@ -545,6 +545,12 @@ public sealed class UiLocalizationSafetyNetTests
               "matchedContentCards": [
                 { "title": "Controle source", "kind": "procedure", "pageStart": 3, "signals": [ "title_match" ] }
               ],
+              "contentSignals": {
+                "contentRole": "mixed_navigation_content",
+                "navigationReason": "inline_page_number_list",
+                "navigationScore": 0.42,
+                "contentDensityScore": 0.76
+              },
               "selectionHints": {
                 "evidenceRole": "actionable_item",
                 "actionabilityScore": 9,
@@ -578,6 +584,10 @@ public sealed class UiLocalizationSafetyNetTests
         Assert.Equal("actionable_item", card.SelectionHintEvidenceRole);
         Assert.Equal(9, card.SelectionHintActionabilityScore);
         Assert.Equal(2, card.SelectionHintQualityPenalty);
+        Assert.Equal("mixed_navigation_content", card.ContentRole);
+        Assert.Equal("inline_page_number_list", card.NavigationReason);
+        Assert.Equal(0.42, card.RetrievalNavigationScore);
+        Assert.Equal(0.76, card.ContentDensityScore);
     }
 
     [Fact]
@@ -1072,6 +1082,13 @@ public sealed class UiLocalizationSafetyNetTests
             "review_recommended",
             "evidence_role",
             "selection_score",
+            "content_role",
+            "content_density",
+            "retrieval_navigation",
+            "navigation_reason",
+            "content_role.content",
+            "content_role.navigation",
+            "content_role.mixed_navigation_content",
             "hash",
             "content_cards",
             "content_card_ids",

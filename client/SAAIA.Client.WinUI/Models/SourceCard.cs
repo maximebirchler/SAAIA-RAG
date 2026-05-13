@@ -42,6 +42,10 @@ public sealed class SourceCard
     public int? SelectionHintFragmentScore { get; set; }
     public int? SelectionHintNavigationScore { get; set; }
     public int? SelectionHintQualityPenalty { get; set; }
+    public string? ContentRole { get; set; }
+    public string? NavigationReason { get; set; }
+    public double? RetrievalNavigationScore { get; set; }
+    public double? ContentDensityScore { get; set; }
 
     public string PagesLabel { get; set; } = "";
     public string ScoreLabel { get; set; } = "";
