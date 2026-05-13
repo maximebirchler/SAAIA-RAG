@@ -368,10 +368,24 @@ internal static partial class DocumentProfileProjector
         var pageTextByNumber = pages
             .GroupBy(static page => page.PageNumber)
             .ToDictionary(static group => group.Key, static group => group.First().Text);
+        var reliablePageNumbers = pages
+            .Where(static page => !ExtractionQualityPolicy.IsPageUnreliableForEmbeddedCards(page))
+            .Select(static page => page.PageNumber)
+            .ToHashSet();
+        var hasPageReliabilityScope = pages.Count > 0;
 
         foreach (var section in sections.OrderBy(static section => section.Ordinal).Take(80))
         {
             if (hasCardPageScope && !PageRangeOverlaps(section.PageStart, section.PageEnd, cardPageNumbers))
+                continue;
+            if (hasPageReliabilityScope
+                && reliablePageNumbers.Count == 0
+                && (cardPageNumbers.Count == 0 || !PageRangeOverlaps(section.PageStart, section.PageEnd, cardPageNumbers)))
+                continue;
+            if (hasPageReliabilityScope
+                && reliablePageNumbers.Count > 0
+                && !PageRangeOverlaps(section.PageStart, section.PageEnd, reliablePageNumbers)
+                && (cardPageNumbers.Count == 0 || !PageRangeOverlaps(section.PageStart, section.PageEnd, cardPageNumbers)))
                 continue;
 
             AddContentCardCandidate(
