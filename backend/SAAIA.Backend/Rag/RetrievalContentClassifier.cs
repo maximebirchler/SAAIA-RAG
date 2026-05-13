@@ -540,7 +540,7 @@ internal static partial class RetrievalContentClassifier
     [GeneratedRegex(@"(?<![\p{L}\p{N}])\d+(?:[,.]\d+)?\s*(?:%|°\s*[cfk]?|kg|g|mg|l|ml|cl|dl|m|cm|mm|km|h|min|mn|s|sec|w|kw|v|kv|a|ma|hz|khz|mhz|pa|kpa|bar|psi|nm|rpm|tr/min|chf|eur|usd|gb|mb|kb|tb)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex MeasurementOrSpecificationRegex();
 
-    [GeneratedRegex(@"\b(?:preparation|preparacion|preparacao|preparazione|procedure|procedures|procedimiento|procedimento|procedura|instructions?|instruction|etapes?|steps?|passos?|schritte?|material|materiel|materials|materiaux|ingredient|ingredients|component|components|composant|composants|assembly|assemblage|montage|configuration|installation|maintenance|controle|control|verification|pruefung|prufung|pruefung|verificacion|verifica)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(?:preparation|preparacion|preparacao|preparazione|procedure|procedures|procedimiento|procedimento|procedura|instructions?|instruction|etapes?|steps?|passos?|schritte?|material|materiel|materials|materiaux|component|components|composant|composants|assembly|assemblage|montage|configuration|installation|maintenance|controle|control|verification|pruefung|prufung|pruefung|verificacion|verifica)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex DenseMeasuredContentCueRegex();
 
     [GeneratedRegex(@"\d{1,5}\s*$", RegexOptions.CultureInvariant)]

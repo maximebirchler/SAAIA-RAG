@@ -23,6 +23,10 @@ public sealed class ProductRuntimeDomainNeutralityTests
     [
         "cuisine",
         "cat_cuisine",
+        "ingredient",
+        "ingredients",
+        "recette",
+        "recipe",
         "JeCuisine",
         "Top30",
         "Nobilia",

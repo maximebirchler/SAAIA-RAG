@@ -1521,21 +1521,46 @@ internal static partial class DocumentProfileProjector
         => title.Any(static ch => ch is ',' or '"' or '\u201c' or '\u201d' or '\u2018' or '\u2019');
 
     private static bool LooksLikeGluedStructuredLabelTitle(string normalizedFolded)
-        => normalizedFolded.Contains("ingredientspreparation", StringComparison.Ordinal)
-            || normalizedFolded.Contains("ingredients preparation", StringComparison.Ordinal)
-            || normalizedFolded.Contains("ingredientspreparacion", StringComparison.Ordinal)
-            || normalizedFolded.Contains("ingredientespreparacion", StringComparison.Ordinal)
-            || normalizedFolded.Contains("ingredientes preparacion", StringComparison.Ordinal)
-            || normalizedFolded.Contains("ingredientspreparacao", StringComparison.Ordinal)
-            || normalizedFolded.Contains("ingredientespreparacao", StringComparison.Ordinal)
-            || normalizedFolded.Contains("ingredientipreparazione", StringComparison.Ordinal)
-            || normalizedFolded.Contains("ingredienti preparazione", StringComparison.Ordinal)
-            || normalizedFolded.Contains("ingredient procedure", StringComparison.Ordinal)
-            || normalizedFolded.Contains("ingredients procedure", StringComparison.Ordinal)
-            || normalizedFolded.Contains("materialprocedure", StringComparison.Ordinal)
-            || normalizedFolded.Contains("materialsprocedure", StringComparison.Ordinal)
-            || normalizedFolded.Contains("componentsprocedure", StringComparison.Ordinal)
-            || normalizedFolded.Contains("procedureingredients", StringComparison.Ordinal);
+    {
+        if (string.IsNullOrWhiteSpace(normalizedFolded))
+            return false;
+
+        var compact = normalizedFolded.Replace(" ", string.Empty, StringComparison.Ordinal);
+        if (ContainsGluedStructuredLabelPair(compact))
+            return true;
+
+        var tokens = normalizedFolded.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return tokens.Any(LooksLikeLongTokenGluedToProcessLabel);
+    }
+
+    private static bool ContainsGluedStructuredLabelPair(string compactTitle)
+    {
+        foreach (var objectLabel in GenericStructuredObjectLabels)
+        {
+            foreach (var processLabel in GenericStructuredProcessLabels)
+            {
+                if (compactTitle.Contains(objectLabel + processLabel, StringComparison.Ordinal)
+                    || compactTitle.Contains(processLabel + objectLabel, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool LooksLikeLongTokenGluedToProcessLabel(string token)
+    {
+        var lettersOnly = new string(token.Where(char.IsLetter).ToArray());
+        if (lettersOnly.Length < 18)
+            return false;
+
+        return GenericStructuredProcessLabels.Any(label =>
+            lettersOnly.Contains(label, StringComparison.Ordinal)
+            && !string.Equals(lettersOnly, label, StringComparison.Ordinal)
+            && lettersOnly.Length - label.Length >= 5);
+    }
 
     private static bool LooksLikeLeadingSingleLetterOcrFragment(string normalizedFolded, int tokenCount)
     {
@@ -2374,6 +2399,55 @@ internal static partial class DocumentProfileProjector
         "pour", "for", "para", "per", "mit", "avec", "with", "de", "du", "des",
         "d", "la", "le", "les", "l", "un", "une", "a", "an", "the"
     };
+
+    private static readonly string[] GenericStructuredObjectLabels =
+    [
+        "material",
+        "materials",
+        "materiel",
+        "materiaux",
+        "component",
+        "components",
+        "composant",
+        "composants",
+        "item",
+        "items",
+        "input",
+        "inputs",
+        "part",
+        "parts",
+        "element",
+        "elements"
+    ];
+
+    private static readonly string[] GenericStructuredProcessLabels =
+    [
+        "preparation",
+        "preparacion",
+        "preparacao",
+        "preparazione",
+        "procedure",
+        "procedures",
+        "procedimiento",
+        "procedimento",
+        "procedura",
+        "instruction",
+        "instructions",
+        "method",
+        "methods",
+        "methode",
+        "methodes",
+        "process",
+        "processus",
+        "steps",
+        "step",
+        "etape",
+        "etapes",
+        "passo",
+        "passos",
+        "schritt",
+        "schritte"
+    ];
 
     private static readonly HashSet<string> FrenchImperativeFollowerTokens = new(StringComparer.Ordinal)
     {
