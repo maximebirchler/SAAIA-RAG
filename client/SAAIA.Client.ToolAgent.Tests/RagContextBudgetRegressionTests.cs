@@ -1758,6 +1758,12 @@ public sealed class RagContextBudgetRegressionTests
               "excerpt": "The procedure asks operators to verify the control log before validation.",
               "fullText": "The procedure asks operators to verify the control log before validation.",
               "score": 0.92,
+              "context": {
+                "contentRole": "mixed_navigation_content",
+                "navigationReason": "inline_page_number_list",
+                "navigationScore": 0.42,
+                "contentDensityScore": 0.76
+              },
               "extractionQuality": {
                 "extractionSource": "pdf_text_plus_image_ocr",
                 "documentQualityStatus": "ocr_applied_ok_with_page_warnings",
@@ -1815,6 +1821,10 @@ public sealed class RagContextBudgetRegressionTests
         Assert.True(card.OcrApplied);
         Assert.True(card.OcrRecommended);
         Assert.Contains("page_contains_images", card.QualitySignals);
+        Assert.Equal("mixed_navigation_content", card.ContentRole);
+        Assert.Equal("inline_page_number_list", card.NavigationReason);
+        Assert.Equal(0.42, card.RetrievalNavigationScore);
+        Assert.Equal(0.76, card.ContentDensityScore);
         var contentCard = Assert.Single(card.MatchedContentCards);
         Assert.Equal("Control before validation", contentCard.Title);
         Assert.Equal("procedure", contentCard.Kind);

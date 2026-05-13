@@ -965,7 +965,11 @@ CURRENT_USER_MESSAGE:
             SelectionHintSupportScore = hit.SelectionHintSupportScore,
             SelectionHintFragmentScore = hit.SelectionHintFragmentScore,
             SelectionHintNavigationScore = hit.SelectionHintNavigationScore,
-            SelectionHintQualityPenalty = hit.SelectionHintQualityPenalty
+            SelectionHintQualityPenalty = hit.SelectionHintQualityPenalty,
+            ContentRole = NullIfWhiteSpace(hit.ContentRole),
+            NavigationReason = NullIfWhiteSpace(hit.NavigationReason),
+            RetrievalNavigationScore = hit.NavigationScore,
+            ContentDensityScore = hit.ContentDensityScore
         };
     }
 
@@ -1033,7 +1037,11 @@ CURRENT_USER_MESSAGE:
             SelectionHintSupportScore = PickBestScore(sources, static source => source.SelectionHintSupportScore),
             SelectionHintFragmentScore = PickBestScore(sources, static source => source.SelectionHintFragmentScore),
             SelectionHintNavigationScore = PickBestScore(sources, static source => source.SelectionHintNavigationScore),
-            SelectionHintQualityPenalty = PickBestScore(sources, static source => source.SelectionHintQualityPenalty)
+            SelectionHintQualityPenalty = PickBestScore(sources, static source => source.SelectionHintQualityPenalty),
+            ContentRole = PickBestContentRole(sources),
+            NavigationReason = PickSourceString(sources, static source => source.NavigationReason),
+            RetrievalNavigationScore = PickLowestDouble(sources, static source => source.RetrievalNavigationScore),
+            ContentDensityScore = PickBestConfidence(sources, static source => source.ContentDensityScore)
         };
     }
 
@@ -1108,6 +1116,8 @@ CURRENT_USER_MESSAGE:
            + (!string.IsNullOrWhiteSpace(source.ProfileLanguage) ? 2 : 0)
            + (!string.IsNullOrWhiteSpace(source.Category) ? 1 : 0)
            + (!string.IsNullOrWhiteSpace(source.ChunkId) ? 2 : 0)
+           + (!string.IsNullOrWhiteSpace(source.ContentRole) ? 2 : 0)
+           + (source.ContentDensityScore.HasValue ? 1 : 0)
            + (source.ExtractionDiagnosticSummary is not null ? 2 : 0)
            + (source.SelectionHintActionabilityScore ?? 0)
            + (source.SelectionHintSupportScore ?? 0)
@@ -1152,6 +1162,34 @@ CURRENT_USER_MESSAGE:
                 ? value
                 : null;
 
+    private static double? PickLowestDouble(
+        IEnumerable<ToolMemory.SourceRef> sources,
+        Func<ToolMemory.SourceRef, double?> selector)
+    {
+        var values = sources
+            .Select(selector)
+            .Where(static value => value.HasValue)
+            .Select(static value => value!.Value)
+            .ToArray();
+        return values.Length == 0 ? null : values.Min();
+    }
+
+    private static string? PickBestContentRole(IEnumerable<ToolMemory.SourceRef> sources)
+    {
+        var roles = sources
+            .Select(static source => NullIfWhiteSpace(source.ContentRole))
+            .Where(static role => !string.IsNullOrWhiteSpace(role))
+            .ToArray();
+        if (roles.Length == 0)
+            return null;
+
+        if (roles.Any(static role => string.Equals(role, "content", StringComparison.OrdinalIgnoreCase)))
+            return "content";
+        if (roles.Any(static role => string.Equals(role, "mixed_navigation_content", StringComparison.OrdinalIgnoreCase)))
+            return "mixed_navigation_content";
+        return roles[0];
+    }
+
     private static object BuildSourcesPayload(List<ToolMemory.SourceRef> sources)
         => new
         {
@@ -1170,6 +1208,7 @@ CURRENT_USER_MESSAGE:
                 categoryRef = x.CategoryRef,
                 categoryPath = x.CategoryPath,
                 chunkId = x.ChunkId,
+                contentSignals = BuildSourceContentSignalsPayload(x),
                 extractionQuality = BuildSourceExtractionQualityPayload(x),
                 matchedContentCards = BuildSourceContentCardsPayload(x),
                 selectionHints = BuildSourceSelectionHintsPayload(x)
@@ -1199,10 +1238,25 @@ CURRENT_USER_MESSAGE:
             categoryRef = x.CategoryRef,
             categoryPath = x.CategoryPath,
             chunkId = x.ChunkId,
+            contentSignals = BuildSourceContentSignalsPayload(x),
             extractionQuality = BuildSourceExtractionQualityPayload(x),
             matchedContentCards = BuildSourceContentCardsPayload(x),
             selectionHints = BuildSourceSelectionHintsPayload(x)
         }).Cast<object>().ToList();
+
+    private static object? BuildSourceContentSignalsPayload(ToolMemory.SourceRef source)
+        => string.IsNullOrWhiteSpace(source.ContentRole)
+           && string.IsNullOrWhiteSpace(source.NavigationReason)
+           && source.RetrievalNavigationScore is null
+           && source.ContentDensityScore is null
+            ? null
+            : new
+            {
+                contentRole = source.ContentRole,
+                navigationReason = source.NavigationReason,
+                navigationScore = source.RetrievalNavigationScore,
+                contentDensityScore = source.ContentDensityScore
+            };
 
     private static object? BuildSourceSelectionHintsPayload(ToolMemory.SourceRef source)
         => string.IsNullOrWhiteSpace(source.SelectionHintEvidenceRole)

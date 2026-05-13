@@ -421,6 +421,10 @@ public sealed class ToolMemory
         public int? SelectionHintFragmentScore { get; set; }
         public int? SelectionHintNavigationScore { get; set; }
         public int? SelectionHintQualityPenalty { get; set; }
+        public string? ContentRole { get; set; }
+        public string? NavigationReason { get; set; }
+        public double? RetrievalNavigationScore { get; set; }
+        public double? ContentDensityScore { get; set; }
     }
 
     public sealed class SourceExtractionDiagnosticRef
