@@ -8281,8 +8281,7 @@ CURRENT_USER_MESSAGE:
     {
         value = Regex.Replace(value, @"(?i)\bscale_basis\b", string.Empty, RegexOptions.CultureInvariant);
         value = Regex.Replace(value, @"\s+\+\s+.*$", string.Empty, RegexOptions.CultureInvariant);
-        value = Regex.Replace(value, @"(?i)\b(?:preparation|pr[ée]paration|portez|prechauffez|pr[ée]chauffez|epluchez|[ée]pluchez)\b.*$", string.Empty, RegexOptions.CultureInvariant);
-        value = Regex.Replace(value, @"(?i)\b(?:pr\u00e9paration|pr\u00e9chauffez|\u00e9pluchez)\b.*$", string.Empty, RegexOptions.CultureInvariant);
+        value = Regex.Replace(value, @"(?i)\b(?:preparation|pr\u00e9paration)\b.*$", string.Empty, RegexOptions.CultureInvariant);
         value = CollapseWhitespace(value.Trim(' ', ';', ',', ':', '-'));
         return FormatReadableEvidenceExcerpt(value, maxLength: 90);
     }

@@ -46,6 +46,11 @@ public sealed class ProductRuntimeDomainNeutralityTests
         "assaisonnez",
         "battez",
         "enfournez",
+        "portez",
+        "prechauffez",
+        "préchauffez",
+        "epluchez",
+        "épluchez",
         "poivrez",
         "saupoudrez",
         "transvasez"
