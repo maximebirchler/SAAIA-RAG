@@ -756,6 +756,7 @@ Procedure body: Materials lock padlock warning tag. Procedure 1. Isolate the mac
             [
                 new DocumentProfileContentCard("l evolution de la", 2, 2, "section", [], null),
                 new DocumentProfileContentCard("on nn . il \u00ab Sauces salees et", 3, 3, "section", [], null),
+                new DocumentProfileContentCard("a cafe de levure chimique", 3, 3, "Section", [], null),
                 new DocumentProfileContentCard("Safety symbols", 4, 4, "section", [], null),
                 new DocumentProfileContentCard("Vitamin A", 5, 5, "section", [], null),
                 new DocumentProfileContentCard("Access mode A", 6, 6, "section", [], null)
@@ -763,9 +764,58 @@ Procedure body: Materials lock padlock warning tag. Procedure 1. Isolate the mac
 
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "l evolution de la", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => card.Title.Contains("Sauces salees et", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "a cafe de levure chimique", StringComparison.Ordinal));
         Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Safety symbols", StringComparison.Ordinal));
         Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Vitamin A", StringComparison.Ordinal));
         Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Access mode A", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void BuildProfile_keeps_grounded_lowercase_content_cards()
+    {
+        var profile = DocumentProfileProjector.BuildProfile(
+            profileVersion: "llm_backoffice_v1",
+            language: "en",
+            summaryText: "Profile with source-backed lowercase title.",
+            keywords: [],
+            entities: [],
+            topics: [],
+            hypotheticalQuestions: [],
+            limits: [],
+            docPath: "Generic/GroundedLowercase.pdf",
+            docName: "GroundedLowercase.pdf",
+            contentCards:
+            [
+                new DocumentProfileContentCard(
+                    "validated lowercase procedure",
+                    9,
+                    9,
+                    "Section",
+                    [],
+                    new DocumentProfileCardEvidence(
+                        "content_card_evidence_v1",
+                        null,
+                        [],
+                        [],
+                        0.82,
+                        "en",
+                        [
+                            new DocumentProfileEvidenceFact(
+                                "requirement",
+                                "validated lowercase procedure",
+                                null,
+                                null,
+                                "The validated lowercase procedure is explicitly described here.",
+                                9,
+                                9,
+                                0.82)
+                        ]))
+            ]);
+
+        var card = Assert.Single(profile.ContentCards);
+        Assert.Equal("validated lowercase procedure", card.Title);
+        Assert.Equal("section", card.Kind);
+        Assert.NotNull(card.Evidence);
     }
 
     [Fact]

@@ -555,11 +555,12 @@ internal static partial class DocumentProfileProjector
         int score)
     {
         var cleanTitle = CleanTitleCandidate(title);
+        var normalizedKind = NormalizeContentCardKind(kind);
         if (!IsUsefulContentCardTitle(cleanTitle))
             return false;
-        if (LooksLikeLowercaseSectionFragment(cleanTitle, kind))
+        if (LooksLikeLowercaseSectionFragment(cleanTitle, normalizedKind))
             return false;
-        if (LooksLikeLowSignalContentCardLead(cleanTitle, kind))
+        if (LooksLikeLowSignalContentCardLead(cleanTitle, normalizedKind))
             return false;
 
         var evidence = BuildStructuredCardEvidence($"{cleanTitle} {context}");
@@ -569,7 +570,7 @@ internal static partial class DocumentProfileProjector
                 cleanTitle,
                 pageStart,
                 pageEnd,
-                string.IsNullOrWhiteSpace(kind) ? "content_item" : kind,
+                normalizedKind,
                 signals,
                 evidence,
                 ContentCardId: null),
@@ -1716,12 +1717,20 @@ internal static partial class DocumentProfileProjector
             var title = CleanTitleCandidate(card.Title);
             if (!IsUsefulContentCardTitle(title))
                 continue;
+            var kind = NormalizeContentCardKind(card.Kind);
+            var normalizedEvidence = NormalizeContentCardEvidence(card.Evidence);
+            if (!HasGroundedContentCardEvidence(normalizedEvidence))
+            {
+                if (LooksLikeLowercaseSectionFragment(title, kind))
+                    continue;
+                if (LooksLikeLowSignalContentCardLead(title, kind))
+                    continue;
+            }
 
             var key = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(title));
             if (string.IsNullOrWhiteSpace(key) || !seen.Add(key))
                 continue;
 
-            var normalizedEvidence = NormalizeContentCardEvidence(card.Evidence);
             var (pageStart, pageEnd) = NormalizeContentCardPageRange(card.PageStart, card.PageEnd, normalizedEvidence);
             var normalizedSignals = NormalizeList(
                 BuildStructuredCardSignals(normalizedEvidence)
@@ -1732,7 +1741,7 @@ internal static partial class DocumentProfileProjector
                 title,
                 pageStart,
                 pageEnd,
-                string.IsNullOrWhiteSpace(card.Kind) ? "content_item" : CollapseWhitespace(card.Kind),
+                kind,
                 normalizedSignals,
                 normalizedEvidence,
                 card.ContentCardId));
@@ -1742,6 +1751,29 @@ internal static partial class DocumentProfileProjector
         }
 
         return normalized;
+    }
+
+    private static string NormalizeContentCardKind(string? kind)
+        => string.IsNullOrWhiteSpace(kind)
+            ? "content_item"
+            : CollapseWhitespace(kind).ToLowerInvariant();
+
+    private static bool HasGroundedContentCardEvidence(DocumentProfileCardEvidence? evidence)
+    {
+        if (evidence is null)
+            return false;
+
+        if ((evidence.Facts ?? []).Any(static fact =>
+                !string.IsNullOrWhiteSpace(fact.SourceText)
+                || fact.PageStart is > 0
+                || fact.PageEnd is > 0))
+        {
+            return true;
+        }
+
+        return evidence.QuantityFacts.Count >= 2
+            && evidence.ScaleBasis is { Count: > 0 }
+            && evidence.Confidence is >= 0.7;
     }
 
     private static (int? PageStart, int? PageEnd) NormalizeContentCardPageRange(
