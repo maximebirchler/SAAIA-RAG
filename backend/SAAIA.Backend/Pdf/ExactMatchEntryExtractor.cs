@@ -17,6 +17,8 @@ internal static partial class ExactMatchEntryExtractor
             var normalizedUnit = NormalizeWhitespace(unit.Text);
             if (string.IsNullOrWhiteSpace(normalizedUnit))
                 continue;
+            if (!IsExactMatchContentUnit(normalizedUnit))
+                continue;
 
             var references = ExtractTargetedReferences(normalizedUnit).ToList();
             var referenceVariants = references
@@ -66,6 +68,24 @@ internal static partial class ExactMatchEntryExtractor
 
         return entries;
     }
+
+    private static bool IsExactMatchContentUnit(string text)
+    {
+        var signal = RetrievalContentClassifier.AnalyzeChunk(text);
+        if (string.Equals(signal.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.Ordinal))
+            return false;
+
+        return !string.Equals(signal.ContentRole, RetrievalContentClassifier.MixedNavigationContentRole, StringComparison.Ordinal)
+               || !IsCatalogLikeNavigationReason(signal.NavigationReason);
+    }
+
+    private static bool IsCatalogLikeNavigationReason(string? reason)
+        => reason is "inline_page_number_list"
+            or "numeric_title_catalog"
+            or "title_list_with_page_refs"
+            or "compact_title_catalog_with_page_refs"
+            or "dense_title_catalog"
+            or "title_list_shape";
 
     internal static IReadOnlyList<string> ExtractLookupTerms(string text)
     {

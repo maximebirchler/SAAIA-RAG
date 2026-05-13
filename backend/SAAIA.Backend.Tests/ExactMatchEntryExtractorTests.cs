@@ -77,6 +77,34 @@ public sealed class ExactMatchEntryExtractorTests
     }
 
     [Fact]
+    public void Extract_skips_mixed_navigation_catalog_units()
+    {
+        var mixedNavigation = """
+Controls overview 3
+Maintenance plan 18
+Alarm reset 22
+Lockout checklist 27
+Appendix 31
+Procedure body: Materials lock padlock warning tag. Procedure 1. Isolate the machine. 2. Verify zero energy and document the result.
+""";
+        var content = "CONTROL HANDOVER PLAN requires operators to check status, record notes, and validate the final handover.";
+        Assert.Equal(
+            RetrievalContentClassifier.MixedNavigationContentRole,
+            RetrievalContentClassifier.AnalyzeChunk(mixedNavigation).ContentRole);
+
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, mixedNavigation, mixedNavigation.Length, 26, [1], 0, mixedNavigation.Length),
+            new ExtractedDocumentUnit(1, 1, 2, 2, content, content.Length, 13, [2], 0, content.Length)
+        };
+
+        var entries = ExactMatchEntryExtractor.Extract(units);
+
+        Assert.DoesNotContain(entries, entry => entry.UnitOrdinal == 0);
+        Assert.Contains(entries, entry => entry.UnitOrdinal == 1);
+    }
+
+    [Fact]
     public void Extract_does_not_promote_lowercase_language_preposition_with_short_number_to_standard_ref()
     {
         var units = new[]
