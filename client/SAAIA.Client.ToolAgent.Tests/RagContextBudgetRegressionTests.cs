@@ -703,6 +703,68 @@ public sealed class RagContextBudgetRegressionTests
     }
 
     [Fact]
+    public void Writer_broad_rag_payload_keeps_compact_evidence_for_top_grounded_cards()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/manual.pdf",
+                    docName = "manual.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = "Structured source text.",
+                    score = 0.91,
+                    selectionHints = new
+                    {
+                        evidenceRole = "actionable_item",
+                        actionabilityScore = 9,
+                        supportScore = 4,
+                        fragmentScore = 0,
+                        navigationScore = 0,
+                        qualityPenalty = 0
+                    },
+                    matchedContentCards = new[]
+                    {
+                        new
+                        {
+                            title = "Structured section",
+                            kind = "section",
+                            evidence = new
+                            {
+                                schemaVersion = "content_card_evidence_v1",
+                                scaleBasis = new { count = 4, label = "items" },
+                                quantityFacts = new[]
+                                {
+                                    new { value = 12, unit = "kg", label = "validated load", sourceText = "12 kg validated load" }
+                                },
+                                confidence = 0.82
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        var serialized = ToolAgentOrchestrator.SerializeWriterRagResultsForTests(
+            "rag.search",
+            payload,
+            "Aide-moi a preparer un plan avec les donnees disponibles.");
+        using var doc = JsonDocument.Parse(serialized);
+        var evidence = doc.RootElement[0]
+            .GetProperty("result")
+            .GetProperty("hits")[0]
+            .GetProperty("matchedContentCards")[0]
+            .GetProperty("evidence");
+
+        Assert.Equal("content_card_evidence_v1", evidence.GetProperty("schemaVersion").GetString());
+        Assert.Equal(12, evidence.GetProperty("quantityFacts")[0].GetProperty("value").GetInt32());
+        Assert.Equal("validated load", evidence.GetProperty("quantityFacts")[0].GetProperty("label").GetString());
+    }
+
+    [Fact]
     public void Writer_rag_results_are_recompacted_for_broad_multi_search_prompts()
     {
         var longText = new string('x', 2000);

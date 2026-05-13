@@ -4911,6 +4911,7 @@ TOOL_RESULTS (json):
 
             foreach (var it in selectedHits.Take(maxHits))
             {
+                var hitSummary = BuildRagHitSummary(it);
                 var docPath = TryGetString(it, "docPath") ?? string.Empty;
                 var docName = TryGetString(it, "docName") ?? Path.GetFileName(docPath);
                 var pageStart = TryGetInt(it, "pageStart") ?? 1;
@@ -4920,10 +4921,11 @@ TOOL_RESULTS (json):
                 var contextualSnippet = TruncateForPrompt(TryGetString(it, "contextualSnippet"), contextualChars);
                 var extractionQuality = CompactExtractionQualityForPrompt(it);
                 var contentSignals = CompactRetrievalContentSignalsForPrompt(it);
+                var includeCardEvidence = prioritizeEvidence || ShouldKeepBroadWriterCardEvidence(hitSummary, list.Count);
                 var matchedContentCards = CompactMatchedContentCardsForPrompt(
                     it,
                     maxCards: prioritizeEvidence ? 8 : 2,
-                    includeEvidence: prioritizeEvidence);
+                    includeEvidence: includeCardEvidence);
                 var provenanceInfo = prioritizeEvidence
                     ? DeserializePromptObject(it, "provenanceInfo") ?? DeserializePromptObject(it, "ProvenanceInfo")
                     : null;
@@ -4950,7 +4952,7 @@ TOOL_RESULTS (json):
                         extractionQuality,
                         contentSignals,
                         matchedContentCards,
-                        selectionHints = BuildRagSelectionHintsPayload(BuildRagHitSummary(it), userMessage),
+                        selectionHints = BuildRagSelectionHintsPayload(hitSummary, userMessage),
                         contextualSnippet = string.IsNullOrWhiteSpace(contextualSnippet) ? null : contextualSnippet
                     });
                     continue;
@@ -4991,7 +4993,7 @@ TOOL_RESULTS (json):
                     extractionQuality,
                     contentSignals,
                     matchedContentCards,
-                    selectionHints = BuildRagSelectionHintsPayload(BuildRagHitSummary(it), userMessage),
+                    selectionHints = BuildRagSelectionHintsPayload(hitSummary, userMessage),
                     contextualSnippet = string.IsNullOrWhiteSpace(contextualSnippet) ? null : contextualSnippet
                 });
             }
@@ -5016,6 +5018,24 @@ TOOL_RESULTS (json):
         {
             return result;
         }
+    }
+
+    private static bool ShouldKeepBroadWriterCardEvidence(RagHitSummary hit, int selectedIndex)
+    {
+        if (selectedIndex >= 2 || hit.MatchedContentCards is not { Count: > 0 })
+            return false;
+
+        var role = hit.SelectionHintRole;
+        if (!string.Equals(role, "actionable_item", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(role, "supporting_context", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return hit.MatchedContentCards.Any(static card =>
+            card.RawEvidence.HasValue
+            || card.Evidence is { QuantityFacts.Count: > 0 }
+            || card.Evidence?.Facts is { Count: > 0 });
     }
 
     private static IReadOnlyList<JsonElement> RankRagHitsForWriter(IReadOnlyList<JsonElement> hits, string userMessage)
