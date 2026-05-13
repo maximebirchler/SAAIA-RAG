@@ -970,6 +970,68 @@ Procedure body: Materials lock padlock warning tag. Procedure 1. Isolate the mac
     }
 
     [Fact]
+    public void Project_discards_cover_publication_and_editorial_cards_without_domain_rules()
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                1,
+                "TOP 20 OF CONTROL IDEAS\n" +
+                "Control Topics Of those who need quick overview and simple discovery\n" +
+                "ACME GUIDE\n" +
+                "Resources: website, newsletter, app. Steps: 1 download the app. 2 subscribe to the newsletter. Discover more resources at www.example.com. Copyright 2026 Example Publishing.",
+                38,
+                285,
+                [1]),
+            new ExtractedPdfPage(
+                2,
+                "SAFETY CHECK\nMaterials: gloves, labels, scanner. Steps: 1 inspect status. 2 record evidence.",
+                18,
+                94,
+                [2])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "TOP 20 OF CONTROL IDEAS", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(1, "ACME GUIDE", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(2, "SAFETY CHECK", 1, 1, 2, 2, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "Resources: website, newsletter, app. Steps: 1 download the app. 2 subscribe to the newsletter.",
+                92,
+                11,
+                [3]),
+            new ExtractedDocumentUnit(
+                1,
+                2,
+                2,
+                2,
+                "SAFETY CHECK\nMaterials: gloves, labels, scanner. Steps: 1 inspect status. 2 record evidence.",
+                94,
+                10,
+                [4])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/CoverAndContent.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "SAFETY CHECK", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("TOP 20", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Control Topics Of those", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "ACME GUIDE", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void Project_keeps_compact_how_to_titles_but_discards_procedural_leads()
     {
         var pages = new[]

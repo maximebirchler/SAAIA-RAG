@@ -345,6 +345,9 @@ internal static partial class DocumentProfileProjector
             .ToDictionary(static group => group.Key, static group => CollapseWhitespace(group.First().Title));
         var cardPageNumbers = BuildCoveredPageNumbers(units);
         var hasCardPageScope = cardPageNumbers.Count > 0;
+        var pageTextByNumber = pages
+            .GroupBy(static page => page.PageNumber)
+            .ToDictionary(static group => group.Key, static group => group.First().Text);
 
         foreach (var section in sections.OrderBy(static section => section.Ordinal).Take(80))
         {
@@ -357,7 +360,7 @@ internal static partial class DocumentProfileProjector
                 section.PageStart,
                 section.PageEnd,
                 "section",
-                section.Title,
+                BuildSectionContentCardContext(section, pageTextByNumber),
                 keywords,
                 score: 65);
         }
@@ -458,6 +461,19 @@ internal static partial class DocumentProfileProjector
         }
 
         return NormalizeContentCards(OrderContentCardsForBalancedCoverage(candidates));
+    }
+
+    private static string BuildSectionContentCardContext(
+        ExtractedDocumentSection section,
+        IReadOnlyDictionary<int, string> pageTextByNumber)
+    {
+        var title = CollapseWhitespace(section.Title);
+        var pageStart = Math.Min(section.PageStart, section.PageEnd);
+        var pageEnd = Math.Max(section.PageStart, section.PageEnd);
+        if (pageStart <= 0 || pageStart != pageEnd || !pageTextByNumber.TryGetValue(pageStart, out var pageText))
+            return title;
+
+        return CollapseWhitespace($"{title} {TrimTo(pageText, PageEmbeddedTitleScanLength)}");
     }
 
     private static HashSet<int> BuildCoveredPageNumbers(IReadOnlyList<ExtractedDocumentUnit> units)
@@ -564,6 +580,9 @@ internal static partial class DocumentProfileProjector
             return false;
 
         var evidence = BuildStructuredCardEvidence($"{cleanTitle} {context}");
+        if (LooksLikeLowSubstanceCoverOrMarketingCandidate(cleanTitle, context, evidence))
+            return false;
+
         var signals = BuildCardSignals(cleanTitle, context, documentKeywords, evidence);
         candidates.Add(new DocumentProfileContentCardCandidate(
             new DocumentProfileContentCard(
@@ -1007,6 +1026,100 @@ internal static partial class DocumentProfileProjector
             || normalizedFolded.Contains("componentsprocedure", StringComparison.Ordinal)
             || normalizedFolded.Contains("components procedure", StringComparison.Ordinal)
             || LooksLikeAllCapsMarketingHeadline(normalizedFolded, tokenCount);
+    }
+
+    private static bool LooksLikeLowSubstanceCoverOrMarketingCandidate(
+        string title,
+        string? context,
+        DocumentProfileCardEvidence? evidence)
+    {
+        if (string.IsNullOrWhiteSpace(title) || LooksLikeTechnicalIdentifier(title))
+            return false;
+
+        if (HasSourceBackedContentCardEvidence(evidence))
+            return false;
+
+        var normalizedTitle = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(title));
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        var tokenCount = CountTokens(title);
+        var normalizedContext = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(context ?? string.Empty));
+        var contextSignal = RetrievalContentClassifier.AnalyzeChunk(context);
+        var hasStructuredContext = LooksLikeStructuredContentContext(normalizedContext);
+        var lowSubstanceContext = !hasStructuredContext
+            && (!string.Equals(contextSignal.ContentRole, RetrievalContentClassifier.ContentRole, StringComparison.Ordinal)
+                || contextSignal.ContentDensityScore < 0.45);
+        var promotionalContext = LooksLikePromotionalOrPublicationContext(normalizedContext);
+
+        if (CoverOrCatalogHeadlineRegex().IsMatch(normalizedTitle))
+            return true;
+
+        if (promotionalContext
+            && tokenCount <= 4
+            && LooksLikeMostlyUppercaseTitle(title))
+        {
+            return true;
+        }
+
+        if (LooksLikeLongSubtitleSentenceFragment(normalizedTitle, tokenCount)
+            && (promotionalContext || lowSubstanceContext))
+        {
+            return true;
+        }
+
+        return LooksLikeRepeatedLowSubstanceHeadline(normalizedTitle, tokenCount)
+            && (promotionalContext || lowSubstanceContext);
+    }
+
+    private static bool LooksLikePromotionalOrPublicationContext(string normalizedFoldedContext)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedFoldedContext))
+            return false;
+
+        return PromotionalOrPublicationContextRegex().IsMatch(normalizedFoldedContext)
+            || normalizedFoldedContext.Contains("copyright", StringComparison.Ordinal)
+            || normalizedFoldedContext.Contains("all rights", StringComparison.Ordinal)
+            || normalizedFoldedContext.Contains("droits reserves", StringComparison.Ordinal)
+            || normalizedFoldedContext.Contains("www", StringComparison.Ordinal)
+            || normalizedFoldedContext.Contains("website", StringComparison.Ordinal)
+            || normalizedFoldedContext.Contains("site web", StringComparison.Ordinal)
+            || normalizedFoldedContext.Contains("discover more", StringComparison.Ordinal)
+            || normalizedFoldedContext.Contains("decouvrez plus", StringComparison.Ordinal)
+            || normalizedFoldedContext.Contains("decouvrez encore", StringComparison.Ordinal)
+            || normalizedFoldedContext.Contains("newsletter", StringComparison.Ordinal)
+            || normalizedFoldedContext.Contains("subscribe", StringComparison.Ordinal)
+            || normalizedFoldedContext.Contains("abonnez", StringComparison.Ordinal);
+    }
+
+    private static bool LooksLikeLongSubtitleSentenceFragment(string normalizedFoldedTitle, int tokenCount)
+    {
+        if (tokenCount < 7)
+            return false;
+
+        var tokens = normalizedFoldedTitle.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (tokens.Length < 7)
+            return false;
+
+        var connectorTokens = tokens.Count(static token => DanglingFragmentTitleTokens.Contains(token));
+        return connectorTokens >= 2
+            && RelativeOrEditorialPronounRegex().IsMatch(normalizedFoldedTitle);
+    }
+
+    private static bool LooksLikeRepeatedLowSubstanceHeadline(string normalizedFoldedTitle, int tokenCount)
+    {
+        if (tokenCount < 5)
+            return false;
+
+        var duplicateMeaningfulTokens = normalizedFoldedTitle
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(static token => token.Length >= 4)
+            .Where(static token => !ContentCardLeadStopwords.Contains(token))
+            .Where(static token => !DanglingFragmentTitleTokens.Contains(token))
+            .GroupBy(static token => token, StringComparer.Ordinal)
+            .Count(static group => group.Count() > 1);
+
+        return duplicateMeaningfulTokens > 0;
     }
 
     private static bool LooksLikeOcrNoiseTitle(string title, string normalizedFolded, int tokenCount)
@@ -1721,6 +1834,8 @@ internal static partial class DocumentProfileProjector
             var normalizedEvidence = NormalizeContentCardEvidence(card.Evidence);
             if (!HasGroundedContentCardEvidence(normalizedEvidence))
             {
+                if (LooksLikeLowSubstanceCoverOrMarketingCandidate(title, null, normalizedEvidence))
+                    continue;
                 if (LooksLikeLowercaseSectionFragment(title, kind))
                     continue;
                 if (LooksLikeLowSignalContentCardLead(title, kind))
@@ -1775,6 +1890,12 @@ internal static partial class DocumentProfileProjector
             && evidence.ScaleBasis is { Count: > 0 }
             && evidence.Confidence is >= 0.7;
     }
+
+    private static bool HasSourceBackedContentCardEvidence(DocumentProfileCardEvidence? evidence)
+        => evidence?.Facts is { Count: > 0 } facts
+           && facts.Any(static fact =>
+               !string.IsNullOrWhiteSpace(fact.SourceText)
+               && (fact.PageStart is > 0 || fact.PageEnd is > 0));
 
     private static (int? PageStart, int? PageEnd) NormalizeContentCardPageRange(
         int? rawPageStart,
@@ -2030,6 +2151,15 @@ internal static partial class DocumentProfileProjector
 
     [GeneratedRegex(@"^(?:materials?|components?|procedures?|method|methods|steps?|etapes?|sources?|references?|notes?|materiel|matériel|technique|suggestions?|requirements?|warnings?|cautions?|instructions?|parameters?|settings?|total time|duree totale|durée totale)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex GenericContentCardTitlePrefixRegex();
+
+    [GeneratedRegex(@"^(?:top|best\s+of|selection|selected|catalogue|catalog|overview|panorama|compilation)\s+(?:\d{1,4}\b|of\b|des?\b|de\b|du\b)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex CoverOrCatalogHeadlineRegex();
+
+    [GeneratedRegex(@"\b(?:all\s+rights|copyright|credits?|published|publisher|publication|printed|isbn|website|www|https?|download|subscribe|newsletter|social\s+media|facebook|instagram|linkedin|youtube|twitter|x\.com|contact|discover\s+more|learn\s+more|more\s+resources|droits\s+reserves?|credits?|editeur|edition|publication|imprime|site\s+web|telechargez?|abonnez|reseaux\s+sociaux|decouvrez\s+(?:encore|plus)|en\s+savoir\s+plus|contactez|derechos\s+reservados|sitio\s+web|descubre\s+mas|todos\s+os\s+direitos|direitos\s+reservados|site|saiba\s+mais|alle\s+rechte|webseite|mehr\s+erfahren|diritti\s+riservati|sito\s+web|scopri\s+di\s+piu)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex PromotionalOrPublicationContextRegex();
+
+    [GeneratedRegex(@"\b(?:qui|que|dont|ceux|celles|celui|who|whom|whose|which|that|quien|quienes|cuyo|cuyos|qual|quais|quem|dessen|deren|welche|welcher|welches|che|cui)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex RelativeOrEditorialPronounRegex();
 
     [GeneratedRegex(@"^(?:[&A-Z0-9]{1,2}\s+)?(?:facile|easy|repos|rest|pause|pas\s+cher|low\s+cost|cheap|temps|time|duration|duree|durée|modes?\s+de|categories?\s+de|cat[eé]gories?\s+de)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex MetadataLabelTitleRegex();
