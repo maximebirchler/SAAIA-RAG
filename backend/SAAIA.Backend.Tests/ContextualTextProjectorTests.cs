@@ -49,6 +49,65 @@ public sealed class ContextualTextProjectorTests
     }
 
     [Fact]
+    public void Project_omits_navigation_neighbors_from_embedding_context()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Operations", 1, 1, 1, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "Table of contents Safety overview 3 Lockout procedure 8 Alarm reset 12 Maintenance plan 18",
+                14,
+                12,
+                [1]),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                2,
+                2,
+                "Lockout procedure Materials lock padlock warning tag. Procedure 1. Isolate the machine. 2. Verify zero energy.",
+                108,
+                15,
+                [2]),
+            new ExtractedDocumentUnit(
+                2,
+                0,
+                3,
+                3,
+                "Índice Seguridad 3 Procedimiento de bloqueo 8 Mantenimiento 12 Anexos 18",
+                74,
+                10,
+                [3])
+        };
+        var chunks = new[]
+        {
+            new ProjectedRetrievalChunk(
+                0,
+                0,
+                1,
+                2,
+                2,
+                "Lockout procedure Materials lock padlock warning tag. Procedure 1. Isolate the machine. 2. Verify zero energy.",
+                15,
+                [4],
+                "unit_exact_v1")
+        };
+
+        var entry = Assert.Single(ContextualTextProjector.Project("Ops/Manual.pdf", sections, units, chunks));
+
+        Assert.DoesNotContain("previous_context:", entry.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("next_context:", entry.Text, StringComparison.Ordinal);
+        Assert.Contains("excerpt:", entry.Text, StringComparison.Ordinal);
+        Assert.Contains("Lockout procedure", entry.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Stable_contextual_text_entry_id_is_deterministic_for_same_revision_and_index()
     {
         var revisionId = Guid.Parse("cdcdcdcd-cdcd-cdcd-cdcd-cdcdcdcdcdcd");

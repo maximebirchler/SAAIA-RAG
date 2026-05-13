@@ -1173,7 +1173,7 @@ internal static partial class DocumentProfileProjector
         var startsWithFragment = DanglingFragmentTitleTokens.Contains(firstToken);
         var endsWithFragment = DanglingFragmentTitleTokens.Contains(lastToken);
 
-        if (startsWithFragment && tokenCount <= 6 && strongTokens <= 2)
+        if (startsWithFragment && tokenCount <= 6 && (strongTokens <= 2 || LooksLikeLowercaseLead(title)))
             return true;
 
         if (endsWithFragment
@@ -1346,11 +1346,21 @@ internal static partial class DocumentProfileProjector
         => GenericContentCardTitlePrefixRegex().IsMatch(normalizedTitle)
             || InstructionLeadTitleRegex().IsMatch(normalizedTitle)
             || CountLeadTitleRegex().IsMatch(normalizedTitle)
-            || normalizedTitle.Contains("table des matieres", StringComparison.Ordinal)
-            || normalizedTitle.Contains("table of contents", StringComparison.Ordinal)
+            || ContainsGenericNavigationTitle(normalizedTitle)
             || normalizedTitle.Contains(" indd ", StringComparison.Ordinal)
             || normalizedTitle.StartsWith("couv ", StringComparison.Ordinal)
             || normalizedTitle.StartsWith("cover ", StringComparison.Ordinal);
+
+    private static bool ContainsGenericNavigationTitle(string normalizedTitle)
+        => normalizedTitle.Contains("table des matieres", StringComparison.Ordinal)
+            || normalizedTitle.Contains("table of contents", StringComparison.Ordinal)
+            || normalizedTitle.Contains("inhaltsverzeichnis", StringComparison.Ordinal)
+            || normalizedTitle.Contains("indice general", StringComparison.Ordinal)
+            || normalizedTitle.Contains("indice de contenido", StringComparison.Ordinal)
+            || normalizedTitle.Contains("indice de contenidos", StringComparison.Ordinal)
+            || normalizedTitle.Contains("indice de materias", StringComparison.Ordinal)
+            || normalizedTitle.Contains("indice analitico", StringComparison.Ordinal)
+            || normalizedTitle is "sommaire" or "contents" or "sommario" or "sumario" or "indice" or "toc";
 
     private static string[] BuildCardSignals(
         string title,
@@ -2085,7 +2095,8 @@ internal static partial class DocumentProfileProjector
     {
         "materials", "material", "components", "component", "method", "methods",
         "etapes", "etape", "steps", "step", "notes", "note", "source", "sources",
-        "sommaire", "contents", "table of contents", "index",
+        "sommaire", "contents", "table des matieres", "table of contents", "index",
+        "indice", "sumario", "sommario", "inhaltsverzeichnis", "toc",
         "total time", "duree totale", "durée totale",
         "document", "documents", "page", "pages",
         "facile", "easy", "repos", "rest", "pause", "cheap", "cher", "difficulty", "difficulte"
@@ -2146,7 +2157,7 @@ internal static partial class DocumentProfileProjector
     [GeneratedRegex(@"^\s*(?:page\s*)?(?:\d+[\.)\]\-:]*\s*|[IVXLCDM]+(?:[\.)\]\-:]\s*|\s+))", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex LeadingNumberRegex();
 
-    [GeneratedRegex(@"\s*\[(?:index|contents?|sommaire).*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\s*\[(?:index|contents?|sommaire|indice|sumario|sommario|inhaltsverzeichnis|toc).*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex BracketedIndexSuffixRegex();
 
     [GeneratedRegex(@"^(?:materials?|components?|procedures?|method|methods|steps?|etapes?|sources?|references?|notes?|materiel|matériel|technique|suggestions?|requirements?|warnings?|cautions?|instructions?|parameters?|settings?|total time|duree totale|durée totale)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]

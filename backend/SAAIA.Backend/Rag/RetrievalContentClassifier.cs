@@ -66,10 +66,15 @@ internal static partial class RetrievalContentClassifier
         string? reason = null;
         var navigationScore = 0.0;
 
-        if (folded.Contains("table des matieres", StringComparison.Ordinal)
-            || folded.Contains("table of contents", StringComparison.Ordinal)
-            || padded.Contains(" sommaire ", StringComparison.Ordinal)
-            || padded.Contains(" contents ", StringComparison.Ordinal))
+        var hasExplicitTocMarker = ContainsExplicitTableOfContentsMarker(folded, padded);
+        var hasShortTocMarker = ContainsShortTableOfContentsMarker(padded);
+        if (hasExplicitTocMarker
+            || (hasShortTocMarker
+                && (inlinePageNumberBoundaries >= 3
+                    || CountShortNumberTokens(text) >= 4
+                    || shape.PageReferenceLineCount >= 2
+                    || shape.DotLeaderLineCount >= 1
+                    || hasListShape)))
         {
             reason = "table_of_contents";
             navigationScore = 0.95;
@@ -207,6 +212,24 @@ internal static partial class RetrievalContentClassifier
 
         return StrongNavigationMarkerRegex().IsMatch(paddedNormalizedText);
     }
+
+    private static bool ContainsExplicitTableOfContentsMarker(string foldedText, string paddedNormalizedText)
+        => foldedText.Contains("table des matieres", StringComparison.Ordinal)
+            || foldedText.Contains("table of contents", StringComparison.Ordinal)
+            || foldedText.Contains("inhaltsverzeichnis", StringComparison.Ordinal)
+            || paddedNormalizedText.Contains(" indice general ", StringComparison.Ordinal)
+            || paddedNormalizedText.Contains(" indice de contenido ", StringComparison.Ordinal)
+            || paddedNormalizedText.Contains(" indice de contenidos ", StringComparison.Ordinal)
+            || paddedNormalizedText.Contains(" indice de materias ", StringComparison.Ordinal)
+            || paddedNormalizedText.Contains(" indice analitico ", StringComparison.Ordinal);
+
+    private static bool ContainsShortTableOfContentsMarker(string paddedNormalizedText)
+        => paddedNormalizedText.Contains(" sommaire ", StringComparison.Ordinal)
+            || paddedNormalizedText.Contains(" contents ", StringComparison.Ordinal)
+            || paddedNormalizedText.Contains(" sommario ", StringComparison.Ordinal)
+            || paddedNormalizedText.Contains(" sumario ", StringComparison.Ordinal)
+            || paddedNormalizedText.Contains(" indice ", StringComparison.Ordinal)
+            || paddedNormalizedText.Contains(" toc ", StringComparison.Ordinal);
 
     private static int CountBulletMarkers(string text)
         => string.IsNullOrWhiteSpace(text)
@@ -448,7 +471,7 @@ internal static partial class RetrievalContentClassifier
     [GeneratedRegex(@"[^\p{L}\p{N}]+", RegexOptions.CultureInvariant)]
     private static partial Regex NavigationLookupRegex();
 
-    [GeneratedRegex(@"\b(?:index|liste|list|catalogue|catalog|inventaire|inventory)\s+(?:des?|de|du|d['\u2019]?|of|for)?\s*[\p{L}\p{N}][\p{L}\p{N}\s\-_]{2,80}\b|\b[\p{L}\p{N}][\p{L}\p{N}\s\-_]{2,80}\s+(?:index|liste|list|catalogue|catalog|inventory)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(?:index|liste|list|catalogue|catalog|inventaire|inventory|indice\s+(?:general|de\s+contenidos?|de\s+materias?|analitico)|sumario|sommario|inhaltsverzeichnis)\s+(?:des?|de|du|d['\u2019]?|of|for)?\s*[\p{L}\p{N}][\p{L}\p{N}\s\-_]{2,80}\b|\b[\p{L}\p{N}][\p{L}\p{N}\s\-_]{2,80}\s+(?:index|liste|list|catalogue|catalog|inventory|sumario|sommario)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex StrongNavigationMarkerRegex();
 
     [GeneratedRegex(@"(?:^|[^\p{L}\p{N}])(?:pour|for|para|per)\s+\d+|(?:^|[^\p{L}\p{N}])\d+\s*[\.)]\s+\p{L}", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]

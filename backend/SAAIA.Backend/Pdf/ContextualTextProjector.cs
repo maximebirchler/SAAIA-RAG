@@ -71,23 +71,46 @@ internal static class ContextualTextProjector
             sb.AppendLine();
         }
 
-        if (!string.IsNullOrWhiteSpace(previousUnit?.Text))
+        if (ShouldIncludeNeighborContext(previousUnit))
         {
             sb.AppendLine("previous_context:");
-            sb.AppendLine(previousUnit.Text.Trim());
+            sb.AppendLine(previousUnit!.Text.Trim());
             sb.AppendLine();
         }
 
-        if (!string.IsNullOrWhiteSpace(nextUnit?.Text))
+        if (ShouldIncludeNeighborContext(nextUnit))
         {
             sb.AppendLine("next_context:");
-            sb.AppendLine(nextUnit.Text.Trim());
+            sb.AppendLine(nextUnit!.Text.Trim());
             sb.AppendLine();
         }
 
         sb.AppendLine("excerpt:");
         sb.Append(chunk.Text.Trim());
         return sb.ToString().TrimEnd();
+    }
+
+    private static bool ShouldIncludeNeighborContext(ExtractedDocumentUnit? unit)
+    {
+        if (string.IsNullOrWhiteSpace(unit?.Text))
+            return false;
+
+        var text = unit.Text.Trim();
+        if (OcrNoiseFilter.LooksLikeProbableNoiseText(text))
+            return false;
+
+        var signal = RetrievalContentClassifier.AnalyzeChunk(text);
+        if (string.Equals(signal.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.Ordinal))
+            return false;
+
+        if (string.Equals(signal.ContentRole, RetrievalContentClassifier.MixedNavigationContentRole, StringComparison.Ordinal)
+            && signal.NavigationScore >= 0.72
+            && signal.ContentDensityScore < 0.55)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     private static ExtractedDocumentUnit? ResolveNeighborUnit(

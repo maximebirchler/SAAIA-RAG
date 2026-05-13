@@ -479,9 +479,19 @@ internal static partial class RetrievalChunkProjector
         if (EmbeddedTitleStopwords.Contains(normalized))
             return false;
 
-        return !normalized.Contains("table des matieres", StringComparison.Ordinal)
-            && !normalized.Contains("table of contents", StringComparison.Ordinal);
+        return !ContainsGenericNavigationTitle(normalized);
     }
+
+    private static bool ContainsGenericNavigationTitle(string normalized)
+        => normalized.Contains("table des matieres", StringComparison.Ordinal)
+            || normalized.Contains("table of contents", StringComparison.Ordinal)
+            || normalized.Contains("inhaltsverzeichnis", StringComparison.Ordinal)
+            || normalized.Contains("indice general", StringComparison.Ordinal)
+            || normalized.Contains("indice de contenido", StringComparison.Ordinal)
+            || normalized.Contains("indice de contenidos", StringComparison.Ordinal)
+            || normalized.Contains("indice de materias", StringComparison.Ordinal)
+            || normalized.Contains("indice analitico", StringComparison.Ordinal)
+            || normalized is "sommaire" or "contents" or "sommario" or "sumario" or "indice" or "toc";
 
     private static bool LooksLikeMostlyUppercaseTitle(string title)
     {

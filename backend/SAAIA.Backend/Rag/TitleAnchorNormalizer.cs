@@ -158,6 +158,6 @@ internal static partial class TitleAnchorNormalizer
     [GeneratedRegex(@"^(?:p|pp|page|pages?|pagina|pagine|seite|seiten|pag|pags?)?\s*\d{1,4}$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex OnlyPageOrNumberRegex();
 
-    [GeneratedRegex(@"^(?:contents?|table of contents|sommaire|index|indice|inhaltsverzeichnis|toc|references?|bibliography|glossary|lexique|appendix|annex(?:e)?s?)$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:contents?|table of contents|sommaire|sumario|sommario|index|indice|inhaltsverzeichnis|toc|references?|bibliography|glossary|lexique|appendix|annex(?:e)?s?)$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex GenericNavigationLabelRegex();
 }

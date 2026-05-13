@@ -94,6 +94,48 @@ public sealed class DocumentProfileProjectorTests
         Assert.Contains("LOCKOUT TAGOUT PROCEDURE", profile.SummaryText, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("Índice Seguridad 3 Procedimiento de bloqueo 8 Mantenimiento 12 Anexos 18", "Índice")]
+    [InlineData("Sumário Segurança 3 Procedimento de bloqueio 8 Manutenção 12 Anexos 18", "Sumário")]
+    [InlineData("Sommario Sicurezza 3 Procedura di blocco 8 Manutenzione 12 Allegati 18", "Sommario")]
+    [InlineData("Inhaltsverzeichnis Sicherheit 3 Verriegelungsverfahren 8 Wartung 12 Anhänge 18", "Inhaltsverzeichnis")]
+    public void Project_does_not_create_content_cards_from_multilingual_navigation_sections(string navigationText, string title)
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, navigationText, 12, navigationText.Length, [1]),
+            new ExtractedPdfPage(
+                2,
+                "SAFETY PROCEDURE Materials lock padlock warning tag. Procedure 1. Isolate the machine. 2. Verify zero energy.",
+                15,
+                106,
+                [2])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, title, 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(1, "SAFETY PROCEDURE", 1, 2, 2, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, navigationText, navigationText.Length, 12, [3]),
+            new ExtractedDocumentUnit(
+                1,
+                1,
+                2,
+                2,
+                "SAFETY PROCEDURE Materials lock padlock warning tag. Procedure 1. Isolate the machine. 2. Verify zero energy.",
+                106,
+                15,
+                [4])
+        };
+
+        var profile = DocumentProfileProjector.Project("Generic/navigation.pdf", pages, sections, units, exactMatchEntries: []);
+
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "SAFETY PROCEDURE", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, title, StringComparison.OrdinalIgnoreCase));
+    }
+
     [Fact]
     public void Project_uses_neutral_extract_when_language_is_not_known()
     {
@@ -895,6 +937,47 @@ Procedure body: Materials lock padlock warning tag. Procedure 1. Isolate the mac
         Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("INGRÉDIENTS", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Pour 4 personnes", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(profile.ContentCards, card => card.Title.Contains(".indd", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Project_discards_lowercase_dangling_measure_fragments_from_content_cards()
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                1,
+                "TARTE TEST Pour 6 personnes. Mélanger la farine et le sucre. Ajouter 1 cuillère à café de levure chimique puis cuire.",
+                20,
+                118,
+                [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "TARTE TEST", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(1, "à café de levure chimique", 1, 1, 1, 2, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "TARTE TEST Pour 6 personnes. Mélanger la farine et le sucre. Ajouter 1 cuillère à café de levure chimique puis cuire.",
+                118,
+                20,
+                [2])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/Fragments.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "TARTE TEST", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "à café de levure chimique", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

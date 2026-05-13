@@ -10066,13 +10066,30 @@ LIMIT @top_k;
             " sommaire ",
             " table des matieres ",
             " table of contents ",
+            " inhaltsverzeichnis ",
+            " indice general ",
+            " indice de contenido ",
+            " indice de contenidos ",
+            " indice de materias ",
+            " indice analitico ",
+            " sumario ",
+            " sommario ",
+            " toc ",
             " inventaire ",
             " corpus ",
             " vue d ensemble ",
             " overview ",
             " quels livres ",
             " quelles sources ",
-            " quels documents ")
+            " quels documents ",
+            " que documentos ",
+            " quais documentos ",
+            " quali documenti ",
+            " welche dokumente ",
+            " que fuentes ",
+            " quais fontes ",
+            " quali fonti ",
+            " welche quellen ")
             || LooksLikeGenericNavigationalRequest(normalized);
     }
 
@@ -10080,6 +10097,21 @@ LIMIT @top_k;
     {
         if (string.IsNullOrWhiteSpace(normalizedPaddedQuery))
             return false;
+
+        if (ContainsAny(
+            normalizedPaddedQuery,
+            " inhaltsverzeichnis ",
+            " indice general ",
+            " indice de contenido ",
+            " indice de contenidos ",
+            " indice de materias ",
+            " indice analitico ",
+            " sumario ",
+            " sommario ",
+            " toc "))
+        {
+            return true;
+        }
 
         return System.Text.RegularExpressions.Regex.IsMatch(
             normalizedPaddedQuery,
@@ -11254,6 +11286,9 @@ LIMIT @top_k;
         var foldedText = FoldDiacritics(text).ToLowerInvariant();
         var padded = $" {NormalizeQuery(folded)} ";
         var hasStrongIndexMarker = HasStrongNavigationalMarker(folded, padded);
+        var hasExplicitTocMarker = ContainsExplicitTableOfContentsMarker(folded, padded);
+        var hasShortTocMarker = ContainsShortTableOfContentsMarker(padded)
+            && (CountInlinePageNumberBoundaries(text) >= 3 || CountBulletMarkers(text) >= 8 || LooksLikeTitleListChunk(text));
         var hasStructuredProcedureBody = (foldedText.Contains("materials", StringComparison.Ordinal)
                 || foldedText.Contains("materiaux", StringComparison.Ordinal)
                 || foldedText.Contains("components", StringComparison.Ordinal)
@@ -11262,19 +11297,14 @@ LIMIT @top_k;
                 || foldedText.Contains("procedure", StringComparison.Ordinal)
                 || foldedText.Contains("instructions", StringComparison.Ordinal)
                 || foldedText.Contains("steps", StringComparison.Ordinal));
-        if (hasStructuredProcedureBody && !hasStrongIndexMarker)
+        if (hasStructuredProcedureBody && !hasStrongIndexMarker && !hasExplicitTocMarker && !hasShortTocMarker)
             return false;
 
-        if (folded.Contains("sommaire", StringComparison.Ordinal)
-            || folded.Contains("table des matieres", StringComparison.Ordinal)
-            || folded.Contains("table of contents", StringComparison.Ordinal)
+        if (hasExplicitTocMarker
+            || hasShortTocMarker
             || hasStrongIndexMarker
             || folded.Contains("fiche-index", StringComparison.Ordinal)
             || folded.Contains("fiche index", StringComparison.Ordinal)
-            || padded.Contains(" sommaire ", StringComparison.Ordinal)
-            || padded.Contains(" table des matieres ", StringComparison.Ordinal)
-            || padded.Contains(" table of contents ", StringComparison.Ordinal)
-            || padded.Contains(" contents ", StringComparison.Ordinal)
             || padded.Contains(" index ", StringComparison.Ordinal))
         {
             if (!hasStrongIndexMarker
@@ -11369,9 +11399,33 @@ LIMIT @top_k;
         return HasStrongNavigationalMarker(folded, padded)
             || folded.Contains("table des matieres", StringComparison.Ordinal)
             || folded.Contains("table of contents", StringComparison.Ordinal)
+            || folded.Contains("inhaltsverzeichnis", StringComparison.Ordinal)
             || padded.Contains(" sommaire ", StringComparison.Ordinal)
+            || padded.Contains(" contents ", StringComparison.Ordinal)
+            || padded.Contains(" sumario ", StringComparison.Ordinal)
+            || padded.Contains(" sommario ", StringComparison.Ordinal)
+            || padded.Contains(" toc ", StringComparison.Ordinal)
+            || (padded.Contains(" indice ", StringComparison.Ordinal) && CountInlinePageNumberBoundaries(text) >= 3)
             || CountInlinePageNumberBoundaries(text) >= 8;
     }
+
+    private static bool ContainsExplicitTableOfContentsMarker(string foldedText, string paddedNormalizedText)
+        => foldedText.Contains("sommaire", StringComparison.Ordinal)
+            || foldedText.Contains("table des matieres", StringComparison.Ordinal)
+            || foldedText.Contains("table of contents", StringComparison.Ordinal)
+            || foldedText.Contains("inhaltsverzeichnis", StringComparison.Ordinal)
+            || paddedNormalizedText.Contains(" contents ", StringComparison.Ordinal)
+            || paddedNormalizedText.Contains(" indice general ", StringComparison.Ordinal)
+            || paddedNormalizedText.Contains(" indice de contenido ", StringComparison.Ordinal)
+            || paddedNormalizedText.Contains(" indice de contenidos ", StringComparison.Ordinal)
+            || paddedNormalizedText.Contains(" indice de materias ", StringComparison.Ordinal)
+            || paddedNormalizedText.Contains(" indice analitico ", StringComparison.Ordinal);
+
+    private static bool ContainsShortTableOfContentsMarker(string paddedNormalizedText)
+        => paddedNormalizedText.Contains(" sumario ", StringComparison.Ordinal)
+            || paddedNormalizedText.Contains(" sommario ", StringComparison.Ordinal)
+            || paddedNormalizedText.Contains(" indice ", StringComparison.Ordinal)
+            || paddedNormalizedText.Contains(" toc ", StringComparison.Ordinal);
 
     private static bool HasStrongNavigationalMarker(string foldedText, string paddedNormalizedText)
     {
