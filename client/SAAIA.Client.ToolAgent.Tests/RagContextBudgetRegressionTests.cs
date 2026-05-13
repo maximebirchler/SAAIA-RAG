@@ -2042,6 +2042,15 @@ public sealed class RagContextBudgetRegressionTests
               "fragmentScore": 3,
               "navigationScore": 0,
               "qualityPenalty": 2
+            },
+            "profileSignals": {
+              "profileVersion": "llm_backoffice_v1",
+              "language": "de",
+              "keywords": ["safety validation"],
+              "entities": ["Line A"],
+              "topics": ["operator checks"],
+              "hypotheticalQuestions": ["When should line A be checked?"],
+              "limits": ["Use page chunks for exact values."]
             }
           }
         }
@@ -2072,6 +2081,49 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Equal("actionable_item", card.SelectionHintEvidenceRole);
         Assert.Equal(77, card.SelectionHintActionabilityScore);
         Assert.Equal(2, card.SelectionHintQualityPenalty);
+        Assert.Equal("llm_backoffice_v1", card.ProfileSignals?.ProfileVersion);
+        Assert.Equal("de", card.ProfileSignals?.Language);
+        Assert.Contains("safety validation", card.ProfileSignals!.Keywords);
+        Assert.Contains("Line A", card.ProfileSignals.Entities);
+        Assert.Contains("operator checks", card.ProfileSignals.Topics);
+        Assert.Contains("When should line A be checked?", card.ProfileSignals.HypotheticalQuestions);
+        Assert.Contains("Use page chunks for exact values.", card.ProfileSignals.Limits);
+    }
+
+    [Fact]
+    public void Source_card_parser_dedup_prefers_profile_signals_when_visible_source_is_otherwise_identical()
+    {
+        const string payload = """
+        {
+          "sources": [
+            {
+              "docPath": "Knowledge/manual.pdf",
+              "docName": "manual.pdf",
+              "pageStart": 1,
+              "pageEnd": 1,
+              "snippet": "same snippet"
+            },
+            {
+              "docPath": "Knowledge/manual.pdf",
+              "docName": "manual.pdf",
+              "pageStart": 1,
+              "pageEnd": 1,
+              "snippet": "same snippet",
+              "profileSignals": {
+                "language": "fr",
+                "topics": ["calibration"],
+                "limits": ["Verify exact values in page chunks."]
+              }
+            }
+          ]
+        }
+        """;
+
+        var card = Assert.Single(SourceCardParser.Parse(payload));
+
+        Assert.Equal("fr", card.ProfileSignals?.Language);
+        Assert.Contains("calibration", card.ProfileSignals!.Topics);
+        Assert.Contains("Verify exact values in page chunks.", card.ProfileSignals.Limits);
     }
 
     [Fact]

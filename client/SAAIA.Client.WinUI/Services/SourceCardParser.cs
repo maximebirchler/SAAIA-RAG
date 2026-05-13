@@ -99,6 +99,7 @@ public static class SourceCardParser
         score += SourceDiagnosticRichnessScore(source.ExtractionDiagnosticSummary);
         score += Math.Min(5, source.QualitySignals?.Count ?? 0);
         score += Math.Min(25, (source.MatchedContentCards?.Count ?? 0) * 5);
+        score += SourceProfileSignalsRichnessScore(source.ProfileSignals);
         score += HasValue(source.SelectionHintEvidenceRole) * 3;
         score += source.SelectionHintActionabilityScore is null ? 0 : 1;
         score += source.SelectionHintSupportScore is null ? 0 : 1;
@@ -109,6 +110,24 @@ public static class SourceCardParser
         score += HasValue(source.NavigationReason) * 2;
         score += source.RetrievalNavigationScore is null ? 0 : 1;
         score += source.ContentDensityScore is null ? 0 : 1;
+        return score;
+    }
+
+    private static int SourceProfileSignalsRichnessScore(SourceProfileSignals? profile)
+    {
+        if (profile is null)
+            return 0;
+
+        var score = 0;
+        score += HasValue(profile.ProfileVersion) * 2;
+        score += HasValue(profile.Language) * 2;
+        score += Math.Min(8, profile.Keywords.Count);
+        score += Math.Min(8, profile.Entities.Count);
+        score += Math.Min(8, profile.Topics.Count);
+        score += Math.Min(4, profile.HypotheticalQuestions.Count);
+        score += Math.Min(4, profile.Limits.Count);
+        score += Math.Min(6, profile.MatchedTerms.Count);
+        score += profile.MatchCount.GetValueOrDefault() > 0 ? 2 : 0;
         return score;
     }
 

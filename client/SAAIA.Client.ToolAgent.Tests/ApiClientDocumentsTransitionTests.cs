@@ -2177,6 +2177,14 @@ public sealed class ApiClientDocumentsTransitionTests
                     Kind = "section"
                 }
             ],
+            ProfileSignals = new ToolMemory.SourceProfileSignalsRef
+            {
+                ProfileVersion = "llm_backoffice_v1",
+                Language = "fr",
+                Keywords = new() { "rich metadata" },
+                Topics = new() { "source resolve memory merge" },
+                Limits = new() { "Use exact chunks for numeric values." }
+            },
             SelectionHintEvidenceRole = "supporting_context",
             SelectionHintSupportScore = 91
         });
@@ -2199,6 +2207,11 @@ public sealed class ApiClientDocumentsTransitionTests
         Assert.True(source.GetProperty("extractionQuality").GetProperty("ocrAttempted").GetBoolean());
         Assert.Equal("ok", source.GetProperty("extractionQuality").GetProperty("diagnosticSummary").GetProperty("nativeTextStatus").GetString());
         Assert.Equal("Relevant section", source.GetProperty("matchedContentCards")[0].GetProperty("title").GetString());
+        Assert.Equal("llm_backoffice_v1", source.GetProperty("profileSignals").GetProperty("profileVersion").GetString());
+        Assert.Equal("fr", source.GetProperty("profileSignals").GetProperty("language").GetString());
+        Assert.Equal("rich metadata", source.GetProperty("profileSignals").GetProperty("keywords")[0].GetString());
+        Assert.Equal("source resolve memory merge", source.GetProperty("profileSignals").GetProperty("topics")[0].GetString());
+        Assert.Equal("Use exact chunks for numeric values.", source.GetProperty("profileSignals").GetProperty("limits")[0].GetString());
         Assert.Equal("supporting_context", source.GetProperty("selectionHints").GetProperty("evidenceRole").GetString());
         Assert.Equal(91, source.GetProperty("selectionHints").GetProperty("supportScore").GetInt32());
     }

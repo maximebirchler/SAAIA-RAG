@@ -4868,6 +4868,20 @@ VALUES(
                 }
                 """
             });
+        await conn.ExecuteAsync(
+            """
+            UPDATE document_profiles
+            SET
+              language='en',
+              keywords=ARRAY['source resolve pressure envelope', 'source resolve audit']::text[],
+              entities=ARRAY['Mettler Toledo IND570']::text[],
+              topics=ARRAY['source resolve enrichment']::text[],
+              hypothetical_questions=ARRAY['Which source resolve diagnostic should be opened?']::text[],
+              limits=ARRAY['Use page chunks for exact wiring.']::text[]
+            WHERE tenant_id=@tenant
+              AND doc_id=@docId;
+            """,
+            new { tenant = tenantId, docId = expected.doc_id });
 
         var ds = NpgsqlDataSource.Create(db.ConnectionString);
         var ctx = BuildRagHttpContext(tenantId);
@@ -4918,6 +4932,13 @@ VALUES(
         Assert.NotNull(response.Source.SelectionHints);
         Assert.Equal("supporting_context", response.Source.SelectionHints!.EvidenceRole);
         Assert.True(response.Source.SelectionHints.SupportScore > 0);
+        Assert.NotNull(response.Source.ProfileSignals);
+        Assert.Equal("en", response.Source.ProfileSignals!.Language);
+        Assert.Contains("source resolve pressure envelope", response.Source.ProfileSignals.Keywords!);
+        Assert.Contains("Mettler Toledo IND570", response.Source.ProfileSignals.Entities!);
+        Assert.Contains("source resolve enrichment", response.Source.ProfileSignals.Topics!);
+        Assert.Contains("Which source resolve diagnostic should be opened?", response.Source.ProfileSignals.HypotheticalQuestions!);
+        Assert.Contains("Use page chunks for exact wiring.", response.Source.ProfileSignals.Limits!);
 
         var docRef = $"doc_{expected.doc_id:N}";
         var refCtx = BuildRagHttpContext(tenantId);
@@ -4942,6 +4963,7 @@ VALUES(
         Assert.NotNull(refResponse.Source);
         Assert.Equal(expected.doc_id, refResponse.Source!.DocId);
         Assert.Equal(expected.source_hash, refResponse.Source.SourceHash);
+        Assert.Contains("source resolve audit", refResponse.Source.ProfileSignals!.Keywords!);
         Assert.Contains(refResponse.Source.MatchedContentCards!, card =>
             string.Equals(card.ContentCardId, enrichedCard.content_card_id, StringComparison.OrdinalIgnoreCase)
             && card.Evidence.HasValue);
@@ -5219,6 +5241,18 @@ VALUES(
               updated_at=EXCLUDED.updated_at;
             """,
             new { tenant = tenantId, docId = expected.doc_id, sourceHash = expected.source_hash });
+        await conn.ExecuteAsync(
+            """
+            UPDATE document_profiles
+            SET
+              language='en',
+              keywords=ARRAY['summary source resolve enrichment']::text[],
+              topics=ARRAY['summary profile signal propagation']::text[],
+              limits=ARRAY['Do not use document profiles as exact numeric evidence.']::text[]
+            WHERE tenant_id=@tenant
+              AND doc_id=@docId;
+            """,
+            new { tenant = tenantId, docId = expected.doc_id });
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
         var resolveCtx = BuildRagHttpContext(tenantId);
@@ -5273,11 +5307,16 @@ VALUES(
         Assert.Equal(resolveResponse.Source.ExtractionQuality!.DocumentQualityStatus, source.GetProperty("extractionQuality").GetProperty("documentQualityStatus").GetString());
         Assert.Equal(resolveResponse.Source.MatchedContentCards![0].Title, source.GetProperty("matchedContentCards")[0].GetProperty("title").GetString());
         Assert.Equal(resolveResponse.Source.SelectionHints!.EvidenceRole, source.GetProperty("selectionHints").GetProperty("evidenceRole").GetString());
+        Assert.Equal(resolveResponse.Source.ProfileSignals!.Language, typedSummary.ProfileSignals!.Language);
+        Assert.Contains("summary source resolve enrichment", typedSummary.ProfileSignals.Keywords!);
+        Assert.Contains("summary profile signal propagation", typedSummary.ProfileSignals.Topics!);
+        Assert.Equal(resolveResponse.Source.ProfileSignals.Language, source.GetProperty("profileSignals").GetProperty("language").GetString());
 
         Assert.Equal(source.GetProperty("profileLanguage").GetString(), root.GetProperty("profileLanguage").GetString());
         Assert.Equal(source.GetProperty("category").GetString(), root.GetProperty("category").GetString());
         Assert.Equal(source.GetProperty("categoryPath").GetString(), root.GetProperty("categoryPath").GetString());
         Assert.Equal(source.GetProperty("matchedContentCards")[0].GetProperty("title").GetString(), root.GetProperty("matchedContentCards")[0].GetProperty("title").GetString());
+        Assert.Equal(source.GetProperty("profileSignals").GetProperty("language").GetString(), root.GetProperty("profileSignals").GetProperty("language").GetString());
     }
 
     [Fact]
@@ -5331,6 +5370,18 @@ VALUES(
               updated_at=EXCLUDED.updated_at;
             """,
             new { tenant = tenantId, docId = expected.doc_id, sourceHash = expected.source_hash });
+        await conn.ExecuteAsync(
+            """
+            UPDATE document_profiles
+            SET
+              language='en',
+              keywords=ARRAY['summary search enrichment']::text[],
+              topics=ARRAY['summary search profile propagation']::text[],
+              limits=ARRAY['Treat profile signals as routing hints.']::text[]
+            WHERE tenant_id=@tenant
+              AND doc_id=@docId;
+            """,
+            new { tenant = tenantId, docId = expected.doc_id });
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
         var ctx = BuildRagHttpContext(tenantId);
@@ -5352,6 +5403,9 @@ VALUES(
         Assert.Equal(source.GetProperty("extractionQuality").GetProperty("documentQualityStatus").GetString(), item.GetProperty("extractionQuality").GetProperty("documentQualityStatus").GetString());
         Assert.Equal(source.GetProperty("matchedContentCards")[0].GetProperty("title").GetString(), item.GetProperty("matchedContentCards")[0].GetProperty("title").GetString());
         Assert.Equal(source.GetProperty("selectionHints").GetProperty("evidenceRole").GetString(), item.GetProperty("selectionHints").GetProperty("evidenceRole").GetString());
+        Assert.Equal("en", item.GetProperty("profileSignals").GetProperty("language").GetString());
+        Assert.Equal("summary search enrichment", item.GetProperty("profileSignals").GetProperty("keywords")[0].GetString());
+        Assert.Equal(source.GetProperty("profileSignals").GetProperty("topics")[0].GetString(), item.GetProperty("profileSignals").GetProperty("topics")[0].GetString());
         var meta = item.GetProperty("meta");
         Assert.Equal("capability_b_worker_v2", meta.GetProperty("generator").GetString());
         Assert.Equal("llm_document_foundation", meta.GetProperty("strategy").GetString());

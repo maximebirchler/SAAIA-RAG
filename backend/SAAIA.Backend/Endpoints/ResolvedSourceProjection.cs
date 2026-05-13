@@ -100,7 +100,13 @@ SELECT
   END AS "CategoryRef",
   saaia_document_summary_source_hash(md.content_hash, md.doc_path, md.file_size, md.file_mtime, md.indexed_version) AS "SourceHash",
   profile.document_profile_id AS "ProfileId",
+  profile.profile_version AS "ProfileVersion",
   profile.language AS "ProfileLanguage",
+  profile.keywords AS "ProfileKeywords",
+  profile.entities AS "ProfileEntities",
+  profile.topics AS "ProfileTopics",
+  profile.hypothetical_questions AS "ProfileHypotheticalQuestions",
+  profile.limits AS "ProfileLimits",
   summary.doc_language AS "SummaryLanguage",
   run.payload ->> 'documentLanguage' AS "RunDocumentLanguage",
   run.payload ->> 'extractionSource' AS "ExtractionSource",
@@ -163,7 +169,15 @@ LEFT JOIN documents_catalog_categories top
   ON top.tenant_id = md.tenant_id
  AND top.path = split_part(md.category_path, '/', 1)
 LEFT JOIN LATERAL (
-  SELECT p.document_profile_id, NULLIF(BTRIM(p.language), '') AS language
+  SELECT
+    p.document_profile_id,
+    NULLIF(BTRIM(p.profile_version), '') AS profile_version,
+    NULLIF(BTRIM(p.language), '') AS language,
+    p.keywords,
+    p.entities,
+    p.topics,
+    p.hypothetical_questions,
+    p.limits
   FROM document_profiles p
   JOIN document_revisions r
     ON r.revision_id = p.revision_id
@@ -366,8 +380,52 @@ LEFT JOIN LATERAL (
             ChunkId = null,
             ExtractionQuality = quality,
             MatchedContentCards = cards.Count == 0 ? null : cards,
-            SelectionHints = BuildSelectionHints(quality, cards)
+            SelectionHints = BuildSelectionHints(quality, cards),
+            ProfileSignals = BuildProfileSignals(row, profileLanguage, docLanguage)
         };
+    }
+
+    private static RagItemProfileSignals? BuildProfileSignals(
+        ResolvedSourceRow row,
+        string profileLanguage,
+        string? docLanguage)
+    {
+        var keywords = CompactProfileValues(row.ProfileKeywords, maxItems: 8);
+        var entities = CompactProfileValues(row.ProfileEntities, maxItems: 8);
+        var topics = CompactProfileValues(row.ProfileTopics, maxItems: 8);
+        var questions = CompactProfileValues(row.ProfileHypotheticalQuestions, maxItems: 4);
+        var limits = CompactProfileValues(row.ProfileLimits, maxItems: 4);
+        var signalCount = keywords.Count + entities.Count + topics.Count + questions.Count + limits.Count;
+        if (signalCount == 0)
+            return null;
+
+        return new RagItemProfileSignals
+        {
+            ProfileVersion = NullIfWhiteSpace(row.ProfileVersion),
+            Language = !string.Equals(profileLanguage, "und", StringComparison.Ordinal)
+                ? profileLanguage
+                : NullIfWhiteSpace(docLanguage),
+            Keywords = keywords.Count == 0 ? null : keywords,
+            Entities = entities.Count == 0 ? null : entities,
+            Topics = topics.Count == 0 ? null : topics,
+            HypotheticalQuestions = questions.Count == 0 ? null : questions,
+            Limits = limits.Count == 0 ? null : limits
+        };
+    }
+
+    private static List<string> CompactProfileValues(IEnumerable<string>? values, int maxItems)
+    {
+        if (values is null)
+            return [];
+
+        return values
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(static value => value.Trim())
+            .Where(static value => value.Length >= 2)
+            .Select(static value => value.Length <= 160 ? value : value[..160].TrimEnd())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(Math.Clamp(maxItems, 1, 16))
+            .ToList();
     }
 
     private static RagItemExtractionQuality? BuildExtractionQuality(ResolvedSourceRow row)
@@ -788,7 +846,13 @@ LEFT JOIN LATERAL (
         public string? CategoryPath { get; set; }
         public string? SourceHash { get; set; }
         public Guid? ProfileId { get; set; }
+        public string? ProfileVersion { get; set; }
         public string? ProfileLanguage { get; set; }
+        public string[]? ProfileKeywords { get; set; }
+        public string[]? ProfileEntities { get; set; }
+        public string[]? ProfileTopics { get; set; }
+        public string[]? ProfileHypotheticalQuestions { get; set; }
+        public string[]? ProfileLimits { get; set; }
         public string? SummaryLanguage { get; set; }
         public string? RunDocumentLanguage { get; set; }
         public string? ExtractionSource { get; set; }

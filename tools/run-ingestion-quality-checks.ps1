@@ -204,6 +204,16 @@ chunk_flags AS (
          c.metadata,
          lower(coalesce(c.metadata->>'contentRole', 'content')) AS content_role,
          coalesce(c.metadata->>'chunkType', '') AS chunk_type,
+         CASE
+           WHEN NULLIF(c.metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+             THEN (c.metadata->>'navigationScore')::double precision
+           ELSE 0
+         END AS navigation_score,
+         CASE
+           WHEN NULLIF(c.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+             THEN (c.metadata->>'contentDensityScore')::double precision
+           ELSE 0
+         END AS content_density_score,
          lower(coalesce(c.metadata->>'extractionTextStatus', 'ok')) AS extraction_status,
          lower(coalesce(c.metadata->>'extractionTextSparse', 'false')) = 'true' AS extraction_sparse,
          coalesce((c.metadata->'extractionQualitySignals') ? 'replacement_chars_remaining', false) AS has_replacement_chars,
@@ -338,8 +348,8 @@ SELECT 'navigation_score_content_conflict', category,
 FROM chunk_flags
 WHERE embeddable
   AND content_role='content'
-  AND coalesce(nullif(metadata->>'navigationScore', '')::double precision, 0) >= 0.82
-  AND coalesce(nullif(metadata->>'contentDensityScore', '')::double precision, 0) < 0.50
+  AND navigation_score >= 0.82
+  AND content_density_score < 0.50
 GROUP BY category
 UNION ALL
 SELECT 'navigation_without_entries', c.category,
@@ -392,19 +402,19 @@ SELECT 'navigation_heavy_document', cr.category,
          cr.doc_path
          || ': navigation_or_mixed='
          || count(*) FILTER (WHERE COALESCE(c.metadata->>'contentRole', '') IN ('navigation','mixed_navigation_content')
-                              OR COALESCE(c.metadata->>'chunkType', '') IN ('navigation','mixed_navigation_content'))
+                              OR COALESCE(c.metadata->>'chunkType', '') IN ('navigation','mixed_navigation_content','navigation_index_v1'))
          || '/'
          || count(*)
          || ',ratio='
          || round(
               (
                 count(*) FILTER (WHERE COALESCE(c.metadata->>'contentRole', '') IN ('navigation','mixed_navigation_content')
-                                  OR COALESCE(c.metadata->>'chunkType', '') IN ('navigation','mixed_navigation_content'))
+                                  OR COALESCE(c.metadata->>'chunkType', '') IN ('navigation','mixed_navigation_content','navigation_index_v1'))
               )::numeric / greatest(count(*), 1),
               3),
          500),
        count(*) FILTER (WHERE COALESCE(c.metadata->>'contentRole', '') IN ('navigation','mixed_navigation_content')
-                         OR COALESCE(c.metadata->>'chunkType', '') IN ('navigation','mixed_navigation_content'))::text
+                         OR COALESCE(c.metadata->>'chunkType', '') IN ('navigation','mixed_navigation_content','navigation_index_v1'))::text
 FROM current_rev cr
 JOIN retrieval_chunks c ON c.revision_id=cr.revision_id
 WHERE NOT cr.has_active_job
@@ -412,7 +422,7 @@ GROUP BY cr.category, cr.doc_path
 HAVING count(*) >= 20
    AND (
      count(*) FILTER (WHERE COALESCE(c.metadata->>'contentRole', '') IN ('navigation','mixed_navigation_content')
-                       OR COALESCE(c.metadata->>'chunkType', '') IN ('navigation','mixed_navigation_content'))
+                       OR COALESCE(c.metadata->>'chunkType', '') IN ('navigation','mixed_navigation_content','navigation_index_v1'))
    )::numeric / greatest(count(*), 1) >= 0.35
 UNION ALL
 SELECT 'suspicious_profile_card_title', cr.category,
