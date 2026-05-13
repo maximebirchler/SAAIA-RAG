@@ -217,6 +217,7 @@ LIMIT @lim OFFSET @off;
                 selectionHints = source?.SelectionHints,
                 source,
                 summaryText = row.SummaryText,
+                meta = ParseJsonOrNull(row.SummaryMeta),
                 row.UpdatedAt
             });
         }

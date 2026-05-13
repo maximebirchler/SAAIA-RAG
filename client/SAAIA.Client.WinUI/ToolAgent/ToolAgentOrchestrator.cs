@@ -4867,6 +4867,7 @@ TOOL_RESULTS (json):
                     label = source?.Label ?? TryGetString(it, "label") ?? TryGetString(it, "Label"),
                     chunkId = source?.ChunkId ?? TryGetString(it, "chunkId") ?? TryGetString(it, "ChunkId"),
                     summaryText = TruncateForPrompt(TryGetString(it, "summaryText") ?? TryGetString(it, "SummaryText"), 1600),
+                    meta = CompactSummaryMetaForPrompt(it),
                     extractionQuality = source is null ? CompactExtractionQualityForPrompt(it) : BuildSourceExtractionQualityPayload(source),
                     matchedContentCards = source is null ? CompactMatchedContentCardsForPrompt(it) : BuildSourceContentCardsPayload(source),
                     selectionHints = source is null ? CompactSelectionHintsForPrompt(it) : BuildSourceSelectionHintsPayload(source),
@@ -4884,6 +4885,40 @@ TOOL_RESULTS (json):
         catch
         {
             return result;
+        }
+    }
+
+    private static object? CompactSummaryMetaForPrompt(JsonElement item)
+    {
+        var meta = TryGetObject(item, "meta")
+                   ?? TryGetObject(item, "Meta")
+                   ?? TryGetObject(item, "summaryMeta")
+                   ?? TryGetObject(item, "SummaryMeta");
+        if (meta is null)
+            return null;
+
+        var payload = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        AddIfPresent("generator", TryGetString(meta.Value, "generator") ?? TryGetString(meta.Value, "Generator"));
+        AddIfPresent("strategy", TryGetString(meta.Value, "strategy") ?? TryGetString(meta.Value, "Strategy"));
+        AddIfPresent("outputLanguage", TryGetString(meta.Value, "outputLanguage") ?? TryGetString(meta.Value, "OutputLanguage"));
+        AddIfPresent("fallbackUsed", TryGetBool(meta.Value, "fallbackUsed") ?? TryGetBool(meta.Value, "FallbackUsed"));
+        AddIfPresent("fallbackReason", TryGetString(meta.Value, "fallbackReason") ?? TryGetString(meta.Value, "FallbackReason"));
+        AddIfPresent("qualityScore", TryGetDouble(meta.Value, "qualityScore") ?? TryGetDouble(meta.Value, "QualityScore"));
+        AddIfPresent("extractionQuality",
+            DeserializePromptObject(meta.Value, "extractionQuality")
+            ?? DeserializePromptObject(meta.Value, "extraction_quality")
+            ?? DeserializePromptObject(meta.Value, "ExtractionQuality"));
+        AddIfPresent("qualitySignals",
+            DeserializePromptObject(meta.Value, "qualitySignals")
+            ?? DeserializePromptObject(meta.Value, "quality_signals")
+            ?? DeserializePromptObject(meta.Value, "QualitySignals"));
+
+        return payload.Count == 0 ? null : payload;
+
+        void AddIfPresent(string key, object? value)
+        {
+            if (value is not null)
+                payload[key] = value;
         }
     }
 

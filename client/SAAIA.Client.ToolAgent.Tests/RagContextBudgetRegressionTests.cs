@@ -2704,6 +2704,19 @@ public sealed class RagContextBudgetRegressionTests
                     level = "medium",
                     docLanguage = "fr",
                     sourceHash = "root-hash",
+                    meta = new
+                    {
+                        generator = "capability_b_worker_v2",
+                        strategy = "llm_document_foundation",
+                        outputLanguage = "fr",
+                        fallbackUsed = false,
+                        qualityScore = 0.89,
+                        extractionQuality = new
+                        {
+                            requiresCaution = true,
+                            documentQualityStatus = "ocr_applied_ok"
+                        }
+                    },
                     source = new
                     {
                         docId = "doc-1",
@@ -2740,6 +2753,13 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Equal("Knowledge/Neutral", item.GetProperty("categoryPath").GetString());
         Assert.Equal("supporting_context", item.GetProperty("selectionHints").GetProperty("evidenceRole").GetString());
         Assert.Equal("Compact card", item.GetProperty("matchedContentCards")[0].GetProperty("title").GetString());
+        var meta = item.GetProperty("meta");
+        Assert.Equal("capability_b_worker_v2", meta.GetProperty("generator").GetString());
+        Assert.Equal("llm_document_foundation", meta.GetProperty("strategy").GetString());
+        Assert.Equal("fr", meta.GetProperty("outputLanguage").GetString());
+        Assert.False(meta.GetProperty("fallbackUsed").GetBoolean());
+        Assert.Equal(0.89, meta.GetProperty("qualityScore").GetDouble(), precision: 2);
+        Assert.True(meta.GetProperty("extractionQuality").GetProperty("requiresCaution").GetBoolean());
         Assert.True(item.GetProperty("summaryText").GetString()!.Length <= 1603);
         Assert.EndsWith("...", item.GetProperty("summaryText").GetString());
     }

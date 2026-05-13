@@ -5299,7 +5299,15 @@ VALUES(
               tenant_id, doc_id, level, doc_language, source_hash, summary_text, summary_meta, created_at, updated_at
             )
             VALUES(
-              @tenant, @docId, 'medium', 'en', @sourceHash, 'Stored technical summary with PLC integration.', '{"kind":"test"}'::jsonb, now(), now()
+              @tenant,
+              @docId,
+              'medium',
+              'en',
+              @sourceHash,
+              'Stored technical summary with PLC integration.',
+              '{"generator":"capability_b_worker_v2","strategy":"llm_document_foundation","outputLanguage":"en","fallbackUsed":false,"extractionQuality":{"requiresCaution":true,"documentQualityStatus":"ocr_applied_ok"}}'::jsonb,
+              now(),
+              now()
             )
             ON CONFLICT (tenant_id, doc_id, level)
             DO UPDATE SET
@@ -5331,6 +5339,13 @@ VALUES(
         Assert.Equal(source.GetProperty("extractionQuality").GetProperty("documentQualityStatus").GetString(), item.GetProperty("extractionQuality").GetProperty("documentQualityStatus").GetString());
         Assert.Equal(source.GetProperty("matchedContentCards")[0].GetProperty("title").GetString(), item.GetProperty("matchedContentCards")[0].GetProperty("title").GetString());
         Assert.Equal(source.GetProperty("selectionHints").GetProperty("evidenceRole").GetString(), item.GetProperty("selectionHints").GetProperty("evidenceRole").GetString());
+        var meta = item.GetProperty("meta");
+        Assert.Equal("capability_b_worker_v2", meta.GetProperty("generator").GetString());
+        Assert.Equal("llm_document_foundation", meta.GetProperty("strategy").GetString());
+        Assert.Equal("en", meta.GetProperty("outputLanguage").GetString());
+        Assert.False(meta.GetProperty("fallbackUsed").GetBoolean());
+        Assert.True(meta.GetProperty("extractionQuality").GetProperty("requiresCaution").GetBoolean());
+        Assert.Equal("ocr_applied_ok", meta.GetProperty("extractionQuality").GetProperty("documentQualityStatus").GetString());
     }
 
     [Fact]
