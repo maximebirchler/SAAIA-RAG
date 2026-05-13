@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.RegularExpressions;
 
 internal static partial class DocumentSectionExtractor
@@ -25,6 +26,9 @@ internal static partial class DocumentSectionExtractor
             {
                 var line = page.Lines[i];
                 if (duplicateFrequency.TryGetValue(line, out var repeats) && repeats >= 3)
+                    continue;
+
+                if (LooksLikeNavigationListLine(line, page.Lines, i))
                     continue;
 
                 if (!TryClassifyHeading(line, out var level))
@@ -100,6 +104,9 @@ internal static partial class DocumentSectionExtractor
         if (words.Length == 0 || words.Length > 16)
             return false;
 
+        if (LooksLikeNavigationHeadingTitle(line))
+            return false;
+
         if (NumberedHeadingRegex().IsMatch(line))
         {
             var prefix = line.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries)[0];
@@ -129,11 +136,83 @@ internal static partial class DocumentSectionExtractor
         return false;
     }
 
+    private static bool LooksLikeNavigationHeadingTitle(string line)
+    {
+        var normalized = FoldDiacritics(NormalizeWhitespace(line)).ToLowerInvariant();
+        return normalized.Contains("table des matieres", StringComparison.Ordinal)
+            || normalized.Contains("table of contents", StringComparison.Ordinal)
+            || normalized.Contains("inhaltsverzeichnis", StringComparison.Ordinal)
+            || normalized.Contains("indice general", StringComparison.Ordinal)
+            || normalized.Contains("indice de contenido", StringComparison.Ordinal)
+            || normalized.Contains("indice de contenidos", StringComparison.Ordinal)
+            || normalized.Contains("indice de materias", StringComparison.Ordinal)
+            || normalized.Contains("indice analitico", StringComparison.Ordinal)
+            || normalized is "sommaire" or "contents" or "sommario" or "sumario" or "indice" or "index" or "toc";
+    }
+
+    private static bool LooksLikeNavigationListLine(string line, IReadOnlyList<string> lines, int index)
+    {
+        if (!LooksLikePageReferenceLine(line))
+            return false;
+
+        var similarNeighbors = 0;
+        var first = Math.Max(0, index - 3);
+        var last = Math.Min(lines.Count - 1, index + 3);
+        for (var i = first; i <= last; i++)
+        {
+            if (i == index)
+                continue;
+            if (LooksLikePageReferenceLine(lines[i]))
+                similarNeighbors++;
+        }
+
+        return similarNeighbors >= 2
+            || (DotLeaderPageReferenceRegex().IsMatch(line) && similarNeighbors >= 1);
+    }
+
+    private static bool LooksLikePageReferenceLine(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line) || line.Length > 160)
+            return false;
+
+        if (DotLeaderPageReferenceRegex().IsMatch(line))
+            return true;
+
+        var words = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return words.Length is >= 2 and <= 14
+            && TrailingPageReferenceRegex().IsMatch(line)
+            && !NumberedHeadingRegex().IsMatch(line)
+            && !line.Contains(':', StringComparison.Ordinal);
+    }
+
+    private static string FoldDiacritics(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var normalized = value.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+        foreach (var ch in normalized)
+        {
+            var category = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch);
+            if (category != System.Globalization.UnicodeCategory.NonSpacingMark)
+                builder.Append(ch);
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
+    }
+
     [GeneratedRegex(@"^\d+(?:\.\d+){0,5}\s+\S+", RegexOptions.CultureInvariant)]
     private static partial Regex NumberedHeadingRegex();
 
     [GeneratedRegex(@"^(?:[IVXLCM]+)[\.\)]?\s+\S+", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex RomanHeadingRegex();
+
+    [GeneratedRegex(@"\.{2,}\s*\d{1,5}\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex DotLeaderPageReferenceRegex();
+
+    [GeneratedRegex(@"\s\d{1,5}\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex TrailingPageReferenceRegex();
 
     private sealed record PageLines(int PageNumber, List<string> Lines);
     private sealed record SectionCandidate(int PageNumber, int LineNumber, string Title, int Level);

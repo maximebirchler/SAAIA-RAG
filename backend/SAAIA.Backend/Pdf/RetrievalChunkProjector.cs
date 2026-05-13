@@ -64,11 +64,12 @@ internal static partial class RetrievalChunkProjector
             .ThenBy(unit => unit.PageStart)
             .ThenBy(unit => unit.Ordinal)
             .ToList();
+        var windowUnits = SelectWindowUnits(orderedUnits);
 
         var chunks = new List<ProjectedRetrievalChunk>();
         var chunkIndex = 0;
 
-        foreach (var sectionGroup in orderedUnits.GroupBy(unit => unit.SectionOrdinal))
+        foreach (var sectionGroup in windowUnits.GroupBy(unit => unit.SectionOrdinal))
         {
             var sectionUnits = sectionGroup
                 .OrderBy(unit => unit.PageStart)
@@ -144,11 +145,13 @@ internal static partial class RetrievalChunkProjector
             }
         }
 
-        AddHighSignalUnitChunks(chunks, orderedUnits, ref chunkIndex);
+        AddHighSignalUnitChunks(chunks, windowUnits, ref chunkIndex);
 
         if (chunks.Count == 0)
         {
-            var fallback = orderedUnits;
+            var fallback = windowUnits.Count > 0
+                ? windowUnits
+                : orderedUnits;
             var text = string.Join(ChunkSeparator, fallback.Select(unit => unit.Text));
             var first = fallback[0];
             var last = fallback[^1];
@@ -166,6 +169,22 @@ internal static partial class RetrievalChunkProjector
         }
 
         return chunks;
+    }
+
+    private static IReadOnlyList<ExtractedDocumentUnit> SelectWindowUnits(IReadOnlyList<ExtractedDocumentUnit> orderedUnits)
+    {
+        var reliableUnits = orderedUnits
+            .Where(ExtractionQualityPolicy.ShouldUseUnitForRetrievalWindow)
+            .ToList();
+        if (reliableUnits.Count > 0)
+            return reliableUnits;
+
+        var targetedFallbackUnits = orderedUnits
+            .Where(ExtractionQualityPolicy.ShouldUseUnitForProfileCards)
+            .ToList();
+        return targetedFallbackUnits.Count > 0
+            ? targetedFallbackUnits
+            : orderedUnits;
     }
 
     private static void AddHighSignalUnitChunks(

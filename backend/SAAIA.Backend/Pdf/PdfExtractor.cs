@@ -102,12 +102,25 @@ static class PdfExtractor
             .Where(group => group.Count() >= Math.Max(3, (int)Math.Ceiling(pages.Count * 0.35)))
             .Select(static group => group.Key)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var pagePatternSets = pageLineSets
+            .Select(static lines => lines
+                .Where(HasVariableBoilerplateMarker)
+                .Select(NormalizeVariableBoilerplateLine)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray())
+            .ToArray();
+        var repeatedPatterns = pagePatternSets
+            .SelectMany(static lines => lines)
+            .GroupBy(static line => line, StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() >= Math.Max(3, (int)Math.Ceiling(pages.Count * 0.35)))
+            .Select(static group => group.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        if (repeated.Count == 0)
+        if (repeated.Count == 0 && repeatedPatterns.Count == 0)
             return pages;
 
         return pages
-            .Select(page => (page.PageNumber, Text: RemoveRepeatedLines(page.Text, repeated), page.ImageCount))
+            .Select(page => (page.PageNumber, Text: RemoveRepeatedLines(page.Text, repeated, repeatedPatterns), page.ImageCount))
             .ToArray();
     }
 
@@ -127,16 +140,20 @@ static class PdfExtractor
         }
     }
 
-    private static string RemoveRepeatedLines(string text, ISet<string> repeated)
+    private static string RemoveRepeatedLines(string text, ISet<string> repeated, ISet<string> repeatedPatterns)
     {
         var lines = SplitLikelyLines(text).ToArray();
         if (lines.Length <= 1)
         {
             var normalized = NormalizeBoilerplateLine(text);
-            return repeated.Contains(normalized) ? string.Empty : text;
+            return IsRepeatedBoilerplateLine(normalized, repeated, repeatedPatterns) ? string.Empty : text;
         }
 
-        return string.Join('\n', lines.Where(line => !repeated.Contains(NormalizeBoilerplateLine(line)))).Trim();
+        return string.Join('\n', lines.Where(line =>
+        {
+            var normalized = NormalizeBoilerplateLine(line);
+            return !IsRepeatedBoilerplateLine(normalized, repeated, repeatedPatterns);
+        })).Trim();
     }
 
     private static IEnumerable<string> SplitLikelyLines(string text)
@@ -147,6 +164,18 @@ static class PdfExtractor
 
     private static string NormalizeBoilerplateLine(string line)
         => System.Text.RegularExpressions.Regex.Replace(line ?? string.Empty, @"\s+", " ").Trim();
+
+    private static bool IsRepeatedBoilerplateLine(string normalized, ISet<string> repeated, ISet<string> repeatedPatterns)
+        => repeated.Contains(normalized)
+           || (HasVariableBoilerplateMarker(normalized)
+               && repeatedPatterns.Contains(NormalizeVariableBoilerplateLine(normalized)));
+
+    private static bool HasVariableBoilerplateMarker(string line)
+        => !string.IsNullOrWhiteSpace(line)
+           && line.Any(char.IsDigit);
+
+    private static string NormalizeVariableBoilerplateLine(string line)
+        => System.Text.RegularExpressions.Regex.Replace(NormalizeBoilerplateLine(line), @"\d+", "#");
 }
 
 sealed record WordToken(string Word, int Page);

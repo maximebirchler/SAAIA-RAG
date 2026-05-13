@@ -106,9 +106,9 @@ public sealed class RetrievalChunkProjectorTests
                 0,
                 21,
                 ExtractionTextStatus: "low_text",
-                ExtractionTextSparse: true,
+                ExtractionTextSparse: false,
                 ExtractionOcrCandidate: true,
-                ExtractionQualitySignals: ["sparse_text_on_page"]),
+                ExtractionQualitySignals: ["ocr_candidate_text"]),
             new ExtractedDocumentUnit(
                 1,
                 0,
@@ -134,10 +134,65 @@ public sealed class RetrievalChunkProjectorTests
             minWords: 1));
 
         Assert.Equal("low_text", chunk.ExtractionTextStatus);
-        Assert.True(chunk.ExtractionTextSparse);
+        Assert.False(chunk.ExtractionTextSparse);
         Assert.True(chunk.ExtractionOcrCandidate);
-        Assert.Contains("sparse_text_on_page", chunk.ExtractionQualitySignals!);
+        Assert.Contains("ocr_candidate_text", chunk.ExtractionQualitySignals!);
         Assert.Contains("text_extraction_ok", chunk.ExtractionQualitySignals!);
+    }
+
+    [Fact]
+    public void ProjectStructureAware_excludes_restricted_units_from_dense_windows_when_clean_units_exist()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 2, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "EN 15281 sparse recovered note",
+                29,
+                5,
+                [1],
+                0,
+                29,
+                ExtractionTextStatus: "low_text",
+                ExtractionTextSparse: true,
+                ExtractionOcrCandidate: true,
+                ExtractionQualitySignals: ["sparse_text_on_page"]),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                2,
+                2,
+                "Reliable body content with enough context to support regular semantic retrieval.",
+                74,
+                10,
+                [2],
+                31,
+                105,
+                ExtractionTextStatus: "ok",
+                ExtractionTextSparse: false,
+                ExtractionOcrCandidate: false,
+                ExtractionQualitySignals: ["text_extraction_ok"])
+        };
+
+        var chunk = Assert.Single(RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 100,
+            overlapWords: 0,
+            minWords: 1));
+
+        Assert.DoesNotContain("EN 15281", chunk.Text, StringComparison.Ordinal);
+        Assert.Contains("Reliable body content", chunk.Text, StringComparison.Ordinal);
+        Assert.Equal("ok", chunk.ExtractionTextStatus);
+        Assert.False(chunk.ExtractionTextSparse);
+        Assert.DoesNotContain("sparse_text_on_page", chunk.ExtractionQualitySignals!);
     }
 
     [Fact]

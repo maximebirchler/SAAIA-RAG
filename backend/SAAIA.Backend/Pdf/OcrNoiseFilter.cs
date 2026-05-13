@@ -8,9 +8,42 @@ internal static partial class OcrNoiseFilter
             return false;
 
         text = Regex.Replace(text, @"\s+", " ").Trim();
-        if (text.Length < 32 || text.Length > 180)
+        if (text.Length < 32)
             return false;
 
+        if (text.Length > 180)
+            return LooksLikeProbableLongNoiseText(text);
+
+        return LooksLikeProbableNoiseSegment(text);
+    }
+
+    private static bool LooksLikeProbableLongNoiseText(string text)
+    {
+        const int windowLength = 180;
+        const int stepLength = 120;
+
+        var checkedWindows = 0;
+        var noisyWindows = 0;
+        for (var start = 0; start < text.Length; start += stepLength)
+        {
+            var length = Math.Min(windowLength, text.Length - start);
+            if (length < 32)
+                break;
+
+            checkedWindows++;
+            if (LooksLikeProbableNoiseSegment(text.Substring(start, length)))
+            {
+                noisyWindows++;
+                if (noisyWindows >= 2)
+                    return true;
+            }
+        }
+
+        return checkedWindows <= 1 && noisyWindows == 1;
+    }
+
+    private static bool LooksLikeProbableNoiseSegment(string text)
+    {
         var tokens = TokenRegex().Matches(text)
             .Select(static match => TrimToken(match.Value))
             .Where(static token => token.Length >= 2)

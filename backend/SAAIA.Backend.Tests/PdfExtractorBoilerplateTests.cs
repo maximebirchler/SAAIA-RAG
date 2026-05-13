@@ -23,6 +23,23 @@ public sealed class PdfExtractorBoilerplateTests
     }
 
     [Fact]
+    public void RemoveRepeatedPageBoilerplate_removes_variable_page_number_lines()
+    {
+        var pages = new List<(int PageNumber, string Text, int ImageCount)>
+        {
+            (1, "ACME CONFIDENTIAL - page 1\nFirst page useful technical text.", 0),
+            (2, "ACME CONFIDENTIAL - page 2\nSecond page useful technical text.", 0),
+            (3, "ACME CONFIDENTIAL - page 3\nThird page useful technical text.", 0),
+            (4, "ACME CONFIDENTIAL - page 4\nFourth page useful technical text.", 0)
+        };
+
+        var cleaned = PdfExtractor.RemoveRepeatedPageBoilerplate(pages);
+
+        Assert.All(cleaned, page => Assert.DoesNotContain("ACME CONFIDENTIAL", page.Text, StringComparison.Ordinal));
+        Assert.Contains(cleaned, page => page.Text.Contains("Second page useful technical text.", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void RemoveRepeatedPageBoilerplate_keeps_unique_short_lines()
     {
         var pages = new List<(int PageNumber, string Text, int ImageCount)>

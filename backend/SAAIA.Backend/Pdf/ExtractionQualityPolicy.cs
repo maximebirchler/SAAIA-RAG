@@ -27,10 +27,19 @@ internal static class ExtractionQualityPolicy
             || LooksLikeStrongStandaloneHeading(unit.Text);
     }
 
+    public static bool ShouldUseUnitForRetrievalWindow(ExtractedDocumentUnit unit)
+        => !ShouldRestrictUnitToTargetedReferences(unit);
+
     public static bool IsPageUnreliableForEmbeddedCards(ExtractedPdfPage page)
     {
         var quality = page.Quality ?? PdfPageExtractionQuality.FromText(page.Text, page.WordCount, page.CharCount);
         if (quality.TextEmpty)
+            return true;
+
+        if (quality.TextSparse && page.WordCount < 20)
+            return true;
+
+        if (OcrNoiseFilter.LooksLikeProbableNoiseText(page.Text))
             return true;
 
         return quality.Signals.Any(static signal =>

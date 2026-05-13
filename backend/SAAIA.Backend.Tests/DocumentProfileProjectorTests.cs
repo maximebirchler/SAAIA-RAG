@@ -91,6 +91,40 @@ public sealed class DocumentProfileProjectorTests
     }
 
     [Fact]
+    public void Project_skips_page_embedded_titles_on_sparse_low_quality_pages()
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                1,
+                "FALSE OCR TITLE\nx y z",
+                5,
+                21,
+                [1],
+                Quality: new PdfPageExtractionQuality(
+                    "low_text",
+                    TextEmpty: false,
+                    TextSparse: true,
+                    OcrCandidate: true,
+                    AverageCharsPerWord: 4.2,
+                    Signals: ["sparse_text_on_page"]))
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 1, 1, null)
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/SparsePage.pdf",
+            pages,
+            sections,
+            units: [],
+            exactMatchEntries: []);
+
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "FALSE OCR TITLE", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Project_does_not_create_content_cards_from_navigation_sections()
     {
         var pages = new[]

@@ -43,6 +43,29 @@ public sealed class DocumentSectionExtractorTests
     }
 
     [Fact]
+    public void Extract_ignores_table_of_contents_and_index_lines_as_sections()
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                1,
+                "Sommaire\nIntroduction .... 3\nInstallation rapide 4\nConfiguration avancee 7\nExploitation 9",
+                11,
+                94,
+                [1]),
+            new ExtractedPdfPage(3, "1 Introduction\nContenu principal", 4, 32, [2]),
+            new ExtractedPdfPage(4, "INSTALLATION RAPIDE\nEtapes de deploiement", 4, 43, [3])
+        };
+
+        var sections = DocumentSectionExtractor.Extract(pages);
+
+        Assert.DoesNotContain(sections, section => string.Equals(section.Title, "Sommaire", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => section.Title.Contains("Configuration avancee", StringComparison.Ordinal));
+        Assert.Equal("1 Introduction", sections[0].Title);
+        Assert.Equal("INSTALLATION RAPIDE", sections[1].Title);
+    }
+
+    [Fact]
     public void Stable_section_id_is_deterministic_for_same_revision_and_ordinal()
     {
         var revisionId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");

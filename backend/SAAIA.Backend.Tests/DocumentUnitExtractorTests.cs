@@ -171,6 +171,14 @@ public sealed class DocumentUnitExtractorTests
     }
 
     [Fact]
+    public void Ocr_noise_filter_detects_long_repeated_noise_windows()
+    {
+        var noisyWindow = "iS) m =| a O om Mm Zz @ = m m 2 Zz Q@) OQ Oo Zz G - > z as | op) oo > Cc ie) m UJ O TT ro) = J | a u Mm U A 0 OQ =| Zz UO | W = cr O = 0";
+
+        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText(string.Join(" ", Enumerable.Repeat(noisyWindow, 3))));
+    }
+
+    [Fact]
     public void Ocr_noise_filter_detects_symbol_heavy_rotated_scan_lines_without_removing_useful_warnings()
     {
         Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText(
