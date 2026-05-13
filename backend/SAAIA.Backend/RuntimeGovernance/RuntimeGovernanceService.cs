@@ -101,14 +101,58 @@ JOIN LATERAL (
         CancellationToken ct)
         => (await conn.QueryAsync<string>(new CommandDefinition(
             """
-SELECT du.text_content
-FROM document_revisions dr
-JOIN document_units du ON du.revision_id = dr.revision_id
-WHERE dr.tenant_id=@tenant
-  AND dr.doc_id=@docId
-  AND dr.indexed_version=@indexedVersion
-ORDER BY du.ordinal
-LIMIT @limit;
+WITH revision AS (
+  SELECT revision_id
+  FROM document_revisions
+  WHERE tenant_id=@tenant
+    AND doc_id=@docId
+    AND indexed_version=@indexedVersion
+),
+has_chunks AS (
+  SELECT EXISTS(
+    SELECT 1
+    FROM retrieval_chunks rc
+    JOIN revision r ON r.revision_id = rc.revision_id
+  ) AS value
+),
+ranked_chunks AS (
+  SELECT
+    rc.text_content,
+    rc.chunk_index AS ordinal,
+    row_number() OVER (
+      ORDER BY
+        CASE COALESCE(rc.metadata->>'contentRole', 'content')
+          WHEN 'content' THEN 0
+          WHEN 'mixed_navigation_content' THEN 1
+          ELSE 2
+        END,
+        COALESCE(NULLIF(rc.metadata->>'navigationScore', '')::double precision, 0) ASC,
+        COALESCE(NULLIF(rc.metadata->>'contentDensityScore', '')::double precision, 0) DESC,
+        rc.chunk_index ASC
+    ) AS quality_rank
+  FROM revision r
+  JOIN retrieval_chunks rc ON rc.revision_id = r.revision_id
+  WHERE length(trim(rc.text_content)) > 0
+    AND COALESCE(rc.metadata->>'contentRole', 'content') <> 'navigation'
+    AND COALESCE(rc.metadata->>'chunkType', '') <> 'navigation_index_v1'
+),
+selected AS (
+  SELECT text_content, ordinal
+  FROM ranked_chunks
+  WHERE quality_rank <= @limit
+  UNION ALL
+  SELECT du.text_content, du.ordinal
+  FROM revision r
+  JOIN document_units du ON du.revision_id = r.revision_id
+  CROSS JOIN has_chunks hc
+  WHERE NOT hc.value
+    AND length(trim(du.text_content)) > 0
+  ORDER BY ordinal
+  LIMIT @limit
+)
+SELECT text_content
+FROM selected
+ORDER BY ordinal;
 """,
             new
             {
@@ -213,8 +257,8 @@ LIMIT @limit;
         var rows = await conn.QueryAsync<CapabilityBDocTextRow>(new CommandDefinition(
             """
 SELECT dr.doc_id AS "DocId",
-       du.text_content AS "Value",
-       du.ordinal AS "Ordinal"
+       candidate.text_content AS "Value",
+       candidate.ordinal AS "Ordinal"
 FROM unnest(@docIds::uuid[], @indexedVersions::integer[]) AS input(doc_id, indexed_version)
 JOIN document_revisions dr
   ON dr.tenant_id=@tenant
@@ -222,11 +266,43 @@ JOIN document_revisions dr
  AND dr.indexed_version=input.indexed_version
 JOIN LATERAL (
     SELECT text_content, ordinal
-    FROM document_units
-    WHERE revision_id = dr.revision_id
-    ORDER BY ordinal
+    FROM (
+      SELECT
+        rc.text_content,
+        rc.chunk_index AS ordinal,
+        0 AS source_rank,
+        CASE COALESCE(rc.metadata->>'contentRole', 'content')
+          WHEN 'content' THEN 0
+          WHEN 'mixed_navigation_content' THEN 1
+          ELSE 2
+        END AS role_rank,
+        COALESCE(NULLIF(rc.metadata->>'navigationScore', '')::double precision, 0) AS navigation_score,
+        COALESCE(NULLIF(rc.metadata->>'contentDensityScore', '')::double precision, 0) AS content_density_score
+      FROM retrieval_chunks rc
+      WHERE rc.revision_id = dr.revision_id
+        AND length(trim(rc.text_content)) > 0
+        AND COALESCE(rc.metadata->>'contentRole', 'content') <> 'navigation'
+        AND COALESCE(rc.metadata->>'chunkType', '') <> 'navigation_index_v1'
+      UNION ALL
+      SELECT
+        du.text_content,
+        du.ordinal,
+        1 AS source_rank,
+        0 AS role_rank,
+        0::double precision AS navigation_score,
+        0::double precision AS content_density_score
+      FROM document_units du
+      WHERE du.revision_id = dr.revision_id
+        AND length(trim(du.text_content)) > 0
+        AND NOT EXISTS (
+          SELECT 1
+          FROM retrieval_chunks rc_any
+          WHERE rc_any.revision_id = dr.revision_id
+        )
+    ) candidates
+    ORDER BY source_rank, role_rank, navigation_score ASC, content_density_score DESC, ordinal ASC
     LIMIT @limit
-) du ON TRUE;
+) candidate ON TRUE;
 """,
             new
             {

@@ -2321,6 +2321,81 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
+    public async Task RuntimeGovernance_excerpt_loaders_prefer_content_chunks_over_navigation_units()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("71717171-2222-4444-8888-111111111112");
+        var docId = Guid.Parse("72727272-3333-5555-9999-222222222223");
+        var jobId = Guid.Parse("73737373-4444-6666-aaaa-333333333334");
+        const string docPath = "Knowledge/ChunkRoles.pdf";
+        var navigation = "Contents Safety 3 Operation 8 Maintenance 12 Appendix 20";
+        var firstContent = "The operating section explains setup validation and repeatable checks.";
+        var secondContent = "The maintenance section explains inspection intervals and follow-up records.";
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 1, indexedVersion: 0);
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            jobId,
+            docPath,
+            hash: [1, 2, 3, 4, 5],
+            size: 456,
+            mtimeUtc: DateTime.UtcNow,
+            version: 1,
+            pages:
+            [
+                new ExtractedPdfPage(1, navigation, 5, navigation.Length, [1]),
+                new ExtractedPdfPage(2, firstContent, 10, firstContent.Length, [2]),
+                new ExtractedPdfPage(3, secondContent, 10, secondContent.Length, [3])
+            ],
+            sections:
+            [
+                new ExtractedDocumentSection(0, "Contents", 1, 1, 1, 1, null),
+                new ExtractedDocumentSection(1, "Operation", 2, 2, 1, 1, null),
+                new ExtractedDocumentSection(2, "Maintenance", 3, 3, 1, 1, null)
+            ],
+            units:
+            [
+                new ExtractedDocumentUnit(0, 0, 1, 1, navigation, navigation.Length, 8, [4]),
+                new ExtractedDocumentUnit(1, 1, 2, 2, firstContent, firstContent.Length, 9, [5]),
+                new ExtractedDocumentUnit(2, 2, 3, 3, secondContent, secondContent.Length, 9, [6])
+            ],
+            retrievalChunks:
+            [
+                new ProjectedRetrievalChunk(0, 0, 0, 1, 1, navigation, 8, [7], "navigation_index_v1", ContentRole: RetrievalContentClassifier.NavigationRole, NavigationScore: 0.95, ContentDensityScore: 0.10),
+                new ProjectedRetrievalChunk(1, 1, 1, 2, 2, firstContent, 9, [8], "unit_exact_v1", ContentRole: RetrievalContentClassifier.ContentRole, NavigationScore: 0.05, ContentDensityScore: 0.95),
+                new ProjectedRetrievalChunk(2, 2, 2, 3, 3, secondContent, 9, [9], "unit_exact_v1", ContentRole: RetrievalContentClassifier.ContentRole, NavigationScore: 0.04, ContentDensityScore: 0.94)
+            ],
+            exactMatchEntries: [],
+            contextualTextEntries: [],
+            CancellationToken.None);
+
+        await using var conn = new NpgsqlConnection(db.ConnectionString);
+        await conn.OpenAsync();
+
+        var excerpts = await RuntimeGovernanceService.LoadCapabilityBUnitExcerptsAsync(
+            conn,
+            tenantId,
+            docId,
+            indexedVersion: 1,
+            limit: 2,
+            CancellationToken.None);
+        var batch = await RuntimeGovernanceService.LoadCapabilityBUnitExcerptsBatchAsync(
+            conn,
+            tenantId,
+            [(docId, 1)],
+            limit: 2,
+            CancellationToken.None);
+
+        Assert.Equal([firstContent, secondContent], excerpts);
+        Assert.Equal([firstContent, secondContent], batch[docId]);
+    }
+
+    [Fact]
     public async Task LoadCapabilityBRepresentativeUnitExcerptsAsync_prefers_content_over_low_value_long_units()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
