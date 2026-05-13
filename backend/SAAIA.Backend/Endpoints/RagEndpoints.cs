@@ -6170,6 +6170,7 @@ LIMIT @result_limit;
             .Where(static term => !string.IsNullOrWhiteSpace(term))
             .Select(static term => term.Trim())
             .Where(term => normalizedCandidate.Contains(NormalizeForLexicalSignal(term), StringComparison.Ordinal))
+            .Select(CompactProfileSignalValue)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(Math.Clamp(maxItems, 1, 24))
             .ToArray();
@@ -6188,6 +6189,8 @@ LIMIT @result_limit;
         var candidates = values
             .Where(static value => !string.IsNullOrWhiteSpace(value))
             .Select(static value => value.Trim())
+            .Select(CompactProfileSignalValue)
+            .Where(static value => value.Length >= 2)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
         if (candidates.Length == 0)
@@ -6203,6 +6206,12 @@ LIMIT @result_limit;
         return candidates
             .Take(Math.Min(Math.Clamp(fallbackItems, 0, maxItems), candidates.Length))
             .ToArray();
+    }
+
+    private static string CompactProfileSignalValue(string value)
+    {
+        var trimmed = value.Trim();
+        return trimmed.Length <= 160 ? trimmed : trimmed[..160].TrimEnd();
     }
 
     private static bool ProfileSignalOverlapsQuery(

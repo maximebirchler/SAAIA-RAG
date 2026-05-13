@@ -60,8 +60,73 @@ public static class SourceCardParser
         return result
             .Where(s => !string.IsNullOrWhiteSpace(s.DocName) || !string.IsNullOrWhiteSpace(s.DocPath))
             .GroupBy(s => $"{s.DocPath}::{s.DocName}::{s.PageStart}::{s.PageEnd}::{s.Snippet}")
-            .Select(g => g.OrderByDescending(SourceCardRichnessScore).First())
+            .Select(MergeSourceCardGroup)
             .ToList();
+    }
+
+    private static SourceCard MergeSourceCardGroup(IEnumerable<SourceCard> group)
+    {
+        var sources = group
+            .OrderByDescending(SourceCardRichnessScore)
+            .ToArray();
+        var primary = sources[0];
+
+        return new SourceCard
+        {
+            DocId = PickString(sources, static s => s.DocId),
+            DocPath = PickString(sources, static s => s.DocPath) ?? primary.DocPath,
+            DocName = PickString(sources, static s => s.DocName) ?? primary.DocName,
+            PageStart = PickInt(sources, static s => s.PageStart),
+            PageEnd = PickInt(sources, static s => s.PageEnd),
+            Snippet = PickString(sources, static s => s.Snippet) ?? primary.Snippet,
+            Score = PickDouble(sources, static s => s.Score),
+            SourceHash = PickString(sources, static s => s.SourceHash),
+            DocLanguage = PickString(sources, static s => s.DocLanguage),
+            ProfileLanguage = PickString(sources, static s => s.ProfileLanguage),
+            Category = PickString(sources, static s => s.Category),
+            CategoryRef = PickString(sources, static s => s.CategoryRef),
+            CategoryPath = PickString(sources, static s => s.CategoryPath),
+            ChunkId = PickString(sources, static s => s.ChunkId),
+            SectionTitle = PickString(sources, static s => s.SectionTitle),
+            HeadingPath = PickString(sources, static s => s.HeadingPath),
+            PrevChunkId = PickString(sources, static s => s.PrevChunkId),
+            NextChunkId = PickString(sources, static s => s.NextChunkId),
+            SameSectionChunkId = PickString(sources, static s => s.SameSectionChunkId),
+            OriginalChunkType = PickString(sources, static s => s.OriginalChunkType),
+            OffsetStart = PickInt(sources, static s => s.OffsetStart),
+            OffsetEnd = PickInt(sources, static s => s.OffsetEnd),
+            ExtractionSource = PickString(sources, static s => s.ExtractionSource),
+            DocumentQualityStatus = PickString(sources, static s => s.DocumentQualityStatus),
+            PageQualityStatus = PickString(sources, static s => s.PageQualityStatus),
+            TextStatus = PickString(sources, static s => s.TextStatus),
+            QualityStatus = PickString(sources, static s => s.QualityStatus),
+            ExtractionConfidence = PickDouble(sources, static s => s.ExtractionConfidence),
+            DocumentExtractionConfidence = PickDouble(sources, static s => s.DocumentExtractionConfidence),
+            PageExtractionConfidence = PickDouble(sources, static s => s.PageExtractionConfidence),
+            ManualReviewRecommended = sources.Any(static s => s.ManualReviewRecommended),
+            DocumentManualReviewRecommended = sources.Any(static s => s.DocumentManualReviewRecommended),
+            PageManualReviewRecommended = sources.Any(static s => s.PageManualReviewRecommended),
+            OcrAttempted = sources.Any(static s => s.OcrAttempted),
+            OcrApplied = sources.Any(static s => s.OcrApplied),
+            OcrRecommended = sources.Any(static s => s.OcrRecommended),
+            ExtractionDiagnosticSummary = MergeDiagnosticSummaries(sources),
+            QualitySignals = MergeStringLists(sources.Select(static s => s.QualitySignals), 8),
+            MatchedContentCards = MergeContentCards(sources),
+            ProfileSignals = MergeProfileSignals(sources),
+            SelectionHintEvidenceRole = PickString(sources, static s => s.SelectionHintEvidenceRole),
+            SelectionHintActionabilityScore = PickInt(sources, static s => s.SelectionHintActionabilityScore),
+            SelectionHintSupportScore = PickInt(sources, static s => s.SelectionHintSupportScore),
+            SelectionHintFragmentScore = PickInt(sources, static s => s.SelectionHintFragmentScore),
+            SelectionHintNavigationScore = PickInt(sources, static s => s.SelectionHintNavigationScore),
+            SelectionHintQualityPenalty = PickInt(sources, static s => s.SelectionHintQualityPenalty),
+            ContentRole = PickString(sources, static s => s.ContentRole),
+            NavigationReason = PickString(sources, static s => s.NavigationReason),
+            RetrievalNavigationScore = PickDouble(sources, static s => s.RetrievalNavigationScore),
+            ContentDensityScore = PickDouble(sources, static s => s.ContentDensityScore),
+            PagesLabel = PickString(sources, static s => s.PagesLabel) ?? primary.PagesLabel,
+            ScoreLabel = PickString(sources, static s => s.ScoreLabel) ?? primary.ScoreLabel,
+            MetadataLabel = PickString(sources, static s => s.MetadataLabel) ?? primary.MetadataLabel
+        };
     }
 
     private static int SourceCardRichnessScore(SourceCard source)
@@ -112,6 +177,154 @@ public static class SourceCardParser
         score += source.ContentDensityScore is null ? 0 : 1;
         return score;
     }
+
+    private static string? PickString(IEnumerable<SourceCard> sources, Func<SourceCard, string?> selector)
+        => sources
+            .Select(selector)
+            .FirstOrDefault(static value => !string.IsNullOrWhiteSpace(value))?
+            .Trim();
+
+    private static int? PickInt(IEnumerable<SourceCard> sources, Func<SourceCard, int?> selector)
+        => sources
+            .Select(selector)
+            .FirstOrDefault(static value => value.HasValue);
+
+    private static double? PickDouble(IEnumerable<SourceCard> sources, Func<SourceCard, double?> selector)
+        => sources
+            .Select(selector)
+            .FirstOrDefault(static value => value.HasValue);
+
+    private static List<string> MergeStringLists(IEnumerable<IEnumerable<string>> lists, int maxItems)
+        => lists
+            .SelectMany(static list => list)
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(static value => value.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(Math.Clamp(maxItems, 1, 24))
+            .ToList();
+
+    private static List<SourceContentCard> MergeContentCards(IEnumerable<SourceCard> sources)
+        => sources
+            .SelectMany(static source => source.MatchedContentCards)
+            .Where(static card => !string.IsNullOrWhiteSpace(card.Title))
+            .GroupBy(BuildContentCardMergeKey, StringComparer.OrdinalIgnoreCase)
+            .Select(static group =>
+            {
+                var cards = group.OrderByDescending(ContentCardRichnessScore).ToArray();
+                var primary = cards[0];
+                return new SourceContentCard
+                {
+                    Title = primary.Title,
+                    ContentCardId = PickContentCardString(cards, static card => card.ContentCardId),
+                    PageStart = cards.Select(static card => card.PageStart).FirstOrDefault(static value => value.HasValue),
+                    PageEnd = cards.Select(static card => card.PageEnd).FirstOrDefault(static value => value.HasValue),
+                    Kind = PickContentCardString(cards, static card => card.Kind),
+                    Signals = MergeStringLists(cards.Select(static card => card.Signals), 8),
+                    Evidence = cards.Select(static card => card.Evidence).FirstOrDefault(static evidence => evidence.HasValue)?.Clone()
+                };
+            })
+            .OrderByDescending(ContentCardRichnessScore)
+            .Take(8)
+            .ToList();
+
+    private static string BuildContentCardMergeKey(SourceContentCard card)
+        => !string.IsNullOrWhiteSpace(card.ContentCardId)
+            ? $"id:{card.ContentCardId.Trim()}"
+            : string.Join(
+                "|",
+                "shape",
+                (card.Title ?? string.Empty).Trim().ToLowerInvariant(),
+                (card.Kind ?? string.Empty).Trim().ToLowerInvariant(),
+                card.PageStart?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                card.PageEnd?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
+
+    private static int ContentCardRichnessScore(SourceContentCard card)
+        => HasValue(card.ContentCardId) * 8
+           + (card.Evidence.HasValue ? 8 : 0)
+           + Math.Min(8, card.Signals.Count)
+           + (card.PageStart.HasValue ? 1 : 0)
+           + (card.PageEnd.HasValue ? 1 : 0);
+
+    private static string? PickContentCardString(IEnumerable<SourceContentCard> cards, Func<SourceContentCard, string?> selector)
+        => cards
+            .Select(selector)
+            .FirstOrDefault(static value => !string.IsNullOrWhiteSpace(value))?
+            .Trim();
+
+    private static SourceProfileSignals? MergeProfileSignals(IEnumerable<SourceCard> sources)
+    {
+        var profiles = sources
+            .Select(static source => source.ProfileSignals)
+            .Where(static profile => profile is not null)
+            .Select(static profile => profile!)
+            .OrderByDescending(SourceProfileSignalsRichnessScore)
+            .ToArray();
+        if (profiles.Length == 0)
+            return null;
+
+        var primary = profiles[0];
+        var merged = new SourceProfileSignals
+        {
+            ProfileVersion = PickProfileString(profiles, static profile => profile.ProfileVersion),
+            Language = PickProfileString(profiles, static profile => profile.Language),
+            Keywords = MergeStringLists(profiles.Select(static profile => profile.Keywords), 8),
+            Entities = MergeStringLists(profiles.Select(static profile => profile.Entities), 8),
+            Topics = MergeStringLists(profiles.Select(static profile => profile.Topics), 8),
+            HypotheticalQuestions = MergeStringLists(profiles.Select(static profile => profile.HypotheticalQuestions), 4),
+            Limits = MergeStringLists(profiles.Select(static profile => profile.Limits), 4),
+            MatchedTerms = MergeStringLists(profiles.Select(static profile => profile.MatchedTerms), 12),
+            MatchCount = profiles
+                .Select(static profile => profile.MatchCount)
+                .FirstOrDefault(static value => value.HasValue) ?? primary.MatchCount
+        };
+
+        return SourceProfileSignalsRichnessScore(merged) == 0 ? null : merged;
+    }
+
+    private static string? PickProfileString(IEnumerable<SourceProfileSignals> profiles, Func<SourceProfileSignals, string?> selector)
+        => profiles
+            .Select(selector)
+            .FirstOrDefault(static value => !string.IsNullOrWhiteSpace(value))?
+            .Trim();
+
+    private static SourceExtractionDiagnosticSummary? MergeDiagnosticSummaries(IEnumerable<SourceCard> sources)
+    {
+        var diagnostics = sources
+            .Select(static source => source.ExtractionDiagnosticSummary)
+            .Where(static summary => summary is not null)
+            .Select(static summary => summary!)
+            .ToArray();
+        if (diagnostics.Length == 0)
+            return null;
+
+        return new SourceExtractionDiagnosticSummary
+        {
+            NativeTextStatus = PickDiagnosticString(diagnostics, static summary => summary.NativeTextStatus),
+            NativeOcrRecommended = diagnostics.Select(static summary => summary.NativeOcrRecommended).FirstOrDefault(static value => value.HasValue),
+            OcrMode = PickDiagnosticString(diagnostics, static summary => summary.OcrMode),
+            OcrLanguages = PickDiagnosticString(diagnostics, static summary => summary.OcrLanguages),
+            OcrDurationMs = diagnostics.Select(static summary => summary.OcrDurationMs).FirstOrDefault(static value => value.HasValue),
+            OcrFailureReason = PickDiagnosticString(diagnostics, static summary => summary.OcrFailureReason),
+            OcrAppliedReason = PickDiagnosticString(diagnostics, static summary => summary.OcrAppliedReason),
+            OcrTimedOut = diagnostics.Select(static summary => summary.OcrTimedOut).FirstOrDefault(static value => value.HasValue),
+            OcrAttemptedPageCount = diagnostics.Select(static summary => summary.OcrAttemptedPageCount).FirstOrDefault(static value => value.HasValue),
+            OcrSkippedPageCount = diagnostics.Select(static summary => summary.OcrSkippedPageCount).FirstOrDefault(static value => value.HasValue),
+            OcrPagesWithNovelTextCount = diagnostics.Select(static summary => summary.OcrPagesWithNovelTextCount).FirstOrDefault(static value => value.HasValue),
+            PageCount = diagnostics.Select(static summary => summary.PageCount).FirstOrDefault(static value => value.HasValue),
+            TextPageCount = diagnostics.Select(static summary => summary.TextPageCount).FirstOrDefault(static value => value.HasValue),
+            EmptyPageCount = diagnostics.Select(static summary => summary.EmptyPageCount).FirstOrDefault(static value => value.HasValue),
+            SparsePageCount = diagnostics.Select(static summary => summary.SparsePageCount).FirstOrDefault(static value => value.HasValue),
+            ImagePageCount = diagnostics.Select(static summary => summary.ImagePageCount).FirstOrDefault(static value => value.HasValue),
+            PageWarningCount = diagnostics.Select(static summary => summary.PageWarningCount).FirstOrDefault(static value => value.HasValue),
+            PageReviewRecommendedCount = diagnostics.Select(static summary => summary.PageReviewRecommendedCount).FirstOrDefault(static value => value.HasValue)
+        };
+    }
+
+    private static string? PickDiagnosticString(IEnumerable<SourceExtractionDiagnosticSummary> diagnostics, Func<SourceExtractionDiagnosticSummary, string?> selector)
+        => diagnostics
+            .Select(selector)
+            .FirstOrDefault(static value => !string.IsNullOrWhiteSpace(value))?
+            .Trim();
 
     private static int SourceProfileSignalsRichnessScore(SourceProfileSignals? profile)
     {
@@ -630,9 +843,15 @@ public static class SourceCardParser
             foreach (var value in values.EnumerateArray())
             {
                 if (value.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(value.GetString()))
-                    yield return value.GetString()!.Trim();
+                    yield return CompactProfileSignalValue(value.GetString()!);
             }
         }
+    }
+
+    private static string CompactProfileSignalValue(string value)
+    {
+        var trimmed = value.Trim();
+        return trimmed.Length <= 160 ? trimmed : trimmed[..160].TrimEnd();
     }
 
     private static JsonElement? ExtractEvidence(JsonElement card)

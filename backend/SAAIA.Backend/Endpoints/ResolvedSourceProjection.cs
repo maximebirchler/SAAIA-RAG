@@ -396,15 +396,21 @@ LEFT JOIN LATERAL (
         var questions = CompactProfileValues(row.ProfileHypotheticalQuestions, maxItems: 4);
         var limits = CompactProfileValues(row.ProfileLimits, maxItems: 4);
         var signalCount = keywords.Count + entities.Count + topics.Count + questions.Count + limits.Count;
-        if (signalCount == 0)
+        var profileVersion = NullIfWhiteSpace(row.ProfileVersion);
+        var language = !string.Equals(profileLanguage, "und", StringComparison.Ordinal)
+            ? profileLanguage
+            : NullIfWhiteSpace(docLanguage);
+        if (signalCount == 0
+            && string.IsNullOrWhiteSpace(profileVersion)
+            && string.IsNullOrWhiteSpace(language))
+        {
             return null;
+        }
 
         return new RagItemProfileSignals
         {
-            ProfileVersion = NullIfWhiteSpace(row.ProfileVersion),
-            Language = !string.Equals(profileLanguage, "und", StringComparison.Ordinal)
-                ? profileLanguage
-                : NullIfWhiteSpace(docLanguage),
+            ProfileVersion = profileVersion,
+            Language = language,
             Keywords = keywords.Count == 0 ? null : keywords,
             Entities = entities.Count == 0 ? null : entities,
             Topics = topics.Count == 0 ? null : topics,

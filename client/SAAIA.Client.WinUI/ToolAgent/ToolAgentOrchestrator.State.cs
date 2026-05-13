@@ -1183,10 +1183,17 @@ CURRENT_USER_MESSAGE:
         => lists
             .SelectMany(static list => list)
             .Where(static value => !string.IsNullOrWhiteSpace(value))
-            .Select(static value => value.Trim())
+            .Select(CompactClientProfileSignalValue)
+            .Where(static value => value.Length >= 2)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(Math.Clamp(maxItems, 1, 24))
             .ToList();
+
+    private static string CompactClientProfileSignalValue(string value)
+    {
+        var trimmed = value.Trim();
+        return trimmed.Length <= 160 ? trimmed : trimmed[..160].TrimEnd();
+    }
 
     private static ToolMemory.SourceContentCardRef CloneSourceContentCardRef(ToolMemory.SourceContentCardRef card)
         => new()
@@ -1214,17 +1221,26 @@ CURRENT_USER_MESSAGE:
         {
             ProfileVersion = NullIfWhiteSpace(profile.ProfileVersion),
             Language = NullIfWhiteSpace(profile.Language),
-            Keywords = profile.Keywords.Where(static value => !string.IsNullOrWhiteSpace(value)).Select(static value => value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Take(8).ToList(),
-            Entities = profile.Entities.Where(static value => !string.IsNullOrWhiteSpace(value)).Select(static value => value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Take(8).ToList(),
-            Topics = profile.Topics.Where(static value => !string.IsNullOrWhiteSpace(value)).Select(static value => value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Take(8).ToList(),
-            HypotheticalQuestions = profile.HypotheticalQuestions.Where(static value => !string.IsNullOrWhiteSpace(value)).Select(static value => value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Take(4).ToList(),
-            Limits = profile.Limits.Where(static value => !string.IsNullOrWhiteSpace(value)).Select(static value => value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Take(4).ToList(),
-            MatchedTerms = profile.MatchedTerms.Where(static value => !string.IsNullOrWhiteSpace(value)).Select(static value => value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Take(12).ToList(),
+            Keywords = CompactClientProfileSignalList(profile.Keywords, 8),
+            Entities = CompactClientProfileSignalList(profile.Entities, 8),
+            Topics = CompactClientProfileSignalList(profile.Topics, 8),
+            HypotheticalQuestions = CompactClientProfileSignalList(profile.HypotheticalQuestions, 4),
+            Limits = CompactClientProfileSignalList(profile.Limits, 4),
+            MatchedTerms = CompactClientProfileSignalList(profile.MatchedTerms, 12),
             MatchCount = profile.MatchCount
         };
 
         return ComputeSourceProfileSignalsRichness(clone) == 0 ? null : clone;
     }
+
+    private static List<string> CompactClientProfileSignalList(IEnumerable<string> values, int maxItems)
+        => values
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(CompactClientProfileSignalValue)
+            .Where(static value => value.Length >= 2)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(Math.Clamp(maxItems, 1, 24))
+            .ToList();
 
     private static JsonElement? GetSourceContentCardEvidenceElement(RagHitContentCardSummary card)
     {
@@ -1285,7 +1301,8 @@ CURRENT_USER_MESSAGE:
 
         return values
             .Where(static value => !string.IsNullOrWhiteSpace(value))
-            .Select(static value => value.Trim())
+            .Select(CompactClientProfileSignalValue)
+            .Where(static value => value.Length >= 2)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(Math.Clamp(maxItems, 1, 24))
             .ToList();

@@ -1572,6 +1572,7 @@ public sealed class DocumentFoundationIntegrationTests
                 "SELECT revision_id FROM document_revisions WHERE tenant_id=@tenant AND doc_id=@docId LIMIT 1;",
                 new { tenant = tenantId, docId });
             var llmProfileId = Guid.Parse("bbbbbbbb-4444-4444-4444-777777777777");
+            var longKeyword = "pressure envelope validation " + new string('x', 220);
 
             await conn.ExecuteAsync(
                 """
@@ -1583,7 +1584,7 @@ public sealed class DocumentFoundationIntegrationTests
                 VALUES(
                   @llmProfileId, @tenant, @revision, @docId, 'llm_backoffice_v1', 'en',
                   'LLM profile: the document explains pressure envelope validation and maintenance governance.',
-                  ARRAY['pressure envelope validation']::text[],
+                  ARRAY['pressure envelope validation', @longKeyword]::text[],
                   ARRAY['accumulator cluster']::text[],
                   ARRAY['maintenance governance']::text[],
                   ARRAY['When should the pressure envelope validation be reviewed?']::text[],
@@ -1620,6 +1621,7 @@ public sealed class DocumentFoundationIntegrationTests
                     revision = revisionId,
                     docId,
                     llmProfileId,
+                    longKeyword,
                     cardId = Guid.Parse("cccccccc-5555-5555-5555-777777777777")
                 });
         }
@@ -1647,6 +1649,7 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal("llm_backoffice_v1", match.ProfileSignals!.ProfileVersion);
         Assert.Equal("en", match.ProfileSignals.Language);
         Assert.Contains("pressure envelope validation", match.ProfileSignals.Keywords ?? []);
+        Assert.All(match.ProfileSignals.Keywords ?? [], value => Assert.True(value.Length <= 160));
         Assert.Contains("maintenance governance", match.ProfileSignals.Topics ?? []);
         Assert.Contains("Use page chunks for exact thresholds.", match.ProfileSignals.Limits ?? []);
         Assert.Contains("pressure envelope validation", match.ProfileSignals.MatchedTerms ?? []);
@@ -1683,6 +1686,7 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal("llm_backoffice_v1", item.ProfileSignals!.ProfileVersion);
         Assert.Equal("en", item.ProfileSignals.Language);
         Assert.Contains("pressure envelope validation", item.ProfileSignals.Keywords ?? []);
+        Assert.All(item.ProfileSignals.Keywords ?? [], value => Assert.True(value.Length <= 160));
         Assert.Contains("maintenance governance", item.ProfileSignals.Topics ?? []);
         Assert.Contains("Use page chunks for exact thresholds.", item.ProfileSignals.Limits ?? []);
     }
@@ -4967,6 +4971,72 @@ VALUES(
         Assert.Contains(refResponse.Source.MatchedContentCards!, card =>
             string.Equals(card.ContentCardId, enrichedCard.content_card_id, StringComparison.OrdinalIgnoreCase)
             && card.Evidence.HasValue);
+    }
+
+    [Fact]
+    public async Task Resolve_source_endpoint_keeps_profile_identity_when_profile_lists_are_empty()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("cdd3ffff-ffff-ffff-ffff-eeeeeeeeeeee");
+        await PublishRuntimeReadyQuestionBankDocumentsAsync(db, tenantId);
+
+        await using var conn = new NpgsqlConnection(db.ConnectionString);
+        await conn.OpenAsync();
+        var expected = await conn.QuerySingleAsync<(Guid doc_id, string doc_name, string profile_version)>(
+            """
+            SELECT d.doc_id, d.doc_name, p.profile_version
+            FROM documents d
+            JOIN document_revisions r
+              ON r.tenant_id=d.tenant_id
+             AND r.doc_id=d.doc_id
+             AND r.indexed_version=d.indexed_version
+            JOIN document_profiles p
+              ON p.tenant_id=d.tenant_id
+             AND p.doc_id=d.doc_id
+             AND p.revision_id=r.revision_id
+            WHERE d.tenant_id=@tenant
+              AND d.status='indexed'
+              AND d.doc_path='Programmation/Mettler/MettlerToledo_IND570.pdf'
+            ORDER BY p.updated_at DESC
+            LIMIT 1;
+            """,
+            new { tenant = tenantId });
+
+        await conn.ExecuteAsync(
+            """
+            UPDATE document_profiles
+            SET language='en',
+                keywords=ARRAY[]::text[],
+                entities=ARRAY[]::text[],
+                topics=ARRAY[]::text[],
+                hypothetical_questions=ARRAY[]::text[],
+                limits=ARRAY[]::text[]
+            WHERE tenant_id=@tenant
+              AND doc_id=@docId;
+            """,
+            new { tenant = tenantId, docId = expected.doc_id });
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var ctx = BuildRagHttpContext(tenantId);
+        var result = await InvokeResolveSourceAsync(
+            ctx,
+            ds,
+            new SourceResolveRequest { PdfRef = expected.doc_name });
+        await result.ExecuteAsync(ctx);
+
+        var response = JsonSerializer.Deserialize<SourceResolveResponse>(ReadResponseBody(ctx), new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        Assert.NotNull(response?.Source?.ProfileSignals);
+        Assert.Equal(expected.profile_version, response!.Source!.ProfileSignals!.ProfileVersion);
+        Assert.Equal("en", response.Source.ProfileSignals.Language);
+        Assert.Null(response.Source.ProfileSignals.Keywords);
+        Assert.Null(response.Source.ProfileSignals.Topics);
     }
 
     [Fact]

@@ -206,12 +206,12 @@ chunk_flags AS (
          coalesce(c.metadata->>'chunkType', '') AS chunk_type,
          CASE
            WHEN NULLIF(c.metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
-             THEN (c.metadata->>'navigationScore')::double precision
+             THEN greatest(0.0, least(1.0, (c.metadata->>'navigationScore')::double precision))
            ELSE 0
          END AS navigation_score,
          CASE
            WHEN NULLIF(c.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
-             THEN (c.metadata->>'contentDensityScore')::double precision
+             THEN greatest(0.0, least(1.0, (c.metadata->>'contentDensityScore')::double precision))
            ELSE 0
          END AS content_density_score,
          lower(coalesce(c.metadata->>'extractionTextStatus', 'ok')) AS extraction_status,
@@ -350,6 +350,16 @@ WHERE embeddable
   AND content_role='content'
   AND navigation_score >= 0.82
   AND content_density_score < 0.50
+GROUP BY category
+UNION ALL
+SELECT 'invalid_navigation_score', category,
+       left(string_agg(doc_path || '#chunk=' || chunk_index, ' ; ' ORDER BY doc_path, chunk_index), 900),
+       count(*)::text
+FROM chunk_flags
+WHERE (NULLIF(metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+       AND ((metadata->>'navigationScore')::double precision < 0.0 OR (metadata->>'navigationScore')::double precision > 1.0))
+   OR (NULLIF(metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+       AND ((metadata->>'contentDensityScore')::double precision < 0.0 OR (metadata->>'contentDensityScore')::double precision > 1.0))
 GROUP BY category
 UNION ALL
 SELECT 'navigation_without_entries', c.category,
@@ -649,6 +659,9 @@ foreach ($row in $rows) {
         "navigation_score_content_conflict" {
             if ($valueNumber -ge 5) { $issues.Add("navigation-like chunks classified as content: category='$($row.Scope)' count=$valueNumber examples=$($row.Metric)") }
             elseif ($valueNumber -gt 0) { $warnings.Add("navigation-like chunks classified as content: category='$($row.Scope)' count=$valueNumber examples=$($row.Metric)") }
+        }
+        "invalid_navigation_score" {
+            if ($valueNumber -gt 0) { $warnings.Add("navigation/content score outside 0..1: category='$($row.Scope)' count=$valueNumber examples=$($row.Metric)") }
         }
         "navigation_without_entries" {
             if ($valueNumber -gt 0) { $warnings.Add("navigation chunks without navigation entries: category='$($row.Scope)' $($row.Metric)") }

@@ -2101,7 +2101,16 @@ public sealed class RagContextBudgetRegressionTests
               "docName": "manual.pdf",
               "pageStart": 1,
               "pageEnd": 1,
-              "snippet": "same snippet"
+              "snippet": "same snippet",
+              "matchedContentCards": [
+                {
+                  "title": "Calibration proof",
+                  "kind": "evidence",
+                  "evidence": {
+                    "schemaVersion": "card_evidence_v1"
+                  }
+                }
+              ]
             },
             {
               "docPath": "Knowledge/manual.pdf",
@@ -2124,6 +2133,44 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Equal("fr", card.ProfileSignals?.Language);
         Assert.Contains("calibration", card.ProfileSignals!.Topics);
         Assert.Contains("Verify exact values in page chunks.", card.ProfileSignals.Limits);
+        var contentCard = Assert.Single(card.MatchedContentCards);
+        Assert.Equal("Calibration proof", contentCard.Title);
+        Assert.True(contentCard.Evidence.HasValue);
+        Assert.Equal("card_evidence_v1", contentCard.Evidence!.Value.GetProperty("schemaVersion").GetString());
+    }
+
+    [Fact]
+    public void Source_resolve_profile_signals_are_compacted_before_prompt_and_card_use()
+    {
+        var longKeyword = "pressure envelope " + new string('x', 220);
+        var payload = JsonSerializer.Serialize(new
+        {
+            source = new
+            {
+                docPath = "Knowledge/manual.pdf",
+                docName = "manual.pdf",
+                pageStart = 1,
+                pageEnd = 1,
+                profileSignals = new
+                {
+                    language = "en",
+                    keywords = new[] { longKeyword }
+                }
+            }
+        });
+
+        var sourcesJson = ToolAgentOrchestrator.BuildSourceResolveSourcesPayloadForTests(payload);
+        using var sourcesDoc = JsonDocument.Parse(sourcesJson);
+        var keyword = sourcesDoc.RootElement
+            .GetProperty("sources")[0]
+            .GetProperty("profileSignals")
+            .GetProperty("keywords")[0]
+            .GetString();
+        var card = Assert.Single(SourceCardParser.Parse(sourcesJson));
+
+        Assert.NotNull(keyword);
+        Assert.Equal(160, keyword!.Length);
+        Assert.Equal(keyword, Assert.Single(card.ProfileSignals!.Keywords));
     }
 
     [Fact]
