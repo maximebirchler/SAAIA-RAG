@@ -330,6 +330,50 @@ public sealed class DocumentProfileProjectorTests
     }
 
     [Fact]
+    public void Project_does_not_create_content_cards_from_mixed_navigation_units()
+    {
+        var mixedNavigation = """
+Controls overview 3
+Maintenance plan 18
+Alarm reset 22
+Lockout checklist 27
+Appendix 31
+Procedure body: Materials lock padlock warning tag. Procedure 1. Isolate the machine. 2. Verify zero energy and document the result.
+""";
+        var content = "CONTROL HANDOVER PLAN\nProcedure 1. Check status. 2. Record notes.";
+        Assert.Equal(
+            RetrievalContentClassifier.MixedNavigationContentRole,
+            RetrievalContentClassifier.AnalyzeChunk(mixedNavigation).ContentRole);
+
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, mixedNavigation, 26, mixedNavigation.Length, [1]),
+            new ExtractedPdfPage(2, content, 9, content.Length, [2])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Lockout checklist", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(1, "CONTROL HANDOVER PLAN", 2, 2, 2, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, mixedNavigation, mixedNavigation.Length, 26, [3]),
+            new ExtractedDocumentUnit(1, 1, 2, 2, content, content.Length, 9, [4])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/MixedNavigation.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Lockout checklist", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Controls overview", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "CONTROL HANDOVER PLAN", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Project_keeps_technical_identifier_cards_despite_numeric_title_filters()
     {
         var pages = new[]

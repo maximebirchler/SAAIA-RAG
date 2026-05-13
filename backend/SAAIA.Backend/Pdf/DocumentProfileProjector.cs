@@ -26,6 +26,7 @@ internal static partial class DocumentProfileProjector
     {
         var docName = Path.GetFileName(docPath.Replace('\\', '/'));
         var profileUnits = SelectProfileContentUnits(units);
+        var profileCardUnits = SelectProfileCardContentUnits(units);
         var corpus = BuildCorpus(docName, sections, profileUnits);
         var language = DetectLanguage(corpus);
         var sectionTitles = sections
@@ -45,7 +46,7 @@ internal static partial class DocumentProfileProjector
         var summary = BuildSummary(docName, pages.Count, sectionTitles, profileUnits, language);
         var hypotheticalQuestions = BuildHypotheticalQuestions(docName, keywords, entities, language);
         var limits = BuildLimits(language);
-        var contentCards = BuildContentCards(sections, units, pages, exactMatchEntries, keywords);
+        var contentCards = BuildContentCards(sections, profileCardUnits, pages, exactMatchEntries, keywords);
         return BuildProfile(
             profileVersion: "deterministic_v1",
             language,
@@ -136,6 +137,22 @@ internal static partial class DocumentProfileProjector
 
         return contentUnits.Length == 0 ? units : contentUnits;
     }
+
+    private static IReadOnlyList<ExtractedDocumentUnit> SelectProfileCardContentUnits(IReadOnlyList<ExtractedDocumentUnit> units)
+    {
+        if (units.Count == 0)
+            return units;
+
+        return units
+            .Where(static unit => IsProfileCardContentText(unit.Text))
+            .ToArray();
+    }
+
+    private static bool IsProfileCardContentText(string? text)
+        => string.Equals(
+            RetrievalContentClassifier.AnalyzeChunk(text).ContentRole,
+            RetrievalContentClassifier.ContentRole,
+            StringComparison.Ordinal);
 
     private static string DetectLanguage(string text)
         => DocumentLanguageResolver.DetectDominantLanguage(text) ?? "und";
@@ -326,9 +343,14 @@ internal static partial class DocumentProfileProjector
         var sectionTitleByOrdinal = sections
             .GroupBy(static section => section.Ordinal)
             .ToDictionary(static group => group.Key, static group => CollapseWhitespace(group.First().Title));
+        var cardPageNumbers = BuildCoveredPageNumbers(units);
+        var hasCardPageScope = cardPageNumbers.Count > 0;
 
         foreach (var section in sections.OrderBy(static section => section.Ordinal).Take(80))
         {
+            if (hasCardPageScope && !PageRangeOverlaps(section.PageStart, section.PageEnd, cardPageNumbers))
+                continue;
+
             AddContentCardCandidate(
                 candidates,
                 section.Title,
@@ -387,6 +409,9 @@ internal static partial class DocumentProfileProjector
 
         foreach (var page in pages.OrderBy(static page => page.PageNumber))
         {
+            if (hasCardPageScope && !cardPageNumbers.Contains(page.PageNumber))
+                continue;
+
             var acceptedTitles = 0;
             foreach (var title in ExtractLeadTitles(page.Text, PageEmbeddedTitleScanLength))
             {
@@ -409,6 +434,7 @@ internal static partial class DocumentProfileProjector
 
         foreach (var entry in exactMatchEntries
                      .Where(static entry => entry.Kind == "verbatim_excerpt")
+                     .Where(static entry => IsProfileCardContentText(entry.Text))
                      .OrderBy(static entry => entry.EntryIndex))
         {
             var acceptedTitles = 0;
@@ -432,6 +458,36 @@ internal static partial class DocumentProfileProjector
         }
 
         return NormalizeContentCards(OrderContentCardsForBalancedCoverage(candidates));
+    }
+
+    private static HashSet<int> BuildCoveredPageNumbers(IReadOnlyList<ExtractedDocumentUnit> units)
+    {
+        var pages = new HashSet<int>();
+        foreach (var unit in units)
+        {
+            var start = Math.Max(1, Math.Min(unit.PageStart, unit.PageEnd));
+            var end = Math.Max(start, Math.Max(unit.PageStart, unit.PageEnd));
+            for (var page = start; page <= end; page++)
+                pages.Add(page);
+        }
+
+        return pages;
+    }
+
+    private static bool PageRangeOverlaps(int pageStart, int pageEnd, HashSet<int> pageNumbers)
+    {
+        if (pageNumbers.Count == 0)
+            return true;
+
+        var start = Math.Max(1, Math.Min(pageStart, pageEnd));
+        var end = Math.Max(start, Math.Max(pageStart, pageEnd));
+        for (var page = start; page <= end; page++)
+        {
+            if (pageNumbers.Contains(page))
+                return true;
+        }
+
+        return false;
     }
 
     private static IEnumerable<DocumentProfileContentCard> OrderContentCardsForBalancedCoverage(
