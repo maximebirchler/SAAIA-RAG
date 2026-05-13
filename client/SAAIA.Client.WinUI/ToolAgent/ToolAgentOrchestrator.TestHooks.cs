@@ -220,8 +220,36 @@ public sealed partial class ToolAgentOrchestrator
                     .Select(static title => new ToolMemory.SourceContentCardRef
                     {
                         Title = title.Trim()
-                    })
+                })
                     .ToList()
+            });
+
+    internal static string BuildSummaryRetrievalQueryWithSourceProfileSignalsForTests(
+        string docName,
+        string strategy,
+        string language,
+        string level,
+        string? categoryPath,
+        params string[] profileTerms)
+        => BuildSummaryRetrievalQuery(
+            new ResolvedDocRef("doc-1", TestHookDocPath, docName, null, categoryPath, null),
+            strategy,
+            language,
+            level,
+            new ToolMemory.SourceRef
+            {
+                DocPath = TestHookDocPath,
+                Label = docName,
+                CategoryPath = categoryPath,
+                ProfileSignals = new ToolMemory.SourceProfileSignalsRef
+                {
+                    ProfileVersion = "llm_backoffice_v1",
+                    Language = language,
+                    Keywords = profileTerms.Take(2).ToList(),
+                    Topics = profileTerms.Skip(2).Take(2).ToList(),
+                    HypotheticalQuestions = profileTerms.Skip(4).Take(1).ToList(),
+                    Limits = profileTerms.Skip(5).Take(1).ToList()
+                }
             });
 
     internal static string BuildLiveSummaryFallbackSourcePayloadForTests(

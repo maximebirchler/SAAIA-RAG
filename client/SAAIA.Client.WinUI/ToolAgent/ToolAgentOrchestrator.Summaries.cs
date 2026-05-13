@@ -348,6 +348,7 @@ Rules:
             OcrRecommended = preferred.OcrRecommended || fallback.OcrRecommended,
             ExtractionDiagnosticSummary = CloneSourceExtractionDiagnostic(preferred.ExtractionDiagnosticSummary ?? fallback.ExtractionDiagnosticSummary),
             QualitySignals = qualitySignals,
+            ProfileSignals = MergeSourceProfileSignals([preferred, fallback]),
             MatchedContentCards = cards
                 .Select(static card => new ToolMemory.SourceContentCardRef
                 {

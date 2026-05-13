@@ -1128,6 +1128,11 @@ CatalogPollutionMarker Procedure body: Materials lock padlock warning tag. Proce
                 new DocumentProfileContentCard("l evolution de la", 2, 2, "section", [], null),
                 new DocumentProfileContentCard("on nn . il \u00ab Sauces salees et", 3, 3, "section", [], null),
                 new DocumentProfileContentCard("a cafe de levure chimique", 3, 3, "Section", [], null),
+                new DocumentProfileContentCard("e Mettre la farine dans le bol", 3, 3, "section", [], null),
+                new DocumentProfileContentCard("Sur chaque tranche de pain beurre, poser", 3, 3, "section", [], null),
+                new DocumentProfileContentCard("DES CONTROLES CASSES CA REPOUSSE TOUT SEULW", 3, 3, "section", [], null),
+                new DocumentProfileContentCard("DE VOLAILLE COCO-CURRY", 3, 3, "section", [], null),
+                new DocumentProfileContentCard("AU CARAMEL BEURRE DEMI", 3, 3, "section", [], null),
                 new DocumentProfileContentCard("Safety symbols", 4, 4, "section", [], null),
                 new DocumentProfileContentCard("Vitamin A", 5, 5, "section", [], null),
                 new DocumentProfileContentCard("Access mode A", 6, 6, "section", [], null)
@@ -1136,6 +1141,11 @@ CatalogPollutionMarker Procedure body: Materials lock padlock warning tag. Proce
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "l evolution de la", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => card.Title.Contains("Sauces salees et", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "a cafe de levure chimique", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("e Mettre", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Sur chaque", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("DES CONTROLES", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("DE VOLAILLE", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("AU CARAMEL", StringComparison.Ordinal));
         Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Safety symbols", StringComparison.Ordinal));
         Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Vitamin A", StringComparison.Ordinal));
         Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Access mode A", StringComparison.Ordinal));

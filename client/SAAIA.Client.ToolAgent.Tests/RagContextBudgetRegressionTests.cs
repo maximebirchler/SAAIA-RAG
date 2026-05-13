@@ -2794,6 +2794,13 @@ public sealed class RagContextBudgetRegressionTests
                   "evidenceRole": "supporting_context",
                   "supportScore": 66,
                   "qualityPenalty": 2
+                },
+                "profileSignals": {
+                  "profileVersion": "llm_backoffice_v1",
+                  "language": "en",
+                  "keywords": ["pressure check"],
+                  "topics": ["operator maintenance"],
+                  "limits": ["Use source chunks for exact values."]
                 }
               }
             }
@@ -2827,6 +2834,10 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Equal("supporting_context", card.SelectionHintEvidenceRole);
         Assert.Equal(66, card.SelectionHintSupportScore);
         Assert.Equal(2, card.SelectionHintQualityPenalty);
+        Assert.Equal("llm_backoffice_v1", card.ProfileSignals?.ProfileVersion);
+        Assert.Equal("pressure check", Assert.Single(card.ProfileSignals!.Keywords));
+        Assert.Equal("operator maintenance", Assert.Single(card.ProfileSignals.Topics));
+        Assert.Equal("Use source chunks for exact values.", Assert.Single(card.ProfileSignals.Limits));
     }
 
     [Fact]
@@ -2872,7 +2883,15 @@ public sealed class RagContextBudgetRegressionTests
                         {
                             new { title = "Compact card", kind = "section" }
                         },
-                        selectionHints = new { evidenceRole = "supporting_context", supportScore = 55 }
+                        selectionHints = new { evidenceRole = "supporting_context", supportScore = 55 },
+                        profileSignals = new
+                        {
+                            profileVersion = "llm_backoffice_v1",
+                            language = "fr",
+                            keywords = new[] { "stored profile signal" },
+                            topics = new[] { "stored summary routing" },
+                            limits = new[] { "Keep exact values source-backed." }
+                        }
                     }
                 }
             }
@@ -2894,6 +2913,11 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Equal("Knowledge/Neutral", item.GetProperty("categoryPath").GetString());
         Assert.Equal("supporting_context", item.GetProperty("selectionHints").GetProperty("evidenceRole").GetString());
         Assert.Equal("Compact card", item.GetProperty("matchedContentCards")[0].GetProperty("title").GetString());
+        var profileSignals = item.GetProperty("source").GetProperty("profileSignals");
+        Assert.Equal("llm_backoffice_v1", profileSignals.GetProperty("profileVersion").GetString());
+        Assert.Equal("stored profile signal", profileSignals.GetProperty("keywords")[0].GetString());
+        Assert.Equal("stored summary routing", profileSignals.GetProperty("topics")[0].GetString());
+        Assert.Equal("Keep exact values source-backed.", profileSignals.GetProperty("limits")[0].GetString());
         var meta = item.GetProperty("meta");
         Assert.Equal("capability_b_worker_v2", meta.GetProperty("generator").GetString());
         Assert.Equal("llm_document_foundation", meta.GetProperty("strategy").GetString());
@@ -2932,6 +2956,28 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Equal("live-source-hash", card.SourceHash);
         Assert.Equal("nl-BE", card.DocLanguage);
         Assert.Equal("nl-BE", card.ProfileLanguage);
+    }
+
+    [Fact]
+    public void Live_summary_retrieval_query_uses_profile_signals_from_resolved_source()
+    {
+        var query = ToolAgentOrchestrator.BuildSummaryRetrievalQueryWithSourceProfileSignalsForTests(
+            docName: "source-profile.pdf",
+            strategy: "store",
+            language: "fr",
+            level: "medium",
+            categoryPath: "Knowledge/Profile",
+            "calibration keyword",
+            "safety entity",
+            "operator checks",
+            "maintenance profile",
+            "Which checks are required?",
+            "Use source chunks for exact values.");
+
+        Assert.Contains("calibration keyword", query);
+        Assert.Contains("operator checks", query);
+        Assert.Contains("Which checks are required?", query);
+        Assert.Contains("Use source chunks for exact values.", query);
     }
 
     [Theory]

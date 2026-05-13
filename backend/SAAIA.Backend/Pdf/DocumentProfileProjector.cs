@@ -1305,6 +1305,14 @@ internal static partial class DocumentProfileProjector
         if (startsWithFragment && tokenCount <= 6 && (strongTokens <= 2 || LooksLikeLowercaseLead(title)))
             return true;
 
+        if (startsWithFragment
+            && tokenCount <= 8
+            && LooksLikeMostlyUppercaseTitle(title)
+            && !LooksLikeTechnicalIdentifier(title))
+        {
+            return true;
+        }
+
         if (endsWithFragment
             && string.Equals(lastToken, "a", StringComparison.Ordinal)
             && EndsWithUppercaseSingleLetterA(title)
@@ -1353,6 +1361,14 @@ internal static partial class DocumentProfileProjector
                 || ContainsConnectorFragmentPunctuation(title)
                 || ContentCardTitleMeasurementRegex().IsMatch(normalizedFolded)
                 || tokens.Skip(1).Take(5).Any(static token => DanglingFragmentTitleTokens.Contains(token))))
+        {
+            return true;
+        }
+
+        if (firstToken is "sur" or "on" or "in" or "dans" or "en"
+            && tokenCount <= 10
+            && (ContainsConnectorFragmentPunctuation(title)
+                || tokens.Skip(1).Take(6).Any(static token => DanglingFragmentTitleTokens.Contains(token))))
         {
             return true;
         }
@@ -2335,7 +2351,7 @@ internal static partial class DocumentProfileProjector
     private static readonly HashSet<string> DanglingFragmentTitleTokens = new(StringComparer.Ordinal)
     {
         "a", "an", "and", "as", "at", "by", "d", "da", "dans", "das", "de", "del",
-        "della", "des", "di", "die", "du", "el", "en", "et", "for", "from", "in",
+        "della", "des", "di", "die", "du", "e", "el", "en", "et", "for", "from", "in",
         "l", "la", "las", "le", "les", "lo", "los", "mit", "of", "on", "or", "ou",
         "au", "aux", "al", "par", "un", "une",
         "para", "per", "por", "sur", "the", "to", "und", "with", "y", "zu"

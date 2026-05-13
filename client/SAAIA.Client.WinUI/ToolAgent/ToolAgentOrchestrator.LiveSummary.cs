@@ -788,6 +788,10 @@ public sealed partial class ToolAgentOrchestrator
         if (qualitySignals.Length > 0)
             parts.Add("qualitySignals=" + string.Join(",", qualitySignals));
 
+        var profileSignals = FormatLiveSummaryProfileSignalsPrompt(sourceMetadata.ProfileSignals);
+        if (!string.IsNullOrWhiteSpace(profileSignals))
+            parts.Add(profileSignals);
+
         if (sourceMetadata.OcrApplied)
             parts.Add("ocr=applied");
         else if (sourceMetadata.OcrRecommended)
@@ -855,7 +859,8 @@ public sealed partial class ToolAgentOrchestrator
             && string.IsNullOrWhiteSpace(sourceMetadata.CategoryRef)
             && string.IsNullOrWhiteSpace(sourceMetadata.SourceHash)
             && string.IsNullOrWhiteSpace(sourceMetadata.DocLanguage)
-            && string.IsNullOrWhiteSpace(sourceMetadata.ProfileLanguage))
+            && string.IsNullOrWhiteSpace(sourceMetadata.ProfileLanguage)
+            && ComputeSourceProfileSignalsRichness(sourceMetadata.ProfileSignals) == 0)
         {
             return;
         }
@@ -885,6 +890,9 @@ public sealed partial class ToolAgentOrchestrator
             sb.AppendLine($"- pageExtractionConfidence: {sourceMetadata.PageExtractionConfidence.Value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}");
         if (qualitySignals.Length > 0)
             sb.AppendLine("- qualitySignals: " + string.Join(" | ", qualitySignals));
+        var profileSignals = FormatLiveSummaryProfileSignalsPrompt(sourceMetadata.ProfileSignals);
+        if (!string.IsNullOrWhiteSpace(profileSignals))
+            sb.AppendLine("- " + profileSignals);
         if (sourceMetadata.OcrApplied)
             sb.AppendLine("- ocr: applied");
         else if (sourceMetadata.OcrRecommended)
@@ -900,6 +908,42 @@ public sealed partial class ToolAgentOrchestrator
         if (cards.Length > 0)
             sb.AppendLine("- contentCards: " + string.Join(" | ", cards));
         sb.AppendLine("- diagnosticFields: sourceHash/categoryRef/chunkId help trace retrieval; do not include these identifiers in the summary unless explicitly asked.");
+    }
+
+    private static string? FormatLiveSummaryProfileSignalsPrompt(ToolMemory.SourceProfileSignalsRef? profile)
+    {
+        if (profile is null || ComputeSourceProfileSignalsRichness(profile) == 0)
+            return null;
+
+        var groups = new List<string>();
+        AddProfileSignalGroup(groups, "profileKeywords", profile.Keywords, 4);
+        AddProfileSignalGroup(groups, "profileEntities", profile.Entities, 4);
+        AddProfileSignalGroup(groups, "profileTopics", profile.Topics, 4);
+        AddProfileSignalGroup(groups, "profileQuestions", profile.HypotheticalQuestions, 2);
+        AddProfileSignalGroup(groups, "profileLimits", profile.Limits, 2);
+        AddProfileSignalGroup(groups, "profileMatchedTerms", profile.MatchedTerms, 4);
+
+        return groups.Count == 0
+            ? null
+            : "profileSignals=" + string.Join(" | ", groups);
+    }
+
+    private static void AddProfileSignalGroup(
+        List<string> groups,
+        string label,
+        IEnumerable<string>? values,
+        int maxItems)
+    {
+        var compact = values?
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(static value => value.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(Math.Clamp(maxItems, 1, 8))
+            .ToArray() ?? [];
+        if (compact.Length == 0)
+            return;
+
+        groups.Add($"{label}:{string.Join(", ", compact)}");
     }
 
     private static string FormatLiveSummaryContentCardPrompt(ToolMemory.SourceContentCardRef card)
@@ -1367,6 +1411,16 @@ public sealed partial class ToolAgentOrchestrator
             terms.Add(sourceMetadata!.CategoryRef!);
         if (!string.IsNullOrWhiteSpace(sourceMetadata?.CategoryPath))
             terms.Add(sourceMetadata!.CategoryPath!);
+
+        if (sourceMetadata?.ProfileSignals is { } profileSignals)
+        {
+            terms.AddRange(profileSignals.Keywords);
+            terms.AddRange(profileSignals.Entities);
+            terms.AddRange(profileSignals.Topics);
+            terms.AddRange(profileSignals.HypotheticalQuestions);
+            terms.AddRange(profileSignals.Limits);
+            terms.AddRange(profileSignals.MatchedTerms);
+        }
 
         foreach (var card in sourceMetadata?.MatchedContentCards ?? [])
         {

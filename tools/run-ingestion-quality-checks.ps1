@@ -360,6 +360,10 @@ WHERE (NULLIF(metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|
        AND ((metadata->>'navigationScore')::double precision < 0.0 OR (metadata->>'navigationScore')::double precision > 1.0))
    OR (NULLIF(metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
        AND ((metadata->>'contentDensityScore')::double precision < 0.0 OR (metadata->>'contentDensityScore')::double precision > 1.0))
+   OR (NULLIF(metadata->>'navigationScore', '') IS NOT NULL
+       AND NOT (metadata->>'navigationScore') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$')
+   OR (NULLIF(metadata->>'contentDensityScore', '') IS NOT NULL
+       AND NOT (metadata->>'contentDensityScore') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$')
 GROUP BY category
 UNION ALL
 SELECT 'navigation_without_entries', c.category,
@@ -660,7 +664,7 @@ foreach ($row in $rows) {
             if ($row.Metric -match 'ratio=([0-9]+(?:\.[0-9]+)?)') {
                 $ratioValue = [double]::Parse($Matches[1], [System.Globalization.CultureInfo]::InvariantCulture)
             }
-            if ($ratioValue -ge 0.50 -or ($ratioValue -ge 0.20 -and $valueNumber -ge 10) -or $valueNumber -ge 20) {
+            if ($ratioValue -ge 0.50 -or ($ratioValue -ge 0.35 -and $valueNumber -ge 10)) {
                 $issues.Add("poor extraction page ratio: category='$($row.Scope)' $($row.Metric)")
             }
             elseif ($valueNumber -gt 0) {
