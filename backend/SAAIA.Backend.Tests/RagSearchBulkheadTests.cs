@@ -115,6 +115,62 @@ public sealed class RagSearchBulkheadTests
     }
 
     [Fact]
+    public async Task AcquireAsync_caps_one_hundred_arrivals_to_active_slots_plus_queue_limit()
+    {
+        var bulkhead = CreateBulkhead(maxConcurrency: 4, queueLimit: 16, waitTimeoutSeconds: 5);
+
+        var active = new List<RagSearchBulkhead.RagSearchBulkheadLease>();
+        for (var i = 0; i < 4; i++)
+        {
+            var lease = await bulkhead.AcquireAsync(CancellationToken.None);
+            Assert.NotNull(lease);
+            active.Add(lease!);
+        }
+
+        var queued = Enumerable.Range(0, 16)
+            .Select(_ => bulkhead.AcquireAsync(CancellationToken.None))
+            .ToList();
+        await WaitForQueuedCountAsync(bulkhead, expectedQueued: 16);
+
+        var rejected = await Task.WhenAll(Enumerable.Range(0, 80)
+            .Select(_ => bulkhead.AcquireAsync(CancellationToken.None)));
+
+        Assert.All(rejected, Assert.Null);
+        var saturated = bulkhead.GetSnapshot();
+        Assert.Equal(4, saturated.Active);
+        Assert.Equal(16, saturated.Queued);
+
+        foreach (var lease in active)
+            lease.Dispose();
+
+        var pending = queued.ToList();
+        var admittedBatch = new List<RagSearchBulkhead.RagSearchBulkheadLease>();
+        while (pending.Count > 0)
+        {
+            var completed = await Task.WhenAny(pending).WaitAsync(TimeSpan.FromSeconds(2));
+            pending.Remove(completed);
+            var lease = await completed;
+            Assert.NotNull(lease);
+            Assert.True(lease!.WaitedQueued);
+            admittedBatch.Add(lease);
+
+            if (admittedBatch.Count == 4)
+            {
+                foreach (var admitted in admittedBatch)
+                    admitted.Dispose();
+                admittedBatch.Clear();
+            }
+        }
+
+        foreach (var admitted in admittedBatch)
+            admitted.Dispose();
+
+        var drained = bulkhead.GetSnapshot();
+        Assert.Equal(0, drained.Active);
+        Assert.Equal(0, drained.Queued);
+    }
+
+    [Fact]
     public void ComputeRagSearchRetryAfterSeconds_scales_with_queue_depth_and_timeout()
     {
         var rag = new RagOptions

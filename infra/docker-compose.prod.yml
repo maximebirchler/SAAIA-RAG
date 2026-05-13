@@ -63,6 +63,10 @@ services:
       BACKOFFICE_LLM_MULTI_INSTANCE_ROUTER_ENABLED: ${BACKOFFICE_LLM_MULTI_INSTANCE_ROUTER_ENABLED:-false}
       Chat__LlmBaseUrl: ${CHAT_LLM_BASE_URL:-}
       Chat__LlmModel: ${CHAT_LLM_MODEL:-local}
+      Rag__SearchMaxConcurrency: ${SAAIA_RAG_SEARCH_MAX_CONCURRENCY:-4}
+      Rag__SearchQueueLimit: ${SAAIA_RAG_SEARCH_QUEUE_LIMIT:-16}
+      Rag__SearchQueueWaitTimeoutSeconds: ${SAAIA_RAG_SEARCH_QUEUE_WAIT_TIMEOUT_SECONDS:-25}
+      Rag__SearchRetryAfterSeconds: ${SAAIA_RAG_SEARCH_RETRY_AFTER_SECONDS:-3}
       Ingestion__ChunkMaxWords: ${SAAIA_INGESTION_CHUNK_MAX_WORDS:-200}
       Ingestion__ChunkOverlapWords: ${SAAIA_INGESTION_CHUNK_OVERLAP_WORDS:-35}
       Ingestion__ChunkMinWords: ${SAAIA_INGESTION_CHUNK_MIN_WORDS:-25}

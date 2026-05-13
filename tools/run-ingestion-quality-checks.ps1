@@ -270,9 +270,36 @@ JOIN document_profile_content_cards cc ON cc.revision_id=cr.revision_id
 WHERE NOT cr.has_active_job
   AND NULLIF(BTRIM(cc.title), '') IS NOT NULL
   AND (
-    cc.title ~ '^[[:lower:]]'
+    (cc.title ~ '^[[:lower:]]' AND NOT (cc.metadata ? 'evidence'))
     OR lower(cc.title) ~ '^(a|à|au|aux|de|du|des|d[''’]|pour|par|avec|sans|sur|of|for|with|without|and|or|the|to|in|on|from|per|con|senza|su|di|del|della|para|por|com|do|da|dos|das|e|y|und|oder|zu|zur|zum|von|mit)([[:space:][:punct:]]|$)'
     OR length(regexp_replace(cc.title, '[^[:alpha:]]', '', 'g')) < 4
+  )
+GROUP BY cr.category
+UNION ALL
+SELECT 'image_ocr_page_metadata_mismatch', cr.category,
+       left(string_agg(DISTINCT cr.doc_path, ' ; ' ORDER BY cr.doc_path), 900),
+       count(*)::text
+FROM current_rev cr
+JOIN document_processing_runs run ON run.revision_id=cr.revision_id
+JOIN LATERAL jsonb_array_elements(
+  CASE
+    WHEN jsonb_typeof(run.payload #> '{ocrDiagnostics,imagePageDiagnostics}') = 'array'
+      THEN run.payload #> '{ocrDiagnostics,imagePageDiagnostics}'
+    ELSE '[]'::jsonb
+  END
+) diag ON true
+LEFT JOIN document_page_index p
+  ON p.revision_id=cr.revision_id
+ AND p.page_number=CASE
+     WHEN (diag->>'pageNumber') ~ '^[0-9]+$' THEN (diag->>'pageNumber')::int
+     ELSE -1
+   END
+WHERE NOT cr.has_active_job
+  AND run.status='done'
+  AND NULLIF(diag->>'status', '') IS NOT NULL
+  AND (
+    p.page_number IS NULL
+    OR COALESCE(p.metadata->>'imageOcrStatus', '') <> COALESCE(diag->>'status', '')
   )
 GROUP BY cr.category
 UNION ALL
@@ -415,6 +442,9 @@ foreach ($row in $rows) {
         }
         "suspicious_profile_card_title" {
             if ($valueNumber -gt 0) { $warnings.Add("suspicious profile card titles: category='$($row.Scope)' count=$valueNumber examples=$($row.Metric)") }
+        }
+        "image_ocr_page_metadata_mismatch" {
+            if ($valueNumber -gt 0) { $issues.Add("image OCR page diagnostics mismatch in page metadata: category='$($row.Scope)' count=$valueNumber examples=$($row.Metric)") }
         }
         "qdrant_vectors" {
             if ($valueNumber -ne 0) { $issues.Add("DB/Qdrant vector mismatch: category='$($row.Scope)' $($row.Metric)") }
