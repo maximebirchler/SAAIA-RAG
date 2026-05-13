@@ -557,6 +557,8 @@ internal static partial class DocumentProfileProjector
         var cleanTitle = CleanTitleCandidate(title);
         if (!IsUsefulContentCardTitle(cleanTitle))
             return false;
+        if (LooksLikeLowercaseSectionFragment(cleanTitle, kind))
+            return false;
         if (LooksLikeLowSignalContentCardLead(cleanTitle, kind))
             return false;
 
@@ -802,6 +804,34 @@ internal static partial class DocumentProfileProjector
         }
 
         return false;
+    }
+
+    private static bool LooksLikeLowercaseSectionFragment(string title, string kind)
+    {
+        if (!string.Equals(kind, "section", StringComparison.Ordinal))
+            return false;
+
+        if (LooksLikeTechnicalIdentifier(title))
+            return false;
+
+        var tokenCount = CountTokens(title);
+        if (tokenCount is < 2 or > 5)
+            return false;
+
+        var firstLetter = title.FirstOrDefault(char.IsLetter);
+        if (firstLetter == default || !char.IsLower(firstLetter))
+            return false;
+
+        var normalized = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(title));
+        var tokens = normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (tokens.Length == 0)
+            return false;
+
+        if (tokens.Any(static token => token.Length >= 8))
+            return false;
+
+        return tokens.Any(static token => DanglingFragmentTitleTokens.Contains(token))
+            || tokens.All(static token => token.Length <= 7);
     }
 
     private static bool LooksLikeMostlyUppercaseTitle(string title)

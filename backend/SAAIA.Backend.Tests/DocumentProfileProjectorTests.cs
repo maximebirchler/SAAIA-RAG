@@ -339,6 +339,43 @@ public sealed class DocumentProfileProjectorTests
     }
 
     [Fact]
+    public void Project_filters_lowercase_section_fragments_without_category_hardcoding()
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                1,
+                "control washer\nsmall shim\nSafety Symbols\nOperational Playbook\nUse approved controls.",
+                18,
+                82,
+                [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "control washer", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(1, "small shim", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(2, "Safety Symbols", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(3, "Operational Playbook", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, pages[0].Text, pages[0].Text.Length, 10, [2])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/Fragments.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "control washer", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "small shim", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Safety Symbols", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Operational Playbook", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Project_does_not_create_content_cards_from_mixed_navigation_units()
     {
         var mixedNavigation = """
