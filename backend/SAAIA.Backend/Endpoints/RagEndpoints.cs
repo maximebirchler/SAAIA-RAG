@@ -4703,6 +4703,11 @@ LIMIT @candidate_limit;
         {
             new { key = "tenant_id", match = new { value = tenantId.ToString() } }
         };
+        var filterMustNot = new List<object>
+        {
+            new { key = "content_role", match = new { value = RetrievalContentClassifier.NavigationRole } },
+            new { key = "chunk_type", match = new { value = RetrievalContentClassifier.NavigationChunkType } }
+        };
         var qdrantCategory = NormalizeRagCategory(category);
         if (!string.IsNullOrWhiteSpace(qdrantCategory))
             filterMust.Add(new { key = "category", match = new { value = qdrantCategory } });
@@ -4725,7 +4730,7 @@ LIMIT @candidate_limit;
             vector = qvec,
             limit = qdrantLimit,
             with_payload = true,
-            filter = new { must = filterMust }
+            filter = new { must = filterMust, must_not = filterMustNot }
         };
 
         var url = $"/collections/{rag.QdrantCollection}/points/search";
@@ -4783,6 +4788,12 @@ LIMIT @candidate_limit;
 
     internal static bool IsDenseMatchEmbeddingCompatible(RagMatch match, string? embeddingsModel)
     {
+        if (string.Equals(match.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(match.ChunkType, RetrievalContentClassifier.NavigationChunkType, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
         var expectedFormat = TeiClient.RequiresE5InstructionPrefix(embeddingsModel)
             ? "e5_passage_v1"
             : "raw_passage_v1";

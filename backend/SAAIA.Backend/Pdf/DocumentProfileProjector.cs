@@ -779,7 +779,7 @@ internal static partial class DocumentProfileProjector
             return false;
 
         var tokenCount = CountTokens(title);
-        if ((ImperativeInstructionLeadRegex().IsMatch(normalized) || AdditionalImperativeInstructionLeadRegex().IsMatch(normalized))
+        if ((ImperativeInstructionLeadRegex().IsMatch(normalized) || LooksLikeFrenchImperativeSentenceLead(normalized, tokenCount))
             && tokenCount >= 3)
             return true;
 
@@ -1049,13 +1049,7 @@ internal static partial class DocumentProfileProjector
         if (InstructionLeadTitleRegex().IsMatch(normalizedFolded))
             return true;
 
-        if (AdditionalImperativeInstructionLeadRegex().IsMatch(normalizedFolded))
-            return true;
-
         if (LooksLikeFrenchImperativeSentenceLead(normalizedFolded, tokenCount))
-            return true;
-
-        if (SecondaryImperativeInstructionLeadRegex().IsMatch(normalizedFolded))
             return true;
 
         if (SentenceLeadTitleRegex().IsMatch(normalizedFolded))
@@ -1067,8 +1061,7 @@ internal static partial class DocumentProfileProjector
             return true;
         }
 
-        if (EmbeddedInstructionVerbTitleRegex().IsMatch(normalizedFolded)
-            && tokenCount >= 3)
+        if (LooksLikeEmbeddedImperativeSentenceFragment(normalizedFolded, tokenCount))
         {
             return true;
         }
@@ -1110,10 +1103,29 @@ internal static partial class DocumentProfileProjector
             return false;
 
         var firstToken = tokens[0];
-        if (firstToken.Length < 5 || !firstToken.EndsWith("ez", StringComparison.Ordinal))
+        return LooksLikeFrenchImperativeToken(firstToken)
+            && tokens.Skip(1).Any(static token => FrenchImperativeFollowerTokens.Contains(token));
+    }
+
+    private static bool LooksLikeEmbeddedImperativeSentenceFragment(string normalizedFolded, int tokenCount)
+    {
+        if (tokenCount < 3)
             return false;
 
-        return tokens.Skip(1).Any(static token => FrenchImperativeFollowerTokens.Contains(token));
+        var tokens = normalizedFolded.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (tokens.Length < 3)
+            return false;
+
+        return tokens.Skip(1).Any(LooksLikeFrenchImperativeToken);
+    }
+
+    private static bool LooksLikeFrenchImperativeToken(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            return false;
+
+        return GenericFrenchIrregularImperativeLeadTokens.Contains(token)
+            || (token.Length >= 5 && token.EndsWith("ez", StringComparison.Ordinal));
     }
 
     private static bool LooksLikeLowSubstanceCoverOrMarketingCandidate(
@@ -1252,9 +1264,8 @@ internal static partial class DocumentProfileProjector
             return false;
 
         return InstructionLeadTitleRegex().IsMatch(normalizedFolded)
-            || AdditionalImperativeInstructionLeadRegex().IsMatch(normalizedFolded)
-            || SecondaryImperativeInstructionLeadRegex().IsMatch(normalizedFolded)
-            || EmbeddedInstructionVerbTitleRegex().IsMatch(normalizedFolded)
+            || LooksLikeFrenchImperativeSentenceLead(normalizedFolded, tokenCount)
+            || LooksLikeEmbeddedImperativeSentenceFragment(normalizedFolded, tokenCount)
             || SentenceVerbTitleRegex().IsMatch(normalizedFolded)
             || normalizedFolded.Contains(" e ", StringComparison.Ordinal);
     }
@@ -2323,7 +2334,7 @@ internal static partial class DocumentProfileProjector
         "cheap", "cher", "chere", "cost", "cout", "prix", "budget",
         "assez", "tres", "très", "very", "low", "high", "haut", "bas", "pas",
         "rest", "repos", "pause", "waiting", "attente",
-        "time", "temps", "duration", "duree", "durée", "cooking", "cuisson", "preparation", "préparation",
+        "time", "temps", "duration", "duree", "durée", "preparation", "préparation",
         "mode", "modes", "program", "programme", "programmes",
         "category", "categories", "categorie"
     };
@@ -2338,6 +2349,11 @@ internal static partial class DocumentProfileProjector
     {
         "et", "le", "la", "les", "l", "un", "une", "du", "des", "de",
         "avec", "dans", "sur", "puis", "ensuite", "avant", "apres"
+    };
+
+    private static readonly HashSet<string> GenericFrenchIrregularImperativeLeadTokens = new(StringComparer.Ordinal)
+    {
+        "ayez", "dites", "faites", "soyez"
     };
 
     [GeneratedRegex(@"[\p{L}\p{N}][\p{L}\p{N}\-/]{2,}", RegexOptions.CultureInvariant)]
@@ -2397,14 +2413,8 @@ internal static partial class DocumentProfileProjector
     [GeneratedRegex(@"^(?:ajoutez?|appliquez|arretez|choisissez|configurez|connectez|copiez|demarrez|deconnectez|enlevez|fermez|installez|lancez?|ouvrez|placez|placez-les|posez|programmez|redemarrez|remettez|remplacez?|retirez|saisissez?|selectionnez|supprimez|utilisez?|validez|verifiez|v[ée]rifiez)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex ImperativeInstructionLeadRegex();
 
-    [GeneratedRegex(@"^(?:assaisonnez?|battez?|couvrez?|coupez?|deposez|d[ée]posez|disposez|dressez|[eé]gouttez|[eé]mincez|enfournez|faites|foncez|formez|fouettez|grattez|laissez|lavez|m[eé]langez|mixez?|passez|p[eé]trissez|placez|poivrez|poursuivez|pr[eé]chauffez|pr[eé]levez|r[eé]alisez|recouvrez|r[eé]duisez|replacez|r[eé]p[eé]tez|r[eé]servez|salez|servez|trempez|versez)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
-    private static partial Regex AdditionalImperativeInstructionLeadRegex();
 
-    [GeneratedRegex(@"^(?:incorporez?|remuez|r[eÃ©]partissez|saupoudrez|transvasez)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
-    private static partial Regex SecondaryImperativeInstructionLeadRegex();
 
-    [GeneratedRegex(@"\b(?:ajoutez?|glissez(?:-y)?|incorporez?|m[eÃ©]langez|remuez|versez)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
-    private static partial Regex EmbeddedInstructionVerbTitleRegex();
 
     [GeneratedRegex(@"^(?:ajouter|appliquer|arreter|choisir|configurer|connecter|copier|demarrer|deconnecter|enlever|fermer|installer|lancer|ouvrir|placer|programmer|redemarrer|remettre|remplacer|retirer|selectionner|supprimer|utiliser|valider|verifier|v[ée]rifier)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex InfinitiveInstructionLeadRegex();

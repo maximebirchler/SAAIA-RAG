@@ -36,7 +36,15 @@ public sealed class ProductRuntimeDomainNeutralityTests
         "livre-recette-sist",
         "facilitemps.pdf",
         "chefbot_livre",
-        "Tag249008277_1_MOULINEX"
+        "Tag249008277_1_MOULINEX",
+        "cuisson",
+        "cooking",
+        "assaisonnez",
+        "battez",
+        "enfournez",
+        "poivrez",
+        "saupoudrez",
+        "transvasez"
     ];
 
     [Fact]

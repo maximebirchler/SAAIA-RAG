@@ -130,7 +130,32 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.False(RagEndpoints.IsDenseMatchEmbeddingCompatible(legacyMatch, "sentence-transformers/all-MiniLM-L6-v2"));
     }
 
-    private static RagMatch BuildDenseMatch(string? embeddingModel, string? embeddingInputFormat)
+    [Fact]
+    public void Dense_matches_reject_navigation_chunks_even_when_embedding_format_matches()
+    {
+        var navigationByRole = BuildDenseMatch(
+            "intfloat/multilingual-e5-base",
+            "e5_passage_v1",
+            contentRole: RetrievalContentClassifier.NavigationRole);
+        var navigationByChunkType = BuildDenseMatch(
+            "intfloat/multilingual-e5-base",
+            "e5_passage_v1",
+            chunkType: RetrievalContentClassifier.NavigationChunkType);
+        var mixedContent = BuildDenseMatch(
+            "intfloat/multilingual-e5-base",
+            "e5_passage_v1",
+            contentRole: RetrievalContentClassifier.MixedNavigationContentRole);
+
+        Assert.False(RagEndpoints.IsDenseMatchEmbeddingCompatible(navigationByRole, "intfloat/multilingual-e5-base"));
+        Assert.False(RagEndpoints.IsDenseMatchEmbeddingCompatible(navigationByChunkType, "intfloat/multilingual-e5-base"));
+        Assert.True(RagEndpoints.IsDenseMatchEmbeddingCompatible(mixedContent, "intfloat/multilingual-e5-base"));
+    }
+
+    private static RagMatch BuildDenseMatch(
+        string? embeddingModel,
+        string? embeddingInputFormat,
+        string? chunkType = "unit_exact_v1",
+        string? contentRole = null)
         => new(
             Score: 0.80,
             DocId: "doc-a",
@@ -149,10 +174,11 @@ public sealed class RetrievalRuntimeSwitchTests
             UnitOrdinal: 0,
             SectionTitle: "Section",
             HeadingPath: "Section",
-            ChunkType: "unit_exact_v1",
+            ChunkType: chunkType,
             PrevChunkId: null,
             NextChunkId: null,
             SameSectionChunkId: null,
+            ContentRole: contentRole,
             EmbeddingModel: embeddingModel,
             EmbeddingInputFormat: embeddingInputFormat);
 
