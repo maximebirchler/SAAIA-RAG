@@ -444,6 +444,7 @@ public sealed class DocumentProfileProjectorTests
                 new DocumentProfileContentCard("Component size (75 g", 8, 8, "section", ["75 g"]),
                 new DocumentProfileContentCard("Y Placecomponentsinthe service tray", 9, 9, "exact_lead", ["tray"]),
                 new DocumentProfileContentCard("INGREDIENTSPREPARATION18BE A MASTER", 10, 10, "page_embedded_title", ["ingredients"]),
+                new DocumentProfileContentCard("INGREDIENTESPREPARACIONBE A MASTER", 11, 11, "page_embedded_title", ["ingredients"]),
                 new DocumentProfileContentCard("Control Handover Plan", 2, 2, "exact_lead", ["control"])
             ]);
 
@@ -459,6 +460,7 @@ public sealed class DocumentProfileProjectorTests
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Component size (75 g", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Y Placecomponentsinthe service tray", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "INGREDIENTSPREPARATION18BE A MASTER", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "INGREDIENTESPREPARACIONBE A MASTER", StringComparison.Ordinal));
         Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Control Handover Plan", StringComparison.Ordinal));
     }
 
