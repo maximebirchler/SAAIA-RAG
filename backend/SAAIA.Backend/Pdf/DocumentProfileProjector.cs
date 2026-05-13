@@ -793,6 +793,9 @@ internal static partial class DocumentProfileProjector
         if (LowSignalSentenceLeadRegex().IsMatch(normalized))
             return true;
 
+        if (LooksLikeLongSentenceLeadTitle(title, normalized, tokenCount))
+            return true;
+
         if (!LooksLikeMostlyUppercaseTitle(title) && ContainsNoisyInlinePunctuation(title, tokenCount))
             return true;
 
@@ -803,6 +806,19 @@ internal static partial class DocumentProfileProjector
         }
 
         return false;
+    }
+
+    private static bool LooksLikeLongSentenceLeadTitle(string title, string normalized, int tokenCount)
+    {
+        if (tokenCount < 8 || LooksLikeMostlyUppercaseTitle(title) || LooksLikeTechnicalIdentifier(title))
+            return false;
+
+        var firstToken = normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        if (firstToken is null)
+            return false;
+
+        return ContentCardLeadStopwords.Contains(firstToken)
+            || DanglingFragmentTitleTokens.Contains(firstToken);
     }
 
     private static bool ContainsActionSentencePunctuation(string title)
@@ -2016,15 +2032,12 @@ internal static partial class DocumentProfileProjector
             var normalizedEvidence = NormalizeContentCardEvidence(card.Evidence);
             if (LooksLikeLowercaseLead(title) && !HasSourceBackedContentCardEvidence(normalizedEvidence))
                 continue;
-            if (!HasGroundedContentCardEvidence(normalizedEvidence))
-            {
-                if (LooksLikeLowSubstanceCoverOrMarketingCandidate(title, null, normalizedEvidence))
-                    continue;
-                if (LooksLikeLowercaseSectionFragment(title, kind))
-                    continue;
-                if (LooksLikeLowSignalContentCardLead(title, kind))
-                    continue;
-            }
+            if (LooksLikeLowSubstanceCoverOrMarketingCandidate(title, null, normalizedEvidence))
+                continue;
+            if (LooksLikeLowercaseSectionFragment(title, kind))
+                continue;
+            if (LooksLikeLowSignalContentCardLead(title, kind))
+                continue;
 
             var key = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(title));
             if (string.IsNullOrWhiteSpace(key) || !seen.Add(key))

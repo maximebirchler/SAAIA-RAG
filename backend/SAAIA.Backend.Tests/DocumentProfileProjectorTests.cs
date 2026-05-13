@@ -500,6 +500,7 @@ public sealed class DocumentProfileProjectorTests
                 new DocumentProfileContentCard("Une fois le cycle termine, couvrir le contenant", 14, 14, "exact_lead", ["cycle"]),
                 new DocumentProfileContentCard("un contenant hermetique", 15, 15, "section", ["contenant"]),
                 new DocumentProfileContentCard("g de composants calibres Dans le bac", 16, 16, "section", ["composants"]),
+                new DocumentProfileContentCard("The committee also approved standard definitions and limits for the colors", 17, 17, "exact_lead", ["committee"]),
                 new DocumentProfileContentCard("Control Handover Plan", 2, 2, "exact_lead", ["control"])
             ]);
 
@@ -521,6 +522,7 @@ public sealed class DocumentProfileProjectorTests
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Une fois le cycle termine, couvrir le contenant", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "un contenant hermetique", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "g de composants calibres Dans le bac", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "The committee also approved standard definitions and limits for the colors", StringComparison.Ordinal));
         Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Control Handover Plan", StringComparison.Ordinal));
     }
 
@@ -565,10 +567,18 @@ public sealed class DocumentProfileProjectorTests
                     "exact_lead",
                     ["validated"],
                     evidence),
+                new DocumentProfileContentCard(
+                    "The committee also approved standard definitions and limits for the colors",
+                    5,
+                    5,
+                    "exact_lead",
+                    ["approved"],
+                    evidence),
                 new DocumentProfileContentCard("beta lowercase heading", 5, 5, "exact_lead", ["weak"])
             ]);
 
         Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "alpha lowercase workflow", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "The committee also approved standard definitions and limits for the colors", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "beta lowercase heading", StringComparison.Ordinal));
     }
 
