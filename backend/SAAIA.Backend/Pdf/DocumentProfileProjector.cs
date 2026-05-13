@@ -827,7 +827,7 @@ internal static partial class DocumentProfileProjector
         if (tokens.Length == 0)
             return false;
 
-        if (tokens.Any(static token => token.Length >= 8))
+        if (tokens.Any(static token => token.Length >= 11))
             return false;
 
         return tokens.Any(static token => DanglingFragmentTitleTokens.Contains(token))
@@ -993,7 +993,7 @@ internal static partial class DocumentProfileProjector
         }
 
         if (EmbeddedInstructionVerbTitleRegex().IsMatch(normalizedFolded)
-            && tokenCount >= 5)
+            && tokenCount >= 3)
         {
             return true;
         }
