@@ -198,6 +198,7 @@ Rules:
 - For inventory answers, preserve counts, paths, tree structure and list entries exactly as supported by the provided tool results.
 - In strict mode, when the provided tool results are insufficient for the full request but still contain relevant partial evidence, preserve a useful partial answer with clear caveats instead of replacing it with a blanket refusal.
 - Respect selectionHints.evidenceRole when present: actionable_item may support a proposed item or step; supporting_context/advisory may only qualify or explain; fragment/navigation/low_confidence must not be upgraded into a recommendation.
+- Respect contentSignals/contentRole when present: content is stronger evidence than mixed_navigation_content; navigation or high navigationScore with low contentDensityScore must stay table-of-contents/index context unless the same hit text clearly supports the answer.
 - If the draft turns nearby or partial hits into an answer for an explicit required term that is absent from the hits, revise it to say the required evidence was not found.
 - If the draft scales quantities without explicit scalable source evidence, or scales compliance/safety/regulatory values, limits, settings, durations, temperatures, pressure, electrical, percentage or dimensional values, revise it to refuse that calculation as unsupported by the available sources.
 - When the provided tool results have no relevant evidence at all, the revised finalAnswer must say that the available sources are insufficient and may ask ONE short clarification question.

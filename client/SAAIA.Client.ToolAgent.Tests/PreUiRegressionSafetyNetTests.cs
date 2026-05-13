@@ -42,6 +42,8 @@ public sealed class PreUiRegressionSafetyNetTests
         Assert.Contains("relevant partial evidence", prompt);
         Assert.Contains("preserve a useful partial answer", prompt);
         Assert.Contains("no relevant evidence at all", prompt);
+        Assert.Contains("contentSignals/contentRole", prompt);
+        Assert.Contains("contentDensityScore", prompt);
     }
 
     [Theory]
