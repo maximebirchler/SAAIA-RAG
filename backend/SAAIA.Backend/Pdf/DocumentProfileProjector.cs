@@ -992,6 +992,12 @@ internal static partial class DocumentProfileProjector
             return true;
         }
 
+        if (EmbeddedInstructionVerbTitleRegex().IsMatch(normalizedFolded)
+            && tokenCount >= 5)
+        {
+            return true;
+        }
+
         if (tokenCount >= 4 && SentenceVerbTitleRegex().IsMatch(normalizedFolded))
             return true;
 
@@ -2019,6 +2025,9 @@ internal static partial class DocumentProfileProjector
 
     [GeneratedRegex(@"^(?:incorporez?|remuez|r[eÃ©]partissez|saupoudrez|transvasez)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex SecondaryImperativeInstructionLeadRegex();
+
+    [GeneratedRegex(@"\b(?:ajoutez?|glissez(?:-y)?|incorporez?|m[eÃ©]langez|remuez|versez)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex EmbeddedInstructionVerbTitleRegex();
 
     [GeneratedRegex(@"^(?:ajouter|appliquer|arreter|choisir|configurer|connecter|copier|demarrer|deconnecter|enlever|fermer|installer|lancer|ouvrir|placer|programmer|redemarrer|remettre|remplacer|retirer|selectionner|supprimer|utiliser|valider|verifier|v[ée]rifier)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex InfinitiveInstructionLeadRegex();

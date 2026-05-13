@@ -961,6 +961,39 @@ Procedure body: Materials lock padlock warning tag. Procedure 1. Isolate the mac
     }
 
     [Fact]
+    public void Project_discards_embedded_instruction_fragments_without_category_rules()
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                1,
+                "Audit fragment Glissez-y un code N Preparation\nCONTROL HANDOVER PLAN\nProcedure 1. Check status.",
+                18,
+                94,
+                [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Generic guide", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, "Audit fragment Glissez-y un code N Preparation", 45, 7, [2]),
+            new ExtractedDocumentUnit(1, 0, 1, 1, "CONTROL HANDOVER PLAN\nProcedure 1. Check status.", 49, 6, [3])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/EmbeddedInstructionFragment.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Audit fragment", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "CONTROL HANDOVER PLAN", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Project_discards_layout_sentence_fragments_without_losing_plain_titles()
     {
         var pages = new[]
