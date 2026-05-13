@@ -925,6 +925,8 @@ internal static partial class DocumentProfileProjector
             return false;
         if (LooksLikeDanglingFragmentContentCardTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
             return false;
+        if (LooksLikeConnectorLeadSentenceFragment(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
+            return false;
         if (LooksLikeShortAllCapsOcrFragment(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
             return false;
         if (PageReferenceFragmentRegex().IsMatch(normalizedFolded)
@@ -1198,6 +1200,46 @@ internal static partial class DocumentProfileProjector
 
         return HasUnbalancedContentCardQuote(title)
             && (LooksLikeLowercaseLead(title) || strongTokens <= 2 || tokenCount <= 6);
+    }
+
+    private static bool LooksLikeConnectorLeadSentenceFragment(string title, string normalizedFolded, int tokenCount)
+    {
+        if (tokenCount < 3)
+            return false;
+
+        var tokens = normalizedFolded.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (tokens.Length < 3)
+            return false;
+
+        var firstToken = tokens[0];
+        var startsWithConnector = DanglingFragmentTitleTokens.Contains(firstToken)
+            || ContentCardLeadStopwords.Contains(firstToken);
+        if (!startsWithConnector)
+            return false;
+
+        if (firstToken is "pour" or "for" or "para" or "per")
+            return true;
+
+        if (tokens.Length >= 2
+            && firstToken == "de"
+            && tokens[1] == "plus")
+        {
+            return true;
+        }
+
+        if (tokens.Any(static token => token is "pour" or "for" or "para" or "per"))
+            return true;
+
+        if (tokenCount <= 8
+            && tokens.Skip(1).Take(5).Any(static token => DanglingFragmentTitleTokens.Contains(token))
+            && (LooksLikeLowercaseLead(title) || LooksLikeMostlyUppercaseTitle(title)))
+        {
+            return true;
+        }
+
+        return firstToken is "de" or "du" or "des"
+            && tokenCount >= 5
+            && !LooksLikeMostlyUppercaseTitle(title);
     }
 
     private static bool EndsWithUppercaseSingleLetterA(string title)

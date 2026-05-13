@@ -981,6 +981,51 @@ Procedure body: Materials lock padlock warning tag. Procedure 1. Isolate the mac
     }
 
     [Fact]
+    public void Project_discards_connector_lead_sentence_fragments_from_content_cards()
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                1,
+                "CONTROL PROCEDURE Materials lock padlock warning tag. Procedure 1. Isolate the machine. 2. Verify zero energy.",
+                15,
+                106,
+                [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "CONTROL PROCEDURE", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(1, "Pour ne plus se poser la fameuse question", 1, 1, 1, 2, null),
+            new ExtractedDocumentSection(2, "De plus, les articles se nettoient plus facilement", 1, 1, 1, 2, null),
+            new ExtractedDocumentSection(3, "DES GUIDES POUR CHAQUE TYPE D'UTILISATEUR", 1, 1, 1, 2, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "CONTROL PROCEDURE Materials lock padlock warning tag. Procedure 1. Isolate the machine. 2. Verify zero energy.",
+                106,
+                15,
+                [2])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/ConnectorFragments.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "CONTROL PROCEDURE", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Pour ", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("De plus", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("DES GUIDES", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void Project_discards_instruction_sentence_and_repeated_header_cards_without_category_rules()
     {
         var pages = new[]
