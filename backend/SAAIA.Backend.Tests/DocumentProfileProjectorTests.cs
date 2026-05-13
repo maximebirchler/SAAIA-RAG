@@ -418,6 +418,31 @@ public sealed class DocumentProfileProjectorTests
     }
 
     [Fact]
+    public void BuildProfile_filters_instruction_and_measured_sentence_fragment_cards()
+    {
+        var profile = DocumentProfileProjector.BuildProfile(
+            "deterministic_v1",
+            "en",
+            "Generic operational profile.",
+            [],
+            [],
+            [],
+            [],
+            [],
+            "Generic/Instructions.pdf",
+            "Instructions.pdf",
+            [
+                new DocumentProfileContentCard("Prepare the batch", 1, 1, "exact_lead", ["prepare"]),
+                new DocumentProfileContentCard("Prepare the ganache e 125g flour e 2c", 1, 1, "exact_lead", ["prepare", "125g"]),
+                new DocumentProfileContentCard("Control Handover Plan", 2, 2, "exact_lead", ["control"])
+            ]);
+
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Prepare the batch", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Prepare the ganache e 125g flour e 2c", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Control Handover Plan", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Project_does_not_create_content_cards_from_mixed_navigation_units()
     {
         var mixedNavigation = """

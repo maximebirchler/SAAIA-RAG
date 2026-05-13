@@ -923,6 +923,8 @@ internal static partial class DocumentProfileProjector
             return false;
         if (LooksLikeOcrNoiseTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
             return false;
+        if (LooksLikeMeasuredSentenceFragmentTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
+            return false;
         if (LooksLikeDanglingFragmentContentCardTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
             return false;
         if (LooksLikeConnectorLeadSentenceFragment(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
@@ -996,6 +998,9 @@ internal static partial class DocumentProfileProjector
 
     private static bool LooksLikeSentenceOrInstructionTitle(string normalizedFolded, int tokenCount)
     {
+        if (normalizedFolded.StartsWith("prepare", StringComparison.Ordinal))
+            return true;
+
         if (InstructionLeadTitleRegex().IsMatch(normalizedFolded))
             return true;
 
@@ -1155,6 +1160,22 @@ internal static partial class DocumentProfileProjector
 
         var invertedPunctuation = title.Count(static ch => ch is '¡' or '¿');
         return invertedPunctuation > 0 && noiseTokens >= 2;
+    }
+
+    private static bool LooksLikeMeasuredSentenceFragmentTitle(string title, string normalizedFolded, int tokenCount)
+    {
+        if (tokenCount < 4)
+            return false;
+
+        if (!ContentCardTitleMeasurementRegex().IsMatch(normalizedFolded))
+            return false;
+
+        return InstructionLeadTitleRegex().IsMatch(normalizedFolded)
+            || AdditionalImperativeInstructionLeadRegex().IsMatch(normalizedFolded)
+            || SecondaryImperativeInstructionLeadRegex().IsMatch(normalizedFolded)
+            || EmbeddedInstructionVerbTitleRegex().IsMatch(normalizedFolded)
+            || SentenceVerbTitleRegex().IsMatch(normalizedFolded)
+            || normalizedFolded.Contains(" e ", StringComparison.Ordinal);
     }
 
     private static bool LooksLikeDanglingFragmentContentCardTitle(string title, string normalizedFolded, int tokenCount)
@@ -2255,6 +2276,9 @@ internal static partial class DocumentProfileProjector
 
     [GeneratedRegex(@"^(?:vitesse|speed|temperature|température|temp|mode|programme|program|rpm|tr/min|minutes?|mins?|seconds?|secondes?|heures?|hours?)\b.*\d", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex ParameterFragmentTitleRegex();
+
+    [GeneratedRegex(@"\d+(?:[,.]\d+)?\s*(?:%|°|kg|g|mg|l|ml|cl|dl|m|cm|mm|km|h|min|mn|s|sec|w|kw|v|kv|a|ma|hz|khz|mhz|pa|kpa|bar|psi|nm|rpm|tr/min)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex ContentCardTitleMeasurementRegex();
 
     [GeneratedRegex(@"\b(?:page|pages?|p\.?)\s*\d+\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex PageReferenceFragmentRegex();
