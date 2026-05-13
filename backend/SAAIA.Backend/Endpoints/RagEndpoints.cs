@@ -1463,7 +1463,7 @@ ORDER BY d.doc_path;
         var (exactMatches, exactMs) = await MeasurePhaseAsync(
             phaseName: "retrieval_exact_match",
             retriever: "exact_match",
-            action: () => SearchExactMatchesAsync(ds, tenantId, req.Query, category, req.DocId, req.DocPath, topK, ct, categoryPath),
+            action: () => SearchExactMatchesAsync(ds, tenantId, req.Query, category, req.DocId, req.DocPath, ResolveExactMatchCandidateLimit(topK), ct, categoryPath),
             getReturnedCount: static matches => matches.Count);
         var (quotedTitleMatches, quotedTitleMs) = await MeasurePhaseAsync(
             phaseName: "retrieval_quoted_title",
@@ -1627,7 +1627,8 @@ ORDER BY d.doc_path;
                         teiMsRef: value => teiMs = value,
                         qdrantMsRef: value => qdrantMs = value,
                         qdrantStatusRef: value => qdrantStatus = value,
-                        categoryPath: categoryPath),
+                        categoryPath: categoryPath,
+                        degradedRetrieverRef: MarkRetrieverDegraded),
                     getReturnedCount: static matches => matches.Count);
             var skipDocumentProfileSearchForPreciseLookup =
                 !skipChunkRetrieversForDocumentOverview
@@ -2922,6 +2923,9 @@ ORDER BY d.doc_path;
         return Math.Min(candidates, desired);
     }
 
+    internal static int ResolveExactMatchCandidateLimit(int topK)
+        => Math.Clamp(topK * 6, Math.Max(topK, 12), 96);
+
     internal static int ResolveDefaultMaxPerDoc(string mode, bool preferComparativeDiversity, int topK)
         => preferComparativeDiversity && mode != "focused"
             ? 1
@@ -3297,9 +3301,12 @@ JOIN exact_match_entries e
 JOIN lookup_terms
   ON lookup_terms.term = e.normalized_text
   OR (
-      length(lookup_terms.term) >= 12
+      (length(lookup_terms.term) >= 12 OR (length(lookup_terms.term) >= 8 AND array_length(regexp_split_to_array(lookup_terms.term, '[[:space:]]+'), 1) >= 3))
       AND lookup_terms.term LIKE '% %'
-      AND e.normalized_text LIKE lookup_terms.term || '%'
+      AND (
+          e.normalized_text LIKE lookup_terms.term || '%'
+          OR e.normalized_text LIKE '% ' || lookup_terms.term || '%'
+      )
   )
 LEFT JOIN document_sections s
   ON s.section_id = e.section_id
@@ -3333,6 +3340,11 @@ WHERE d.tenant_id = @tenant_id
   AND (@doc_id IS NULL OR d.doc_id = @doc_id)
   AND (@doc_path IS NULL OR d.doc_path = @doc_path)
 ORDER BY
+    CASE
+        WHEN lookup_terms.term = e.normalized_text THEN 0
+        WHEN e.normalized_text LIKE lookup_terms.term || '%' THEN 1
+        ELSE 2
+    END,
     CASE COALESCE(e.metadata->>'kind', 'verbatim_excerpt')
         WHEN 'standard_ref' THEN 0
         WHEN 'code_ref' THEN 1
@@ -4656,7 +4668,8 @@ LIMIT @candidate_limit;
         Action<long> teiMsRef,
         Action<long> qdrantMsRef,
         Action<int> qdrantStatusRef,
-        string? categoryPath = null)
+        string? categoryPath = null,
+        Action<string, string?>? degradedRetrieverRef = null)
     {
         var tei = httpFactory.CreateClient("tei");
         tei.BaseAddress = new Uri(rag.EmbeddingsBaseUrl);
@@ -4666,9 +4679,21 @@ LIMIT @candidate_limit;
             rag.EmbeddingsModel,
             queryNorm,
             TeiClient.EmbeddingInputKind.Query);
-        var emb = await TeiClient.EmbedAsync(tei, rag.EmbeddingsModel, [queryEmbeddingInput], ct);
-        swTei.Stop();
-        teiMsRef(swTei.ElapsedMilliseconds);
+        float[][] emb;
+        try
+        {
+            emb = await TeiClient.EmbedAsync(tei, rag.EmbeddingsModel, [queryEmbeddingInput], ct);
+            swTei.Stop();
+            teiMsRef(swTei.ElapsedMilliseconds);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            swTei.Stop();
+            teiMsRef(swTei.ElapsedMilliseconds);
+            RetrievalTelemetry.RecordRetrieverDegraded("dense_qdrant", ex);
+            degradedRetrieverRef?.Invoke("dense_qdrant", FormatRetrieverError(ex));
+            return [];
+        }
 
         var qvec = emb[0];
         var qdrant = httpFactory.CreateClient("qdrant");
@@ -4739,6 +4764,12 @@ LIMIT @candidate_limit;
             var filtered = await FilterMatchesAgainstActiveDocumentVersionsAsync(ds, tenantId, embeddingCompatibleMatches, ct, categoryPath);
             var enriched = await AttachDocumentProfileContentCardsAsync(ds, tenantId, filtered, queryNorm, ct);
             return RerankDenseMatches(enriched).Take(candidates).ToList();
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            RetrievalTelemetry.RecordRetrieverDegraded("dense_qdrant", ex);
+            degradedRetrieverRef?.Invoke("dense_qdrant", FormatRetrieverError(ex));
+            return [];
         }
         finally
         {
@@ -6059,6 +6090,11 @@ LIMIT @result_limit;
             ? ex.SqlState
             : $"{ex.SqlState}: {ex.MessageText}";
 
+    private static string FormatRetrieverError(Exception ex)
+        => ex is PostgresException pg
+            ? FormatPostgresRetrieverError(pg)
+            : $"{ex.GetType().Name}: {ex.Message}".Trim();
+
     private static List<SparseMatchRow> MergeSparseRows(
         IReadOnlyList<SparseMatchRow> preferred,
         IReadOnlyList<SparseMatchRow> secondary,
@@ -7153,7 +7189,6 @@ LIMIT @result_limit;
            && token.Any(char.IsLetter)
            && !TitleConnectorTokens.Contains(token)
            && !LexicalStopwords.Contains(token)
-           && !SpecificAnchorStopwords.Contains(token)
            && !PrimaryAnchorStopwords.Contains(token);
 
     private static bool HasShortSuffixTitleShape(IReadOnlyList<string> tokens)
@@ -7203,6 +7238,16 @@ LIMIT @result_limit;
 
     private static readonly Regex SearchIntentFocusedLookupTargetPattern = new(
         @"\b(?:je\s+cherche|je\s+recherche|cherche|chercher|recherche|rechercher|trouve|trouver|i\s+(?:am\s+)?(?:looking\s+for|searching\s+for|seeking)|find|get|busco|busca|buscar|procuro|procura|procurar|cerco|cerca|cercare|ich\s+suche|suche|such|finde|finden)\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + FocusedLookupTargetStopLookahead,
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(100));
+
+    private static readonly Regex MentionFocusedLookupTargetPattern = new(
+        @"\b(?:qui|that|which|que|che|welche|welcher|welches|die|der|das)\s+(?:parle|parlent|mentionne|mentionnent|contient|contiennent|cite|citent|covers?|mentions?|contains?|trata|tratan|tratam|menciona|mencionan|mencionam|contem|contiene|contengono|menziona|menzionano|enthalt|enthaelt|erwahnt|erwaehnt)\s+(?:de|du|des|d['\u2019]|about|of|sobre|de|do|da|di|von|uber|ueber)?\s*(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + FocusedLookupTargetStopLookahead,
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(100));
+
+    private static readonly Regex TrailingMentionFocusedLookupTargetPattern = new(
+        @"\b(?:welche|welcher|welches|die|der|das)\s+(?:" + FocusedLookupArticlePattern + @")?" + FocusedLookupTargetPatternText + @"\s+(?:erwahnt|erwaehnt|erwahnen|erwaehnen|enthalt|enthaelt|enthalten)\b",
         RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
         TimeSpan.FromMilliseconds(100));
 
@@ -7289,6 +7334,8 @@ LIMIT @result_limit;
         SourceAttributionFocusedLookupTargetPattern,
         ProvenanceFocusedLookupTargetPattern,
         AvailabilityFocusedLookupTargetPattern,
+        MentionFocusedLookupTargetPattern,
+        TrailingMentionFocusedLookupTargetPattern,
         SearchIntentFocusedLookupTargetPattern,
         PoliteActionFocusedLookupTargetPattern,
         AlternativeFocusedLookupTargetPattern,
@@ -8506,11 +8553,7 @@ LIMIT @top_k;
         var documentHintTokens = ExtractDocumentHintTokens(rankingQuery);
         var comparativeSubjectTokens = ExtractComparativeSubjectAnchorTokens(rankingQuery);
         var titleScoringQuery = string.IsNullOrWhiteSpace(query) ? rankingQuery : query;
-        var titleTokens = ExtractLexicalQueryTokens(titleScoringQuery)
-            .Where(static token => !PrimaryAnchorStopwords.Contains(token))
-            .Distinct(StringComparer.Ordinal)
-            .Take(9)
-            .ToArray();
+        var titleTokens = ExtractTitleScoringTokens(titleScoringQuery);
         var normalizedTitleScoringQuery = NormalizeForLexicalSignal(titleScoringQuery);
         var titleScoringEnabled = !(quotedPhrases.Count == 0 && ContainsExactTitleActionMarker(rankingQuery));
         var hasReferenceLikeQueryToken = HasReferenceLikeQueryToken(rankingQuery);
@@ -9938,6 +9981,83 @@ LIMIT @top_k;
             .ToArray();
     }
 
+    private static IReadOnlyList<string> ExtractTitleScoringTokens(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return Array.Empty<string>();
+
+        var normalized = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query));
+        if (string.IsNullOrWhiteSpace(normalized))
+            return Array.Empty<string>();
+
+        var rawTokens = normalized
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToArray();
+        if (rawTokens.Length == 0)
+            return Array.Empty<string>();
+
+        var selected = new List<string>(capacity: Math.Min(rawTokens.Length, 9));
+        for (var i = 0; i < rawTokens.Length; i++)
+        {
+            var token = rawTokens[i];
+            if (IsLongTitleSignalToken(token))
+            {
+                selected.Add(token);
+                continue;
+            }
+
+            if ((IsShortTitleSignalToken(token)
+                    && selected.Count > 0
+                    && rawTokens.Take(i).Any(static previous => TitleConnectorTokens.Contains(previous)))
+                || IsTerminalShortTitleDisambiguator(rawTokens, i, selected.Count))
+            {
+                selected.Add(token);
+            }
+        }
+
+        return selected
+            .Distinct(StringComparer.Ordinal)
+            .Take(9)
+            .ToArray();
+    }
+
+    private static bool IsLongTitleSignalToken(string token)
+        => ((token.Length >= 4 && token.Any(char.IsLetter)) || token.Any(char.IsDigit))
+           && !TitleConnectorTokens.Contains(token)
+           && !LexicalStopwords.Contains(token)
+           && !PrimaryAnchorStopwords.Contains(token);
+
+    private static bool IsShortTitleSignalToken(string token)
+        => token.Length is >= 1 and <= 3
+           && token.Any(char.IsLetterOrDigit)
+           && !TitleConnectorTokens.Contains(token)
+           && !LexicalStopwords.Contains(token)
+           && !SpecificAnchorStopwords.Contains(token)
+           && !PrimaryAnchorStopwords.Contains(token);
+
+    private static bool IsTerminalShortTitleDisambiguator(IReadOnlyList<string> rawTokens, int index, int selectedCount)
+    {
+        if (index != rawTokens.Count - 1 || selectedCount < 2)
+            return false;
+
+        var token = rawTokens[index];
+        return token.Length is >= 1 and <= 3
+               && token.Any(char.IsLetterOrDigit)
+               && !LexicalStopwords.Contains(token)
+               && !SpecificAnchorStopwords.Contains(token)
+               && !PrimaryAnchorStopwords.Contains(token);
+    }
+
+    private static bool IsTitleScoringTokenVariant(string variant)
+        => variant.Length >= 4 || IsShortTitleSignalToken(variant) || IsTerminalTitleVariant(variant);
+
+    private static bool IsTerminalTitleVariant(string variant)
+        => variant.Length is >= 1 and <= 3
+           && variant.Any(char.IsLetterOrDigit)
+           && !LexicalStopwords.Contains(variant)
+           && !SpecificAnchorStopwords.Contains(variant)
+           && !PrimaryAnchorStopwords.Contains(variant);
+
     private static bool ShouldAllowNavigationalResults(string query)
     {
         var normalized = $" {NormalizeQuery(FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query))).ToLowerInvariant()} ";
@@ -10356,12 +10476,8 @@ LIMIT @top_k;
         if (ExtractQuotedLookupPhrases(query).Count == 0 && ContainsExactTitleActionMarker(query))
             return 0.0;
 
-        var titleTokens = ExtractLexicalQueryTokens(query)
-            .Where(static token => !PrimaryAnchorStopwords.Contains(token))
-            .Distinct(StringComparer.Ordinal)
-            .Take(9)
-            .ToArray();
-        if (titleTokens.Length < 2 || titleTokens.Length > 8)
+        var titleTokens = ExtractTitleScoringTokens(query);
+        if (titleTokens.Count < 2 || titleTokens.Count > 8)
             return 0.0;
 
         var candidateText = GetTitleSignalText(match);
@@ -10448,12 +10564,8 @@ LIMIT @top_k;
         if (string.IsNullOrWhiteSpace(query) || string.IsNullOrWhiteSpace(match.Text))
             return 0;
 
-        var titleTokens = ExtractLexicalQueryTokens(query)
-            .Where(static token => !PrimaryAnchorStopwords.Contains(token))
-            .Distinct(StringComparer.Ordinal)
-            .Take(9)
-            .ToArray();
-        if (titleTokens.Length < 2 || titleTokens.Length > 8)
+        var titleTokens = ExtractTitleScoringTokens(query);
+        if (titleTokens.Count < 2 || titleTokens.Count > 8)
             return 0;
 
         return ComputeDirectChunkTitleSignalCore(
@@ -10539,7 +10651,7 @@ LIMIT @top_k;
         var tokenVariants = titleTokens
             .Select(token => BuildLexicalTokenVariants(token)
                 .Select(FoldDiacritics)
-                .Where(static variant => variant.Length >= 4)
+                .Where(IsTitleScoringTokenVariant)
                 .DefaultIfEmpty(FoldDiacritics(token))
                 .ToHashSet(StringComparer.Ordinal))
             .ToArray();
@@ -11903,7 +12015,7 @@ LIMIT @top_k;
             variants.Add(token[..^1]);
 
         return variants
-            .Where(static variant => variant.Length >= 4)
+            .Where(static variant => variant.Length >= 4 || IsShortTitleSignalToken(variant))
             .Where(static variant => variant.Any(char.IsLetter))
             .Where(static variant => !LexicalStopwords.Contains(variant))
             .Distinct(StringComparer.Ordinal)

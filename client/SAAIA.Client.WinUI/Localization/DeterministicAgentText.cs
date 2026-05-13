@@ -164,6 +164,15 @@ internal static class DeterministicAgentText
             "Ich habe nicht genügend verwertbare Informationen, um klar zu antworten.",
             "Non ho informazioni utilizzabili sufficienti per rispondere chiaramente.");
 
+    public static string SourceBackedClarificationRequest(string? language)
+        => Pick(language,
+            "Peux-tu prÃ©ciser le document, le sujet, l'Ã©lÃ©ment ou le pÃ©rimÃ¨tre Ã  vÃ©rifier dans les sources ?",
+            "Could you specify the document, topic, item, or scope to check in the sources?",
+            "Â¿Puedes precisar el documento, tema, elemento o alcance que debo comprobar en las fuentes?",
+            "Podes especificar o documento, tema, item ou ambito a verificar nas fontes?",
+            "Kannst du das Dokument, Thema, Element oder den Umfang nennen, den ich in den Quellen prÃ¼fen soll?",
+            "Puoi precisare il documento, l'argomento, l'elemento o l'ambito da verificare nelle fonti?");
+
     public static string DocumentsCount(int total, string? language)
         => Pick(language,
             $"Il y a actuellement {total} document(s) indexé(s) sur le serveur.",

@@ -688,7 +688,7 @@
                                 "id":  "Q069",
                                 "axis":  "Comparaison multi-recettes",
                                 "difficulty":  "Moyen",
-                                "corpusTarget":  "JeCuisine vs SIST",
+                                "corpusTarget":  "Etudiants vs SIST",
                                 "theme":  "recettes étudiantes et santé",
                                 "question":  "Compare les recettes étudiantes et les recettes déjeuner au travail : objectif budget et équilibre.",
                                 "expectedAnswerKind":  "Tableau comparatif ou réponse structurée : ingrédients clés, complexité, temps, matériel, contexte d’usage.",
@@ -780,7 +780,7 @@
                                 "difficulty":  "Moyen",
                                 "corpusTarget":  "Moulinex vs Top30",
                                 "theme":  "Churros sauce chocolat / Profiteroles / Éclairs",
-                                "question":  "Quel dessert est le plus technique ?",
+                                "question":  "Entre churros sauce chocolat, profiteroles et éclairs, quel dessert est le plus technique ?",
                                 "expectedAnswerKind":  "Tableau comparatif ou réponse structurée : ingrédients clés, complexité, temps, matériel, contexte d’usage.",
                                 "validationPoints":  "Doit séparer clairement les recettes et ne pas fusionner les informations sans le dire."
                             },

@@ -2054,6 +2054,85 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
+    public async Task SearchExactMatchesAsync_matches_short_heading_inside_glued_extraction_excerpt()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("da55da55-1111-1111-1111-111111111111");
+        var docId = Guid.Parse("eb66eb66-2222-2222-2222-222222222222");
+        var jobId = Guid.Parse("fc77fc77-3333-3333-3333-333333333333");
+        const string docPath = "Ops/Maintenance.pdf";
+        const string gluedExcerpt = "Allow 12 hours before start.Mode A JD1.";
+        const string body = "Inspect the valve body, record the set pressure, verify the seal, confirm the technician name, capture the inspection date, and keep the signed checklist for audit.";
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 1, indexedVersion: 0);
+
+        var pages = new[]
+        {
+            new ExtractedPdfPage(6, $"{gluedExcerpt}\n{body}", 24, gluedExcerpt.Length + body.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Maintenance", 6, 6, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 6, 6, gluedExcerpt, gluedExcerpt.Length, 8, [2]),
+            new ExtractedDocumentUnit(1, 0, 6, 6, body, body.Length, 17, [3])
+        };
+        var retrievalChunks = new[]
+        {
+            new ProjectedRetrievalChunk(0, 0, 0, 6, 6, gluedExcerpt, 8, [4], "unit_exact_v1"),
+            new ProjectedRetrievalChunk(1, 0, 1, 6, 6, body, 17, [5], "unit_exact_v1")
+        };
+        var exactMatchEntries = new[]
+        {
+            new ExtractedExactMatchEntry(0, 0, 0, 6, 6, gluedExcerpt, ExactMatchEntryExtractor.NormalizeForLookup(gluedExcerpt), gluedExcerpt.Length, 8, [6], "verbatim_excerpt")
+        };
+        var contextualTextEntries = new[]
+        {
+            new ProjectedContextualTextEntry(0, 0, 0, 0, 6, 6, $"Document: Maintenance.pdf\nExcerpt:\n{gluedExcerpt}\n{body}", 190, 25, [7])
+        };
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        Assert.True(await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            jobId,
+            docPath,
+            [7, 7, 7],
+            64,
+            DateTime.UtcNow,
+            1,
+            pages,
+            sections,
+            units,
+            retrievalChunks,
+            exactMatchEntries,
+            contextualTextEntries,
+            CancellationToken.None));
+
+        var matches = await RagEndpoints.SearchExactMatchesAsync(
+            ds,
+            tenantId,
+            "Give me Mode A JD.",
+            "ops",
+            null,
+            null,
+            5,
+            CancellationToken.None);
+
+        var match = Assert.Single(matches);
+        Assert.Equal(docId.ToString(), match.DocId);
+        Assert.Equal(6, match.PageStart);
+        Assert.Contains("Mode A JD1", match.Text);
+        Assert.Contains("Inspect the valve body", match.Text);
+        Assert.Equal("exact_match_v1", match.EmbeddingBasis);
+    }
+
+    [Fact]
     public async Task SearchExactMatchesAsync_falls_back_to_document_metadata_for_reference_visible_in_filename()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
@@ -2976,6 +3055,41 @@ public sealed class DocumentFoundationIntegrationTests
             Assert.StartsWith("ATEX/", match.DocPath ?? string.Empty, StringComparison.Ordinal));
         Assert.DoesNotContain(refScoped.Matches, match =>
             string.Equals(match.DocPath, "Safety/Guidance/CEN.pdf", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task SearchCoreAsync_degrades_dense_retriever_when_embedding_service_fails()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("abcddcba-1212-3434-5656-111111111111");
+        const string docPath = "Ops/DenseFallback.pdf";
+
+        await PublishIndexedDocumentAsync(
+            db,
+            tenantId,
+            Guid.Parse("abcddcba-1212-3434-5656-222222222222"),
+            Guid.Parse("abcddcba-1212-3434-5656-333333333333"),
+            docPath,
+            1,
+            "Hydraulics",
+            "Hydraulic accumulator pressure verification requires a calibrated gauge and a recorded valve inspection.",
+            "Document: DenseFallback.pdf\nExcerpt:\nHydraulic accumulator pressure verification requires a calibrated gauge and a recorded valve inspection.");
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var response = await RagEndpoints.SearchCoreAsync(
+            BuildRagHttpContext(tenantId),
+            ds,
+            CreateTestRagOptions(),
+            new FailingTeiHttpClientFactory(),
+            new RagSearchRequestDto("hydraulic accumulator pressure verification", Category: "ops", TopK: 5));
+
+        Assert.Contains(response.Matches, match => string.Equals(match.DocPath, docPath, StringComparison.Ordinal));
+        Assert.Contains("dense_qdrant", response.DegradedRetrievers ?? Array.Empty<string>());
+        Assert.NotNull(response.DegradedRetrieverErrors);
+        Assert.True(response.DegradedRetrieverErrors!.ContainsKey("dense_qdrant"));
     }
 
     [Fact]
@@ -6909,6 +7023,32 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
                     _ => new Uri("http://stub.test/")
                 }
             };
+    }
+
+    private sealed class FailingTeiHttpClientFactory : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name)
+            => new(new FailingTeiHttpMessageHandler())
+            {
+                BaseAddress = name switch
+                {
+                    "tei" => new Uri("http://tei.test/"),
+                    "qdrant" => new Uri("http://qdrant.test/"),
+                    _ => new Uri("http://stub.test/")
+                }
+            };
+    }
+
+    private sealed class FailingTeiHttpMessageHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri?.AbsolutePath ?? string.Empty;
+            if (path.EndsWith("/v1/embeddings", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("simulated TEI transport failure");
+
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.NotFound));
+        }
     }
 
     private sealed class CountingLlmHttpClientFactory : IHttpClientFactory

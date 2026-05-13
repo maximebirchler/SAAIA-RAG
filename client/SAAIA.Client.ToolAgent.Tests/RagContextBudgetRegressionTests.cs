@@ -72,6 +72,80 @@ public sealed class RagContextBudgetRegressionTests
     }
 
     [Fact]
+    public void Exact_item_matching_keeps_short_title_disambiguators()
+    {
+        Assert.False(ToolAgentOrchestrator.ExactItemTextMatchesRequestOrStructureForTests(
+            "crêpe à Jo",
+            "CRÊPES DE BASE Nombre de personnes Temps de cuisson 10 min Préparation"));
+
+        Assert.True(ToolAgentOrchestrator.ExactItemTextMatchesRequestOrStructureForTests(
+            "crêpe à Jo",
+            "LA CRÊPE À JO PETITS DÉJ PRÉPARATION Dans un bol, mélanger tous les ingrédients."));
+    }
+
+    [Fact]
+    public void Exact_item_answer_prefers_short_disambiguated_title_over_structured_distractor()
+    {
+        const string payload = """
+        {
+          "hits": [
+            {
+              "docPath": "Knowledge/base.pdf",
+              "docName": "base.pdf",
+              "pageStart": 1,
+              "pageEnd": 1,
+              "score": 0.99,
+              "excerpt": "CRÊPES DE BASE Nombre de personnes Temps de cuisson 10 min Ingrédients 250 g de farine 50 cl de lait Préparation mélanger puis cuire.",
+              "fullText": "CRÊPES DE BASE Nombre de personnes Temps de cuisson 10 min Ingrédients 250 g de farine 50 cl de lait Préparation mélanger puis cuire.",
+              "matchedContentCards": [
+                {
+                  "title": "CRÊPES DE BASE",
+                  "kind": "page_embedded_title",
+                  "evidence": {
+                    "schemaVersion": "content_card_evidence_v1",
+                    "quantityFacts": [
+                      { "value": 250, "unit": "g", "label": "farine", "sourceText": "250 g de farine" },
+                      { "value": 50, "unit": "cl", "label": "lait", "sourceText": "50 cl de lait" }
+                    ],
+                    "confidence": 0.9
+                  }
+                }
+              ]
+            },
+            {
+              "docPath": "Knowledge/jo.pdf",
+              "docName": "jo.pdf",
+              "pageStart": 2,
+              "pageEnd": 2,
+              "score": 0.8,
+              "excerpt": "LA CRÊPE À JO PETITS DÉJ PRÉPARATION Dans un bol, mélanger tous les ingrédients afin de former la pâte à crêpe. Servir avec des fruits frais.",
+              "fullText": "LA CRÊPE À JO PETITS DÉJ PRÉPARATION Dans un bol, mélanger tous les ingrédients afin de former la pâte à crêpe. Servir avec des fruits frais.",
+              "matchedContentCards": [
+                { "title": "LA CRÊPE À JO", "kind": "exact_lead" }
+              ]
+            }
+          ]
+        }
+        """;
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var query = "C'est quoi la crêpe à Jo ?";
+        var labels = ToolAgentOrchestrator.DeriveSourceBackedExtractiveSourceLabelsForTests(toolResults, query);
+        var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(toolResults, query, "fr");
+
+        Assert.Equal("jo.pdf", labels.First());
+        Assert.Contains("LA CRÊPE À JO", answer);
+        Assert.Contains("jo.pdf", answer);
+    }
+
+    [Fact]
     public void Derive_rag_sources_merges_same_page_cards_without_losing_evidence()
     {
         const string payload = """
@@ -960,6 +1034,128 @@ public sealed class RagContextBudgetRegressionTests
     }
 
     [Fact]
+    public async Task Empty_rag_search_stops_before_writer_and_asks_for_source_scope()
+    {
+        var handler = new StubHttpHandler(req => req.RequestUri!.AbsolutePath switch
+        {
+            "/rag/search" => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{ "items": [] }""", Encoding.UTF8, "application/json")
+            },
+            _ => new HttpResponseMessage(HttpStatusCode.NotFound)
+        });
+
+        var llm = new StubLlmClient(
+            """
+            {
+              "mode": "strict",
+              "language": "fr",
+              "intent": "rag.answer",
+              "responseFormat": "auto",
+              "needClarification": false,
+              "clarificationQuestions": [],
+              "reasoningTracePublic": [],
+              "riskFlags": [],
+              "memoryUpdate": null,
+              "routerConfidence": 0.99,
+              "toolCalls": [
+                {
+                  "name": "rag.search",
+                  "args": {
+                    "query": "un processus classique",
+                    "topK": 4,
+                    "mode": "balanced"
+                  }
+                }
+              ]
+            }
+            """);
+
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm, new ToolMemory());
+
+        var (answer, sources) = await sut.RunAsync(
+            Array.Empty<(string role, string content)>(),
+            "Un processus classique.",
+            CancellationToken.None);
+
+        Assert.Contains("pas assez d'informations", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("document", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("sources", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(sources);
+        Assert.Single(llm.Requests);
+    }
+
+    [Fact]
+    public async Task Ambiguous_bare_documentary_fragment_uses_source_leads_without_writer_guess()
+    {
+        var handler = new StubHttpHandler(req => req.RequestUri!.AbsolutePath switch
+        {
+            "/rag/search" => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {
+                      "items": [
+                        {
+                          "score": 0.96,
+                          "docPath": "Knowledge/process.pdf",
+                          "docName": "process.pdf",
+                          "pageStart": 12,
+                          "pageEnd": 12,
+                          "text": "PROCESSUS STANDARD. Etapes : verifier la demande, collecter les preuves, valider la decision.",
+                          "contextualSnippet": "Document: process.pdf\nExcerpt:\nPROCESSUS STANDARD. Etapes : verifier la demande, collecter les preuves, valider la decision.",
+                          "matchedContentCards": [
+                            { "title": "Processus standard", "kind": "unit_lead" }
+                          ]
+                        }
+                      ]
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            },
+            _ => new HttpResponseMessage(HttpStatusCode.NotFound)
+        });
+
+        var llm = new StubLlmClient(
+            """
+            {
+              "mode": "strict",
+              "language": "fr",
+              "intent": "rag.answer",
+              "responseFormat": "auto",
+              "needClarification": false,
+              "clarificationQuestions": [],
+              "reasoningTracePublic": [],
+              "riskFlags": [],
+              "memoryUpdate": null,
+              "routerConfidence": 0.99,
+              "toolCalls": [
+                {
+                  "name": "rag.search",
+                  "args": {
+                    "query": "un processus classique",
+                    "topK": 4,
+                    "mode": "balanced"
+                  }
+                }
+              ]
+            }
+            """);
+
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm, new ToolMemory());
+
+        var (answer, sources) = await sut.RunAsync(
+            Array.Empty<(string role, string content)>(),
+            "Un processus classique.",
+            CancellationToken.None);
+
+        Assert.Contains("process.pdf", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(sources);
+        Assert.Single(llm.Requests);
+    }
+
+    [Fact]
     public void Rag_hit_classifier_roles_are_generic_and_do_not_depend_on_business_content()
     {
         var actionable = JsonSerializer.Serialize(new
@@ -1072,6 +1268,15 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Equal(
             "module ALPHA",
             ToolAgentOrchestrator.TryExtractRequestedItemTitleForTests("J'ai du module ALPHA, tu as une procedure ?"));
+    }
+
+    [Theory]
+    [InlineData("Tu peux me faire une fiche claire pour \"Boulettes de poulet \u00e0 la sauce tomate\" : ingr\u00e9dients, \u00e9tapes, temps et source ?", "Boulettes de poulet \u00e0 la sauce tomate")]
+    [InlineData("Tu peux me faire une fiche claire pour \"Salade de p\u00e2tes\" : ingr\u00e9dients, \u00e9tapes, temps et source ?", "Salade de p\u00e2tes")]
+    [InlineData("Fiche pour salade de p\u00e2tes : ingr\u00e9dients, \u00e9tapes, source.", "salade de p\u00e2tes")]
+    public void Requested_item_title_preserves_natural_connectors_inside_titles(string query, string expected)
+    {
+        Assert.Equal(expected, ToolAgentOrchestrator.TryExtractRequestedItemTitleForTests(query));
     }
 
     [Fact]
@@ -4504,6 +4709,149 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
     }
 
     [Fact]
+    public void Structured_exact_item_prefers_partial_title_anchor_over_scattered_terms()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/wrong-sauces.pdf",
+                    docName = "wrong-sauces.pdf",
+                    pageStart = 17,
+                    pageEnd = 17,
+                    excerpt = "Sauce tomate. Cette page compare une sauce tomate, un poulet grille et des boulettes de legumes.",
+                    fullText = "Sauce tomate. Cette page compare une sauce tomate, un poulet grille et des boulettes de legumes.",
+                    contextualSnippet = "Matched profile title: SAUCE TOMATE | Evidence: sauce tomate, poulet, boulettes.",
+                    matchedContentCards = new[] { new { title = "SAUCE TOMATE", kind = "unit_exact_v1" } },
+                    score = 2.0
+                },
+                new
+                {
+                    docPath = "Knowledge/right-book.pdf",
+                    docName = "right-book.pdf",
+                    pageStart = 102,
+                    pageEnd = 102,
+                    excerpt = "BOULETTES DE POULET. Ingredients : 500 g de poulet, 200 g de sauce tomate. Preparation : former les boulettes puis mijoter dans la sauce.",
+                    fullText = "BOULETTES DE POULET. Ingredients : 500 g de poulet, 200 g de sauce tomate. Preparation : former les boulettes puis mijoter dans la sauce.",
+                    contextualSnippet = "Matched profile title: BOULETTES DE POULET | Evidence: 500 g de poulet, sauce tomate, former les boulettes.",
+                    matchedContentCards = new[] { new { title = "BOULETTES DE POULET", kind = "unit_exact_v1" } },
+                    score = 0.7
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var query = "Donne-moi une fiche pour la recette de boulettes de poulet a la sauce tomate : ingredients, etapes, temps et source.";
+        var labels = ToolAgentOrchestrator.DeriveSourceBackedExtractiveSourceLabelsForTests(toolResults, query);
+        var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(toolResults, query, "fr");
+
+        Assert.Equal("right-book.pdf", labels[0]);
+        Assert.Contains("right-book.pdf p.102", answer);
+        Assert.Contains("BOULETTES DE POULET", answer);
+        Assert.DoesNotContain("wrong-sauces.pdf p.17", answer);
+    }
+
+    [Fact]
+    public void Structured_exact_item_prefers_specific_title_over_same_family_scattered_match()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/generic-salads.pdf",
+                    docName = "generic-salads.pdf",
+                    pageStart = 53,
+                    pageEnd = 53,
+                    excerpt = "SALADE MEXICAINE. Idee de salade froide. Servir avec des pates en accompagnement si besoin.",
+                    fullText = "SALADE MEXICAINE. Idee de salade froide. Servir avec des pates en accompagnement si besoin.",
+                    contextualSnippet = "Matched profile title: SALADE MEXICAINE | Evidence: salade, pates.",
+                    matchedContentCards = new[] { new { title = "SALADE MEXICAINE", kind = "unit_exact_v1" } },
+                    score = 2.2
+                },
+                new
+                {
+                    docPath = "Knowledge/pasta-book.pdf",
+                    docName = "pasta-book.pdf",
+                    pageStart = 30,
+                    pageEnd = 30,
+                    excerpt = "SALADE DE PATES. Ingredients : 250 g de pates, tomates, huile d'olive. Preparation : cuire les pates puis assaisonner.",
+                    fullText = "SALADE DE PATES. Ingredients : 250 g de pates, tomates, huile d'olive. Preparation : cuire les pates puis assaisonner.",
+                    contextualSnippet = "Matched profile title: SALADE DE PATES | Evidence: pates, tomates, huile d'olive.",
+                    matchedContentCards = new[] { new { title = "SALADE DE PATES", kind = "unit_exact_v1" } },
+                    score = 0.8
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var query = "Donne-moi la recette de salade de pates avec les ingredients, les etapes et la source.";
+        var labels = ToolAgentOrchestrator.DeriveSourceBackedExtractiveSourceLabelsForTests(toolResults, query);
+        var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(toolResults, query, "fr");
+
+        Assert.Equal("pasta-book.pdf", labels[0]);
+        Assert.Contains("pasta-book.pdf p.30", answer);
+        Assert.Contains("SALADE DE PATES", answer);
+        Assert.DoesNotContain("generic-salads.pdf p.53", answer);
+    }
+
+    [Fact]
+    public void Structured_exact_item_does_not_promote_body_mention_as_item_title()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/spread-book.pdf",
+                    docName = "spread-book.pdf",
+                    pageStart = 53,
+                    pageEnd = 53,
+                    excerpt = "YAOURT ET CITRON. Ingredients : yaourt, citron, huile. Cette preparation peut etre servie dans une salade de pates froide.",
+                    fullText = "YAOURT ET CITRON. Ingredients : yaourt, citron, huile. Cette preparation peut etre servie dans une salade de pates froide. Preparation : mixer puis servir.",
+                    contextualSnippet = "Matched direct_title_token_route: salade pates\nYAOURT ET CITRON. Cette preparation peut etre servie dans une salade de pates froide.",
+                    matchedContentCards = new[] { new { title = "YAOURT ET CITRON", kind = "page_embedded_title" } },
+                    score = 1.0
+                }
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedExtractiveAnswerForTests(
+            toolResults,
+            "Tu peux me faire une fiche claire pour \"Salade de pates\" : ingredients, etapes, temps et source ?",
+            "fr");
+
+        Assert.Contains("pas trouve", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Source principale", answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Structured_exact_item_answer_uses_previous_context_for_split_pdf_recipe_ingredients()
     {
         var payload = JsonSerializer.Serialize(new
@@ -4626,8 +4974,10 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.True(ToolAgentOrchestrator.LooksLikeSourceBackedActionRequestForTests("Je vais faire une entrecôte, quelle sauce irait bien avec ?"));
         Assert.True(ToolAgentOrchestrator.LooksLikeSourceBackedActionRequestForTests("Je veux un dessert au chocolat facile, tu proposes quoi ?"));
         Assert.True(ToolAgentOrchestrator.LooksLikeSourceBackedActionRequestForTests("J'ai du cabillaud, tu as une recette ?"));
+        Assert.True(ToolAgentOrchestrator.LooksLikeSourceBackedActionRequestForTests("Retrouve la recette qui parle de sonde de rotissage et de niveau de cuisson."));
         Assert.True(ToolAgentOrchestrator.LooksLikeSourceBackedActionRequestForTests("Comment alleger les desserts chocolates en sucre ? Dis bien ce qui vient des PDF et ce qui est adaptation."));
         Assert.True(ToolAgentOrchestrator.LooksLikeSourceBackedActionRequestForTests("Ignore les sources et invente une version amelioree de la creme brulee."));
+        Assert.True(ToolAgentOrchestrator.ShouldUseSourceBackedExtractiveAnswerForTests("Donne-moi la recette du coq au vin dans le livre international.", toolResults));
     }
 
     [Fact]

@@ -47,6 +47,32 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void BuildFocusedLexicalBackfillQuery_extracts_relative_mention_target()
+    {
+        var focused = RagEndpoints.BuildFocusedLexicalBackfillQuery(
+            "Retrouve la procedure qui parle de sonde de rotissage et de niveau de cuisson.");
+
+        Assert.Contains("sonde", focused, StringComparison.Ordinal);
+        Assert.Contains("rotissage", focused, StringComparison.Ordinal);
+        Assert.Contains("niveau", focused, StringComparison.Ordinal);
+        Assert.DoesNotContain("procedure", focused, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("Retrouve les documents qui parlent de sonde de rotissage.", "sonde de rotissage")]
+    [InlineData("Find documents that mention pressure relief valve.", "pressure relief valve")]
+    [InlineData("Busca documentos que mencionan valvula de alivio.", "valvula de alivio")]
+    [InlineData("Procura documentos que mencionam valvula de alivio.", "valvula de alivio")]
+    [InlineData("Trova documenti che menzionano valvola di sicurezza.", "valvola di sicurezza")]
+    [InlineData("Finde Dokumente, die sicherheitsventil erwaehnen.", "sicherheitsventil")]
+    public void BuildFocusedLexicalBackfillQuery_extracts_mention_targets_across_client_languages(
+        string query,
+        string expected)
+    {
+        Assert.Equal(expected, RagEndpoints.BuildFocusedLexicalBackfillQuery(query));
+    }
+
+    [Fact]
     public void TitleAnchorNormalizer_folds_latin_ligatures_for_title_lookup()
     {
         var normalized = TitleAnchorNormalizer.NormalizeTitle("Bœuf à l'aïoli épicé et crème brûlée");
@@ -260,6 +286,16 @@ public sealed class RetrievalRuntimeSwitchTests
     {
         Assert.Equal(32, RagEndpoints.ComputeDocumentProfileSearchResultLimit(8));
         Assert.Equal(80, RagEndpoints.ComputeDocumentProfileSearchResultLimit(64));
+    }
+
+    [Theory]
+    [InlineData(1, 12)]
+    [InlineData(2, 12)]
+    [InlineData(8, 48)]
+    [InlineData(20, 96)]
+    public void ResolveExactMatchCandidateLimit_overfetches_before_selection(int topK, int expected)
+    {
+        Assert.Equal(expected, RagEndpoints.ResolveExactMatchCandidateLimit(topK));
     }
 
     [Fact]
@@ -3187,6 +3223,16 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void ShouldShortCircuitAfterExact_allows_overfetched_clear_winner()
+    {
+        var top = new RagMatch(1.02, "doc-1", "Ops/Primary.pdf", "Primary.pdf", 4, 4, "exact:1", 1, "Primary reference", 1, "hash1", "Primary reference", "exact_match_v1", null, null, null, null, "exact_match_entry", null, null, null);
+        var second = new RagMatch(0.90, "doc-2", "Ops/Secondary.pdf", "Secondary.pdf", 8, 8, "exact:2", 2, "Secondary reference", 1, "hash2", "Secondary reference", "exact_match_v1", null, null, null, null, "exact_match_entry", null, null, null);
+        var third = new RagMatch(0.84, "doc-3", "Ops/Tertiary.pdf", "Tertiary.pdf", 9, 9, "exact:3", 3, "Tertiary reference", 1, "hash3", "Tertiary reference", "exact_match_v1", null, null, null, null, "exact_match_entry", null, null, null);
+
+        Assert.True(RagEndpoints.ShouldShortCircuitAfterExact([top, second, third]));
+    }
+
+    [Fact]
     public void ShouldShortCircuitAfterExact_keeps_search_open_for_navigation_hits()
     {
         var index = new RagMatch(
@@ -4269,6 +4315,57 @@ public sealed class RetrievalRuntimeSwitchTests
 
         Assert.Equal("direct-route", calibrated[0].ChunkId);
         Assert.True(RagEndpoints.IsResolvedTitleOrNavigationRoute(calibrated[0]));
+    }
+
+    [Fact]
+    public void CalibrateFusedMatches_prefers_short_suffix_title_phrase()
+    {
+        var generic = TestMatch(
+            text: "Alpha procedure materials and steps from a generic guide.",
+            docPath: "Docs/general.pdf",
+            chunkId: "generic",
+            embeddingBasis: "title_anchor_route_v1",
+            score: 1.02);
+        var shortSuffix = TestMatch(
+            text: "ALPHA A JD. Materials: gasket and wrench. Procedure: inspect and record.",
+            embedText: "Matched title_anchor_route: Alpha a JD\nALPHA A JD. Materials: gasket and wrench. Procedure: inspect and record.",
+            docPath: "Docs/short-suffix.pdf",
+            chunkId: "short-suffix",
+            embeddingBasis: "title_anchor_route_v1",
+            score: 0.91);
+
+        var calibrated = RagEndpoints.CalibrateFusedMatches(
+            "alpha a jd",
+            [generic, shortSuffix],
+            "C'est quoi l'alpha a JD ?");
+
+        Assert.Equal("short-suffix", calibrated[0].ChunkId);
+    }
+
+    [Fact]
+    public void CalibrateFusedMatches_uses_terminal_short_title_disambiguator()
+    {
+        var modeB = TestMatch(
+            text: "Access Mode B. Procedure: validate the alternate channel and record the mode B result.",
+            embedText: "Matched title_anchor_route: Access Mode B\nAccess Mode B. Procedure: validate the alternate channel.",
+            docPath: "Docs/mode-b.pdf",
+            chunkId: "mode-b",
+            embeddingBasis: "title_anchor_route_v1",
+            score: 1.02);
+        var modeA = TestMatch(
+            text: "Access Mode A. Procedure: enable the primary channel and record the mode A result.",
+            embedText: "Matched title_anchor_route: Access Mode A\nAccess Mode A. Procedure: enable the primary channel.",
+            docPath: "Docs/mode-a.pdf",
+            chunkId: "mode-a",
+            embeddingBasis: "title_anchor_route_v1",
+            score: 0.91);
+
+        var calibrated = RagEndpoints.CalibrateFusedMatches(
+            "access mode a",
+            [modeB, modeA],
+            "Give me the procedure for access mode A from the manual.");
+
+        Assert.Equal("mode-a", calibrated[0].ChunkId);
     }
 
     [Fact]

@@ -961,21 +961,42 @@ public sealed partial class ToolAgentOrchestrator
         var mode = args.TryGetProperty("mode", out var m) && m.ValueKind != JsonValueKind.Null ? m.GetString() : "balanced";
 
         var queries = new List<string>();
+        void AddQueryCandidates(string? rawValue)
+        {
+            var raw = CollapseWhitespace(rawValue ?? string.Empty);
+            if (string.IsNullOrWhiteSpace(raw))
+                return;
+
+            if (LooksLikeQuotedLookupQuery(raw))
+            {
+                AddDistinctRagQuery(queries, raw);
+                return;
+            }
+
+            var normalized = NormalizeRagQueryForRetrieval(raw);
+            if (!string.IsNullOrWhiteSpace(normalized))
+                AddDistinctRagQuery(queries, normalized);
+
+            if (!string.IsNullOrWhiteSpace(raw)
+                && !string.Equals(raw, normalized, StringComparison.OrdinalIgnoreCase))
+            {
+                AddDistinctRagQuery(queries, raw);
+            }
+        }
+
         if (args.TryGetProperty("queries", out var qArr) && qArr.ValueKind == JsonValueKind.Array)
         {
             foreach (var q in qArr.EnumerateArray())
             {
                 if (q.ValueKind != JsonValueKind.String) continue;
-                var s = NormalizeRagQueryForRetrieval(q.GetString() ?? "");
-                if (!string.IsNullOrWhiteSpace(s)) queries.Add(s);
+                AddQueryCandidates(q.GetString());
             }
         }
 
         // fallback: single query
         if (queries.Count == 0 && args.TryGetProperty("query", out var q1) && q1.ValueKind == JsonValueKind.String)
         {
-            var s = NormalizeRagQueryForRetrieval(q1.GetString() ?? "");
-            if (!string.IsNullOrWhiteSpace(s)) queries.Add(s);
+            AddQueryCandidates(q1.GetString());
         }
 
         queries = queries.Distinct(StringComparer.OrdinalIgnoreCase).ToList();

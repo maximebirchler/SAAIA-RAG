@@ -370,6 +370,7 @@ public sealed class ToolRouterPlanNormalizationTests
 
     [Theory]
     [InlineData("Donne-moi la recette du fondant au chocolat en mode rapide.", "fondant au chocolat")]
+    [InlineData("Donne-moi la recette du coq au vin dans le livre international.", "coq au vin")]
     [InlineData("Quelles vitesses/temp\u00e9ratures pour la sauce b\u00e9arnaise ?", "sauce b\u00e9arnaise")]
     [InlineData("Je fais un atelier enfant, donne-moi les pizzas rigolotes.", "pizzas rigolotes")]
     [InlineData("Donne-moi la charlotte aux p\u00eaches.", "charlotte aux p\u00eaches")]
@@ -386,6 +387,8 @@ public sealed class ToolRouterPlanNormalizationTests
     [InlineData("Tu peux me faire une fiche claire pour \u00ab Churros sauce chocolat \u00bb : ingr\u00e9dients, \u00e9tapes, temps et source ?", "Churros sauce chocolat")]
     public void Documentary_defaults_extract_direct_item_title_from_natural_request(string userMessage, string expectedTitle)
     {
+        Assert.Equal(expectedTitle, ToolAgentOrchestrator.TryExtractRequestedItemTitleForTests(userMessage));
+
         var plan = new RouterPlan
         {
             Intent = "chat.general",

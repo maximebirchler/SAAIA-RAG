@@ -507,22 +507,43 @@ function Invoke-HttpJson {
     }
 
     try {
-        $started = Get-Date
-        if ($Method -eq "GET") {
-            $response = $client.GetAsync($Url).GetAwaiter().GetResult()
-        }
-        else {
-            $json = ConvertTo-Json $Body -Depth 60 -Compress
-            $content = [System.Net.Http.StringContent]::new($json, [System.Text.Encoding]::UTF8, "application/json")
-            $response = $client.PostAsync($Url, $content).GetAwaiter().GetResult()
-        }
+        $maxAttempts = 4
+        for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            $started = Get-Date
+            if ($Method -eq "GET") {
+                $response = $client.GetAsync($Url).GetAwaiter().GetResult()
+            }
+            else {
+                $json = ConvertTo-Json $Body -Depth 60 -Compress
+                $content = [System.Net.Http.StringContent]::new($json, [System.Text.Encoding]::UTF8, "application/json")
+                $response = $client.PostAsync($Url, $content).GetAwaiter().GetResult()
+            }
 
-        $text = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
-        return [ordered]@{
-            ok = $response.IsSuccessStatusCode
-            statusCode = [int]$response.StatusCode
-            elapsedMs = [int]((Get-Date) - $started).TotalMilliseconds
-            body = $text
+            $text = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+            $result = [ordered]@{
+                ok = $response.IsSuccessStatusCode
+                statusCode = [int]$response.StatusCode
+                elapsedMs = [int]((Get-Date) - $started).TotalMilliseconds
+                body = $text
+            }
+
+            $statusCode = [int]$response.StatusCode
+            $shouldRetry = $response.StatusCode -eq [System.Net.HttpStatusCode]::TooManyRequests -or $statusCode -ge 500
+            if (-not $shouldRetry -or $attempt -ge $maxAttempts) {
+                return $result
+            }
+
+            $retryAfterMs = 1000 * $attempt
+            if ($null -ne $response.Headers.RetryAfter) {
+                if ($response.Headers.RetryAfter.Delta.HasValue) {
+                    $retryAfterMs = [Math]::Max(250, [int]$response.Headers.RetryAfter.Delta.Value.TotalMilliseconds)
+                }
+                elseif ($response.Headers.RetryAfter.Date.HasValue) {
+                    $retryAfterMs = [Math]::Max(250, [int]($response.Headers.RetryAfter.Date.Value.UtcDateTime - [DateTime]::UtcNow).TotalMilliseconds)
+                }
+            }
+
+            Start-Sleep -Milliseconds ([Math]::Min($retryAfterMs, 5000))
         }
     }
     finally {
@@ -1431,7 +1452,7 @@ if ([string]::IsNullOrWhiteSpace($Category) -and [string]$bank.version -eq "cuis
 $idsFilter = Normalize-List $Ids
 $axisFilter = Normalize-List $Axis
 $difficultyFilter = Normalize-List $Difficulty
-$cases = Select-ValidationCases -Cases @($bank.validationCases) -Ids $idsFilter -Axis $axisFilter -Difficulty $difficultyFilter -Limit $Limit -Offset $Offset
+$cases = @(Select-ValidationCases -Cases @($bank.validationCases) -Ids $idsFilter -Axis $axisFilter -Difficulty $difficultyFilter -Limit $Limit -Offset $Offset)
 
 if ($cases.Count -eq 0) {
     throw "No validation case matched the requested filters."
@@ -1772,6 +1793,9 @@ try {
                 $retrievalQueryCount = [int]$rag.retrievalQueryCount
                 $preciseTitle = [string]$rag.preciseTitle
                 $backendPhaseMetrics = Get-BackendPhaseMetrics $rag.parsed
+                if (-not [bool]$rag.response.ok) {
+                    throw "RAG search failed HTTP $($rag.response.statusCode): $(Get-TextPreview $rag.response.body 500)"
+                }
             }
 
             if ($Mode -eq "llm") {

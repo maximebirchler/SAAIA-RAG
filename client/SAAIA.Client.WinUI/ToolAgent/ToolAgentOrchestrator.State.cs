@@ -1328,8 +1328,14 @@ CURRENT_USER_MESSAGE:
         if (!string.IsNullOrWhiteSpace(requestedTitle))
         {
             var exactTitleHits = hits
-                .Where(hit => RagHitContainsRequestedTitle(hit, requestedTitle!))
+                .Where(hit => RagHitContainsRequestedTitle(hit, requestedTitle!)
+                    || RagHitHasUsableRequestedTitleAnchor(requestedTitle!, hit))
                 .ToList();
+            var anchoredExactTitleHits = exactTitleHits
+                .Where(hit => RagHitHasUsableRequestedTitleAnchor(requestedTitle!, hit))
+                .ToList();
+            if (anchoredExactTitleHits.Count > 0)
+                exactTitleHits = anchoredExactTitleHits;
             if (exactTitleHits.Count > 0)
                 hits = exactTitleHits;
         }
@@ -1356,7 +1362,8 @@ CURRENT_USER_MESSAGE:
         if (!string.IsNullOrWhiteSpace(requestedTitle)
             && allHits.Count > 0
             && (!RagHitsContainRequestedTitle(allHits, requestedTitle!)
-                || !allHits.Any(hit => RagHitContainsRequestedTitle(hit, requestedTitle!)
+                || !allHits.Any(hit => (RagHitContainsRequestedTitle(hit, requestedTitle!)
+                        || RagHitHasUsableRequestedTitleAnchor(requestedTitle!, hit))
                     && !LooksLikeExactItemReferenceOnlyHit(requestedTitle!, hit))))
         {
             return DeriveSourcesFromMissingExactItemCloseLeads(requestedTitle!, allHits);
@@ -1389,7 +1396,7 @@ CURRENT_USER_MESSAGE:
         if (!string.IsNullOrWhiteSpace(requestedTitle))
         {
             var stronglyAnchoredHits = selectedHits
-                .Where(hit => ComputeExactItemAnchorStrengthScore(requestedTitle!, hit) >= 35)
+                .Where(hit => RagHitHasUsableRequestedTitleAnchor(requestedTitle!, hit))
                 .ToList();
             if (stronglyAnchoredHits.Count > 0)
                 selectedHits = stronglyAnchoredHits;
@@ -1665,9 +1672,8 @@ CURRENT_USER_MESSAGE:
         var isQuantityScalingRequest = LooksLikeSourceBackedQuantityScalingRequest(query);
         if (!isQuantityScalingRequest
             && !string.IsNullOrWhiteSpace(requestedTitle)
-            && (!RagHitsContainRequestedTitle(allHits, requestedTitle)
-                || !allHits.Any(hit => RagHitContainsRequestedTitle(hit, requestedTitle!)
-                    && !LooksLikeExactItemReferenceOnlyHit(requestedTitle!, hit))))
+            && !allHits.Any(hit => RagHitHasUsableRequestedTitleAnchor(requestedTitle!, hit)
+                && !LooksLikeExactItemReferenceOnlyHit(requestedTitle!, hit)))
         {
             var answer = BuildMissingExactItemAnswer(language, requestedTitle!, allHits);
             return LooksLikeSourceBypassOrUnsupportedInventionRequest(query)
@@ -1725,7 +1731,7 @@ CURRENT_USER_MESSAGE:
 
         if (!string.IsNullOrWhiteSpace(requestedTitle))
         {
-            if (hits.Count > 0 && hits.Any(hit => RagHitContainsRequestedTitle(hit, requestedTitle!)
+            if (hits.Count > 0 && hits.Any(hit => RagHitHasUsableRequestedTitleAnchor(requestedTitle!, hit)
                     && !LooksLikeExactItemReferenceOnlyHit(requestedTitle!, hit)))
                 return BuildSourceBackedExactItemAnswer(language, requestedTitle!, hits, query);
         }
@@ -1778,7 +1784,18 @@ CURRENT_USER_MESSAGE:
         var quoted = Regex.Match(s, "[\\u00ab\"'](?<title>[^\\u00bb\"']{3,90})[\\u00bb\"']", RegexOptions.CultureInvariant);
         if (quoted.Success)
         {
-            var title = CleanupRequestedItemTitle(quoted.Groups["title"].Value);
+            var title = CleanupQuotedRequestedItemTitle(quoted.Groups["title"].Value);
+            if (!string.IsNullOrWhiteSpace(title) && LooksLikeDirectRequestedItemTitle(title))
+                return title;
+        }
+
+        var actionConnectorTarget = Regex.Match(
+            s,
+            @"(?i)(?:^|[,.!?;]\s*)(?:\b(?:peux(?:[-\s]+tu)?|pourrais(?:[-\s]+tu)?|tu\s+peux|vous\s+pouvez|can\s+you|could\s+you)\s+(?:me\s+|m['\u2019]|nous\s+)?)?(?:donner|donne|donnes|donnez|montrer|montre|montres|montrez|afficher|affiche|affiches|affichez|faire|fais|faites|give|show|make|mostrar|hacer|haz|fazer|mostra|machen|zeigen|fare)\b[^:?.!,;]{0,70}?\b(?:pour|about|on|de|du|de\s+la|des|d['\u2019]|sur|of|for|sobre|ueber|über|su)\s+(?<title>[^:?.!,;]{3,90})",
+            RegexOptions.CultureInvariant);
+        if (actionConnectorTarget.Success)
+        {
+            var title = CleanupRequestedItemTitle(actionConnectorTarget.Groups["title"].Value);
             if (!string.IsNullOrWhiteSpace(title) && LooksLikeDirectRequestedItemTitle(title))
                 return title;
         }
@@ -2009,10 +2026,16 @@ CURRENT_USER_MESSAGE:
         if (Regex.IsMatch(normalized, @"\b(?:document|fiche|card|procedure|process)\s+(?:de|du|des|pour|about|on)\b", RegexOptions.CultureInvariant))
             return false;
 
-        return Regex.IsMatch(
+        var hasBroadIntent = Regex.IsMatch(
             normalized,
             @"\b(?:plan\s+complet|planning\s+complet|complete\s+plan|composition|compose|composer|propose|proposes|options?|idees?|suggestions?|selection|sélection|quoi\s+faire|what\s+to\s+use|which\s+option)\b",
             RegexOptions.CultureInvariant);
+
+        return hasBroadIntent
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:menu|plan|planning|programme|program|selection|sélection|composition)\s+(?:de|du|des|pour|for|about)\b.*\b(?:avec|with|con|mit)\b",
+                RegexOptions.CultureInvariant);
     }
 
     private static string? CleanupRequestedItemTitle(string? value)
@@ -2021,6 +2044,7 @@ CURRENT_USER_MESSAGE:
             .Trim(' ', ':', '-', '.', '?', '!', ',', ';');
         if (title.Length == 0)
             return null;
+        var originalTitle = title;
 
         title = Regex.Replace(
             title,
@@ -2054,7 +2078,7 @@ CURRENT_USER_MESSAGE:
 
         title = Regex.Replace(
             title,
-            @"(?i)^base\s+(?:pour|about|on|de|du|de\s+la|des|d['\u2019]|sur|sobre|ueber|über|su)\s+",
+            @"(?i)^base\s+(?:des|du|de\s+la|de\s+l['\u2019]|de|pour|about|on|d['\u2019]|sur|sobre|ueber|über|su)\s+",
             string.Empty,
             RegexOptions.CultureInvariant).Trim();
 
@@ -2064,7 +2088,62 @@ CURRENT_USER_MESSAGE:
             string.Empty,
             RegexOptions.CultureInvariant).Trim();
 
+        var preservedTitle = CleanupQuotedRequestedItemTitle(originalTitle);
+        if (!string.IsNullOrWhiteSpace(preservedTitle)
+            && LooksLikeConnectorInsideNaturalTitle(preservedTitle)
+            && !LooksLikeGenericTitleDescriptorPrefix(preservedTitle)
+            && LooksLikeDirectRequestedItemTitle(preservedTitle))
+        {
+            title = preservedTitle;
+        }
+
         return title.Length >= 3 ? title : null;
+    }
+
+    private static string? CleanupQuotedRequestedItemTitle(string? value)
+    {
+        var title = CollapseWhitespace(value ?? string.Empty)
+            .Trim(' ', ':', '-', '.', '?', '!', ',', ';', '"', '\'', '\u00ab', '\u00bb');
+        if (title.Length == 0)
+            return null;
+
+        title = Regex.Replace(
+            title,
+            @"(?i)\s+(?:en\s+mode|mode|version|variante|pour\s+(?:\d+|un|une|des|le|la|les|l['\u2019]|the|a|an|some)\b|dans\s+(?:le|la|les|l['\u2019]|un|une|des|the|a|an)\b|du\s+(?:guide|pdf|document|manuel|livre|book|manual|file|document|corpus|dossier)\b|de\s+la\s+(?:base|page|fiche|notice|section)\b|des\s+(?:sources|documents|docs|fichiers|files)\b).*$",
+            string.Empty,
+            RegexOptions.CultureInvariant).Trim();
+
+        title = Regex.Replace(
+            title,
+            @"(?i)\s+(?:etapes?|[Ã©e]tapes?|steps?|temps|time|source|sources|quantites?|values?|valeurs?|reglages?|r[Ã©e]glages?)\b.*$",
+            string.Empty,
+            RegexOptions.CultureInvariant).Trim();
+
+        return title.Length >= 3 ? title : null;
+    }
+
+    private static bool LooksLikeConnectorInsideNaturalTitle(string? value)
+    {
+        var normalized = NormalizeLexicalLookup(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return Regex.IsMatch(
+            normalized,
+            @"^[\p{L}\p{N}'\u2019-]{3,}(?:\s+[\p{L}\p{N}'\u2019-]{2,}){0,4}\s+(?:de|du|des|d|of|with|a|au|aux|al|alla|di|con|mit)\s+[\p{L}\p{N}'\u2019-]{3,}",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeGenericTitleDescriptorPrefix(string? value)
+    {
+        var normalized = NormalizeLexicalLookup(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return Regex.IsMatch(
+            normalized,
+            @"^(?:fiche|card|document|source|element|item|objet|sujet|topic|procedure|process|methode|method|option|idee|idea|preparation|rapport|report|guide|manuel|manual|base)\b",
+            RegexOptions.CultureInvariant);
     }
 
     private static bool LooksLikeDirectRequestedItemTitle(string title)
@@ -2104,7 +2183,8 @@ CURRENT_USER_MESSAGE:
             return false;
         }
 
-        return ExtractQuerySignalTerms(normalized).Any();
+        return ExtractQuerySignalTerms(normalized).Any()
+            || ExtractRequestedTitleSignalTerms(normalized).Any();
     }
 
     private static bool RagHitsContainRequestedTitle(IReadOnlyList<RagHitSummary> hits, string requestedTitle)
@@ -2127,10 +2207,7 @@ CURRENT_USER_MESSAGE:
         if (string.IsNullOrWhiteSpace(normalizedTitle))
             return false;
 
-        var titleTerms = ExtractQuerySignalTerms(normalizedTitle)
-            .Where(static term => term.Length >= 4)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
+        var titleTerms = ExtractRequestedTitleSignalTerms(normalizedTitle);
 
         if (RagHitContainsRequestedTitle(hit, normalizedTitle, titleTerms))
             return true;
@@ -2141,16 +2218,129 @@ CURRENT_USER_MESSAGE:
             if (string.IsNullOrWhiteSpace(normalizedVariant))
                 continue;
 
-            var variantTerms = ExtractQuerySignalTerms(normalizedVariant)
-                .Where(static term => term.Length >= 4)
-                .Distinct(StringComparer.Ordinal)
-                .ToArray();
+            var variantTerms = ExtractRequestedTitleSignalTerms(normalizedVariant);
 
             if (RagHitContainsRequestedTitle(hit, normalizedVariant, variantTerms))
                 return true;
         }
 
         return false;
+    }
+
+    private static bool RagHitHasUsableRequestedTitleAnchor(string requestedTitle, RagHitSummary hit)
+    {
+        if (LooksLikeNavigationOnlyHit(hit) || string.IsNullOrWhiteSpace(requestedTitle))
+            return false;
+
+        if (ComputeBestSourceBackedDisplayTitleScore(requestedTitle, hit) >= 40)
+            return true;
+
+        if (RagHitContainsRequestedTitlePhraseAnchor(hit, requestedTitle))
+            return true;
+
+        if (RagHitHasCoherentRequestedTitleContent(hit, requestedTitle))
+            return true;
+
+        return ComputeExactItemAnchorStrengthScore(requestedTitle, hit) >= 80;
+    }
+
+    private static bool RagHitHasCoherentRequestedTitleContent(RagHitSummary hit, string requestedTitle)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(requestedTitle);
+        var titleTerms = ExtractRequestedTitleSignalTerms(normalizedTitle);
+        if (titleTerms.Length == 0)
+            return false;
+
+        var content = NormalizeLexicalLookup(GetRagHitPrimaryContentText(hit));
+        if (string.IsNullOrWhiteSpace(content))
+            return false;
+
+        if (!titleTerms.All(term => content.Contains(term, StringComparison.Ordinal)))
+            return false;
+
+        if (titleTerms.Length <= 2)
+        {
+            var lead = CollapseWhitespace(hit.Excerpt ?? string.Empty);
+            if (lead.Length > 360)
+                lead = lead[..360];
+            var normalizedLead = NormalizeLexicalLookup(lead);
+            return IndexOfRequestedTitlePhrase(normalizedLead, normalizedTitle) is >= 0 and <= 160
+                && ComputeExactVisibleTitleMatchScore(requestedTitle, hit) >= 40;
+        }
+
+        return ComputeExactItemCardCompletenessCueScore(hit) >= 4
+            || ComputeProcedureCompletenessCueScore(hit) >= 4
+            || CountProcedureStepMarkers(content) >= 2;
+    }
+
+    private static bool RagHitContainsRequestedTitlePhraseAnchor(RagHitSummary hit, string requestedTitle)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(requestedTitle);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        var titleAnchors = NormalizeLexicalLookup(string.Join(' ', new[]
+        {
+            string.Join(' ', hit.MatchedContentCards?.Select(static card => card.Title) ?? Array.Empty<string>()),
+            string.Join(' ', ExtractProfileTitleCandidates(hit.ContextualSnippet ?? string.Empty)),
+            hit.SectionTitle ?? string.Empty,
+            hit.HeadingPath ?? string.Empty
+        }));
+
+        if (ContainsRequestedTitlePhrase(titleAnchors, normalizedTitle))
+            return true;
+
+        var lead = CollapseWhitespace(hit.Excerpt ?? string.Empty);
+        if (lead.Length > 360)
+            lead = lead[..360];
+        var normalizedLead = NormalizeLexicalLookup(lead);
+        var leadIndex = IndexOfRequestedTitlePhrase(normalizedLead, normalizedTitle);
+        if (leadIndex == 0 && TextStartsWithRequestedTitlePhrase(normalizedLead, normalizedTitle))
+            return true;
+        if (leadIndex is >= 0 and <= 160 && ComputeExactVisibleTitleMatchScore(requestedTitle, hit) >= 40)
+            return true;
+
+        var contextualLead = CollapseWhitespace(StripContextualMetadataForEvidence(hit.ContextualSnippet ?? string.Empty));
+        if (contextualLead.Length > 360)
+            contextualLead = contextualLead[..360];
+        var normalizedContextualLead = NormalizeLexicalLookup(contextualLead);
+        var contextualLeadIndex = IndexOfRequestedTitlePhrase(normalizedContextualLead, normalizedTitle);
+        if (contextualLeadIndex == 0 && TextStartsWithRequestedTitlePhrase(normalizedContextualLead, normalizedTitle))
+            return true;
+        if (contextualLeadIndex is >= 0 and <= 160 && ComputeExactVisibleTitleMatchScore(requestedTitle, hit) >= 40)
+            return true;
+
+        foreach (var variant in BuildTypoTolerantQueryVariants(normalizedTitle))
+        {
+            var normalizedVariant = NormalizeLexicalLookup(variant);
+            if (ContainsRequestedTitlePhrase(titleAnchors, normalizedVariant))
+            {
+                return true;
+            }
+
+            leadIndex = IndexOfRequestedTitlePhrase(normalizedLead, normalizedVariant);
+            if (leadIndex is >= 0 and <= 160 && ComputeExactVisibleTitleMatchScore(normalizedVariant, hit) >= 40)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool TextStartsWithRequestedTitlePhrase(string normalizedText, string normalizedTitle)
+        => !string.IsNullOrWhiteSpace(normalizedText)
+           && !string.IsNullOrWhiteSpace(normalizedTitle)
+           && (normalizedText.Equals(normalizedTitle, StringComparison.Ordinal)
+               || normalizedText.StartsWith(normalizedTitle + " ", StringComparison.Ordinal));
+
+    private static bool ContainsRequestedTitlePhrase(string haystack, string normalizedTitle)
+        => IndexOfRequestedTitlePhrase(haystack, normalizedTitle) >= 0;
+
+    private static int IndexOfRequestedTitlePhrase(string haystack, string normalizedTitle)
+    {
+        if (string.IsNullOrWhiteSpace(haystack) || string.IsNullOrWhiteSpace(normalizedTitle))
+            return -1;
+
+        return haystack.IndexOf(normalizedTitle, StringComparison.Ordinal);
     }
 
     private static bool RagHitContainsRequestedTitle(RagHitSummary hit, string normalizedTitle, IReadOnlyList<string> titleTerms)
@@ -2163,6 +2353,52 @@ CURRENT_USER_MESSAGE:
             return true;
 
         return titleTerms.Count > 0 && titleTerms.All(term => haystack.Contains(term, StringComparison.Ordinal));
+    }
+
+    private static string[] ExtractRequestedTitleSignalTerms(string normalizedTitle)
+    {
+        var normalized = NormalizeLexicalLookup(normalizedTitle);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return Array.Empty<string>();
+
+        var stopWords = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "a", "an", "and", "au", "aux", "avec", "con", "da", "das", "de", "dei", "del", "della",
+            "der", "des", "di", "do", "dos", "du", "e", "el", "en", "et", "for", "il", "in", "la",
+            "las", "le", "les", "lo", "of", "on", "os", "per", "pour", "sur", "the", "to", "un",
+            "una", "une", "und", "y"
+        };
+
+        var tokens = Regex.Matches(normalized, @"[\p{L}\p{N}]{1,}")
+            .Select(match => match.Value)
+            .Where(token => !string.IsNullOrWhiteSpace(token))
+            .ToArray();
+        if (tokens.Length == 0)
+            return Array.Empty<string>();
+
+        var terms = new List<string>();
+        for (var i = 0; i < tokens.Length; i++)
+        {
+            var token = tokens[i];
+            if (stopWords.Contains(token))
+                continue;
+
+            if (token.Length >= 4 || token.Any(char.IsDigit))
+            {
+                terms.Add(token);
+                continue;
+            }
+
+            var isShortDisambiguator = token.Length is 2 or 3
+                && (i == tokens.Length - 1 || tokens.Length <= 3);
+            if (isShortDisambiguator)
+                terms.Add(token);
+        }
+
+        return terms
+            .Distinct(StringComparer.Ordinal)
+            .Take(8)
+            .ToArray();
     }
 
     private static bool LooksLikeNavigationOnlyHit(RagHitSummary hit)
@@ -2336,10 +2572,7 @@ CURRENT_USER_MESSAGE:
                 if (string.IsNullOrWhiteSpace(normalizedVariant))
                     continue;
 
-                var variantTerms = ExtractQuerySignalTerms(normalizedVariant)
-                    .Where(static term => term.Length >= 4)
-                    .Distinct(StringComparer.Ordinal)
-                    .ToArray();
+                var variantTerms = ExtractRequestedTitleSignalTerms(normalizedVariant);
                 if (variantTerms.Length == 0)
                     continue;
 
@@ -2610,19 +2843,29 @@ CURRENT_USER_MESSAGE:
         if (string.IsNullOrWhiteSpace(normalized))
             normalized = query;
 
-        var queries = new List<string> { normalized };
+        var raw = CollapseWhitespace(query);
+        var queries = new List<string>();
         var requestedTitle = TryExtractRequestedItemTitle(query);
-        if (!string.IsNullOrWhiteSpace(requestedTitle))
-        {
-            queries.Add(requestedTitle);
-            queries.Add($"\"{requestedTitle}\"");
-        }
-
         var normalizedLookup = NormalizeLooseLookup(normalized);
         var signalTerms = ExtractPlanningRetrievalTerms(normalizedLookup)
             .Where(static term => term.Length >= 4)
             .Take(5)
             .ToArray();
+
+        AddDistinctQuery(queries, normalized);
+        if (!string.IsNullOrWhiteSpace(raw)
+            && !string.Equals(raw, normalized, StringComparison.OrdinalIgnoreCase)
+            && (!string.IsNullOrWhiteSpace(requestedTitle) || signalTerms.Length > 0))
+        {
+            AddDistinctQuery(queries, raw);
+        }
+
+        if (!string.IsNullOrWhiteSpace(requestedTitle))
+        {
+            AddDistinctQuery(queries, requestedTitle);
+            AddDistinctQuery(queries, $"\"{requestedTitle}\"");
+        }
+
         if (signalTerms.Length > 0)
         {
             var signalQuery = string.Join(' ', signalTerms);
@@ -2703,8 +2946,12 @@ CURRENT_USER_MESSAGE:
         if (string.IsNullOrWhiteSpace(normalized))
             normalized = CollapseWhitespace(query);
 
+        var raw = CollapseWhitespace(query);
         var queries = new List<string>();
         AddDistinctQuery(queries, normalized);
+        if (!string.IsNullOrWhiteSpace(raw) && !string.Equals(raw, normalized, StringComparison.OrdinalIgnoreCase))
+            AddDistinctQuery(queries, raw);
+
         foreach (var variant in BuildTypoTolerantQueryVariants(normalized))
             AddDistinctQuery(queries, variant);
 
@@ -2794,7 +3041,7 @@ CURRENT_USER_MESSAGE:
             "adaptation", "adaptations", "adapte", "adapter", "adaptee", "adaptees", "bien", "cela",
             "cette", "comment", "como", "dans", "document", "documents", "extrait", "extraits", "faire", "how", "peux",
             "pdf", "source", "sources", "vient", "viennent", "what", "which", "source", "sources",
-            "document", "documents", "adapt", "adapted", "derived", "please", "from"
+            "document", "documents", "adapt", "adapted", "derived", "please", "from", "retrouve", "retrouver", "retrouves"
         };
 
         return stopWords.Contains(normalized);
@@ -2828,10 +3075,14 @@ CURRENT_USER_MESSAGE:
         if (string.IsNullOrWhiteSpace(normalized))
             normalized = CollapseWhitespace(query);
 
+        var raw = CollapseWhitespace(query);
         var queries = new List<string>();
         var focus = TryBuildComparativeFocusQuery(normalized);
         AddDistinctQuery(queries, focus);
         AddDistinctQuery(queries, normalized);
+        if (!string.IsNullOrWhiteSpace(raw) && !string.Equals(raw, normalized, StringComparison.OrdinalIgnoreCase))
+            AddDistinctQuery(queries, raw);
+
         if (!string.IsNullOrWhiteSpace(focus))
         {
             AddDistinctQuery(queries, $"{focus} details");
@@ -4294,17 +4545,25 @@ CURRENT_USER_MESSAGE:
         {
             var exactTitleHits = allHits
                 .Select(item => item.Hit)
-                .Where(hit => RagHitContainsRequestedTitle(hit, requestedTitle!))
+                .Where(hit => RagHitContainsRequestedTitle(hit, requestedTitle!)
+                    || RagHitHasUsableRequestedTitleAnchor(requestedTitle!, hit))
                 .Where(hit => !LooksLikeExactItemReferenceOnlyHit(requestedTitle!, hit))
                 .ToList();
             if (exactTitleHits.Count > 0)
             {
+                var anchoredTitleHits = exactTitleHits
+                    .Where(hit => RagHitHasUsableRequestedTitleAnchor(requestedTitle!, hit))
+                    .ToList();
+                if (anchoredTitleHits.Count > 0)
+                    exactTitleHits = anchoredTitleHits;
+
                 if (LooksLikeStructuredItemCardRequest(query))
                 {
                     exactTitleHits = AddComplementaryStructuredHitsForExactItem(
                             exactTitleHits,
                             allHits.Select(static item => item.Hit))
-                        .OrderByDescending(ComputeExactItemCardCompletenessCueScore)
+                        .OrderByDescending(hit => ComputeExactItemCardEvidenceScore(requestedTitle!, hit))
+                        .ThenByDescending(ComputeExactItemCardCompletenessCueScore)
                         .ThenByDescending(hit => ComputeRagHitLexicalRelevance(requestedTitle!, GetRagHitLookupText(hit)))
                         .ThenByDescending(hit => hit.Score)
                         .Take(maxHits)
@@ -6774,8 +7033,20 @@ CURRENT_USER_MESSAGE:
         if (requested.Length < 4 || candidate.Length <= requested.Length + 14)
             return false;
 
-        return candidate.StartsWith(requested, StringComparison.Ordinal)
-            && !Regex.IsMatch(candidate[requested.Length..], @"^\s+(?:de|du|des|a|au|aux|with|and|et)\b", RegexOptions.CultureInvariant);
+        if (candidate.StartsWith(requested, StringComparison.Ordinal))
+        {
+            return !Regex.IsMatch(candidate[requested.Length..], @"^\s+(?:de|du|des|a|au|aux|with|and|et)\b", RegexOptions.CultureInvariant);
+        }
+
+        var index = candidate.IndexOf(requested, StringComparison.Ordinal);
+        if (index is > 0 and <= 80)
+        {
+            var prefix = candidate[..index].Trim();
+            return prefix.Length >= 12
+                && Regex.IsMatch(prefix, @"\b(?:ajouter|add|apres|after|avant|before|faire|laisser|let|place|placer|prevoir|prevoyez|put|remuer|stir|verser)\b", RegexOptions.CultureInvariant);
+        }
+
+        return false;
     }
 
     private static IEnumerable<string> ExtractSourceBackedTitleCandidates(RagHitSummary hit)
@@ -6871,19 +7142,29 @@ CURRENT_USER_MESSAGE:
         var requestSeeds = new List<string> { requested };
         requestSeeds.AddRange(BuildTypoTolerantQueryVariants(requested).Select(NormalizeLexicalLookup));
         var requestTerms = requestSeeds
-            .SelectMany(ExtractQuerySignalTerms)
-            .Where(static term => term.Length >= 4)
+            .SelectMany(ExtractRequestedTitleSignalTerms)
             .Distinct(StringComparer.Ordinal)
             .ToArray();
         if (requestTerms.Length == 0)
             return 0;
 
-        var matchedTerms = requestTerms.Count(term => candidate.Contains(term, StringComparison.Ordinal));
-        if (matchedTerms == 0)
+        var matchedIndexes = requestTerms
+            .Select((term, index) => new { Term = term, Index = index })
+            .Where(item => candidate.Contains(item.Term, StringComparison.Ordinal))
+            .Select(static item => item.Index)
+            .Distinct()
+            .OrderBy(static index => index)
+            .ToArray();
+        if (matchedIndexes.Length == 0)
             return 0;
 
-        var score = matchedTerms * 20;
-        if (matchedTerms == requestTerms.Length)
+        var score = matchedIndexes.Length * 20;
+        score += matchedIndexes.Sum(index => Math.Max(1, requestTerms.Length - index) * 3);
+        if (matchedIndexes.SequenceEqual(Enumerable.Range(0, matchedIndexes.Length)) && matchedIndexes.Length >= 2)
+            score += 20;
+        if (matchedIndexes[0] > 0)
+            score -= matchedIndexes[0] * 10;
+        if (matchedIndexes.Length == requestTerms.Length)
             score += 30;
         if (candidate.Contains(requested, StringComparison.Ordinal) || requested.Contains(candidate, StringComparison.Ordinal))
             score += 20;
@@ -6960,7 +7241,8 @@ CURRENT_USER_MESSAGE:
     {
         var cardHits = hits
             .Where(hit => ExactItemEvidenceTextMatchesRequestedTitle(requestedTitle, hit)
-                || RagHitContainsRequestedTitle(hit, requestedTitle))
+                || RagHitContainsRequestedTitle(hit, requestedTitle)
+                || RagHitHasUsableRequestedTitleAnchor(requestedTitle, hit))
             .OrderByDescending(hit => ComputeExactItemCardEvidenceScore(requestedTitle, hit))
             .ThenByDescending(hit => hit.Score)
             .ToList();
@@ -6989,12 +7271,12 @@ CURRENT_USER_MESSAGE:
         var primary = cardHits.FirstOrDefault(hit =>
                 !LooksLikePageReferenceOnlyHit(hit)
                 && !LooksLikeNavigationOnlyHit(hit)
-                && ComputeExactItemAnchorStrengthScore(requestedTitle, hit) >= 35
+                && RagHitHasUsableRequestedTitleAnchor(requestedTitle, hit)
                 && ComputeExactItemCardCompletenessCueScore(hit) >= 4)
             ?? cardHits.FirstOrDefault(hit =>
                 !LooksLikePageReferenceOnlyHit(hit)
                 && !LooksLikeNavigationOnlyHit(hit)
-                && ComputeExactItemAnchorStrengthScore(requestedTitle, hit) >= 35)
+                && RagHitHasUsableRequestedTitleAnchor(requestedTitle, hit))
             ?? cardHits.First();
         var primaryDoc = string.IsNullOrWhiteSpace(primary.DocName) ? primary.DocPath : primary.DocName;
         var evidenceHits = SelectExactItemCardEvidenceHits(cardHits, primary);
@@ -7105,11 +7387,17 @@ CURRENT_USER_MESSAGE:
     {
         var evidence = GetFocusedExactItemEvidenceText(requestedTitle, hit);
         var itemizedEvidence = GetFocusedExactItemStructuredEvidenceText(requestedTitle, hit);
+        var displayTitleScore = ComputeBestSourceBackedDisplayTitleScore(requestedTitle, hit);
         var score = 0;
         if (ExactItemEvidenceTextMatchesRequestedTitle(requestedTitle, hit))
             score += 20;
         else if (RagHitContainsRequestedTitle(hit, requestedTitle))
             score += ComputeExactItemCardCompletenessCueScore(hit) >= 4 ? 10 : -12;
+        if (displayTitleScore >= 40)
+            score += 60 + displayTitleScore;
+        else if (ExtractRequestedTitleSignalTerms(NormalizeLexicalLookup(requestedTitle)).Length >= 3 && displayTitleScore < 20)
+            score -= 40;
+        score += ComputeExactItemHeadTermEvidenceScore(requestedTitle, hit);
         score += ComputeExactItemAnchorStrengthScore(requestedTitle, hit);
         score += ComputeExactVisibleTitleMatchScore(requestedTitle, hit);
         score += ExtractItemizedQuantityFacts(itemizedEvidence).Length * 4;
@@ -7123,13 +7411,41 @@ CURRENT_USER_MESSAGE:
         return score;
     }
 
+    private static int ComputeExactItemHeadTermEvidenceScore(string requestedTitle, RagHitSummary hit)
+    {
+        var titleTerms = ExtractRequestedTitleSignalTerms(NormalizeLexicalLookup(requestedTitle));
+        if (titleTerms.Length < 2)
+            return 0;
+
+        var headTerms = titleTerms.Take(Math.Min(2, titleTerms.Length)).ToArray();
+        var content = NormalizeLexicalLookup(GetRagHitPrimaryContentText(hit));
+        var titleText = NormalizeLexicalLookup(string.Join(' ', ExtractSourceBackedTitleCandidates(hit)));
+
+        var matchedContentHeadTerms = headTerms.Count(term => content.Contains(term, StringComparison.Ordinal));
+        var matchedTitleHeadTerms = headTerms.Count(term => titleText.Contains(term, StringComparison.Ordinal));
+
+        var score = matchedContentHeadTerms * 45 + matchedTitleHeadTerms * 25;
+        if (matchedContentHeadTerms == headTerms.Length)
+            score += 70;
+        if (matchedTitleHeadTerms == headTerms.Length)
+            score += 50;
+        if (titleTerms.Length >= 3 && matchedContentHeadTerms == 0 && matchedTitleHeadTerms == 0)
+            score -= 160;
+
+        return score;
+    }
+
+    private static int ComputeBestSourceBackedDisplayTitleScore(string requestedTitle, RagHitSummary hit)
+        => ExtractSourceBackedTitleCandidates(hit)
+            .Where(IsUsefulSourceBackedDisplayTitle)
+            .Select(title => ComputeSourceBackedDisplayTitleScore(requestedTitle, title))
+            .DefaultIfEmpty(0)
+            .Max();
+
     private static int ComputeExactItemAnchorStrengthScore(string requestedTitle, RagHitSummary hit)
     {
         var normalizedTitle = NormalizeLexicalLookup(requestedTitle);
-        var titleTerms = ExtractQuerySignalTerms(normalizedTitle)
-            .Where(static term => term.Length >= 4)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
+        var titleTerms = ExtractRequestedTitleSignalTerms(normalizedTitle);
         if (titleTerms.Length == 0)
             return 0;
 
@@ -7301,10 +7617,7 @@ CURRENT_USER_MESSAGE:
         if (directIndex >= 0)
             return Math.Min(directIndex, Math.Max(0, text.Length - 1));
 
-        var titleTerms = ExtractQuerySignalTerms(normalizedTitle)
-            .Where(static term => term.Length >= 3)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
+        var titleTerms = ExtractRequestedTitleSignalTerms(normalizedTitle);
         if (titleTerms.Length == 0)
             return -1;
 
@@ -7343,6 +7656,12 @@ CURRENT_USER_MESSAGE:
                 evidence,
                 $@"(?<![\p{{L}}\p{{N}}]){escapedTitle}(?:\s*(?:$|[\.:;\u2022\u00b7])|(?=\s*(?:pour|items?|elements?|quantities?|preparation|procedure|temps|time|repos|rest)\b)|(?=(?:pour|items?|elements?|quantities?|preparation|procedure|temps|time|repos|rest)\b))",
                 RegexOptions.CultureInvariant))
+        {
+            return 40;
+        }
+
+        if (evidence.Equals(normalizedTitle, StringComparison.Ordinal)
+            || evidence.StartsWith(normalizedTitle + " ", StringComparison.Ordinal))
         {
             return 40;
         }
@@ -7476,10 +7795,7 @@ CURRENT_USER_MESSAGE:
         if (!string.IsNullOrWhiteSpace(normalizedTitle) && normalizedText.Contains(normalizedTitle, StringComparison.Ordinal))
             return true;
 
-        var titleTerms = ExtractQuerySignalTerms(normalizedTitle)
-            .Where(static term => term.Length >= 4)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
+        var titleTerms = ExtractRequestedTitleSignalTerms(normalizedTitle);
         if (titleTerms.Length > 0 && titleTerms.All(term => normalizedText.Contains(term, StringComparison.Ordinal)))
             return true;
 
@@ -7521,10 +7837,7 @@ CURRENT_USER_MESSAGE:
         if (!string.IsNullOrWhiteSpace(normalizedTitle) && evidence.Contains(normalizedTitle, StringComparison.Ordinal))
             return true;
 
-        var titleTerms = ExtractQuerySignalTerms(normalizedTitle)
-            .Where(static term => term.Length >= 4)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
+        var titleTerms = ExtractRequestedTitleSignalTerms(normalizedTitle);
         return titleTerms.Length > 0 && titleTerms.All(term => evidence.Contains(term, StringComparison.Ordinal));
     }
 
@@ -8609,6 +8922,11 @@ CURRENT_USER_MESSAGE:
             @"(?i)\s+\b(?:avec|with|con|com|mit|per|pour|for|only|uniquement|a\s+partir|from|dans|in|des?\s+pdf|documents?|sources?|options?|ideas?|idees?)\b.*$",
             string.Empty,
             RegexOptions.CultureInvariant);
+        term = Regex.Replace(
+            term,
+            @"(?i)^(?:de\s+l['\u2019]|d['\u2019]|de\s+la|du|des|de|the|le|la|les|l['\u2019])\s+",
+            string.Empty,
+            RegexOptions.CultureInvariant);
         return CollapseWhitespace(term).Trim(' ', '.', ',', ';', ':');
     }
 
@@ -8626,7 +8944,14 @@ CURRENT_USER_MESSAGE:
         var terms = ExtractQuerySignalTerms(normalizedTerm)
             .Where(static item => item.Length >= 4)
             .ToArray();
-        return terms.Length > 0 && terms.All(item => haystack.Contains(item, StringComparison.Ordinal));
+        if (terms.Length == 0)
+            return false;
+
+        var matchedTerms = terms.Count(item => haystack.Contains(item, StringComparison.Ordinal));
+        if (matchedTerms == terms.Length)
+            return true;
+
+        return terms.Length >= 4 && matchedTerms >= terms.Length - 1 && matchedTerms >= 3;
     }
 
     private static string GetPlanExtractionText(RagHitSummary hit)
@@ -10130,7 +10455,7 @@ CURRENT_USER_MESSAGE:
         }
     }
 
-    private static object? CompactMatchedContentCardsForPrompt(JsonElement item)
+    private static object? CompactMatchedContentCardsForPrompt(JsonElement item, int maxCards = 12, bool includeEvidence = true)
     {
         if (item.ValueKind != JsonValueKind.Object
             || (!item.TryGetProperty("matchedContentCards", out var cards)
@@ -10168,10 +10493,10 @@ CURRENT_USER_MESSAGE:
                 pageEnd = TryGetInt(card, "pageEnd") ?? TryGetInt(card, "page_end") ?? TryGetInt(card, "PageEnd"),
                 kind = TryGetString(card, "kind") ?? TryGetString(card, "Kind"),
                 signals = signals.Length == 0 ? null : signals,
-                evidence = CompactContentCardEvidenceForPrompt(card)
+                evidence = includeEvidence ? CompactContentCardEvidenceForPrompt(card) : null
             });
 
-            if (compact.Count >= 12)
+            if (compact.Count >= Math.Clamp(maxCards, 1, 12))
                 break;
         }
 
@@ -10197,7 +10522,7 @@ CURRENT_USER_MESSAGE:
                     value = fact.Value,
                     unit = fact.Unit,
                     label = fact.Label,
-                    sourceText = fact.SourceText
+                    sourceText = TruncateForPrompt(fact.SourceText, 180)
                 }),
             facts = evidence.Facts is not { Count: > 0 }
                 ? null
@@ -10207,7 +10532,7 @@ CURRENT_USER_MESSAGE:
                     label = fact.Label,
                     value = fact.Value,
                     unit = fact.Unit,
-                    sourceText = fact.SourceText,
+                    sourceText = TruncateForPrompt(fact.SourceText, 180),
                     pageStart = fact.PageStart,
                     pageEnd = fact.PageEnd,
                     confidence = fact.Confidence
