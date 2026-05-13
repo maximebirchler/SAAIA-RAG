@@ -568,6 +568,13 @@ public sealed class DocumentProfileProjectorTests
                     ["validated"],
                     evidence),
                 new DocumentProfileContentCard(
+                    "gamma lowercase workflow",
+                    6,
+                    6,
+                    "section",
+                    ["validated_section"],
+                    evidence),
+                new DocumentProfileContentCard(
                     "The committee also approved standard definitions and limits for the colors",
                     5,
                     5,
@@ -578,6 +585,7 @@ public sealed class DocumentProfileProjectorTests
             ]);
 
         Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "alpha lowercase workflow", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "gamma lowercase workflow", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "The committee also approved standard definitions and limits for the colors", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "beta lowercase heading", StringComparison.Ordinal));
     }

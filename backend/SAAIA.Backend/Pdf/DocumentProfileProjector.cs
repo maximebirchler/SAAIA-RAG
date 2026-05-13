@@ -2030,11 +2030,12 @@ internal static partial class DocumentProfileProjector
                 continue;
             var kind = NormalizeContentCardKind(card.Kind);
             var normalizedEvidence = NormalizeContentCardEvidence(card.Evidence);
-            if (LooksLikeLowercaseLead(title) && !HasSourceBackedContentCardEvidence(normalizedEvidence))
+            var hasSourceBackedEvidence = HasSourceBackedContentCardEvidence(normalizedEvidence);
+            if (LooksLikeLowercaseLead(title) && !hasSourceBackedEvidence)
                 continue;
             if (LooksLikeLowSubstanceCoverOrMarketingCandidate(title, null, normalizedEvidence))
                 continue;
-            if (LooksLikeLowercaseSectionFragment(title, kind))
+            if (LooksLikeLowercaseSectionFragment(title, kind) && !hasSourceBackedEvidence)
                 continue;
             if (LooksLikeLowSignalContentCardLead(title, kind))
                 continue;
