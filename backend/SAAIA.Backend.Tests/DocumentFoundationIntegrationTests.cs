@@ -1643,6 +1643,13 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal("Pressure envelope validation", card.Title);
         Assert.Equal("llm_content_card", card.Kind);
         Assert.Contains("accumulator cluster", card.Signals ?? []);
+        Assert.NotNull(match.ProfileSignals);
+        Assert.Equal("llm_backoffice_v1", match.ProfileSignals!.ProfileVersion);
+        Assert.Equal("en", match.ProfileSignals.Language);
+        Assert.Contains("pressure envelope validation", match.ProfileSignals.Keywords ?? []);
+        Assert.Contains("maintenance governance", match.ProfileSignals.Topics ?? []);
+        Assert.Contains("Use page chunks for exact thresholds.", match.ProfileSignals.Limits ?? []);
+        Assert.Contains("pressure envelope validation", match.ProfileSignals.MatchedTerms ?? []);
 
         var ctx = BuildRagHttpContext(tenantId);
         var result = await InvokeRagSearchAsync(
@@ -1672,6 +1679,12 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal("Pressure envelope validation", itemCard.Title);
         Assert.Equal("llm_content_card", itemCard.Kind);
         Assert.NotNull(item.SelectionHints);
+        Assert.NotNull(item.ProfileSignals);
+        Assert.Equal("llm_backoffice_v1", item.ProfileSignals!.ProfileVersion);
+        Assert.Equal("en", item.ProfileSignals.Language);
+        Assert.Contains("pressure envelope validation", item.ProfileSignals.Keywords ?? []);
+        Assert.Contains("maintenance governance", item.ProfileSignals.Topics ?? []);
+        Assert.Contains("Use page chunks for exact thresholds.", item.ProfileSignals.Limits ?? []);
     }
 
     [Fact]

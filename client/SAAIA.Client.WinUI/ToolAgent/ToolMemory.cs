@@ -423,6 +423,7 @@ public sealed class ToolMemory
         public SourceExtractionDiagnosticRef? ExtractionDiagnosticSummary { get; set; }
         public List<string> QualitySignals { get; set; } = new();
         public List<SourceContentCardRef> MatchedContentCards { get; set; } = new();
+        public SourceProfileSignalsRef? ProfileSignals { get; set; }
         public string? SelectionHintEvidenceRole { get; set; }
         public int? SelectionHintActionabilityScore { get; set; }
         public int? SelectionHintSupportScore { get; set; }
@@ -433,6 +434,19 @@ public sealed class ToolMemory
         public string? NavigationReason { get; set; }
         public double? RetrievalNavigationScore { get; set; }
         public double? ContentDensityScore { get; set; }
+    }
+
+    public sealed class SourceProfileSignalsRef
+    {
+        public string? ProfileVersion { get; set; }
+        public string? Language { get; set; }
+        public List<string> Keywords { get; set; } = new();
+        public List<string> Entities { get; set; } = new();
+        public List<string> Topics { get; set; } = new();
+        public List<string> HypotheticalQuestions { get; set; } = new();
+        public List<string> Limits { get; set; } = new();
+        public List<string> MatchedTerms { get; set; } = new();
+        public int? MatchCount { get; set; }
     }
 
     public sealed class SourceExtractionDiagnosticRef

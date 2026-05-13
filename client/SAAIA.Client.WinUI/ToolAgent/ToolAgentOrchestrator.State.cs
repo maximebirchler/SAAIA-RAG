@@ -783,6 +783,7 @@ CURRENT_USER_MESSAGE:
             ExtractionDiagnosticSummary = diagnosticSummary,
             QualitySignals = signals,
             MatchedContentCards = cards,
+            ProfileSignals = BuildSourceProfileSignalsRef(src),
             SelectionHintEvidenceRole = selectionHints.HasValue
                 ? NullIfWhiteSpace(TryGetString(selectionHints.Value, "evidenceRole") ?? TryGetString(selectionHints.Value, "evidence_role") ?? TryGetString(selectionHints.Value, "EvidenceRole"))
                 : null,
@@ -1035,6 +1036,7 @@ CURRENT_USER_MESSAGE:
                 })
                 .Take(5)
                 .ToList() ?? new List<ToolMemory.SourceContentCardRef>(),
+            ProfileSignals = CloneSourceProfileSignalsRef(hit.ProfileSignals),
             SelectionHintEvidenceRole = NullIfWhiteSpace(hit.SelectionHintRole),
             SelectionHintActionabilityScore = hit.SelectionHintActionabilityScore,
             SelectionHintSupportScore = hit.SelectionHintSupportScore,
@@ -1115,6 +1117,7 @@ CURRENT_USER_MESSAGE:
                 .Take(8)
                 .ToList(),
             MatchedContentCards = MergeSourceContentCards(sources, maxCardsPerSource),
+            ProfileSignals = MergeSourceProfileSignals(sources),
             SelectionHintEvidenceRole = PickSourceString(sources, static source => source.SelectionHintEvidenceRole),
             SelectionHintActionabilityScore = PickBestScore(sources, static source => source.SelectionHintActionabilityScore),
             SelectionHintSupportScore = PickBestScore(sources, static source => source.SelectionHintSupportScore),
@@ -1143,6 +1146,48 @@ CURRENT_USER_MESSAGE:
             .Take(maxCards)
             .ToList();
 
+    private static ToolMemory.SourceProfileSignalsRef? MergeSourceProfileSignals(IEnumerable<ToolMemory.SourceRef> sources)
+    {
+        var profiles = sources
+            .Select(static source => source.ProfileSignals)
+            .Where(static profile => profile is not null)
+            .Select(static profile => profile!)
+            .OrderByDescending(ComputeSourceProfileSignalsRichness)
+            .ToArray();
+        if (profiles.Length == 0)
+            return null;
+
+        var primary = profiles[0];
+        var merged = new ToolMemory.SourceProfileSignalsRef
+        {
+            ProfileVersion = NullIfWhiteSpace(primary.ProfileVersion),
+            Language = NullIfWhiteSpace(primary.Language),
+            Keywords = MergeProfileSignalList(profiles.Select(static profile => profile.Keywords), 8),
+            Entities = MergeProfileSignalList(profiles.Select(static profile => profile.Entities), 8),
+            Topics = MergeProfileSignalList(profiles.Select(static profile => profile.Topics), 8),
+            HypotheticalQuestions = MergeProfileSignalList(profiles.Select(static profile => profile.HypotheticalQuestions), 4),
+            Limits = MergeProfileSignalList(profiles.Select(static profile => profile.Limits), 4),
+            MatchedTerms = MergeProfileSignalList(profiles.Select(static profile => profile.MatchedTerms), 12),
+            MatchCount = profiles
+                .Select(static profile => profile.MatchCount)
+                .Where(static count => count.HasValue)
+                .Select(static count => count!.Value)
+                .DefaultIfEmpty()
+                .Max()
+        };
+
+        return ComputeSourceProfileSignalsRichness(merged) == 0 ? null : merged;
+    }
+
+    private static List<string> MergeProfileSignalList(IEnumerable<IEnumerable<string>> lists, int maxItems)
+        => lists
+            .SelectMany(static list => list)
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(static value => value.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(Math.Clamp(maxItems, 1, 24))
+            .ToList();
+
     private static ToolMemory.SourceContentCardRef CloneSourceContentCardRef(ToolMemory.SourceContentCardRef card)
         => new()
         {
@@ -1160,6 +1205,27 @@ CURRENT_USER_MESSAGE:
             Evidence = CloneNullableJsonElement(card.Evidence)
         };
 
+    private static ToolMemory.SourceProfileSignalsRef? CloneSourceProfileSignalsRef(ToolMemory.SourceProfileSignalsRef? profile)
+    {
+        if (profile is null)
+            return null;
+
+        var clone = new ToolMemory.SourceProfileSignalsRef
+        {
+            ProfileVersion = NullIfWhiteSpace(profile.ProfileVersion),
+            Language = NullIfWhiteSpace(profile.Language),
+            Keywords = profile.Keywords.Where(static value => !string.IsNullOrWhiteSpace(value)).Select(static value => value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Take(8).ToList(),
+            Entities = profile.Entities.Where(static value => !string.IsNullOrWhiteSpace(value)).Select(static value => value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Take(8).ToList(),
+            Topics = profile.Topics.Where(static value => !string.IsNullOrWhiteSpace(value)).Select(static value => value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Take(8).ToList(),
+            HypotheticalQuestions = profile.HypotheticalQuestions.Where(static value => !string.IsNullOrWhiteSpace(value)).Select(static value => value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Take(4).ToList(),
+            Limits = profile.Limits.Where(static value => !string.IsNullOrWhiteSpace(value)).Select(static value => value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Take(4).ToList(),
+            MatchedTerms = profile.MatchedTerms.Where(static value => !string.IsNullOrWhiteSpace(value)).Select(static value => value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Take(12).ToList(),
+            MatchCount = profile.MatchCount
+        };
+
+        return ComputeSourceProfileSignalsRichness(clone) == 0 ? null : clone;
+    }
+
     private static JsonElement? GetSourceContentCardEvidenceElement(RagHitContentCardSummary card)
     {
         if (card.RawEvidence is { ValueKind: not JsonValueKind.Null and not JsonValueKind.Undefined } raw)
@@ -1174,6 +1240,56 @@ CURRENT_USER_MESSAGE:
         => value is { ValueKind: not JsonValueKind.Null and not JsonValueKind.Undefined } element
             ? element.Clone()
             : null;
+
+    private static ToolMemory.SourceProfileSignalsRef? BuildSourceProfileSignalsRef(JsonElement source)
+    {
+        var profile = TryGetObject(source, "profileSignals")
+                      ?? TryGetObject(source, "profile_signals")
+                      ?? TryGetObject(source, "ProfileSignals");
+        if (profile is null)
+            return null;
+
+        var value = profile.Value;
+        var result = new ToolMemory.SourceProfileSignalsRef
+        {
+            ProfileVersion = NullIfWhiteSpace(TryGetString(value, "profileVersion") ?? TryGetString(value, "profile_version") ?? TryGetString(value, "ProfileVersion")),
+            Language = NullIfWhiteSpace(TryGetString(value, "language") ?? TryGetString(value, "Language") ?? TryGetString(value, "profileLanguage") ?? TryGetString(value, "ProfileLanguage")),
+            Keywords = ExtractProfileSignalList(value, "keywords", "keywordMatches", "Keywords", "KeywordMatches", maxItems: 8),
+            Entities = ExtractProfileSignalList(value, "entities", "entityMatches", "Entities", "EntityMatches", maxItems: 8),
+            Topics = ExtractProfileSignalList(value, "topics", "topicMatches", "Topics", "TopicMatches", maxItems: 8),
+            HypotheticalQuestions = ExtractProfileSignalList(value, "hypotheticalQuestions", "hypothetical_questions", "HypotheticalQuestions", maxItems: 4),
+            Limits = ExtractProfileSignalList(value, "limits", "limitMatches", "Limits", "LimitMatches", maxItems: 4),
+            MatchedTerms = ExtractProfileSignalList(value, "matchedTerms", "matched_terms", "MatchedTerms", maxItems: 12),
+            MatchCount = TryGetInt(value, "matchCount") ?? TryGetInt(value, "match_count") ?? TryGetInt(value, "MatchCount")
+        };
+
+        return ComputeSourceProfileSignalsRichness(result) == 0 ? null : result;
+    }
+
+    private static List<string> ExtractProfileSignalList(JsonElement source, string primaryName, string secondaryName, string thirdName, int maxItems)
+        => ExtractProfileSignalList(source, primaryName, secondaryName, thirdName, null, maxItems);
+
+    private static List<string> ExtractProfileSignalList(
+        JsonElement source,
+        string primaryName,
+        string secondaryName,
+        string thirdName,
+        string? fourthName,
+        int maxItems)
+    {
+        var values = ExtractCompactSignals(source, primaryName)
+            .Concat(ExtractCompactSignals(source, secondaryName))
+            .Concat(ExtractCompactSignals(source, thirdName));
+        if (!string.IsNullOrWhiteSpace(fourthName))
+            values = values.Concat(ExtractCompactSignals(source, fourthName));
+
+        return values
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(static value => value.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(Math.Clamp(maxItems, 1, 24))
+            .ToList();
+    }
 
     private static string BuildSourceContentCardMergeKey(ToolMemory.SourceContentCardRef card)
     {
@@ -1193,6 +1309,7 @@ CURRENT_USER_MESSAGE:
     private static int ComputeSourceRefRichness(ToolMemory.SourceRef source)
         => (source.MatchedContentCards.Count * 12)
            + (source.MatchedContentCards.Count(static card => card.Evidence is not null) * 6)
+           + (ComputeSourceProfileSignalsRichness(source.ProfileSignals) * 2)
            + (source.QualitySignals.Count * 2)
            + (!string.IsNullOrWhiteSpace(source.SourceHash) ? 3 : 0)
            + (!string.IsNullOrWhiteSpace(source.DocLanguage) ? 2 : 0)
@@ -1209,6 +1326,19 @@ CURRENT_USER_MESSAGE:
            + (source.SelectionHintActionabilityScore ?? 0)
            + (source.SelectionHintSupportScore ?? 0)
            - (source.SelectionHintNavigationScore ?? 0);
+
+    private static int ComputeSourceProfileSignalsRichness(ToolMemory.SourceProfileSignalsRef? profile)
+        => profile is null
+            ? 0
+            : (string.IsNullOrWhiteSpace(profile.ProfileVersion) ? 0 : 1)
+              + (string.IsNullOrWhiteSpace(profile.Language) ? 0 : 1)
+              + profile.Keywords.Count
+              + profile.Entities.Count
+              + profile.Topics.Count
+              + profile.HypotheticalQuestions.Count
+              + profile.Limits.Count
+              + profile.MatchedTerms.Count
+              + (profile.MatchCount is > 0 ? 1 : 0);
 
     private static int ComputeSourceContentCardRichness(ToolMemory.SourceContentCardRef card)
         => (!string.IsNullOrWhiteSpace(card.ContentCardId) ? 8 : 0)
@@ -1312,6 +1442,7 @@ CURRENT_USER_MESSAGE:
                 contentSignals = BuildSourceContentSignalsPayload(x),
                 extractionQuality = BuildSourceExtractionQualityPayload(x),
                 matchedContentCards = BuildSourceContentCardsPayload(x),
+                profileSignals = BuildSourceProfileSignalsPayload(x),
                 selectionHints = BuildSourceSelectionHintsPayload(x)
             }).ToList()
         };
@@ -1349,6 +1480,7 @@ CURRENT_USER_MESSAGE:
             contentSignals = BuildSourceContentSignalsPayload(x),
             extractionQuality = BuildSourceExtractionQualityPayload(x),
             matchedContentCards = BuildSourceContentCardsPayload(x),
+            profileSignals = BuildSourceProfileSignalsPayload(x),
             selectionHints = BuildSourceSelectionHintsPayload(x)
         }).Cast<object>().ToList();
 
@@ -1392,6 +1524,26 @@ CURRENT_USER_MESSAGE:
                 navigationScore = source.SelectionHintNavigationScore,
                 qualityPenalty = source.SelectionHintQualityPenalty
             };
+
+    private static object? BuildSourceProfileSignalsPayload(ToolMemory.SourceRef source)
+    {
+        var profile = source.ProfileSignals;
+        if (profile is null || ComputeSourceProfileSignalsRichness(profile) == 0)
+            return null;
+
+        return new
+        {
+            profileVersion = profile.ProfileVersion,
+            language = profile.Language,
+            keywords = profile.Keywords.Count == 0 ? null : profile.Keywords,
+            entities = profile.Entities.Count == 0 ? null : profile.Entities,
+            topics = profile.Topics.Count == 0 ? null : profile.Topics,
+            hypotheticalQuestions = profile.HypotheticalQuestions.Count == 0 ? null : profile.HypotheticalQuestions,
+            limits = profile.Limits.Count == 0 ? null : profile.Limits,
+            matchedTerms = profile.MatchedTerms.Count == 0 ? null : profile.MatchedTerms,
+            matchCount = profile.MatchCount
+        };
+    }
 
     private static object? BuildSourceExtractionQualityPayload(ToolMemory.SourceRef source)
     {
@@ -9947,6 +10099,7 @@ CURRENT_USER_MESSAGE:
         bool OcrApplied = false,
         string? DocLanguage = null,
         string? ProfileLanguage = null,
+        ToolMemory.SourceProfileSignalsRef? ProfileSignals = null,
         IReadOnlyList<RagHitContentCardSummary>? MatchedContentCards = null,
         string? SourceHash = null,
         string? DocId = null,
@@ -10124,6 +10277,7 @@ CURRENT_USER_MESSAGE:
             quality.OcrApplied,
             docLanguage,
             profileLanguage,
+            BuildSourceProfileSignalsRef(h),
             matchedContentCards,
             sourceHash,
             docId,
@@ -10632,6 +10786,7 @@ CURRENT_USER_MESSAGE:
                 var hypQuestionsMatched = TryGetBool(it, "hypQuestionsMatched") ?? TryGetBool(it, "HypQuestionsMatched");
                 var extractionQuality = CompactExtractionQualityForPrompt(it);
                 var matchedContentCards = CompactMatchedContentCardsForPrompt(it);
+                var profileSignals = CompactProfileSignalsForPrompt(it);
                 var contentSignals = CompactRetrievalContentSignalsForPrompt(it);
 
                 list.Add(new
@@ -10668,6 +10823,7 @@ CURRENT_USER_MESSAGE:
                     hypQuestionsMatched,
                     extractionQuality,
                     matchedContentCards,
+                    profileSignals,
                     contentSignals,
                     selectionHints = BuildRagSelectionHintsPayload(BuildRagHitSummary(it), query: null),
                     contextualSnippet = string.IsNullOrWhiteSpace(contextualSnippet) ? null : contextualSnippet
@@ -10732,6 +10888,41 @@ CURRENT_USER_MESSAGE:
         }
 
         return compact.Count == 0 ? null : compact;
+    }
+
+    private static object? CompactProfileSignalsForPrompt(JsonElement item)
+    {
+        var profile = TryGetObject(item, "profileSignals")
+                      ?? TryGetObject(item, "profile_signals")
+                      ?? TryGetObject(item, "ProfileSignals");
+        if (profile is null)
+            return null;
+
+        var value = profile.Value;
+        var compact = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["profileVersion"] = TryGetString(value, "profileVersion") ?? TryGetString(value, "profile_version") ?? TryGetString(value, "ProfileVersion"),
+            ["language"] = TryGetString(value, "language") ?? TryGetString(value, "Language"),
+            ["keywords"] = ExtractProfileSignalList(value, "keywords", "keywordMatches", "Keywords", "KeywordMatches", maxItems: 8),
+            ["entities"] = ExtractProfileSignalList(value, "entities", "entityMatches", "Entities", "EntityMatches", maxItems: 8),
+            ["topics"] = ExtractProfileSignalList(value, "topics", "topicMatches", "Topics", "TopicMatches", maxItems: 8),
+            ["hypotheticalQuestions"] = ExtractProfileSignalList(value, "hypotheticalQuestions", "hypothetical_questions", "HypotheticalQuestions", maxItems: 4),
+            ["limits"] = ExtractProfileSignalList(value, "limits", "limitMatches", "Limits", "LimitMatches", maxItems: 4),
+            ["matchedTerms"] = ExtractProfileSignalList(value, "matchedTerms", "matched_terms", "MatchedTerms", maxItems: 12),
+            ["matchCount"] = TryGetInt(value, "matchCount") ?? TryGetInt(value, "match_count") ?? TryGetInt(value, "MatchCount")
+        };
+
+        var filtered = compact
+            .Where(static pair => pair.Value switch
+            {
+                null => false,
+                string text => !string.IsNullOrWhiteSpace(text),
+                List<string> list => list.Count > 0,
+                _ => true
+            })
+            .ToDictionary(static pair => pair.Key, static pair => pair.Value!, StringComparer.Ordinal);
+
+        return filtered.Count == 0 ? null : filtered;
     }
 
     private static object? CompactRetrievalContentSignalsForPrompt(JsonElement item)

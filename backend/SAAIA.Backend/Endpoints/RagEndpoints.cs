@@ -289,7 +289,8 @@ ORDER BY display_order, name;
                         HypQuestionsMatched: ResolveHypQuestionsMatched(m.DocPath, hypQuestionsMatchedByDocPath),
                         ExtractionQuality: item.ExtractionQuality,
                         MatchedContentCards: BuildMatchedContentCardDtos(m),
-                        SelectionHints: BuildSelectionHints(m, item.ExtractionQuality)
+                        SelectionHints: BuildSelectionHints(m, item.ExtractionQuality),
+                        ProfileSignals: BuildProfileSignalsDto(m.ProfileSignals)
                     );
                 })
                 .ToList(),
@@ -5550,6 +5551,12 @@ SELECT
     effective_profile.search_text AS "SearchText",
     COALESCE(cards.metadata_json, p.metadata::text) AS "MetadataJson",
     p.language AS "Language",
+    p.profile_version AS "ProfileVersion",
+    p.keywords AS "Keywords",
+    p.entities AS "Entities",
+    p.topics AS "Topics",
+    p.hypothetical_questions AS "HypotheticalQuestions",
+    p.limits AS "Limits",
     CASE
         WHEN COALESCE(lm.match_count, 0) > 0
         THEN (0.01::double precision + (COALESCE(lm.match_weight, 0.0)::double precision * 0.05::double precision))
@@ -5631,14 +5638,16 @@ CROSS JOIN LATERAL (
     SELECT TRIM(BOTH FROM CONCAT_WS(
         ' ',
         d.doc_path,
-        d.doc_name,
-        p.summary_text,
-        ARRAY_TO_STRING(p.keywords, ' '),
-        ARRAY_TO_STRING(p.entities, ' '),
-        ARRAY_TO_STRING(p.topics, ' '),
-        ARRAY_TO_STRING(p.hypothetical_questions, ' '),
-        NULLIF(s.summary_text, ''),
-        cards.search_text)) AS search_text
+            d.doc_name,
+            p.search_text,
+            p.summary_text,
+            ARRAY_TO_STRING(p.keywords, ' '),
+            ARRAY_TO_STRING(p.entities, ' '),
+            ARRAY_TO_STRING(p.topics, ' '),
+            ARRAY_TO_STRING(p.hypothetical_questions, ' '),
+            ARRAY_TO_STRING(p.limits, ' '),
+            NULLIF(s.summary_text, ''),
+            cards.search_text)) AS search_text
 ) effective_profile
 LEFT JOIN LATERAL (
     SELECT
@@ -5714,7 +5723,8 @@ LIMIT @result_limit;
                     PrevChunkId: null,
                     NextChunkId: null,
                     SameSectionChunkId: null,
-                    MatchedContentCards: matchedContentCards.Count == 0 ? null : matchedContentCards);
+                    MatchedContentCards: matchedContentCards.Count == 0 ? null : matchedContentCards,
+                    ProfileSignals: BuildDocumentProfileSignals(row, query));
             }).ToList();
         }
         catch (PostgresException ex)
@@ -5773,6 +5783,12 @@ SELECT
     effective_profile.search_text AS "SearchText",
     COALESCE(cards.metadata_json, p.metadata::text) AS "MetadataJson",
     p.language AS "Language",
+    p.profile_version AS "ProfileVersion",
+    p.keywords AS "Keywords",
+    p.entities AS "Entities",
+    p.topics AS "Topics",
+    p.hypothetical_questions AS "HypotheticalQuestions",
+    p.limits AS "Limits",
     ts_rank_cd(
         to_tsvector('simple', effective_profile.search_text),
         sparse_query.q,
@@ -5826,7 +5842,8 @@ LEFT JOIN LATERAL (
         NULLIF(TRIM(BOTH FROM STRING_AGG(NULLIF(ARRAY_TO_STRING(profile.keywords, ' '), ''), ' ')), '') AS keywords_text,
         NULLIF(TRIM(BOTH FROM STRING_AGG(NULLIF(ARRAY_TO_STRING(profile.entities, ' '), ''), ' ')), '') AS entities_text,
         NULLIF(TRIM(BOTH FROM STRING_AGG(NULLIF(ARRAY_TO_STRING(profile.topics, ' '), ''), ' ')), '') AS topics_text,
-        NULLIF(TRIM(BOTH FROM STRING_AGG(NULLIF(ARRAY_TO_STRING(profile.hypothetical_questions, ' '), ''), ' ')), '') AS hypothetical_questions_text
+        NULLIF(TRIM(BOTH FROM STRING_AGG(NULLIF(ARRAY_TO_STRING(profile.hypothetical_questions, ' '), ''), ' ')), '') AS hypothetical_questions_text,
+        NULLIF(TRIM(BOTH FROM STRING_AGG(NULLIF(ARRAY_TO_STRING(profile.limits, ' '), ''), ' ')), '') AS limits_text
     FROM document_profiles profile
     WHERE profile.tenant_id = r.tenant_id
       AND profile.revision_id = r.revision_id
@@ -5890,11 +5907,13 @@ CROSS JOIN LATERAL (
             profile_terms.entities_text,
             profile_terms.topics_text,
             profile_terms.hypothetical_questions_text,
+            profile_terms.limits_text,
             NULLIF(s.summary_text, ''),
             ARRAY_TO_STRING(p.keywords, ' '),
             ARRAY_TO_STRING(p.entities, ' '),
             ARRAY_TO_STRING(p.topics, ' '),
             ARRAY_TO_STRING(p.hypothetical_questions, ' '),
+            ARRAY_TO_STRING(p.limits, ' '),
             cards.search_text)) AS search_text
 ) effective_profile
 LEFT JOIN LATERAL (
@@ -6046,7 +6065,8 @@ LIMIT @result_limit;
                     PrevChunkId: null,
                     NextChunkId: null,
                     SameSectionChunkId: null,
-                    MatchedContentCards: matchedContentCards.Count == 0 ? null : matchedContentCards);
+                    MatchedContentCards: matchedContentCards.Count == 0 ? null : matchedContentCards,
+                    ProfileSignals: BuildDocumentProfileSignals(row, query));
             }).ToList();
         }
         catch (PostgresException ex)
@@ -6100,6 +6120,108 @@ LIMIT @result_limit;
             row.SearchText,
             row.MetadataJson
         }));
+
+    private static RagProfileSignals? BuildDocumentProfileSignals(DocumentProfileMatchRow row, string query)
+    {
+        var queryTokens = ExtractLexicalQueryTokens(query);
+        var lexicalTerms = BuildDocumentProfileLexicalTerms(query);
+        var matchedTerms = SelectMatchedProfileTerms(lexicalTerms, row.SearchText, maxItems: 12);
+        var keywords = SelectProfileSignalValues(row.Keywords, queryTokens, lexicalTerms, maxItems: 8);
+        var entities = SelectProfileSignalValues(row.Entities, queryTokens, lexicalTerms, maxItems: 8);
+        var topics = SelectProfileSignalValues(row.Topics, queryTokens, lexicalTerms, maxItems: 8, fallbackItems: 3);
+        var questions = SelectProfileSignalValues(row.HypotheticalQuestions, queryTokens, lexicalTerms, maxItems: 4);
+        var limits = SelectProfileSignalValues(row.Limits, queryTokens, lexicalTerms, maxItems: 4, fallbackItems: 2);
+
+        if (string.IsNullOrWhiteSpace(row.ProfileVersion)
+            && string.IsNullOrWhiteSpace(row.Language)
+            && matchedTerms.Count == 0
+            && keywords.Count == 0
+            && entities.Count == 0
+            && topics.Count == 0
+            && questions.Count == 0
+            && limits.Count == 0
+            && row.MatchCount <= 0)
+        {
+            return null;
+        }
+
+        return new RagProfileSignals(
+            ProfileVersion: row.ProfileVersion,
+            Language: row.Language,
+            Keywords: keywords,
+            Entities: entities,
+            Topics: topics,
+            HypotheticalQuestions: questions,
+            Limits: limits,
+            MatchedTerms: matchedTerms,
+            MatchCount: row.MatchCount > int.MaxValue ? int.MaxValue : (int)Math.Max(0, row.MatchCount));
+    }
+
+    private static IReadOnlyList<string> SelectMatchedProfileTerms(
+        IEnumerable<string>? terms,
+        string? candidateText,
+        int maxItems)
+    {
+        var normalizedCandidate = NormalizeForLexicalSignal(candidateText);
+        if (string.IsNullOrWhiteSpace(normalizedCandidate) || terms is null)
+            return Array.Empty<string>();
+
+        return terms
+            .Where(static term => !string.IsNullOrWhiteSpace(term))
+            .Select(static term => term.Trim())
+            .Where(term => normalizedCandidate.Contains(NormalizeForLexicalSignal(term), StringComparison.Ordinal))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(Math.Clamp(maxItems, 1, 24))
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string> SelectProfileSignalValues(
+        IEnumerable<string>? values,
+        IReadOnlyList<string> queryTokens,
+        IReadOnlyList<string> lexicalTerms,
+        int maxItems,
+        int fallbackItems = 0)
+    {
+        if (values is null)
+            return Array.Empty<string>();
+
+        var candidates = values
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(static value => value.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (candidates.Length == 0)
+            return Array.Empty<string>();
+
+        var matched = candidates
+            .Where(value => ProfileSignalOverlapsQuery(value, queryTokens, lexicalTerms))
+            .Take(Math.Clamp(maxItems, 1, 24))
+            .ToArray();
+        if (matched.Length > 0 || fallbackItems <= 0)
+            return matched;
+
+        return candidates
+            .Take(Math.Min(Math.Clamp(fallbackItems, 0, maxItems), candidates.Length))
+            .ToArray();
+    }
+
+    private static bool ProfileSignalOverlapsQuery(
+        string value,
+        IReadOnlyList<string> queryTokens,
+        IReadOnlyList<string> lexicalTerms)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var normalizedValue = NormalizeForLexicalSignal(value);
+        if (string.IsNullOrWhiteSpace(normalizedValue))
+            return false;
+
+        if (lexicalTerms.Any(term => normalizedValue.Contains(NormalizeForLexicalSignal(term), StringComparison.Ordinal)))
+            return true;
+
+        return ComputeLexicalCoverage(queryTokens, value) >= 0.35;
+    }
 
     private static string FormatPostgresRetrieverError(PostgresException ex)
         => string.IsNullOrWhiteSpace(ex.MessageText)
@@ -6495,6 +6617,49 @@ LIMIT @result_limit;
                 Signals: card.Signals,
                 Evidence: card.Evidence))
             .ToArray();
+    }
+
+    private static RagItemProfileSignalsDto? BuildProfileSignalsDto(RagProfileSignals? signals)
+    {
+        if (signals is null)
+            return null;
+
+        return new RagItemProfileSignalsDto(
+            ProfileVersion: NormalizeOptionalDtoText(signals.ProfileVersion),
+            Language: NormalizeOptionalDtoText(signals.Language),
+            Keywords: NormalizeDtoList(signals.Keywords),
+            Entities: NormalizeDtoList(signals.Entities),
+            Topics: NormalizeDtoList(signals.Topics),
+            HypotheticalQuestions: NormalizeDtoList(signals.HypotheticalQuestions),
+            Limits: NormalizeDtoList(signals.Limits),
+            MatchedTerms: NormalizeDtoList(signals.MatchedTerms),
+            MatchCount: signals.MatchCount);
+    }
+
+    private static string? NormalizeOptionalDtoText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var trimmed = value.Trim();
+        return string.Equals(trimmed, "und", StringComparison.OrdinalIgnoreCase)
+            ? null
+            : trimmed;
+    }
+
+    private static IReadOnlyList<string>? NormalizeDtoList(IEnumerable<string>? values, int maxItems = 12)
+    {
+        if (values is null)
+            return null;
+
+        var normalized = values
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(static value => value.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(Math.Clamp(maxItems, 1, 24))
+            .ToArray();
+
+        return normalized.Length == 0 ? null : normalized;
     }
 
     internal static RagItemSelectionHintsDto BuildSelectionHints(
@@ -7765,6 +7930,12 @@ GROUP BY d.doc_id;
         string SearchText,
         string? MetadataJson,
         string? Language,
+        string? ProfileVersion,
+        string[]? Keywords,
+        string[]? Entities,
+        string[]? Topics,
+        string[]? HypotheticalQuestions,
+        string[]? Limits,
         double SparseRank,
         long MatchCount);
 

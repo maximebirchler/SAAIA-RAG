@@ -212,6 +212,7 @@ public sealed partial class ToolAgentOrchestrator
             categoryPath = primarySource.CategoryPath,
             extractionQuality = BuildSourceExtractionQualityPayload(primarySource),
             matchedContentCards = BuildSourceContentCardsPayload(primarySource),
+            profileSignals = BuildSourceProfileSignalsPayload(primarySource),
             selectionHints = BuildSourceSelectionHintsPayload(primarySource),
             contentSignals = BuildSourceContentSignalsPayload(primarySource),
             sourceMetadata = selectedSourcePayloads,
@@ -463,6 +464,7 @@ public sealed partial class ToolAgentOrchestrator
                 ?? CloneSourceExtractionDiagnostic(fallbackSource?.ExtractionDiagnosticSummary),
             QualitySignals: signals is { Count: > 0 } ? signals : fallbackSource?.QualitySignals,
             MatchedContentCards: cards is { Count: > 0 } ? cards : fallbackSource?.MatchedContentCards,
+            ProfileSignals: CloneSourceProfileSignalsRef(ConvertProfileSignals(item.ProfileSignals) ?? fallbackSource?.ProfileSignals),
             SelectionHintEvidenceRole: NullIfWhiteSpace(item.SelectionHints?.EvidenceRole) ?? fallbackSource?.SelectionHintEvidenceRole,
             SelectionHintActionabilityScore: item.SelectionHints is not null ? item.SelectionHints.ActionabilityScore : fallbackSource?.SelectionHintActionabilityScore,
             SelectionHintSupportScore: item.SelectionHints is not null ? item.SelectionHints.SupportScore : fallbackSource?.SelectionHintSupportScore,
@@ -515,6 +517,7 @@ public sealed partial class ToolAgentOrchestrator
             ExtractionDiagnosticSummary = CloneSourceExtractionDiagnostic(source.ExtractionDiagnosticSummary ?? chunk.ExtractionDiagnosticSummary),
             QualitySignals = source.QualitySignals.Count > 0 ? source.QualitySignals : chunk.QualitySignals,
             MatchedContentCards = source.MatchedContentCards.Count > 0 ? source.MatchedContentCards : chunk.MatchedContentCards,
+            ProfileSignals = CloneSourceProfileSignalsRef(source.ProfileSignals ?? chunk.ProfileSignals),
             SelectionHintEvidenceRole = NullIfWhiteSpace(source.SelectionHintEvidenceRole) ?? chunk.SelectionHintEvidenceRole,
             SelectionHintActionabilityScore = source.SelectionHintActionabilityScore ?? chunk.SelectionHintActionabilityScore,
             SelectionHintSupportScore = source.SelectionHintSupportScore ?? chunk.SelectionHintSupportScore,
@@ -527,6 +530,35 @@ public sealed partial class ToolAgentOrchestrator
             ContentDensityScore = source.ContentDensityScore ?? chunk.ContentDensityScore
         };
     }
+
+    private static ToolMemory.SourceProfileSignalsRef? ConvertProfileSignals(SAAIA.Contracts.RagItemProfileSignals? profile)
+    {
+        if (profile is null)
+            return null;
+
+        var converted = new ToolMemory.SourceProfileSignalsRef
+        {
+            ProfileVersion = NullIfWhiteSpace(profile.ProfileVersion),
+            Language = NullIfWhiteSpace(profile.Language),
+            Keywords = NormalizeProfileSignalList(profile.Keywords, 8),
+            Entities = NormalizeProfileSignalList(profile.Entities, 8),
+            Topics = NormalizeProfileSignalList(profile.Topics, 8),
+            HypotheticalQuestions = NormalizeProfileSignalList(profile.HypotheticalQuestions, 4),
+            Limits = NormalizeProfileSignalList(profile.Limits, 4),
+            MatchedTerms = NormalizeProfileSignalList(profile.MatchedTerms, 12),
+            MatchCount = profile.MatchCount
+        };
+
+        return ComputeSourceProfileSignalsRichness(converted) == 0 ? null : converted;
+    }
+
+    private static List<string> NormalizeProfileSignalList(IEnumerable<string>? values, int maxItems)
+        => values?
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(static value => value.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(Math.Clamp(maxItems, 1, 24))
+            .ToList() ?? new List<string>();
 
     private static List<SummaryChunk> SelectRepresentativeSummaryChunks(IReadOnlyList<SummaryChunk> orderedChunks, string strategy, int maxChunks)
     {
@@ -1648,6 +1680,7 @@ public sealed partial class ToolAgentOrchestrator
             provenanceInfo = BuildSourceProvenancePayload(source),
             extractionQuality = BuildSourceExtractionQualityPayload(source),
             matchedContentCards = BuildSourceContentCardsPayload(source),
+            profileSignals = BuildSourceProfileSignalsPayload(source),
             selectionHints = BuildSourceSelectionHintsPayload(source),
             contentSignals = BuildSourceContentSignalsPayload(source)
         };

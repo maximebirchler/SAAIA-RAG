@@ -137,6 +137,21 @@ public sealed record RagItemSelectionHintsDto(
 );
 
 /// <summary>
+/// Compact document-profile signals that explain a profile match without exposing full backend-only search text.
+/// </summary>
+public sealed record RagItemProfileSignalsDto(
+    string? ProfileVersion = null,
+    string? Language = null,
+    IReadOnlyList<string>? Keywords = null,
+    IReadOnlyList<string>? Entities = null,
+    IReadOnlyList<string>? Topics = null,
+    IReadOnlyList<string>? HypotheticalQuestions = null,
+    IReadOnlyList<string>? Limits = null,
+    IReadOnlyList<string>? MatchedTerms = null,
+    int? MatchCount = null
+);
+
+/// <summary>
 /// Retrieval item returned by POST /rag/search.
 /// Flat fields are kept for compatibility while structured fields progressively align the contract with CDC v3.1.
 /// </summary>
@@ -179,7 +194,8 @@ public sealed record RagItemDto(
     bool? HypQuestionsMatched = null,
     RagItemExtractionQualityDto? ExtractionQuality = null,
     IReadOnlyList<RagItemContentCardDto>? MatchedContentCards = null,
-    RagItemSelectionHintsDto? SelectionHints = null
+    RagItemSelectionHintsDto? SelectionHints = null,
+    RagItemProfileSignalsDto? ProfileSignals = null
 );
 
 /// <summary>

@@ -163,6 +163,7 @@ Rules:
                             ["chunkId"] = anchorSource?.ChunkId ?? TryGetString(a, "chunkId") ?? TryGetString(a, "ChunkId") ?? rootSource?.ChunkId,
                             ["extractionQuality"] = CompactExtractionQualityForPrompt(a) ?? (anchorSource is null ? null : BuildSourceExtractionQualityPayload(anchorSource)) ?? (rootSource is null ? null : BuildSourceExtractionQualityPayload(rootSource)),
                             ["matchedContentCards"] = CompactMatchedContentCardsForPrompt(a) ?? (anchorSource is null ? null : BuildSourceContentCardsPayload(anchorSource)) ?? (rootSource is null ? null : BuildSourceContentCardsPayload(rootSource)),
+                            ["profileSignals"] = CompactProfileSignalsForPrompt(a) ?? (anchorSource is null ? null : BuildSourceProfileSignalsPayload(anchorSource)) ?? (rootSource is null ? null : BuildSourceProfileSignalsPayload(rootSource)),
                             ["selectionHints"] = CompactSelectionHintsForPrompt(a) ?? (anchorSource is null ? null : BuildSourceSelectionHintsPayload(anchorSource)) ?? (rootSource is null ? null : BuildSourceSelectionHintsPayload(rootSource)),
                             ["contentSignals"] = CompactRetrievalContentSignalsForPrompt(a) ?? (anchorSource is null ? null : BuildSourceContentSignalsPayload(anchorSource)) ?? (rootSource is null ? null : BuildSourceContentSignalsPayload(rootSource))
                         };
@@ -200,6 +201,7 @@ Rules:
                         ["chunkId"] = TryGetString(item.Result, "chunkId") ?? TryGetString(item.Result, "ChunkId"),
                         ["extractionQuality"] = CompactExtractionQualityForPrompt(item.Result),
                         ["matchedContentCards"] = CompactMatchedContentCardsForPrompt(item.Result),
+                        ["profileSignals"] = CompactProfileSignalsForPrompt(item.Result),
                         ["selectionHints"] = CompactSelectionHintsForPrompt(item.Result),
                         ["contentSignals"] = CompactRetrievalContentSignalsForPrompt(item.Result)
                     };

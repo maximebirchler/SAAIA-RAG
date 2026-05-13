@@ -281,6 +281,36 @@ public sealed class RagItemSelectionHints
     public int QualityPenalty { get; set; }
 }
 
+public sealed class RagItemProfileSignals
+{
+    [JsonPropertyName("profileVersion")]
+    public string? ProfileVersion { get; set; }
+
+    [JsonPropertyName("language")]
+    public string? Language { get; set; }
+
+    [JsonPropertyName("keywords")]
+    public List<string>? Keywords { get; set; }
+
+    [JsonPropertyName("entities")]
+    public List<string>? Entities { get; set; }
+
+    [JsonPropertyName("topics")]
+    public List<string>? Topics { get; set; }
+
+    [JsonPropertyName("hypotheticalQuestions")]
+    public List<string>? HypotheticalQuestions { get; set; }
+
+    [JsonPropertyName("limits")]
+    public List<string>? Limits { get; set; }
+
+    [JsonPropertyName("matchedTerms")]
+    public List<string>? MatchedTerms { get; set; }
+
+    [JsonPropertyName("matchCount")]
+    public int? MatchCount { get; set; }
+}
+
 public sealed class RagItem
 {
     [JsonPropertyName("score")]
@@ -390,6 +420,9 @@ public sealed class RagItem
 
     [JsonPropertyName("selectionHints")]
     public RagItemSelectionHints? SelectionHints { get; set; }
+
+    [JsonPropertyName("profileSignals")]
+    public RagItemProfileSignals? ProfileSignals { get; set; }
 }
 
 public sealed class RagAnswerGuidance
@@ -671,6 +704,9 @@ public sealed class ResolvedSourceDto
 
     [JsonPropertyName("selectionHints")]
     public RagItemSelectionHints? SelectionHints { get; set; }
+
+    [JsonPropertyName("profileSignals")]
+    public RagItemProfileSignals? ProfileSignals { get; set; }
 }
 
 public sealed class SourceResolveResponse
@@ -737,6 +773,9 @@ public sealed class SummaryGetResponse
 
     [JsonPropertyName("selectionHints")]
     public RagItemSelectionHints? SelectionHints { get; set; }
+
+    [JsonPropertyName("profileSignals")]
+    public RagItemProfileSignals? ProfileSignals { get; set; }
 
     [JsonPropertyName("source")]
     public ResolvedSourceDto? Source { get; set; }

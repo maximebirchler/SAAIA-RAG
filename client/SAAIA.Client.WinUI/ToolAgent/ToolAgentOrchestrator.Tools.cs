@@ -63,6 +63,7 @@ public sealed partial class ToolAgentOrchestrator
         ToolMemory.SourceExtractionDiagnosticRef? ExtractionDiagnosticSummary = null,
         IReadOnlyList<string>? QualitySignals = null,
         IReadOnlyList<ToolMemory.SourceContentCardRef>? MatchedContentCards = null,
+        ToolMemory.SourceProfileSignalsRef? ProfileSignals = null,
         string? SelectionHintEvidenceRole = null,
         int? SelectionHintActionabilityScore = null,
         int? SelectionHintSupportScore = null,

@@ -162,6 +162,7 @@ public static class SourceCardParser
         var score = GetDoubleAny(el, "score", "Score", "similarity", "Similarity", "rerankScore", "RerankScore");
         var extractionQuality = TryGetObjectAny(el, "extractionQuality", "extraction_quality", "ExtractionQuality");
         var selectionHints = TryGetObjectAny(el, "selectionHints", "selection_hints", "SelectionHints");
+        var profileSignals = TryGetObjectAny(el, "profileSignals", "profile_signals", "ProfileSignals");
         var contentSignals = TryGetObjectAny(el, "contentSignals", "content_signals", "ContentSignals")
                              ?? TryGetObjectAny(el, "context", "Context");
         var provenanceInfo = TryGetObjectAny(el, "provenanceInfo", "provenance_info", "ProvenanceInfo");
@@ -299,6 +300,7 @@ public static class SourceCardParser
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList(),
             MatchedContentCards = ExtractMatchedContentCards(el),
+            ProfileSignals = ParseProfileSignals(profileSignals),
             SelectionHintEvidenceRole = selectionHints is null
                 ? GetStringAny(el, "selectionHintEvidenceRole", "selection_hint_evidence_role", "evidenceRole", "EvidenceRole")
                 : GetStringAny(selectionHints.Value, "evidenceRole", "evidence_role", "EvidenceRole"),
@@ -562,6 +564,56 @@ public static class SourceCardParser
         }
 
         return result;
+    }
+
+    private static SourceProfileSignals? ParseProfileSignals(JsonElement? profile)
+    {
+        if (profile is not { ValueKind: JsonValueKind.Object } value)
+            return null;
+
+        var result = new SourceProfileSignals
+        {
+            ProfileVersion = GetStringAny(value, "profileVersion", "profile_version", "ProfileVersion"),
+            Language = GetStringAny(value, "language", "Language", "profileLanguage", "ProfileLanguage"),
+            Keywords = ExtractStringList(value, "keywords", "keywordMatches", "Keywords", "KeywordMatches").Take(8).ToList(),
+            Entities = ExtractStringList(value, "entities", "entityMatches", "Entities", "EntityMatches").Take(8).ToList(),
+            Topics = ExtractStringList(value, "topics", "topicMatches", "Topics", "TopicMatches").Take(8).ToList(),
+            HypotheticalQuestions = ExtractStringList(value, "hypotheticalQuestions", "hypothetical_questions", "HypotheticalQuestions").Take(4).ToList(),
+            Limits = ExtractStringList(value, "limits", "limitMatches", "Limits", "LimitMatches").Take(4).ToList(),
+            MatchedTerms = ExtractStringList(value, "matchedTerms", "matched_terms", "MatchedTerms").Take(12).ToList(),
+            MatchCount = GetIntAny(value, "matchCount", "match_count", "MatchCount")
+        };
+
+        var hasValues = !string.IsNullOrWhiteSpace(result.ProfileVersion)
+                        || !string.IsNullOrWhiteSpace(result.Language)
+                        || result.Keywords.Count > 0
+                        || result.Entities.Count > 0
+                        || result.Topics.Count > 0
+                        || result.HypotheticalQuestions.Count > 0
+                        || result.Limits.Count > 0
+                        || result.MatchedTerms.Count > 0
+                        || result.MatchCount is > 0;
+
+        return hasValues ? result : null;
+    }
+
+    private static IEnumerable<string> ExtractStringList(JsonElement source, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (source.ValueKind != JsonValueKind.Object
+                || !source.TryGetProperty(name, out var values)
+                || values.ValueKind != JsonValueKind.Array)
+            {
+                continue;
+            }
+
+            foreach (var value in values.EnumerateArray())
+            {
+                if (value.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(value.GetString()))
+                    yield return value.GetString()!.Trim();
+            }
+        }
     }
 
     private static JsonElement? ExtractEvidence(JsonElement card)

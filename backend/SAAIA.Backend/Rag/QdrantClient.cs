@@ -234,6 +234,18 @@ public sealed record RagMatchedContentCard(
     JsonElement? Evidence = null
 );
 
+public sealed record RagProfileSignals(
+    string? ProfileVersion = null,
+    string? Language = null,
+    IReadOnlyList<string>? Keywords = null,
+    IReadOnlyList<string>? Entities = null,
+    IReadOnlyList<string>? Topics = null,
+    IReadOnlyList<string>? HypotheticalQuestions = null,
+    IReadOnlyList<string>? Limits = null,
+    IReadOnlyList<string>? MatchedTerms = null,
+    int? MatchCount = null
+);
+
 public sealed record RagMatch(
     double Score,
     string? DocId,
@@ -267,5 +279,6 @@ public sealed record RagMatch(
     double? NavigationScore = null,
     double? ContentDensityScore = null,
     string? EmbeddingModel = null,
-    string? EmbeddingInputFormat = null
+    string? EmbeddingInputFormat = null,
+    RagProfileSignals? ProfileSignals = null
 );

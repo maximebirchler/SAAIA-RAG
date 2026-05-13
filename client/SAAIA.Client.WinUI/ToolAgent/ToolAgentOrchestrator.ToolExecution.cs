@@ -427,6 +427,7 @@ public sealed partial class ToolAgentOrchestrator
                 contentSignals = BuildSourceContentSignalsPayload(source),
                 extractionQuality = BuildSourceExtractionQualityPayload(source),
                 matchedContentCards = BuildSourceContentCardsPayload(source),
+                profileSignals = BuildSourceProfileSignalsPayload(source),
                 selectionHints = BuildSourceSelectionHintsPayload(source)
             }
         };
@@ -474,6 +475,7 @@ public sealed partial class ToolAgentOrchestrator
         SetObjectIfMissingOrEmpty(sourceNode, "contentSignals", BuildSourceContentSignalsPayload(source));
         MergeObjectFieldsIfMissing(sourceNode, "extractionQuality", BuildSourceExtractionQualityPayload(source));
         SetObjectIfMissingOrEmpty(sourceNode, "matchedContentCards", BuildSourceContentCardsPayload(source));
+        SetObjectIfMissingOrEmpty(sourceNode, "profileSignals", BuildSourceProfileSignalsPayload(source));
         SetObjectIfMissingOrEmpty(sourceNode, "selectionHints", BuildSourceSelectionHintsPayload(source));
         if (preferPreciseMemory)
             ApplyPreciseSourceOverride(sourceNode, source);
@@ -499,6 +501,7 @@ public sealed partial class ToolAgentOrchestrator
         SetObjectIfPresent(sourceNode, "contentSignals", BuildSourceContentSignalsPayload(source));
         SetObjectIfPresent(sourceNode, "extractionQuality", BuildSourceExtractionQualityPayload(source));
         SetObjectIfPresent(sourceNode, "matchedContentCards", BuildSourceContentCardsPayload(source));
+        SetObjectIfPresent(sourceNode, "profileSignals", BuildSourceProfileSignalsPayload(source));
         SetObjectIfPresent(sourceNode, "selectionHints", BuildSourceSelectionHintsPayload(source));
     }
 
@@ -565,6 +568,9 @@ public sealed partial class ToolAgentOrchestrator
                     ? new[] { fallback, source }
                     : new[] { source, fallback },
                 maxCards: 5),
+            ProfileSignals = MergeSourceProfileSignals(usePreciseFallback
+                ? new[] { fallback, source }
+                : new[] { source, fallback }),
             SelectionHintEvidenceRole = NullIfWhiteSpace(selectionHintSource.SelectionHintEvidenceRole) ?? NullIfWhiteSpace(source.SelectionHintEvidenceRole) ?? NullIfWhiteSpace(fallback.SelectionHintEvidenceRole),
             SelectionHintActionabilityScore = selectionHintSource.SelectionHintActionabilityScore ?? source.SelectionHintActionabilityScore ?? fallback.SelectionHintActionabilityScore,
             SelectionHintSupportScore = selectionHintSource.SelectionHintSupportScore ?? source.SelectionHintSupportScore ?? fallback.SelectionHintSupportScore,

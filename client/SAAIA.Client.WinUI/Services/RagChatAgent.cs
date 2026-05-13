@@ -494,6 +494,18 @@ public sealed class RagChatAgent
                 })
                 .Take(5)
                 .ToList(),
+            profileSignals = item.ProfileSignals is null ? null : new
+            {
+                item.ProfileSignals.ProfileVersion,
+                item.ProfileSignals.Language,
+                item.ProfileSignals.Keywords,
+                item.ProfileSignals.Entities,
+                item.ProfileSignals.Topics,
+                item.ProfileSignals.HypotheticalQuestions,
+                item.ProfileSignals.Limits,
+                item.ProfileSignals.MatchedTerms,
+                item.ProfileSignals.MatchCount
+            },
             selectionHints = item.SelectionHints is null ? null : new
             {
                 item.SelectionHints.EvidenceRole,

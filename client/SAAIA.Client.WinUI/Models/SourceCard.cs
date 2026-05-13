@@ -44,6 +44,7 @@ public sealed class SourceCard
     public SourceExtractionDiagnosticSummary? ExtractionDiagnosticSummary { get; set; }
     public List<string> QualitySignals { get; set; } = new();
     public List<SourceContentCard> MatchedContentCards { get; set; } = new();
+    public SourceProfileSignals? ProfileSignals { get; set; }
     public string? SelectionHintEvidenceRole { get; set; }
     public int? SelectionHintActionabilityScore { get; set; }
     public int? SelectionHintSupportScore { get; set; }
@@ -91,4 +92,17 @@ public sealed class SourceContentCard
     public string? Kind { get; set; }
     public List<string> Signals { get; set; } = new();
     public JsonElement? Evidence { get; set; }
+}
+
+public sealed class SourceProfileSignals
+{
+    public string? ProfileVersion { get; set; }
+    public string? Language { get; set; }
+    public List<string> Keywords { get; set; } = new();
+    public List<string> Entities { get; set; } = new();
+    public List<string> Topics { get; set; } = new();
+    public List<string> HypotheticalQuestions { get; set; } = new();
+    public List<string> Limits { get; set; } = new();
+    public List<string> MatchedTerms { get; set; } = new();
+    public int? MatchCount { get; set; }
 }

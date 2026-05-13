@@ -72,6 +72,48 @@ public sealed class RagContextBudgetRegressionTests
     }
 
     [Fact]
+    public void Normalized_rag_hits_preserve_profile_signals_for_source_cards()
+    {
+        const string payload = """
+        {
+          "items": [
+            {
+              "docId": "doc-42",
+              "docPath": "Knowledge/manual.pdf",
+              "docName": "manual.pdf",
+              "pageStart": 7,
+              "pageEnd": 8,
+              "text": "Document profile evidence.",
+              "score": 0.87,
+              "profileSignals": {
+                "profileVersion": "llm_backoffice_v1",
+                "language": "nl",
+                "keywords": ["maintenance"],
+                "entities": ["IND570"],
+                "topics": ["operator checks"],
+                "hypotheticalQuestions": ["Which checks are required?"],
+                "limits": ["Use page chunks for exact parameters."],
+                "matchedTerms": ["checks"],
+                "matchCount": 3
+              }
+            }
+          ]
+        }
+        """;
+
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var hitSignals = normalized.GetProperty("hits")[0].GetProperty("profileSignals");
+        var sourcesJson = ToolAgentOrchestrator.BuildRagSearchSourcesPayloadForTests(normalized.GetRawText());
+        var card = Assert.Single(SourceCardParser.Parse(sourcesJson));
+
+        Assert.Equal("llm_backoffice_v1", hitSignals.GetProperty("profileVersion").GetString());
+        Assert.Equal("nl", card.ProfileSignals?.Language);
+        Assert.Equal("operator checks", Assert.Single(card.ProfileSignals!.Topics));
+        Assert.Equal("Use page chunks for exact parameters.", Assert.Single(card.ProfileSignals.Limits));
+        Assert.Equal(3, card.ProfileSignals.MatchCount);
+    }
+
+    [Fact]
     public void Normalized_rag_hits_preserve_chunk_context_and_offsets_for_source_cards()
     {
         const string payload = """
