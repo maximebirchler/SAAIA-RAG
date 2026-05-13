@@ -175,23 +175,67 @@ ORDER BY ordinal;
         CancellationToken ct)
         => (await conn.QueryAsync<string>(new CommandDefinition(
             """
-WITH ordered_units AS (
+WITH revision AS (
+  SELECT revision_id
+  FROM document_revisions
+  WHERE tenant_id=@tenant
+    AND doc_id=@docId
+    AND indexed_version=@indexedVersion
+),
+source_candidates AS (
+  SELECT
+    rc.text_content,
+    rc.chunk_index AS ordinal,
+    0 AS source_rank,
+    CASE COALESCE(rc.metadata->>'contentRole', 'content')
+      WHEN 'content' THEN 0
+      WHEN 'mixed_navigation_content' THEN 1
+      ELSE 2
+    END AS role_rank,
+    COALESCE(NULLIF(rc.metadata->>'navigationScore', '')::double precision, 0) AS navigation_score,
+    COALESCE(NULLIF(rc.metadata->>'contentDensityScore', '')::double precision, 0) AS content_density_score
+  FROM revision r
+  JOIN retrieval_chunks rc ON rc.revision_id = r.revision_id
+  WHERE length(trim(rc.text_content)) > 0
+    AND COALESCE(rc.metadata->>'contentRole', 'content') <> 'navigation'
+    AND COALESCE(rc.metadata->>'chunkType', '') <> 'navigation_index_v1'
+  UNION ALL
   SELECT
     du.text_content,
     du.ordinal,
-    row_number() OVER (ORDER BY du.ordinal) AS rn,
+    1 AS source_rank,
+    0 AS role_rank,
+    0::double precision AS navigation_score,
+    0::double precision AS content_density_score
+  FROM revision r
+  JOIN document_units du ON du.revision_id = r.revision_id
+  WHERE length(trim(du.text_content)) > 0
+    AND NOT EXISTS (
+      SELECT 1
+      FROM retrieval_chunks rc_any
+      WHERE rc_any.revision_id = r.revision_id
+    )
+),
+ordered_units AS (
+  SELECT
+    text_content,
+    ordinal,
+    source_rank,
+    role_rank,
+    navigation_score,
+    content_density_score,
+    row_number() OVER (ORDER BY ordinal) AS rn,
     count(*) OVER () AS total
-  FROM document_revisions dr
-  JOIN document_units du ON du.revision_id = dr.revision_id
-  WHERE dr.tenant_id=@tenant
-    AND dr.doc_id=@docId
-    AND dr.indexed_version=@indexedVersion
-    AND length(trim(du.text_content)) > 0
+  FROM source_candidates
 ),
 scored_units AS (
   SELECT
     text_content,
     ordinal,
+    source_rank,
+    role_rank,
+    navigation_score,
+    content_density_score,
     rn,
     total,
     CASE
@@ -207,6 +251,10 @@ bucketed AS (
   SELECT
     text_content,
     ordinal,
+    source_rank,
+    role_rank,
+    navigation_score,
+    content_density_score,
     floor(((rn - 1)::numeric * @limit) / greatest(total, 1))::integer AS bucket,
     length(text_content) AS char_count,
     low_value_rank
@@ -218,7 +266,7 @@ ranked AS (
     ordinal,
     row_number() OVER (
       PARTITION BY bucket
-      ORDER BY low_value_rank ASC, char_count DESC, ordinal ASC
+      ORDER BY source_rank ASC, role_rank ASC, low_value_rank ASC, navigation_score ASC, content_density_score DESC, char_count DESC, ordinal ASC
     ) AS bucket_rank
   FROM bucketed
 )

@@ -2409,7 +2409,7 @@ public sealed class DocumentFoundationIntegrationTests
 
         await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 1, indexedVersion: 0);
 
-        var lowValueTableOfContents = "Contents Chapter one ................................................................ 4 Chapter two ................................................................ 8 Chapter three ................................................................ 12";
+        var navigationList = "Safety overview 3 Operation details 8 Maintenance records 12 Validation checks 16 Follow-up actions 20";
         var lowValueCredits = "Writing and acknowledgements: editorial contributors, correction credits, copyright notices, ISBN details, and production thanks should not dominate the representative summary sample.";
         var firstContentExcerpt = "This guide explains how to plan weekly work, prepare reusable materials, and organize recurring tasks.";
         var lowValueReferences = "References: https://example.invalid/source-one https://example.invalid/source-two Long bibliography entry with many details that should not dominate the representative sample.";
@@ -2437,7 +2437,7 @@ public sealed class DocumentFoundationIntegrationTests
             ],
             units:
             [
-                new ExtractedDocumentUnit(0, 0, 1, 1, lowValueTableOfContents, lowValueTableOfContents.Length, 20, [3]),
+                new ExtractedDocumentUnit(0, 0, 1, 1, navigationList, navigationList.Length, 20, [3]),
                 new ExtractedDocumentUnit(1, 0, 1, 1, lowValueCredits, lowValueCredits.Length, 18, [4]),
                 new ExtractedDocumentUnit(2, 0, 1, 1, firstContentExcerpt, firstContentExcerpt.Length, 12, [5]),
                 new ExtractedDocumentUnit(3, 1, 2, 2, lowValueReferences, lowValueReferences.Length, 18, [6]),
@@ -2445,8 +2445,9 @@ public sealed class DocumentFoundationIntegrationTests
             ],
             retrievalChunks:
             [
-                new ProjectedRetrievalChunk(0, 2, 2, 1, 1, firstContentExcerpt, 12, [8], "unit_exact_v1"),
-                new ProjectedRetrievalChunk(1, 4, 4, 2, 2, secondContentExcerpt, 12, [9], "unit_exact_v1")
+                new ProjectedRetrievalChunk(0, 0, 0, 1, 1, navigationList, 20, [8], "navigation_index_v1", ContentRole: RetrievalContentClassifier.NavigationRole, NavigationScore: 0.95, ContentDensityScore: 0.10),
+                new ProjectedRetrievalChunk(1, 2, 2, 1, 1, firstContentExcerpt, 12, [9], "unit_exact_v1", ContentRole: RetrievalContentClassifier.ContentRole, NavigationScore: 0.05, ContentDensityScore: 0.95),
+                new ProjectedRetrievalChunk(2, 4, 4, 2, 2, secondContentExcerpt, 12, [10], "unit_exact_v1", ContentRole: RetrievalContentClassifier.ContentRole, NavigationScore: 0.04, ContentDensityScore: 0.94)
             ],
             exactMatchEntries:
             [
