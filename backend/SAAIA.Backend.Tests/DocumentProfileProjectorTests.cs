@@ -41,6 +41,56 @@ public sealed class DocumentProfileProjectorTests
     }
 
     [Fact]
+    public void Project_does_not_create_profile_cards_from_sparse_low_quality_fragments()
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                1,
+                "small shim",
+                2,
+                10,
+                [1],
+                Quality: new PdfPageExtractionQuality(
+                    "low_text",
+                    TextEmpty: false,
+                    TextSparse: true,
+                    OcrCandidate: true,
+                    AverageCharsPerWord: 5.0,
+                    Signals: ["sparse_text_on_page"]))
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "small shim",
+                10,
+                2,
+                [2],
+                ExtractionTextStatus: "low_text",
+                ExtractionTextSparse: true,
+                ExtractionOcrCandidate: true,
+                ExtractionQualitySignals: ["sparse_text_on_page"])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/SparseFragment.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "small shim", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void Project_does_not_create_content_cards_from_navigation_sections()
     {
         var pages = new[]

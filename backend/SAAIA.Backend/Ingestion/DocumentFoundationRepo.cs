@@ -1748,7 +1748,11 @@ SET section_id = EXCLUDED.section_id,
             {
                 inferred = true,
                 offsetStart = unit.OffsetStart,
-                offsetEnd = unit.OffsetEnd
+                offsetEnd = unit.OffsetEnd,
+                extractionTextStatus = NormalizeOptionalPostgresTextForStorage(unit.ExtractionTextStatus),
+                extractionTextSparse = unit.ExtractionTextSparse,
+                extractionOcrCandidate = unit.ExtractionOcrCandidate,
+                extractionQualitySignals = NormalizePostgresTextArrayForStorage(unit.ExtractionQualitySignals ?? Array.Empty<string>())
             });
 
             sectionIdsByOrdinal.TryGetValue(unit.SectionOrdinal ?? -1, out var sectionId);
@@ -1864,6 +1868,10 @@ SET retrieval_chunk_id = EXCLUDED.retrieval_chunk_id,
                 originalChunkType = NormalizeOptionalPostgresTextForStorage(chunk.OriginalChunkType),
                 navigationScore = Math.Round(chunk.NavigationScore, 4),
                 contentDensityScore = Math.Round(chunk.ContentDensityScore, 4),
+                extractionTextStatus = NormalizeOptionalPostgresTextForStorage(chunk.ExtractionTextStatus),
+                extractionTextSparse = chunk.ExtractionTextSparse,
+                extractionOcrCandidate = chunk.ExtractionOcrCandidate,
+                extractionQualitySignals = NormalizePostgresTextArrayForStorage(chunk.ExtractionQualitySignals ?? Array.Empty<string>()),
                 sectionTitle = storedSectionTitle,
                 headingPath = storedHeadingPath,
                 offsetStart = chunk.OffsetStart,

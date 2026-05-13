@@ -38,7 +38,8 @@ internal static partial class RetrievalChunkProjector
                 chunk.Text,
                 ResolveExcerptOffsetStart(unit, chunk.Text),
                 ResolveExcerptOffsetEnd(unit, chunk.Text),
-                chunkType: "legacy_word_window_v1"));
+                chunkType: "legacy_word_window_v1",
+                sourceUnits: unit is null ? [] : [unit]));
         }
 
         return projected;
@@ -132,7 +133,8 @@ internal static partial class RetrievalChunkProjector
                         chunkText,
                         first.OffsetStart,
                         last.OffsetEnd,
-                        chunkType: window.Count == 1 ? "unit_exact_v1" : "section_window_v1"));
+                        chunkType: ResolveStructureAwareChunkType(window),
+                        sourceUnits: window));
                 }
 
                 if (cursor >= sectionUnits.Count)
@@ -159,7 +161,8 @@ internal static partial class RetrievalChunkProjector
                 text,
                 first.OffsetStart,
                 last.OffsetEnd,
-                chunkType: "document_window_v1"));
+                chunkType: "document_window_v1",
+                sourceUnits: fallback));
         }
 
         return chunks;
@@ -181,6 +184,8 @@ internal static partial class RetrievalChunkProjector
         {
             if (existingExactUnitOrdinals.Contains(unit.Ordinal))
                 continue;
+            if (ExtractionQualityPolicy.ShouldRestrictUnitToTargetedReferences(unit))
+                continue;
             if (!LooksLikeHighSignalUnit(unit))
                 continue;
 
@@ -193,7 +198,8 @@ internal static partial class RetrievalChunkProjector
                 unit.Text,
                 unit.OffsetStart,
                 unit.OffsetEnd,
-                chunkType: "unit_exact_v1"));
+                chunkType: "unit_exact_v1",
+                sourceUnits: [unit]));
 
             existingExactUnitOrdinals.Add(unit.Ordinal);
         }
@@ -201,6 +207,14 @@ internal static partial class RetrievalChunkProjector
 
     private static bool WindowContainsHighSignalUnit(IReadOnlyList<ExtractedDocumentUnit> window)
         => window.Any(LooksLikeHighSignalUnit);
+
+    private static string ResolveStructureAwareChunkType(IReadOnlyList<ExtractedDocumentUnit> window)
+    {
+        if (window.Count == 1 && !ExtractionQualityPolicy.ShouldRestrictUnitToTargetedReferences(window[0]))
+            return "unit_exact_v1";
+
+        return "section_window_v1";
+    }
 
     private static bool LooksLikeHighSignalUnit(ExtractedDocumentUnit unit)
     {
@@ -325,11 +339,13 @@ internal static partial class RetrievalChunkProjector
         string text,
         int? offsetStart,
         int? offsetEnd,
-        string chunkType)
+        string chunkType,
+        IReadOnlyList<ExtractedDocumentUnit> sourceUnits)
     {
         var normalizedText = NormalizeRetrievalText(text);
         var prefixedText = PrefixDetectedEmbeddedTitle(normalizedText);
         var classification = RetrievalContentClassifier.ClassifyChunk(prefixedText, chunkType);
+        var extractionQuality = ResolveExtractionQuality(sourceUnits);
 
         return new(
             ChunkIndex: chunkIndex,
@@ -347,7 +363,54 @@ internal static partial class RetrievalChunkProjector
             NavigationReason: classification.NavigationReason,
             OriginalChunkType: classification.OriginalChunkType,
             NavigationScore: classification.NavigationScore,
-            ContentDensityScore: classification.ContentDensityScore);
+            ContentDensityScore: classification.ContentDensityScore,
+            ExtractionTextStatus: extractionQuality.TextStatus,
+            ExtractionTextSparse: extractionQuality.TextSparse,
+            ExtractionOcrCandidate: extractionQuality.OcrCandidate,
+            ExtractionQualitySignals: extractionQuality.Signals);
+    }
+
+    private static RetrievalChunkExtractionQuality ResolveExtractionQuality(IReadOnlyList<ExtractedDocumentUnit> units)
+    {
+        if (units.Count == 0)
+            return new(null, false, false, []);
+
+        var signals = units
+            .SelectMany(static unit => unit.ExtractionQualitySignals ?? [])
+            .Where(static signal => !string.IsNullOrWhiteSpace(signal))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var status = ResolveWorstTextStatus(units.Select(static unit => unit.ExtractionTextStatus));
+        return new RetrievalChunkExtractionQuality(
+            status,
+            units.Any(static unit => unit.ExtractionTextSparse),
+            units.Any(static unit => unit.ExtractionOcrCandidate),
+            signals);
+    }
+
+    private static string? ResolveWorstTextStatus(IEnumerable<string?> statuses)
+    {
+        var score = 0;
+        string? result = null;
+        foreach (var status in statuses)
+        {
+            var currentScore = status switch
+            {
+                "empty_text" => 4,
+                "low_text" => 3,
+                "ok" => 1,
+                null or "" => 0,
+                _ => 2
+            };
+
+            if (currentScore > score)
+            {
+                score = currentScore;
+                result = status;
+            }
+        }
+
+        return result;
     }
 
     private static string NormalizeRetrievalText(string text)
@@ -639,4 +702,14 @@ internal sealed record ProjectedRetrievalChunk(
     string? NavigationReason = null,
     string? OriginalChunkType = null,
     double NavigationScore = 0.0,
-    double ContentDensityScore = 0.0);
+    double ContentDensityScore = 0.0,
+    string? ExtractionTextStatus = null,
+    bool ExtractionTextSparse = false,
+    bool ExtractionOcrCandidate = false,
+    IReadOnlyList<string>? ExtractionQualitySignals = null);
+
+internal sealed record RetrievalChunkExtractionQuality(
+    string? TextStatus,
+    bool TextSparse,
+    bool OcrCandidate,
+    IReadOnlyList<string> Signals);

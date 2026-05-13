@@ -26,7 +26,8 @@ internal static partial class ExactMatchEntryExtractor
                 .Select(NormalizeWhitespace)
                 .Where(static v => !string.IsNullOrWhiteSpace(v));
 
-            var candidates = SplitCandidates(normalizedUnit)
+            var restrictToTargetedReferences = ExtractionQualityPolicy.ShouldRestrictUnitToTargetedReferences(unit);
+            var candidates = (restrictToTargetedReferences ? Enumerable.Empty<string>() : SplitCandidates(normalizedUnit))
                 .Concat(references)
                 .Concat(referenceVariants)
                 .Select(NormalizeWhitespace)

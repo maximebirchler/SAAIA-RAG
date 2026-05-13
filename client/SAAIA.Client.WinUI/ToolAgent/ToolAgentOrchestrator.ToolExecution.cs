@@ -456,6 +456,7 @@ public sealed partial class ToolAgentOrchestrator
         SetStringIfMissing(sourceNode, "categoryRef", source.CategoryRef);
         SetStringIfMissing(sourceNode, "categoryPath", source.CategoryPath);
         SetStringIfMissing(sourceNode, "chunkId", source.ChunkId);
+        SetObjectIfMissingOrEmpty(sourceNode, "contentSignals", BuildSourceContentSignalsPayload(source));
         MergeObjectFieldsIfMissing(sourceNode, "extractionQuality", BuildSourceExtractionQualityPayload(source));
         SetObjectIfMissingOrEmpty(sourceNode, "matchedContentCards", BuildSourceContentCardsPayload(source));
         SetObjectIfMissingOrEmpty(sourceNode, "selectionHints", BuildSourceSelectionHintsPayload(source));
@@ -473,6 +474,7 @@ public sealed partial class ToolAgentOrchestrator
         SetNumberIfPresent(sourceNode, "pageStart", source.PageStart);
         SetNumberIfPresent(sourceNode, "pageEnd", source.PageEnd);
         SetStringIfPresent(sourceNode, "chunkId", source.ChunkId);
+        SetObjectIfPresent(sourceNode, "contentSignals", BuildSourceContentSignalsPayload(source));
         SetObjectIfPresent(sourceNode, "extractionQuality", BuildSourceExtractionQualityPayload(source));
         SetObjectIfPresent(sourceNode, "matchedContentCards", BuildSourceContentCardsPayload(source));
         SetObjectIfPresent(sourceNode, "selectionHints", BuildSourceSelectionHintsPayload(source));
@@ -487,6 +489,7 @@ public sealed partial class ToolAgentOrchestrator
         var pageSource = usePreciseFallback ? fallback : source;
         var selectionHintSource = usePreciseFallback ? fallback : source;
         var pageQualitySource = usePreciseFallback ? fallback : source;
+        var contentSignalSource = usePreciseFallback ? fallback : source;
 
         return new ToolMemory.SourceRef
         {
@@ -537,7 +540,11 @@ public sealed partial class ToolAgentOrchestrator
             SelectionHintSupportScore = selectionHintSource.SelectionHintSupportScore ?? source.SelectionHintSupportScore ?? fallback.SelectionHintSupportScore,
             SelectionHintFragmentScore = selectionHintSource.SelectionHintFragmentScore ?? source.SelectionHintFragmentScore ?? fallback.SelectionHintFragmentScore,
             SelectionHintNavigationScore = selectionHintSource.SelectionHintNavigationScore ?? source.SelectionHintNavigationScore ?? fallback.SelectionHintNavigationScore,
-            SelectionHintQualityPenalty = selectionHintSource.SelectionHintQualityPenalty ?? source.SelectionHintQualityPenalty ?? fallback.SelectionHintQualityPenalty
+            SelectionHintQualityPenalty = selectionHintSource.SelectionHintQualityPenalty ?? source.SelectionHintQualityPenalty ?? fallback.SelectionHintQualityPenalty,
+            ContentRole = NullIfWhiteSpace(contentSignalSource.ContentRole) ?? NullIfWhiteSpace(source.ContentRole) ?? NullIfWhiteSpace(fallback.ContentRole),
+            NavigationReason = NullIfWhiteSpace(contentSignalSource.NavigationReason) ?? NullIfWhiteSpace(source.NavigationReason) ?? NullIfWhiteSpace(fallback.NavigationReason),
+            RetrievalNavigationScore = contentSignalSource.RetrievalNavigationScore ?? source.RetrievalNavigationScore ?? fallback.RetrievalNavigationScore,
+            ContentDensityScore = contentSignalSource.ContentDensityScore ?? source.ContentDensityScore ?? fallback.ContentDensityScore
         };
     }
 

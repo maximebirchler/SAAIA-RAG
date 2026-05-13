@@ -639,6 +639,12 @@ CURRENT_USER_MESSAGE:
 
         var quality = ExtractRagHitExtractionQualitySignals(src);
         var qualityElement = TryGetObject(src, "extractionQuality") ?? TryGetObject(src, "extraction_quality") ?? TryGetObject(src, "ExtractionQuality");
+        var contentSignalsElement =
+            TryGetObject(src, "contentSignals")
+            ?? TryGetObject(src, "content_signals")
+            ?? TryGetObject(src, "ContentSignals")
+            ?? TryGetObject(src, "context")
+            ?? TryGetObject(src, "Context");
         var diagnosticSummary = TryBuildSourceExtractionDiagnosticRef(src, qualityElement);
         var extractionSource = qualityElement.HasValue
             ? TryGetString(qualityElement.Value, "extractionSource") ?? TryGetString(qualityElement.Value, "extraction_source") ?? TryGetString(qualityElement.Value, "ExtractionSource")
@@ -687,6 +693,22 @@ CURRENT_USER_MESSAGE:
             .Take(5)
             .ToList() ?? new List<ToolMemory.SourceContentCardRef>();
         var selectionHints = TryGetObject(src, "selectionHints") ?? TryGetObject(src, "selection_hints") ?? TryGetObject(src, "SelectionHints");
+        var contentRole = contentSignalsElement.HasValue
+            ? TryGetString(contentSignalsElement.Value, "contentRole") ?? TryGetString(contentSignalsElement.Value, "content_role") ?? TryGetString(contentSignalsElement.Value, "ContentRole")
+            : null;
+        contentRole ??= TryGetString(src, "contentRole") ?? TryGetString(src, "content_role") ?? TryGetString(src, "ContentRole");
+        var navigationReason = contentSignalsElement.HasValue
+            ? TryGetString(contentSignalsElement.Value, "navigationReason") ?? TryGetString(contentSignalsElement.Value, "navigation_reason") ?? TryGetString(contentSignalsElement.Value, "NavigationReason")
+            : null;
+        navigationReason ??= TryGetString(src, "navigationReason") ?? TryGetString(src, "navigation_reason") ?? TryGetString(src, "NavigationReason");
+        var retrievalNavigationScore = contentSignalsElement.HasValue
+            ? TryGetDouble(contentSignalsElement.Value, "retrievalNavigationScore") ?? TryGetDouble(contentSignalsElement.Value, "retrieval_navigation_score") ?? TryGetDouble(contentSignalsElement.Value, "RetrievalNavigationScore") ?? TryGetDouble(contentSignalsElement.Value, "navigationScore") ?? TryGetDouble(contentSignalsElement.Value, "navigation_score") ?? TryGetDouble(contentSignalsElement.Value, "NavigationScore")
+            : null;
+        retrievalNavigationScore ??= TryGetDouble(src, "retrievalNavigationScore") ?? TryGetDouble(src, "retrieval_navigation_score") ?? TryGetDouble(src, "RetrievalNavigationScore") ?? TryGetDouble(src, "navigationScore") ?? TryGetDouble(src, "navigation_score") ?? TryGetDouble(src, "NavigationScore");
+        var contentDensityScore = contentSignalsElement.HasValue
+            ? TryGetDouble(contentSignalsElement.Value, "contentDensityScore") ?? TryGetDouble(contentSignalsElement.Value, "content_density_score") ?? TryGetDouble(contentSignalsElement.Value, "ContentDensityScore")
+            : null;
+        contentDensityScore ??= TryGetDouble(src, "contentDensityScore") ?? TryGetDouble(src, "content_density_score") ?? TryGetDouble(src, "ContentDensityScore");
 
         return new ToolMemory.SourceRef
         {
@@ -737,7 +759,11 @@ CURRENT_USER_MESSAGE:
                 : null,
             SelectionHintQualityPenalty = selectionHints.HasValue
                 ? TryGetInt(selectionHints.Value, "qualityPenalty") ?? TryGetInt(selectionHints.Value, "quality_penalty") ?? TryGetInt(selectionHints.Value, "QualityPenalty")
-                : null
+                : null,
+            ContentRole = NullIfWhiteSpace(contentRole),
+            NavigationReason = NullIfWhiteSpace(navigationReason),
+            RetrievalNavigationScore = retrievalNavigationScore,
+            ContentDensityScore = contentDensityScore
         };
     }
 

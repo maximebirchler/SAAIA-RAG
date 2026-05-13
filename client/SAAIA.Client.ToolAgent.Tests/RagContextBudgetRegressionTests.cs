@@ -1851,6 +1851,12 @@ public sealed class RagContextBudgetRegressionTests
             "sourceHash": "src-1",
             "docLanguage": "de",
             "profileLanguage": "de",
+            "contentSignals": {
+              "contentRole": "mixed_navigation_content",
+              "navigationReason": "inline_page_number_list",
+              "navigationScore": 0.42,
+              "contentDensityScore": 0.76
+            },
               "extractionQuality": {
                 "extractionSource": "pdf_text_plus_image_ocr",
                 "documentQualityStatus": "ocr_applied_ok",
@@ -1899,6 +1905,10 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Equal(0.9, card.ExtractionConfidence);
         Assert.True(card.OcrAttempted);
         Assert.True(card.OcrApplied);
+        Assert.Equal("mixed_navigation_content", card.ContentRole);
+        Assert.Equal("inline_page_number_list", card.NavigationReason);
+        Assert.Equal(0.42, card.RetrievalNavigationScore);
+        Assert.Equal(0.76, card.ContentDensityScore);
         var contentCard = Assert.Single(card.MatchedContentCards);
         Assert.Equal("Control before validation", contentCard.Title);
         Assert.Equal("actionable_item", card.SelectionHintEvidenceRole);
@@ -2026,7 +2036,11 @@ public sealed class RagContextBudgetRegressionTests
             PageManualReviewRecommended = true,
             ManualReviewRecommended = true,
             OcrApplied = true,
-            QualitySignals = new() { "page_contains_images" }
+            QualitySignals = new() { "page_contains_images" },
+            ContentRole = "mixed_navigation_content",
+            NavigationReason = "inline_page_number_list",
+            RetrievalNavigationScore = 0.42,
+            ContentDensityScore = 0.76
         });
 
         const string payload = """
@@ -2060,6 +2074,10 @@ public sealed class RagContextBudgetRegressionTests
         Assert.True(card.PageManualReviewRecommended);
         Assert.True(card.OcrApplied);
         Assert.Contains("page_contains_images", card.QualitySignals);
+        Assert.Equal("mixed_navigation_content", card.ContentRole);
+        Assert.Equal("inline_page_number_list", card.NavigationReason);
+        Assert.Equal(0.42, card.RetrievalNavigationScore);
+        Assert.Equal(0.76, card.ContentDensityScore);
     }
 
     [Fact]

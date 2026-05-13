@@ -86,6 +86,99 @@ public sealed class RetrievalChunkProjectorTests
     }
 
     [Fact]
+    public void ProjectStructureAware_propagates_unit_extraction_quality_to_chunks()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 2, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "Sparse recovered note",
+                21,
+                3,
+                [1],
+                0,
+                21,
+                ExtractionTextStatus: "low_text",
+                ExtractionTextSparse: true,
+                ExtractionOcrCandidate: true,
+                ExtractionQualitySignals: ["sparse_text_on_page"]),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                2,
+                2,
+                "Structured body with enough reliable content to build the chunk.",
+                62,
+                10,
+                [2],
+                23,
+                85,
+                ExtractionTextStatus: "ok",
+                ExtractionTextSparse: false,
+                ExtractionOcrCandidate: false,
+                ExtractionQualitySignals: ["text_extraction_ok"])
+        };
+
+        var chunk = Assert.Single(RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 100,
+            overlapWords: 0,
+            minWords: 1));
+
+        Assert.Equal("low_text", chunk.ExtractionTextStatus);
+        Assert.True(chunk.ExtractionTextSparse);
+        Assert.True(chunk.ExtractionOcrCandidate);
+        Assert.Contains("sparse_text_on_page", chunk.ExtractionQualitySignals!);
+        Assert.Contains("text_extraction_ok", chunk.ExtractionQualitySignals!);
+    }
+
+    [Fact]
+    public void ProjectStructureAware_does_not_promote_sparse_low_quality_units_as_exact_chunks()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 1, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "EN 15281 sparse recovered note",
+                29,
+                5,
+                [1],
+                0,
+                29,
+                ExtractionTextStatus: "low_text",
+                ExtractionTextSparse: true,
+                ExtractionOcrCandidate: true,
+                ExtractionQualitySignals: ["sparse_text_on_page"])
+        };
+
+        var chunk = Assert.Single(RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 100,
+            overlapWords: 0,
+            minWords: 1));
+
+        Assert.NotEqual("unit_exact_v1", chunk.ChunkType);
+        Assert.Equal("section_window_v1", chunk.ChunkType);
+        Assert.Equal("low_text", chunk.ExtractionTextStatus);
+    }
+
+    [Fact]
     public void ProjectStructureAware_adds_exact_chunks_for_short_high_signal_units()
     {
         var sections = new[]

@@ -28,6 +28,33 @@ public sealed class DocumentUnitExtractorTests
     }
 
     [Fact]
+    public void Extract_carries_page_extraction_quality_to_units()
+    {
+        var quality = new PdfPageExtractionQuality(
+            "low_text",
+            TextEmpty: false,
+            TextSparse: true,
+            OcrCandidate: true,
+            AverageCharsPerWord: 4.5,
+            Signals: ["sparse_text_on_page"]);
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, "EN 15281", 2, 8, [1], Quality: quality)
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 1, 1, null)
+        };
+
+        var unit = Assert.Single(DocumentUnitExtractor.Extract(pages, sections));
+
+        Assert.Equal("low_text", unit.ExtractionTextStatus);
+        Assert.True(unit.ExtractionTextSparse);
+        Assert.True(unit.ExtractionOcrCandidate);
+        Assert.Contains("sparse_text_on_page", unit.ExtractionQualitySignals!);
+    }
+
+    [Fact]
     public void Extract_skips_section_titles_and_falls_back_to_whole_document_when_needed()
     {
         var pages = new[]

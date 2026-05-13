@@ -51,6 +51,34 @@ public sealed class ExactMatchEntryExtractorTests
     }
 
     [Fact]
+    public void Extract_restricts_sparse_low_quality_units_to_targeted_references()
+    {
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                1,
+                12,
+                12,
+                "EN 15281 short sparse page with a weak sentence that should not become a verbatim excerpt.",
+                84,
+                13,
+                [1],
+                0,
+                84,
+                ExtractionTextStatus: "low_text",
+                ExtractionTextSparse: true,
+                ExtractionOcrCandidate: true,
+                ExtractionQualitySignals: ["sparse_text_on_page"])
+        };
+
+        var entries = ExactMatchEntryExtractor.Extract(units);
+
+        Assert.Contains(entries, entry => entry.Text == "EN 15281" && entry.Kind == "standard_ref");
+        Assert.DoesNotContain(entries, entry => entry.Text.Contains("weak sentence", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void Extract_adds_targeted_references_for_standard_and_code_tokens()
     {
         var units = new[]

@@ -1669,7 +1669,11 @@ public sealed partial class ToolAgentOrchestrator
             SelectionHintSupportScore = src.SelectionHintSupportScore,
             SelectionHintFragmentScore = src.SelectionHintFragmentScore,
             SelectionHintNavigationScore = src.SelectionHintNavigationScore,
-            SelectionHintQualityPenalty = src.SelectionHintQualityPenalty
+            SelectionHintQualityPenalty = src.SelectionHintQualityPenalty,
+            ContentRole = src.ContentRole,
+            NavigationReason = src.NavigationReason,
+            RetrievalNavigationScore = src.RetrievalNavigationScore,
+            ContentDensityScore = src.ContentDensityScore
         };
         payload = BuildSourcesPayload([payloadSource]);
 

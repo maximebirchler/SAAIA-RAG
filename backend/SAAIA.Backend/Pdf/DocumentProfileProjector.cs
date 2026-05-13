@@ -164,6 +164,7 @@ internal static partial class DocumentProfileProjector
 
         return units
             .Where(static unit => IsProfileCardContentText(unit.Text))
+            .Where(ExtractionQualityPolicy.ShouldUseUnitForProfileCards)
             .ToArray();
     }
 
@@ -432,6 +433,8 @@ internal static partial class DocumentProfileProjector
         foreach (var page in pages.OrderBy(static page => page.PageNumber))
         {
             if (hasCardPageScope && !cardPageNumbers.Contains(page.PageNumber))
+                continue;
+            if (ExtractionQualityPolicy.IsPageUnreliableForEmbeddedCards(page))
                 continue;
 
             var acceptedTitles = 0;

@@ -25,6 +25,7 @@ internal static partial class DocumentUnitExtractor
 
         foreach (var page in pages.OrderBy(p => p.PageNumber))
         {
+            var quality = page.Quality ?? PdfPageExtractionQuality.FromText(page.Text, page.WordCount, page.CharCount);
             var paragraphs = SplitParagraphs(page.Text);
             if (paragraphs.Count == 0)
                 continue;
@@ -64,7 +65,11 @@ internal static partial class DocumentUnitExtractor
                     TokenCount: tokenCount,
                     Checksum: SHA256.HashData(Encoding.UTF8.GetBytes(normalized)),
                     OffsetStart: offsetCursor,
-                    OffsetEnd: offsetCursor + normalized.Length));
+                    OffsetEnd: offsetCursor + normalized.Length,
+                    ExtractionTextStatus: quality.TextStatus,
+                    ExtractionTextSparse: quality.TextSparse,
+                    ExtractionOcrCandidate: quality.OcrCandidate,
+                    ExtractionQualitySignals: quality.Signals));
 
                 offsetCursor += normalized.Length + UnitSeparator.Length;
             }
@@ -313,4 +318,8 @@ internal sealed record ExtractedDocumentUnit(
     int TokenCount,
     byte[] Checksum,
     int? OffsetStart = null,
-    int? OffsetEnd = null);
+    int? OffsetEnd = null,
+    string? ExtractionTextStatus = null,
+    bool ExtractionTextSparse = false,
+    bool ExtractionOcrCandidate = false,
+    IReadOnlyList<string>? ExtractionQualitySignals = null);
