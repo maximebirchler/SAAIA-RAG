@@ -160,14 +160,14 @@ internal static class StructuredContentLexicon
         if (string.IsNullOrWhiteSpace(text))
             return false;
 
-        var patterns = new[]
+        var patterns = new (string Pattern, bool RequiresLabel)[]
         {
-            @"\b(?:pour|for|para|per|fur|fuer|zu|a|da)\s+(?<n>\d{1,3})(?:\s+(?<label>[\p{L}][\p{L}'\u2019.\-]{1,30}))?\b",
-            @"\b(?:base|basis|yield|rendement|batch|lot|serie|set)\s*(?:[:=\-]?\s*)?(?<n>\d{1,3})(?:\s+(?<label>[\p{L}][\p{L}'\u2019.\-]{1,30}))?\b",
-            @"\b(?<n>\d{1,3})\s*(?<label>items?|elements?|entries?|units?|unites?|components?|composants?|parts?|pieces?)\b"
+            (@"\b(?:pour|for|para|per|fur|fuer|zu|a|da)\s+(?<n>\d{1,3})(?:\s+(?<label>[\p{L}][\p{L}'\u2019.\-]{0,30}))?\b", true),
+            (@"\b(?:base|basis|yield|rendement|batch|lot|serie|set)\s*(?:[:=\-]?\s*)?(?<n>\d{1,3})(?:\s+(?<label>[\p{L}][\p{L}'\u2019.\-]{0,30}))?\b", false),
+            (@"\b(?<n>\d{1,3})\s*(?<label>items?|elements?|entries?|units?|unites?|components?|composants?|parts?|pieces?)\b", false)
         };
 
-        foreach (var pattern in patterns)
+        foreach (var (pattern, requiresLabel) in patterns)
         {
             var match = Regex.Match(text, pattern, RegexOptions.CultureInvariant);
             if (!match.Success
@@ -178,6 +178,10 @@ internal static class StructuredContentLexicon
             }
 
             var parsedLabel = match.Groups["label"].Success ? match.Groups["label"].Value : null;
+            if (requiresLabel && string.IsNullOrWhiteSpace(parsedLabel))
+                continue;
+            if (LooksLikeMeasurementScaleBasisLabel(parsedLabel))
+                continue;
             if (!IsPlausibleScaleBasisLabel(parsedLabel))
                 continue;
 
@@ -187,6 +191,18 @@ internal static class StructuredContentLexicon
         }
 
         return false;
+    }
+
+    private static bool LooksLikeMeasurementScaleBasisLabel(string? label)
+    {
+        var normalized = NormalizeStructuredSignalLabel(label);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return Regex.IsMatch(
+            normalized,
+            @"^(?:g|kg|mg|ml|cl|l|mm|cm|m|km|nm|bar|pa|kpa|mpa|v|kv|a|ma|w|kw|hz|rpm|pct|percent|pourcent|s|sec|secs|secondes?|seconds?|min|mins|minutes?|h|hr|hrs|heures?|hours?|jour|jours|day|days|mois|month|months|annee|annees|year|years|deg|degree|degrees|degre|degres|c|celsius|fahrenheit|eur|euro|euros|chf|usd|gbp|page|pages?)$",
+            RegexOptions.CultureInvariant);
     }
 
     public static bool IsPlausibleScaleBasisLabel(string? label)

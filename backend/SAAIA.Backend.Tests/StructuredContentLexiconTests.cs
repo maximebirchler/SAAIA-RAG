@@ -71,6 +71,8 @@ public sealed class StructuredContentLexiconTests
     [Theory]
     [InlineData("For 12 min wait")]
     [InlineData("70 C temperature")]
+    [InlineData("Preheat to 180 C for 10 min")]
+    [InlineData("Prechauffez a 200 C pour 12 min")]
     [InlineData("4 bar pressure")]
     [InlineData("Page 48")]
     public void Scale_basis_extraction_rejects_measurement_and_page_units(string text)
