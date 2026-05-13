@@ -96,6 +96,21 @@ Procedure e Warm the base and verify the control point. e Add the solution slowl
     }
 
     [Fact]
+    public void AnalyzeChunk_keeps_dense_structured_quantity_block_as_content_despite_inline_numbers()
+    {
+        var text = """
+P PREPARATION 1 INGREDIENTS: 400 g base compound 2 modules 100 ml solution 25 min curing time 3 cm spacer 5 s hold 180 C control temperature.
+PREPARATION 1. Rinse the modules and dry them. 2. Mix the base compound with the solution. 3. Heat the batch, verify the control value and document the result.
+""";
+
+        var signal = RetrievalContentClassifier.AnalyzeChunk(text);
+
+        Assert.Equal(RetrievalContentClassifier.ContentRole, signal.ContentRole);
+        Assert.Null(signal.NavigationReason);
+        Assert.True(signal.ContentDensityScore >= 0.70);
+    }
+
+    [Fact]
     public void DetectNavigationReason_keeps_structured_content_with_pdf_index_artifact()
     {
         var text = "16 Maintenance lockout [Index: ] ASSET-042 Materials padlock warning tag. Procedure 1. Isolate machine. 2. Verify zero energy.";

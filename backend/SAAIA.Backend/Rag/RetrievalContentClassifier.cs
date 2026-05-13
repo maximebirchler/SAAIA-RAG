@@ -82,6 +82,15 @@ internal static partial class RetrievalContentClassifier
         }
 
         var looksStructured = LooksLikeStructuredContent(folded);
+        if (hasDenseMeasuredContent
+            && !hasExplicitTocMarker
+            && shape.DotLeaderLineCount == 0
+            && shape.PageReferenceLineCount < 2
+            && contentDensityScore >= 0.65)
+        {
+            return new RetrievalNavigationSignal(ContentRole, null, 0.0, Math.Max(contentDensityScore, 0.72));
+        }
+
         if (reason is null
             && looksStructured
             && !hasListShape
