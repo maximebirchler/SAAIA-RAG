@@ -445,6 +445,11 @@ public sealed class RagChatAgent
             categoryRef = item.CategoryRef,
             categoryPath = item.CategoryPath,
             chunkId = item.ChunkId,
+            provenanceInfo = item.ProvenanceInfo is null ? null : new
+            {
+                item.ProvenanceInfo.OffsetStart,
+                item.ProvenanceInfo.OffsetEnd
+            },
             context = item.Context is null ? null : new
             {
                 item.Context.ChunkType,

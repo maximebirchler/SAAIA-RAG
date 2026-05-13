@@ -74,6 +74,14 @@ public static class SourceCardParser
         score += HasValue(source.CategoryRef) * 2;
         score += HasValue(source.CategoryPath) * 2;
         score += HasValue(source.ChunkId) * 2;
+        score += HasValue(source.SectionTitle) * 1;
+        score += HasValue(source.HeadingPath) * 1;
+        score += HasValue(source.PrevChunkId) * 1;
+        score += HasValue(source.NextChunkId) * 1;
+        score += HasValue(source.SameSectionChunkId) * 1;
+        score += HasValue(source.OriginalChunkType) * 1;
+        score += source.OffsetStart is null ? 0 : 1;
+        score += source.OffsetEnd is null ? 0 : 1;
         score += HasValue(source.ExtractionSource) * 4;
         score += HasValue(source.DocumentQualityStatus) * 3;
         score += HasValue(source.PageQualityStatus) * 3;
@@ -156,6 +164,7 @@ public static class SourceCardParser
         var selectionHints = TryGetObjectAny(el, "selectionHints", "selection_hints", "SelectionHints");
         var contentSignals = TryGetObjectAny(el, "contentSignals", "content_signals", "ContentSignals")
                              ?? TryGetObjectAny(el, "context", "Context");
+        var provenanceInfo = TryGetObjectAny(el, "provenanceInfo", "provenance_info", "ProvenanceInfo");
         var documentExtractionConfidence = GetDoubleFromQualityOrRoot(
             el,
             extractionQuality,
@@ -207,6 +216,38 @@ public static class SourceCardParser
             CategoryRef = GetStringAny(el, "categoryRef", "category_ref", "CategoryRef"),
             CategoryPath = GetStringAny(el, "categoryPath", "category_path", "CategoryPath"),
             ChunkId = GetStringAny(el, "chunkId", "chunk_id", "ChunkId"),
+            SectionTitle = GetStringFromContextHintsOrRoot(
+                el,
+                contentSignals,
+                selectionHints,
+                "sectionTitle", "section_title", "SectionTitle"),
+            HeadingPath = GetStringFromContextHintsOrRoot(
+                el,
+                contentSignals,
+                selectionHints,
+                "headingPath", "heading_path", "HeadingPath"),
+            PrevChunkId = GetStringFromContextHintsOrRoot(
+                el,
+                contentSignals,
+                selectionHints,
+                "prevChunkId", "prev_chunk_id", "PrevChunkId"),
+            NextChunkId = GetStringFromContextHintsOrRoot(
+                el,
+                contentSignals,
+                selectionHints,
+                "nextChunkId", "next_chunk_id", "NextChunkId"),
+            SameSectionChunkId = GetStringFromContextHintsOrRoot(
+                el,
+                contentSignals,
+                selectionHints,
+                "sameSectionChunkId", "same_section_chunk_id", "SameSectionChunkId"),
+            OriginalChunkType = GetStringFromContextHintsOrRoot(
+                el,
+                contentSignals,
+                selectionHints,
+                "originalChunkType", "original_chunk_type", "OriginalChunkType"),
+            OffsetStart = GetIntFromObjectOrRoot(el, provenanceInfo, "offsetStart", "offset_start", "OffsetStart"),
+            OffsetEnd = GetIntFromObjectOrRoot(el, provenanceInfo, "offsetEnd", "offset_end", "OffsetEnd"),
             ExtractionSource = GetStringFromQualityOrRoot(
                 el,
                 extractionQuality,
@@ -322,6 +363,11 @@ public static class SourceCardParser
 
         return GetStringAny(root, names);
     }
+
+    private static int? GetIntFromObjectOrRoot(JsonElement root, JsonElement? value, params string[] names)
+        => value is { } objectValue
+            ? GetIntAny(objectValue, names) ?? GetIntAny(root, names)
+            : GetIntAny(root, names);
 
     private static double? GetDoubleFromContextHintsOrRoot(
         JsonElement root,

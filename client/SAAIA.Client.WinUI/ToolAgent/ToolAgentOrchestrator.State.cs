@@ -693,6 +693,39 @@ CURRENT_USER_MESSAGE:
             .Take(5)
             .ToList() ?? new List<ToolMemory.SourceContentCardRef>();
         var selectionHints = TryGetObject(src, "selectionHints") ?? TryGetObject(src, "selection_hints") ?? TryGetObject(src, "SelectionHints");
+        var provenanceInfo = TryGetObject(src, "provenanceInfo") ?? TryGetObject(src, "provenance_info") ?? TryGetObject(src, "ProvenanceInfo");
+        var sectionTitle = contentSignalsElement.HasValue
+            ? TryGetString(contentSignalsElement.Value, "sectionTitle") ?? TryGetString(contentSignalsElement.Value, "section_title") ?? TryGetString(contentSignalsElement.Value, "SectionTitle")
+            : null;
+        sectionTitle ??= TryGetString(src, "sectionTitle") ?? TryGetString(src, "section_title") ?? TryGetString(src, "SectionTitle");
+        var headingPath = contentSignalsElement.HasValue
+            ? TryGetString(contentSignalsElement.Value, "headingPath") ?? TryGetString(contentSignalsElement.Value, "heading_path") ?? TryGetString(contentSignalsElement.Value, "HeadingPath")
+            : null;
+        headingPath ??= TryGetString(src, "headingPath") ?? TryGetString(src, "heading_path") ?? TryGetString(src, "HeadingPath");
+        var prevChunkId = contentSignalsElement.HasValue
+            ? TryGetString(contentSignalsElement.Value, "prevChunkId") ?? TryGetString(contentSignalsElement.Value, "prev_chunk_id") ?? TryGetString(contentSignalsElement.Value, "PrevChunkId")
+            : null;
+        prevChunkId ??= TryGetString(src, "prevChunkId") ?? TryGetString(src, "prev_chunk_id") ?? TryGetString(src, "PrevChunkId");
+        var nextChunkId = contentSignalsElement.HasValue
+            ? TryGetString(contentSignalsElement.Value, "nextChunkId") ?? TryGetString(contentSignalsElement.Value, "next_chunk_id") ?? TryGetString(contentSignalsElement.Value, "NextChunkId")
+            : null;
+        nextChunkId ??= TryGetString(src, "nextChunkId") ?? TryGetString(src, "next_chunk_id") ?? TryGetString(src, "NextChunkId");
+        var sameSectionChunkId = contentSignalsElement.HasValue
+            ? TryGetString(contentSignalsElement.Value, "sameSectionChunkId") ?? TryGetString(contentSignalsElement.Value, "same_section_chunk_id") ?? TryGetString(contentSignalsElement.Value, "SameSectionChunkId")
+            : null;
+        sameSectionChunkId ??= TryGetString(src, "sameSectionChunkId") ?? TryGetString(src, "same_section_chunk_id") ?? TryGetString(src, "SameSectionChunkId");
+        var originalChunkType = contentSignalsElement.HasValue
+            ? TryGetString(contentSignalsElement.Value, "originalChunkType") ?? TryGetString(contentSignalsElement.Value, "original_chunk_type") ?? TryGetString(contentSignalsElement.Value, "OriginalChunkType")
+            : null;
+        originalChunkType ??= TryGetString(src, "originalChunkType") ?? TryGetString(src, "original_chunk_type") ?? TryGetString(src, "OriginalChunkType");
+        var offsetStart = provenanceInfo.HasValue
+            ? TryGetInt(provenanceInfo.Value, "offsetStart") ?? TryGetInt(provenanceInfo.Value, "offset_start") ?? TryGetInt(provenanceInfo.Value, "OffsetStart")
+            : null;
+        offsetStart ??= TryGetInt(src, "offsetStart") ?? TryGetInt(src, "offset_start") ?? TryGetInt(src, "OffsetStart");
+        var offsetEnd = provenanceInfo.HasValue
+            ? TryGetInt(provenanceInfo.Value, "offsetEnd") ?? TryGetInt(provenanceInfo.Value, "offset_end") ?? TryGetInt(provenanceInfo.Value, "OffsetEnd")
+            : null;
+        offsetEnd ??= TryGetInt(src, "offsetEnd") ?? TryGetInt(src, "offset_end") ?? TryGetInt(src, "OffsetEnd");
         var contentRole = contentSignalsElement.HasValue
             ? TryGetString(contentSignalsElement.Value, "contentRole") ?? TryGetString(contentSignalsElement.Value, "content_role") ?? TryGetString(contentSignalsElement.Value, "ContentRole")
             : null;
@@ -725,6 +758,14 @@ CURRENT_USER_MESSAGE:
             CategoryRef = NullIfWhiteSpace(TryGetString(src, "categoryRef") ?? TryGetString(src, "category_ref") ?? TryGetString(src, "CategoryRef")),
             CategoryPath = NullIfWhiteSpace(TryGetString(src, "categoryPath") ?? TryGetString(src, "category_path") ?? TryGetString(src, "CategoryPath")),
             ChunkId = NullIfWhiteSpace(TryGetString(src, "chunkId") ?? TryGetString(src, "chunk_id") ?? TryGetString(src, "ChunkId")),
+            SectionTitle = NullIfWhiteSpace(sectionTitle),
+            HeadingPath = NullIfWhiteSpace(headingPath),
+            PrevChunkId = NullIfWhiteSpace(prevChunkId),
+            NextChunkId = NullIfWhiteSpace(nextChunkId),
+            SameSectionChunkId = NullIfWhiteSpace(sameSectionChunkId),
+            OriginalChunkType = NullIfWhiteSpace(originalChunkType),
+            OffsetStart = offsetStart,
+            OffsetEnd = offsetEnd,
             ExtractionSource = NullIfWhiteSpace(extractionSource),
             DocumentQualityStatus = NullIfWhiteSpace(documentQualityStatus),
             PageQualityStatus = NullIfWhiteSpace(pageQualityStatus),
@@ -946,6 +987,14 @@ CURRENT_USER_MESSAGE:
             CategoryRef = NullIfWhiteSpace(hit.CategoryRef),
             CategoryPath = NullIfWhiteSpace(hit.CategoryPath),
             ChunkId = NullIfWhiteSpace(hit.ChunkId),
+            SectionTitle = NullIfWhiteSpace(hit.SectionTitle),
+            HeadingPath = NullIfWhiteSpace(hit.HeadingPath),
+            PrevChunkId = NullIfWhiteSpace(hit.PrevChunkId),
+            NextChunkId = NullIfWhiteSpace(hit.NextChunkId),
+            SameSectionChunkId = NullIfWhiteSpace(hit.SameSectionChunkId),
+            OriginalChunkType = NullIfWhiteSpace(hit.OriginalChunkType),
+            OffsetStart = hit.OffsetStart,
+            OffsetEnd = hit.OffsetEnd,
             ExtractionSource = NullIfWhiteSpace(hit.ExtractionSource),
             DocumentQualityStatus = NullIfWhiteSpace(hit.DocumentQualityStatus),
             PageQualityStatus = NullIfWhiteSpace(hit.PageQualityStatus),
@@ -1033,6 +1082,14 @@ CURRENT_USER_MESSAGE:
             CategoryRef = PickSourceString(sources, static source => source.CategoryRef),
             CategoryPath = PickSourceString(sources, static source => source.CategoryPath),
             ChunkId = PickSourceString(sources, static source => source.ChunkId),
+            SectionTitle = PickSourceString(sources, static source => source.SectionTitle),
+            HeadingPath = PickSourceString(sources, static source => source.HeadingPath),
+            PrevChunkId = PickSourceString(sources, static source => source.PrevChunkId),
+            NextChunkId = PickSourceString(sources, static source => source.NextChunkId),
+            SameSectionChunkId = PickSourceString(sources, static source => source.SameSectionChunkId),
+            OriginalChunkType = PickSourceString(sources, static source => source.OriginalChunkType),
+            OffsetStart = PickSourceInt(sources, static source => source.OffsetStart),
+            OffsetEnd = PickSourceInt(sources, static source => source.OffsetEnd),
             ExtractionSource = PickSourceString(sources, static source => source.ExtractionSource),
             DocumentQualityStatus = PickSourceString(sources, static source => source.DocumentQualityStatus),
             PageQualityStatus = PickSourceString(sources, static source => source.PageQualityStatus),
@@ -1142,6 +1199,10 @@ CURRENT_USER_MESSAGE:
            + (!string.IsNullOrWhiteSpace(source.ProfileLanguage) ? 2 : 0)
            + (!string.IsNullOrWhiteSpace(source.Category) ? 1 : 0)
            + (!string.IsNullOrWhiteSpace(source.ChunkId) ? 2 : 0)
+           + (!string.IsNullOrWhiteSpace(source.SectionTitle) ? 1 : 0)
+           + (!string.IsNullOrWhiteSpace(source.HeadingPath) ? 1 : 0)
+           + (source.OffsetStart.HasValue ? 1 : 0)
+           + (source.OffsetEnd.HasValue ? 1 : 0)
            + (!string.IsNullOrWhiteSpace(source.ContentRole) ? 2 : 0)
            + (source.ContentDensityScore.HasValue ? 1 : 0)
            + (source.ExtractionDiagnosticSummary is not null ? 2 : 0)
@@ -1187,6 +1248,13 @@ CURRENT_USER_MESSAGE:
             .Max() is var value && value != 0
                 ? value
                 : null;
+
+    private static int? PickSourceInt(
+        IEnumerable<ToolMemory.SourceRef> sources,
+        Func<ToolMemory.SourceRef, int?> selector)
+        => sources
+            .Select(selector)
+            .FirstOrDefault(static value => value.HasValue);
 
     private static double? PickLowestDouble(
         IEnumerable<ToolMemory.SourceRef> sources,
@@ -1234,6 +1302,13 @@ CURRENT_USER_MESSAGE:
                 categoryRef = x.CategoryRef,
                 categoryPath = x.CategoryPath,
                 chunkId = x.ChunkId,
+                sectionTitle = x.SectionTitle,
+                headingPath = x.HeadingPath,
+                prevChunkId = x.PrevChunkId,
+                nextChunkId = x.NextChunkId,
+                sameSectionChunkId = x.SameSectionChunkId,
+                originalChunkType = x.OriginalChunkType,
+                provenanceInfo = BuildSourceProvenancePayload(x),
                 contentSignals = BuildSourceContentSignalsPayload(x),
                 extractionQuality = BuildSourceExtractionQualityPayload(x),
                 matchedContentCards = BuildSourceContentCardsPayload(x),
@@ -1264,6 +1339,13 @@ CURRENT_USER_MESSAGE:
             categoryRef = x.CategoryRef,
             categoryPath = x.CategoryPath,
             chunkId = x.ChunkId,
+            sectionTitle = x.SectionTitle,
+            headingPath = x.HeadingPath,
+            prevChunkId = x.PrevChunkId,
+            nextChunkId = x.NextChunkId,
+            sameSectionChunkId = x.SameSectionChunkId,
+            originalChunkType = x.OriginalChunkType,
+            provenanceInfo = BuildSourceProvenancePayload(x),
             contentSignals = BuildSourceContentSignalsPayload(x),
             extractionQuality = BuildSourceExtractionQualityPayload(x),
             matchedContentCards = BuildSourceContentCardsPayload(x),
@@ -1282,6 +1364,15 @@ CURRENT_USER_MESSAGE:
                 navigationReason = source.NavigationReason,
                 navigationScore = source.RetrievalNavigationScore,
                 contentDensityScore = source.ContentDensityScore
+            };
+
+    private static object? BuildSourceProvenancePayload(ToolMemory.SourceRef source)
+        => source.OffsetStart is null && source.OffsetEnd is null
+            ? null
+            : new
+            {
+                offsetStart = source.OffsetStart,
+                offsetEnd = source.OffsetEnd
             };
 
     private static object? BuildSourceSelectionHintsPayload(ToolMemory.SourceRef source)
@@ -9879,7 +9970,13 @@ CURRENT_USER_MESSAGE:
         string? ContentRole = null,
         string? NavigationReason = null,
         double? NavigationScore = null,
-        double? ContentDensityScore = null);
+        double? ContentDensityScore = null,
+        string? PrevChunkId = null,
+        string? NextChunkId = null,
+        string? SameSectionChunkId = null,
+        string? OriginalChunkType = null,
+        int? OffsetStart = null,
+        int? OffsetEnd = null);
 
     private sealed record RagHitContentCardSummary(
         string Title,
@@ -9937,6 +10034,19 @@ CURRENT_USER_MESSAGE:
         var contextualSnippet = TryGetString(h, "contextualSnippet") ?? TryGetString(h, "contextual_snippet") ?? TryGetString(h, "ContextualSnippet");
         var sectionTitle = TryGetString(h, "sectionTitle") ?? TryGetString(h, "section_title") ?? TryGetNestedString(h, "context", "sectionTitle");
         var headingPath = TryGetString(h, "headingPath") ?? TryGetString(h, "heading_path") ?? TryGetNestedString(h, "context", "headingPath");
+        var prevChunkId = TryGetString(h, "prevChunkId") ?? TryGetString(h, "prev_chunk_id") ?? TryGetNestedString(h, "context", "prevChunkId");
+        var nextChunkId = TryGetString(h, "nextChunkId") ?? TryGetString(h, "next_chunk_id") ?? TryGetNestedString(h, "context", "nextChunkId");
+        var sameSectionChunkId = TryGetString(h, "sameSectionChunkId") ?? TryGetString(h, "same_section_chunk_id") ?? TryGetNestedString(h, "context", "sameSectionChunkId");
+        var originalChunkType = TryGetString(h, "originalChunkType") ?? TryGetString(h, "original_chunk_type") ?? TryGetNestedString(h, "context", "originalChunkType");
+        var provenanceInfo = TryGetObject(h, "provenanceInfo") ?? TryGetObject(h, "provenance_info") ?? TryGetObject(h, "ProvenanceInfo");
+        var offsetStart = provenanceInfo.HasValue
+            ? TryGetInt(provenanceInfo.Value, "offsetStart") ?? TryGetInt(provenanceInfo.Value, "offset_start") ?? TryGetInt(provenanceInfo.Value, "OffsetStart")
+            : null;
+        offsetStart ??= TryGetInt(h, "offsetStart") ?? TryGetInt(h, "offset_start") ?? TryGetInt(h, "OffsetStart");
+        var offsetEnd = provenanceInfo.HasValue
+            ? TryGetInt(provenanceInfo.Value, "offsetEnd") ?? TryGetInt(provenanceInfo.Value, "offset_end") ?? TryGetInt(provenanceInfo.Value, "OffsetEnd")
+            : null;
+        offsetEnd ??= TryGetInt(h, "offsetEnd") ?? TryGetInt(h, "offset_end") ?? TryGetInt(h, "OffsetEnd");
         var retriever = TryGetString(h, "retriever");
         var embeddingBasis = TryGetString(h, "embeddingBasis") ?? TryGetString(h, "embedding_basis");
         var score = TryGetDouble(h, "score") ?? 0.0;
@@ -10037,7 +10147,13 @@ CURRENT_USER_MESSAGE:
             contentRole,
             navigationReason,
             navigationScore,
-            contentDensityScore);
+            contentDensityScore,
+            prevChunkId,
+            nextChunkId,
+            sameSectionChunkId,
+            originalChunkType,
+            offsetStart,
+            offsetEnd);
     }
 
     private static IReadOnlyList<RagHitContentCardSummary>? ExtractRagHitMatchedContentCards(JsonElement h)

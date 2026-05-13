@@ -398,6 +398,14 @@ public sealed class ToolMemory
         public string? CategoryRef { get; set; }
         public string? CategoryPath { get; set; }
         public string? ChunkId { get; set; }
+        public string? SectionTitle { get; set; }
+        public string? HeadingPath { get; set; }
+        public string? PrevChunkId { get; set; }
+        public string? NextChunkId { get; set; }
+        public string? SameSectionChunkId { get; set; }
+        public string? OriginalChunkType { get; set; }
+        public int? OffsetStart { get; set; }
+        public int? OffsetEnd { get; set; }
         public string? ExtractionSource { get; set; }
         public string? DocumentQualityStatus { get; set; }
         public string? PageQualityStatus { get; set; }

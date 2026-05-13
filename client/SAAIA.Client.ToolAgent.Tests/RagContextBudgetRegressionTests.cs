@@ -72,6 +72,59 @@ public sealed class RagContextBudgetRegressionTests
     }
 
     [Fact]
+    public void Normalized_rag_hits_preserve_chunk_context_and_offsets_for_source_cards()
+    {
+        const string payload = """
+        {
+          "items": [
+            {
+              "docId": "doc-42",
+              "docPath": "Knowledge/manual.pdf",
+              "docName": "manual.pdf",
+              "pageStart": 7,
+              "pageEnd": 8,
+              "text": "Procedure source-backed text.",
+              "score": 0.87,
+              "provenanceInfo": {
+                "offsetStart": 12,
+                "offsetEnd": 180
+              },
+              "context": {
+                "sectionTitle": "Validation",
+                "headingPath": "Manual > Validation",
+                "prevChunkId": "chunk-0",
+                "nextChunkId": "chunk-2",
+                "sameSectionChunkId": "chunk-3",
+                "originalChunkType": "body",
+                "contentRole": "mixed_navigation_content",
+                "navigationReason": "inline_page_number_list",
+                "navigationScore": 0.42,
+                "contentDensityScore": 0.76
+              }
+            }
+          ]
+        }
+        """;
+
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var sourcesJson = ToolAgentOrchestrator.BuildRagSearchSourcesPayloadForTests(normalized.GetRawText());
+        var card = Assert.Single(SourceCardParser.Parse(sourcesJson));
+
+        Assert.Equal("Validation", card.SectionTitle);
+        Assert.Equal("Manual > Validation", card.HeadingPath);
+        Assert.Equal("chunk-0", card.PrevChunkId);
+        Assert.Equal("chunk-2", card.NextChunkId);
+        Assert.Equal("chunk-3", card.SameSectionChunkId);
+        Assert.Equal("body", card.OriginalChunkType);
+        Assert.Equal(12, card.OffsetStart);
+        Assert.Equal(180, card.OffsetEnd);
+        Assert.Equal("mixed_navigation_content", card.ContentRole);
+        Assert.Equal("inline_page_number_list", card.NavigationReason);
+        Assert.Equal(0.42, card.RetrievalNavigationScore);
+        Assert.Equal(0.76, card.ContentDensityScore);
+    }
+
+    [Fact]
     public void Exact_item_matching_keeps_short_title_disambiguators()
     {
         Assert.False(ToolAgentOrchestrator.ExactItemTextMatchesRequestOrStructureForTests(
@@ -2111,6 +2164,14 @@ public sealed class RagContextBudgetRegressionTests
             CategoryRef = "cat_042",
             CategoryPath = "Knowledge/Procedures",
             ChunkId = "chunk-1",
+            SectionTitle = "Validation",
+            HeadingPath = "Manual > Validation",
+            PrevChunkId = "chunk-0",
+            NextChunkId = "chunk-2",
+            SameSectionChunkId = "chunk-3",
+            OriginalChunkType = "body",
+            OffsetStart = 12,
+            OffsetEnd = 180,
             ExtractionSource = "pdf_text_plus_image_ocr",
             DocumentQualityStatus = "ocr_applied_ok",
             PageQualityStatus = "page_ok_with_images",
@@ -2131,6 +2192,10 @@ public sealed class RagContextBudgetRegressionTests
             SelectionHintFragmentScore = 4,
             SelectionHintNavigationScore = 0,
             SelectionHintQualityPenalty = 1,
+            ContentRole = "mixed_navigation_content",
+            NavigationReason = "inline_page_number_list",
+            RetrievalNavigationScore = 0.42,
+            ContentDensityScore = 0.76,
             MatchedContentCards = new()
             {
                 new ToolMemory.SourceContentCardRef
@@ -2157,6 +2222,14 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Equal("cat_042", card.CategoryRef);
         Assert.Equal("Knowledge/Procedures", card.CategoryPath);
         Assert.Equal("chunk-1", card.ChunkId);
+        Assert.Equal("Validation", card.SectionTitle);
+        Assert.Equal("Manual > Validation", card.HeadingPath);
+        Assert.Equal("chunk-0", card.PrevChunkId);
+        Assert.Equal("chunk-2", card.NextChunkId);
+        Assert.Equal("chunk-3", card.SameSectionChunkId);
+        Assert.Equal("body", card.OriginalChunkType);
+        Assert.Equal(12, card.OffsetStart);
+        Assert.Equal(180, card.OffsetEnd);
         Assert.Equal("pdf_text_plus_image_ocr", card.ExtractionSource);
         Assert.Equal("ocr_applied_ok", card.DocumentQualityStatus);
         Assert.Equal(0.91, card.DocumentExtractionConfidence);
@@ -2171,6 +2244,10 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Equal("supporting_context", card.SelectionHintEvidenceRole);
         Assert.Equal(84, card.SelectionHintSupportScore);
         Assert.Equal(1, card.SelectionHintQualityPenalty);
+        Assert.Equal("mixed_navigation_content", card.ContentRole);
+        Assert.Equal("inline_page_number_list", card.NavigationReason);
+        Assert.Equal(0.42, card.RetrievalNavigationScore);
+        Assert.Equal(0.76, card.ContentDensityScore);
     }
 
     [Fact]

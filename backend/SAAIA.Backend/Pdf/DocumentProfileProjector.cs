@@ -596,13 +596,13 @@ internal static partial class DocumentProfileProjector
         var normalizedKind = NormalizeContentCardKind(kind);
         if (!IsUsefulContentCardTitle(cleanTitle))
             return false;
-        if (LooksLikeLowercaseSectionFragment(cleanTitle, normalizedKind))
+        var evidence = BuildStructuredCardEvidence($"{cleanTitle} {context}");
+        var hasGroundedPageEvidence = HasSourceBackedOrGroundedPageEvidence(evidence, pageStart, pageEnd);
+        if (LooksLikeLowercaseLead(cleanTitle) && !hasGroundedPageEvidence)
+            return false;
+        if (LooksLikeLowercaseSectionFragment(cleanTitle, normalizedKind) && !hasGroundedPageEvidence)
             return false;
         if (LooksLikeLowSignalContentCardLead(cleanTitle, normalizedKind))
-            return false;
-
-        var evidence = BuildStructuredCardEvidence($"{cleanTitle} {context}");
-        if (LooksLikeLowercaseLead(cleanTitle) && !HasSourceBackedContentCardEvidence(evidence))
             return false;
         if (LooksLikeLowSubstanceCoverOrMarketingCandidate(cleanTitle, context, evidence))
             return false;
@@ -2030,12 +2030,12 @@ internal static partial class DocumentProfileProjector
                 continue;
             var kind = NormalizeContentCardKind(card.Kind);
             var normalizedEvidence = NormalizeContentCardEvidence(card.Evidence);
-            var hasSourceBackedEvidence = HasSourceBackedContentCardEvidence(normalizedEvidence);
-            if (LooksLikeLowercaseLead(title) && !hasSourceBackedEvidence)
+            var hasGroundedPageEvidence = HasSourceBackedOrGroundedPageEvidence(normalizedEvidence, card.PageStart, card.PageEnd);
+            if (LooksLikeLowercaseLead(title) && !hasGroundedPageEvidence)
                 continue;
             if (LooksLikeLowSubstanceCoverOrMarketingCandidate(title, null, normalizedEvidence))
                 continue;
-            if (LooksLikeLowercaseSectionFragment(title, kind) && !hasSourceBackedEvidence)
+            if (LooksLikeLowercaseSectionFragment(title, kind) && !hasGroundedPageEvidence)
                 continue;
             if (LooksLikeLowSignalContentCardLead(title, kind))
                 continue;
@@ -2084,6 +2084,9 @@ internal static partial class DocumentProfileProjector
             return true;
         }
 
+        if (evidence.QuantityFacts.Any(static fact => !string.IsNullOrWhiteSpace(fact.SourceText)))
+            return true;
+
         return evidence.QuantityFacts.Count >= 2
             && evidence.ScaleBasis is { Count: > 0 }
             && evidence.Confidence is >= 0.7;
@@ -2094,6 +2097,13 @@ internal static partial class DocumentProfileProjector
            && facts.Any(static fact =>
                !string.IsNullOrWhiteSpace(fact.SourceText)
                && (fact.PageStart is > 0 || fact.PageEnd is > 0));
+
+    private static bool HasSourceBackedOrGroundedPageEvidence(
+        DocumentProfileCardEvidence? evidence,
+        int? pageStart,
+        int? pageEnd)
+        => HasSourceBackedContentCardEvidence(evidence)
+           || ((pageStart is > 0 || pageEnd is > 0) && HasGroundedContentCardEvidence(evidence));
 
     private static (int? PageStart, int? PageEnd) NormalizeContentCardPageRange(
         int? rawPageStart,

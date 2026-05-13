@@ -38,6 +38,14 @@ public sealed partial class ToolAgentOrchestrator
         string? CategoryRef = null,
         string? CategoryPath = null,
         string? ChunkId = null,
+        string? SectionTitle = null,
+        string? HeadingPath = null,
+        string? PrevChunkId = null,
+        string? NextChunkId = null,
+        string? SameSectionChunkId = null,
+        string? OriginalChunkType = null,
+        int? OffsetStart = null,
+        int? OffsetEnd = null,
         string? ExtractionSource = null,
         string? DocumentQualityStatus = null,
         string? PageQualityStatus = null,
@@ -887,6 +895,14 @@ public sealed partial class ToolAgentOrchestrator
             CategoryRef = NullIfWhiteSpace(used?.CategoryRef) ?? NullIfWhiteSpace(doc.CategoryRef),
             CategoryPath = NullIfWhiteSpace(used?.CategoryPath) ?? NullIfWhiteSpace(doc.CategoryPath) ?? NullIfWhiteSpace(doc.Category),
             ChunkId = used?.ChunkId,
+            SectionTitle = used?.SectionTitle,
+            HeadingPath = used?.HeadingPath,
+            PrevChunkId = used?.PrevChunkId,
+            NextChunkId = used?.NextChunkId,
+            SameSectionChunkId = used?.SameSectionChunkId,
+            OriginalChunkType = used?.OriginalChunkType,
+            OffsetStart = used?.OffsetStart,
+            OffsetEnd = used?.OffsetEnd,
             ExtractionSource = used?.ExtractionSource,
             DocumentQualityStatus = used?.DocumentQualityStatus,
             PageQualityStatus = used?.PageQualityStatus,
@@ -909,7 +925,11 @@ public sealed partial class ToolAgentOrchestrator
             SelectionHintSupportScore = used?.SelectionHintSupportScore,
             SelectionHintFragmentScore = used?.SelectionHintFragmentScore,
             SelectionHintNavigationScore = used?.SelectionHintNavigationScore,
-            SelectionHintQualityPenalty = used?.SelectionHintQualityPenalty
+            SelectionHintQualityPenalty = used?.SelectionHintQualityPenalty,
+            ContentRole = used?.ContentRole,
+            NavigationReason = used?.NavigationReason,
+            RetrievalNavigationScore = used?.RetrievalNavigationScore,
+            ContentDensityScore = used?.ContentDensityScore
         };
     }
 

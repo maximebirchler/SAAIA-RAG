@@ -417,6 +417,14 @@ public sealed partial class ToolAgentOrchestrator
                 categoryRef = source.CategoryRef,
                 categoryPath = source.CategoryPath,
                 chunkId = source.ChunkId,
+                sectionTitle = source.SectionTitle,
+                headingPath = source.HeadingPath,
+                prevChunkId = source.PrevChunkId,
+                nextChunkId = source.NextChunkId,
+                sameSectionChunkId = source.SameSectionChunkId,
+                originalChunkType = source.OriginalChunkType,
+                provenanceInfo = BuildSourceProvenancePayload(source),
+                contentSignals = BuildSourceContentSignalsPayload(source),
                 extractionQuality = BuildSourceExtractionQualityPayload(source),
                 matchedContentCards = BuildSourceContentCardsPayload(source),
                 selectionHints = BuildSourceSelectionHintsPayload(source)
@@ -456,6 +464,13 @@ public sealed partial class ToolAgentOrchestrator
         SetStringIfMissing(sourceNode, "categoryRef", source.CategoryRef);
         SetStringIfMissing(sourceNode, "categoryPath", source.CategoryPath);
         SetStringIfMissing(sourceNode, "chunkId", source.ChunkId);
+        SetStringIfMissing(sourceNode, "sectionTitle", source.SectionTitle);
+        SetStringIfMissing(sourceNode, "headingPath", source.HeadingPath);
+        SetStringIfMissing(sourceNode, "prevChunkId", source.PrevChunkId);
+        SetStringIfMissing(sourceNode, "nextChunkId", source.NextChunkId);
+        SetStringIfMissing(sourceNode, "sameSectionChunkId", source.SameSectionChunkId);
+        SetStringIfMissing(sourceNode, "originalChunkType", source.OriginalChunkType);
+        SetObjectIfMissingOrEmpty(sourceNode, "provenanceInfo", BuildSourceProvenancePayload(source));
         SetObjectIfMissingOrEmpty(sourceNode, "contentSignals", BuildSourceContentSignalsPayload(source));
         MergeObjectFieldsIfMissing(sourceNode, "extractionQuality", BuildSourceExtractionQualityPayload(source));
         SetObjectIfMissingOrEmpty(sourceNode, "matchedContentCards", BuildSourceContentCardsPayload(source));
@@ -474,6 +489,13 @@ public sealed partial class ToolAgentOrchestrator
         SetNumberIfPresent(sourceNode, "pageStart", source.PageStart);
         SetNumberIfPresent(sourceNode, "pageEnd", source.PageEnd);
         SetStringIfPresent(sourceNode, "chunkId", source.ChunkId);
+        SetStringIfPresent(sourceNode, "sectionTitle", source.SectionTitle);
+        SetStringIfPresent(sourceNode, "headingPath", source.HeadingPath);
+        SetStringIfPresent(sourceNode, "prevChunkId", source.PrevChunkId);
+        SetStringIfPresent(sourceNode, "nextChunkId", source.NextChunkId);
+        SetStringIfPresent(sourceNode, "sameSectionChunkId", source.SameSectionChunkId);
+        SetStringIfPresent(sourceNode, "originalChunkType", source.OriginalChunkType);
+        SetObjectIfPresent(sourceNode, "provenanceInfo", BuildSourceProvenancePayload(source));
         SetObjectIfPresent(sourceNode, "contentSignals", BuildSourceContentSignalsPayload(source));
         SetObjectIfPresent(sourceNode, "extractionQuality", BuildSourceExtractionQualityPayload(source));
         SetObjectIfPresent(sourceNode, "matchedContentCards", BuildSourceContentCardsPayload(source));
@@ -508,6 +530,14 @@ public sealed partial class ToolAgentOrchestrator
             ChunkId = usePreciseFallback
                 ? NullIfWhiteSpace(fallback.ChunkId) ?? NullIfWhiteSpace(source.ChunkId)
                 : NullIfWhiteSpace(source.ChunkId) ?? NullIfWhiteSpace(fallback.ChunkId),
+            SectionTitle = NullIfWhiteSpace(source.SectionTitle) ?? NullIfWhiteSpace(fallback.SectionTitle),
+            HeadingPath = NullIfWhiteSpace(source.HeadingPath) ?? NullIfWhiteSpace(fallback.HeadingPath),
+            PrevChunkId = NullIfWhiteSpace(source.PrevChunkId) ?? NullIfWhiteSpace(fallback.PrevChunkId),
+            NextChunkId = NullIfWhiteSpace(source.NextChunkId) ?? NullIfWhiteSpace(fallback.NextChunkId),
+            SameSectionChunkId = NullIfWhiteSpace(source.SameSectionChunkId) ?? NullIfWhiteSpace(fallback.SameSectionChunkId),
+            OriginalChunkType = NullIfWhiteSpace(source.OriginalChunkType) ?? NullIfWhiteSpace(fallback.OriginalChunkType),
+            OffsetStart = source.OffsetStart ?? fallback.OffsetStart,
+            OffsetEnd = source.OffsetEnd ?? fallback.OffsetEnd,
             ExtractionSource = NullIfWhiteSpace(source.ExtractionSource) ?? NullIfWhiteSpace(fallback.ExtractionSource),
             DocumentQualityStatus = NullIfWhiteSpace(source.DocumentQualityStatus) ?? NullIfWhiteSpace(fallback.DocumentQualityStatus),
             PageQualityStatus = NullIfWhiteSpace(pageQualitySource.PageQualityStatus) ?? NullIfWhiteSpace(source.PageQualityStatus) ?? NullIfWhiteSpace(fallback.PageQualityStatus),

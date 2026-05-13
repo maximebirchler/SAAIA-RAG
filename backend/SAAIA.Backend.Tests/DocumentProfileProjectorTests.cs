@@ -591,6 +591,50 @@ public sealed class DocumentProfileProjectorTests
     }
 
     [Fact]
+    public void BuildProfile_keeps_lowercase_card_with_grounded_quantity_evidence_and_page()
+    {
+        var evidence = new DocumentProfileCardEvidence(
+            "content_card_evidence_v1",
+            ScaleBasis: new DocumentProfileScaleBasis(4, "items"),
+            QuantityFacts:
+            [
+                new DocumentProfileQuantityFact(12, "kg", "validated load", "12 kg validated load"),
+                new DocumentProfileQuantityFact(3, "min", "hold time", "3 min hold time")
+            ],
+            NonScalableReasons: [],
+            Confidence: 0.82,
+            Language: "en",
+            Facts: []);
+
+        var profile = DocumentProfileProjector.BuildProfile(
+            "deterministic_v1",
+            "en",
+            "Generic operational profile.",
+            [], [], [], [], [],
+            "Generic/Grounded.pdf",
+            "Grounded.pdf",
+            [
+                new DocumentProfileContentCard(
+                    "gamma validated workflow",
+                    7,
+                    7,
+                    "section",
+                    ["quantity_list"],
+                    evidence),
+                new DocumentProfileContentCard(
+                    "delta unsourced workflow",
+                    null,
+                    null,
+                    "section",
+                    ["weak"],
+                    evidence)
+            ]);
+
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "gamma validated workflow", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "delta unsourced workflow", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Project_does_not_create_content_cards_from_mixed_navigation_units()
     {
         var mixedNavigation = """
