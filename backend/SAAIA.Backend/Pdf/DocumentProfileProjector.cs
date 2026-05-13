@@ -923,6 +923,12 @@ internal static partial class DocumentProfileProjector
             return false;
         if (LooksLikeOcrNoiseTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
             return false;
+        if (HasUnbalancedContentCardDelimiter(title) && !hasTechnicalIdentifier)
+            return false;
+        if (LooksLikeGluedStructuredLabelTitle(normalizedFolded) && !hasTechnicalIdentifier)
+            return false;
+        if (LooksLikeLeadingSingleLetterOcrFragment(normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
+            return false;
         if (LooksLikeMeasuredSentenceFragmentTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
             return false;
         if (LooksLikeColonMetricFragmentTitle(title, tokenCount) && !hasTechnicalIdentifier)
@@ -1279,6 +1285,16 @@ internal static partial class DocumentProfileProjector
         if (firstToken is "pour" or "for" or "para" or "per")
             return true;
 
+        if (firstToken is "avec" or "with" or "mit" or "con" or "au" or "aux"
+            && tokenCount <= 10
+            && (ContainsNoisyInlinePunctuation(title, tokenCount)
+                || ContainsConnectorFragmentPunctuation(title)
+                || ContentCardTitleMeasurementRegex().IsMatch(normalizedFolded)
+                || tokens.Skip(1).Take(5).Any(static token => DanglingFragmentTitleTokens.Contains(token))))
+        {
+            return true;
+        }
+
         if (tokens.Length >= 2
             && firstToken == "de"
             && tokens[1] == "plus")
@@ -1416,6 +1432,33 @@ internal static partial class DocumentProfileProjector
 
         var doubleQuoteCount = title.Count(static ch => ch is '"');
         return doubleQuoteCount % 2 != 0;
+    }
+
+    private static bool HasUnbalancedContentCardDelimiter(string title)
+        => HasUnbalancedContentCardQuote(title)
+            || title.Count(static ch => ch == '(') != title.Count(static ch => ch == ')')
+            || title.Count(static ch => ch == '[') != title.Count(static ch => ch == ']');
+
+    private static bool ContainsConnectorFragmentPunctuation(string title)
+        => title.Any(static ch => ch is ',' or '"' or '\u201c' or '\u201d' or '\u2018' or '\u2019');
+
+    private static bool LooksLikeGluedStructuredLabelTitle(string normalizedFolded)
+        => normalizedFolded.Contains("ingredientspreparation", StringComparison.Ordinal)
+            || normalizedFolded.Contains("ingredients preparation", StringComparison.Ordinal)
+            || normalizedFolded.Contains("ingredient procedure", StringComparison.Ordinal)
+            || normalizedFolded.Contains("ingredients procedure", StringComparison.Ordinal)
+            || normalizedFolded.Contains("materialprocedure", StringComparison.Ordinal)
+            || normalizedFolded.Contains("materialsprocedure", StringComparison.Ordinal)
+            || normalizedFolded.Contains("componentsprocedure", StringComparison.Ordinal)
+            || normalizedFolded.Contains("procedureingredients", StringComparison.Ordinal);
+
+    private static bool LooksLikeLeadingSingleLetterOcrFragment(string normalizedFolded, int tokenCount)
+    {
+        if (tokenCount is < 2 or > 10)
+            return false;
+
+        var firstToken = normalizedFolded.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        return firstToken is { Length: 1 } && firstToken.Any(char.IsLetter);
     }
 
     private static bool IsShortRomanNumeral(string token)
@@ -2291,7 +2334,7 @@ internal static partial class DocumentProfileProjector
     [GeneratedRegex(@"^(?:a moins|avec des|ce|cela|celle|celui|cette|during|elle|elles|est|facultatif\)?|fonctionne|il|ils|it|mientras|pendant|pour cette|pour le|pour la|pour les|se|si vous|this|unless|vous|while)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex SentenceLeadTitleRegex();
 
-    [GeneratedRegex(@"^(?:dans|in|en|con|avec|with|sur|on)\s+(?:un|une|le|la|les|l['\u2019]?|the|a|an|el|los|las|il|lo|gli|i)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:dans|in|en|con|avec|with|sur|on|au|aux)\s+(?:un|une|le|la|les|l['\u2019]?|the|a|an|el|los|las|il|lo|gli|i)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex ContextualSentenceLeadRegex();
 
     [GeneratedRegex(@"\b(?:est|sont|doit|doivent|peut|peuvent|pouvez|pourrez|permet|permettent|recommande|recommandons|utilisez|utiliser|trouver|trouvez|ajoutez|ouvrez|fermez|retirez|verifiez|v[ée]rifiez|is|are|can|must|should|allows?|use|uses|using|open|close|remove|verify|check)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
