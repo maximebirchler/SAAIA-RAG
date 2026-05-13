@@ -11100,15 +11100,36 @@ LIMIT @top_k;
         else if (string.Equals(match.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.OrdinalIgnoreCase))
             priority -= 0.25;
 
+        var looksNavigational = LooksLikeNavigationalChunk(match);
+        var shouldConserveCardBoost = looksNavigational
+            || string.Equals(match.ContentRole, RetrievalContentClassifier.MixedNavigationContentRole, StringComparison.OrdinalIgnoreCase)
+            || match.NavigationScore is >= 0.55;
         if (match.MatchedContentCards is { Count: > 0 })
-            priority += 0.10;
+        {
+            var hasStrongCardSupport = match.MatchedContentCards.Any(HasStrongMatchedContentCardSupport);
+            priority += shouldConserveCardBoost
+                ? hasStrongCardSupport ? 0.06 : 0.0
+                : hasStrongCardSupport ? 0.12 : 0.04;
+        }
 
-        if (LooksLikeNavigationalChunk(match))
+        if (looksNavigational)
             priority -= 0.45;
         if (LooksLikeSourceListChunk(match) || LooksLikeGlossaryChunk(match))
             priority -= 0.25;
 
         return Math.Clamp(priority, -1.0, 3.0);
+    }
+
+    private static bool HasStrongMatchedContentCardSupport(RagMatchedContentCard card)
+    {
+        if (card.Signals is null || card.Signals.Count == 0)
+            return false;
+
+        return card.Signals.Any(static signal =>
+            string.Equals(signal, "structured_facts", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(signal, "quantity_list", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(signal, "scale_basis", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(signal, "scalable_quantities", StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool LooksLikeStructuredAnswerText(string? value)

@@ -4000,6 +4000,39 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void ComputeContentEvidencePriority_does_not_boost_navigation_from_weak_cards()
+    {
+        var navigationWithoutCard = TestMatch(
+            text: "Alpha Beta 12 Gamma Delta 18 Safety Reset 24 Calibration Steps 31 Backup Restore 42 Control Cabinet 57",
+            page: 2,
+            chunkId: "navigation-no-card",
+            chunkType: "section_window_v1") with
+        {
+            ContentRole = RetrievalContentClassifier.MixedNavigationContentRole,
+            NavigationScore = 0.69,
+            ContentDensityScore = 0.20
+        };
+        var navigationWithWeakCard = navigationWithoutCard with
+        {
+            ChunkId = "navigation-weak-card",
+            MatchedContentCards = [new RagMatchedContentCard("Alpha Beta Procedure", Signals: ["alpha", "beta"])]
+        };
+        var navigationWithStrongCard = navigationWithoutCard with
+        {
+            ChunkId = "navigation-strong-card",
+            MatchedContentCards = [new RagMatchedContentCard("Alpha Beta Procedure", Signals: ["structured_facts"])]
+        };
+
+        Assert.Equal(
+            RagEndpoints.ComputeContentEvidencePriority(navigationWithoutCard),
+            RagEndpoints.ComputeContentEvidencePriority(navigationWithWeakCard),
+            precision: 6);
+        Assert.True(
+            RagEndpoints.ComputeContentEvidencePriority(navigationWithStrongCard)
+            > RagEndpoints.ComputeContentEvidencePriority(navigationWithoutCard));
+    }
+
+    [Fact]
     public void PrioritizeExactTitleSelections_prefers_trusted_route_over_card_only_header()
     {
         var cardOnlyHeader = TestMatch(
