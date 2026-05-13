@@ -82,6 +82,20 @@ Preparation: warm the base, mix the additive, place the spacer, check the contro
     }
 
     [Fact]
+    public void AnalyzeChunk_keeps_dense_ocr_joined_instructional_content_as_content()
+    {
+        var text = """
+Preparation : 20 minutes Control : 180° C For 4 units Preparation e 1kgde base e 250gadditive e 25clsolution.
+Procedure e Warm the base and verify the control point. e Add the solution slowly. e Document the result and package the batch.
+""";
+
+        var signal = RetrievalContentClassifier.AnalyzeChunk(text);
+
+        Assert.Equal(RetrievalContentClassifier.ContentRole, signal.ContentRole);
+        Assert.Null(signal.NavigationReason);
+    }
+
+    [Fact]
     public void DetectNavigationReason_keeps_structured_content_with_pdf_index_artifact()
     {
         var text = "16 Maintenance lockout [Index: ] ASSET-042 Materials padlock warning tag. Procedure 1. Isolate machine. 2. Verify zero energy.";

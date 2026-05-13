@@ -159,7 +159,7 @@ internal static partial class RetrievalContentClassifier
         if (reason is null)
             return new RetrievalNavigationSignal(ContentRole, null, 0.0, contentDensityScore);
 
-        if (hasDenseMeasuredContent
+        if ((hasDenseMeasuredContent || contentDensityScore >= 0.70)
             && navigationScore < 0.90
             && !hasExplicitTocMarker
             && !hasStrongMarker
