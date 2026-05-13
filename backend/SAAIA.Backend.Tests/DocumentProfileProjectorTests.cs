@@ -519,6 +519,50 @@ Procedure body: Materials lock padlock warning tag. Procedure 1. Isolate the mac
     }
 
     [Fact]
+    public void Project_excludes_mixed_navigation_terms_from_profile_corpus_when_content_units_exist()
+    {
+        var mixedNavigation = """
+Controls overview 3
+Maintenance plan 18
+Alarm reset 22
+Lockout checklist 27
+Appendix 31
+CatalogPollutionMarker Procedure body: Materials lock padlock warning tag. Procedure 1. Isolate the machine. 2. Verify zero energy and document the result.
+""";
+        var content = "CONTROL HANDOVER PLAN\nProcedure 1. Check status. 2. Record notes for validated handover.";
+        Assert.Equal(
+            RetrievalContentClassifier.MixedNavigationContentRole,
+            RetrievalContentClassifier.AnalyzeChunk(mixedNavigation).ContentRole);
+
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, mixedNavigation, 29, mixedNavigation.Length, [1]),
+            new ExtractedPdfPage(2, content, 11, content.Length, [2])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 2, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, mixedNavigation, mixedNavigation.Length, 29, [3]),
+            new ExtractedDocumentUnit(1, 0, 2, 2, content, content.Length, 11, [4])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/ProfileCorpus.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.DoesNotContain("CatalogPollutionMarker", profile.SearchText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(profile.Keywords, keyword => string.Equals(keyword, "catalogpollutionmarker", StringComparison.Ordinal));
+        Assert.Contains("CONTROL HANDOVER PLAN", profile.SearchText, StringComparison.Ordinal);
+        Assert.Contains(profile.Keywords, keyword => string.Equals(keyword, "handover", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Project_keeps_technical_identifier_cards_despite_numeric_title_filters()
     {
         var pages = new[]

@@ -128,14 +128,33 @@ internal static partial class DocumentProfileProjector
         if (units.Count == 0)
             return units;
 
-        var contentUnits = units
-            .Where(static unit => !string.Equals(
-                RetrievalContentClassifier.AnalyzeChunk(unit.Text).ContentRole,
-                RetrievalContentClassifier.NavigationRole,
-                StringComparison.Ordinal))
+        var classified = units
+            .Select(static unit => new
+            {
+                Unit = unit,
+                RetrievalContentClassifier.AnalyzeChunk(unit.Text).ContentRole
+            })
             .ToArray();
 
-        return contentUnits.Length == 0 ? units : contentUnits;
+        var contentUnits = classified
+            .Where(static item => string.Equals(
+                item.ContentRole,
+                RetrievalContentClassifier.ContentRole,
+                StringComparison.Ordinal))
+            .Select(static item => item.Unit)
+            .ToArray();
+        if (contentUnits.Length > 0)
+            return contentUnits;
+
+        var nonNavigationUnits = classified
+            .Where(static item => !string.Equals(
+                item.ContentRole,
+                RetrievalContentClassifier.NavigationRole,
+                StringComparison.Ordinal))
+            .Select(static item => item.Unit)
+            .ToArray();
+
+        return nonNavigationUnits.Length == 0 ? units : nonNavigationUnits;
     }
 
     private static IReadOnlyList<ExtractedDocumentUnit> SelectProfileCardContentUnits(IReadOnlyList<ExtractedDocumentUnit> units)
