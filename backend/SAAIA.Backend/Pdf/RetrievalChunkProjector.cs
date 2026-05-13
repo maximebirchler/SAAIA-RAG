@@ -149,6 +149,9 @@ internal static partial class RetrievalChunkProjector
 
         if (chunks.Count == 0)
         {
+            if (windowUnits.Count == 0)
+                return Array.Empty<ProjectedRetrievalChunk>();
+
             var fallback = windowUnits.Count > 0
                 ? windowUnits
                 : orderedUnits;
@@ -182,9 +185,7 @@ internal static partial class RetrievalChunkProjector
         var targetedFallbackUnits = orderedUnits
             .Where(ExtractionQualityPolicy.ShouldUseUnitForProfileCards)
             .ToList();
-        return targetedFallbackUnits.Count > 0
-            ? targetedFallbackUnits
-            : orderedUnits;
+        return targetedFallbackUnits;
     }
 
     private static void AddHighSignalUnitChunks(

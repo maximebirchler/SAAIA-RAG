@@ -3318,6 +3318,11 @@ LEFT JOIN LATERAL (
       AND rc.page_start <= e.page_end
       AND rc.page_end >= e.page_start
       AND char_length(rc.text_content) > char_length(e.text_content) + 80
+      AND COALESCE(rc.metadata->>'contentRole', 'content') <> 'navigation'
+      AND COALESCE(rc.metadata->>'chunkType', '') <> 'navigation_index_v1'
+      AND COALESCE(rc.metadata->>'extractionTextStatus', 'ok') <> 'empty_text'
+      AND COALESCE(rc.metadata->>'extractionTextSparse', 'false') <> 'true'
+      AND NOT COALESCE(rc.metadata->'extractionQualitySignals' ? 'replacement_chars_remaining', false)
     ORDER BY
         CASE COALESCE(rc.metadata->>'contentRole', 'content')
             WHEN 'content' THEN 0

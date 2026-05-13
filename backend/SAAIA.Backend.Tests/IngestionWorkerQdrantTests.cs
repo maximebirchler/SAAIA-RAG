@@ -67,4 +67,41 @@ public sealed class IngestionWorkerQdrantTests
     {
         Assert.Equal(expected, IngestionWorker.ResolveEmbeddingInputFormat(model));
     }
+
+    [Fact]
+    public void ShouldEmbedRetrievalChunk_skips_navigation_and_review_only_chunks()
+    {
+        var content = new ProjectedRetrievalChunk(
+            0,
+            0,
+            0,
+            1,
+            1,
+            "Reliable content with enough words to embed as a semantic passage.",
+            11,
+            [1],
+            "unit_exact_v1",
+            ExtractionTextStatus: "ok");
+        var navigation = content with
+        {
+            ChunkType = RetrievalContentClassifier.NavigationChunkType,
+            ContentRole = RetrievalContentClassifier.NavigationRole
+        };
+        var sparse = content with
+        {
+            TokenCount = 5,
+            ExtractionTextStatus = "low_text",
+            ExtractionTextSparse = true,
+            ExtractionOcrCandidate = true
+        };
+        var replacementChars = content with
+        {
+            ExtractionQualitySignals = ["replacement_chars_remaining"]
+        };
+
+        Assert.True(IngestionWorker.ShouldEmbedRetrievalChunk(content));
+        Assert.False(IngestionWorker.ShouldEmbedRetrievalChunk(navigation));
+        Assert.False(IngestionWorker.ShouldEmbedRetrievalChunk(sparse));
+        Assert.False(IngestionWorker.ShouldEmbedRetrievalChunk(replacementChars));
+    }
 }

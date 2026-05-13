@@ -235,6 +235,30 @@ sealed class IngestionWorker : BackgroundService
             ? "e5_passage_v1"
             : "raw_passage_v1";
 
+    internal static bool ShouldEmbedRetrievalChunk(ProjectedRetrievalChunk chunk)
+    {
+        if (string.Equals(chunk.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.Ordinal)
+            || RetrievalContentClassifier.IsNavigationChunkType(chunk.ChunkType))
+        {
+            return false;
+        }
+
+        if (string.Equals(chunk.ExtractionTextStatus, "empty_text", StringComparison.Ordinal))
+            return false;
+
+        if (chunk.ExtractionTextSparse && chunk.TokenCount < 20)
+            return false;
+
+        if (chunk.ExtractionQualitySignals is { Count: > 0 }
+            && chunk.ExtractionQualitySignals.Any(static signal =>
+                string.Equals(signal, "replacement_chars_remaining", StringComparison.Ordinal)))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
     internal static bool IsResumeCheckpointCompatible(
         JobRepo.ResumeCheckpointState? checkpoint,
         string sourceHash,
@@ -800,13 +824,10 @@ WHERE job_id=@job_id
             ingest.ChunkMaxWords,
             ingest.ChunkOverlapWords,
             ingest.ChunkMinWords);
-        var chunks = retrievalChunks.Count > 0
-            ? retrievalChunks
-                .Select(chunk => new Chunk(chunk.ChunkIndex, chunk.PageStart, chunk.PageEnd, chunk.Text))
-                .ToList()
-            : Chunker.MakeChunks(tokens, ingest.ChunkMaxWords, ingest.ChunkOverlapWords, ingest.ChunkMinWords, ct);
-        if (retrievalChunks.Count == 0)
-            retrievalChunks = RetrievalChunkProjector.Project(chunks, sections, units);
+        var chunks = retrievalChunks
+            .Where(ShouldEmbedRetrievalChunk)
+            .Select(chunk => new Chunk(chunk.ChunkIndex, chunk.PageStart, chunk.PageEnd, chunk.Text))
+            .ToList();
         swChunking.Stop();
         chunkingMs = swChunking.ElapsedMilliseconds;
         var swExact = Stopwatch.StartNew();

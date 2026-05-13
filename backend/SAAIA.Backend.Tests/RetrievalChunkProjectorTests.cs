@@ -234,6 +234,42 @@ public sealed class RetrievalChunkProjectorTests
     }
 
     [Fact]
+    public void ProjectStructureAware_returns_no_chunks_for_restricted_units_without_targeted_reference()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 1, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "small shim",
+                10,
+                2,
+                [1],
+                0,
+                10,
+                ExtractionTextStatus: "low_text",
+                ExtractionTextSparse: true,
+                ExtractionOcrCandidate: true,
+                ExtractionQualitySignals: ["sparse_text_on_page"])
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 100,
+            overlapWords: 0,
+            minWords: 1);
+
+        Assert.Empty(projected);
+    }
+
+    [Fact]
     public void ProjectStructureAware_adds_exact_chunks_for_short_high_signal_units()
     {
         var sections = new[]
