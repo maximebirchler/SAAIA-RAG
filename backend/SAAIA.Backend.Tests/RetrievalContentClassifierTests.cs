@@ -67,6 +67,21 @@ Procedure body: Materials lock padlock warning tag. Procedure 1. Isolate the mac
     }
 
     [Fact]
+    public void AnalyzeChunk_keeps_dense_measured_instructional_content_as_content()
+    {
+        var text = """
+Batch preparation for 4 units • 1.2 kg base compound • 250 g additive • 100 g binder • 2 modules • 3 cm spacer • 25 min curing time • 180° C oven.
+Preparation: warm the base, mix the additive, place the spacer, check the control value and document the result before packaging.
+""";
+
+        var signal = RetrievalContentClassifier.AnalyzeChunk(text);
+
+        Assert.Equal(RetrievalContentClassifier.ContentRole, signal.ContentRole);
+        Assert.Null(signal.NavigationReason);
+        Assert.True(signal.ContentDensityScore >= 0.70);
+    }
+
+    [Fact]
     public void DetectNavigationReason_keeps_structured_content_with_pdf_index_artifact()
     {
         var text = "16 Maintenance lockout [Index: ] ASSET-042 Materials padlock warning tag. Procedure 1. Isolate machine. 2. Verify zero energy.";

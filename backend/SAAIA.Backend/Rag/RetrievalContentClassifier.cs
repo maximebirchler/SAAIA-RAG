@@ -62,6 +62,7 @@ internal static partial class RetrievalContentClassifier
             || LooksLikeTitleListChunk(text);
         var contentDensityScore = ComputeContentDensityScore(text, folded, shape);
         var hasLayoutIndexArtifact = ContainsLayoutIndexArtifact(folded);
+        var hasDenseMeasuredContent = LooksLikeDenseMeasuredContent(text, folded, shape);
 
         string? reason = null;
         var navigationScore = 0.0;
@@ -158,6 +159,17 @@ internal static partial class RetrievalContentClassifier
         if (reason is null)
             return new RetrievalNavigationSignal(ContentRole, null, 0.0, contentDensityScore);
 
+        if (hasDenseMeasuredContent
+            && navigationScore < 0.90
+            && !hasExplicitTocMarker
+            && !hasStrongMarker
+            && shape.DotLeaderLineCount == 0
+            && shape.PageReferenceLineCount < 2
+            && inlinePageNumberBoundaries < 3)
+        {
+            return new RetrievalNavigationSignal(ContentRole, null, 0.0, Math.Max(contentDensityScore, 0.72));
+        }
+
         if (shape.ShortLineRatio >= 0.65 && shape.PageReferenceLineCount >= 3)
             navigationScore = Math.Max(navigationScore, 0.82);
         if (shape.LongLineRatio >= 0.35 || looksStructured)
@@ -197,6 +209,27 @@ internal static partial class RetrievalContentClassifier
         return (hasItemizedSection && (hasProcedureSection || hasCountOrSteps))
             || (hasProcedureSection && hasCountOrSteps)
             || (hasGovernanceSection && hasCountOrSteps);
+    }
+
+    private static bool LooksLikeDenseMeasuredContent(
+        string text,
+        string foldedText,
+        RetrievalNavigationShape shape)
+    {
+        var words = CountWords(text);
+        if (words < 28)
+            return false;
+
+        var measurementCount = CountMeasurementOrSpecificationTokens(text);
+        if (measurementCount < 4)
+            return false;
+
+        var hasContentCue = DenseMeasuredContentCueRegex().IsMatch(foldedText);
+        var hasStructuredBodyShape = CountBulletMarkers(text) >= 4
+            || shape.LongLineRatio >= 0.25
+            || words >= 60;
+
+        return hasContentCue || hasStructuredBodyShape;
     }
 
     private static bool HasStrongNavigationMarker(string foldedText, string paddedNormalizedText)
@@ -322,6 +355,18 @@ internal static partial class RetrievalContentClassifier
 
         var count = 0;
         foreach (Match _ in ShortNumberTokenRegex().Matches(text))
+            count++;
+
+        return count;
+    }
+
+    private static int CountMeasurementOrSpecificationTokens(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return 0;
+
+        var count = 0;
+        foreach (Match _ in MeasurementOrSpecificationRegex().Matches(text))
             count++;
 
         return count;
@@ -482,6 +527,12 @@ internal static partial class RetrievalContentClassifier
 
     [GeneratedRegex(@"(?<![\p{L}\p{N}])\d{1,4}(?![\p{L}\p{N}])", RegexOptions.CultureInvariant)]
     private static partial Regex ShortNumberTokenRegex();
+
+    [GeneratedRegex(@"(?<![\p{L}\p{N}])\d+(?:[,.]\d+)?\s*(?:%|°\s*[cfk]?|kg|g|mg|l|ml|cl|dl|m|cm|mm|km|h|min|mn|s|sec|w|kw|v|kv|a|ma|hz|khz|mhz|pa|kpa|bar|psi|nm|rpm|tr/min|chf|eur|usd|gb|mb|kb|tb)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex MeasurementOrSpecificationRegex();
+
+    [GeneratedRegex(@"\b(?:preparation|preparacion|preparacao|preparazione|procedure|procedures|procedimiento|procedimento|procedura|instructions?|instruction|etapes?|steps?|passos?|schritte?|material|materiel|materials|materiaux|ingredient|ingredients|component|components|composant|composants|assembly|assemblage|montage|configuration|installation|maintenance|controle|control|verification|pruefung|prufung|pruefung|verificacion|verifica)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex DenseMeasuredContentCueRegex();
 
     [GeneratedRegex(@"\d{1,5}\s*$", RegexOptions.CultureInvariant)]
     private static partial Regex PageNumberAtLineEndRegex();
