@@ -36,7 +36,7 @@ public sealed partial class ToolAgentOrchestrator
         responseLanguage = NormalizeLanguageCode(responseLanguage);
         var docLanguage = NormalizeDocumentLanguageTag(GetStringArg(args, "docLanguage"));
         var resolvedSourceMetadata = await ResolveLiveSummarySourceMetadataAsync(resolved, ct).ConfigureAwait(false);
-        resolvedSourceMetadata ??= BuildLiveSummaryFallbackSourceMetadata(resolved);
+        resolvedSourceMetadata ??= ResolveLiveSummaryFallbackSourceMetadata(resolved);
         docLanguage = ResolveLiveSummaryDocumentLanguage(docLanguage, resolvedSourceMetadata);
 
         var maxWords = GetIntArg(args, "maxWords") ?? (level == "short" ? 90 : level == "long" ? 320 : 220);
@@ -464,7 +464,11 @@ public sealed partial class ToolAgentOrchestrator
                 ?? CloneSourceExtractionDiagnostic(fallbackSource?.ExtractionDiagnosticSummary),
             QualitySignals: signals is { Count: > 0 } ? signals : fallbackSource?.QualitySignals,
             MatchedContentCards: cards is { Count: > 0 } ? cards : fallbackSource?.MatchedContentCards,
-            ProfileSignals: CloneSourceProfileSignalsRef(ConvertProfileSignals(item.ProfileSignals) ?? fallbackSource?.ProfileSignals),
+            ProfileSignals: MergeSourceProfileSignals(
+            [
+                new ToolMemory.SourceRef { ProfileSignals = ConvertProfileSignals(item.ProfileSignals) },
+                new ToolMemory.SourceRef { ProfileSignals = fallbackSource?.ProfileSignals }
+            ]),
             SelectionHintEvidenceRole: NullIfWhiteSpace(item.SelectionHints?.EvidenceRole) ?? fallbackSource?.SelectionHintEvidenceRole,
             SelectionHintActionabilityScore: item.SelectionHints is not null ? item.SelectionHints.ActionabilityScore : fallbackSource?.SelectionHintActionabilityScore,
             SelectionHintSupportScore: item.SelectionHints is not null ? item.SelectionHints.SupportScore : fallbackSource?.SelectionHintSupportScore,
@@ -517,7 +521,11 @@ public sealed partial class ToolAgentOrchestrator
             ExtractionDiagnosticSummary = CloneSourceExtractionDiagnostic(source.ExtractionDiagnosticSummary ?? chunk.ExtractionDiagnosticSummary),
             QualitySignals = source.QualitySignals.Count > 0 ? source.QualitySignals : chunk.QualitySignals,
             MatchedContentCards = source.MatchedContentCards.Count > 0 ? source.MatchedContentCards : chunk.MatchedContentCards,
-            ProfileSignals = CloneSourceProfileSignalsRef(source.ProfileSignals ?? chunk.ProfileSignals),
+            ProfileSignals = MergeSourceProfileSignals(
+            [
+                new ToolMemory.SourceRef { ProfileSignals = source.ProfileSignals },
+                new ToolMemory.SourceRef { ProfileSignals = chunk.ProfileSignals }
+            ]),
             SelectionHintEvidenceRole = NullIfWhiteSpace(source.SelectionHintEvidenceRole) ?? chunk.SelectionHintEvidenceRole,
             SelectionHintActionabilityScore = source.SelectionHintActionabilityScore ?? chunk.SelectionHintActionabilityScore,
             SelectionHintSupportScore = source.SelectionHintSupportScore ?? chunk.SelectionHintSupportScore,

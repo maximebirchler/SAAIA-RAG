@@ -1134,7 +1134,10 @@ public sealed class ApiClientDocumentsTransitionTests
                         "docName": "rich.pdf",
                         "pageStart": 1,
                         "pageEnd": 12,
-                        "label": "rich.pdf"
+                        "label": "rich.pdf",
+                        "profileSignals": {
+                          "language": "de"
+                        }
                       }
                     }
                     """,
@@ -1215,6 +1218,14 @@ public sealed class ApiClientDocumentsTransitionTests
             SelectionHintEvidenceRole = "supporting_context",
             SelectionHintSupportScore = 88
         });
+        mem.LastSourcesUsed[0].ProfileSignals = new ToolMemory.SourceProfileSignalsRef
+        {
+            ProfileVersion = "llm_backoffice_v1",
+            Language = "de",
+            Keywords = new() { "operational profile keyword" },
+            Topics = new() { "memory profile routing" },
+            Limits = new() { "Use exact chunks for numeric values." }
+        };
 
         var sut = new ToolAgentOrchestrator(api, llm, mem);
         using var args = JsonDocument.Parse("""{"docRef":"PDF01","responseLanguage":"fr","level":"short","maxWords":80,"maxChunks":2}""");
@@ -1224,6 +1235,7 @@ public sealed class ApiClientDocumentsTransitionTests
         var userPrompt = llm.Requests[0].Single(message => message.role == "user").content;
         Assert.Contains("card-memory", userPrompt);
         Assert.Contains("Knowledge/Procedures", userPrompt);
+        Assert.Contains("operational profile keyword", userPrompt);
         Assert.Equal("fr", result.GetProperty("responseLanguage").GetString());
         Assert.Equal("de", result.GetProperty("docLanguage").GetString());
         Assert.Equal("de", result.GetProperty("profileLanguage").GetString());
@@ -1234,6 +1246,9 @@ public sealed class ApiClientDocumentsTransitionTests
         Assert.Equal("extraction_ok", result.GetProperty("extractionQuality").GetProperty("documentQualityStatus").GetString());
         Assert.Equal("Operational controls", result.GetProperty("matchedContentCards")[0].GetProperty("title").GetString());
         Assert.Equal("card-memory", result.GetProperty("matchedContentCards")[0].GetProperty("contentCardId").GetString());
+        Assert.Equal("operational profile keyword", result.GetProperty("profileSignals").GetProperty("keywords")[0].GetString());
+        Assert.Equal("memory profile routing", result.GetProperty("profileSignals").GetProperty("topics")[0].GetString());
+        Assert.Equal("Use exact chunks for numeric values.", result.GetProperty("profileSignals").GetProperty("limits")[0].GetString());
         Assert.Equal("supporting_context", result.GetProperty("selectionHints").GetProperty("evidenceRole").GetString());
         Assert.Equal(88, result.GetProperty("selectionHints").GetProperty("supportScore").GetInt32());
         var anchor = result.GetProperty("anchors")[0];
@@ -1241,6 +1256,93 @@ public sealed class ApiClientDocumentsTransitionTests
         Assert.Equal("Knowledge", anchor.GetProperty("category").GetString());
         Assert.Equal("cat_rich", anchor.GetProperty("categoryRef").GetString());
         Assert.Equal("card-memory", anchor.GetProperty("matchedContentCards")[0].GetProperty("contentCardId").GetString());
+        Assert.Equal("operational profile keyword", anchor.GetProperty("profileSignals").GetProperty("keywords")[0].GetString());
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_summarize_live_uses_memory_profile_signals_when_source_resolve_fails()
+    {
+        string? capturedRagBody = null;
+        var handler = new StubHttpHandler(req => req.RequestUri!.AbsolutePath switch
+        {
+            "/sources/resolve" => new HttpResponseMessage(HttpStatusCode.InternalServerError),
+            "/rag/debug/scroll" => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"result":{"points":[]}}""", Encoding.UTF8, "application/json")
+            },
+            "/rag/search" => CaptureRagSearch(req, body =>
+            {
+                capturedRagBody = body;
+                return """
+                {
+                  "items": [
+                    {
+                      "score": 0.91,
+                      "docId": "doc-memory",
+                      "docPath": "Knowledge/memory.pdf",
+                      "docName": "memory.pdf",
+                      "pageStart": 4,
+                      "pageEnd": 4,
+                      "text": "The document describes validated checks and operating limits.",
+                      "profileSignals": {
+                        "profileVersion": "llm_backoffice_v1",
+                        "language": "en",
+                        "keywords": ["validated checks"],
+                        "topics": ["operating limits"]
+                      }
+                    }
+                  ]
+                }
+                """;
+            }),
+            _ => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+        });
+
+        var api = CreateApiClient(handler, adminKey: "test-admin-key");
+        var llm = new StubLlmClient("""{"summaryText":"Résumé source-backed."}""");
+        var mem = new ToolMemory();
+        mem.PdfMap["PDF01"] = new ToolMemory.DocumentItem
+        {
+            DocId = "doc-memory",
+            DocPath = "Knowledge/memory.pdf",
+            DocName = "memory.pdf",
+            CategoryPath = "Knowledge/Memory",
+            PdfRef = "PDF01"
+        };
+        mem.LastListedDocuments.Add(mem.PdfMap["PDF01"]);
+        mem.LastSourcesUsed.Add(new ToolMemory.SourceRef
+        {
+            DocId = "doc-memory",
+            DocPath = "Knowledge/memory.pdf",
+            DocName = "memory.pdf",
+            CategoryPath = "Knowledge/Memory",
+            DocLanguage = "en",
+            ProfileLanguage = "en",
+            ProfileSignals = new ToolMemory.SourceProfileSignalsRef
+            {
+                ProfileVersion = "llm_backoffice_v1",
+                Language = "en",
+                Keywords = new() { "fallback keyword" },
+                Topics = new() { "fallback topic" },
+                Limits = new() { "fallback limit" }
+            }
+        });
+
+        var sut = new ToolAgentOrchestrator(api, llm, mem);
+        using var args = JsonDocument.Parse("""{"docRef":"PDF01","responseLanguage":"fr","level":"short","maxChunks":2}""");
+        var result = await InvokePrivateToolAsync(sut, "ExecRagSummarizeLiveAsync", args.RootElement.Clone());
+
+        Assert.NotNull(capturedRagBody);
+        using (var ragBody = JsonDocument.Parse(capturedRagBody!))
+        {
+            var query = ragBody.RootElement.GetProperty("query").GetString();
+            Assert.Contains("fallback keyword", query);
+            Assert.Contains("fallback topic", query);
+            Assert.Contains("fallback limit", query);
+        }
+
+        Assert.Contains("fallback keyword", llm.Requests[0].Single(message => message.role == "user").content);
+        Assert.Equal("fallback keyword", result.GetProperty("profileSignals").GetProperty("keywords")[0].GetString());
     }
 
     [Fact]

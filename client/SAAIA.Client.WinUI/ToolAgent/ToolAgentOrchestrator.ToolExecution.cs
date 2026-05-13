@@ -475,7 +475,7 @@ public sealed partial class ToolAgentOrchestrator
         SetObjectIfMissingOrEmpty(sourceNode, "contentSignals", BuildSourceContentSignalsPayload(source));
         MergeObjectFieldsIfMissing(sourceNode, "extractionQuality", BuildSourceExtractionQualityPayload(source));
         SetObjectIfMissingOrEmpty(sourceNode, "matchedContentCards", BuildSourceContentCardsPayload(source));
-        SetObjectIfMissingOrEmpty(sourceNode, "profileSignals", BuildSourceProfileSignalsPayload(source));
+        MergeObjectFieldsIfMissing(sourceNode, "profileSignals", BuildSourceProfileSignalsPayload(source));
         SetObjectIfMissingOrEmpty(sourceNode, "selectionHints", BuildSourceSelectionHintsPayload(source));
         if (preferPreciseMemory)
             ApplyPreciseSourceOverride(sourceNode, source);
