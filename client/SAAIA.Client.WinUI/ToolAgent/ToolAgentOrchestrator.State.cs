@@ -9165,6 +9165,11 @@ CURRENT_USER_MESSAGE:
             $"{hit.SectionTitle} {hit.HeadingPath} {string.Join(' ', hit.MatchedContentCards?.Select(static card => card.Title) ?? Array.Empty<string>())}");
 
         var navigationScore = 0;
+        var backendContentRole = NormalizeLexicalLookup(hit.ContentRole);
+        if (backendContentRole == "navigation") navigationScore += 10;
+        if (backendContentRole == "mixed_navigation_content") navigationScore += 2;
+        if (hit.NavigationScore.HasValue && hit.NavigationScore.Value >= 0.82) navigationScore += 8;
+        if (hit.ContentDensityScore.HasValue && hit.ContentDensityScore.Value < 0.25) navigationScore += 2;
         if (LooksLikeNavigationOnlyHit(hit)) navigationScore += 10;
         if (LooksLikePageReferenceOnlyHit(hit)) navigationScore += 6;
         if (Regex.IsMatch(lookup, @"\b(?:sommaire|contents|index|table\s+of\s+contents|catalogue|copyright|isbn|edition)\b", RegexOptions.CultureInvariant))
@@ -9388,7 +9393,11 @@ CURRENT_USER_MESSAGE:
             supportScore = profile.SupportScore,
             fragmentScore = profile.FragmentScore,
             navigationScore = profile.NavigationScore,
-            qualityPenalty = profile.QualityPenalty
+            qualityPenalty = profile.QualityPenalty,
+            contentRole = string.IsNullOrWhiteSpace(hit.ContentRole) ? null : hit.ContentRole,
+            retrievalNavigationScore = hit.NavigationScore,
+            contentDensityScore = hit.ContentDensityScore,
+            navigationReason = string.IsNullOrWhiteSpace(hit.NavigationReason) ? null : hit.NavigationReason
         };
     }
 
@@ -9786,7 +9795,11 @@ CURRENT_USER_MESSAGE:
         int? SelectionHintFragmentScore = null,
         int? SelectionHintNavigationScore = null,
         int? SelectionHintQualityPenalty = null,
-        ToolMemory.SourceExtractionDiagnosticRef? ExtractionDiagnosticSummary = null);
+        ToolMemory.SourceExtractionDiagnosticRef? ExtractionDiagnosticSummary = null,
+        string? ContentRole = null,
+        string? NavigationReason = null,
+        double? NavigationScore = null,
+        double? ContentDensityScore = null);
 
     private sealed record RagHitContentCardSummary(
         string Title,
@@ -9879,6 +9892,22 @@ CURRENT_USER_MESSAGE:
         var selectionHintQualityPenalty = selectionHints.HasValue
             ? TryGetInt(selectionHints.Value, "qualityPenalty") ?? TryGetInt(selectionHints.Value, "quality_penalty") ?? TryGetInt(selectionHints.Value, "QualityPenalty")
             : null;
+        var contentRole = TryGetString(h, "contentRole")
+                          ?? TryGetString(h, "ContentRole")
+                          ?? TryGetNestedString(h, "context", "contentRole")
+                          ?? TryGetNestedString(h, "Context", "ContentRole");
+        var navigationReason = TryGetString(h, "navigationReason")
+                               ?? TryGetString(h, "NavigationReason")
+                               ?? TryGetNestedString(h, "context", "navigationReason")
+                               ?? TryGetNestedString(h, "Context", "NavigationReason");
+        var navigationScore = TryGetDouble(h, "navigationScore")
+                              ?? TryGetDouble(h, "NavigationScore")
+                              ?? TryGetNestedDouble(h, "context", "navigationScore")
+                              ?? TryGetNestedDouble(h, "Context", "NavigationScore");
+        var contentDensityScore = TryGetDouble(h, "contentDensityScore")
+                                  ?? TryGetDouble(h, "ContentDensityScore")
+                                  ?? TryGetNestedDouble(h, "context", "contentDensityScore")
+                                  ?? TryGetNestedDouble(h, "Context", "ContentDensityScore");
 
         return new RagHitSummary(
             docPath,
@@ -9924,7 +9953,11 @@ CURRENT_USER_MESSAGE:
             selectionHintFragmentScore,
             selectionHintNavigationScore,
             selectionHintQualityPenalty,
-            diagnosticSummary);
+            diagnosticSummary,
+            contentRole,
+            navigationReason,
+            navigationScore,
+            contentDensityScore);
     }
 
     private static IReadOnlyList<RagHitContentCardSummary>? ExtractRagHitMatchedContentCards(JsonElement h)
@@ -10403,6 +10436,7 @@ CURRENT_USER_MESSAGE:
                 var hypQuestionsMatched = TryGetBool(it, "hypQuestionsMatched") ?? TryGetBool(it, "HypQuestionsMatched");
                 var extractionQuality = CompactExtractionQualityForPrompt(it);
                 var matchedContentCards = CompactMatchedContentCardsForPrompt(it);
+                var contentSignals = CompactRetrievalContentSignalsForPrompt(it);
 
                 list.Add(new
                 {
@@ -10438,6 +10472,7 @@ CURRENT_USER_MESSAGE:
                     hypQuestionsMatched,
                     extractionQuality,
                     matchedContentCards,
+                    contentSignals,
                     selectionHints = BuildRagSelectionHintsPayload(BuildRagHitSummary(it), query: null),
                     contextualSnippet = string.IsNullOrWhiteSpace(contextualSnippet) ? null : contextualSnippet
                 });
@@ -10501,6 +10536,42 @@ CURRENT_USER_MESSAGE:
         }
 
         return compact.Count == 0 ? null : compact;
+    }
+
+    private static object? CompactRetrievalContentSignalsForPrompt(JsonElement item)
+    {
+        var contentRole = TryGetString(item, "contentRole")
+                          ?? TryGetString(item, "ContentRole")
+                          ?? TryGetNestedString(item, "context", "contentRole")
+                          ?? TryGetNestedString(item, "Context", "ContentRole");
+        var navigationReason = TryGetString(item, "navigationReason")
+                               ?? TryGetString(item, "NavigationReason")
+                               ?? TryGetNestedString(item, "context", "navigationReason")
+                               ?? TryGetNestedString(item, "Context", "NavigationReason");
+        var navigationScore = TryGetDouble(item, "navigationScore")
+                              ?? TryGetDouble(item, "NavigationScore")
+                              ?? TryGetNestedDouble(item, "context", "navigationScore")
+                              ?? TryGetNestedDouble(item, "Context", "NavigationScore");
+        var contentDensityScore = TryGetDouble(item, "contentDensityScore")
+                                  ?? TryGetDouble(item, "ContentDensityScore")
+                                  ?? TryGetNestedDouble(item, "context", "contentDensityScore")
+                                  ?? TryGetNestedDouble(item, "Context", "ContentDensityScore");
+
+        if (string.IsNullOrWhiteSpace(contentRole)
+            && string.IsNullOrWhiteSpace(navigationReason)
+            && !navigationScore.HasValue
+            && !contentDensityScore.HasValue)
+        {
+            return null;
+        }
+
+        return new
+        {
+            contentRole,
+            navigationReason,
+            navigationScore,
+            contentDensityScore
+        };
     }
 
     private static object? CompactContentCardEvidenceForPrompt(JsonElement card)
@@ -10950,6 +11021,13 @@ CURRENT_USER_MESSAGE:
         if (obj.ValueKind != JsonValueKind.Object) return null;
         if (!obj.TryGetProperty(parent, out var nested) || nested.ValueKind != JsonValueKind.Object) return null;
         return TryGetString(nested, prop);
+    }
+
+    private static double? TryGetNestedDouble(JsonElement obj, string parent, string prop)
+    {
+        if (obj.ValueKind != JsonValueKind.Object) return null;
+        if (!obj.TryGetProperty(parent, out var nested) || nested.ValueKind != JsonValueKind.Object) return null;
+        return TryGetDouble(nested, prop);
     }
 
     private static JsonElement? TryGetObject(JsonElement obj, string prop)

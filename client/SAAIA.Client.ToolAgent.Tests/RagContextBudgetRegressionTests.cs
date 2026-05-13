@@ -663,7 +663,22 @@ public sealed class RagContextBudgetRegressionTests
                 excerpt = longText,
                 fullText = longText,
                 contextualSnippet = longText,
-                score = 1.0 - i * 0.01
+                score = 1.0 - i * 0.01,
+                profileLanguage = "fr",
+                sourceHash = $"hash-{i}",
+                extractionQuality = new
+                {
+                    documentQualityStatus = "extraction_ok",
+                    pageQualityStatus = "page_ok",
+                    documentExtractionConfidence = 0.99,
+                    signals = new[] { "native_text_ok" }
+                },
+                context = new
+                {
+                    contentRole = "content",
+                    navigationScore = 0.01,
+                    contentDensityScore = 0.93
+                }
             })
         });
 
@@ -680,6 +695,12 @@ public sealed class RagContextBudgetRegressionTests
         Assert.True(first.GetProperty("excerpt").GetString()!.Length <= 263);
         Assert.True(first.GetProperty("fullText").GetString()!.Length <= 363);
         Assert.True(first.GetProperty("contextualSnippet").GetString()!.Length <= 223);
+        Assert.Equal("fr", first.GetProperty("profileLanguage").GetString());
+        Assert.Equal("hash-1", first.GetProperty("sourceHash").GetString());
+        Assert.Equal("extraction_ok", first.GetProperty("extractionQuality").GetProperty("documentQualityStatus").GetString());
+        Assert.Equal("content", first.GetProperty("contentSignals").GetProperty("contentRole").GetString());
+        Assert.Equal(0.93, first.GetProperty("contentSignals").GetProperty("contentDensityScore").GetDouble());
+        Assert.Equal("content", first.GetProperty("selectionHints").GetProperty("contentRole").GetString());
     }
 
     [Fact]

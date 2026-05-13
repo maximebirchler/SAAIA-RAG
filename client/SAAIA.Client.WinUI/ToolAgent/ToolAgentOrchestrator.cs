@@ -4915,6 +4915,7 @@ TOOL_RESULTS (json):
                 var fullText = TruncateForPrompt(TryGetString(it, "fullText"), fullTextChars);
                 var contextualSnippet = TruncateForPrompt(TryGetString(it, "contextualSnippet"), contextualChars);
                 var extractionQuality = CompactExtractionQualityForPrompt(it);
+                var contentSignals = CompactRetrievalContentSignalsForPrompt(it);
                 var matchedContentCards = CompactMatchedContentCardsForPrompt(
                     it,
                     maxCards: prioritizeEvidence ? 8 : 2,
@@ -4940,6 +4941,10 @@ TOOL_RESULTS (json):
                         sectionTitle = TryGetString(it, "sectionTitle"),
                         headingPath = TryGetString(it, "headingPath"),
                         docLanguage = TryGetDocumentLanguage(it),
+                        profileLanguage = TryGetString(it, "profileLanguage") ?? TryGetString(it, "profile_language") ?? TryGetString(it, "ProfileLanguage"),
+                        sourceHash = TryGetString(it, "sourceHash") ?? TryGetString(it, "source_hash") ?? TryGetString(it, "SourceHash"),
+                        extractionQuality,
+                        contentSignals,
                         matchedContentCards,
                         selectionHints = BuildRagSelectionHintsPayload(BuildRagHitSummary(it), userMessage),
                         contextualSnippet = string.IsNullOrWhiteSpace(contextualSnippet) ? null : contextualSnippet
@@ -4980,6 +4985,7 @@ TOOL_RESULTS (json):
                     hasWarning = TryGetBool(it, "hasWarning"),
                     hypQuestionsMatched = TryGetBool(it, "hypQuestionsMatched"),
                     extractionQuality,
+                    contentSignals,
                     matchedContentCards,
                     selectionHints = BuildRagSelectionHintsPayload(BuildRagHitSummary(it), userMessage),
                     contextualSnippet = string.IsNullOrWhiteSpace(contextualSnippet) ? null : contextualSnippet
