@@ -73,6 +73,30 @@ public sealed class ExactMatchEntryExtractorTests
         Assert.Contains(entries, entry => entry.Text == "EN 15281" && entry.Kind == "standard_ref");
         Assert.Contains(entries, entry => entry.Text == "IND570" && entry.Kind == "code_ref");
         Assert.Contains(entries, entry => entry.Text == "EN 15281" && entry.OffsetStart is not null);
+        Assert.DoesNotContain(entries, entry => entry.Kind == "standard_ref" && entry.Text.StartsWith("La norme", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Extract_does_not_promote_lowercase_language_preposition_with_short_number_to_standard_ref()
+    {
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                1,
+                12,
+                12,
+                "Le controle fonctionne en 12 modes et la notice le repete en 68 exemples pratiques.",
+                84,
+                14,
+                [1],
+                0,
+                84)
+        };
+
+        var entries = ExactMatchEntryExtractor.Extract(units);
+
+        Assert.DoesNotContain(entries, entry => entry.Kind == "standard_ref");
     }
 
     [Fact]

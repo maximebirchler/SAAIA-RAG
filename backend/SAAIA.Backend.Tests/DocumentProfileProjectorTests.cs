@@ -232,6 +232,95 @@ public sealed class DocumentProfileProjectorTests
     }
 
     [Fact]
+    public void Project_filters_metadata_labels_and_dangling_fragments_without_category_hardcoding()
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                1,
+                "Modes de\nPas cher\nQ Facile\n& Repos\nAU MODULE\nCONTROL HANDOVER PLAN\nProcedure 1. Check status. 2. Record notes.",
+                20,
+                116,
+                [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Modes de", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(1, "Categories de documents", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(2, "CONTROL HANDOVER PLAN", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, "Modes de", 8, 2, [2]),
+            new ExtractedDocumentUnit(1, 0, 1, 1, "Pas cher", 8, 2, [3]),
+            new ExtractedDocumentUnit(2, 0, 1, 1, "Q Facile", 8, 2, [4]),
+            new ExtractedDocumentUnit(3, 0, 1, 1, "& Repos", 7, 2, [5]),
+            new ExtractedDocumentUnit(4, 0, 1, 1, "AU MODULE", 9, 2, [6]),
+            new ExtractedDocumentUnit(
+                5,
+                2,
+                1,
+                1,
+                "CONTROL HANDOVER PLAN\nProcedure 1. Check status. 2. Record notes.",
+                68,
+                9,
+                [7])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/QualityLabels.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Modes de", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Categories de documents", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Pas cher", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Q Facile", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "& Repos", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "AU MODULE", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "CONTROL HANDOVER PLAN", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Project_filters_short_standalone_standard_like_noise_from_content_cards()
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                1,
+                "The document mentions EN 15281 as a real standard and also contains the phrase EN 12 from OCR noise.",
+                18,
+                98,
+                [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Reference overview", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, pages[0].Text, pages[0].Text.Length, 18, [2])
+        };
+        var exact = new[]
+        {
+            new ExtractedExactMatchEntry(0, 0, 0, 1, 1, "EN 12", "en 12", 5, 2, [3], "standard_ref"),
+            new ExtractedExactMatchEntry(1, 0, 0, 1, 1, "EN 15281", "en 15281", 8, 2, [4], "standard_ref")
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/Standards.pdf",
+            pages,
+            sections,
+            units,
+            exact);
+
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "EN 12", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "EN 15281", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Project_keeps_technical_identifier_cards_despite_numeric_title_filters()
     {
         var pages = new[]

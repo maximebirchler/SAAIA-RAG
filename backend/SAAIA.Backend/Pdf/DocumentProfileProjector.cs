@@ -345,8 +345,11 @@ internal static partial class DocumentProfileProjector
                      .OrderBy(static entry => entry.EntryIndex))
         {
             var title = CleanTitleCandidate(entry.Text);
-            if (!LooksLikeTechnicalIdentifier(title))
+            if (!LooksLikeTechnicalIdentifier(title)
+                || !IsPlausibleTechnicalContentCardIdentifier(title))
+            {
                 continue;
+            }
 
             AddContentCardCandidate(
                 candidates,
@@ -807,9 +810,13 @@ internal static partial class DocumentProfileProjector
             return false;
         if (LooksLikeGenericContentCardTitle(normalizedFolded) && !hasTechnicalIdentifier)
             return false;
+        if (LooksLikeMetadataLabelContentCardTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
+            return false;
         if (LooksLikeOcrNoiseTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
             return false;
         if (LooksLikeDanglingFragmentContentCardTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
+            return false;
+        if (LooksLikeShortAllCapsOcrFragment(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
             return false;
         if (PageReferenceFragmentRegex().IsMatch(normalizedFolded)
             && !hasTechnicalIdentifier
@@ -838,6 +845,19 @@ internal static partial class DocumentProfileProjector
     private static bool LooksLikeTechnicalIdentifier(string value)
         => !string.IsNullOrWhiteSpace(value)
             && TechnicalIdentifierRegex().IsMatch(value);
+
+    private static bool IsPlausibleTechnicalContentCardIdentifier(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var normalized = CollapseWhitespace(value);
+        var match = ShortStandaloneStandardReferenceRegex().Match(normalized);
+        if (!match.Success)
+            return true;
+
+        return match.Groups["digits"].Value.Length >= 3;
+    }
 
     private static bool LooksLikeGluedNavigationOrHeaderTitle(string title)
     {
@@ -939,7 +959,16 @@ internal static partial class DocumentProfileProjector
             return true;
 
         if (endsWithFragment
-            && tokenCount >= 3
+            && string.Equals(lastToken, "a", StringComparison.Ordinal)
+            && EndsWithUppercaseSingleLetterA(title)
+            && !startsWithFragment
+            && !LooksLikeLowercaseLead(title)
+            && !ContainsNoisyInlinePunctuation(title, tokenCount))
+        {
+            return false;
+        }
+
+        if (endsWithFragment
             && tokenCount <= 8
             && (startsWithFragment
                 || LooksLikeLowercaseLead(title)
@@ -951,6 +980,70 @@ internal static partial class DocumentProfileProjector
 
         return HasUnbalancedContentCardQuote(title)
             && (LooksLikeLowercaseLead(title) || strongTokens <= 2 || tokenCount <= 6);
+    }
+
+    private static bool EndsWithUppercaseSingleLetterA(string title)
+    {
+        var trimmed = title.TrimEnd();
+        return trimmed.Length >= 2
+            && trimmed[^1] == 'A'
+            && !char.IsLetterOrDigit(trimmed[^2]);
+    }
+
+    private static bool LooksLikeMetadataLabelContentCardTitle(string title, string normalizedFolded, int tokenCount)
+    {
+        if (tokenCount is < 1 or > 4)
+            return false;
+
+        var tokens = normalizedFolded.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (tokens.Length == 0)
+            return false;
+
+        if (tokens.All(ContentCardMetadataLabelTokens.Contains))
+            return true;
+
+        if (tokens.Length == 2
+            && tokens[0].Length == 1
+            && tokens[0].All(char.IsLetter)
+            && ContentCardMetadataLabelTokens.Contains(tokens[1]))
+        {
+            return true;
+        }
+
+        if (tokens.Length == 2
+            && tokens[0].Length <= 2
+            && tokens[0].All(static ch => char.IsLetterOrDigit(ch) || ch is '&')
+            && ContentCardMetadataLabelTokens.Contains(tokens[1]))
+        {
+            return true;
+        }
+
+        return MetadataLabelTitleRegex().IsMatch(title);
+    }
+
+    private static bool LooksLikeShortAllCapsOcrFragment(string title, string normalizedFolded, int tokenCount)
+    {
+        if (tokenCount is < 2 or > 4)
+            return false;
+
+        if (!LooksLikeMostlyUppercaseTitle(title))
+            return false;
+
+        var tokens = normalizedFolded.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (tokens.Length == 0)
+            return false;
+
+        if (tokens.Any(static token => token.Any(char.IsDigit)))
+            return false;
+
+        if (tokens.Any(static token => token.Length >= 7))
+            return false;
+
+        var shortOrNoisy = tokens.Count(static token =>
+            token.Length <= 3
+            || RepeatedOcrSyllableRunRegex().IsMatch(token)
+            || ContentCardMetadataLabelTokens.Contains(token));
+        return shortOrNoisy >= Math.Max(2, tokens.Length - 1);
     }
 
     private static bool HasUnbalancedContentCardQuote(string title)
@@ -1695,7 +1788,8 @@ internal static partial class DocumentProfileProjector
         "etapes", "etape", "steps", "step", "notes", "note", "source", "sources",
         "sommaire", "contents", "table of contents", "index",
         "total time", "duree totale", "durée totale",
-        "document", "documents", "page", "pages"
+        "document", "documents", "page", "pages",
+        "facile", "easy", "repos", "rest", "pause", "cheap", "cher", "difficulty", "difficulte"
     };
 
     private static readonly HashSet<string> ContentCardLeadStopwords = new(StringComparer.Ordinal)
@@ -1710,7 +1804,18 @@ internal static partial class DocumentProfileProjector
         "a", "an", "and", "as", "at", "by", "d", "da", "dans", "das", "de", "del",
         "della", "des", "di", "die", "du", "el", "en", "et", "for", "from", "in",
         "l", "la", "las", "le", "les", "lo", "los", "mit", "of", "on", "or", "ou",
+        "au", "aux", "al",
         "para", "per", "por", "sur", "the", "to", "und", "with", "y", "zu"
+    };
+
+    private static readonly HashSet<string> ContentCardMetadataLabelTokens = new(StringComparer.Ordinal)
+    {
+        "easy", "facile", "simple", "medium", "moyen", "hard", "difficile",
+        "cheap", "cher", "chere", "cost", "cout", "prix", "budget",
+        "rest", "repos", "pause", "waiting", "attente",
+        "time", "temps", "duration", "duree", "cuisson", "preparation",
+        "mode", "modes", "program", "programme", "programmes",
+        "category", "categories", "categorie"
     };
 
     [GeneratedRegex(@"[\p{L}\p{N}][\p{L}\p{N}\-/]{2,}", RegexOptions.CultureInvariant)]
@@ -1721,6 +1826,9 @@ internal static partial class DocumentProfileProjector
 
     [GeneratedRegex(@"\b(?:EN|ISO|IEC|ASTM|DIN|NFPA|API|ANSI|CEN|TR|TS|PD|BS|NF|SN|UL|CSA)(?:[\s._/\-]+[A-Z]{1,6}){0,4}[\s._/\-]*\d[A-Z0-9._/\-:]*\b", RegexOptions.CultureInvariant)]
     private static partial Regex TechnicalIdentifierRegex();
+
+    [GeneratedRegex(@"^(?:EN|ISO|IEC|ASTM|DIN|NFPA|API|ANSI|CEN|TR|TS|PD|BS|NF|SN|UL|CSA)[\s._/\-]*(?<digits>\d{1,3})$", RegexOptions.CultureInvariant)]
+    private static partial Regex ShortStandaloneStandardReferenceRegex();
 
     [GeneratedRegex(@"(?<left>[\p{Ll}\p{Lo}])(?<right>[\p{Lu}][\p{Ll}]{2,}\b)", RegexOptions.CultureInvariant)]
     private static partial Regex LowerToUpperBoundaryRegex();
@@ -1736,6 +1844,9 @@ internal static partial class DocumentProfileProjector
 
     [GeneratedRegex(@"^(?:materials?|components?|procedures?|method|methods|steps?|etapes?|sources?|references?|notes?|materiel|matériel|technique|suggestions?|requirements?|warnings?|cautions?|instructions?|parameters?|settings?|total time|duree totale|durée totale)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex GenericContentCardTitlePrefixRegex();
+
+    [GeneratedRegex(@"^(?:[&A-Z0-9]{1,2}\s+)?(?:facile|easy|repos|rest|pause|pas\s+cher|low\s+cost|cheap|temps|time|duration|duree|durée|modes?\s+de|categories?\s+de|cat[eé]gories?\s+de)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex MetadataLabelTitleRegex();
 
     [GeneratedRegex(@"^(?:add|ajouter|ajoutez?|appliquer|apply|arreter|attendre|check|choisir|close|configurer|configure|connect|connecter|copy|copier|deconnecter|delete|demarrer|ensuite|enter|fermer|install|installer|lancer|mettre|open|ouvrir|placer|place|programmer|programmez|puis|quand|remove|remplacer|replace|restart|retirer|run|save|select|selectionner|set|start|stop|supprimer|update|use|utilisez?|utiliser|validate|valider|verify|verifier|v[ée]rifier)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex InstructionLeadTitleRegex();

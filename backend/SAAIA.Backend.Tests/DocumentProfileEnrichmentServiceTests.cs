@@ -268,6 +268,7 @@ public sealed class DocumentProfileEnrichmentServiceTests
         Assert.Equal("nl", profile!.Language);
         Assert.NotNull(capturedRequest);
         Assert.Contains("Document/output language: nl", capturedRequest, StringComparison.Ordinal);
+        Assert.Contains("Do not create cards from table-of-contents/index rows", capturedRequest, StringComparison.Ordinal);
     }
 
     [Fact]

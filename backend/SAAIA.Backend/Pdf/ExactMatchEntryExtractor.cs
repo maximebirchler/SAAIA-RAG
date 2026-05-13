@@ -163,22 +163,34 @@ internal static partial class ExactMatchEntryExtractor
         foreach (Match match in StandardReferenceRegex().Matches(text))
         {
             var value = NormalizeWhitespace(match.Value);
-            if (!string.IsNullOrWhiteSpace(value) && !HasGenericReferenceLeadToken(value))
+            if (!string.IsNullOrWhiteSpace(value)
+                && !HasGenericReferenceLeadToken(value)
+                && IsPlausibleTargetedReference(value))
+            {
                 yield return value;
+            }
         }
 
         foreach (Match match in SpacedCodeReferenceRegex().Matches(text))
         {
             var value = NormalizeWhitespace(match.Value);
-            if (!string.IsNullOrWhiteSpace(value) && !HasGenericReferenceLeadToken(value))
+            if (!string.IsNullOrWhiteSpace(value)
+                && !HasGenericReferenceLeadToken(value)
+                && IsPlausibleTargetedReference(value))
+            {
                 yield return value;
+            }
         }
 
         foreach (Match match in CodeReferenceRegex().Matches(text))
         {
             var value = NormalizeWhitespace(match.Value);
-            if (!string.IsNullOrWhiteSpace(value) && !HasGenericReferenceLeadToken(value))
+            if (!string.IsNullOrWhiteSpace(value)
+                && !HasGenericReferenceLeadToken(value)
+                && IsPlausibleTargetedReference(value))
+            {
                 yield return value;
+            }
         }
     }
 
@@ -249,13 +261,30 @@ internal static partial class ExactMatchEntryExtractor
 
     private static string InferEntryKind(string candidate)
     {
-        if (StandardReferenceRegex().IsMatch(candidate))
+        if (IsStandaloneRegexMatch(candidate, StandardReferenceRegex())
+            && IsPlausibleTargetedReference(candidate))
+        {
             return "standard_ref";
+        }
 
-        if (CodeReferenceRegex().IsMatch(candidate))
+        if (IsStandaloneRegexMatch(candidate, CodeReferenceRegex())
+            && IsPlausibleTargetedReference(candidate))
+        {
             return "code_ref";
+        }
 
         return "verbatim_excerpt";
+    }
+
+    private static bool IsStandaloneRegexMatch(string candidate, Regex regex)
+    {
+        var normalized = NormalizeWhitespace(candidate);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        var match = regex.Match(normalized);
+        return match.Success
+            && string.Equals(NormalizeWhitespace(match.Value), normalized, StringComparison.OrdinalIgnoreCase);
     }
 
     private static int CountTokens(string text)
@@ -304,6 +333,9 @@ internal static partial class ExactMatchEntryExtractor
     [GeneratedRegex(@"^\d{4,}", RegexOptions.CultureInvariant)]
     private static partial Regex LeadingDigitsRegex();
 
+    [GeneratedRegex(@"^(?:en|iso|iec|astm|din|nfpa|api|ansi|cen|tr|ts|pd|bs)[\s._/\-]*(?<digits>\d{1,3})(?:\b|$)", RegexOptions.CultureInvariant)]
+    private static partial Regex ShortLowercaseStandardWordCollisionRegex();
+
     private static string RemoveReferenceSeparators(string text)
         => Regex.Replace(text, @"[\s._/\-]+", string.Empty);
 
@@ -318,6 +350,20 @@ internal static partial class ExactMatchEntryExtractor
             return false;
 
         return GenericReferenceLeadTokens.Contains(firstToken.ToLowerInvariant());
+    }
+
+    private static bool IsPlausibleTargetedReference(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var compact = NormalizeWhitespace(value);
+        var shortLowercaseStandard = ShortLowercaseStandardWordCollisionRegex().Match(compact);
+        if (!shortLowercaseStandard.Success)
+            return true;
+
+        var digits = shortLowercaseStandard.Groups["digits"].Value;
+        return digits.Length >= 4;
     }
 
     private static readonly HashSet<string> GenericReferenceLeadTokens = new(StringComparer.Ordinal)
