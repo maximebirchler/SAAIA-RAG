@@ -435,6 +435,7 @@ public sealed class DocumentProfileProjectorTests
                 new DocumentProfileContentCard("Prepare the batch", 1, 1, "exact_lead", ["prepare"]),
                 new DocumentProfileContentCard("Prepare the ganache e 125g flour e 2c", 1, 1, "exact_lead", ["prepare", "125g"]),
                 new DocumentProfileContentCard("Cycle: Ih 30 minutes", 2, 2, "exact_lead", ["30 minutes"]),
+                new DocumentProfileContentCard("Duration : Ih 30 minutes", 2, 2, "section", ["30 minutes"]),
                 new DocumentProfileContentCard("During this step, verify the control relay", 3, 3, "exact_lead", ["verify"]),
                 new DocumentProfileContentCard("On another station, record the pressure", 4, 4, "exact_lead", ["record"]),
                 new DocumentProfileContentCard("Unless the operator confirms the reference value", 5, 5, "exact_lead", ["operator"]),
@@ -445,6 +446,7 @@ public sealed class DocumentProfileProjectorTests
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Prepare the batch", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Prepare the ganache e 125g flour e 2c", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Cycle: Ih 30 minutes", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Duration : Ih 30 minutes", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "During this step, verify the control relay", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "On another station, record the pressure", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Unless the operator confirms the reference value", StringComparison.Ordinal));

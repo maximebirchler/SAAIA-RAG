@@ -925,7 +925,7 @@ internal static partial class DocumentProfileProjector
             return false;
         if (LooksLikeMeasuredSentenceFragmentTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
             return false;
-        if (LooksLikeColonMetricFragmentTitle(normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
+        if (LooksLikeColonMetricFragmentTitle(title, tokenCount) && !hasTechnicalIdentifier)
             return false;
         if (LooksLikeDanglingFragmentContentCardTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
             return false;
@@ -1040,16 +1040,16 @@ internal static partial class DocumentProfileProjector
             || LooksLikeAllCapsMarketingHeadline(normalizedFolded, tokenCount);
     }
 
-    private static bool LooksLikeColonMetricFragmentTitle(string normalizedFolded, int tokenCount)
+    private static bool LooksLikeColonMetricFragmentTitle(string title, int tokenCount)
     {
         if (tokenCount is < 2 or > 6)
             return false;
 
-        var colonIndex = normalizedFolded.IndexOf(':', StringComparison.Ordinal);
-        if (colonIndex < 1 || colonIndex >= normalizedFolded.Length - 1)
+        var colonIndex = title.IndexOf(':', StringComparison.Ordinal);
+        if (colonIndex < 1 || colonIndex >= title.Length - 1)
             return false;
 
-        var rightSide = normalizedFolded[(colonIndex + 1)..].Trim();
+        var rightSide = FoldDiacritics(title[(colonIndex + 1)..]).ToLowerInvariant().Trim();
         if (rightSide.Length < 2)
             return false;
 
