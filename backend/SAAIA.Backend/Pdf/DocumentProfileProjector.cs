@@ -925,6 +925,8 @@ internal static partial class DocumentProfileProjector
             return false;
         if (LooksLikeMeasuredSentenceFragmentTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
             return false;
+        if (LooksLikeColonMetricFragmentTitle(normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
+            return false;
         if (LooksLikeDanglingFragmentContentCardTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
             return false;
         if (LooksLikeConnectorLeadSentenceFragment(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
@@ -1007,6 +1009,9 @@ internal static partial class DocumentProfileProjector
         if (AdditionalImperativeInstructionLeadRegex().IsMatch(normalizedFolded))
             return true;
 
+        if (LooksLikeFrenchImperativeSentenceLead(normalizedFolded, tokenCount))
+            return true;
+
         if (SecondaryImperativeInstructionLeadRegex().IsMatch(normalizedFolded))
             return true;
 
@@ -1033,6 +1038,39 @@ internal static partial class DocumentProfileProjector
             || normalizedFolded.Contains("componentsprocedure", StringComparison.Ordinal)
             || normalizedFolded.Contains("components procedure", StringComparison.Ordinal)
             || LooksLikeAllCapsMarketingHeadline(normalizedFolded, tokenCount);
+    }
+
+    private static bool LooksLikeColonMetricFragmentTitle(string normalizedFolded, int tokenCount)
+    {
+        if (tokenCount is < 2 or > 6)
+            return false;
+
+        var colonIndex = normalizedFolded.IndexOf(':', StringComparison.Ordinal);
+        if (colonIndex < 1 || colonIndex >= normalizedFolded.Length - 1)
+            return false;
+
+        var rightSide = normalizedFolded[(colonIndex + 1)..].Trim();
+        if (rightSide.Length < 2)
+            return false;
+
+        return rightSide.Any(char.IsDigit)
+            || OcrOneLikeDurationRegex().IsMatch(rightSide);
+    }
+
+    private static bool LooksLikeFrenchImperativeSentenceLead(string normalizedFolded, int tokenCount)
+    {
+        if (tokenCount < 3)
+            return false;
+
+        var tokens = normalizedFolded.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (tokens.Length < 3)
+            return false;
+
+        var firstToken = tokens[0];
+        if (firstToken.Length < 5 || !firstToken.EndsWith("ez", StringComparison.Ordinal))
+            return false;
+
+        return tokens.Skip(1).Any(static token => FrenchImperativeFollowerTokens.Contains(token));
     }
 
     private static bool LooksLikeLowSubstanceCoverOrMarketingCandidate(
@@ -2199,6 +2237,12 @@ internal static partial class DocumentProfileProjector
         "d", "la", "le", "les", "l", "un", "une", "a", "an", "the"
     };
 
+    private static readonly HashSet<string> FrenchImperativeFollowerTokens = new(StringComparer.Ordinal)
+    {
+        "et", "le", "la", "les", "l", "un", "une", "du", "des", "de",
+        "avec", "dans", "sur", "puis", "ensuite", "avant", "apres"
+    };
+
     [GeneratedRegex(@"[\p{L}\p{N}][\p{L}\p{N}\-/]{2,}", RegexOptions.CultureInvariant)]
     private static partial Regex WordRegex();
 
@@ -2244,10 +2288,10 @@ internal static partial class DocumentProfileProjector
     [GeneratedRegex(@"^(?:add|ajouter|ajoutez?|appliquer|apply|arreter|attendre|check|choisir|close|configurer|configure|connect|connecter|copy|copier|deconnecter|delete|demarrer|ensuite|enter|fermer|install|installer|lancer|mettre|open|ouvrir|placer|place|programmer|programmez|puis|quand|remove|remplacer|replace|restart|retirer|run|save|select|selectionner|set|start|stop|supprimer|update|use|utilisez?|utiliser|validate|valider|verify|verifier|v[ée]rifier)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex InstructionLeadTitleRegex();
 
-    [GeneratedRegex(@"^(?:avec des|ce|cela|celle|celui|cette|elle|elles|est|facultatif\)?|fonctionne|il|ils|it|pour cette|pour le|pour la|pour les|se|si vous|this|vous)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:a moins|avec des|ce|cela|celle|celui|cette|during|elle|elles|est|facultatif\)?|fonctionne|il|ils|it|mientras|pendant|pour cette|pour le|pour la|pour les|se|si vous|this|unless|vous|while)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex SentenceLeadTitleRegex();
 
-    [GeneratedRegex(@"^(?:dans|in|en|con|avec|with)\s+(?:un|une|le|la|les|l['\u2019]?|the|a|an|el|los|las|il|lo|gli|i)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:dans|in|en|con|avec|with|sur|on)\s+(?:un|une|le|la|les|l['\u2019]?|the|a|an|el|los|las|il|lo|gli|i)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex ContextualSentenceLeadRegex();
 
     [GeneratedRegex(@"\b(?:est|sont|doit|doivent|peut|peuvent|pouvez|pourrez|permet|permettent|recommande|recommandons|utilisez|utiliser|trouver|trouvez|ajoutez|ouvrez|fermez|retirez|verifiez|v[ée]rifiez|is|are|can|must|should|allows?|use|uses|using|open|close|remove|verify|check)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
@@ -2279,6 +2323,9 @@ internal static partial class DocumentProfileProjector
 
     [GeneratedRegex(@"\d+(?:[,.]\d+)?\s*(?:%|°|kg|g|mg|l|ml|cl|dl|m|cm|mm|km|h|min|mn|s|sec|w|kw|v|kv|a|ma|hz|khz|mhz|pa|kpa|bar|psi|nm|rpm|tr/min)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex ContentCardTitleMeasurementRegex();
+
+    [GeneratedRegex(@"\b[il]\s*h\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex OcrOneLikeDurationRegex();
 
     [GeneratedRegex(@"\b(?:page|pages?|p\.?)\s*\d+\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex PageReferenceFragmentRegex();
