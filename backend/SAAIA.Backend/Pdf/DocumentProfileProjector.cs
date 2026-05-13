@@ -1002,6 +1002,17 @@ internal static partial class DocumentProfileProjector
         if (tokens.All(ContentCardMetadataLabelTokens.Contains))
             return true;
 
+        if (tokens.Length >= 2
+            && tokens[0].Length <= 3
+            && tokens[0].All(static ch => char.IsLetterOrDigit(ch) || ch is '&')
+            && tokens.Skip(1).All(ContentCardMetadataLabelTokens.Contains))
+        {
+            return true;
+        }
+
+        if (MetadataLeadWithConnectorRegex().IsMatch(normalizedFolded))
+            return true;
+
         if (tokens.Length == 2
             && tokens[0].Length == 1
             && tokens[0].All(char.IsLetter)
@@ -1812,6 +1823,7 @@ internal static partial class DocumentProfileProjector
     {
         "easy", "facile", "simple", "medium", "moyen", "hard", "difficile",
         "cheap", "cher", "chere", "cost", "cout", "prix", "budget",
+        "assez", "tres", "très", "very", "low", "high", "haut", "bas", "pas",
         "rest", "repos", "pause", "waiting", "attente",
         "time", "temps", "duration", "duree", "cuisson", "preparation",
         "mode", "modes", "program", "programme", "programmes",
@@ -1848,6 +1860,9 @@ internal static partial class DocumentProfileProjector
     [GeneratedRegex(@"^(?:[&A-Z0-9]{1,2}\s+)?(?:facile|easy|repos|rest|pause|pas\s+cher|low\s+cost|cheap|temps|time|duration|duree|durée|modes?\s+de|categories?\s+de|cat[eé]gories?\s+de)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex MetadataLabelTitleRegex();
 
+    [GeneratedRegex(@"^(?:facile|easy|simple|moyen|medium|difficile|hard|pas\s+cher|assez\s+cher|tres\s+cher|tr[eè]s\s+cher|cheap|low\s+cost|temps|time|duration|duree|dur[eé]e|repos|rest|pause)\s+(?:pour|for|para|per|mit|avec|with|de|du|des|d['\u2019]?|la|le|les|l['\u2019]?|un|une)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex MetadataLeadWithConnectorRegex();
+
     [GeneratedRegex(@"^(?:add|ajouter|ajoutez?|appliquer|apply|arreter|attendre|check|choisir|close|configurer|configure|connect|connecter|copy|copier|deconnecter|delete|demarrer|ensuite|enter|fermer|install|installer|lancer|mettre|open|ouvrir|placer|place|programmer|programmez|puis|quand|remove|remplacer|replace|restart|retirer|run|save|select|selectionner|set|start|stop|supprimer|update|use|utilisez?|utiliser|validate|valider|verify|verifier|v[ée]rifier)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex InstructionLeadTitleRegex();
 
@@ -1860,13 +1875,13 @@ internal static partial class DocumentProfileProjector
     [GeneratedRegex(@"^(?:ajoutez?|appliquez|arretez|choisissez|configurez|connectez|copiez|demarrez|deconnectez|enlevez|fermez|installez|lancez?|ouvrez|placez|placez-les|posez|programmez|redemarrez|remettez|remplacez?|retirez|saisissez?|selectionnez|supprimez|utilisez?|validez|verifiez|v[ée]rifiez)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex ImperativeInstructionLeadRegex();
 
-    [GeneratedRegex(@"^(?:coupez?|couvrez?|deposez|enfournez|faites|formez|melangez|mixez?|servez|trempez|versez)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:assaisonnez?|battez?|couvrez?|coupez?|deposez|d[ée]posez|disposez|dressez|[eé]gouttez|[eé]mincez|enfournez|faites|foncez|formez|fouettez|grattez|laissez|lavez|m[eé]langez|mixez?|passez|p[eé]trissez|placez|poivrez|poursuivez|pr[eé]chauffez|pr[eé]levez|r[eé]alisez|recouvrez|r[eé]duisez|replacez|r[eé]p[eé]tez|r[eé]servez|salez|servez|trempez|versez)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex AdditionalImperativeInstructionLeadRegex();
 
     [GeneratedRegex(@"^(?:ajouter|appliquer|arreter|choisir|configurer|connecter|copier|demarrer|deconnecter|enlever|fermer|installer|lancer|ouvrir|placer|programmer|redemarrer|remettre|remplacer|retirer|selectionner|supprimer|utiliser|valider|verifier|v[ée]rifier)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex InfinitiveInstructionLeadRegex();
 
-    [GeneratedRegex(@"^(?:a l aide|a la fin|apres|bien|c est|ca|ceci|cela|dans tous les cas|garder|gardez|l idee|mais la aussi|n hesitez|on|onne|pour connaitre|pour l|pour vous|pourtant|quellesatisfaction|si vous|suivant le|voici)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:a l aide|a la fin|apres|bien|bonne nouvelle|c est|ca|ceci|cela|dans tous les cas|garder|gardez|l idee|mais la aussi|n hesitez|on|onne|pour connaitre|pour l|pour vous|pourtant|quant aux|quellesatisfaction|raison de plus|si vous|suivant le|voici)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex LowSignalSentenceLeadRegex();
 
     [GeneratedRegex(@"^(?:pour|for|para|per|fur|fuer|zu|a|da)\s+\d{1,3}\s+[\p{L}'\u2019.\-]{2,30}", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]

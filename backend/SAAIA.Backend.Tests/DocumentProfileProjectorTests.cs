@@ -238,16 +238,19 @@ public sealed class DocumentProfileProjectorTests
         {
             new ExtractedPdfPage(
                 1,
-                "Modes de\nPas cher\nQ Facile\n& Repos\nAU MODULE\nCONTROL HANDOVER PLAN\nProcedure 1. Check status. 2. Record notes.",
-                20,
-                116,
+                "Modes de\nPas cher\nQ Facile\n& Repos\nAU MODULE\nAssez cher\nESA Pas cher\nFacile Pour la validation\nCONTROL HANDOVER PLAN\nProcedure 1. Check status. 2. Record notes.",
+                30,
+                166,
                 [1])
         };
         var sections = new[]
         {
             new ExtractedDocumentSection(0, "Modes de", 1, 1, 1, 1, null),
             new ExtractedDocumentSection(1, "Categories de documents", 1, 1, 1, 1, null),
-            new ExtractedDocumentSection(2, "CONTROL HANDOVER PLAN", 1, 1, 1, 1, null)
+            new ExtractedDocumentSection(2, "Assez cher", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(3, "ESA Pas cher", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(4, "Facile Pour la validation", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(5, "CONTROL HANDOVER PLAN", 1, 1, 1, 1, null)
         };
         var units = new[]
         {
@@ -256,15 +259,18 @@ public sealed class DocumentProfileProjectorTests
             new ExtractedDocumentUnit(2, 0, 1, 1, "Q Facile", 8, 2, [4]),
             new ExtractedDocumentUnit(3, 0, 1, 1, "& Repos", 7, 2, [5]),
             new ExtractedDocumentUnit(4, 0, 1, 1, "AU MODULE", 9, 2, [6]),
+            new ExtractedDocumentUnit(5, 0, 1, 1, "Assez cher", 10, 2, [7]),
+            new ExtractedDocumentUnit(6, 0, 1, 1, "ESA Pas cher", 13, 3, [8]),
+            new ExtractedDocumentUnit(7, 0, 1, 1, "Facile Pour la validation", 24, 4, [9]),
             new ExtractedDocumentUnit(
+                8,
                 5,
-                2,
                 1,
                 1,
                 "CONTROL HANDOVER PLAN\nProcedure 1. Check status. 2. Record notes.",
                 68,
                 9,
-                [7])
+                [10])
         };
 
         var profile = DocumentProfileProjector.Project(
@@ -280,6 +286,9 @@ public sealed class DocumentProfileProjectorTests
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Q Facile", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "& Repos", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "AU MODULE", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Assez cher", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "ESA Pas cher", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Facile Pour la validation", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "CONTROL HANDOVER PLAN", StringComparison.Ordinal));
     }
 
