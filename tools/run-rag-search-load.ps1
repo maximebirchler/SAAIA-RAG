@@ -159,6 +159,7 @@ function Invoke-LoadLevel {
             durationMs = 0
             sourceCount = 0
             error = $null
+            errorKind = $null
             retryAfter = $null
             active = $null
             queued = $null
@@ -239,17 +240,28 @@ function Invoke-LoadLevel {
             }
             elseif (-not $response.IsSuccessStatusCode -and -not [string]::IsNullOrWhiteSpace($text)) {
                 $result.error = $text.Substring(0, [Math]::Min(500, $text.Length))
+                try {
+                    $parsedError = $text | ConvertFrom-Json
+                    if ($null -ne $parsedError.error -and -not [string]::IsNullOrWhiteSpace([string]$parsedError.error)) {
+                        $result.errorKind = [string]$parsedError.error
+                    }
+                }
+                catch {
+                    $result.errorKind = "non_json_error"
+                }
             }
         }
         catch [System.Threading.Tasks.TaskCanceledException] {
             $sw.Stop()
             $result.durationMs = [long]$sw.ElapsedMilliseconds
             $result.error = "timeout"
+            $result.errorKind = "timeout"
         }
         catch {
             $sw.Stop()
             $result.durationMs = [long]$sw.ElapsedMilliseconds
             $result.error = $_.Exception.Message
+            $result.errorKind = "exception"
         }
         finally {
             $client.Dispose()
@@ -304,6 +316,13 @@ function Invoke-LoadLevel {
     $levelSw.Stop()
     $allDurations = @($results | ForEach-Object { [long]$_.durationMs })
     $successDurations = @($results | Where-Object { $_.statusCode -eq 200 } | ForEach-Object { [long]$_.durationMs })
+    $queueWaitDurations = New-Object System.Collections.Generic.List[long]
+    foreach ($result in $results) {
+        $queueWait = 0L
+        if ([long]::TryParse([string]$result.queueWaitMs, [ref]$queueWait)) {
+            $queueWaitDurations.Add($queueWait)
+        }
+    }
     $statusCounts = [ordered]@{}
     foreach ($group in ($results | Group-Object statusCode | Sort-Object Name)) {
         $statusCounts[[string]$group.Name] = $group.Count
@@ -311,6 +330,10 @@ function Invoke-LoadLevel {
 
     $timeoutCount = @($results | Where-Object { $_.error -eq "timeout" }).Count
     $busyCount = @($results | Where-Object { $_.statusCode -eq 429 }).Count
+    $ragSearchBusyCount = @($results | Where-Object { $_.statusCode -eq 429 -and $_.errorKind -eq "rag_search_busy" }).Count
+    $rateLimitedCount = @($results | Where-Object { $_.statusCode -eq 429 -and $_.errorKind -eq "rate_limited" }).Count
+    $other429Count = $busyCount - $ragSearchBusyCount - $rateLimitedCount
+    $waitedQueuedCount = @($results | Where-Object { [string]$_.waitedQueued -eq "true" }).Count
     $unexpectedCount = @($results | Where-Object { $_.statusCode -ne 200 -and $_.statusCode -ne 429 }).Count
 
     [pscustomobject][ordered]@{
@@ -320,6 +343,10 @@ function Invoke-LoadLevel {
         elapsedMs = [long]$levelSw.ElapsedMilliseconds
         ok = @($results | Where-Object { $_.statusCode -eq 200 }).Count
         busy = $busyCount
+        ragSearchBusy = $ragSearchBusyCount
+        rateLimited = $rateLimitedCount
+        other429 = $other429Count
+        waitedQueued = $waitedQueuedCount
         timeouts = $timeoutCount
         unexpected = $unexpectedCount
         statusCounts = $statusCounts
@@ -327,9 +354,17 @@ function Invoke-LoadLevel {
             avgAll = if ($allDurations.Count -gt 0) { [Math]::Round(($allDurations | Measure-Object -Average).Average, 1) } else { 0 }
             p50All = Get-Percentile $allDurations 0.50
             p95All = Get-Percentile $allDurations 0.95
+            p99All = Get-Percentile $allDurations 0.99
             avgOk = if ($successDurations.Count -gt 0) { [Math]::Round(($successDurations | Measure-Object -Average).Average, 1) } else { 0 }
             p50Ok = Get-Percentile $successDurations 0.50
             p95Ok = Get-Percentile $successDurations 0.95
+            p99Ok = Get-Percentile $successDurations 0.99
+        }
+        queueWaitMs = [ordered]@{
+            avg = if ($queueWaitDurations.Count -gt 0) { [Math]::Round(($queueWaitDurations | Measure-Object -Average).Average, 1) } else { 0 }
+            p50 = Get-Percentile $queueWaitDurations.ToArray() 0.50
+            p95 = Get-Percentile $queueWaitDurations.ToArray() 0.95
+            p99 = Get-Percentile $queueWaitDurations.ToArray() 0.99
         }
         results = @($results | Sort-Object index)
     }
@@ -375,12 +410,16 @@ foreach ($level in $concurrencyLevels) {
         -TimeoutSecondsValue $TimeoutSeconds
 
     $levels.Add($levelResult)
-    Write-Host ("  200={0} 429={1} timeout={2} unexpected={3} p95_ok={4}ms" -f `
+    Write-Host ("  200={0} 429={1} rag_busy={2} rate_limited={3} waited={4} timeout={5} unexpected={6} p95_ok={7}ms p99_ok={8}ms" -f `
         $levelResult.ok,
         $levelResult.busy,
+        $levelResult.ragSearchBusy,
+        $levelResult.rateLimited,
+        $levelResult.waitedQueued,
         $levelResult.timeouts,
         $levelResult.unexpected,
-        $levelResult.latencyMs.p95Ok)
+        $levelResult.latencyMs.p95Ok,
+        $levelResult.latencyMs.p99Ok)
 }
 
 $report = [ordered]@{
