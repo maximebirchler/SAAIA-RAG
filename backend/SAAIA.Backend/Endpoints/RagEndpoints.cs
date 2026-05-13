@@ -6531,6 +6531,12 @@ LIMIT @result_limit;
         if (textLength is > 0 and < 140 && !LooksLikeStructuredAnswerChunk(match))
             fragmentScore += 3;
 
+        ApplySelectionQualityPenalty(
+            qualityPenalty,
+            ref actionabilityScore,
+            ref supportScore,
+            ref fragmentScore);
+
         var evidenceRole =
             qualityPenalty >= 10 ? "low_confidence" :
             navigationScore >= Math.Max(7, actionabilityScore + 2) ? "navigation" :
@@ -6546,6 +6552,21 @@ LIMIT @result_limit;
             FragmentScore: fragmentScore,
             NavigationScore: navigationScore,
             QualityPenalty: qualityPenalty);
+    }
+
+    private static void ApplySelectionQualityPenalty(
+        int qualityPenalty,
+        ref int actionabilityScore,
+        ref int supportScore,
+        ref int fragmentScore)
+    {
+        if (qualityPenalty <= 0)
+            return;
+
+        actionabilityScore = Math.Max(0, actionabilityScore - qualityPenalty);
+        supportScore = Math.Max(0, supportScore - Math.Max(1, qualityPenalty / 2));
+        if (qualityPenalty >= 10)
+            fragmentScore += Math.Min(8, qualityPenalty / 2);
     }
 
     private static int ComputeSelectionQualityPenalty(RagItemExtractionQualityDto? quality)

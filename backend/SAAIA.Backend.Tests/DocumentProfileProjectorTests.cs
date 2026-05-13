@@ -525,6 +525,54 @@ public sealed class DocumentProfileProjectorTests
     }
 
     [Fact]
+    public void BuildProfile_keeps_lowercase_source_backed_content_cards()
+    {
+        var evidence = new DocumentProfileCardEvidence(
+            "content_card_evidence_v1",
+            ScaleBasis: null,
+            QuantityFacts: [],
+            NonScalableReasons: [],
+            Confidence: 0.92,
+            Language: "en",
+            Facts:
+            [
+                new DocumentProfileEvidenceFact(
+                    "procedure",
+                    "source-backed title",
+                    "validated",
+                    Unit: null,
+                    SourceText: "alpha lowercase workflow with concrete evidence",
+                    PageStart: 4,
+                    PageEnd: 4)
+            ]);
+
+        var profile = DocumentProfileProjector.BuildProfile(
+            "deterministic_v1",
+            "en",
+            "Generic operational profile.",
+            [],
+            [],
+            [],
+            [],
+            [],
+            "Generic/Lowercase.pdf",
+            "Lowercase.pdf",
+            [
+                new DocumentProfileContentCard(
+                    "alpha lowercase workflow",
+                    4,
+                    4,
+                    "exact_lead",
+                    ["validated"],
+                    evidence),
+                new DocumentProfileContentCard("beta lowercase heading", 5, 5, "exact_lead", ["weak"])
+            ]);
+
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "alpha lowercase workflow", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "beta lowercase heading", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Project_does_not_create_content_cards_from_mixed_navigation_units()
     {
         var mixedNavigation = """

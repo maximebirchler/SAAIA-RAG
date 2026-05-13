@@ -2951,6 +2951,8 @@ public sealed class RetrievalRuntimeSwitchTests
 
         Assert.Equal("low_confidence", hints.EvidenceRole);
         Assert.True(hints.QualityPenalty >= 10);
+        Assert.Equal(0, hints.ActionabilityScore);
+        Assert.True(hints.FragmentScore > 0);
     }
 
     [Fact]

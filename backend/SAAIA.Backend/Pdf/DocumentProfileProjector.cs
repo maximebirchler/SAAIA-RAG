@@ -790,9 +790,6 @@ internal static partial class DocumentProfileProjector
             return true;
         }
 
-        if (LooksLikeLowercaseLead(title))
-            return true;
-
         if (LowSignalSentenceLeadRegex().IsMatch(normalized))
             return true;
 

@@ -387,6 +387,24 @@ public sealed class DocumentFoundationIntegrationTests
             item.GetProperty("pageNumber").GetInt32() == 34
             && item.GetProperty("status").GetString() == "render_failed"
             && item.GetProperty("reason").GetString() == "exit_code_non_zero");
+
+        var pageMetadataRows = (await conn.QueryAsync<(int page_number, string metadata)>(
+            "SELECT page_number, metadata::text FROM document_page_index ORDER BY page_number;"))
+            .ToDictionary(static row => row.page_number, static row => row.metadata);
+        using (var pageOneMetadata = JsonDocument.Parse(pageMetadataRows[1]))
+        {
+            Assert.Equal("novel_text_applied", pageOneMetadata.RootElement.GetProperty("imageOcrStatus").GetString());
+            Assert.Equal(6, pageOneMetadata.RootElement.GetProperty("imageOcrWordCount").GetInt32());
+            Assert.Equal(38, pageOneMetadata.RootElement.GetProperty("imageOcrCharCount").GetInt32());
+            Assert.Equal(0, pageOneMetadata.RootElement.GetProperty("imageOcrExitCode").GetInt32());
+            Assert.False(pageOneMetadata.RootElement.GetProperty("imageOcrTimedOut").GetBoolean());
+        }
+        using (var pageTwoMetadata = JsonDocument.Parse(pageMetadataRows[2]))
+        {
+            Assert.Equal("skipped", pageTwoMetadata.RootElement.GetProperty("imageOcrStatus").GetString());
+            Assert.Equal("budget", pageTwoMetadata.RootElement.GetProperty("imageOcrReason").GetString());
+            Assert.True(pageTwoMetadata.RootElement.GetProperty("imageOcrWordCount").ValueKind is JsonValueKind.Null);
+        }
     }
 
     [Fact]

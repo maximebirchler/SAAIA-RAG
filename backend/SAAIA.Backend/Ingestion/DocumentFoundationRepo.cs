@@ -130,7 +130,7 @@ SET doc_path = EXCLUDED.doc_path,
             }),
             ct);
 
-        await UpsertPageIndexAsync(conn, tx, tenantId, revisionId, pages, units, retrievalChunks, ct);
+        await UpsertPageIndexAsync(conn, tx, tenantId, revisionId, pages, units, retrievalChunks, ocrDiagnostics, ct);
         await UpsertSectionsAsync(conn, tx, tenantId, revisionId, sections, ct);
         await UpsertUnitsAsync(conn, tx, tenantId, revisionId, sections, units, ct);
         await UpsertRetrievalChunksAsync(conn, tx, tenantId, docId, revisionId, ingestionVersion, sections, units, retrievalChunks, ct);
@@ -1329,6 +1329,7 @@ SET source_page = EXCLUDED.source_page,
         IReadOnlyList<ExtractedPdfPage> pages,
         IReadOnlyList<ExtractedDocumentUnit> units,
         IReadOnlyList<ProjectedRetrievalChunk> retrievalChunks,
+        PdfOcrDiagnostics? ocrDiagnostics,
         CancellationToken ct)
     {
         if (pages.Count == 0)
@@ -1354,6 +1355,10 @@ SET char_count = EXCLUDED.char_count,
     checksum = EXCLUDED.checksum,
     metadata = EXCLUDED.metadata;";
 
+        var imageDiagnosticsByPage = (ocrDiagnostics?.ImagePageDiagnostics ?? [])
+            .GroupBy(static item => item.PageNumber)
+            .ToDictionary(static group => group.Key, static group => group.Last());
+
         foreach (var page in pages)
         {
             var pageQuality = page.Quality ?? PdfPageExtractionQuality.FromCounts(page.WordCount, page.CharCount);
@@ -1371,12 +1376,19 @@ SET char_count = EXCLUDED.char_count,
                 suspiciousUnitCount,
                 chunksOnPage,
                 pageQuality.Signals);
+            imageDiagnosticsByPage.TryGetValue(page.PageNumber, out var imageDiagnostic);
             var metadata = JsonSerializer.Serialize(new
             {
                 wordCount = page.WordCount,
                 textLength = page.Text.Length,
                 imageCount = page.ImageCount,
-                extractionQuality = BuildPageExtractionQualityPayload(pageReview, unitsOnPage, suspiciousUnitCount, chunksOnPage)
+                extractionQuality = BuildPageExtractionQualityPayload(pageReview, unitsOnPage, suspiciousUnitCount, chunksOnPage),
+                imageOcrStatus = imageDiagnostic?.Status,
+                imageOcrReason = imageDiagnostic?.Reason,
+                imageOcrWordCount = imageDiagnostic?.OcrWordCount,
+                imageOcrCharCount = imageDiagnostic?.OcrCharCount,
+                imageOcrExitCode = imageDiagnostic?.ExitCode,
+                imageOcrTimedOut = imageDiagnostic?.TimedOut ?? false
             });
 
             await conn.ExecuteAsync(new CommandDefinition(sql, new
