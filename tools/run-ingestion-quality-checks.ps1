@@ -385,6 +385,13 @@ JOIN chunk_flags c
  AND p.page_number BETWEEN c.page_start AND c.page_end
 WHERE c.embeddable
   AND p.quality_status IN ('manual_review_probable_ocr_noise','manual_review_empty_text')
+  AND NOT EXISTS (
+    SELECT 1
+    FROM page_flags ok_page
+    WHERE ok_page.revision_id=c.revision_id
+      AND ok_page.page_number BETWEEN c.page_start AND c.page_end
+      AND ok_page.quality_status NOT IN ('manual_review_probable_ocr_noise','manual_review_empty_text')
+  )
 GROUP BY p.category
 UNION ALL
 SELECT 'low_text_page_embeddable_chunk', p.category,
@@ -649,7 +656,11 @@ foreach ($row in $rows) {
             if ($valueNumber -gt 0) { $warnings.Add("chunks overlap review pages: category='$($row.Scope)' $($row.Metric)") }
         }
         "poor_page_ratio" {
-            if ($valueNumber -ge 10 -or $row.Metric -match 'ratio=0\.[5-9]|ratio=1') {
+            $ratioValue = 0.0
+            if ($row.Metric -match 'ratio=([0-9]+(?:\.[0-9]+)?)') {
+                $ratioValue = [double]::Parse($Matches[1], [System.Globalization.CultureInfo]::InvariantCulture)
+            }
+            if ($ratioValue -ge 0.50 -or ($ratioValue -ge 0.20 -and $valueNumber -ge 10) -or $valueNumber -ge 20) {
                 $issues.Add("poor extraction page ratio: category='$($row.Scope)' $($row.Metric)")
             }
             elseif ($valueNumber -gt 0) {
