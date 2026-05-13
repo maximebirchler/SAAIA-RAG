@@ -831,7 +831,7 @@ internal static partial class DocumentProfileProjector
             return false;
 
         return tokens.Any(static token => DanglingFragmentTitleTokens.Contains(token))
-            || tokens.All(static token => token.Length <= 7);
+            || tokens.All(static token => token.Length <= 8);
     }
 
     private static bool LooksLikeMostlyUppercaseTitle(string title)
