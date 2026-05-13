@@ -770,6 +770,9 @@ internal static partial class DocumentProfileProjector
 
     private static bool ContainsNoisyInlinePunctuation(string title, int tokenCount)
     {
+        if (title.Contains('+', StringComparison.Ordinal))
+            return true;
+
         if (title.Contains("...", StringComparison.Ordinal) || title.Contains('…', StringComparison.Ordinal))
             return true;
 
@@ -947,8 +950,17 @@ internal static partial class DocumentProfileProjector
         if (AdditionalImperativeInstructionLeadRegex().IsMatch(normalizedFolded))
             return true;
 
+        if (SecondaryImperativeInstructionLeadRegex().IsMatch(normalizedFolded))
+            return true;
+
         if (SentenceLeadTitleRegex().IsMatch(normalizedFolded))
             return true;
+
+        if (ContextualSentenceLeadRegex().IsMatch(normalizedFolded)
+            && tokenCount >= 4)
+        {
+            return true;
+        }
 
         if (tokenCount >= 4 && SentenceVerbTitleRegex().IsMatch(normalizedFolded))
             return true;
@@ -1048,6 +1060,12 @@ internal static partial class DocumentProfileProjector
 
     private static bool LooksLikeMetadataLabelContentCardTitle(string title, string normalizedFolded, int tokenCount)
     {
+        if (LooksLikeMetadataLeadContentCardTitle(normalizedFolded))
+            return true;
+
+        if (MetadataLeadWithConnectorRegex().IsMatch(normalizedFolded))
+            return true;
+
         if (tokenCount is < 1 or > 4)
             return false;
 
@@ -1066,9 +1084,6 @@ internal static partial class DocumentProfileProjector
             return true;
         }
 
-        if (MetadataLeadWithConnectorRegex().IsMatch(normalizedFolded))
-            return true;
-
         if (tokens.Length == 2
             && tokens[0].Length == 1
             && tokens[0].All(char.IsLetter)
@@ -1086,6 +1101,34 @@ internal static partial class DocumentProfileProjector
         }
 
         return MetadataLabelTitleRegex().IsMatch(title);
+    }
+
+    private static bool LooksLikeMetadataLeadContentCardTitle(string normalizedFolded)
+    {
+        var tokens = normalizedFolded.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (tokens.Length < 2)
+            return false;
+
+        var metadataIndex = 0;
+        if (!ContentCardMetadataLabelTokens.Contains(tokens[metadataIndex])
+            && tokens[metadataIndex].Length <= 3
+            && tokens.Length >= 3
+            && tokens[metadataIndex].All(static ch => char.IsLetterOrDigit(ch) || ch is '&'))
+        {
+            metadataIndex = 1;
+        }
+
+        if (!ContentCardMetadataLabelTokens.Contains(tokens[metadataIndex]))
+            return false;
+
+        if (tokens.Length <= metadataIndex + 1)
+            return true;
+
+        var next = tokens[metadataIndex + 1];
+        return next.All(char.IsDigit)
+            || next.Length == 1
+            || ContentCardMetadataConnectorTokens.Contains(next)
+            || ContentCardMetadataLabelTokens.Contains(next);
     }
 
     private static bool LooksLikeShortAllCapsOcrFragment(string title, string normalizedFolded, int tokenCount)
@@ -1878,12 +1921,19 @@ internal static partial class DocumentProfileProjector
     private static readonly HashSet<string> ContentCardMetadataLabelTokens = new(StringComparer.Ordinal)
     {
         "easy", "facile", "simple", "medium", "moyen", "hard", "difficile",
+        "intermediate", "intermediaire", "intermédiaire", "intermedio", "mittel",
         "cheap", "cher", "chere", "cost", "cout", "prix", "budget",
         "assez", "tres", "très", "very", "low", "high", "haut", "bas", "pas",
         "rest", "repos", "pause", "waiting", "attente",
-        "time", "temps", "duration", "duree", "cuisson", "preparation",
+        "time", "temps", "duration", "duree", "durée", "cooking", "cuisson", "preparation", "préparation",
         "mode", "modes", "program", "programme", "programmes",
         "category", "categories", "categorie"
+    };
+
+    private static readonly HashSet<string> ContentCardMetadataConnectorTokens = new(StringComparer.Ordinal)
+    {
+        "pour", "for", "para", "per", "mit", "avec", "with", "de", "du", "des",
+        "d", "la", "le", "les", "l", "un", "une", "a", "an", "the"
     };
 
     [GeneratedRegex(@"[\p{L}\p{N}][\p{L}\p{N}\-/]{2,}", RegexOptions.CultureInvariant)]
@@ -1925,6 +1975,9 @@ internal static partial class DocumentProfileProjector
     [GeneratedRegex(@"^(?:avec des|ce|cela|celle|celui|cette|elle|elles|est|facultatif\)?|fonctionne|il|ils|it|pour cette|pour le|pour la|pour les|se|si vous|this|vous)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex SentenceLeadTitleRegex();
 
+    [GeneratedRegex(@"^(?:dans|in|en|con|avec|with)\s+(?:un|une|le|la|les|l['\u2019]?|the|a|an|el|los|las|il|lo|gli|i)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex ContextualSentenceLeadRegex();
+
     [GeneratedRegex(@"\b(?:est|sont|doit|doivent|peut|peuvent|pouvez|pourrez|permet|permettent|recommande|recommandons|utilisez|utiliser|trouver|trouvez|ajoutez|ouvrez|fermez|retirez|verifiez|v[ée]rifiez|is|are|can|must|should|allows?|use|uses|using|open|close|remove|verify|check)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex SentenceVerbTitleRegex();
 
@@ -1933,6 +1986,9 @@ internal static partial class DocumentProfileProjector
 
     [GeneratedRegex(@"^(?:assaisonnez?|battez?|couvrez?|coupez?|deposez|d[ée]posez|disposez|dressez|[eé]gouttez|[eé]mincez|enfournez|faites|foncez|formez|fouettez|grattez|laissez|lavez|m[eé]langez|mixez?|passez|p[eé]trissez|placez|poivrez|poursuivez|pr[eé]chauffez|pr[eé]levez|r[eé]alisez|recouvrez|r[eé]duisez|replacez|r[eé]p[eé]tez|r[eé]servez|salez|servez|trempez|versez)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex AdditionalImperativeInstructionLeadRegex();
+
+    [GeneratedRegex(@"^(?:incorporez?|remuez|r[eÃ©]partissez|saupoudrez|transvasez)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex SecondaryImperativeInstructionLeadRegex();
 
     [GeneratedRegex(@"^(?:ajouter|appliquer|arreter|choisir|configurer|connecter|copier|demarrer|deconnecter|enlever|fermer|installer|lancer|ouvrir|placer|programmer|redemarrer|remettre|remplacer|retirer|selectionner|supprimer|utiliser|valider|verifier|v[ée]rifier)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex InfinitiveInstructionLeadRegex();
