@@ -1380,6 +1380,13 @@ internal static partial class DocumentProfileProjector
             return true;
         }
 
+        if (firstToken is "de" or "du" or "des"
+            && tokenCount >= 7
+            && LooksLikeMostlyUppercaseTitle(title))
+        {
+            return true;
+        }
+
         if (tokens.Any(static token => token is "pour" or "for" or "para" or "per"))
             return true;
 
@@ -1481,9 +1488,6 @@ internal static partial class DocumentProfileProjector
         if (tokenCount is < 2 or > 4)
             return false;
 
-        if (!LooksLikeMostlyUppercaseTitle(title))
-            return false;
-
         var tokens = normalizedFolded.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (tokens.Length == 0)
             return false;
@@ -1492,6 +1496,14 @@ internal static partial class DocumentProfileProjector
             return false;
 
         if (tokens.Any(static token => token.Length >= 7))
+            return false;
+
+        var letters = title.Where(char.IsLetter).ToArray();
+        if (letters.Length < 2)
+            return false;
+
+        var uppercase = letters.Count(char.IsUpper);
+        if (uppercase < Math.Ceiling(letters.Length * 0.72))
             return false;
 
         var shortOrNoisy = tokens.Count(static token =>

@@ -563,6 +563,8 @@ public sealed class DocumentProfileProjectorTests
                 new DocumentProfileContentCard("Y Placecomponentsinthe service tray", 9, 9, "exact_lead", ["tray"]),
                 new DocumentProfileContentCard("INGREDIENTSPREPARATION18BE A MASTER", 10, 10, "page_embedded_title", ["ingredients"]),
                 new DocumentProfileContentCard("INGREDIENTESPREPARACIONBE A MASTER", 11, 11, "page_embedded_title", ["ingredients"]),
+                new DocumentProfileContentCard("DES MODULES CASSES CA REPOUSSE TOUT SEULW Certains elements", 11, 11, "section", ["modules"]),
+                new DocumentProfileContentCard("PY I", 11, 11, "exact_lead", ["py"]),
                 new DocumentProfileContentCard("Sans nettoyer le module, ajouter la piece de controle", 12, 12, "exact_lead", ["module"]),
                 new DocumentProfileContentCard("Par contre, conservez les elements separes", 13, 13, "exact_lead", ["elements"]),
                 new DocumentProfileContentCard("Une fois le cycle termine, couvrir le contenant", 14, 14, "exact_lead", ["cycle"]),
@@ -585,6 +587,8 @@ public sealed class DocumentProfileProjectorTests
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Y Placecomponentsinthe service tray", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "INGREDIENTSPREPARATION18BE A MASTER", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "INGREDIENTESPREPARACIONBE A MASTER", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "DES MODULES CASSES CA REPOUSSE TOUT SEULW Certains elements", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "PY I", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Sans nettoyer le module, ajouter la piece de controle", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Par contre, conservez les elements separes", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Une fois le cycle termine, couvrir le contenant", StringComparison.Ordinal));
