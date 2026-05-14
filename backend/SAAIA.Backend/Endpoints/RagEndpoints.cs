@@ -2228,8 +2228,11 @@ ORDER BY d.doc_path;
         var hasFocusedLookup = ExtractFocusedLookupPhrases(query).Count > 0;
         var hasExplicitBroadScopedSynthesis = ContainsExplicitBroadScopedSynthesisIntent(normalized);
         var hasSituationalBroadSelection = ContainsSituationalBroadSelectionIntent(normalized);
+        var hasCorpusExistenceOverview = ContainsCorpusExistenceIntent(normalized)
+            && ContainsDocumentCorpusCountIntent(normalized);
         if (hasFocusedLookup
             && !hasExplicitBroadScopedSynthesis
+            && !hasCorpusExistenceOverview
             && (!hasSituationalBroadSelection || ContainsParameterDetailLookupIntent(normalized)))
         {
             return false;
@@ -2248,7 +2251,8 @@ ORDER BY d.doc_path;
             return false;
         }
 
-        return hasExplicitBroadScopedSynthesis
+        return hasCorpusExistenceOverview
+            || hasExplicitBroadScopedSynthesis
             || ContainsBroadScopedSynthesisIntent(normalized)
             || hasSituationalBroadSelection;
     }
@@ -2818,6 +2822,9 @@ ORDER BY d.doc_path;
         {
             return true;
         }
+
+        if (ContainsCorpusExistenceIntent(normalized) && ContainsDocumentCorpusCountIntent(normalized))
+            return true;
 
         var hasOverviewIntent = ContainsAny(normalized,
             " vue d ensemble ",
@@ -6940,12 +6947,15 @@ LIMIT @result_limit;
             " rapports ",
             " report ",
             " reports ",
+            " pdf ",
+            " pdfs ",
             " documento ",
             " documentos ",
             " documento ",
             " documenti ",
             " dokument ",
-            " dokumente ");
+            " dokumente ",
+            " dokumenten ");
 
     internal static bool ShouldBackfillEnumerativeSearch(string query, int selectedCount, int topK)
     {
@@ -6988,6 +6998,11 @@ LIMIT @result_limit;
 
     private static bool ContainsEnumerativeLookupIntent(string normalized)
         => ContainsAny(normalized,
+            " est ce qu il y a ",
+            " est ce qu il existe ",
+            " il y a ",
+            " y a t il ",
+            " existe t il ",
             " quels ",
             " quelles ",
             " lesquels ",
@@ -7008,11 +7023,16 @@ LIMIT @result_limit;
             " avec ",
             " which ",
             " what ",
+            " are there ",
+            " is there ",
+            " do we have ",
+            " there ",
             " list ",
             " find ",
             " search ",
             " show ",
             " available ",
+            " gibt es ",
             " contain ",
             " contains ",
             " mentioning ",
@@ -7023,10 +7043,37 @@ LIMIT @result_limit;
             " cuales ",
             " lista ",
             " encuentra ",
+            " hay ",
+            " existe ",
+            " existen ",
+            " ha ",
+            " existem ",
+            " ci sono ",
+            " esistono ",
             " quais ",
             " elenco ",
             " elenca ",
             " trova ");
+
+    private static bool ContainsCorpusExistenceIntent(string normalized)
+        => ContainsAny(normalized,
+            " est ce qu il y a ",
+            " est ce qu il existe ",
+            " il y a ",
+            " y a t il ",
+            " existe t il ",
+            " are there ",
+            " is there ",
+            " do we have ",
+            " there ",
+            " gibt es ",
+            " hay ",
+            " existe ",
+            " existen ",
+            " ha ",
+            " existem ",
+            " ci sono ",
+            " esistono ");
 
     internal static string BuildFocusedLexicalBackfillQuery(string query)
     {

@@ -1280,7 +1280,7 @@ function Invoke-RagSearch {
             mode = $ragMode
         }
         if (-not [string]::IsNullOrWhiteSpace($Category)) {
-            $body.category = $Category
+            $body.categoryPath = $Category
         }
 
         $currentResponse = Invoke-HttpJson -Method "POST" -Url $url -Body $body -Headers $headers -TimeoutSeconds $TimeoutSeconds
