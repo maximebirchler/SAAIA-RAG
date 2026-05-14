@@ -5727,10 +5727,10 @@ LIMIT @result_limit;
                     ProfileSignals: BuildDocumentProfileSignals(row, query));
             }).ToList();
         }
-        catch (PostgresException ex)
+        catch (Exception ex) when (ex is PostgresException or InvalidOperationException)
         {
             RetrievalTelemetry.RecordRetrieverDegraded("document_profile_overview_v1", ex);
-            degradedRetrieverRef?.Invoke("document_profile_overview_v1", FormatPostgresRetrieverError(ex));
+            degradedRetrieverRef?.Invoke("document_profile_overview_v1", FormatRetrieverError(ex));
             return [];
         }
     }
@@ -6069,10 +6069,10 @@ LIMIT @result_limit;
                     ProfileSignals: BuildDocumentProfileSignals(row, query));
             }).ToList();
         }
-        catch (PostgresException ex)
+        catch (Exception ex) when (ex is PostgresException or InvalidOperationException)
         {
             RetrievalTelemetry.RecordRetrieverDegraded("document_profile_v1", ex);
-            degradedRetrieverRef?.Invoke("document_profile_v1", FormatPostgresRetrieverError(ex));
+            degradedRetrieverRef?.Invoke("document_profile_v1", FormatRetrieverError(ex));
             return [];
         }
     }
@@ -6126,11 +6126,11 @@ LIMIT @result_limit;
         var queryTokens = ExtractLexicalQueryTokens(query);
         var lexicalTerms = BuildDocumentProfileLexicalTerms(query);
         var matchedTerms = SelectMatchedProfileTerms(lexicalTerms, row.SearchText, maxItems: 12);
-        var keywords = SelectProfileSignalValues(row.Keywords, queryTokens, lexicalTerms, maxItems: 8);
-        var entities = SelectProfileSignalValues(row.Entities, queryTokens, lexicalTerms, maxItems: 8);
-        var topics = SelectProfileSignalValues(row.Topics, queryTokens, lexicalTerms, maxItems: 8, fallbackItems: 3);
-        var questions = SelectProfileSignalValues(row.HypotheticalQuestions, queryTokens, lexicalTerms, maxItems: 4);
-        var limits = SelectProfileSignalValues(row.Limits, queryTokens, lexicalTerms, maxItems: 4, fallbackItems: 2);
+        var keywords = SelectProfileSignalValues(ProfileSignalValues(row.Keywords), queryTokens, lexicalTerms, maxItems: 8);
+        var entities = SelectProfileSignalValues(ProfileSignalValues(row.Entities), queryTokens, lexicalTerms, maxItems: 8);
+        var topics = SelectProfileSignalValues(ProfileSignalValues(row.Topics), queryTokens, lexicalTerms, maxItems: 8, fallbackItems: 3);
+        var questions = SelectProfileSignalValues(ProfileSignalValues(row.HypotheticalQuestions), queryTokens, lexicalTerms, maxItems: 4);
+        var limits = SelectProfileSignalValues(ProfileSignalValues(row.Limits), queryTokens, lexicalTerms, maxItems: 4, fallbackItems: 2);
 
         if (string.IsNullOrWhiteSpace(row.ProfileVersion)
             && string.IsNullOrWhiteSpace(row.Language)
@@ -6173,6 +6173,19 @@ LIMIT @result_limit;
             .Select(CompactProfileSignalValue)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(Math.Clamp(maxItems, 1, 24))
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string>? ProfileSignalValues(Array? values)
+    {
+        if (values is null || values.Length == 0)
+            return null;
+
+        return values
+            .Cast<object?>()
+            .Select(static value => value?.ToString())
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(static value => value!.Trim())
             .ToArray();
     }
 
@@ -7927,6 +7940,8 @@ GROUP BY d.doc_id;
         string? MatchedContentCardsJson,
         float SparseRank);
 
+    // PostgreSQL text[] columns are exposed to Dapper's positional record binder as
+    // System.Array here. Normalize them to strings only when building profile signals.
     private sealed record DocumentProfileMatchRow(
         Guid DocId,
         string DocPath,
@@ -7940,11 +7955,11 @@ GROUP BY d.doc_id;
         string? MetadataJson,
         string? Language,
         string? ProfileVersion,
-        string[]? Keywords,
-        string[]? Entities,
-        string[]? Topics,
-        string[]? HypotheticalQuestions,
-        string[]? Limits,
+        Array? Keywords,
+        Array? Entities,
+        Array? Topics,
+        Array? HypotheticalQuestions,
+        Array? Limits,
         double SparseRank,
         long MatchCount);
 
