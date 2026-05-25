@@ -278,6 +278,10 @@ public sealed partial class SourcesCardsControl : UserControl
                 parts.Add(cardsPart);
         }
 
+        var profileSignalsPart = BuildProfileSignalsMetadataPart(source.ProfileSignals, uiLanguage);
+        if (!string.IsNullOrWhiteSpace(profileSignalsPart))
+            parts.Add(profileSignalsPart);
+
         var category = FirstNonBlank(source.CategoryPath, source.CategoryRef, source.Category);
         if (!string.IsNullOrWhiteSpace(category))
         {
@@ -318,6 +322,51 @@ public sealed partial class SourcesCardsControl : UserControl
             parts.Add($"{SourceCardLabel("content_card_evidence", uiLanguage)} {evidence}");
 
         return string.Join("; ", parts);
+    }
+
+    private static string? BuildProfileSignalsMetadataPart(SourceProfileSignals? signals, string? uiLanguage)
+    {
+        if (signals is null)
+            return null;
+
+        var parts = new List<string>();
+        AddProfileSignalList(parts, "profile_terms", signals.MatchedTerms, uiLanguage, maxItems: 3);
+        AddProfileSignalList(parts, "profile_keywords", signals.Keywords, uiLanguage, maxItems: 3);
+        AddProfileSignalList(parts, "profile_topics", signals.Topics, uiLanguage, maxItems: 2);
+
+        var version = FormatBackendReason(signals.ProfileVersion);
+        if (!string.IsNullOrWhiteSpace(version))
+            parts.Add($"{SourceCardLabel("profile_version", uiLanguage)} {Shorten(version, 32)}");
+
+        if (signals.MatchCount is > 0)
+            parts.Add($"{SourceCardLabel("profile_matches", uiLanguage)} {signals.MatchCount.Value.ToString(CultureInfo.InvariantCulture)}");
+
+        return parts.Count == 0
+            ? null
+            : $"{SourceCardLabel("profile_signals", uiLanguage)} {string.Join("; ", parts)}";
+    }
+
+    private static void AddProfileSignalList(
+        ICollection<string> parts,
+        string labelKey,
+        IReadOnlyList<string>? values,
+        string? uiLanguage,
+        int maxItems)
+    {
+        if (values is not { Count: > 0 })
+            return;
+
+        var compact = values
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(static value => value.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(Math.Clamp(maxItems, 1, 6))
+            .ToArray();
+        if (compact.Length == 0)
+            return;
+
+        var suffix = values.Count > compact.Length ? $" +{values.Count - compact.Length}" : string.Empty;
+        parts.Add($"{SourceCardLabel(labelKey, uiLanguage)} {Shorten(string.Join(", ", compact), 72)}{suffix}");
     }
 
     private static string? BuildContentCardEvidenceSummary(

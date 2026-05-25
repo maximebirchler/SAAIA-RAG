@@ -3728,6 +3728,9 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Equal("Knowledge/Neutral", item.GetProperty("categoryPath").GetString());
         Assert.Equal("supporting_context", item.GetProperty("selectionHints").GetProperty("evidenceRole").GetString());
         Assert.Equal("Compact card", item.GetProperty("matchedContentCards")[0].GetProperty("title").GetString());
+        var itemProfileSignals = item.GetProperty("profileSignals");
+        Assert.Equal("llm_backoffice_v1", itemProfileSignals.GetProperty("profileVersion").GetString());
+        Assert.Equal("stored profile signal", itemProfileSignals.GetProperty("keywords")[0].GetString());
         var profileSignals = item.GetProperty("source").GetProperty("profileSignals");
         Assert.Equal("llm_backoffice_v1", profileSignals.GetProperty("profileVersion").GetString());
         Assert.Equal("stored profile signal", profileSignals.GetProperty("keywords")[0].GetString());

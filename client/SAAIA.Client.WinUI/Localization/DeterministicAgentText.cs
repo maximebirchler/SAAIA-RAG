@@ -166,11 +166,11 @@ internal static class DeterministicAgentText
 
     public static string SourceBackedClarificationRequest(string? language)
         => Pick(language,
-            "Peux-tu prÃ©ciser le document, le sujet, l'Ã©lÃ©ment ou le pÃ©rimÃ¨tre Ã  vÃ©rifier dans les sources ?",
+            "Peux-tu préciser le document, le sujet, l'élément ou le périmètre à vérifier dans les sources ?",
             "Could you specify the document, topic, item, or scope to check in the sources?",
-            "Â¿Puedes precisar el documento, tema, elemento o alcance que debo comprobar en las fuentes?",
+            "¿Puedes precisar el documento, tema, elemento o alcance que debo comprobar en las fuentes?",
             "Podes especificar o documento, tema, item ou ambito a verificar nas fontes?",
-            "Kannst du das Dokument, Thema, Element oder den Umfang nennen, den ich in den Quellen prÃ¼fen soll?",
+            "Kannst du das Dokument, Thema, Element oder den Umfang nennen, den ich in den Quellen prüfen soll?",
             "Puoi precisare il documento, l'argomento, l'elemento o l'ambito da verificare nelle fonti?");
 
     public static string DocumentsCount(int total, string? language)

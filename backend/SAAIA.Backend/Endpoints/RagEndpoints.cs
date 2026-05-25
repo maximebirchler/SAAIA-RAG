@@ -14177,6 +14177,17 @@ LIMIT @top_k;
         var commandTimeout = RagOptions.ResolveSearchSparseCommandTimeoutSeconds(commandTimeoutSeconds);
 
         await using var conn = await ds.OpenConnectionAsync(ct);
+        await EnsureFreshDocumentProfileSearchEntriesAsync(
+            conn,
+            tenantId,
+            category,
+            normalizedCategoryPath,
+            normalizedDocId,
+            normalizedDocPath,
+            commandTimeout,
+            ct,
+            degradedRetrieverRef);
+
         const string sql = """
 WITH lexical_terms AS (
     SELECT DISTINCT LOWER(term) AS term
@@ -15577,6 +15588,17 @@ LIMIT @top_k;
         var commandTimeout = RagOptions.ResolveSearchSparseCommandTimeoutSeconds(commandTimeoutSeconds);
 
         await using var conn = await ds.OpenConnectionAsync(ct);
+        await EnsureFreshDocumentProfileSearchEntriesAsync(
+            conn,
+            tenantId,
+            category,
+            normalizedCategoryPath,
+            normalizedDocId,
+            normalizedDocPath,
+            commandTimeout,
+            ct,
+            degradedRetrieverRef);
+
         const string sql = """
 WITH sparse_query AS (
     SELECT websearch_to_tsquery('simple', @query_text) AS q
@@ -15732,6 +15754,100 @@ LIMIT @result_limit;
             RetrievalTelemetry.RecordRetrieverDegraded("document_profile_v1", ex);
             degradedRetrieverRef?.Invoke("document_profile_v1", FormatRetrieverError(ex));
             return [];
+        }
+    }
+
+    private const int DocumentProfileProjectionRepairLimit = 64;
+
+    private static async Task EnsureFreshDocumentProfileSearchEntriesAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        string? category,
+        string? normalizedCategoryPath,
+        Guid? docId,
+        string? normalizedDocPath,
+        int commandTimeoutSeconds,
+        CancellationToken ct,
+        Action<string, string?>? degradedRetrieverRef)
+    {
+        const string sql = """
+WITH scoped_revisions AS (
+    SELECT
+        r.tenant_id,
+        r.revision_id
+    FROM documents d
+    JOIN document_revisions r
+      ON r.tenant_id = d.tenant_id
+     AND r.doc_id = d.doc_id
+     AND r.indexed_version = d.indexed_version
+    LEFT JOIN document_profile_search_entries e
+      ON e.tenant_id = r.tenant_id
+     AND e.revision_id = r.revision_id
+    LEFT JOIN LATERAL (
+        SELECT MAX(p.updated_at) AS latest_profile_update
+        FROM document_profiles p
+        WHERE p.tenant_id = r.tenant_id
+          AND p.revision_id = r.revision_id
+    ) profile_updates ON TRUE
+    LEFT JOIN LATERAL (
+        SELECT MAX(card.updated_at) AS latest_card_update
+        FROM document_profile_content_cards card
+        WHERE card.tenant_id = r.tenant_id
+          AND card.revision_id = r.revision_id
+    ) card_updates ON TRUE
+    LEFT JOIN LATERAL (
+        SELECT MAX(s.updated_at) AS latest_summary_update
+        FROM document_summaries s
+        WHERE s.tenant_id = d.tenant_id
+          AND s.doc_id = d.doc_id
+          AND s.level = 'medium'
+          AND s.source_hash = saaia_document_summary_source_hash(
+              d.content_hash,
+              d.doc_path,
+              d.file_size,
+              d.file_mtime,
+              d.indexed_version)
+    ) summary_updates ON TRUE
+    WHERE d.tenant_id = @tenant_id
+      AND d.status = 'indexed'
+      AND d.indexed_version > 0
+      AND (@category IS NULL OR LOWER(d.category) = @category)
+      AND (@category_path IS NULL OR d.doc_path = @category_path OR d.doc_path LIKE (@category_path || '/%'))
+      AND (@doc_id IS NULL OR d.doc_id = @doc_id)
+      AND (@doc_path IS NULL OR d.doc_path = @doc_path)
+      AND profile_updates.latest_profile_update IS NOT NULL
+      AND (
+          e.revision_id IS NULL
+          OR e.updated_at < GREATEST(
+              COALESCE(profile_updates.latest_profile_update, 'epoch'::timestamptz),
+              COALESCE(card_updates.latest_card_update, 'epoch'::timestamptz),
+              COALESCE(summary_updates.latest_summary_update, 'epoch'::timestamptz)
+          )
+      )
+    ORDER BY d.updated_at DESC
+    LIMIT @repair_limit
+)
+SELECT saaia_refresh_document_profile_search_entry(tenant_id, revision_id)
+FROM scoped_revisions;
+""";
+
+        try
+        {
+            var repairTimeout = Math.Clamp(commandTimeoutSeconds, 3, 15);
+            await conn.ExecuteAsync(new CommandDefinition(sql, new
+            {
+                tenant_id = tenantId,
+                category,
+                category_path = normalizedCategoryPath,
+                doc_id = docId,
+                doc_path = normalizedDocPath,
+                repair_limit = DocumentProfileProjectionRepairLimit
+            }, commandTimeout: repairTimeout, cancellationToken: ct));
+        }
+        catch (Exception ex) when (ex is PostgresException or InvalidOperationException || IsRetrieverDatabaseTimeout(ex))
+        {
+            RetrievalTelemetry.RecordRetrieverDegraded("document_profile_projection_refresh_v1", ex);
+            degradedRetrieverRef?.Invoke("document_profile_projection_refresh_v1", FormatRetrieverError(ex));
         }
     }
 

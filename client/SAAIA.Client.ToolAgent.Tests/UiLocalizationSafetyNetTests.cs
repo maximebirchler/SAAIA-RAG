@@ -110,6 +110,43 @@ public sealed class UiLocalizationSafetyNetTests
     }
 
     [Theory]
+    [InlineData("fr", "profil termes pressure envelope, accumulator", "mots-clés audit cadence", "thèmes maintenance", "version llm backoffice v1", "correspondances 4")]
+    [InlineData("en", "profile terms pressure envelope, accumulator", "keywords audit cadence", "topics maintenance", "version llm backoffice v1", "matches 4")]
+    [InlineData("es", "perfil términos pressure envelope, accumulator", "palabras clave audit cadence", "temas maintenance", "versión llm backoffice v1", "coincidencias 4")]
+    [InlineData("pt", "perfil termos pressure envelope, accumulator", "palavras-chave audit cadence", "temas maintenance", "versão llm backoffice v1", "correspondências 4")]
+    [InlineData("de", "Profil Begriffe pressure envelope, accumulator", "Schlüsselwörter audit cadence", "Themen maintenance", "Version llm backoffice v1", "Treffer 4")]
+    [InlineData("it", "profilo termini pressure envelope, accumulator", "parole chiave audit cadence", "temi maintenance", "versione llm backoffice v1", "corrispondenze 4")]
+    public void Sources_cards_metadata_shows_profile_signals(
+        string language,
+        string expectedTerms,
+        string expectedKeywords,
+        string expectedTopics,
+        string expectedVersion,
+        string expectedMatches)
+    {
+        var source = new SourceCard
+        {
+            ProfileSignals = new SourceProfileSignals
+            {
+                ProfileVersion = "llm_backoffice_v1",
+                MatchedTerms = new() { "pressure envelope", "accumulator" },
+                Keywords = new() { "audit cadence" },
+                Topics = new() { "maintenance" },
+                MatchCount = 4
+            }
+        };
+
+        var metadata = SourcesCardsControl.GetMetadataLabel(source, language);
+
+        Assert.Contains(expectedTerms, metadata);
+        Assert.Contains(expectedKeywords, metadata);
+        Assert.Contains(expectedTopics, metadata);
+        Assert.Contains(expectedVersion, metadata);
+        Assert.Contains(expectedMatches, metadata);
+        AssertNoRawSourceCardMetadata(metadata);
+    }
+
+    [Theory]
     [InlineData("fr", "preuve cartes faits 2, 91%")]
     [InlineData("en", "card evidence facts 2, 91%")]
     [InlineData("es", "evidencia tarjetas hechos 2, 91%")]
@@ -1365,7 +1402,7 @@ public sealed class UiLocalizationSafetyNetTests
         var code = File.ReadAllText(Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "Controls", "UserSettingsDialog.xaml.cs"));
         var combined = xaml + "\n" + code;
 
-        foreach (var mojibake in new[] { "ParamÃ", "rÃ", "sÃ", "lâ", "Ã‰", "diagnosticâ" })
+        foreach (var mojibake in new[] { "Param\u00C3", "r\u00C3", "s\u00C3", "l\u00E2", "\u00C3\u2030", "diagnostic\u00E2" })
             Assert.DoesNotContain(mojibake, combined, StringComparison.Ordinal);
 
         Assert.Contains("Title = T(\"settings.title\")", code);
@@ -1379,6 +1416,34 @@ public sealed class UiLocalizationSafetyNetTests
         Assert.Contains("AnswerLengthLabelText.Text = T(\"settings.length\")", code);
         Assert.Contains("AssistantRepairNoteText.Text = T(\"settings.repair.note\")", code);
         Assert.Contains("OpenSupportFolderButton.Content = T(\"settings.support.open_folder\")", code);
+    }
+
+    [Fact]
+    public void Source_backed_localization_files_do_not_contain_mojibake_markers()
+    {
+        var repoRoot = FindRepoRoot();
+        var files = new[]
+        {
+            Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "Localization", "DeterministicAgentText.cs"),
+            Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "Localization", "LocalizedStrings.cs"),
+            Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "Controls", "SourcesCardsControl.xaml.cs"),
+            Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "Services", "SourceCardParser.cs")
+        };
+
+        var mojibakeMarkers = new[]
+        {
+            "\u00C3",
+            "\u00C2",
+            "\u00E2\u20AC",
+            "\uFFFD"
+        };
+
+        foreach (var file in files)
+        {
+            var source = File.ReadAllText(file);
+            foreach (var marker in mojibakeMarkers)
+                Assert.DoesNotContain(marker, source, StringComparison.Ordinal);
+        }
     }
 
     [Fact]

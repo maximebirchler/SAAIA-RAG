@@ -788,6 +788,60 @@ internal static class LocalizedStrings
                 ["de"] = "Gründe",
                 ["it"] = "ragioni"
             },
+            ["source_card.profile_signals"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "profil",
+                ["en"] = "profile",
+                ["es"] = "perfil",
+                ["pt"] = "perfil",
+                ["de"] = "Profil",
+                ["it"] = "profilo"
+            },
+            ["source_card.profile_terms"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "termes",
+                ["en"] = "terms",
+                ["es"] = "términos",
+                ["pt"] = "termos",
+                ["de"] = "Begriffe",
+                ["it"] = "termini"
+            },
+            ["source_card.profile_keywords"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "mots-clés",
+                ["en"] = "keywords",
+                ["es"] = "palabras clave",
+                ["pt"] = "palavras-chave",
+                ["de"] = "Schlüsselwörter",
+                ["it"] = "parole chiave"
+            },
+            ["source_card.profile_topics"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "thèmes",
+                ["en"] = "topics",
+                ["es"] = "temas",
+                ["pt"] = "temas",
+                ["de"] = "Themen",
+                ["it"] = "temi"
+            },
+            ["source_card.profile_version"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "version",
+                ["en"] = "version",
+                ["es"] = "versión",
+                ["pt"] = "versão",
+                ["de"] = "Version",
+                ["it"] = "versione"
+            },
+            ["source_card.profile_matches"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "correspondances",
+                ["en"] = "matches",
+                ["es"] = "coincidencias",
+                ["pt"] = "correspondências",
+                ["de"] = "Treffer",
+                ["it"] = "corrispondenze"
+            },
             ["source_card.category"] = new(StringComparer.OrdinalIgnoreCase)
             {
                 ["fr"] = "catégorie",

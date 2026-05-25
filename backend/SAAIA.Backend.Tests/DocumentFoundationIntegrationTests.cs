@@ -1896,6 +1896,191 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
+    public async Task SearchDocumentProfileMatchesAsync_repairs_missing_profile_search_projection()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("88888888-1111-1111-1111-919191919191");
+        var docId = Guid.Parse("99999999-2222-2222-2222-919191919191");
+        var jobId = Guid.Parse("aaaaaaaa-3333-3333-3333-919191919191");
+        const string docPath = "Generic/MissingProfileProjection.pdf";
+        const string text = "The maintenance dossier explains zephyr pump alignment and audit cadence.";
+
+        await PublishIndexedDocumentAsync(
+            db,
+            tenantId,
+            docId,
+            jobId,
+            docPath,
+            1,
+            "Maintenance dossier",
+            text,
+            $"Document: MissingProfileProjection.pdf\nHeading Path: Maintenance dossier\nExcerpt:\n{text}");
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        await using (var conn = await ds.OpenConnectionAsync())
+        {
+            await conn.ExecuteAsync(
+                "DELETE FROM document_profile_search_entries WHERE tenant_id=@tenant AND doc_id=@docId;",
+                new { tenant = tenantId, docId });
+
+            var beforeCount = await conn.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM document_profile_search_entries WHERE tenant_id=@tenant AND doc_id=@docId;",
+                new { tenant = tenantId, docId });
+            Assert.Equal(0, beforeCount);
+        }
+
+        var matches = await RagEndpoints.SearchDocumentProfileMatchesAsync(
+            ds,
+            tenantId,
+            "zephyr pump alignment",
+            category: null,
+            docId: null,
+            docPath: null,
+            topK: 5,
+            CancellationToken.None);
+
+        var match = Assert.Single(matches);
+        Assert.Equal("document_profile", RagEndpoints.ResolveRetriever(match));
+        Assert.Equal(docPath, match.DocPath);
+
+        await using (var conn = await ds.OpenConnectionAsync())
+        {
+            var afterCount = await conn.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM document_profile_search_entries WHERE tenant_id=@tenant AND doc_id=@docId;",
+                new { tenant = tenantId, docId });
+            Assert.Equal(1, afterCount);
+        }
+    }
+
+    [Fact]
+    public async Task SearchDocumentOverviewProfileMatchesAsync_repairs_missing_profile_search_projection()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("88888888-1111-1111-1111-929292929292");
+        var docId = Guid.Parse("99999999-2222-2222-2222-929292929292");
+        var jobId = Guid.Parse("aaaaaaaa-3333-3333-3333-929292929292");
+        const string docPath = "Generic/MissingOverviewProjection.pdf";
+        const string text = "The overview dossier explains archive workflow ownership and review cadence.";
+
+        await PublishIndexedDocumentAsync(
+            db,
+            tenantId,
+            docId,
+            jobId,
+            docPath,
+            1,
+            "Overview dossier",
+            text,
+            $"Document: MissingOverviewProjection.pdf\nHeading Path: Overview dossier\nExcerpt:\n{text}");
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        await using (var conn = await ds.OpenConnectionAsync())
+        {
+            await conn.ExecuteAsync(
+                "DELETE FROM document_profile_search_entries WHERE tenant_id=@tenant AND doc_id=@docId;",
+                new { tenant = tenantId, docId });
+        }
+
+        var matches = await RagEndpoints.SearchDocumentOverviewProfileMatchesAsync(
+            ds,
+            tenantId,
+            "give me an overview",
+            category: null,
+            docId: null,
+            docPath,
+            topK: 5,
+            CancellationToken.None);
+
+        var match = Assert.Single(matches);
+        Assert.Equal("document_profile", RagEndpoints.ResolveRetriever(match));
+        Assert.Equal(docPath, match.DocPath);
+
+        await using (var conn = await ds.OpenConnectionAsync())
+        {
+            var afterCount = await conn.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM document_profile_search_entries WHERE tenant_id=@tenant AND doc_id=@docId;",
+                new { tenant = tenantId, docId });
+            Assert.Equal(1, afterCount);
+        }
+    }
+
+    [Fact]
+    public async Task SearchDocumentProfileMatchesAsync_refreshes_stale_profile_search_projection()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("88888888-1111-1111-1111-939393939393");
+        var docId = Guid.Parse("99999999-2222-2222-2222-939393939393");
+        var jobId = Guid.Parse("aaaaaaaa-3333-3333-3333-939393939393");
+        const string docPath = "Generic/StaleProfileProjection.pdf";
+        const string text = "Generic operational baseline text.";
+        const string freshNeedle = "cobalt calibration ownership";
+
+        await PublishIndexedDocumentAsync(
+            db,
+            tenantId,
+            docId,
+            jobId,
+            docPath,
+            1,
+            "Operational baseline",
+            text,
+            $"Document: StaleProfileProjection.pdf\nHeading Path: Operational baseline\nExcerpt:\n{text}");
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        await using (var conn = await ds.OpenConnectionAsync())
+        {
+            await conn.ExecuteAsync(
+                """
+                UPDATE document_profiles
+                SET summary_text=@freshNeedle,
+                    search_text=@freshNeedle,
+                    keywords=ARRAY[@freshNeedle]::text[],
+                    updated_at=now()
+                WHERE tenant_id=@tenant AND doc_id=@docId;
+
+                UPDATE document_profile_search_entries
+                SET summary_text='old projection text',
+                    search_text='old projection text',
+                    keywords=ARRAY[]::text[],
+                    updated_at=now() - interval '1 hour'
+                WHERE tenant_id=@tenant AND doc_id=@docId;
+                """,
+                new { tenant = tenantId, docId, freshNeedle });
+        }
+
+        var matches = await RagEndpoints.SearchDocumentProfileMatchesAsync(
+            ds,
+            tenantId,
+            freshNeedle,
+            category: null,
+            docId: null,
+            docPath: null,
+            topK: 5,
+            CancellationToken.None);
+
+        var match = Assert.Single(matches);
+        Assert.Equal(docPath, match.DocPath);
+        Assert.Contains(freshNeedle, match.EmbedText, StringComparison.OrdinalIgnoreCase);
+
+        await using (var conn = await ds.OpenConnectionAsync())
+        {
+            var refreshedSearchText = await conn.ExecuteScalarAsync<string>(
+                "SELECT search_text FROM document_profile_search_entries WHERE tenant_id=@tenant AND doc_id=@docId;",
+                new { tenant = tenantId, docId });
+            Assert.Contains(freshNeedle, refreshedSearchText, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
     public async Task CompleteUpsertAsync_does_not_publish_when_version_is_superseded()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();

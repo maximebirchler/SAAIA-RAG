@@ -5627,6 +5627,7 @@ TOOL_RESULTS (json):
                     meta = CompactSummaryMetaForPrompt(it),
                     extractionQuality = source is null ? CompactExtractionQualityForPrompt(it) : BuildSourceExtractionQualityPayload(source),
                     matchedContentCards = source is null ? CompactMatchedContentCardsForPrompt(it) : BuildSourceContentCardsPayload(source),
+                    profileSignals = source is null ? CompactProfileSignalsForPrompt(it) : BuildSourceProfileSignalsPayload(source),
                     selectionHints = source is null ? CompactSelectionHintsForPrompt(it) : BuildSourceSelectionHintsPayload(source),
                     source = sourcePayload
                 });
