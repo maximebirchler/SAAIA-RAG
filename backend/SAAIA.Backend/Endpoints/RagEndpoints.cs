@@ -15757,7 +15757,7 @@ LIMIT @result_limit;
         }
     }
 
-    private const int DocumentProfileProjectionRepairLimit = 64;
+    private const int DocumentProfileProjectionRepairLimit = 8;
 
     private static async Task EnsureFreshDocumentProfileSearchEntriesAsync(
         NpgsqlConnection conn,
@@ -15770,6 +15770,9 @@ LIMIT @result_limit;
         CancellationToken ct,
         Action<string, string?>? degradedRetrieverRef)
     {
+        if (docId is null && string.IsNullOrWhiteSpace(normalizedDocPath))
+            return;
+
         const string sql = """
 WITH scoped_revisions AS (
     SELECT

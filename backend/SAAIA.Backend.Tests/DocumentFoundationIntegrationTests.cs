@@ -1896,7 +1896,7 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
-    public async Task SearchDocumentProfileMatchesAsync_repairs_missing_profile_search_projection()
+    public async Task SearchDocumentProfileMatchesAsync_repairs_missing_scoped_profile_search_projection()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
@@ -1938,7 +1938,7 @@ public sealed class DocumentFoundationIntegrationTests
             "zephyr pump alignment",
             category: null,
             docId: null,
-            docPath: null,
+            docPath,
             topK: 5,
             CancellationToken.None);
 
@@ -1956,7 +1956,7 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
-    public async Task SearchDocumentOverviewProfileMatchesAsync_repairs_missing_profile_search_projection()
+    public async Task SearchDocumentOverviewProfileMatchesAsync_repairs_missing_scoped_profile_search_projection()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
@@ -2011,7 +2011,7 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
-    public async Task SearchDocumentProfileMatchesAsync_refreshes_stale_profile_search_projection()
+    public async Task SearchDocumentProfileMatchesAsync_refreshes_stale_scoped_profile_search_projection()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
@@ -2063,7 +2063,7 @@ public sealed class DocumentFoundationIntegrationTests
             freshNeedle,
             category: null,
             docId: null,
-            docPath: null,
+            docPath,
             topK: 5,
             CancellationToken.None);
 

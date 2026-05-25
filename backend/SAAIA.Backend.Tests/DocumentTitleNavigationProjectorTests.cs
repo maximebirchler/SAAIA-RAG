@@ -371,6 +371,81 @@ public sealed class DocumentTitleNavigationProjectorTests
     }
 
     [Fact]
+    public void Project_does_not_resolve_navigation_entry_to_navigation_dominant_mixed_target_page()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Table of contents", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "Table of contents\nAcceptance Criteria 7",
+                39,
+                6,
+                [1]),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                7,
+                7,
+                "Acceptance Criteria 7\nRelated references 8\nChecklist 9",
+                56,
+                7,
+                [2])
+        };
+        var chunks = new[]
+        {
+            new ProjectedRetrievalChunk(
+                0,
+                0,
+                0,
+                1,
+                1,
+                "Table of contents\nAcceptance Criteria 7",
+                6,
+                [3],
+                "navigation",
+                ContentRole: RetrievalContentClassifier.NavigationRole,
+                NavigationReason: "explicit_index_marker",
+                NavigationScore: 0.98),
+            new ProjectedRetrievalChunk(
+                1,
+                0,
+                1,
+                7,
+                7,
+                "Acceptance Criteria 7\nRelated references 8\nChecklist 9",
+                7,
+                [4],
+                "section",
+                ContentRole: RetrievalContentClassifier.MixedNavigationContentRole,
+                NavigationReason: "inline_page_number_list",
+                NavigationScore: 0.72,
+                ContentDensityScore: 0.45)
+        };
+        var profile = DocumentProfileProjector.BuildProfile(
+            "deterministic_v1",
+            "en",
+            "Navigation-dominant mixed target page.",
+            [],
+            [],
+            [],
+            [],
+            [],
+            "Ops/MixedNavigation.pdf",
+            "MixedNavigation.pdf");
+
+        var index = DocumentTitleNavigationProjector.Project(sections, units, chunks, profile);
+
+        Assert.Empty(index.NavigationEntries);
+    }
+
+    [Fact]
     public void Project_parses_comma_separated_inline_index_entries()
     {
         var sections = new[]

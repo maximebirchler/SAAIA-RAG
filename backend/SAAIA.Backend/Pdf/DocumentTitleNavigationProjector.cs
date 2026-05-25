@@ -400,7 +400,7 @@ internal static partial class DocumentTitleNavigationProjector
             .Where(chunk =>
                 chunk.PageStart <= entry.TargetPage
                 && entry.TargetPage <= chunk.PageEnd
-                && !string.Equals(chunk.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.OrdinalIgnoreCase))
+                && !IsNavigationChunk(chunk))
             .OrderByDescending(static chunk => chunk.ContentDensityScore)
             .ThenBy(static chunk => chunk.ChunkIndex)
             .FirstOrDefault();
@@ -420,7 +420,7 @@ internal static partial class DocumentTitleNavigationProjector
             .Where(chunk =>
                 chunk.PageStart <= entry.TargetPage + 2
                 && chunk.PageEnd >= entry.TargetPage - 2
-                && !string.Equals(chunk.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.OrdinalIgnoreCase))
+                && !IsNavigationChunk(chunk))
             .Select(chunk => new
             {
                 Chunk = chunk,
@@ -599,8 +599,11 @@ internal static partial class DocumentTitleNavigationProjector
     }
 
     private static bool IsNavigationChunk(ProjectedRetrievalChunk chunk)
-        => string.Equals(chunk.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.OrdinalIgnoreCase)
-           || RetrievalContentClassifier.IsNavigationChunkType(chunk.ChunkType);
+        => RetrievalContentClassifier.IsPredominantlyNavigationContent(
+            chunk.ContentRole,
+            chunk.ChunkType,
+            chunk.NavigationScore,
+            chunk.ContentDensityScore);
 
     private static bool PageRangesOverlap(int leftStart, int leftEnd, int? rightStart, int? rightEnd)
     {
