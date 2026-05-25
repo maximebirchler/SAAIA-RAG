@@ -10159,7 +10159,8 @@ LIMIT @limit;
         var referenceKeys = ExactMatchEntryExtractor.ExtractReferenceKeys(query);
 
         await using var conn = await ds.OpenConnectionAsync(ct);
-        const string sql = """
+        const string lookupPredicateToken = "__exact_match_lookup_predicate__";
+        const string sqlTemplate = """
 WITH lookup_terms AS (
     SELECT DISTINCT term
     FROM unnest(@normalized_terms::text[]) AS term
@@ -10223,15 +10224,7 @@ JOIN exact_match_entries e
   ON e.tenant_id = r.tenant_id
  AND e.revision_id = r.revision_id
 JOIN lookup_terms
-  ON lookup_terms.term = e.normalized_text
-  OR (
-      (length(lookup_terms.term) >= 12 OR (length(lookup_terms.term) >= 8 AND array_length(regexp_split_to_array(lookup_terms.term, '[[:space:]]+'), 1) >= 3))
-      AND lookup_terms.term LIKE '% %'
-      AND (
-          e.normalized_text LIKE lookup_terms.term || '%'
-          OR e.normalized_text LIKE '% ' || lookup_terms.term || '%'
-      )
-  )
+  ON __exact_match_lookup_predicate__
 LEFT JOIN document_sections s
   ON s.section_id = e.section_id
 LEFT JOIN LATERAL (
@@ -10292,16 +10285,43 @@ LIMIT @top_k;
         var normalizedCategoryPath = NormalizeRagCategoryPathForSql(categoryPath);
         Guid? normalizedDocId = Guid.TryParse(docId, out var parsedDocId) ? parsedDocId : null;
 
-        var rows = await conn.QueryAsync<ExactMatchRow>(new CommandDefinition(sql, new
+        Task<IEnumerable<ExactMatchRow>> QueryExactRowsAsync(
+            string lookupPredicate,
+            IReadOnlyList<string> lookupTerms,
+            int limit)
         {
-            tenant_id = tenantId,
-            normalized_terms = normalizedTerms.ToArray(),
-            category,
-            category_path = normalizedCategoryPath,
-            doc_id = normalizedDocId,
-            doc_path = normalizedDocPath,
-            top_k = topK
-        }, cancellationToken: ct));
+            var sql = sqlTemplate.Replace(lookupPredicateToken, lookupPredicate, StringComparison.Ordinal);
+            return conn.QueryAsync<ExactMatchRow>(new CommandDefinition(sql, new
+            {
+                tenant_id = tenantId,
+                normalized_terms = lookupTerms.ToArray(),
+                category,
+                category_path = normalizedCategoryPath,
+                doc_id = normalizedDocId,
+                doc_path = normalizedDocPath,
+                top_k = limit
+            }, cancellationToken: ct));
+        }
+
+        var rows = (await QueryExactRowsAsync("lookup_terms.term = e.normalized_text", normalizedTerms, topK)).ToList();
+        if (rows.Count < topK)
+        {
+            var containsTerms = BuildContainsExactMatchLookupTerms(normalizedTerms);
+            if (containsTerms.Count > 0)
+            {
+                var containsRows = await QueryExactRowsAsync(
+                    """
+                    lookup_terms.term <> e.normalized_text
+                      AND (
+                          e.normalized_text LIKE lookup_terms.term || '%'
+                          OR e.normalized_text LIKE '% ' || lookup_terms.term || '%'
+                      )
+                    """,
+                    containsTerms,
+                    topK - rows.Count);
+                rows.AddRange(containsRows);
+            }
+        }
 
         var uniqueRows = rows
             .GroupBy(static row => (row.DocId, row.PageStart, row.PageEnd, row.Text))
@@ -10394,6 +10414,26 @@ LIMIT @top_k;
             .ThenBy(static term => term, StringComparer.Ordinal)
             .Take(64)
             .ToArray();
+    }
+
+    internal static IReadOnlyList<string> BuildContainsExactMatchLookupTerms(IReadOnlyList<string> normalizedTerms)
+        => normalizedTerms
+            .Where(ShouldUseContainsExactMatchLookupTerm)
+            .ToArray();
+
+    internal static bool ShouldUseContainsExactMatchLookupTerm(string? term)
+    {
+        if (string.IsNullOrWhiteSpace(term))
+            return false;
+
+        var normalized = ExactMatchEntryExtractor.NormalizeForLookup(term);
+        if (string.IsNullOrWhiteSpace(normalized) || !normalized.Contains(' '))
+            return false;
+
+        var tokenCount = normalized
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Length;
+        return normalized.Length >= 12 || (normalized.Length >= 8 && tokenCount >= 3);
     }
 
     internal static bool ShouldPruneWeakExactLookupTermsForQuery(string query)

@@ -12791,6 +12791,28 @@ Procedure: 1. Isolate the device. 2. Replace the component. 3. Verify the assemb
         Assert.Contains("xr 42", terms);
     }
 
+    [Theory]
+    [InlineData("mode a jd", true)]
+    [InlineData("safety valve inspection", true)]
+    [InlineData("en 15281", false)]
+    [InlineData("jd", false)]
+    [InlineData("", false)]
+    public void ShouldUseContainsExactMatchLookupTerm_keeps_only_phrase_fallback_terms(string term, bool expected)
+    {
+        Assert.Equal(expected, RagEndpoints.ShouldUseContainsExactMatchLookupTerm(term));
+    }
+
+    [Fact]
+    public void BuildContainsExactMatchLookupTerms_filters_short_exact_terms()
+    {
+        var terms = RagEndpoints.BuildContainsExactMatchLookupTerms(
+            ["en 15281", "mode a jd", "safety valve inspection"]);
+
+        Assert.DoesNotContain("en 15281", terms);
+        Assert.Contains("mode a jd", terms);
+        Assert.Contains("safety valve inspection", terms);
+    }
+
     [Fact]
     public void CalibrateFusedMatches_penalizes_short_serving_exact_match_for_broad_planning_query()
     {
