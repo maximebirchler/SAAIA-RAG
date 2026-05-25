@@ -1012,6 +1012,17 @@ DO UPDATE SET
             summaryMeta = (object?)metaJson ?? DBNull.Value
         }, transaction: tx, cancellationToken: ct));
 
+        var revisionId = await LoadCurrentRevisionIdForUpdateAsync(conn, tenantId, cmd.DocId.Value, ct, tx);
+        if (revisionId.HasValue)
+        {
+            await DocumentFoundationRepo.RefreshDocumentProfileSearchEntryAsync(
+                conn,
+                tx,
+                tenantId,
+                revisionId.Value,
+                ct);
+        }
+
         if (cmd.JobId is not null && cmd.JobId != Guid.Empty)
         {
             var completedBy = string.IsNullOrWhiteSpace(cmd.CompletedBy)
@@ -1423,6 +1434,27 @@ LIMIT 1
 FOR UPDATE;
 """;
         return await conn.ExecuteScalarAsync<string?>(new CommandDefinition(sql, new { tenant = tenantId, docId }, transaction: tx, cancellationToken: ct));
+    }
+
+    private static async Task<Guid?> LoadCurrentRevisionIdForUpdateAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        Guid docId,
+        CancellationToken ct,
+        NpgsqlTransaction tx)
+    {
+        var sql = """
+SELECT r.revision_id
+FROM documents d
+JOIN document_revisions r
+  ON r.tenant_id = d.tenant_id
+ AND r.doc_id = d.doc_id
+ AND r.indexed_version = COALESCE(d.indexed_version, 0)
+WHERE d.tenant_id=@tenant
+  AND d.doc_id=@docId
+LIMIT 1;
+""";
+        return await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(sql, new { tenant = tenantId, docId }, transaction: tx, cancellationToken: ct));
     }
 
     private static async Task<bool> DeleteSummaryCoreAsync(NpgsqlConnection conn, Guid tenantId, Guid docId, string level, CancellationToken ct)

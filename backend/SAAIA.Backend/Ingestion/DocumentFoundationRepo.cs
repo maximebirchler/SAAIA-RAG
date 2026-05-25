@@ -855,7 +855,20 @@ SET language = EXCLUDED.language,
             documentProfileId,
             profile,
             ct);
+        await RefreshDocumentProfileSearchEntryAsync(conn, tx, tenantId, revisionId, ct);
     }
+
+    internal static Task RefreshDocumentProfileSearchEntryAsync(
+        NpgsqlConnection conn,
+        NpgsqlTransaction? tx,
+        Guid tenantId,
+        Guid revisionId,
+        CancellationToken ct)
+        => conn.ExecuteAsync(new CommandDefinition(
+            "SELECT saaia_refresh_document_profile_search_entry(@tenant_id, @revision_id);",
+            new { tenant_id = tenantId, revision_id = revisionId },
+            transaction: tx,
+            cancellationToken: ct));
 
     private static async Task UpsertDocumentProfileContentCardsAsync(
         NpgsqlConnection conn,

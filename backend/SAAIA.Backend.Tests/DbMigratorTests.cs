@@ -45,6 +45,20 @@ public sealed class DbMigratorTests
         Assert.Equal(["004", "008"], duplicatePrefixes);
     }
 
+    [Fact]
+    public void Document_profile_search_projection_migration_materializes_indexable_search_text()
+    {
+        var migration = File.ReadAllText(Path.Combine(
+            ResolveMigrationsDir(),
+            "057_document_profile_search_entries.sql"));
+
+        Assert.Contains("CREATE TABLE IF NOT EXISTS document_profile_search_entries", migration, StringComparison.Ordinal);
+        Assert.Contains("search_tsv tsvector", migration, StringComparison.Ordinal);
+        Assert.Contains("GENERATED ALWAYS AS", migration, StringComparison.Ordinal);
+        Assert.Contains("ix_document_profile_search_entries_tsv", migration, StringComparison.Ordinal);
+        Assert.Contains("saaia_refresh_document_profile_search_entry", migration, StringComparison.Ordinal);
+    }
+
     private static string ResolveMigrationsDir()
         => Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,

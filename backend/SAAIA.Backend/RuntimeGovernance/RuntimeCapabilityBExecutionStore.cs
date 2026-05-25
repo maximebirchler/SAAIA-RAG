@@ -543,6 +543,7 @@ LIMIT 1;
                 row.IndexedVersion,
                 row.ProfileLanguage,
                 row.SourceHash,
+                row.RevisionId,
                 BuildExtractionQualitySnapshot(row));
     }
 

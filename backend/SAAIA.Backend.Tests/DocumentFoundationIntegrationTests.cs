@@ -1461,6 +1461,15 @@ public sealed class DocumentFoundationIntegrationTests
             WHERE d.tenant_id=@tenant_id AND d.doc_id=@doc_id;
             """,
             new { tenant_id = tenantId, doc_id = docId, storedSummary });
+        var storedSummaryRevisionId = await conn.ExecuteScalarAsync<Guid>(
+            "SELECT revision_id FROM document_revisions WHERE tenant_id=@tenant_id AND doc_id=@doc_id LIMIT 1;",
+            new { tenant_id = tenantId, doc_id = docId });
+        await DocumentFoundationRepo.RefreshDocumentProfileSearchEntryAsync(
+            conn,
+            null,
+            tenantId,
+            storedSummaryRevisionId,
+            CancellationToken.None);
 
         var matches = await RagEndpoints.SearchDocumentProfileMatchesAsync(
             ds,
@@ -1525,6 +1534,15 @@ public sealed class DocumentFoundationIntegrationTests
             WHERE tenant_id=@tenant_id AND doc_id=@doc_id;
             """,
             new { tenant_id = tenantId, doc_id = docId });
+        var hypotheticalRevisionId = await conn.ExecuteScalarAsync<Guid>(
+            "SELECT revision_id FROM document_revisions WHERE tenant_id=@tenant_id AND doc_id=@doc_id LIMIT 1;",
+            new { tenant_id = tenantId, doc_id = docId });
+        await DocumentFoundationRepo.RefreshDocumentProfileSearchEntryAsync(
+            conn,
+            null,
+            tenantId,
+            hypotheticalRevisionId,
+            CancellationToken.None);
 
         var matches = await RagEndpoints.SearchDocumentProfileMatchesAsync(
             ds,
@@ -1624,6 +1642,12 @@ public sealed class DocumentFoundationIntegrationTests
                     longKeyword,
                     cardId = Guid.Parse("cccccccc-5555-5555-5555-777777777777")
                 });
+            await DocumentFoundationRepo.RefreshDocumentProfileSearchEntryAsync(
+                conn,
+                null,
+                tenantId,
+                revisionId,
+                CancellationToken.None);
         }
 
         var matches = await RagEndpoints.SearchDocumentProfileMatchesAsync(

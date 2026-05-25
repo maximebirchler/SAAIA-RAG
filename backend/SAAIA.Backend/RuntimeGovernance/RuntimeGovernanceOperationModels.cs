@@ -42,6 +42,7 @@ internal sealed record CapabilityBDocumentRow(
     int IndexedVersion,
     string? ProfileLanguage = null,
     string? SourceHash = null,
+    Guid? RevisionId = null,
     CapabilityBExtractionQualitySnapshot? ExtractionQuality = null);
 
 internal sealed record CapabilityBExtractionQualitySnapshot(

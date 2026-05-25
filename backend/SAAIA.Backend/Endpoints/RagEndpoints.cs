@@ -14185,19 +14185,19 @@ SELECT
     d.doc_path AS "DocPath",
     d.doc_name AS "DocName",
     d.category AS "Category",
-    p.document_profile_id AS "ProfileId",
+    e.document_profile_id AS "ProfileId",
     d.indexed_version AS "IngestionVersion",
     LOWER(ENCODE(d.content_hash, 'hex')) AS "HashDoc",
-    COALESCE(NULLIF(s.summary_text, ''), NULLIF(p.summary_text, ''), d.doc_name, d.doc_path) AS "Text",
-    effective_profile.search_text AS "SearchText",
-    COALESCE(cards.metadata_json, p.metadata::text) AS "MetadataJson",
-    p.language AS "Language",
-    p.profile_version AS "ProfileVersion",
-    p.keywords AS "Keywords",
-    p.entities AS "Entities",
-    p.topics AS "Topics",
-    p.hypothetical_questions AS "HypotheticalQuestions",
-    p.limits AS "Limits",
+    COALESCE(NULLIF(e.summary_text, ''), d.doc_name, d.doc_path) AS "Text",
+    e.search_text AS "SearchText",
+    e.metadata_json::text AS "MetadataJson",
+    e.language AS "Language",
+    e.profile_version AS "ProfileVersion",
+    e.keywords AS "Keywords",
+    e.entities AS "Entities",
+    e.topics AS "Topics",
+    e.hypothetical_questions AS "HypotheticalQuestions",
+    e.limits AS "Limits",
     CASE
         WHEN COALESCE(lm.match_count, 0) > 0
         THEN (0.01::double precision + (COALESCE(lm.match_weight, 0.0)::double precision * 0.05::double precision))
@@ -14219,87 +14219,9 @@ JOIN document_revisions r
   ON r.tenant_id = d.tenant_id
  AND r.doc_id = d.doc_id
  AND r.indexed_version = d.indexed_version
-JOIN LATERAL (
-    SELECT profile.*
-    FROM document_profiles profile
-    WHERE profile.tenant_id = r.tenant_id
-      AND profile.revision_id = r.revision_id
-    ORDER BY
-        CASE profile.profile_version
-            WHEN 'llm_backoffice_v1' THEN 0
-            WHEN 'deterministic_v1' THEN 1
-            ELSE 2
-        END,
-        profile.updated_at DESC
-    LIMIT 1
-) p ON TRUE
-LEFT JOIN document_summaries s
-  ON s.tenant_id = d.tenant_id
- AND s.doc_id = d.doc_id
- AND s.level = 'medium'
- AND s.source_hash = saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version)
-LEFT JOIN LATERAL (
-    SELECT
-        CASE
-            WHEN COUNT(*) = 0 THEN NULL
-            ELSE jsonb_build_object(
-                'contentCards',
-                jsonb_agg(
-                    jsonb_build_object(
-                        'title', card.title,
-                        'contentCardId', card.content_card_id,
-                        'pageStart', card.page_start,
-                        'pageEnd', card.page_end,
-                        'kind', card.kind,
-                        'signals', card.signals,
-                        'evidence', card.metadata->'evidence')
-                    ORDER BY card.card_index))::text
-        END AS metadata_json,
-        NULLIF(TRIM(BOTH FROM STRING_AGG(card.search_text, ' ' ORDER BY card.card_index)), '') AS search_text
-    FROM (
-        SELECT DISTINCT ON (
-            raw_card.normalized_title,
-            GREATEST(1, COALESCE(raw_card.page_start, 1)),
-            GREATEST(
-                GREATEST(1, COALESCE(raw_card.page_start, 1)),
-                COALESCE(raw_card.page_end, GREATEST(1, COALESCE(raw_card.page_start, 1)))
-            ))
-            raw_card.*
-        FROM document_profile_content_cards raw_card
-        WHERE raw_card.tenant_id = r.tenant_id
-          AND raw_card.revision_id = r.revision_id
-        ORDER BY
-            raw_card.normalized_title,
-            GREATEST(1, COALESCE(raw_card.page_start, 1)),
-            GREATEST(
-                GREATEST(1, COALESCE(raw_card.page_start, 1)),
-                COALESCE(raw_card.page_end, GREATEST(1, COALESCE(raw_card.page_start, 1)))
-            ),
-            CASE raw_card.profile_version
-                WHEN 'llm_backoffice_v1' THEN 0
-                WHEN 'deterministic_v1' THEN 1
-                ELSE 2
-            END,
-            raw_card.updated_at DESC,
-            raw_card.card_index ASC
-        LIMIT 80
-    ) card
-) cards ON TRUE
-CROSS JOIN LATERAL (
-    SELECT TRIM(BOTH FROM CONCAT_WS(
-        ' ',
-        d.doc_path,
-            d.doc_name,
-            p.search_text,
-            p.summary_text,
-            ARRAY_TO_STRING(p.keywords, ' '),
-            ARRAY_TO_STRING(p.entities, ' '),
-            ARRAY_TO_STRING(p.topics, ' '),
-            ARRAY_TO_STRING(p.hypothetical_questions, ' '),
-            ARRAY_TO_STRING(p.limits, ' '),
-            NULLIF(s.summary_text, ''),
-            cards.search_text)) AS search_text
-) effective_profile
+JOIN document_profile_search_entries e
+  ON e.tenant_id = r.tenant_id
+ AND e.revision_id = r.revision_id
 LEFT JOIN LATERAL (
     SELECT
         COUNT(*) AS match_count,
@@ -14312,7 +14234,7 @@ LEFT JOIN LATERAL (
                 ELSE 1.0
             END), 0.0) AS match_weight
     FROM lexical_terms
-    WHERE LOWER(effective_profile.search_text) LIKE '%' || lexical_terms.term || '%'
+    WHERE LOWER(e.search_text) LIKE '%' || lexical_terms.term || '%'
 ) lm ON TRUE
 WHERE (NOT @require_lexical_match OR COALESCE(lm.match_count, 0) > 0)
 ORDER BY
@@ -15660,225 +15582,70 @@ lexical_terms AS (
     SELECT DISTINCT LOWER(term) AS term
     FROM unnest(@lexical_terms::text[]) AS term
     WHERE term IS NOT NULL AND term <> ''
+),
+scoped_entries AS (
+    SELECT
+        d.doc_id,
+        d.doc_path,
+        d.doc_name,
+        d.category,
+        d.indexed_version,
+        d.content_hash,
+        d.updated_at,
+        e.document_profile_id,
+        e.summary_text,
+        e.search_text,
+        e.search_tsv,
+        e.metadata_json,
+        e.language,
+        e.profile_version,
+        e.keywords,
+        e.entities,
+        e.topics,
+        e.hypothetical_questions,
+        e.limits
+    FROM documents d
+    JOIN document_revisions r
+      ON r.tenant_id = d.tenant_id
+     AND r.doc_id = d.doc_id
+     AND r.indexed_version = d.indexed_version
+    JOIN document_profile_search_entries e
+      ON e.tenant_id = r.tenant_id
+     AND e.revision_id = r.revision_id
+    WHERE d.tenant_id = @tenant_id
+      AND d.status = 'indexed'
+      AND d.indexed_version > 0
+      AND (@category IS NULL OR LOWER(d.category) = @category)
+      AND (@category_path IS NULL OR d.doc_path = @category_path OR d.doc_path LIKE (@category_path || '/%'))
+      AND (@doc_id IS NULL OR d.doc_id = @doc_id)
+      AND (@doc_path IS NULL OR d.doc_path = @doc_path)
 )
 SELECT
-    d.doc_id AS "DocId",
-    d.doc_path AS "DocPath",
-    d.doc_name AS "DocName",
-    d.category AS "Category",
-    p.document_profile_id AS "ProfileId",
-    d.indexed_version AS "IngestionVersion",
-    LOWER(ENCODE(d.content_hash, 'hex')) AS "HashDoc",
-    effective_profile.summary_text AS "Text",
-    effective_profile.search_text AS "SearchText",
-    COALESCE(cards.metadata_json, p.metadata::text) AS "MetadataJson",
-    p.language AS "Language",
-    p.profile_version AS "ProfileVersion",
-    p.keywords AS "Keywords",
-    p.entities AS "Entities",
-    p.topics AS "Topics",
-    p.hypothetical_questions AS "HypotheticalQuestions",
-    p.limits AS "Limits",
+    se.doc_id AS "DocId",
+    se.doc_path AS "DocPath",
+    se.doc_name AS "DocName",
+    se.category AS "Category",
+    se.document_profile_id AS "ProfileId",
+    se.indexed_version AS "IngestionVersion",
+    LOWER(ENCODE(se.content_hash, 'hex')) AS "HashDoc",
+    COALESCE(NULLIF(se.summary_text, ''), se.doc_name, se.doc_path) AS "Text",
+    se.search_text AS "SearchText",
+    se.metadata_json::text AS "MetadataJson",
+    se.language AS "Language",
+    se.profile_version AS "ProfileVersion",
+    se.keywords AS "Keywords",
+    se.entities AS "Entities",
+    se.topics AS "Topics",
+    se.hypothetical_questions AS "HypotheticalQuestions",
+    se.limits AS "Limits",
     ts_rank_cd(
-        to_tsvector('simple', effective_profile.search_text),
+        se.search_tsv,
         sparse_query.q,
         32
-    ) + ((lm.match_weight + COALESCE(cm.match_weight, 0.0) + (COALESCE(hm.match_weight, 0.0) * 1.2))::real * 0.04) AS "SparseRank",
-    (lm.match_count + COALESCE(cm.match_count, 0) + COALESCE(hm.match_count, 0)) AS "MatchCount"
+    ) + (lm.match_weight::real * 0.04) AS "SparseRank",
+    lm.match_count AS "MatchCount"
 FROM sparse_query
-JOIN documents d
-  ON d.tenant_id = @tenant_id
- AND d.status = 'indexed'
- AND d.indexed_version > 0
- AND (@category IS NULL OR LOWER(d.category) = @category)
- AND (@category_path IS NULL OR d.doc_path = @category_path OR d.doc_path LIKE (@category_path || '/%'))
- AND (@doc_id IS NULL OR d.doc_id = @doc_id)
- AND (@doc_path IS NULL OR d.doc_path = @doc_path)
-JOIN document_revisions r
-  ON r.tenant_id = d.tenant_id
- AND r.doc_id = d.doc_id
- AND r.indexed_version = d.indexed_version
-LEFT JOIN document_summaries s
-  ON s.tenant_id = d.tenant_id
- AND s.doc_id = d.doc_id
- AND s.level = 'medium'
- AND s.source_hash = saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version)
-JOIN LATERAL (
-    SELECT profile.*
-    FROM document_profiles profile
-    WHERE profile.tenant_id = r.tenant_id
-      AND profile.revision_id = r.revision_id
-    ORDER BY
-        CASE profile.profile_version
-            WHEN 'llm_backoffice_v1' THEN 0
-            WHEN 'deterministic_v1' THEN 1
-            ELSE 2
-        END,
-        profile.updated_at DESC
-    LIMIT 1
-) p ON TRUE
-LEFT JOIN LATERAL (
-    SELECT
-        NULLIF(TRIM(BOTH FROM STRING_AGG(NULLIF(profile.summary_text, ''), ' ' ORDER BY
-            CASE profile.profile_version
-                WHEN 'llm_backoffice_v1' THEN 0
-                WHEN 'deterministic_v1' THEN 1
-                ELSE 2
-            END,
-            profile.updated_at DESC)), '') AS summary_text,
-        NULLIF(TRIM(BOTH FROM STRING_AGG(NULLIF(profile.search_text, ''), ' ' ORDER BY
-            CASE profile.profile_version
-                WHEN 'llm_backoffice_v1' THEN 0
-                WHEN 'deterministic_v1' THEN 1
-                ELSE 2
-            END,
-            profile.updated_at DESC)), '') AS search_text,
-        NULLIF(TRIM(BOTH FROM STRING_AGG(NULLIF(ARRAY_TO_STRING(profile.keywords, ' '), ''), ' ')), '') AS keywords_text,
-        NULLIF(TRIM(BOTH FROM STRING_AGG(NULLIF(ARRAY_TO_STRING(profile.entities, ' '), ''), ' ')), '') AS entities_text,
-        NULLIF(TRIM(BOTH FROM STRING_AGG(NULLIF(ARRAY_TO_STRING(profile.topics, ' '), ''), ' ')), '') AS topics_text,
-        NULLIF(TRIM(BOTH FROM STRING_AGG(NULLIF(ARRAY_TO_STRING(profile.hypothetical_questions, ' '), ''), ' ')), '') AS hypothetical_questions_text,
-        NULLIF(TRIM(BOTH FROM STRING_AGG(NULLIF(ARRAY_TO_STRING(profile.limits, ' '), ''), ' ')), '') AS limits_text
-    FROM document_profiles profile
-    WHERE profile.tenant_id = r.tenant_id
-      AND profile.revision_id = r.revision_id
-) profile_terms ON TRUE
-LEFT JOIN LATERAL (
-    SELECT CASE
-        WHEN COUNT(*) = 0 THEN NULL
-        ELSE jsonb_build_object(
-            'contentCards',
-            jsonb_agg(
-                jsonb_build_object(
-                    'title', card.title,
-                    'contentCardId', card.content_card_id,
-                    'pageStart', card.page_start,
-                    'pageEnd', card.page_end,
-                    'kind', card.kind,
-                    'signals', card.signals,
-                    'evidence', card.metadata->'evidence')
-                ORDER BY card.card_index))::text
-        END AS metadata_json,
-        NULLIF(TRIM(BOTH FROM STRING_AGG(card.search_text, ' ' ORDER BY card.card_index)), '') AS search_text
-    FROM (
-        SELECT DISTINCT ON (
-            raw_card.normalized_title,
-            GREATEST(1, COALESCE(raw_card.page_start, 1)),
-            GREATEST(
-                GREATEST(1, COALESCE(raw_card.page_start, 1)),
-                COALESCE(raw_card.page_end, GREATEST(1, COALESCE(raw_card.page_start, 1)))
-            ))
-            raw_card.*
-        FROM document_profile_content_cards raw_card
-        WHERE raw_card.tenant_id = r.tenant_id
-          AND raw_card.revision_id = r.revision_id
-        ORDER BY
-            raw_card.normalized_title,
-            GREATEST(1, COALESCE(raw_card.page_start, 1)),
-            GREATEST(
-                GREATEST(1, COALESCE(raw_card.page_start, 1)),
-                COALESCE(raw_card.page_end, GREATEST(1, COALESCE(raw_card.page_start, 1)))
-            ),
-            CASE raw_card.profile_version
-                WHEN 'llm_backoffice_v1' THEN 0
-                WHEN 'deterministic_v1' THEN 1
-                ELSE 2
-            END,
-            raw_card.updated_at DESC,
-            raw_card.card_index ASC
-    ) card
-) cards ON TRUE
-CROSS JOIN LATERAL (
-    SELECT
-        COALESCE(NULLIF(s.summary_text, ''), p.summary_text) AS summary_text,
-        TRIM(BOTH FROM CONCAT_WS(
-            ' ',
-            d.doc_path,
-            d.doc_name,
-            p.summary_text,
-            profile_terms.summary_text,
-            profile_terms.search_text,
-            profile_terms.keywords_text,
-            profile_terms.entities_text,
-            profile_terms.topics_text,
-            profile_terms.hypothetical_questions_text,
-            profile_terms.limits_text,
-            NULLIF(s.summary_text, ''),
-            ARRAY_TO_STRING(p.keywords, ' '),
-            ARRAY_TO_STRING(p.entities, ' '),
-            ARRAY_TO_STRING(p.topics, ' '),
-            ARRAY_TO_STRING(p.hypothetical_questions, ' '),
-            ARRAY_TO_STRING(p.limits, ' '),
-            cards.search_text)) AS search_text
-) effective_profile
-LEFT JOIN LATERAL (
-    SELECT
-        COUNT(*) AS match_count,
-        COALESCE(SUM(
-            CASE
-                WHEN lexical_terms.term LIKE '% %' AND length(lexical_terms.term) >= 18 THEN 7.0
-                WHEN lexical_terms.term LIKE '% %' THEN 5.0
-                WHEN length(lexical_terms.term) >= 10 THEN 2.5
-                WHEN length(lexical_terms.term) >= 7 THEN 1.6
-                ELSE 1.0
-            END), 0.0) AS match_weight
-    FROM (
-        SELECT DISTINCT ON (
-            raw_card.normalized_title,
-            GREATEST(1, COALESCE(raw_card.page_start, 1)),
-            GREATEST(
-                GREATEST(1, COALESCE(raw_card.page_start, 1)),
-                COALESCE(raw_card.page_end, GREATEST(1, COALESCE(raw_card.page_start, 1)))
-            ))
-            raw_card.*
-        FROM document_profile_content_cards raw_card
-        WHERE raw_card.tenant_id = r.tenant_id
-          AND raw_card.revision_id = r.revision_id
-        ORDER BY
-            raw_card.normalized_title,
-            GREATEST(1, COALESCE(raw_card.page_start, 1)),
-            GREATEST(
-                GREATEST(1, COALESCE(raw_card.page_start, 1)),
-                COALESCE(raw_card.page_end, GREATEST(1, COALESCE(raw_card.page_start, 1)))
-            ),
-            CASE raw_card.profile_version
-                WHEN 'llm_backoffice_v1' THEN 0
-                WHEN 'deterministic_v1' THEN 1
-                ELSE 2
-            END,
-            raw_card.updated_at DESC,
-            raw_card.card_index ASC
-    ) card
-    CROSS JOIN lexical_terms
-    WHERE CASE
-        WHEN lexical_terms.term LIKE '% %'
-            THEN LOWER(card.search_text) LIKE '%' || REPLACE(lexical_terms.term, ' ', '%') || '%'
-                 OR card.normalized_title LIKE '%' || REPLACE(lexical_terms.term, ' ', '%') || '%'
-        ELSE LOWER(card.search_text) LIKE '%' || lexical_terms.term || '%'
-             OR card.normalized_title LIKE '%' || lexical_terms.term || '%'
-      END
-) cm ON TRUE
-LEFT JOIN LATERAL (
-    SELECT
-        COUNT(*) AS match_count,
-        COALESCE(SUM(
-            CASE
-                WHEN lexical_terms.term LIKE '% %' AND length(lexical_terms.term) >= 18 THEN 7.0
-                WHEN lexical_terms.term LIKE '% %' THEN 5.0
-                WHEN length(lexical_terms.term) >= 10 THEN 2.5
-                WHEN length(lexical_terms.term) >= 7 THEN 1.6
-                ELSE 1.0
-            END), 0.0) AS match_weight
-    FROM document_profiles question_profile
-    CROSS JOIN LATERAL unnest(COALESCE(question_profile.hypothetical_questions, ARRAY[]::text[])) AS question(text)
-    CROSS JOIN lexical_terms
-    WHERE question_profile.tenant_id = r.tenant_id
-      AND question_profile.revision_id = r.revision_id
-      AND CASE
-          WHEN lexical_terms.term LIKE '% %'
-              THEN LOWER(question.text) LIKE '%' || REPLACE(lexical_terms.term, ' ', '%') || '%'
-          ELSE LOWER(question.text) LIKE '%' || lexical_terms.term || '%'
-      END
-) hm ON TRUE
+JOIN scoped_entries se ON TRUE
 CROSS JOIN LATERAL (
     SELECT
         COUNT(*) AS match_count,
@@ -15893,24 +15660,18 @@ CROSS JOIN LATERAL (
     FROM lexical_terms
     WHERE CASE
         WHEN lexical_terms.term LIKE '% %'
-            THEN LOWER(effective_profile.search_text) LIKE '%' || REPLACE(lexical_terms.term, ' ', '%') || '%'
-        ELSE LOWER(effective_profile.search_text) LIKE '%' || lexical_terms.term || '%'
+            THEN LOWER(se.search_text) LIKE '%' || REPLACE(lexical_terms.term, ' ', '%') || '%'
+        ELSE LOWER(se.search_text) LIKE '%' || lexical_terms.term || '%'
     END
 ) lm
 WHERE (
-       to_tsvector('simple', effective_profile.search_text) @@ sparse_query.q
+       se.search_tsv @@ sparse_query.q
        OR lm.match_count > 0
-       OR COALESCE(cm.match_count, 0) > 0
-       OR COALESCE(hm.match_count, 0) > 0
       )
-  AND (@category IS NULL OR LOWER(d.category) = @category)
-  AND (@category_path IS NULL OR d.doc_path = @category_path OR d.doc_path LIKE (@category_path || '/%'))
-  AND (@doc_id IS NULL OR d.doc_id = @doc_id)
-  AND (@doc_path IS NULL OR d.doc_path = @doc_path)
 ORDER BY
-    (ts_rank_cd(to_tsvector('simple', effective_profile.search_text), sparse_query.q, 32)
-        + ((lm.match_weight + COALESCE(cm.match_weight, 0.0) + (COALESCE(hm.match_weight, 0.0) * 1.2))::real * 0.04)) DESC,
-    d.updated_at DESC
+    (ts_rank_cd(se.search_tsv, sparse_query.q, 32)
+        + (lm.match_weight::real * 0.04)) DESC,
+    se.updated_at DESC
 LIMIT @result_limit;
 """;
 

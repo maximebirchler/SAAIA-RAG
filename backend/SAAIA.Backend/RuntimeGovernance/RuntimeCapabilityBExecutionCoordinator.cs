@@ -376,6 +376,17 @@ internal static class RuntimeCapabilityBExecutionCoordinator
             ct,
             tx);
 
+        var refreshRevisionId = generatedProfileRevisionId ?? doc.RevisionId;
+        if (refreshRevisionId.HasValue)
+        {
+            await DocumentFoundationRepo.RefreshDocumentProfileSearchEntryAsync(
+                conn,
+                tx,
+                tenantId,
+                refreshRevisionId.Value,
+                ct);
+        }
+
         var completed = await RuntimeCapabilityBExecutionStore.TryCompleteJobAsync(
             conn,
             tenantId,
