@@ -18592,7 +18592,7 @@ GROUP BY d.doc_id;
             if (!CountsAgainstChunkQuota(selectedMatch))
                 continue;
 
-            var docKey = selectedMatch.DocPath!;
+            var docKey = ResolveMatchDedupDocumentKey(selectedMatch);
             perDoc[docKey] = perDoc.TryGetValue(docKey, out var docCount) ? docCount + 1 : 1;
             var pageKey = $"{docKey}:{selectedMatch.PageStart ?? -1}:{selectedMatch.PageEnd ?? -1}";
             perPage[pageKey] = perPage.TryGetValue(pageKey, out var pageCount) ? pageCount + 1 : 1;
@@ -18631,7 +18631,7 @@ GROUP BY d.doc_id;
             }
 
             var countsAgainstChunkQuota = CountsAgainstChunkQuota(match);
-            var docKey = match.DocPath!;
+            var docKey = ResolveMatchDedupDocumentKey(match);
             perDoc.TryGetValue(docKey, out var docCountCurrent);
             if (countsAgainstChunkQuota && docCountCurrent >= maxPerDoc)
             {
@@ -19721,13 +19721,12 @@ GROUP BY d.doc_id;
 
     private static string? BuildSectionKey(RagMatch match)
     {
-        if (string.IsNullOrWhiteSpace(match.DocPath))
-            return null;
+        var docKey = ResolveMatchDedupDocumentKey(match);
         // Use SectionOrdinal if available, fallback to SectionTitle
         if (match.SectionOrdinal.HasValue)
-            return $"{match.DocPath}:sec:{match.SectionOrdinal.Value}";
+            return $"{docKey}:sec:{match.SectionOrdinal.Value}";
         if (!string.IsNullOrWhiteSpace(match.SectionTitle))
-            return $"{match.DocPath}:sec:{match.SectionTitle}";
+            return $"{docKey}:sec:{match.SectionTitle}";
         return null;
     }
 
@@ -20267,7 +20266,8 @@ LIMIT @top_k;
         var textKey = normalizedText.Length <= 512
             ? normalizedText
             : $"{normalizedText.Length}:{Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalizedText)))}";
-        return $"{match.DocId}|{match.PageStart}|{match.PageEnd}|{textKey}";
+        var documentKey = ResolveMatchDedupDocumentKey(match);
+        return $"{documentKey}|{match.PageStart}|{match.PageEnd}|{textKey}";
     }
 
     internal static bool IsNearDuplicatePageOverlap(RagMatch left, RagMatch right)
@@ -20276,7 +20276,7 @@ LIMIT @top_k;
             return false;
         if (string.IsNullOrWhiteSpace(left.DocPath) || string.IsNullOrWhiteSpace(right.DocPath))
             return false;
-        if (!string.Equals(left.DocPath, right.DocPath, StringComparison.OrdinalIgnoreCase))
+        if (!IsSameDedupDocumentFingerprint(left, right))
             return false;
         if (!PageRangesOverlap(left.PageStart, left.PageEnd, right.PageStart, right.PageEnd))
             return false;
@@ -21658,6 +21658,40 @@ LIMIT @top_k;
         }
 
         return false;
+    }
+
+    private static string ResolveMatchDedupDocumentKey(RagMatch match)
+    {
+        var stableHash = ResolveStableContentHash(match.HashDoc);
+        if (stableHash is not null)
+            return $"hash:{stableHash}";
+
+        if (!string.IsNullOrWhiteSpace(match.DocId))
+            return $"doc:{match.DocId.Trim()}";
+
+        var normalizedPath = NormalizeRagDocPath(match.DocPath);
+        return string.IsNullOrWhiteSpace(normalizedPath)
+            ? "doc:unknown"
+            : $"path:{normalizedPath}";
+    }
+
+    private static bool IsSameDedupDocumentFingerprint(RagMatch left, RagMatch right)
+    {
+        var leftHash = ResolveStableContentHash(left.HashDoc);
+        var rightHash = ResolveStableContentHash(right.HashDoc);
+        if (leftHash is not null && rightHash is not null)
+            return string.Equals(leftHash, rightHash, StringComparison.OrdinalIgnoreCase);
+
+        return string.Equals(left.DocPath, right.DocPath, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? ResolveStableContentHash(string? value)
+    {
+        var normalized = NormalizeHashHex(value);
+        if (string.IsNullOrWhiteSpace(normalized) || normalized.Length < 16)
+            return null;
+
+        return normalized.All(Uri.IsHexDigit) ? normalized : null;
     }
 
     private static bool HasQuotedTitleConnectorQualifier(IReadOnlyList<string> candidateTokens, int quotedTokenCount)

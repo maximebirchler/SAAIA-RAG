@@ -4634,6 +4634,45 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void BuildMatchDedupKey_deduplicates_same_content_hash_across_different_paths()
+    {
+        var stableHash = new string('a', 64);
+        var first = new RagMatch(
+            Score: 1.0,
+            DocId: "doc-1",
+            DocPath: "Knowledge/Guide.pdf",
+            DocName: "Guide.pdf",
+            PageStart: 2,
+            PageEnd: 2,
+            ChunkId: "chunk-1",
+            ChunkIndex: 0,
+            Text: "Shared excerpt",
+            IngestionVersion: 1,
+            HashDoc: stableHash,
+            EmbedText: "Shared excerpt",
+            EmbeddingBasis: "contextual_text_v1",
+            SectionOrdinal: null,
+            UnitOrdinal: null,
+            SectionTitle: null,
+            HeadingPath: null,
+            ChunkType: "unit_exact_v1",
+            PrevChunkId: null,
+            NextChunkId: null,
+            SameSectionChunkId: null);
+        var duplicatePath = first with
+        {
+            DocId = "doc-2",
+            DocPath = "Knowledge/Imported/Guide.pdf",
+            ChunkId = "chunk-2",
+            EmbeddingBasis = "sparse_bm25_v1"
+        };
+
+        Assert.Equal(
+            RagEndpoints.BuildMatchDedupKey(first),
+            RagEndpoints.BuildMatchDedupKey(duplicatePath));
+    }
+
+    [Fact]
     public void BuildMatchDedupKey_deduplicates_dense_and_linked_results_for_same_excerpt()
     {
         var dense = new RagMatch(
@@ -4702,6 +4741,45 @@ public sealed class RetrievalRuntimeSwitchTests
         var firstKey = RagEndpoints.BuildMatchDedupKey(first);
         Assert.Equal(firstKey, RagEndpoints.BuildMatchDedupKey(second));
         Assert.True(firstKey.Length < 180);
+    }
+
+    [Fact]
+    public void IsNearDuplicatePageOverlap_uses_stable_content_hash_across_different_paths()
+    {
+        var stableHash = new string('b', 64);
+        var text = "This page contains a detailed shared operational procedure with enough text to qualify for near duplicate overlap checks across copied documents and import paths.";
+        var first = new RagMatch(
+            Score: 0.82,
+            DocId: "doc-1",
+            DocPath: "Knowledge/Guide.pdf",
+            DocName: "Guide.pdf",
+            PageStart: 4,
+            PageEnd: 4,
+            ChunkId: "first",
+            ChunkIndex: 3,
+            Text: text,
+            IngestionVersion: 2,
+            HashDoc: stableHash,
+            EmbedText: text,
+            EmbeddingBasis: "contextual_text_v1",
+            SectionOrdinal: 1,
+            UnitOrdinal: 5,
+            SectionTitle: "Procedure",
+            HeadingPath: "Procedure",
+            ChunkType: "unit_exact_v1",
+            PrevChunkId: null,
+            NextChunkId: null,
+            SameSectionChunkId: null);
+        var duplicatePath = first with
+        {
+            DocId = "doc-2",
+            DocPath = "Knowledge/Imported/Guide.pdf",
+            ChunkId = "second",
+            Text = text + " Additional local footer.",
+            EmbedText = text + " Additional local footer."
+        };
+
+        Assert.True(RagEndpoints.IsNearDuplicatePageOverlap(first, duplicatePath));
     }
 
 
