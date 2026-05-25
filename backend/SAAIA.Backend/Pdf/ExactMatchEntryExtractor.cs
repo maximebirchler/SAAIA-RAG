@@ -4,6 +4,8 @@ using System.Text.RegularExpressions;
 
 internal static partial class ExactMatchEntryExtractor
 {
+    internal const int MaxExactLookupTextUtf8Bytes = 1800;
+
     public static IReadOnlyList<ExtractedExactMatchEntry> Extract(IReadOnlyList<ExtractedDocumentUnit> units)
     {
         if (units.Count == 0)
@@ -49,6 +51,11 @@ internal static partial class ExactMatchEntryExtractor
                     continue;
 
                 var kind = InferEntryKind(candidate);
+                if (string.Equals(kind, "verbatim_excerpt", StringComparison.Ordinal)
+                    && !IsWithinExactLookupTextBudget(normalizedText))
+                {
+                    continue;
+                }
 
                 entries.Add(new ExtractedExactMatchEntry(
                     EntryIndex: entryIndex++,
@@ -171,6 +178,9 @@ internal static partial class ExactMatchEntryExtractor
 
     private static string NormalizeWhitespace(string text)
         => Regex.Replace(text, @"\s+", " ").Trim();
+
+    internal static bool IsWithinExactLookupTextBudget(string normalizedText)
+        => Encoding.UTF8.GetByteCount(normalizedText) <= MaxExactLookupTextUtf8Bytes;
 
     internal static string NormalizeForLookup(string text)
     {

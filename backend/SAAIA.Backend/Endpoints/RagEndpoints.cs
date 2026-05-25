@@ -10303,7 +10303,10 @@ LIMIT @top_k;
             }, cancellationToken: ct));
         }
 
-        var rows = (await QueryExactRowsAsync("lookup_terms.term = e.normalized_text", normalizedTerms, topK)).ToList();
+        var rows = (await QueryExactRowsAsync(
+            "md5(lookup_terms.term) = md5(e.normalized_text) AND lookup_terms.term = e.normalized_text",
+            normalizedTerms,
+            topK)).ToList();
         if (rows.Count < topK)
         {
             var containsTerms = BuildContainsExactMatchLookupTerms(normalizedTerms);

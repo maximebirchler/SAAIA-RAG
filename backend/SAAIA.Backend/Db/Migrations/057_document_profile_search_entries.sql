@@ -150,7 +150,6 @@ BEGIN
         END,
         raw_card.updated_at DESC,
         raw_card.card_index ASC
-      LIMIT 80
     ) card
   )
   INSERT INTO document_profile_search_entries(

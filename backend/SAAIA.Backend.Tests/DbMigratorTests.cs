@@ -59,6 +59,37 @@ public sealed class DbMigratorTests
         Assert.Contains("saaia_refresh_document_profile_search_entry", migration, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Exact_match_lookup_index_migration_replaces_large_text_btree_with_hash_and_trgm()
+    {
+        var migration = File.ReadAllText(Path.Combine(
+            ResolveMigrationsDir(),
+            "058_exact_match_lookup_index_hardening.sql"));
+
+        Assert.Contains("DROP INDEX IF EXISTS ix_exact_match_entries_revision_normalized", migration, StringComparison.Ordinal);
+        Assert.Contains("ix_exact_match_entries_revision_normalized_hash", migration, StringComparison.Ordinal);
+        Assert.Contains("md5(normalized_text)", migration, StringComparison.Ordinal);
+        Assert.Contains("ix_exact_match_entries_normalized_trgm", migration, StringComparison.Ordinal);
+        Assert.Contains("gin_trgm_ops", migration, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Document_profile_search_projection_recall_migration_removes_card_limit()
+    {
+        var baseMigration = File.ReadAllText(Path.Combine(
+            ResolveMigrationsDir(),
+            "057_document_profile_search_entries.sql"));
+        var migration = File.ReadAllText(Path.Combine(
+            ResolveMigrationsDir(),
+            "059_document_profile_search_entries_full_card_recall.sql"));
+
+        Assert.DoesNotContain("LIMIT 80", baseMigration, StringComparison.Ordinal);
+        Assert.Contains("pg_get_functiondef", migration, StringComparison.Ordinal);
+        Assert.Contains("saaia_refresh_document_profile_search_entry", migration, StringComparison.Ordinal);
+        Assert.Contains("REPLACE", migration, StringComparison.Ordinal);
+        Assert.Contains("LIMIT 80", migration, StringComparison.Ordinal);
+    }
+
     private static string ResolveMigrationsDir()
         => Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,

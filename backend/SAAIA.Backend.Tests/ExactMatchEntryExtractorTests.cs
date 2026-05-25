@@ -51,6 +51,37 @@ public sealed class ExactMatchEntryExtractorTests
     }
 
     [Fact]
+    public void Extract_skips_oversized_unsplittable_verbatim_excerpt()
+    {
+        var text = string.Join(' ', Enumerable.Repeat("longcontenttoken", 220));
+        Assert.False(ExactMatchEntryExtractor.IsWithinExactLookupTextBudget(
+            ExactMatchEntryExtractor.NormalizeForLookup(text)));
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, null, 1, 1, text, text.Length, 220, [1], 0, text.Length)
+        };
+
+        var entries = ExactMatchEntryExtractor.Extract(units);
+
+        Assert.Empty(entries);
+    }
+
+    [Fact]
+    public void Extract_keeps_targeted_references_from_oversized_unsplittable_units()
+    {
+        var text = "EN 15281 " + string.Join(' ', Enumerable.Repeat("longcontenttoken", 220));
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, null, 1, 1, text, text.Length, 221, [1], 0, text.Length)
+        };
+
+        var entries = ExactMatchEntryExtractor.Extract(units);
+
+        Assert.Contains(entries, entry => entry.Text == "EN 15281" && entry.Kind == "standard_ref");
+        Assert.DoesNotContain(entries, entry => entry.Text.Contains("longcontenttoken", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Extract_restricts_sparse_low_quality_units_to_targeted_references()
     {
         var units = new[]

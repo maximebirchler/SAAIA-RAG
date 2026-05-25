@@ -1457,11 +1457,45 @@ LIMIT 1;
         return await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(sql, new { tenant = tenantId, docId }, transaction: tx, cancellationToken: ct));
     }
 
+    private static async Task<Guid?> LoadCurrentRevisionIdAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        Guid docId,
+        CancellationToken ct)
+    {
+        var sql = """
+SELECT r.revision_id
+FROM documents d
+JOIN document_revisions r
+  ON r.tenant_id = d.tenant_id
+ AND r.doc_id = d.doc_id
+ AND r.indexed_version = COALESCE(d.indexed_version, 0)
+WHERE d.tenant_id=@tenant
+  AND d.doc_id=@docId
+LIMIT 1;
+""";
+        return await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(sql, new { tenant = tenantId, docId }, cancellationToken: ct));
+    }
+
     private static async Task<bool> DeleteSummaryCoreAsync(NpgsqlConnection conn, Guid tenantId, Guid docId, string level, CancellationToken ct)
     {
         const string sql = "DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId AND level=@level;";
         var changed = await conn.ExecuteAsync(new CommandDefinition(sql, new { tenant = tenantId, docId, level }, cancellationToken: ct));
-        return changed > 0;
+        if (changed <= 0)
+            return false;
+
+        var revisionId = await LoadCurrentRevisionIdAsync(conn, tenantId, docId, ct);
+        if (revisionId.HasValue)
+        {
+            await DocumentFoundationRepo.RefreshDocumentProfileSearchEntryAsync(
+                conn,
+                null,
+                tenantId,
+                revisionId.Value,
+                ct);
+        }
+
+        return true;
     }
 
     private static async Task<Guid> InsertAdminJobAsync(NpgsqlConnection conn, Guid tenantId, Guid docId, string level, string jobType, object payload, CancellationToken ct)
