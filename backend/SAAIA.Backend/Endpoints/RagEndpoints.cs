@@ -1789,6 +1789,7 @@ ORDER BY d.doc_path;
         long selectionMs = 0;
         int qdrantStatus = 0;
         var sparseCommandTimeoutSeconds = RagOptions.ResolveSearchSparseCommandTimeoutSeconds(rag.SearchSparseCommandTimeoutSeconds);
+        var sqlHeavyCandidateLimit = ResolveSqlHeavyRetrieverCandidateLimit(candidates, topK);
 
         Task<List<RagMatch>> SearchPreciseTitleRouteBackfillAsync(string titleBackfillQuery, int limit)
         {
@@ -1927,7 +1928,7 @@ ORDER BY d.doc_path;
                         category,
                         req.DocId,
                         req.DocPath,
-                        candidates,
+                        sqlHeavyCandidateLimit,
                         ct,
                         sparseMsRef: value => sparseMs = value,
                         lexicalExpansionQuery: retrievalQuery,
@@ -2003,7 +2004,8 @@ ORDER BY d.doc_path;
                         Math.Max(topK, 8),
                         ct,
                         degradedRetrieverRef: MarkRetrieverDegraded,
-                        includeProfileCardMatches: false),
+                        includeProfileCardMatches: false,
+                        commandTimeoutSeconds: sparseCommandTimeoutSeconds),
                     getReturnedCount: static matches => matches.Count);
 
             Task<(List<RagMatch> Result, long DurationMs)> SearchDocumentProfilesMeasuredAsync()
@@ -2022,7 +2024,8 @@ ORDER BY d.doc_path;
                             ct,
                             categoryPath,
                             requireDocumentOverviewProfileMatch,
-                            degradedRetrieverRef: MarkRetrieverDegraded)
+                            degradedRetrieverRef: MarkRetrieverDegraded,
+                            commandTimeoutSeconds: sparseCommandTimeoutSeconds)
                         : SearchDocumentProfileMatchesAsync(
                             ds,
                             tenantId,
@@ -2033,7 +2036,8 @@ ORDER BY d.doc_path;
                             documentProfileCandidateCount,
                             ct,
                             categoryPath,
-                            degradedRetrieverRef: MarkRetrieverDegraded),
+                            degradedRetrieverRef: MarkRetrieverDegraded,
+                            commandTimeoutSeconds: sparseCommandTimeoutSeconds),
                     getReturnedCount: static matches => matches.Count);
 
             await Task.WhenAll(
@@ -2167,7 +2171,8 @@ ORDER BY d.doc_path;
                                         Math.Min(Math.Max(topK, 12), 32),
                                         ct,
                                         categoryPath: categoryPath,
-                                        degradedRetrieverRef: MarkRetrieverDegraded));
+                                        degradedRetrieverRef: MarkRetrieverDegraded,
+                                        commandTimeoutSeconds: sparseCommandTimeoutSeconds));
                                     if (!skipUnanchoredTitleAnchorRouteForBroadDiversity)
                                     {
                                         backfill.AddRange(await SearchSparseMatchesAsync(
@@ -2265,7 +2270,8 @@ ORDER BY d.doc_path;
                                     focusedTopK,
                                     ct,
                                     categoryPath: categoryPath,
-                                    degradedRetrieverRef: MarkRetrieverDegraded));
+                                    degradedRetrieverRef: MarkRetrieverDegraded,
+                                    commandTimeoutSeconds: sparseCommandTimeoutSeconds));
                                 if (!skipUnanchoredTitleAnchorRouteForBroadDiversity
                                     && !useBareVsComparativeOperandRoute)
                                 {
@@ -2344,7 +2350,8 @@ ORDER BY d.doc_path;
                                     Math.Min(Math.Max(topK, 12), 32),
                                     ct,
                                     categoryPath,
-                                    degradedRetrieverRef: MarkRetrieverDegraded));
+                                    degradedRetrieverRef: MarkRetrieverDegraded,
+                                    commandTimeoutSeconds: sparseCommandTimeoutSeconds));
                             }
 
                             return backfill
@@ -2647,7 +2654,8 @@ ORDER BY d.doc_path;
                         categoryPath,
                         Math.Max(topK, 8),
                         ct,
-                        degradedRetrieverRef: MarkRetrieverDegraded),
+                        degradedRetrieverRef: MarkRetrieverDegraded,
+                        commandTimeoutSeconds: sparseCommandTimeoutSeconds),
                     getReturnedCount: static matches => matches.Count);
                 sparsePhaseMs += documentHintBackfillMs;
 
@@ -2967,7 +2975,7 @@ ORDER BY d.doc_path;
                         category,
                         req.DocId,
                         req.DocPath,
-                        Math.Max(candidates, topK * 4),
+                        sqlHeavyCandidateLimit,
                         ct,
                         sparseMsRef: value => sparseMs += value,
                         lexicalExpansionQuery: focusedLexicalQuery,
@@ -3015,7 +3023,8 @@ ORDER BY d.doc_path;
                     ct,
                     categoryPath,
                     requireLexicalMatch: false,
-                    degradedRetrieverRef: MarkRetrieverDegraded),
+                    degradedRetrieverRef: MarkRetrieverDegraded,
+                    commandTimeoutSeconds: sparseCommandTimeoutSeconds),
                 getReturnedCount: static matches => matches.Count);
             profilePhaseMs += fallbackProfilesMs;
 
@@ -3053,7 +3062,8 @@ ORDER BY d.doc_path;
                     ct,
                     categoryPath,
                     requireLexicalMatch: false,
-                    degradedRetrieverRef: MarkRetrieverDegraded),
+                    degradedRetrieverRef: MarkRetrieverDegraded,
+                    commandTimeoutSeconds: sparseCommandTimeoutSeconds),
                 getReturnedCount: static matches => matches.Count);
             profilePhaseMs += catalogProfilesMs;
 
@@ -4347,7 +4357,8 @@ ORDER BY d.doc_path;
                     ct,
                     categoryPath,
                     requireLexicalMatch: false,
-                    degradedRetrieverRef: MarkRetrieverDegraded),
+                    degradedRetrieverRef: MarkRetrieverDegraded,
+                    commandTimeoutSeconds: sparseCommandTimeoutSeconds),
                 getReturnedCount: static matches => matches.Count);
             profilePhaseMs += genericVersionOverviewMs;
 
@@ -4383,7 +4394,8 @@ ORDER BY d.doc_path;
                     categoryPath,
                     Math.Min(Math.Max(topK, 8), 16),
                     ct,
-                    degradedRetrieverRef: MarkRetrieverDegraded),
+                    degradedRetrieverRef: MarkRetrieverDegraded,
+                    commandTimeoutSeconds: sparseCommandTimeoutSeconds),
                 getReturnedCount: static matches => matches.Count);
             profilePhaseMs += lateExplicitFileProfileMs;
 
@@ -4569,7 +4581,8 @@ ORDER BY d.doc_path;
                             ct,
                             categoryPath,
                             requireLexicalMatch: true,
-                            degradedRetrieverRef: MarkRetrieverDegraded));
+                            degradedRetrieverRef: MarkRetrieverDegraded,
+                            commandTimeoutSeconds: sparseCommandTimeoutSeconds));
                     }
 
                     return DeduplicatePreciseTitleBackfillMatches(backfill);
@@ -4617,7 +4630,8 @@ ORDER BY d.doc_path;
                         ct,
                         categoryPath,
                         requireLexicalMatch: true,
-                        degradedRetrieverRef: MarkRetrieverDegraded),
+                        degradedRetrieverRef: MarkRetrieverDegraded,
+                        commandTimeoutSeconds: sparseCommandTimeoutSeconds),
                     getReturnedCount: static matches => matches.Count);
                 profilePhaseMs += lexicalProfileRecoveryMs;
 
@@ -6898,6 +6912,15 @@ ORDER BY d.doc_path;
         var desired = comparativeProfileAssist
             ? Math.Clamp(Math.Max(topK + 8, topK * 2), topK, 48)
             : Math.Max(topK, 12);
+        return Math.Min(candidates, desired);
+    }
+
+    internal static int ResolveSqlHeavyRetrieverCandidateLimit(int candidates, int topK)
+    {
+        if (topK <= 0 || candidates <= 0)
+            return 0;
+
+        var desired = Math.Max(topK, Math.Max(topK * 6, 64));
         return Math.Min(candidates, desired);
     }
 
@@ -9958,7 +9981,8 @@ LIMIT @limit;
         int topK,
         CancellationToken ct,
         Action<string, string?>? degradedRetrieverRef = null,
-        bool includeProfileCardMatches = true)
+        bool includeProfileCardMatches = true,
+        int commandTimeoutSeconds = RagOptions.DefaultSearchSparseCommandTimeoutSeconds)
     {
         if (string.IsNullOrWhiteSpace(focusedQuery) || topK <= 0)
             return [];
@@ -10013,7 +10037,8 @@ LIMIT @limit;
                     lexicalExpansionQuery: focusedQuery,
                     categoryPath: categoryPath,
                     includeProfileCardMatches: true,
-                    degradedRetrieverRef: degradedRetrieverRef)
+                    degradedRetrieverRef: degradedRetrieverRef,
+                    commandTimeoutSeconds: commandTimeoutSeconds)
                 : await SearchDocumentScopedLexicalContentMatchesAsync(
                     ds,
                     tenantId,
@@ -10039,7 +10064,8 @@ LIMIT @limit;
                     ct,
                     categoryPath,
                     requireLexicalMatch: false,
-                    degradedRetrieverRef: degradedRetrieverRef));
+                    degradedRetrieverRef: degradedRetrieverRef,
+                    commandTimeoutSeconds: commandTimeoutSeconds));
             }
         }
 
@@ -10065,7 +10091,8 @@ LIMIT @limit;
         string? categoryPath,
         int topK,
         CancellationToken ct,
-        Action<string, string?>? degradedRetrieverRef = null)
+        Action<string, string?>? degradedRetrieverRef = null,
+        int commandTimeoutSeconds = RagOptions.DefaultSearchSparseCommandTimeoutSeconds)
     {
         if (string.IsNullOrWhiteSpace(originalQuery) || topK <= 0)
             return [];
@@ -10099,7 +10126,8 @@ LIMIT @limit;
                 ct,
                 categoryPath,
                 requireLexicalMatch: false,
-                degradedRetrieverRef: degradedRetrieverRef));
+                degradedRetrieverRef: degradedRetrieverRef,
+                commandTimeoutSeconds: commandTimeoutSeconds));
         }
 
         return matches
@@ -13268,7 +13296,8 @@ LIMIT @top_k;
         int topK,
         CancellationToken ct,
         string? categoryPath = null,
-        Action<string, string?>? degradedRetrieverRef = null)
+        Action<string, string?>? degradedRetrieverRef = null,
+        int commandTimeoutSeconds = RagOptions.DefaultSearchSparseCommandTimeoutSeconds)
     {
         if (string.IsNullOrWhiteSpace(query) || topK <= 0)
             return [];
@@ -13282,6 +13311,7 @@ LIMIT @top_k;
             : docPath.Trim().Replace('\\', '/').TrimStart('/');
         var normalizedCategoryPath = NormalizeRagCategoryPathForSql(categoryPath);
         Guid? normalizedDocId = Guid.TryParse(docId, out var parsedDocId) ? parsedDocId : null;
+        var commandTimeout = RagOptions.ResolveSearchSparseCommandTimeoutSeconds(commandTimeoutSeconds);
         await using var conn = await ds.OpenConnectionAsync(ct);
         try
         {
@@ -13294,7 +13324,7 @@ LIMIT @top_k;
                 doc_id = normalizedDocId,
                 doc_path = normalizedDocPath,
                 top_k = topK
-            }, commandTimeout: 45, cancellationToken: ct))).ToList();
+            }, commandTimeout: commandTimeout, cancellationToken: ct))).ToList();
 
             return BuildSparseRagMatches(rows, query);
         }
@@ -14088,7 +14118,8 @@ LIMIT @top_k;
         CancellationToken ct,
         string? categoryPath = null,
         bool requireLexicalMatch = false,
-        Action<string, string?>? degradedRetrieverRef = null)
+        Action<string, string?>? degradedRetrieverRef = null,
+        int commandTimeoutSeconds = RagOptions.DefaultSearchSparseCommandTimeoutSeconds)
     {
         if (topK <= 0)
             return [];
@@ -14100,6 +14131,7 @@ LIMIT @top_k;
         var normalizedCategoryPath = NormalizeRagCategoryPathForSql(categoryPath);
         Guid? normalizedDocId = Guid.TryParse(docId, out var parsedDocId) ? parsedDocId : null;
         var resultLimit = ComputeDocumentProfileSearchResultLimit(topK);
+        var commandTimeout = RagOptions.ResolveSearchSparseCommandTimeoutSeconds(commandTimeoutSeconds);
 
         await using var conn = await ds.OpenConnectionAsync(ct);
         const string sql = """
@@ -14262,7 +14294,7 @@ LIMIT @result_limit;
                 doc_path = normalizedDocPath,
                 result_limit = resultLimit,
                 require_lexical_match = requireLexicalMatch
-            }, commandTimeout: 90, cancellationToken: ct))).ToList();
+            }, commandTimeout: commandTimeout, cancellationToken: ct))).ToList();
 
             var useCatalogOverviewFallback = !requireLexicalMatch
                 && ShouldUseCatalogDocumentOverviewFallback(query);
@@ -15561,7 +15593,8 @@ LIMIT @top_k;
         int topK,
         CancellationToken ct,
         string? categoryPath = null,
-        Action<string, string?>? degradedRetrieverRef = null)
+        Action<string, string?>? degradedRetrieverRef = null,
+        int commandTimeoutSeconds = RagOptions.DefaultSearchSparseCommandTimeoutSeconds)
     {
         if (string.IsNullOrWhiteSpace(query) || topK <= 0)
             return [];
@@ -15576,6 +15609,7 @@ LIMIT @top_k;
         var normalizedCategoryPath = NormalizeRagCategoryPathForSql(categoryPath);
         Guid? normalizedDocId = Guid.TryParse(docId, out var parsedDocId) ? parsedDocId : null;
         var resultLimit = ComputeDocumentProfileSearchResultLimit(topK);
+        var commandTimeout = RagOptions.ResolveSearchSparseCommandTimeoutSeconds(commandTimeoutSeconds);
 
         await using var conn = await ds.OpenConnectionAsync(ct);
         const string sql = """
@@ -15852,7 +15886,7 @@ LIMIT @result_limit;
                 doc_id = normalizedDocId,
                 doc_path = normalizedDocPath,
                 result_limit = resultLimit
-            }, commandTimeout: 90, cancellationToken: ct))).ToList();
+            }, commandTimeout: commandTimeout, cancellationToken: ct))).ToList();
 
             return RankDocumentProfileRows(query, rows)
                 .Take(topK)

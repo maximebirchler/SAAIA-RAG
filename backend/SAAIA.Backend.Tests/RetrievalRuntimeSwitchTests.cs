@@ -2473,6 +2473,31 @@ public sealed class RetrievalRuntimeSwitchTests
             comparativeProfileAssist: true));
     }
 
+    [Theory]
+    [InlineData(200, 20, 120)]
+    [InlineData(300, 8, 64)]
+    [InlineData(48, 8, 48)]
+    [InlineData(0, 8, 0)]
+    [InlineData(80, 0, 0)]
+    public void ResolveSqlHeavyRetrieverCandidateLimit_bounds_expensive_sql_windows(
+        int candidates,
+        int topK,
+        int expected)
+    {
+        Assert.Equal(expected, RagEndpoints.ResolveSqlHeavyRetrieverCandidateLimit(candidates, topK));
+    }
+
+    [Theory]
+    [InlineData(600, 100, 600)]
+    [InlineData(1200, 100, 600)]
+    public void ResolveSqlHeavyRetrieverCandidateLimit_uses_topk_scaled_window_for_large_requests(
+        int candidates,
+        int topK,
+        int expected)
+    {
+        Assert.Equal(expected, RagEndpoints.ResolveSqlHeavyRetrieverCandidateLimit(candidates, topK));
+    }
+
     [Fact]
     public void ResolveDefaultCandidateCount_overfetches_balanced_comparisons()
     {
