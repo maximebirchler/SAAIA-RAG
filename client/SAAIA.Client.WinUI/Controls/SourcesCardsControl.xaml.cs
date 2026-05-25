@@ -240,6 +240,13 @@ public sealed partial class SourcesCardsControl : UserControl
         if (source.OcrRecommended)
             parts.Add(SourceCardLabel("ocr_recommended", uiLanguage));
 
+        var extractionSource = LocalizedExtractionSource(source.ExtractionSource, uiLanguage);
+        if (!string.IsNullOrWhiteSpace(extractionSource))
+            parts.Add($"{SourceCardLabel("extraction_source", uiLanguage)} {Shorten(extractionSource, 32)}");
+
+        if (source.QualitySignals is { Count: > 0 } qualitySignals)
+            parts.Add($"{SourceCardLabel("extraction_signals", uiLanguage)} {Shorten(CompactSignals(qualitySignals, maxItems: 4), 72)}");
+
         AddDiagnosticMetadataParts(parts, source.ExtractionDiagnosticSummary, uiLanguage);
 
         if (source.ManualReviewRecommended)
@@ -316,6 +323,25 @@ public sealed partial class SourcesCardsControl : UserControl
             .ToArray();
         if (ids.Length > 0)
             parts.Add($"{SourceCardLabel("content_card_ids", uiLanguage)} {string.Join(", ", ids)}");
+
+        var kinds = cards
+            .Select(card => LocalizedContentCardKind(card.Kind, uiLanguage))
+            .Where(static kind => !string.IsNullOrWhiteSpace(kind))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(3)
+            .ToArray();
+        if (kinds.Length > 0)
+            parts.Add($"{SourceCardLabel("content_card_kinds", uiLanguage)} {Shorten(string.Join(", ", kinds), 56)}");
+
+        var signals = cards
+            .SelectMany(static card => card.Signals)
+            .Where(static signal => !string.IsNullOrWhiteSpace(signal))
+            .Select(static signal => signal.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(4)
+            .ToArray();
+        if (signals.Length > 0)
+            parts.Add($"{SourceCardLabel("content_card_signals", uiLanguage)} {Shorten(string.Join(", ", signals), 72)}");
 
         var evidence = BuildContentCardEvidenceSummary(cards, uiLanguage, docLanguage);
         if (!string.IsNullOrWhiteSpace(evidence))
@@ -922,6 +948,52 @@ public sealed partial class SourcesCardsControl : UserControl
             "mixed_navigation_content" => SourceCardLabel("content_role.mixed_navigation_content", uiLanguage),
             _ => FormatBackendReason(normalized)
         };
+    }
+
+    private static string LocalizedExtractionSource(string? extractionSource, string? uiLanguage)
+    {
+        var normalized = NormalizeBackendIdentifier(extractionSource);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return string.Empty;
+
+        return normalized switch
+        {
+            "native_text" or "native_pdf_text" or "pdf_text" => SourceCardLabel("extraction_source.native_text", uiLanguage),
+            "ocr" or "ocrmypdf" or "image_ocr" or "ocr_image" => SourceCardLabel("extraction_source.ocr", uiLanguage),
+            _ => FormatBackendReason(normalized)
+        };
+    }
+
+    private static string LocalizedContentCardKind(string? kind, string? uiLanguage)
+    {
+        var normalized = NormalizeBackendIdentifier(kind);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return string.Empty;
+
+        return normalized switch
+        {
+            "llm_content_card" => SourceCardLabel("content_card_kind.llm", uiLanguage),
+            "deterministic_content_card" => SourceCardLabel("content_card_kind.deterministic", uiLanguage),
+            _ => FormatBackendReason(normalized)
+        };
+    }
+
+    private static string CompactSignals(IReadOnlyList<string> signals, int maxItems)
+    {
+        if (signals.Count == 0 || maxItems <= 0)
+            return string.Empty;
+
+        var compact = signals
+            .Where(static signal => !string.IsNullOrWhiteSpace(signal))
+            .Select(static signal => signal.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(Math.Clamp(maxItems, 1, 12))
+            .ToArray();
+        if (compact.Length == 0)
+            return string.Empty;
+
+        var suffix = signals.Count > compact.Length ? $" +{signals.Count - compact.Length}" : string.Empty;
+        return string.Join(", ", compact) + suffix;
     }
 
     private static string FormatBackendReason(string? reason)

@@ -734,6 +734,42 @@ internal static class LocalizedStrings
                 ["de"] = "Karten-IDs",
                 ["it"] = "ID schede"
             },
+            ["source_card.content_card_kinds"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "types cartes",
+                ["en"] = "card types",
+                ["es"] = "tipos tarjetas",
+                ["pt"] = "tipos cartões",
+                ["de"] = "Kartentypen",
+                ["it"] = "tipi schede"
+            },
+            ["source_card.content_card_signals"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "signaux cartes",
+                ["en"] = "card signals",
+                ["es"] = "señales tarjetas",
+                ["pt"] = "sinais cartões",
+                ["de"] = "Kartensignale",
+                ["it"] = "segnali schede"
+            },
+            ["source_card.content_card_kind.llm"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "LLM",
+                ["en"] = "LLM",
+                ["es"] = "LLM",
+                ["pt"] = "LLM",
+                ["de"] = "LLM",
+                ["it"] = "LLM"
+            },
+            ["source_card.content_card_kind.deterministic"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "déterministe",
+                ["en"] = "deterministic",
+                ["es"] = "determinista",
+                ["pt"] = "determinístico",
+                ["de"] = "deterministisch",
+                ["it"] = "deterministico"
+            },
             ["source_card.content_card_evidence"] = new(StringComparer.OrdinalIgnoreCase)
             {
                 ["fr"] = "preuve cartes",
@@ -787,6 +823,42 @@ internal static class LocalizedStrings
                 ["pt"] = "razões",
                 ["de"] = "Gründe",
                 ["it"] = "ragioni"
+            },
+            ["source_card.extraction_source"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "extraction",
+                ["en"] = "extraction",
+                ["es"] = "extracción",
+                ["pt"] = "extração",
+                ["de"] = "Extraktion",
+                ["it"] = "estrazione"
+            },
+            ["source_card.extraction_source.native_text"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "texte natif",
+                ["en"] = "native text",
+                ["es"] = "texto nativo",
+                ["pt"] = "texto nativo",
+                ["de"] = "nativer Text",
+                ["it"] = "testo nativo"
+            },
+            ["source_card.extraction_source.ocr"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "OCR",
+                ["en"] = "OCR",
+                ["es"] = "OCR",
+                ["pt"] = "OCR",
+                ["de"] = "OCR",
+                ["it"] = "OCR"
+            },
+            ["source_card.extraction_signals"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "signaux extraction",
+                ["en"] = "extraction signals",
+                ["es"] = "señales extracción",
+                ["pt"] = "sinais extração",
+                ["de"] = "Extraktionssignale",
+                ["it"] = "segnali estrazione"
             },
             ["source_card.profile_signals"] = new(StringComparer.OrdinalIgnoreCase)
             {

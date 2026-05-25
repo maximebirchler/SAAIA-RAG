@@ -96,6 +96,8 @@ public sealed class UiLocalizationSafetyNetTests
                 {
                     Title = "Controle source",
                     ContentCardId = "card-abcdef123456",
+                    Kind = "llm_content_card",
+                    Signals = new() { "audit cadence", "revision owner" },
                     Evidence = evidence.RootElement.Clone()
                 }
             }
@@ -105,7 +107,35 @@ public sealed class UiLocalizationSafetyNetTests
 
         Assert.Contains(expectedIdsLabel, metadata);
         Assert.Contains("card-abcde", metadata);
+        Assert.Contains("LLM", metadata);
         Assert.Contains(expectedEvidence, metadata);
+        Assert.Contains("audit cadence", metadata);
+        Assert.Contains("revision owner", metadata);
+        AssertNoRawSourceCardMetadata(metadata);
+    }
+
+    [Theory]
+    [InlineData("fr", "extraction texte natif", "signaux extraction low density, mixed layout")]
+    [InlineData("en", "extraction native text", "extraction signals low density, mixed layout")]
+    [InlineData("es", "extracción texto nativo", "señales extracción low density, mixed layout")]
+    [InlineData("pt", "extração texto nativo", "sinais extração low density, mixed layout")]
+    [InlineData("de", "Extraktion nativer Text", "Extraktionssignale low density, mixed layout")]
+    [InlineData("it", "estrazione testo nativo", "segnali estrazione low density, mixed layout")]
+    public void Sources_cards_metadata_shows_extraction_source_and_quality_signals(
+        string language,
+        string expectedSource,
+        string expectedSignals)
+    {
+        var source = new SourceCard
+        {
+            ExtractionSource = "native_text",
+            QualitySignals = new() { "low density", "mixed layout" }
+        };
+
+        var metadata = SourcesCardsControl.GetMetadataLabel(source, language);
+
+        Assert.Contains(expectedSource, metadata);
+        Assert.Contains(expectedSignals, metadata);
         AssertNoRawSourceCardMetadata(metadata);
     }
 
