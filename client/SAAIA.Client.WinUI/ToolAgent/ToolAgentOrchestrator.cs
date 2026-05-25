@@ -5727,6 +5727,7 @@ TOOL_RESULTS (json):
                 var contextualSnippet = TruncateForPrompt(TryGetString(it, "contextualSnippet"), contextualChars);
                 var extractionQuality = CompactExtractionQualityForPrompt(it);
                 var contentSignals = CompactRetrievalContentSignalsForPrompt(it);
+                var profileSignals = CompactProfileSignalsForPrompt(it);
                 var includeCardEvidence = prioritizeEvidence || ShouldKeepBroadWriterCardEvidence(hitSummary, list.Count);
                 var matchedContentCards = CompactMatchedContentCardsForPrompt(
                     it,
@@ -5755,6 +5756,9 @@ TOOL_RESULTS (json):
                         score = TryGetDouble(it, "score") ?? 0.0,
                         sectionTitle = TryGetString(it, "sectionTitle"),
                         headingPath = TryGetString(it, "headingPath"),
+                        category = TryGetString(it, "category") ?? TryGetString(it, "Category"),
+                        categoryPath = TryGetString(it, "categoryPath") ?? TryGetString(it, "category_path") ?? TryGetString(it, "CategoryPath"),
+                        categoryRef = TryGetString(it, "categoryRef") ?? TryGetString(it, "category_ref") ?? TryGetString(it, "CategoryRef"),
                         docLanguage = TryGetDocumentLanguage(it),
                         profileLanguage = TryGetString(it, "profileLanguage") ?? TryGetString(it, "profile_language") ?? TryGetString(it, "ProfileLanguage"),
                         sourceHash = TryGetString(it, "sourceHash") ?? TryGetString(it, "source_hash") ?? TryGetString(it, "SourceHash"),
@@ -5765,6 +5769,7 @@ TOOL_RESULTS (json):
                         extractionQuality,
                         contentSignals,
                         matchedContentCards,
+                        profileSignals,
                         selectionHints = BuildRagSelectionHintsPayload(hitSummary, userMessage),
                         contextualSnippet = string.IsNullOrWhiteSpace(contextualSnippet) ? null : contextualSnippet
                     });
@@ -5810,6 +5815,7 @@ TOOL_RESULTS (json):
                     extractionQuality,
                     contentSignals,
                     matchedContentCards,
+                    profileSignals,
                     selectionHints = BuildRagSelectionHintsPayload(hitSummary, userMessage),
                     contextualSnippet = string.IsNullOrWhiteSpace(contextualSnippet) ? null : contextualSnippet
                 });

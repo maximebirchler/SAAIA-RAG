@@ -89,6 +89,43 @@ public sealed class DocumentTitleNavigationProjectorTests
     }
 
     [Fact]
+    public void Project_does_not_create_chunk_lead_anchor_from_navigation_dominant_mixed_chunk()
+    {
+        var chunks = new[]
+        {
+            new ProjectedRetrievalChunk(
+                ChunkIndex: 0,
+                SectionOrdinal: 0,
+                UnitOrdinal: 0,
+                PageStart: 2,
+                PageEnd: 2,
+                Text: "Release Validation Checklist 5",
+                TokenCount: 4,
+                Checksum: [2],
+                ChunkType: "unit_exact_v1",
+                ContentRole: RetrievalContentClassifier.MixedNavigationContentRole,
+                NavigationReason: "inline_page_number_list",
+                NavigationScore: 0.72,
+                ContentDensityScore: 0.45)
+        };
+        var profile = DocumentProfileProjector.BuildProfile(
+            "deterministic_v1",
+            "en",
+            "Mixed navigation chunk without enough body evidence.",
+            [],
+            [],
+            [],
+            [],
+            [],
+            "Ops/Release.pdf",
+            "Release.pdf");
+
+        var index = DocumentTitleNavigationProjector.Project([], [], chunks, profile);
+
+        Assert.DoesNotContain(index.TitleAnchors, anchor => anchor.SourceKind == "chunk_lead");
+    }
+
+    [Fact]
     public void Project_resolves_navigation_line_to_target_title_anchor()
     {
         var sections = new[]

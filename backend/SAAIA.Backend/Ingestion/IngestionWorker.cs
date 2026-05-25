@@ -263,8 +263,11 @@ sealed class IngestionWorker : BackgroundService
 
     internal static bool ShouldEmbedRetrievalChunk(ProjectedRetrievalChunk chunk)
     {
-        if (string.Equals(chunk.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.Ordinal)
-            || RetrievalContentClassifier.IsNavigationChunkType(chunk.ChunkType))
+        if (RetrievalContentClassifier.IsPredominantlyNavigationContent(
+                chunk.ContentRole,
+                chunk.ChunkType,
+                chunk.NavigationScore,
+                chunk.ContentDensityScore))
         {
             return false;
         }

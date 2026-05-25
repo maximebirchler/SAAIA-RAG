@@ -35,6 +35,23 @@ internal static partial class RetrievalContentClassifier
     public static bool IsNavigationChunkType(string? chunkType)
         => string.Equals(chunkType, NavigationChunkType, StringComparison.Ordinal);
 
+    public static bool IsPredominantlyNavigationContent(
+        string? contentRole,
+        string? chunkType,
+        double navigationScore,
+        double contentDensityScore)
+    {
+        if (string.Equals(contentRole, NavigationRole, StringComparison.Ordinal)
+            || IsNavigationChunkType(chunkType))
+        {
+            return true;
+        }
+
+        return string.Equals(contentRole, MixedNavigationContentRole, StringComparison.Ordinal)
+               && navigationScore >= 0.70
+               && contentDensityScore < 0.55;
+    }
+
     internal static string? DetectNavigationReason(string? text)
     {
         var signal = AnalyzeChunk(text);

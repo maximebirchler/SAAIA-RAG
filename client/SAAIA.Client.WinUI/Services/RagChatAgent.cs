@@ -442,6 +442,7 @@ public sealed class RagChatAgent
             sourceHash = item.SourceHash,
             docLanguage = item.DocLanguage,
             profileLanguage = item.ProfileLanguage,
+            category = item.Category,
             categoryRef = item.CategoryRef,
             categoryPath = item.CategoryPath,
             chunkId = item.ChunkId,

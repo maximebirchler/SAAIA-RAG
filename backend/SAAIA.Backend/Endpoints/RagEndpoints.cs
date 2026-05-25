@@ -19127,6 +19127,11 @@ GROUP BY d.doc_id;
         var profileConstraintTokens = string.IsNullOrWhiteSpace(query)
             ? Array.Empty<string>()
             : BuildDocumentProfileSpecificityTokens(query);
+        var directSpecificContentTokens = string.IsNullOrWhiteSpace(query)
+            ? Array.Empty<string>()
+            : BuildDirectSpecificContentCoverageTokens(query);
+        var requiredDirectSpecificContentCoverage =
+            ResolveRequiredFocusedSpecificContentCoverage(directSpecificContentTokens);
         var prioritizeReferenceVersionOperandTitleSignal =
             !string.IsNullOrWhiteSpace(query)
             && ShouldUseReferenceVersionOperandRoute(query);
@@ -19168,6 +19173,9 @@ GROUP BY d.doc_id;
                     SituationalSelectionConstraintCoverage = prioritizeSituationalConstraintCoverage
                         ? ComputeSituationalSelectionConstraintCoverage(query, match)
                         : 0.0,
+                    DirectSpecificContentCoverage = ComputeDirectSpecificContentCoverage(
+                        directSpecificContentTokens,
+                        match),
                     ShortTechnicalDirectEvidencePriority = ComputeShortTechnicalDirectEvidencePriority(query, match, string.Empty, string.Empty),
                     SelectionPriorityBucket = ComputeSelectionPriorityBucket(match),
                     ContentEvidencePriority = ComputeContentEvidencePriority(match)
@@ -19182,6 +19190,11 @@ GROUP BY d.doc_id;
                     .ThenByDescending(static item => item.SituationalSelectionConstraintCoverage)
                     .ThenBy(static item => item.WeakLowInformationExactMatch ? 1 : 0)
                     .ThenByDescending(static item => item.ShortTechnicalDirectEvidencePriority)
+                    .ThenByDescending(item => item.DirectSpecificContentCoverage >= requiredDirectSpecificContentCoverage
+                        && item.ContentEvidencePriority >= 0.70
+                            ? 1
+                            : 0)
+                    .ThenByDescending(static item => item.DirectSpecificContentCoverage)
                     .ThenByDescending(static item => item.SelectionPriorityBucket)
                     .ThenByDescending(static item => item.ContentEvidencePriority)
                     .ThenByDescending(static item => item.Match.Score)
@@ -19195,6 +19208,11 @@ GROUP BY d.doc_id;
                 .Where(static item => !item.IsProfile && !item.WeakLowInformationExactMatch)
                 .OrderByDescending(static item => item.SituationalSelectionConstraintCoverage)
                 .ThenByDescending(static item => item.ShortTechnicalDirectEvidencePriority)
+                .ThenByDescending(item => item.DirectSpecificContentCoverage >= requiredDirectSpecificContentCoverage
+                    && item.ContentEvidencePriority >= 0.70
+                        ? 1
+                        : 0)
+                .ThenByDescending(static item => item.DirectSpecificContentCoverage)
                 .ThenByDescending(static item => item.SelectionPriorityBucket)
                 .ThenByDescending(static item => item.ContentEvidencePriority)
                 .ThenByDescending(static item => item.Match.Score)
@@ -19227,6 +19245,11 @@ GROUP BY d.doc_id;
                 .ThenByDescending(match => string.IsNullOrWhiteSpace(query)
                     ? 0
                     : ComputeShortTechnicalDirectEvidencePriority(query, match, string.Empty, string.Empty))
+                .ThenByDescending(match => ComputeDirectSpecificContentCoverage(directSpecificContentTokens, match) >= requiredDirectSpecificContentCoverage
+                    && ComputeContentEvidencePriority(match) >= 0.70
+                        ? 1
+                        : 0)
+                .ThenByDescending(match => ComputeDirectSpecificContentCoverage(directSpecificContentTokens, match))
                 .ThenByDescending(static match => ComputeSelectionPriorityBucket(match))
                 .ThenByDescending(static match => ComputeContentEvidencePriority(match))
                 .ThenByDescending(static match => match.Score)
@@ -19244,6 +19267,11 @@ GROUP BY d.doc_id;
                 .ThenByDescending(match => string.IsNullOrWhiteSpace(query)
                     ? 0
                     : ComputeShortTechnicalDirectEvidencePriority(query, match, string.Empty, string.Empty))
+                .ThenByDescending(match => ComputeDirectSpecificContentCoverage(directSpecificContentTokens, match) >= requiredDirectSpecificContentCoverage
+                    && ComputeContentEvidencePriority(match) >= 0.70
+                        ? 1
+                        : 0)
+                .ThenByDescending(match => ComputeDirectSpecificContentCoverage(directSpecificContentTokens, match))
                 .ThenByDescending(static match => ComputeSelectionPriorityBucket(match))
                 .ThenByDescending(static match => ComputeContentEvidencePriority(match))
                 .ThenByDescending(static match => match.Score)
@@ -19284,6 +19312,40 @@ GROUP BY d.doc_id;
             .Distinct(StringComparer.Ordinal)
             .Take(8)
             .ToArray();
+    }
+
+    internal static IReadOnlyList<string> BuildDirectSpecificContentCoverageTokens(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return Array.Empty<string>();
+
+        return ExtractLexicalQueryTokens(query)
+            .Where(static token => !BroadDiversityGenericSubjectTokens.Contains(token))
+            .Where(static token => !BroadDiversityAbstractAssistTokens.Contains(token))
+            .Where(static token => !DocumentOverviewTopicStopwords.Contains(token))
+            .Where(static token => !PrimaryAnchorStopwords.Contains(token))
+            .Where(static token => !SpecificAnchorStopwords.Contains(token))
+            .Where(static token => !ComparativeSubjectStopwords.Contains(token))
+            .Where(static token => !IsGenericDocumentProfileSpecificityToken(token))
+            .Where(static token => token.Length >= 5 || token.Any(char.IsDigit))
+            .Distinct(StringComparer.Ordinal)
+            .Take(10)
+            .ToArray();
+    }
+
+    private static int ComputeDirectSpecificContentCoverage(
+        IReadOnlyList<string> directSpecificContentTokens,
+        RagMatch match)
+    {
+        if (directSpecificContentTokens.Count < 2
+            || IsDocumentProfileMatch(match)
+            || !IsContentSelectionCandidate(match)
+            || ComputeContentEvidencePriority(match) < 0.55)
+        {
+            return 0;
+        }
+
+        return CountSpecificLexicalAnchors(directSpecificContentTokens, GetDirectChunkSignalText(match));
     }
 
     internal static double ComputeSituationalSelectionConstraintCoverage(string query, RagMatch match)
@@ -23390,7 +23452,7 @@ LIMIT @top_k;
             ShouldPrioritizeSituationalSelectionConstraintCoverage(query);
         var prioritizeFocusedSpecificContentCoverage =
             ShouldPrioritizeFocusedSpecificContentCoverage(query, lexicalTokens);
-        var requiredFocusedSpecificContentCoverage = Math.Min(3, lexicalTokens.Length);
+        var requiredFocusedSpecificContentCoverage = ResolveRequiredFocusedSpecificContentCoverage(lexicalTokens);
         var isStructuredQuotedTitleLookup = quotedPhrases.Count > 0
             && ShouldKeepQuotedTitleSearchOpenForStructuredDetails(query, normalizedQueryForOperationalSettings);
         var hasStructuredQuotedTitleDetailIntent = quotedPhrases.Count > 0
@@ -27590,6 +27652,23 @@ LIMIT @top_k;
         return ExtractFocusedLookupPhrases(query).Count > 0
             || ContainsExactTitleActionMarker(query)
             || ShouldTreatFocusedLookupAsPreciseTitle(query);
+    }
+
+    private static int ResolveRequiredFocusedSpecificContentCoverage(IReadOnlyList<string> lexicalTokens)
+    {
+        if (lexicalTokens.Count == 0)
+            return 1;
+
+        var meaningfulSpecificTokenCount = lexicalTokens
+            .Where(static token => !SpecificAnchorStopwords.Contains(token))
+            .Where(static token => !PrimaryAnchorStopwords.Contains(token))
+            .Where(static token => token.Length >= 5 || token.Any(char.IsDigit))
+            .Distinct(StringComparer.Ordinal)
+            .Count();
+
+        return meaningfulSpecificTokenCount == 0
+            ? 1
+            : Math.Min(2, meaningfulSpecificTokenCount);
     }
 
     private static bool IsRecommendationSelectionQuery(string normalizedPaddedQuery)

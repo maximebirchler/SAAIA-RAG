@@ -64,7 +64,11 @@ internal static partial class DocumentTitleNavigationProjector
         }
 
         foreach (var chunk in retrievalChunks
-            .Where(static chunk => !string.Equals(chunk.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.OrdinalIgnoreCase))
+            .Where(static chunk => !RetrievalContentClassifier.IsPredominantlyNavigationContent(
+                chunk.ContentRole,
+                chunk.ChunkType,
+                chunk.NavigationScore,
+                chunk.ContentDensityScore))
             .OrderBy(static chunk => chunk.ChunkIndex))
         {
             var leadTitle = ExtractLeadTitle(chunk.Text);

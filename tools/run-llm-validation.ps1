@@ -6879,6 +6879,62 @@ function Test-ValidationMultiTurnQuotedUtterance {
         $normalized -match "\b(?:utilisateur|user|usuario|utente|cliente)\b.{0,40}\b(?:dit|says|said|dice|diz|sagt)\b"
 }
 
+function Test-PreciseCuisineTitleGenericFacet {
+    param([string]$Title)
+
+    $lookup = ConvertTo-ValidationLookupText $Title
+    if ([string]::IsNullOrWhiteSpace($lookup)) {
+        return $true
+    }
+
+    $stop = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($word in @(
+        "a", "an", "the", "some", "of", "for", "about", "on", "with",
+        "de", "du", "des", "la", "le", "les", "l", "d", "pour", "sur", "avec",
+        "el", "los", "las", "lo", "para", "sobre", "con",
+        "o", "os", "as", "do", "da", "dos", "das",
+        "di", "del", "della", "delle", "degli", "dei", "il", "gli", "i", "per", "su",
+        "fur", "fuer", "von", "zu", "zur", "zum", "der", "die", "das", "den", "dem", "ein", "eine", "einen", "einem", "einer",
+        "au", "aux"
+    )) {
+        [void]$stop.Add($word)
+    }
+
+    $generic = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($word in @(
+        "vitesse", "vitesses", "speed", "speeds", "velocidad", "velocidades", "velocidade", "velocidades", "geschwindigkeit", "geschwindigkeiten", "velocita",
+        "temperature", "temperatures", "temperatura", "temperaturas", "temperatur", "temperaturen",
+        "reglage", "reglages", "setting", "settings", "parametre", "parametres", "parameter", "parameters", "ajuste", "ajustes", "configuracao", "configuracoes", "configurazione", "configurazioni", "einstellung", "einstellungen", "impostazione", "impostazioni",
+        "ingredient", "ingredients", "ingrediente", "ingredientes", "zutaten", "zutat", "ingredienti",
+        "etape", "etapes", "step", "steps", "paso", "pasos", "passo", "passos", "passaggio", "passaggi", "schritt", "schritte",
+        "temps", "time", "times", "tempo", "tempos", "zeit", "zeiten", "tempi",
+        "source", "sources", "fuente", "fuentes", "fonte", "fontes", "quelle", "quellen", "fonti",
+        "portion", "portions", "serving", "servings", "porcion", "porciones", "porcao", "porcoes", "portionen", "porzione", "porzioni",
+        "materiel", "material", "equipment", "materiale", "materiales", "utensile", "utensiles",
+        "cuisson", "cooking", "coccion", "cozedura", "cozimento", "cottura", "garen",
+        "rotissage", "roasting", "braten",
+        "risque", "risques", "risk", "risks", "failure", "failures", "ratage", "erreur", "erreurs", "error", "errors", "erro", "erros", "errore", "errori", "fehler",
+        "public", "audience", "enfant", "enfants", "child", "children", "kids", "ninos", "criancas", "bambini", "kinder"
+    )) {
+        [void]$generic.Add($word)
+    }
+
+    $contentTokens = @($lookup -split "\s+" | Where-Object {
+        -not [string]::IsNullOrWhiteSpace($_) -and -not $stop.Contains($_)
+    })
+    if ($contentTokens.Count -eq 0) {
+        return $true
+    }
+
+    foreach ($token in $contentTokens) {
+        if (-not $generic.Contains($token)) {
+            return $false
+        }
+    }
+
+    return $true
+}
+
 function Get-PreciseCuisineTitle {
     param([string]$Question)
 
@@ -6914,12 +6970,28 @@ function Get-PreciseCuisineTitle {
         return (Format-PreciseCuisineTitle $explainNamed.Groups["title"].Value)
     }
 
-    if ($s -match '(?i)\b(?:vitesses?|speeds?|temp[e\u00e9]ratures?|temperatures?|r[e\u00e9]glages?|settings?|param[e\u00e8]tres?|parameters?|ingr[e\u00e9]dients?|ingredients?|[e\u00e9]tapes?|steps?|temps|time)\b') {
+    $questionLookup = ConvertTo-ValidationLookupText $s
+    if ($questionLookup -match '\b(?:vitesses?|speeds?|velocidad(?:es)?|velocidade(?:s)?|geschwindigkeiten?|velocita|temperatures?|temperaturas?|temperaturen?|reglages?|settings?|parametres?|parameters?|ajustes?|configuracoes?|configurazioni?|einstellungen?|impostazioni|ingredients?|ingredientes?|zutaten|ingredienti|etapes?|steps?|pasos?|passos?|passaggi|schritte|temps|time|tempos?|zeiten?|tempi|cuisson|cooking|coccion|cozedura|cozimento|cottura|garen|rotissage|roasting|braten)\b') {
+        $preferredParameterTarget = @([regex]::Matches(
+            $s,
+            '(?i)\b(?:pour|for|para|f[u\u00fc]r|fuer|per)\s+(?:le|la|les|l[''\u2019]|un|une|des|du|de\s+la|de\s+l[''\u2019]|the|a|an|some|el|los|las|lo|o|os|as|il|lo|gli|i|ein|eine|einen|einem|einer|der|die|das|den|dem)?\s*(?<title>[^:?.!,;]{3,90})') |
+            ForEach-Object {
+                $title = Format-PreciseCuisineTitle $_.Groups["title"].Value
+                if (-not [string]::IsNullOrWhiteSpace($title)) { $title }
+            } |
+            Select-Object -Last 1)[0]
+        if (-not [string]::IsNullOrWhiteSpace($preferredParameterTarget)) {
+            return $preferredParameterTarget
+        }
+
         $parameterTarget = [regex]::Matches(
             $s,
-            '(?i)\b(?:pour|for|de|du|de\s+la|des|d[''\u2019]|sur|about|on)\s+(?:le|la|les|l[''\u2019]|the\s+)?(?<title>[^:?.!,;]{3,90})')
+            '(?i)\b(?:pour|for|para|f[u\u00fc]r|fuer|per|de|du|de\s+la|des|d[''\u2019]|of|sur|about|on|sobre|di|del|della|delle|degli|dei|da|do|das|dos|von|zu|zur|zum)\s+(?:le|la|les|l[''\u2019]|un|une|des|du|de\s+la|de\s+l[''\u2019]|the|a|an|some|el|los|las|lo|o|os|as|il|lo|gli|i|ein|eine|einen|einem|einer|der|die|das|den|dem)?\s*(?<title>[^:?.!,;]{3,90})')
         $preferredParameterTarget = @($parameterTarget |
-            Where-Object { $_.Groups["title"].Value -notmatch '(?i)^\s*(?:temps|time|ingr[e\u00e9]dients?|ingredients?|[e\u00e9]tapes?|steps?|r[e\u00e9]glages?|settings?|risques?|risk|failure|ratage|enfants?|children|kids?|public|audience)\b' } |
+            Where-Object {
+                $title = Format-PreciseCuisineTitle $_.Groups["title"].Value
+                -not [string]::IsNullOrWhiteSpace($title)
+            } |
             Select-Object -Last 1)[0]
         if ($preferredParameterTarget -and $preferredParameterTarget.Success) {
             return (Format-PreciseCuisineTitle $preferredParameterTarget.Groups["title"].Value)
@@ -6959,17 +7031,22 @@ function Format-PreciseCuisineTitle {
 
     $title = [regex]::Replace(
         $title,
-        '(?i)^(?:les|le|la|l[''\u2019]|une|un|des|du|de\s+la|de\s+l[''\u2019]|the|some|an|a)\s+',
+        '(?i)^(?:les|le|la|l[''\u2019]|une|un|des|du|de\s+la|de\s+l[''\u2019]|the|some|an|a|el|los|las|lo|o|os|as|il|gli|i|ein|eine|einen|einem|einer|der|die|das|den|dem)\s+',
         "").Trim()
 
     $title = [regex]::Replace(
         $title,
-        '(?i)^(?:m[e\u00e9]thode|method|proc[e\u00e9]dure|procedure|pr[e\u00e9]paration|preparation|modo|modalit[e\u00e9])\s+(?:pour|for|de|du|de\s+la|des|d[''\u2019]|sur|about|on|para|sobre|per|su)\s+(?:les|le|la|l[''\u2019]|une|un|des|the|some|an|a)?\s*',
+        '(?i)^(?:m[e\u00e9]thode|method|proc[e\u00e9]dure|procedure|pr[e\u00e9]paration|preparation|modo|modalit[e\u00e9])\s+(?:pour|for|de|du|de\s+la|des|d[''\u2019]|sur|about|on|para|sobre|per|su|f[u\u00fc]r|fuer|di|del|della|von|zu)\s+(?:les|le|la|l[''\u2019]|une|un|des|the|some|an|a|el|los|las|lo|o|os|as|il|gli|i|ein|eine|einen|einem|einer|der|die|das|den|dem)?\s*',
         "").Trim()
 
     $title = [regex]::Replace(
         $title,
-        '(?i)\s+(?:en\s+mode|mode|version|variante|pour\s+(?:un|une|des|le|la|les|l[''\u2019]|the|a|an|some)\b|dans\s+(?:le|la|les|l[''\u2019]|un|une|des|the|a|an)\b|du\s+(?:guide|pdf|document|manuel|livre|book|manual|file|document)\b|de\s+la\s+(?:page|fiche|notice|section)\b).*$',
+        '(?i)^(?:vitesses?|speeds?|velocidades?|geschwindigkeiten?|velocita|temp[e\u00e9]ratures?|temperatures?|temperaturas?|temperaturen?|r[e\u00e9]glages?|settings?|param[e\u00e8]tres?|parameters?|ajustes?|configura[c\u00e7][o\u00f5]es?|configurazioni?|einstellungen?|impostazioni|ingr[e\u00e9]dients?|ingredients?|ingredientes?|zutaten|ingredienti|[e\u00e9]tapes?|steps?|pasos?|passos?|passaggi|schritte|temps|time|tempos?|zeiten?|tempi|cuisson|cooking|cocci[o\u00f3]n|cozedura|cozimento|cottura|garen|r[o\u00f4]tissage|roasting|braten)(?:\s+(?:de|du|de\s+la|des|d[''\u2019]|of|for|pour|para|f[u\u00fc]r|fuer|per|di|del|della|delle|degli|dei|da|do|das|dos|von|zu|zur|zum)\s+(?:vitesses?|speeds?|velocidades?|geschwindigkeiten?|velocita|temp[e\u00e9]ratures?|temperatures?|temperaturas?|temperaturen?|r[e\u00e9]glages?|settings?|param[e\u00e8]tres?|parameters?|ajustes?|configura[c\u00e7][o\u00f5]es?|configurazioni?|einstellungen?|impostazioni|ingr[e\u00e9]dients?|ingredients?|ingredientes?|zutaten|ingredienti|[e\u00e9]tapes?|steps?|pasos?|passos?|passaggi|schritte|temps|time|tempos?|zeiten?|tempi|cuisson|cooking|cocci[o\u00f3]n|cozedura|cozimento|cottura|garen|r[o\u00f4]tissage|roasting|braten))*\s+(?:de|du|de\s+la|des|d[''\u2019]|of|for|pour|para|f[u\u00fc]r|fuer|per|di|del|della|delle|degli|dei|da|do|das|dos|von|zu|zur|zum)\s+(?:les|le|la|l[''\u2019]|une|un|des|the|some|an|a|el|los|las|lo|o|os|as|il|gli|i|ein|eine|einen|einem|einer|der|die|das|den|dem)?\s*',
+        "").Trim()
+
+    $title = [regex]::Replace(
+        $title,
+        '(?i)\s+(?:en\s+mode|mode|version|variante|pour\s+(?:un|une|des|le|la|les|l[''\u2019]|the|a|an|some|el|los|las|lo|o|os|as|il|gli|i|ein|eine|einen|einem|einer|der|die|das|den|dem)\b|dans\s+(?:le|la|les|l[''\u2019]|un|une|des|the|a|an)\b|du\s+(?:guide|pdf|document|manuel|livre|book|manual|file|document)\b|de\s+la\s+(?:page|fiche|notice|section)\b|selon|according\s+to|seg[u\u00fa]n|conforme|gem[a\u00e4]ss|nach|secondo).*$',
         "").Trim()
 
     $title = [regex]::Replace(
@@ -6983,6 +7060,10 @@ function Format-PreciseCuisineTitle {
         "").Trim()
 
     if ($title.Length -lt 3) {
+        return ""
+    }
+
+    if (Test-PreciseCuisineTitleGenericFacet -Title $title) {
         return ""
     }
 

@@ -12538,6 +12538,136 @@ Procedure: 1. Isolate the device. 2. Replace the component. 3. Verify the assemb
         Assert.Equal("complete-title", selected[0].ChunkId);
     }
 
+    [Fact]
+    public void OrderMatchesForSelection_prefers_content_covering_two_distinctive_terms_over_single_generic_mention()
+    {
+        const string query = "Comment controler le module vert avec la sonde de rotissage ?";
+        var partialHighScore = TestMatch(
+            text: "Module vert. Le module vert doit etre nettoye puis inspecte avant lancement.",
+            docPath: "Knowledge/module-generic.pdf",
+            chunkId: "partial",
+            embeddingBasis: "sparse_bm25_v1",
+            score: 1.02,
+            contentRole: RetrievalContentClassifier.ContentRole,
+            contentDensityScore: 1.0);
+        var directTarget = TestMatch(
+            text: "Module vert. Procedure : brancher la sonde de rotissage, controler le module vert, puis enregistrer la mesure de stabilisation.",
+            docPath: "Knowledge/module-procedure.pdf",
+            chunkId: "target",
+            embeddingBasis: "sparse_bm25_v1",
+            score: 0.64,
+            contentRole: RetrievalContentClassifier.ContentRole,
+            contentDensityScore: 0.72);
+
+        var ordered = RagEndpoints.OrderMatchesForSelection(
+            [partialHighScore, directTarget],
+            prioritizeDocumentProfiles: false,
+            query);
+
+        Assert.Equal("target", ordered[0].ChunkId);
+    }
+
+    [Fact]
+    public void BuildDirectSpecificContentCoverageTokens_keeps_distinctive_terms_without_generic_facets()
+    {
+        var tokens = RagEndpoints.BuildDirectSpecificContentCoverageTokens(
+            "Je veux les reglages de rotissage pour le module vert avec la sonde principale.");
+
+        Assert.Contains("module", tokens);
+        Assert.Contains("sonde", tokens);
+        Assert.DoesNotContain("veux", tokens);
+        Assert.DoesNotContain("pour", tokens);
+    }
+
+    [Fact]
+    public void PrioritizeFinalSelections_prefers_specific_setting_target_over_generic_context_match()
+    {
+        const string query = "Quels reglages de rotissage pour le materiau composite haute densite ?";
+        var genericSettingMatch = TestMatch(
+            text: "Guide de calibration thermique. Les reglages de rotissage et de chauffe doivent etre controles avant usage. Le document mentionne plusieurs materiaux sans procedure specifique.",
+            docPath: "Knowledge/generic-settings.pdf",
+            chunkId: "generic",
+            embeddingBasis: "sparse_bm25_v1",
+            score: 1.02,
+            contentRole: RetrievalContentClassifier.ContentRole,
+            contentDensityScore: 1.0);
+        var specificTarget = TestMatch(
+            text: "Materiau composite haute densite. Procedure : verifier le support, appliquer la temperature de reference, puis ajuster la sonde de rotissage selon la densite mesuree.",
+            docPath: "Knowledge/specific-settings.pdf",
+            chunkId: "specific",
+            embeddingBasis: "sparse_bm25_v1",
+            score: 0.63,
+            contentRole: RetrievalContentClassifier.ContentRole,
+            contentDensityScore: 0.72);
+        var selected = new List<RagMatch> { genericSettingMatch, specificTarget };
+
+        RagEndpoints.PrioritizeFinalSelections(query, selected);
+
+        Assert.Equal("specific", selected[0].ChunkId);
+    }
+
+    [Fact]
+    public void PrioritizeFinalSelections_prefers_focused_item_covering_two_distinctive_terms()
+    {
+        const string query = "Comment controler le module vert au miel avec la sonde de rotissage ?";
+        var firstPartial = TestMatch(
+            text: "Module vert. Le module vert doit etre nettoye puis inspecte avant lancement.",
+            docPath: "Knowledge/module-generic.pdf",
+            chunkId: "module-generic",
+            embeddingBasis: "sparse_bm25_v1",
+            score: 1.02,
+            contentRole: RetrievalContentClassifier.ContentRole,
+            contentDensityScore: 1.0);
+        var secondPartial = TestMatch(
+            text: "Controle au miel. Le miel est cite comme exemple de matiere collante dans la procedure de nettoyage.",
+            docPath: "Knowledge/honey-generic.pdf",
+            chunkId: "honey-generic",
+            embeddingBasis: "sparse_bm25_v1",
+            score: 0.91,
+            contentRole: RetrievalContentClassifier.ContentRole,
+            contentDensityScore: 1.0);
+        var focusedTarget = TestMatch(
+            text: "Module vert au miel. Procedure : placer le module vert sur le banc, regler la sonde de rotissage, puis controler le depot de miel apres stabilisation.",
+            docPath: "Knowledge/focused.pdf",
+            chunkId: "focused",
+            embeddingBasis: "sparse_bm25_v1",
+            score: 0.64,
+            contentRole: RetrievalContentClassifier.ContentRole,
+            contentDensityScore: 0.72);
+        var selected = new List<RagMatch> { firstPartial, secondPartial, focusedTarget };
+
+        RagEndpoints.PrioritizeFinalSelections(query, selected);
+
+        Assert.Equal("focused", selected[0].ChunkId);
+    }
+
+    [Fact]
+    public void PrioritizeFinalSelections_does_not_promote_low_evidence_two_anchor_noise()
+    {
+        const string query = "Comment controler le module vert avec la sonde de rotissage ?";
+        var supportedContent = TestMatch(
+            text: "Module vert. Procedure detaillee : verifier le module vert, preparer le banc de test, puis executer le controle.",
+            docPath: "Knowledge/supported.pdf",
+            chunkId: "supported",
+            embeddingBasis: "sparse_bm25_v1",
+            score: 0.82,
+            contentRole: RetrievalContentClassifier.ContentRole,
+            contentDensityScore: 0.95);
+        var noisyNavigation = TestMatch(
+            text: "Index module vert sonde rotissage autres chapitres annexes contacts revision sommaire.",
+            docPath: "Knowledge/noisy.pdf",
+            chunkId: "noise",
+            embeddingBasis: "sparse_bm25_v1",
+            score: 1.04,
+            contentRole: RetrievalContentClassifier.NavigationRole,
+            contentDensityScore: 0.05);
+        var selected = new List<RagMatch> { noisyNavigation, supportedContent };
+
+        RagEndpoints.PrioritizeFinalSelections(query, selected);
+
+        Assert.Equal("supported", selected[0].ChunkId);
+    }
+
     [Theory]
     [InlineData("Transforme la recette en meal prep pour 4 lunchs.", "pour4")]
     [InlineData("J'ai 20 CHF pour 4 repas, quelles recettes du corpus sont les meilleures candidates ?", "pour 4")]

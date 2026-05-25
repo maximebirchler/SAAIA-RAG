@@ -98,9 +98,23 @@ public sealed class IngestionWorkerQdrantTests
         {
             ExtractionQualitySignals = ["replacement_chars_remaining"]
         };
+        var balancedMixedNavigationContent = content with
+        {
+            ContentRole = RetrievalContentClassifier.MixedNavigationContentRole,
+            NavigationScore = 0.62,
+            ContentDensityScore = 0.58
+        };
+        var navigationDominantMixedContent = content with
+        {
+            ContentRole = RetrievalContentClassifier.MixedNavigationContentRole,
+            NavigationScore = 0.72,
+            ContentDensityScore = 0.45
+        };
 
         Assert.True(IngestionWorker.ShouldEmbedRetrievalChunk(content));
+        Assert.True(IngestionWorker.ShouldEmbedRetrievalChunk(balancedMixedNavigationContent));
         Assert.False(IngestionWorker.ShouldEmbedRetrievalChunk(navigation));
+        Assert.False(IngestionWorker.ShouldEmbedRetrievalChunk(navigationDominantMixedContent));
         Assert.False(IngestionWorker.ShouldEmbedRetrievalChunk(sparse));
         Assert.False(IngestionWorker.ShouldEmbedRetrievalChunk(replacementChars));
     }

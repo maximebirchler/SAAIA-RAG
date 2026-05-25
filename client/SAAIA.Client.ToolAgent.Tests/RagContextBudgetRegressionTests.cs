@@ -460,6 +460,19 @@ public sealed class RagContextBudgetRegressionTests
                     excerpt = "Structured source-backed answer candidate.",
                     fullText = "Structured source-backed answer candidate.",
                     matchedContentCards = new[] { new { title = "Backend selected card", kind = "unit_exact_v1" } },
+                    category = "Knowledge",
+                    categoryPath = "Knowledge/Procedures",
+                    categoryRef = "cat_042",
+                    profileSignals = new
+                    {
+                        profileVersion = "llm_backoffice_v1",
+                        language = "en",
+                        keywords = new[] { "backend selected" },
+                        topics = new[] { "writer ranking" },
+                        limits = new[] { "Use grounded evidence." },
+                        matchedTerms = new[] { "alpha" },
+                        matchCount = 1
+                    },
                     selectionHints = new
                     {
                         evidenceRole = "actionable_item",
@@ -482,6 +495,14 @@ public sealed class RagContextBudgetRegressionTests
         var first = doc.RootElement[0].GetProperty("result").GetProperty("hits")[0];
 
         Assert.Equal("Knowledge/backend.pdf", first.GetProperty("docPath").GetString());
+        Assert.Equal("Knowledge", first.GetProperty("category").GetString());
+        Assert.Equal("Knowledge/Procedures", first.GetProperty("categoryPath").GetString());
+        Assert.Equal("cat_042", first.GetProperty("categoryRef").GetString());
+        var profileSignals = first.GetProperty("profileSignals");
+        Assert.Equal("llm_backoffice_v1", profileSignals.GetProperty("profileVersion").GetString());
+        Assert.Equal("backend selected", profileSignals.GetProperty("keywords")[0].GetString());
+        Assert.Equal("writer ranking", profileSignals.GetProperty("topics")[0].GetString());
+        Assert.Equal("Use grounded evidence.", profileSignals.GetProperty("limits")[0].GetString());
         Assert.Equal("actionable_item", first.GetProperty("selectionHints").GetProperty("evidenceRole").GetString());
     }
 
@@ -1251,6 +1272,7 @@ public sealed class RagContextBudgetRegressionTests
                     categoryRef = "cat_042",
                     docLanguage = "de",
                     profileLanguage = "de",
+                    category = "Knowledge",
                     pageStart = 8,
                     pageEnd = 8,
                     text = "Procedure documentee avec avertissement.",
@@ -1302,6 +1324,16 @@ public sealed class RagContextBudgetRegressionTests
                             signals = new[] { "title_match", "structured_item" }
                         }
                     },
+                    profileSignals = new
+                    {
+                        profileVersion = "llm_backoffice_v1",
+                        language = "de",
+                        keywords = new[] { "procedure" },
+                        topics = new[] { "source metadata" },
+                        limits = new[] { "Prefer page chunks for exact values." },
+                        matchedTerms = new[] { "procedure" },
+                        matchCount = 1
+                    },
                     context = new
                     {
                         sectionTitle = "Procedure",
@@ -1328,6 +1360,7 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Equal(42, result.GetProperty("meta").GetProperty("metrics").GetProperty("tookMs").GetInt32());
         Assert.Equal("document_profile_v1", result.GetProperty("meta").GetProperty("metrics").GetProperty("degradedRetrievers")[0].GetString());
         Assert.Equal("doc-guid-1", first.GetProperty("docId").GetString());
+        Assert.Equal("Knowledge", first.GetProperty("category").GetString());
         Assert.Equal("Knowledge/Procedures", first.GetProperty("categoryPath").GetString());
         Assert.Equal("cat_042", first.GetProperty("categoryRef").GetString());
         Assert.Equal("de", first.GetProperty("docLanguage").GetString());
@@ -1350,6 +1383,12 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Equal("Controle avant validation", cards[0].GetProperty("title").GetString());
         Assert.Equal("procedure", cards[0].GetProperty("kind").GetString());
         Assert.Equal("structured_item", cards[0].GetProperty("signals")[1].GetString());
+        var profileSignals = first.GetProperty("profileSignals");
+        Assert.Equal("llm_backoffice_v1", profileSignals.GetProperty("profileVersion").GetString());
+        Assert.Equal("de", profileSignals.GetProperty("language").GetString());
+        Assert.Equal("procedure", profileSignals.GetProperty("keywords")[0].GetString());
+        Assert.Equal("source metadata", profileSignals.GetProperty("topics")[0].GetString());
+        Assert.Equal("Prefer page chunks for exact values.", profileSignals.GetProperty("limits")[0].GetString());
         var extractionQuality = first.GetProperty("extractionQuality");
         Assert.Equal("manual_review_low_text", extractionQuality.GetProperty("pageQualityStatus").GetString());
         Assert.True(extractionQuality.GetProperty("pageManualReviewRecommended").GetBoolean());
