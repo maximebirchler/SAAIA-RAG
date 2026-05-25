@@ -1915,6 +1915,104 @@ CatalogPollutionMarker Procedure body: Materials lock padlock warning tag. Proce
     }
 
     [Fact]
+    public void Project_extracts_title_case_structured_item_after_compact_measure_tail()
+    {
+        const string title = "Module au relais";
+        const string text =
+            "Controlez la sortie et laissez stabiliser pendant 20 min. "
+            + "4 operators 30 min"
+            + title
+            + " Pour 4 operators Materials: relay, sensor. Procedure 1. Inspect status. 2. Record evidence.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(44, text, 33, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Operations", 1, 1, 44, 44, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 44, 44, text, text.Length, 33, [2])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/TitleCaseStructuredItem.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, title, StringComparison.Ordinal));
+        Assert.Contains(title, profile.SearchText, StringComparison.Ordinal);
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Controlez la sortie", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Project_extracts_title_case_structured_item_before_numbered_steps()
+    {
+        const string title = "Module au relais";
+        const string text =
+            "Pour 4 operators Procedure note with enough context. "
+            + title
+            + "1. Inspect the relay status. 2. Record the evidence. Materials: relay, sensor.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(45, text, 24, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Operations", 1, 1, 45, 45, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 45, 45, text, text.Length, 24, [2])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/NumberedTitleCaseItem.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, title, StringComparison.Ordinal));
+        Assert.Contains(title, profile.SearchText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Project_keeps_short_structured_title_when_page_evidence_is_grounded()
+    {
+        const string title = "Cap au sol";
+        const string text =
+            title
+            + "1. Inspect the station with 2 kg ballast and 3 mm shim. "
+            + "2. Record the operator evidence for 4 units before handover.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(46, text, 23, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Operations", 1, 1, 46, 46, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 46, 46, text, text.Length, 23, [2])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/ShortStructuredTitle.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, title, StringComparison.Ordinal));
+        Assert.Contains(title, profile.SearchText, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Project_extracts_strong_content_cards_from_navigation_classified_units()
     {
         const string title = "CONTROL HANDOVER PLAN";
@@ -2094,6 +2192,42 @@ CatalogPollutionMarker Procedure body: Materials lock padlock warning tag. Proce
         Assert.Equal(77, card.PageStart);
         Assert.Equal(77, card.PageEnd);
         Assert.Equal("page_embedded_title", card.Kind);
+        Assert.Contains(title, profile.SearchText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Project_keeps_structured_embedded_title_from_navigation_shaped_unit()
+    {
+        const string title = "Classic Family Plan";
+        var text = $"table of contents 1 2 3 4 5 6 7 8 9 10 {title}For 4 units1. Inspect the station and record the checklist. 2. Verify the handover notes.";
+        Assert.NotEqual(
+            RetrievalContentClassifier.ContentRole,
+            RetrievalContentClassifier.AnalyzeChunk(text).ContentRole);
+        Assert.Contains(
+            title,
+            StructuredContentLexicon.ExtractEmbeddedStructuredItemTitles(text, limit: 4));
+
+        var pages = new[]
+        {
+            new ExtractedPdfPage(64, text, 27, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Operations", 1, 1, 64, 64, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 64, 64, text, text.Length, 27, [1])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/NavigationShapedStructuredTitle.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, title, StringComparison.Ordinal));
         Assert.Contains(title, profile.SearchText, StringComparison.Ordinal);
     }
 

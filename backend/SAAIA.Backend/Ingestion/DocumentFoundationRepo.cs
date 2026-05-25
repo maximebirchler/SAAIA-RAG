@@ -366,6 +366,9 @@ WHERE tenant_id=@tenant_id
     private static string[] NormalizePostgresTextArrayForStorage(IEnumerable<string>? values)
         => PostgresTextSanitizer.CleanArray(values);
 
+    private static string SerializePostgresJsonForStorage<T>(T value)
+        => PostgresTextSanitizer.CleanJson(JsonSerializer.Serialize(value)) ?? "{}";
+
     private static byte[] ComputeStoredTextChecksum(string text)
         => SHA256.HashData(Encoding.UTF8.GetBytes(text));
 
@@ -447,7 +450,7 @@ SET revision_id = EXCLUDED.revision_id,
             indexed_version_before = indexedVersionBefore,
             indexed_version_after = indexedVersionAfter,
             source_hash = sourceHash,
-            payload = JsonSerializer.Serialize(payload)
+            payload = SerializePostgresJsonForStorage(payload)
         }, transaction: tx, cancellationToken: ct));
     }
 
@@ -484,7 +487,7 @@ SET revision_id = EXCLUDED.revision_id,
             byteSize = items.Sum(byteSizeSelector);
         }
 
-        var payload = JsonSerializer.Serialize(new
+        var payload = SerializePostgresJsonForStorage(new
         {
             count = items.Count,
             hashBasis = "canonical_text_v1",
@@ -802,7 +805,7 @@ SET language = EXCLUDED.language,
         var limits = NormalizePostgresTextArrayForStorage(profile.Limits);
         var searchText = NormalizePostgresTextForStorage(profile.SearchText);
 
-        var metadata = JsonSerializer.Serialize(new
+        var metadata = SerializePostgresJsonForStorage(new
         {
             generatedBy = "document_profile_projector",
             ProfileVersion = profileVersion,
@@ -959,7 +962,7 @@ SET card_index = EXCLUDED.card_index,
             var contentCardId = BuildStableDocumentProfileContentCardId(documentProfileId, normalizedTitle);
             storedCard = storedCard with { ContentCardId = contentCardId.ToString() };
 
-            var metadata = JsonSerializer.Serialize(new
+            var metadata = SerializePostgresJsonForStorage(new
             {
                 generatedBy = "document_profile_projector",
                 ProfileVersion = NormalizePostgresTextForStorage(profile.ProfileVersion),
@@ -1092,7 +1095,7 @@ SET source_kind = EXCLUDED.source_kind,
                 var contentCardId = anchor.ContentCardIndex is null || string.IsNullOrWhiteSpace(normalizedTitle)
                     ? (Guid?)null
                     : BuildStableDocumentProfileContentCardId(documentProfileId, normalizedTitle);
-                var metadata = JsonSerializer.Serialize(new
+                var metadata = SerializePostgresJsonForStorage(new
                 {
                     generatedBy = "document_title_navigation_projector",
                     schemaVersion = "title_navigation_v1",
@@ -1195,7 +1198,7 @@ SET source_page = EXCLUDED.source_page,
                 targetAnchorId = resolvedAnchorId;
             }
 
-            var metadata = JsonSerializer.Serialize(new
+            var metadata = SerializePostgresJsonForStorage(new
             {
                 generatedBy = "document_title_navigation_projector",
                 schemaVersion = "title_navigation_v1",
@@ -1377,7 +1380,7 @@ SET char_count = EXCLUDED.char_count,
                 chunksOnPage,
                 pageQuality.Signals);
             imageDiagnosticsByPage.TryGetValue(page.PageNumber, out var imageDiagnostic);
-            var metadata = JsonSerializer.Serialize(new
+            var metadata = SerializePostgresJsonForStorage(new
             {
                 wordCount = page.WordCount,
                 textLength = page.Text.Length,
@@ -1579,7 +1582,7 @@ SET title = EXCLUDED.title,
         foreach (var section in sections)
         {
             var title = NormalizePostgresTextForStorage(section.Title);
-            var metadata = JsonSerializer.Serialize(new
+            var metadata = SerializePostgresJsonForStorage(new
             {
                 inferred = true
             });
@@ -1756,7 +1759,7 @@ SET section_id = EXCLUDED.section_id,
         foreach (var unit in units)
         {
             var text = NormalizePostgresTextForStorage(unit.Text);
-            var metadata = JsonSerializer.Serialize(new
+            var metadata = SerializePostgresJsonForStorage(new
             {
                 inferred = true,
                 offsetStart = unit.OffsetStart,
@@ -1871,7 +1874,7 @@ SET retrieval_chunk_id = EXCLUDED.retrieval_chunk_id,
             var storedSectionTitle = NormalizeOptionalPostgresTextForStorage(sectionTitle);
             var storedHeadingPath = NormalizeOptionalPostgresTextForStorage(headingPath);
 
-            var metadata = JsonSerializer.Serialize(new
+            var metadata = SerializePostgresJsonForStorage(new
             {
                 inferred = true,
                 chunkType = NormalizePostgresTextForStorage(chunk.ChunkType),
@@ -1983,7 +1986,7 @@ SET section_id = EXCLUDED.section_id,
             var text = NormalizePostgresTextForStorage(entry.Text);
             var normalizedText = NormalizePostgresTextForStorage(entry.NormalizedText);
 
-            var metadata = JsonSerializer.Serialize(new
+            var metadata = SerializePostgresJsonForStorage(new
             {
                 inferred = true,
                 kind = NormalizePostgresTextForStorage(entry.Kind),
@@ -2085,7 +2088,7 @@ SET section_id = EXCLUDED.section_id,
             Guid retrievalChunkId = BuildStableRetrievalChunkId(docId, ingestionVersion, entry.ChunkIndex);
             var text = NormalizePostgresTextForStorage(entry.Text);
 
-            var metadata = JsonSerializer.Serialize(new
+            var metadata = SerializePostgresJsonForStorage(new
             {
                 inferred = true
             });

@@ -104,4 +104,48 @@ public sealed class IngestionWorkerQdrantTests
         Assert.False(IngestionWorker.ShouldEmbedRetrievalChunk(sparse));
         Assert.False(IngestionWorker.ShouldEmbedRetrievalChunk(replacementChars));
     }
+
+    [Fact]
+    public void BuildChunkLinkMap_links_next_chunk_in_same_section_without_rescanning()
+    {
+        var docId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+        const int ingestionVersion = 7;
+        var chunks = new[]
+        {
+            Chunk(10, sectionOrdinal: 1),
+            Chunk(20, sectionOrdinal: 2),
+            Chunk(30, sectionOrdinal: 1),
+            Chunk(40, sectionOrdinal: 1),
+            Chunk(50, sectionOrdinal: null)
+        };
+
+        var map = IngestionWorker.BuildChunkLinkMap(docId, ingestionVersion, chunks);
+
+        Assert.Equal(
+            DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, ingestionVersion, 30),
+            map[10].SameSectionChunkId);
+        Assert.Equal(
+            DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, ingestionVersion, 40),
+            map[30].SameSectionChunkId);
+        Assert.Null(map[40].SameSectionChunkId);
+        Assert.Equal(
+            DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, ingestionVersion, 20),
+            map[10].NextChunkId);
+        Assert.Equal(
+            DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, ingestionVersion, 40),
+            map[50].PreviousChunkId);
+    }
+
+    private static ProjectedRetrievalChunk Chunk(int chunkIndex, int? sectionOrdinal)
+        => new(
+            chunkIndex,
+            sectionOrdinal,
+            UnitOrdinal: chunkIndex,
+            PageStart: 1,
+            PageEnd: 1,
+            Text: $"Reliable content chunk {chunkIndex} with enough words to embed as a semantic passage.",
+            TokenCount: 11,
+            Checksum: [1],
+            ChunkType: "unit_exact_v1",
+            ExtractionTextStatus: "ok");
 }

@@ -36,7 +36,7 @@ internal sealed class ApiClientBackendBusyException : HttpRequestException
 /// </summary>
 public sealed partial class ApiClient
 {
-    private readonly HttpClient _http = new();
+    private readonly HttpClient _http = new() { Timeout = Timeout.InfiniteTimeSpan };
     private readonly object _configGate = new();
     private string _uiLanguage = ClientUiText.NormalizeLanguage(AppSettings.Load().UiLanguage);
     private string _baseUrl = "http://localhost:5122";

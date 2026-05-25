@@ -27,7 +27,9 @@ sealed class IngestionBulkheads
         _ocrMax = Math.Clamp(o.OcrMaxConcurrency, 1, 8);
 
         _acquireTimeout = TimeSpan.FromSeconds(Math.Clamp(o.BulkheadAcquireTimeoutSeconds, 1, 3600));
-        _ocrAcquireTimeout = TimeSpan.FromSeconds(Math.Clamp(o.OcrBulkheadAcquireTimeoutSeconds, 1, 86400));
+        _ocrAcquireTimeout = TimeSpan.FromSeconds(IngestionOptions.ResolveOcrBulkheadQueueWaitTimeoutSeconds(
+            o.OcrBulkheadAcquireTimeoutSeconds,
+            o.OcrBulkheadQueueWaitTimeoutSeconds));
 
         _tei = new SemaphoreSlim(_teiMax, _teiMax);
         _qdrant = new SemaphoreSlim(_qdrantMax, _qdrantMax);
@@ -65,7 +67,7 @@ sealed class IngestionBulkheads
 
         if (!ok)
         {
-            throw new TimeoutException($"{name} bulkhead: wait timeout after {timeout.TotalSeconds}s (max={max}).");
+            throw new IngestionBulkheadTimeoutException(name, max, timeout);
         }
 
         sw.Stop();
@@ -87,5 +89,20 @@ sealed class IngestionBulkheads
             var sem = Interlocked.Exchange(ref _sem, null);
             sem?.Release();
         }
+    }
+}
+
+sealed class IngestionBulkheadTimeoutException : TimeoutException
+{
+    public string BulkheadName { get; }
+    public int MaxConcurrency { get; }
+    public TimeSpan WaitTimeout { get; }
+
+    public IngestionBulkheadTimeoutException(string bulkheadName, int maxConcurrency, TimeSpan waitTimeout)
+        : base($"{bulkheadName} bulkhead: wait timeout after {waitTimeout.TotalSeconds}s (max={maxConcurrency}).")
+    {
+        BulkheadName = bulkheadName;
+        MaxConcurrency = maxConcurrency;
+        WaitTimeout = waitTimeout;
     }
 }

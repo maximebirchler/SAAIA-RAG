@@ -308,7 +308,7 @@ internal sealed class LocalLlmWarmupHarness : ILocalLlmWarmupHarness
         int loadMs,
         CancellationToken ct)
     {
-        var firstTokenMs = 0;
+        int? firstTokenMs = null;
         var generatedText = new StringBuilder();
 
         while (!ct.IsCancellationRequested)
@@ -328,22 +328,22 @@ internal sealed class LocalLlmWarmupHarness : ILocalLlmWarmupHarness
             if (string.IsNullOrEmpty(delta))
                 continue;
 
-            if (firstTokenMs == 0)
+            if (firstTokenMs is null)
                 firstTokenMs = (int)Math.Min(int.MaxValue, sw.ElapsedMilliseconds);
 
             generatedText.Append(delta);
         }
 
         sw.Stop();
-        if (firstTokenMs == 0)
+        if (firstTokenMs is null)
             return new WarmupMeasurement(loadMs, (int)Math.Min(int.MaxValue, sw.ElapsedMilliseconds), 0, Succeeded: false, Error: "no_tokens");
 
         var tokenCount = EstimateTokenCount(generatedText.ToString());
-        var decodeMs = Math.Max(1, sw.ElapsedMilliseconds - firstTokenMs);
+        var decodeMs = Math.Max(1, sw.ElapsedMilliseconds - firstTokenMs.Value);
         var tokPerSec = tokenCount / (decodeMs / 1000.0);
         return new WarmupMeasurement(
             loadMs,
-            firstTokenMs,
+            firstTokenMs.Value,
             tokPerSec,
             MsPerToken: decodeMs / (double)Math.Max(1, tokenCount));
     }

@@ -49,6 +49,7 @@ sealed class IngestionOptions
     // Temps max d'attente pour entrer dans un bulkhead (évite deadlocks)
     public int BulkheadAcquireTimeoutSeconds { get; set; } = 30;
     public int OcrBulkheadAcquireTimeoutSeconds { get; set; } = 1800;
+    public int OcrBulkheadQueueWaitTimeoutSeconds { get; set; } = 60;
 
     // Auto-heal si Qdrant est vide alors que la DB contient des documents
     public bool ReindexIfQdrantEmpty { get; set; } = true;
@@ -126,4 +127,13 @@ sealed class IngestionOptions
 
     public static int ResolveEmbeddingsBatchSize(int value)
         => Math.Clamp(value, MinEmbeddingsBatchSize, MaxEmbeddingsBatchSize);
+
+    public static int ResolveOcrBulkheadQueueWaitTimeoutSeconds(
+        int ocrBulkheadAcquireTimeoutSeconds,
+        int ocrBulkheadQueueWaitTimeoutSeconds)
+    {
+        var legacyCeiling = Math.Clamp(ocrBulkheadAcquireTimeoutSeconds, 1, 86400);
+        var queueWait = Math.Clamp(ocrBulkheadQueueWaitTimeoutSeconds, 1, 3600);
+        return Math.Min(legacyCeiling, queueWait);
+    }
 }

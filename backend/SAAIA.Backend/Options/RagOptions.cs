@@ -1,5 +1,10 @@
 sealed class RagOptions
 {
+    public const int DefaultSearchDenseEmbeddingTimeoutSeconds = 15;
+    public const int MaxSearchDenseEmbeddingTimeoutSeconds = 120;
+    public const int DefaultSearchSparseCommandTimeoutSeconds = 12;
+    public const int MaxSearchSparseCommandTimeoutSeconds = 60;
+
     public string QdrantBaseUrl { get; set; } = "http://localhost:6333/";
     public string QdrantCollection { get; set; } = "knowledge_base";
 
@@ -63,10 +68,29 @@ sealed class RagOptions
     /// </summary>
     public int SearchRetryAfterSeconds { get; set; } = 3;
 
+    /// <summary>
+    /// Per-dense-retriever embedding budget for interactive RAG. If TEI is saturated
+    /// by ingestion, dense retrieval degrades and exact/sparse/title routes can still answer.
+    /// Set to 0 to wait for the outer request cancellation token.
+    /// </summary>
+    public int SearchDenseEmbeddingTimeoutSeconds { get; set; } = DefaultSearchDenseEmbeddingTimeoutSeconds;
+
+    /// <summary>
+    /// Per sparse/profile-card SQL command budget for interactive RAG. Slow lexical
+    /// expansions degrade instead of consuming the whole request while exact/dense/title routes continue.
+    /// </summary>
+    public int SearchSparseCommandTimeoutSeconds { get; set; } = DefaultSearchSparseCommandTimeoutSeconds;
+
     // ==========================
     // Backward compatible aliases
     // ==========================
     // Anciennes clés JSON : TeiBaseUrl / CollectionName
     public string TeiBaseUrl { get => EmbeddingsBaseUrl; set => EmbeddingsBaseUrl = value; }
     public string CollectionName { get => QdrantCollection; set => QdrantCollection = value; }
+
+    public static int ResolveSearchDenseEmbeddingTimeoutSeconds(int value)
+        => value <= 0 ? 0 : Math.Clamp(value, 1, MaxSearchDenseEmbeddingTimeoutSeconds);
+
+    public static int ResolveSearchSparseCommandTimeoutSeconds(int value)
+        => Math.Clamp(value, 1, MaxSearchSparseCommandTimeoutSeconds);
 }

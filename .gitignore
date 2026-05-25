@@ -94,6 +94,13 @@ artifacts/llm-bench-*/
 artifacts/client-live-cuisine-hardcases-*/
 artifacts/cuisine-rag-eval-*/
 artifacts/cuisine-llm-sample-*/
+artifacts/local-llm/
+artifacts/pdf-pages/
+artifacts/publish/
+artifacts/v/
+artifacts/validation/*
+!artifacts/validation/question-banks/
+!artifacts/validation/question-banks/*.json
 artifacts/neff-page*.txt
 artifacts/manual-test-checklist/*.xlsx
 Test Bench/

@@ -471,6 +471,431 @@ public sealed class RetrievalChunkProjectorTests
     }
 
     [Fact]
+    public void ProjectStructureAware_does_not_cross_late_structured_title_boundary()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 123, 123, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                123,
+                123,
+                "Temps total : 40 min 80 g de beurre 25 cl d'eau 150 g de farine 4 oeufs 100 g de sucre perle Sel 1 Prechauffez le four. 2 Ajoutez la farine. 3 Ajoutez les oeufs un a un. 4 Saupoudrez de sucre perle. 4 personnes 15 min CHOUQUETTES",
+                240,
+                45,
+                [1],
+                0,
+                240),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                123,
+                123,
+                "CHURROS SAUCE CHOCOLAT 30 cl de lait demi-ecreme 15 cl d'eau 200 g de farine 1 sachet de levure chimique 3 pincees de sel 1 blanc d'oeuf 165 g de chocolat noir Preparation 1. Melangez la pate. 2. Formez des boudins. 3. Preparez la sauce chocolat.",
+                254,
+                42,
+                [2],
+                242,
+                496)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 35,
+            minWords: 25);
+
+        Assert.DoesNotContain(projected, chunk =>
+            chunk.Text.Contains("CHOUQUETTES", StringComparison.Ordinal)
+            && chunk.Text.Contains("CHURROS SAUCE CHOCOLAT", StringComparison.Ordinal));
+        Assert.Contains(projected, chunk =>
+            chunk.Text.StartsWith("CHURROS SAUCE CHOCOLAT", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ProjectStructureAware_does_not_cross_footer_title_into_next_structured_body()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 123, 123, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                123,
+                123,
+                "Temps total : 40 min 80 g de beurre 25 cl d'eau 150 g de farine 4 oeufs 1 Prechauffez le four. 2 Ajoutez la farine. 3 Ajoutez les oeufs. 4 Enfournez les petits tas. 4 personnes 15 min ALPHA CAKES Decorez avec des eclats.",
+                236,
+                45,
+                [1],
+                0,
+                236),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                123,
+                123,
+                "30 cl de lait 200 g de farine 1 sachet de levure 1 Melangez la pate. 2 Formez des boudins. 3 Preparez la sauce. 4 personnes 12 min BETA STICKS Utilisez un appareil pour des formes regulieres.",
+                204,
+                38,
+                [2],
+                238,
+                442)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 35,
+            minWords: 25);
+
+        Assert.DoesNotContain(projected, chunk =>
+            chunk.Text.Contains("ALPHA CAKES", StringComparison.Ordinal)
+            && chunk.Text.Contains("BETA STICKS", StringComparison.Ordinal));
+        Assert.Contains(projected, chunk =>
+            chunk.Text.Contains("BETA STICKS", StringComparison.Ordinal)
+            && chunk.Text.StartsWith("BETA STICKS", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ProjectStructureAware_does_not_cross_compact_footer_title_into_next_body()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 123, 123, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                123,
+                123,
+                "Enfournez et faites cuire pendant 25 \u00e0 30 min.4/6 personnes12 min30 min15 minCHOUQUETTESD\u00e9corez d\u2019\u00e9clats de pistaches, de pralines, de noisettes.",
+                151,
+                20,
+                [1],
+                0,
+                151),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                123,
+                123,
+                "30 cl de lait demi-\u00e9cr\u00e9m\u00e915 cl d'eau200 g de farine1 sachet de levure chimique3 pinc\u00e9es de sel1 blanc d\u2019\u0153uf165 g de chocolat noir1 c. \u00e0 c. d\u2019ar\u00f4me vanille1 Dans le robot muni du couteau pour p\u00e9trir/concasser, mettez 15 cl de lait et 15 cl d\u2019eau.",
+                238,
+                45,
+                [2],
+                153,
+                391)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 35,
+            minWords: 25);
+
+        Assert.DoesNotContain(projected, chunk =>
+            chunk.Text.Contains("CHOUQUETTES", StringComparison.Ordinal)
+            && chunk.Text.Contains("30 cl de lait", StringComparison.Ordinal));
+        Assert.Contains(projected, chunk =>
+            chunk.Text.StartsWith("30 cl de lait", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ProjectStructureAware_keeps_dangling_quantity_line_with_short_continuation()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 34, 34, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                34,
+                34,
+                "INGREDIENTS Pour la creme anglaise 600 ml de lait 1 gousse de vanille 2 c. a s. de sucre fin 4 jaunes d'oeufs De plus 250 g de fond de genoise 110 g de confiture 175 g de framboises 4 Amaretti emiettes 100 ml de",
+                218,
+                42,
+                [1],
+                0,
+                218),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                34,
+                34,
+                "Sherry Amontillado 300 g de creme liquide legerement fouettee 2 c. a s. d'amandes effilees pour la decoration",
+                111,
+                17,
+                [2],
+                220,
+                331)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 45,
+            overlapWords: 0,
+            minWords: 25);
+
+        Assert.Contains(projected, chunk =>
+        {
+            var compactText = string.Join(' ', chunk.Text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+            return chunk.ChunkType == "unit_exact_v1"
+                && compactText.Contains("100 ml de Sherry Amontillado", StringComparison.Ordinal)
+                && compactText.Contains("300 g de creme liquide", StringComparison.Ordinal);
+        });
+        Assert.DoesNotContain(projected, chunk =>
+            chunk.Text.EndsWith("100 ml de", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void ProjectStructureAware_adds_footer_titled_window_for_title_at_recipe_end()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 123, 123, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                123,
+                123,
+                "Temps total : 40 min 80 g de beurre25 cl d'eau150 g de farine4 \u0153ufs100 g de sucre perl\u00e9Sel1 Pr\u00e9chauffez le four \u00e0 180\u00b0C (th 6).",
+                145,
+                29,
+                [1],
+                0,
+                145),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                123,
+                123,
+                "Dans le robot muni du couteau pour p\u00e9trir/concasser, mettez 25 cl d\u2019eau, le beurre en morceaux et le sel. Faites fonctionner le robot en vitesse 3 \u00e0 90\u00b0C pendant 8 min.2 Une fois le programme achev\u00e9, ajoutez la farine et m\u00e9langez en vitesse 6 pendant 2 min.",
+                270,
+                48,
+                [2],
+                147,
+                417),
+            new ExtractedDocumentUnit(
+                2,
+                0,
+                123,
+                123,
+                "Laissez tourner pendant 2 min.4 Recouvrez une plaque de papier cuisson. \u00c0 l\u2019aide d\u2019une cuill\u00e8re faites de petits tas de p\u00e2te, puis saupou-drez-les de sucre perl\u00e9.",
+                162,
+                26,
+                [3],
+                419,
+                581),
+            new ExtractedDocumentUnit(
+                3,
+                0,
+                123,
+                123,
+                "Enfournez et faites cuire pendant 25 \u00e0 30 min.4/6 personnes12 min30 min15 minCHOUQUETTESD\u00e9corez d\u2019\u00e9clats de pistaches, de pralines, de noisettes.",
+                151,
+                20,
+                [4],
+                583,
+                734),
+            new ExtractedDocumentUnit(
+                4,
+                0,
+                123,
+                123,
+                "30 cl de lait demi-\u00e9cr\u00e9m\u00e915 cl d'eau200 g de farine1 sachet de levure chimique3 pinc\u00e9es de sel1 blanc d\u2019\u0153uf165 g de chocolat noir.",
+                128,
+                24,
+                [5],
+                736,
+                864)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 35,
+            minWords: 25);
+
+        Assert.Contains(projected, chunk =>
+            chunk.ChunkType == "footer_titled_item_window_v1"
+            && chunk.Text.StartsWith("CHOUQUETTES", StringComparison.Ordinal)
+            && chunk.Text.Contains("80 g de beurre", StringComparison.Ordinal)
+            && chunk.Text.Contains("sucre perlé", StringComparison.Ordinal)
+            && !chunk.Text.Contains("30 cl de lait", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ProjectStructureAware_footer_title_window_keeps_same_page_ingredient_head_past_soft_budget()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Entrees", 1, 41, 41, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                201,
+                0,
+                41,
+                41,
+                "72 Temps total : 1 h 38 min 6 asperges vertes 150 g de petits pois écossés 3 carottes 1 c. à s. bombée de farine 8 œufs 35 cl de crème liquide 50 g de parmesan râpé 4 c. à s. d'herbes ciselées 1 noisette de beurre 1 pincée de paprika 2 c. à s. d'huile d'olive Sel, Poivre 1 Coupez les extrémités dures des asperges vertes. Écossez les petits pois.",
+                330,
+                61,
+                [1],
+                0,
+                330),
+            new ExtractedDocumentUnit(202, 0, 41, 41, "Pelez les carottes et coupez-les en petits des. Versez 0,7 L d'eau dans le bol du robot.", 95, 17, [2], 331, 426),
+            new ExtractedDocumentUnit(203, 0, 41, 41, "Deposez les legumes dans le panier vapeur et lancez le programme vapeur pour 15 min. A la fin du programme, laissez-les tiedir.", 129, 32, [3], 427, 556),
+            new ExtractedDocumentUnit(204, 0, 41, 41, "Lavez et sechez le bol du robot. 2 Dans le bol du robot muni du batteur, mettez la farine et 4 oeufs.", 112, 21, [4], 557, 669),
+            new ExtractedDocumentUnit(205, 0, 41, 41, "Lancez le robot vitesse 6 pendant 2 min. Au bout de 20 s, versez progressivement la creme liquide puis ajoutez le paprika, les herbes, le sel et le poivre. 3 Ajoutez les carottes et les petits pois. 4 Prechauffez le four a 180 C. Beurrez un moule et deposez au fond du plat les asperges vertes.", 302, 83, [5], 670, 972),
+            new ExtractedDocumentUnit(206, 0, 41, 41, "Versez la moitie de la preparation aux legumes sur les asperges vertes.", 69, 12, [6], 973, 1042),
+            new ExtractedDocumentUnit(207, 0, 41, 41, "Cassez delicatement les 4 oeufs restants et versez doucement le reste de la preparation. 5 Rabattez le papier cuisson sur la terrine puis enfournez-la pour 1 h. A la fin de la cuisson, laissez refroidir la terrine avant de la demouler. 8 personnes 18 min 1 h 20 min TERRINE DE LEGUMES", 290, 47, [7], 1043, 1333)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 250,
+            overlapWords: 0,
+            minWords: 1);
+
+        var footerChunk = Assert.Single(projected, chunk =>
+            chunk.Text.StartsWith("TERRINE DE LEGUMES", StringComparison.Ordinal)
+            && chunk.Text.Contains("6 asperges vertes", StringComparison.Ordinal));
+        Assert.Contains("6 asperges vertes", footerChunk.Text, StringComparison.Ordinal);
+        Assert.Contains("Pelez les carottes", footerChunk.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ProjectStructureAware_footer_title_window_does_not_absorb_previous_titled_item_inventory()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Entrees", 1, 41, 41, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                200,
+                0,
+                41,
+                41,
+                "ALPHA CAKES 80 g de farine 30 cl de lait 4 oeufs 50 g de sucre 1 c. a s. d'huile 1 Prechauffez le four. 2 Melangez les ingredients.",
+                135,
+                33,
+                [0],
+                0,
+                135),
+            new ExtractedDocumentUnit(201, 0, 41, 41, "Pelez les carottes et coupez-les en petits des. Versez 0,7 L d'eau dans le bol du robot.", 95, 17, [1], 136, 231),
+            new ExtractedDocumentUnit(202, 0, 41, 41, "Deposez les legumes dans le panier vapeur et lancez le programme vapeur pour 15 min.", 84, 16, [2], 232, 316),
+            new ExtractedDocumentUnit(203, 0, 41, 41, "Cassez delicatement les oeufs restants et versez doucement le reste de la preparation. 5 Rabattez le papier cuisson sur la terrine puis enfournez-la pour 1 h. TERRINE DE LEGUMES", 174, 31, [3], 317, 491)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 55,
+            overlapWords: 0,
+            minWords: 1);
+
+        var footerChunk = Assert.Single(projected, chunk =>
+            chunk.Text.StartsWith("TERRINE DE LEGUMES", StringComparison.Ordinal)
+            && chunk.Text.Contains("Deposez les legumes", StringComparison.Ordinal));
+        Assert.DoesNotContain("ALPHA CAKES", footerChunk.Text, StringComparison.Ordinal);
+        Assert.Contains("Deposez les legumes", footerChunk.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ProjectStructureAware_adds_footer_titled_window_when_title_is_glued_to_elided_note()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 123, 123, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                123,
+                123,
+                "Enfournez et faites cuire pendant 25 \u00e0 30 min.4/6 personnes12 min30 min15 minCHOUQUETTESD\u00e9corez d\u2019\u00e9clats de pistaches.",
+                126,
+                16,
+                [1],
+                0,
+                126),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                123,
+                123,
+                "30 cl de lait demi-\u00e9cr\u00e9m\u00e915 cl d'eau200 g de farine1 sachet de levure chimique3 pinc\u00e9es de sel1 blanc d\u2019\u0153uf165 g de chocolat noir1 c. \u00e0 c. d\u2019ar\u00f4me vanille1 Dans le robot muni du couteau pour p\u00e9trir/concasser, mettez 15 cl de lait et 15 cl d\u2019eau.",
+                238,
+                45,
+                [2],
+                128,
+                366),
+            new ExtractedDocumentUnit(
+                2,
+                0,
+                123,
+                123,
+                "Lancez le robot en vitesse 6 \u00e0 100\u00b0C pour 4 min. Ajoutez la farine, le blanc d\u2019\u0153uf, la levure et le sel, mixez en vitesse 4 pendant 30 s avec le bouchon.2 Formez des boudins en les roulant sur le plan de travail farin\u00e9, puis faites-les cuire \u00e0 la friteuse.",
+                256,
+                46,
+                [3],
+                368,
+                624),
+            new ExtractedDocumentUnit(
+                3,
+                0,
+                123,
+                123,
+                "Versez dans un bol. Trempez les churros dans la sauce au chocolat et d\u00e9gustez.4 personnes13 min12 min15 minCHURROS SAUCE CHOCOLATL\u2019id\u00e9al pour cette recette est d\u2019avoir un appareil \u00e0 churros qui vous permettra d\u2019avoir des boudins de forme r\u00e9guli\u00e8re.",
+                250,
+                42,
+                [4],
+                626,
+                876)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 35,
+            minWords: 25);
+
+        Assert.Contains(projected, chunk =>
+            chunk.ChunkType == "footer_titled_item_window_v1"
+            && chunk.Text.StartsWith("CHURROS SAUCE CHOCOLAT", StringComparison.Ordinal)
+            && chunk.Text.Contains("30 cl de lait", StringComparison.Ordinal)
+            && chunk.Text.Contains("Formez des boudins", StringComparison.Ordinal)
+            && !chunk.Text.Contains("CHOUQUETTES", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ProjectStructureAware_prefixes_embedded_uppercase_title_and_cleans_pdf_artifacts()
     {
         var sections = new[]
@@ -519,6 +944,43 @@ public sealed class RetrievalChunkProjectorTests
         Assert.Contains("steaks. 6 personnes 12 min 5 min SAUCE AU POIVRE", sauce.Text, StringComparison.Ordinal);
         Assert.Contains("5 min SAUCE AU POIVRE 50 g", sauce.Text, StringComparison.Ordinal);
         Assert.False(sauce.Text.StartsWith("226227", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ProjectStructureAware_prefixes_embedded_title_case_structured_item()
+    {
+        const string title = "Module au relais";
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 44, 44, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                44,
+                44,
+                "Controlez la sortie et laissez stabiliser pendant 20 min. 4 operators 30 min"
+                + title
+                + " Pour 4 operators Materials: relay, sensor. Procedure 1. Inspect status. 2. Record evidence.",
+                176,
+                29,
+                [1],
+                0,
+                176)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 0,
+            minWords: 25);
+
+        var chunk = Assert.Single(projected);
+        Assert.StartsWith(title, chunk.Text, StringComparison.Ordinal);
+        Assert.Contains("Controlez la sortie", chunk.Text, StringComparison.Ordinal);
     }
 
     [Fact]

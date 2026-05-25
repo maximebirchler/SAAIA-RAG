@@ -258,7 +258,7 @@ internal static partial class ExactMatchEntryExtractor
         // Progressively strip leading prefix tokens
         // "ORG TYPE 12345" -> "TYPE 12345" -> "12345"
         var prefixes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            { "EN", "ISO", "IEC", "ASTM", "DIN", "NFPA", "API", "ANSI", "CEN", "TR", "TS", "PD", "BS" };
+            { "EN", "ISO", "IEC", "ASTM", "DIN", "NFPA", "API", "ANSI", "UL", "CEN", "TR", "TS", "PD", "BS", "NIST", "SP" };
 
         for (var i = 1; i < parts.Length; i++)
         {
@@ -336,16 +336,16 @@ internal static partial class ExactMatchEntryExtractor
     [GeneratedRegex(@"[^\p{L}\p{Nd}\s]", RegexOptions.CultureInvariant)]
     private static partial Regex ExactPunctuationRegex();
 
-    [GeneratedRegex(@"\b(?:EN|ISO|IEC|ASTM|DIN|NFPA|API|ANSI|CEN|TR)[\s._/\-]*(?:[A-Z]{1,4}[\s._/\-]*)?\d[\w\-\/\.:]*\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(?:EN|ISO|IEC|ASTM|DIN|NFPA|API|ANSI|UL|CEN|TR|NIST|SP)[\s._/\-]*(?:[A-Z]{1,4}[\s._/\-]*)?\d[\w\-\/\.:]*\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex StandardReferenceRegex();
 
-    [GeneratedRegex(@"\b(?!(?:EN|ISO|IEC|ASTM|DIN|NFPA|API|ANSI|CEN|TR|TS|PD|BS)\b)(?=[A-Z][A-Z0-9\s._/\-]{4,40}\b)(?=[A-Z0-9\s._/\-]*[A-Z])(?=[A-Z0-9\s._/\-]*\d)[A-Z]{3,10}(?:[\s._/\-]+\d[\w\-\/\.:]*)+\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(?!(?:EN|ISO|IEC|ASTM|DIN|NFPA|API|ANSI|UL|CEN|TR|TS|PD|BS|NIST|SP)\b)(?=[A-Z][A-Z0-9\s._/\-]{4,40}\b)(?=[A-Z0-9\s._/\-]*[A-Z])(?=[A-Z0-9\s._/\-]*\d)[A-Z]{3,10}(?:[\s._/\-]+\d[\w\-\/\.:]*)+\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex SpacedCodeReferenceRegex();
 
     [GeneratedRegex(@"\b(?=[A-Z0-9._/\-]{4,40}\b)(?=[A-Z0-9._/\-]*[A-Z])(?=[A-Z0-9._/\-]*\d)[A-Z0-9][A-Z0-9._/\-]{2,39}\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex CodeReferenceRegex();
 
-    [GeneratedRegex(@"^(?<prefix>EN|ISO|IEC|ASTM|DIN|NFPA|API|ANSI|CEN|TR|TS|PD|BS)(?<suffix>\d[\w\-\/\.:]*)$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?<prefix>EN|ISO|IEC|ASTM|DIN|NFPA|API|ANSI|UL|CEN|TR|TS|PD|BS|NIST|SP)(?<suffix>\d[\w\-\/\.:]*)$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex CompactStandardReferenceRegex();
 
     [GeneratedRegex(@"\b\d{4,}\b", RegexOptions.CultureInvariant)]
@@ -354,7 +354,7 @@ internal static partial class ExactMatchEntryExtractor
     [GeneratedRegex(@"^\d{4,}", RegexOptions.CultureInvariant)]
     private static partial Regex LeadingDigitsRegex();
 
-    [GeneratedRegex(@"^(?:en|iso|iec|astm|din|nfpa|api|ansi|cen|tr|ts|pd|bs)[\s._/\-]*(?<digits>\d{1,3})(?:\b|$)", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^(?:en|iso|iec|astm|din|nfpa|api|ansi|ul|cen|tr|ts|pd|bs|nist|sp)[\s._/\-]*(?<digits>\d{1,3})(?:\b|$)", RegexOptions.CultureInvariant)]
     private static partial Regex ShortLowercaseStandardWordCollisionRegex();
 
     private static string RemoveReferenceSeparators(string text)

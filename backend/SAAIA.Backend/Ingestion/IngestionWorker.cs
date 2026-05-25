@@ -116,11 +116,16 @@ sealed class IngestionWorker : BackgroundService
 
                     try
                     {
-                        bool completed;
-                        if (job.Action == "delete")
-                            completed = await ProcessDeleteAsync(ds, httpFactory, rag, ingest, job, workerId, jobCt);
-                        else
-                            completed = await ProcessUpsertAsync(ds, httpFactory, rag, ingest, job, workerId, jobCt);
+                        var heartbeatInterval = ResolveJobHeartbeatInterval(ingest.StaleRunningMinutes);
+                        var completed = await RunWithJobHeartbeatAsync(
+                            ds,
+                            job,
+                            workerId,
+                            operationCt => job.Action == "delete"
+                                ? ProcessDeleteAsync(ds, httpFactory, rag, ingest, job, workerId, operationCt)
+                                : ProcessUpsertAsync(ds, httpFactory, rag, ingest, job, workerId, operationCt),
+                            jobCt,
+                            heartbeatInterval);
 
                         if (completed)
                             _log.LogInformation("Ingestion done job={JobId} doc={DocPath}", job.JobId, job.DocPath);
@@ -194,6 +199,21 @@ sealed class IngestionWorker : BackgroundService
                         }
                         else
                         {
+                            if (ex is IngestionBulkheadTimeoutException bulkheadTimeout)
+                            {
+                                var retryDelay = ComputeBulkheadDeferralDelay(bulkheadTimeout);
+                                _log.LogWarning(
+                                    ex,
+                                    "Job deferred because ingestion bulkhead is saturated job={JobId} action={Action} doc={DocPath} bulkhead={Bulkhead} delay_seconds={DelaySeconds}",
+                                    job.JobId,
+                                    job.Action,
+                                    job.DocPath,
+                                    bulkheadTimeout.BulkheadName,
+                                    (int)Math.Ceiling(retryDelay.TotalSeconds));
+                                await JobRepo.DeferTransientAsync(ds, job.JobId, ex.Message, retryDelay, ct);
+                                continue;
+                            }
+
                             _log.LogError(ex, "Job failed job={JobId} action={Action} doc={DocPath}",
                                 job.JobId, job.Action, job.DocPath);
                             await JobRepo.MarkFailedAsync(ds, job.JobId, ex.Message, ct);
@@ -208,6 +228,12 @@ sealed class IngestionWorker : BackgroundService
                 await Task.Delay(1000, ct);
             }
         }
+    }
+
+    internal static TimeSpan ComputeBulkheadDeferralDelay(IngestionBulkheadTimeoutException ex)
+    {
+        var seconds = Math.Clamp((int)Math.Ceiling(ex.WaitTimeout.TotalSeconds / 2), 30, 900);
+        return TimeSpan.FromSeconds(seconds);
     }
 
     private static async Task<bool> IsCurrentDocVersionAsync(NpgsqlDataSource ds, Guid tenantId, string docPath, int version, CancellationToken ct)
@@ -285,14 +311,32 @@ sealed class IngestionWorker : BackgroundService
            && !string.Equals(reason, "superseded_failed_ocr_publish", StringComparison.OrdinalIgnoreCase)
            && !string.Equals(reason, "superseded_failed_before_commit", StringComparison.OrdinalIgnoreCase);
 
+    internal static TimeSpan ResolveJobHeartbeatInterval(int staleRunningMinutes)
+    {
+        var staleAfter = TimeSpan.FromMinutes(Math.Max(1, staleRunningMinutes));
+        var intervalSeconds = (int)Math.Floor(staleAfter.TotalSeconds / 4);
+        return TimeSpan.FromSeconds(Math.Clamp(intervalSeconds, 10, 60));
+    }
+
     // Heartbeat: refresh locked_at so long jobs are not considered stale while they are still running.
-    private async Task<T> RunWithJobHeartbeatAsync<T>(
+    internal async Task<T> RunWithJobHeartbeatAsync<T>(
         NpgsqlDataSource ds,
         IngestionJob job,
         string workerId,
         Func<CancellationToken, Task<T>> operation,
-        CancellationToken ct)
+        CancellationToken ct,
+        TimeSpan? heartbeatInterval = null)
     {
+        var interval = heartbeatInterval ?? TimeSpan.FromSeconds(20);
+        try
+        {
+            await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            _log.LogDebug(ex, "Failed to refresh initial ingestion heartbeat job={JobId}", job.JobId);
+        }
+
         using var heartbeatCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var heartbeatTask = Task.Run(async () =>
         {
@@ -300,7 +344,7 @@ sealed class IngestionWorker : BackgroundService
             {
                 try
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(20), heartbeatCts.Token);
+                    await Task.Delay(interval, heartbeatCts.Token);
                     await TouchJobLockAsync(ds, job.JobId, workerId, heartbeatCts.Token);
                 }
                 catch (OperationCanceledException) when (heartbeatCts.IsCancellationRequested)
@@ -356,6 +400,26 @@ WHERE job_id=@job_id
     {
         if (await JobRepo.IsCancellationRequestedAsync(ds, job.TenantId, job.DocPath, job.JobId, job.Action, ct).ConfigureAwait(false))
             throw new JobCanceledException("canceled_by_admin");
+    }
+
+    private static async Task<bool> IsJobCancellationRequestedAsync(NpgsqlDataSource ds, IngestionJob job, CancellationToken ct)
+        => await JobRepo.IsCancellationRequestedAsync(ds, job.TenantId, job.DocPath, job.JobId, job.Action, ct).ConfigureAwait(false);
+
+    private static async Task ReportImageOcrProgressAsync(
+        NpgsqlDataSource ds,
+        Guid jobId,
+        string workerId,
+        int current,
+        int total,
+        CancellationToken ct)
+    {
+        var progressTotal = total > 0 ? total : (int?)null;
+        var progressCurrent = progressTotal.HasValue
+            ? Math.Clamp(current, 0, progressTotal.Value)
+            : Math.Max(0, current);
+
+        await JobRepo.UpdateProgressAsync(ds, jobId, "image_ocr", progressCurrent, progressTotal, ct);
+        await TouchJobLockAsync(ds, jobId, workerId, ct);
     }
 
     private async Task<float[][]> EmbedBatchWithAdaptiveRetryAsync(
@@ -722,11 +786,17 @@ WHERE job_id=@job_id
                     }
 
                     var imageMergeBase = ocrExtraction ?? nativeExtraction;
+                    var imageOcrPlan = PdfOcrTextExtractor.BuildImagePageOcrPlan(imageMergeBase, ingest);
+                    await JobRepo.UpdateProgressAsync(ds, job.JobId, "image_ocr", 0, imageOcrPlan.AttemptedPageCount, ct);
+                    await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+                    var imageOcrCallbacks = new PdfImagePageOcrCallbacks(
+                        ReportProgressAsync: (current, total, operationCt) => ReportImageOcrProgressAsync(ds, job.JobId, workerId, current, total, operationCt),
+                        IsCancellationRequestedAsync: operationCt => IsJobCancellationRequestedAsync(ds, job, operationCt));
                     var imageOcrResult = await RunWithJobHeartbeatAsync(
                         ds,
                         job,
                         workerId,
-                        operationCt => PdfOcrTextExtractor.TryMergeImagePageOcrAsync(absPath, ingest, imageMergeBase, operationCt, ocrLanguages),
+                        operationCt => PdfOcrTextExtractor.TryMergeImagePageOcrAsync(absPath, ingest, imageMergeBase, operationCt, ocrLanguages, imageOcrCallbacks),
                         ct);
                     imageOcrDiagnostics = imageOcrResult?.Diagnostics;
                     imageOcrExtraction = imageOcrResult?.Extraction;
@@ -762,6 +832,8 @@ WHERE job_id=@job_id
         var tokens = extraction.Tokens;
         var pages = extraction.Pages;
         var extractionQuality = extraction.Quality;
+        await JobRepo.UpdateProgressAsync(ds, job.JobId, "structuring", null, null, ct);
+        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
         var swSections = Stopwatch.StartNew();
         var sections = DocumentSectionExtractor.Extract(pages);
         swSections.Stop();
@@ -817,6 +889,8 @@ WHERE job_id=@job_id
             throw new Exception($"No text extracted from PDF; text_status={extractionQuality.TextStatus}; ocr_recommended={extractionQuality.OcrRecommended}; failure_reason={failureReason}; ocr_failure={ocrDiagnostics?.FailureReason ?? "none"}");
         }
 
+        await JobRepo.UpdateProgressAsync(ds, job.JobId, "chunking", null, null, ct);
+        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
         var swChunking = Stopwatch.StartNew();
         var retrievalChunks = RetrievalChunkProjector.ProjectStructureAware(
             sections,
@@ -830,6 +904,8 @@ WHERE job_id=@job_id
             .ToList();
         swChunking.Stop();
         chunkingMs = swChunking.ElapsedMilliseconds;
+        await JobRepo.UpdateProgressAsync(ds, job.JobId, "projecting", null, null, ct);
+        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
         var swExact = Stopwatch.StartNew();
         var exactMatchEntries = ExactMatchEntryExtractor.Extract(units);
         swExact.Stop();
@@ -1266,6 +1342,24 @@ WHERE job_id=@job_id
 
         var ordered = retrievalChunks.OrderBy(chunk => chunk.ChunkIndex).ToList();
         var map = new Dictionary<int, ChunkLinkInfo>(ordered.Count);
+        var nextChunkInSameSectionByIndex = new Dictionary<int, Guid>();
+        var nextChunkBySectionOrdinal = new Dictionary<int, ProjectedRetrievalChunk>();
+
+        for (var i = ordered.Count - 1; i >= 0; i--)
+        {
+            var current = ordered[i];
+            if (!current.SectionOrdinal.HasValue)
+                continue;
+
+            var sectionOrdinal = current.SectionOrdinal.Value;
+            if (nextChunkBySectionOrdinal.TryGetValue(sectionOrdinal, out var sameSectionNext))
+            {
+                nextChunkInSameSectionByIndex[current.ChunkIndex] =
+                    DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, ingestionVersion, sameSectionNext.ChunkIndex);
+            }
+
+            nextChunkBySectionOrdinal[sectionOrdinal] = current;
+        }
 
         for (var i = 0; i < ordered.Count; i++)
         {
@@ -1277,15 +1371,9 @@ WHERE job_id=@job_id
                 ? DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, ingestionVersion, ordered[i + 1].ChunkIndex)
                 : null;
 
-            Guid? sameSection = null;
-            if (current.SectionOrdinal.HasValue)
-            {
-                var match = ordered
-                    .Skip(i + 1)
-                    .FirstOrDefault(candidate => candidate.SectionOrdinal == current.SectionOrdinal);
-                if (match is not null)
-                    sameSection = DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, ingestionVersion, match.ChunkIndex);
-            }
+            Guid? sameSection = nextChunkInSameSectionByIndex.TryGetValue(current.ChunkIndex, out var sameSectionId)
+                ? sameSectionId
+                : null;
 
             map[current.ChunkIndex] = new ChunkLinkInfo(prev, next, sameSection);
         }

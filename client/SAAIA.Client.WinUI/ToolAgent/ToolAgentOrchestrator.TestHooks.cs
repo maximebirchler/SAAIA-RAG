@@ -68,6 +68,12 @@ public sealed partial class ToolAgentOrchestrator
         return ClassifyRagHitEvidenceProfile(BuildRagHitSummary(doc.RootElement), query).Role;
     }
 
+    internal static bool LooksLikeExactItemReferenceOnlyHitForTests(string requestedTitle, string json)
+    {
+        using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(json) ? "{}" : json);
+        return LooksLikeExactItemReferenceOnlyHit(requestedTitle, BuildRagHitSummary(doc.RootElement));
+    }
+
     internal static string SerializeWriterRagResultsForTests(string toolName, string json, string userMessage)
     {
         using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(json) ? "{}" : json);
@@ -97,6 +103,12 @@ public sealed partial class ToolAgentOrchestrator
     internal static bool ShouldUseSourceBackedExtractiveAnswerForTests(string query, ToolResults toolResults)
         => ShouldUseSourceBackedExtractiveAnswer(query, toolResults);
 
+    internal static bool LooksLikeShortTechnicalEvidenceTopicForTests(string? query)
+        => LooksLikeShortTechnicalEvidenceTopic(query);
+
+    internal static bool LooksLikeVagueVerificationScopeQuestionForTests(string? query)
+        => LooksLikeVagueVerificationScopeQuestion(query);
+
     internal static string BuildSourceBackedExtractiveAnswerForTests(ToolResults toolResults, string query, string language)
         => BuildSourceBackedExtractiveAnswer(toolResults, query, language);
 
@@ -105,6 +117,44 @@ public sealed partial class ToolAgentOrchestrator
 
     internal static string BuildSourceBackedExtractiveSourcesPayloadForTests(ToolResults toolResults, string query)
         => JsonSerializer.Serialize(BuildSourcesPayload(DeriveSourcesFromExtractiveHits(toolResults, query)));
+
+    internal static string BuildDocumentVersionTraceabilityAnswerForTests(string json, string query, string language = "fr")
+    {
+        using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(json) ? "{}" : json);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        return TryBuildDocumentVersionTraceabilityAnswer(toolResults, query, language) ?? string.Empty;
+    }
+
+    internal static string BuildDocumentVersionTraceabilitySourcesPayloadForTests(string json, string query)
+    {
+        using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(json) ? "{}" : json);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        return JsonSerializer.Serialize(BuildSourcesPayload(DeriveSourcesFromDocumentVersionTraceabilityHits(toolResults, query)));
+    }
+
+    internal static string BuildDocumentVersionTraceabilitySearchQueryForTests(string query)
+        => BuildDocumentVersionTraceabilitySearchQuery(query);
+
+    internal static string[] BuildDocumentVersionTraceabilitySearchQueriesForTests(string query)
+        => BuildDocumentVersionTraceabilitySearchQueries(query);
+
+    internal static string BuildDocumentVersionTraceabilityExactSearchQueryForTests(string exactTitle, string query)
+        => BuildDocumentVersionTraceabilityExactSearchQuery(exactTitle, query);
+
+    internal static string[][] ExtractComparativeEntityAnchorTermsForTests(string query)
+        => ExtractComparativeEntityAnchorTerms(query);
 
     internal static string BuildRagSearchSourcesPayloadForTests(string json, string toolName = "rag.search")
     {
@@ -314,14 +364,26 @@ public sealed partial class ToolAgentOrchestrator
     internal static string TryBuildMissingBroadCompositionAnchorAnswerForTests(ToolResults toolResults, string query, string language)
         => TryBuildMissingBroadCompositionAnchorAnswer(toolResults, query, language);
 
-    internal static string TryBuildBackendGuidanceClarificationAnswerForTests(ToolResults toolResults, string language)
-        => TryBuildBackendGuidanceClarificationAnswer(toolResults, language);
+    internal static string TryBuildMissingRequiredEvidenceAnswerForTests(ToolResults toolResults, string query, string language)
+        => TryBuildMissingRequiredEvidenceAnswer(toolResults, query, language);
+
+    internal static string TryBuildBackendGuidanceClarificationAnswerForTests(ToolResults toolResults, string language, string query = "")
+        => TryBuildBackendGuidanceClarificationAnswer(toolResults, query, language);
 
     internal static string BuildRagEvidenceFallbackAnswerForTests(ToolResults toolResults, string query, string language)
         => BuildRagEvidenceFallbackAnswer(toolResults, query, language);
 
     internal static string TryBuildSourcePolicyGuardAnswerForTests(ToolResults toolResults, string query, string language)
         => TryBuildSourcePolicyGuardAnswer(toolResults, query, language);
+
+    internal static bool LooksLikeDocumentInstructionPolicyRequestForTests(string query)
+        => LooksLikeDocumentInstructionPolicyRequest(query);
+
+    internal static bool LooksLikeDocumentVersionTraceabilityRequestForTests(string query)
+        => LooksLikeDocumentVersionTraceabilityRequest(query);
+
+    internal static string BuildMissingExplicitDocumentAnswerForTests(string language, string requestedDocument)
+        => BuildMissingExplicitDocumentAnswer(language, requestedDocument, Array.Empty<RagHitSummary>());
 
     internal static string BuildSourcePolicyRetrievalQueryForTests(string query)
         => BuildSourcePolicyRetrievalQuery(query);
@@ -374,17 +436,38 @@ public sealed partial class ToolAgentOrchestrator
     internal static string NormalizeRagQueryForTests(string query)
         => NormalizeRagQueryForRetrieval(query);
 
+    internal static string ResolveRagSearchExecutionQueryForTests(string query)
+        => ResolveRagSearchExecutionQuery(query);
+
     internal static bool LooksLikeStandaloneDocumentaryTopicForTests(string query)
         => LooksLikeStandaloneDocumentaryTopic(query);
 
     internal static bool LooksLikeSourceBackedActionRequestForTests(string query)
         => LooksLikeSourceBackedActionRequest(query);
 
+    internal static bool LooksLikeStructuredItemCardRequestForTests(string query)
+        => LooksLikeStructuredItemCardRequest(query);
+
+    internal static bool LooksLikeSourceAbsentAssertionPolicyRequestForTests(string query)
+        => LooksLikeSourceAbsentAssertionPolicyRequest(query);
+
+    internal static bool ShouldAttachSourceAnchorForSourceAbsentAssertionPolicyRequestForTests(string query)
+        => ShouldAttachSourceAnchorForSourceAbsentAssertionPolicyRequest(query);
+
+    internal static bool LooksLikeBinaryAnswerWithSourceUncertaintyRequestForTests(string query)
+        => LooksLikeBinaryAnswerWithSourceUncertaintyRequest(query);
+
     internal static bool LooksLikeSourceBackedPlanningRequestForTests(string query)
         => LooksLikeSourceBackedPlanningRequest(query);
 
     internal static string? TryExtractRequestedItemTitleForTests(string query)
         => TryExtractRequestedItemTitle(query);
+
+    internal static string? TryExtractPdfFileNameRequestedTitleForTests(string query)
+        => TryExtractPdfFileNameRequestedTitle(query);
+
+    internal static IReadOnlyList<string> ExtractExplicitDocumentFileReferenceQueriesForTests(string query)
+        => ExtractExplicitDocumentFileReferenceQueries(query);
 
     internal static bool LooksLikeNoRagDataAnswerForTests(string answer)
         => LooksLikeNoRagDataAnswer(answer);
@@ -401,11 +484,32 @@ public sealed partial class ToolAgentOrchestrator
     internal static string[] BuildSourceBackedActionRetrievalQueriesForTests(string query)
         => BuildSourceBackedActionRetrievalQueries(query);
 
+    internal static string[] BuildPreciseRetrievalQueriesForTests(string exactTitle, string retrievalQuery, string? originalQuery = null)
+        => BuildPreciseRetrievalQueries(exactTitle, retrievalQuery, originalQuery);
+
+    internal static bool ShouldTryPreciseMultiSearchForExactItemForTests(
+        JsonElement ragResult,
+        string query,
+        string exactItemTitle,
+        string? requestedExplicitDocument = null,
+        bool isCompactTechnicalExactItem = false,
+        bool isDocumentVersionTraceabilityRequest = false)
+        => ShouldTryPreciseMultiSearchForExactItem(
+            ragResult,
+            query,
+            exactItemTitle,
+            requestedExplicitDocument,
+            isCompactTechnicalExactItem,
+            isDocumentVersionTraceabilityRequest);
+
     internal static bool LooksLikeComparativeDocumentaryRequestForTests(string query)
         => LooksLikeComparativeDocumentaryRequest(query);
 
     internal static string[] BuildComparativeRetrievalQueriesForTests(string query)
         => BuildComparativeRetrievalQueries(query);
+
+    internal static int CountExplicitDocumentFileReferencesForTests(string query)
+        => CountExplicitDocumentFileReferences(query);
 
     internal static bool ShouldRunDocumentaryProbeForTests(string query, RouterPlan plan)
     {

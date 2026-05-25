@@ -192,6 +192,32 @@ public sealed class RagSearchBulkheadTests
         Assert.Equal(3, RagEndpoints.ComputeRagSearchRetryAfterSeconds(rag, empty));
     }
 
+    [Theory]
+    [InlineData(-5, 0)]
+    [InlineData(0, 0)]
+    [InlineData(1, 1)]
+    [InlineData(15, 15)]
+    [InlineData(999, RagOptions.MaxSearchDenseEmbeddingTimeoutSeconds)]
+    public void ResolveSearchDenseEmbeddingTimeoutSeconds_keeps_interactive_budget_bounded(
+        int configured,
+        int expected)
+    {
+        Assert.Equal(expected, RagOptions.ResolveSearchDenseEmbeddingTimeoutSeconds(configured));
+    }
+
+    [Theory]
+    [InlineData(-5, 1)]
+    [InlineData(0, 1)]
+    [InlineData(1, 1)]
+    [InlineData(12, 12)]
+    [InlineData(999, RagOptions.MaxSearchSparseCommandTimeoutSeconds)]
+    public void ResolveSearchSparseCommandTimeoutSeconds_keeps_interactive_sql_budget_bounded(
+        int configured,
+        int expected)
+    {
+        Assert.Equal(expected, RagOptions.ResolveSearchSparseCommandTimeoutSeconds(configured));
+    }
+
     private static async Task WaitForQueuedCountAsync(RagSearchBulkhead bulkhead, int expectedQueued)
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));

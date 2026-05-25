@@ -1,0 +1,1609 @@
+{
+  "version": "questions-llm-documentation-technique-v1",
+  "generatedAt": "2026-05-21",
+  "sourceFile": "Documentation technique/count_pages_documentation_technique.csv",
+  "sourceCategory": "Documentation technique",
+  "description": "Prepared RAG/LLM validation bank for the Documentation technique corpus, based on the local Questions LLM technical documentation inventory.",
+  "validationCases": [
+    {
+      "id": "Q001",
+      "axis": "Inventaire corpus",
+      "difficulty": "Facile",
+      "corpusTarget": "Tous",
+      "theme": "Orientation corpus",
+      "question": "Quels grands types de documents contient la catégorie Documentation technique, et à quoi servent-ils chacun ?",
+      "expectedAnswerKind": "Vue d’ensemble structurée avec familles documentaires, exemples de PDF réellement présents et limites explicites.",
+      "validationPoints": "Doit citer des PDF ou dossiers existants, distinguer les familles, ne pas inventer de document absent et signaler les limites de couverture."
+    },
+    {
+      "id": "Q002",
+      "axis": "Inventaire corpus",
+      "difficulty": "Facile",
+      "corpusTarget": "Tous",
+      "theme": "Orientation corpus",
+      "question": "Peux-tu me faire une cartographie rapide des fabricants les plus représentés et des types de PDF disponibles ?",
+      "expectedAnswerKind": "Vue d’ensemble structurée avec familles documentaires, exemples de PDF réellement présents et limites explicites.",
+      "validationPoints": "Doit citer des PDF ou dossiers existants, distinguer les familles, ne pas inventer de document absent et signaler les limites de couverture."
+    },
+    {
+      "id": "Q003",
+      "axis": "Inventaire corpus",
+      "difficulty": "Facile",
+      "corpusTarget": "Tous",
+      "theme": "Orientation corpus",
+      "question": "Quels dossiers semblent les plus riches pour tester un moteur RAG sur de la documentation technique industrielle ?",
+      "expectedAnswerKind": "Vue d’ensemble structurée avec familles documentaires, exemples de PDF réellement présents et limites explicites.",
+      "validationPoints": "Doit citer des PDF ou dossiers existants, distinguer les familles, ne pas inventer de document absent et signaler les limites de couverture."
+    },
+    {
+      "id": "Q004",
+      "axis": "Inventaire corpus",
+      "difficulty": "Facile",
+      "corpusTarget": "Tous",
+      "theme": "Orientation corpus",
+      "question": "Quels documents dois-je lire en priorité si je cherche des certificats, des fiches techniques et des modes d’emploi ?",
+      "expectedAnswerKind": "Vue d’ensemble structurée avec familles documentaires, exemples de PDF réellement présents et limites explicites.",
+      "validationPoints": "Doit citer des PDF ou dossiers existants, distinguer les familles, ne pas inventer de document absent et signaler les limites de couverture."
+    },
+    {
+      "id": "Q005",
+      "axis": "Inventaire corpus",
+      "difficulty": "Facile",
+      "corpusTarget": "Tous",
+      "theme": "Orientation corpus",
+      "question": "Peux-tu séparer les PDF en certificats, catalogues, fiches techniques, modes d’emploi, documents divers et archives ?",
+      "expectedAnswerKind": "Vue d’ensemble structurée avec familles documentaires, exemples de PDF réellement présents et limites explicites.",
+      "validationPoints": "Doit citer des PDF ou dossiers existants, distinguer les familles, ne pas inventer de document absent et signaler les limites de couverture."
+    },
+    {
+      "id": "Q006",
+      "axis": "Inventaire corpus",
+      "difficulty": "Facile",
+      "corpusTarget": "Tous",
+      "theme": "Orientation corpus",
+      "question": "Quels dossiers contiennent probablement des versions anciennes ou des archives à ne pas confondre avec les versions courantes ?",
+      "expectedAnswerKind": "Vue d’ensemble structurée avec familles documentaires, exemples de PDF réellement présents et limites explicites.",
+      "validationPoints": "Doit citer des PDF ou dossiers existants, distinguer les familles, ne pas inventer de document absent et signaler les limites de couverture."
+    },
+    {
+      "id": "Q007",
+      "axis": "Inventaire corpus",
+      "difficulty": "Facile",
+      "corpusTarget": "Tous",
+      "theme": "Orientation corpus",
+      "question": "Quels documents du corpus sont courts mais critiques pour une réponse de conformité ?",
+      "expectedAnswerKind": "Vue d’ensemble structurée avec familles documentaires, exemples de PDF réellement présents et limites explicites.",
+      "validationPoints": "Doit citer des PDF ou dossiers existants, distinguer les familles, ne pas inventer de document absent et signaler les limites de couverture."
+    },
+    {
+      "id": "Q008",
+      "axis": "Inventaire corpus",
+      "difficulty": "Facile",
+      "corpusTarget": "Tous",
+      "theme": "Orientation corpus",
+      "question": "Quels documents du corpus sont longs ou riches et risquent de contenir plusieurs sections utiles ?",
+      "expectedAnswerKind": "Vue d’ensemble structurée avec familles documentaires, exemples de PDF réellement présents et limites explicites.",
+      "validationPoints": "Doit citer des PDF ou dossiers existants, distinguer les familles, ne pas inventer de document absent et signaler les limites de couverture."
+    },
+    {
+      "id": "Q009",
+      "axis": "Inventaire corpus",
+      "difficulty": "Facile",
+      "corpusTarget": "Tous",
+      "theme": "Orientation corpus",
+      "question": "Si je cherche une information produit précise, quelle stratégie de recherche proposes-tu dans ce corpus technique ?",
+      "expectedAnswerKind": "Vue d’ensemble structurée avec familles documentaires, exemples de PDF réellement présents et limites explicites.",
+      "validationPoints": "Doit citer des PDF ou dossiers existants, distinguer les familles, ne pas inventer de document absent et signaler les limites de couverture."
+    },
+    {
+      "id": "Q010",
+      "axis": "Inventaire corpus",
+      "difficulty": "Facile",
+      "corpusTarget": "Tous",
+      "theme": "Orientation corpus",
+      "question": "Quels fabricants ont beaucoup de documents et demandent une réponse particulièrement prudente sur les versions ?",
+      "expectedAnswerKind": "Vue d’ensemble structurée avec familles documentaires, exemples de PDF réellement présents et limites explicites.",
+      "validationPoints": "Doit citer des PDF ou dossiers existants, distinguer les familles, ne pas inventer de document absent et signaler les limites de couverture."
+    },
+    {
+      "id": "Q011",
+      "axis": "Inventaire corpus",
+      "difficulty": "Facile",
+      "corpusTarget": "Tous",
+      "theme": "Orientation corpus",
+      "question": "Peux-tu identifier des familles multilingues FR/EN/DE/IT/ES dans ce corpus ?",
+      "expectedAnswerKind": "Vue d’ensemble structurée avec familles documentaires, exemples de PDF réellement présents et limites explicites.",
+      "validationPoints": "Doit citer des PDF ou dossiers existants, distinguer les familles, ne pas inventer de document absent et signaler les limites de couverture."
+    },
+    {
+      "id": "Q012",
+      "axis": "Inventaire corpus",
+      "difficulty": "Facile",
+      "corpusTarget": "Tous",
+      "theme": "Orientation corpus",
+      "question": "Quels dossiers mélangent certificats, fiches techniques et manuels pour un même équipement ?",
+      "expectedAnswerKind": "Vue d’ensemble structurée avec familles documentaires, exemples de PDF réellement présents et limites explicites.",
+      "validationPoints": "Doit citer des PDF ou dossiers existants, distinguer les familles, ne pas inventer de document absent et signaler les limites de couverture."
+    },
+    {
+      "id": "Q013",
+      "axis": "Inventaire corpus",
+      "difficulty": "Facile",
+      "corpusTarget": "Tous",
+      "theme": "Orientation corpus",
+      "question": "Quels PDF semblent concerner la sécurité, les zones ATEX ou les fiches de données de sécurité ?",
+      "expectedAnswerKind": "Vue d’ensemble structurée avec familles documentaires, exemples de PDF réellement présents et limites explicites.",
+      "validationPoints": "Doit citer des PDF ou dossiers existants, distinguer les familles, ne pas inventer de document absent et signaler les limites de couverture."
+    },
+    {
+      "id": "Q014",
+      "axis": "Inventaire corpus",
+      "difficulty": "Facile",
+      "corpusTarget": "Tous",
+      "theme": "Orientation corpus",
+      "question": "Quels documents sont probablement des brochures commerciales et lesquels sont plutôt des preuves techniques ?",
+      "expectedAnswerKind": "Vue d’ensemble structurée avec familles documentaires, exemples de PDF réellement présents et limites explicites.",
+      "validationPoints": "Doit citer des PDF ou dossiers existants, distinguer les familles, ne pas inventer de document absent et signaler les limites de couverture."
+    },
+    {
+      "id": "Q015",
+      "axis": "Inventaire corpus",
+      "difficulty": "Facile",
+      "corpusTarget": "Tous",
+      "theme": "Orientation corpus",
+      "question": "Donne-moi un inventaire orienté usage: conformité, choix produit, installation, sécurité, maintenance.",
+      "expectedAnswerKind": "Vue d’ensemble structurée avec familles documentaires, exemples de PDF réellement présents et limites explicites.",
+      "validationPoints": "Doit citer des PDF ou dossiers existants, distinguer les familles, ne pas inventer de document absent et signaler les limites de couverture."
+    },
+    {
+      "id": "Q016",
+      "axis": "Certificats et conformité",
+      "difficulty": "Moyenne",
+      "corpusTarget": "3M\\1 - Certificates\\CER-FDA_EU Sleeve PTFE TF1620-EN.pdf",
+      "theme": "Preuve documentaire",
+      "question": "Que certifie le document CER-FDA_EU Sleeve PTFE TF1620-EN.pdf et quelles limites dois-je garder en tête ?",
+      "expectedAnswerKind": "Réponse sourcée distinguant certificat, déclaration, fiche technique, manuel et document informatif.",
+      "validationPoints": "Doit citer le bon PDF, ne pas transformer une brochure ou fiche technique en certificat, et préciser les incertitudes."
+    },
+    {
+      "id": "Q017",
+      "axis": "Certificats et conformité",
+      "difficulty": "Moyenne",
+      "corpusTarget": "3M\\1 - Certificates\\CER-FDA_EU Sleeve PTFE-AS TF6220-EN.pdf",
+      "theme": "Preuve documentaire",
+      "question": "Le certificat CER-FDA_EU Sleeve PTFE-AS TF6220-EN.pdf concerne-t-il le même périmètre que le TF1620 ?",
+      "expectedAnswerKind": "Réponse sourcée distinguant certificat, déclaration, fiche technique, manuel et document informatif.",
+      "validationPoints": "Doit citer le bon PDF, ne pas transformer une brochure ou fiche technique en certificat, et préciser les incertitudes."
+    },
+    {
+      "id": "Q018",
+      "axis": "Certificats et conformité",
+      "difficulty": "Moyenne",
+      "corpusTarget": "3M\\1 - Certificates\\CER-FullRegulations_PTFE_TF1620_TF1641_TF1645-EN.pdf ; 3M\\7 - Old versions\\CER-FullRegulations_PTFE_TF1620_TF1641_TF1645-EN.pdf",
+      "theme": "Preuve documentaire",
+      "question": "Compare le certificat FullRegulations PTFE courant et sa version dans Old versions: lequel faut-il privilégier ?",
+      "expectedAnswerKind": "Réponse sourcée distinguant certificat, déclaration, fiche technique, manuel et document informatif.",
+      "validationPoints": "Doit citer le bon PDF, ne pas transformer une brochure ou fiche technique en certificat, et préciser les incertitudes."
+    },
+    {
+      "id": "Q019",
+      "axis": "Certificats et conformité",
+      "difficulty": "Moyenne",
+      "corpusTarget": "3M\\1 - Certificates\\CER-USP Class VI TF1641_TF1620-EN.pdf",
+      "theme": "Preuve documentaire",
+      "question": "Que puis-je conclure du certificat USP Class VI pour TF1641 et TF1620, sans extrapoler à tous les PTFE ?",
+      "expectedAnswerKind": "Réponse sourcée distinguant certificat, déclaration, fiche technique, manuel et document informatif.",
+      "validationPoints": "Doit citer le bon PDF, ne pas transformer une brochure ou fiche technique en certificat, et préciser les incertitudes."
+    },
+    {
+      "id": "Q020",
+      "axis": "Certificats et conformité",
+      "difficulty": "Moyenne",
+      "corpusTarget": "4G Ghidini\\1 - Certificats_Certificates\\CER-FDA_EU_USP PTFE G400 Valves 4G Ghidini-EN.pdf",
+      "theme": "Preuve documentaire",
+      "question": "Le certificat FDA/EU/USP PTFE G400 pour valves 4G couvre-t-il les joints, les valves ou les deux ?",
+      "expectedAnswerKind": "Réponse sourcée distinguant certificat, déclaration, fiche technique, manuel et document informatif.",
+      "validationPoints": "Doit citer le bon PDF, ne pas transformer une brochure ou fiche technique en certificat, et préciser les incertitudes."
+    },
+    {
+      "id": "Q021",
+      "axis": "Certificats et conformité",
+      "difficulty": "Moyenne",
+      "corpusTarget": "4G Ghidini\\1 - Certificats_Certificates\\CER-FDA_EU_USP PTFE G400 Valves 4G Ghidini-EN.pdf ; 4G Ghidini\\1 - Certificats_Certificates\\CER-FDA_EU_USP PTFE G400 Valves 4G Ghidini-EN 2022 04 14.pdf",
+      "theme": "Preuve documentaire",
+      "question": "Y a-t-il une version datée 2022 du certificat PTFE G400 4G Ghidini, et comment la distinguer de la version non datée ?",
+      "expectedAnswerKind": "Réponse sourcée distinguant certificat, déclaration, fiche technique, manuel et document informatif.",
+      "validationPoints": "Doit citer le bon PDF, ne pas transformer une brochure ou fiche technique en certificat, et préciser les incertitudes."
+    },
+    {
+      "id": "Q022",
+      "axis": "Certificats et conformité",
+      "difficulty": "Moyenne",
+      "corpusTarget": "4G Ghidini\\1 - Certificats_Certificates\\CER-TÜV_IT_15_ATEX_054_AR-IT EN.pdf",
+      "theme": "Preuve documentaire",
+      "question": "Que faut-il extraire du certificat TÜV ATEX 4G sans confondre norme, organisme et produit couvert ?",
+      "expectedAnswerKind": "Réponse sourcée distinguant certificat, déclaration, fiche technique, manuel et document informatif.",
+      "validationPoints": "Doit citer le bon PDF, ne pas transformer une brochure ou fiche technique en certificat, et préciser les incertitudes."
+    },
+    {
+      "id": "Q023",
+      "axis": "Certificats et conformité",
+      "difficulty": "Moyenne",
+      "corpusTarget": "AAF International\\1 - Certificats\\CER-FDA non compliance HEPA filters-GB.pdf",
+      "theme": "Preuve documentaire",
+      "question": "Le document FDA non compliance HEPA filters d’AAF est-il une conformité ou une non-conformité ?",
+      "expectedAnswerKind": "Réponse sourcée distinguant certificat, déclaration, fiche technique, manuel et document informatif.",
+      "validationPoints": "Doit citer le bon PDF, ne pas transformer une brochure ou fiche technique en certificat, et préciser les incertitudes."
+    },
+    {
+      "id": "Q024",
+      "axis": "Certificats et conformité",
+      "difficulty": "Moyenne",
+      "corpusTarget": "ABB\\1 - Certificats\\CER-FM16CA0036X Model 266 Pressure Transmitter-EN.pdf",
+      "theme": "Preuve documentaire",
+      "question": "Quel certificat ABB dois-je citer pour un transmetteur de pression Model 266 en environnement certifié ?",
+      "expectedAnswerKind": "Réponse sourcée distinguant certificat, déclaration, fiche technique, manuel et document informatif.",
+      "validationPoints": "Doit citer le bon PDF, ne pas transformer une brochure ou fiche technique en certificat, et préciser les incertitudes."
+    },
+    {
+      "id": "Q025",
+      "axis": "Certificats et conformité",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Siemens\\1 - Certificats\\CER-Simotics_1MD509x_U58_BVS_11_ATEX_E_015_X-DE EN.pdf",
+      "theme": "Preuve documentaire",
+      "question": "Le certificat Siemens Simotics mentionne-t-il ATEX, et pour quelle famille de moteurs ?",
+      "expectedAnswerKind": "Réponse sourcée distinguant certificat, déclaration, fiche technique, manuel et document informatif.",
+      "validationPoints": "Doit citer le bon PDF, ne pas transformer une brochure ou fiche technique en certificat, et préciser les incertitudes."
+    },
+    {
+      "id": "Q026",
+      "axis": "Certificats et conformité",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Bizerba\\1 - Certificats\\CER-ATEX ST-Ex (Zone1)_EX5_01_10_38033_013-FR.pdf",
+      "theme": "Preuve documentaire",
+      "question": "Que dit le certificat ATEX Bizerba ST-Ex Zone 1 en français, et quelle zone ne faut-il pas lui attribuer ?",
+      "expectedAnswerKind": "Réponse sourcée distinguant certificat, déclaration, fiche technique, manuel et document informatif.",
+      "validationPoints": "Doit citer le bon PDF, ne pas transformer une brochure ou fiche technique en certificat, et préciser les incertitudes."
+    },
+    {
+      "id": "Q027",
+      "axis": "Certificats et conformité",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Festo\\1 - Certificats\\CER-ATEX Linear Drives DGC-DE EN FR.pdf",
+      "theme": "Preuve documentaire",
+      "question": "Quel est le périmètre du certificat ATEX Festo Linear Drives DGC ?",
+      "expectedAnswerKind": "Réponse sourcée distinguant certificat, déclaration, fiche technique, manuel et document informatif.",
+      "validationPoints": "Doit citer le bon PDF, ne pas transformer une brochure ou fiche technique en certificat, et préciser les incertitudes."
+    },
+    {
+      "id": "Q028",
+      "axis": "Certificats et conformité",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Rittal\\1 - Certificats\\CER-Declaration_de_conformite_VX25.pdf",
+      "theme": "Preuve documentaire",
+      "question": "Le document Rittal VX25 est-il une déclaration de conformité, et pour quel type d’équipement ?",
+      "expectedAnswerKind": "Réponse sourcée distinguant certificat, déclaration, fiche technique, manuel et document informatif.",
+      "validationPoints": "Doit citer le bon PDF, ne pas transformer une brochure ou fiche technique en certificat, et préciser les incertitudes."
+    },
+    {
+      "id": "Q029",
+      "axis": "Certificats et conformité",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Garlock\\1 - Certificats_Certificates\\CER-FDA_EU-Gylon-EN.pdf",
+      "theme": "Preuve documentaire",
+      "question": "Le certificat Garlock FDA/EU-Gylon-EN peut-il servir pour justifier un usage alimentaire ou pharmaceutique ?",
+      "expectedAnswerKind": "Réponse sourcée distinguant certificat, déclaration, fiche technique, manuel et document informatif.",
+      "validationPoints": "Doit citer le bon PDF, ne pas transformer une brochure ou fiche technique en certificat, et préciser les incertitudes."
+    },
+    {
+      "id": "Q030",
+      "axis": "Certificats et conformité",
+      "difficulty": "Moyenne",
+      "corpusTarget": "PALL\\1 - Certificats_Certificates\\DXXJ50M3823F Certificate of Analysis_batch x_STO4503582504.pdf",
+      "theme": "Preuve documentaire",
+      "question": "Le Certificate of Analysis PALL DXXJ50M3823F est-il lié à un lot précis ?",
+      "expectedAnswerKind": "Réponse sourcée distinguant certificat, déclaration, fiche technique, manuel et document informatif.",
+      "validationPoints": "Doit citer le bon PDF, ne pas transformer une brochure ou fiche technique en certificat, et préciser les incertitudes."
+    },
+    {
+      "id": "Q031",
+      "axis": "Certificats et conformité",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Mettler-Toledo\\3 - Fiches techniques\\FIT_IND570xx-EN.pdf",
+      "theme": "Preuve documentaire",
+      "question": "Quels documents Mettler-Toledo faut-il citer pour la conformité du terminal IND570xx ?",
+      "expectedAnswerKind": "Réponse sourcée distinguant certificat, déclaration, fiche technique, manuel et document informatif.",
+      "validationPoints": "Doit citer le bon PDF, ne pas transformer une brochure ou fiche technique en certificat, et préciser les incertitudes."
+    },
+    {
+      "id": "Q032",
+      "axis": "Certificats et conformité",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Sick\\4 - Modes d'emploi\\MAN-Safety light curtain C4000 Standard et Advanced-EN.pdf",
+      "theme": "Preuve documentaire",
+      "question": "Pour un rideau lumineux Sick C4000, quels certificats ou manuels faut-il vérifier avant de conclure sur la conformité ?",
+      "expectedAnswerKind": "Réponse sourcée distinguant certificat, déclaration, fiche technique, manuel et document informatif.",
+      "validationPoints": "Doit citer le bon PDF, ne pas transformer une brochure ou fiche technique en certificat, et préciser les incertitudes."
+    },
+    {
+      "id": "Q033",
+      "axis": "Certificats et conformité",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Schmersal\\3 - Fiches techniques_Data sheets\\FIT-Capteur sécurité EX BNS 303-12Z-FR.pdf",
+      "theme": "Preuve documentaire",
+      "question": "Le capteur Schmersal EX BNS 303 dispose-t-il d’une fiche technique française utilisable pour une demande sécurité ?",
+      "expectedAnswerKind": "Réponse sourcée distinguant certificat, déclaration, fiche technique, manuel et document informatif.",
+      "validationPoints": "Doit citer le bon PDF, ne pas transformer une brochure ou fiche technique en certificat, et préciser les incertitudes."
+    },
+    {
+      "id": "Q034",
+      "axis": "Certificats et conformité",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Endress+Hauser\\4 - Modes d'emploi\\MAN-Safety Instructions Temperature transmitter TMT82-EN DE FR.pdf",
+      "theme": "Preuve documentaire",
+      "question": "Les Safety Instructions Endress+Hauser TMT82 couvrent-elles plusieurs langues et doivent-elles être traitées comme un manuel de sécurité ?",
+      "expectedAnswerKind": "Réponse sourcée distinguant certificat, déclaration, fiche technique, manuel et document informatif.",
+      "validationPoints": "Doit citer le bon PDF, ne pas transformer une brochure ou fiche technique en certificat, et préciser les incertitudes."
+    },
+    {
+      "id": "Q035",
+      "axis": "Certificats et conformité",
+      "difficulty": "Moyenne",
+      "corpusTarget": "4G Ghidini\\6 - Divers documents_Misc. documents\\Résistance à la corrosion vannes 4G.pdf",
+      "theme": "Preuve documentaire",
+      "question": "Le document Résistance à la corrosion vannes 4G est-il un certificat de conformité ? Réponds prudemment.",
+      "expectedAnswerKind": "Réponse sourcée distinguant certificat, déclaration, fiche technique, manuel et document informatif.",
+      "validationPoints": "Doit citer le bon PDF, ne pas transformer une brochure ou fiche technique en certificat, et préciser les incertitudes."
+    },
+    {
+      "id": "Q036",
+      "axis": "Fiches techniques",
+      "difficulty": "Moyenne",
+      "corpusTarget": "3M\\3 - Data sheets\\FIT-PTFE_TF_1620-EN.pdf ; 3M\\3 - Data sheets\\FIT-PTFE_TF_1641-EN.pdf",
+      "theme": "Caractéristiques produit",
+      "question": "Compare les fiches techniques PTFE TF 1620 et TF 1641: quels critères techniques dois-je vérifier avant de choisir ?",
+      "expectedAnswerKind": "Synthèse technique sourcée, avec séparation claire entre caractéristiques disponibles et informations absentes.",
+      "validationPoints": "Doit s’appuyer sur les PDF ciblés, éviter les valeurs non citées et mentionner les critères à vérifier dans les tableaux."
+    },
+    {
+      "id": "Q037",
+      "axis": "Fiches techniques",
+      "difficulty": "Moyenne",
+      "corpusTarget": "3M\\3 - Data sheets\\FIT-PTFE_TF_1750-EN.pdf ; 3M\\3 - Data sheets\\FIT-PTFE_TF_9205-EN.pdf",
+      "theme": "Caractéristiques produit",
+      "question": "Les fiches PTFE TF 1750 et TF 9205 sont-elles interchangeables ? Donne les points à comparer.",
+      "expectedAnswerKind": "Synthèse technique sourcée, avec séparation claire entre caractéristiques disponibles et informations absentes.",
+      "validationPoints": "Doit s’appuyer sur les PDF ciblés, éviter les valeurs non citées et mentionner les critères à vérifier dans les tableaux."
+    },
+    {
+      "id": "Q038",
+      "axis": "Fiches techniques",
+      "difficulty": "Moyenne",
+      "corpusTarget": "3M\\2 - Leaflets\\2018 03 Dyneon PTFE PCG 8p en_US.pdf",
+      "theme": "Caractéristiques produit",
+      "question": "Que contient le leaflet Dyneon PTFE PCG 8p par rapport aux fiches techniques 3M ?",
+      "expectedAnswerKind": "Synthèse technique sourcée, avec séparation claire entre caractéristiques disponibles et informations absentes.",
+      "validationPoints": "Doit s’appuyer sur les PDF ciblés, éviter les valeurs non citées et mentionner les critères à vérifier dans les tableaux."
+    },
+    {
+      "id": "Q039",
+      "axis": "Fiches techniques",
+      "difficulty": "Moyenne",
+      "corpusTarget": "3M\\2 - Leaflets\\PTFE Brochure.pdf ; 3M\\3 - Data sheets\\FIT-PTFE_TF_1620-EN.pdf",
+      "theme": "Caractéristiques produit",
+      "question": "Pour comprendre les grades PTFE, vaut-il mieux lire la brochure 3M ou la fiche TF 1620 ?",
+      "expectedAnswerKind": "Synthèse technique sourcée, avec séparation claire entre caractéristiques disponibles et informations absentes.",
+      "validationPoints": "Doit s’appuyer sur les PDF ciblés, éviter les valeurs non citées et mentionner les critères à vérifier dans les tableaux."
+    },
+    {
+      "id": "Q040",
+      "axis": "Fiches techniques",
+      "difficulty": "Moyenne",
+      "corpusTarget": "4G Ghidini\\3 - Fiches techniques_Data sheets\\FIT-Three Way Ball Valve 4 Seals with T Port 4G 300130_BS-EN.pdf ; 4G Ghidini\\3 - Fiches techniques_Data sheets\\FIT-Three Way Ball Valve 4 Seals with T Port 4G 300130_DIN-EN.pdf ; 4G Ghidini\\3 - Fiches techniques_Data sheets\\FIT-Three Way Ball Valve 4 Seals with T Port 4G 300130_ISO-EN.pdf",
+      "theme": "Caractéristiques produit",
+      "question": "Compare les variantes BS, DIN et ISO de la vanne trois voies 4G 300130.",
+      "expectedAnswerKind": "Synthèse technique sourcée, avec séparation claire entre caractéristiques disponibles et informations absentes.",
+      "validationPoints": "Doit s’appuyer sur les PDF ciblés, éviter les valeurs non citées et mentionner les critères à vérifier dans les tableaux."
+    },
+    {
+      "id": "Q041",
+      "axis": "Fiches techniques",
+      "difficulty": "Moyenne",
+      "corpusTarget": "4G Ghidini\\3 - Fiches techniques_Data sheets\\FIT-Two Way Ball Valve 4G Clamp 103030_BS-EN.pdf ; 4G Ghidini\\3 - Fiches techniques_Data sheets\\FIT-Two Way Ball Valve 4G Clamp 103030_DIN-EN.pdf ; 4G Ghidini\\3 - Fiches techniques_Data sheets\\FIT-Two Way Ball Valve 4G Clamp 103030_ISO-EN.pdf",
+      "theme": "Caractéristiques produit",
+      "question": "Pour la vanne clamp 4G 103030, quelles différences faut-il chercher entre BS, DIN et ISO ?",
+      "expectedAnswerKind": "Synthèse technique sourcée, avec séparation claire entre caractéristiques disponibles et informations absentes.",
+      "validationPoints": "Doit s’appuyer sur les PDF ciblés, éviter les valeurs non citées et mentionner les critères à vérifier dans les tableaux."
+    },
+    {
+      "id": "Q042",
+      "axis": "Fiches techniques",
+      "difficulty": "Moyenne",
+      "corpusTarget": "4G Ghidini\\3 - Fiches techniques_Data sheets\\FIT-Two Way Manual Ball Valve 4G 100150-EN.pdf",
+      "theme": "Caractéristiques produit",
+      "question": "Quelles informations techniques peut-on extraire de FIT-Two Way Manual Ball Valve 4G 100150-EN.pdf ?",
+      "expectedAnswerKind": "Synthèse technique sourcée, avec séparation claire entre caractéristiques disponibles et informations absentes.",
+      "validationPoints": "Doit s’appuyer sur les PDF ciblés, éviter les valeurs non citées et mentionner les critères à vérifier dans les tableaux."
+    },
+    {
+      "id": "Q043",
+      "axis": "Fiches techniques",
+      "difficulty": "Moyenne",
+      "corpusTarget": "AAF International\\3 - Fiches techniques\\FIT-AstroCel II Dry Seal-FR.pdf ; AAF International\\3 - Fiches techniques\\FIT-AstroCel II Dry Seal-GB.pdf",
+      "theme": "Caractéristiques produit",
+      "question": "La fiche AstroCel II Dry Seal existe-t-elle en français et en anglais ? Compare les documents disponibles.",
+      "expectedAnswerKind": "Synthèse technique sourcée, avec séparation claire entre caractéristiques disponibles et informations absentes.",
+      "validationPoints": "Doit s’appuyer sur les PDF ciblés, éviter les valeurs non citées et mentionner les critères à vérifier dans les tableaux."
+    },
+    {
+      "id": "Q044",
+      "axis": "Fiches techniques",
+      "difficulty": "Moyenne",
+      "corpusTarget": "AAF International\\3 - Fiches techniques\\FIT-VariCel EcoPak-FR.pdf ; AAF International\\3 - Fiches techniques\\FIT-AstroCel II Dry Seal-FR.pdf",
+      "theme": "Caractéristiques produit",
+      "question": "Compare VariCel EcoPak et AstroCel II Dry Seal chez AAF: est-ce la même famille de produit ?",
+      "expectedAnswerKind": "Synthèse technique sourcée, avec séparation claire entre caractéristiques disponibles et informations absentes.",
+      "validationPoints": "Doit s’appuyer sur les PDF ciblés, éviter les valeurs non citées et mentionner les critères à vérifier dans les tableaux."
+    },
+    {
+      "id": "Q045",
+      "axis": "Fiches techniques",
+      "difficulty": "Moyenne",
+      "corpusTarget": "ABB\\3 - Fiches techniques\\FIT-2600T Series Pressure Transmitters 266_DSH-EN.pdf",
+      "theme": "Caractéristiques produit",
+      "question": "Dans la fiche ABB 2600T Series Pressure Transmitters 266_DSH, quelles caractéristiques faut-il extraire en priorité ?",
+      "expectedAnswerKind": "Synthèse technique sourcée, avec séparation claire entre caractéristiques disponibles et informations absentes.",
+      "validationPoints": "Doit s’appuyer sur les PDF ciblés, éviter les valeurs non citées et mentionner les critères à vérifier dans les tableaux."
+    },
+    {
+      "id": "Q046",
+      "axis": "Fiches techniques",
+      "difficulty": "Moyenne",
+      "corpusTarget": "ABB\\3 - Fiches techniques\\FIT-Temperature transmitter TTH200-EN.pdf ; ABB\\4 - Modes d'emploi\\MAN-Temperature Transmitter TTH200-EN.pdf",
+      "theme": "Caractéristiques produit",
+      "question": "Pour le transmetteur ABB TTH200, distingue fiche technique et mode d’emploi.",
+      "expectedAnswerKind": "Synthèse technique sourcée, avec séparation claire entre caractéristiques disponibles et informations absentes.",
+      "validationPoints": "Doit s’appuyer sur les PDF ciblés, éviter les valeurs non citées et mentionner les critères à vérifier dans les tableaux."
+    },
+    {
+      "id": "Q047",
+      "axis": "Fiches techniques",
+      "difficulty": "Moyenne",
+      "corpusTarget": "ABB\\3 - Fiches techniques\\FIT-Positionneur_EDP300-FR.pdf ; ABB\\3 - Fiches techniques\\FIT-Positioner_EDP300-EN.pdf",
+      "theme": "Caractéristiques produit",
+      "question": "La fiche Positionneur EDP300 existe-t-elle en FR et EN, et les deux titres pointent-ils vers le même équipement ?",
+      "expectedAnswerKind": "Synthèse technique sourcée, avec séparation claire entre caractéristiques disponibles et informations absentes.",
+      "validationPoints": "Doit s’appuyer sur les PDF ciblés, éviter les valeurs non citées et mentionner les critères à vérifier dans les tableaux."
+    },
+    {
+      "id": "Q048",
+      "axis": "Fiches techniques",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Siemens\\3 - Fiches techniques\\FIT-Moteur Simotics 1LE1003-0EB42-2FB4-Z-FR EN.pdf",
+      "theme": "Caractéristiques produit",
+      "question": "Que permet de savoir la fiche Siemens Moteur Simotics 1LE1003-0EB42-2FB4-Z ?",
+      "expectedAnswerKind": "Synthèse technique sourcée, avec séparation claire entre caractéristiques disponibles et informations absentes.",
+      "validationPoints": "Doit s’appuyer sur les PDF ciblés, éviter les valeurs non citées et mentionner les critères à vérifier dans les tableaux."
+    },
+    {
+      "id": "Q049",
+      "axis": "Fiches techniques",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Bürkert\\3 - Fiches techniques\\FIT-FLOWave - Débitmètre SAW Type 8098-FR.pdf ; Bürkert\\3 - Fiches techniques\\FIT-FLOWave SAW - Flowmeter Type 8098-EN.pdf",
+      "theme": "Caractéristiques produit",
+      "question": "Compare la fiche Bürkert FLOWave Type 8098 en français et en anglais.",
+      "expectedAnswerKind": "Synthèse technique sourcée, avec séparation claire entre caractéristiques disponibles et informations absentes.",
+      "validationPoints": "Doit s’appuyer sur les PDF ciblés, éviter les valeurs non citées et mentionner les critères à vérifier dans les tableaux."
+    },
+    {
+      "id": "Q050",
+      "axis": "Fiches techniques",
+      "difficulty": "Moyenne",
+      "corpusTarget": "DEC\\Data Sheets\\Safety Filters\\FIT-Absolute Filter_022987-EN.pdf",
+      "theme": "Caractéristiques produit",
+      "question": "Quels éléments techniques dois-je relever dans la fiche DEC Absolute Filter_022987 ?",
+      "expectedAnswerKind": "Synthèse technique sourcée, avec séparation claire entre caractéristiques disponibles et informations absentes.",
+      "validationPoints": "Doit s’appuyer sur les PDF ciblés, éviter les valeurs non citées et mentionner les critères à vérifier dans les tableaux."
+    },
+    {
+      "id": "Q051",
+      "axis": "Fiches techniques",
+      "difficulty": "Moyenne",
+      "corpusTarget": "DEC\\Data Sheets\\Safety Filters\\FIT-Air Filter_000001-2-6-7_010319-20_002810_011827-EN DE FR.pdf",
+      "theme": "Caractéristiques produit",
+      "question": "La fiche DEC Air Filter contient-elle plusieurs langues dans un même PDF ?",
+      "expectedAnswerKind": "Synthèse technique sourcée, avec séparation claire entre caractéristiques disponibles et informations absentes.",
+      "validationPoints": "Doit s’appuyer sur les PDF ciblés, éviter les valeurs non citées et mentionner les critères à vérifier dans les tableaux."
+    },
+    {
+      "id": "Q052",
+      "axis": "Fiches techniques",
+      "difficulty": "Moyenne",
+      "corpusTarget": "DEC\\Data Sheets\\Safety Filters\\FIT-Push-Push Filter Cartridge_H14_FG_EX_064775-EN DE FR.pdf",
+      "theme": "Caractéristiques produit",
+      "question": "Que dois-je vérifier dans la fiche DEC Push-Push Filter Cartridge H14 FG EX ?",
+      "expectedAnswerKind": "Synthèse technique sourcée, avec séparation claire entre caractéristiques disponibles et informations absentes.",
+      "validationPoints": "Doit s’appuyer sur les PDF ciblés, éviter les valeurs non citées et mentionner les critères à vérifier dans les tableaux."
+    },
+    {
+      "id": "Q053",
+      "axis": "Fiches techniques",
+      "difficulty": "Moyenne",
+      "corpusTarget": "PALL\\3 - Fiches techniques_Data sheets\\FIT-Fibermet M50-EN.pdf",
+      "theme": "Caractéristiques produit",
+      "question": "Quelles informations demander à la fiche PALL Fibermet M50 sans inventer de valeurs ?",
+      "expectedAnswerKind": "Synthèse technique sourcée, avec séparation claire entre caractéristiques disponibles et informations absentes.",
+      "validationPoints": "Doit s’appuyer sur les PDF ciblés, éviter les valeurs non citées et mentionner les critères à vérifier dans les tableaux."
+    },
+    {
+      "id": "Q054",
+      "axis": "Fiches techniques",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Camfil\\3 - Fiches techniques\\FIT-10.3.01 GloveBox-FR.pdf",
+      "theme": "Caractéristiques produit",
+      "question": "La fiche Camfil GloveBox FR est-elle utile pour choisir un filtre ou un carter ?",
+      "expectedAnswerKind": "Synthèse technique sourcée, avec séparation claire entre caractéristiques disponibles et informations absentes.",
+      "validationPoints": "Doit s’appuyer sur les PDF ciblés, éviter les valeurs non citées et mentionner les critères à vérifier dans les tableaux."
+    },
+    {
+      "id": "Q055",
+      "axis": "Fiches techniques",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Mettler-Toledo\\3 - Fiches techniques\\FIT_IND570xx-EN.pdf",
+      "theme": "Caractéristiques produit",
+      "question": "Dans FIT_IND570xx-EN.pdf, quelles caractéristiques du terminal Mettler-Toledo faut-il extraire ?",
+      "expectedAnswerKind": "Synthèse technique sourcée, avec séparation claire entre caractéristiques disponibles et informations absentes.",
+      "validationPoints": "Doit s’appuyer sur les PDF ciblés, éviter les valeurs non citées et mentionner les critères à vérifier dans les tableaux."
+    },
+    {
+      "id": "Q056",
+      "axis": "Sécurité et MSDS",
+      "difficulty": "Moyenne",
+      "corpusTarget": "3M\\3 - Data sheets\\MSDS-PTFE_TF1620_TF1641_TF1645-EN.pdf",
+      "theme": "Sécurité produit",
+      "question": "Quelles informations de sécurité faut-il extraire de la MSDS 3M PTFE TF1620/TF1641/TF1645 ?",
+      "expectedAnswerKind": "Réponse prudente orientée sécurité, avec citations du ou des documents ciblés et refus des conclusions non prouvées.",
+      "validationPoints": "Doit distinguer MSDS/FDS, safety instructions, manuel d’installation et certificat; ne doit pas donner de conseil sécurité sans source."
+    },
+    {
+      "id": "Q057",
+      "axis": "Sécurité et MSDS",
+      "difficulty": "Moyenne",
+      "corpusTarget": "3M\\3 - Data sheets\\MSDS-PTFE_TF1620_TF1641_TF1645-EN.pdf ; 3M\\1 - Certificates\\CER-FullRegulations_PTFE_TF1620_TF1641_TF1645-EN.pdf",
+      "theme": "Sécurité produit",
+      "question": "Quelle différence fais-tu entre la MSDS PTFE et le certificat FullRegulations 3M ?",
+      "expectedAnswerKind": "Réponse prudente orientée sécurité, avec citations du ou des documents ciblés et refus des conclusions non prouvées.",
+      "validationPoints": "Doit distinguer MSDS/FDS, safety instructions, manuel d’installation et certificat; ne doit pas donner de conseil sécurité sans source."
+    },
+    {
+      "id": "Q058",
+      "axis": "Sécurité et MSDS",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Busch\\6 - Divers documents\\Huiles\\SDS-VMH 100-EN.pdf ; Busch\\6 - Divers documents\\Huiles\\SDS-VMH 100-DE.pdf",
+      "theme": "Sécurité produit",
+      "question": "La SDS Busch VMH 100 existe-t-elle en anglais et en allemand ? Résume sans mélanger les langues.",
+      "expectedAnswerKind": "Réponse prudente orientée sécurité, avec citations du ou des documents ciblés et refus des conclusions non prouvées.",
+      "validationPoints": "Doit distinguer MSDS/FDS, safety instructions, manuel d’installation et certificat; ne doit pas donner de conseil sécurité sans source."
+    },
+    {
+      "id": "Q059",
+      "axis": "Sécurité et MSDS",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Busch\\6 - Divers documents\\Huiles\\SDS-VMH 100-EN.pdf ; Busch\\7 - Archives\\Huiles\\Busch VMH 100 SDS.pdf",
+      "theme": "Sécurité produit",
+      "question": "Compare la SDS Busch VMH 100 courante et la version archive.",
+      "expectedAnswerKind": "Réponse prudente orientée sécurité, avec citations du ou des documents ciblés et refus des conclusions non prouvées.",
+      "validationPoints": "Doit distinguer MSDS/FDS, safety instructions, manuel d’installation et certificat; ne doit pas donner de conseil sécurité sans source."
+    },
+    {
+      "id": "Q060",
+      "axis": "Sécurité et MSDS",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Busch\\6 - Divers documents\\Huiles\\Busch R 590 SDS_en.pdf",
+      "theme": "Sécurité produit",
+      "question": "Quels risques ou consignes dois-je chercher dans Busch R 590 SDS_en.pdf ?",
+      "expectedAnswerKind": "Réponse prudente orientée sécurité, avec citations du ou des documents ciblés et refus des conclusions non prouvées.",
+      "validationPoints": "Doit distinguer MSDS/FDS, safety instructions, manuel d’installation et certificat; ne doit pas donner de conseil sécurité sans source."
+    },
+    {
+      "id": "Q061",
+      "axis": "Sécurité et MSDS",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Gyso\\3 - Fiches techniques_Data sheets\\MSDS_Gyso-Sil 812-FR.pdf",
+      "theme": "Sécurité produit",
+      "question": "Que dois-je extraire de la MSDS Gyso-Sil 812 en français ?",
+      "expectedAnswerKind": "Réponse prudente orientée sécurité, avec citations du ou des documents ciblés et refus des conclusions non prouvées.",
+      "validationPoints": "Doit distinguer MSDS/FDS, safety instructions, manuel d’installation et certificat; ne doit pas donner de conseil sécurité sans source."
+    },
+    {
+      "id": "Q062",
+      "axis": "Sécurité et MSDS",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Maagtechnic\\3 - Fiches techniques\\FDS-Fluid Grease OKS 474-FR.pdf",
+      "theme": "Sécurité produit",
+      "question": "La FDS Fluid Grease OKS 474-FR est-elle une fiche technique produit ou une fiche de données de sécurité ?",
+      "expectedAnswerKind": "Réponse prudente orientée sécurité, avec citations du ou des documents ciblés et refus des conclusions non prouvées.",
+      "validationPoints": "Doit distinguer MSDS/FDS, safety instructions, manuel d’installation et certificat; ne doit pas donner de conseil sécurité sans source."
+    },
+    {
+      "id": "Q063",
+      "axis": "Sécurité et MSDS",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Solberg\\3 - Data sheets\\SDS-Blue Silicone Part A 664A-GB.pdf ; Solberg\\3 - Data sheets\\SDS-Blue Silicone Part B 664B-GB.pdf",
+      "theme": "Sécurité produit",
+      "question": "Compare les SDS Solberg Blue Silicone Part A et Part B: faut-il les traiter séparément ?",
+      "expectedAnswerKind": "Réponse prudente orientée sécurité, avec citations du ou des documents ciblés et refus des conclusions non prouvées.",
+      "validationPoints": "Doit distinguer MSDS/FDS, safety instructions, manuel d’installation et certificat; ne doit pas donner de conseil sécurité sans source."
+    },
+    {
+      "id": "Q064",
+      "axis": "Sécurité et MSDS",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Simona\\3 - Fiches techniques\\FIT-MSDS_PE-EL-EN.pdf",
+      "theme": "Sécurité produit",
+      "question": "La fiche SIMONA MSDS PE-EL contient-elle des informations sécurité ou seulement des propriétés matière ?",
+      "expectedAnswerKind": "Réponse prudente orientée sécurité, avec citations du ou des documents ciblés et refus des conclusions non prouvées.",
+      "validationPoints": "Doit distinguer MSDS/FDS, safety instructions, manuel d’installation et certificat; ne doit pas donner de conseil sécurité sans source."
+    },
+    {
+      "id": "Q065",
+      "axis": "Sécurité et MSDS",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Bizerba\\4 - Modes d'emploi\\MAN-Safety instructions Zone 1_21 - Ex i C16, C2 ... Z6R-EN DE FR IT ES PT.pdf",
+      "theme": "Sécurité produit",
+      "question": "Quelles consignes de sécurité faut-il relever dans le manuel Bizerba Zone 1/21 ?",
+      "expectedAnswerKind": "Réponse prudente orientée sécurité, avec citations du ou des documents ciblés et refus des conclusions non prouvées.",
+      "validationPoints": "Doit distinguer MSDS/FDS, safety instructions, manuel d’installation et certificat; ne doit pas donner de conseil sécurité sans source."
+    },
+    {
+      "id": "Q066",
+      "axis": "Sécurité et MSDS",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Wika\\4 - Modes d'emploi\\MAN-Safety instructions Process pressure transmitter IPT-1-EN.pdf",
+      "theme": "Sécurité produit",
+      "question": "Quelles consignes de sécurité chercher dans le document Wika IPT-1 Safety instructions ?",
+      "expectedAnswerKind": "Réponse prudente orientée sécurité, avec citations du ou des documents ciblés et refus des conclusions non prouvées.",
+      "validationPoints": "Doit distinguer MSDS/FDS, safety instructions, manuel d’installation et certificat; ne doit pas donner de conseil sécurité sans source."
+    },
+    {
+      "id": "Q067",
+      "axis": "Sécurité et MSDS",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Endress+Hauser\\4 - Modes d'emploi\\MAN-Safety Instructions Temperature transmitter TMT82-EN DE FR.pdf",
+      "theme": "Sécurité produit",
+      "question": "Dans les Safety Instructions Endress+Hauser TMT82, quelles informations sont critiques pour l’installation ?",
+      "expectedAnswerKind": "Réponse prudente orientée sécurité, avec citations du ou des documents ciblés et refus des conclusions non prouvées.",
+      "validationPoints": "Doit distinguer MSDS/FDS, safety instructions, manuel d’installation et certificat; ne doit pas donner de conseil sécurité sans source."
+    },
+    {
+      "id": "Q068",
+      "axis": "Sécurité et MSDS",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Siemens\\4 - Modes d'emploi\\MAN-Low-voltage motors SIMOTICS XP 1MB155_1MB555-EN.pdf",
+      "theme": "Sécurité produit",
+      "question": "Dans le manuel Siemens SIMOTICS XP en anglais, quelles sections de sécurité dois-je consulter avant installation ?",
+      "expectedAnswerKind": "Réponse prudente orientée sécurité, avec citations du ou des documents ciblés et refus des conclusions non prouvées.",
+      "validationPoints": "Doit distinguer MSDS/FDS, safety instructions, manuel d’installation et certificat; ne doit pas donner de conseil sécurité sans source."
+    },
+    {
+      "id": "Q069",
+      "axis": "Sécurité et MSDS",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Sick\\4 - Modes d'emploi\\MAN-Barrage de immatériel de sécurité C4000 Standard et Advanced-FR.pdf",
+      "theme": "Sécurité produit",
+      "question": "Quelles consignes de sécurité le manuel Sick C4000 français doit-il fournir pour l’usage machine ?",
+      "expectedAnswerKind": "Réponse prudente orientée sécurité, avec citations du ou des documents ciblés et refus des conclusions non prouvées.",
+      "validationPoints": "Doit distinguer MSDS/FDS, safety instructions, manuel d’installation et certificat; ne doit pas donner de conseil sécurité sans source."
+    },
+    {
+      "id": "Q070",
+      "axis": "Sécurité et MSDS",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Mettler-Toledo\\4 - Modes d'emploi\\MAN-Safety instructions IND780-EN FR DE IT ES.pdf",
+      "theme": "Sécurité produit",
+      "question": "Le document Mettler-Toledo IND780 Safety instructions couvre-t-il plusieurs langues et quels risques de confusion cela crée-t-il ?",
+      "expectedAnswerKind": "Réponse prudente orientée sécurité, avec citations du ou des documents ciblés et refus des conclusions non prouvées.",
+      "validationPoints": "Doit distinguer MSDS/FDS, safety instructions, manuel d’installation et certificat; ne doit pas donner de conseil sécurité sans source."
+    },
+    {
+      "id": "Q071",
+      "axis": "Versions anciennes",
+      "difficulty": "Difficile",
+      "corpusTarget": "3M\\1 - Certificates\\CER-FullRegulations_PTFE_TF1620_TF1641_TF1645-EN.pdf ; 3M\\7 - Old versions\\CER-FullRegulations_PTFE_TF1620_TF1641_TF1645-EN.pdf",
+      "theme": "Gestion des versions",
+      "question": "La version Old versions du certificat 3M FullRegulations doit-elle remplacer la version dans Certificates ?",
+      "expectedAnswerKind": "Réponse qui identifie le statut courant/archive, compare seulement les PDF disponibles et recommande la prudence.",
+      "validationPoints": "Doit mentionner le chemin ou le dossier Archive/Old versions lorsqu’il existe, ne pas supposer qu’une archive est obsolète sans preuve interne."
+    },
+    {
+      "id": "Q072",
+      "axis": "Versions anciennes",
+      "difficulty": "Difficile",
+      "corpusTarget": "4G Ghidini\\4 - Modes d'emploi_Instruction manuals\\MAN-Instructions Valves 4G Ghidini-IT EN FR DE ES.pdf ; 4G Ghidini\\7 - Archives_Old versions\\MAN-Instruction Vannes 4G Ghidini-IT GB FR DE ES 2020 01 13.pdf",
+      "theme": "Gestion des versions",
+      "question": "Compare le manuel 4G Ghidini courant et le manuel archivé de 2020.",
+      "expectedAnswerKind": "Réponse qui identifie le statut courant/archive, compare seulement les PDF disponibles et recommande la prudence.",
+      "validationPoints": "Doit mentionner le chemin ou le dossier Archive/Old versions lorsqu’il existe, ne pas supposer qu’une archive est obsolète sans preuve interne."
+    },
+    {
+      "id": "Q073",
+      "axis": "Versions anciennes",
+      "difficulty": "Difficile",
+      "corpusTarget": "4G Ghidini\\3 - Fiches techniques_Data sheets\\FIT-Two Way Ball Valve 4G Clamp 103030_ISO-EN.pdf ; 4G Ghidini\\7 - Archives_Old versions\\FIT-Two Way Ball Valve 4G Clamp 103030_ISO-EN 2024 10 23.pdf",
+      "theme": "Gestion des versions",
+      "question": "Pour 4G Clamp 103030 ISO, quelle version est courante et laquelle se trouve en archives ?",
+      "expectedAnswerKind": "Réponse qui identifie le statut courant/archive, compare seulement les PDF disponibles et recommande la prudence.",
+      "validationPoints": "Doit mentionner le chemin ou le dossier Archive/Old versions lorsqu’il existe, ne pas supposer qu’une archive est obsolète sans preuve interne."
+    },
+    {
+      "id": "Q074",
+      "axis": "Versions anciennes",
+      "difficulty": "Difficile",
+      "corpusTarget": "ABB\\4 - Modes d'emploi\\MAN-Temperature Transmitter TTH200-EN.pdf ; ABB\\7 - Archives\\MAN-Temperature Transmitter TTH200-EN 2019 12 05.pdf",
+      "theme": "Gestion des versions",
+      "question": "Pour ABB TTH200, comment traiter la version 2019 archivée par rapport au manuel courant ?",
+      "expectedAnswerKind": "Réponse qui identifie le statut courant/archive, compare seulement les PDF disponibles et recommande la prudence.",
+      "validationPoints": "Doit mentionner le chemin ou le dossier Archive/Old versions lorsqu’il existe, ne pas supposer qu’une archive est obsolète sans preuve interne."
+    },
+    {
+      "id": "Q075",
+      "axis": "Versions anciennes",
+      "difficulty": "Difficile",
+      "corpusTarget": "ABB\\4 - Modes d'emploi\\MAN-2600T Series Pressure Transmitters 266-EN.pdf ; ABB\\7 - Archives\\MAN-Safety Manual for 266 pressure transmitters certified according to IEC61508-EN 2024 06 03.pdf",
+      "theme": "Gestion des versions",
+      "question": "Le manuel de sécurité ABB 266 archivé en 2024 remplace-t-il le mode d’emploi 266 courant ?",
+      "expectedAnswerKind": "Réponse qui identifie le statut courant/archive, compare seulement les PDF disponibles et recommande la prudence.",
+      "validationPoints": "Doit mentionner le chemin ou le dossier Archive/Old versions lorsqu’il existe, ne pas supposer qu’une archive est obsolète sans preuve interne."
+    },
+    {
+      "id": "Q076",
+      "axis": "Versions anciennes",
+      "difficulty": "Difficile",
+      "corpusTarget": "Busch\\6 - Divers documents\\Huiles\\SDS-VMH 100-EN.pdf ; Busch\\7 - Archives\\Huiles\\Busch VMH 100 SDS.pdf",
+      "theme": "Gestion des versions",
+      "question": "La SDS Busch VMH 100 archivée peut-elle être citée si une version courante EN existe ?",
+      "expectedAnswerKind": "Réponse qui identifie le statut courant/archive, compare seulement les PDF disponibles et recommande la prudence.",
+      "validationPoints": "Doit mentionner le chemin ou le dossier Archive/Old versions lorsqu’il existe, ne pas supposer qu’une archive est obsolète sans preuve interne."
+    },
+    {
+      "id": "Q077",
+      "axis": "Versions anciennes",
+      "difficulty": "Difficile",
+      "corpusTarget": "4G Ghidini\\7 - Archives_Old versions\\MAN-Instruction Vannes 4G Ghidini-IT GB FR DE ES 2020 01 13.pdf",
+      "theme": "Gestion des versions",
+      "question": "Le document MAN-Instruction Vannes 4G Ghidini 2020 en archives doit-il être signalé comme ancienne version ?",
+      "expectedAnswerKind": "Réponse qui identifie le statut courant/archive, compare seulement les PDF disponibles et recommande la prudence.",
+      "validationPoints": "Doit mentionner le chemin ou le dossier Archive/Old versions lorsqu’il existe, ne pas supposer qu’une archive est obsolète sans preuve interne."
+    },
+    {
+      "id": "Q078",
+      "axis": "Versions anciennes",
+      "difficulty": "Difficile",
+      "corpusTarget": "4G Ghidini\\7 - Archives_Old versions\\FIT-Two Way Ball Valve 4G Clamp 103030_ISO-EN 2024 10 23.pdf",
+      "theme": "Gestion des versions",
+      "question": "Que signifie la date 2024 10 23 dans le nom de fichier 4G Clamp 103030_ISO-EN en archives ?",
+      "expectedAnswerKind": "Réponse qui identifie le statut courant/archive, compare seulement les PDF disponibles et recommande la prudence.",
+      "validationPoints": "Doit mentionner le chemin ou le dossier Archive/Old versions lorsqu’il existe, ne pas supposer qu’une archive est obsolète sans preuve interne."
+    },
+    {
+      "id": "Q079",
+      "axis": "Versions anciennes",
+      "difficulty": "Difficile",
+      "corpusTarget": "ABB\\7 - Archives\\MAN-Temperature Transmitter TTH200-EN 2019 12 05.pdf",
+      "theme": "Gestion des versions",
+      "question": "Si l’utilisateur demande seulement TTH200, dois-je utiliser le manuel ABB 2019 archivé ?",
+      "expectedAnswerKind": "Réponse qui identifie le statut courant/archive, compare seulement les PDF disponibles et recommande la prudence.",
+      "validationPoints": "Doit mentionner le chemin ou le dossier Archive/Old versions lorsqu’il existe, ne pas supposer qu’une archive est obsolète sans preuve interne."
+    },
+    {
+      "id": "Q080",
+      "axis": "Versions anciennes",
+      "difficulty": "Difficile",
+      "corpusTarget": "ABB\\7 - Archives\\MAN-Safety Manual for 266 pressure transmitters certified according to IEC61508-EN 2024 06 03.pdf",
+      "theme": "Gestion des versions",
+      "question": "Le document ABB Safety Manual for 266 en archives peut-il contenir une information encore utile malgré son emplacement ?",
+      "expectedAnswerKind": "Réponse qui identifie le statut courant/archive, compare seulement les PDF disponibles et recommande la prudence.",
+      "validationPoints": "Doit mentionner le chemin ou le dossier Archive/Old versions lorsqu’il existe, ne pas supposer qu’une archive est obsolète sans preuve interne."
+    },
+    {
+      "id": "Q081",
+      "axis": "Versions anciennes",
+      "difficulty": "Difficile",
+      "corpusTarget": "3M\\7 - Old versions\\CER-FullRegulations_PTFE_TF1620_TF1641_TF1645-EN.pdf",
+      "theme": "Gestion des versions",
+      "question": "Comment répondre si seul le PDF Old versions ressort pour le certificat 3M FullRegulations ?",
+      "expectedAnswerKind": "Réponse qui identifie le statut courant/archive, compare seulement les PDF disponibles et recommande la prudence.",
+      "validationPoints": "Doit mentionner le chemin ou le dossier Archive/Old versions lorsqu’il existe, ne pas supposer qu’une archive est obsolète sans preuve interne."
+    },
+    {
+      "id": "Q082",
+      "axis": "Versions anciennes",
+      "difficulty": "Difficile",
+      "corpusTarget": "4G Ghidini\\1 - Certificats_Certificates\\CER-FDA_EU_USP PTFE G400 Valves 4G Ghidini-EN 2022 04 14.pdf",
+      "theme": "Gestion des versions",
+      "question": "Le certificat 4G Ghidini daté 2022 04 14 doit-il être présenté comme plus récent que la version non datée ?",
+      "expectedAnswerKind": "Réponse qui identifie le statut courant/archive, compare seulement les PDF disponibles et recommande la prudence.",
+      "validationPoints": "Doit mentionner le chemin ou le dossier Archive/Old versions lorsqu’il existe, ne pas supposer qu’une archive est obsolète sans preuve interne."
+    },
+    {
+      "id": "Q083",
+      "axis": "Versions anciennes",
+      "difficulty": "Difficile",
+      "corpusTarget": "Busch\\7 - Archives\\Huiles\\Busch VMH 100 SDS.pdf",
+      "theme": "Gestion des versions",
+      "question": "Que dois-je faire si une question mentionne Busch VMH 100 SDS sans préciser archive ou courant ?",
+      "expectedAnswerKind": "Réponse qui identifie le statut courant/archive, compare seulement les PDF disponibles et recommande la prudence.",
+      "validationPoints": "Doit mentionner le chemin ou le dossier Archive/Old versions lorsqu’il existe, ne pas supposer qu’une archive est obsolète sans preuve interne."
+    },
+    {
+      "id": "Q084",
+      "axis": "Versions anciennes",
+      "difficulty": "Difficile",
+      "corpusTarget": "4G Ghidini\\2 - Catalogues_Leaflets\\CAT-Vannes 4G Ghidini-IT EN.pdf",
+      "theme": "Gestion des versions",
+      "question": "Le catalogue 4G courant doit-il être préféré au catalogue archivé 2020 si les deux sont trouvés ?",
+      "expectedAnswerKind": "Réponse qui identifie le statut courant/archive, compare seulement les PDF disponibles et recommande la prudence.",
+      "validationPoints": "Doit mentionner le chemin ou le dossier Archive/Old versions lorsqu’il existe, ne pas supposer qu’une archive est obsolète sans preuve interne."
+    },
+    {
+      "id": "Q085",
+      "axis": "Versions anciennes",
+      "difficulty": "Difficile",
+      "corpusTarget": "Sick\\4 - Modes d'emploi\\MAN-Barrage de immatériel de sécurité C4000 Standard et Advanced-FR.pdf",
+      "theme": "Gestion des versions",
+      "question": "Pour Sick C4000, comment éviter de mélanger manuel courant et fichiers d’archives 2020 ?",
+      "expectedAnswerKind": "Réponse qui identifie le statut courant/archive, compare seulement les PDF disponibles et recommande la prudence.",
+      "validationPoints": "Doit mentionner le chemin ou le dossier Archive/Old versions lorsqu’il existe, ne pas supposer qu’une archive est obsolète sans preuve interne."
+    },
+    {
+      "id": "Q086",
+      "axis": "Comparaison multi-docs",
+      "difficulty": "Difficile",
+      "corpusTarget": "4G Ghidini\\3 - Fiches techniques_Data sheets\\FIT-Three Way Ball Valve 4 Seals with T Port 4G 300130_BS-EN.pdf ; 4G Ghidini\\3 - Fiches techniques_Data sheets\\FIT-Three Way Ball Valve 4 Seals with T Port 4G 300130_DIN-EN.pdf ; 4G Ghidini\\3 - Fiches techniques_Data sheets\\FIT-Three Way Ball Valve 4 Seals with T Port 4G 300130_ISO-EN.pdf",
+      "theme": "Synthèse croisée",
+      "question": "Fais un tableau de comparaison pour les fiches 4G 300130 BS, DIN et ISO.",
+      "expectedAnswerKind": "Comparaison structurée avec tableau ou liste, citations séparées par document et limites de comparabilité.",
+      "validationPoints": "Doit citer chaque PDF demandé, séparer les conclusions par source et refuser les équivalences non démontrées."
+    },
+    {
+      "id": "Q087",
+      "axis": "Comparaison multi-docs",
+      "difficulty": "Difficile",
+      "corpusTarget": "4G Ghidini\\3 - Fiches techniques_Data sheets\\FIT-Two Way Ball Valve 4G Clamp 103030_BS-EN.pdf ; 4G Ghidini\\3 - Fiches techniques_Data sheets\\FIT-Two Way Ball Valve 4G Clamp 103030_DIN-EN.pdf ; 4G Ghidini\\3 - Fiches techniques_Data sheets\\FIT-Two Way Ball Valve 4G Clamp 103030_ISO-EN.pdf",
+      "theme": "Synthèse croisée",
+      "question": "Quelle variante 4G 103030 choisir si je dois comparer standards BS, DIN et ISO ?",
+      "expectedAnswerKind": "Comparaison structurée avec tableau ou liste, citations séparées par document et limites de comparabilité.",
+      "validationPoints": "Doit citer chaque PDF demandé, séparer les conclusions par source et refuser les équivalences non démontrées."
+    },
+    {
+      "id": "Q088",
+      "axis": "Comparaison multi-docs",
+      "difficulty": "Difficile",
+      "corpusTarget": "Siemens\\1 - Certificats\\CER-Simotics_1MD509x_U58_BVS_11_ATEX_E_015_X-DE EN.pdf ; Siemens\\3 - Fiches techniques\\FIT-Moteur Simotics 1LE1003-0EB42-2FB4-Z-FR EN.pdf ; Siemens\\4 - Modes d'emploi\\MAN-Moteurs basse tension SIMOTICS XP 1MB155_1MB555-FR.pdf",
+      "theme": "Synthèse croisée",
+      "question": "Pour un moteur SIMOTICS XP, relie certificat, fiche technique et manuel français.",
+      "expectedAnswerKind": "Comparaison structurée avec tableau ou liste, citations séparées par document et limites de comparabilité.",
+      "validationPoints": "Doit citer chaque PDF demandé, séparer les conclusions par source et refuser les équivalences non démontrées."
+    },
+    {
+      "id": "Q089",
+      "axis": "Comparaison multi-docs",
+      "difficulty": "Difficile",
+      "corpusTarget": "ABB\\1 - Certificats\\CER-FM16CA0036X Model 266 Pressure Transmitter-EN.pdf ; ABB\\3 - Fiches techniques\\FIT-2600T Series Pressure Transmitters 266_DSH-EN.pdf ; ABB\\4 - Modes d'emploi\\MAN-2600T Series Pressure Transmitters 266-EN.pdf",
+      "theme": "Synthèse croisée",
+      "question": "Pour ABB 266, quelles informations viennent du certificat, de la fiche technique et du mode d’emploi ?",
+      "expectedAnswerKind": "Comparaison structurée avec tableau ou liste, citations séparées par document et limites de comparabilité.",
+      "validationPoints": "Doit citer chaque PDF demandé, séparer les conclusions par source et refuser les équivalences non démontrées."
+    },
+    {
+      "id": "Q090",
+      "axis": "Comparaison multi-docs",
+      "difficulty": "Difficile",
+      "corpusTarget": "DEC\\Data Sheets\\Safety Filters\\FIT-Air Filter_000001-2-6-7_010319-20_002810_011827-EN DE FR.pdf ; DEC\\Operating Manuals\\Safety Filters\\MAN-SAF-FR.pdf ; DEC\\Operating Manuals\\Safety Filters\\MAN-SAF-EN.pdf",
+      "theme": "Synthèse croisée",
+      "question": "Compare la fiche DEC Air Filter et les manuels Safety Filters FR/EN.",
+      "expectedAnswerKind": "Comparaison structurée avec tableau ou liste, citations séparées par document et limites de comparabilité.",
+      "validationPoints": "Doit citer chaque PDF demandé, séparer les conclusions par source et refuser les équivalences non démontrées."
+    },
+    {
+      "id": "Q091",
+      "axis": "Comparaison multi-docs",
+      "difficulty": "Difficile",
+      "corpusTarget": "Busch\\6 - Divers documents\\Huiles\\SDS-VMH 100-EN.pdf ; Busch\\6 - Divers documents\\Huiles\\SDS-VMH 100-DE.pdf ; Busch\\7 - Archives\\Huiles\\Busch VMH 100 SDS.pdf",
+      "theme": "Synthèse croisée",
+      "question": "Pour Busch VMH 100, compare les versions linguistiques et l’archive.",
+      "expectedAnswerKind": "Comparaison structurée avec tableau ou liste, citations séparées par document et limites de comparabilité.",
+      "validationPoints": "Doit citer chaque PDF demandé, séparer les conclusions par source et refuser les équivalences non démontrées."
+    },
+    {
+      "id": "Q092",
+      "axis": "Comparaison multi-docs",
+      "difficulty": "Difficile",
+      "corpusTarget": "AAF International\\3 - Fiches techniques\\FIT-AstroCel II Dry Seal-FR.pdf ; AAF International\\3 - Fiches techniques\\FIT-AstroCel II Dry Seal-GB.pdf ; AAF International\\1 - Certificats\\CER-FDA non compliance HEPA filters-GB.pdf",
+      "theme": "Synthèse croisée",
+      "question": "Pour AAF AstroCel II, combine fiche FR, fiche GB et certificat FDA non compliance.",
+      "expectedAnswerKind": "Comparaison structurée avec tableau ou liste, citations séparées par document et limites de comparabilité.",
+      "validationPoints": "Doit citer chaque PDF demandé, séparer les conclusions par source et refuser les équivalences non démontrées."
+    },
+    {
+      "id": "Q093",
+      "axis": "Comparaison multi-docs",
+      "difficulty": "Difficile",
+      "corpusTarget": "Bürkert\\3 - Fiches techniques\\FIT-FLOWave - Débitmètre SAW Type 8098-FR.pdf ; Bürkert\\3 - Fiches techniques\\FIT-FLOWave SAW - Flowmeter Type 8098-EN.pdf",
+      "theme": "Synthèse croisée",
+      "question": "Les fiches Bürkert FLOWave FR et EN disent-elles la même chose sur le Type 8098 ?",
+      "expectedAnswerKind": "Comparaison structurée avec tableau ou liste, citations séparées par document et limites de comparabilité.",
+      "validationPoints": "Doit citer chaque PDF demandé, séparer les conclusions par source et refuser les équivalences non démontrées."
+    },
+    {
+      "id": "Q094",
+      "axis": "Comparaison multi-docs",
+      "difficulty": "Difficile",
+      "corpusTarget": "Sick\\4 - Modes d'emploi\\MAN-Barrage de immatériel de sécurité C4000 Standard et Advanced-FR.pdf ; Sick\\4 - Modes d'emploi\\MAN-Safety light curtain C4000 Standard et Advanced-EN.pdf",
+      "theme": "Synthèse croisée",
+      "question": "Compare les manuels Sick C4000 français et anglais et signale toute limite de traduction.",
+      "expectedAnswerKind": "Comparaison structurée avec tableau ou liste, citations séparées par document et limites de comparabilité.",
+      "validationPoints": "Doit citer chaque PDF demandé, séparer les conclusions par source et refuser les équivalences non démontrées."
+    },
+    {
+      "id": "Q095",
+      "axis": "Comparaison multi-docs",
+      "difficulty": "Difficile",
+      "corpusTarget": "Schmersal\\3 - Fiches techniques_Data sheets\\FIT-Capteur sécurité EX BNS 303-12Z-FR.pdf ; Schmersal\\3 - Fiches techniques_Data sheets\\FIT-Capteur sécurité EX BNS 303-12Z-EN.pdf",
+      "theme": "Synthèse croisée",
+      "question": "Compare les fiches Schmersal EX BNS 303-12Z FR et EN.",
+      "expectedAnswerKind": "Comparaison structurée avec tableau ou liste, citations séparées par document et limites de comparabilité.",
+      "validationPoints": "Doit citer chaque PDF demandé, séparer les conclusions par source et refuser les équivalences non démontrées."
+    },
+    {
+      "id": "Q096",
+      "axis": "Comparaison multi-docs",
+      "difficulty": "Difficile",
+      "corpusTarget": "3M\\3 - Data sheets\\FIT-PTFE_TF_1620-EN.pdf ; 3M\\3 - Data sheets\\FIT-PTFE_TF_1641-EN.pdf ; 3M\\3 - Data sheets\\FIT-PTFE_TF_1750-EN.pdf ; 3M\\3 - Data sheets\\FIT-PTFE_TF_9205-EN.pdf",
+      "theme": "Synthèse croisée",
+      "question": "Classe les fiches 3M PTFE TF 1620, 1641, 1750 et 9205 par usage probable.",
+      "expectedAnswerKind": "Comparaison structurée avec tableau ou liste, citations séparées par document et limites de comparabilité.",
+      "validationPoints": "Doit citer chaque PDF demandé, séparer les conclusions par source et refuser les équivalences non démontrées."
+    },
+    {
+      "id": "Q097",
+      "axis": "Comparaison multi-docs",
+      "difficulty": "Difficile",
+      "corpusTarget": "3M\\3 - Data sheets\\MSDS-PTFE_TF1620_TF1641_TF1645-EN.pdf ; 3M\\3 - Data sheets\\FIT-PTFE_TF_1620-EN.pdf ; 3M\\1 - Certificates\\CER-FDA_EU Sleeve PTFE TF1620-EN.pdf",
+      "theme": "Synthèse croisée",
+      "question": "Pour TF1620, relie fiche technique, MSDS et certificat Sleeve FDA/EU.",
+      "expectedAnswerKind": "Comparaison structurée avec tableau ou liste, citations séparées par document et limites de comparabilité.",
+      "validationPoints": "Doit citer chaque PDF demandé, séparer les conclusions par source et refuser les équivalences non démontrées."
+    },
+    {
+      "id": "Q098",
+      "axis": "Comparaison multi-docs",
+      "difficulty": "Difficile",
+      "corpusTarget": "4G Ghidini\\1 - Certificats_Certificates\\CER-FDA_EU_USP PTFE G400 Valves 4G Ghidini-EN.pdf ; 4G Ghidini\\1 - Certificats_Certificates\\CER-TÜV_IT_15_ATEX_054_AR-IT EN.pdf ; 4G Ghidini\\6 - Divers documents_Misc. documents\\Résistance à la corrosion vannes 4G.pdf",
+      "theme": "Synthèse croisée",
+      "question": "Pour les valves 4G, distingue conformité alimentaire, ATEX et résistance à la corrosion.",
+      "expectedAnswerKind": "Comparaison structurée avec tableau ou liste, citations séparées par document et limites de comparabilité.",
+      "validationPoints": "Doit citer chaque PDF demandé, séparer les conclusions par source et refuser les équivalences non démontrées."
+    },
+    {
+      "id": "Q099",
+      "axis": "Comparaison multi-docs",
+      "difficulty": "Difficile",
+      "corpusTarget": "PALL\\1 - Certificats_Certificates\\DXXJ50M3823F Certificate of Analysis_batch x_STO4503582504.pdf ; PALL\\3 - Fiches techniques_Data sheets\\FIT-Fibermet M50-EN.pdf",
+      "theme": "Synthèse croisée",
+      "question": "Pour PALL Fibermet, compare certificate of analysis et fiche technique produit.",
+      "expectedAnswerKind": "Comparaison structurée avec tableau ou liste, citations séparées par document et limites de comparabilité.",
+      "validationPoints": "Doit citer chaque PDF demandé, séparer les conclusions par source et refuser les équivalences non démontrées."
+    },
+    {
+      "id": "Q100",
+      "axis": "Comparaison multi-docs",
+      "difficulty": "Difficile",
+      "corpusTarget": "Camfil\\3 - Fiches techniques\\FIT-10.3.01 GloveBox-FR.pdf ; DEC\\Data Sheets\\Safety Filters\\FIT-Push-Push Filter Cartridge_H14_FG_EX_064775-EN DE FR.pdf",
+      "theme": "Synthèse croisée",
+      "question": "Compare Camfil GloveBox FR et DEC Push-Push H14: est-ce le même type de filtre ou seulement des familles proches ?",
+      "expectedAnswerKind": "Comparaison structurée avec tableau ou liste, citations séparées par document et limites de comparabilité.",
+      "validationPoints": "Doit citer chaque PDF demandé, séparer les conclusions par source et refuser les équivalences non démontrées."
+    },
+    {
+      "id": "Q101",
+      "axis": "Comparaison multi-docs",
+      "difficulty": "Difficile",
+      "corpusTarget": "Mettler-Toledo\\3 - Fiches techniques\\FIT_IND570xx-EN.pdf ; Mettler-Toledo\\4 - Modes d'emploi\\MAN-Installation manual_Weighing Terminal IND570-EN FR DE PT.pdf",
+      "theme": "Synthèse croisée",
+      "question": "Pour IND570, compare fiche technique et manuel d’installation.",
+      "expectedAnswerKind": "Comparaison structurée avec tableau ou liste, citations séparées par document et limites de comparabilité.",
+      "validationPoints": "Doit citer chaque PDF demandé, séparer les conclusions par source et refuser les équivalences non démontrées."
+    },
+    {
+      "id": "Q102",
+      "axis": "Comparaison multi-docs",
+      "difficulty": "Difficile",
+      "corpusTarget": "Wika\\4 - Modes d'emploi\\MAN-Process pressure transmitter IPT-1 Operating Instructions-GB.pdf ; Wika\\4 - Modes d'emploi\\MAN-Safety instructions Process pressure transmitter IPT-1-EN.pdf",
+      "theme": "Synthèse croisée",
+      "question": "Pour Wika IPT-1, que faut-il extraire du mode d’emploi et des safety instructions ?",
+      "expectedAnswerKind": "Comparaison structurée avec tableau ou liste, citations séparées par document et limites de comparabilité.",
+      "validationPoints": "Doit citer chaque PDF demandé, séparer les conclusions par source et refuser les équivalences non démontrées."
+    },
+    {
+      "id": "Q103",
+      "axis": "Comparaison multi-docs",
+      "difficulty": "Difficile",
+      "corpusTarget": "4G Ghidini\\4 - Modes d'emploi_Instruction manuals\\MAN-Quick-Guide Valves 4G Ghidini-IT EN FR DE ES.pdf ; 4G Ghidini\\4 - Modes d'emploi_Instruction manuals\\MAN-Instructions Valves 4G Ghidini-IT EN FR DE ES.pdf",
+      "theme": "Synthèse croisée",
+      "question": "Le Quick Guide 4G peut-il remplacer le manuel complet des valves ?",
+      "expectedAnswerKind": "Comparaison structurée avec tableau ou liste, citations séparées par document et limites de comparabilité.",
+      "validationPoints": "Doit citer chaque PDF demandé, séparer les conclusions par source et refuser les équivalences non démontrées."
+    },
+    {
+      "id": "Q104",
+      "axis": "Comparaison multi-docs",
+      "difficulty": "Difficile",
+      "corpusTarget": "DEC\\Operating Manuals\\Big Bag Stations\\MAN-BBDS-SDS-E-FR.pdf ; DEC\\Operating Manuals\\Safety Filters\\MAN-SAF-FR.pdf",
+      "theme": "Synthèse croisée",
+      "question": "Compare les manuels DEC Big Bag Stations et Safety Filters en français.",
+      "expectedAnswerKind": "Comparaison structurée avec tableau ou liste, citations séparées par document et limites de comparabilité.",
+      "validationPoints": "Doit citer chaque PDF demandé, séparer les conclusions par source et refuser les équivalences non démontrées."
+    },
+    {
+      "id": "Q105",
+      "axis": "Comparaison multi-docs",
+      "difficulty": "Difficile",
+      "corpusTarget": "Maagtechnic\\3 - Fiches techniques\\FDS-Fluid Grease OKS 474-FR.pdf ; Gyso\\3 - Fiches techniques_Data sheets\\MSDS_Gyso-Sil 812-FR.pdf",
+      "theme": "Synthèse croisée",
+      "question": "Compare deux FDS françaises: OKS 474 et Gyso-Sil 812, sans mélanger les produits.",
+      "expectedAnswerKind": "Comparaison structurée avec tableau ou liste, citations séparées par document et limites de comparabilité.",
+      "validationPoints": "Doit citer chaque PDF demandé, séparer les conclusions par source et refuser les équivalences non démontrées."
+    },
+    {
+      "id": "Q106",
+      "axis": "Recherche exacte",
+      "difficulty": "Moyenne",
+      "corpusTarget": "3M\\3 - Data sheets\\FIT-PTFE_TF_1620-EN.pdf",
+      "theme": "Exactitude de ciblage",
+      "question": "Retrouve exactement la fiche FIT-PTFE_TF_1620-EN.pdf et donne uniquement les informations sourcées par ce PDF.",
+      "expectedAnswerKind": "Réponse ciblée sur le fichier exact, avec refus de mélanger des variantes proches.",
+      "validationPoints": "Doit citer le chemin ou nom exact demandé, éviter les documents homonymes, variantes de langue ou versions archives sauf si explicitement demandées."
+    },
+    {
+      "id": "Q107",
+      "axis": "Recherche exacte",
+      "difficulty": "Moyenne",
+      "corpusTarget": "4G Ghidini\\3 - Fiches techniques_Data sheets\\FIT-Three Way Ball Valve 4 Seals with T Port 4G 300130_BS-EN.pdf",
+      "theme": "Exactitude de ciblage",
+      "question": "Cherche exactement FIT-Three Way Ball Valve 4 Seals with T Port 4G 300130_BS-EN.pdf.",
+      "expectedAnswerKind": "Réponse ciblée sur le fichier exact, avec refus de mélanger des variantes proches.",
+      "validationPoints": "Doit citer le chemin ou nom exact demandé, éviter les documents homonymes, variantes de langue ou versions archives sauf si explicitement demandées."
+    },
+    {
+      "id": "Q108",
+      "axis": "Recherche exacte",
+      "difficulty": "Moyenne",
+      "corpusTarget": "4G Ghidini\\3 - Fiches techniques_Data sheets\\FIT-Two Way Ball Valve 4G Clamp 103030_DIN-EN.pdf",
+      "theme": "Exactitude de ciblage",
+      "question": "Trouve la fiche exacte 4G Clamp 103030_DIN-EN et ne cite pas la variante BS ou ISO.",
+      "expectedAnswerKind": "Réponse ciblée sur le fichier exact, avec refus de mélanger des variantes proches.",
+      "validationPoints": "Doit citer le chemin ou nom exact demandé, éviter les documents homonymes, variantes de langue ou versions archives sauf si explicitement demandées."
+    },
+    {
+      "id": "Q109",
+      "axis": "Recherche exacte",
+      "difficulty": "Moyenne",
+      "corpusTarget": "ABB\\3 - Fiches techniques\\FIT-Positionneur_EDP300-FR.pdf",
+      "theme": "Exactitude de ciblage",
+      "question": "Je veux uniquement FIT-Positionneur_EDP300-FR.pdf, pas la fiche anglaise.",
+      "expectedAnswerKind": "Réponse ciblée sur le fichier exact, avec refus de mélanger des variantes proches.",
+      "validationPoints": "Doit citer le chemin ou nom exact demandé, éviter les documents homonymes, variantes de langue ou versions archives sauf si explicitement demandées."
+    },
+    {
+      "id": "Q110",
+      "axis": "Recherche exacte",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Siemens\\4 - Modes d'emploi\\MAN-Operating Instructions SIMOTICS XP 1MB..1_2_3_4-FR.pdf",
+      "theme": "Exactitude de ciblage",
+      "question": "Retrouve MAN-Operating Instructions SIMOTICS XP 1MB..1_2_3_4-FR.pdf et cite son titre exact.",
+      "expectedAnswerKind": "Réponse ciblée sur le fichier exact, avec refus de mélanger des variantes proches.",
+      "validationPoints": "Doit citer le chemin ou nom exact demandé, éviter les documents homonymes, variantes de langue ou versions archives sauf si explicitement demandées."
+    },
+    {
+      "id": "Q111",
+      "axis": "Recherche exacte",
+      "difficulty": "Moyenne",
+      "corpusTarget": "DEC\\Data Sheets\\Safety Filters\\FIT-Push-Push Filter Cartridge_H14_FG_EX_064775-EN DE FR.pdf",
+      "theme": "Exactitude de ciblage",
+      "question": "Recherche exacte: FIT-Push-Push Filter Cartridge_H14_FG_EX_064775-EN DE FR.pdf.",
+      "expectedAnswerKind": "Réponse ciblée sur le fichier exact, avec refus de mélanger des variantes proches.",
+      "validationPoints": "Doit citer le chemin ou nom exact demandé, éviter les documents homonymes, variantes de langue ou versions archives sauf si explicitement demandées."
+    },
+    {
+      "id": "Q112",
+      "axis": "Recherche exacte",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Busch\\6 - Divers documents\\Huiles\\SDS-VMH 100-EN.pdf",
+      "theme": "Exactitude de ciblage",
+      "question": "Recherche exacte: SDS-VMH 100-EN.pdf dans le dossier Busch.",
+      "expectedAnswerKind": "Réponse ciblée sur le fichier exact, avec refus de mélanger des variantes proches.",
+      "validationPoints": "Doit citer le chemin ou nom exact demandé, éviter les documents homonymes, variantes de langue ou versions archives sauf si explicitement demandées."
+    },
+    {
+      "id": "Q113",
+      "axis": "Recherche exacte",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Bizerba\\1 - Certificats\\CER-ATEX ST-Ex (Zone1)_EX5_01_10_38033_013-FR.pdf",
+      "theme": "Exactitude de ciblage",
+      "question": "Retrouve précisément CER-ATEX ST-Ex (Zone1)_EX5_01_10_38033_013-FR.pdf.",
+      "expectedAnswerKind": "Réponse ciblée sur le fichier exact, avec refus de mélanger des variantes proches.",
+      "validationPoints": "Doit citer le chemin ou nom exact demandé, éviter les documents homonymes, variantes de langue ou versions archives sauf si explicitement demandées."
+    },
+    {
+      "id": "Q114",
+      "axis": "Recherche exacte",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Bürkert\\3 - Fiches techniques\\FIT-FLOWave - Débitmètre SAW Type 8098-FR.pdf",
+      "theme": "Exactitude de ciblage",
+      "question": "Je cherche le PDF Bürkert FLOWave Type 8098 en français, pas le flowmeter anglais.",
+      "expectedAnswerKind": "Réponse ciblée sur le fichier exact, avec refus de mélanger des variantes proches.",
+      "validationPoints": "Doit citer le chemin ou nom exact demandé, éviter les documents homonymes, variantes de langue ou versions archives sauf si explicitement demandées."
+    },
+    {
+      "id": "Q115",
+      "axis": "Recherche exacte",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Sick\\4 - Modes d'emploi\\MAN-Barrage de immatériel de sécurité C4000 Standard et Advanced-FR.pdf",
+      "theme": "Exactitude de ciblage",
+      "question": "Recherche le manuel français Sick C4000 Standard et Advanced, pas les fiches techniques C4000.",
+      "expectedAnswerKind": "Réponse ciblée sur le fichier exact, avec refus de mélanger des variantes proches.",
+      "validationPoints": "Doit citer le chemin ou nom exact demandé, éviter les documents homonymes, variantes de langue ou versions archives sauf si explicitement demandées."
+    },
+    {
+      "id": "Q116",
+      "axis": "Recherche exacte",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Schmersal\\3 - Fiches techniques_Data sheets\\FIT-Capteur sécurité EX BNS 303-12Z-EN.pdf",
+      "theme": "Exactitude de ciblage",
+      "question": "Donne-moi la fiche EX BNS 303-12Z en anglais seulement.",
+      "expectedAnswerKind": "Réponse ciblée sur le fichier exact, avec refus de mélanger des variantes proches.",
+      "validationPoints": "Doit citer le chemin ou nom exact demandé, éviter les documents homonymes, variantes de langue ou versions archives sauf si explicitement demandées."
+    },
+    {
+      "id": "Q117",
+      "axis": "Recherche exacte",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Rittal\\1 - Certificats\\CER-Declaration_de_conformite_VX25.pdf",
+      "theme": "Exactitude de ciblage",
+      "question": "Retrouve la déclaration de conformité Rittal VX25 exactement.",
+      "expectedAnswerKind": "Réponse ciblée sur le fichier exact, avec refus de mélanger des variantes proches.",
+      "validationPoints": "Doit citer le chemin ou nom exact demandé, éviter les documents homonymes, variantes de langue ou versions archives sauf si explicitement demandées."
+    },
+    {
+      "id": "Q118",
+      "axis": "Recherche exacte",
+      "difficulty": "Moyenne",
+      "corpusTarget": "PALL\\1 - Certificats_Certificates\\DXXJ50M3823F Certificate of Analysis_batch x_STO4503582504.pdf",
+      "theme": "Exactitude de ciblage",
+      "question": "Recherche exacte du certificat PALL DXXJ50M3823F batch STO4503582504.",
+      "expectedAnswerKind": "Réponse ciblée sur le fichier exact, avec refus de mélanger des variantes proches.",
+      "validationPoints": "Doit citer le chemin ou nom exact demandé, éviter les documents homonymes, variantes de langue ou versions archives sauf si explicitement demandées."
+    },
+    {
+      "id": "Q119",
+      "axis": "Recherche exacte",
+      "difficulty": "Moyenne",
+      "corpusTarget": "4G Ghidini\\6 - Divers documents_Misc. documents\\Résistance à la corrosion vannes 4G.pdf",
+      "theme": "Exactitude de ciblage",
+      "question": "Retrouve le PDF Résistance à la corrosion vannes 4G.pdf et ne le confonds pas avec un certificat.",
+      "expectedAnswerKind": "Réponse ciblée sur le fichier exact, avec refus de mélanger des variantes proches.",
+      "validationPoints": "Doit citer le chemin ou nom exact demandé, éviter les documents homonymes, variantes de langue ou versions archives sauf si explicitement demandées."
+    },
+    {
+      "id": "Q120",
+      "axis": "Recherche exacte",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Maagtechnic\\3 - Fiches techniques\\FDS-Fluid Grease OKS 474-FR.pdf",
+      "theme": "Exactitude de ciblage",
+      "question": "Recherche exacte: FDS-Fluid Grease OKS 474-FR.pdf.",
+      "expectedAnswerKind": "Réponse ciblée sur le fichier exact, avec refus de mélanger des variantes proches.",
+      "validationPoints": "Doit citer le chemin ou nom exact demandé, éviter les documents homonymes, variantes de langue ou versions archives sauf si explicitement demandées."
+    },
+    {
+      "id": "Q121",
+      "axis": "Questions ambiguës et anti-hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Robustesse réponse",
+      "question": "Est-ce que tous les produits du corpus sont certifiés FDA, EU et USP ?",
+      "expectedAnswerKind": "Réponse de cadrage qui refuse les extrapolations et explique quelles sources seraient nécessaires.",
+      "validationPoints": "Doit dire clairement ce qui est prouvé, inconnu ou hors corpus; ne doit pas inventer de PDF, valeur, certification ou version."
+    },
+    {
+      "id": "Q122",
+      "axis": "Questions ambiguës et anti-hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Robustesse réponse",
+      "question": "Peux-tu me donner la température maximale de tous les filtres HEPA du corpus ?",
+      "expectedAnswerKind": "Réponse de cadrage qui refuse les extrapolations et explique quelles sources seraient nécessaires.",
+      "validationPoints": "Doit dire clairement ce qui est prouvé, inconnu ou hors corpus; ne doit pas inventer de PDF, valeur, certification ou version."
+    },
+    {
+      "id": "Q123",
+      "axis": "Questions ambiguës et anti-hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Robustesse réponse",
+      "question": "Quel est le meilleur joint pour mon application alimentaire sans autre contexte ?",
+      "expectedAnswerKind": "Réponse de cadrage qui refuse les extrapolations et explique quelles sources seraient nécessaires.",
+      "validationPoints": "Doit dire clairement ce qui est prouvé, inconnu ou hors corpus; ne doit pas inventer de PDF, valeur, certification ou version."
+    },
+    {
+      "id": "Q124",
+      "axis": "Questions ambiguës et anti-hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Robustesse réponse",
+      "question": "Est-ce que tous les documents ATEX prouvent une conformité pour Zone 1 ?",
+      "expectedAnswerKind": "Réponse de cadrage qui refuse les extrapolations et explique quelles sources seraient nécessaires.",
+      "validationPoints": "Doit dire clairement ce qui est prouvé, inconnu ou hors corpus; ne doit pas inventer de PDF, valeur, certification ou version."
+    },
+    {
+      "id": "Q125",
+      "axis": "Questions ambiguës et anti-hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Robustesse réponse",
+      "question": "Donne-moi la dernière version officielle de chaque manuel sans vérifier les dossiers archives.",
+      "expectedAnswerKind": "Réponse de cadrage qui refuse les extrapolations et explique quelles sources seraient nécessaires.",
+      "validationPoints": "Doit dire clairement ce qui est prouvé, inconnu ou hors corpus; ne doit pas inventer de PDF, valeur, certification ou version."
+    },
+    {
+      "id": "Q126",
+      "axis": "Questions ambiguës et anti-hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Robustesse réponse",
+      "question": "Est-ce qu’un certificat trouvé pour un produit 4G s’applique automatiquement aux autres produits 4G ?",
+      "expectedAnswerKind": "Réponse de cadrage qui refuse les extrapolations et explique quelles sources seraient nécessaires.",
+      "validationPoints": "Doit dire clairement ce qui est prouvé, inconnu ou hors corpus; ne doit pas inventer de PDF, valeur, certification ou version."
+    },
+    {
+      "id": "Q127",
+      "axis": "Questions ambiguës et anti-hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Robustesse réponse",
+      "question": "Peux-tu confirmer que les fiches EN, FR et DE sont identiques mot à mot ?",
+      "expectedAnswerKind": "Réponse de cadrage qui refuse les extrapolations et explique quelles sources seraient nécessaires.",
+      "validationPoints": "Doit dire clairement ce qui est prouvé, inconnu ou hors corpus; ne doit pas inventer de PDF, valeur, certification ou version."
+    },
+    {
+      "id": "Q128",
+      "axis": "Questions ambiguës et anti-hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Robustesse réponse",
+      "question": "Je veux une réponse sans sources sur la conformité pharmaceutique des valves et filtres.",
+      "expectedAnswerKind": "Réponse de cadrage qui refuse les extrapolations et explique quelles sources seraient nécessaires.",
+      "validationPoints": "Doit dire clairement ce qui est prouvé, inconnu ou hors corpus; ne doit pas inventer de PDF, valeur, certification ou version."
+    },
+    {
+      "id": "Q129",
+      "axis": "Questions ambiguës et anti-hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Robustesse réponse",
+      "question": "Si le PDF est en archives, puis-je considérer qu’il est faux ?",
+      "expectedAnswerKind": "Réponse de cadrage qui refuse les extrapolations et explique quelles sources seraient nécessaires.",
+      "validationPoints": "Doit dire clairement ce qui est prouvé, inconnu ou hors corpus; ne doit pas inventer de PDF, valeur, certification ou version."
+    },
+    {
+      "id": "Q130",
+      "axis": "Questions ambiguës et anti-hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Robustesse réponse",
+      "question": "Peux-tu inventer une fiche technique manquante pour un produit Siemens non présent ?",
+      "expectedAnswerKind": "Réponse de cadrage qui refuse les extrapolations et explique quelles sources seraient nécessaires.",
+      "validationPoints": "Doit dire clairement ce qui est prouvé, inconnu ou hors corpus; ne doit pas inventer de PDF, valeur, certification ou version."
+    },
+    {
+      "id": "Q131",
+      "axis": "Questions ambiguës et anti-hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Robustesse réponse",
+      "question": "Est-ce que “Safety Filter” veut toujours dire fiche de données de sécurité ?",
+      "expectedAnswerKind": "Réponse de cadrage qui refuse les extrapolations et explique quelles sources seraient nécessaires.",
+      "validationPoints": "Doit dire clairement ce qui est prouvé, inconnu ou hors corpus; ne doit pas inventer de PDF, valeur, certification ou version."
+    },
+    {
+      "id": "Q132",
+      "axis": "Questions ambiguës et anti-hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Robustesse réponse",
+      "question": "Peux-tu conclure qu’un produit est compatible CIP/SIP si le terme n’apparaît pas dans les PDF récupérés ?",
+      "expectedAnswerKind": "Réponse de cadrage qui refuse les extrapolations et explique quelles sources seraient nécessaires.",
+      "validationPoints": "Doit dire clairement ce qui est prouvé, inconnu ou hors corpus; ne doit pas inventer de PDF, valeur, certification ou version."
+    },
+    {
+      "id": "Q133",
+      "axis": "Questions ambiguës et anti-hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Robustesse réponse",
+      "question": "Le mot “PTFE” suffit-il pour appliquer un certificat 3M à une valve 4G ?",
+      "expectedAnswerKind": "Réponse de cadrage qui refuse les extrapolations et explique quelles sources seraient nécessaires.",
+      "validationPoints": "Doit dire clairement ce qui est prouvé, inconnu ou hors corpus; ne doit pas inventer de PDF, valeur, certification ou version."
+    },
+    {
+      "id": "Q134",
+      "axis": "Questions ambiguës et anti-hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Robustesse réponse",
+      "question": "Quand plusieurs PDF ont un titre proche, comment éviter de citer le mauvais ?",
+      "expectedAnswerKind": "Réponse de cadrage qui refuse les extrapolations et explique quelles sources seraient nécessaires.",
+      "validationPoints": "Doit dire clairement ce qui est prouvé, inconnu ou hors corpus; ne doit pas inventer de PDF, valeur, certification ou version."
+    },
+    {
+      "id": "Q135",
+      "axis": "Questions ambiguës et anti-hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Robustesse réponse",
+      "question": "Que dois-tu répondre si aucun document ne prouve l’information demandée ?",
+      "expectedAnswerKind": "Réponse de cadrage qui refuse les extrapolations et explique quelles sources seraient nécessaires.",
+      "validationPoints": "Doit dire clairement ce qui est prouvé, inconnu ou hors corpus; ne doit pas inventer de PDF, valeur, certification ou version."
+    },
+    {
+      "id": "Q136",
+      "axis": "Multilingue léger",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Siemens\\4 - Modes d'emploi\\MAN-Moteurs basse tension SIMOTICS XP 1MB155_1MB555-FR.pdf ; Siemens\\4 - Modes d'emploi\\MAN-Low-voltage motors SIMOTICS XP 1MB155_1MB555-EN.pdf",
+      "theme": "Langues et traduction",
+      "question": "Réponds en français en comparant le manuel Siemens SIMOTICS XP FR et EN.",
+      "expectedAnswerKind": "Réponse en français qui identifie les langues disponibles, cite les PDF et évite les traductions non vérifiées.",
+      "validationPoints": "Doit respecter la langue demandée, signaler les variantes linguistiques et ne pas supposer que deux versions sont identiques sans comparaison."
+    },
+    {
+      "id": "Q137",
+      "axis": "Multilingue léger",
+      "difficulty": "Moyenne",
+      "corpusTarget": "4G Ghidini\\4 - Modes d'emploi_Instruction manuals\\MAN-Instructions Valves 4G Ghidini-IT EN FR DE ES.pdf ; 4G Ghidini\\4 - Modes d'emploi_Instruction manuals\\MAN-Actionneurs pneumatics rotatifs 90°, 120° et 180°-IT EN FR DE ES.pdf",
+      "theme": "Langues et traduction",
+      "question": "Le manuel 4G contient IT EN FR DE ES: peux-tu extraire les informations utiles en français ?",
+      "expectedAnswerKind": "Réponse en français qui identifie les langues disponibles, cite les PDF et évite les traductions non vérifiées.",
+      "validationPoints": "Doit respecter la langue demandée, signaler les variantes linguistiques et ne pas supposer que deux versions sont identiques sans comparaison."
+    },
+    {
+      "id": "Q138",
+      "axis": "Multilingue léger",
+      "difficulty": "Moyenne",
+      "corpusTarget": "DEC\\Operating Manuals\\Safety Filters\\MAN-SAF-FR.pdf ; DEC\\Operating Manuals\\Safety Filters\\MAN-SAF-EN.pdf",
+      "theme": "Langues et traduction",
+      "question": "Compare les manuels DEC Safety Filters FR et EN, mais réponds en français utilisateur.",
+      "expectedAnswerKind": "Réponse en français qui identifie les langues disponibles, cite les PDF et évite les traductions non vérifiées.",
+      "validationPoints": "Doit respecter la langue demandée, signaler les variantes linguistiques et ne pas supposer que deux versions sont identiques sans comparaison."
+    },
+    {
+      "id": "Q139",
+      "axis": "Multilingue léger",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Busch\\6 - Divers documents\\Huiles\\SDS-VMH 100-EN.pdf ; Busch\\6 - Divers documents\\Huiles\\SDS-VMH 100-DE.pdf",
+      "theme": "Langues et traduction",
+      "question": "La SDS Busch VMH 100 existe en EN et DE: résume les différences de langue sans traduire abusivement.",
+      "expectedAnswerKind": "Réponse en français qui identifie les langues disponibles, cite les PDF et évite les traductions non vérifiées.",
+      "validationPoints": "Doit respecter la langue demandée, signaler les variantes linguistiques et ne pas supposer que deux versions sont identiques sans comparaison."
+    },
+    {
+      "id": "Q140",
+      "axis": "Multilingue léger",
+      "difficulty": "Moyenne",
+      "corpusTarget": "AAF International\\3 - Fiches techniques\\FIT-AstroCel II Dry Seal-FR.pdf ; AAF International\\3 - Fiches techniques\\FIT-AstroCel II Dry Seal-GB.pdf",
+      "theme": "Langues et traduction",
+      "question": "Pour AstroCel II Dry Seal, donne une réponse française en citant les fiches FR et GB.",
+      "expectedAnswerKind": "Réponse en français qui identifie les langues disponibles, cite les PDF et évite les traductions non vérifiées.",
+      "validationPoints": "Doit respecter la langue demandée, signaler les variantes linguistiques et ne pas supposer que deux versions sont identiques sans comparaison."
+    },
+    {
+      "id": "Q141",
+      "axis": "Multilingue léger",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Bürkert\\3 - Fiches techniques\\FIT-FLOWave - Débitmètre SAW Type 8098-FR.pdf ; Bürkert\\3 - Fiches techniques\\FIT-FLOWave SAW - Flowmeter Type 8098-EN.pdf",
+      "theme": "Langues et traduction",
+      "question": "Explique FLOWave Type 8098 avec les titres français et anglais.",
+      "expectedAnswerKind": "Réponse en français qui identifie les langues disponibles, cite les PDF et évite les traductions non vérifiées.",
+      "validationPoints": "Doit respecter la langue demandée, signaler les variantes linguistiques et ne pas supposer que deux versions sont identiques sans comparaison."
+    },
+    {
+      "id": "Q142",
+      "axis": "Multilingue léger",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Sick\\4 - Modes d'emploi\\MAN-Barrage de immatériel de sécurité C4000 Standard et Advanced-FR.pdf ; Sick\\4 - Modes d'emploi\\MAN-Safety light curtain C4000 Standard et Advanced-EN.pdf",
+      "theme": "Langues et traduction",
+      "question": "Pour Sick C4000, réponds en français même si une source utile est en anglais.",
+      "expectedAnswerKind": "Réponse en français qui identifie les langues disponibles, cite les PDF et évite les traductions non vérifiées.",
+      "validationPoints": "Doit respecter la langue demandée, signaler les variantes linguistiques et ne pas supposer que deux versions sont identiques sans comparaison."
+    },
+    {
+      "id": "Q143",
+      "axis": "Multilingue léger",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Schmersal\\3 - Fiches techniques_Data sheets\\FIT-Capteur sécurité EX BNS 303-12Z-FR.pdf ; Schmersal\\3 - Fiches techniques_Data sheets\\FIT-Capteur sécurité EX BNS 303-12Z-EN.pdf",
+      "theme": "Langues et traduction",
+      "question": "Pour Schmersal EX BNS 303, compare FR et EN sans mélanger les unités ni les références.",
+      "expectedAnswerKind": "Réponse en français qui identifie les langues disponibles, cite les PDF et évite les traductions non vérifiées.",
+      "validationPoints": "Doit respecter la langue demandée, signaler les variantes linguistiques et ne pas supposer que deux versions sont identiques sans comparaison."
+    },
+    {
+      "id": "Q144",
+      "axis": "Multilingue léger",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Mettler-Toledo\\4 - Modes d'emploi\\MAN-Installation manual_Weighing Terminal IND570-EN FR DE PT.pdf",
+      "theme": "Langues et traduction",
+      "question": "Le manuel IND570 contient EN FR DE PT: quelle langue dois-je citer pour un utilisateur francophone ?",
+      "expectedAnswerKind": "Réponse en français qui identifie les langues disponibles, cite les PDF et évite les traductions non vérifiées.",
+      "validationPoints": "Doit respecter la langue demandée, signaler les variantes linguistiques et ne pas supposer que deux versions sont identiques sans comparaison."
+    },
+    {
+      "id": "Q145",
+      "axis": "Multilingue léger",
+      "difficulty": "Moyenne",
+      "corpusTarget": "Bizerba\\4 - Modes d'emploi\\MAN-Safety instructions Zone 1_21 - Ex i C16, C2 ... Z6R-EN DE FR IT ES PT.pdf",
+      "theme": "Langues et traduction",
+      "question": "Le manuel Bizerba Safety instructions est multilingue: comment repérer la section française ?",
+      "expectedAnswerKind": "Réponse en français qui identifie les langues disponibles, cite les PDF et évite les traductions non vérifiées.",
+      "validationPoints": "Doit respecter la langue demandée, signaler les variantes linguistiques et ne pas supposer que deux versions sont identiques sans comparaison."
+    },
+    {
+      "id": "Q146",
+      "axis": "Stress corpus large",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Navigation et prudence",
+      "question": "Quels documents du dossier Siemens semblent nécessaires pour répondre à une question complète sur SIMOTICS XP ?",
+      "expectedAnswerKind": "Réponse méthodique adaptée à un corpus large, avec citations, priorisation des sources et limites.",
+      "validationPoints": "Doit expliciter la stratégie de recherche, citer des exemples réels si nécessaire et éviter les conclusions globales non sourcées."
+    },
+    {
+      "id": "Q147",
+      "axis": "Stress corpus large",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Navigation et prudence",
+      "question": "Dans le dossier DEC, quels PDF distinguerais-tu entre data sheets Safety Filters et operating manuals ?",
+      "expectedAnswerKind": "Réponse méthodique adaptée à un corpus large, avec citations, priorisation des sources et limites.",
+      "validationPoints": "Doit expliciter la stratégie de recherche, citer des exemples réels si nécessaire et éviter les conclusions globales non sourcées."
+    },
+    {
+      "id": "Q148",
+      "axis": "Stress corpus large",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Navigation et prudence",
+      "question": "Dans le dossier Busch, comment repérer les SDS d’huiles et éviter les anciens documents ATEX ?",
+      "expectedAnswerKind": "Réponse méthodique adaptée à un corpus large, avec citations, priorisation des sources et limites.",
+      "validationPoints": "Doit expliciter la stratégie de recherche, citer des exemples réels si nécessaire et éviter les conclusions globales non sourcées."
+    },
+    {
+      "id": "Q149",
+      "axis": "Stress corpus large",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Navigation et prudence",
+      "question": "Quels documents ABB concernent les transmetteurs de pression 266 et lesquels concernent les transmetteurs de température ?",
+      "expectedAnswerKind": "Réponse méthodique adaptée à un corpus large, avec citations, priorisation des sources et limites.",
+      "validationPoints": "Doit expliciter la stratégie de recherche, citer des exemples réels si nécessaire et éviter les conclusions globales non sourcées."
+    },
+    {
+      "id": "Q150",
+      "axis": "Stress corpus large",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Navigation et prudence",
+      "question": "Dans 4G Ghidini, quels documents concernent les valves, les actionneurs et la corrosion ?",
+      "expectedAnswerKind": "Réponse méthodique adaptée à un corpus large, avec citations, priorisation des sources et limites.",
+      "validationPoints": "Doit expliciter la stratégie de recherche, citer des exemples réels si nécessaire et éviter les conclusions globales non sourcées."
+    },
+    {
+      "id": "Q151",
+      "axis": "Stress corpus large",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Navigation et prudence",
+      "question": "Dans AAF International, quelles fiches existent en FR, GB ou DE pour AstroCel et VariCel ?",
+      "expectedAnswerKind": "Réponse méthodique adaptée à un corpus large, avec citations, priorisation des sources et limites.",
+      "validationPoints": "Doit expliciter la stratégie de recherche, citer des exemples réels si nécessaire et éviter les conclusions globales non sourcées."
+    },
+    {
+      "id": "Q152",
+      "axis": "Stress corpus large",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Navigation et prudence",
+      "question": "Quels documents Mettler-Toledo concernent IND570 ou IND570xx, et quels risques de confusion avec IND780 ?",
+      "expectedAnswerKind": "Réponse méthodique adaptée à un corpus large, avec citations, priorisation des sources et limites.",
+      "validationPoints": "Doit expliciter la stratégie de recherche, citer des exemples réels si nécessaire et éviter les conclusions globales non sourcées."
+    },
+    {
+      "id": "Q153",
+      "axis": "Stress corpus large",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Navigation et prudence",
+      "question": "Quels documents Sick concernent C4000, et comment distinguer certificat, fiche et manuel ?",
+      "expectedAnswerKind": "Réponse méthodique adaptée à un corpus large, avec citations, priorisation des sources et limites.",
+      "validationPoints": "Doit expliciter la stratégie de recherche, citer des exemples réels si nécessaire et éviter les conclusions globales non sourcées."
+    },
+    {
+      "id": "Q154",
+      "axis": "Stress corpus large",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Navigation et prudence",
+      "question": "Quels documents Schmersal concernent EX BNS 303, BNS 30, BNS 40 et BNS 250 ?",
+      "expectedAnswerKind": "Réponse méthodique adaptée à un corpus large, avec citations, priorisation des sources et limites.",
+      "validationPoints": "Doit expliciter la stratégie de recherche, citer des exemples réels si nécessaire et éviter les conclusions globales non sourcées."
+    },
+    {
+      "id": "Q155",
+      "axis": "Stress corpus large",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Navigation et prudence",
+      "question": "Quels indices de nommage aident à reconnaître CER, FIT, MAN, CAT, MSDS, SDS et FDS ?",
+      "expectedAnswerKind": "Réponse méthodique adaptée à un corpus large, avec citations, priorisation des sources et limites.",
+      "validationPoints": "Doit expliciter la stratégie de recherche, citer des exemples réels si nécessaire et éviter les conclusions globales non sourcées."
+    },
+    {
+      "id": "Q156",
+      "axis": "Stress corpus large",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Navigation et prudence",
+      "question": "Peux-tu proposer une méthode de réponse quand le même produit a un certificat, une fiche, un manuel et une archive ?",
+      "expectedAnswerKind": "Réponse méthodique adaptée à un corpus large, avec citations, priorisation des sources et limites.",
+      "validationPoints": "Doit expliciter la stratégie de recherche, citer des exemples réels si nécessaire et éviter les conclusions globales non sourcées."
+    },
+    {
+      "id": "Q157",
+      "axis": "Stress corpus large",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Navigation et prudence",
+      "question": "Quelles questions de validation testeront la capacité à citer plusieurs PDF sans perdre la source de chaque affirmation ?",
+      "expectedAnswerKind": "Réponse méthodique adaptée à un corpus large, avec citations, priorisation des sources et limites.",
+      "validationPoints": "Doit expliciter la stratégie de recherche, citer des exemples réels si nécessaire et éviter les conclusions globales non sourcées."
+    },
+    {
+      "id": "Q158",
+      "axis": "Stress corpus large",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Navigation et prudence",
+      "question": "Comment répondre si un utilisateur demande “la fiche du filtre H14” alors que plusieurs fichiers DEC H14 existent ?",
+      "expectedAnswerKind": "Réponse méthodique adaptée à un corpus large, avec citations, priorisation des sources et limites.",
+      "validationPoints": "Doit expliciter la stratégie de recherche, citer des exemples réels si nécessaire et éviter les conclusions globales non sourcées."
+    },
+    {
+      "id": "Q159",
+      "axis": "Stress corpus large",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Navigation et prudence",
+      "question": "Comment répondre si l’utilisateur demande “le certificat ATEX” sans préciser fabricant ni modèle ?",
+      "expectedAnswerKind": "Réponse méthodique adaptée à un corpus large, avec citations, priorisation des sources et limites.",
+      "validationPoints": "Doit expliciter la stratégie de recherche, citer des exemples réels si nécessaire et éviter les conclusions globales non sourcées."
+    },
+    {
+      "id": "Q160",
+      "axis": "Stress corpus large",
+      "difficulty": "Difficile",
+      "corpusTarget": "Tous",
+      "theme": "Navigation et prudence",
+      "question": "Donne une procédure courte pour vérifier qu’une réponse technique n’a pas mélangé deux fabricants.",
+      "expectedAnswerKind": "Réponse méthodique adaptée à un corpus large, avec citations, priorisation des sources et limites.",
+      "validationPoints": "Doit expliciter la stratégie de recherche, citer des exemples réels si nécessaire et éviter les conclusions globales non sourcées."
+    }
+  ]
+}

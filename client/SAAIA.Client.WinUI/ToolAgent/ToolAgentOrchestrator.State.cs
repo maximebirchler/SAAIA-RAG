@@ -1658,13 +1658,16 @@ CURRENT_USER_MESSAGE:
 
     private static List<ToolMemory.SourceRef> DeriveSourcesFromRankedRagHits(ToolResults toolResults, string query, int maxSources = 8)
     {
+        var evidenceQuery = BuildRagEvidenceSelectionQuery(query);
+        var requestedTitle = LooksLikeShortTechnicalEvidenceTopic(evidenceQuery)
+            ? null
+            : TryExtractRequestedItemTitle(query);
         var hits = EnumerateRagHitSummaries(toolResults)
-            .Where(hit => !LooksLikeNavigationOnlyHit(hit))
-            .Where(static hit => !LooksLikeLowSignalContentCandidateHit(hit))
-            .OrderByDescending(hit => ComputeRagHitLexicalRelevance(query, GetRagHitLookupText(hit)))
+            .Where(hit => !LooksLikeNavigationOnlyHit(hit) || IsUsableExactItemNavigationOverride(requestedTitle, hit))
+            .Where(hit => !LooksLikeLowSignalContentCandidateHit(hit) || IsUsableExactItemNavigationOverride(requestedTitle, hit))
+            .OrderByDescending(hit => ComputeRagHitLexicalRelevance(evidenceQuery, GetRagHitLookupText(hit)))
             .ToList();
 
-        var requestedTitle = TryExtractRequestedItemTitle(query);
         if (!string.IsNullOrWhiteSpace(requestedTitle))
         {
             var exactTitleHits = hits
@@ -1694,16 +1697,42 @@ CURRENT_USER_MESSAGE:
 
     private static List<ToolMemory.SourceRef> DeriveSourcesFromExtractiveHits(ToolResults toolResults, string query, int maxSources = 8)
     {
+        if (LooksLikeDocumentVersionTraceabilityRequest(query))
+        {
+            var traceabilitySources = DeriveSourcesFromDocumentVersionTraceabilityHits(
+                toolResults,
+                query,
+                Math.Min(maxSources, 4));
+            if (traceabilitySources.Count > 0)
+                return traceabilitySources;
+        }
+
+        var evidenceQuery = BuildRagEvidenceSelectionQuery(query);
+        var requestedTitle = LooksLikeShortTechnicalEvidenceTopic(evidenceQuery)
+            ? null
+            : TryExtractRequestedItemTitle(query);
+        var requestedDocumentFileTitle = ResolveRequestedDocumentFileTitle(query, requestedTitle);
+        var explicitDocumentFileReferences = ExtractExplicitDocumentFileReferenceQueries(query);
+        var hasMultipleExplicitComparativeDocumentReferences = LooksLikeComparativeDocumentaryRequest(query)
+            && explicitDocumentFileReferences.Count > 1;
+        var shouldScopeToSingleRequestedDocumentFile = !hasMultipleExplicitComparativeDocumentReferences
+            && !string.IsNullOrWhiteSpace(requestedDocumentFileTitle);
         var allHits = EnumerateRagHitSummaries(toolResults)
-            .Where(static hit => !LooksLikeNavigationOnlyHit(hit))
-            .Where(static hit => !LooksLikeLowSignalContentCandidateHit(hit))
+            .Where(hit => !LooksLikeNavigationOnlyHit(hit)
+                || IsUsableExactItemNavigationOverride(requestedTitle, hit)
+                || MatchesRequestedDocumentFileIdentity(requestedDocumentFileTitle, hit))
+            .Where(hit => !LooksLikeLowSignalContentCandidateHit(hit)
+                || IsUsableExactItemNavigationOverride(requestedTitle, hit)
+                || MatchesRequestedDocumentFileIdentity(requestedDocumentFileTitle, hit)
+                || MatchesExplicitComparativeDocumentReference(query, hit))
             .ToList();
-        var requestedTitle = TryExtractRequestedItemTitle(query);
-        if (!string.IsNullOrWhiteSpace(requestedTitle)
+        if (string.IsNullOrWhiteSpace(requestedDocumentFileTitle)
+            && !string.IsNullOrWhiteSpace(requestedTitle)
             && allHits.Count > 0
             && (!RagHitsContainRequestedTitle(allHits, requestedTitle!)
                 || !allHits.Any(hit => (RagHitContainsRequestedTitle(hit, requestedTitle!)
-                        || RagHitHasUsableRequestedTitleAnchor(requestedTitle!, hit))
+                        || RagHitHasUsableRequestedTitleAnchor(requestedTitle!, hit)
+                        || IsUsableExactItemNavigationOverride(requestedTitle!, hit))
                     && !LooksLikeExactItemReferenceOnlyHit(requestedTitle!, hit))))
         {
             return DeriveSourcesFromMissingExactItemCloseLeads(requestedTitle!, allHits);
@@ -1733,10 +1762,28 @@ CURRENT_USER_MESSAGE:
         {
             selectedHits = SelectSourceBackedExtractiveHits(toolResults, query, sourceLimit).ToList();
         }
-        if (!string.IsNullOrWhiteSpace(requestedTitle))
+        if (shouldScopeToSingleRequestedDocumentFile)
+        {
+            var documentHits = selectedHits
+                .Where(hit => CandidateMatchesDocumentIdentity(requestedDocumentFileTitle!, hit.DocName, hit.DocPath))
+                .ToList();
+            if (documentHits.Count == 0)
+            {
+                documentHits = allHits
+                    .Where(hit => CandidateMatchesDocumentIdentity(requestedDocumentFileTitle!, hit.DocName, hit.DocPath))
+                    .Take(sourceLimit)
+                    .ToList();
+            }
+
+            if (documentHits.Count > 0)
+                selectedHits = documentHits;
+        }
+        if (!string.IsNullOrWhiteSpace(requestedTitle) && !hasMultipleExplicitComparativeDocumentReferences)
         {
             var stronglyAnchoredHits = selectedHits
-                .Where(hit => RagHitHasUsableRequestedTitleAnchor(requestedTitle!, hit))
+                .Where(hit => LooksLikeStructuredItemCardRequest(query)
+                    ? ExactItemEvidenceStartsWithRequestedTitle(requestedTitle!, hit) || HasStrongExactItemTitleAnchor(requestedTitle!, hit) || IsUsableExactItemNavigationOverride(requestedTitle!, hit)
+                    : RagHitHasUsableRequestedTitleAnchor(requestedTitle!, hit) || IsUsableExactItemNavigationOverride(requestedTitle!, hit))
                 .ToList();
             if (stronglyAnchoredHits.Count > 0)
                 selectedHits = stronglyAnchoredHits;
@@ -1948,20 +1995,25 @@ CURRENT_USER_MESSAGE:
 
     private static bool LooksLikeMissingExactItemWithoutSourceLeads(string? answer)
     {
+        if (!LooksLikeMissingExactItemAnswer(answer))
+            return false;
+
+        var normalized = NormalizeLexicalLookup(answer);
+        return !Regex.IsMatch(
+            normalized,
+            @"\b(?:pistes\s+proches|closest\s+source-backed\s+leads|pistas\s+cercanas|pistas\s+proximas|naheliegende\s+belegte\s+hinweise|indicazioni\s+vicine)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeMissingExactItemAnswer(string? answer)
+    {
         var normalized = NormalizeLexicalLookup(answer);
         if (string.IsNullOrWhiteSpace(normalized))
             return false;
 
-        var missingExact = Regex.IsMatch(
+        return Regex.IsMatch(
             normalized,
             @"\b(?:je\s+n['\s]?ai\s+pas\s+trouve\s+l['\s]?element\s+exact|i\s+did\s+not\s+find\s+the\s+exact\s+requested\s+item|no\s+he\s+encontrado\s+el\s+elemento\s+exacto|nao\s+encontrei\s+o\s+item\s+exato|ich\s+habe\s+den\s+exakt\s+angefragten\s+eintrag|non\s+ho\s+trovato\s+l['\s]?elemento\s+esatto)\b",
-            RegexOptions.CultureInvariant);
-        if (!missingExact)
-            return false;
-
-        return !Regex.IsMatch(
-            normalized,
-            @"\b(?:pistes\s+proches|closest\s+source-backed\s+leads|pistas\s+cercanas|pistas\s+proximas|naheliegende\s+belegte\s+hinweise|indicazioni\s+vicine)\b",
             RegexOptions.CultureInvariant);
     }
 
@@ -1989,15 +2041,200 @@ CURRENT_USER_MESSAGE:
         return LooksLikeSourceBackedQuantityScalingRequest(query)
             || LooksLikeSourceBackedAdaptationRequest(query)
             || LooksLikeRankingDocumentaryRequest(query)
-            || LooksLikeComparativeDocumentaryRequest(query);
+            || LooksLikeComparativeDocumentaryRequest(query)
+            || LooksLikeShortTechnicalEvidenceTopic(query);
+    }
+
+    private static string TryBuildCorpusClaimVerificationAnswer(ToolResults toolResults, string query, string language)
+    {
+        if (!LooksLikeCorpusClaimVerificationRequest(query))
+            return string.Empty;
+
+        language = NormalizeLanguageCode(language);
+        var hits = SelectSourceBackedExtractiveHits(toolResults, query, maxHits: 5)
+            .Where(static hit => !LooksLikeNavigationOnlyHit(hit))
+            .Where(static hit => !LooksLikeLowSignalContentCandidateHit(hit))
+            .GroupBy(hit => $"{hit.DocPath}|{hit.PageStart}|{hit.PageEnd}", StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .Take(4)
+            .ToList();
+        if (hits.Count == 0)
+            return string.Empty;
+
+        var header = SourceBackedLabel(
+            language,
+            "Je ne peux pas confirmer une obligation generale ou un \"toujours\" avec les seuls extraits retrouves. Je limite donc la reponse a une verification prudente :",
+            "I cannot confirm a general obligation or an \"always\" claim from the retrieved excerpts alone. I will keep this to a cautious source-backed check:",
+            "No puedo confirmar una obligacion general o un \"siempre\" solo con los extractos recuperados. Limito la respuesta a una verificacion prudente:",
+            "Nao posso confirmar uma obrigacao geral ou um \"sempre\" apenas com os excertos recuperados. Limito a resposta a uma verificacao prudente:",
+            "Ich kann aus den gefundenen Auszuegen keine allgemeine Pflicht oder ein \"immer\" bestaetigen. Ich beschraenke die Antwort auf eine vorsichtige belegte Pruefung:",
+            "Non posso confermare un obbligo generale o un \"sempre\" solo dagli estratti recuperati. Limito la risposta a una verifica prudente:");
+        var conclusion = SourceBackedLabel(
+            language,
+            "Conclusion prudente : traite l'hypothese comme limitee ou a confirmer document par document, pas comme une regle universelle, sauf si une page source citee l'exprime explicitement.",
+            "Cautious conclusion: treat the claim as limited or to be confirmed document by document, not as a universal rule, unless a cited source page says so explicitly.",
+            "Conclusion prudente: trata la hipotesis como limitada o pendiente de confirmar documento por documento, no como regla universal, salvo que una pagina citada lo diga explicitamente.",
+            "Conclusao prudente: trata a hipotese como limitada ou a confirmar documento por documento, nao como regra universal, salvo se uma pagina citada o disser explicitamente.",
+            "Vorsichtige Schlussfolgerung: Behandle die Annahme als begrenzt oder dokumentweise zu pruefen, nicht als allgemeine Regel, ausser eine zitierte Quellseite sagt es ausdruecklich.",
+            "Conclusione prudente: tratta l'ipotesi come limitata o da confermare documento per documento, non come regola universale, salvo che una pagina citata lo dica esplicitamente.");
+
+        var sb = new StringBuilder();
+        sb.AppendLine(header);
+        foreach (var hit in hits.Take(4))
+        {
+            var docLabel = string.IsNullOrWhiteSpace(hit.DocName) ? hit.DocPath : hit.DocName;
+            var excerpt = FormatReadableEvidenceExcerpt(GetBestRagEvidenceText(hit), maxLength: 240);
+            sb.Append("- ");
+            sb.Append(docLabel);
+            sb.Append(' ');
+            sb.Append(SourceBackedPagePrefix(language));
+            sb.Append(hit.PageStart);
+            sb.Append(" : ");
+            sb.AppendLine(excerpt);
+        }
+
+        sb.Append(conclusion);
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string TryBuildComparativeDocumentaryAnswer(ToolResults toolResults, string query, string language)
+    {
+        if (!LooksLikeComparativeDocumentaryRequest(query))
+            return string.Empty;
+        if (LooksLikeRankingDocumentaryRequest(query))
+            return string.Empty;
+
+        language = NormalizeLanguageCode(language);
+        var hits = SelectComparativeDocumentaryHits(EnumerateRagHitSummaries(toolResults), query, maxHits: 8)
+            .Where(static hit => !LooksLikeNavigationOnlyHit(hit))
+            .Where(hit => !LooksLikeLowSignalContentCandidateHit(hit) || MatchesExplicitComparativeDocumentReference(query, hit))
+            .GroupBy(hit => string.IsNullOrWhiteSpace(hit.DocPath) ? hit.DocName : hit.DocPath, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.OrderByDescending(hit => ComputeComparativeDocumentaryEvidenceScore(hit, BuildRagEvidenceSelectionQuery(query), ExtractQuerySignalTerms(NormalizeLexicalLookup(query)).ToArray())).First())
+            .Take(4)
+            .ToList();
+        if (hits.Select(hit => string.IsNullOrWhiteSpace(hit.DocPath) ? hit.DocName : hit.DocPath)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count() < 2)
+        {
+            return string.Empty;
+        }
+
+        var labels = language switch
+        {
+            "en" => (
+                Header: "Here is a source-separated comparison limited to the retrieved excerpts:",
+                PerDoc: "By document:",
+                Common: "Common ground: the selected sources address the requested theme, but I do not merge their rules beyond the cited excerpts.",
+                Difference: "Differences: each document must be read in its own framework; use the cited pages to compare wording, scope and procedure.",
+                Limit: "Limit: this is not an exhaustive legal or technical comparison of the full documents."),
+            "es" => (
+                Header: "Comparacion separada por fuente, limitada a los extractos recuperados:",
+                PerDoc: "Por documento:",
+                Common: "Puntos comunes: las fuentes seleccionadas tratan el tema pedido, pero no fusiono sus reglas mas alla de los extractos citados.",
+                Difference: "Diferencias: cada documento debe leerse en su propio marco; usa las paginas citadas para comparar redaccion, alcance y procedimiento.",
+                Limit: "Limite: no es una comparacion juridica o tecnica exhaustiva de los documentos completos."),
+            "pt" => (
+                Header: "Comparacao separada por fonte, limitada aos excertos recuperados:",
+                PerDoc: "Por documento:",
+                Common: "Pontos comuns: as fontes selecionadas tratam o tema pedido, mas nao junto as regras para alem dos excertos citados.",
+                Difference: "Diferencas: cada documento deve ser lido no seu proprio enquadramento; usa as paginas citadas para comparar redacao, ambito e procedimento.",
+                Limit: "Limite: nao e uma comparacao juridica ou tecnica exaustiva dos documentos completos."),
+            "de" => (
+                Header: "Quellengetrennte Gegenueberstellung, begrenzt auf die gefundenen Auszuege:",
+                PerDoc: "Nach Dokument:",
+                Common: "Gemeinsamkeit: Die ausgewaehlten Quellen behandeln das angefragte Thema, aber ich fuehre ihre Regeln nicht ueber die zitierten Auszuege hinaus zusammen.",
+                Difference: "Unterschiede: Jedes Dokument muss in seinem eigenen Rahmen gelesen werden; nutze die zitierten Seiten fuer Wortlaut, Geltungsbereich und Verfahren.",
+                Limit: "Grenze: Dies ist kein vollstaendiger rechtlicher oder technischer Vergleich der Gesamtdokumente."),
+            "it" => (
+                Header: "Confronto separato per fonte, limitato agli estratti recuperati:",
+                PerDoc: "Per documento:",
+                Common: "Punti comuni: le fonti selezionate trattano il tema richiesto, ma non fondo le loro regole oltre gli estratti citati.",
+                Difference: "Differenze: ogni documento va letto nel proprio quadro; usa le pagine citate per confrontare formulazione, ambito e procedura.",
+                Limit: "Limite: non e un confronto giuridico o tecnico esaustivo dei documenti completi."),
+            _ => (
+                Header: "Voici une comparaison separee par source, limitee aux extraits retrouves :",
+                PerDoc: "Par document :",
+                Common: "Points communs : les sources selectionnees traitent le theme demande, mais je ne fusionne pas leurs regles au-dela des extraits cites.",
+                Difference: "Differences : chaque document doit etre lu dans son propre cadre ; utilise les pages citees pour comparer formulation, perimetre et procedure.",
+                Limit: "Limite : ce n'est pas une comparaison juridique ou technique exhaustive des documents complets.")
+        };
+
+        var sb = new StringBuilder();
+        sb.AppendLine(labels.Header);
+        sb.AppendLine(labels.PerDoc);
+        foreach (var hit in hits)
+        {
+            var docLabel = string.IsNullOrWhiteSpace(hit.DocName) ? hit.DocPath : hit.DocName;
+            var excerpt = FormatReadableEvidenceExcerpt(GetBestRagEvidenceText(hit), maxLength: 260);
+            sb.Append("- ");
+            sb.Append(docLabel);
+            sb.Append(' ');
+            sb.Append(SourceBackedPagePrefix(language));
+            sb.Append(hit.PageStart);
+            sb.Append(" : ");
+            sb.AppendLine(excerpt);
+        }
+
+        sb.AppendLine(labels.Common);
+        sb.AppendLine(labels.Difference);
+        sb.Append(labels.Limit);
+        return sb.ToString().TrimEnd();
+    }
+
+    private static bool MatchesExplicitComparativeDocumentReference(string? query, RagHitSummary hit)
+    {
+        if (!LooksLikeComparativeDocumentaryRequest(query))
+            return false;
+
+        foreach (var fileReference in ExtractExplicitDocumentFileReferenceQueries(query).Take(6))
+        {
+            if (CandidateMatchesDocumentIdentity(fileReference, hit.DocName, hit.DocPath))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool MatchesRequestedDocumentFileIdentity(string? requestedTitle, RagHitSummary hit)
+    {
+        return !string.IsNullOrWhiteSpace(requestedTitle)
+            && Regex.IsMatch(requestedTitle!, @"\.(?:pdf|docx?|xlsx?|pptx?|md|txt|csv)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+            && CandidateMatchesDocumentIdentity(requestedTitle!, hit.DocName, hit.DocPath);
+    }
+
+    private static string? ResolveRequestedDocumentFileTitle(string? query, string? requestedTitle)
+    {
+        if (!string.IsNullOrWhiteSpace(requestedTitle)
+            && Regex.IsMatch(requestedTitle!, @"\.(?:pdf|docx?|xlsx?|pptx?|md|txt|csv)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        {
+            return requestedTitle;
+        }
+
+        var explicitPdfTitle = TryExtractPdfFileNameRequestedTitle(query);
+        if (!string.IsNullOrWhiteSpace(explicitPdfTitle))
+            return explicitPdfTitle;
+
+        return ExtractExplicitDocumentFileReferenceQueries(query).FirstOrDefault();
     }
 
     internal static string BuildSourceBackedExtractiveAnswer(ToolResults toolResults, string query, string language)
     {
         language = NormalizeLanguageCode(language);
+        var versionTraceabilityAnswer = TryBuildDocumentVersionTraceabilityAnswer(toolResults, query, language);
+        if (!string.IsNullOrWhiteSpace(versionTraceabilityAnswer))
+            return versionTraceabilityAnswer;
+
         var missingRequiredEvidence = TryBuildMissingRequiredEvidenceAnswer(toolResults, query, language);
         if (!string.IsNullOrWhiteSpace(missingRequiredEvidence))
             return missingRequiredEvidence;
+
+        var corpusClaimVerificationAnswer = TryBuildCorpusClaimVerificationAnswer(toolResults, query, language);
+        if (!string.IsNullOrWhiteSpace(corpusClaimVerificationAnswer))
+            return corpusClaimVerificationAnswer;
+
+        var comparativeAnswer = TryBuildComparativeDocumentaryAnswer(toolResults, query, language);
+        if (!string.IsNullOrWhiteSpace(comparativeAnswer))
+            return comparativeAnswer;
 
         var allHits = EnumerateRagHitSummaries(toolResults)
             .OrderBy(hit => LooksLikeNavigationOnlyHit(hit) ? 1 : 0)
@@ -2008,11 +2245,18 @@ CURRENT_USER_MESSAGE:
         if (allHits.Count == 0)
             return BuildRagEvidenceFallbackAnswer(toolResults, query, language);
 
-        var requestedTitle = TryExtractRequestedItemTitle(query);
+        var evidenceQuery = BuildRagEvidenceSelectionQuery(query);
+        var requestedTitle = LooksLikeShortTechnicalEvidenceTopic(evidenceQuery)
+            ? null
+            : TryExtractRequestedItemTitle(query);
+        var requestedDocumentFileTitle = ResolveRequestedDocumentFileTitle(query, requestedTitle);
+        var requestedTitleIsDocumentFile = !string.IsNullOrWhiteSpace(requestedDocumentFileTitle);
         var isQuantityScalingRequest = LooksLikeSourceBackedQuantityScalingRequest(query);
         if (!isQuantityScalingRequest
+            && !requestedTitleIsDocumentFile
             && !string.IsNullOrWhiteSpace(requestedTitle)
-            && !allHits.Any(hit => RagHitHasUsableRequestedTitleAnchor(requestedTitle!, hit)
+            && !allHits.Any(hit => (RagHitHasUsableRequestedTitleAnchor(requestedTitle!, hit)
+                    || IsUsableExactItemNavigationOverride(requestedTitle!, hit))
                 && !LooksLikeExactItemReferenceOnlyHit(requestedTitle!, hit)))
         {
             var answer = BuildMissingExactItemAnswer(language, requestedTitle!, allHits);
@@ -2022,6 +2266,33 @@ CURRENT_USER_MESSAGE:
         }
 
         var hits = SelectSourceBackedExtractiveHits(toolResults, query, maxHits: 4).ToList();
+        if (requestedTitleIsDocumentFile)
+        {
+            var documentHits = hits
+                .Where(hit => CandidateMatchesDocumentIdentity(requestedDocumentFileTitle!, hit.DocName, hit.DocPath))
+                .ToList();
+            if (documentHits.Count == 0)
+            {
+                documentHits = allHits
+                    .Where(hit => CandidateMatchesDocumentIdentity(requestedDocumentFileTitle!, hit.DocName, hit.DocPath))
+                    .Take(4)
+                    .ToList();
+            }
+
+            if (documentHits.Count > 0)
+                hits = documentHits;
+        }
+        if (!isQuantityScalingRequest
+            && !requestedTitleIsDocumentFile
+            && !string.IsNullOrWhiteSpace(requestedTitle)
+            && hits.Count == 0)
+        {
+            var answer = BuildMissingExactItemAnswer(language, requestedTitle!, allHits);
+            return LooksLikeSourceBypassOrUnsupportedInventionRequest(query)
+                ? ApplySourcePolicyGuardPrefix(answer, language)
+                : answer;
+        }
+
         var requestedMaxMinutes = TryExtractRequestedMaxMinutes(query);
         if (requestedMaxMinutes.HasValue)
         {
@@ -2069,9 +2340,10 @@ CURRENT_USER_MESSAGE:
                 return rankingAnswer;
         }
 
-        if (!string.IsNullOrWhiteSpace(requestedTitle))
+        if (!string.IsNullOrWhiteSpace(requestedTitle) && !requestedTitleIsDocumentFile)
         {
-            if (hits.Count > 0 && hits.Any(hit => RagHitHasUsableRequestedTitleAnchor(requestedTitle!, hit)
+            if (hits.Count > 0 && hits.Any(hit => (RagHitHasUsableRequestedTitleAnchor(requestedTitle!, hit)
+                        || IsUsableExactItemNavigationOverride(requestedTitle!, hit))
                     && !LooksLikeExactItemReferenceOnlyHit(requestedTitle!, hit)))
                 return BuildSourceBackedExactItemAnswer(language, requestedTitle!, hits, query);
         }
@@ -2083,7 +2355,7 @@ CURRENT_USER_MESSAGE:
         foreach (var hit in hits)
         {
             var docLabel = string.IsNullOrWhiteSpace(hit.DocName) ? hit.DocPath : hit.DocName;
-            var excerpt = FormatReadableEvidenceExcerpt(GetBestRagEvidenceText(hit), maxLength: SourceBackedEvidenceMaxChars);
+            var excerpt = FormatSourceBackedEvidenceExcerpt(hit, query, SourceBackedEvidenceMaxChars);
 
             sb.Append("- ");
             sb.Append(docLabel);
@@ -2110,6 +2382,10 @@ CURRENT_USER_MESSAGE:
         if (LooksLikeBroadSourceBackedCompositionRequest(s))
             return null;
 
+        var explicitPdfTitle = TryExtractPdfFileNameRequestedTitle(s);
+        if (!string.IsNullOrWhiteSpace(explicitPdfTitle))
+            return explicitPdfTitle;
+
         var availableItemRequest = Regex.Match(
             s,
             @"(?i)\b(?:j['\u2019]ai|je\s+dispose\s+de|i\s+have|tengo|tenho|ich\s+habe|ho)\s+(?:du|de\s+la|de\s+l['\u2019]|des|un|une|some|a|an|el|la|los|las|o|a|os|as|ein|eine|einen|del|della|dei|delle)?\s*(?<title>[\p{L}0-9'\u2019 \-]{3,70}?)(?:[,;?.!]|$).{0,100}\b(?:tu\s+as|vous\s+avez|as[-\s]?tu|avez[-\s]?vous|do\s+you\s+have|can\s+you|could\s+you|puedes|podes|pode|kannst|puoi|hai|hast)\b",
@@ -2121,13 +2397,27 @@ CURRENT_USER_MESSAGE:
                 return title;
         }
 
-        var quoted = Regex.Match(s, "[\\u00ab\"'](?<title>[^\\u00bb\"']{3,90})[\\u00bb\"']", RegexOptions.CultureInvariant);
+        var quoted = Regex.Match(s, "[\\u00ab\"'`](?<title>[^\\u00bb\"'`]{3,90})[\\u00bb\"'`]", RegexOptions.CultureInvariant);
         if (quoted.Success)
         {
+            if (LooksLikeCorpusClaimVerificationRequest(s))
+                return null;
+
             var title = CleanupQuotedRequestedItemTitle(quoted.Groups["title"].Value);
             if (!string.IsNullOrWhiteSpace(title) && LooksLikeDirectRequestedItemTitle(title))
+            {
+                if (LooksLikeShortTechnicalEvidenceTopic(title) && !LooksLikeCompactTechnicalIdentifier(title))
+                    return null;
+
                 return title;
+            }
         }
+
+        if (LooksLikeShortTechnicalEvidenceTopic(s))
+            return null;
+
+        if (LooksLikeSoftChoiceRecommendationRequest(s))
+            return null;
 
         var actionConnectorTarget = Regex.Match(
             s,
@@ -2232,7 +2522,7 @@ CURRENT_USER_MESSAGE:
 
             var parameterTarget = Regex.Match(
                 s,
-                @"(?i)\b(?:pour|for)\s+\d+\s+(?:[\p{L}'\u2019-]+\s+){0,3}(?:de|d['\u2019]|of)\s+(?<title>[^:?.!,;]{3,90})",
+                @"(?i)\b(?:pour|for)\s+\d+\s+(?:[\p{L}'\u2019-]+\s+){0,3}(?:de|du|des|de\s+la|de\s+l['\u2019]|d['\u2019]|of)\s+(?<title>[^:?.!,;]{3,90})",
                 RegexOptions.CultureInvariant);
             if (parameterTarget.Success)
                 return CleanupRequestedItemTitle(parameterTarget.Groups["title"].Value);
@@ -2328,7 +2618,7 @@ CURRENT_USER_MESSAGE:
 
         var quantitySubject = Regex.Match(
             s,
-            @"(?i)\b(?:quantit[e\u00e9]s?|quantites?|values?|valeurs?)\s+(?:pour|for)\s+\d+\s+(?:[\p{L}'\u2019-]+\s+){0,3}(?:de|d['\u2019]|of)\s+(?<title>[^:?.!,;]{3,90})",
+            @"(?i)\b(?:quantit[e\u00e9]s?|quantites?|values?|valeurs?)\s+(?:pour|for)\s+\d+\s+(?:[\p{L}'\u2019-]+\s+){0,3}(?:de|du|des|de\s+la|de\s+l['\u2019]|d['\u2019]|of)\s+(?<title>[^:?.!,;]{3,90})",
             RegexOptions.CultureInvariant);
         if (quantitySubject.Success)
         {
@@ -2355,6 +2645,192 @@ CURRENT_USER_MESSAGE:
         }
 
         return null;
+    }
+
+    private static string? TryExtractPdfFileNameRequestedTitle(string? query)
+    {
+        var s = NormalizeDocumentFileExtractionInput(query);
+        if (s.Length == 0 || !s.Contains(".pdf", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var quoted = Regex.Matches(
+                s,
+                @"(?i)(?:`|""|\u00ab|\u201c)(?<title>[^`""\u00ab\u00bb\u201c\u201d]{2,300}?\.(?:pdf|docx?|xlsx?|pptx?|md|txt|csv))(?:`|""|\u00bb|\u201d)",
+                RegexOptions.CultureInvariant)
+            .Cast<Match>()
+            .Select(match => CleanupExplicitDocumentFileTitle(match.Groups["title"].Value))
+            .Where(static title => !string.IsNullOrWhiteSpace(title))
+            .OrderByDescending(static title => title!.Length)
+            .FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(quoted))
+            return quoted;
+
+        var introduced = Regex.Matches(
+                s,
+                @"(?i)\b(?:de|du|des|d['\u2019]|dans|sur|pour|concernant|from|of|for|in|about|regarding|sobre|ueber|über|su)\s+[`""'\u00ab\u201c]?(?<title>[\p{L}\p{N}][^?;`""\u00ab\u00bb\u201c\u201d]{2,260}?\.pdf)[`""'\u00bb\u201d]?\b",
+                RegexOptions.CultureInvariant)
+            .Cast<Match>()
+            .Select(match => CleanupExplicitDocumentFileTitle(match.Groups["title"].Value))
+            .Where(static title => !string.IsNullOrWhiteSpace(title))
+            .Select(static title => title!);
+
+        var bare = Regex.Matches(
+                s,
+                @"(?i)[`""'\u00ab\u201c]?(?<title>[\p{L}\p{N}][\p{L}\p{N}'\u2019 .,+_()&/\-\u2010-\u2015]{2,260}?\.pdf)[`""'\u00bb\u201d]?\b",
+                RegexOptions.CultureInvariant)
+            .Cast<Match>()
+            .Select(match => CleanupExplicitDocumentFileTitle(match.Groups["title"].Value))
+            .Where(static title => !string.IsNullOrWhiteSpace(title))
+            .Select(static title => title!);
+
+        return FilterExplicitDocumentFileTitleCandidates(introduced.Concat(bare)).FirstOrDefault();
+    }
+
+    private static int CountExplicitDocumentFileReferences(string? query)
+        => ExtractExplicitDocumentFileReferenceQueries(query).Count;
+
+    private static IReadOnlyList<string> ExtractExplicitDocumentFileReferenceQueries(string? query)
+    {
+        var s = NormalizeDocumentFileExtractionInput(query);
+        if (s.Length == 0)
+            return Array.Empty<string>();
+
+        var candidates = new List<string>();
+        var introducedPdfTitle = TryExtractPdfFileNameRequestedTitle(query);
+        if (!string.IsNullOrWhiteSpace(introducedPdfTitle))
+            candidates.Add(introducedPdfTitle!);
+
+        candidates.AddRange(Regex.Matches(
+                s,
+                @"(?i)(?<title>[\p{L}\p{N}][\p{L}\p{N}'\u2019 .,+_()&/\-\u2010-\u2015]{2,260}?\.(?:pdf|docx?|xlsx?|pptx?|md|txt|csv))\b",
+                RegexOptions.CultureInvariant)
+            .Cast<Match>()
+            .Select(match => CleanupExplicitDocumentFileTitle(match.Groups["title"].Value))
+            .Where(static title => !string.IsNullOrWhiteSpace(title))
+            .Select(static title => title!));
+
+        return FilterExplicitDocumentFileTitleCandidates(candidates);
+    }
+
+    private static IReadOnlyList<string> FilterExplicitDocumentFileTitleCandidates(IEnumerable<string> candidates)
+    {
+        var distinctCandidates = candidates
+            .Where(static candidate => !string.IsNullOrWhiteSpace(candidate))
+            .GroupBy(NormalizeDocumentLookupText, StringComparer.Ordinal)
+            .Select(static group => group.First())
+            .ToArray();
+
+        return distinctCandidates
+            .Where(candidate => !distinctCandidates.Any(other =>
+                !string.Equals(candidate, other, StringComparison.OrdinalIgnoreCase)
+                && ((IsSuffixDocumentFileTitle(other, candidate)
+                        && !ShouldPreferSuffixDocumentFileTitle(other, candidate))
+                    || (IsSuffixDocumentFileTitle(candidate, other)
+                        && ShouldPreferSuffixDocumentFileTitle(candidate, other)))))
+            .ToArray();
+    }
+
+    private static bool IsSuffixDocumentFileTitle(string longer, string shorter)
+    {
+        var longerCollapsed = CollapseWhitespace(longer);
+        var shorterCollapsed = CollapseWhitespace(shorter);
+        if (shorterCollapsed.Length == 0 || longerCollapsed.Length <= shorterCollapsed.Length + 2)
+            return false;
+
+        return longerCollapsed.EndsWith(shorterCollapsed, StringComparison.OrdinalIgnoreCase)
+            || NormalizeDocumentLookupText(longerCollapsed).EndsWith(NormalizeDocumentLookupText(shorterCollapsed), StringComparison.Ordinal);
+    }
+
+    private static bool ShouldPreferSuffixDocumentFileTitle(string longer, string suffix)
+    {
+        var longerCollapsed = CollapseWhitespace(longer);
+        var suffixCollapsed = CollapseWhitespace(suffix);
+        if (!longerCollapsed.EndsWith(suffixCollapsed, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var prefix = longerCollapsed[..^suffixCollapsed.Length].Trim();
+        if (prefix.Length == 0)
+            return false;
+
+        return Regex.IsMatch(
+                prefix,
+                @"(?i)\b(?:affiche|afficher|combien|comment|donne|donner|extrais|extraire|explique|expliquer|fais|faire|montre|montrer|prepare|preparer|pr[e\u00e9]pare|pr[e\u00e9]parer|quel|quelle|quels|quelles|resume|r[e\u00e9]sume|resumer|r[e\u00e9]sumer|retrouve|retrouver|show|what|which|how|give|extract|explain|prepare|summarize|find)\b",
+                RegexOptions.CultureInvariant)
+            && Regex.IsMatch(
+                prefix,
+                @"(?i)\b(?:de|du|des|d['\u2019]|dans|sur|pour|concernant|from|of|for|in|about|regarding|sobre|ueber|Ã¼ber|su)\s*$",
+                RegexOptions.CultureInvariant);
+    }
+
+    private static string? CleanupExplicitDocumentFileTitle(string? value)
+    {
+        var title = NormalizeDocumentFileExtractionInput(value)
+            .Trim(' ', ':', '-', '.', '?', '!', ',', ';', '"', '\'', '`', '\u00ab', '\u00bb', '\u201c', '\u201d');
+        if (title.Length == 0)
+            return null;
+
+        title = Regex.Replace(
+            title,
+            @"(?i)^(?:compare|comparer|comparaison|comparatif|comparative|confronta|confrontare|vergleiche|vergleichen|paragona|paragonare)\s+",
+            string.Empty,
+            RegexOptions.CultureInvariant).Trim();
+
+        title = Regex.Replace(
+            title,
+            @"(?i)^(?:et|and|y|e|und|vs|versus)\s+",
+            string.Empty,
+            RegexOptions.CultureInvariant).Trim();
+
+        title = Regex.Replace(
+            title,
+            @"(?i)^(?:dans|sur|pour|concernant|from|of|for|in|about|regarding|sobre|ueber|über|su)\s+",
+            string.Empty,
+            RegexOptions.CultureInvariant).Trim(' ', ':', '-', '.', '?', '!', ',', ';', '"', '\'', '`', '\u00ab', '\u00bb', '\u201c', '\u201d');
+
+        return Regex.IsMatch(title, @"\.(?:pdf|docx?|xlsx?|pptx?|md|txt|csv)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+            ? title
+            : null;
+    }
+
+    private static string NormalizeDocumentFileExtractionInput(string? value)
+        => Regex.Replace(value ?? string.Empty, @"[\r\n\t]+", " ").Trim();
+
+    private static bool LooksLikeSoftChoiceRecommendationRequest(string? query)
+    {
+        var normalized = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        if (Regex.IsMatch(
+                normalized,
+                @"\b(?:vitesses?|speeds?|temperatures?|temperatures?|reglages?|settings?|parametres?|parameters?|quantites?|quantites?|etapes?|steps?|temps|time|values?|valeurs?)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        var hasChoiceCue = Regex.IsMatch(
+            normalized,
+            @"\b(?:choisir|choisis|choix|conseille|conseiller|recommande|recommander|propose|proposer|suggest|suggestion|recommend|which|what|quel|quelle|quels|quelles|cual|qual|welche|quale)\b",
+            RegexOptions.CultureInvariant);
+        if (!hasChoiceCue)
+            return false;
+
+        var hasRequestedOptionKind = Regex.IsMatch(
+            normalized,
+            @"\b(?:quel|quelle|quels|quelles|which|what|cual|cu[aÃ¡]l|qual|welche|welcher|welches|quale)\s+[\p{L}][\p{L}'\u2019-]{2,30}\b",
+            RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:option|options|idee|idees|item|items|element|elements|solution|solutions|methode|methodes|method|methods|approche|approaches)\b",
+                RegexOptions.CultureInvariant);
+        if (!hasRequestedOptionKind)
+            return false;
+
+        return Regex.IsMatch(
+            normalized,
+            @"\b(?:pour|for|avec|with|adapte|adaptee|adapted|suitable|compatible|conseille|recommend|recommendation)\b",
+            RegexOptions.CultureInvariant);
     }
 
     private static bool LooksLikeBroadSourceBackedCompositionRequest(string? query)
@@ -2385,6 +2861,15 @@ CURRENT_USER_MESSAGE:
         if (title.Length == 0)
             return null;
         var originalTitle = title;
+
+        if (title.Contains(".pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            title = Regex.Replace(
+                title,
+                @"(?i)^(?:compare|comparer|comparaison|comparatif|comparative|confronta|confrontare|vergleiche|vergleichen|paragona|paragonare)\s+",
+                string.Empty,
+                RegexOptions.CultureInvariant).Trim();
+        }
 
         title = Regex.Replace(
             title,
@@ -2495,6 +2980,14 @@ CURRENT_USER_MESSAGE:
         if (Regex.IsMatch(normalized, @"^(?:corpus|documents?|sources?|fichiers?|files?|pdf)$", RegexOptions.CultureInvariant))
             return false;
 
+        if (Regex.IsMatch(
+                normalized,
+                @"^(?:quantites?|quantit[e\u00e9]s?|quantities?|amounts?|values?|valeurs?|counts?|units?)$",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
         if (Regex.IsMatch(normalized, @"^\d+\s+(?:items?|elements?|units?|pieces?)\b", RegexOptions.CultureInvariant)
             || Regex.IsMatch(normalized, @"^\d+\s+[\p{L}'\u2019.\-]{2,30}$", RegexOptions.CultureInvariant))
             return false;
@@ -2582,6 +3075,82 @@ CURRENT_USER_MESSAGE:
             return true;
 
         return ComputeExactItemAnchorStrengthScore(requestedTitle, hit) >= 80;
+    }
+
+    private static bool HasStrongExactItemTitleAnchor(string requestedTitle, RagHitSummary hit)
+    {
+        if (string.IsNullOrWhiteSpace(requestedTitle))
+            return false;
+
+        return ComputeBestSourceBackedDisplayTitleScore(requestedTitle, hit) >= 40
+               || RagHitContainsRequestedTitlePhraseAnchor(hit, requestedTitle)
+               || ComputeExactVisibleTitleMatchScore(requestedTitle, hit) >= 40;
+    }
+
+    private static bool ExactItemEvidenceStartsWithRequestedTitle(string requestedTitle, RagHitSummary hit)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(requestedTitle);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        foreach (var candidate in new[]
+                 {
+                     hit.Excerpt,
+                     hit.FullText,
+                     string.IsNullOrWhiteSpace(hit.ContextualSnippet) ? null : StripContextualMetadataForEvidence(hit.ContextualSnippet!)
+                 })
+        {
+            var normalized = NormalizeLexicalLookup(candidate);
+            if (string.IsNullOrWhiteSpace(normalized))
+                continue;
+
+            if (TextStartsWithRequestedTitlePhrase(normalized, normalizedTitle))
+                return true;
+
+            foreach (var variant in BuildTypoTolerantQueryVariants(normalizedTitle))
+            {
+                var normalizedVariant = NormalizeLexicalLookup(variant);
+                if (!string.IsNullOrWhiteSpace(normalizedVariant)
+                    && TextStartsWithRequestedTitlePhrase(normalized, normalizedVariant))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsUsableExactItemNavigationOverride(string? requestedTitle, RagHitSummary hit)
+    {
+        if (string.IsNullOrWhiteSpace(requestedTitle))
+            return false;
+        if (!LooksLikeNavigationOnlyHit(hit))
+            return false;
+        if (LooksLikePageReferenceOnlyHit(hit) || LooksLikeExactItemReferenceOnlyHit(requestedTitle!, hit))
+            return false;
+
+        if (!ExactItemEvidenceStartsWithRequestedTitle(requestedTitle!, hit)
+            && !HasStrongExactItemTitleAnchor(requestedTitle!, hit))
+            return false;
+
+        var evidence = GetFocusedExactItemEvidenceText(requestedTitle!, hit);
+        var structuredCueScore = Math.Max(0, ComputeExactItemCardCompletenessCueScore(hit))
+                                 + Math.Max(0, ComputeProcedureCompletenessCueScore(hit))
+                                 + Math.Max(0, ComputeStructuredProcedureVisibleEvidenceCueScore(hit));
+        if (structuredCueScore >= 4)
+            return true;
+        if (ExtractVisibleDurationsAndQuantities(evidence).Length > 0)
+            return true;
+        if (ExtractContentCardEvidenceFacts(new[] { hit }).Length > 0)
+            return true;
+
+        var normalizedEvidence = NormalizeLexicalLookup(evidence);
+        return CountProcedureStepMarkers(normalizedEvidence) > 0
+               || Regex.IsMatch(
+                   normalizedEvidence,
+                   @"\b(?:items?|elements?|requirements?|quantities?|quantites?|values?|valeurs?|preparation|pr[e\u00e9]paration|procedure|etapes?|[e\u00e9]tapes?|temps|time|pour\s+\d{1,3}\s+\p{L}|\d+\s*(?:g|kg|mg|ml|cl|l|min(?:ute)?s?|h|heures?|hours?))\b",
+                   RegexOptions.CultureInvariant);
     }
 
     private static bool RagHitHasCoherentRequestedTitleContent(RagHitSummary hit, string requestedTitle)
@@ -2757,12 +3326,14 @@ CURRENT_USER_MESSAGE:
             normalized,
             @"\b(?:preparation|procedure|procedures?|process|instruction|instructions|etape|etapes|step|steps|quantity|quantite|value|valeur|\d+\s*(?:g|kg|mg|ml|cl|l|min(?:ute)?s?|h|heures?|hours?|c|celsius))\b",
             RegexOptions.CultureInvariant);
-        if (Regex.IsMatch(
-                normalized,
-                @"\b(?:sommaire|table des matieres|contents|index|inhaltsverzeichnis|indice|reperes de contenu|reperes contenus?|repere de contenu|sections principales|premiers extraits|table of contents|content overview)\b",
-                RegexOptions.CultureInvariant))
+        var hasNavigationCue = Regex.IsMatch(
+            normalized,
+            @"\b(?:sommaire|table des matieres|contents|index|inhaltsverzeichnis|indice|reperes de contenu|reperes contenus?|repere de contenu|sections principales|premiers extraits|table of contents|content overview)\b",
+            RegexOptions.CultureInvariant);
+        if (hasNavigationCue)
         {
-            return !hasStructuredEvidenceCue;
+            if (!hasStructuredEvidenceCue)
+                return true;
         }
 
         var leaderCount = Regex.Matches(text, @"\.{3,}\s*\d{1,4}\b", RegexOptions.CultureInvariant).Count;
@@ -2778,7 +3349,58 @@ CURRENT_USER_MESSAGE:
             normalized,
             @"\b[\p{L}'\-]{4,}(?:\s+[\p{L}'\-]{2,}){0,5}\s+\d{2,3}\s+[\p{L}'\-]{4,}",
             RegexOptions.CultureInvariant);
-        return (compactListCount >= 6 || titlePageRefs >= 8 || (shortTitlePageSequence && normalized.Length < 420)) && !hasStructuredEvidenceCue;
+        return (compactListCount >= 6 || titlePageRefs >= 8 || (shortTitlePageSequence && normalized.Length < 420)) && !hasStructuredEvidenceCue
+               || (hasNavigationCue && titlePageRefs >= 3);
+    }
+
+    private static string BuildMissingExplicitDocumentAnswer(string language, string requestedDocument, IReadOnlyList<RagHitSummary> hits)
+    {
+        language = NormalizeLanguageCode(language);
+        requestedDocument = CleanupRequestedItemTitle(requestedDocument) ?? CollapseWhitespace(requestedDocument);
+        var closeLeads = SelectMissingExactItemCloseLeads(requestedDocument, hits)
+            .Where(hit => !LooksLikeNavigationOnlyHit(hit))
+            .Where(hit => !LooksLikeLowSignalContentCandidateHit(hit))
+            .Take(3)
+            .ToList();
+
+        var header = (closeLeads.Count > 0, language) switch
+        {
+            (true, "en") => $"I did not find the requested document \"{requestedDocument}\" in the indexed corpus. I will not summarize it or use it as a source. Closest source-backed leads:",
+            (true, "es") => $"No he encontrado el documento solicitado \"{requestedDocument}\" en el corpus indexado. No voy a resumirlo ni usarlo como fuente. Pistas cercanas con fuente:",
+            (true, "pt") => $"Nao encontrei o documento solicitado \"{requestedDocument}\" no corpus indexado. Nao vou resume-lo nem usa-lo como fonte. Pistas proximas com fonte:",
+            (true, "de") => $"Ich habe das angefragte Dokument \"{requestedDocument}\" im indexierten Korpus nicht gefunden. Ich fasse es nicht zusammen und verwende es nicht als Quelle. Naheliegende belegte Hinweise:",
+            (true, "it") => $"Non ho trovato il documento richiesto \"{requestedDocument}\" nel corpus indicizzato. Non lo riassumo ne lo uso come fonte. Indicazioni vicine con fonte:",
+            (true, _) => $"Je n'ai pas trouve le document demande \"{requestedDocument}\" dans le corpus indexe. Je ne le resume pas et je ne l'utilise pas comme source principale. Pistes proches sourcees :",
+            (false, "en") => $"I did not find the requested document \"{requestedDocument}\" in the indexed corpus. I will not summarize it or use it as a source.",
+            (false, "es") => $"No he encontrado el documento solicitado \"{requestedDocument}\" en el corpus indexado. No voy a resumirlo ni usarlo como fuente.",
+            (false, "pt") => $"Nao encontrei o documento solicitado \"{requestedDocument}\" no corpus indexado. Nao vou resume-lo nem usa-lo como fonte.",
+            (false, "de") => $"Ich habe das angefragte Dokument \"{requestedDocument}\" im indexierten Korpus nicht gefunden. Ich fasse es nicht zusammen und verwende es nicht als Quelle.",
+            (false, "it") => $"Non ho trovato il documento richiesto \"{requestedDocument}\" nel corpus indicizzato. Non lo riassumo ne lo uso come fonte.",
+            _ => $"Je n'ai pas trouve le document demande \"{requestedDocument}\" dans le corpus indexe. Je ne le resume pas et je ne l'utilise pas comme source principale."
+        };
+
+        if (closeLeads.Count == 0)
+            return header;
+
+        var sb = new StringBuilder();
+        sb.AppendLine(header);
+        foreach (var hit in closeLeads)
+        {
+            var docLabel = string.IsNullOrWhiteSpace(hit.DocName) ? hit.DocPath : hit.DocName;
+            var excerpt = CollapseWhitespace(hit.Excerpt);
+            if (excerpt.Length > 240)
+                excerpt = excerpt[..240].TrimEnd() + "...";
+
+            sb.Append("- ");
+            sb.Append(docLabel);
+            sb.Append(' ');
+            sb.Append(SourceBackedPagePrefix(language));
+            sb.Append(hit.PageStart);
+            sb.Append(" : ");
+            sb.AppendLine(excerpt);
+        }
+
+        return sb.ToString().TrimEnd();
     }
 
     private static string BuildMissingExactItemAnswer(string language, string requestedTitle, IReadOnlyList<RagHitSummary> hits)
@@ -2831,6 +3453,10 @@ CURRENT_USER_MESSAGE:
         {
             var usableTypoResolutionLeads = typoResolutionLeads
                 .Where(hit => !LooksLikeExactItemReferenceOnlyHit(correctedTitle!, hit))
+                .Where(hit => !LooksLikeNavigationOnlyHit(hit))
+                .Where(hit => !LooksLikePageReferenceOnlyHit(hit))
+                .Where(hit => ExactItemEvidenceStartsWithRequestedTitle(correctedTitle!, hit)
+                    || RagHitHasUsableRequestedTitleAnchor(correctedTitle!, hit))
                 .ToList();
             if (usableTypoResolutionLeads.Count > 0)
             {
@@ -2938,16 +3564,59 @@ CURRENT_USER_MESSAGE:
         var s = NormalizeLexicalLookup(query);
         if (string.IsNullOrWhiteSpace(s))
             return false;
+        if (LooksLikeCorpusClaimVerificationRequest(query))
+            return false;
         if (LooksLikeSourceBackedCountdownPlanningRequest(query))
             return false;
 
         var asksForPlan = LooksLikeWeeklyPlanningRequest(query)
+            || LooksLikeSourceBackedVerificationChecklistRequest(query)
             || Regex.IsMatch(
             s,
                 @"\b(?:plan|planning|calendrier|programme|organisation|schedule|calendar|wochenplan|programm|piano|programma)\b",
                 RegexOptions.CultureInvariant);
 
         return asksForPlan && LooksLikeSourceBackedActionRequest(query);
+    }
+
+    private static bool LooksLikeSourceBackedVerificationChecklistRequest(string? query)
+    {
+        var s = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(s))
+            return false;
+
+        var asksForVerification = Regex.IsMatch(
+            s,
+            @"\b(?:verifie|verifier|verification|check|verify|controle|controler|valide|valider|validation|audit|points?\s+a\s+valider|points?\s+de\s+controle|checklist)\b",
+            RegexOptions.CultureInvariant);
+        var asksForActionableShape = Regex.IsMatch(
+            s,
+            @"\b(?:que|quoi|what|which|comment|how|dois|devrais|faut|should|must|points?|etapes?|steps?|documents?|sources?)\b",
+            RegexOptions.CultureInvariant);
+
+        return asksForVerification && asksForActionableShape;
+    }
+
+    private static bool LooksLikeCorpusClaimVerificationRequest(string? query)
+    {
+        var s = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(s))
+            return false;
+
+        var asksVerification = Regex.IsMatch(
+            s,
+            @"\b(?:verifie|verifier|verification|check|verify|prouve|prouver|preuve|prove|proof|demontre|demontre|demonstrated|demonstrate)\b",
+            RegexOptions.CultureInvariant);
+        var hasCorpusScope = Regex.IsMatch(
+            s,
+            @"\b(?:corpus|documents?|sources?|pdfs?|base\s+de\s+connaissances?|knowledge\s+base)\b",
+            RegexOptions.CultureInvariant);
+        var hasStrongClaim = Regex.IsMatch(
+            s,
+            @"\b(?:toujours|jamais|always|never|obligation\s+generale|general\s+obligation|obligatoire|mandatory|required|requires?|impose|imposes?|condition\s+limitee|limited\s+condition|recommandation|recommendation|pas\s+demontre|not\s+demonstrated)\b",
+            RegexOptions.CultureInvariant);
+
+        return asksVerification && hasStrongClaim && (hasCorpusScope || s.Contains('`', StringComparison.Ordinal));
     }
 
     private static bool LooksLikeWeeklyPlanningRequest(string? query)
@@ -2978,6 +3647,9 @@ CURRENT_USER_MESSAGE:
     {
         var s = NormalizeLexicalLookup(query);
         if (string.IsNullOrWhiteSpace(s) || LooksLikeSourceBackedPlanningRequest(query))
+            return false;
+
+        if (LooksLikeCategoryOverviewOrDocumentOrientationRequest(query))
             return false;
 
         if (LooksLikeRankingDocumentaryRequest(query) || LooksLikeComparativeDocumentaryRequest(query))
@@ -3026,6 +3698,34 @@ CURRENT_USER_MESSAGE:
             RegexOptions.CultureInvariant);
     }
 
+    private static bool LooksLikeCategoryOverviewOrDocumentOrientationRequest(string? query)
+    {
+        var s = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(s))
+            return false;
+        if (LooksLikeSourceBackedVerificationChecklistRequest(query)
+            || LooksLikeCorpusClaimVerificationRequest(query)
+            || LooksLikeComparativeDocumentaryRequest(query))
+        {
+            return false;
+        }
+
+        var hasScope = Regex.IsMatch(
+            s,
+            @"\b(?:categorie|category|categoria|kategorie|dossier|folder|corpus|base\s+de\s+connaissances?|knowledge\s+base)\b",
+            RegexOptions.CultureInvariant);
+        var hasDocumentSet = Regex.IsMatch(
+            s,
+            @"\b(?:pdfs?|documents?|docs?|sources?|fichiers?|files?)\b",
+            RegexOptions.CultureInvariant);
+        var hasOrientationCue = Regex.IsMatch(
+            s,
+            @"\b(?:overview|vue\s+d\s+ensemble|cartographie|orientation|utile|utiles|useful|important|importants|business\s+questions?|real\s+business|lire\s+en\s+premier|read\s+first|used\s+first|role|roles?|familles?|families|classer|group(?:er|ing)?|regrouper)\b",
+            RegexOptions.CultureInvariant);
+
+        return hasOrientationCue && (hasScope || hasDocumentSet);
+    }
+
     private static bool LooksLikeSourceBackedPairingRecommendationRequest(string? query)
     {
         var s = NormalizeLexicalLookup(query);
@@ -3068,6 +3768,46 @@ CURRENT_USER_MESSAGE:
             @"\b(?:apres|après|precedent|pr[eé]c[eé]dent|document|source|element|item|mets|mettre|adapte|adapter|pour|after|previous|put|scale|adjust|adapt)\b|\b(?:pour|for|para|per|fur|fuer|zu|a|da)\s+\d{1,3}\s+\p{L}",
             RegexOptions.CultureInvariant);
     }
+
+    private static bool LooksLikeVagueVerificationScopeQuestion(string? query)
+    {
+        var normalized = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        var asksSafeVerification = Regex.IsMatch(
+            normalized,
+            @"\b(?:reponse\s+sure|safe\s+answer|pas\s+d\s+une\s+supposition|not\s+a\s+guess|supposition|guess)\b",
+            RegexOptions.CultureInvariant)
+            && Regex.IsMatch(
+                normalized,
+                @"\b(?:verifie|verifier|verifies|verify|check|controle|controler|ou\s+exactement|where\s+exactly)\b",
+                RegexOptions.CultureInvariant);
+        var asksWhereExactly = Regex.IsMatch(
+            normalized,
+            @"\b(?:ou\s+exactement|where\s+exactly)\b",
+            RegexOptions.CultureInvariant);
+        if (!asksSafeVerification && !asksWhereExactly)
+            return false;
+
+        if (!string.IsNullOrWhiteSpace(TryExtractPdfFileNameRequestedTitle(query)))
+            return false;
+
+        return !Regex.IsMatch(
+            normalized,
+            @"\b(?:iso|iec|en|ul|nfpa|ansi|astm|din)\s*\d{2,}|\b(?:pdf|document|doc|fichier|file)\s+[\p{L}0-9_-]{3,}",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static string BuildVagueVerificationScopeClarification(string language)
+        => SourceBackedLabel(
+            NormalizeLanguageCode(language),
+            "J'ai besoin du document, de la norme, de la categorie ou du sujet exact a verifier. Sans ce perimetre, je risquerais de choisir des sources au hasard; indique ce que je dois controler et je citerai les pages pertinentes.",
+            "I need the exact document, standard, category, or topic to verify. Without that scope, I could pick sources at random; tell me what to check and I will cite the relevant pages.",
+            "Necesito el documento, la norma, la categoria o el tema exacto que debo verificar. Sin ese alcance podria elegir fuentes al azar; dime que debo comprobar y citare las paginas pertinentes.",
+            "Preciso do documento, norma, categoria ou tema exato a verificar. Sem esse ambito eu poderia escolher fontes ao acaso; diz-me o que devo verificar e citarei as paginas relevantes.",
+            "Ich brauche das genaue Dokument, die Norm, die Kategorie oder das Thema, das ich pruefen soll. Ohne diesen Rahmen koennte ich Quellen zufaellig waehlen; sag mir, was ich pruefen soll, dann zitiere ich die passenden Seiten.",
+            "Mi serve il documento, la norma, la categoria o il tema esatto da verificare. Senza questo perimetro rischierei di scegliere fonti a caso; dimmi cosa devo controllare e citero le pagine pertinenti.");
 
     private static string BuildUnresolvedSourceBackedDeicticFollowupAnswer(string language, string query)
     {
@@ -3221,7 +3961,7 @@ CURRENT_USER_MESSAGE:
             .Where(static q => !string.IsNullOrWhiteSpace(q))
             .Select(CollapseWhitespace)
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(16)
+            .Take(LooksLikeSourceBackedVerificationChecklistRequest(query) ? 6 : 16)
             .ToArray();
     }
 
@@ -3286,13 +4026,24 @@ CURRENT_USER_MESSAGE:
         if (string.IsNullOrWhiteSpace(normalized))
             normalized = CollapseWhitespace(query);
 
-        var raw = CollapseWhitespace(query);
         var queries = new List<string>();
-        AddDistinctQuery(queries, normalized);
-        if (!string.IsNullOrWhiteSpace(raw) && !string.Equals(raw, normalized, StringComparison.OrdinalIgnoreCase))
+        var raw = CollapseWhitespace(query);
+        var hasDelimitedUserDemand = TryExtractDelimitedUserDemandTopic(query, out _);
+        if (hasDelimitedUserDemand && !string.IsNullOrWhiteSpace(normalized))
+            AddDistinctQuery(queries, normalized);
+        if (!string.IsNullOrWhiteSpace(raw))
             AddDistinctQuery(queries, raw);
+        if (!hasDelimitedUserDemand)
+        {
+            if (!string.IsNullOrWhiteSpace(raw) && !string.Equals(raw, normalized, StringComparison.OrdinalIgnoreCase))
+                AddDistinctQuery(queries, normalized);
+            else if (!string.IsNullOrWhiteSpace(normalized))
+                AddDistinctQuery(queries, normalized);
+        }
 
         foreach (var variant in BuildTypoTolerantQueryVariants(normalized))
+            AddDistinctQuery(queries, variant);
+        foreach (var variant in BuildGenericRetrievalSemanticQueries(normalized))
             AddDistinctQuery(queries, variant);
 
         var normalizedLookup = NormalizeLexicalLookup(normalized);
@@ -3311,6 +4062,10 @@ CURRENT_USER_MESSAGE:
         if (terms.Length > 0)
             AddDistinctQuery(queries, string.Join(' ', terms));
 
+        var softChoiceOptionKindQueries = BuildSoftChoiceOptionKindRetrievalQueries(query).ToArray();
+        foreach (var optionKindQuery in softChoiceOptionKindQueries)
+            AddDistinctQuery(queries, optionKindQuery);
+
         var subjectTerms = terms
             .Where(static term => term.Length >= 5)
             .Where(static term => !Regex.IsMatch(term, @"\b(?:alleger|all[eé]ger|lighten|reduce|reduire|adapter|adaptation)\b", RegexOptions.CultureInvariant))
@@ -3319,8 +4074,73 @@ CURRENT_USER_MESSAGE:
         if (subjectTerms.Length > 0)
             AddDistinctQuery(queries, string.Join(' ', subjectTerms));
 
+        var softChoiceKindTerms = ExtractSoftChoiceRequestedOptionKindTerms(query)
+            .SelectMany(BuildRetrievalTermVariants)
+            .ToHashSet(StringComparer.Ordinal);
+        var softChoicePhraseSingletonTermsToSuppress = softChoiceOptionKindQueries
+            .Select(NormalizeLexicalLookup)
+            .SelectMany(ExtractQuerySignalTerms)
+            .SelectMany(BuildRetrievalTermVariants)
+            .Where(term => !softChoiceKindTerms.Contains(term))
+            .ToHashSet(StringComparer.Ordinal);
+
         foreach (var term in subjectTerms.Take(6))
+        {
+            if (softChoicePhraseSingletonTermsToSuppress.Contains(term))
+                continue;
+
             AddDistinctQuery(queries, term);
+        }
+
+        return queries
+            .Where(static q => !string.IsNullOrWhiteSpace(q))
+            .Select(CollapseWhitespace)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(ResolveSourceBackedActionRetrievalQueryLimit(query))
+            .ToArray();
+    }
+
+    private static int ResolveSourceBackedActionRetrievalQueryLimit(string? query)
+    {
+        if (LooksLikeSourceBackedVerificationChecklistRequest(query)
+            || LooksLikeCorpusClaimVerificationRequest(query))
+        {
+            return 5;
+        }
+
+        return 8;
+    }
+
+    private static string[] BuildShortTechnicalEvidenceRetrievalQueries(string query)
+    {
+        var normalized = NormalizeRagQueryForRetrieval(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            normalized = CollapseWhitespace(query);
+
+        var queries = new List<string>();
+        if (!string.IsNullOrWhiteSpace(normalized))
+            AddDistinctQuery(queries, normalized);
+
+        if (TryExtractDelimitedUserDemandTopic(query, out _))
+        {
+            var raw = CollapseWhitespace(query);
+            if (!string.IsNullOrWhiteSpace(raw))
+                AddDistinctQuery(queries, raw);
+        }
+
+        foreach (var variant in BuildTypoTolerantQueryVariants(normalized))
+            AddDistinctQuery(queries, variant);
+        foreach (var variant in BuildGenericRetrievalSemanticQueries(normalized))
+            AddDistinctQuery(queries, variant);
+
+        var terms = ExtractQuerySignalTerms(NormalizeLexicalLookup(normalized))
+            .Where(static term => !IsSourceBackedActionRetrievalNoiseTerm(term))
+            .SelectMany(BuildRetrievalTermVariants)
+            .Distinct(StringComparer.Ordinal)
+            .Take(12)
+            .ToArray();
+        if (terms.Length > 0)
+            AddDistinctQuery(queries, string.Join(' ', terms));
 
         return queries
             .Where(static q => !string.IsNullOrWhiteSpace(q))
@@ -3330,6 +4150,9 @@ CURRENT_USER_MESSAGE:
             .ToArray();
     }
 
+    private static int ResolveComparativeRetrievalQueryLimit(string? query)
+        => CountExplicitDocumentFileReferences(query ?? string.Empty) > 1 ? 3 : 8;
+
     private static IEnumerable<string> BuildRetrievalTermVariants(string term)
     {
         var normalized = NormalizeLexicalLookup(term);
@@ -3338,10 +4161,280 @@ CURRENT_USER_MESSAGE:
 
         yield return normalized;
 
+        foreach (var variant in BuildGenericRetrievalSemanticVariants(normalized))
+            yield return variant;
+
         if (normalized.Length > 5 && normalized.EndsWith("es", StringComparison.Ordinal))
             yield return normalized[..^2];
         if (normalized.Length > 4 && normalized.EndsWith("s", StringComparison.Ordinal))
             yield return normalized[..^1];
+    }
+
+    private static IEnumerable<string> BuildGenericRetrievalSemanticQueries(string query)
+    {
+        var normalizedQuery = NormalizeLexicalLookup(query);
+        var terms = ExtractQuerySignalTerms(normalizedQuery)
+            .SelectMany(BuildRetrievalTermVariants)
+            .ToHashSet(StringComparer.Ordinal);
+        if (terms.Count == 0)
+            yield break;
+
+        var hasProperty = terms.Contains("propriete")
+            || terms.Contains("proprietes")
+            || terms.Contains("property")
+            || terms.Contains("properties");
+        var hasElectrical = terms.Contains("electrique")
+            || terms.Contains("electriques")
+            || terms.Contains("electric")
+            || terms.Contains("electrical")
+            || terms.Contains("dielectric");
+        var hasThermal = terms.Contains("thermique")
+            || terms.Contains("thermiques")
+            || terms.Contains("thermal")
+            || terms.Contains("temperature")
+            || terms.Contains("melt point")
+            || terms.Contains("melting point");
+        var hasSafetyDataSheet = LooksLikeSafetyDataSheetDocumentTypeRequest(query);
+        var hasHistoricalVersion = ContainsHistoricalDocumentVersionSurface(normalizedQuery);
+        var hasCurrentVersion = ContainsCurrentDocumentVersionSurface(normalizedQuery);
+        var hasVersionSurface = Regex.IsMatch(
+            normalizedQuery,
+            @"\b(?:version|versions|edition|editions|document|documents|file|fichier|pdf)\b",
+            RegexOptions.CultureInvariant);
+        var subjectTerms = Regex.Matches(normalizedQuery, @"[\p{L}\p{N}]{3,}", RegexOptions.CultureInvariant)
+            .Select(static match => match.Value)
+            .Where(static term => !IsSourceBackedActionRetrievalNoiseTerm(term))
+            .Where(static term => !IsGenericDocumentVersionOrTypeRetrievalTerm(term))
+            .Distinct(StringComparer.Ordinal)
+            .Take(4)
+            .ToArray();
+        var subjectPrefix = subjectTerms.Length == 0 ? string.Empty : string.Join(' ', subjectTerms) + " ";
+
+        if (hasElectrical)
+        {
+            yield return hasProperty ? "electrical properties" : "electrical";
+            yield return "dielectric properties";
+        }
+
+        if (hasThermal)
+        {
+            yield return hasProperty ? "thermal properties" : "thermal";
+            yield return "melt point temperature";
+        }
+
+        if (hasSafetyDataSheet)
+        {
+            yield return $"{subjectPrefix}safety data sheet";
+            yield return $"{subjectPrefix}material safety data sheet";
+            yield return $"{subjectPrefix}msds";
+            yield return $"{subjectPrefix}sds";
+            yield return $"{subjectPrefix}fiche de donnees de securite";
+        }
+
+        if (hasHistoricalVersion && (hasVersionSurface || hasCurrentVersion))
+        {
+            yield return $"{subjectPrefix}old version";
+            yield return $"{subjectPrefix}previous version";
+            yield return $"{subjectPrefix}archived version";
+            yield return $"{subjectPrefix}ancienne version";
+        }
+
+        if (hasCurrentVersion && (hasVersionSurface || hasHistoricalVersion))
+        {
+            yield return $"{subjectPrefix}current version";
+            yield return $"{subjectPrefix}latest version";
+            yield return $"{subjectPrefix}version courante";
+            yield return $"{subjectPrefix}derniere version";
+        }
+    }
+
+    private static IEnumerable<string> BuildGenericRetrievalSemanticVariants(string term)
+    {
+        switch (term)
+        {
+            case "propriete":
+            case "proprietes":
+            case "caracteristique":
+            case "caracteristiques":
+                yield return "property";
+                yield return "properties";
+                yield return "characteristic";
+                yield return "characteristics";
+                break;
+
+            case "electrique":
+            case "electriques":
+            case "electric":
+            case "electrical":
+                yield return "electric";
+                yield return "electrical";
+                yield return "dielectric";
+                break;
+
+            case "thermique":
+            case "thermiques":
+            case "thermal":
+                yield return "thermal";
+                yield return "temperature";
+                yield return "melt point";
+                yield return "melting point";
+                break;
+
+            case "msds":
+            case "sds":
+            case "fds":
+                yield return "msds";
+                yield return "sds";
+                yield return "safety data sheet";
+                yield return "material safety data sheet";
+                yield return "fiche de donnees de securite";
+                break;
+
+            case "ancienne":
+            case "ancien":
+            case "precedente":
+            case "precedent":
+            case "anterieure":
+            case "anterieur":
+            case "older":
+            case "previous":
+            case "prior":
+            case "archived":
+            case "archive":
+            case "legacy":
+            case "obsolete":
+                yield return "ancienne version";
+                yield return "old version";
+                yield return "previous version";
+                yield return "archived version";
+                break;
+
+            case "actuelle":
+            case "actuel":
+            case "courante":
+            case "courant":
+            case "derniere":
+            case "nouvelle":
+            case "nouveau":
+            case "current":
+            case "latest":
+            case "newest":
+            case "recent":
+                yield return "version courante";
+                yield return "current version";
+                yield return "latest version";
+                yield return "derniere version";
+                break;
+        }
+    }
+
+    private static bool IsGenericDocumentVersionOrTypeRetrievalTerm(string term)
+        => Regex.IsMatch(
+            NormalizeLexicalLookup(term),
+            @"^(?:and|the|for|backed|compare|comparing|comparaison|comparison|version|versions|edition|editions|document|documents|file|fichier|pdf|old|older|previous|prior|archived|archive|legacy|obsolete|ancienne|ancien|precedente|precedent|anterieure|anterieur|current|latest|newest|recent|actuelle|actuel|courante|courant|derniere|nouvelle|nouveau|safety|securite|data|sheet|fiche|fiches|donnees|msds|sds|fds)$",
+            RegexOptions.CultureInvariant);
+
+    private static bool LooksLikeSafetyDataSheetDocumentTypeRequest(string? query)
+    {
+        var normalized = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return Regex.IsMatch(
+                   normalized,
+                   @"\b(?:msds|sds|fds|material\s+safety\s+data\s+sheets?|safety\s+data\s+sheets?|fiches?\s+de\s+donnees\s+de\s+securite|fiches?\s+donnees\s+securite|fiches?\s+de\s+securite)\b",
+                   RegexOptions.CultureInvariant)
+               || (Regex.IsMatch(normalized, @"\b(?:safety|securite)\b", RegexOptions.CultureInvariant)
+                   && Regex.IsMatch(normalized, @"\b(?:data\s+sheets?|fiches?|donnees)\b", RegexOptions.CultureInvariant));
+    }
+
+    private static bool ContainsHistoricalDocumentVersionSurface(string? normalizedQuery)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedQuery))
+            return false;
+
+        return Regex.IsMatch(
+            normalizedQuery,
+            @"\b(?:ancien(?:ne)?s?|precedent(?:e)?s?|anterieur(?:e)?s?|old|older|previous|prior|archived|archive|archives|historical|legacy|obsolete)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool ContainsCurrentDocumentVersionSurface(string? normalizedQuery)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedQuery))
+            return false;
+
+        return Regex.IsMatch(
+            normalizedQuery,
+            @"\b(?:actuel(?:le)?s?|courant(?:e)?s?|derniere?s?|nouveau|nouvelle?s?|current|latest|newest|recent|newer)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool HistoricalDocumentVersionSurfaceIsNegated(string? normalizedQuery)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedQuery))
+            return false;
+
+        return Regex.IsMatch(
+            normalizedQuery,
+            @"\b(?:pas|not|never|eviter|evite|avoid|sans|without)\b.{0,80}\b(?:ancienne?s?\s+versions?|old\s+versions?|older\s+versions?|previous\s+versions?|archived\s+versions?)\b|\b(?:ancienne?s?\s+versions?|old\s+versions?|older\s+versions?|previous\s+versions?|archived\s+versions?)\b.{0,80}\b(?:pas|not|never|eviter|evite|avoid|sans|without)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static int ComputeRequestedDocumentTypeAnchorScore(string? query, RagHitSummary hit)
+    {
+        if (!LooksLikeSafetyDataSheetDocumentTypeRequest(query))
+            return 0;
+
+        var titleSignal = NormalizeLexicalLookup(string.Join(' ', new[]
+        {
+            hit.DocName,
+            hit.DocPath,
+            hit.SectionTitle,
+            hit.HeadingPath,
+            string.Join(' ', hit.MatchedContentCards?.Select(static card => card.Title) ?? Array.Empty<string>())
+        }.Where(static value => !string.IsNullOrWhiteSpace(value))));
+        if (string.IsNullOrWhiteSpace(titleSignal))
+            return 0;
+
+        if (Regex.IsMatch(titleSignal, @"\b(?:msds|sds|fds)\b", RegexOptions.CultureInvariant))
+            return 160;
+        if (Regex.IsMatch(
+                titleSignal,
+                @"\b(?:material\s+safety\s+data\s+sheets?|safety\s+data\s+sheets?|fiches?\s+de\s+donnees\s+de\s+securite|fiches?\s+donnees\s+securite|fiches?\s+de\s+securite)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return 140;
+        }
+
+        return 0;
+    }
+
+    private static IEnumerable<string> BuildSoftChoiceOptionKindRetrievalQueries(string? query)
+    {
+        if (!LooksLikeSoftChoiceRecommendationRequest(query))
+            yield break;
+
+        var raw = CollapseWhitespace(query ?? string.Empty);
+        foreach (Match match in Regex.Matches(
+                     raw,
+                     @"(?i)\b(?:quel|quelle|quels|quelles|which|what|cual|cu[aá]l|qual|welche|welcher|welches|quale)\s+(?<kind>[\p{L}'\u2019-]{3,30})(?:\s+(?<qualifier>[\p{L}'\u2019-]{3,30}))?",
+                     RegexOptions.CultureInvariant))
+        {
+            var kind = CollapseWhitespace(match.Groups["kind"].Value);
+            if (string.IsNullOrWhiteSpace(kind) || IsSourceBackedActionRetrievalNoiseTerm(kind))
+                continue;
+
+            var qualifier = CollapseWhitespace(match.Groups["qualifier"].Value);
+            if (!string.IsNullOrWhiteSpace(qualifier)
+                && !IsSourceBackedActionRetrievalNoiseTerm(qualifier)
+                && !Regex.IsMatch(NormalizeLexicalLookup(qualifier), @"\b(?:choisir|choix|choose|select|recommend|suggest|propose)\b", RegexOptions.CultureInvariant))
+            {
+                yield return $"{kind} {qualifier}";
+            }
+
+            yield return kind;
+        }
     }
 
     private static IEnumerable<string> BuildTypoTolerantQueryVariants(string? query)
@@ -3381,7 +4474,13 @@ CURRENT_USER_MESSAGE:
             "adaptation", "adaptations", "adapte", "adapter", "adaptee", "adaptees", "bien", "cela",
             "cette", "comment", "como", "dans", "document", "documents", "extrait", "extraits", "faire", "how", "peux",
             "pdf", "source", "sources", "vient", "viennent", "what", "which", "source", "sources",
-            "document", "documents", "adapt", "adapted", "derived", "please", "from", "retrouve", "retrouver", "retrouves"
+            "document", "documents", "adapt", "adapted", "derived", "please", "from", "retrouve", "retrouver", "retrouves",
+            "choisir", "choix", "choose", "select", "selection", "recommend", "recommends", "recommendation",
+            "recommande", "recommander", "conseille", "conseiller", "suggest", "suggestion", "suggestions",
+            "repas", "meal", "meals", "orienter", "orientation", "utilisateur", "user", "users", "demande",
+            "demandes", "demander", "asked", "asks", "question", "questions", "client", "customer", "customers",
+            "prepare", "preparer", "repond", "reponds", "repondez", "reponse", "answer", "answers",
+            "respond", "responds", "reply", "replies"
         };
 
         return stopWords.Contains(normalized);
@@ -3417,8 +4516,17 @@ CURRENT_USER_MESSAGE:
 
         var raw = CollapseWhitespace(query);
         var queries = new List<string>();
+        var explicitFileReferences = ExtractExplicitDocumentFileReferenceQueries(raw).Take(4).ToArray();
+        foreach (var fileReference in explicitFileReferences)
+            AddDistinctQuery(queries, fileReference);
+
         var focus = TryBuildComparativeFocusQuery(normalized);
         AddDistinctQuery(queries, focus);
+        if (explicitFileReferences.Length <= 1)
+        {
+            foreach (var fileReference in explicitFileReferences)
+                AddDistinctQuery(queries, QuoteLookupTitle(fileReference));
+        }
         AddDistinctQuery(queries, normalized);
         if (!string.IsNullOrWhiteSpace(raw) && !string.Equals(raw, normalized, StringComparison.OrdinalIgnoreCase))
             AddDistinctQuery(queries, raw);
@@ -3440,7 +4548,7 @@ CURRENT_USER_MESSAGE:
             .Where(static q => !string.IsNullOrWhiteSpace(q))
             .Select(CollapseWhitespace)
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(5)
+            .Take(ResolveComparativeRetrievalQueryLimit(query))
             .ToArray();
     }
 
@@ -3483,6 +4591,13 @@ CURRENT_USER_MESSAGE:
             RegexOptions.CultureInvariant);
         if (afterCompareVerb.Success)
             candidate = afterCompareVerb.Groups["rest"].Value;
+
+        var explicitTopic = Regex.Match(
+            candidate,
+            @"\b(?:sujet\s+suivant|theme\s+suivant|following\s+topic|following\s+subject|tema\s+siguiente|tema\s+seguinte|seguinte\s+tema|folgendes\s+thema|argomento\s+seguente)\b\s*:?\s*(?<topic>.+)$",
+            RegexOptions.CultureInvariant);
+        if (explicitTopic.Success)
+            candidate = explicitTopic.Groups["topic"].Value;
 
         candidate = Regex.Split(
                 candidate,
@@ -3549,13 +4664,24 @@ CURRENT_USER_MESSAGE:
         language = NormalizeLanguageCode(language);
         var targetItemCount = ResolveSourceBackedPlanningTargetItemCount(query);
         var wantsWeeklyPlan = LooksLikeWeeklyPlanningRequest(query);
+        var wantsVerificationChecklist = LooksLikeSourceBackedVerificationChecklistRequest(query);
         var planItems = SelectSourceBackedPlanningCandidates(toolResults, query, targetItemCount, language)
             .ToList();
 
         if (planItems.Count == 0 || planItems.Count < minItems)
             return string.Empty;
 
-        var header = language switch
+        var header = wantsVerificationChecklist
+            ? language switch
+        {
+            "en" => "Here are the source-backed checks to perform. I only list points supported by retrieved excerpts:",
+            "es" => "Estas son las verificaciones respaldadas por fuente. Solo incluyo puntos sustentados por extractos recuperados:",
+            "pt" => "Aqui estao as verificacoes com fonte. Incluo apenas pontos sustentados por excertos recuperados:",
+            "de" => "Hier sind die quellenbasierten Pruefpunkte. Ich nenne nur Punkte aus den gefundenen Auszuegen:",
+            "it" => "Ecco i controlli supportati da fonti. Includo solo punti sostenuti dagli estratti recuperati:",
+            _ => "Voici les verifications appuyees sur les documents disponibles. Je liste uniquement des points soutenus par les extraits retrouves :"
+        }
+            : language switch
         {
             "en" => "Here is a source-backed plan from the available documents. I only list items found in the excerpts:",
             "es" => "Aqui tienes una propuesta basada en los documentos disponibles. Solo incluyo elementos encontrados en los extractos:",
@@ -3584,7 +4710,17 @@ CURRENT_USER_MESSAGE:
         var useDayLabels = wantsWeeklyPlan && planItems.Count >= targetItemCount;
         for (var i = 0; i < planItems.Count; i++)
         {
-            var label = useDayLabels
+            var label = wantsVerificationChecklist
+                ? language switch
+            {
+                "en" => $"Check {i + 1}",
+                "es" => $"Verificacion {i + 1}",
+                "pt" => $"Verificacao {i + 1}",
+                "de" => $"Pruefpunkt {i + 1}",
+                "it" => $"Controllo {i + 1}",
+                _ => $"Verification {i + 1}"
+            }
+                : useDayLabels
                 ? language switch
             {
                 "en" => $"Day {i + 1}",
@@ -3616,7 +4752,17 @@ CURRENT_USER_MESSAGE:
             sb.AppendLine();
         }
 
-        var note = language switch
+        var note = wantsVerificationChecklist
+            ? language switch
+        {
+            "en" => "Note: treat this as a source-backed checklist, then validate exceptions, approvals and legal/compliance impact with the responsible humans before acting.",
+            "es" => "Nota: tratalo como una lista de control con fuente y valida excepciones, aprobaciones e impacto legal/conformidad con las personas responsables antes de actuar.",
+            "pt" => "Nota: trata isto como uma checklist com fonte e valida excecoes, aprovacoes e impacto legal/conformidade com as pessoas responsaveis antes de agir.",
+            "de" => "Hinweis: Nutze dies als quellenbasierte Checkliste und pruefe Ausnahmen, Freigaben sowie rechtliche/Compliance-Auswirkungen mit den Verantwortlichen vor Umsetzung.",
+            "it" => "Nota: trattala come checklist con fonte e valida eccezioni, approvazioni e impatti legali/compliance con i responsabili prima di agire.",
+            _ => "Note : traite ceci comme une checklist sourcee, puis valide les exceptions, approbations et impacts juridiques/conformite avec les responsables avant d'agir."
+        }
+            : language switch
         {
             "en" => "Note: adapt quantities, timing, and constraints from the source pages before acting.",
             "es" => "Nota: adapta cantidades, tiempos y restricciones a partir de las paginas fuente antes de actuar.",
@@ -4242,6 +5388,7 @@ CURRENT_USER_MESSAGE:
     {
         var normalizedQuery = NormalizeLexicalLookup(query);
         var namedEntityTerms = ExtractNamedEntityLikeQueryTerms(query);
+        var softChoiceOptionKindTerms = ExtractSoftChoiceRequestedOptionKindTerms(query);
         var requiresNamedEntityEvidence = namedEntityTerms.Count > 0
             && Regex.IsMatch(normalizedQuery, @"\b(?:uniquement|only|avec|with|using|utiliser|utilise|concernant|about|sur)\b", RegexOptions.CultureInvariant);
         var sourceHits = EnumerateRagHitSummaries(toolResults)
@@ -4267,26 +5414,17 @@ CURRENT_USER_MESSAGE:
             && sourceHits.Any(hit => QueryAnchorTermsMatchHit(queryAnchorTerms, hit));
 
         var candidates = sourceHits
-            .Select(hit =>
-            {
-                var title = ExtractSourceBackedOptionTitle(hit, query);
-                if (string.IsNullOrWhiteSpace(title)
-                    && requiresNamedEntityEvidence
-                    && QueryAnchorTermsMatchHit(namedEntityTerms, hit))
-                {
-                    title = BuildSourceBackedFallbackOptionTitle(hit, language);
-                }
-                var visibleMinutes = ExtractBestVisibleDurationMinutes(hit);
-                var scoreMaxMinutes = keepOverRequestedDuration ? null : maxMinutes;
-                return new SourceBackedOptionCandidate(
-                    hit,
-                    title,
-                    ComputeSourceBackedOptionHitScore(hit, title, query, scoreMaxMinutes, visibleMinutes),
-                    visibleMinutes);
-            })
+            .SelectMany(hit => BuildSourceBackedOptionCandidatesFromHit(
+                hit,
+                query,
+                language,
+                keepOverRequestedDuration ? null : maxMinutes,
+                requiresNamedEntityEvidence,
+                namedEntityTerms))
             .Where(candidate => !string.IsNullOrWhiteSpace(candidate.Title))
             .Where(candidate => LooksLikeUsableSourceBackedOptionCandidate(candidate.Hit))
             .Where(candidate => keepOverRequestedDuration || !maxMinutes.HasValue || !candidate.VisibleMinutes.HasValue || candidate.VisibleMinutes.Value <= maxMinutes.Value)
+            .Select(candidate => ApplySoftChoiceOptionKindScore(candidate, softChoiceOptionKindTerms))
             .Where(candidate => candidate.Score > -20)
             .OrderByDescending(candidate => candidate.Score)
             .ThenByDescending(candidate => candidate.Hit.Score)
@@ -4312,6 +5450,27 @@ CURRENT_USER_MESSAGE:
                 candidates = kindMatchedCandidates;
         }
 
+        if (softChoiceOptionKindTerms.Count > 0 && candidates.Count > 1)
+        {
+            var kindMatchedCandidates = candidates
+                .Where(candidate => SoftChoiceOptionKindMatchesCandidate(softChoiceOptionKindTerms, candidate))
+                .ToList();
+            if (kindMatchedCandidates.Count > 0)
+            {
+                var kindMatchedKeys = kindMatchedCandidates
+                    .Select(BuildSourceBackedOptionCandidateKey)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                candidates = candidates
+                    .Where(candidate => kindMatchedKeys.Contains(BuildSourceBackedOptionCandidateKey(candidate))
+                        || IsPrimaryQueryTopConcreteCardCandidate(candidate))
+                    .ToList();
+            }
+
+            candidates = candidates
+                .Where(candidate => !OptionKindContradictsCandidate(softChoiceOptionKindTerms, candidate))
+                .ToList();
+        }
+
         if (hasSourceBackedAnchorEvidence)
         {
             candidates = candidates
@@ -4327,6 +5486,149 @@ CURRENT_USER_MESSAGE:
         }
 
         return candidates;
+    }
+
+    private static IEnumerable<SourceBackedOptionCandidate> BuildSourceBackedOptionCandidatesFromHit(
+        RagHitSummary hit,
+        string? query,
+        string language,
+        int? scoreMaxMinutes,
+        bool requiresNamedEntityEvidence,
+        IReadOnlyList<string> namedEntityTerms)
+    {
+        var emittedCardCandidate = false;
+        foreach (var card in hit.MatchedContentCards ?? Array.Empty<RagHitContentCardSummary>())
+        {
+            var title = CleanSourceBackedOptionTitle(card.Title);
+            if (string.IsNullOrWhiteSpace(title)
+                || !IsUsefulSourceBackedDisplayTitle(title)
+                || LooksLikePlanItemNoise(title)
+                || LooksLikeProcedureSentenceTitle(NormalizeLexicalLookup(title)))
+            {
+                continue;
+            }
+
+            var scopedHit = BuildSourceBackedCardScopedHit(hit, card);
+            var visibleMinutes = ExtractBestVisibleDurationMinutes(scopedHit);
+            emittedCardCandidate = true;
+            yield return new SourceBackedOptionCandidate(
+                scopedHit,
+                title,
+                ComputeSourceBackedOptionHitScore(scopedHit, title, query, scoreMaxMinutes, visibleMinutes) + 6,
+                visibleMinutes);
+        }
+
+        if (emittedCardCandidate)
+            yield break;
+
+        var fallbackTitle = ExtractSourceBackedOptionTitle(hit, query);
+        if (string.IsNullOrWhiteSpace(fallbackTitle)
+            && requiresNamedEntityEvidence
+            && QueryAnchorTermsMatchHit(namedEntityTerms, hit))
+        {
+            fallbackTitle = BuildSourceBackedFallbackOptionTitle(hit, language);
+        }
+
+        var fallbackVisibleMinutes = ExtractBestVisibleDurationMinutes(hit);
+        yield return new SourceBackedOptionCandidate(
+            hit,
+            fallbackTitle,
+            ComputeSourceBackedOptionHitScore(hit, fallbackTitle, query, scoreMaxMinutes, fallbackVisibleMinutes),
+            fallbackVisibleMinutes);
+    }
+
+    private static RagHitSummary BuildSourceBackedCardScopedHit(RagHitSummary hit, RagHitContentCardSummary card)
+    {
+        var pageStart = card.PageStart ?? hit.PageStart;
+        var pageEnd = card.PageEnd ?? card.PageStart ?? hit.PageEnd;
+        if (pageEnd < pageStart)
+            pageEnd = pageStart;
+
+        var cardEvidence = BuildSourceBackedCardEvidenceSnippet(card);
+        return hit with
+        {
+            PageStart = pageStart,
+            PageEnd = pageEnd,
+            Excerpt = string.IsNullOrWhiteSpace(cardEvidence) ? card.Title : cardEvidence,
+            FullText = null,
+            ContextualSnippet = BuildSourceBackedCardContextSnippet(hit, card, cardEvidence),
+            MatchedContentCards = new[] { card }
+        };
+    }
+
+    private static string BuildSourceBackedCardContextSnippet(RagHitSummary hit, RagHitContentCardSummary card, string cardEvidence)
+    {
+        return CollapseWhitespace(string.Join(' ', new[]
+        {
+            $"Matched profile title: {card.Title}",
+            string.IsNullOrWhiteSpace(hit.DocName) ? null : $"Document: {hit.DocName}",
+            string.IsNullOrWhiteSpace(hit.SectionTitle) ? null : $"Section: {hit.SectionTitle}",
+            string.IsNullOrWhiteSpace(cardEvidence) ? null : $"Evidence: {cardEvidence}"
+        }.Where(static value => !string.IsNullOrWhiteSpace(value))));
+    }
+
+    private static string BuildSourceBackedCardEvidenceSnippet(RagHitContentCardSummary card)
+    {
+        var parts = new List<string> { card.Title };
+
+        var evidence = card.Evidence;
+        if (evidence is null)
+            return CollapseWhitespace(card.Title);
+
+        if (card.Signals is { Count: > 0 })
+            parts.AddRange(card.Signals.Take(8));
+
+        if (evidence is not null)
+        {
+            if (evidence.ScaleBasis is { Count: > 0 } basis)
+            {
+                parts.Add(CollapseWhitespace(string.Join(' ', new[]
+                {
+                    basis.Count.ToString(CultureInfo.InvariantCulture),
+                    basis.Label
+                }.Where(static value => !string.IsNullOrWhiteSpace(value)))));
+            }
+
+            foreach (var fact in evidence.QuantityFacts.Take(6))
+            {
+                parts.Add(CollapseWhitespace(string.Join(' ', new[]
+                {
+                    fact.Value.ToString("0.###", CultureInfo.InvariantCulture),
+                    fact.Unit,
+                    fact.Label,
+                    fact.SourceText
+                }.Where(static value => !string.IsNullOrWhiteSpace(value)))));
+            }
+
+            foreach (var fact in (evidence.Facts ?? []).Take(8))
+            {
+                parts.Add(CollapseWhitespace(string.Join(' ', new[]
+                {
+                    fact.Kind,
+                    fact.Label,
+                    fact.Value,
+                    fact.Unit,
+                    fact.SourceText
+                }.Where(static value => !string.IsNullOrWhiteSpace(value)))));
+            }
+
+            parts.AddRange(evidence.NonScalableReasons.Take(4));
+        }
+
+        return CollapseWhitespace(string.Join(' ', parts.Where(static value => !string.IsNullOrWhiteSpace(value))));
+    }
+
+    private static SourceBackedOptionCandidate ApplySoftChoiceOptionKindScore(
+        SourceBackedOptionCandidate candidate,
+        IReadOnlyList<string> requestedKindTerms)
+    {
+        if (requestedKindTerms.Count == 0)
+            return candidate;
+
+        var bonus = ComputeSoftChoiceOptionKindMatchScore(requestedKindTerms, candidate);
+        return bonus == 0
+            ? candidate
+            : candidate with { Score = candidate.Score + bonus };
     }
 
     private static bool LooksLikeCompositeSourceBackedOptionAnchorRequest(string normalizedQuery, bool hasRequestedMaxMinutes)
@@ -4365,6 +5667,29 @@ CURRENT_USER_MESSAGE:
             .ToArray();
     }
 
+    private static IReadOnlyList<string> ExtractSoftChoiceRequestedOptionKindTerms(string? query)
+    {
+        if (!LooksLikeSoftChoiceRecommendationRequest(query))
+            return Array.Empty<string>();
+
+        var normalized = NormalizeLexicalLookup(query);
+        var terms = new List<string>();
+        foreach (Match match in Regex.Matches(
+                     normalized,
+                     @"\b(?:quel|quelle|quels|quelles|which|what|cual|cu[aÃ¡]l|qual|welche|welcher|welches|quale)\s+(?<kind>[\p{L}][\p{L}'\u2019-]{2,30})",
+                     RegexOptions.CultureInvariant))
+        {
+            var kind = NormalizeLexicalLookup(match.Groups["kind"].Value);
+            if (kind.Length >= 4 && !IsSourceBackedActionRetrievalNoiseTerm(kind))
+                terms.Add(kind);
+        }
+
+        return terms
+            .Distinct(StringComparer.Ordinal)
+            .Take(3)
+            .ToArray();
+    }
+
     private static bool PairingOptionKindMatchesCandidate(IReadOnlyList<string> optionKindTerms, SourceBackedOptionCandidate candidate)
     {
         if (optionKindTerms.Count == 0)
@@ -4378,12 +5703,113 @@ CURRENT_USER_MESSAGE:
                 RegexOptions.CultureInvariant));
     }
 
+    private static int ComputeSoftChoiceOptionKindMatchScore(IReadOnlyList<string> requestedKindTerms, SourceBackedOptionCandidate candidate)
+    {
+        if (requestedKindTerms.Count == 0)
+            return 0;
+
+        var titleAndCards = NormalizeLexicalLookup(
+            $"{candidate.Title} {string.Join(' ', candidate.Hit.MatchedContentCards?.Select(static card => card.Title) ?? Array.Empty<string>())}");
+        var cardSignals = NormalizeLexicalLookup(
+            string.Join(' ', candidate.Hit.MatchedContentCards?.SelectMany(static card => card.Signals ?? Array.Empty<string>()) ?? Array.Empty<string>()));
+        var structural = NormalizeLexicalLookup($"{candidate.Hit.SectionTitle} {candidate.Hit.HeadingPath}");
+
+        if (requestedKindTerms.Any(term => OptionKindTermMatchesText(titleAndCards, term)))
+            return 18;
+        if (requestedKindTerms.Any(term => OptionKindTermMatchesText(cardSignals, term)))
+            return 16;
+        if (requestedKindTerms.Any(term => OptionKindTermMatchesText(structural, term)))
+            return 10;
+        return 0;
+    }
+
+    private static bool SoftChoiceOptionKindMatchesCandidate(IReadOnlyList<string> requestedKindTerms, SourceBackedOptionCandidate candidate)
+    {
+        if (requestedKindTerms.Count == 0)
+            return true;
+
+        var haystack = NormalizeLexicalLookup(string.Join(' ', new[]
+        {
+            candidate.Title,
+            candidate.Hit.SectionTitle,
+            candidate.Hit.HeadingPath,
+            string.Join(' ', candidate.Hit.MatchedContentCards?.Select(static card => card.Title) ?? Array.Empty<string>()),
+            string.Join(' ', candidate.Hit.MatchedContentCards?.SelectMany(static card => card.Signals ?? Array.Empty<string>()) ?? Array.Empty<string>())
+        }.Where(static value => !string.IsNullOrWhiteSpace(value))));
+
+        return requestedKindTerms.Any(term => OptionKindTermMatchesText(haystack, term));
+    }
+
+    private static bool OptionKindContradictsCandidate(IReadOnlyList<string> requestedKindTerms, SourceBackedOptionCandidate candidate)
+    {
+        if (requestedKindTerms.Count == 0)
+            return false;
+
+        var requested = requestedKindTerms
+            .Select(NormalizeLexicalLookup)
+            .Where(static term => term.Length >= 4)
+            .ToHashSet(StringComparer.Ordinal);
+        if (requested.Count == 0)
+            return false;
+
+        if (SoftChoiceOptionKindMatchesCandidate(requested.ToArray(), candidate))
+            return false;
+
+        return false;
+    }
+
+    private static bool OptionKindTermMatchesText(string? text, string? term)
+    {
+        var normalizedText = NormalizeLexicalLookup(text);
+        var normalizedTerm = NormalizeLexicalLookup(term);
+        if (string.IsNullOrWhiteSpace(normalizedText) || normalizedTerm.Length < 3)
+            return false;
+
+        if (normalizedText.Contains(normalizedTerm, StringComparison.Ordinal))
+            return true;
+
+        var singular = normalizedTerm.TrimEnd('s');
+        if (singular.Length >= 3 && !string.Equals(singular, normalizedTerm, StringComparison.Ordinal))
+        {
+            if (normalizedText.Contains(singular, StringComparison.Ordinal))
+                return true;
+        }
+
+        return Regex.IsMatch(
+            normalizedText,
+            $@"(^|[^\p{{L}}\p{{N}}]){Regex.Escape(normalizedTerm)}(?:s|es)?([^\p{{L}}\p{{N}}]|$)",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool RetrievalQueryNarrowlyTargetsOptionKind(string? retrievalQuery, string? term)
+    {
+        var normalizedQuery = NormalizeLexicalLookup(retrievalQuery);
+        var normalizedTerm = NormalizeLexicalLookup(term);
+        if (string.IsNullOrWhiteSpace(normalizedQuery) || normalizedTerm.Length < 3)
+            return false;
+
+        if (!OptionKindTermMatchesText(normalizedQuery, normalizedTerm))
+            return false;
+
+        var terms = ExtractQuerySignalTerms(normalizedQuery)
+            .Where(static value => !IsSourceBackedActionRetrievalNoiseTerm(value))
+            .ToArray();
+        if (terms.Length == 0 || terms.Length > 3)
+            return false;
+
+        return terms.Any(value => OptionKindTermMatchesText(value, normalizedTerm));
+    }
+
     private static bool LooksLikeUsableSourceBackedOptionCandidate(RagHitSummary hit)
     {
         var profile = ClassifyRagHitEvidenceProfile(hit);
         var backendRole = NormalizeRagEvidenceRole(hit.SelectionHintRole);
-        if (!string.IsNullOrWhiteSpace(backendRole) && backendRole != "actionable_item")
+        if (!string.IsNullOrWhiteSpace(backendRole)
+            && backendRole != "actionable_item"
+            && !IsPrimaryQueryTopConcreteCardHit(hit))
+        {
             return false;
+        }
 
         if (profile.Role is "navigation" or "fragment" or "low_confidence")
             return false;
@@ -4422,6 +5848,29 @@ CURRENT_USER_MESSAGE:
         }
 
         return false;
+    }
+
+    private static string BuildSourceBackedOptionCandidateKey(SourceBackedOptionCandidate candidate)
+        => $"{NormalizeLexicalLookup(candidate.Title)}|{candidate.Hit.DocPath}|{candidate.Hit.PageStart}|{candidate.Hit.PageEnd}";
+
+    private static bool IsPrimaryQueryTopConcreteCardCandidate(SourceBackedOptionCandidate candidate)
+        => IsPrimaryQueryTopConcreteCardHit(candidate.Hit);
+
+    private static bool IsPrimaryQueryTopConcreteCardHit(RagHitSummary hit)
+    {
+        if (hit.RetrievalQueryIndex != 0 || hit.RetrievalHitRank is null or > 1)
+            return false;
+
+        return hit.MatchedContentCards?.Any(IsConcreteSourceBackedOptionCard) == true;
+    }
+
+    private static bool IsConcreteSourceBackedOptionCard(RagHitContentCardSummary card)
+    {
+        var title = CleanSourceBackedOptionTitle(card.Title);
+        return !string.IsNullOrWhiteSpace(title)
+            && IsUsefulSourceBackedDisplayTitle(title)
+            && !LooksLikePlanItemNoise(title)
+            && !LooksLikeProcedureSentenceTitle(NormalizeLexicalLookup(title));
     }
 
     private static bool HasSourceBackedProfileTitle(RagHitSummary hit)
@@ -4602,6 +6051,17 @@ CURRENT_USER_MESSAGE:
         if (queryTerms.Length > 0 && QueryAnchorTermsMatchHit(queryTerms, hit))
             score += 12;
 
+        if (hit.RetrievalQueryIndex == 0)
+        {
+            score += hit.RetrievalHitRank switch
+            {
+                0 => 18,
+                1 => 12,
+                2 => 8,
+                _ => 4
+            };
+        }
+
         if (LooksLikeMidProcedureFragment(hit))
             score -= 8;
 
@@ -4611,7 +6071,13 @@ CURRENT_USER_MESSAGE:
     private static string FormatSourceBackedOptionEvidence(RagHitSummary hit)
     {
         var evidence = CleanReadableProcedureArtifacts(FormatReadableEvidenceExcerpt(GetBestRagEvidenceText(hit), maxLength: 220));
-        return string.IsNullOrWhiteSpace(evidence) ? string.Empty : evidence;
+        if (string.IsNullOrWhiteSpace(evidence))
+            return string.Empty;
+
+        var title = ExtractSourceBackedOptionTitle(hit, query: null);
+        return string.Equals(NormalizeLexicalLookup(evidence), NormalizeLexicalLookup(title), StringComparison.Ordinal)
+            ? string.Empty
+            : evidence;
     }
 
     private static int? TryExtractRequestedMaxMinutes(string? query)
@@ -4834,20 +6300,66 @@ CURRENT_USER_MESSAGE:
     private static IReadOnlyList<RagHitSummary> SelectSourceBackedExtractiveHits(ToolResults toolResults, string query, int maxHits)
     {
         var evidenceQuery = BuildRagEvidenceSelectionQuery(query);
+        var isShortTechnicalEvidenceTopic = LooksLikeShortTechnicalEvidenceTopic(evidenceQuery);
+        var requestedTitle = isShortTechnicalEvidenceTopic
+            ? null
+            : TryExtractRequestedItemTitle(query);
+        var requestedDocumentFileTitle = ResolveRequestedDocumentFileTitle(query, requestedTitle);
+        var explicitDocumentFileReferences = ExtractExplicitDocumentFileReferenceQueries(query);
+        var hasMultipleExplicitComparativeDocumentReferences = LooksLikeComparativeDocumentaryRequest(query)
+            && explicitDocumentFileReferences.Count > 1;
+        var shouldScopeToSingleRequestedDocumentFile = !hasMultipleExplicitComparativeDocumentReferences
+            && !string.IsNullOrWhiteSpace(requestedDocumentFileTitle);
         var allHits = EnumerateRagHitSummaries(toolResults)
-            .Where(hit => !LooksLikeNavigationOnlyHit(hit))
-            .Where(hit => !LooksLikeLowSignalAppFeatureHit(hit, query))
-            .Where(hit => !LooksLikeLowSignalContentCandidateHit(hit))
+            .Where(hit => !LooksLikeNavigationOnlyHit(hit)
+                || IsUsableExactItemNavigationOverride(requestedTitle, hit)
+                || MatchesRequestedDocumentFileIdentity(requestedDocumentFileTitle, hit))
+            .Where(hit => !LooksLikeLowSignalAppFeatureHit(hit, query)
+                || MatchesRequestedDocumentFileIdentity(requestedDocumentFileTitle, hit))
+            .Where(hit => !LooksLikeLowSignalContentCandidateHit(hit)
+                || IsUsableExactItemNavigationOverride(requestedTitle, hit)
+                || MatchesRequestedDocumentFileIdentity(requestedDocumentFileTitle, hit)
+                || MatchesExplicitComparativeDocumentReference(query, hit))
             .Select(hit => new
             {
                 Hit = hit,
+                DocumentTypeScore = ComputeRequestedDocumentTypeAnchorScore(evidenceQuery, hit),
+                DirectTechnicalEvidence = isShortTechnicalEvidenceTopic
+                    ? ComputeDirectTechnicalEvidenceScore(evidenceQuery, hit)
+                    : 0,
                 PrimaryRelevance = ComputeRagHitLexicalRelevance(evidenceQuery, GetRagHitPrimaryEvidenceText(hit)),
                 Relevance = ComputeRagHitLexicalRelevance(evidenceQuery, GetRagHitLookupText(hit))
             })
-            .OrderByDescending(item => item.PrimaryRelevance)
+            .OrderByDescending(item => item.DocumentTypeScore)
+            .ThenByDescending(item => item.DirectTechnicalEvidence)
+            .ThenByDescending(item => item.PrimaryRelevance)
             .ThenByDescending(item => item.Relevance)
             .ThenByDescending(item => item.Hit.Score)
             .ToList();
+        if (shouldScopeToSingleRequestedDocumentFile)
+        {
+            var documentScopedHits = allHits
+                .Where(item => CandidateMatchesDocumentIdentity(requestedDocumentFileTitle!, item.Hit.DocName, item.Hit.DocPath))
+                .ToList();
+            if (documentScopedHits.Count > 0)
+                allHits = documentScopedHits;
+        }
+
+        var requestedDocumentTypeHits = allHits
+            .Where(static item => item.DocumentTypeScore > 0)
+            .ToList();
+        if (requestedDocumentTypeHits.Count > 0)
+            allHits = requestedDocumentTypeHits;
+
+        if (isShortTechnicalEvidenceTopic)
+        {
+            var phraseEvidenceHits = allHits
+                .Where(item => HasShortTechnicalPhraseEvidence(evidenceQuery, item.Hit))
+                .ToList();
+            if (phraseEvidenceHits.Count > 0)
+                allHits = phraseEvidenceHits;
+        }
+
         var requestedMaxMinutes = TryExtractRequestedMaxMinutes(query);
         if (requestedMaxMinutes.HasValue)
         {
@@ -4861,6 +6373,23 @@ CURRENT_USER_MESSAGE:
             if (timeCompatibleHits.Count > 0)
                 allHits = timeCompatibleHits;
         }
+
+        var softChoiceOptionKindTerms = ExtractSoftChoiceRequestedOptionKindTerms(query);
+        if (softChoiceOptionKindTerms.Count > 0)
+        {
+            var compatibleHits = allHits
+                .Where(item => !SoftChoiceOptionKindContradictsHit(softChoiceOptionKindTerms, item.Hit))
+                .ToList();
+            if (compatibleHits.Count > 0)
+                allHits = compatibleHits;
+
+            var kindMatchedHits = allHits
+                .Where(item => SoftChoiceOptionKindMatchesHit(softChoiceOptionKindTerms, item.Hit))
+                .ToList();
+            if (kindMatchedHits.Count > 0)
+                allHits = kindMatchedHits;
+        }
+
         if (allHits.Count == 0)
             return Array.Empty<RagHitSummary>();
 
@@ -4880,22 +6409,57 @@ CURRENT_USER_MESSAGE:
                 return comparativeHits;
         }
 
-        var requestedTitle = TryExtractRequestedItemTitle(query);
         if (!string.IsNullOrWhiteSpace(requestedTitle))
         {
             var exactTitleHits = allHits
                 .Select(item => item.Hit)
                 .Where(hit => RagHitContainsRequestedTitle(hit, requestedTitle!)
-                    || RagHitHasUsableRequestedTitleAnchor(requestedTitle!, hit))
+                    || RagHitHasUsableRequestedTitleAnchor(requestedTitle!, hit)
+                    || IsUsableExactItemNavigationOverride(requestedTitle!, hit))
                 .Where(hit => !LooksLikeExactItemReferenceOnlyHit(requestedTitle!, hit))
                 .ToList();
             if (exactTitleHits.Count > 0)
             {
+                var isStructuredItemCardRequest = LooksLikeStructuredItemCardRequest(query);
                 var anchoredTitleHits = exactTitleHits
-                    .Where(hit => RagHitHasUsableRequestedTitleAnchor(requestedTitle!, hit))
+                    .Where(hit => isStructuredItemCardRequest
+                        ? ExactItemEvidenceStartsWithRequestedTitle(requestedTitle!, hit) || HasStrongExactItemTitleAnchor(requestedTitle!, hit) || IsUsableExactItemNavigationOverride(requestedTitle!, hit)
+                        : RagHitHasUsableRequestedTitleAnchor(requestedTitle!, hit) || IsUsableExactItemNavigationOverride(requestedTitle!, hit))
                     .ToList();
-                if (anchoredTitleHits.Count > 0)
+                if (isStructuredItemCardRequest)
+                {
+                    var leadTitleHits = anchoredTitleHits
+                        .Where(hit => ExactItemEvidenceStartsWithRequestedTitle(requestedTitle!, hit))
+                        .ToList();
+                    if (leadTitleHits.Count > 0)
+                    {
+                        anchoredTitleHits = leadTitleHits;
+                        exactTitleHits = anchoredTitleHits;
+                    }
+                    else if (anchoredTitleHits.Count == 0)
+                    {
+                        var recoverableStructuredHits = exactTitleHits
+                            .Where(hit => HasRecoverableStructuredExactItemEvidence(requestedTitle!, hit))
+                            .ToList();
+                        if (recoverableStructuredHits.Count == 0)
+                            return Array.Empty<RagHitSummary>();
+
+                        exactTitleHits = recoverableStructuredHits;
+                    }
+                    else
+                    {
+                        exactTitleHits = anchoredTitleHits;
+                    }
+                }
+                else if (anchoredTitleHits.Count == 0
+                         && !exactTitleHits.Any(hit => HasRecoverableStructuredExactItemEvidence(requestedTitle!, hit)))
+                {
+                    return Array.Empty<RagHitSummary>();
+                }
+                else if (anchoredTitleHits.Count > 0)
+                {
                     exactTitleHits = anchoredTitleHits;
+                }
 
                 if (LooksLikeStructuredItemCardRequest(query))
                 {
@@ -4918,6 +6482,9 @@ CURRENT_USER_MESSAGE:
 
                 return exactTitleHits;
             }
+
+            if (LooksLikeStructuredItemCardRequest(query))
+                return Array.Empty<RagHitSummary>();
         }
         else
         {
@@ -5066,6 +6633,56 @@ CURRENT_USER_MESSAGE:
             && punctuationRatio <= 0.22;
     }
 
+    private static bool HasRecoverableStructuredExactItemEvidence(string requestedTitle, RagHitSummary hit)
+    {
+        if (string.IsNullOrWhiteSpace(requestedTitle))
+            return false;
+
+        if (LooksLikePageReferenceOnlyHit(hit) || LooksLikeExactItemReferenceOnlyHit(requestedTitle, hit))
+            return false;
+
+        var navigationOverride = IsUsableExactItemNavigationOverride(requestedTitle, hit);
+        if (LooksLikeNavigationOnlyHit(hit) && !navigationOverride)
+            return false;
+
+        if (LooksLikeLowSignalContentCandidateHit(hit) && !navigationOverride)
+            return false;
+
+        if (HasContentCardEvidenceFacts(hit)
+            || HasContentCardQuantityEvidence(new[] { hit })
+            || HasContentCardScalableQuantityEvidence(hit))
+        {
+            return true;
+        }
+
+        if (ComputeExactItemCardCompletenessCueScore(hit) >= 4)
+            return true;
+
+        if (ComputeStructuredProcedureVisibleEvidenceCueScore(hit) >= 3)
+            return true;
+
+        var focusedEvidence = GetFocusedExactItemEvidenceText(requestedTitle, hit);
+        var structuredEvidence = GetFocusedExactItemStructuredEvidenceText(requestedTitle, hit);
+        if (ExtractItemizedQuantityFacts(structuredEvidence).Length >= 2)
+            return true;
+
+        if (ExtractVisibleDurationsAndQuantities(focusedEvidence).Length >= 2)
+            return true;
+
+        if (ExtractProcedureSteps(focusedEvidence).Length >= 2)
+            return true;
+
+        var normalizedFocusedEvidence = NormalizeStructuredScanText(focusedEvidence);
+        if (CountProcedureStepMarkers(normalizedFocusedEvidence) >= 2)
+            return true;
+
+        return hit.PageEnd > hit.PageStart
+            && Regex.IsMatch(
+                normalizedFocusedEvidence,
+                @"\b(?:items?|elements?|requirements?|quantities?|quantites?|values?|valeurs?|preparation|procedure|etapes?|steps?|\d+\s*(?:g|kg|mg|ml|cl|l|min(?:ute)?s?|h|heures?|hours?))\b",
+                RegexOptions.CultureInvariant);
+    }
+
     private static IReadOnlyList<RagHitSummary> AddComplementaryStructuredHitsForExactItem(
         IReadOnlyList<RagHitSummary> exactHits,
         IEnumerable<RagHitSummary> allHits)
@@ -5118,6 +6735,8 @@ CURRENT_USER_MESSAGE:
         var focusTerms = ExtractQuerySignalTerms(NormalizeLexicalLookup(evidenceQuery))
             .Where(term => !IsComparativeRetrievalNoiseTerm(term))
             .ToArray();
+        var entityAnchors = ExtractComparativeEntityAnchorTerms(query);
+        var shouldRequireEntityCoverage = entityAnchors.Length >= 2;
 
         var scored = hits
             .Where(hit => !LooksLikeNavigationOnlyHit(hit))
@@ -5125,14 +6744,26 @@ CURRENT_USER_MESSAGE:
             {
                 Hit = hit,
                 Index = index,
+                EntityMatches = GetMatchedComparativeEntityAnchorIndexes(hit, entityAnchors),
+                ExplicitReference = MatchesExplicitComparativeDocumentReference(query, hit),
                 Score = ComputeComparativeDocumentaryEvidenceScore(hit, evidenceQuery, focusTerms)
             })
-            .Where(item => item.Score > 0)
-            .OrderByDescending(item => item.Score)
+            .Where(item => item.Score > 0 || item.ExplicitReference)
+            .Where(item => !shouldRequireEntityCoverage || item.EntityMatches.Length > 0 || item.ExplicitReference)
+            .Select(item => new ComparativeScoredHit(
+                item.Hit,
+                item.Index,
+                item.EntityMatches,
+                item.Score + (item.EntityMatches.Length * 10.0) + (item.ExplicitReference ? 5.0 : 0.0)))
+            .OrderByDescending(item => item.EntityMatches.Length)
+            .ThenByDescending(item => item.Score)
             .ThenBy(item => item.Index)
             .ToList();
         if (scored.Count == 0)
             return Array.Empty<RagHitSummary>();
+
+        if (shouldRequireEntityCoverage)
+            return SelectComparativeEntityCoverageHits(scored, entityAnchors.Length, maxHits);
 
         var bestByDocument = scored
             .GroupBy(item => string.IsNullOrWhiteSpace(item.Hit.DocPath) ? item.Hit.DocName : item.Hit.DocPath, StringComparer.OrdinalIgnoreCase)
@@ -5145,6 +6776,142 @@ CURRENT_USER_MESSAGE:
             return bestByDocument.Take(maxHits).Select(item => item.Hit).ToList();
 
         return scored.Take(maxHits).Select(item => item.Hit).ToList();
+    }
+
+    private sealed record ComparativeScoredHit(RagHitSummary Hit, int Index, int[] EntityMatches, double Score);
+
+    private static IReadOnlyList<RagHitSummary> SelectComparativeEntityCoverageHits(
+        IReadOnlyList<ComparativeScoredHit> scored,
+        int entityCount,
+        int maxHits)
+    {
+        var selected = new List<ComparativeScoredHit>();
+        var selectedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var coveredEntities = new HashSet<int>();
+
+        for (var entityIndex = 0; entityIndex < entityCount && selected.Count < maxHits; entityIndex++)
+        {
+            var best = scored
+                .Where(item => item.EntityMatches.Contains(entityIndex))
+                .Where(item => !selectedKeys.Contains(BuildRagHitIdentityKey(item.Hit)))
+                .OrderByDescending(item => item.Score)
+                .ThenBy(item => item.Index)
+                .FirstOrDefault();
+            if (best is null)
+                continue;
+
+            selected.Add(best);
+            selectedKeys.Add(BuildRagHitIdentityKey(best.Hit));
+            foreach (var match in best.EntityMatches)
+                coveredEntities.Add(match);
+        }
+
+        foreach (var item in scored
+                     .Where(item => !selectedKeys.Contains(BuildRagHitIdentityKey(item.Hit)))
+                     .OrderByDescending(item => item.EntityMatches.Count(match => !coveredEntities.Contains(match)))
+                     .ThenByDescending(item => item.Score)
+                     .ThenBy(item => item.Index))
+        {
+            if (selected.Count >= maxHits)
+                break;
+
+            selected.Add(item);
+            selectedKeys.Add(BuildRagHitIdentityKey(item.Hit));
+            foreach (var match in item.EntityMatches)
+                coveredEntities.Add(match);
+        }
+
+        return selected.Select(static item => item.Hit).ToList();
+    }
+
+    private static string[][] ExtractComparativeEntityAnchorTerms(string? query)
+    {
+        return ExtractComparativeEntityPhrases(query)
+            .Select(phrase => ExtractQuerySignalTerms(NormalizeLexicalLookup(phrase))
+                .Where(term => !IsComparativeRetrievalNoiseTerm(term))
+                .Where(term => term.Length >= 3)
+                .Distinct(StringComparer.Ordinal)
+                .Take(5)
+                .ToArray())
+            .Where(static terms => terms.Length > 0)
+            .Take(8)
+            .ToArray();
+    }
+
+    private static IEnumerable<string> ExtractComparativeEntityPhrases(string? query)
+    {
+        var text = CollapseWhitespace(query ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(text))
+            yield break;
+
+        var match = Regex.Match(
+            text,
+            @"(?i)\b(?:entre|between|zwischen|tra|fra)\s+(?<items>.+?)(?:,\s*)?\b(?:quel|quelle|quels|quelles|lequel|laquelle|which|what|cual|cu[aá]l|qual|welche|welcher|welches|quale)\b",
+            RegexOptions.CultureInvariant);
+        if (!match.Success)
+        {
+            match = Regex.Match(
+                text,
+                @"(?i)\b(?:compare|comparer|comparaison|comparatif|comparative|versus|vs\.?|confronta|confrontare|vergleiche|vergleichen)\s+(?<items>.+?)(?:[?.!]|$)",
+                RegexOptions.CultureInvariant);
+        }
+
+        if (!match.Success)
+            yield break;
+
+        var itemsText = Regex.Replace(
+            match.Groups["items"].Value,
+            @"(?i)\b(?:quel|quelle|quels|quelles|lequel|laquelle|which|what|cual|cu[aá]l|qual|welche|welcher|welches|quale)\b.*$",
+            string.Empty,
+            RegexOptions.CultureInvariant);
+
+        foreach (var part in Regex.Split(
+                     itemsText,
+                     @"\s*(?:,|;|/|\bet\b|\bou\b|\band\b|\bor\b|\by\b|\be\b|\bund\b|\boder\b)\s*",
+                     RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        {
+            var phrase = CollapseWhitespace(part)
+                .Trim(' ', '.', ',', ';', ':', '?', '!', '"', '\'', '\u00ab', '\u00bb');
+            if (phrase.Length is >= 3 and <= 90)
+                yield return phrase;
+        }
+    }
+
+    private static int[] GetMatchedComparativeEntityAnchorIndexes(
+        RagHitSummary hit,
+        IReadOnlyList<string[]> entityAnchors)
+    {
+        if (entityAnchors.Count == 0)
+            return Array.Empty<int>();
+
+        var lookup = NormalizeLexicalLookup(GetRagHitComparativeEntityLookupText(hit));
+        if (string.IsNullOrWhiteSpace(lookup))
+            return Array.Empty<int>();
+
+        var matches = new List<int>();
+        for (var i = 0; i < entityAnchors.Count; i++)
+        {
+            var terms = entityAnchors[i];
+            if (terms.Length == 0)
+                continue;
+
+            var matched = terms.Count(term => ComparativeEntityTermMatches(lookup, term));
+            var required = terms.Length <= 3 ? terms.Length : terms.Length - 1;
+            if (matched >= required)
+                matches.Add(i);
+        }
+
+        return matches.ToArray();
+    }
+
+    private static bool ComparativeEntityTermMatches(string lookup, string term)
+    {
+        if (lookup.Contains(term, StringComparison.Ordinal))
+            return true;
+
+        return term.Length > 4
+               && term.EndsWith('s')
+               && lookup.Contains(term[..^1], StringComparison.Ordinal);
     }
 
     private static double ComputeComparativeDocumentaryEvidenceScore(RagHitSummary hit, string evidenceQuery, IReadOnlyList<string> focusTerms)
@@ -5231,6 +6998,8 @@ CURRENT_USER_MESSAGE:
                     .Trim(' ', '.', ',', ':', ';', '?', '!', '"', '\'');
 
                 var normalized = NormalizeLexicalLookup(term);
+                if (LooksLikeIdiomaticNoDetailExclusion(normalized, NormalizeLexicalLookup(match.Value)))
+                    continue;
                 if (normalized.Length >= 2)
                     terms.Add(normalized);
             }
@@ -5250,12 +7019,33 @@ CURRENT_USER_MESSAGE:
                         RegexOptions.CultureInvariant)
                     .Trim(' ', '.', ',', ':', ';', '?', '!', '"', '\'');
                 var normalized = NormalizeLexicalLookup(part);
+                if (LooksLikeIdiomaticNoDetailExclusion(normalized, NormalizeLexicalLookup(match.Value)))
+                    continue;
                 if (normalized.Length >= 2)
                     terms.Add(normalized);
             }
         }
 
         return terms.Distinct(StringComparer.Ordinal).Take(5).ToArray();
+    }
+
+    private static bool LooksLikeIdiomaticNoDetailExclusion(string normalizedTerm, string normalizedMatch)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedTerm))
+            return true;
+
+        if (Regex.IsMatch(
+                normalizedMatch,
+                @"\b(?:sans|without|sin|sem|ohne|senza)\s+(?:rentrer|entrer|going|go|entrar|entrando)\s+(?:dans|into|en|em|in)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        return Regex.IsMatch(
+            normalizedTerm,
+            @"^(?:rentrer|entrer|going|go|entrar|entrando)(?:\s+(?:dans|into|en|em|in))?$",
+            RegexOptions.CultureInvariant);
     }
 
     private static bool RagHitContainsAnyExcludedTerm(RagHitSummary hit, IReadOnlyList<string> excludedTerms)
@@ -5893,11 +7683,20 @@ CURRENT_USER_MESSAGE:
         if (!Regex.IsMatch(normalized, @"^[\p{L}][\p{L}'\u2019.\-]{1,30}$", RegexOptions.CultureInvariant))
             return false;
 
+        if (LooksLikeProcedureLeadLabel(normalized))
+            return false;
+
         return !Regex.IsMatch(
             normalized,
             @"^(?:g|kg|mg|ml|cl|l|mm|cm|m|km|nm|bar|pa|kpa|mpa|v|kv|a|ma|w|kw|hz|rpm|%|s|sec|secs|secondes?|seconds?|min|mins|minutes?|h|hr|hrs|heures?|hours?|jour|jours|day|days|mois|month|months|annee|annees|year|years|c|celsius|fahrenheit)$",
             RegexOptions.CultureInvariant);
     }
+
+    private static bool LooksLikeProcedureLeadLabel(string normalizedLabel)
+        => Regex.IsMatch(
+            NormalizeLooseLookup(normalizedLabel),
+            @"^(?:pour|pendant|dans|puis|quand|lorsque|avant|apres|jusqu|jusque|then|when|after|before|until|while|durante|cuando|antes|despues|depois|quando|wenn|nach|bevor|pelez|lavez|versez|lancez|mettez|ajoutez|laissez|coupez|servez|faites|ouvrez|fermez|placez|deposez|retirez|remuez|melangez|mixez|preparez|preparer|peel|wash|pour|start|launch|put|add|leave|cut|serve|open|close|place|remove|stir|mix|cook|bake|prepare)$",
+            RegexOptions.CultureInvariant);
 
     private static string? TryExtractQuantityScalingSubject(string? query)
     {
@@ -6504,6 +8303,7 @@ CURRENT_USER_MESSAGE:
     private static string BuildSourceBackedRankingAnswer(string language, string query, IReadOnlyList<RagHitSummary> hits)
     {
         language = NormalizeLanguageCode(language);
+        var entityAnchors = ExtractComparativeEntityAnchorTerms(query);
         var ranked = RankSourceBackedRankingHits(hits, query)
             .Take(4)
             .ToList();
@@ -6513,13 +8313,13 @@ CURRENT_USER_MESSAGE:
                 .Where(static hit => !LooksLikeLowStructureShortProcedureHit(hit))
                 .ToList();
             if (structuredEnoughRanked.Count > 0)
-                ranked = structuredEnoughRanked;
+                ranked = PreserveComparativeEntityCoverage(ranked, structuredEnoughRanked, entityAnchors);
 
             var nonVeryShortRanked = ranked
                 .Where(static hit => ExtractBestVisibleDurationMinutes(hit) is not int minutes || minutes > 3)
                 .ToList();
             if (nonVeryShortRanked.Count > 0)
-                ranked = nonVeryShortRanked;
+                ranked = PreserveComparativeEntityCoverage(ranked, nonVeryShortRanked, entityAnchors);
         }
         if (ranked.Count == 0)
             return string.Empty;
@@ -6605,6 +8405,16 @@ CURRENT_USER_MESSAGE:
                 candidateHits = nonGenericCandidates;
         }
 
+        var entityAnchors = ExtractComparativeEntityAnchorTerms(query);
+        if (entityAnchors.Length >= 2)
+        {
+            var entityMatchedHits = candidateHits
+                .Where(hit => GetMatchedComparativeEntityAnchorIndexes(hit, entityAnchors).Length > 0)
+                .ToList();
+            if (entityMatchedHits.Count > 0)
+                candidateHits = entityMatchedHits;
+        }
+
         var allCandidateHits = candidateHits;
         var dominantHits = FilterHitsToDominantTopLevel(candidateHits, query).ToList();
         var dominantTargetHits = FilterRankingHitsToRequestedContentTarget(dominantHits, query).ToList();
@@ -6640,49 +8450,49 @@ CURRENT_USER_MESSAGE:
                 .Where(static hit => hit.PageEnd <= hit.PageStart)
                 .ToList();
             if (singlePageHits.Count >= 2)
-                candidateHits = singlePageHits;
+                candidateHits = PreserveComparativeEntityCoverage(candidateHits, singlePageHits, entityAnchors);
 
             var structuredEnoughHits = candidateHits
                 .Where(static hit => !LooksLikeLowStructureShortProcedureHit(hit))
                 .ToList();
             if (structuredEnoughHits.Count > 0)
-                candidateHits = structuredEnoughHits;
+                candidateHits = PreserveComparativeEntityCoverage(candidateHits, structuredEnoughHits, entityAnchors);
 
             var nonGenericTechniqueHits = candidateHits
                 .Where(static hit => !LooksLikeGenericTechniqueDefinitionHit(hit))
                 .ToList();
             if (nonGenericTechniqueHits.Count > 0)
-                candidateHits = nonGenericTechniqueHits;
+                candidateHits = PreserveComparativeEntityCoverage(candidateHits, nonGenericTechniqueHits, entityAnchors);
 
             var completeProcedureHits = candidateHits
                 .Where(static hit => ComputeProcedureCompletenessCueScore(hit) >= 7)
                 .ToList();
             if (completeProcedureHits.Count > 0)
-                candidateHits = completeProcedureHits;
+                candidateHits = PreserveComparativeEntityCoverage(candidateHits, completeProcedureHits, entityAnchors);
 
             var nonMidProcedureFragmentHits = candidateHits
                 .Where(static hit => !LooksLikeMidProcedureFragment(hit))
                 .ToList();
             if (nonMidProcedureFragmentHits.Count > 0)
-                candidateHits = nonMidProcedureFragmentHits;
+                candidateHits = PreserveComparativeEntityCoverage(candidateHits, nonMidProcedureFragmentHits, entityAnchors);
 
             var technicallyConstrainedHits = candidateHits
                 .Where(static hit => ComputeTechnicalComplexityCueScore(hit) >= 5)
                 .ToList();
             if (technicallyConstrainedHits.Count > 0)
-                candidateHits = technicallyConstrainedHits;
+                candidateHits = PreserveComparativeEntityCoverage(candidateHits, technicallyConstrainedHits, entityAnchors);
 
             var nonSimpleHits = candidateHits
                 .Where(static hit => !LooksLikeVerySimpleProcedureHit(hit))
                 .ToList();
             if (nonSimpleHits.Count >= 2)
-                candidateHits = nonSimpleHits;
+                candidateHits = PreserveComparativeEntityCoverage(candidateHits, nonSimpleHits, entityAnchors);
 
             structuredEnoughHits = candidateHits
                 .Where(static hit => !LooksLikeLowStructureShortProcedureHit(hit))
                 .ToList();
             if (structuredEnoughHits.Count > 0)
-                candidateHits = structuredEnoughHits;
+                candidateHits = PreserveComparativeEntityCoverage(candidateHits, structuredEnoughHits, entityAnchors);
         }
 
         var evidenceQuery = BuildRagEvidenceSelectionQuery(query);
@@ -6726,6 +8536,33 @@ CURRENT_USER_MESSAGE:
             .Any(HasStrongStructuredRankingEvidence);
     }
 
+    private static List<RagHitSummary> PreserveComparativeEntityCoverage(
+        IReadOnlyList<RagHitSummary> current,
+        List<RagHitSummary> candidate,
+        IReadOnlyList<string[]> entityAnchors)
+    {
+        if (candidate.Count == 0 || entityAnchors.Count < 2)
+            return candidate;
+
+        var currentCoverage = CountComparativeEntityCoverage(current, entityAnchors);
+        var candidateCoverage = CountComparativeEntityCoverage(candidate, entityAnchors);
+        var requiredCoverage = Math.Min(currentCoverage, entityAnchors.Count);
+        return candidateCoverage >= requiredCoverage ? candidate : current.ToList();
+    }
+
+    private static int CountComparativeEntityCoverage(
+        IEnumerable<RagHitSummary> hits,
+        IReadOnlyList<string[]> entityAnchors)
+    {
+        if (entityAnchors.Count == 0)
+            return 0;
+
+        return hits
+            .SelectMany(hit => GetMatchedComparativeEntityAnchorIndexes(hit, entityAnchors))
+            .Distinct()
+            .Count();
+    }
+
     private static bool HasStrongStructuredRankingEvidence(RagHitSummary hit)
         => ComputeProcedureCompletenessCueScore(hit) >= 7
             || ComputeStructuredProcedureEvidenceCueScore(hit) >= 7
@@ -6736,6 +8573,16 @@ CURRENT_USER_MESSAGE:
 
     private static IReadOnlyList<RagHitSummary> FilterRankingHitsToRequestedContentTarget(IReadOnlyList<RagHitSummary> hits, string query)
     {
+        var entityAnchors = ExtractComparativeEntityAnchorTerms(query);
+        if (entityAnchors.Length >= 2)
+        {
+            var entityMatchedHits = hits
+                .Where(hit => GetMatchedComparativeEntityAnchorIndexes(hit, entityAnchors).Length > 0)
+                .ToList();
+            if (entityMatchedHits.Count > 0)
+                return entityMatchedHits;
+        }
+
         var normalizedQuery = NormalizeLexicalLookup(query);
         var targetTerms = ExtractQuerySignalTerms(normalizedQuery)
             .Where(static term => term.Length >= 4)
@@ -7582,8 +9429,12 @@ CURRENT_USER_MESSAGE:
         var cardHits = hits
             .Where(hit => ExactItemEvidenceTextMatchesRequestedTitle(requestedTitle, hit)
                 || RagHitContainsRequestedTitle(hit, requestedTitle)
-                || RagHitHasUsableRequestedTitleAnchor(requestedTitle, hit))
-            .OrderByDescending(hit => ComputeExactItemCardEvidenceScore(requestedTitle, hit))
+                || RagHitHasUsableRequestedTitleAnchor(requestedTitle, hit)
+                || IsUsableExactItemNavigationOverride(requestedTitle, hit))
+            .OrderByDescending(hit => ExactItemEvidenceStartsWithRequestedTitle(requestedTitle, hit))
+            .ThenByDescending(hit => HasStrongExactItemTitleAnchor(requestedTitle, hit)
+                || IsUsableExactItemNavigationOverride(requestedTitle, hit))
+            .ThenByDescending(hit => ComputeExactItemCardEvidenceScore(requestedTitle, hit))
             .ThenByDescending(hit => hit.Score)
             .ToList();
         var structuredCompanions = hits
@@ -7595,7 +9446,10 @@ CURRENT_USER_MESSAGE:
         {
             cardHits = cardHits
                 .Concat(structuredCompanions)
-                .OrderByDescending(hit => ComputeExactItemCardEvidenceScore(requestedTitle, hit))
+                .OrderByDescending(hit => ExactItemEvidenceStartsWithRequestedTitle(requestedTitle, hit))
+                .ThenByDescending(hit => HasStrongExactItemTitleAnchor(requestedTitle, hit)
+                    || IsUsableExactItemNavigationOverride(requestedTitle, hit))
+                .ThenByDescending(hit => ComputeExactItemCardEvidenceScore(requestedTitle, hit))
                 .ThenByDescending(hit => hit.Score)
                 .ToList();
         }
@@ -7603,7 +9457,10 @@ CURRENT_USER_MESSAGE:
         if (cardHits.Count == 0)
         {
             cardHits = hits
-                .OrderByDescending(hit => ComputeExactItemCardEvidenceScore(requestedTitle, hit))
+                .OrderByDescending(hit => ExactItemEvidenceStartsWithRequestedTitle(requestedTitle, hit))
+                .ThenByDescending(hit => HasStrongExactItemTitleAnchor(requestedTitle, hit)
+                    || IsUsableExactItemNavigationOverride(requestedTitle, hit))
+                .ThenByDescending(hit => ComputeExactItemCardEvidenceScore(requestedTitle, hit))
                 .ThenByDescending(hit => hit.Score)
                 .ToList();
         }
@@ -7615,8 +9472,15 @@ CURRENT_USER_MESSAGE:
                 && ComputeExactItemCardCompletenessCueScore(hit) >= 4)
             ?? cardHits.FirstOrDefault(hit =>
                 !LooksLikePageReferenceOnlyHit(hit)
+                && IsUsableExactItemNavigationOverride(requestedTitle, hit)
+                && ComputeExactItemCardCompletenessCueScore(hit) >= 4)
+            ?? cardHits.FirstOrDefault(hit =>
+                !LooksLikePageReferenceOnlyHit(hit)
                 && !LooksLikeNavigationOnlyHit(hit)
                 && RagHitHasUsableRequestedTitleAnchor(requestedTitle, hit))
+            ?? cardHits.FirstOrDefault(hit =>
+                !LooksLikePageReferenceOnlyHit(hit)
+                && IsUsableExactItemNavigationOverride(requestedTitle, hit))
             ?? cardHits.First();
         var primaryDoc = string.IsNullOrWhiteSpace(primary.DocName) ? primary.DocPath : primary.DocName;
         var evidenceHits = SelectExactItemCardEvidenceHits(cardHits, primary);
@@ -7712,15 +9576,63 @@ CURRENT_USER_MESSAGE:
     private static IReadOnlyList<RagHitSummary> SelectExactItemCardEvidenceHits(IReadOnlyList<RagHitSummary> cardHits, RagHitSummary primary)
     {
         var primaryDocPath = (primary.DocPath ?? string.Empty).Replace('\\', '/');
-        var samePageHits = cardHits
+        var evidenceHits = cardHits
             .Where(hit => string.Equals((hit.DocPath ?? string.Empty).Replace('\\', '/'), primaryDocPath, StringComparison.OrdinalIgnoreCase)
-                && hit.PageStart == primary.PageStart)
+                && (hit.PageStart == primary.PageStart || IsLinkedExactItemEvidenceHit(primary, hit)))
+            .OrderByDescending(hit => SameRagHitRange(hit, primary))
+            .ThenBy(hit => Math.Abs(hit.PageStart - primary.PageStart))
+            .ThenByDescending(ComputeExactItemCardCompletenessCueScore)
             .Take(4)
             .ToArray();
 
-        return samePageHits.Length > 0
-            ? samePageHits
+        return evidenceHits.Length > 0
+            ? evidenceHits
             : cardHits.Take(1).ToArray();
+    }
+
+    private static bool IsLinkedExactItemEvidenceHit(RagHitSummary primary, RagHitSummary candidate)
+    {
+        if (SameRagHitRange(primary, candidate))
+            return true;
+
+        if (!string.Equals(primary.DocPath, candidate.DocPath, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (LooksLikeNavigationOnlyHit(candidate) || LooksLikeLowSignalContentCandidateHit(candidate))
+            return false;
+
+        if (IsChunkLinkedToPrimary(primary, candidate))
+            return true;
+
+        var primarySection = NormalizeLexicalLookup(
+            string.IsNullOrWhiteSpace(primary.SectionTitle) ? primary.HeadingPath : primary.SectionTitle);
+        var candidateSection = NormalizeLexicalLookup(
+            string.IsNullOrWhiteSpace(candidate.SectionTitle) ? candidate.HeadingPath : candidate.SectionTitle);
+        if (!string.IsNullOrWhiteSpace(primarySection)
+            && primarySection.Length >= 4
+            && string.Equals(primarySection, candidateSection, StringComparison.Ordinal)
+            && candidate.PageStart <= primary.PageEnd + 2
+            && candidate.PageEnd >= Math.Max(1, primary.PageStart - 2))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsChunkLinkedToPrimary(RagHitSummary primary, RagHitSummary candidate)
+    {
+        static bool SameChunk(string? left, string? right)
+            => !string.IsNullOrWhiteSpace(left)
+               && !string.IsNullOrWhiteSpace(right)
+               && string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+
+        return SameChunk(primary.NextChunkId, candidate.ChunkId)
+               || SameChunk(primary.PrevChunkId, candidate.ChunkId)
+               || SameChunk(primary.SameSectionChunkId, candidate.ChunkId)
+               || SameChunk(candidate.NextChunkId, primary.ChunkId)
+               || SameChunk(candidate.PrevChunkId, primary.ChunkId)
+               || SameChunk(candidate.SameSectionChunkId, primary.ChunkId);
     }
 
     private static int ComputeExactItemCardEvidenceScore(string requestedTitle, RagHitSummary hit)
@@ -7739,6 +9651,7 @@ CURRENT_USER_MESSAGE:
             score -= 40;
         score += ComputeExactItemHeadTermEvidenceScore(requestedTitle, hit);
         score += ComputeExactItemAnchorStrengthScore(requestedTitle, hit);
+        score += ComputeRequestedDocumentTypeAnchorScore(requestedTitle, hit);
         score += ComputeExactVisibleTitleMatchScore(requestedTitle, hit);
         score += ExtractItemizedQuantityFacts(itemizedEvidence).Length * 4;
         score += ExtractProcedureSteps(evidence).Length * 3;
@@ -7853,10 +9766,19 @@ CURRENT_USER_MESSAGE:
 
         var hasStructuredDetails = Regex.IsMatch(
             evidence,
-            @"\b(?:" + ExactItemStructureHeadingPattern + @")\b|\b\d+\s*(?:g|kg|mg|ml|cl|l)\b|(?:^|\s)[1-9][\.)]\s+",
+            @"\b(?:" + ExactItemStructureHeadingPattern + @")\b|\b\d+\s*(?:g|kg|mg|ml|cl|l|min(?:ute)?s?|h|heures?|hours?|s|sec(?:onde)?s?|(?:\u00b0|deg|degres?)\s*c)\b|(?:^|\s)[1-9][\.)]\s+",
             RegexOptions.CultureInvariant);
         if (hasStructuredDetails)
             return false;
+
+        if (ExactItemEvidenceStartsWithRequestedTitle(requestedTitle, hit)
+            && Regex.IsMatch(
+                evidence,
+                @"\b\d+\s*(?:min(?:ute)?s?|h|heures?|hours?|s|sec(?:onde)?s?|(?:\u00b0|deg|degres?)\s*c)\b",
+                RegexOptions.CultureInvariant | RegexOptions.IgnoreCase))
+        {
+            return false;
+        }
 
         if (LooksLikeNavigationOnlyHit(hit) || LooksLikePageReferenceOnlyHit(hit))
             return true;
@@ -7872,6 +9794,12 @@ CURRENT_USER_MESSAGE:
             }
         }
 
+        if (!ExactItemEvidenceStartsWithRequestedTitle(requestedTitle, hit)
+            && LooksLikeIndexAssetTail(evidence))
+        {
+            return true;
+        }
+
         if (titleIndex < 0)
             return false;
 
@@ -7880,6 +9808,37 @@ CURRENT_USER_MESSAGE:
             @"\b[\p{L}'\-]{3,}(?:\s+[\p{L}'\-]{2,}){0,5}\s+\d{1,3}\b",
             RegexOptions.CultureInvariant).Count;
         return titlePageReferenceCount >= 2;
+    }
+
+    private static bool LooksLikeIndexAssetTail(string evidence)
+    {
+        var normalized = NormalizeLexicalLookup(evidence);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        var indexMatch = Regex.Match(
+            normalized,
+            @"\b(?:index|sommaire|table\s+of\s+contents|indice|inhalt)\b",
+            RegexOptions.CultureInvariant);
+        if (!indexMatch.Success)
+            return false;
+
+        var indexAtTail = indexMatch.Index >= normalized.Length * 0.35 || normalized.Length - indexMatch.Index <= 520;
+        if (!indexAtTail)
+            return false;
+
+        var tailStart = Math.Min(indexMatch.Index, Math.Max(0, evidence.Length - 1));
+        var tail = evidence[tailStart..];
+        var assetRefCount = Regex.Matches(
+            tail,
+            @"(?i)\b(?:[a-z]{2,}\d{4,}[a-z0-9_-]*|[a-z0-9]{4,}[_-][a-z0-9][a-z0-9_-]{5,}|[a-z]{2,4}\d*[_-][a-z0-9_-]{6,})\b",
+            RegexOptions.CultureInvariant).Count;
+        var multiSeparatorTokenCount = Regex.Matches(
+            tail,
+            @"\b[\p{L}\p{N}]+(?:[_-][\p{L}\p{N}]+){2,}\b",
+            RegexOptions.CultureInvariant).Count;
+
+        return assetRefCount + multiSeparatorTokenCount >= 2;
     }
 
     private static bool LooksLikeExactItemIndexAssetOnlyHit(string requestedTitle, RagHitSummary hit)
@@ -7896,7 +9855,24 @@ CURRENT_USER_MESSAGE:
             .Distinct(StringComparer.Ordinal)
             .ToArray();
 
-        return candidates.Any(candidate => LooksLikeExactItemIndexAssetOnlyText(requestedTitle, candidate));
+        var normalizedTitle = NormalizeLexicalLookup(requestedTitle);
+        return candidates.Any(candidate =>
+        {
+            if (Regex.IsMatch(
+                    candidate,
+                    @"(?i)\[\s*index\s*:?\s*\].{0,700}\b[a-z]{2,}\d{4,}[a-z0-9_-]*",
+                    RegexOptions.CultureInvariant))
+            {
+                return true;
+            }
+
+            if (LooksLikeExactItemIndexAssetOnlyText(requestedTitle, candidate))
+                return true;
+
+            var normalizedCandidate = NormalizeLexicalLookup(candidate);
+            return LooksLikeIndexAssetTail(candidate)
+                   && !TextStartsWithRequestedTitlePhrase(normalizedCandidate, normalizedTitle);
+        });
     }
 
     private static bool LooksLikeExactItemIndexAssetOnlyText(string requestedTitle, string evidence)
@@ -8092,7 +10068,12 @@ CURRENT_USER_MESSAGE:
             RegexOptions.CultureInvariant);
         value = Regex.Replace(
             value,
-            @"(?i)\b(?:Matched\s+(?:profile|quoted)\s+title|Document|Section|HeadingPath|ChunkType|Pages)\s*:\s*.+?(?=\s*\b(?:Matched\s+(?:profile|quoted)\s+title|Document|Section|HeadingPath|ChunkType|Pages|Context|PreviousContext|NextContext|Excerpt|PreviousEvidence|NextEvidence|Evidence)\s*:|$)",
+            @"(?i)\bMatched\s+(?:direct_title_token_route|local_title_token_route|title_anchor_route)\s*:\s*.+?(?=\s*(?:\|\s*)?(?:Document|Section|HeadingPath|ChunkType|Pages|Context|Excerpt|PreviousContext|NextContext|PreviousEvidence|NextEvidence|Evidence)\s*:|$)",
+            string.Empty,
+            RegexOptions.CultureInvariant);
+        value = Regex.Replace(
+            value,
+            @"(?i)\b(?:Matched\s+(?:profile|quoted)\s+title|Matched\s+(?:direct_title_token_route|local_title_token_route|title_anchor_route)|Document|Section|HeadingPath|ChunkType|Pages)\s*:\s*.+?(?=\s*\b(?:Matched\s+(?:profile|quoted)\s+title|Matched\s+(?:direct_title_token_route|local_title_token_route|title_anchor_route)|Document|Section|HeadingPath|ChunkType|Pages|Context|PreviousContext|NextContext|Excerpt|PreviousEvidence|NextEvidence|Evidence)\s*:|$)",
             " ",
             RegexOptions.CultureInvariant);
         value = Regex.Replace(
@@ -8210,11 +10191,11 @@ CURRENT_USER_MESSAGE:
                 var label = CollapseWhitespace(basis.Label ?? string.Empty);
                 if (!string.IsNullOrWhiteSpace(label) && basis.Count is >= 1 and <= 50)
                 {
-                    facts.Add(CollapseWhitespace(string.Join(' ', new[]
+                    facts.Add(CleanContentCardDisplayFactValue(CollapseWhitespace(string.Join(' ', new[]
                     {
                         basis.Count.ToString(CultureInfo.InvariantCulture),
                         label
-                    })));
+                    }))));
                 }
             }
 
@@ -8243,8 +10224,12 @@ CURRENT_USER_MESSAGE:
                      .Select(static card => card.Evidence)
                      .Where(static evidence => evidence is not null))
         {
+            var hasStructuredQuantities = evidence!.ScaleBasis is not null || evidence.QuantityFacts.Count > 0;
             foreach (var fact in (evidence!.Facts ?? []).Take(12))
             {
+                if (hasStructuredQuantities && IsContentCardQuantityLikeGenericFact(fact))
+                    continue;
+
                 facts.Add(BuildContentCardDisplayFact(
                     fact.SourceText,
                     fact.Label,
@@ -8258,6 +10243,25 @@ CURRENT_USER_MESSAGE:
             .Where(IsUsefulContentCardDisplayFact)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    private static bool IsContentCardQuantityLikeGenericFact(RagHitEvidenceFactSummary fact)
+    {
+        var kind = NormalizeLexicalLookup(fact.Kind);
+        if (kind is "quantity" or "quantities" or "duration" or "durations")
+            return true;
+
+        if (double.TryParse(fact.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
+            return true;
+
+        var unit = NormalizeLexicalLookup(fact.Unit);
+        if (!string.IsNullOrWhiteSpace(unit)
+            && double.TryParse(fact.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private static string BuildContentCardDisplayFact(string? sourceText, params string?[] structuredParts)
@@ -8280,6 +10284,11 @@ CURRENT_USER_MESSAGE:
     private static string CleanContentCardDisplayFactValue(string value)
     {
         value = Regex.Replace(value, @"(?i)\bscale_basis\b", string.Empty, RegexOptions.CultureInvariant);
+        value = Regex.Replace(value, @"(?i)\b(\d+(?:[\.,]\d+)?)\s*(g|kg|mg|ml|cl|l|min|s|h|cm|mm)(?=\p{L}{3,})", "$1 $2 ", RegexOptions.CultureInvariant);
+        value = Regex.Replace(value, @"(?<=\p{L})(?=\d)", " ", RegexOptions.CultureInvariant);
+        value = Regex.Replace(value, @"(?<=\d)(?=\p{L})", " ", RegexOptions.CultureInvariant);
+        value = Regex.Replace(value, @"(?i)\b(\p{L}{4,})(cette|celui|celle|this|that)\b", "$1", RegexOptions.CultureInvariant);
+        value = Regex.Replace(value, @"\b\d{5,}\b", string.Empty, RegexOptions.CultureInvariant);
         value = Regex.Replace(value, @"\s+\+\s+.*$", string.Empty, RegexOptions.CultureInvariant);
         value = Regex.Replace(value, @"(?i)\b(?:preparation|pr\u00e9paration)\b.*$", string.Empty, RegexOptions.CultureInvariant);
         value = CollapseWhitespace(value.Trim(' ', ';', ',', ':', '-'));
@@ -8508,6 +10517,7 @@ CURRENT_USER_MESSAGE:
         matches = matches
             .Where(static value => !LooksLikeMaterialOnlyFact(value))
             .Where(static value => !LooksLikeTruncatedProcedureSegment(value))
+            .Where(static value => !LooksLikeProcedureInstructionSegment(value))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(12)
             .ToList();
@@ -8520,11 +10530,30 @@ CURRENT_USER_MESSAGE:
                 .Where(static segment => segment.Length is >= 5 and <= 160)
                 .Where(static segment => !LooksLikeTruncatedItemizedFact(segment))
                 .Where(static segment => !LooksLikeTruncatedProcedureSegment(segment))
+                .Where(static segment => !LooksLikeProcedureInstructionSegment(segment))
                 .Where(static segment => !LooksLikeMaterialOnlyFact(segment))
                 .Take(6));
         }
 
         return matches.ToArray();
+    }
+
+    private static bool LooksLikeProcedureInstructionSegment(string segment)
+    {
+        var normalized = NormalizeLexicalLookup(segment).Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        if (Regex.IsMatch(
+                normalized,
+                @"^(?:a\s+la\s+fin|au\s+bout|dans|puis|ensuite|then|when|after|before|lancez|ajoutez|versez|laissez|mettez|pelez|lavez|coupez|servez|faites|placez|deposez|retirez|remuez|melangez|mixez|ouvrez|fermez|start|launch|add|pour|leave|put|peel|wash|cut|serve|place|remove|stir|mix|open|close)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        return Regex.IsMatch(normalized, @"\b(?:vitesse|speed|programme|program|robot|four|oven|refrigerateur|fridge)\b", RegexOptions.CultureInvariant)
+               && Regex.IsMatch(normalized, @"\b\d+\s*(?:min(?:ute)?s?|h|heures?|hours?|s|sec(?:onde)?s?|(?:\u00b0|deg|degres?)\s*c)\b", RegexOptions.CultureInvariant);
     }
 
     private static bool LooksLikeMaterialOnlyFact(string value)
@@ -8630,9 +10659,19 @@ CURRENT_USER_MESSAGE:
             return false;
 
         var normalized = NormalizeLexicalLookup(segment);
+        if (LooksLikeProcedureInstructionSegment(normalized))
+            return false;
         if (Regex.IsMatch(normalized, @"\b(?:preparation|etape|etapes|temps|time|duration|duree|procedure|method|methode|instructions?|steps?)\b", RegexOptions.CultureInvariant))
             return false;
         if (Regex.IsMatch(normalized, @"^\d+(?:[,.]\d+)?\s*(?:min|minutes?|h|heures?|hour|hours|c|celsius)\b", RegexOptions.CultureInvariant))
+            return false;
+        if (Regex.IsMatch(normalized, @"^\d+(?:[,.]\d+)?\s+(?:a|l)\b", RegexOptions.CultureInvariant))
+            return false;
+        var leadingNumberLabel = Regex.Match(normalized, @"^\d+(?:[,.]\d+)?\s+(?<label>[\p{L}'\u2019.\-]{2,30})\b", RegexOptions.CultureInvariant);
+        if (leadingNumberLabel.Success && LooksLikeProcedureLeadLabel(leadingNumberLabel.Groups["label"].Value))
+            return false;
+        var leadingWord = Regex.Match(normalized, @"^(?<label>[\p{L}'\u2019.\-]{2,30})\b", RegexOptions.CultureInvariant);
+        if (leadingWord.Success && LooksLikeProcedureLeadLabel(leadingWord.Groups["label"].Value))
             return false;
         if (Regex.IsMatch(normalized, @"^\d+(?:[,.]\d+)?\s+(?:dans|puis|quand|when|then|after|before|until|jusqu|pendant)\b", RegexOptions.CultureInvariant))
             return false;
@@ -8769,6 +10808,17 @@ CURRENT_USER_MESSAGE:
 
     private static string FormatReadableEvidenceExcerpt(string? excerpt, int maxLength)
     {
+        var text = PrepareReadableEvidenceText(excerpt);
+        if (text.Length == 0)
+            return string.Empty;
+
+        return text.Length <= maxLength
+            ? text
+            : text[..maxLength].TrimEnd() + "...";
+    }
+
+    private static string PrepareReadableEvidenceText(string? excerpt)
+    {
         var text = CollapseWhitespace(excerpt ?? string.Empty);
         if (text.Length == 0)
             return string.Empty;
@@ -8777,11 +10827,98 @@ CURRENT_USER_MESSAGE:
         text = Regex.Replace(text, @"(?<=\p{Lu})(?=\p{Lu}\p{Ll})", " ", RegexOptions.CultureInvariant);
         text = Regex.Replace(text, @"(?<=\d)(?=\p{Lu})", " ", RegexOptions.CultureInvariant);
         text = Regex.Replace(text, @"(?<=\p{L})(?=\d+\s*min\b)", " ", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-        text = Regex.Replace(text, @"\s+", " ").Trim();
+        return Regex.Replace(text, @"\s+", " ").Trim();
+    }
 
-        return text.Length <= maxLength
-            ? text
-            : text[..maxLength].TrimEnd() + "...";
+    private static string FormatSourceBackedEvidenceExcerpt(RagHitSummary hit, string query, int maxLength)
+    {
+        var evidence = GetBestRagEvidenceText(hit);
+        if (LooksLikeShortTechnicalEvidenceTopic(query))
+        {
+            var focused = FocusShortTechnicalEvidenceText(hit, query, maxLength);
+            if (!string.IsNullOrWhiteSpace(focused))
+                evidence = focused;
+        }
+
+        return FormatReadableEvidenceExcerpt(evidence, maxLength);
+    }
+
+    private static string FocusShortTechnicalEvidenceText(RagHitSummary hit, string query, int maxLength)
+    {
+        var readable = PrepareReadableEvidenceText($"{hit.SectionTitle} {hit.HeadingPath} {hit.FullText} {hit.ContextualSnippet} {BuildRagHitContentCardEvidenceText(hit)}");
+        if (string.IsNullOrWhiteSpace(readable))
+            readable = PrepareReadableEvidenceText(GetBestRagEvidenceText(hit));
+        if (string.IsNullOrWhiteSpace(readable))
+            return string.Empty;
+
+        var topic = NormalizeLexicalLookup(NormalizeRagQueryForRetrieval(BuildRagEvidenceSelectionQuery(query)));
+        var phraseIndex = FindShortTechnicalPhraseEvidenceIndex(topic, readable);
+        if (phraseIndex < 0)
+            phraseIndex = FindShortTechnicalTermEvidenceIndex(topic, readable);
+        if (phraseIndex < 0)
+            return string.Empty;
+
+        var lead = Math.Max(40, maxLength / 4);
+        var start = Math.Max(0, phraseIndex - lead);
+        if (start > 0)
+        {
+            var boundary = readable.LastIndexOfAny(new[] { '.', ';', ':', '\n' }, Math.Min(phraseIndex, readable.Length - 1));
+            if (boundary >= 0 && phraseIndex - boundary <= lead + 80)
+                start = Math.Min(readable.Length, boundary + 1);
+        }
+
+        start = Math.Max(0, start);
+        var length = Math.Min(readable.Length - start, Math.Max(maxLength + 120, maxLength));
+        var window = readable.Substring(start, length).Trim();
+        return start > 0 ? "... " + window : window;
+    }
+
+    private static int FindShortTechnicalPhraseEvidenceIndex(string normalizedTopic, string readableEvidence)
+    {
+        var terms = BuildShortTechnicalEvidenceSelectionTerms(normalizedTopic).ToHashSet(StringComparer.Ordinal);
+        var hasProperty = terms.Overlaps(new[] { "propriete", "proprietes", "property", "properties", "caracteristique", "caracteristiques", "characteristic", "characteristics" });
+        var hasElectrical = terms.Overlaps(new[] { "electrique", "electriques", "electric", "electrical", "dielectric" });
+        var hasThermal = terms.Overlaps(new[] { "thermique", "thermiques", "thermal", "temperature", "temperatures" });
+
+        if (hasProperty && hasElectrical)
+            return MatchIndex(readableEvidence, @"\b(?:electrical\s+properties|electric\s+properties|dielectric\s+properties|properties\s+(?:electrical|electric|dielectric)|electrical\s+characteristics|dielectric\s+strength|propri[eé]t[eé]s?\s+[eé]lectriques?|caract[eé]ristiques?\s+[eé]lectriques?)\b");
+
+        if (hasProperty && hasThermal)
+            return MatchIndex(readableEvidence, @"\b(?:thermal\s+properties|temperature\s+properties|properties\s+thermal|thermal\s+characteristics|melt\s+point|service\s+temperature|propri[eé]t[eé]s?\s+thermiques?|caract[eé]ristiques?\s+thermiques?)\b");
+
+        return -1;
+    }
+
+    private static int FindShortTechnicalTermEvidenceIndex(string normalizedTopic, string readableEvidence)
+    {
+        var propertyTerms = new HashSet<string>(new[] { "propriete", "proprietes", "property", "properties", "caracteristique", "caracteristiques", "characteristic", "characteristics" }, StringComparer.Ordinal);
+        var terms = BuildShortTechnicalEvidenceSelectionTerms(normalizedTopic)
+            .Where(term => !propertyTerms.Contains(term))
+            .OrderByDescending(static term => term.Length)
+            .Concat(BuildShortTechnicalEvidenceSelectionTerms(normalizedTopic).Where(propertyTerms.Contains))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        foreach (var term in terms)
+        {
+            var pattern = term switch
+            {
+                "electrique" or "electriques" => @"\b[eé]lectriques?\b",
+                "thermique" or "thermiques" => @"\bthermiques?\b",
+                _ => @"\b" + Regex.Escape(term) + @"\b"
+            };
+            var index = MatchIndex(readableEvidence, pattern);
+            if (index >= 0)
+                return index;
+        }
+
+        return -1;
+    }
+
+    private static int MatchIndex(string text, string pattern)
+    {
+        var match = Regex.Match(text, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        return match.Success ? match.Index : -1;
     }
 
     private static string GetBestRagEvidenceText(RagHitSummary hit)
@@ -8831,34 +10968,34 @@ CURRENT_USER_MESSAGE:
         {
             if (evidence!.ScaleBasis is { Count: > 0 } basis)
             {
-                parts.Add(CollapseWhitespace(string.Join(' ', new[]
+                parts.Add(CleanContentCardDisplayFactValue(CollapseWhitespace(string.Join(' ', new[]
                 {
                     basis.Count.ToString(CultureInfo.InvariantCulture),
                     basis.Label
-                }.Where(static value => !string.IsNullOrWhiteSpace(value)))));
+                }.Where(static value => !string.IsNullOrWhiteSpace(value))))));
             }
 
             foreach (var fact in evidence.QuantityFacts.Take(8))
             {
-                parts.Add(CollapseWhitespace(string.Join(' ', new[]
+                parts.Add(CleanContentCardDisplayFactValue(CollapseWhitespace(string.Join(' ', new[]
                 {
                     fact.Value.ToString("0.###", CultureInfo.InvariantCulture),
                     fact.Unit,
                     fact.Label,
                     fact.SourceText
-                }.Where(static value => !string.IsNullOrWhiteSpace(value)))));
+                }.Where(static value => !string.IsNullOrWhiteSpace(value))))));
             }
 
             foreach (var fact in (evidence.Facts ?? []).Take(12))
             {
-                parts.Add(CollapseWhitespace(string.Join(' ', new[]
+                parts.Add(CleanContentCardDisplayFactValue(CollapseWhitespace(string.Join(' ', new[]
                 {
                     fact.Kind,
                     fact.Label,
                     fact.Value,
                     fact.Unit,
                     fact.SourceText
-                }.Where(static value => !string.IsNullOrWhiteSpace(value)))));
+                }.Where(static value => !string.IsNullOrWhiteSpace(value))))));
             }
 
             foreach (var reason in evidence.NonScalableReasons.Take(6))
@@ -8895,6 +11032,10 @@ CURRENT_USER_MESSAGE:
         if (!string.IsNullOrWhiteSpace(missingPairingAnchor))
             return missingPairingAnchor;
 
+        var documentVersionAnswer = TryBuildDocumentVersionTraceabilityAnswer(toolResults, query, language);
+        if (!string.IsNullOrWhiteSpace(documentVersionAnswer))
+            return documentVersionAnswer;
+
         var countdownAnswer = BuildSourceBackedCountdownPlanningAnswer(toolResults, query, language);
         if (!string.IsNullOrWhiteSpace(countdownAnswer))
             return countdownAnswer;
@@ -8909,17 +11050,1008 @@ CURRENT_USER_MESSAGE:
         if (ShouldPreferPartialEvidenceFallbackOverOptions(toolResults, query))
             return BuildRagEvidenceFallbackAnswer(toolResults, query, language);
 
-        if (LooksLikeSourceBackedOptionRequest(query)
-            && !LooksLikeSourceBackedPairingRecommendationRequest(query)
-            && !LooksLikeTotalDurationConstraintRequest(query, TryExtractRequestedMaxMinutes(query)))
-        {
+        if (ShouldUseFallbackForBroadMethodOptionRequest(query))
             return BuildRagEvidenceFallbackAnswer(toolResults, query, language);
+
+        if (!LooksLikeSourceBackedOptionRequest(query)
+            && !LooksLikeSourceBackedPairingRecommendationRequest(query)
+            && !LooksLikeSourceBackedPlanningRequest(query))
+        {
+            var extractiveAnswer = BuildSourceBackedExtractiveAnswer(toolResults, query, language);
+            return !string.IsNullOrWhiteSpace(extractiveAnswer)
+                ? extractiveAnswer
+                : BuildRagEvidenceFallbackAnswer(toolResults, query, language);
         }
 
         var optionAnswer = BuildSourceBackedOptionAnswer(toolResults, language, minItems: 1, query: query);
         return !string.IsNullOrWhiteSpace(optionAnswer)
             ? optionAnswer
             : BuildSourceBackedExtractiveAnswer(toolResults, query, language);
+    }
+
+    private static string? TryBuildDocumentVersionTraceabilityAnswer(ToolResults toolResults, string query, string language)
+    {
+        if (!LooksLikeDocumentVersionTraceabilityRequest(query))
+            return null;
+
+        language = NormalizeLanguageCode(language);
+        var hits = SelectDocumentVersionTraceabilityHits(toolResults, query, maxHits: 4).ToList();
+        if (hits.Count == 0)
+            return null;
+
+        var normalized = NormalizeLexicalLookup(query);
+        var asksReplacement = Regex.IsMatch(
+            normalized,
+            @"\b(?:remplace|remplacer|replacement|replace|replaces|substitue|supersede|supersedes|automatiquement|automatically)\b",
+            RegexOptions.CultureInvariant);
+        var asksMainOrStatus = Regex.IsMatch(
+            normalized,
+            @"\b(?:(?:document|doc|fichier|file)\s+(?:principal|main)|\bac\b|corrigendum|correction|berichtigung|amendment|amendement)\b",
+            RegexOptions.CultureInvariant);
+        var asksLatestDefault = Regex.IsMatch(
+            normalized,
+            @"\b(?:ne\s+precise\s+pas|sans\s+preciser|sans\s+dire.{0,40}annee|without\s+specifying|without\s+saying.{0,40}year|derniere|latest|newest|recent|recente|current|actuelle|plus\s+recente)\b",
+            RegexOptions.CultureInvariant);
+        var asksProof = Regex.IsMatch(
+            normalized,
+            @"\b(?:prouve|prouver|preuve|prove|proves|proof|trace|tracabilite|traceability|utilise\s+bien|uses?\s+the\s+right|bonne\s+version|correct\s+version|version|fichier\s+proche|nearby\s+file)\b",
+            RegexOptions.CultureInvariant);
+        var latestYear = hits
+            .Select(ExtractDocumentVersionYear)
+            .Where(static year => year.HasValue)
+            .Select(static year => year!.Value)
+            .DefaultIfEmpty()
+            .Max();
+
+        var header = language switch
+        {
+            "en" when asksReplacement => "I cannot prove an automatic replacement from the retrieved excerpts. Keep the related documents separate and verify an explicit replacement/adoption clause:",
+            "en" when asksMainOrStatus => "Use both levels: the main document for the baseline requirement, and the correction/amendment document for the associated change. The retrieved excerpts do not prove that the correction replaces the full main document:",
+            "en" when asksLatestDefault && latestYear > 0 => $"If the user does not specify a year, cite the latest version supported by the selected sources first, and keep older versions as historical context. The latest detected year in these sources is {latestYear}:",
+            "en" when asksLatestDefault => "If the user does not specify a year, cite the latest version supported by the selected sources first, and keep older versions as historical context:",
+            "en" when asksProof => "To prove the answer uses the intended version, cite the exact file name and page for each source, and keep nearby versions separated:",
+            "en" => "Cite these sources separately and keep the evidence limited to the retrieved pages:",
+            _ when asksReplacement => "Je ne peux pas prouver un remplacement automatique avec les extraits retrouves. Garde les documents lies separes et verifie une clause explicite de remplacement ou d'adoption :",
+            _ when asksMainOrStatus => "Je m'appuie uniquement sur les sources disponibles : il faut garder deux niveaux, le document principal pour l'exigence de base, puis l'AC/correctif/amendement pour la modification associee. Les extraits retrouves ne prouvent pas que le correctif remplace tout le document principal :",
+            _ when asksLatestDefault && latestYear > 0 => $"Si l'utilisateur ne precise pas l'annee, je cite d'abord la version la plus recente soutenue par les sources selectionnees, et je garde les anciennes versions comme contexte historique. L'annee la plus recente detectee dans ces sources est {latestYear} :",
+            _ when asksLatestDefault => "Si l'utilisateur ne precise pas l'annee, je cite d'abord la version la plus recente soutenue par les sources selectionnees, et je garde les anciennes versions comme contexte historique :",
+            _ when asksProof => "Pour prouver que la reponse utilise la bonne version, je cite le nom exact du fichier et la page, en separant les versions ou fichiers proches :",
+            _ => "Je cite ces sources separement et je limite la reponse aux pages retrouvees :"
+        };
+
+        var sb = new StringBuilder();
+        sb.AppendLine(header);
+        var duplicateLabels = FindDuplicateDocumentVersionTraceabilityLabels(hits);
+        foreach (var hit in hits)
+        {
+            var docLabel = BuildDocumentVersionTraceabilityHitLabel(hit, duplicateLabels);
+            var excerpt = FormatReadableEvidenceExcerpt(GetBestRagEvidenceText(hit), maxLength: 260);
+            sb.Append("- ");
+            sb.Append(docLabel);
+            sb.Append(' ');
+            sb.Append(SourceBackedPagePrefix(language));
+            sb.Append(hit.PageStart);
+            if (hit.PageEnd > hit.PageStart)
+            {
+                sb.Append('-');
+                sb.Append(hit.PageEnd);
+            }
+
+            if (!string.IsNullOrWhiteSpace(excerpt))
+            {
+                sb.Append(" : ");
+                sb.Append(excerpt);
+            }
+
+            sb.AppendLine();
+        }
+
+        var caveat = language == "en"
+            ? "Conclusion: use these pages as traceability evidence, but do not infer a replacement, status change or full applicability unless the cited page explicitly says so."
+            : "Conclusion : utilise ces pages comme preuves de tracabilite, mais n'infere pas un remplacement, un changement de statut ou une applicabilite complete si la page citee ne le dit pas explicitement.";
+        sb.Append(caveat);
+        return sb.ToString().TrimEnd();
+    }
+
+    private static List<ToolMemory.SourceRef> DeriveSourcesFromDocumentVersionTraceabilityHits(ToolResults toolResults, string query, int maxSources = 4)
+    {
+        var hits = SelectDocumentVersionTraceabilityHits(toolResults, query, maxSources).ToList();
+        var duplicateLabels = FindDuplicateDocumentVersionTraceabilityLabels(hits);
+        return hits
+            .Select(hit =>
+            {
+                var source = BuildSourceRefFromRagHit(hit);
+                source.Label = BuildDocumentVersionTraceabilityHitLabel(hit, duplicateLabels);
+                return source;
+            })
+            .ToList();
+    }
+
+    private static HashSet<string> FindDuplicateDocumentVersionTraceabilityLabels(IReadOnlyList<RagHitSummary> hits)
+        => hits
+            .GroupBy(static hit => string.IsNullOrWhiteSpace(hit.DocName) ? hit.DocPath : hit.DocName, StringComparer.OrdinalIgnoreCase)
+            .Where(static group => group.Select(hit => hit.DocPath).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
+            .Select(static group => group.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    private static string BuildDocumentVersionTraceabilityHitLabel(RagHitSummary hit, IReadOnlySet<string> duplicateLabels)
+    {
+        var label = string.IsNullOrWhiteSpace(hit.DocName) ? hit.DocPath : hit.DocName;
+        if (string.IsNullOrWhiteSpace(label) || !duplicateLabels.Contains(label))
+            return label;
+
+        var context = GetNearestDisambiguatingPathSegment(hit.DocPath);
+        return string.IsNullOrWhiteSpace(context) ? label : $"{label} ({context})";
+    }
+
+    private static string GetNearestDisambiguatingPathSegment(string? docPath)
+    {
+        if (string.IsNullOrWhiteSpace(docPath))
+            return string.Empty;
+
+        var segments = docPath
+            .Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        for (var i = segments.Length - 2; i >= 0; i--)
+        {
+            var segment = segments[i].Trim();
+            if (segment.Length == 0)
+                continue;
+
+            var normalized = NormalizeLexicalLookup(segment);
+            if (Regex.IsMatch(normalized, @"^(?:pdf|documents?|docs?|sources?|files?|fichiers?)$", RegexOptions.CultureInvariant))
+                continue;
+
+            return segment;
+        }
+
+        return string.Empty;
+    }
+
+    private static IReadOnlyList<RagHitSummary> SelectDocumentVersionTraceabilityHits(ToolResults toolResults, string query, int maxHits)
+    {
+        var normalizedQuery = NormalizeLexicalLookup(query);
+        var requestedReferenceKeys = ExtractRequestedDocumentSpecificReferenceKeys(normalizedQuery);
+        var allHits = EnumerateRagHitSummaries(toolResults)
+            .Where(hit => !LooksLikeNavigationOnlyHit(hit)
+                || LooksLikeDocumentStatusHit(hit)
+                || TraceabilityHitMatchesRequestedReference(hit, requestedReferenceKeys))
+            .Where(hit => !LooksLikeLowSignalContentCandidateHit(hit)
+                || LooksLikeDocumentStatusHit(hit)
+                || TraceabilityHitMatchesRequestedReference(hit, requestedReferenceKeys))
+            .ToList();
+        if (allHits.Count == 0 || maxHits <= 0)
+            return [];
+
+        var queryStatusTokens = ExtractRequestedDocumentStatusTokens(normalizedQuery).ToHashSet(StringComparer.Ordinal);
+        var queryStatusSurfaceTerms = ExtractRequestedDocumentStatusSurfaceTerms(normalizedQuery);
+        var asksReplacement = Regex.IsMatch(
+            normalizedQuery,
+            @"\b(?:remplace|remplacer|replacement|replace|replaces|substitue|supersede|supersedes|automatiquement|automatically)\b",
+            RegexOptions.CultureInvariant);
+        var asksLatestDefault = Regex.IsMatch(
+            normalizedQuery,
+            @"\b(?:ne\s+precise\s+pas|sans\s+preciser|sans\s+dire.{0,40}annee|without\s+specifying|without\s+saying.{0,40}year|derniere|latest|newest|recent|recente|plus\s+recente|current|actuelle)\b",
+            RegexOptions.CultureInvariant);
+        var asksHistoricalVersion = LooksLikeHistoricalDocumentVersionRequest(normalizedQuery);
+        var asksVersionContrast = LooksLikeDocumentVersionContrastRequest(normalizedQuery);
+        var maxYear = asksLatestDefault
+            ? allHits.Select(ExtractDocumentVersionYear).Where(static year => year.HasValue).DefaultIfEmpty().Max()
+            : null;
+        var explicitYears = ExtractDocumentVersionYears(normalizedQuery);
+
+        var ranked = allHits
+            .Select((hit, index) => new DocumentTraceabilityRankedHit(
+                hit,
+                index,
+                GetDocumentStatusToken(hit),
+                ExtractDocumentVersionYear(hit),
+                Score:
+                    ComputeRagHitLexicalRelevance(query, $"{hit.DocName} {hit.DocPath}") * 5
+                    + ComputeRagHitLexicalRelevance(query, $"{hit.SectionTitle} {hit.HeadingPath}") * 2
+                    + ComputeRagHitLexicalRelevance(query, GetRagHitLookupText(hit))
+                    + ComputeBackendSelectionPriority(hit)
+                    + (hit.RetrievalQueryIndex == 0 ? 12 : 0)
+                    + ((hit.RetrievalHitRank is >= 0 and <= 1) ? 8 : 0)
+                    + (LooksLikeDocumentStatusHit(hit) ? 8 : 0)
+                    + (LooksLikeMainDocumentHit(hit) ? 5 : 0)
+                    + hit.Score))
+            .Select(item => item with
+            {
+                Score = item.Score
+                        + (!string.IsNullOrWhiteSpace(item.Status) && queryStatusTokens.Contains(item.Status!) ? 45 : 0)
+                        + (DocumentStatusSurfaceMatches(item.Hit, queryStatusSurfaceTerms) ? 80 : 0)
+                        + (maxYear.HasValue && item.Year == maxYear ? 24 : 0)
+            })
+            .OrderByDescending(static item => item.Score)
+            .ThenBy(static item => item.Index)
+            .ToList();
+        if (asksVersionContrast && explicitYears.Length == 0 && queryStatusTokens.Count == 0 && !asksReplacement)
+        {
+            ranked = KeepContrastingTraceabilityVersionsByReference(ranked)
+                .ToList();
+        }
+        else if (asksHistoricalVersion && explicitYears.Length == 0 && queryStatusTokens.Count == 0 && !asksReplacement)
+        {
+            ranked = KeepHistoricalTraceabilityVersionsByReference(ranked)
+                .ToList();
+        }
+        else if (explicitYears.Length > 0 && queryStatusTokens.Count == 0 && !asksReplacement)
+        {
+            var explicitYearHits = ranked
+                .Where(item => item.Year.HasValue && explicitYears.Contains(item.Year.Value))
+                .ToList();
+            if (explicitYearHits.Count > 0)
+                ranked = explicitYearHits;
+        }
+        else if (queryStatusTokens.Count == 0 && !asksReplacement)
+        {
+            ranked = KeepLatestTraceabilityVersionsByReference(ranked)
+                .ToList();
+        }
+
+        var selected = new List<RagHitSummary>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        void Add(RagHitSummary hit)
+        {
+            if (selected.Count >= maxHits)
+                return;
+
+            var key = $"{hit.DocPath}|{hit.PageStart}|{hit.PageEnd}";
+            if (seen.Add(key))
+                selected.Add(hit);
+        }
+
+        var wantsMainAndStatus = Regex.IsMatch(
+            normalizedQuery,
+            @"\b(?:(?:document|doc|fichier|file)\s+(?:principal|main)|\bac\b|corrigendum|correction|berichtigung|amendment|amendement)\b",
+            RegexOptions.CultureInvariant);
+        if (wantsMainAndStatus)
+        {
+            var statusHit = ranked.FirstOrDefault(static item => LooksLikeDocumentStatusHit(item.Hit));
+            if (statusHit is not null)
+                Add(statusHit.Hit);
+
+            var mainHit = ranked.FirstOrDefault(static item => LooksLikeMainDocumentHit(item.Hit));
+            if (mainHit is not null)
+                Add(mainHit.Hit);
+
+            if (selected.Count >= 2)
+                return selected;
+        }
+
+        if (asksLatestDefault && maxYear.HasValue)
+        {
+            var latestHit = ranked.FirstOrDefault(item => item.Year == maxYear.Value);
+            if (latestHit is not null)
+                Add(latestHit.Hit);
+        }
+
+        if (asksVersionContrast)
+        {
+            var contrastFamily =
+                selected
+                    .Select(GetDocumentReferenceFamilyKey)
+                    .FirstOrDefault(static family => !string.IsNullOrWhiteSpace(family))
+                ?? ranked
+                    .Select(item => GetDocumentReferenceFamilyKey(item.Hit))
+                    .FirstOrDefault(static family => !string.IsNullOrWhiteSpace(family));
+
+            static bool SameFamily(string? expectedFamily, RagHitSummary hit)
+            {
+                if (string.IsNullOrWhiteSpace(expectedFamily))
+                    return true;
+
+                var family = GetDocumentReferenceFamilyKey(hit);
+                return string.IsNullOrWhiteSpace(family)
+                       || string.Equals(family, expectedFamily, StringComparison.Ordinal);
+            }
+
+            var historicalHit = ranked.FirstOrDefault(item =>
+                SameFamily(contrastFamily, item.Hit)
+                && LooksLikeHistoricalDocumentVersionHit(item.Hit))
+                ?? ranked.FirstOrDefault(item => LooksLikeHistoricalDocumentVersionHit(item.Hit));
+            if (historicalHit is not null)
+                Add(historicalHit.Hit);
+
+            var historicalFamily = historicalHit is null
+                ? string.Empty
+                : GetDocumentReferenceFamilyKey(historicalHit.Hit);
+            var currentHit = string.IsNullOrWhiteSpace(historicalFamily)
+                ? null
+                : ranked.FirstOrDefault(item =>
+                    SameFamily(historicalFamily, item.Hit)
+                    && !LooksLikeHistoricalDocumentVersionHit(item.Hit));
+            if (currentHit is null && historicalHit is not null)
+            {
+                currentHit = ranked
+                    .Where(static item => !LooksLikeHistoricalDocumentVersionHit(item.Hit))
+                    .Select(item => new
+                    {
+                        Item = item,
+                        Overlap = ComputeDocumentVersionReferenceOverlapScore(historicalHit.Hit, item.Hit)
+                    })
+                    .Where(static item => item.Overlap > 0)
+                    .OrderByDescending(static item => item.Overlap)
+                    .ThenByDescending(static item => item.Item.Score)
+                    .Select(static item => item.Item)
+                    .FirstOrDefault();
+            }
+
+            currentHit ??= ranked.FirstOrDefault(item =>
+                SameFamily(contrastFamily, item.Hit)
+                && !LooksLikeHistoricalDocumentVersionHit(item.Hit));
+            currentHit ??= ranked.FirstOrDefault(item => !LooksLikeHistoricalDocumentVersionHit(item.Hit));
+            if (currentHit is not null)
+                Add(currentHit.Hit);
+        }
+
+        foreach (var requestedReferenceKey in requestedReferenceKeys)
+        {
+            var referenceHit = ranked.FirstOrDefault(item =>
+                string.Equals(GetDocumentSpecificReferenceKey(item.Hit), requestedReferenceKey, StringComparison.Ordinal));
+            if (referenceHit is not null)
+                Add(referenceHit.Hit);
+        }
+
+        if (queryStatusTokens.Count > 0)
+        {
+            foreach (var status in queryStatusTokens)
+            {
+                var statusHit = ranked.FirstOrDefault(item => string.Equals(item.Status, status, StringComparison.Ordinal));
+                if (statusHit is not null)
+                    Add(statusHit.Hit);
+            }
+        }
+
+        if (explicitYears.Length > 0)
+        {
+            var yearsToRepresent = asksLatestDefault
+                ? explicitYears.OrderByDescending(static year => year).ToArray()
+                : explicitYears;
+            foreach (var year in yearsToRepresent)
+            {
+                var yearHit = ranked.FirstOrDefault(item => item.Year == year);
+                if (yearHit is not null)
+                    Add(yearHit.Hit);
+            }
+
+            if (asksReplacement && selected.Count >= 2)
+                return selected;
+        }
+
+        var prefersHistoricalSurface = asksHistoricalVersion
+            && explicitYears.Length == 0
+            && queryStatusTokens.Count == 0
+            && !asksReplacement;
+        if (prefersHistoricalSurface)
+        {
+            foreach (var item in ranked.Where(static item => LooksLikeHistoricalDocumentVersionHit(item.Hit)))
+                Add(item.Hit);
+
+            if (selected.Count >= maxHits)
+                return selected;
+        }
+
+        var dominantFamily = selected
+            .Select(GetDocumentReferenceFamilyKey)
+            .FirstOrDefault(static family => !string.IsNullOrWhiteSpace(family))
+            ?? GetDocumentReferenceFamilyKey(ranked[0].Hit);
+        foreach (var item in ranked)
+        {
+            if (!string.IsNullOrWhiteSpace(dominantFamily))
+            {
+                var family = GetDocumentReferenceFamilyKey(item.Hit);
+                if (!string.IsNullOrWhiteSpace(family)
+                    && !string.Equals(family, dominantFamily, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+            }
+
+            Add(item.Hit);
+        }
+
+        return selected;
+    }
+
+    private static bool LooksLikeHistoricalDocumentVersionRequest(string normalizedQuery)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedQuery))
+            return false;
+        if (HistoricalDocumentVersionSurfaceIsNegated(normalizedQuery))
+            return false;
+
+        if (Regex.IsMatch(
+                normalizedQuery,
+                @"\b(?:compare|comparer|comparaison|vs|versus|difference\s+entre|difference\s+between|differences\s+between)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        return Regex.IsMatch(
+            normalizedQuery,
+            @"\b(?:ancien(?:ne)?s?\s+versions?|ancien(?:ne)?\s+edition|version\s+(?:precedente|anterieure)|old\s+version|older\s+version|previous\s+version|prior\s+version|archived\s+(?:version|document)|archives?|legacy\s+version|obsolete\s+version|historical\s+version)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeDocumentVersionContrastRequest(string normalizedQuery)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedQuery) || HistoricalDocumentVersionSurfaceIsNegated(normalizedQuery))
+            return false;
+
+        var hasHistorical = ContainsHistoricalDocumentVersionSurface(normalizedQuery);
+        if (!hasHistorical)
+            return false;
+
+        var hasCurrent = ContainsCurrentDocumentVersionSurface(normalizedQuery);
+        var hasContrast = Regex.IsMatch(
+            normalizedQuery,
+            @"\b(?:compare|comparer|comparaison|vs|versus|difference|differences|distinguer|distingue|distinguish|equivalence|equivalent|equivaut|courante|current|latest|actuelle|nouvelle|newest)\b",
+            RegexOptions.CultureInvariant);
+
+        return hasCurrent || hasContrast;
+    }
+
+    private static bool LooksLikeHistoricalDocumentVersionHit(RagHitSummary hit)
+    {
+        var doc = NormalizeLexicalLookup($"{hit.DocName} {hit.DocPath}");
+        if (string.IsNullOrWhiteSpace(doc))
+            return false;
+
+        return Regex.IsMatch(
+            doc,
+            @"\b(?:old\s+versions?|old_versions?|older|previous|prior|archived?|archives?|historical|legacy|obsolete|ancienne?s?|ancien?s?|precedent(?:e)?s?|anterieur(?:e)?s?)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static int ComputeDocumentVersionReferenceOverlapScore(RagHitSummary anchor, RagHitSummary candidate)
+    {
+        var anchorTerms = ExtractDocumentVersionReferenceTerms(anchor);
+        if (anchorTerms.Count == 0)
+            return 0;
+
+        var score = 0;
+        var anchorLead = GetDocumentVersionLeadingReferenceToken(anchor);
+        var candidateLead = GetDocumentVersionLeadingReferenceToken(candidate);
+        if (!string.IsNullOrWhiteSpace(anchorLead)
+            && string.Equals(anchorLead, candidateLead, StringComparison.Ordinal))
+        {
+            score += 12;
+        }
+
+        foreach (var term in ExtractDocumentVersionReferenceTerms(candidate))
+        {
+            if (!anchorTerms.Contains(term))
+                continue;
+
+            score += Regex.IsMatch(term, @"\d", RegexOptions.CultureInvariant)
+                ? 3
+                : term.Length <= 3 ? 2 : 1;
+        }
+
+        return score;
+    }
+
+    private static string GetDocumentVersionLeadingReferenceToken(RagHitSummary hit)
+    {
+        var normalized = NormalizeLexicalLookup($"{hit.DocName} {Path.GetFileNameWithoutExtension(hit.DocPath)}");
+        foreach (Match match in Regex.Matches(normalized, @"[a-z0-9]{2,}", RegexOptions.CultureInvariant))
+        {
+            var term = match.Value;
+            if (Regex.IsMatch(
+                    term,
+                    @"^(?:old|older|version|versions|current|latest|newest|recent|archive|archives|archived|historical|legacy|obsolete|ancienne|anciennes|ancien|anciens|nouvelle|nouvelles|actuelle|actuelles|courante|courantes|document|documents|pdf|file|files)$",
+                    RegexOptions.CultureInvariant))
+            {
+                continue;
+            }
+
+            return term;
+        }
+
+        return string.Empty;
+    }
+
+    private static HashSet<string> ExtractDocumentVersionReferenceTerms(RagHitSummary hit)
+    {
+        var normalized = NormalizeLexicalLookup($"{hit.DocName} {Path.GetFileNameWithoutExtension(hit.DocPath)}");
+        var terms = Regex.Matches(normalized, @"[a-z0-9]{2,}", RegexOptions.CultureInvariant)
+            .Select(static match => match.Value)
+            .Where(static term => !Regex.IsMatch(
+                term,
+                @"^(?:old|older|version|versions|current|latest|newest|recent|archive|archives|archived|historical|legacy|obsolete|ancienne|anciennes|ancien|anciens|nouvelle|nouvelles|actuelle|actuelles|courante|courantes|document|documents|pdf|file|files|data|sheet|sheets|safety|technical|technique)$",
+                RegexOptions.CultureInvariant))
+            .ToHashSet(StringComparer.Ordinal);
+
+        return terms;
+    }
+
+    private static bool LooksLikeDocumentVersionTraceabilityRequest(string query)
+    {
+        var normalized = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        var hasDocumentSurface = Regex.IsMatch(
+            normalized,
+            @"\b(?:document|documents|doc|fichier|file|pdf|source|sources|principal|main|policy|policies|politique|standard|standards|norme|normes|certificate|certificates|certificat|certificats|iso|iec|en)\b",
+            RegexOptions.CultureInvariant);
+        var hasVersionOrStatus = Regex.IsMatch(
+            normalized,
+            @"\b(?:version|versions|edition|editions|annee|annees|year|years|status|statut|ac|a\d+|pra\d+|corrigendum|correction|berichtigung|amendment|amendement|remplace|replace|replacement|latest|derniere|recente|current|actuelle|ancienne|anciennes|older|old|precedente|previous)\b",
+            RegexOptions.CultureInvariant);
+        var hasDocumentStatusSurface = Regex.IsMatch(
+            normalized,
+            @"\b(?:ac|a\d+|pra\d+|corrigendum|correction|correctif|rectificatif|berichtigung|erratum|errata|amendment|amendement)\b",
+            RegexOptions.CultureInvariant);
+        var hasTraceabilityIntent = Regex.IsMatch(
+            normalized,
+            @"\b(?:separement|separately|prouve|prouver|preuve|prove|proves|proof|trace|tracabilite|traceability|utilise\s+bien|bonne\s+version|correct\s+version|fichier\s+proche|nearby\s+file|regarder|look|appliquer|apply|remplace|replace|replacement|contient|contenir|contenu|complete|complet|tout|toute|full|whole|contains|content|verifier|verify|check|issue|ancienne|anciennes|older|old|precedente|previous|signaler|signal|mentionne|mentionner|existe|existence|exists?|annee|annees|year|years|vient|viennent|comes?|dire|specifie|specifies?|precise|preciser)\b",
+            RegexOptions.CultureInvariant);
+        var hasStandardReference = MatchDocumentStandardReference(normalized).Success;
+
+        return (hasVersionOrStatus || hasStandardReference)
+            && hasTraceabilityIntent
+            && (hasDocumentSurface || hasStandardReference || hasDocumentStatusSurface || TryExtractPdfFileNameRequestedTitle(query) is not null);
+    }
+
+    private static string BuildDocumentVersionTraceabilityExactSearchQuery(string exactTitle, string query)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(exactTitle);
+        var compact = new List<string>();
+        var reference = MatchDocumentStandardReference(normalizedTitle);
+        if (reference.Success)
+        {
+            var referenceKey = BuildDocumentSpecificReferenceKey(reference);
+            if (!string.IsNullOrWhiteSpace(referenceKey))
+                compact.Add(referenceKey);
+        }
+
+        foreach (var year in ExtractDocumentVersionYears(exactTitle).OrderByDescending(static year => year).Take(2))
+            compact.Add(year.ToString(CultureInfo.InvariantCulture));
+
+        foreach (var status in ExtractRequestedDocumentStatusSurfaceTerms(NormalizeLexicalLookup($"{exactTitle} {query}")).Take(2))
+            compact.Add(status);
+
+        AddDocumentVersionTraceabilitySurfaceTerms(compact, NormalizeLexicalLookup($"{exactTitle} {query}"));
+
+        var parts = new List<string> { exactTitle };
+        parts.AddRange(compact);
+        return CollapseWhitespace(string.Join(' ', parts.Distinct(StringComparer.OrdinalIgnoreCase)));
+    }
+
+    private static string BuildDocumentVersionTraceabilitySearchQuery(string query)
+    {
+        var exactTitle = TryExtractPdfFileNameRequestedTitle(query);
+        if (!string.IsNullOrWhiteSpace(exactTitle))
+            return BuildDocumentVersionTraceabilityExactSearchQuery(exactTitle!, query);
+
+        var normalized = NormalizeLexicalLookup(query);
+        var compact = new List<string>();
+        var reference = MatchDocumentStandardReference(normalized);
+        if (reference.Success)
+        {
+            var referenceKey = BuildDocumentSpecificReferenceKey(reference);
+            if (!string.IsNullOrWhiteSpace(referenceKey))
+                compact.Add(referenceKey);
+        }
+
+        foreach (var year in ExtractDocumentVersionYears(query).OrderByDescending(static year => year).Take(2))
+            compact.Add(year.ToString(CultureInfo.InvariantCulture));
+
+        foreach (var status in ExtractRequestedDocumentStatusSurfaceTerms(normalized).Take(2))
+            compact.Add(status);
+
+        AddDocumentVersionTraceabilitySurfaceTerms(compact, normalized);
+
+        if (compact.Count > 0)
+            return CollapseWhitespace(string.Join(' ', compact.Distinct(StringComparer.OrdinalIgnoreCase)));
+
+        return string.Empty;
+    }
+
+    private static string[] BuildDocumentVersionTraceabilitySearchQueries(string query)
+    {
+        var queries = new List<string>();
+
+        void Add(string? value)
+        {
+            var candidate = CollapseWhitespace(value ?? string.Empty);
+            if (candidate.Length == 0)
+                return;
+
+            if (!queries.Any(existing => string.Equals(existing, candidate, StringComparison.OrdinalIgnoreCase)))
+                queries.Add(candidate);
+        }
+
+        Add(BuildDocumentVersionTraceabilitySearchQuery(query));
+        Add(query);
+        Add(NormalizeRagQueryForRetrieval(query));
+
+        var quotedOrRequestedTitle = TryExtractRequestedItemTitle(query);
+        if (!string.IsNullOrWhiteSpace(quotedOrRequestedTitle))
+            Add(BuildDocumentVersionTraceabilityExactSearchQuery(quotedOrRequestedTitle!, query));
+
+        return queries.Take(4).ToArray();
+    }
+
+    private static void AddDocumentVersionTraceabilitySurfaceTerms(List<string> terms, string normalizedQuery)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedQuery) || HistoricalDocumentVersionSurfaceIsNegated(normalizedQuery))
+            return;
+
+        var hasHistorical = ContainsHistoricalDocumentVersionSurface(normalizedQuery);
+        var hasCurrent = ContainsCurrentDocumentVersionSurface(normalizedQuery);
+        var hasContrast = LooksLikeDocumentVersionContrastRequest(normalizedQuery);
+
+        if (hasHistorical)
+        {
+            terms.Add("ancienne version");
+            terms.Add("old versions");
+            terms.Add("old version");
+        }
+
+        if (hasCurrent || hasContrast)
+        {
+            terms.Add("version courante");
+            terms.Add("current versions");
+            terms.Add("current version");
+        }
+
+        if (hasContrast)
+        {
+            terms.Add("nouvelle version");
+            terms.Add("latest version");
+        }
+    }
+
+    private static IReadOnlyList<string> ExtractRequestedDocumentStatusTokens(string normalizedQuery)
+    {
+        var tokens = new List<string>();
+        if (Regex.IsMatch(normalizedQuery, @"\bpra\d*\b", RegexOptions.CultureInvariant))
+            tokens.Add("draft_amendment");
+        if (Regex.IsMatch(normalizedQuery, @"\ba\d+\b", RegexOptions.CultureInvariant))
+            tokens.Add("amendment");
+        if (Regex.IsMatch(normalizedQuery, @"\bac\b|corrigendum|correction|berichtigung|errata", RegexOptions.CultureInvariant))
+            tokens.Add("correction");
+        return tokens.Distinct(StringComparer.Ordinal).ToArray();
+    }
+
+    private static IReadOnlyList<string> ExtractRequestedDocumentStatusSurfaceTerms(string normalizedQuery)
+    {
+        var terms = new List<string>();
+        foreach (Match match in Regex.Matches(
+                     normalizedQuery ?? string.Empty,
+                     @"\b(?:pra\d+|a\d+|ac|corrigendum|correction|correctif|rectificatif|berichtigung|erratum|errata|amendment|amendement)\b",
+                     RegexOptions.CultureInvariant))
+        {
+            terms.Add(match.Value);
+        }
+
+        return terms
+            .Where(static term => !string.IsNullOrWhiteSpace(term))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static bool DocumentStatusSurfaceMatches(RagHitSummary hit, IReadOnlyList<string> requestedSurfaceTerms)
+    {
+        if (requestedSurfaceTerms.Count == 0)
+            return false;
+
+        var doc = NormalizeLexicalLookup($"{hit.DocName} {hit.DocPath}");
+        if (string.IsNullOrWhiteSpace(doc))
+            return false;
+
+        foreach (var term in requestedSurfaceTerms)
+        {
+            if (term.Length <= 2)
+            {
+                if (Regex.IsMatch(doc, $@"\b{Regex.Escape(term)}\b", RegexOptions.CultureInvariant))
+                    return true;
+            }
+            else if (doc.Contains(term, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool LooksLikeDocumentStatusHit(RagHitSummary hit)
+        => !string.IsNullOrWhiteSpace(GetDocumentStatusToken(hit));
+
+    private static bool LooksLikeMainDocumentHit(RagHitSummary hit)
+    {
+        var doc = NormalizeLexicalLookup($"{hit.DocName} {hit.DocPath}");
+        if (string.IsNullOrWhiteSpace(doc))
+            return false;
+
+        return !Regex.IsMatch(
+            doc,
+            @"\b(?:ac|a\d+|pra\d+|corrigendum|correction|berichtigung|errata|amendment|amendement)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static string? GetDocumentStatusToken(RagHitSummary hit)
+    {
+        var doc = NormalizeLexicalLookup($"{hit.DocName} {hit.DocPath}");
+        if (Regex.IsMatch(doc, @"\bpra\d*\b", RegexOptions.CultureInvariant))
+            return "draft_amendment";
+        if (Regex.IsMatch(doc, @"\bac\b|corrigendum|correction|berichtigung|errata", RegexOptions.CultureInvariant))
+            return "correction";
+        if (Regex.IsMatch(doc, @"\ba\d+\b|amendment|amendement", RegexOptions.CultureInvariant))
+            return "amendment";
+        return null;
+    }
+
+    private static int? ExtractDocumentVersionYear(RagHitSummary hit)
+    {
+        var text = $"{hit.DocName} {hit.DocPath}";
+        var years = ExtractDocumentVersionYears(text);
+        return years.Length == 0 ? null : years.Max();
+    }
+
+    private static int[] ExtractDocumentVersionYears(string text)
+        => Regex.Matches(text ?? string.Empty, @"(?<!\d)(?:19|20)\d{2}(?!\d)", RegexOptions.CultureInvariant)
+            .Select(match => int.TryParse(match.Value, NumberStyles.None, CultureInfo.InvariantCulture, out var year) ? year : (int?)null)
+            .Where(static year => year.HasValue)
+            .Select(static year => year!.Value)
+            .Distinct()
+            .ToArray();
+
+    private sealed record DocumentTraceabilityRankedHit(RagHitSummary Hit, int Index, string? Status, int? Year, double Score);
+
+    private static IReadOnlyList<DocumentTraceabilityRankedHit> KeepLatestTraceabilityVersionsByReference(IReadOnlyList<DocumentTraceabilityRankedHit> ranked)
+    {
+        var latestByReference = ranked
+            .GroupBy(item => GetDocumentSpecificReferenceKey(item.Hit), StringComparer.Ordinal)
+            .Where(static group => !string.IsNullOrWhiteSpace(group.Key))
+            .Select(static group => new
+            {
+                Reference = group.Key,
+                LatestYear = group.Select(static item => item.Year).Where(static year => year.HasValue).DefaultIfEmpty().Max()
+            })
+            .Where(static item => item.LatestYear.HasValue)
+            .ToDictionary(static item => item.Reference, static item => item.LatestYear!.Value, StringComparer.Ordinal);
+
+        if (latestByReference.Count == 0)
+        {
+            return DropHistoricalTraceabilityVersionsWhenCurrentExists(ranked);
+        }
+
+        var byYear = ranked
+            .Where(item =>
+            {
+                var reference = GetDocumentSpecificReferenceKey(item.Hit);
+                if (string.IsNullOrWhiteSpace(reference)
+                    || !latestByReference.TryGetValue(reference, out var latestYear))
+                {
+                    return true;
+                }
+
+                return !item.Year.HasValue || item.Year.Value == latestYear;
+            })
+            .ToList();
+        return DropHistoricalTraceabilityVersionsWhenCurrentExists(byYear);
+    }
+
+    private static IReadOnlyList<DocumentTraceabilityRankedHit> KeepHistoricalTraceabilityVersionsByReference(IReadOnlyList<DocumentTraceabilityRankedHit> ranked)
+    {
+        var byArchiveSurface = KeepArchiveSurfaceTraceabilityVersionsByReference(ranked);
+        if (byArchiveSurface.Count < ranked.Count)
+            return byArchiveSurface;
+
+        var oldestByReference = ranked
+            .GroupBy(item => GetDocumentSpecificReferenceKey(item.Hit), StringComparer.Ordinal)
+            .Where(static group => !string.IsNullOrWhiteSpace(group.Key))
+            .Select(static group => new
+            {
+                Reference = group.Key,
+                OldestYear = group.Select(static item => item.Year).Where(static year => year.HasValue).DefaultIfEmpty().Min()
+            })
+            .Where(static item => item.OldestYear.HasValue)
+            .ToDictionary(static item => item.Reference, static item => item.OldestYear!.Value, StringComparer.Ordinal);
+
+        if (oldestByReference.Count == 0)
+            return ranked;
+
+        return ranked
+            .Where(item =>
+            {
+                var reference = GetDocumentSpecificReferenceKey(item.Hit);
+                if (string.IsNullOrWhiteSpace(reference)
+                    || !oldestByReference.TryGetValue(reference, out var oldestYear))
+                {
+                    return true;
+                }
+
+                return !item.Year.HasValue || item.Year.Value == oldestYear;
+            })
+            .ToList();
+    }
+
+    private static IReadOnlyList<DocumentTraceabilityRankedHit> DropHistoricalTraceabilityVersionsWhenCurrentExists(IReadOnlyList<DocumentTraceabilityRankedHit> ranked)
+    {
+        var referencesWithCurrent = ranked
+            .GroupBy(item => GetDocumentSpecificReferenceKey(item.Hit), StringComparer.Ordinal)
+            .Where(static group => !string.IsNullOrWhiteSpace(group.Key))
+            .Where(static group => group.Any(item => LooksLikeHistoricalDocumentVersionHit(item.Hit))
+                                   && group.Any(item => !LooksLikeHistoricalDocumentVersionHit(item.Hit)))
+            .Select(static group => group.Key!)
+            .ToHashSet(StringComparer.Ordinal);
+        if (referencesWithCurrent.Count == 0)
+            return ranked;
+
+        return ranked
+            .Where(item =>
+            {
+                var reference = GetDocumentSpecificReferenceKey(item.Hit);
+                return string.IsNullOrWhiteSpace(reference)
+                       || !referencesWithCurrent.Contains(reference)
+                       || !LooksLikeHistoricalDocumentVersionHit(item.Hit);
+            })
+            .ToList();
+    }
+
+    private static IReadOnlyList<DocumentTraceabilityRankedHit> KeepArchiveSurfaceTraceabilityVersionsByReference(IReadOnlyList<DocumentTraceabilityRankedHit> ranked)
+    {
+        var referencesWithArchive = ranked
+            .GroupBy(item => GetDocumentSpecificReferenceKey(item.Hit), StringComparer.Ordinal)
+            .Where(static group => !string.IsNullOrWhiteSpace(group.Key))
+            .Where(static group => group.Any(item => LooksLikeHistoricalDocumentVersionHit(item.Hit)))
+            .Select(static group => group.Key!)
+            .ToHashSet(StringComparer.Ordinal);
+        if (referencesWithArchive.Count == 0)
+            return ranked;
+
+        return ranked
+            .Where(item =>
+            {
+                var reference = GetDocumentSpecificReferenceKey(item.Hit);
+                return string.IsNullOrWhiteSpace(reference)
+                       || !referencesWithArchive.Contains(reference)
+                       || LooksLikeHistoricalDocumentVersionHit(item.Hit);
+            })
+            .ToList();
+    }
+
+    private static IReadOnlyList<DocumentTraceabilityRankedHit> KeepContrastingTraceabilityVersionsByReference(IReadOnlyList<DocumentTraceabilityRankedHit> ranked)
+    {
+        var result = new List<DocumentTraceabilityRankedHit>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void Add(DocumentTraceabilityRankedHit item)
+        {
+            var key = $"{item.Hit.DocPath}|{item.Hit.PageStart}|{item.Hit.PageEnd}";
+            if (seen.Add(key))
+                result.Add(item);
+        }
+
+        foreach (var group in ranked
+                     .GroupBy(item => GetDocumentSpecificReferenceKey(item.Hit), StringComparer.Ordinal)
+                     .Where(static group => !string.IsNullOrWhiteSpace(group.Key)))
+        {
+            var historical = group.FirstOrDefault(item => LooksLikeHistoricalDocumentVersionHit(item.Hit));
+            var current = group.FirstOrDefault(item => !LooksLikeHistoricalDocumentVersionHit(item.Hit));
+            if (historical is null || current is null)
+                continue;
+
+            Add(current);
+            Add(historical);
+        }
+
+        foreach (var item in ranked)
+            Add(item);
+
+        return result;
+    }
+
+    private static string GetDocumentReferenceFamilyKey(RagHitSummary hit)
+    {
+        var doc = NormalizeLexicalLookup($"{hit.DocName} {Path.GetFileNameWithoutExtension(hit.DocPath)}");
+        if (string.IsNullOrWhiteSpace(doc))
+            return string.Empty;
+
+        var standard = MatchDocumentStandardReference(doc);
+        if (standard.Success)
+            return BuildDocumentReferenceFamilyKey(standard);
+
+        doc = Regex.Replace(
+            doc,
+            @"\b(?:19|20)\d{2}\b|\b(?:ac|a\d+|pra\d+|corrigendum|correction|berichtigung|errata|amendment|amendement|main|principal|requirements?|document|doc|file|pdf)\b",
+            " ",
+            RegexOptions.CultureInvariant);
+        var tokens = ExtractQuerySignalTerms(doc)
+            .Where(static term => term.Length >= 3)
+            .Where(static term => !Regex.IsMatch(term, @"^(?:safety|machinery|part|parts|general|principles|design|standard|norme|normes)$", RegexOptions.CultureInvariant))
+            .Take(4)
+            .ToArray();
+
+        return tokens.Length == 0 ? string.Empty : string.Join(' ', tokens);
+    }
+
+    private static string GetDocumentSpecificReferenceKey(RagHitSummary hit)
+    {
+        var doc = NormalizeLexicalLookup($"{hit.DocName} {Path.GetFileNameWithoutExtension(hit.DocPath)}");
+        if (string.IsNullOrWhiteSpace(doc))
+            return string.Empty;
+
+        var standard = MatchDocumentStandardReference(doc);
+        if (standard.Success)
+            return BuildDocumentSpecificReferenceKey(standard);
+
+        return GetDocumentReferenceFamilyKey(hit);
+    }
+
+    private static IReadOnlyList<string> ExtractRequestedDocumentSpecificReferenceKeys(string normalizedQuery)
+    {
+        var keys = new List<string>();
+        foreach (Match match in Regex.Matches(
+                     normalizedQuery ?? string.Empty,
+                     DocumentStandardReferencePattern,
+                     RegexOptions.CultureInvariant))
+        {
+            var family = BuildDocumentReferenceFamilyKey(match);
+            var part1 = match.Groups["part1"].Success ? match.Groups["part1"].Value : string.Empty;
+            var part2 = match.Groups["part2"].Success ? match.Groups["part2"].Value : string.Empty;
+            if (!string.IsNullOrWhiteSpace(part1) && !string.IsNullOrWhiteSpace(part2))
+            {
+                keys.Add($"{family} {part1}");
+                keys.Add($"{family} {part2}");
+            }
+            else if (!string.IsNullOrWhiteSpace(part1))
+            {
+                keys.Add($"{family} {part1}");
+            }
+            else
+            {
+                keys.Add(family);
+            }
+        }
+
+        return keys.Distinct(StringComparer.Ordinal).ToArray();
+    }
+
+    private const string DocumentStandardReferencePattern =
+        @"\b(?<prefix>fd\s+cen\s+tr|cen\s+tr|iso|en|iec|din|sn|nf)\s+(?<number>\d{2,})(?:(?:[\s_\-./]+)(?<part1>\d{1,3}))?(?:(?:\s*/\s*|[\s_]+)(?<part2>\d{1,3}))?\b";
+
+    private static Match MatchDocumentStandardReference(string normalizedText)
+        => Regex.Match(normalizedText ?? string.Empty, DocumentStandardReferencePattern, RegexOptions.CultureInvariant);
+
+    private static string BuildDocumentReferenceFamilyKey(Match match)
+    {
+        var prefix = CollapseWhitespace(match.Groups["prefix"].Value);
+        var number = match.Groups["number"].Value;
+        return string.IsNullOrWhiteSpace(prefix) || string.IsNullOrWhiteSpace(number)
+            ? string.Empty
+            : $"{prefix} {number}";
+    }
+
+    private static string BuildDocumentSpecificReferenceKey(Match match)
+    {
+        var family = BuildDocumentReferenceFamilyKey(match);
+        if (string.IsNullOrWhiteSpace(family))
+            return string.Empty;
+
+        var part = match.Groups["part1"].Success ? match.Groups["part1"].Value : string.Empty;
+        return string.IsNullOrWhiteSpace(part)
+            ? family
+            : $"{family} {part}";
+    }
+
+    private static bool TraceabilityHitMatchesRequestedReference(RagHitSummary hit, IReadOnlyList<string> requestedReferenceKeys)
+    {
+        if (requestedReferenceKeys.Count == 0)
+            return false;
+
+        var hitKey = GetDocumentSpecificReferenceKey(hit);
+        if (string.IsNullOrWhiteSpace(hitKey))
+            return false;
+
+        return requestedReferenceKeys.Any(key => string.Equals(key, hitKey, StringComparison.Ordinal));
     }
 
     private static bool ShouldPreferPartialEvidenceFallbackOverOptions(ToolResults toolResults, string query)
@@ -9212,7 +12344,7 @@ CURRENT_USER_MESSAGE:
 
         var strictCue = Regex.IsMatch(
             normalized,
-            @"\b(?:uniquement|only|solo|apenas|nur|obligatoire|required|mandatory|must|explicitement|explicitly|mentionne|mentionnes|mentions?|parle|parlent|contains?|contient|a\s+partir\s+des?\s+(?:pdf|documents?|sources?)|from\s+(?:the\s+)?(?:pdf|documents?|sources?))\b",
+            @"\b(?:uniquement|only|solo|apenas|nur|obligatoire|required|mandatory|must|explicitement|explicitly|mentionne|mentionnes|mentions?|parle|parlent|utilise|utilisent|emploie|emploient|uses?|using|contains?|contient|a\s+partir\s+des?\s+(?:pdf|documents?|sources?)|from\s+(?:the\s+)?(?:pdf|documents?|sources?))\b",
             RegexOptions.CultureInvariant);
         if (!strictCue)
             return Array.Empty<string>();
@@ -9231,6 +12363,14 @@ CURRENT_USER_MESSAGE:
         foreach (Match match in Regex.Matches(
             text,
             @"(?i)\b(?:parle(?:nt)?|mentionne(?:nt|s)?|mentions?|contient|contains?|about|sur|sobre|ueber|uber|su)\s+(?:du|de\s+la|de\s+l['\u2019]|des|d['\u2019]|the|le|la|les|l['\u2019])?\s*(?<term>[\p{L}\p{N}'\u2019 \-]{3,80})",
+            RegexOptions.CultureInvariant))
+        {
+            AddStrictRequiredEvidenceTerm(terms, match.Groups["term"].Value);
+        }
+
+        foreach (Match match in Regex.Matches(
+            text,
+            @"(?i)\b(?:utilise(?:nt)?|emploie(?:nt)?|uses?|using)\s+(?:du|de\s+la|de\s+l['\u2019]|des|d['\u2019]|the|le|la|les|l['\u2019])?\s*(?<term>[\p{L}\p{N}'\u2019 \-]{3,80})",
             RegexOptions.CultureInvariant))
         {
             AddStrictRequiredEvidenceTerm(terms, match.Groups["term"].Value);
@@ -9467,12 +12607,241 @@ CURRENT_USER_MESSAGE:
         return score;
     }
 
+    private static bool LooksLikeShortTechnicalEvidenceTopic(string? query)
+    {
+        var topic = NormalizeRagQueryForRetrieval(BuildRagEvidenceSelectionQuery(query ?? string.Empty));
+        var normalized = NormalizeLexicalLookup(topic);
+        if (normalized.Length is < 3 or > 120)
+            return false;
+
+        if (Regex.IsMatch(
+                normalized,
+                @"\b(?:planning|planifier|choose|choisir|propose|suggest|recommend|selection|options?)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        var terms = ExtractQuerySignalTerms(normalized).ToArray();
+        if (terms.Length is 0 or > 6)
+            return false;
+
+        if (LooksLikeCompactTechnicalIdentifier(topic))
+            return true;
+
+        return Regex.IsMatch(
+            normalized,
+            @"\b(?:proprietes?|properties?|property|caracteristiques?|characteristics?|specifications?|specs?|technical|technique|table|valeurs?|values?|mesures?|measurement|dimensions?|density|densite|temperature|thermique|thermal|electri(?:que|ques|cal)|electric|dielectric|resistance|pression|pressure|voltage|tension|puissance|power|unites?|units?|normes?|standards?)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeCompactTechnicalIdentifier(string? value)
+    {
+        var topic = NormalizeRagQueryForRetrieval(BuildRagEvidenceSelectionQuery(value ?? string.Empty));
+        var normalized = NormalizeLexicalLookup(topic);
+        if (normalized.Length is < 3 or > 120)
+            return false;
+
+        var terms = ExtractQuerySignalTerms(normalized).ToArray();
+        if (terms.Length is 0 or > 4)
+            return false;
+
+        var acronymLikeTerms = Regex.Matches(
+            topic,
+            @"\b(?=[A-Z0-9_-]*[A-Z])(?=[A-Z0-9_-]*[A-Z0-9])[A-Z0-9]{2,}(?:[-_][A-Z0-9]{2,})*\b",
+            RegexOptions.CultureInvariant).Count;
+        return acronymLikeTerms >= 2;
+    }
+
+    private static int ComputeDirectTechnicalEvidenceScore(string query, RagHitSummary hit)
+    {
+        if (!LooksLikeShortTechnicalEvidenceTopic(query))
+            return 0;
+
+        var topic = NormalizeRagQueryForRetrieval(BuildRagEvidenceSelectionQuery(query));
+        var normalizedTopic = NormalizeLexicalLookup(topic);
+        var terms = BuildShortTechnicalEvidenceSelectionTerms(normalizedTopic);
+        if (terms.Length == 0)
+            return 0;
+
+        var visible = NormalizeLexicalLookup(GetRagHitVisibleTechnicalEvidenceText(hit));
+        var primary = NormalizeLexicalLookup(GetRagHitPrimaryEvidenceText(hit));
+        var lookup = NormalizeLexicalLookup(GetRagHitLookupText(hit));
+        var structured = NormalizeLexicalLookup(GetRagHitStructuredEvidenceText(hit));
+        var titleText = NormalizeLexicalLookup($"{hit.SectionTitle} {hit.HeadingPath}");
+        var cardTitleText = NormalizeLexicalLookup(string.Join(' ', hit.MatchedContentCards?.Select(static card => card.Title) ?? Array.Empty<string>()));
+        var directEvidence = NormalizeLexicalLookup($"{titleText} {visible}");
+
+        var primaryMatches = terms.Count(term => visible.Contains(term, StringComparison.Ordinal));
+        var lookupMatches = terms.Count(term => lookup.Contains(term, StringComparison.Ordinal));
+        var structuredMatches = terms.Count(term => structured.Contains(term, StringComparison.Ordinal));
+        var titleMatches = terms.Count(term => titleText.Contains(term, StringComparison.Ordinal));
+        var cardTitleMatches = terms.Count(term => cardTitleText.Contains(term, StringComparison.Ordinal));
+        var directPhraseScore = ComputeShortTechnicalPhraseEvidenceScore(normalizedTopic, directEvidence);
+        var structuredPhraseScore = ComputeShortTechnicalPhraseEvidenceScore(normalizedTopic, NormalizeLexicalLookup($"{structured} {cardTitleText}"));
+        if (primaryMatches == 0
+            && lookupMatches == 0
+            && structuredMatches == 0
+            && titleMatches == 0
+            && cardTitleMatches == 0
+            && directPhraseScore <= 0
+            && structuredPhraseScore <= 0)
+        {
+            return 0;
+        }
+
+        var score = 0;
+        score += titleMatches * 9;
+        score += primaryMatches * 5;
+        score += lookupMatches;
+        score += structuredMatches * 2;
+        score += cardTitleMatches;
+        if (directPhraseScore > 0)
+            score += directPhraseScore + 24;
+        else if (structuredPhraseScore > 0)
+            score += Math.Min(16, structuredPhraseScore / 5);
+
+        var significantTerms = ExtractQuerySignalTerms(normalizedTopic).ToArray();
+        if (significantTerms.Length > 0)
+        {
+            var directCoverage = significantTerms.Count(term =>
+                DirectTechnicalEvidenceTermMatches(term, titleText)
+                || DirectTechnicalEvidenceTermMatches(term, visible));
+            if (directCoverage == significantTerms.Length)
+                score += 16;
+            else if (directCoverage >= Math.Min(2, significantTerms.Length))
+                score += 8;
+        }
+
+        if (hit.HasTable)
+            score += structuredMatches > 0 || titleMatches > 0 ? 18 : 8;
+        if (HasContentCardEvidenceFacts(hit) && (directPhraseScore > 0 || primaryMatches > 0))
+            score += Math.Min(8, ExtractContentCardEvidenceFacts(new[] { hit }).Length);
+        if (Regex.IsMatch(titleText, @"\b(?:properties?|property|proprietes?|caracteristiques?|characteristics?|specifications?|technical\s+data|data\s+sheet|table|valeurs?|values?)\b", RegexOptions.CultureInvariant))
+            score += 8;
+
+        var role = NormalizeLexicalLookup(hit.SelectionHintRole);
+        if (role is "navigation" or "fragment" or "low_confidence")
+            score -= 12;
+        if (NormalizeLexicalLookup(hit.ContentRole) == "navigation")
+            score -= 10;
+        if (NormalizeLexicalLookup(hit.ContentRole) == "mixed_navigation_content")
+            score -= 2;
+        if (hit.NavigationScore.GetValueOrDefault() >= 0.65)
+            score -= 8;
+        else if (hit.NavigationScore.GetValueOrDefault() >= 0.60)
+            score -= 3;
+        if (hit.SelectionHintNavigationScore.GetValueOrDefault() >= 70)
+            score -= 6;
+        if (hit.OcrApplied)
+            score -= 6;
+        if (hit.ManualReviewRecommended || hit.DocumentManualReviewRecommended || hit.PageManualReviewRecommended)
+            score -= 6;
+        if (!hit.HasTable && !HasContentCardEvidenceFacts(hit) && CollapseWhitespace(GetRagHitPrimaryContentText(hit)).Length < 80)
+            score -= 4;
+
+        return score;
+    }
+
+    private static bool HasShortTechnicalPhraseEvidence(string query, RagHitSummary hit)
+    {
+        if (!LooksLikeShortTechnicalEvidenceTopic(query))
+            return false;
+
+        var topic = NormalizeLexicalLookup(NormalizeRagQueryForRetrieval(BuildRagEvidenceSelectionQuery(query)));
+        var evidence = NormalizeLexicalLookup(GetRagHitVisibleTechnicalEvidenceText(hit));
+        return ComputeShortTechnicalPhraseEvidenceScore(topic, evidence) > 0;
+    }
+
+    private static int ComputeShortTechnicalPhraseEvidenceScore(string normalizedTopic, string normalizedEvidence)
+    {
+        var terms = BuildShortTechnicalEvidenceSelectionTerms(normalizedTopic).ToHashSet(StringComparer.Ordinal);
+        var hasProperty = terms.Overlaps(new[] { "propriete", "proprietes", "property", "properties", "caracteristique", "caracteristiques", "characteristic", "characteristics" });
+        var hasElectrical = terms.Overlaps(new[] { "electrique", "electriques", "electric", "electrical", "dielectric" });
+        var hasThermal = terms.Overlaps(new[] { "thermique", "thermiques", "thermal", "temperature", "temperatures" });
+
+        if (hasProperty && hasElectrical)
+        {
+            return Regex.IsMatch(
+                normalizedEvidence,
+                @"\b(?:electrical\s+properties|electric\s+properties|dielectric\s+properties|dielectric\s+strength|volume\s+resistivity|surface\s+resistance|electrical\s+insulat(?:ing|ion)|proprietes?\s+electriques?|caracteristiques?\s+electriques?)\b",
+                RegexOptions.CultureInvariant)
+                ? 80
+                : -12;
+        }
+
+        if (hasProperty && hasThermal)
+        {
+            return Regex.IsMatch(
+                normalizedEvidence,
+                @"\b(?:thermal\s+properties|temperature\s+properties|melt(?:ing)?\s+point|thermal\s+conductivity|proprietes?\s+thermiques?|caracteristiques?\s+thermiques?)\b",
+                RegexOptions.CultureInvariant)
+                ? 80
+                : -12;
+        }
+
+        return 0;
+    }
+
+    private static string[] BuildShortTechnicalEvidenceSelectionTerms(string normalizedTopic)
+    {
+        var terms = new List<string>();
+        foreach (var term in ExtractQuerySignalTerms(normalizedTopic))
+        {
+            terms.Add(term);
+            if (Regex.IsMatch(term, @"^(?:propriete|proprietes|property|properties|caracteristique|caracteristiques|characteristic|characteristics)$", RegexOptions.CultureInvariant))
+                terms.AddRange(new[] { "property", "properties", "propriete", "proprietes", "characteristic", "characteristics", "caracteristique", "caracteristiques" });
+            if (Regex.IsMatch(term, @"^(?:electrique|electriques|electric|electrical|dielectric)$", RegexOptions.CultureInvariant))
+                terms.AddRange(new[] { "electric", "electrical", "electrique", "electriques", "dielectric" });
+            if (Regex.IsMatch(term, @"^(?:thermique|thermiques|thermal|temperature|temperatures)$", RegexOptions.CultureInvariant))
+                terms.AddRange(new[] { "thermal", "thermique", "thermiques", "temperature", "temperatures" });
+            if (Regex.IsMatch(term, @"^(?:valeur|valeurs|value|values)$", RegexOptions.CultureInvariant))
+                terms.AddRange(new[] { "value", "values", "valeur", "valeurs" });
+            if (Regex.IsMatch(term, @"^(?:specification|specifications|spec|specs|technique|technical)$", RegexOptions.CultureInvariant))
+                terms.AddRange(new[] { "specification", "specifications", "technical", "technique", "data" });
+        }
+
+        return terms
+            .Where(static term => !string.IsNullOrWhiteSpace(term))
+            .Select(NormalizeLexicalLookup)
+            .Where(static term => term.Length >= 4)
+            .Distinct(StringComparer.Ordinal)
+            .Take(24)
+            .ToArray();
+    }
+
+    private static bool DirectTechnicalEvidenceTermMatches(string term, string normalizedEvidence)
+    {
+        if (normalizedEvidence.Contains(term, StringComparison.Ordinal))
+            return true;
+
+        return term switch
+        {
+            "propriete" or "proprietes" or "property" or "properties" =>
+                Regex.IsMatch(normalizedEvidence, @"\b(?:property|properties|proprietes?|characteristics?|caracteristiques?)\b", RegexOptions.CultureInvariant),
+            "electrique" or "electriques" or "electric" or "electrical" or "dielectric" =>
+                Regex.IsMatch(normalizedEvidence, @"\b(?:electric|electrical|electriques?|dielectric)\b", RegexOptions.CultureInvariant),
+            "thermique" or "thermiques" or "thermal" or "temperature" or "temperatures" =>
+                Regex.IsMatch(normalizedEvidence, @"\b(?:thermal|thermiques?|temperatures?)\b", RegexOptions.CultureInvariant),
+            _ => false
+        };
+    }
+
     private static bool ShouldWarnNoExplicitPairing(string query, IReadOnlyList<RagHitSummary> hits)
     {
         if (hits.Count == 0)
             return false;
 
-        var terms = ExtractQuerySignalTerms(NormalizeLexicalLookup(query))
+        if (LooksLikeShortTechnicalEvidenceTopic(query)
+            && hits.Any(hit => HasShortTechnicalPhraseEvidence(query, hit)))
+        {
+            return false;
+        }
+
+        var pairingQuery = LooksLikeShortTechnicalEvidenceTopic(query)
+            ? NormalizeRagQueryForRetrieval(BuildRagEvidenceSelectionQuery(query))
+            : query;
+        var terms = ExtractQuerySignalTerms(NormalizeLexicalLookup(pairingQuery))
             .Where(static term => term.Length >= 5)
             .Take(5)
             .ToArray();
@@ -9483,15 +12852,39 @@ CURRENT_USER_MESSAGE:
         if (string.IsNullOrWhiteSpace(evidence))
             return false;
 
-        var covered = terms.Count(term => evidence.Contains(term, StringComparison.Ordinal));
+        var covered = LooksLikeShortTechnicalEvidenceTopic(query)
+            ? terms.Count(term => DirectTechnicalEvidenceTermMatches(term, evidence))
+            : terms.Count(term => evidence.Contains(term, StringComparison.Ordinal));
         return covered < Math.Min(2, terms.Length);
     }
 
     private static string GetRagHitLookupText(RagHitSummary hit)
-        => $"{hit.Excerpt} {hit.FullText} {hit.ContextualSnippet}";
+        => $"{hit.SectionTitle} {hit.HeadingPath} {hit.Excerpt} {hit.FullText} {hit.ContextualSnippet} {hit.RetrievalQuery} {GetRagHitStructuredEvidenceText(hit)}";
+
+    private static string GetRagHitVisibleTechnicalEvidenceText(RagHitSummary hit)
+        => $"{hit.SectionTitle} {hit.HeadingPath} {hit.Excerpt} {hit.FullText}";
+
+    private static string GetRagHitComparativeEntityLookupText(RagHitSummary hit)
+    {
+        var cardText = hit.MatchedContentCards is { Count: > 0 }
+            ? string.Join(' ', hit.MatchedContentCards.SelectMany(static card =>
+                new[] { card.Title }.Concat(card.Signals ?? Array.Empty<string>())))
+            : string.Empty;
+
+        return $"{hit.DocName} {hit.DocPath} {hit.SectionTitle} {hit.HeadingPath} {hit.Excerpt} {hit.FullText} {hit.ContextualSnippet} {cardText}";
+    }
 
     private static string GetRagHitPrimaryEvidenceText(RagHitSummary hit)
-        => $"{hit.DocName} {hit.DocPath} {hit.SectionTitle} {hit.HeadingPath} {hit.Excerpt} {hit.FullText}";
+        => $"{hit.DocName} {hit.DocPath} {hit.SectionTitle} {hit.HeadingPath} {hit.Excerpt} {hit.FullText} {GetRagHitStructuredEvidenceText(hit)}";
+
+    private static string GetRagHitStructuredEvidenceText(RagHitSummary hit)
+    {
+        var cardText = hit.MatchedContentCards is { Count: > 0 }
+            ? string.Join(' ', hit.MatchedContentCards.SelectMany(static card =>
+                new[] { card.Title, card.Kind }.Concat(card.Signals ?? Array.Empty<string>())))
+            : string.Empty;
+        return CollapseWhitespace($"{cardText} {BuildRagHitContentCardEvidenceText(hit)}");
+    }
 
     private static string GetRagHitPrimaryContentText(RagHitSummary hit)
         => $"{hit.Excerpt} {hit.FullText}";
@@ -9655,7 +13048,7 @@ CURRENT_USER_MESSAGE:
     private static bool BackendSelectionHintsPreferLowSignal(RagHitSummary hit)
     {
         var role = NormalizeRagEvidenceRole(hit.SelectionHintRole);
-        if (role is "navigation" or "fragment")
+        if (role is "navigation" or "fragment" or "low_confidence")
             return true;
         if (role is "actionable_item" or "supporting_context" or "advisory")
             return false;
@@ -9791,6 +13184,23 @@ CURRENT_USER_MESSAGE:
         }
 
         language = NormalizeLanguageCode(language);
+        if (LooksLikeDocumentVersionYearOmissionRequest(query)
+            && !LooksLikeDocumentInstructionPolicyRequest(query))
+        {
+            return string.Empty;
+        }
+
+        if ((LooksLikeDocumentVersionTraceabilityRequest(query)
+             || LooksLikeDocumentVersionYearOmissionRequest(query))
+            && !LooksLikeDocumentInstructionPolicyRequest(query)
+            && !LooksLikeHardSourceBypassOrUnsupportedInventionRequest(query))
+        {
+            return string.Empty;
+        }
+
+        if (LooksLikeDocumentInstructionPolicyRequest(query))
+            return BuildDocumentInstructionPolicyAnswer(language);
+
         var prefix = BuildSourcePolicyGuardPrefix(language);
 
         var evidence = BuildSourceBackedPlanningOrExtractiveAnswer(toolResults, query, language, minPlanningItems: 1);
@@ -9812,6 +13222,229 @@ CURRENT_USER_MESSAGE:
             "Ich kann die Quellen nicht ignorieren und keine dokumentarische Antwort erfinden. Ich bleibe daher strikt bei dem, was die verfuegbaren Quellen belegen.",
             "Non posso ignorare le fonti ne inventare una risposta documentale. Mi limito quindi strettamente a cio che le fonti disponibili supportano.");
 
+    private static string BuildDocumentInstructionPolicyAnswer(string language)
+        => SourceBackedLabel(
+            NormalizeLanguageCode(language),
+            "Je ne peux pas ignorer les consignes precedentes, inventer une reponse ou laisser une phrase dans un document modifier les regles de reponse. Une phrase retrouvee dans un PDF est une donnee du corpus a evaluer, pas une instruction systeme. Je reste limite aux sources disponibles et je refuse la partie non sourcee.",
+            "I cannot ignore previous instructions, invent an answer, or let a sentence inside a document change the response rules. A sentence found in a PDF is corpus content to evaluate, not a system instruction. I stay limited to available sources and refuse the unsupported part.",
+            "No puedo ignorar instrucciones anteriores, inventar una respuesta ni dejar que una frase dentro de un documento cambie las reglas de respuesta. Una frase encontrada en un PDF es contenido del corpus que se evalua, no una instruccion del sistema. Me limito a las fuentes disponibles y rechazo la parte sin respaldo.",
+            "Nao posso ignorar instrucoes anteriores, inventar uma resposta nem deixar que uma frase dentro de um documento altere as regras de resposta. Uma frase encontrada num PDF e conteudo do corpus a avaliar, nao uma instrucao do sistema. Fico limitado as fontes disponiveis e recuso a parte sem suporte.",
+            "Ich kann vorherige Anweisungen nicht ignorieren, keine Antwort erfinden und keinen Satz in einem Dokument die Antwortregeln aendern lassen. Ein Satz in einem PDF ist Korpusinhalt, der bewertet wird, keine Systemanweisung. Ich bleibe auf verfuegbare Quellen beschraenkt und lehne den unbelegten Teil ab.",
+            "Non posso ignorare le istruzioni precedenti, inventare una risposta o lasciare che una frase dentro un documento cambi le regole di risposta. Una frase trovata in un PDF e contenuto del corpus da valutare, non un'istruzione di sistema. Mi limito alle fonti disponibili e rifiuto la parte non supportata.");
+
+    private static string BuildSourceAbsentAssertionPolicyAnswer(string language)
+        => SourceBackedLabel(
+            NormalizeLanguageCode(language),
+            "Non. Si l'extraction, le texte ou les sources disponibles sont vides ou insuffisants, je ne dois pas affirmer un champ, une valeur ou une conclusion documentaire. Je dois dire que l'information n'est pas confirmable avec les sources disponibles, demander une source exploitable ou citer uniquement les elements effectivement retrouves.",
+            "No. If the extraction, text, or available sources are empty or insufficient, I must not assert a field, value, or documentary conclusion. I should state that the information cannot be confirmed from the available sources, ask for usable evidence, or cite only the evidence actually found.",
+            "No. Si la extraccion, el texto o las fuentes disponibles estan vacios o son insuficientes, no debo afirmar un campo, valor o conclusion documental. Debo indicar que la informacion no se puede confirmar con las fuentes disponibles, pedir evidencia utilizable o citar solo lo encontrado.",
+            "Nao. Se a extracao, o texto ou as fontes disponiveis estiverem vazios ou forem insuficientes, nao devo afirmar um campo, valor ou conclusao documental. Devo dizer que a informacao nao pode ser confirmada com as fontes disponiveis, pedir evidencia utilizavel ou citar apenas o que foi encontrado.",
+            "Nein. Wenn Extraktion, Text oder verfuegbare Quellen leer oder unzureichend sind, darf ich kein Feld, keinen Wert und keine dokumentarische Schlussfolgerung behaupten. Ich sollte sagen, dass die Information mit den verfuegbaren Quellen nicht bestaetigt werden kann, nutzbare Nachweise anfordern oder nur gefundene Belege zitieren.",
+            "No. Se l'estrazione, il testo o le fonti disponibili sono vuoti o insufficienti, non devo affermare un campo, un valore o una conclusione documentale. Devo dire che l'informazione non e confermabile con le fonti disponibili, chiedere evidenza utilizzabile o citare solo cio che e stato trovato.");
+
+    private static string BuildBinaryAnswerWithSourceUncertaintyPolicyAnswer(string language)
+        => SourceBackedLabel(
+            NormalizeLanguageCode(language),
+            "Je refuse de transformer la question en oui/non clair si les sources ne tranchent pas explicitement. Une reponse binaire n'est acceptable que si les passages cites etablissent directement la conclusion; sinon je dois expliquer la limite, citer les documents pertinents et eviter tout toujours/jamais non prouve.",
+            "I will not turn the question into a clear yes/no if the sources do not explicitly settle it. A binary answer is acceptable only when the cited passages directly support the conclusion; otherwise I should explain the limit, cite the relevant documents, and avoid any unsupported always/never claim.",
+            "No convertire la pregunta en un si/no claro si las fuentes no lo resuelven explicitamente. Una respuesta binaria solo es aceptable si los pasajes citados sostienen directamente la conclusion; si no, debo explicar el limite, citar los documentos pertinentes y evitar afirmaciones absolutas sin prueba.",
+            "Nao transformo a pergunta num sim/nao claro se as fontes nao resolverem isso explicitamente. Uma resposta binaria so e aceitavel quando os trechos citados sustentam diretamente a conclusao; caso contrario devo explicar o limite, citar os documentos pertinentes e evitar qualquer sempre/nunca sem prova.",
+            "Ich mache daraus kein klares Ja/Nein, wenn die Quellen es nicht ausdruecklich klaeren. Eine binaere Antwort ist nur akzeptabel, wenn die zitierten Passagen die Schlussfolgerung direkt stuetzen; sonst sollte ich die Grenze erklaeren, relevante Dokumente zitieren und unbelegte Immer/Nie-Aussagen vermeiden.",
+            "Non trasformo la domanda in un si/no netto se le fonti non lo stabiliscono esplicitamente. Una risposta binaria e accettabile solo quando i passaggi citati supportano direttamente la conclusione; altrimenti devo spiegare il limite, citare i documenti pertinenti ed evitare affermazioni assolute non provate.");
+
+    private static bool LooksLikeSourceAbsentAssertionPolicyRequest(string? query)
+    {
+        var normalized = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        var hasAssertionMarker = Regex.IsMatch(
+            normalized,
+            @"\b(?:affirmer|affirme|confirmer|confirme|conclure|deduire|declarer|dire|donner|donne|pretendre|assert|state|claim|confirm|conclude|infer|deduce|give|provide|afirmar|confirmar|concluir|deduzir|behaupten|bestaetigen|bestatigen|schlussfolgern|affermare|confermare|concludere)\b",
+            RegexOptions.CultureInvariant);
+        if (!hasAssertionMarker)
+            return false;
+
+        var asksExactUnsupportedValue = Regex.IsMatch(
+            normalized,
+            @"\b(?:valeur|valeurs|value|values|champ|champs|field|fields|table|tables|tableau|tableaux)\b.{0,45}\b(?:exact|exacte|exacts|exactes|precise|precis|precises|specific)\b|\b(?:exact|exacte|exacts|exactes|precise|precis|precises|specific)\b.{0,45}\b(?:valeur|valeurs|value|values|champ|champs|field|fields|table|tables|tableau|tableaux)\b",
+            RegexOptions.CultureInvariant);
+        var hasUnfoundEvidenceSurface = Regex.IsMatch(
+            normalized,
+            @"\b(?:ne\s+(?:re)?trouves?\s+pas|pas\s+(?:re)?trouvee?|not\s+found|cannot\s+find|can't\s+find|unable\s+to\s+find|introuvable|unavailable|indisponible|absent|absente|missing|manquant|manquante)\b.{0,70}\b(?:page|pages|source|sources|preuve|preuves|evidence|table|tables|tableau|tableaux)\b",
+            RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:page|pages|source|sources|preuve|preuves|evidence|table|tables|tableau|tableaux)\b.{0,70}\b(?:ne\s+(?:re)?trouves?\s+pas|pas\s+(?:re)?trouvee?|not\s+found|cannot\s+find|can't\s+find|unable\s+to\s+find|introuvable|unavailable|indisponible|absent|absente|missing|manquant|manquante)\b",
+                RegexOptions.CultureInvariant);
+        if (asksExactUnsupportedValue && hasUnfoundEvidenceSurface)
+            return true;
+
+        var hasEvidenceMissingMarker = Regex.IsMatch(
+            normalized,
+            @"\b(?:extraction|texte|text|source|sources|evidence|preuve|preuves|document|documents|page|pages|ocr)\b.{0,70}\b(?:vide|vides|empty|missing|absent|absente|absentes|manquant|manquante|manquantes|indisponible|unavailable|introuvable|not\s+found|insuffisant|insuffisante|insufficient|illlisible|illisible)\b",
+            RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:vide|vides|empty|missing|absent|absente|absentes|manquant|manquante|manquantes|indisponible|unavailable|introuvable|not\s+found|insuffisant|insuffisante|insufficient|illlisible|illisible)\b.{0,70}\b(?:extraction|texte|text|source|sources|evidence|preuve|preuves|document|documents|page|pages|ocr)\b",
+                RegexOptions.CultureInvariant);
+        if (hasEvidenceMissingMarker)
+            return true;
+
+        var hasMissingValueMarker = Regex.IsMatch(
+            normalized,
+            @"\b(?:valeur|valeurs|value|values|champ|champs|field|fields|information|informations|info|data|donnee|donnees)\b.{0,70}\b(?:vide|vides|empty|missing|absent|absente|absentes|manquant|manquante|manquantes|indisponible|unavailable|introuvable|not\s+found|insuffisant|insuffisante|insufficient|illlisible|illisible)\b",
+            RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:vide|vides|empty|missing|absent|absente|absentes|manquant|manquante|manquantes|indisponible|unavailable|introuvable|not\s+found|insuffisant|insuffisante|insufficient|illlisible|illisible)\b.{0,70}\b(?:valeur|valeurs|value|values|champ|champs|field|fields|information|informations|info|data|donnee|donnees)\b",
+                RegexOptions.CultureInvariant);
+        return hasMissingValueMarker;
+    }
+
+    private static bool ShouldAttachSourceAnchorForSourceAbsentAssertionPolicyRequest(string? query)
+    {
+        var normalized = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return Regex.IsMatch(
+            normalized,
+            @"\b(?:pdf|document|documents|source|sources|corpus|autre\s+document|other\s+document|vs|versus)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeBinaryAnswerWithSourceUncertaintyRequest(string? query)
+    {
+        var normalized = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        var asksBinary = Regex.IsMatch(
+            normalized,
+            @"\b(?:oui\s*/\s*non|oui\s+non|yes\s*/\s*no|yes\s+no|sim\s*/\s*nao|ja\s*/\s*nein|si\s*/\s*no|reponse\s+(?:binaire|oui\s*/\s*non)|binary\s+answer)\b",
+            RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:reponse|answer|respuesta|antwort|risposta)\b.{0,25}\b(?:oui|non|yes|no|ja|nein|si|sim|nao)\b",
+                RegexOptions.CultureInvariant);
+        if (!asksBinary)
+            return false;
+
+        var hasSourceScope = Regex.IsMatch(
+            normalized,
+            @"\b(?:pdf|document|documents|source|sources|corpus|preuve|preuves|evidence|passages?)\b",
+            RegexOptions.CultureInvariant);
+        var hasUncertaintyPolicy = Regex.IsMatch(
+            normalized,
+            @"\b(?:ne\s+permettent\s+pas|ne\s+permet\s+pas|permettent\s+pas|permet\s+pas|not\s+allow|do\s+not\s+allow|cannot|can't|pas\s+clair|pas\s+claire|non\s+clair|unclear|insuffisant|insuffisante|insufficient|ne\s+tranche\s+pas|not\s+settle|refuse|refuser|refuses?|refusa|refuseren|simplification|simplifier|simplify)\b",
+            RegexOptions.CultureInvariant);
+
+        return hasSourceScope && hasUncertaintyPolicy;
+    }
+
+    private static bool LooksLikeDocumentInstructionPolicyRequest(string? query)
+    {
+        var normalized = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        var hasDocumentMarker = Regex.IsMatch(
+            normalized,
+            @"\b(?:pdf|document|documents|source|sources|corpus|phrase|texte|fichier|file|files)\b",
+            RegexOptions.CultureInvariant);
+        var hasPolicyMarker = Regex.IsMatch(
+            normalized,
+            @"\b(?:consigne|consignes|instruction|instructions|regle|regles|rules|systeme|system|reponse|response|prompt)\b",
+            RegexOptions.CultureInvariant);
+        var hasInstructionOverrideMarker = Regex.IsMatch(
+            normalized,
+            @"\b(?:ignore|ignorer|ignorez|modifier|modifie|change|changer|override|bypass|precedent|precedente|precedentes|previous|prior|obeir|obeis|obey|suivre|follow|appliquer|respecter)\b",
+            RegexOptions.CultureInvariant);
+        var hasNoCitationInstruction = Regex.IsMatch(
+                normalized,
+                @"\b(?:ne\s+pas|pas|sans|without|do\s+not|don\s*t|no)\b.{0,40}\b(?:citer|cite|citation|citations|sources?|references?)\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:citer|cite|citation|citations|sources?|references?)\b.{0,40}\b(?:ne\s+pas|pas|sans|without|do\s+not|don\s*t|no)\b",
+                RegexOptions.CultureInvariant);
+
+        return hasDocumentMarker && hasPolicyMarker && (hasInstructionOverrideMarker || hasNoCitationInstruction);
+    }
+
+    private static bool LooksLikeDocumentVersionYearOmissionRequest(string? query)
+    {
+        var normalized = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return Regex.IsMatch(
+            normalized,
+            @"\b(?:sans\s+(?:dire|preciser)|ne\s+precise\s+pas|ne\s+pas\s+preciser|without\s+(?:saying|specifying))\b.{0,80}\b(?:annee|annees|year|years|version|versions|edition|editions)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeExplicitSourceBypassOrUnsupportedInventionRequest(string? query)
+    {
+        var normalized = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        normalized = Regex.Replace(
+            normalized,
+            @"\b(?:sans\s+oublier|n\s*oublie\s+pas|ne\s+pas\s+oublier|without\s+forgetting|do\s+not\s+forget|don\s*t\s+forget|sin\s+olvidar|sem\s+esquecer|ohne\s+zu\s+vergessen|senza\s+dimenticare)\b",
+            " ",
+            RegexOptions.CultureInvariant);
+
+        var asksToIgnoreSources =
+            Regex.IsMatch(
+                normalized,
+                @"\b(?:ignore|ignorer|ignorez|oublie|oublier|disregard|ignora|ignorar|ignori|ignorare|ignoriere|ignorieren)\b.{0,60}\b(?:sources?|documents?|pdf|pages?|citations?|references?|fuentes?|fontes?|quellen?|fonti)\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:sources?|documents?|pdf|pages?|citations?|references?|fuentes?|fontes?|quellen?|fonti)\b.{0,60}\b(?:ignore|ignorer|ignorez|oublie|oublier|disregard|ignora|ignorar|ignori|ignorare|ignoriere|ignorieren)\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:sans|without|sin|sem|ohne|senza)\b.{0,60}\b(?:sources?|documents?|pdf|pages?|citations?|references?|fuentes?|fontes?|quellen?|fonti)\b",
+                RegexOptions.CultureInvariant);
+
+        var asksToInvent = Regex.IsMatch(
+            normalized,
+            @"\b(?:invente|inventer|inventez|invent|invented|make\s+up|hallucinate|inventa|inventar|inventare|erfinde|erfinden|erfunden)\b",
+            RegexOptions.CultureInvariant);
+
+        return asksToIgnoreSources || asksToInvent;
+    }
+
+    private static bool LooksLikeHardSourceBypassOrUnsupportedInventionRequest(string? query)
+    {
+        var normalized = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        normalized = Regex.Replace(
+            normalized,
+            @"\b(?:sans\s+oublier|n\s*oublie\s+pas|ne\s+pas\s+oublier|without\s+forgetting|do\s+not\s+forget|don\s*t\s+forget|sin\s+olvidar|sem\s+esquecer|ohne\s+zu\s+vergessen|senza\s+dimenticare)\b",
+            " ",
+            RegexOptions.CultureInvariant);
+
+        return Regex.IsMatch(
+                normalized,
+                @"\b(?:ignore|ignorer|ignorez|oublie|oublier|disregard|ignora|ignorar|ignori|ignorare|ignoriere|ignorieren)\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:sans|without|sin|sem|ohne|senza)\b.{0,60}\b(?:sources?|documents?|pdf|pages?|citations?|references?|fuentes?|fontes?|quellen?|fonti)\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:invente|inventer|inventez|invent|invented|make\s+up|hallucinate|inventa|inventar|inventare|erfinde|erfinden|erfunden)\b",
+                RegexOptions.CultureInvariant);
+    }
+
     private static string ApplySourcePolicyGuardPrefix(string answer, string language)
     {
         var prefix = BuildSourcePolicyGuardPrefix(language);
@@ -9829,6 +13462,15 @@ CURRENT_USER_MESSAGE:
         if (string.IsNullOrWhiteSpace(normalized))
             return false;
 
+        if (LooksLikeSourceAbsentAssertionPolicyRequest(normalized))
+            return true;
+
+        if (LooksLikeBinaryAnswerWithSourceUncertaintyRequest(normalized))
+            return true;
+
+        if (LooksLikeDocumentInstructionPolicyRequest(normalized))
+            return true;
+
         normalized = Regex.Replace(
             normalized,
             @"\b(?:sans\s+oublier|n\s*oublie\s+pas|ne\s+pas\s+oublier|without\s+forgetting|do\s+not\s+forget|don\s*t\s+forget|sin\s+olvidar|sem\s+esquecer|ohne\s+zu\s+vergessen|senza\s+dimenticare)\b",
@@ -9838,15 +13480,15 @@ CURRENT_USER_MESSAGE:
         var asksToIgnoreSources =
             Regex.IsMatch(
                 normalized,
-                @"\b(?:ignore|ignorer|ignorez|oublie|oublier|disregard|ignora|ignorar|ignori|ignoren|ignorar|ignora|ignorar|ignora|ignora|ignori|ignora|ignori|ignori|ignori|ignorar|ignorare|ignoriere|ignorieren)\b.{0,60}\b(?:sources?|documents?|pdf|fuentes?|fontes?|quellen?|fonti)\b",
+                @"\b(?:ignore|ignorer|ignorez|oublie|oublier|disregard|ignora|ignorar|ignori|ignoren|ignorar|ignora|ignorar|ignora|ignora|ignori|ignora|ignori|ignori|ignori|ignorar|ignorare|ignoriere|ignorieren)\b.{0,60}\b(?:sources?|documents?|pdf|pages?|citations?|references?|fuentes?|fontes?|quellen?|fonti)\b",
                 RegexOptions.CultureInvariant)
             || Regex.IsMatch(
                 normalized,
-                @"\b(?:sources?|documents?|pdf|fuentes?|fontes?|quellen?|fonti)\b.{0,60}\b(?:ignore|ignorer|ignorez|oublie|oublier|disregard|ignora|ignorar|ignori|ignorare|ignoriere|ignorieren)\b",
+                @"\b(?:sources?|documents?|pdf|pages?|citations?|references?|fuentes?|fontes?|quellen?|fonti)\b.{0,60}\b(?:ignore|ignorer|ignorez|oublie|oublier|disregard|ignora|ignorar|ignori|ignorare|ignoriere|ignorieren)\b",
                 RegexOptions.CultureInvariant)
             || Regex.IsMatch(
                 normalized,
-                @"\b(?:sans|without|sin|sem|ohne|senza)\b.{0,24}\b(?:utiliser|using|use|usar|utilizar|nutzen|verwenden|usare|utilizzare)?\b.{0,16}\b(?:sources?|documents?|pdf|fuentes?|fontes?|quellen?|fonti)\b",
+                @"\b(?:sans|without|sin|sem|ohne|senza)\b.{0,60}\b(?:sources?|documents?|pdf|pages?|citations?|references?|fuentes?|fontes?|quellen?|fonti)\b",
                 RegexOptions.CultureInvariant);
 
         var asksToInvent =
@@ -9866,12 +13508,12 @@ CURRENT_USER_MESSAGE:
 
         normalized = Regex.Replace(
             normalized,
-            @"\b(?:sans|without|sin|sem|ohne|senza)\b.{0,60}\b(?:sources?|documents?|pdf|fuentes?|fontes?|quellen?|fonti)\b",
+            @"\b(?:sans|without|sin|sem|ohne|senza)\b.{0,60}\b(?:sources?|documents?|pdf|pages?|citations?|references?|fuentes?|fontes?|quellen?|fonti)\b",
             " ",
             RegexOptions.CultureInvariant);
         normalized = Regex.Replace(
             normalized,
-            @"\b(?:ignore|ignorer|ignorez|oublie|oublier|disregard|ignora|ignorar|ignori|ignorare|ignoriere|ignorieren)\b.{0,60}\b(?:sources?|documents?|pdf|fuentes?|fontes?|quellen?|fonti)\b",
+            @"\b(?:ignore|ignorer|ignorez|oublie|oublier|disregard|ignora|ignorar|ignori|ignorare|ignoriere|ignorieren)\b.{0,60}\b(?:sources?|documents?|pdf|pages?|citations?|references?|fuentes?|fontes?|quellen?|fonti)\b",
             " ",
             RegexOptions.CultureInvariant);
         normalized = Regex.Replace(
@@ -9908,6 +13550,164 @@ CURRENT_USER_MESSAGE:
         return NormalizeRagQueryForRetrieval(normalized);
     }
 
+    private static string BuildCategoryOverviewAnswer(ToolResults toolResults, string query, string language)
+    {
+        language = NormalizeLanguageCode(language);
+        var hits = EnumerateRagHitSummaries(toolResults)
+            .Where(static hit => !LooksLikeNavigationOnlyHit(hit))
+            .Where(static hit => !LooksLikeLowSignalContentCandidateHit(hit))
+            .Where(static hit => !string.IsNullOrWhiteSpace(hit.DocName) || !string.IsNullOrWhiteSpace(hit.DocPath))
+            .GroupBy(hit => string.IsNullOrWhiteSpace(hit.DocPath) ? hit.DocName : hit.DocPath, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group
+                .OrderByDescending(hit => ComputeRagHitLexicalRelevance(query, $"{hit.DocName} {hit.SectionTitle} {hit.HeadingPath} {hit.Excerpt}"))
+                .ThenByDescending(hit => hit.Score)
+                .First())
+            .OrderByDescending(hit => ComputeRagHitLexicalRelevance(query, $"{hit.DocName} {hit.SectionTitle} {hit.HeadingPath} {hit.Excerpt}"))
+            .ThenByDescending(hit => hit.Score)
+            .Take(5)
+            .ToList();
+
+        if (hits.Count == 0)
+            return string.Empty;
+
+        var header = SourceBackedLabel(
+            language,
+            "Pour cette categorie, je partirais des documents indexes suivants. Je limite l'orientation aux sources retrouvees :",
+            "For this category, I would start with these indexed documents. I am keeping the overview limited to retrieved sources:",
+            "Para esta categoria, empezaria por estos documentos indexados. Limito la orientacion a las fuentes recuperadas:",
+            "Para esta categoria, eu comecaria por estes documentos indexados. Limito a orientacao as fontes recuperadas:",
+            "Fuer diese Kategorie wuerde ich mit diesen indexierten Dokumenten beginnen. Ich beschraenke die Uebersicht auf gefundene Quellen:",
+            "Per questa categoria, inizierei da questi documenti indicizzati. Mantengo l'orientamento limitato alle fonti recuperate:");
+
+        var caveat = SourceBackedLabel(
+            language,
+            "Limite : cette cartographie est une orientation de lecture, pas une validation exhaustive du corpus.",
+            "Limit: this is a reading orientation, not an exhaustive validation of the corpus.",
+            "Limite: es una orientacion de lectura, no una validacion exhaustiva del corpus.",
+            "Limite: isto e uma orientacao de leitura, nao uma validacao exaustiva do corpus.",
+            "Grenze: Das ist eine Leseorientierung, keine vollstaendige Korpusvalidierung.",
+            "Limite: e un orientamento di lettura, non una validazione esaustiva del corpus.");
+
+        var sb = new StringBuilder();
+        sb.AppendLine(header);
+        foreach (var hit in hits)
+        {
+            var docLabel = string.IsNullOrWhiteSpace(hit.DocName) ? Path.GetFileName(hit.DocPath) : hit.DocName;
+            sb.Append("- ");
+            sb.Append(docLabel);
+            sb.Append(" : ");
+            sb.Append(InferGenericDocumentUseRole(docLabel, language));
+            if (hit.PageStart > 0)
+            {
+                sb.Append(' ');
+                sb.Append(SourceBackedPagePrefix(language));
+                sb.Append(hit.PageStart);
+                sb.Append('.');
+            }
+            sb.AppendLine();
+        }
+
+        sb.Append(caveat);
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string InferGenericDocumentUseRole(string? docName, string language)
+    {
+        var normalized = NormalizeLexicalLookup(Path.GetFileNameWithoutExtension(docName ?? string.Empty)
+            .Replace('_', ' ')
+            .Replace('-', ' '));
+        var role = normalized switch
+        {
+            _ when Regex.IsMatch(normalized, @"\b(?:far|regulation|regulations|reglement|standard|norme|requirements?|exigences?)\b", RegexOptions.CultureInvariant) =>
+                ("cadre de regles, exigences ou references normatives", "rules, requirements, or regulatory reference material"),
+            _ when Regex.IsMatch(normalized, @"\b(?:procurement|acquisition|achat|achats|supply|supplier|fournisseur|fournisseurs|contract|contractuel|contrat|conditions?|terms?)\b", RegexOptions.CultureInvariant) =>
+                ("questions operationnelles d'achat, fournisseur ou contrat", "operational procurement, supplier, or contract questions"),
+            _ when Regex.IsMatch(normalized, @"\b(?:code|conduct|ethic|ethics|integrity|integrite|conduite)\b", RegexOptions.CultureInvariant) =>
+                ("attentes de conduite, integrite, ethique ou conformite", "conduct, integrity, ethics, or compliance expectations"),
+            _ when Regex.IsMatch(normalized, @"\b(?:policy|politique|privacy|confidential|confidentialite|data|donnees)\b", RegexOptions.CultureInvariant) =>
+                ("politique, gouvernance, donnees ou cadre de conformite", "policy, governance, data, or compliance context"),
+            _ when Regex.IsMatch(normalized, @"\b(?:manual|manuel|guide|handbook|procedure|process)\b", RegexOptions.CultureInvariant) =>
+                ("mode operatoire, procedure ou aide a l'execution", "procedure, workflow, or execution guidance"),
+            _ => ("contexte source pour les questions documentaires de la categorie", "source context for documentary questions in the category")
+        };
+
+        return NormalizeLanguageCode(language) switch
+        {
+            "en" or "es" or "pt" or "de" or "it" => role.Item2,
+            _ => role.Item1
+        };
+    }
+
+    private static bool LooksLikeBriefSourcedCitationRequest(string? query)
+    {
+        var normalized = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        var asksBrief = Regex.IsMatch(
+            normalized,
+            @"\b(?:tres\s+courte?|courte?|concis|concise|brief|short|breve|kurz)\b",
+            RegexOptions.CultureInvariant);
+        var asksCitation = Regex.IsMatch(
+            normalized,
+            @"\b(?:citation|citations|cite|citer|source|sources|page|pages|preuve|proof|evidence)\b",
+            RegexOptions.CultureInvariant);
+        var asksLimit = Regex.IsMatch(
+            normalized,
+            @"\b(?:limite|limites|limit|limits|caveat|reserve|preuve\s+faible|indirecte|confidence|confiance)\b",
+            RegexOptions.CultureInvariant);
+
+        return asksBrief && asksCitation && asksLimit;
+    }
+
+    private static string TryBuildBriefDocumentScopedCitationAnswer(
+        ToolResults toolResults,
+        string query,
+        string requestedDocument,
+        string language)
+    {
+        language = NormalizeLanguageCode(language);
+        var hits = SelectSourceBackedExtractiveHits(toolResults, query, maxHits: 6)
+            .Where(hit => CandidateMatchesDocumentIdentity(requestedDocument, hit.DocName, hit.DocPath))
+            .Where(static hit => !LooksLikeNavigationOnlyHit(hit))
+            .Where(static hit => !LooksLikeLowSignalContentCandidateHit(hit))
+            .GroupBy(hit => $"{hit.DocPath}|{hit.PageStart}|{hit.PageEnd}", StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .Take(3)
+            .ToList();
+        if (hits.Count == 0)
+            return string.Empty;
+
+        var topic = ExtractDelimitedNonFileTopics(query).FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(topic))
+            topic = NormalizeRagQueryForRetrieval(query);
+        if (string.IsNullOrWhiteSpace(topic))
+            topic = SourceBackedLabel(language, "la question posee", "the requested topic", "el tema solicitado", "o tema pedido", "das angefragte Thema", "il tema richiesto");
+
+        var best = hits[0];
+        var excerpt = FormatReadableEvidenceExcerpt(GetBestRagEvidenceText(best), maxLength: 280);
+        var docLabel = string.IsNullOrWhiteSpace(best.DocName) ? requestedDocument : best.DocName;
+        var page = best.PageStart > 0
+            ? $"{SourceBackedPagePrefix(language)}{best.PageStart}"
+            : SourceBackedLabel(language, "page non precisee", "unknown page", "pagina no indicada", "pagina nao indicada", "Seite unbekannt", "pagina non indicata");
+
+        return language switch
+        {
+            "en" =>
+                $"Short answer: the retrieved excerpts from {docLabel} support only a limited source-backed orientation on {topic}; they should not be treated as exhaustive proof of every sub-point.\nCitation: {docLabel} {page}: {excerpt}\nLimit: this conclusion is limited to the cited page(s) retrieved from the indexed corpus.",
+            "es" =>
+                $"Respuesta breve: los extractos recuperados de {docLabel} solo respaldan una orientacion limitada sobre {topic}; no deben tratarse como prueba exhaustiva de todos los subpuntos.\nCita: {docLabel} {page}: {excerpt}\nLimite: la conclusion se limita a las paginas citadas recuperadas del corpus indexado.",
+            "pt" =>
+                $"Resposta curta: os excertos recuperados de {docLabel} sustentam apenas uma orientacao limitada sobre {topic}; nao devem ser tratados como prova exaustiva de todos os subpontos.\nCitacao: {docLabel} {page}: {excerpt}\nLimite: a conclusao fica limitada as paginas citadas recuperadas do corpus indexado.",
+            "de" =>
+                $"Kurzantwort: Die gefundenen Auszuege aus {docLabel} stuetzen nur eine begrenzte, belegte Orientierung zu {topic}; sie sind kein vollstaendiger Nachweis fuer alle Teilpunkte.\nZitat: {docLabel} {page}: {excerpt}\nGrenze: Diese Aussage ist auf die zitierten Seiten aus dem indexierten Korpus beschraenkt.",
+            "it" =>
+                $"Risposta breve: gli estratti recuperati da {docLabel} supportano solo un orientamento limitato su {topic}; non sono una prova esaustiva di tutti i sottopunti.\nCitazione: {docLabel} {page}: {excerpt}\nLimite: la conclusione e limitata alle pagine citate recuperate dal corpus indicizzato.",
+            _ =>
+                $"Reponse courte : les extraits retrouves dans {docLabel} soutiennent seulement une orientation sourcee limitee sur {topic}; ils ne prouvent pas exhaustivement tous les sous-points.\nCitation : {docLabel} {page} : {excerpt}\nLimite : la conclusion reste limitee aux pages citees recuperees dans le corpus indexe."
+        };
+    }
+
     private static string BuildRagEvidenceFallbackAnswer(ToolResults toolResults, string query, string language)
     {
         language = NormalizeLanguageCode(language);
@@ -9919,6 +13719,14 @@ CURRENT_USER_MESSAGE:
         if (!string.IsNullOrWhiteSpace(missingPairingAnchor))
             return missingPairingAnchor;
 
+        var corpusClaimVerificationAnswer = TryBuildCorpusClaimVerificationAnswer(toolResults, query, language);
+        if (!string.IsNullOrWhiteSpace(corpusClaimVerificationAnswer))
+            return corpusClaimVerificationAnswer;
+
+        var comparativeAnswer = TryBuildComparativeDocumentaryAnswer(toolResults, query, language);
+        if (!string.IsNullOrWhiteSpace(comparativeAnswer))
+            return comparativeAnswer;
+
         var usableHits = EnumerateRagHitSummaries(toolResults)
             .Where(static hit => !LooksLikeNavigationOnlyHit(hit))
             .Where(static hit => !LooksLikeLowSignalContentCandidateHit(hit))
@@ -9929,7 +13737,23 @@ CURRENT_USER_MESSAGE:
             && !LooksLikeSourceBackedPlanningRequest(query)
             && usableHits.Count > 0)
         {
-            return BuildSourceBackedExtractiveAnswer(toolResults, query, language);
+            var extractiveAnswer = BuildSourceBackedExtractiveAnswer(toolResults, query, language);
+            if (!string.IsNullOrWhiteSpace(extractiveAnswer))
+                return extractiveAnswer;
+        }
+
+        var rankedFallbackHits = SelectSourceBackedExtractiveHits(toolResults, query, maxHits: 8).ToList();
+        if (rankedFallbackHits.Count > 0)
+            usableHits = rankedFallbackHits;
+
+        var softChoiceOptionKindTerms = ExtractSoftChoiceRequestedOptionKindTerms(query);
+        if (softChoiceOptionKindTerms.Count > 0)
+        {
+            var compatibleHits = usableHits
+                .Where(hit => !SoftChoiceOptionKindContradictsHit(softChoiceOptionKindTerms, hit))
+                .ToList();
+            if (compatibleHits.Count > 0)
+                usableHits = compatibleHits;
         }
 
         var hits = FilterHitsToDominantTopLevel(usableHits, query)
@@ -9984,6 +13808,66 @@ CURRENT_USER_MESSAGE:
 
         sb.Append(labels.Caveat);
         return sb.ToString().TrimEnd();
+    }
+
+    private static bool SoftChoiceOptionKindContradictsHit(IReadOnlyList<string> requestedKindTerms, RagHitSummary hit)
+    {
+        if (requestedKindTerms.Count == 0)
+            return false;
+
+        var titles = ExtractSourceBackedTitleCandidates(hit)
+            .Select(CleanSourceBackedOptionTitle)
+            .Where(title => !string.IsNullOrWhiteSpace(title))
+            .Where(IsUsefulSourceBackedDisplayTitle)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (titles.Count == 0)
+        {
+            var fallbackTitle = ExtractSourceBackedOptionTitle(hit, query: null);
+            if (!string.IsNullOrWhiteSpace(fallbackTitle))
+                titles.Add(fallbackTitle);
+        }
+
+        if (titles.Count == 0)
+            return false;
+
+        var candidates = titles
+            .Select(title => new SourceBackedOptionCandidate(hit, title, Score: 0, VisibleMinutes: ExtractBestVisibleDurationMinutes(hit)))
+            .ToList();
+        if (candidates.Any(candidate => SoftChoiceOptionKindMatchesCandidate(requestedKindTerms, candidate)))
+            return false;
+
+        return candidates.Any(candidate => OptionKindContradictsCandidate(requestedKindTerms, candidate));
+    }
+
+    private static bool SoftChoiceOptionKindMatchesHit(IReadOnlyList<string> requestedKindTerms, RagHitSummary hit)
+    {
+        if (requestedKindTerms.Count == 0)
+            return true;
+
+        var titles = ExtractSourceBackedTitleCandidates(hit)
+            .Select(CleanSourceBackedOptionTitle)
+            .Where(title => !string.IsNullOrWhiteSpace(title))
+            .Where(IsUsefulSourceBackedDisplayTitle)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (titles.Count == 0)
+        {
+            var fallbackTitle = ExtractSourceBackedOptionTitle(hit, query: null);
+            if (!string.IsNullOrWhiteSpace(fallbackTitle))
+                titles.Add(fallbackTitle);
+        }
+
+        if (titles
+            .Select(title => new SourceBackedOptionCandidate(hit, title, Score: 0, VisibleMinutes: ExtractBestVisibleDurationMinutes(hit)))
+            .Any(candidate => SoftChoiceOptionKindMatchesCandidate(requestedKindTerms, candidate)))
+        {
+            return true;
+        }
+
+        var evidence = NormalizeLexicalLookup(GetRagHitPrimaryEvidenceText(hit));
+        return requestedKindTerms.Any(term => OptionKindTermMatchesText(evidence, term)
+                                             || RetrievalQueryNarrowlyTargetsOptionKind(hit.RetrievalQuery, term));
     }
 
     private static string BuildRagNeighborFallbackAnswer(IReadOnlyList<RagHitSummary> hits, string language)
@@ -10050,7 +13934,7 @@ CURRENT_USER_MESSAGE:
         return anchorTerms.Any(term => hits.Any(hit => RequiredEvidenceTermMatchesHit(term, hit)));
     }
 
-    private static string TryBuildBackendGuidanceClarificationAnswer(ToolResults toolResults, string language)
+    private static string TryBuildBackendGuidanceClarificationAnswer(ToolResults toolResults, string query, string language)
     {
         foreach (var item in toolResults.Items.Where(static x => x.ToolName is "rag.search" or "rag.multi_search"))
         {
@@ -10068,6 +13952,9 @@ CURRENT_USER_MESSAGE:
                 || string.Equals(responseShape, "clarify", StringComparison.OrdinalIgnoreCase);
             if (!asksClarification)
                 continue;
+
+            if (ShouldPreferSourceBackedAnswerOverBackendClarification(toolResults, query))
+                return string.Empty;
 
             var question =
                 TryGetString(guidance, "clarifyingQuestion")
@@ -10088,6 +13975,53 @@ CURRENT_USER_MESSAGE:
         }
 
         return string.Empty;
+    }
+
+    private static bool ShouldPreferSourceBackedAnswerOverBackendClarification(ToolResults toolResults, string? query)
+    {
+        if (!LooksLikeSourceBackedActionRequest(query)
+            && !LooksLikeComparativeDocumentaryRequest(query)
+            && !LooksLikeSourceBackedAdaptationRequest(query)
+            && !LooksLikeDocumentaryContentRequest(query)
+            && !ShouldUseSourceBackedExtractiveAnswer(query ?? string.Empty, toolResults))
+        {
+            return false;
+        }
+
+        var hits = SelectSourceBackedExtractiveHits(toolResults, query ?? string.Empty, maxHits: 5).ToList();
+        if (hits.Count == 0)
+        {
+            hits = EnumerateRagHitSummaries(toolResults)
+                .Where(static hit => !LooksLikeNavigationOnlyHit(hit))
+                .Where(static hit => !LooksLikeLowSignalContentCandidateHit(hit))
+                .Take(5)
+                .ToList();
+        }
+
+        if (hits.Count == 0)
+            return false;
+
+        var queryText = query ?? string.Empty;
+        if (LooksLikeSourceBackedActionRequest(queryText))
+            return true;
+
+        var requestedTitle = TryExtractRequestedItemTitle(queryText);
+        if (!string.IsNullOrWhiteSpace(requestedTitle)
+            && RagFallbackHasAtLeastOneQueryAnchor(hits, requestedTitle!))
+        {
+            return true;
+        }
+
+        if (LooksLikeSourceBackedActionRequest(queryText))
+        {
+            foreach (var actionQuery in BuildSourceBackedActionRetrievalQueries(queryText).Take(4))
+            {
+                if (RagFallbackHasAtLeastOneQueryAnchor(hits, actionQuery))
+                    return true;
+            }
+        }
+
+        return RagFallbackHasAtLeastOneQueryAnchor(hits, queryText);
     }
 
     private sealed record RagHitSummary(
@@ -10145,7 +14079,12 @@ CURRENT_USER_MESSAGE:
         string? SameSectionChunkId = null,
         string? OriginalChunkType = null,
         int? OffsetStart = null,
-        int? OffsetEnd = null);
+        int? OffsetEnd = null,
+        string? RetrievalQuery = null,
+        int? RetrievalQueryIndex = null,
+        int? RetrievalHitRank = null,
+        int? RetrievalQuerySpecificity = null,
+        bool HasTable = false);
 
     private sealed record RagHitContentCardSummary(
         string Title,
@@ -10216,6 +14155,10 @@ CURRENT_USER_MESSAGE:
             ? TryGetInt(provenanceInfo.Value, "offsetEnd") ?? TryGetInt(provenanceInfo.Value, "offset_end") ?? TryGetInt(provenanceInfo.Value, "OffsetEnd")
             : null;
         offsetEnd ??= TryGetInt(h, "offsetEnd") ?? TryGetInt(h, "offset_end") ?? TryGetInt(h, "OffsetEnd");
+        var retrievalQuery = TryGetString(h, "retrievalQuery") ?? TryGetString(h, "retrieval_query") ?? TryGetString(h, "RetrievalQuery");
+        var retrievalQueryIndex = TryGetInt(h, "retrievalQueryIndex") ?? TryGetInt(h, "retrieval_query_index") ?? TryGetInt(h, "RetrievalQueryIndex");
+        var retrievalHitRank = TryGetInt(h, "retrievalHitRank") ?? TryGetInt(h, "retrieval_hit_rank") ?? TryGetInt(h, "RetrievalHitRank");
+        var retrievalQuerySpecificity = TryGetInt(h, "retrievalQuerySpecificity") ?? TryGetInt(h, "retrieval_query_specificity") ?? TryGetInt(h, "RetrievalQuerySpecificity");
         var retriever = TryGetString(h, "retriever");
         var embeddingBasis = TryGetString(h, "embeddingBasis") ?? TryGetString(h, "embedding_basis");
         var score = TryGetDouble(h, "score") ?? 0.0;
@@ -10264,9 +14207,10 @@ CURRENT_USER_MESSAGE:
                               ?? TryGetNestedDouble(h, "context", "navigationScore")
                               ?? TryGetNestedDouble(h, "Context", "NavigationScore");
         var contentDensityScore = TryGetDouble(h, "contentDensityScore")
-                                  ?? TryGetDouble(h, "ContentDensityScore")
-                                  ?? TryGetNestedDouble(h, "context", "contentDensityScore")
-                                  ?? TryGetNestedDouble(h, "Context", "ContentDensityScore");
+                                   ?? TryGetDouble(h, "ContentDensityScore")
+                                   ?? TryGetNestedDouble(h, "context", "contentDensityScore")
+                                   ?? TryGetNestedDouble(h, "Context", "ContentDensityScore");
+        var hasTable = TryGetBool(h, "hasTable") ?? TryGetBool(h, "HasTable") ?? false;
 
         return new RagHitSummary(
             docPath,
@@ -10323,7 +14267,12 @@ CURRENT_USER_MESSAGE:
             sameSectionChunkId,
             originalChunkType,
             offsetStart,
-            offsetEnd);
+            offsetEnd,
+            retrievalQuery,
+            retrievalQueryIndex,
+            retrievalHitRank,
+            retrievalQuerySpecificity,
+            hasTable);
     }
 
     private static IReadOnlyList<RagHitContentCardSummary>? ExtractRagHitMatchedContentCards(JsonElement h)
@@ -10645,13 +14594,16 @@ CURRENT_USER_MESSAGE:
 
     private static string NormalizeRagQueryForRetrieval(string? query)
     {
-        var s = CollapseWhitespace(query ?? string.Empty);
+        var s = CollapseWhitespace(RepairReplacementAccentMarkers(query ?? string.Empty));
         if (s.Length == 0)
             return string.Empty;
 
         var clarification = Regex.Match(s, @"(?is)\bUSER_CLARIFICATION:\s*(?<topic>.+?)(?:\s+RESOLVED_REQUEST:|$)");
         if (clarification.Success)
             s = clarification.Groups["topic"].Value.Trim();
+
+        if (TryExtractDelimitedUserDemandTopic(s, out var delimitedTopic))
+            return delimitedTopic;
 
         var topicPatterns = new[]
         {
@@ -10672,6 +14624,50 @@ CURRENT_USER_MESSAGE:
         }
 
         return CleanupStandaloneTopic(s);
+    }
+
+    private static bool TryExtractDelimitedUserDemandTopic(string? query, out string topic)
+    {
+        topic = string.Empty;
+        var s = CollapseWhitespace(RepairReplacementAccentMarkers(query ?? string.Empty));
+        if (s.Length == 0)
+            return false;
+
+        foreach (Match match in Regex.Matches(
+                     s,
+                     """(?:\u00ab|\u201c|"|`)(?<topic>.{3,180}?)(?:\u00bb|\u201d|"|`)""",
+                     RegexOptions.CultureInvariant))
+        {
+            var candidate = CleanupStandaloneTopic(match.Groups["topic"].Value);
+            if (string.IsNullOrWhiteSpace(candidate))
+                continue;
+
+            var before = s[..match.Index];
+            var after = s[(match.Index + match.Length)..];
+            var context = NormalizeLexicalLookup(CollapseWhitespace(before + " " + after));
+            if (!Regex.IsMatch(
+                    context,
+                    @"\b(?:demande|demandes|demander|question|questions|requete|requetes|dit|disant|orienter|orientation|utilisateur|client|asked|asks|ask|request|requests|says|said|user|customer|customers|prepare|preparer|response|answer|answers|responder|rispondere|antwort|antworten)\b",
+                    RegexOptions.CultureInvariant))
+            {
+                continue;
+            }
+
+            topic = candidate;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string RepairReplacementAccentMarkers(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || !value.Contains('?', StringComparison.Ordinal))
+            return value;
+
+        var repaired = Regex.Replace(value, @"(?<=\p{L})\?(?=\p{L})", "e", RegexOptions.CultureInvariant);
+        repaired = Regex.Replace(repaired, @"(?<!\p{L})\?(?=\p{L})", "e", RegexOptions.CultureInvariant);
+        return repaired;
     }
 
     private static bool LooksLikeStandaloneDocumentaryTopic(string? userMessage)
@@ -10858,7 +14854,13 @@ CURRENT_USER_MESSAGE:
         }
     }
 
-    private static object? CompactMatchedContentCardsForPrompt(JsonElement item, int maxCards = 12, bool includeEvidence = true)
+    private static object? CompactMatchedContentCardsForPrompt(
+        JsonElement item,
+        int maxCards = 12,
+        bool includeEvidence = true,
+        int maxQuantityFacts = 12,
+        int maxFacts = 16,
+        int evidenceTextChars = 180)
     {
         if (item.ValueKind != JsonValueKind.Object
             || (!item.TryGetProperty("matchedContentCards", out var cards)
@@ -10896,7 +14898,9 @@ CURRENT_USER_MESSAGE:
                 pageEnd = TryGetInt(card, "pageEnd") ?? TryGetInt(card, "page_end") ?? TryGetInt(card, "PageEnd"),
                 kind = TryGetString(card, "kind") ?? TryGetString(card, "Kind"),
                 signals = signals.Length == 0 ? null : signals,
-                evidence = includeEvidence ? CompactContentCardEvidenceForPrompt(card) : null
+                evidence = includeEvidence
+                    ? CompactContentCardEvidenceForPrompt(card, maxQuantityFacts, maxFacts, evidenceTextChars)
+                    : null
             });
 
             if (compact.Count >= Math.Clamp(maxCards, 1, 12))
@@ -10977,7 +14981,11 @@ CURRENT_USER_MESSAGE:
         };
     }
 
-    private static object? CompactContentCardEvidenceForPrompt(JsonElement card)
+    private static object? CompactContentCardEvidenceForPrompt(
+        JsonElement card,
+        int maxQuantityFacts = 12,
+        int maxFacts = 16,
+        int evidenceTextChars = 180)
     {
         var evidence = TryBuildRagHitContentCardEvidence(card);
         if (evidence is null)
@@ -10991,22 +14999,22 @@ CURRENT_USER_MESSAGE:
                 : new { count = evidence.ScaleBasis.Count, label = evidence.ScaleBasis.Label },
             quantityFacts = evidence.QuantityFacts.Count == 0
                 ? null
-                : evidence.QuantityFacts.Take(12).Select(static fact => new
+                : evidence.QuantityFacts.Take(Math.Clamp(maxQuantityFacts, 1, 24)).Select(fact => new
                 {
                     value = fact.Value,
                     unit = fact.Unit,
                     label = fact.Label,
-                    sourceText = TruncateForPrompt(fact.SourceText, 180)
+                    sourceText = TruncateForPrompt(fact.SourceText, evidenceTextChars)
                 }),
             facts = evidence.Facts is not { Count: > 0 }
                 ? null
-                : evidence.Facts.Take(16).Select(static fact => new
+                : evidence.Facts.Take(Math.Clamp(maxFacts, 1, 32)).Select(fact => new
                 {
                     kind = fact.Kind,
                     label = fact.Label,
                     value = fact.Value,
                     unit = fact.Unit,
-                    sourceText = TruncateForPrompt(fact.SourceText, 180),
+                    sourceText = TruncateForPrompt(fact.SourceText, evidenceTextChars),
                     pageStart = fact.PageStart,
                     pageEnd = fact.PageEnd,
                     confidence = fact.Confidence

@@ -1,0 +1,809 @@
+{
+  "version": "documentation-technique-3m-indexed.v1",
+  "generatedAt": "2026-05-21T23:27:31Z",
+  "sourceFile": "server indexed category: Documentation technique",
+  "sourceCategory": "Documentation technique",
+  "description": "Questions adapt?es aux documents 3M/PTFE r?ellement index?s sur le serveur pour valider retrieval sans d?pendre de documents absents.",
+  "validationCases": [
+    {
+      "id": "Q001",
+      "axis": "Inventaire corpus",
+      "difficulty": "Facile",
+      "corpusTarget": "Documentation technique",
+      "theme": "Orientation corpus",
+      "question": "Quels documents dois-je lire en priorit? pour distinguer certificats, brochures, fiches techniques, MSDS et anciennes versions dans la documentation technique ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q002",
+      "axis": "Inventaire corpus",
+      "difficulty": "Facile",
+      "corpusTarget": "Documentation technique",
+      "theme": "Familles documentaires",
+      "question": "Quels fichiers du corpus rel?vent plut?t des certificats, lesquels des fiches techniques, lesquels des brochures ou leaflets, et lequel correspond ? une fiche de s?curit? ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q003",
+      "axis": "Inventaire corpus",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "Versions",
+      "question": "Y a-t-il une ancienne version d?un certificat PTFE dans le corpus, et comment la distinguer de la version courante ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q004",
+      "axis": "Inventaire corpus",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "Priorisation",
+      "question": "Si je dois v?rifier rapidement la conformit? puis les propri?t?s techniques d?un PTFE, dans quel ordre lire les certificats, data sheets et MSDS ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q005",
+      "axis": "Rep?rage document",
+      "difficulty": "Facile",
+      "corpusTarget": "Documentation technique",
+      "theme": "certificat FDA/EU PTFE-AS TF6220",
+      "question": "Retrouve les passages utiles dans `CER-FDA_EU Sleeve PTFE-AS TF6220-EN.pdf` et indique de quelle famille documentaire il s?agit.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q006",
+      "axis": "Synth?se sourc?e",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "certificat FDA/EU PTFE-AS TF6220",
+      "question": "Que peut-on conclure prudemment ? partir de `CER-FDA_EU Sleeve PTFE-AS TF6220-EN.pdf`, et quelles limites faut-il garder en t?te ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q007",
+      "axis": "Rep?rage document",
+      "difficulty": "Facile",
+      "corpusTarget": "Documentation technique",
+      "theme": "certificat FDA/EU PTFE TF1620",
+      "question": "Retrouve les passages utiles dans `CER-FDA_EU Sleeve PTFE TF1620-EN.pdf` et indique de quelle famille documentaire il s?agit.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q008",
+      "axis": "Synth?se sourc?e",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "certificat FDA/EU PTFE TF1620",
+      "question": "Que peut-on conclure prudemment ? partir de `CER-FDA_EU Sleeve PTFE TF1620-EN.pdf`, et quelles limites faut-il garder en t?te ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q009",
+      "axis": "Rep?rage document",
+      "difficulty": "Facile",
+      "corpusTarget": "Documentation technique",
+      "theme": "certificat regulations PTFE TF1620 TF1641 TF1645",
+      "question": "Retrouve les passages utiles dans `CER-FullRegulations_PTFE_TF1620_TF1641_TF1645-EN.pdf` et indique de quelle famille documentaire il s?agit.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q010",
+      "axis": "Synth?se sourc?e",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "certificat regulations PTFE TF1620 TF1641 TF1645",
+      "question": "Que peut-on conclure prudemment ? partir de `CER-FullRegulations_PTFE_TF1620_TF1641_TF1645-EN.pdf`, et quelles limites faut-il garder en t?te ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q011",
+      "axis": "Rep?rage document",
+      "difficulty": "Facile",
+      "corpusTarget": "Documentation technique",
+      "theme": "certificat USP Class VI TF1641 TF1620",
+      "question": "Retrouve les passages utiles dans `CER-USP Class VI TF1641_TF1620-EN.pdf` et indique de quelle famille documentaire il s?agit.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q012",
+      "axis": "Synth?se sourc?e",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "certificat USP Class VI TF1641 TF1620",
+      "question": "Que peut-on conclure prudemment ? partir de `CER-USP Class VI TF1641_TF1620-EN.pdf`, et quelles limites faut-il garder en t?te ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q013",
+      "axis": "Rep?rage document",
+      "difficulty": "Facile",
+      "corpusTarget": "Documentation technique",
+      "theme": "leaflet Dyneon PTFE PCG",
+      "question": "Retrouve les passages utiles dans `2018 03 Dyneon PTFE PCG 8p en_US.pdf` et indique de quelle famille documentaire il s?agit.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q014",
+      "axis": "Synth?se sourc?e",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "leaflet Dyneon PTFE PCG",
+      "question": "Que peut-on conclure prudemment ? partir de `2018 03 Dyneon PTFE PCG 8p en_US.pdf`, et quelles limites faut-il garder en t?te ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q015",
+      "axis": "Rep?rage document",
+      "difficulty": "Facile",
+      "corpusTarget": "Documentation technique",
+      "theme": "brochure PTFE",
+      "question": "Retrouve les passages utiles dans `PTFE Brochure.pdf` et indique de quelle famille documentaire il s?agit.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q016",
+      "axis": "Synth?se sourc?e",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "brochure PTFE",
+      "question": "Que peut-on conclure prudemment ? partir de `PTFE Brochure.pdf`, et quelles limites faut-il garder en t?te ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q017",
+      "axis": "Rep?rage document",
+      "difficulty": "Facile",
+      "corpusTarget": "Documentation technique",
+      "theme": "fiche technique Dyneon fluorothermoplastics",
+      "question": "Retrouve les passages utiles dans `FIT-Dyneon.pdf` et indique de quelle famille documentaire il s?agit.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q018",
+      "axis": "Synth?se sourc?e",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "fiche technique Dyneon fluorothermoplastics",
+      "question": "Que peut-on conclure prudemment ? partir de `FIT-Dyneon.pdf`, et quelles limites faut-il garder en t?te ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q019",
+      "axis": "Rep?rage document",
+      "difficulty": "Facile",
+      "corpusTarget": "Documentation technique",
+      "theme": "fiche technique PTFE TF 1620",
+      "question": "Retrouve les passages utiles dans `FIT-PTFE_TF_1620-EN.pdf` et indique de quelle famille documentaire il s?agit.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q020",
+      "axis": "Synth?se sourc?e",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "fiche technique PTFE TF 1620",
+      "question": "Que peut-on conclure prudemment ? partir de `FIT-PTFE_TF_1620-EN.pdf`, et quelles limites faut-il garder en t?te ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q021",
+      "axis": "Rep?rage document",
+      "difficulty": "Facile",
+      "corpusTarget": "Documentation technique",
+      "theme": "fiche technique PTFE TF 1641",
+      "question": "Retrouve les passages utiles dans `FIT-PTFE_TF_1641-EN.pdf` et indique de quelle famille documentaire il s?agit.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q022",
+      "axis": "Synth?se sourc?e",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "fiche technique PTFE TF 1641",
+      "question": "Que peut-on conclure prudemment ? partir de `FIT-PTFE_TF_1641-EN.pdf`, et quelles limites faut-il garder en t?te ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q023",
+      "axis": "Rep?rage document",
+      "difficulty": "Facile",
+      "corpusTarget": "Documentation technique",
+      "theme": "fiche technique PTFE TF 1750",
+      "question": "Retrouve les passages utiles dans `FIT-PTFE_TF_1750-EN.pdf` et indique de quelle famille documentaire il s?agit.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q024",
+      "axis": "Synth?se sourc?e",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "fiche technique PTFE TF 1750",
+      "question": "Que peut-on conclure prudemment ? partir de `FIT-PTFE_TF_1750-EN.pdf`, et quelles limites faut-il garder en t?te ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q025",
+      "axis": "Rep?rage document",
+      "difficulty": "Facile",
+      "corpusTarget": "Documentation technique",
+      "theme": "fiche technique PTFE TF 9205",
+      "question": "Retrouve les passages utiles dans `FIT-PTFE_TF_9205-EN.pdf` et indique de quelle famille documentaire il s?agit.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q026",
+      "axis": "Synth?se sourc?e",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "fiche technique PTFE TF 9205",
+      "question": "Que peut-on conclure prudemment ? partir de `FIT-PTFE_TF_9205-EN.pdf`, et quelles limites faut-il garder en t?te ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q027",
+      "axis": "Rep?rage document",
+      "difficulty": "Facile",
+      "corpusTarget": "Documentation technique",
+      "theme": "fiche de securite MSDS PTFE TF1620 TF1641 TF1645",
+      "question": "Retrouve les passages utiles dans `MSDS-PTFE_TF1620_TF1641_TF1645-EN.pdf` et indique de quelle famille documentaire il s?agit.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q028",
+      "axis": "Synth?se sourc?e",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "fiche de securite MSDS PTFE TF1620 TF1641 TF1645",
+      "question": "Que peut-on conclure prudemment ? partir de `MSDS-PTFE_TF1620_TF1641_TF1645-EN.pdf`, et quelles limites faut-il garder en t?te ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q029",
+      "axis": "Rep?rage document",
+      "difficulty": "Facile",
+      "corpusTarget": "Documentation technique",
+      "theme": "ancienne version certificat regulations PTFE",
+      "question": "Retrouve les passages utiles dans `Old versions/CER-FullRegulations_PTFE_TF1620_TF1641_TF1645-EN.pdf` et indique de quelle famille documentaire il s?agit.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q030",
+      "axis": "Synth?se sourc?e",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "ancienne version certificat regulations PTFE",
+      "question": "Que peut-on conclure prudemment ? partir de `Old versions/CER-FullRegulations_PTFE_TF1620_TF1641_TF1645-EN.pdf`, et quelles limites faut-il garder en t?te ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q031",
+      "axis": "Recherche produit",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "PTFE TF 1620",
+      "question": "Quels documents parlent de `PTFE TF 1620` et que permettent-ils de v?rifier sans extrapoler ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q032",
+      "axis": "Comparaison",
+      "difficulty": "Difficile",
+      "corpusTarget": "Documentation technique",
+      "theme": "PTFE TF 1620",
+      "question": "Compare les sources disponibles sur `PTFE TF 1620` entre certificats, data sheets, brochure ou MSDS selon ce qui existe dans le corpus.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q033",
+      "axis": "Recherche produit",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "PTFE TF 1641",
+      "question": "Quels documents parlent de `PTFE TF 1641` et que permettent-ils de v?rifier sans extrapoler ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q034",
+      "axis": "Comparaison",
+      "difficulty": "Difficile",
+      "corpusTarget": "Documentation technique",
+      "theme": "PTFE TF 1641",
+      "question": "Compare les sources disponibles sur `PTFE TF 1641` entre certificats, data sheets, brochure ou MSDS selon ce qui existe dans le corpus.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q035",
+      "axis": "Recherche produit",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "PTFE TF 1750",
+      "question": "Quels documents parlent de `PTFE TF 1750` et que permettent-ils de v?rifier sans extrapoler ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q036",
+      "axis": "Comparaison",
+      "difficulty": "Difficile",
+      "corpusTarget": "Documentation technique",
+      "theme": "PTFE TF 1750",
+      "question": "Compare les sources disponibles sur `PTFE TF 1750` entre certificats, data sheets, brochure ou MSDS selon ce qui existe dans le corpus.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q037",
+      "axis": "Recherche produit",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "PTFE TF 9205",
+      "question": "Quels documents parlent de `PTFE TF 9205` et que permettent-ils de v?rifier sans extrapoler ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q038",
+      "axis": "Comparaison",
+      "difficulty": "Difficile",
+      "corpusTarget": "Documentation technique",
+      "theme": "PTFE TF 9205",
+      "question": "Compare les sources disponibles sur `PTFE TF 9205` entre certificats, data sheets, brochure ou MSDS selon ce qui existe dans le corpus.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q039",
+      "axis": "Recherche produit",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "Dyneon PTFE PCG",
+      "question": "Quels documents parlent de `Dyneon PTFE PCG` et que permettent-ils de v?rifier sans extrapoler ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q040",
+      "axis": "Comparaison",
+      "difficulty": "Difficile",
+      "corpusTarget": "Documentation technique",
+      "theme": "Dyneon PTFE PCG",
+      "question": "Compare les sources disponibles sur `Dyneon PTFE PCG` entre certificats, data sheets, brochure ou MSDS selon ce qui existe dans le corpus.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q041",
+      "axis": "Recherche produit",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "PTFE TF1620 TF1641 TF1645",
+      "question": "Quels documents parlent de `PTFE TF1620 TF1641 TF1645` et que permettent-ils de v?rifier sans extrapoler ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q042",
+      "axis": "Comparaison",
+      "difficulty": "Difficile",
+      "corpusTarget": "Documentation technique",
+      "theme": "PTFE TF1620 TF1641 TF1645",
+      "question": "Compare les sources disponibles sur `PTFE TF1620 TF1641 TF1645` entre certificats, data sheets, brochure ou MSDS selon ce qui existe dans le corpus.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q043",
+      "axis": "Preuve documentaire",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "FDA EU",
+      "question": "Quels passages du corpus documentent `FDA EU` et dans quel type de document les trouve-t-on ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q044",
+      "axis": "Preuve documentaire",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "USP Class VI",
+      "question": "Quels passages du corpus documentent `USP Class VI` et dans quel type de document les trouve-t-on ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q045",
+      "axis": "Preuve documentaire",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "China RoHS",
+      "question": "Quels passages du corpus documentent `China RoHS` et dans quel type de document les trouve-t-on ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q046",
+      "axis": "Preuve documentaire",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "phthalates DEHP BBP DBP DIBP",
+      "question": "Quels passages du corpus documentent `phthalates DEHP BBP DBP DIBP` et dans quel type de document les trouve-t-on ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q047",
+      "axis": "Preuve documentaire",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "fluorinated greenhouse gas",
+      "question": "Quels passages du corpus documentent `fluorinated greenhouse gas` et dans quel type de document les trouve-t-on ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q048",
+      "axis": "Preuve documentaire",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "food contact regulatory status",
+      "question": "Quels passages du corpus documentent `food contact regulatory status` et dans quel type de document les trouve-t-on ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q049",
+      "axis": "Preuve documentaire",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "processing recommendations",
+      "question": "Quels passages du corpus documentent `processing recommendations` et dans quel type de document les trouve-t-on ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q050",
+      "axis": "Preuve documentaire",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "thermal properties",
+      "question": "Quels passages du corpus documentent `thermal properties` et dans quel type de document les trouve-t-on ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q051",
+      "axis": "Preuve documentaire",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "flammability UL 94",
+      "question": "Quels passages du corpus documentent `flammability UL 94` et dans quel type de document les trouve-t-on ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q052",
+      "axis": "Preuve documentaire",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "safety data sheet handling precautions",
+      "question": "Quels passages du corpus documentent `safety data sheet handling precautions` et dans quel type de document les trouve-t-on ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q053",
+      "axis": "Preuve documentaire",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "deformation under load",
+      "question": "Quels passages du corpus documentent `deformation under load` et dans quel type de document les trouve-t-on ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q054",
+      "axis": "Preuve documentaire",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "dielectric strength",
+      "question": "Quels passages du corpus documentent `dielectric strength` et dans quel type de document les trouve-t-on ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q055",
+      "axis": "Preuve documentaire",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "melt point",
+      "question": "Quels passages du corpus documentent `melt point` et dans quel type de document les trouve-t-on ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q056",
+      "axis": "Preuve documentaire",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "particle size",
+      "question": "Quels passages du corpus documentent `particle size` et dans quel type de document les trouve-t-on ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q057",
+      "axis": "Preuve documentaire",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "technical data processing information",
+      "question": "Quels passages du corpus documentent `technical data processing information` et dans quel type de document les trouve-t-on ?",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q058",
+      "axis": "Comparaison",
+      "difficulty": "Difficile",
+      "corpusTarget": "Documentation technique",
+      "theme": "PTFE TF 1620 vs PTFE TF 1641",
+      "question": "Compare `PTFE TF 1620` et `PTFE TF 1641` ? partir des documents disponibles, en s?parant preuve, contexte et limites.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q059",
+      "axis": "Comparaison",
+      "difficulty": "Difficile",
+      "corpusTarget": "Documentation technique",
+      "theme": "PTFE TF 1620 vs PTFE TF 9205",
+      "question": "Compare `PTFE TF 1620` et `PTFE TF 9205` ? partir des documents disponibles, en s?parant preuve, contexte et limites.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q060",
+      "axis": "Comparaison",
+      "difficulty": "Difficile",
+      "corpusTarget": "Documentation technique",
+      "theme": "certificat USP Class VI vs certificats FDA EU",
+      "question": "Compare `certificat USP Class VI` et `certificats FDA EU` ? partir des documents disponibles, en s?parant preuve, contexte et limites.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q061",
+      "axis": "Comparaison",
+      "difficulty": "Difficile",
+      "corpusTarget": "Documentation technique",
+      "theme": "data sheets vs MSDS",
+      "question": "Compare `data sheets` et `MSDS` ? partir des documents disponibles, en s?parant preuve, contexte et limites.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q062",
+      "axis": "Comparaison",
+      "difficulty": "Difficile",
+      "corpusTarget": "Documentation technique",
+      "theme": "brochure PTFE vs fiches techniques PTFE",
+      "question": "Compare `brochure PTFE` et `fiches techniques PTFE` ? partir des documents disponibles, en s?parant preuve, contexte et limites.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q063",
+      "axis": "Comparaison",
+      "difficulty": "Difficile",
+      "corpusTarget": "Documentation technique",
+      "theme": "version courante vs ancienne version",
+      "question": "Compare `version courante` et `ancienne version` ? partir des documents disponibles, en s?parant preuve, contexte et limites.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q064",
+      "axis": "Contr?le anti-hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "Documentation technique",
+      "theme": "conformit? g?n?rale PTFE",
+      "question": "Je crois que le corpus d?montre toujours `conformit? g?n?rale PTFE`. V?rifie si c?est prouv?, limit?, recommand? ou non d?montr?.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q065",
+      "axis": "Contr?le anti-hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "Documentation technique",
+      "theme": "certification compl?te du produit",
+      "question": "Je crois que le corpus d?montre toujours `certification compl?te du produit`. V?rifie si c?est prouv?, limit?, recommand? ou non d?montr?.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q066",
+      "axis": "Contr?le anti-hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "Documentation technique",
+      "theme": "mode d emploi d?taill?",
+      "question": "Je crois que le corpus d?montre toujours `mode d emploi d?taill?`. V?rifie si c?est prouv?, limit?, recommand? ou non d?montr?.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q067",
+      "axis": "Contr?le anti-hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "Documentation technique",
+      "theme": "usage alimentaire",
+      "question": "Je crois que le corpus d?montre toujours `usage alimentaire`. V?rifie si c?est prouv?, limit?, recommand? ou non d?montr?.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q068",
+      "axis": "Contr?le anti-hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "Documentation technique",
+      "theme": "s?curit? de transformation",
+      "question": "Je crois que le corpus d?montre toujours `s?curit? de transformation`. V?rifie si c?est prouv?, limit?, recommand? ou non d?montr?.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q069",
+      "axis": "Contr?le anti-hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "Documentation technique",
+      "theme": "choix du meilleur grade PTFE",
+      "question": "Je crois que le corpus d?montre toujours `choix du meilleur grade PTFE`. V?rifie si c?est prouv?, limit?, recommand? ou non d?montr?.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q070",
+      "axis": "Contr?le anti-hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "Documentation technique",
+      "theme": "preuve r?glementaire universelle",
+      "question": "Je crois que le corpus d?montre toujours `preuve r?glementaire universelle`. V?rifie si c?est prouv?, limit?, recommand? ou non d?montr?.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q071",
+      "axis": "Contr?le anti-hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "Documentation technique",
+      "theme": "?quivalence entre ancienne et nouvelle version",
+      "question": "Je crois que le corpus d?montre toujours `?quivalence entre ancienne et nouvelle version`. V?rifie si c?est prouv?, limit?, recommand? ou non d?montr?.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q072",
+      "axis": "Question conversationnelle",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "fiches techniques 3M",
+      "question": "Pr?pare une r?ponse courte et sourc?e pour orienter un utilisateur qui demande `fiches techniques 3M` dans la documentation technique.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q073",
+      "axis": "Question conversationnelle",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "brochure PTFE",
+      "question": "Pr?pare une r?ponse courte et sourc?e pour orienter un utilisateur qui demande `brochure PTFE` dans la documentation technique.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q074",
+      "axis": "Question conversationnelle",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "MSDS PTFE",
+      "question": "Pr?pare une r?ponse courte et sourc?e pour orienter un utilisateur qui demande `MSDS PTFE` dans la documentation technique.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q075",
+      "axis": "Question conversationnelle",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "leaflet Dyneon",
+      "question": "Pr?pare une r?ponse courte et sourc?e pour orienter un utilisateur qui demande `leaflet Dyneon` dans la documentation technique.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q076",
+      "axis": "Question conversationnelle",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "ancienne version certificat",
+      "question": "Pr?pare une r?ponse courte et sourc?e pour orienter un utilisateur qui demande `ancienne version certificat` dans la documentation technique.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q077",
+      "axis": "Question conversationnelle",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "propri?t?s ?lectriques",
+      "question": "Pr?pare une r?ponse courte et sourc?e pour orienter un utilisateur qui demande `propri?t?s ?lectriques` dans la documentation technique.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q078",
+      "axis": "Question conversationnelle",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "propri?t?s thermiques",
+      "question": "Pr?pare une r?ponse courte et sourc?e pour orienter un utilisateur qui demande `propri?t?s thermiques` dans la documentation technique.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q079",
+      "axis": "Question conversationnelle",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "recommandations de processing",
+      "question": "Pr?pare une r?ponse courte et sourc?e pour orienter un utilisateur qui demande `recommandations de processing` dans la documentation technique.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    },
+    {
+      "id": "Q080",
+      "axis": "Question conversationnelle",
+      "difficulty": "Moyen",
+      "corpusTarget": "Documentation technique",
+      "theme": "restrictions r?glementaires",
+      "question": "Pr?pare une r?ponse courte et sourc?e pour orienter un utilisateur qui demande `restrictions r?glementaires` dans la documentation technique.",
+      "expectedAnswerKind": "R?ponse sourc?e avec distinction des documents et limites explicites.",
+      "validationPoints": "Doit citer uniquement des ?l?ments pr?sents dans le corpus index?, distinguer les familles documentaires et refuser les conclusions trop larges."
+    }
+  ]
+}

@@ -878,6 +878,72 @@ public sealed class PdfOcrTextExtractorTests
     }
 
     [Fact]
+    public async Task TryMergeImagePageOcrAsync_reports_image_page_progress()
+    {
+        var native = BuildImagePageNativeExtraction(3);
+        var progress = new List<(int Current, int Total)>();
+        var cancelChecks = 0;
+
+        var result = await PdfOcrTextExtractor.TryMergeImagePageOcrAsync(
+            Path.Combine(Path.GetTempPath(), "saaia-missing-image-progress.pdf"),
+            BuildMissingImagePageOcrOptions(maxPages: 3),
+            native,
+            CancellationToken.None,
+            languagesOverride: "eng",
+            callbacks: new PdfImagePageOcrCallbacks(
+                ReportProgressAsync: (current, total, _) =>
+                {
+                    progress.Add((current, total));
+                    return Task.CompletedTask;
+                },
+                IsCancellationRequestedAsync: _ =>
+                {
+                    cancelChecks++;
+                    return Task.FromResult(false);
+                }));
+
+        Assert.NotNull(result);
+        Assert.Null(result!.Extraction);
+        Assert.Equal(3, result.Diagnostics.AttemptedPageCount);
+        Assert.Contains((0, 3), progress);
+        Assert.Contains((1, 3), progress);
+        Assert.Contains((2, 3), progress);
+        Assert.Contains((3, 3), progress);
+        Assert.True(cancelChecks >= 4);
+    }
+
+    [Fact]
+    public async Task TryMergeImagePageOcrAsync_honors_external_cancel_polling_between_pages()
+    {
+        var native = BuildImagePageNativeExtraction(2);
+        var progress = new List<(int Current, int Total)>();
+        var cancelChecks = 0;
+
+        var ex = await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            PdfOcrTextExtractor.TryMergeImagePageOcrAsync(
+                Path.Combine(Path.GetTempPath(), "saaia-missing-image-cancel.pdf"),
+                BuildMissingImagePageOcrOptions(maxPages: 2),
+                native,
+                CancellationToken.None,
+                languagesOverride: "eng",
+                callbacks: new PdfImagePageOcrCallbacks(
+                    ReportProgressAsync: (current, total, _) =>
+                    {
+                        progress.Add((current, total));
+                        return Task.CompletedTask;
+                    },
+                    IsCancellationRequestedAsync: _ =>
+                    {
+                        cancelChecks++;
+                        return Task.FromResult(cancelChecks >= 3);
+                    })));
+
+        Assert.Contains("Image-page OCR cancellation requested", ex.Message);
+        Assert.Contains((0, 2), progress);
+        Assert.Contains((1, 2), progress);
+    }
+
+    [Fact]
     public void BuildImagePageOcrPlan_prioritizes_sparse_image_pages_before_distributed_normal_pages()
     {
         var pages = Enumerable.Range(1, 12)
@@ -1252,6 +1318,41 @@ public sealed class PdfOcrTextExtractorTests
         }
 
         return count;
+    }
+
+    private static IngestionOptions BuildMissingImagePageOcrOptions(int maxPages)
+        => new()
+        {
+            OcrEnabled = true,
+            OcrImagePageEnabled = true,
+            OcrImagePageMaxPages = maxPages,
+            OcrImageRendererCommand = "saaia-missing-image-renderer-command",
+            OcrImageTextCommand = "saaia-missing-image-text-command",
+            OcrImagePageTimeoutSeconds = 10,
+            OcrImagePageMaxTotalSeconds = 30
+        };
+
+    private static PdfExtractionResult BuildImagePageNativeExtraction(int pageCount)
+    {
+        var pages = Enumerable.Range(1, pageCount)
+            .Select(pageNumber =>
+            {
+                var text = $"Native text page {pageNumber} with an image requiring possible OCR recovery.";
+                var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                return new ExtractedPdfPage(
+                    pageNumber,
+                    text,
+                    words.Length,
+                    text.Length,
+                    [1],
+                    ImageCount: 1);
+            })
+            .ToList();
+
+        return new PdfExtractionResult(
+            pages.SelectMany(page => page.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(word => new WordToken(word, page.PageNumber))).ToList(),
+            pages,
+            PdfExtractionQualitySummary.FromPages(pages));
     }
 
     private static void WriteRasterTextPdf(string path)

@@ -38,6 +38,14 @@ public sealed partial class ToolAgentOrchestrator
             return (true, answer, null, "chat.general", Array.Empty<string>());
         }
 
+        if (LooksLikeVagueVerificationScopeQuestion(effectiveUserMessage))
+        {
+            var answer = BuildVagueVerificationScopeClarification(interactionLanguage);
+            await EmitDeterministicTextAsync(answer, onDelta, ct).ConfigureAwait(false);
+            RememberPendingClarification("verification_scope", displayUserMessage, null, interactionLanguage);
+            return (true, answer, null, "clarification", Array.Empty<string>());
+        }
+
         if (LooksLikeHelpOnlyAdminReindexDisplayText(effectiveUserMessage))
         {
             var answer = LocalizedStrings.HelpOnlyCommandUseHelp(interactionLanguage);
@@ -1155,7 +1163,7 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
             return false;
 
         return Regex.IsMatch(normalizedMessage,
-            @"\b(?:pourquoi|comment|explique(?: moi)?|de quoi parle|qu est ce que .* signifie|que signifie|what is|what does|why|how\s+(?:do|does|did|can|could|would|to|is|are)|explain|meaning|about this document|worum geht|warum|wie\s+(?:funktioniert|kann|ist)|erklar(?:e|en)?|de que trata|por que|como\s+(?:funciona|puedo|se)|explica(?:me)?|que significa|do que trata|porque|como\s+(?:funciona|posso)|explica(?:r)?|o que significa|di cosa parla|perche|come\s+(?:funziona|posso)|spiega)\b",
+            @"\b(?:pourquoi|comment|peux\s+tu|peux-tu|pouvez\s+vous|explique(?: moi)?|de quoi parle|vue d ensemble|qu est ce que .* signifie|que signifie|what is|what does|why|can you|could you|would you|how\s+(?:do|does|did|can|could|would|to|is|are)|overview|useful|important|business\s+questions?|source\s+grounded|source-grounded|which\s+(?:pdfs?|documents?|sources?)|about this category|about this document|explain|meaning|worum geht|warum|wie\s+(?:funktioniert|kann|ist)|erklar(?:e|en)?|de que trata|por que|como\s+(?:funciona|puedo|se)|explica(?:me)?|que significa|do que trata|porque|como\s+(?:funciona|posso)|explica(?:r)?|o que significa|di cosa parla|perche|come\s+(?:funziona|posso)|spiega)\b",
             ShortcutRegexOptions);
     }
 
@@ -1504,12 +1512,33 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
             return false;
         }
 
+        if (LooksLikeDocumentaryContentQuestionBeyondCatalogCommand(s))
+            return false;
+
         return LooksLikeMalformedCategoriesCommand(s)
             || LooksLikeMalformedCatalogStatsCommand(s)
             || LooksLikeMalformedTreeCommand(s)
             || LooksLikeMalformedCategoryScopedCommand(s)
             || LooksLikeMalformedSummaryStatusCommand(s)
             || LooksLikeMalformedAdminCatalogRescanCommand(s);
+    }
+
+    private static bool LooksLikeDocumentaryContentQuestionBeyondCatalogCommand(string normalizedMessage)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedMessage))
+            return false;
+
+        var mentionsDocumentarySource = Regex.IsMatch(
+            normalizedMessage,
+            @"\b(?:pdf|document|documents|doc|docs|source|sources|corpus|file|files|fichier|fichiers)\b",
+            ShortcutRegexOptions);
+        if (!mentionsDocumentarySource)
+            return false;
+
+        return Regex.IsMatch(
+            normalizedMessage,
+            @"\b(?:parle|parlent|contient|contiennent|traite|traitent|about|cover|covers|overview|useful|important|business|meilleur|meilleure|meilleurs|meilleures|best|pire|pires|worst|tester|test|robustesse|robustness|preuve|preuves|evidence|evidences|limite|limites|risk|risque|risques|compare|comparer|comparaison|resume|resumer|synthese|synthese|explique|expliquer)\b",
+            ShortcutRegexOptions);
     }
 
     private static bool LooksLikeMalformedCategoriesCommand(string normalizedMessage)

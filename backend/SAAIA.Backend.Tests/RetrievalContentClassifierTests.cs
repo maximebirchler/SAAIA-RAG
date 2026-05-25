@@ -111,6 +111,26 @@ PREPARATION 1. Rinse the modules and dry them. 2. Mix the base compound with the
     }
 
     [Fact]
+    public void AnalyzeChunk_keeps_measured_sequential_body_as_content_despite_inline_numbers()
+    {
+        var text = """
+ALPHA BETA MODULE
+1 Mix the base with 150 g powder and 20 g binder for 12 min until the control value is stable.
+2 Heat the carrier to 85 C for 12 min and record the pressure value before continuing.
+3 Cut the inserts into equal pieces, add 50 cl carrier and keep the assembly moving for 20 s.
+4 Place each insert in the fixture and hold it for 25 min while the surface cools.
+5 Finish the assembly with 18 cl solution, verify the result and document the batch.
+4 units 23 min 12 min 25 min.
+""";
+
+        var signal = RetrievalContentClassifier.AnalyzeChunk(text);
+
+        Assert.Equal(RetrievalContentClassifier.ContentRole, signal.ContentRole);
+        Assert.Null(signal.NavigationReason);
+        Assert.True(signal.ContentDensityScore >= 0.70);
+    }
+
+    [Fact]
     public void DetectNavigationReason_keeps_structured_content_with_pdf_index_artifact()
     {
         var text = "16 Maintenance lockout [Index: ] ASSET-042 Materials padlock warning tag. Procedure 1. Isolate machine. 2. Verify zero energy.";

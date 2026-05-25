@@ -116,7 +116,18 @@ internal static class PdfOcrTextExtractor
 
             var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
             var stderrTask = process.StandardError.ReadToEndAsync(ct);
-            var exited = await WaitForExitAsync(process, timeout, ct).ConfigureAwait(false);
+            bool exited;
+            try
+            {
+                exited = await WaitForExitAsync(process, timeout, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                TryKill(process);
+                await TryDrainAsync(stdoutTask, stderrTask).ConfigureAwait(false);
+                throw;
+            }
+
             if (!exited)
             {
                 TryKill(process);
@@ -308,7 +319,8 @@ internal static class PdfOcrTextExtractor
         IngestionOptions options,
         PdfExtractionResult nativeExtraction,
         CancellationToken ct,
-        string? languagesOverride = null)
+        string? languagesOverride = null,
+        PdfImagePageOcrCallbacks? callbacks = null)
     {
         if (!options.OcrEnabled || !options.OcrImagePageEnabled)
             return null;
@@ -317,6 +329,7 @@ internal static class PdfOcrTextExtractor
         if (plan.CandidatePageCount == 0)
             return null;
 
+        callbacks ??= PdfImagePageOcrCallbacks.None;
         var languages = string.IsNullOrWhiteSpace(languagesOverride)
             ? ResolveLanguagesForDocument(pdfPath, options, nativeExtraction)
             : languagesOverride.Trim();
@@ -333,9 +346,12 @@ internal static class PdfOcrTextExtractor
 
         try
         {
+            await callbacks.ThrowIfCancellationRequestedAsync(ct).ConfigureAwait(false);
+            await callbacks.ReportAsync(0, plan.AttemptedPages.Length, ct).ConfigureAwait(false);
+
             for (var pageIndex = 0; pageIndex < plan.AttemptedPages.Length; pageIndex++)
             {
-                ct.ThrowIfCancellationRequested();
+                await callbacks.ThrowIfCancellationRequestedAsync(ct).ConfigureAwait(false);
                 if (IsImagePageTotalBudgetExceeded(totalBudget, totalStopwatch.Elapsed))
                 {
                     timeBudgetExhausted = true;
@@ -352,6 +368,7 @@ internal static class PdfOcrTextExtractor
                 }
 
                 var pageNumber = plan.AttemptedPages[pageIndex];
+                await callbacks.ReportAsync(pageIndex + 1, plan.AttemptedPages.Length, ct).ConfigureAwait(false);
                 var imagePath = Path.Combine(tempDir, $"page-{pageNumber:D5}.png");
                 var outputBase = Path.Combine(tempDir, $"page-{pageNumber:D5}");
                 var outputText = outputBase + ".txt";
@@ -374,6 +391,7 @@ internal static class PdfOcrTextExtractor
                     $"-q -dNOPAUSE -dBATCH -sDEVICE=pnggray -r{dpi} -dFirstPage={pageNumber} -dLastPage={pageNumber} -sOutputFile={QuoteArgument(imagePath)} {QuoteArgument(pdfPath)}",
                     renderTimeout.Value,
                     ct).ConfigureAwait(false);
+                await callbacks.ThrowIfCancellationRequestedAsync(ct).ConfigureAwait(false);
                 if (!rendered.Succeeded)
                 {
                     pageDiagnostics[pageNumber] = BuildImagePageProcessDiagnostic(pageNumber, "render_failed", rendered);
@@ -399,6 +417,7 @@ internal static class PdfOcrTextExtractor
                     $"{QuoteArgument(imagePath)} {QuoteArgument(outputBase)} -l {QuoteArgument(languages)} --psm {pageSegmentationMode}",
                     ocrTimeout.Value,
                     ct).ConfigureAwait(false);
+                await callbacks.ThrowIfCancellationRequestedAsync(ct).ConfigureAwait(false);
                 if (!ocrDone.Succeeded)
                 {
                     pageDiagnostics[pageNumber] = BuildImagePageProcessDiagnostic(pageNumber, "ocr_failed", ocrDone);
@@ -441,6 +460,10 @@ internal static class PdfOcrTextExtractor
                     TimedOut: ocrDone.TimedOut);
             }
 
+            await callbacks.ReportAsync(
+                Math.Min(attemptedPages.Count, plan.AttemptedPages.Length),
+                plan.AttemptedPages.Length,
+                ct).ConfigureAwait(false);
             var effectivePlan = BuildEffectiveImagePageOcrPlan(plan, attemptedPages, skippedPages);
             var merged = MergeImageOcrText(nativeExtraction, pageText, languages, Math.Max(1, options.OcrImagePageMinWords));
             var diagnostics = BuildImagePageOcrDiagnostics(
@@ -457,7 +480,7 @@ internal static class PdfOcrTextExtractor
                 merged is null ? null : merged with { OcrDiagnostics = diagnostics },
                 diagnostics);
         }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        catch (OperationCanceledException ex) when (ct.IsCancellationRequested || ex.CancellationToken == ct)
         {
             throw;
         }
@@ -1928,7 +1951,18 @@ internal static class PdfOcrTextExtractor
 
             var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
             var stderrTask = process.StandardError.ReadToEndAsync(ct);
-            var exited = await WaitForExitAsync(process, timeout, ct).ConfigureAwait(false);
+            bool exited;
+            try
+            {
+                exited = await WaitForExitAsync(process, timeout, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                TryKill(process);
+                await TryDrainAsync(stdoutTask, stderrTask).ConfigureAwait(false);
+                throw;
+            }
+
             if (!exited)
             {
                 TryKill(process);

@@ -418,7 +418,11 @@ public static class ReadyEndpoints
         details["ingestion_qdrant_max_concurrency"] = Math.Max(1, ingestion.QdrantMaxConcurrency);
         details["ingestion_ocr_max_concurrency"] = Math.Max(1, ingestion.OcrMaxConcurrency);
         details["ingestion_bulkhead_acquire_timeout_seconds"] = Math.Clamp(ingestion.BulkheadAcquireTimeoutSeconds, 1, 3600);
-        details["ingestion_ocr_bulkhead_acquire_timeout_seconds"] = Math.Clamp(ingestion.OcrBulkheadAcquireTimeoutSeconds, 1, 86400);
+        details["ingestion_ocr_bulkhead_acquire_timeout_seconds"] = IngestionOptions.ResolveOcrBulkheadQueueWaitTimeoutSeconds(
+            ingestion.OcrBulkheadAcquireTimeoutSeconds,
+            ingestion.OcrBulkheadQueueWaitTimeoutSeconds);
+        details["ingestion_ocr_bulkhead_acquire_timeout_seconds_configured"] = Math.Clamp(ingestion.OcrBulkheadAcquireTimeoutSeconds, 1, 86400);
+        details["ingestion_ocr_bulkhead_queue_wait_timeout_seconds"] = Math.Clamp(ingestion.OcrBulkheadQueueWaitTimeoutSeconds, 1, 3600);
         details["ingestion_ocr_image_page_max_pages"] = ingestion.OcrImagePageMaxPages <= 0
             ? "all"
             : Math.Clamp(ingestion.OcrImagePageMaxPages, 1, 500).ToString(CultureInfo.InvariantCulture);
@@ -445,6 +449,8 @@ public static class ReadyEndpoints
         details["rag_search_queue_limit"] = snapshot.QueueLimit;
         details["rag_search_queue_wait_timeout_seconds"] = snapshot.QueueWaitTimeoutSeconds;
         details["rag_search_retry_after_seconds"] = Math.Clamp(rag.SearchRetryAfterSeconds, 1, 300);
+        details["rag_search_dense_embedding_timeout_seconds"] = RagOptions.ResolveSearchDenseEmbeddingTimeoutSeconds(rag.SearchDenseEmbeddingTimeoutSeconds);
+        details["rag_search_sparse_command_timeout_seconds"] = RagOptions.ResolveSearchSparseCommandTimeoutSeconds(rag.SearchSparseCommandTimeoutSeconds);
         details["rag_search_active"] = snapshot.Active;
         details["rag_search_queued"] = snapshot.Queued;
         details["rag_search_available_slots"] = snapshot.AvailableSlots;

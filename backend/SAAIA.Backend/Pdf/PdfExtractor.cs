@@ -432,4 +432,22 @@ sealed record PdfImagePageOcrResult(
     PdfExtractionResult? Extraction,
     PdfOcrDiagnostics Diagnostics);
 
+sealed record PdfImagePageOcrCallbacks(
+    Func<int, int, CancellationToken, Task>? ReportProgressAsync = null,
+    Func<CancellationToken, Task<bool>>? IsCancellationRequestedAsync = null)
+{
+    public static readonly PdfImagePageOcrCallbacks None = new();
+
+    public Task ReportAsync(int current, int total, CancellationToken ct)
+        => ReportProgressAsync?.Invoke(current, total, ct) ?? Task.CompletedTask;
+
+    public async Task ThrowIfCancellationRequestedAsync(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (IsCancellationRequestedAsync is not null
+            && await IsCancellationRequestedAsync(ct).ConfigureAwait(false))
+            throw new OperationCanceledException("Image-page OCR cancellation requested.", ct);
+    }
+}
+
 sealed record Chunk(int ChunkIndex, int PageStart, int PageEnd, string Text);

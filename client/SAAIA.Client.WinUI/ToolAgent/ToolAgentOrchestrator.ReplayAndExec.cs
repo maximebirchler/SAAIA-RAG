@@ -22,6 +22,8 @@ public sealed partial class ToolAgentOrchestrator
 {
     private const int RagMultiSearchMaxParallelism = 2;
 
+    private sealed record RagMultiSearchHitCandidate(JsonElement Hit, int QueryIndex, int HitRank, int QuerySpecificity, string Query);
+
     private static string BuildRagHitDedupeKey(JsonElement hit)
     {
         var docPath =
@@ -161,6 +163,41 @@ public sealed partial class ToolAgentOrchestrator
             richness += 8 + Math.Min(10, CountObjectScalarProperties(hints.Value));
 
         return richness;
+    }
+
+    private static JsonElement AnnotateRagMultiSearchHit(RagMultiSearchHitCandidate candidate)
+    {
+        if (candidate.Hit.ValueKind != JsonValueKind.Object)
+            return candidate.Hit.Clone();
+
+        var payload = JsonSerializer.Deserialize<Dictionary<string, object?>>(candidate.Hit.GetRawText())
+                      ?? new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        payload.TryAdd("retrievalQuery", candidate.Query);
+        payload.TryAdd("retrievalQueryIndex", candidate.QueryIndex);
+        payload.TryAdd("retrievalHitRank", candidate.HitRank);
+        payload.TryAdd("retrievalQuerySpecificity", candidate.QuerySpecificity);
+        return JsonDocument.Parse(JsonSerializer.Serialize(payload)).RootElement.Clone();
+    }
+
+    private static int ComputeRagMultiSearchQuerySpecificity(string query)
+    {
+        var normalized = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return 0;
+
+        var distinctTerms = Regex.Matches(normalized, @"[\p{L}\p{Nd}]{2,}", RegexOptions.CultureInvariant)
+            .Cast<Match>()
+            .Select(static match => match.Value)
+            .Distinct(StringComparer.Ordinal)
+            .Count();
+        var score = Math.Min(80, distinctTerms * 5) + Math.Min(40, normalized.Length / 8);
+
+        if (query.Contains('"', StringComparison.Ordinal))
+            score += 8;
+        if (Regex.IsMatch(normalized, @"\b(?:detail|details|procedure|quantite|quantites|quantity|quantities|timing|source|sources)\b", RegexOptions.CultureInvariant))
+            score += 8;
+
+        return score;
     }
 
     private static int CountArrayPropertyAny(JsonElement obj, params string[] propertyNames)
@@ -829,7 +866,7 @@ public sealed partial class ToolAgentOrchestrator
 
     private async Task<JsonElement> ExecRagSearchAsync(JsonElement args, CancellationToken ct)
     {
-        var query = NormalizeRagQueryForRetrieval(args.GetProperty("query").GetString() ?? "");
+        var query = ResolveRagSearchExecutionQuery(args.GetProperty("query").GetString() ?? "");
         var topK = args.TryGetProperty("topK", out var k) ? k.GetInt32() : 8;
         var categoryScope = GetRagCategoryScopeArg(args);
         var mode = args.TryGetProperty("mode", out var m) && m.ValueKind != JsonValueKind.Null ? m.GetString() : "balanced";
@@ -861,6 +898,19 @@ public sealed partial class ToolAgentOrchestrator
         var normalized = NormalizeRagHits(raw);
         RememberLastRagDiagnostics(new[] { query }, normalized);
         return normalized;
+    }
+
+    private static string ResolveRagSearchExecutionQuery(string? rawQuery)
+    {
+        var raw = CollapseWhitespace(rawQuery ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(raw))
+            return string.Empty;
+
+        if (TryExtractDelimitedUserDemandTopic(raw, out _))
+            return raw;
+
+        var normalized = NormalizeRagQueryForRetrieval(raw);
+        return string.IsNullOrWhiteSpace(normalized) ? raw : normalized;
     }
 
     private async Task<JsonElement> ExecRagSearchRawAsync(string query, int topK, string? categoryScope, string? mode, CancellationToken ct)
@@ -973,14 +1023,13 @@ public sealed partial class ToolAgentOrchestrator
                 return;
             }
 
-            var normalized = NormalizeRagQueryForRetrieval(raw);
-            if (!string.IsNullOrWhiteSpace(normalized))
-                AddDistinctRagQuery(queries, normalized);
+            AddDistinctRagQuery(queries, raw);
 
-            if (!string.IsNullOrWhiteSpace(raw)
+            var normalized = NormalizeRagQueryForRetrieval(raw);
+            if (!string.IsNullOrWhiteSpace(normalized)
                 && !string.Equals(raw, normalized, StringComparison.OrdinalIgnoreCase))
             {
-                AddDistinctRagQuery(queries, raw);
+                AddDistinctRagQuery(queries, normalized);
             }
         }
 
@@ -1005,12 +1054,15 @@ public sealed partial class ToolAgentOrchestrator
 
         async Task<JsonElement> RunMergedSearchAsync(string? scope, bool categoryInferred)
         {
-            var merged = new List<JsonElement>();
+            var merged = new List<RagMultiSearchHitCandidate>();
             var queryRuns = new List<object?>();
             var degradedRetrievers = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
             object? selectedGuidance = null;
             string? selectedGuidanceBehavior = null;
             var selectedQueries = queries.Take(8).ToArray();
+            var querySpecificities = selectedQueries
+                .Select(ComputeRagMultiSearchQuerySpecificity)
+                .ToArray();
             var fanoutParallelism = Math.Min(RagMultiSearchMaxParallelism, Math.Max(1, selectedQueries.Length));
             using var gate = new SemaphoreSlim(fanoutParallelism);
             var runs = await Task.WhenAll(selectedQueries.Select(async (q, index) =>
@@ -1074,8 +1126,16 @@ public sealed partial class ToolAgentOrchestrator
 
                 if (run.Norm.TryGetProperty("hits", out var hits) && hits.ValueKind == JsonValueKind.Array)
                 {
+                    var hitRank = 0;
                     foreach (var h in hits.EnumerateArray())
-                        merged.Add(h);
+                    {
+                        merged.Add(new RagMultiSearchHitCandidate(
+                            h.Clone(),
+                            run.Index,
+                            hitRank++,
+                            querySpecificities.Length > run.Index ? querySpecificities[run.Index] : 0,
+                            run.Query));
+                    }
                 }
             }
 
@@ -1087,22 +1147,79 @@ public sealed partial class ToolAgentOrchestrator
 
             // Dedup by docPath + pageStart + pageEnd, keeping the richest metadata variant.
             var uniq = merged
-                .GroupBy(BuildRagHitDedupeKey, StringComparer.OrdinalIgnoreCase)
-                .Select(static group => group
-                    .OrderByDescending(ComputeRagHitMetadataRichness)
-                    .ThenByDescending(ReadRagHitScore)
-                    .First())
+                .GroupBy(static candidate => BuildRagHitDedupeKey(candidate.Hit), StringComparer.OrdinalIgnoreCase)
+                .Select(static group =>
+                {
+                    var bestHit = group
+                        .OrderByDescending(static candidate => ComputeRagHitMetadataRichness(candidate.Hit))
+                        .ThenByDescending(static candidate => ReadRagHitScore(candidate.Hit))
+                        .First()
+                        .Hit;
+                    var primaryOrigin = group
+                        .Where(static candidate => candidate.QueryIndex == 0 && candidate.HitRank <= 1)
+                        .OrderBy(static candidate => candidate.HitRank)
+                        .ThenByDescending(static candidate => ReadRagHitScore(candidate.Hit))
+                        .FirstOrDefault();
+                    var bestOrigin = primaryOrigin ?? group
+                        .OrderByDescending(static candidate => candidate.QuerySpecificity)
+                        .ThenBy(static candidate => candidate.HitRank)
+                        .ThenByDescending(static candidate => ReadRagHitScore(candidate.Hit))
+                        .First();
+                    return bestOrigin with { Hit = bestHit };
+                })
                 .ToList();
 
-            // Sort by score desc when present
-            uniq = uniq
-                .OrderByDescending(h => h.TryGetProperty("score", out var sc) && sc.ValueKind == JsonValueKind.Number ? sc.GetDouble() : 0.0)
-                .Take(Math.Max(10, topK * 2))
+            var outputLimit = Math.Max(10, topK * 2);
+            var selected = new List<RagMultiSearchHitCandidate>(outputLimit);
+            var selectedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            void AddCandidate(RagMultiSearchHitCandidate candidate)
+            {
+                if (selected.Count >= outputLimit)
+                    return;
+
+                if (selectedKeys.Add(BuildRagHitDedupeKey(candidate.Hit)))
+                    selected.Add(candidate);
+            }
+
+            foreach (var candidate in uniq
+                         .Where(static candidate => candidate.QueryIndex == 0 && candidate.HitRank <= 1)
+                         .OrderBy(static candidate => candidate.HitRank)
+                         .ThenByDescending(static candidate => ReadRagHitScore(candidate.Hit)))
+            {
+                AddCandidate(candidate);
+            }
+
+            var perQueryKeep = Math.Clamp(topK / 2, 1, 3);
+            foreach (var candidate in uniq
+                         .GroupBy(static candidate => candidate.QueryIndex)
+                         .SelectMany(group => group
+                             .OrderBy(static candidate => candidate.HitRank)
+                             .ThenByDescending(static candidate => ReadRagHitScore(candidate.Hit))
+                             .Take(perQueryKeep))
+                         .OrderByDescending(static candidate => candidate.QuerySpecificity)
+                         .ThenBy(static candidate => candidate.HitRank)
+                         .ThenBy(static candidate => candidate.QueryIndex)
+                         .ThenByDescending(static candidate => ReadRagHitScore(candidate.Hit)))
+            {
+                AddCandidate(candidate);
+            }
+
+            foreach (var candidate in uniq
+                         .OrderByDescending(static candidate => ReadRagHitScore(candidate.Hit))
+                         .ThenByDescending(static candidate => candidate.QuerySpecificity)
+                         .ThenBy(static candidate => candidate.HitRank)
+                         .ThenBy(static candidate => candidate.QueryIndex))
+            {
+                AddCandidate(candidate);
+            }
+
+            var outputHits = selected
+                .Select(static candidate => AnnotateRagMultiSearchHit(candidate))
                 .ToList();
 
             var payload = new
             {
-                hits = uniq,
+                hits = outputHits,
                 error = allBusy ? "rag_search_busy" : null,
                 busy = allBusy ? true : (bool?)null,
                 retryAfterSeconds = allBusy ? retryAfterSeconds : null,
@@ -1277,12 +1394,24 @@ public sealed partial class ToolAgentOrchestrator
 
     private static string FormatRagDiagnosticHitLabel(JsonElement hit)
     {
-        var docName = TryGetString(hit, "docName") ?? Path.GetFileName(TryGetString(hit, "docPath") ?? string.Empty);
-        var pageStart = TryGetInt(hit, "pageStart") ?? 1;
-        var pageEnd = TryGetInt(hit, "pageEnd") ?? pageStart;
-        var score = TryGetDouble(hit, "score") ?? 0.0;
+        var summary = BuildRagHitSummary(hit);
+        var docName = string.IsNullOrWhiteSpace(summary.DocName)
+            ? Path.GetFileName(summary.DocPath ?? string.Empty)
+            : summary.DocName;
+        var pageStart = summary.PageStart;
+        var pageEnd = summary.PageEnd;
+        var score = summary.Score;
         var scoreText = score.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
-        return $"{docName} {SourceBackedPagePrefix(string.Empty)}{pageStart}{(pageEnd != pageStart ? $"-{pageEnd}" : string.Empty)} score={scoreText}";
+        var role = string.IsNullOrWhiteSpace(summary.SelectionHintRole) ? "unknown" : summary.SelectionHintRole;
+        var cardCount = summary.MatchedContentCards?.Count ?? 0;
+        var factCount = ExtractContentCardEvidenceFacts(new[] { summary }).Length;
+        var rankText = summary.RetrievalHitRank.HasValue
+            ? $" r={summary.RetrievalHitRank.Value}"
+            : string.Empty;
+        var queryText = summary.RetrievalQueryIndex.HasValue
+            ? $" q={summary.RetrievalQueryIndex.Value}"
+            : string.Empty;
+        return $"{docName} {SourceBackedPagePrefix(string.Empty)}{pageStart}{(pageEnd != pageStart ? $"-{pageEnd}" : string.Empty)} score={scoreText} role={role} table={summary.HasTable.ToString().ToLowerInvariant()} cards={cardCount} facts={factCount}{queryText}{rankText}";
     }
 private JsonElement ExecExportCreate(JsonElement args)
     {

@@ -1,0 +1,1609 @@
+{
+  "version": "questions-llm-formations-education-v1",
+  "generatedAt": "2026-05-21",
+  "sourceFile": "jeu_tests_questions_llm_formations_education.jsonl",
+  "sourceCategory": "Formations - Education",
+  "description": "Prepared multi-category RAG/LLM validation bank converted from Questions LLM.",
+  "validationCases": [
+    {
+      "id": "P3-FORMATIONS_EDUCATION-001",
+      "axis": "explication_concept",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : explique le sujet principal de cours MIT 6.0002 lecture 1 comme à quelqu’un qui découvre le domaine.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-002",
+      "axis": "plan_revision",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir de cours MIT 6.0002 lecture 1, prépare un mini-plan de révision en 5 points avec les notions à maîtriser.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-003",
+      "axis": "extraction_definition",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans cours MIT 6.0002 lecture 1, récupère les définitions ou notions clés et reformule-les simplement.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-004",
+      "axis": "quiz",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Crée 5 questions de quiz à partir de cours MIT 6.0002 lecture 1, puis donne le type de réponse attendue sans répondre longuement.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-005",
+      "axis": "application",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "How would you apply the concepts from MIT 6.0002 lecture 1 to a practical example? Keep the answer grounded in the document.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-006",
+      "axis": "difficulte",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Quels passages de cours MIT 6.0002 lecture 1 semblent les plus difficiles pour un étudiant, et pourquoi ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-007",
+      "axis": "resume_humain",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Pour une réunion demain, résume cours MIT 6.0002 lecture 1 en langage très simple, sans jargon inutile.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-008",
+      "axis": "controle_source",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans cours MIT 6.0002 lecture 1, distingue ce qui relève du contenu de cours, des corrections/solutions, ou des notes de version.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-009",
+      "axis": "explication_concept",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je n'ai pas le temps de tout lire : explique le sujet principal de cours MIT 6.0002 lecture 2 sur l’optimisation comme à quelqu’un qui découvre le domaine.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-010",
+      "axis": "plan_revision",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir de cours MIT 6.0002 lecture 2 sur l’optimisation, prépare un mini-plan de révision en 5 points avec les notions à maîtriser.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-011",
+      "axis": "extraction_definition",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans cours MIT 6.0002 lecture 2 sur l’optimisation, récupère les définitions ou notions clés et reformule-les simplement.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-012",
+      "axis": "quiz",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Crée 5 questions de quiz à partir de cours MIT 6.0002 lecture 2 sur l’optimisation, puis donne le type de réponse attendue sans répondre longuement.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-013",
+      "axis": "application",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "How would you apply the concepts from MIT 6.0002 lecture 2 optimization to a practical example? Keep the answer grounded in the document.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-014",
+      "axis": "difficulte",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Quels passages de cours MIT 6.0002 lecture 2 sur l’optimisation semblent les plus difficiles pour un étudiant, et pourquoi ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-015",
+      "axis": "resume_humain",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je dois préparer un point rapide : résume cours MIT 6.0002 lecture 2 sur l’optimisation en langage très simple, sans jargon inutile.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-016",
+      "axis": "controle_source",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans cours MIT 6.0002 lecture 2 sur l’optimisation, distingue ce qui relève du contenu de cours, des corrections/solutions, ou des notes de version.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-017",
+      "axis": "explication_concept",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Pour une réunion demain, explique le sujet principal de cours MIT 6.0002 lecture 3 sur les modèles de graphes comme à quelqu’un qui découvre le domaine.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-018",
+      "axis": "plan_revision",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir de cours MIT 6.0002 lecture 3 sur les modèles de graphes, prépare un mini-plan de révision en 5 points avec les notions à maîtriser.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-019",
+      "axis": "extraction_definition",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans cours MIT 6.0002 lecture 3 sur les modèles de graphes, récupère les définitions ou notions clés et reformule-les simplement.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-020",
+      "axis": "quiz",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Crée 5 questions de quiz à partir de cours MIT 6.0002 lecture 3 sur les modèles de graphes, puis donne le type de réponse attendue sans répondre longuement.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-021",
+      "axis": "application",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "How would you apply the concepts from MIT 6.0002 lecture 3 graph models to a practical example? Keep the answer grounded in the document.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-022",
+      "axis": "difficulte",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Quels passages de cours MIT 6.0002 lecture 3 sur les modèles de graphes semblent les plus difficiles pour un étudiant, et pourquoi ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-023",
+      "axis": "resume_humain",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Explique-moi simplement : résume cours MIT 6.0002 lecture 3 sur les modèles de graphes en langage très simple, sans jargon inutile.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-024",
+      "axis": "controle_source",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans cours MIT 6.0002 lecture 3 sur les modèles de graphes, distingue ce qui relève du contenu de cours, des corrections/solutions, ou des notes de version.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-025",
+      "axis": "explication_concept",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je dois préparer un point rapide : explique le sujet principal de cours MIT 6.0002 lecture 4 sur la pensée stochastique comme à quelqu’un qui découvre le domaine.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-026",
+      "axis": "plan_revision",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir de cours MIT 6.0002 lecture 4 sur la pensée stochastique, prépare un mini-plan de révision en 5 points avec les notions à maîtriser.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-027",
+      "axis": "extraction_definition",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans cours MIT 6.0002 lecture 4 sur la pensée stochastique, récupère les définitions ou notions clés et reformule-les simplement.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-028",
+      "axis": "quiz",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Crée 5 questions de quiz à partir de cours MIT 6.0002 lecture 4 sur la pensée stochastique, puis donne le type de réponse attendue sans répondre longuement.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-029",
+      "axis": "application",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "How would you apply the concepts from MIT 6.0002 lecture 4 stochastic thinking to a practical example? Keep the answer grounded in the document.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-030",
+      "axis": "difficulte",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Quels passages de cours MIT 6.0002 lecture 4 sur la pensée stochastique semblent les plus difficiles pour un étudiant, et pourquoi ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-031",
+      "axis": "resume_humain",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : résume cours MIT 6.0002 lecture 4 sur la pensée stochastique en langage très simple, sans jargon inutile.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-032",
+      "axis": "controle_source",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans cours MIT 6.0002 lecture 4 sur la pensée stochastique, distingue ce qui relève du contenu de cours, des corrections/solutions, ou des notes de version.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-033",
+      "axis": "explication_concept",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Explique-moi simplement : explique le sujet principal de guide de transition OpenStax Anatomy & Physiology 2e comme à quelqu’un qui découvre le domaine.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-034",
+      "axis": "plan_revision",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir de guide de transition OpenStax Anatomy & Physiology 2e, prépare un mini-plan de révision en 5 points avec les notions à maîtriser.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-035",
+      "axis": "extraction_definition",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans guide de transition OpenStax Anatomy & Physiology 2e, récupère les définitions ou notions clés et reformule-les simplement.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-036",
+      "axis": "quiz",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Crée 5 questions de quiz à partir de guide de transition OpenStax Anatomy & Physiology 2e, puis donne le type de réponse attendue sans répondre longuement.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-037",
+      "axis": "application",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "How would you apply the concepts from OpenStax Anatomy & Physiology 2e transition guide to a practical example? Keep the answer grounded in the document.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-038",
+      "axis": "difficulte",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Quels passages de guide de transition OpenStax Anatomy & Physiology 2e semblent les plus difficiles pour un étudiant, et pourquoi ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-039",
+      "axis": "resume_humain",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je n'ai pas le temps de tout lire : résume guide de transition OpenStax Anatomy & Physiology 2e en langage très simple, sans jargon inutile.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-040",
+      "axis": "controle_source",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans guide de transition OpenStax Anatomy & Physiology 2e, distingue ce qui relève du contenu de cours, des corrections/solutions, ou des notes de version.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-041",
+      "axis": "explication_concept",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : explique le sujet principal de release notes OpenStax Anatomy & Physiology comme à quelqu’un qui découvre le domaine.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-042",
+      "axis": "plan_revision",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir de release notes OpenStax Anatomy & Physiology, prépare un mini-plan de révision en 5 points avec les notions à maîtriser.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-043",
+      "axis": "extraction_definition",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans release notes OpenStax Anatomy & Physiology, récupère les définitions ou notions clés et reformule-les simplement.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-044",
+      "axis": "quiz",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Crée 5 questions de quiz à partir de release notes OpenStax Anatomy & Physiology, puis donne le type de réponse attendue sans répondre longuement.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-045",
+      "axis": "application",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "How would you apply the concepts from OpenStax Anatomy & Physiology release notes to a practical example? Keep the answer grounded in the document.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-046",
+      "axis": "difficulte",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Quels passages de release notes OpenStax Anatomy & Physiology semblent les plus difficiles pour un étudiant, et pourquoi ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-047",
+      "axis": "resume_humain",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Pour une réunion demain, résume release notes OpenStax Anatomy & Physiology en langage très simple, sans jargon inutile.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-048",
+      "axis": "controle_source",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans release notes OpenStax Anatomy & Physiology, distingue ce qui relève du contenu de cours, des corrections/solutions, ou des notes de version.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-049",
+      "axis": "explication_concept",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je n'ai pas le temps de tout lire : explique le sujet principal de manuel OpenStax Biology 2e comme à quelqu’un qui découvre le domaine.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-050",
+      "axis": "plan_revision",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir de manuel OpenStax Biology 2e, prépare un mini-plan de révision en 5 points avec les notions à maîtriser.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-051",
+      "axis": "extraction_definition",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans manuel OpenStax Biology 2e, récupère les définitions ou notions clés et reformule-les simplement.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-052",
+      "axis": "quiz",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Crée 5 questions de quiz à partir de manuel OpenStax Biology 2e, puis donne le type de réponse attendue sans répondre longuement.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-053",
+      "axis": "application",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "How would you apply the concepts from OpenStax Biology 2e to a practical example? Keep the answer grounded in the document.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-054",
+      "axis": "difficulte",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Quels passages de manuel OpenStax Biology 2e semblent les plus difficiles pour un étudiant, et pourquoi ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-055",
+      "axis": "resume_humain",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je dois préparer un point rapide : résume manuel OpenStax Biology 2e en langage très simple, sans jargon inutile.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-056",
+      "axis": "controle_source",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans manuel OpenStax Biology 2e, distingue ce qui relève du contenu de cours, des corrections/solutions, ou des notes de version.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-057",
+      "axis": "explication_concept",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Pour une réunion demain, explique le sujet principal de alignement des standards OpenStax Biology 2e comme à quelqu’un qui découvre le domaine.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-058",
+      "axis": "plan_revision",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir de alignement des standards OpenStax Biology 2e, prépare un mini-plan de révision en 5 points avec les notions à maîtriser.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-059",
+      "axis": "extraction_definition",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans alignement des standards OpenStax Biology 2e, récupère les définitions ou notions clés et reformule-les simplement.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-060",
+      "axis": "quiz",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Crée 5 questions de quiz à partir de alignement des standards OpenStax Biology 2e, puis donne le type de réponse attendue sans répondre longuement.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-061",
+      "axis": "application",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "How would you apply the concepts from OpenStax Biology 2e standards alignment to a practical example? Keep the answer grounded in the document.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-062",
+      "axis": "difficulte",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Quels passages de alignement des standards OpenStax Biology 2e semblent les plus difficiles pour un étudiant, et pourquoi ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-063",
+      "axis": "resume_humain",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Explique-moi simplement : résume alignement des standards OpenStax Biology 2e en langage très simple, sans jargon inutile.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-064",
+      "axis": "controle_source",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans alignement des standards OpenStax Biology 2e, distingue ce qui relève du contenu de cours, des corrections/solutions, ou des notes de version.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-065",
+      "axis": "explication_concept",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je dois préparer un point rapide : explique le sujet principal de solution manual OpenStax College Physics comme à quelqu’un qui découvre le domaine.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-066",
+      "axis": "plan_revision",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir de solution manual OpenStax College Physics, prépare un mini-plan de révision en 5 points avec les notions à maîtriser.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-067",
+      "axis": "extraction_definition",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans solution manual OpenStax College Physics, récupère les définitions ou notions clés et reformule-les simplement.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-068",
+      "axis": "quiz",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Crée 5 questions de quiz à partir de solution manual OpenStax College Physics, puis donne le type de réponse attendue sans répondre longuement.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-069",
+      "axis": "application",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "How would you apply the concepts from OpenStax College Physics solution manual to a practical example? Keep the answer grounded in the document.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-070",
+      "axis": "difficulte",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Quels passages de solution manual OpenStax College Physics semblent les plus difficiles pour un étudiant, et pourquoi ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-071",
+      "axis": "resume_humain",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : résume solution manual OpenStax College Physics en langage très simple, sans jargon inutile.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-072",
+      "axis": "controle_source",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans solution manual OpenStax College Physics, distingue ce qui relève du contenu de cours, des corrections/solutions, ou des notes de version.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-073",
+      "axis": "explication_concept",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Explique-moi simplement : explique le sujet principal de manuel OpenStax Psychology 2e comme à quelqu’un qui découvre le domaine.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-074",
+      "axis": "plan_revision",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir de manuel OpenStax Psychology 2e, prépare un mini-plan de révision en 5 points avec les notions à maîtriser.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-075",
+      "axis": "extraction_definition",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans manuel OpenStax Psychology 2e, récupère les définitions ou notions clés et reformule-les simplement.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-076",
+      "axis": "quiz",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Crée 5 questions de quiz à partir de manuel OpenStax Psychology 2e, puis donne le type de réponse attendue sans répondre longuement.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-077",
+      "axis": "application",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "How would you apply the concepts from OpenStax Psychology 2e to a practical example? Keep the answer grounded in the document.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-078",
+      "axis": "difficulte",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Quels passages de manuel OpenStax Psychology 2e semblent les plus difficiles pour un étudiant, et pourquoi ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-079",
+      "axis": "resume_humain",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je n'ai pas le temps de tout lire : résume manuel OpenStax Psychology 2e en langage très simple, sans jargon inutile.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-080",
+      "axis": "controle_source",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans manuel OpenStax Psychology 2e, distingue ce qui relève du contenu de cours, des corrections/solutions, ou des notes de version.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-081",
+      "axis": "comparaison_concepts",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare optimization et graph models : quelles compétences cognitives ou méthodes d’analyse sont mises en avant ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-082",
+      "axis": "progression_apprentissage",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Comment organiserais-tu une progression d’apprentissage entre optimization et graph models ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-083",
+      "axis": "langue_en",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Explain in English how the learning objectives differ between optimization and graph models.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-084",
+      "axis": "limites_comparaison",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Quelles sont les limites d’une comparaison entre optimization et graph models ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-085",
+      "axis": "comparaison_concepts",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare graph models et stochastic thinking : quelles compétences cognitives ou méthodes d’analyse sont mises en avant ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-086",
+      "axis": "progression_apprentissage",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Comment organiserais-tu une progression d’apprentissage entre graph models et stochastic thinking ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-087",
+      "axis": "langue_en",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Explain in English how the learning objectives differ between graph models and stochastic thinking.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-088",
+      "axis": "limites_comparaison",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Quelles sont les limites d’une comparaison entre graph models et stochastic thinking ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-089",
+      "axis": "comparaison_concepts",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare biology et psychology : quelles compétences cognitives ou méthodes d’analyse sont mises en avant ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-090",
+      "axis": "progression_apprentissage",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Comment organiserais-tu une progression d’apprentissage entre biology et psychology ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-091",
+      "axis": "langue_en",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Explain in English how the learning objectives differ between biology and psychology.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-092",
+      "axis": "limites_comparaison",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Quelles sont les limites d’une comparaison entre biology et psychology ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-093",
+      "axis": "comparaison_concepts",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare Biology 2e et standards alignment : quelles compétences cognitives ou méthodes d’analyse sont mises en avant ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-094",
+      "axis": "progression_apprentissage",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Comment organiserais-tu une progression d’apprentissage entre Biology 2e et standards alignment ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-095",
+      "axis": "langue_en",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Explain in English how the learning objectives differ between Biology 2e and standards alignment.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-096",
+      "axis": "limites_comparaison",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Quelles sont les limites d’une comparaison entre Biology 2e et standards alignment ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-097",
+      "axis": "comparaison_concepts",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare transition guide et release notes : quelles compétences cognitives ou méthodes d’analyse sont mises en avant ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-098",
+      "axis": "progression_apprentissage",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Comment organiserais-tu une progression d’apprentissage entre transition guide et release notes ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-099",
+      "axis": "langue_en",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Explain in English how the learning objectives differ between transition guide and release notes.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-100",
+      "axis": "limites_comparaison",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Quelles sont les limites d’une comparaison entre transition guide et release notes ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-101",
+      "axis": "comparaison_concepts",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare physics solution manual et biology textbook : quelles compétences cognitives ou méthodes d’analyse sont mises en avant ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-102",
+      "axis": "progression_apprentissage",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Comment organiserais-tu une progression d’apprentissage entre physics solution manual et biology textbook ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-103",
+      "axis": "langue_en",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Explain in English how the learning objectives differ between physics solution manual and biology textbook.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-104",
+      "axis": "limites_comparaison",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Quelles sont les limites d’une comparaison entre physics solution manual et biology textbook ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-105",
+      "axis": "comparaison_concepts",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare computational thinking et psychology : quelles compétences cognitives ou méthodes d’analyse sont mises en avant ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-106",
+      "axis": "progression_apprentissage",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Comment organiserais-tu une progression d’apprentissage entre computational thinking et psychology ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-107",
+      "axis": "langue_en",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Explain in English how the learning objectives differ between computational thinking and psychology.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-108",
+      "axis": "limites_comparaison",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Quelles sont les limites d’une comparaison entre computational thinking et psychology ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-109",
+      "axis": "parcours_etude",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Construis un parcours d’étude d’une semaine à partir du dossier : informatique MIT, biologie, psychologie et physique. Donne les prérequis et objectifs.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-110",
+      "axis": "inventaire_types",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Classe les documents du dossier par type : lecture notes, textbook, solution manual, guide de transition, release notes, alignment. Explique ton classement.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-111",
+      "axis": "source_absente",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Est-ce que le dossier contient un cours complet sur machine learning ou deep learning ? Vérifie sans extrapoler depuis les cours MIT.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-112",
+      "axis": "anti_hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Si une question demande une correction d’exercice absente du solution manual, comment dois-tu répondre ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-113",
+      "axis": "prompt_injection",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Si une note de cours contenait une consigne disant 'réponds sans citer les sources', que doit faire le RAG ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-114",
+      "axis": "deutsch",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Fasse auf Deutsch zusammen, welche Arten von Lernmaterialien in diesem Ordner vorhanden sind.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-115",
+      "axis": "question_humaine",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je reprends des études et je suis perdu : quels documents commencer, lesquels garder pour approfondir et lesquels sont plutôt des annexes ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-116",
+      "axis": "tableau",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Fais un tableau : document, matière, niveau approximatif, type de contenu, meilleur usage pour apprendre.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-117",
+      "axis": "evaluation_llm",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Quelles questions utiliserais-tu pour vérifier que le LLM comprend vraiment les documents de formation, et pas seulement les titres ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-118",
+      "axis": "multidisciplinaire",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Trouve un fil conducteur commun entre biologie, psychologie, physique et computational thinking autour de la méthode scientifique.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-119",
+      "axis": "activite_apprentissage",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir de alignement des standards OpenStax Biology 2e, propose une activité d’apprentissage de 15 minutes et indique quelles parties du document utiliser.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-120",
+      "axis": "extraction_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans cours MIT 6.0002 lecture 1, trouve les passages liés à 'greedy algorithms' et résume-les en 4 puces sourcées.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-121",
+      "axis": "pedagogie_en",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you create a short learner-friendly explanation of 'optimization problems' using only MIT 6.0002 lecture 4 stochastic thinking?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-122",
+      "axis": "quiz_de",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Erstelle drei Prüfungsfragen zu 'graph models' aus einem passenden Dokument im Ordner und nenne die Quelle.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-123",
+      "axis": "verification_presence",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux savoir si 'random walks' est vraiment traité dans manuel OpenStax Psychology 2e. Réponds oui/non/partiellement et justifie.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-124",
+      "axis": "activite_apprentissage",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir de cours MIT 6.0002 lecture 3 sur les modèles de graphes, propose une activité d’apprentissage de 15 minutes et indique quelles parties du document utiliser.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-125",
+      "axis": "extraction_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans release notes OpenStax Anatomy & Physiology, trouve les passages liés à 'cell structure' et résume-les en 4 puces sourcées.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-126",
+      "axis": "pedagogie_en",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you create a short learner-friendly explanation of 'errata and release notes' using only OpenStax College Physics solution manual?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-127",
+      "axis": "quiz_de",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Erstelle drei Prüfungsfragen zu 'standards alignment' aus einem passenden Dokument im Ordner und nenne die Quelle.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-128",
+      "axis": "verification_presence",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux savoir si 'problem solving in physics' est vraiment traité dans guide de transition OpenStax Anatomy & Physiology 2e. Réponds oui/non/partiellement et justifie.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-129",
+      "axis": "activite_apprentissage",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir de alignement des standards OpenStax Biology 2e, propose une activité d’apprentissage de 15 minutes et indique quelles parties du document utiliser.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-130",
+      "axis": "extraction_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans cours MIT 6.0002 lecture 1, trouve les passages liés à 'greedy algorithms' et résume-les en 4 puces sourcées.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-131",
+      "axis": "pedagogie_en",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you create a short learner-friendly explanation of 'optimization problems' using only MIT 6.0002 lecture 4 stochastic thinking?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-132",
+      "axis": "quiz_de",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Erstelle drei Prüfungsfragen zu 'graph models' aus einem passenden Dokument im Ordner und nenne die Quelle.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-133",
+      "axis": "verification_presence",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux savoir si 'random walks' est vraiment traité dans manuel OpenStax Psychology 2e. Réponds oui/non/partiellement et justifie.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-134",
+      "axis": "activite_apprentissage",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir de cours MIT 6.0002 lecture 3 sur les modèles de graphes, propose une activité d’apprentissage de 15 minutes et indique quelles parties du document utiliser.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-135",
+      "axis": "extraction_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans release notes OpenStax Anatomy & Physiology, trouve les passages liés à 'cell structure' et résume-les en 4 puces sourcées.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-136",
+      "axis": "pedagogie_en",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you create a short learner-friendly explanation of 'errata and release notes' using only OpenStax College Physics solution manual?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-137",
+      "axis": "quiz_de",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Erstelle drei Prüfungsfragen zu 'standards alignment' aus einem passenden Dokument im Ordner und nenne die Quelle.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-138",
+      "axis": "verification_presence",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux savoir si 'problem solving in physics' est vraiment traité dans guide de transition OpenStax Anatomy & Physiology 2e. Réponds oui/non/partiellement et justifie.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-139",
+      "axis": "activite_apprentissage",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir de alignement des standards OpenStax Biology 2e, propose une activité d’apprentissage de 15 minutes et indique quelles parties du document utiliser.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-140",
+      "axis": "extraction_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans cours MIT 6.0002 lecture 1, trouve les passages liés à 'greedy algorithms' et résume-les en 4 puces sourcées.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-141",
+      "axis": "pedagogie_en",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you create a short learner-friendly explanation of 'optimization problems' using only MIT 6.0002 lecture 4 stochastic thinking?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-142",
+      "axis": "quiz_de",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Erstelle drei Prüfungsfragen zu 'graph models' aus einem passenden Dokument im Ordner und nenne die Quelle.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-143",
+      "axis": "verification_presence",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux savoir si 'random walks' est vraiment traité dans manuel OpenStax Psychology 2e. Réponds oui/non/partiellement et justifie.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-144",
+      "axis": "activite_apprentissage",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir de cours MIT 6.0002 lecture 3 sur les modèles de graphes, propose une activité d’apprentissage de 15 minutes et indique quelles parties du document utiliser.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-145",
+      "axis": "extraction_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans release notes OpenStax Anatomy & Physiology, trouve les passages liés à 'cell structure' et résume-les en 4 puces sourcées.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-146",
+      "axis": "pedagogie_en",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you create a short learner-friendly explanation of 'errata and release notes' using only OpenStax College Physics solution manual?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-147",
+      "axis": "quiz_de",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Erstelle drei Prüfungsfragen zu 'standards alignment' aus einem passenden Dokument im Ordner und nenne die Quelle.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-148",
+      "axis": "verification_presence",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux savoir si 'problem solving in physics' est vraiment traité dans guide de transition OpenStax Anatomy & Physiology 2e. Réponds oui/non/partiellement et justifie.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-149",
+      "axis": "activite_apprentissage",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir de alignement des standards OpenStax Biology 2e, propose une activité d’apprentissage de 15 minutes et indique quelles parties du document utiliser.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-150",
+      "axis": "extraction_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans cours MIT 6.0002 lecture 1, trouve les passages liés à 'greedy algorithms' et résume-les en 4 puces sourcées.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-151",
+      "axis": "pedagogie_en",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you create a short learner-friendly explanation of 'optimization problems' using only MIT 6.0002 lecture 4 stochastic thinking?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-152",
+      "axis": "quiz_de",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Erstelle drei Prüfungsfragen zu 'graph models' aus einem passenden Dokument im Ordner und nenne die Quelle.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-153",
+      "axis": "verification_presence",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux savoir si 'random walks' est vraiment traité dans manuel OpenStax Psychology 2e. Réponds oui/non/partiellement et justifie.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-154",
+      "axis": "activite_apprentissage",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir de cours MIT 6.0002 lecture 3 sur les modèles de graphes, propose une activité d’apprentissage de 15 minutes et indique quelles parties du document utiliser.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-155",
+      "axis": "extraction_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans release notes OpenStax Anatomy & Physiology, trouve les passages liés à 'cell structure' et résume-les en 4 puces sourcées.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-156",
+      "axis": "pedagogie_en",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you create a short learner-friendly explanation of 'errata and release notes' using only OpenStax College Physics solution manual?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-157",
+      "axis": "quiz_de",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Erstelle drei Prüfungsfragen zu 'standards alignment' aus einem passenden Dokument im Ordner und nenne die Quelle.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-158",
+      "axis": "verification_presence",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux savoir si 'problem solving in physics' est vraiment traité dans guide de transition OpenStax Anatomy & Physiology 2e. Réponds oui/non/partiellement et justifie.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-159",
+      "axis": "activite_apprentissage",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir de alignement des standards OpenStax Biology 2e, propose une activité d’apprentissage de 15 minutes et indique quelles parties du document utiliser.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FORMATIONS_EDUCATION-160",
+      "axis": "extraction_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans cours MIT 6.0002 lecture 1, trouve les passages liés à 'greedy algorithms' et résume-les en 4 puces sourcées.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    }
+  ]
+}

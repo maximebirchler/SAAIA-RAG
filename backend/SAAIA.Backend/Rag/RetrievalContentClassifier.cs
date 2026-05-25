@@ -63,6 +63,7 @@ internal static partial class RetrievalContentClassifier
         var contentDensityScore = ComputeContentDensityScore(text, folded, shape);
         var hasLayoutIndexArtifact = ContainsLayoutIndexArtifact(folded);
         var hasDenseMeasuredContent = LooksLikeDenseMeasuredContent(text, folded, shape);
+        var hasMeasuredSequentialContent = LooksLikeMeasuredSequentialContent(text, shape);
 
         string? reason = null;
         var navigationScore = 0.0;
@@ -89,6 +90,15 @@ internal static partial class RetrievalContentClassifier
             && contentDensityScore >= 0.65)
         {
             return new RetrievalNavigationSignal(ContentRole, null, 0.0, Math.Max(contentDensityScore, 0.72));
+        }
+
+        if (hasMeasuredSequentialContent
+            && !hasExplicitTocMarker
+            && !hasShortTocMarker
+            && !hasStrongMarker
+            && !hasLayoutIndexArtifact)
+        {
+            return new RetrievalNavigationSignal(ContentRole, null, 0.0, Math.Max(contentDensityScore, 0.70));
         }
 
         if (reason is null
@@ -218,6 +228,30 @@ internal static partial class RetrievalContentClassifier
         return (hasItemizedSection && (hasProcedureSection || hasCountOrSteps))
             || (hasProcedureSection && hasCountOrSteps)
             || (hasGovernanceSection && hasCountOrSteps);
+    }
+
+    internal static bool LooksLikeMeasuredSequentialContent(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        return LooksLikeMeasuredSequentialContent(text, AnalyzeShape(text));
+    }
+
+    private static bool LooksLikeMeasuredSequentialContent(
+        string text,
+        RetrievalNavigationShape shape)
+    {
+        if (shape.DotLeaderLineCount > 0 || shape.PageReferenceLineCount >= 2)
+            return false;
+
+        if (CountWords(text) < 50)
+            return false;
+
+        if (CountMeasurementOrSpecificationTokens(text) < 4)
+            return false;
+
+        return CountInlineOrdinalBodyMarkers(text) >= 3;
     }
 
     private static bool LooksLikeDenseMeasuredContent(
@@ -381,6 +415,18 @@ internal static partial class RetrievalContentClassifier
         return count;
     }
 
+    private static int CountInlineOrdinalBodyMarkers(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return 0;
+
+        var count = 0;
+        foreach (Match _ in InlineOrdinalBodyMarkerRegex().Matches(text))
+            count++;
+
+        return count;
+    }
+
     private static RetrievalNavigationShape AnalyzeShape(string text)
     {
         var lines = text
@@ -539,6 +585,9 @@ internal static partial class RetrievalContentClassifier
 
     [GeneratedRegex(@"(?<![\p{L}\p{N}])\d+(?:[,.]\d+)?\s*(?:%|°\s*[cfk]?|kg|g|mg|l|ml|cl|dl|m|cm|mm|km|h|min|mn|s|sec|w|kw|v|kv|a|ma|hz|khz|mhz|pa|kpa|bar|psi|nm|rpm|tr/min|chf|eur|usd|gb|mb|kb|tb)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex MeasurementOrSpecificationRegex();
+
+    [GeneratedRegex(@"(?:^|[^\p{L}\p{N}])\d{1,2}\s+(?=\p{Lu})", RegexOptions.CultureInvariant)]
+    private static partial Regex InlineOrdinalBodyMarkerRegex();
 
     [GeneratedRegex(@"\b(?:preparation|preparacion|preparacao|preparazione|procedure|procedures|procedimiento|procedimento|procedura|instructions?|instruction|etapes?|steps?|passos?|schritte?|material|materiel|materials|materiaux|component|components|composant|composants|assembly|assemblage|montage|configuration|installation|maintenance|controle|control|verification|pruefung|prufung|pruefung|verificacion|verifica)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex DenseMeasuredContentCueRegex();

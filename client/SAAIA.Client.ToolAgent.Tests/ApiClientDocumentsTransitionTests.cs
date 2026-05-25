@@ -213,6 +213,28 @@ public sealed class ApiClientDocumentsTransitionTests
     }
 
     [Fact]
+    public async Task ToolAgent_rag_multi_search_keeps_raw_query_before_normalized_variant()
+    {
+        var handler = new StubHttpHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""{"items":[]}""", Encoding.UTF8, "application/json")
+        });
+
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem: new ToolMemory());
+        using var args = JsonDocument.Parse("""{"queries":["Quel dessert fran\u00E7ais choisir pour un repas chic ?"],"topK":3,"mode":"balanced"}""");
+
+        var result = await InvokePrivateToolAsync(sut, "ExecRagMultiSearchAsync", args.RootElement);
+
+        var queries = result.GetProperty("meta").GetProperty("queries")
+            .EnumerateArray()
+            .Select(static item => item.GetString() ?? string.Empty)
+            .ToArray();
+        Assert.True(queries.Length >= 2);
+        Assert.Equal("Quel dessert fran\u00E7ais choisir pour un repas chic ?", queries[0]);
+        Assert.Equal("Quel dessert fran\u00E7ais choisir pour un repas chic", queries[1]);
+    }
+
+    [Fact]
     public async Task ToolAgent_rag_multi_search_limits_client_side_fanout_parallelism()
     {
         var active = 0;
@@ -253,6 +275,108 @@ public sealed class ApiClientDocumentsTransitionTests
         Assert.Equal(8, calls);
         Assert.True(maxActive <= 2, $"Expected at most 2 concurrent RAG calls, observed {maxActive}.");
         Assert.Equal(2, result.GetProperty("meta").GetProperty("fanoutParallelism").GetInt32());
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_multi_search_preserves_precise_query_hit_before_score_truncation()
+    {
+        var genericId = 0;
+        var handler = new StubHttpHandler(req =>
+        {
+            using var body = JsonDocument.Parse(req.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
+            var query = body.RootElement.GetProperty("query").GetString() ?? string.Empty;
+            if (query.Contains("alpha beta module details procedure quantities timing source", StringComparison.OrdinalIgnoreCase))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        """
+                        {
+                          "items": [
+                            {
+                              "score": 0.12,
+                              "docPath": "Knowledge/target.pdf",
+                              "docName": "target.pdf",
+                              "pageStart": 9,
+                              "pageEnd": 9,
+                              "chunkId": "target-1",
+                              "text": "Alpha Beta Module exact procedure with quantities and timing.",
+                              "matchedContentCards": [
+                                { "title": "Alpha Beta Module", "kind": "section", "pageStart": 9 }
+                              ],
+                              "selectionHints": {
+                                "evidenceRole": "supporting_context",
+                                "supportScore": 9
+                              }
+                            }
+                          ]
+                        }
+                        """,
+                        Encoding.UTF8,
+                        "application/json")
+                };
+            }
+
+            var id = System.Threading.Interlocked.Increment(ref genericId);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    $$"""
+                    {
+                      "items": [
+                        {
+                          "score": 0.99,
+                          "docPath": "Knowledge/generic-{{id}}-a.pdf",
+                          "docName": "generic-{{id}}-a.pdf",
+                          "pageStart": 1,
+                          "pageEnd": 1,
+                          "chunkId": "generic-{{id}}-a",
+                          "text": "Generic nearby overview {{id}} A."
+                        },
+                        {
+                          "score": 0.98,
+                          "docPath": "Knowledge/generic-{{id}}-b.pdf",
+                          "docName": "generic-{{id}}-b.pdf",
+                          "pageStart": 2,
+                          "pageEnd": 2,
+                          "chunkId": "generic-{{id}}-b",
+                          "text": "Generic nearby overview {{id}} B."
+                        }
+                      ]
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem: new ToolMemory());
+        using var args = JsonDocument.Parse(
+            """
+            {
+              "queries": [
+                "alpha beta",
+                "alpha module",
+                "beta module",
+                "alpha beta overview",
+                "alpha beta procedure",
+                "alpha beta quantities",
+                "alpha beta timing",
+                "alpha beta module details procedure quantities timing source"
+              ],
+              "topK": 4,
+              "mode": "balanced"
+            }
+            """);
+
+        var result = await InvokePrivateToolAsync(sut, "ExecRagMultiSearchAsync", args.RootElement);
+
+        var hits = result.GetProperty("hits").EnumerateArray().ToArray();
+        Assert.Equal(10, hits.Length);
+        Assert.Contains(hits, static hit => string.Equals(
+            "Knowledge/target.pdf",
+            hit.GetProperty("docPath").GetString(),
+            StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -539,6 +663,28 @@ public sealed class ApiClientDocumentsTransitionTests
 
         using var body = JsonDocument.Parse(capturedBody!);
         Assert.Equal("Programmation/Mettler", body.RootElement.GetProperty("categoryPath").GetString());
+        Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("category").ValueKind);
+        Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("categoryRef").ValueKind);
+    }
+
+    [Fact]
+    public async Task RagSearchToolAsync_serializes_root_category_path_without_legacy_category()
+    {
+        string? capturedBody = null;
+        var handler = new StubHttpHandler(req =>
+        {
+            capturedBody = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"items":[]}""", Encoding.UTF8, "application/json")
+            };
+        });
+
+        var sut = CreateApiClient(handler);
+        await sut.RagSearchToolAsync("properties", 8, "Documentation technique", "balanced", CancellationToken.None);
+
+        using var body = JsonDocument.Parse(capturedBody!);
+        Assert.Equal("Documentation technique", body.RootElement.GetProperty("categoryPath").GetString());
         Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("category").ValueKind);
         Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("categoryRef").ValueKind);
     }

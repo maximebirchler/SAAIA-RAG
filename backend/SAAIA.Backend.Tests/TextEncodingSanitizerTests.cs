@@ -40,6 +40,14 @@ public sealed class TextEncodingSanitizerTests
         Assert.Equal("Préparation", cleanedDoc.RootElement.GetProperty("title").GetString());
         Assert.Equal("l’utilisateur", cleanedDoc.RootElement.GetProperty("quote").GetString());
         Assert.Equal("NÃO", cleanedDoc.RootElement.GetProperty("languageSample").GetString());
+        var cleanedSerializedJson = PostgresTextSanitizer.CleanJson(JsonSerializer.Serialize(new
+        {
+            evidence = "source\0snippet"
+        }));
+
+        Assert.NotNull(cleanedSerializedJson);
+        using var cleanedSerializedDoc = JsonDocument.Parse(cleanedSerializedJson!);
+        Assert.Equal("sourcesnippet", cleanedSerializedDoc.RootElement.GetProperty("evidence").GetString());
     }
 
     [Fact]

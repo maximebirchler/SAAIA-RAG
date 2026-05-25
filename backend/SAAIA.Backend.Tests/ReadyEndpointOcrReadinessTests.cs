@@ -7,6 +7,11 @@ namespace SAAIA.Backend.Tests;
 
 public sealed class ReadyEndpointOcrReadinessTests
 {
+    private static string AvailableCommand
+        => Environment.ProcessPath is { Length: > 0 } path && File.Exists(path)
+            ? path
+            : throw new InvalidOperationException("Could not resolve the current test executable path.");
+
     [Fact]
     public void ProbeOcrReadiness_returns_ready_when_ocr_is_disabled()
     {
@@ -49,12 +54,13 @@ public sealed class ReadyEndpointOcrReadinessTests
     public void ProbeOcrReadiness_returns_ready_when_enabled_command_is_available_and_image_ocr_is_disabled()
     {
         var details = new Dictionary<string, object?>();
+        var availableCommand = AvailableCommand;
 
         var ready = ReadyEndpoints.ProbeOcrReadiness(
             new IngestionOptions
             {
                 OcrEnabled = true,
-                OcrCommand = "dotnet",
+                OcrCommand = availableCommand,
                 OcrImagePageEnabled = false,
                 OcrImageTextCommand = "saaia-missing-language-probe-for-test",
                 OcrLanguages = "fra+eng"
@@ -108,12 +114,13 @@ public sealed class ReadyEndpointOcrReadinessTests
     public void ProbeOcrReadiness_reports_auto_language_mode_with_bounded_limit()
     {
         var details = new Dictionary<string, object?>();
+        var availableCommand = AvailableCommand;
 
         var ready = ReadyEndpoints.ProbeOcrReadiness(
             new IngestionOptions
             {
                 OcrEnabled = true,
-                OcrCommand = "dotnet",
+                OcrCommand = availableCommand,
                 OcrImagePageEnabled = false,
                 OcrLanguages = "auto",
                 OcrMaxLanguages = 0
@@ -214,15 +221,16 @@ public sealed class ReadyEndpointOcrReadinessTests
     public void ProbeOcrReadiness_returns_ready_when_enabled_image_ocr_dependencies_are_available()
     {
         var details = new Dictionary<string, object?>();
+        var availableCommand = AvailableCommand;
 
         var ready = ReadyEndpoints.ProbeOcrReadiness(
             new IngestionOptions
             {
                 OcrEnabled = true,
-                OcrCommand = "dotnet",
+                OcrCommand = availableCommand,
                 OcrImagePageEnabled = true,
-                OcrImageRendererCommand = "dotnet",
-                OcrImageTextCommand = "dotnet"
+                OcrImageRendererCommand = availableCommand,
+                OcrImageTextCommand = availableCommand
             },
             details);
 
@@ -231,8 +239,8 @@ public sealed class ReadyEndpointOcrReadinessTests
         Assert.True((bool)details["ocr_command_available"]!);
         Assert.True((bool)details["ocr_image_renderer_available"]!);
         Assert.True((bool)details["ocr_image_text_available"]!);
-        Assert.Equal("dotnet", details["ocr_image_renderer_command"]);
-        Assert.Equal("dotnet", details["ocr_image_text_command"]);
+        Assert.Equal(availableCommand, details["ocr_image_renderer_command"]);
+        Assert.Equal(availableCommand, details["ocr_image_text_command"]);
         Assert.False(details.ContainsKey("ocr_error"));
     }
 

@@ -390,7 +390,7 @@ public static class SourceCardParser
         var pageStart = GetIntAny(el, "page_start", "pageStart", "PageStart", "fromPage", "FromPage", "page_from") ?? page;
         var pageEnd = GetIntAny(el, "page_end", "pageEnd", "PageEnd", "toPage", "ToPage", "page_to") ?? page;
 
-        var snippet = GetStringAny(el, "excerpt", "Excerpt", "snippet", "Snippet", "contextualSnippet", "ContextualSnippet", "contextual_snippet", "text", "Text", "chunk", "Chunk", "content", "Content") ?? "";
+        var snippet = GetStringAny(el, "excerpt", "Excerpt", "snippet", "Snippet", "text", "Text", "chunk", "Chunk", "content", "Content", "contextualSnippet", "ContextualSnippet", "contextual_snippet") ?? "";
         var score = GetDoubleAny(el, "score", "Score", "similarity", "Similarity", "rerankScore", "RerankScore");
         var extractionQuality = TryGetObjectAny(el, "extractionQuality", "extraction_quality", "ExtractionQuality");
         var selectionHints = TryGetObjectAny(el, "selectionHints", "selection_hints", "SelectionHints");

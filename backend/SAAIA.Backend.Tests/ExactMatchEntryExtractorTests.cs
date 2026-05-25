@@ -229,6 +229,16 @@ Procedure body: Materials lock padlock warning tag. Procedure 1. Isolate the mac
     }
 
     [Fact]
+    public void ExtractLookupTerms_bridges_nist_sp_reference_to_document_name_tokens()
+    {
+        var terms = ExactMatchEntryExtractor.ExtractLookupTerms("Compare NIST 800-53A avec SP 800-53r5.");
+
+        Assert.Contains("nist 800 53a", terms);
+        Assert.Contains("800 53a", terms);
+        Assert.Contains("sp 800 53r5", terms);
+    }
+
+    [Fact]
     public void ExtractLookupTerms_bridges_split_code_reference_variants_to_compact_form()
     {
         var spaced = ExactMatchEntryExtractor.ExtractLookupTerms("Ou trouve-t-on IND 570 ?");

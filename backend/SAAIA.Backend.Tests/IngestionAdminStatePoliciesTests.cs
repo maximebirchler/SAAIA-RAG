@@ -62,6 +62,21 @@ public sealed class IngestionAdminStatePoliciesTests
         Assert.Equal(expected, actual);
     }
 
+    [Theory]
+    [InlineData(0, 15)]
+    [InlineData(1, 15)]
+    [InlineData(2, 30)]
+    [InlineData(4, 60)]
+    [InlineData(60, 60)]
+    public void ResolveJobHeartbeatInterval_stays_below_stale_window_and_bounded(
+        int staleRunningMinutes,
+        int expectedSeconds)
+    {
+        var actual = IngestionWorker.ResolveJobHeartbeatInterval(staleRunningMinutes);
+
+        Assert.Equal(TimeSpan.FromSeconds(expectedSeconds), actual);
+    }
+
     [Fact]
     public void ShouldRetryEmbeddingBatchWithSmallerBatch_accepts_timeout_when_root_is_alive()
     {

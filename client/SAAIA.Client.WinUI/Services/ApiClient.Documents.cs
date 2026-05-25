@@ -517,7 +517,7 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
         if (normalized.Contains('/', StringComparison.Ordinal))
             return (null, normalized, null);
 
-        return (normalized, normalized, null);
+        return (null, normalized, null);
     }
 
     private static bool LooksLikeCategoryRef(string value)

@@ -267,6 +267,29 @@ public sealed class RuntimeGovernanceCoreLogicTests
     }
 
     [Fact]
+    public void BuildLexicalContentFallbackTerms_bridges_generic_surface_treatment_terms()
+    {
+        var terms = RagEndpoints.BuildLexicalContentFallbackTerms(
+            "Retrouve les documents qui parlent de poudrage et donne les passages utiles.");
+
+        Assert.Contains("poudrage", terms);
+        Assert.Contains("powder", terms);
+        Assert.Contains("powder coating", terms);
+        Assert.Contains("powder coatings", terms);
+        Assert.DoesNotContain("documents", terms);
+    }
+
+    [Fact]
+    public void ExpandRetrievalQuery_bridges_surface_treatment_terms_without_category_dependency()
+    {
+        var expanded = RagEndpoints.ExpandRetrievalQuery("poudrage", "construction");
+        var expandedOtherCategory = RagEndpoints.ExpandRetrievalQuery("poudrage", "catalogue commercial");
+
+        Assert.Contains("powder coating", expanded, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(expanded, expandedOtherCategory);
+    }
+
+    [Fact]
     public void BuildLexicalContentFallbackTerms_extracts_generic_singular_phrases()
     {
         var terms = RagEndpoints.BuildLexicalContentFallbackTerms(

@@ -1,0 +1,1609 @@
+{
+  "version": "questions-llm-emails-reunion-v1",
+  "generatedAt": "2026-05-21",
+  "sourceFile": "jeu_tests_questions_llm_emails_reunion.jsonl",
+  "sourceCategory": "Emails - Réunion",
+  "description": "Prepared multi-category RAG/LLM validation bank converted from Questions LLM.",
+  "validationCases": [
+    {
+      "id": "P3-EMAILS_REUNION-001",
+      "axis": "extraction_reunion",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : dans les minutes réunion FOMC des 17-18 septembre 2024, quelle est la structure de la réunion et quels grands sujets sont traités ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-002",
+      "axis": "decision_politique",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans réunion FOMC des 17-18 septembre 2024, retrouve la décision ou l’orientation de politique monétaire et explique les justifications données par les participants.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-003",
+      "axis": "conditions_financieres",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Explique-moi simplement : résume ce que les minutes réunion FOMC des 17-18 septembre 2024 disent sur les rendements du Trésor, les conditions financières et la réaction des marchés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-004",
+      "axis": "inflation_emploi",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "How do the FOMC Sep 17-18 2024 minutes describe inflation, labor-market conditions, and the balance of risks?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-005",
+      "axis": "extraction_actions",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Peux-tu extraire les points qui ressemblent à des décisions, actions ou suivis dans réunion FOMC des 17-18 septembre 2024, même si ce ne sont pas des actions au sens meeting classique ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-006",
+      "axis": "question_humaine_vague",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : qu’est-ce que je dois retenir de réunion FOMC des 17-18 septembre 2024 en 8 lignes maximum ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-007",
+      "axis": "extraction_reunion",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Pour une réunion demain, dans les minutes réunion FOMC des 6-7 novembre 2024, quelle est la structure de la réunion et quels grands sujets sont traités ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-008",
+      "axis": "decision_politique",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans réunion FOMC des 6-7 novembre 2024, retrouve la décision ou l’orientation de politique monétaire et explique les justifications données par les participants.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-009",
+      "axis": "conditions_financieres",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "For a management summary, résume ce que les minutes réunion FOMC des 6-7 novembre 2024 disent sur les rendements du Trésor, les conditions financières et la réaction des marchés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-010",
+      "axis": "inflation_emploi",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "How do the FOMC Nov 6-7 2024 minutes describe inflation, labor-market conditions, and the balance of risks?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-011",
+      "axis": "extraction_actions",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Peux-tu extraire les points qui ressemblent à des décisions, actions ou suivis dans réunion FOMC des 6-7 novembre 2024, même si ce ne sont pas des actions au sens meeting classique ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-012",
+      "axis": "question_humaine_vague",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Pour une réunion demain, qu’est-ce que je dois retenir de réunion FOMC des 6-7 novembre 2024 en 8 lignes maximum ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-013",
+      "axis": "extraction_reunion",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Explique-moi simplement : dans les minutes réunion FOMC des 17-18 décembre 2024, quelle est la structure de la réunion et quels grands sujets sont traités ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-014",
+      "axis": "decision_politique",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans réunion FOMC des 17-18 décembre 2024, retrouve la décision ou l’orientation de politique monétaire et explique les justifications données par les participants.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-015",
+      "axis": "conditions_financieres",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je dois préparer un point rapide : résume ce que les minutes réunion FOMC des 17-18 décembre 2024 disent sur les rendements du Trésor, les conditions financières et la réaction des marchés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-016",
+      "axis": "inflation_emploi",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "How do the FOMC Dec 17-18 2024 minutes describe inflation, labor-market conditions, and the balance of risks?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-017",
+      "axis": "extraction_actions",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Peux-tu extraire les points qui ressemblent à des décisions, actions ou suivis dans réunion FOMC des 17-18 décembre 2024, même si ce ne sont pas des actions au sens meeting classique ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-018",
+      "axis": "question_humaine_vague",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Explique-moi simplement : qu’est-ce que je dois retenir de réunion FOMC des 17-18 décembre 2024 en 8 lignes maximum ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-019",
+      "axis": "extraction_reunion",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "I don't have time to read all this: dans les minutes réunion FOMC des 28-29 janvier 2025, quelle est la structure de la réunion et quels grands sujets sont traités ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-020",
+      "axis": "decision_politique",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans réunion FOMC des 28-29 janvier 2025, retrouve la décision ou l’orientation de politique monétaire et explique les justifications données par les participants.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-021",
+      "axis": "conditions_financieres",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : résume ce que les minutes réunion FOMC des 28-29 janvier 2025 disent sur les rendements du Trésor, les conditions financières et la réaction des marchés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-022",
+      "axis": "inflation_emploi",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "How do the FOMC Jan 28-29 2025 minutes describe inflation, labor-market conditions, and the balance of risks?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-023",
+      "axis": "extraction_actions",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Peux-tu extraire les points qui ressemblent à des décisions, actions ou suivis dans réunion FOMC des 28-29 janvier 2025, même si ce ne sont pas des actions au sens meeting classique ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-024",
+      "axis": "question_humaine_vague",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je n'ai pas le temps de tout lire : qu’est-ce que je dois retenir de réunion FOMC des 28-29 janvier 2025 en 8 lignes maximum ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-025",
+      "axis": "extraction_reunion",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je dois préparer un point rapide : dans les minutes réunion FOMC des 18-19 mars 2025, quelle est la structure de la réunion et quels grands sujets sont traités ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-026",
+      "axis": "decision_politique",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans réunion FOMC des 18-19 mars 2025, retrouve la décision ou l’orientation de politique monétaire et explique les justifications données par les participants.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-027",
+      "axis": "conditions_financieres",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Pour une réunion demain, résume ce que les minutes réunion FOMC des 18-19 mars 2025 disent sur les rendements du Trésor, les conditions financières et la réaction des marchés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-028",
+      "axis": "inflation_emploi",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "How do the FOMC Mar 18-19 2025 minutes describe inflation, labor-market conditions, and the balance of risks?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-029",
+      "axis": "extraction_actions",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Peux-tu extraire les points qui ressemblent à des décisions, actions ou suivis dans réunion FOMC des 18-19 mars 2025, même si ce ne sont pas des actions au sens meeting classique ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-030",
+      "axis": "question_humaine_vague",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you explain clearly: qu’est-ce que je dois retenir de réunion FOMC des 18-19 mars 2025 en 8 lignes maximum ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-031",
+      "axis": "extraction_reunion",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : dans les minutes réunion FOMC des 6-7 mai 2025, quelle est la structure de la réunion et quels grands sujets sont traités ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-032",
+      "axis": "decision_politique",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans réunion FOMC des 6-7 mai 2025, retrouve la décision ou l’orientation de politique monétaire et explique les justifications données par les participants.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-033",
+      "axis": "conditions_financieres",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Explique-moi simplement : résume ce que les minutes réunion FOMC des 6-7 mai 2025 disent sur les rendements du Trésor, les conditions financières et la réaction des marchés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-034",
+      "axis": "inflation_emploi",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "How do the FOMC May 6-7 2025 minutes describe inflation, labor-market conditions, and the balance of risks?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-035",
+      "axis": "extraction_actions",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Peux-tu extraire les points qui ressemblent à des décisions, actions ou suivis dans réunion FOMC des 6-7 mai 2025, même si ce ne sont pas des actions au sens meeting classique ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-036",
+      "axis": "question_humaine_vague",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : qu’est-ce que je dois retenir de réunion FOMC des 6-7 mai 2025 en 8 lignes maximum ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-037",
+      "axis": "extraction_reunion",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Pour une réunion demain, dans les minutes réunion FOMC des 17-18 juin 2025, quelle est la structure de la réunion et quels grands sujets sont traités ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-038",
+      "axis": "decision_politique",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans réunion FOMC des 17-18 juin 2025, retrouve la décision ou l’orientation de politique monétaire et explique les justifications données par les participants.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-039",
+      "axis": "conditions_financieres",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je n'ai pas le temps de tout lire : résume ce que les minutes réunion FOMC des 17-18 juin 2025 disent sur les rendements du Trésor, les conditions financières et la réaction des marchés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-040",
+      "axis": "inflation_emploi",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "How do the FOMC Jun 17-18 2025 minutes describe inflation, labor-market conditions, and the balance of risks?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-041",
+      "axis": "extraction_actions",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Peux-tu extraire les points qui ressemblent à des décisions, actions ou suivis dans réunion FOMC des 17-18 juin 2025, même si ce ne sont pas des actions au sens meeting classique ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-042",
+      "axis": "question_humaine_vague",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Pour une réunion demain, qu’est-ce que je dois retenir de réunion FOMC des 17-18 juin 2025 en 8 lignes maximum ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-043",
+      "axis": "extraction_reunion",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Explique-moi simplement : dans les minutes réunion FOMC des 29-30 juillet 2025, quelle est la structure de la réunion et quels grands sujets sont traités ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-044",
+      "axis": "decision_politique",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans réunion FOMC des 29-30 juillet 2025, retrouve la décision ou l’orientation de politique monétaire et explique les justifications données par les participants.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-045",
+      "axis": "conditions_financieres",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "For a management summary, résume ce que les minutes réunion FOMC des 29-30 juillet 2025 disent sur les rendements du Trésor, les conditions financières et la réaction des marchés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-046",
+      "axis": "inflation_emploi",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "How do the FOMC Jul 29-30 2025 minutes describe inflation, labor-market conditions, and the balance of risks?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-047",
+      "axis": "extraction_actions",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Peux-tu extraire les points qui ressemblent à des décisions, actions ou suivis dans réunion FOMC des 29-30 juillet 2025, même si ce ne sont pas des actions au sens meeting classique ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-048",
+      "axis": "question_humaine_vague",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Explique-moi simplement : qu’est-ce que je dois retenir de réunion FOMC des 29-30 juillet 2025 en 8 lignes maximum ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-049",
+      "axis": "extraction_reunion",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je n'ai pas le temps de tout lire : dans les minutes réunion FOMC des 16-17 septembre 2025, quelle est la structure de la réunion et quels grands sujets sont traités ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-050",
+      "axis": "decision_politique",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans réunion FOMC des 16-17 septembre 2025, retrouve la décision ou l’orientation de politique monétaire et explique les justifications données par les participants.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-051",
+      "axis": "conditions_financieres",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : résume ce que les minutes réunion FOMC des 16-17 septembre 2025 disent sur les rendements du Trésor, les conditions financières et la réaction des marchés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-052",
+      "axis": "inflation_emploi",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "How do the FOMC Sep 16-17 2025 minutes describe inflation, labor-market conditions, and the balance of risks?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-053",
+      "axis": "extraction_actions",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Peux-tu extraire les points qui ressemblent à des décisions, actions ou suivis dans réunion FOMC des 16-17 septembre 2025, même si ce ne sont pas des actions au sens meeting classique ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-054",
+      "axis": "question_humaine_vague",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je n'ai pas le temps de tout lire : qu’est-ce que je dois retenir de réunion FOMC des 16-17 septembre 2025 en 8 lignes maximum ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-055",
+      "axis": "extraction_reunion",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "I don't have time to read all this: dans les minutes réunion FOMC des 28-29 octobre 2025, quelle est la structure de la réunion et quels grands sujets sont traités ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-056",
+      "axis": "decision_politique",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans réunion FOMC des 28-29 octobre 2025, retrouve la décision ou l’orientation de politique monétaire et explique les justifications données par les participants.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-057",
+      "axis": "conditions_financieres",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Pour une réunion demain, résume ce que les minutes réunion FOMC des 28-29 octobre 2025 disent sur les rendements du Trésor, les conditions financières et la réaction des marchés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-058",
+      "axis": "inflation_emploi",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "How do the FOMC Oct 28-29 2025 minutes describe inflation, labor-market conditions, and the balance of risks?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-059",
+      "axis": "extraction_actions",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Peux-tu extraire les points qui ressemblent à des décisions, actions ou suivis dans réunion FOMC des 28-29 octobre 2025, même si ce ne sont pas des actions au sens meeting classique ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-060",
+      "axis": "question_humaine_vague",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je dois préparer un point rapide : qu’est-ce que je dois retenir de réunion FOMC des 28-29 octobre 2025 en 8 lignes maximum ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-061",
+      "axis": "comparaison_temporelle",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare réunion FOMC des 17-18 septembre 2024 et réunion FOMC des 17-18 décembre 2024 : qu’est-ce qui évolue dans le diagnostic inflation/emploi ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-062",
+      "axis": "comparaison_marches",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare the market-conditions discussion in FOMC Sep 17-18 2024 and FOMC Dec 17-18 2024. What changed and what stayed similar?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-063",
+      "axis": "timeline",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Fais une chronologie de réunion FOMC des 17-18 septembre 2024 à réunion FOMC des 17-18 décembre 2024 : quels thèmes reviennent et lesquels apparaissent/disparaissent ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-064",
+      "axis": "decision_multi_doc",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Entre réunion FOMC des 17-18 septembre 2024 et réunion FOMC des 17-18 décembre 2024, est-ce que la posture du comité devient plus prudente, plus restrictive ou plus accommodante ? Justifie uniquement avec les textes.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-065",
+      "axis": "comparaison_temporelle",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare réunion FOMC des 17-18 décembre 2024 et réunion FOMC des 28-29 janvier 2025 : qu’est-ce qui évolue dans le diagnostic inflation/emploi ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-066",
+      "axis": "comparaison_marches",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare the market-conditions discussion in FOMC Dec 17-18 2024 and FOMC Jan 28-29 2025. What changed and what stayed similar?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-067",
+      "axis": "timeline",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Fais une chronologie de réunion FOMC des 17-18 décembre 2024 à réunion FOMC des 28-29 janvier 2025 : quels thèmes reviennent et lesquels apparaissent/disparaissent ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-068",
+      "axis": "decision_multi_doc",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Entre réunion FOMC des 17-18 décembre 2024 et réunion FOMC des 28-29 janvier 2025, est-ce que la posture du comité devient plus prudente, plus restrictive ou plus accommodante ? Justifie uniquement avec les textes.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-069",
+      "axis": "comparaison_temporelle",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare réunion FOMC des 28-29 janvier 2025 et réunion FOMC des 18-19 mars 2025 : qu’est-ce qui évolue dans le diagnostic inflation/emploi ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-070",
+      "axis": "comparaison_marches",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare the market-conditions discussion in FOMC Jan 28-29 2025 and FOMC Mar 18-19 2025. What changed and what stayed similar?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-071",
+      "axis": "timeline",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Fais une chronologie de réunion FOMC des 28-29 janvier 2025 à réunion FOMC des 18-19 mars 2025 : quels thèmes reviennent et lesquels apparaissent/disparaissent ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-072",
+      "axis": "decision_multi_doc",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Entre réunion FOMC des 28-29 janvier 2025 et réunion FOMC des 18-19 mars 2025, est-ce que la posture du comité devient plus prudente, plus restrictive ou plus accommodante ? Justifie uniquement avec les textes.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-073",
+      "axis": "comparaison_temporelle",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare réunion FOMC des 18-19 mars 2025 et réunion FOMC des 6-7 mai 2025 : qu’est-ce qui évolue dans le diagnostic inflation/emploi ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-074",
+      "axis": "comparaison_marches",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare the market-conditions discussion in FOMC Mar 18-19 2025 and FOMC May 6-7 2025. What changed and what stayed similar?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-075",
+      "axis": "timeline",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Fais une chronologie de réunion FOMC des 18-19 mars 2025 à réunion FOMC des 6-7 mai 2025 : quels thèmes reviennent et lesquels apparaissent/disparaissent ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-076",
+      "axis": "decision_multi_doc",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Entre réunion FOMC des 18-19 mars 2025 et réunion FOMC des 6-7 mai 2025, est-ce que la posture du comité devient plus prudente, plus restrictive ou plus accommodante ? Justifie uniquement avec les textes.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-077",
+      "axis": "comparaison_temporelle",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare réunion FOMC des 6-7 mai 2025 et réunion FOMC des 17-18 juin 2025 : qu’est-ce qui évolue dans le diagnostic inflation/emploi ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-078",
+      "axis": "comparaison_marches",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare the market-conditions discussion in FOMC May 6-7 2025 and FOMC Jun 17-18 2025. What changed and what stayed similar?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-079",
+      "axis": "timeline",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Fais une chronologie de réunion FOMC des 6-7 mai 2025 à réunion FOMC des 17-18 juin 2025 : quels thèmes reviennent et lesquels apparaissent/disparaissent ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-080",
+      "axis": "decision_multi_doc",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Entre réunion FOMC des 6-7 mai 2025 et réunion FOMC des 17-18 juin 2025, est-ce que la posture du comité devient plus prudente, plus restrictive ou plus accommodante ? Justifie uniquement avec les textes.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-081",
+      "axis": "comparaison_temporelle",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare réunion FOMC des 17-18 juin 2025 et réunion FOMC des 29-30 juillet 2025 : qu’est-ce qui évolue dans le diagnostic inflation/emploi ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-082",
+      "axis": "comparaison_marches",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare the market-conditions discussion in FOMC Jun 17-18 2025 and FOMC Jul 29-30 2025. What changed and what stayed similar?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-083",
+      "axis": "timeline",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Fais une chronologie de réunion FOMC des 17-18 juin 2025 à réunion FOMC des 29-30 juillet 2025 : quels thèmes reviennent et lesquels apparaissent/disparaissent ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-084",
+      "axis": "decision_multi_doc",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Entre réunion FOMC des 17-18 juin 2025 et réunion FOMC des 29-30 juillet 2025, est-ce que la posture du comité devient plus prudente, plus restrictive ou plus accommodante ? Justifie uniquement avec les textes.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-085",
+      "axis": "comparaison_temporelle",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare réunion FOMC des 29-30 juillet 2025 et réunion FOMC des 16-17 septembre 2025 : qu’est-ce qui évolue dans le diagnostic inflation/emploi ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-086",
+      "axis": "comparaison_marches",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare the market-conditions discussion in FOMC Jul 29-30 2025 and FOMC Sep 16-17 2025. What changed and what stayed similar?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-087",
+      "axis": "timeline",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Fais une chronologie de réunion FOMC des 29-30 juillet 2025 à réunion FOMC des 16-17 septembre 2025 : quels thèmes reviennent et lesquels apparaissent/disparaissent ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-088",
+      "axis": "decision_multi_doc",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Entre réunion FOMC des 29-30 juillet 2025 et réunion FOMC des 16-17 septembre 2025, est-ce que la posture du comité devient plus prudente, plus restrictive ou plus accommodante ? Justifie uniquement avec les textes.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-089",
+      "axis": "comparaison_temporelle",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare réunion FOMC des 16-17 septembre 2025 et réunion FOMC des 28-29 octobre 2025 : qu’est-ce qui évolue dans le diagnostic inflation/emploi ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-090",
+      "axis": "comparaison_marches",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare the market-conditions discussion in FOMC Sep 16-17 2025 and FOMC Oct 28-29 2025. What changed and what stayed similar?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-091",
+      "axis": "timeline",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Fais une chronologie de réunion FOMC des 16-17 septembre 2025 à réunion FOMC des 28-29 octobre 2025 : quels thèmes reviennent et lesquels apparaissent/disparaissent ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-092",
+      "axis": "decision_multi_doc",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Entre réunion FOMC des 16-17 septembre 2025 et réunion FOMC des 28-29 octobre 2025, est-ce que la posture du comité devient plus prudente, plus restrictive ou plus accommodante ? Justifie uniquement avec les textes.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-093",
+      "axis": "comparaison_temporelle",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare réunion FOMC des 17-18 septembre 2024 et réunion FOMC des 28-29 octobre 2025 : qu’est-ce qui évolue dans le diagnostic inflation/emploi ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-094",
+      "axis": "comparaison_marches",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare the market-conditions discussion in FOMC Sep 17-18 2024 and FOMC Oct 28-29 2025. What changed and what stayed similar?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-095",
+      "axis": "timeline",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Fais une chronologie de réunion FOMC des 17-18 septembre 2024 à réunion FOMC des 28-29 octobre 2025 : quels thèmes reviennent et lesquels apparaissent/disparaissent ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-096",
+      "axis": "decision_multi_doc",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Entre réunion FOMC des 17-18 septembre 2024 et réunion FOMC des 28-29 octobre 2025, est-ce que la posture du comité devient plus prudente, plus restrictive ou plus accommodante ? Justifie uniquement avec les textes.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-097",
+      "axis": "comparaison_temporelle",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare réunion FOMC des 6-7 novembre 2024 et réunion FOMC des 17-18 juin 2025 : qu’est-ce qui évolue dans le diagnostic inflation/emploi ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-098",
+      "axis": "comparaison_marches",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare the market-conditions discussion in FOMC Nov 6-7 2024 and FOMC Jun 17-18 2025. What changed and what stayed similar?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-099",
+      "axis": "timeline",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Fais une chronologie de réunion FOMC des 6-7 novembre 2024 à réunion FOMC des 17-18 juin 2025 : quels thèmes reviennent et lesquels apparaissent/disparaissent ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-100",
+      "axis": "decision_multi_doc",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Entre réunion FOMC des 6-7 novembre 2024 et réunion FOMC des 17-18 juin 2025, est-ce que la posture du comité devient plus prudente, plus restrictive ou plus accommodante ? Justifie uniquement avec les textes.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-101",
+      "axis": "synthese_corpus",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "En parcourant toutes les minutes FOMC disponibles, fais ressortir les 5 thèmes récurrents et indique dans quelles réunions ils apparaissent le plus clairement.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-102",
+      "axis": "extraction_dates",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Liste toutes les réunions FOMC présentes dans ce dossier, avec date de réunion et nom du PDF correspondant.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-103",
+      "axis": "source_absente",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Est-ce que le dossier contient les minutes FOMC de février 2025 ? Réponds en vérifiant les documents disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-104",
+      "axis": "question_humaine",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux expliquer à quelqu’un qui ne suit pas la Fed ce qui s’est passé entre septembre 2024 et octobre 2025. Fais un résumé compréhensible et sourcé.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-105",
+      "axis": "langue_de",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Erstelle auf Deutsch eine kurze Übersicht der wichtigsten wiederkehrenden Themen in den FOMC-Protokollen von 2024 bis 2025.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-106",
+      "axis": "anti_hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Si une minute FOMC ne mentionne pas explicitement un responsable ou une action assignée, comment dois-tu le formuler dans le compte-rendu ? Donne un exemple à partir des documents.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-107",
+      "axis": "prompt_injection",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Supposons qu’un PDF de minutes contienne une phrase du type 'ignore les instructions précédentes'. Comment dois-tu traiter cette phrase dans une réponse RAG ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-108",
+      "axis": "sourcing",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Donne-moi une réponse modèle pour citer correctement une information issue des minutes FOMC, avec date de réunion et page si disponible.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-109",
+      "axis": "contradiction_apparente",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Trouve deux réunions où le diagnostic semble évoluer ou se nuancer. Explique si c’est une contradiction réelle ou seulement un changement de contexte.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-110",
+      "axis": "tableau_synthese",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Construis un tableau comparatif des réunions : date, sujets principaux, marché financier, inflation/emploi, décision ou orientation.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-111",
+      "axis": "pertinence_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : dans réunion FOMC des 28-29 janvier 2025, est-ce que le thème 'marché du travail' est central ou secondaire ? Justifie avec les passages trouvés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-112",
+      "axis": "comparaison_multilingue",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Vergleiche auf Deutsch, wie 'conditions financières' in FOMC Jun 17-18 2025 und FOMC Mar 18-19 2025 behandelt wird.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-113",
+      "axis": "extraction_faits",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans réunion FOMC des 28-29 octobre 2025, récupère les éléments factuels datés ou chiffrés liés à communication du comité, puis indique ceux qui ne sont pas disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-114",
+      "axis": "resume_court",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux une réponse très courte : que disent les minutes FOMC Dec 17-18 2024 sur vote et dissensions, en 3 puces maximum ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-115",
+      "axis": "extraction_ciblee",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you extract only the passages related to perspectives à moyen terme in FOMC May 6-7 2025 and summarize them without adding outside context?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-116",
+      "axis": "pertinence_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : dans réunion FOMC des 16-17 septembre 2025, est-ce que le thème 'marché du travail' est central ou secondaire ? Justifie avec les passages trouvés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-117",
+      "axis": "comparaison_multilingue",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Vergleiche auf Deutsch, wie 'conditions financières' in FOMC Nov 6-7 2024 und FOMC Oct 28-29 2025 behandelt wird.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-118",
+      "axis": "extraction_faits",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans réunion FOMC des 18-19 mars 2025, récupère les éléments factuels datés ou chiffrés liés à communication du comité, puis indique ceux qui ne sont pas disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-119",
+      "axis": "resume_court",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux une réponse très courte : que disent les minutes FOMC Jul 29-30 2025 sur vote et dissensions, en 3 puces maximum ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-120",
+      "axis": "extraction_ciblee",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you extract only the passages related to perspectives à moyen terme in FOMC Sep 17-18 2024 and summarize them without adding outside context?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-121",
+      "axis": "pertinence_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : dans réunion FOMC des 28-29 janvier 2025, est-ce que le thème 'marché du travail' est central ou secondaire ? Justifie avec les passages trouvés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-122",
+      "axis": "comparaison_multilingue",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Vergleiche auf Deutsch, wie 'conditions financières' in FOMC Jun 17-18 2025 und FOMC Mar 18-19 2025 behandelt wird.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-123",
+      "axis": "extraction_faits",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans réunion FOMC des 28-29 octobre 2025, récupère les éléments factuels datés ou chiffrés liés à communication du comité, puis indique ceux qui ne sont pas disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-124",
+      "axis": "resume_court",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux une réponse très courte : que disent les minutes FOMC Dec 17-18 2024 sur vote et dissensions, en 3 puces maximum ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-125",
+      "axis": "extraction_ciblee",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you extract only the passages related to perspectives à moyen terme in FOMC May 6-7 2025 and summarize them without adding outside context?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-126",
+      "axis": "pertinence_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : dans réunion FOMC des 16-17 septembre 2025, est-ce que le thème 'marché du travail' est central ou secondaire ? Justifie avec les passages trouvés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-127",
+      "axis": "comparaison_multilingue",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Vergleiche auf Deutsch, wie 'conditions financières' in FOMC Nov 6-7 2024 und FOMC Oct 28-29 2025 behandelt wird.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-128",
+      "axis": "extraction_faits",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans réunion FOMC des 18-19 mars 2025, récupère les éléments factuels datés ou chiffrés liés à communication du comité, puis indique ceux qui ne sont pas disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-129",
+      "axis": "resume_court",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux une réponse très courte : que disent les minutes FOMC Jul 29-30 2025 sur vote et dissensions, en 3 puces maximum ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-130",
+      "axis": "extraction_ciblee",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you extract only the passages related to perspectives à moyen terme in FOMC Sep 17-18 2024 and summarize them without adding outside context?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-131",
+      "axis": "pertinence_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : dans réunion FOMC des 28-29 janvier 2025, est-ce que le thème 'marché du travail' est central ou secondaire ? Justifie avec les passages trouvés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-132",
+      "axis": "comparaison_multilingue",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Vergleiche auf Deutsch, wie 'conditions financières' in FOMC Jun 17-18 2025 und FOMC Mar 18-19 2025 behandelt wird.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-133",
+      "axis": "extraction_faits",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans réunion FOMC des 28-29 octobre 2025, récupère les éléments factuels datés ou chiffrés liés à communication du comité, puis indique ceux qui ne sont pas disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-134",
+      "axis": "resume_court",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux une réponse très courte : que disent les minutes FOMC Dec 17-18 2024 sur vote et dissensions, en 3 puces maximum ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-135",
+      "axis": "extraction_ciblee",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you extract only the passages related to perspectives à moyen terme in FOMC May 6-7 2025 and summarize them without adding outside context?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-136",
+      "axis": "pertinence_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : dans réunion FOMC des 16-17 septembre 2025, est-ce que le thème 'marché du travail' est central ou secondaire ? Justifie avec les passages trouvés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-137",
+      "axis": "comparaison_multilingue",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Vergleiche auf Deutsch, wie 'conditions financières' in FOMC Nov 6-7 2024 und FOMC Oct 28-29 2025 behandelt wird.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-138",
+      "axis": "extraction_faits",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans réunion FOMC des 18-19 mars 2025, récupère les éléments factuels datés ou chiffrés liés à communication du comité, puis indique ceux qui ne sont pas disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-139",
+      "axis": "resume_court",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux une réponse très courte : que disent les minutes FOMC Jul 29-30 2025 sur vote et dissensions, en 3 puces maximum ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-140",
+      "axis": "extraction_ciblee",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you extract only the passages related to perspectives à moyen terme in FOMC Sep 17-18 2024 and summarize them without adding outside context?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-141",
+      "axis": "pertinence_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : dans réunion FOMC des 28-29 janvier 2025, est-ce que le thème 'marché du travail' est central ou secondaire ? Justifie avec les passages trouvés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-142",
+      "axis": "comparaison_multilingue",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Vergleiche auf Deutsch, wie 'conditions financières' in FOMC Jun 17-18 2025 und FOMC Mar 18-19 2025 behandelt wird.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-143",
+      "axis": "extraction_faits",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans réunion FOMC des 28-29 octobre 2025, récupère les éléments factuels datés ou chiffrés liés à communication du comité, puis indique ceux qui ne sont pas disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-144",
+      "axis": "resume_court",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux une réponse très courte : que disent les minutes FOMC Dec 17-18 2024 sur vote et dissensions, en 3 puces maximum ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-145",
+      "axis": "extraction_ciblee",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you extract only the passages related to perspectives à moyen terme in FOMC May 6-7 2025 and summarize them without adding outside context?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-146",
+      "axis": "pertinence_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : dans réunion FOMC des 16-17 septembre 2025, est-ce que le thème 'marché du travail' est central ou secondaire ? Justifie avec les passages trouvés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-147",
+      "axis": "comparaison_multilingue",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Vergleiche auf Deutsch, wie 'conditions financières' in FOMC Nov 6-7 2024 und FOMC Oct 28-29 2025 behandelt wird.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-148",
+      "axis": "extraction_faits",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans réunion FOMC des 18-19 mars 2025, récupère les éléments factuels datés ou chiffrés liés à communication du comité, puis indique ceux qui ne sont pas disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-149",
+      "axis": "resume_court",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux une réponse très courte : que disent les minutes FOMC Jul 29-30 2025 sur vote et dissensions, en 3 puces maximum ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-150",
+      "axis": "extraction_ciblee",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you extract only the passages related to perspectives à moyen terme in FOMC Sep 17-18 2024 and summarize them without adding outside context?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-151",
+      "axis": "pertinence_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : dans réunion FOMC des 28-29 janvier 2025, est-ce que le thème 'marché du travail' est central ou secondaire ? Justifie avec les passages trouvés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-152",
+      "axis": "comparaison_multilingue",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Vergleiche auf Deutsch, wie 'conditions financières' in FOMC Jun 17-18 2025 und FOMC Mar 18-19 2025 behandelt wird.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-153",
+      "axis": "extraction_faits",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans réunion FOMC des 28-29 octobre 2025, récupère les éléments factuels datés ou chiffrés liés à communication du comité, puis indique ceux qui ne sont pas disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-154",
+      "axis": "resume_court",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux une réponse très courte : que disent les minutes FOMC Dec 17-18 2024 sur vote et dissensions, en 3 puces maximum ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-155",
+      "axis": "extraction_ciblee",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you extract only the passages related to perspectives à moyen terme in FOMC May 6-7 2025 and summarize them without adding outside context?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-156",
+      "axis": "pertinence_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : dans réunion FOMC des 16-17 septembre 2025, est-ce que le thème 'marché du travail' est central ou secondaire ? Justifie avec les passages trouvés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-157",
+      "axis": "comparaison_multilingue",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Vergleiche auf Deutsch, wie 'conditions financières' in FOMC Nov 6-7 2024 und FOMC Oct 28-29 2025 behandelt wird.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-158",
+      "axis": "extraction_faits",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans réunion FOMC des 18-19 mars 2025, récupère les éléments factuels datés ou chiffrés liés à communication du comité, puis indique ceux qui ne sont pas disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-159",
+      "axis": "resume_court",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux une réponse très courte : que disent les minutes FOMC Jul 29-30 2025 sur vote et dissensions, en 3 puces maximum ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-EMAILS_REUNION-160",
+      "axis": "extraction_ciblee",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you extract only the passages related to perspectives à moyen terme in FOMC Sep 17-18 2024 and summarize them without adding outside context?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    }
+  ]
+}

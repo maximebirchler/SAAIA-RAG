@@ -82,6 +82,41 @@ public sealed class RagMatchedContentCardsTests
     }
 
     [Fact]
+    public void BuildMatchedContentCards_uses_overlapping_concrete_card_for_broad_choice_page()
+    {
+        const string metadataJson = """
+        {
+          "contentCards": [
+            {
+              "title": "Tarte Tatin",
+              "pageStart": 2,
+              "pageEnd": 4,
+              "kind": "section",
+              "signals": ["structured_facts", "recettes sucrees", "tarte", "tatin"]
+            },
+            {
+              "title": "Budget overview",
+              "pageStart": 9,
+              "pageEnd": 9,
+              "kind": "section",
+              "signals": ["overview"]
+            }
+          ]
+        }
+        """;
+
+        var cards = RagEndpoints.BuildMatchedContentCards(
+            metadataJson,
+            "Quel dessert francais choisir pour un repas chic ? Recettes preferees des francais avec desserts.",
+            limit: 3,
+            pageStart: 3,
+            pageEnd: 3);
+
+        var card = Assert.Single(cards);
+        Assert.Equal("Tarte Tatin", card.Title);
+    }
+
+    [Fact]
     public void BuildMatchedContentCards_does_not_fill_limit_with_unrelated_cards()
     {
         const string metadataJson = """
@@ -160,6 +195,135 @@ public sealed class RagMatchedContentCardsTests
         var cards = RagEndpoints.BuildMatchedContentCards(metadataJson, "alpha safety", limit: 2);
 
         Assert.Equal(["Alpha safety", "Operations appendix"], cards.Select(static card => card.Title));
+    }
+
+    [Fact]
+    public void BuildMatchedContentCards_promotes_concrete_cards_for_comparative_item_requests()
+    {
+        const string metadataJson = """
+        {
+          "contentCards": [
+            {
+              "title": "Required equipment",
+              "pageStart": 2,
+              "pageEnd": 2,
+              "kind": "exact_lead",
+              "signals": ["equipment", "materials"]
+            },
+            {
+              "title": "Difficulty level",
+              "pageStart": 3,
+              "pageEnd": 3,
+              "kind": "unit_lead",
+              "signals": ["difficulty", "risk", "time"]
+            },
+            {
+              "title": "Cover before opening",
+              "pageStart": 4,
+              "pageEnd": 4,
+              "kind": "page_embedded_title",
+              "signals": ["quantity_list", "structured_facts", "cover", "opening", "time"],
+              "evidence": {
+                "schemaVersion": "content_card_evidence_v1",
+                "quantityFacts": [
+                  { "value": 2003, "unit": "manual", "label": "page marker before opening", "sourceText": "2003 Manual page 9 cover before opening" }
+                ]
+              }
+            },
+            {
+              "title": "Ingredients Technique",
+              "pageStart": 5,
+              "pageEnd": 5,
+              "kind": "page_embedded_title",
+              "signals": ["quantity_list", "structured_facts", "ingredients", "technique", "materials"],
+              "evidence": {
+                "schemaVersion": "content_card_evidence_v1",
+                "quantityFacts": [
+                  { "value": 2, "unit": "tools", "label": "tools", "sourceText": "2 tools" }
+                ]
+              }
+            },
+            {
+              "title": "¢1 | white juice, 2 lemon juice",
+              "pageStart": 6,
+              "pageEnd": 6,
+              "kind": "page_embedded_title",
+              "signals": ["quantity_list", "structured_facts", "time"],
+              "evidence": {
+                "schemaVersion": "content_card_evidence_v1",
+                "quantityFacts": [
+                  { "value": 1, "unit": "juice", "label": "white juice", "sourceText": "1 white juice" }
+                ]
+              }
+            },
+            {
+              "title": "Quantities for 40 pieces",
+              "pageStart": 7,
+              "pageEnd": 7,
+              "kind": "exact_lead",
+              "signals": ["quantity_list", "structured_facts", "materials"],
+              "evidence": {
+                "schemaVersion": "content_card_evidence_v1",
+                "quantityFacts": [
+                  { "value": 40, "unit": "pieces", "label": "pieces", "sourceText": "40 pieces" }
+                ]
+              }
+            },
+            {
+              "title": "Alpha field drill",
+              "pageStart": 10,
+              "pageEnd": 10,
+              "kind": "page_embedded_title",
+              "signals": ["quantity_list", "structured_facts", "alpha", "field", "drill"],
+              "evidence": {
+                "schemaVersion": "content_card_evidence_v1",
+                "quantityFacts": [
+                  { "value": 20, "unit": "min", "label": "setup time", "sourceText": "20 min setup time" }
+                ]
+              }
+            },
+            {
+              "title": "Beta assembly task",
+              "pageStart": 11,
+              "pageEnd": 11,
+              "kind": "page_embedded_title",
+              "signals": ["quantity_list", "structured_facts", "beta", "assembly", "task"],
+              "evidence": {
+                "schemaVersion": "content_card_evidence_v1",
+                "quantityFacts": [
+                  { "value": 2, "unit": "tools", "label": "tool count", "sourceText": "2 tools required" }
+                ]
+              }
+            },
+            {
+              "title": "Gamma inspection route",
+              "pageStart": 12,
+              "pageEnd": 12,
+              "kind": "page_embedded_title",
+              "signals": ["quantity_list", "structured_facts", "gamma", "inspection", "route"],
+              "evidence": {
+                "schemaVersion": "content_card_evidence_v1",
+                "facts": [
+                  { "kind": "risk", "label": "low failure risk", "sourceText": "low failure risk when checked" }
+                ]
+              }
+            }
+          ]
+        }
+        """;
+
+        var cards = RagEndpoints.BuildMatchedContentCards(
+            metadataJson,
+            "Compare three trainee exercises: time, materials, risk of failure.",
+            limit: 5);
+
+        Assert.Equal(
+            ["Alpha field drill", "Beta assembly task", "Gamma inspection route"],
+            cards.Take(3).Select(static card => card.Title).OrderBy(static title => title, StringComparer.Ordinal));
+        Assert.DoesNotContain(cards.Take(3), card => card.Title == "Cover before opening");
+        Assert.DoesNotContain(cards.Take(3), card => card.Title == "Ingredients Technique");
+        Assert.DoesNotContain(cards.Take(3), card => card.Title.StartsWith("¢1", StringComparison.Ordinal));
+        Assert.DoesNotContain(cards.Take(3), card => card.Title == "Quantities for 40 pieces");
     }
 
     [Fact]

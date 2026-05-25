@@ -35,6 +35,9 @@ public sealed class ContextualTextProjectorTests
         Assert.Contains("previous_context:", entry.Text, StringComparison.Ordinal);
         Assert.Contains("next_context:", entry.Text, StringComparison.Ordinal);
         Assert.Contains("excerpt:", entry.Text, StringComparison.Ordinal);
+        Assert.True(
+            entry.Text.IndexOf("excerpt:", StringComparison.Ordinal) <
+            entry.Text.IndexOf("context:", StringComparison.Ordinal));
         Assert.DoesNotContain("Document:", entry.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("Section:", entry.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("Excerpt:", entry.Text, StringComparison.Ordinal);
@@ -105,6 +108,46 @@ public sealed class ContextualTextProjectorTests
         Assert.DoesNotContain("next_context:", entry.Text, StringComparison.Ordinal);
         Assert.Contains("excerpt:", entry.Text, StringComparison.Ordinal);
         Assert.Contains("Lockout procedure", entry.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Project_puts_exact_excerpt_first_and_omits_duplicate_unit_context()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Operations", 1, 1, 1, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "ALPHA BETA MODULE Materials 2 units 4 bolts. Procedure 1. Isolate. 2. Calibrate.",
+                79,
+                12,
+                [1])
+        };
+        var chunks = new[]
+        {
+            new ProjectedRetrievalChunk(
+                0,
+                0,
+                0,
+                1,
+                1,
+                "ALPHA BETA MODULE Materials 2 units 4 bolts. Procedure 1. Isolate. 2. Calibrate.",
+                12,
+                [2],
+                "unit_exact_v1")
+        };
+
+        var entry = Assert.Single(ContextualTextProjector.Project("Ops/Manual.pdf", sections, units, chunks));
+
+        Assert.Contains("excerpt:", entry.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("context:", entry.Text, StringComparison.Ordinal);
+        Assert.Contains("ALPHA BETA MODULE", entry.Text, StringComparison.Ordinal);
     }
 
     [Fact]

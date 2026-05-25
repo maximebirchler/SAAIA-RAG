@@ -13,19 +13,35 @@ internal static class ContextualTextProjector
             return Array.Empty<ProjectedContextualTextEntry>();
 
         var fileName = Path.GetFileName(docPath);
+        var sectionByOrdinal = sections.ToDictionary(section => section.Ordinal);
         var unitsByOrdinal = units.ToDictionary(unit => unit.Ordinal);
         var headingPathBySectionOrdinal = BuildHeadingPathMap(sections);
+        var includeNeighborContextByOrdinal = new Dictionary<int, bool>();
         var entries = new List<ProjectedContextualTextEntry>(retrievalChunks.Count);
 
         foreach (var chunk in retrievalChunks.OrderBy(chunk => chunk.ChunkIndex))
         {
-            var section = sections.FirstOrDefault(section => section.Ordinal == chunk.SectionOrdinal);
+            ExtractedDocumentSection? section = null;
+            if (chunk.SectionOrdinal.HasValue)
+                sectionByOrdinal.TryGetValue(chunk.SectionOrdinal.Value, out section);
+
             unitsByOrdinal.TryGetValue(chunk.UnitOrdinal ?? -1, out var unit);
-            var previousUnit = ResolveNeighborUnit(units, chunk.UnitOrdinal, direction: -1);
-            var nextUnit = ResolveNeighborUnit(units, chunk.UnitOrdinal, direction: 1);
+            var previousUnit = ResolveNeighborUnit(unitsByOrdinal, unit, direction: -1);
+            var nextUnit = ResolveNeighborUnit(unitsByOrdinal, unit, direction: 1);
+            var includePreviousUnit = ShouldIncludeNeighborContext(previousUnit, includeNeighborContextByOrdinal);
+            var includeNextUnit = ShouldIncludeNeighborContext(nextUnit, includeNeighborContextByOrdinal);
             var headingPath = ResolveHeadingPath(chunk.SectionOrdinal, headingPathBySectionOrdinal);
 
-            var text = BuildContextualText(fileName, section, headingPath, chunk, unit, previousUnit, nextUnit);
+            var text = BuildContextualText(
+                fileName,
+                section,
+                headingPath,
+                chunk,
+                unit,
+                previousUnit,
+                includePreviousUnit,
+                nextUnit,
+                includeNextUnit);
             entries.Add(new ProjectedContextualTextEntry(
                 EntryIndex: chunk.ChunkIndex,
                 SectionOrdinal: chunk.SectionOrdinal,
@@ -49,7 +65,9 @@ internal static class ContextualTextProjector
         ProjectedRetrievalChunk chunk,
         ExtractedDocumentUnit? unit,
         ExtractedDocumentUnit? previousUnit,
-        ExtractedDocumentUnit? nextUnit)
+        bool includePreviousUnit,
+        ExtractedDocumentUnit? nextUnit,
+        bool includeNextUnit)
     {
         var sb = new StringBuilder();
         sb.Append("document_name: ").Append(fileName).AppendLine();
@@ -64,70 +82,83 @@ internal static class ContextualTextProjector
         sb.AppendLine();
         sb.AppendLine();
 
-        if (!string.IsNullOrWhiteSpace(unit?.Text))
+        sb.AppendLine("excerpt:");
+        sb.AppendLine(chunk.Text.Trim());
+        sb.AppendLine();
+
+        if (!string.IsNullOrWhiteSpace(unit?.Text) && !TextEquals(unit.Text, chunk.Text))
         {
             sb.AppendLine("context:");
             sb.AppendLine(unit.Text.Trim());
             sb.AppendLine();
         }
 
-        if (ShouldIncludeNeighborContext(previousUnit))
+        if (includePreviousUnit)
         {
             sb.AppendLine("previous_context:");
             sb.AppendLine(previousUnit!.Text.Trim());
             sb.AppendLine();
         }
 
-        if (ShouldIncludeNeighborContext(nextUnit))
+        if (includeNextUnit)
         {
             sb.AppendLine("next_context:");
             sb.AppendLine(nextUnit!.Text.Trim());
             sb.AppendLine();
         }
 
-        sb.AppendLine("excerpt:");
-        sb.Append(chunk.Text.Trim());
         return sb.ToString().TrimEnd();
     }
 
-    private static bool ShouldIncludeNeighborContext(ExtractedDocumentUnit? unit)
+    private static bool TextEquals(string left, string right)
+        => string.Equals(NormalizeForComparison(left), NormalizeForComparison(right), StringComparison.Ordinal);
+
+    private static string NormalizeForComparison(string text)
+        => string.Join(' ', (text ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    private static bool ShouldIncludeNeighborContext(
+        ExtractedDocumentUnit? unit,
+        Dictionary<int, bool> includeNeighborContextByOrdinal)
     {
         if (string.IsNullOrWhiteSpace(unit?.Text))
             return false;
 
+        if (includeNeighborContextByOrdinal.TryGetValue(unit.Ordinal, out var cached))
+            return cached;
+
         var text = unit.Text.Trim();
         if (OcrNoiseFilter.LooksLikeProbableNoiseText(text))
-            return false;
+            return CacheIncludeNeighborContext(includeNeighborContextByOrdinal, unit.Ordinal, false);
 
         var signal = RetrievalContentClassifier.AnalyzeChunk(text);
         if (string.Equals(signal.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.Ordinal))
-            return false;
+            return CacheIncludeNeighborContext(includeNeighborContextByOrdinal, unit.Ordinal, false);
 
         if (string.Equals(signal.ContentRole, RetrievalContentClassifier.MixedNavigationContentRole, StringComparison.Ordinal)
             && signal.NavigationScore >= 0.72
             && signal.ContentDensityScore < 0.55)
         {
-            return false;
+            return CacheIncludeNeighborContext(includeNeighborContextByOrdinal, unit.Ordinal, false);
         }
 
-        return true;
+        return CacheIncludeNeighborContext(includeNeighborContextByOrdinal, unit.Ordinal, true);
+    }
+
+    private static bool CacheIncludeNeighborContext(Dictionary<int, bool> cache, int unitOrdinal, bool value)
+    {
+        cache[unitOrdinal] = value;
+        return value;
     }
 
     private static ExtractedDocumentUnit? ResolveNeighborUnit(
-        IReadOnlyList<ExtractedDocumentUnit> units,
-        int? unitOrdinal,
+        IReadOnlyDictionary<int, ExtractedDocumentUnit> unitsByOrdinal,
+        ExtractedDocumentUnit? current,
         int direction)
     {
-        if (!unitOrdinal.HasValue)
-            return null;
-
-        var current = units.FirstOrDefault(unit => unit.Ordinal == unitOrdinal.Value);
         if (current is null)
             return null;
 
-        var targetOrdinal = current.Ordinal + direction;
-        var neighbor = units.FirstOrDefault(unit => unit.Ordinal == targetOrdinal);
-        if (neighbor is null)
+        if (!unitsByOrdinal.TryGetValue(current.Ordinal + direction, out var neighbor))
             return null;
 
         return neighbor.SectionOrdinal == current.SectionOrdinal

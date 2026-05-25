@@ -20,7 +20,29 @@ public sealed class IngestionBulkheadsTests
 
         using var first = await bulkheads.AcquireOcrAsync(CancellationToken.None);
 
-        await Assert.ThrowsAsync<TimeoutException>(() => bulkheads.AcquireOcrAsync(CancellationToken.None));
+        await Assert.ThrowsAsync<IngestionBulkheadTimeoutException>(() => bulkheads.AcquireOcrAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task AcquireOcrAsync_timeout_carries_bulkhead_metadata()
+    {
+        var bulkheads = new IngestionBulkheads(
+            Options.Create(new IngestionOptions
+            {
+                OcrMaxConcurrency = 1,
+                BulkheadAcquireTimeoutSeconds = 1,
+                OcrBulkheadAcquireTimeoutSeconds = 1
+            }),
+            NullLogger<IngestionBulkheads>.Instance);
+
+        using var first = await bulkheads.AcquireOcrAsync(CancellationToken.None);
+
+        var ex = await Assert.ThrowsAsync<IngestionBulkheadTimeoutException>(
+            () => bulkheads.AcquireOcrAsync(CancellationToken.None));
+
+        Assert.Equal("OCR", ex.BulkheadName);
+        Assert.Equal(1, ex.MaxConcurrency);
+        Assert.Equal(TimeSpan.FromSeconds(1), ex.WaitTimeout);
     }
 
     [Fact]
@@ -39,5 +61,37 @@ public sealed class IngestionBulkheadsTests
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(150));
 
         await Assert.ThrowsAsync<OperationCanceledException>(() => bulkheads.AcquireOcrAsync(cts.Token));
+    }
+
+    [Fact]
+    public async Task AcquireOcrAsync_uses_short_queue_wait_before_legacy_ceiling()
+    {
+        var bulkheads = new IngestionBulkheads(
+            Options.Create(new IngestionOptions
+            {
+                OcrMaxConcurrency = 1,
+                BulkheadAcquireTimeoutSeconds = 1,
+                OcrBulkheadAcquireTimeoutSeconds = 1800,
+                OcrBulkheadQueueWaitTimeoutSeconds = 1
+            }),
+            NullLogger<IngestionBulkheads>.Instance);
+
+        using var first = await bulkheads.AcquireOcrAsync(CancellationToken.None);
+
+        var ex = await Assert.ThrowsAsync<IngestionBulkheadTimeoutException>(
+            () => bulkheads.AcquireOcrAsync(CancellationToken.None));
+
+        Assert.Equal("OCR", ex.BulkheadName);
+        Assert.Equal(TimeSpan.FromSeconds(1), ex.WaitTimeout);
+    }
+
+    [Fact]
+    public void ResolveOcrBulkheadQueueWaitTimeoutSeconds_never_exceeds_legacy_acquire_timeout()
+    {
+        var resolved = IngestionOptions.ResolveOcrBulkheadQueueWaitTimeoutSeconds(
+            ocrBulkheadAcquireTimeoutSeconds: 30,
+            ocrBulkheadQueueWaitTimeoutSeconds: 300);
+
+        Assert.Equal(30, resolved);
     }
 }

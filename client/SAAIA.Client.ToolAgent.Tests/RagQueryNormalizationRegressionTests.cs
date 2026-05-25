@@ -17,6 +17,47 @@ public sealed class RagQueryNormalizationRegressionTests
     }
 
     [Fact]
+    public void Rag_query_normalization_extracts_delimited_user_demand()
+    {
+        var input = "Prepare une reponse courte pour orienter un utilisateur qui demande `Alpha Beta proprietes thermiques`.";
+
+        Assert.Equal("Alpha Beta proprietes thermiques", ToolAgentOrchestrator.NormalizeRagQueryForTests(input));
+    }
+
+    [Fact]
+    public void Rag_query_normalization_repairs_replacement_accent_markers_in_delimited_user_demand()
+    {
+        var input = "Pr?pare une r?ponse courte pour orienter un utilisateur qui demande `propri?t?s ?lectriques`.";
+
+        Assert.Equal("proprietes electriques", ToolAgentOrchestrator.NormalizeRagQueryForTests(input));
+    }
+
+    [Fact]
+    public void Rag_search_execution_preserves_delimited_user_demand_for_backend_ranking()
+    {
+        var input = "Pr?pare une r?ponse courte pour orienter un utilisateur qui demande `propri?t?s ?lectriques`.";
+
+        Assert.Equal(input, ToolAgentOrchestrator.ResolveRagSearchExecutionQueryForTests(input));
+    }
+
+    [Fact]
+    public void Source_backed_action_queries_prioritize_delimited_user_demand_and_drop_wrapper_terms()
+    {
+        var input = "Prepare une reponse courte pour orienter un utilisateur qui demande `Alpha Beta proprietes thermiques`.";
+
+        var queries = ToolAgentOrchestrator.BuildSourceBackedActionRetrievalQueriesForTests(input);
+        var joined = string.Join(" | ", queries);
+
+        Assert.Equal("Alpha Beta proprietes thermiques", queries[0]);
+        Assert.Contains(queries, query => query.Contains("thermal", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, query => query.Contains("melt point", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, query => string.Equals(query, "orienter", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, query => string.Equals(query, "utilisateur", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, query => string.Equals(query, "demande", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain("orienter utilisateur demande", joined, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Clarification_payload_uses_the_user_clarification_as_retrieval_topic()
     {
         var payload = """

@@ -137,6 +137,152 @@ public sealed class DocumentUnitExtractorTests
     }
 
     [Fact]
+    public void Extract_splits_title_case_structured_item_after_compact_measure_tail()
+    {
+        const string title = "Module au relais";
+        const string text =
+            "Controlez la sortie et laissez stabiliser pendant 20 min. "
+            + "4 operators 30 min"
+            + title
+            + " Pour 4 operators Materials: relay, sensor. Procedure 1. Inspect status. 2. Record evidence.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, 33, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 1, null, null)
+        };
+
+        var units = DocumentUnitExtractor.Extract(pages, sections);
+
+        Assert.Contains(units, unit => unit.Text.StartsWith(title, StringComparison.Ordinal));
+        Assert.DoesNotContain(units, unit =>
+            unit.Text.Contains("Controlez la sortie", StringComparison.Ordinal)
+            && unit.Text.Contains(title, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Extract_does_not_merge_short_structured_title_segment_into_previous_recipe()
+    {
+        const string text =
+            "Faites cuire les petits tas pendant 25 minutes. Servez tiede. "
+            + "4 personnes 15 min CHOUQUETTES "
+            + "CHURROS SAUCE CHOCOLAT 30 cl de lait 200 g de farine 1 sachet de levure "
+            + "Preparation 1. Melanger la pate. 2. Frire les boudins. 3. Preparer la sauce chocolat.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, 56, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 1, null, null)
+        };
+
+        var units = DocumentUnitExtractor.Extract(pages, sections);
+
+        Assert.Contains(units, unit => unit.Text.StartsWith("CHURROS SAUCE CHOCOLAT", StringComparison.Ordinal));
+        Assert.DoesNotContain(units, unit =>
+            unit.Text.Contains("CHOUQUETTES", StringComparison.Ordinal)
+            && unit.Text.Contains("CHURROS SAUCE CHOCOLAT", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Extract_splits_next_structured_body_after_footer_title_note()
+    {
+        const string text =
+            "Temps total : 40 min 80 g de beurre 25 cl d'eau 150 g de farine "
+            + "1 Prechauffez le four. 2 Ajoutez la farine. 3 Ajoutez les oeufs. "
+            + "4 Enfournez les petits tas pendant 25 minutes. 4 personnes 15 min ALPHA CAKES "
+            + "Decorez avec des eclats et des fruits secs. "
+            + "30 cl de lait 200 g de farine 1 sachet de levure 1 Melangez la pate. "
+            + "2 Formez des boudins. 3 Preparez la sauce. 4 personnes 12 min BETA STICKS "
+            + "Utilisez un appareil pour des formes regulieres.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, 92, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 1, null, null)
+        };
+
+        var units = DocumentUnitExtractor.Extract(pages, sections);
+
+        Assert.Contains(units, unit =>
+            unit.Text.Contains("ALPHA CAKES", StringComparison.Ordinal)
+            && !unit.Text.Contains("30 cl de lait", StringComparison.Ordinal));
+        Assert.Contains(units, unit =>
+            unit.Text.StartsWith("30 cl de lait", StringComparison.Ordinal)
+            && unit.Text.Contains("BETA STICKS", StringComparison.Ordinal));
+        Assert.DoesNotContain(units, unit =>
+            unit.Text.Contains("ALPHA CAKES", StringComparison.Ordinal)
+            && unit.Text.Contains("BETA STICKS", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Extract_splits_next_structured_body_after_glued_footer_title_note()
+    {
+        const string text =
+            "Temps total : 40 min 80 g de beurre 25 cl d'eau 150 g de farine "
+            + "1 Prechauffez le four. 2 Ajoutez la farine. 3 Ajoutez les oeufs. "
+            + "4 Enfournez les petits tas pendant 25 minutes. 4 personnes 15 min ALPHA CAKES"
+            + "Decorez avec des eclats et des fruits secs.30 cl de lait 200 g de farine "
+            + "1 sachet de levure 1 Melangez la pate. 2 Formez des boudins. "
+            + "3 Preparez la sauce. 4 personnes 12 min BETA STICKSUtilisez un appareil.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, 92, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 1, null, null)
+        };
+
+        var units = DocumentUnitExtractor.Extract(pages, sections);
+
+        Assert.Contains(units, unit =>
+            unit.Text.Contains("ALPHA CAKES", StringComparison.Ordinal)
+            && !unit.Text.Contains("30 cl de lait", StringComparison.Ordinal));
+        Assert.Contains(units, unit =>
+            unit.Text.StartsWith("30 cl de lait", StringComparison.Ordinal)
+            && unit.Text.Contains("BETA STICKS", StringComparison.Ordinal));
+        Assert.DoesNotContain(units, unit =>
+            unit.Text.Contains("ALPHA CAKES", StringComparison.Ordinal)
+            && unit.Text.Contains("BETA STICKS", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Extract_splits_real_footer_title_note_before_glued_next_body()
+    {
+        const string text =
+            "Enfournez et faites cuire pendant 25 \u00e0 30 min.4/6 personnes12 min30 min15 minCHOUQUETTES"
+            + "D\u00e9corez d\u2019\u00e9clats de pistaches, de pralines, de noisettes.30 cl de lait demi-\u00e9cr\u00e9m\u00e9"
+            + "15 cl d'eau200 g de farine1 sachet de levure chimique3 pinc\u00e9es de sel1 blanc d\u2019\u0153uf"
+            + "165 g de chocolat noir1 c. \u00e0 c. d\u2019ar\u00f4me vanille1 Dans le robot muni du couteau pour p\u00e9trir/concasser, mettez 15 cl de lait et 15 cl d\u2019eau.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, 64, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 1, null, null)
+        };
+
+        var units = DocumentUnitExtractor.Extract(pages, sections);
+
+        Assert.Contains(units, unit =>
+            unit.Text.Contains("CHOUQUETTES", StringComparison.Ordinal)
+            && !unit.Text.Contains("30 cl de lait", StringComparison.Ordinal));
+        Assert.Contains(units, unit =>
+            unit.Text.StartsWith("30 cl de lait", StringComparison.Ordinal)
+            && unit.Text.Contains("Dans le robot", StringComparison.Ordinal));
+        Assert.DoesNotContain(units, unit =>
+            unit.Text.Contains("CHOUQUETTES", StringComparison.Ordinal)
+            && unit.Text.Contains("30 cl de lait", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Extract_filters_short_probable_ocr_noise_units_without_removing_useful_scan_text()
     {
         const string text =
@@ -168,6 +314,27 @@ public sealed class DocumentUnitExtractorTests
         Assert.Contains(units, unit => unit.Text.Contains("UL Standard for Safety", StringComparison.Ordinal));
         Assert.Contains(units, unit => unit.Text.Contains("RISQUE D'EXPLOSION", StringComparison.Ordinal));
         Assert.Contains(units, unit => unit.Text.Contains("branch and feeder circuit", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Extract_splits_oversized_dense_ocr_paragraphs_before_boundary_scanning()
+    {
+        var repeated = string.Join(' ', Enumerable.Repeat(
+            "This dense extracted paragraph contains operational evidence, references, and stable wording for retrieval.",
+            520));
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, repeated, 5200, repeated.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 1, null, null)
+        };
+
+        var units = DocumentUnitExtractor.Extract(pages, sections);
+
+        Assert.True(units.Count > 4);
+        Assert.All(units, unit => Assert.InRange(unit.CharCount, 1, 6000));
     }
 
     [Fact]

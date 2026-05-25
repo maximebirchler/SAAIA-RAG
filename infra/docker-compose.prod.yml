@@ -22,6 +22,10 @@ services:
   qdrant:
     image: qdrant/qdrant:v1.10.1
     restart: unless-stopped
+    ulimits:
+      nofile:
+        soft: ${QDRANT_NOFILE_SOFT:-1048576}
+        hard: ${QDRANT_NOFILE_HARD:-1048576}
     ports:
       - "${SAAIA_BIND_ADDR:-127.0.0.1}:${QDRANT_HOST_PORT:-6333}:6333"
     environment:
@@ -67,12 +71,15 @@ services:
       Rag__SearchQueueLimit: ${SAAIA_RAG_SEARCH_QUEUE_LIMIT:-16}
       Rag__SearchQueueWaitTimeoutSeconds: ${SAAIA_RAG_SEARCH_QUEUE_WAIT_TIMEOUT_SECONDS:-25}
       Rag__SearchRetryAfterSeconds: ${SAAIA_RAG_SEARCH_RETRY_AFTER_SECONDS:-3}
+      Rag__SearchDenseEmbeddingTimeoutSeconds: ${SAAIA_RAG_SEARCH_DENSE_EMBEDDING_TIMEOUT_SECONDS:-15}
+      Rag__SearchSparseCommandTimeoutSeconds: ${SAAIA_RAG_SEARCH_SPARSE_COMMAND_TIMEOUT_SECONDS:-12}
       Ingestion__ChunkMaxWords: ${SAAIA_INGESTION_CHUNK_MAX_WORDS:-200}
       Ingestion__ChunkOverlapWords: ${SAAIA_INGESTION_CHUNK_OVERLAP_WORDS:-35}
       Ingestion__ChunkMinWords: ${SAAIA_INGESTION_CHUNK_MIN_WORDS:-25}
       Ingestion__EmbeddingsBatchSize: ${SAAIA_INGESTION_EMBEDDINGS_BATCH_SIZE:-32}
       Ingestion__WorkerConcurrency: ${SAAIA_INGESTION_WORKER_CONCURRENCY:-2}
       Ingestion__WorkerEmptyDelayMs: ${SAAIA_INGESTION_WORKER_EMPTY_DELAY_MS:-500}
+      Ingestion__StaleRunningMinutes: ${SAAIA_INGESTION_STALE_RUNNING_MINUTES:-60}
       Ingestion__ScannerEnabled: ${SAAIA_INGESTION_SCANNER_ENABLED:-true}
       Ingestion__ScanIntervalSeconds: ${SAAIA_INGESTION_SCAN_INTERVAL_SECONDS:-10}
       Ingestion__MinFileAgeSeconds: ${SAAIA_INGESTION_MIN_FILE_AGE_SECONDS:-2}
@@ -82,6 +89,7 @@ services:
       Ingestion__TeiMaxConcurrency: ${SAAIA_INGESTION_TEI_MAX_CONCURRENCY:-2}
       Ingestion__QdrantMaxConcurrency: ${SAAIA_INGESTION_QDRANT_MAX_CONCURRENCY:-4}
       Ingestion__BulkheadAcquireTimeoutSeconds: ${SAAIA_INGESTION_BULKHEAD_ACQUIRE_TIMEOUT_SECONDS:-30}
+      Ingestion__OcrBulkheadQueueWaitTimeoutSeconds: ${SAAIA_INGESTION_OCR_BULKHEAD_QUEUE_WAIT_TIMEOUT_SECONDS:-1800}
       Ingestion__OcrEnabled: ${SAAIA_OCR_ENABLED:-true}
       Ingestion__OcrCommand: ${SAAIA_OCR_COMMAND:-ocrmypdf}
       Ingestion__OcrArguments: ${SAAIA_OCR_ARGUMENTS:-}

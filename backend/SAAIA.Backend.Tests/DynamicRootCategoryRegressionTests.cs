@@ -114,6 +114,67 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path;
         }
     }
 
+    [Fact]
+    public async Task Scanner_requeues_stale_running_job_without_marking_failed()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var root = Path.Combine(Path.GetTempPath(), $"saaia-stale-running-regression-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+
+        try
+        {
+            const string docPath = "stale-document.pdf";
+            var filePath = Path.Combine(root, docPath);
+            await File.WriteAllBytesAsync(filePath, "%PDF-1.4\n"u8.ToArray());
+
+            var fixedMtimeUtc = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
+            File.SetLastWriteTimeUtc(filePath, fixedMtimeUtc);
+
+            var file = new FileInfo(filePath);
+            var tenantId = Guid.NewGuid();
+            var jobId = Guid.NewGuid();
+            await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+            await SeedExistingDocumentAsync(ds, tenantId, docPath, string.Empty, file.Length, fixedMtimeUtc);
+            await SeedStaleRunningJobAsync(ds, tenantId, jobId, docPath, TimeSpan.FromMinutes(30));
+
+            await RunScannerOnceAsync(ds, root, tenantId);
+
+            await using var conn = await ds.OpenConnectionAsync();
+            var job = await conn.QuerySingleAsync<IngestionJobState>(
+                """
+SELECT
+  status AS "Status",
+  last_error AS "LastError",
+  locked_by AS "LockedBy",
+  locked_at AS "LockedAt",
+  finished_at AS "FinishedAt"
+FROM ingestion_jobs
+WHERE tenant_id=@tenant_id AND job_id=@job_id;
+""",
+                new { tenant_id = tenantId, job_id = jobId });
+
+            Assert.Equal("queued", job.Status);
+            Assert.Equal("requeued_stale_running", job.LastError);
+            Assert.Null(job.LockedBy);
+            Assert.Null(job.LockedAt);
+            Assert.Null(job.FinishedAt);
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(root, recursive: true);
+            }
+            catch
+            {
+                // Best-effort cleanup for temp files created by this test.
+            }
+        }
+    }
+
     private static async Task RunScannerOnceAsync(NpgsqlDataSource ds, string root, Guid tenantId)
     {
         var scanner = new IngestionScanner(
@@ -187,6 +248,35 @@ VALUES(
             });
     }
 
+    private static async Task SeedStaleRunningJobAsync(
+        NpgsqlDataSource ds,
+        Guid tenantId,
+        Guid jobId,
+        string docPath,
+        TimeSpan lockedAgo)
+    {
+        await using var conn = await ds.OpenConnectionAsync();
+
+        await conn.ExecuteAsync(
+            """
+INSERT INTO ingestion_jobs(
+  job_id, tenant_id, action, doc_path, category, status,
+  attempts, locked_by, locked_at, available_at, created_at, started_at, payload
+)
+VALUES(
+  @job_id, @tenant_id, 'upsert', @doc_path, '', 'running',
+  1, 'stale-worker', now() - (@locked_ago_seconds * interval '1 second'), now(), now(), now(), '{}'::jsonb
+);
+""",
+            new
+            {
+                job_id = jobId,
+                tenant_id = tenantId,
+                doc_path = docPath,
+                locked_ago_seconds = (int)Math.Ceiling(lockedAgo.TotalSeconds)
+            });
+    }
+
     private static bool SameMtime(DateTime expectedUtc, DateTime actual)
     {
         var actualUtc = actual.Kind == DateTimeKind.Utc
@@ -214,6 +304,15 @@ VALUES(
         public string Category { get; set; } = "";
         public string Action { get; set; } = "";
         public string Status { get; set; } = "";
+    }
+
+    private sealed class IngestionJobState
+    {
+        public string Status { get; set; } = "";
+        public string? LastError { get; set; }
+        public string? LockedBy { get; set; }
+        public DateTimeOffset? LockedAt { get; set; }
+        public DateTimeOffset? FinishedAt { get; set; }
     }
 
     private sealed class PostgresIntegrationDb : IAsyncDisposable

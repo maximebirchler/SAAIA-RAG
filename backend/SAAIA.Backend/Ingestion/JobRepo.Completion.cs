@@ -512,6 +512,13 @@ FOR UPDATE;
                 : "upsert";
         var docId = currentDocState.DocId ?? IdUtil.DeterministicGuid($"{tenantId}:{docPath}");
         var indexedVersionBefore = Math.Max(0, currentDocState.IndexedVersion ?? 0);
+        if (string.Equals(action, "upsert", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(status, "indexed", StringComparison.OrdinalIgnoreCase)
+            && indexedVersionBefore >= currentVersion)
+        {
+            return null;
+        }
+
         var payload = IngestionJobPayloadJson.Serialize(
             docId,
             currentVersion,

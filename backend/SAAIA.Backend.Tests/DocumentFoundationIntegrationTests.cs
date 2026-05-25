@@ -1811,6 +1811,43 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
+    public async Task DeferTransientAsync_requeues_running_job_without_publishing_document_foundation()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("12121212-aaaa-1111-1111-111111111111");
+        var docId = Guid.Parse("34343434-bbbb-2222-2222-222222222222");
+        var jobId = Guid.Parse("56565656-cccc-3333-3333-333333333333");
+        const string docPath = "General/Deferred.pdf";
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 2, indexedVersion: 1);
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        await JobRepo.DeferTransientAsync(ds, jobId, "OCR bulkhead: wait timeout after 1800s (max=1).", TimeSpan.FromSeconds(90), CancellationToken.None);
+
+        await using var conn = new NpgsqlConnection(db.ConnectionString);
+        await conn.OpenAsync();
+
+        var revisionCount = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM document_revisions;");
+        var artifactCount = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM document_revision_artifacts;");
+        var job = await conn.QuerySingleAsync<(string status, string last_error, string? locked_by, DateTimeOffset? locked_at, DateTimeOffset? started_at, DateTimeOffset? finished_at, DateTimeOffset available_at)>(
+            "SELECT status, last_error, locked_by, locked_at, started_at, finished_at, available_at FROM ingestion_jobs WHERE job_id=@job_id;",
+            new { job_id = jobId });
+
+        Assert.Equal(0, revisionCount);
+        Assert.Equal(0, artifactCount);
+        Assert.Equal("queued", job.status);
+        Assert.Equal("OCR bulkhead: wait timeout after 1800s (max=1).", job.last_error);
+        Assert.Null(job.locked_by);
+        Assert.Null(job.locked_at);
+        Assert.Null(job.started_at);
+        Assert.Null(job.finished_at);
+        Assert.True(job.available_at > DateTimeOffset.UtcNow.AddSeconds(30));
+    }
+
+    [Fact]
     public async Task MarkFailedAsync_when_running_upsert_payload_version_is_superseded_queues_current_version()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
@@ -1866,6 +1903,67 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal("queued", followUp.status);
         Assert.Equal("2", followUp.version);
         Assert.Equal("superseded", followUp.source);
+    }
+
+    [Fact]
+    public async Task MarkFailedAsync_when_superseded_current_version_is_already_indexed_does_not_queue_redundant_follow_up()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("13131313-4444-1111-1111-111111111111");
+        var docId = Guid.Parse("35353535-5555-2222-2222-222222222222");
+        var jobId = Guid.Parse("57575757-6666-3333-3333-333333333333");
+        const string docPath = "General/SupersededAlreadyIndexed.pdf";
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 2, indexedVersion: 2);
+
+        await using (var conn = new NpgsqlConnection(db.ConnectionString))
+        {
+            await conn.OpenAsync();
+            await conn.ExecuteAsync(
+                """
+                UPDATE documents
+                SET status='indexed'
+                WHERE tenant_id=@tenant AND doc_path=@docPath;
+
+                UPDATE ingestion_jobs
+                SET payload=CAST(@payload AS jsonb)
+                WHERE tenant_id=@tenant AND job_id=@jobId;
+                """,
+                new
+                {
+                    tenant = tenantId,
+                    docPath,
+                    jobId,
+                    payload = IngestionJobPayloadJson.Serialize(
+                        docId,
+                        version: 1,
+                        source: "test",
+                        indexedVersionBefore: 1)
+                });
+        }
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        await JobRepo.MarkFailedAsync(ds, jobId, "boom", CancellationToken.None);
+
+        await using var verifyConn = new NpgsqlConnection(db.ConnectionString);
+        await verifyConn.OpenAsync();
+        var oldJob = await verifyConn.QuerySingleAsync<(string status, string last_error)>(
+            "SELECT status, last_error FROM ingestion_jobs WHERE job_id=@jobId;",
+            new { jobId });
+        var queuedFollowUps = await verifyConn.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM ingestion_jobs
+            WHERE tenant_id=@tenant AND doc_path=@docPath AND action='upsert' AND status='queued';
+            """,
+            new { tenant = tenantId, docPath });
+
+        Assert.Equal("canceled", oldJob.status);
+        Assert.Equal("superseded_failed_before_commit", oldJob.last_error);
+        Assert.Equal(0, queuedFollowUps);
     }
 
     [Fact]
@@ -3410,6 +3508,120 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
+    public async Task SearchLinkedMatchesAsync_recovers_inverse_same_section_companion()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("4444aaaa-7777-1111-2222-111111111111");
+        var docId = Guid.Parse("5555bbbb-8888-2222-3333-222222222222");
+        var jobId = Guid.Parse("6666cccc-9999-3333-4444-333333333333");
+        const string docPath = "ATEX/InverseSameSection.pdf";
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 8, indexedVersion: 7);
+
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, "inspection sheet title", 3, 22, [1]),
+            new ExtractedPdfPage(2, "ingredients and preparation details", 4, 35, [2])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Inspection Sheet", 1, 2, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, "inspection sheet title", 22, 3, [3]),
+            new ExtractedDocumentUnit(1, 0, 2, 2, "ingredients and preparation details", 35, 4, [4])
+        };
+        var retrievalChunks = new[]
+        {
+            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "inspection sheet title", 3, [5], "unit_exact_v1"),
+            new ProjectedRetrievalChunk(1, 0, 1, 2, 2, "ingredients and preparation details", 4, [6], "unit_exact_v1")
+        };
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        Assert.True(await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            jobId,
+            docPath,
+            [8, 8, 8],
+            80,
+            DateTime.UtcNow,
+            8,
+            pages,
+            sections,
+            units,
+            retrievalChunks,
+            exactMatchEntries: [],
+            contextualTextEntries: [],
+            CancellationToken.None));
+
+        var anchorChunkId = DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 8, 0);
+        var companionChunkId = DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 8, 1);
+        await using (var conn = await ds.OpenConnectionAsync())
+        {
+            await conn.ExecuteAsync("DELETE FROM retrieval_chunk_links WHERE tenant_id=@tenantId;", new { tenantId });
+            await conn.ExecuteAsync(
+                """
+                UPDATE retrieval_chunks
+                SET metadata = COALESCE(metadata, '{}'::jsonb) - 'sameSectionChunkId' - 'nextChunkId' - 'prevChunkId'
+                WHERE retrieval_chunk_id = @anchorChunkId;
+
+                UPDATE retrieval_chunks
+                SET metadata = jsonb_set(
+                    COALESCE(metadata, '{}'::jsonb) - 'nextChunkId' - 'prevChunkId',
+                    '{sameSectionChunkId}',
+                    to_jsonb(CAST(@anchorChunkId AS text)),
+                    true)
+                WHERE retrieval_chunk_id = @companionChunkId;
+                """,
+                new { anchorChunkId, companionChunkId });
+        }
+
+        var sparseAnchor = new RagMatch(
+            Score: 0.90,
+            DocId: docId.ToString(),
+            DocPath: docPath,
+            DocName: "InverseSameSection.pdf",
+            PageStart: 1,
+            PageEnd: 1,
+            ChunkId: anchorChunkId.ToString(),
+            ChunkIndex: 0,
+            Text: "inspection sheet title",
+            IngestionVersion: 8,
+            HashDoc: "hash",
+            EmbedText: "inspection sheet title",
+            EmbeddingBasis: "sparse_bm25_v1",
+            SectionOrdinal: 0,
+            UnitOrdinal: 0,
+            SectionTitle: "Inspection Sheet",
+            HeadingPath: "Inspection Sheet",
+            ChunkType: "unit_exact_v1",
+            PrevChunkId: null,
+            NextChunkId: null,
+            SameSectionChunkId: null);
+
+        var linkedMatches = await RagEndpoints.SearchLinkedMatchesAsync(
+            ds,
+            tenantId,
+            [sparseAnchor],
+            category: "atex",
+            docId: docId.ToString(),
+            docPath: docPath,
+            topK: 3,
+            CancellationToken.None);
+
+        var linked = Assert.Single(linkedMatches, item => item.ChunkId == companionChunkId.ToString());
+        Assert.Equal("linked_context_v1", linked.EmbeddingBasis);
+        Assert.Equal(anchorChunkId.ToString(), linked.SameSectionChunkId);
+        Assert.True(linked.Score < sparseAnchor.Score);
+        Assert.Equal(0.875, linked.Score, 3);
+    }
+
+    [Fact]
     public async Task SearchLinkedMatchesAsync_accepts_direct_title_token_route_anchor_for_same_page_expansion()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
@@ -3587,6 +3799,19 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal(DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 7, 1).ToString(), match.ChunkId);
         Assert.Equal("direct_title_token_route_v1", match.EmbeddingBasis);
         Assert.Equal("direct_title_token_route", RagEndpoints.ResolveRetriever(match));
+
+        var anchorOnlyMatches = await RagEndpoints.SearchTitleAnchorRouteMatchesAsync(
+            ds,
+            tenantId,
+            "Donne-moi le epice douce.",
+            category: "atex",
+            docId: docId.ToString(),
+            docPath: docPath,
+            topK: 5,
+            CancellationToken.None,
+            allowDirectChunkRoute: false);
+
+        Assert.Empty(anchorOnlyMatches);
     }
 
     [Fact]
@@ -3751,6 +3976,21 @@ VALUES(
         Assert.Equal("title_anchor_route", RagEndpoints.ResolveRetriever(match));
         Assert.Contains(title, match.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("Dense OCR partial", match.Text, StringComparison.OrdinalIgnoreCase);
+
+        var anchorOnlyMatches = await RagEndpoints.SearchTitleAnchorRouteMatchesAsync(
+            ds,
+            tenantId,
+            title,
+            category: "operations",
+            docId: docId.ToString(),
+            docPath: docPath,
+            topK: 3,
+            CancellationToken.None,
+            allowDirectChunkRoute: false);
+
+        var anchorOnly = Assert.Single(anchorOnlyMatches);
+        Assert.Equal(DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 8, 1).ToString(), anchorOnly.ChunkId);
+        Assert.Equal("title_anchor_route_v1", anchorOnly.EmbeddingBasis);
     }
 
     [Fact]
@@ -3900,6 +4140,157 @@ VALUES(
         Assert.Equal("title_anchor_route_v1", match.EmbeddingBasis);
         Assert.Contains("anchored page", match.Text, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("adjacent footer", match.Text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task SearchTitleAnchorRouteMatchesAsync_prefers_same_page_section_title_hit_over_adjacent_dense_chunk()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("1a1a0000-7777-9999-9999-222222222222");
+        var docId = Guid.Parse("2b2b0000-8888-aaaa-aaaa-333333333333");
+        var jobId = Guid.Parse("3c3c0000-9999-bbbb-bbbb-444444444444");
+        const string docPath = "Operations/SectionAnchorSamePageRoute.pdf";
+        const string title = "Alpha Beta";
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 10, indexedVersion: 9);
+
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, "Alpha Beta actionable body and setup.", 8, 37, [1]),
+            new ExtractedPdfPage(2, "Adjacent dense continuation with beta and alpha control notes.", 8, 61, [2])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, title, 1, 2, 1, 2, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, "Alpha Beta actionable body and setup.", 10, 6, [3]),
+            new ExtractedDocumentUnit(1, 0, 2, 2, "Adjacent dense continuation with beta and alpha control notes.", 11, 8, [4])
+        };
+        var retrievalChunks = new[]
+        {
+            new ProjectedRetrievalChunk(
+                0,
+                0,
+                0,
+                1,
+                1,
+                "Alpha Beta actionable body and setup.",
+                10,
+                [5],
+                "unit_exact_v1",
+                ContentDensityScore: 0.55),
+            new ProjectedRetrievalChunk(
+                1,
+                0,
+                1,
+                2,
+                2,
+                "Adjacent dense continuation with beta and alpha control notes plus enough operational filler to look attractive.",
+                12,
+                [6],
+                "unit_exact_v1",
+                ContentDensityScore: 0.99)
+        };
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        Assert.True(await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            jobId,
+            docPath,
+            [4, 5, 6],
+            106,
+            DateTime.UtcNow,
+            10,
+            pages,
+            sections,
+            units,
+            retrievalChunks,
+            exactMatchEntries: [],
+            contextualTextEntries: [],
+            CancellationToken.None));
+
+        await using (var conn = await ds.OpenConnectionAsync())
+        {
+            var revisionId = await conn.ExecuteScalarAsync<Guid>(
+                "SELECT revision_id FROM document_revisions WHERE tenant_id=@tenant AND doc_id=@docId AND indexed_version=10;",
+                new { tenant = tenantId, docId });
+
+            await conn.ExecuteAsync(
+                """
+INSERT INTO document_title_anchors(
+    title_anchor_id,
+    tenant_id,
+    revision_id,
+    doc_id,
+    anchor_index,
+    source_kind,
+    source_ordinal,
+    section_id,
+    unit_id,
+    retrieval_chunk_id,
+    content_card_id,
+    title,
+    normalized_title,
+    title_tokens,
+    page_start,
+    page_end,
+    confidence,
+    metadata)
+VALUES(
+    @anchorId,
+    @tenant,
+    @revisionId,
+    @docId,
+    102,
+    'section',
+    0,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    @title,
+    @normalizedTitle,
+    @titleTokens,
+    1,
+    1,
+    0.94,
+    '{}'::jsonb);
+""",
+                new
+                {
+                    anchorId = Guid.Parse("4d4d0000-aaaa-9999-9999-555555555555"),
+                    tenant = tenantId,
+                    revisionId,
+                    docId,
+                    title,
+                    normalizedTitle = TitleAnchorNormalizer.NormalizeTitle(title),
+                    titleTokens = TitleAnchorNormalizer.BuildTitleTokens(title)
+                });
+        }
+
+        var matches = await RagEndpoints.SearchTitleAnchorRouteMatchesAsync(
+            ds,
+            tenantId,
+            $"Build a sourced operational sheet for \"{title}\" with steps and timing.",
+            category: null,
+            docId: null,
+            docPath: null,
+            topK: 3,
+            CancellationToken.None,
+            categoryPath: "Operations",
+            allowDirectChunkRoute: false);
+
+        var match = Assert.Single(matches);
+        Assert.Equal(DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 10, 0).ToString(), match.ChunkId);
+        Assert.Equal("title_anchor_route_v1", match.EmbeddingBasis);
+        Assert.Contains("actionable body", match.Text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Adjacent dense", match.Text, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

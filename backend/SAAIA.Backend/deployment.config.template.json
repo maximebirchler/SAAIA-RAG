@@ -23,7 +23,7 @@
     "EmbeddingsBatchAdaptiveRetryEnabled": true,
     "WorkerConcurrency": 2,
     "WorkerEmptyDelayMs": 500,
-    "StaleRunningMinutes": 5,
+    "StaleRunningMinutes": 60,
     "ScannerEnabled": true,
     "ScanIntervalSeconds": 10,
     "MinFileAgeSeconds": 2,
@@ -35,7 +35,8 @@
     "TeiMaxConcurrency": 2,
     "QdrantMaxConcurrency": 4,
     "BulkheadAcquireTimeoutSeconds": 30,
-    "OcrBulkheadAcquireTimeoutSeconds": 1800
+    "OcrBulkheadAcquireTimeoutSeconds": 1800,
+    "OcrBulkheadQueueWaitTimeoutSeconds": 1800
   },
   "Bootstrap": {
     "Enabled": false

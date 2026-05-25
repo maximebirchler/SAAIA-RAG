@@ -248,8 +248,8 @@
                                 "id":  "Q025",
                                 "axis":  "Extraction mono-recette",
                                 "difficulty":  "Facile",
-                                "corpusTarget":  "chefbot_livre_de_recettes_fr.pdf",
-                                "theme":  "Curry de crevettes et riz basmati",
+                                "corpusTarget":  "Tag249008277_1_MOULINEX_HF93D810_8020007485_IFU.pdf",
+                                "theme":  "Curry de crevettes ananas avec riz basmati",
                                 "question":  "Détaille le curry de crevettes et riz basmati.",
                                 "expectedAnswerKind":  "Réponse structurée : ingrédients, étapes, temps/portions si présents, matériel ou réglages si pertinents.",
                                 "validationPoints":  "Doit rester fidèle au PDF ciblé, citer la source/page si le système le permet, ne pas compléter avec des connaissances externes."

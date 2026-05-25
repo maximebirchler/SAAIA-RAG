@@ -450,6 +450,7 @@ public sealed class DeterministicShortcutRegressionTests
     [InlineData("list the documents in category Programmation", true)]
     [InlineData("How many documents are on the server?", false)]
     [InlineData("Quels documents parlent d'API ?", false)]
+    [InlineData("Quels PDF de cette categorie sont les meilleurs pour tester la robustesse du moteur documentaire ?", false)]
     public void Malformed_guided_command_guard_only_catches_near_miss_catalog_or_admin_commands(string input, bool expected)
     {
         var method = typeof(ToolAgentOrchestrator).GetMethod("LooksLikeMalformedGuidedCommandRequest", BindingFlags.NonPublic | BindingFlags.Static);
@@ -728,6 +729,19 @@ public sealed class DeterministicShortcutRegressionTests
 
         var handled = (bool)method!.Invoke(null, new object?[] { input })!;
         Assert.True(handled);
+    }
+
+    [Fact]
+    public void Category_overview_question_is_not_treated_as_guided_admin_command()
+    {
+        const string input = "Can you give me a concise English overview of this category and tell me which documents are useful for real business questions?";
+        var helpMethod = typeof(ToolAgentOrchestrator).GetMethod("LooksLikeHelpOnlyAdminReindexDisplayText", BindingFlags.NonPublic | BindingFlags.Static);
+        var malformedMethod = typeof(ToolAgentOrchestrator).GetMethod("LooksLikeMalformedGuidedCommandRequest", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(helpMethod);
+        Assert.NotNull(malformedMethod);
+
+        Assert.False((bool)helpMethod!.Invoke(null, new object?[] { input })!);
+        Assert.False((bool)malformedMethod!.Invoke(null, new object?[] { input })!);
     }
 
     [Theory]

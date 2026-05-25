@@ -301,6 +301,30 @@ WHERE job_id=@job_id AND status IN ('running','paused');";
         await tx.CommitAsync(ct);
     }
 
+    public static async Task DeferTransientAsync(NpgsqlDataSource ds, Guid jobId, string reason, TimeSpan delay, CancellationToken ct)
+    {
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        const string sql = @"
+UPDATE ingestion_jobs
+SET status='queued',
+    locked_by=NULL,
+    locked_at=NULL,
+    started_at=NULL,
+    finished_at=NULL,
+    available_at=now() + (@delay_seconds * interval '1 second'),
+    last_error=@reason,
+    payload=COALESCE(payload, '{}'::jsonb)
+WHERE job_id=@job_id
+  AND status IN ('running','paused');";
+
+        await conn.ExecuteAsync(new CommandDefinition(sql, new
+        {
+            job_id = jobId,
+            reason,
+            delay_seconds = Math.Max(1, (int)Math.Ceiling(delay.TotalSeconds))
+        }, cancellationToken: ct));
+    }
+
     public static async Task MarkCanceledAsync(NpgsqlDataSource ds, Guid jobId, string reason, CancellationToken ct)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);

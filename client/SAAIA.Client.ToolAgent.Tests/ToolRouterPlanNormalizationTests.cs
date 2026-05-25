@@ -233,6 +233,35 @@ public sealed class ToolRouterPlanNormalizationTests
     }
 
     [Fact]
+    public void Documentary_defaults_use_focused_topk_for_soft_choice_recommendations()
+    {
+        var plan = new RouterPlan
+        {
+            Intent = "chat.general",
+            Language = "fr",
+            Mode = "strict",
+            ToolCalls = new()
+            {
+                new RouterPlan.ToolCall
+                {
+                    Name = "rag.multi_search",
+                    Args = ParseArgs("""{"queries":["dessert"],"topK":12,"mode":"balanced"}""")
+                }
+            }
+        };
+
+        ToolAgentOrchestrator.ApplyDocumentaryRagDefaultsForTests(
+            plan,
+            "Quel dessert fran\u00e7ais choisir pour un repas chic ?");
+
+        var call = Assert.Single(plan.ToolCalls);
+        Assert.Equal("rag.multi_search", call.Name);
+        Assert.Equal(8, call.Args.GetProperty("topK").GetInt32());
+        var queries = call.Args.GetProperty("queries").EnumerateArray().Select(x => x.GetString() ?? "").ToArray();
+        Assert.Equal("Quel dessert fran\u00e7ais choisir pour un repas chic ?", queries[0]);
+    }
+
+    [Fact]
     public void Source_backed_action_queries_include_individual_user_terms_for_broad_recall()
     {
         var queries = ToolAgentOrchestrator.BuildSourceBackedActionRetrievalQueriesForTests(
@@ -533,6 +562,19 @@ public sealed class ToolRouterPlanNormalizationTests
     }
 
     [Fact]
+    public void Comparative_documentary_requests_count_separate_explicit_files()
+    {
+        const string query = "Compare NFPA 79 2024 Electrical Standard for Industrial Machinery.pdf et UL 508A 2018 Industrial Control Panels - Scan.pdf sur machine industrielle vs panneaux industriels.";
+
+        Assert.True(ToolAgentOrchestrator.LooksLikeComparativeDocumentaryRequestForTests(query));
+        Assert.Equal(2, ToolAgentOrchestrator.CountExplicitDocumentFileReferencesForTests(query));
+
+        var queries = ToolAgentOrchestrator.BuildComparativeRetrievalQueriesForTests(query);
+        Assert.Contains(queries, q => q.Contains("NFPA 79 2024 Electrical Standard for Industrial Machinery.pdf", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, q => q.Contains("UL 508A 2018 Industrial Control Panels - Scan.pdf", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void Documentary_defaults_convert_source_adaptation_request_to_focused_multi_search()
     {
         var plan = new RouterPlan
@@ -561,6 +603,37 @@ public sealed class ToolRouterPlanNormalizationTests
         Assert.Contains(queries, q => q.Contains("dessert", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(queries, q => q.Contains("chocolat", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(queries, q => q.Contains("sucre", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Documentary_defaults_convert_version_traceability_search_to_multi_search()
+    {
+        var plan = new RouterPlan
+        {
+            Intent = "rag.answer",
+            Language = "fr",
+            Mode = "strict",
+            ToolCalls = new()
+            {
+                new RouterPlan.ToolCall
+                {
+                    Name = "rag.search",
+                    Args = ParseArgs("""{"query":"comment signaler qu'il existe un corrigendum","topK":5,"mode":"balanced"}""")
+                }
+            }
+        };
+
+        ToolAgentOrchestrator.ApplyDocumentaryRagDefaultsForTests(
+            plan,
+            "Comment signaler qu'il existe un corrigendum pour ce document sans confondre les versions ?");
+
+        var call = Assert.Single(plan.ToolCalls);
+        Assert.Equal("rag.multi_search", call.Name);
+        Assert.True(call.Args.GetProperty("topK").GetInt32() >= 12);
+
+        var queries = call.Args.GetProperty("queries").EnumerateArray().Select(x => x.GetString() ?? "").ToArray();
+        Assert.Contains(queries, q => q.Contains("corrigendum", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, q => q.Contains("versions", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

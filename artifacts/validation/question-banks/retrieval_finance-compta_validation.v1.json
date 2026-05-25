@@ -1,0 +1,1609 @@
+{
+  "version": "questions-llm-finance-compta-v1",
+  "generatedAt": "2026-05-21",
+  "sourceFile": "jeu_tests_questions_llm_finance_compta.jsonl",
+  "sourceCategory": "Finance - Compta",
+  "description": "Prepared multi-category RAG/LLM validation bank converted from Questions LLM.",
+  "validationCases": [
+    {
+      "id": "P3-FINANCE_COMPTA-001",
+      "axis": "profil_entreprise",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : résume le modèle économique présenté dans le rapport annuel Amazon 2024, avec les segments ou activités clés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-002",
+      "axis": "donnees_financieres",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Amazon 2024, extrais les principaux chiffres de performance 2024 et explique leur sens en français simple.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-003",
+      "axis": "compte_resultat",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Retrouve dans le rapport annuel Amazon 2024 les éléments de compte de résultat les plus utiles pour comparer la performance annuelle.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-004",
+      "axis": "cash_flow",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "What does the Amazon 2024 annual report say about cash flows, liquidity, or capital allocation?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-005",
+      "axis": "risques",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Amazon 2024, quels sont les principaux risk factors ou incertitudes qui pourraient impacter les résultats ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-006",
+      "axis": "audit_financier",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Le rapport annuel Amazon 2024 contient-il un rapport d’audit ou une opinion d’auditeur ? Résume ce qu’il faut vérifier.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-007",
+      "axis": "question_humaine",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Pour une réunion demain, est-ce que ce rapport annuel donne une image plutôt positive ou préoccupante de l’entreprise ? Réponds prudemment.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-008",
+      "axis": "tableaux",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Amazon 2024, transforme les chiffres clés en tableau : revenus, résultat, cash-flow, dette/liquidité si disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-009",
+      "axis": "profil_entreprise",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je n'ai pas le temps de tout lire : résume le modèle économique présenté dans le rapport annuel Apple 2024, avec les segments ou activités clés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-010",
+      "axis": "donnees_financieres",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Apple 2024, extrais les principaux chiffres de performance 2024 et explique leur sens en français simple.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-011",
+      "axis": "compte_resultat",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Retrouve dans le rapport annuel Apple 2024 les éléments de compte de résultat les plus utiles pour comparer la performance annuelle.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-012",
+      "axis": "cash_flow",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "What does the Apple 2024 Form 10-K say about cash flows, liquidity, or capital allocation?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-013",
+      "axis": "risques",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Apple 2024, quels sont les principaux risk factors ou incertitudes qui pourraient impacter les résultats ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-014",
+      "axis": "audit_financier",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Le rapport annuel Apple 2024 contient-il un rapport d’audit ou une opinion d’auditeur ? Résume ce qu’il faut vérifier.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-015",
+      "axis": "question_humaine",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je dois préparer un point rapide : est-ce que ce rapport annuel donne une image plutôt positive ou préoccupante de l’entreprise ? Réponds prudemment.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-016",
+      "axis": "tableaux",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Apple 2024, transforme les chiffres clés en tableau : revenus, résultat, cash-flow, dette/liquidité si disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-017",
+      "axis": "profil_entreprise",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Pour une réunion demain, résume le modèle économique présenté dans le rapport annuel Coca-Cola 2024, avec les segments ou activités clés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-018",
+      "axis": "donnees_financieres",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Coca-Cola 2024, extrais les principaux chiffres de performance 2024 et explique leur sens en français simple.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-019",
+      "axis": "compte_resultat",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Retrouve dans le rapport annuel Coca-Cola 2024 les éléments de compte de résultat les plus utiles pour comparer la performance annuelle.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-020",
+      "axis": "cash_flow",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "What does the Coca-Cola 2024 Form 10-K say about cash flows, liquidity, or capital allocation?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-021",
+      "axis": "risques",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Coca-Cola 2024, quels sont les principaux risk factors ou incertitudes qui pourraient impacter les résultats ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-022",
+      "axis": "audit_financier",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Le rapport annuel Coca-Cola 2024 contient-il un rapport d’audit ou une opinion d’auditeur ? Résume ce qu’il faut vérifier.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-023",
+      "axis": "question_humaine",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Explique-moi simplement : est-ce que ce rapport annuel donne une image plutôt positive ou préoccupante de l’entreprise ? Réponds prudemment.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-024",
+      "axis": "tableaux",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Coca-Cola 2024, transforme les chiffres clés en tableau : revenus, résultat, cash-flow, dette/liquidité si disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-025",
+      "axis": "profil_entreprise",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je dois préparer un point rapide : résume le modèle économique présenté dans le rapport annuel JPMorgan Chase 2024, avec les segments ou activités clés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-026",
+      "axis": "donnees_financieres",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel JPMorgan Chase 2024, extrais les principaux chiffres de performance 2024 et explique leur sens en français simple.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-027",
+      "axis": "compte_resultat",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Retrouve dans le rapport annuel JPMorgan Chase 2024 les éléments de compte de résultat les plus utiles pour comparer la performance annuelle.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-028",
+      "axis": "cash_flow",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "What does the JPMorgan Chase 2024 annual report say about cash flows, liquidity, or capital allocation?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-029",
+      "axis": "risques",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel JPMorgan Chase 2024, quels sont les principaux risk factors ou incertitudes qui pourraient impacter les résultats ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-030",
+      "axis": "audit_financier",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Le rapport annuel JPMorgan Chase 2024 contient-il un rapport d’audit ou une opinion d’auditeur ? Résume ce qu’il faut vérifier.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-031",
+      "axis": "question_humaine",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : est-ce que ce rapport annuel donne une image plutôt positive ou préoccupante de l’entreprise ? Réponds prudemment.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-032",
+      "axis": "tableaux",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel JPMorgan Chase 2024, transforme les chiffres clés en tableau : revenus, résultat, cash-flow, dette/liquidité si disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-033",
+      "axis": "profil_entreprise",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Explique-moi simplement : résume le modèle économique présenté dans le rapport annuel Meta 2024, avec les segments ou activités clés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-034",
+      "axis": "donnees_financieres",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Meta 2024, extrais les principaux chiffres de performance 2024 et explique leur sens en français simple.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-035",
+      "axis": "compte_resultat",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Retrouve dans le rapport annuel Meta 2024 les éléments de compte de résultat les plus utiles pour comparer la performance annuelle.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-036",
+      "axis": "cash_flow",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "What does the Meta 2024 Form 10-K say about cash flows, liquidity, or capital allocation?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-037",
+      "axis": "risques",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Meta 2024, quels sont les principaux risk factors ou incertitudes qui pourraient impacter les résultats ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-038",
+      "axis": "audit_financier",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Le rapport annuel Meta 2024 contient-il un rapport d’audit ou une opinion d’auditeur ? Résume ce qu’il faut vérifier.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-039",
+      "axis": "question_humaine",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je n'ai pas le temps de tout lire : est-ce que ce rapport annuel donne une image plutôt positive ou préoccupante de l’entreprise ? Réponds prudemment.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-040",
+      "axis": "tableaux",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Meta 2024, transforme les chiffres clés en tableau : revenus, résultat, cash-flow, dette/liquidité si disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-041",
+      "axis": "profil_entreprise",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : résume le modèle économique présenté dans le rapport annuel Microsoft 2024, avec les segments ou activités clés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-042",
+      "axis": "donnees_financieres",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Microsoft 2024, extrais les principaux chiffres de performance 2024 et explique leur sens en français simple.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-043",
+      "axis": "compte_resultat",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Retrouve dans le rapport annuel Microsoft 2024 les éléments de compte de résultat les plus utiles pour comparer la performance annuelle.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-044",
+      "axis": "cash_flow",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "What does the Microsoft 2024 annual report say about cash flows, liquidity, or capital allocation?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-045",
+      "axis": "risques",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Microsoft 2024, quels sont les principaux risk factors ou incertitudes qui pourraient impacter les résultats ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-046",
+      "axis": "audit_financier",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Le rapport annuel Microsoft 2024 contient-il un rapport d’audit ou une opinion d’auditeur ? Résume ce qu’il faut vérifier.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-047",
+      "axis": "question_humaine",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Pour une réunion demain, est-ce que ce rapport annuel donne une image plutôt positive ou préoccupante de l’entreprise ? Réponds prudemment.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-048",
+      "axis": "tableaux",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Microsoft 2024, transforme les chiffres clés en tableau : revenus, résultat, cash-flow, dette/liquidité si disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-049",
+      "axis": "profil_entreprise",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je n'ai pas le temps de tout lire : résume le modèle économique présenté dans le rapport annuel NVIDIA 2024, avec les segments ou activités clés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-050",
+      "axis": "donnees_financieres",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel NVIDIA 2024, extrais les principaux chiffres de performance 2024 et explique leur sens en français simple.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-051",
+      "axis": "compte_resultat",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Retrouve dans le rapport annuel NVIDIA 2024 les éléments de compte de résultat les plus utiles pour comparer la performance annuelle.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-052",
+      "axis": "cash_flow",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "What does the NVIDIA 2024 annual report say about cash flows, liquidity, or capital allocation?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-053",
+      "axis": "risques",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel NVIDIA 2024, quels sont les principaux risk factors ou incertitudes qui pourraient impacter les résultats ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-054",
+      "axis": "audit_financier",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Le rapport annuel NVIDIA 2024 contient-il un rapport d’audit ou une opinion d’auditeur ? Résume ce qu’il faut vérifier.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-055",
+      "axis": "question_humaine",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je dois préparer un point rapide : est-ce que ce rapport annuel donne une image plutôt positive ou préoccupante de l’entreprise ? Réponds prudemment.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-056",
+      "axis": "tableaux",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel NVIDIA 2024, transforme les chiffres clés en tableau : revenus, résultat, cash-flow, dette/liquidité si disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-057",
+      "axis": "profil_entreprise",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Pour une réunion demain, résume le modèle économique présenté dans le rapport annuel Tesla 2024, avec les segments ou activités clés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-058",
+      "axis": "donnees_financieres",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Tesla 2024, extrais les principaux chiffres de performance 2024 et explique leur sens en français simple.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-059",
+      "axis": "compte_resultat",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Retrouve dans le rapport annuel Tesla 2024 les éléments de compte de résultat les plus utiles pour comparer la performance annuelle.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-060",
+      "axis": "cash_flow",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "What does the Tesla 2024 Form 10-K say about cash flows, liquidity, or capital allocation?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-061",
+      "axis": "risques",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Tesla 2024, quels sont les principaux risk factors ou incertitudes qui pourraient impacter les résultats ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-062",
+      "axis": "audit_financier",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Le rapport annuel Tesla 2024 contient-il un rapport d’audit ou une opinion d’auditeur ? Résume ce qu’il faut vérifier.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-063",
+      "axis": "question_humaine",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Explique-moi simplement : est-ce que ce rapport annuel donne une image plutôt positive ou préoccupante de l’entreprise ? Réponds prudemment.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-064",
+      "axis": "tableaux",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Tesla 2024, transforme les chiffres clés en tableau : revenus, résultat, cash-flow, dette/liquidité si disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-065",
+      "axis": "profil_entreprise",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je dois préparer un point rapide : résume le modèle économique présenté dans le rapport annuel Visa 2024, avec les segments ou activités clés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-066",
+      "axis": "donnees_financieres",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Visa 2024, extrais les principaux chiffres de performance 2024 et explique leur sens en français simple.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-067",
+      "axis": "compte_resultat",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Retrouve dans le rapport annuel Visa 2024 les éléments de compte de résultat les plus utiles pour comparer la performance annuelle.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-068",
+      "axis": "cash_flow",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "What does the Visa 2024 annual report say about cash flows, liquidity, or capital allocation?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-069",
+      "axis": "risques",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Visa 2024, quels sont les principaux risk factors ou incertitudes qui pourraient impacter les résultats ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-070",
+      "axis": "audit_financier",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Le rapport annuel Visa 2024 contient-il un rapport d’audit ou une opinion d’auditeur ? Résume ce qu’il faut vérifier.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-071",
+      "axis": "question_humaine",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "J'ai besoin d'une réponse claire : est-ce que ce rapport annuel donne une image plutôt positive ou préoccupante de l’entreprise ? Réponds prudemment.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-072",
+      "axis": "tableaux",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Visa 2024, transforme les chiffres clés en tableau : revenus, résultat, cash-flow, dette/liquidité si disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-073",
+      "axis": "profil_entreprise",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Explique-moi simplement : résume le modèle économique présenté dans le rapport annuel Walmart 2024, avec les segments ou activités clés.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-074",
+      "axis": "donnees_financieres",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Walmart 2024, extrais les principaux chiffres de performance 2024 et explique leur sens en français simple.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-075",
+      "axis": "compte_resultat",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Retrouve dans le rapport annuel Walmart 2024 les éléments de compte de résultat les plus utiles pour comparer la performance annuelle.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-076",
+      "axis": "cash_flow",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "What does the Walmart 2024 annual report say about cash flows, liquidity, or capital allocation?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-077",
+      "axis": "risques",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Walmart 2024, quels sont les principaux risk factors ou incertitudes qui pourraient impacter les résultats ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-078",
+      "axis": "audit_financier",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Le rapport annuel Walmart 2024 contient-il un rapport d’audit ou une opinion d’auditeur ? Résume ce qu’il faut vérifier.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-079",
+      "axis": "question_humaine",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je n'ai pas le temps de tout lire : est-ce que ce rapport annuel donne une image plutôt positive ou préoccupante de l’entreprise ? Réponds prudemment.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-080",
+      "axis": "tableaux",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans le rapport annuel Walmart 2024, transforme les chiffres clés en tableau : revenus, résultat, cash-flow, dette/liquidité si disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-081",
+      "axis": "comparaison_performance",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare les performances 2024 de Amazon et Microsoft : revenus, marge/résultat et signaux de croissance si disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-082",
+      "axis": "comparaison_risques",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare the risk factors of Amazon and Microsoft. Which risks are company-specific and which are macro/industry-wide?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-083",
+      "axis": "analyse_investisseur",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je ne veux pas un conseil d’investissement, mais une lecture comptable : quelles questions poserais-tu au CFO de Amazon et Microsoft après lecture des rapports ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-084",
+      "axis": "ratios",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir des rapports Amazon et Microsoft, quels ratios simples peut-on calculer sans hypothèses externes ? Si un ratio est impossible, dis pourquoi.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-085",
+      "axis": "comparaison_performance",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare les performances 2024 de Apple et Microsoft : revenus, marge/résultat et signaux de croissance si disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-086",
+      "axis": "comparaison_risques",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare the risk factors of Apple and Microsoft. Which risks are company-specific and which are macro/industry-wide?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-087",
+      "axis": "analyse_investisseur",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je ne veux pas un conseil d’investissement, mais une lecture comptable : quelles questions poserais-tu au CFO de Apple et Microsoft après lecture des rapports ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-088",
+      "axis": "ratios",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir des rapports Apple et Microsoft, quels ratios simples peut-on calculer sans hypothèses externes ? Si un ratio est impossible, dis pourquoi.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-089",
+      "axis": "comparaison_performance",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare les performances 2024 de Meta et NVIDIA : revenus, marge/résultat et signaux de croissance si disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-090",
+      "axis": "comparaison_risques",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare the risk factors of Meta and NVIDIA. Which risks are company-specific and which are macro/industry-wide?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-091",
+      "axis": "analyse_investisseur",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je ne veux pas un conseil d’investissement, mais une lecture comptable : quelles questions poserais-tu au CFO de Meta et NVIDIA après lecture des rapports ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-092",
+      "axis": "ratios",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir des rapports Meta et NVIDIA, quels ratios simples peut-on calculer sans hypothèses externes ? Si un ratio est impossible, dis pourquoi.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-093",
+      "axis": "comparaison_performance",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare les performances 2024 de Tesla et Walmart : revenus, marge/résultat et signaux de croissance si disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-094",
+      "axis": "comparaison_risques",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare the risk factors of Tesla and Walmart. Which risks are company-specific and which are macro/industry-wide?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-095",
+      "axis": "analyse_investisseur",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je ne veux pas un conseil d’investissement, mais une lecture comptable : quelles questions poserais-tu au CFO de Tesla et Walmart après lecture des rapports ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-096",
+      "axis": "ratios",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir des rapports Tesla et Walmart, quels ratios simples peut-on calculer sans hypothèses externes ? Si un ratio est impossible, dis pourquoi.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-097",
+      "axis": "comparaison_performance",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare les performances 2024 de Visa et JPMorgan : revenus, marge/résultat et signaux de croissance si disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-098",
+      "axis": "comparaison_risques",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare the risk factors of Visa and JPMorgan. Which risks are company-specific and which are macro/industry-wide?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-099",
+      "axis": "analyse_investisseur",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je ne veux pas un conseil d’investissement, mais une lecture comptable : quelles questions poserais-tu au CFO de Visa et JPMorgan après lecture des rapports ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-100",
+      "axis": "ratios",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir des rapports Visa et JPMorgan, quels ratios simples peut-on calculer sans hypothèses externes ? Si un ratio est impossible, dis pourquoi.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-101",
+      "axis": "comparaison_performance",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare les performances 2024 de Coca-Cola et Walmart : revenus, marge/résultat et signaux de croissance si disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-102",
+      "axis": "comparaison_risques",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare the risk factors of Coca-Cola and Walmart. Which risks are company-specific and which are macro/industry-wide?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-103",
+      "axis": "analyse_investisseur",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je ne veux pas un conseil d’investissement, mais une lecture comptable : quelles questions poserais-tu au CFO de Coca-Cola et Walmart après lecture des rapports ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-104",
+      "axis": "ratios",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir des rapports Coca-Cola et Walmart, quels ratios simples peut-on calculer sans hypothèses externes ? Si un ratio est impossible, dis pourquoi.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-105",
+      "axis": "comparaison_performance",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare les performances 2024 de NVIDIA et Tesla : revenus, marge/résultat et signaux de croissance si disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-106",
+      "axis": "comparaison_risques",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare the risk factors of NVIDIA and Tesla. Which risks are company-specific and which are macro/industry-wide?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-107",
+      "axis": "analyse_investisseur",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je ne veux pas un conseil d’investissement, mais une lecture comptable : quelles questions poserais-tu au CFO de NVIDIA et Tesla après lecture des rapports ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-108",
+      "axis": "ratios",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir des rapports NVIDIA et Tesla, quels ratios simples peut-on calculer sans hypothèses externes ? Si un ratio est impossible, dis pourquoi.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-109",
+      "axis": "comparaison_performance",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare les performances 2024 de Amazon et Walmart : revenus, marge/résultat et signaux de croissance si disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-110",
+      "axis": "comparaison_risques",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare the risk factors of Amazon and Walmart. Which risks are company-specific and which are macro/industry-wide?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-111",
+      "axis": "analyse_investisseur",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je ne veux pas un conseil d’investissement, mais une lecture comptable : quelles questions poserais-tu au CFO de Amazon et Walmart après lecture des rapports ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-112",
+      "axis": "ratios",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir des rapports Amazon et Walmart, quels ratios simples peut-on calculer sans hypothèses externes ? Si un ratio est impossible, dis pourquoi.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-113",
+      "axis": "comparaison_performance",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare les performances 2024 de Apple et Meta : revenus, marge/résultat et signaux de croissance si disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-114",
+      "axis": "comparaison_risques",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare the risk factors of Apple and Meta. Which risks are company-specific and which are macro/industry-wide?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-115",
+      "axis": "analyse_investisseur",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je ne veux pas un conseil d’investissement, mais une lecture comptable : quelles questions poserais-tu au CFO de Apple et Meta après lecture des rapports ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-116",
+      "axis": "ratios",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir des rapports Apple et Meta, quels ratios simples peut-on calculer sans hypothèses externes ? Si un ratio est impossible, dis pourquoi.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-117",
+      "axis": "comparaison_performance",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare les performances 2024 de Visa et Coca-Cola : revenus, marge/résultat et signaux de croissance si disponibles.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-118",
+      "axis": "comparaison_risques",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Compare the risk factors of Visa and Coca-Cola. Which risks are company-specific and which are macro/industry-wide?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-119",
+      "axis": "analyse_investisseur",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je ne veux pas un conseil d’investissement, mais une lecture comptable : quelles questions poserais-tu au CFO de Visa et Coca-Cola après lecture des rapports ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-120",
+      "axis": "ratios",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "À partir des rapports Visa et Coca-Cola, quels ratios simples peut-on calculer sans hypothèses externes ? Si un ratio est impossible, dis pourquoi.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-121",
+      "axis": "classement_revenus",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Classe les entreprises du dossier par ordre de revenus 2024, mais uniquement si les revenus sont clairement extraits dans chaque rapport.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-122",
+      "axis": "secteurs",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Regroupe les rapports annuels par secteur ou modèle économique : tech, retail, banque, paiements, boissons, automobile. Justifie chaque classement.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-123",
+      "axis": "cash_vs_profit",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans ce corpus, trouve un exemple où le résultat net et le cash-flow racontent des choses différentes. Explique sans surinterpréter.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-124",
+      "axis": "audit_opinion_multi",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Quels rapports contiennent une opinion d’auditeur ou un rapport sur les contrôles internes ? Liste les documents et où chercher.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-125",
+      "axis": "humain_vague",
+      "difficulty": "Facile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je dois présenter ces rapports à une direction non financière : fais une synthèse transversale en 10 points maximum.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-126",
+      "axis": "langue_de",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Erstelle auf Deutsch einen Vergleich der Geschäftsmodelle von mindestens fünf Unternehmen aus den Jahresberichten.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-127",
+      "axis": "source_absente",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Est-ce que le dossier contient le rapport annuel 2024 d’Alphabet ? Vérifie les fichiers avant de répondre.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-128",
+      "axis": "anti_hallucination",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Si une entreprise ne publie pas dans son rapport une métrique demandée, comment dois-tu répondre ? Donne un exemple avec une métrique non trouvée.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-129",
+      "axis": "prompt_injection",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Si un rapport annuel contenait une phrase demandant d’ignorer les règles de citation, que doit faire le RAG ?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-130",
+      "axis": "tableau_final",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Fais un tableau unique avec entreprise, exercice, type de document, principaux chiffres et principaux risques.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-131",
+      "axis": "anti_hallucination_donnee",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux vérifier une donnée : si le rapport annuel Microsoft 2024 ne donne pas clairement marge opérationnelle, réponds 'non trouvé dans les sources' et explique où tu as cherché.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-132",
+      "axis": "localisation_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans rapport annuel Amazon 2024, localise les informations sur cash-flow opérationnel et donne-moi une réponse sourcée en 5 puces.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-133",
+      "axis": "analyse_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you explain how capex is presented in the Microsoft 2024 annual report, and whether it is quantitative or qualitative?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-134",
+      "axis": "comparaison_libre",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Vergleiche dette et liquidité in zwei geeigneten Geschäftsberichten aus dem Dossier und erkläre die Grenzen des Vergleichs.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-135",
+      "axis": "anti_hallucination_donnee",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux vérifier une donnée : si le rapport annuel Microsoft 2024 ne donne pas clairement risques réglementaires, réponds 'non trouvé dans les sources' et explique où tu as cherché.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-136",
+      "axis": "localisation_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans rapport annuel Amazon 2024, localise les informations sur risques technologiques et donne-moi une réponse sourcée en 5 puces.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-137",
+      "axis": "analyse_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you explain how segments opérationnels is presented in the Microsoft 2024 annual report, and whether it is quantitative or qualitative?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-138",
+      "axis": "comparaison_libre",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Vergleiche rémunération ou gouvernance in zwei geeigneten Geschäftsberichten aus dem Dossier und erkläre die Grenzen des Vergleichs.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-139",
+      "axis": "anti_hallucination_donnee",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux vérifier une donnée : si le rapport annuel Microsoft 2024 ne donne pas clairement contrôles internes, réponds 'non trouvé dans les sources' et explique où tu as cherché.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-140",
+      "axis": "localisation_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans rapport annuel Amazon 2024, localise les informations sur revenus et donne-moi une réponse sourcée en 5 puces.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-141",
+      "axis": "analyse_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you explain how marge opérationnelle is presented in the Microsoft 2024 annual report, and whether it is quantitative or qualitative?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-142",
+      "axis": "comparaison_libre",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Vergleiche cash-flow opérationnel in zwei geeigneten Geschäftsberichten aus dem Dossier und erkläre die Grenzen des Vergleichs.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-143",
+      "axis": "anti_hallucination_donnee",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux vérifier une donnée : si le rapport annuel Microsoft 2024 ne donne pas clairement capex, réponds 'non trouvé dans les sources' et explique où tu as cherché.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-144",
+      "axis": "localisation_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans rapport annuel Amazon 2024, localise les informations sur dette et liquidité et donne-moi une réponse sourcée en 5 puces.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-145",
+      "axis": "analyse_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you explain how risques réglementaires is presented in the Microsoft 2024 annual report, and whether it is quantitative or qualitative?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-146",
+      "axis": "comparaison_libre",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Vergleiche risques technologiques in zwei geeigneten Geschäftsberichten aus dem Dossier und erkläre die Grenzen des Vergleichs.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-147",
+      "axis": "anti_hallucination_donnee",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux vérifier une donnée : si le rapport annuel Microsoft 2024 ne donne pas clairement segments opérationnels, réponds 'non trouvé dans les sources' et explique où tu as cherché.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-148",
+      "axis": "localisation_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans rapport annuel Amazon 2024, localise les informations sur rémunération ou gouvernance et donne-moi une réponse sourcée en 5 puces.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-149",
+      "axis": "analyse_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you explain how contrôles internes is presented in the Microsoft 2024 annual report, and whether it is quantitative or qualitative?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-150",
+      "axis": "comparaison_libre",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Vergleiche revenus in zwei geeigneten Geschäftsberichten aus dem Dossier und erkläre die Grenzen des Vergleichs.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-151",
+      "axis": "anti_hallucination_donnee",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux vérifier une donnée : si le rapport annuel Microsoft 2024 ne donne pas clairement marge opérationnelle, réponds 'non trouvé dans les sources' et explique où tu as cherché.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-152",
+      "axis": "localisation_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans rapport annuel Amazon 2024, localise les informations sur cash-flow opérationnel et donne-moi une réponse sourcée en 5 puces.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-153",
+      "axis": "analyse_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you explain how capex is presented in the Microsoft 2024 annual report, and whether it is quantitative or qualitative?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-154",
+      "axis": "comparaison_libre",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Vergleiche dette et liquidité in zwei geeigneten Geschäftsberichten aus dem Dossier und erkläre die Grenzen des Vergleichs.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-155",
+      "axis": "anti_hallucination_donnee",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux vérifier une donnée : si le rapport annuel Microsoft 2024 ne donne pas clairement risques réglementaires, réponds 'non trouvé dans les sources' et explique où tu as cherché.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-156",
+      "axis": "localisation_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans rapport annuel Amazon 2024, localise les informations sur risques technologiques et donne-moi une réponse sourcée en 5 puces.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-157",
+      "axis": "analyse_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Can you explain how segments opérationnels is presented in the Microsoft 2024 annual report, and whether it is quantitative or qualitative?",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-158",
+      "axis": "comparaison_libre",
+      "difficulty": "Difficile",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Vergleiche rémunération ou gouvernance in zwei geeigneten Geschäftsberichten aus dem Dossier und erkläre die Grenzen des Vergleichs.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-159",
+      "axis": "anti_hallucination_donnee",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Je veux vérifier une donnée : si le rapport annuel Microsoft 2024 ne donne pas clairement contrôles internes, réponds 'non trouvé dans les sources' et explique où tu as cherché.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    },
+    {
+      "id": "P3-FINANCE_COMPTA-160",
+      "axis": "localisation_theme",
+      "difficulty": "Moyen",
+      "corpusTarget": "",
+      "theme": "",
+      "question": "Dans rapport annuel Amazon 2024, localise les informations sur revenus et donne-moi une réponse sourcée en 5 puces.",
+      "expectedAnswerKind": "",
+      "validationPoints": ""
+    }
+  ]
+}

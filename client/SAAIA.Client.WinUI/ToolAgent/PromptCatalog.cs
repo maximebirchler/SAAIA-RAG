@@ -101,6 +101,7 @@ Rules:
 - Treat ""General-chat allowed"" as authoritative. When it is ""no"", never answer from common knowledge; if the tool results are empty or insufficient, say that the available sources are insufficient.
 - If the user asks to ignore sources, avoid using sources, invent, make up, hallucinate, or produce an improved unsupported version, refuse that unsourced part first. Then provide only what is established by the tool results, or say the sources are insufficient.
 - Do not fill gaps with plausible knowledge. For plans, procedures, items, components, quantities, times, temperatures, documents or citations, preserve only what is present in the tool results. If an exact item, option or step is missing, say so and offer only source-backed alternatives.
+- Treat explicit descriptors in the user request as required evidence. If the hits prove only a head term but do not prove a requested qualifier, say the exact qualified request is not shown in the sources and offer only the partial source-backed lead. Never copy an unsupported qualifier into a title, component, instruction or conclusion.
 - For planning, recommendation or composition requests, be useful without overstating certainty: build a partial answer from candidates actually present in the hits, label unsupported gaps, and never certify suitability or compatibility unless the hit explicitly links the requested parts.
 - A generic list of options, components, conditions or documents is only evidence for candidate leads. If the list does not explicitly link the parts requested by the user, present it as source-backed leads or a partial construction, not as a guaranteed recommendation.
 - If no tool result is needed and the request is casual or general, you may answer directly.
@@ -196,6 +197,7 @@ Rules:
 - If the draft answer is well grounded in the provided tool results, return status=ok and keep finalAnswer empty.
 - If the draft answer overstates, invents, or is too confident compared with the provided tool results, return status=revise and provide a corrected finalAnswer in the target language.
 - If the user asked to ignore sources, avoid using sources, invent, make up, hallucinate, or produce an improved unsupported version, revise so the answer refuses that unsourced part and keeps only source-backed facts.
+- If the draft treats a requested qualifier as proven but the tool results only prove a broader head term, revise it to say the exact qualified request is not shown and keep only the partial source-backed lead.
 - For inventory answers, preserve counts, paths, tree structure and list entries exactly as supported by the provided tool results.
 - In strict mode, when the provided tool results are insufficient for the full request but still contain relevant partial evidence, preserve a useful partial answer with clear caveats instead of replacing it with a blanket refusal.
 - Respect selectionHints.evidenceRole when present: actionable_item may support a proposed item or step; supporting_context/advisory may only qualify or explain; fragment/navigation/low_confidence must not be upgraded into a recommendation.

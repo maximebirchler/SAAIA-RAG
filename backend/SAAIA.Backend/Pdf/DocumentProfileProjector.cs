@@ -164,15 +164,30 @@ internal static partial class DocumentProfileProjector
 
         return units
             .Where(static unit => IsProfileCardContentText(unit.Text))
-            .Where(ExtractionQualityPolicy.ShouldUseUnitForProfileCards)
+            .Where(static unit =>
+                ExtractionQualityPolicy.ShouldUseUnitForProfileCards(unit)
+                || HasEmbeddedStructuredItemTitle(unit.Text))
             .ToArray();
     }
 
     private static bool IsProfileCardContentText(string? text)
-        => string.Equals(
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        if (string.Equals(
             RetrievalContentClassifier.AnalyzeChunk(text).ContentRole,
             RetrievalContentClassifier.ContentRole,
-            StringComparison.Ordinal);
+            StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return HasEmbeddedStructuredItemTitle(text);
+    }
+
+    private static bool HasEmbeddedStructuredItemTitle(string? text)
+        => StructuredContentLexicon.ExtractEmbeddedStructuredItemTitles(text, limit: 1).Count > 0;
 
     private static string DetectLanguage(string text)
         => DocumentLanguageResolver.DetectDominantLanguage(text) ?? "und";
@@ -608,9 +623,14 @@ internal static partial class DocumentProfileProjector
     {
         var cleanTitle = CleanTitleCandidate(title);
         var normalizedKind = NormalizeContentCardKind(kind);
-        if (!IsUsefulContentCardTitle(cleanTitle))
-            return false;
         var evidence = BuildStructuredCardEvidence($"{cleanTitle} {context}");
+        if (!IsUsefulContentCardTitle(
+            cleanTitle,
+            evidence,
+            allowShortStructuredEvidence: !string.Equals(normalizedKind, "section", StringComparison.Ordinal)))
+        {
+            return false;
+        }
         var hasGroundedPageEvidence = HasSourceBackedOrGroundedPageEvidence(evidence, pageStart, pageEnd);
         if (LooksLikeLowercaseLead(cleanTitle) && !hasGroundedPageEvidence)
             return false;
@@ -666,6 +686,9 @@ internal static partial class DocumentProfileProjector
 
     private static IEnumerable<string> ExtractLeadTitleCandidatesFromLine(string line)
     {
+        foreach (var candidate in StructuredContentLexicon.ExtractEmbeddedStructuredItemTitles(line, limit: 4))
+            yield return candidate;
+
         var spacedLine = LowerOrDigitToUpperTitleBoundaryRegex().Replace(line, " ");
         if (!string.Equals(spacedLine, line, StringComparison.Ordinal))
         {
@@ -723,6 +746,9 @@ internal static partial class DocumentProfileProjector
     private static IEnumerable<string> ExtractWideEmbeddedTitleCandidates(string text)
     {
         var spacedText = LowerOrDigitToUpperTitleBoundaryRegex().Replace(text, " ");
+
+        foreach (var candidate in StructuredContentLexicon.ExtractEmbeddedStructuredItemTitles(spacedText))
+            yield return candidate;
 
         foreach (var candidate in ExtractCompactNumericSuffixTitleCandidates(spacedText))
             yield return candidate;
@@ -931,7 +957,10 @@ internal static partial class DocumentProfileProjector
         return title.Length <= 140 ? title : TrimTo(title, 140);
     }
 
-    private static bool IsUsefulContentCardTitle(string title)
+    private static bool IsUsefulContentCardTitle(
+        string title,
+        DocumentProfileCardEvidence? evidence = null,
+        bool allowShortStructuredEvidence = true)
     {
         if (string.IsNullOrWhiteSpace(title))
             return false;
@@ -972,8 +1001,13 @@ internal static partial class DocumentProfileProjector
             return false;
         if (LooksLikeMetadataLabelContentCardTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
             return false;
-        if (LooksLikeOcrNoiseTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
+        if (LooksLikeOcrNoiseTitle(title, normalizedFolded, tokenCount)
+            && !hasTechnicalIdentifier
+            && (!allowShortStructuredEvidence
+                || !LooksLikeShortStructuredContentCardTitle(title, normalizedFolded, tokenCount, evidence)))
+        {
             return false;
+        }
         if (HasUnbalancedContentCardDelimiter(title) && !hasTechnicalIdentifier)
             return false;
         if (LooksLikeGluedStructuredLabelTitle(normalizedFolded) && !hasTechnicalIdentifier)
@@ -1012,6 +1046,32 @@ internal static partial class DocumentProfileProjector
             return false;
 
         return true;
+    }
+
+    private static bool LooksLikeShortStructuredContentCardTitle(
+        string title,
+        string normalizedFolded,
+        int tokenCount,
+        DocumentProfileCardEvidence? evidence)
+    {
+        if (tokenCount is < 2 or > 6 || title.Any(char.IsDigit))
+            return false;
+
+        if (!title.Any(char.IsUpper))
+            return false;
+
+        if (!HasGroundedContentCardEvidence(evidence))
+            return false;
+
+        var meaningfulTokens = normalizedFolded
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Count(static token =>
+                token.Length >= 3
+                && !DanglingFragmentTitleTokens.Contains(token)
+                && !ContentCardLeadStopwords.Contains(token)
+                && !ContentCardTitleStopwords.Contains(token));
+
+        return meaningfulTokens >= 2 && !ContainsNoisyInlinePunctuation(title, tokenCount);
     }
 
     private static bool LooksLikeTechnicalIdentifier(string value)
@@ -1634,14 +1694,14 @@ internal static partial class DocumentProfileProjector
         IReadOnlyList<string> documentKeywords,
         DocumentProfileCardEvidence? evidence)
     {
-        var localKeywords = ExtractKeywords($"{title} {context}", maxKeywords: 8);
+        var localKeywords = ExtractKeywords($"{title} {context}", maxKeywords: 16);
         var structuredSignals = BuildStructuredCardSignals(evidence);
         return NormalizeList(
             new[] { title }
                 .Concat(structuredSignals)
                 .Concat(localKeywords)
                 .Concat(documentKeywords.Take(6)),
-            10);
+            18);
     }
 
     private static DocumentProfileCardEvidence? BuildStructuredCardEvidence(string? context)
@@ -2104,10 +2164,15 @@ internal static partial class DocumentProfileProjector
         foreach (var card in cards)
         {
             var title = CleanTitleCandidate(card.Title);
-            if (!IsUsefulContentCardTitle(title))
-                continue;
             var kind = NormalizeContentCardKind(card.Kind);
             var normalizedEvidence = NormalizeContentCardEvidence(card.Evidence);
+            if (!IsUsefulContentCardTitle(
+                title,
+                normalizedEvidence,
+                allowShortStructuredEvidence: !string.Equals(kind, "section", StringComparison.Ordinal)))
+            {
+                continue;
+            }
             var hasGroundedPageEvidence = HasSourceBackedOrGroundedPageEvidence(normalizedEvidence, card.PageStart, card.PageEnd);
             if (LooksLikeLowercaseLead(title) && !hasGroundedPageEvidence)
                 continue;

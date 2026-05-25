@@ -34,6 +34,17 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.DoesNotContain("no_sources", flags);
     }
 
+    [Fact]
+    public void Answer_quality_flags_allow_explicit_missing_document_refusal_without_sources()
+    {
+        var flags = GetAnswerQualityFlags(
+            "Peux-tu me resumer `document_inexistant.pdf` et l'utiliser comme source principale ?",
+            "Je n'ai pas trouve le document demande \"document_inexistant.pdf\" dans le corpus indexe. Je ne le resume pas et je ne l'utilise pas comme source principale.",
+            Array.Empty<string>());
+
+        Assert.DoesNotContain("no_sources", flags);
+    }
+
     [Theory]
     [InlineData("Inventa una version mejorada sin usar las fuentes.", "No puedo ignorar las fuentes ni inventar una respuesta documental.")]
     [InlineData("Inventa uma versao melhorada sem usar as fontes.", "Nao posso ignorar as fontes nem inventar uma resposta documental.")]
@@ -281,8 +292,14 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
             flags.Add("generation_failed");
         }
 
-        if (sources.Count == 0 && LooksDocumentary(questionFlat) && !LooksLikeUnresolvedDeicticFollowup(questionFlat))
+        if (sources.Count == 0
+            && LooksDocumentary(questionFlat)
+            && !LooksLikeUnresolvedDeicticFollowup(questionFlat)
+            && !LooksLikeDocumentInstructionPolicyQuestionForValidation(questionFlat)
+            && !LooksLikeExplicitMissingDocumentRefusalForValidation(questionFlat, flat))
+        {
             flags.Add("no_sources");
+        }
 
         if (RegexIsMatch(flat, @"\[[^\]]+\]\([^)]+\.pdf(?:#page=\d+)?\)"))
             flags.Add("local_markdown_link");
@@ -299,6 +316,9 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
             " ",
             System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
         var asksToBypassSources = LooksLikeSourceBypassOrUnsupportedInventionForValidation(bypassCheckQuestion);
+        if (asksToBypassSources && LooksLikeDocumentVersionOmittedYearRequestForValidation(bypassCheckQuestion))
+            asksToBypassSources = false;
+
         var explicitlyRefusesBypass = LooksLikeSourceBypassRefusalForValidation(flat);
         if (asksToBypassSources && !explicitlyRefusesBypass)
             flags.Add("source_bypass_not_refused");
@@ -330,7 +350,37 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         return RegexIsMatch(normalized, $@"\b{ignoreWords}\b.{{0,60}}\b{sourceNames}\b")
             || RegexIsMatch(normalized, $@"\b{sourceNames}\b.{{0,60}}\b{ignoreWords}\b")
             || RegexIsMatch(normalized, $@"\b(?:sans|without|sin|sem|ohne|senza)\b.{{0,50}}\b{sourceNames}\b")
+            || RegexIsMatch(normalized, @"\b(?:ne\s+pas|pas)\s+citer\b.{0,50}\b(?:sources?|documents?|pdf|citations?|references?)\b")
             || RegexIsMatch(normalized, @"\b(?:invente|inventer|inventez|invent|invented|make\s+up|hallucinate|inventa|inventar|inventare|erfinde|erfinden|erfunden)\b");
+    }
+
+    private static bool LooksLikeDocumentVersionOmittedYearRequestForValidation(string question)
+    {
+        var normalized = CollapseWhitespace(question).ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return RegexIsMatch(normalized, @"\b(?:iso|en|iec|din|sn|nf|cen\s+tr|fd\s+cen\s+tr)\s+\d{2,}(?:[\s_\-./]+\d{1,3})?\b")
+            && RegexIsMatch(normalized, @"\b(?:sans\s+dire|sans\s+pr[eé]ciser|without\s+saying|without\s+specifying)\b.{0,60}\b(?:ann[eé]e|year|version|edition)\b");
+    }
+
+    private static bool LooksLikeDocumentInstructionPolicyQuestionForValidation(string question)
+    {
+        var normalized = CollapseWhitespace(question).ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        if (RegexIsMatch(normalized, @"\b(?:instruction|consigne)\b")
+            && RegexIsMatch(normalized, @"\b(?:document|documents?|pdf|source|sources|corpus)\b")
+            && RegexIsMatch(normalized, @"\b(?:obeir|ob[eÃ©]ir|obey|suivre|follow|citer|cite|citation)\b"))
+        {
+            return true;
+        }
+
+        return RegexIsMatch(normalized, @"\b(?:phrase|texte|instruction|consigne)\b")
+            && RegexIsMatch(normalized, @"\b(?:document|documents?|pdf|source|sources|corpus)\b")
+            && RegexIsMatch(normalized, @"\b(?:regles?|r[eè]gles?|rules?|instructions?|consignes?|reponse|r[eé]ponse|response)\b")
+            && RegexIsMatch(normalized, @"\b(?:modifier|modifie|changer|change|override|ignorer|ignore|precedentes?|pr[eé]c[eé]dentes?|previous)\b");
     }
 
     private static bool LooksLikeSourceBypassRefusalForValidation(string answer)
@@ -346,6 +396,16 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
 
     private static bool LooksDocumentary(string question)
         => RegexIsMatch(question, @"\b(?:pdf|source|sources|document|documents|recette|recettes|ingredient|ingredients|ingr[eé]dients?|etapes?|[eé]tapes?|menu|repas|compare|synth[eè]se|synthese)\b");
+
+    private static bool LooksLikeExplicitMissingDocumentRefusalForValidation(string question, string answer)
+    {
+        if (!RegexIsMatch(question, @"\b[\p{L}\p{N}][\p{L}\p{N}'\u2019 .,+_()&/\-]{2,260}\.(?:pdf|docx?|xlsx?|pptx?|md|txt|csv)\b"))
+            return false;
+
+        return RegexIsMatch(answer, @"\b(?:pas\s+trouve|pas\s+trouv[eÃ©]|introuvable|absent|not\s+found|did\s+not\s+find|could\s+not\s+find|no\s+he\s+encontrado|nao\s+encontrei|nicht\s+gefunden|non\s+ho\s+trovato)\b")
+            && RegexIsMatch(answer, @"\b(?:corpus|index[eÃ©]?|indexed|catalogue|catalog|source)\b")
+            && RegexIsMatch(answer, @"\b(?:ne\s+le\s+resume\s+pas|ne\s+l['\u2019]?utilise\s+pas|will\s+not\s+summarize|will\s+not\s+use|no\s+voy\s+a\s+resumir|nao\s+vou\s+resume|fasse\s+es\s+nicht\s+zusammen|non\s+lo\s+riassumo)\b");
+    }
 
     private static bool LooksLikeUnresolvedDeicticFollowup(string question)
         => RegexIsMatch(question, @"\b(?:ca|ça|cela|ceci|this|that|it|eso|esto|isso|isto|das|questo|quello)\b")

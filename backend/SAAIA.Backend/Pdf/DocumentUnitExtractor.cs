@@ -5,6 +5,9 @@ using System.Text.RegularExpressions;
 internal static partial class DocumentUnitExtractor
 {
     private static readonly string UnitSeparator = Environment.NewLine + Environment.NewLine;
+    private const int MaxImplicitBoundaryScanLength = 6000;
+    private const int OversizedParagraphWindowLength = 3200;
+    private const int OversizedParagraphMinimumWindowLength = 900;
 
     public static IReadOnlyList<ExtractedDocumentUnit> Extract(
         IReadOnlyList<ExtractedPdfPage> pages,
@@ -166,6 +169,9 @@ internal static partial class DocumentUnitExtractor
         if (paragraph.Length < 120)
             return [paragraph];
 
+        if (paragraph.Length > MaxImplicitBoundaryScanLength)
+            return SplitOversizedDenseParagraph(paragraph);
+
         var boundaries = FindImplicitStructuredBoundaries(paragraph);
         if (boundaries.Count == 0)
             return [paragraph];
@@ -185,6 +191,48 @@ internal static partial class DocumentUnitExtractor
         return segments.Count > 1 ? segments : [paragraph];
     }
 
+    private static IReadOnlyList<string> SplitOversizedDenseParagraph(string paragraph)
+    {
+        var windows = new List<string>();
+        var start = 0;
+        while (start < paragraph.Length)
+        {
+            var end = ResolveOversizedParagraphWindowEnd(paragraph, start);
+            var window = NormalizeLine(paragraph[start..end]);
+            if (!string.IsNullOrWhiteSpace(window))
+                windows.AddRange(SplitDenseStructuredParagraph(window));
+
+            start = end;
+            while (start < paragraph.Length && char.IsWhiteSpace(paragraph[start]))
+                start++;
+        }
+
+        return windows.Count > 0 ? windows : [paragraph];
+    }
+
+    private static int ResolveOversizedParagraphWindowEnd(string paragraph, int start)
+    {
+        var hardEnd = Math.Min(paragraph.Length, start + OversizedParagraphWindowLength);
+        if (hardEnd >= paragraph.Length)
+            return paragraph.Length;
+
+        var minEnd = Math.Min(hardEnd, start + OversizedParagraphMinimumWindowLength);
+        for (var i = hardEnd; i > minEnd; i--)
+        {
+            var previous = paragraph[i - 1];
+            if (".!?;:".Contains(previous) && i < paragraph.Length && char.IsWhiteSpace(paragraph[i]))
+                return i;
+        }
+
+        for (var i = hardEnd; i > minEnd; i--)
+        {
+            if (char.IsWhiteSpace(paragraph[i - 1]))
+                return i;
+        }
+
+        return hardEnd;
+    }
+
     private static List<int> FindImplicitStructuredBoundaries(string text)
     {
         var boundaries = new List<int>();
@@ -199,12 +247,13 @@ internal static partial class DocumentUnitExtractor
                     candidate++;
             }
 
-            if (candidate >= text.Length - 8 || !LooksLikeBoundaryLead(text, candidate))
+            if (candidate >= text.Length - 8)
             {
                 index++;
                 continue;
             }
 
+            var looksLikeBoundaryLead = LooksLikeBoundaryLead(text, candidate);
             var previous = PreviousNonWhitespace(text, candidate - 1);
             if (previous < 0)
             {
@@ -212,26 +261,63 @@ internal static partial class DocumentUnitExtractor
                 continue;
             }
 
+            var previousCanStartStructuredBody = ".!?;:".Contains(text[previous]);
+            if (!looksLikeBoundaryLead && !previousCanStartStructuredBody)
+            {
+                index++;
+                continue;
+            }
+
+            string? lookahead = null;
+            string ResolveLookahead()
+            {
+                lookahead ??= text.Substring(candidate, Math.Min(180, text.Length - candidate));
+                return lookahead;
+            }
+
+            var looksLikeStructuredBodyLead = false;
+            if (!looksLikeBoundaryLead || previousCanStartStructuredBody)
+                looksLikeStructuredBodyLead = LooksLikeStructuredBodyLead(ResolveLookahead());
+
+            if (!looksLikeBoundaryLead && !looksLikeStructuredBodyLead)
+            {
+                index++;
+                continue;
+            }
+
+            var postFooterStructuredBodyBoundary = looksLikeStructuredBodyLead
+                && LooksLikePostFooterStructuredBodyBoundary(text, previous, candidate, ResolveLookahead());
+            if (!looksLikeBoundaryLead && !postFooterStructuredBodyBoundary)
+            {
+                index++;
+                continue;
+            }
+
             var strongBoundary = ".!?".Contains(text[previous])
-                || LooksLikeGluedPageTitleBoundary(text, previous, candidate);
+                || LooksLikeGluedPageTitleBoundary(text, previous, candidate)
+                || LooksLikeLateStructuredTitleBoundary(text, previous, candidate)
+                || postFooterStructuredBodyBoundary;
             if (!strongBoundary)
             {
                 index++;
                 continue;
             }
 
-            var lookaheadLength = Math.Min(180, text.Length - candidate);
-            var lookahead = text.Substring(candidate, lookaheadLength);
-            if (!StructuredContentLexicon.LooksLikeStructuredLeadMarker(lookahead))
+            var resolvedLookahead = ResolveLookahead();
+            if (!StructuredContentLexicon.LooksLikeStructuredLeadMarker(resolvedLookahead)
+                && !LooksLikeStructuredItemTitleLead(resolvedLookahead))
             {
-                index++;
-                continue;
+                if (!postFooterStructuredBodyBoundary || !looksLikeStructuredBodyLead)
+                {
+                    index++;
+                    continue;
+                }
             }
 
             if (candidate >= 60)
                 boundaries.Add(candidate);
 
-            index = candidate + 1;
+            index = candidate + Math.Max(1, ResolveStructuredTitleLeadLength(resolvedLookahead));
         }
 
         return boundaries;
@@ -255,6 +341,26 @@ internal static partial class DocumentUnitExtractor
             && char.IsUpper(text[digitEnd]);
     }
 
+    private static bool LooksLikePostFooterStructuredBodyBoundary(
+        string text,
+        int previous,
+        int candidate,
+        string lookahead)
+    {
+        if (candidate < 80 || candidate >= text.Length)
+            return false;
+
+        if (previous >= 0 && !".!?;:".Contains(text[previous]))
+            return false;
+
+        if (!LooksLikeStructuredBodyLead(lookahead))
+            return false;
+
+        var prefixStart = Math.Max(0, candidate - 320);
+        var prefix = text.Substring(prefixStart, candidate - prefixStart);
+        return ContainsTrailingStructuredFooterTitle(prefix);
+    }
+
     private static bool LooksLikeGluedPageTitleBoundary(string text, int previous, int candidate)
     {
         if (candidate <= 0 || candidate >= text.Length)
@@ -274,6 +380,158 @@ internal static partial class DocumentUnitExtractor
             && char.IsUpper(text[digitEnd]);
     }
 
+    private static bool LooksLikeLateStructuredTitleBoundary(string text, int previous, int candidate)
+    {
+        if (candidate < 60 || candidate >= text.Length)
+            return false;
+
+        if (!char.IsLetter(text[candidate]) || !char.IsUpper(text[candidate]))
+            return false;
+
+        var compactMeasureBoundary = LooksLikeCompactMeasureToStructuredTitleBoundary(text, candidate);
+        if (candidate > 0 && char.IsLetterOrDigit(text[candidate - 1]) && !compactMeasureBoundary)
+            return false;
+
+        if (previous >= 0 && char.IsDigit(text[previous]))
+            return false;
+
+        if (previous >= 0 && !char.IsLetterOrDigit(text[previous]) && !char.IsWhiteSpace(text[previous]))
+            return false;
+
+        var lookahead = text.Substring(candidate, Math.Min(220, text.Length - candidate));
+        if (!LooksLikeStructuredItemTitleLead(lookahead))
+            return false;
+
+        var prefixStart = Math.Max(0, candidate - 280);
+        var prefix = text.Substring(prefixStart, candidate - prefixStart);
+        return compactMeasureBoundary || LooksLikeCompletedStructuredItemTail(prefix);
+    }
+
+    private static bool LooksLikeCompactMeasureToStructuredTitleBoundary(string text, int candidate)
+    {
+        if (candidate <= 0 || candidate >= text.Length)
+            return false;
+
+        var prefixStart = Math.Max(0, candidate - 80);
+        var prefix = text.Substring(prefixStart, candidate - prefixStart);
+        return CompactMeasureBeforeTitleBoundaryRegex().IsMatch(prefix);
+    }
+
+    private static bool LooksLikeStructuredItemTitleLead(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        var lead = NormalizeLine(text);
+        if (lead.Length < 18)
+            return false;
+
+        if (GenericStructuredCueLeadRegex().IsMatch(lead))
+            return false;
+        if (LooksLikeSingleWordFooterBeforeLongTitle(lead))
+            return false;
+
+        if (StructuredContentLexicon.TryExtractStructuredItemTitleLead(lead, out _))
+            return true;
+
+        return StructuredTitleLeadRegex().IsMatch(lead)
+            && (StructuredContentLexicon.LooksLikeStructuredLeadMarker(lead)
+                || StructuredItemEvidenceRegex().IsMatch(lead));
+    }
+
+    private static bool LooksLikeSingleWordFooterBeforeLongTitle(string lead)
+    {
+        var match = SingleWordFooterBeforeLongTitleRegex().Match(lead);
+        if (!match.Success)
+            return false;
+
+        var followingTitle = match.Groups["title"].Value;
+        var signalTokens = Regex.Matches(
+                followingTitle,
+                @"\b[\p{Lu}][\p{Lu}\p{Ll}'\u2019\-]{3,}\b",
+                RegexOptions.CultureInvariant)
+            .Count;
+        return signalTokens >= 3;
+    }
+
+    private static bool LooksLikeCompletedStructuredItemTail(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        var normalized = NormalizeStructuredBoundaryEvidenceText(text);
+        return StructuredContentLexicon.LooksLikeStructuredLeadMarker(normalized)
+            || StructuredItemEvidenceRegex().Matches(normalized).Count >= 2
+            || CompletedStructuredTailRegex().IsMatch(normalized);
+    }
+
+    private static bool LooksLikeStructuredBodyLead(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        var lead = NormalizeLine(text);
+        if (lead.Length < 12)
+            return false;
+
+        return StructuredContentLexicon.LooksLikeStructuredLeadMarker(lead)
+            || StructuredBodyLeadEvidenceRegex().IsMatch(lead)
+            || StructuredItemEvidenceRegex().Matches(lead).Count >= 2;
+    }
+
+    private static bool ContainsTrailingStructuredFooterTitle(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        var normalized = NormalizeStructuredBoundaryEvidenceText(text);
+        if (!LooksLikeCompletedStructuredItemTail(normalized))
+            return false;
+
+        foreach (Match match in EmbeddedFooterTitleRegex().Matches(normalized))
+        {
+            var title = NormalizeLine(match.Groups["title"].Value);
+            if (!LooksLikeUsefulFooterTitle(title))
+                continue;
+
+            var after = normalized[(match.Index + match.Length)..];
+            if (after.Length <= 170)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool LooksLikeUsefulFooterTitle(string title)
+    {
+        if (string.IsNullOrWhiteSpace(title) || title.Length is < 4 or > 90)
+            return false;
+
+        var tokenCount = CountTokens(title);
+        if (tokenCount is < 1 or > 10)
+            return false;
+
+        var letters = title.Where(char.IsLetter).ToArray();
+        if (letters.Length < 4)
+            return false;
+
+        var uppercase = letters.Count(char.IsUpper);
+        return uppercase >= Math.Ceiling(letters.Length * 0.72);
+    }
+
+    private static int ResolveStructuredTitleLeadLength(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return 1;
+
+        var normalized = NormalizeLine(text);
+        if (StructuredContentLexicon.TryExtractStructuredItemTitleLead(normalized, out var title))
+            return Math.Max(1, title.Length);
+
+        var match = StructuredTitleLeadRegex().Match(normalized);
+        return match.Success ? match.Length : 1;
+    }
+
     private static int PreviousNonWhitespace(string text, int index)
     {
         for (var i = index; i >= 0; i--)
@@ -291,20 +549,78 @@ internal static partial class DocumentUnitExtractor
         if (string.IsNullOrWhiteSpace(segment))
             return;
 
-        if (segment.Length < 80 && segments.Count > 0)
+        if (segment.Length < 80
+            && segments.Count > 0
+            && !LooksLikeStructuredItemTitleLead(segment))
+        {
             segments[^1] = NormalizeLine($"{segments[^1]} {segment}");
+        }
         else
+        {
             segments.Add(segment);
+        }
     }
 
     private static string NormalizeLine(string text)
         => Regex.Replace(text, @"\s+", " ").Trim();
+
+    private static string InsertFooterTitleBoundarySpaces(string text)
+        => UppercaseRunToTitleCaseBoundaryRegex().Replace(text, " ");
+
+    private static string NormalizeStructuredBoundaryEvidenceText(string text)
+    {
+        var normalized = InsertFooterTitleBoundarySpaces(NormalizeLine(text));
+        normalized = LetterBeforeStructuredQuantityRegex().Replace(normalized, " ");
+        normalized = StructuredUnitBeforeNumberRegex().Replace(normalized, "${unit} ");
+        normalized = StructuredUnitBeforeUppercaseRegex().Replace(normalized, "${unit} ");
+        normalized = PunctuationBeforeStructuredQuantityRegex().Replace(normalized, " ");
+        return NormalizeLine(normalized);
+    }
 
     private static int CountTokens(string text)
         => text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
 
     [GeneratedRegex(@"[\.!?;:]\s*$", RegexOptions.CultureInvariant)]
     private static partial Regex SentenceEndRegex();
+
+    [GeneratedRegex(@"^\s*(?:\d{1,4}\s*)?(?:[\p{Lu}][\p{Lu}\p{Ll}'\u2019\-]{2,}|[\p{Lu}]{2,})(?:\s+(?:[\p{Lu}][\p{Lu}\p{Ll}'\u2019\-]{2,}|[\p{Lu}]{2,}|a|au|aux|de|des|du|la|le|les|et|with|and|of|the|to|con|al|alla|mit|und)){1,9}", RegexOptions.CultureInvariant)]
+    private static partial Regex StructuredTitleLeadRegex();
+
+    [GeneratedRegex(@"^\s*(?:ingr[e\u00e9]dients?|preparation|pr[e\u00e9]paration|realisation|r[e\u00e9]alisation|technique|mat[e\u00e9]riel|materials?|components?|steps?|[e\u00e9]tapes?|temps(?:\s+total)?)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex GenericStructuredCueLeadRegex();
+
+    [GeneratedRegex(@"^\s*(?<footer>[\p{Lu}]{4,})\s+(?<title>(?:[\p{Lu}][\p{Lu}\p{Ll}'\u2019\-]{2,}\s+){2,}[\p{Lu}][\p{Lu}\p{Ll}'\u2019\-]{2,})\b", RegexOptions.CultureInvariant)]
+    private static partial Regex SingleWordFooterBeforeLongTitleRegex();
+
+    [GeneratedRegex(@"\b(?:ingr[e\u00e9]dients?|preparation|pr[e\u00e9]paration|realisation|r[e\u00e9]alisation|technique|temps\s+total|pour\s+\d{1,3}\s+(?:personnes?|people|persons?)|\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|c\.\s*a\s*[ct]|cuill[e\u00e8]res?|oeufs?|œufs?|min|h))\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex StructuredItemEvidenceRegex();
+
+    [GeneratedRegex(@"\b(?:complete|completed|finish|finished|done|ready|minutes?|min|duration|duree|dur[e\u00e9]e|temps\s+total|total\s+time)\b.{0,90}\b(?:\d{1,3}\s*min|temps\s+total|total\s+time|personnes?|people|persons?)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex CompletedStructuredTailRegex();
+
+    [GeneratedRegex(@"^\s*(?:\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|units?|items?|pieces?|min|h)\b|(?:materials?|components?|requirements?|items?|elements?|steps?|method|procedure|procedures?)\b)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex StructuredBodyLeadEvidenceRegex();
+
+    [GeneratedRegex(@"(?:\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|units?|items?|pieces?|min|h|s|sec|secs|secondes?|seconds?)|(?:pour|for|para|per|fur|fuer)\s+\d{1,3}\s+(?:personnes?|people|persons?|items?|units?))\s*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex CompactMeasureBeforeTitleBoundaryRegex();
+
+    [GeneratedRegex(@"(?<![\p{L}\p{N}])(?<title>[\p{Lu}][\p{Lu}\p{Nd}'\u2019\-\s]{3,90}?)(?=(?:\s+[A-Z][\p{Ll}]{2,}|\s*$|[\.:\-\u2013\u2014]))", RegexOptions.CultureInvariant)]
+    private static partial Regex EmbeddedFooterTitleRegex();
+
+    [GeneratedRegex(@"(?<=[\p{Lu}])(?=\p{Lu}\p{Ll}{2,})", RegexOptions.CultureInvariant)]
+    private static partial Regex UppercaseRunToTitleCaseBoundaryRegex();
+
+    [GeneratedRegex(@"(?<=[\p{L}])(?=\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|units?|items?|pieces?|min|h)\b)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex LetterBeforeStructuredQuantityRegex();
+
+    [GeneratedRegex(@"\b(?<unit>g|kg|mg|ml|cl|l|oz|lb|units?|items?|pieces?|min|h|personnes?|people|persons?)(?=\d)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex StructuredUnitBeforeNumberRegex();
+
+    [GeneratedRegex(@"\b(?<unit>g|kg|mg|ml|cl|l|oz|lb|units?|items?|pieces?|min|h|personnes?|people|persons?)(?=\p{Lu})", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex StructuredUnitBeforeUppercaseRegex();
+
+    [GeneratedRegex(@"(?<=[\.!?:;\)\]\u00ae])(?=\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|units?|items?|pieces?|min|h)\b)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex PunctuationBeforeStructuredQuantityRegex();
 
 }
 
