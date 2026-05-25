@@ -13200,7 +13200,7 @@ SELECT
     pcm.matched_content_cards_json AS "MatchedContentCardsJson",
     (
         ts_rank_cd(
-            to_tsvector('simple', cte.text_content),
+            cte.search_tsv,
             sparse_query.q,
             32
         ) + ((COALESCE(pcm.match_weight, 0.0) * 0.035)::real)
@@ -13229,7 +13229,7 @@ LEFT JOIN profile_card_matches pcm
   ON pcm.revision_id = r.revision_id
  AND rc.page_start <= pcm.card_page_end
  AND rc.page_end >= pcm.card_page_start
-WHERE (to_tsvector('simple', cte.text_content) @@ sparse_query.q OR COALESCE(pcm.match_count, 0) > 0)
+WHERE (cte.search_tsv @@ sparse_query.q OR COALESCE(pcm.match_count, 0) > 0)
   AND (@category IS NULL OR LOWER(d.category) = @category)
   AND (@category_path IS NULL OR d.doc_path = @category_path OR d.doc_path LIKE (@category_path || '/%'))
   AND (@doc_id IS NULL OR d.doc_id = @doc_id)
