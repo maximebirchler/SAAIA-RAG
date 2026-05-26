@@ -10573,6 +10573,7 @@ profile_card_matches AS (
         FROM document_profile_content_cards card
         WHERE card.tenant_id = r.tenant_id
           AND card.revision_id = r.revision_id
+          AND saaia_is_safe_profile_content_card(card.kind, card.title, card.page_start, card.page_end, card.metadata)
         ORDER BY
             card.normalized_title,
             GREATEST(1, COALESCE(card.page_start, 1)),
@@ -13114,6 +13115,7 @@ profile_card_matches AS (
         FROM document_profile_content_cards card
         WHERE card.tenant_id = r.tenant_id
           AND card.revision_id = r.revision_id
+          AND saaia_is_safe_profile_content_card(card.kind, card.title, card.page_start, card.page_end, card.metadata)
         ORDER BY
             card.normalized_title,
             GREATEST(1, COALESCE(card.page_start, 1)),
@@ -13948,6 +13950,7 @@ single_profile_card_term_matches AS (
         FROM document_profile_content_cards card
         WHERE card.tenant_id = d.tenant_id
           AND card.revision_id = d.revision_id
+          AND saaia_is_safe_profile_content_card(card.kind, card.title, card.page_start, card.page_end, card.metadata)
         ORDER BY
             card.normalized_title,
             GREATEST(1, COALESCE(card.page_start, 1)),
@@ -14008,6 +14011,7 @@ phrase_profile_card_term_matches AS (
         FROM document_profile_content_cards card
         WHERE card.tenant_id = d.tenant_id
           AND card.revision_id = d.revision_id
+          AND saaia_is_safe_profile_content_card(card.kind, card.title, card.page_start, card.page_end, card.metadata)
         ORDER BY
             card.normalized_title,
             GREATEST(1, COALESCE(card.page_start, 1)),
@@ -14583,6 +14587,17 @@ LIMIT @top_k;
         var commandTimeout = RagOptions.ResolveSearchSparseCommandTimeoutSeconds(commandTimeoutSeconds);
 
         await using var conn = await ds.OpenConnectionAsync(ct);
+        await EnsureFreshDocumentProfileSearchEntriesAsync(
+            conn,
+            tenantId,
+            category,
+            normalizedCategoryPath,
+            normalizedDocId,
+            normalizedDocPath,
+            commandTimeout,
+            ct,
+            degradedRetrieverRef);
+
         const string sql = """
 WITH reference_phrases AS (
     SELECT DISTINCT LOWER(phrase) AS phrase
@@ -14641,49 +14656,38 @@ SELECT
     d.doc_path AS "DocPath",
     d.doc_name AS "DocName",
     d.category AS "Category",
-    p.document_profile_id AS "ProfileId",
+    e.document_profile_id AS "ProfileId",
     d.indexed_version AS "IngestionVersion",
     LOWER(ENCODE(d.content_hash, 'hex')) AS "HashDoc",
-    COALESCE(NULLIF(s.summary_text, ''), NULLIF(p.summary_text, ''), d.doc_name, d.doc_path) AS "Text",
+    COALESCE(NULLIF(e.summary_text, ''), NULLIF(s.summary_text, ''), d.doc_name, d.doc_path) AS "Text",
     TRIM(BOTH FROM CONCAT_WS(
         ' ',
         d.doc_path,
         d.doc_name,
-        p.search_text,
-        p.summary_text,
-        ARRAY_TO_STRING(p.keywords, ' '),
-        ARRAY_TO_STRING(p.entities, ' '),
-        ARRAY_TO_STRING(p.topics, ' '),
-        ARRAY_TO_STRING(p.hypothetical_questions, ' '),
-        ARRAY_TO_STRING(p.limits, ' '),
+        e.search_text,
+        e.summary_text,
+        ARRAY_TO_STRING(e.keywords, ' '),
+        ARRAY_TO_STRING(e.entities, ' '),
+        ARRAY_TO_STRING(e.topics, ' '),
+        ARRAY_TO_STRING(e.hypothetical_questions, ' '),
+        ARRAY_TO_STRING(e.limits, ' '),
         NULLIF(s.summary_text, ''))) AS "SearchText",
-    p.metadata::text AS "MetadataJson",
-    p.language AS "Language",
-    p.profile_version AS "ProfileVersion",
-    p.keywords AS "Keywords",
-    p.entities AS "Entities",
-    p.topics AS "Topics",
-    p.hypothetical_questions AS "HypotheticalQuestions",
-    p.limits AS "Limits",
+    e.metadata_json::text AS "MetadataJson",
+    e.language AS "Language",
+    e.profile_version AS "ProfileVersion",
+    e.keywords AS "Keywords",
+    e.entities AS "Entities",
+    e.topics AS "Topics",
+    e.hypothetical_questions AS "HypotheticalQuestions",
+    e.limits AS "Limits",
     (0.66::double precision
         + LEAST(d.phrase_match_count, 3)::double precision * 0.04::double precision
         + LEAST(d.phrase_match_length, 40)::double precision * 0.002::double precision) AS "SparseRank",
     d.phrase_match_count::bigint AS "MatchCount"
 FROM matched_docs d
-JOIN LATERAL (
-    SELECT profile.*
-    FROM document_profiles profile
-    WHERE profile.tenant_id = d.tenant_id
-      AND profile.revision_id = d.revision_id
-    ORDER BY
-        CASE profile.profile_version
-            WHEN 'llm_backoffice_v1' THEN 0
-            WHEN 'deterministic_v1' THEN 1
-            ELSE 2
-        END,
-        profile.updated_at DESC
-    LIMIT 1
-) p ON TRUE
+JOIN document_profile_search_entries e
+  ON e.tenant_id = d.tenant_id
+ AND e.revision_id = d.revision_id
 LEFT JOIN document_summaries s
   ON s.tenant_id = d.tenant_id
  AND s.doc_id = d.doc_id
@@ -18274,6 +18278,7 @@ LEFT JOIN LATERAL (
     WHERE raw_card.tenant_id = d.tenant_id
       AND raw_card.revision_id = r.revision_id
       AND NULLIF(BTRIM(raw_card.title), '') IS NOT NULL
+      AND saaia_is_safe_profile_content_card(raw_card.kind, raw_card.title, raw_card.page_start, raw_card.page_end, raw_card.metadata)
     ORDER BY
         CASE raw_card.profile_version
             WHEN 'llm_backoffice_v1' THEN 0

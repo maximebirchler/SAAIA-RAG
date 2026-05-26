@@ -310,6 +310,7 @@ LEFT JOIN LATERAL (
     WHERE tenant_id = md.tenant_id
       AND document_profile_id = profile.document_profile_id
       AND NULLIF(BTRIM(title), '') IS NOT NULL
+      AND saaia_is_safe_profile_content_card(kind, title, page_start, page_end, metadata)
     ORDER BY card_index
     LIMIT 32
   ) c

@@ -8,6 +8,21 @@ namespace SAAIA.Backend.Tests;
 public sealed class RagMatchedContentCardsTests
 {
     [Fact]
+    public void Profile_content_card_sql_candidates_filter_unsafe_cards_before_ranking()
+    {
+        var ragEndpointsSource = File.ReadAllText(ResolveBackendSourceFile("Endpoints", "RagEndpoints.cs"));
+        var resolvedSourceProjection = File.ReadAllText(ResolveBackendSourceFile("Endpoints", "ResolvedSourceProjection.cs"));
+
+        Assert.True(
+            CountOccurrences(ragEndpointsSource, "saaia_is_safe_profile_content_card(") >= 5,
+            "RAG SQL paths that read document_profile_content_cards should filter unsafe cards before matching/ranking.");
+        Assert.Contains(
+            "AND saaia_is_safe_profile_content_card(kind, title, page_start, page_end, metadata)",
+            resolvedSourceProjection,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ResolvedSourceProjection_filters_unsafe_profile_cards_before_exposure()
     {
         const string contentCardsJson = """
@@ -56,6 +71,29 @@ public sealed class RagMatchedContentCardsTests
         Assert.Contains(cards, card => string.Equals(card.Title, "Source backed LLM card", StringComparison.Ordinal));
         Assert.Contains(cards, card => string.Equals(card.Title, "ISO 13849-1", StringComparison.Ordinal));
     }
+
+    private static int CountOccurrences(string value, string needle)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = value.IndexOf(needle, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += needle.Length;
+        }
+
+        return count;
+    }
+
+    private static string ResolveBackendSourceFile(params string[] segments)
+        => Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..",
+            "..",
+            "..",
+            "..",
+            "SAAIA.Backend",
+            Path.Combine(segments)));
 
     [Fact]
     public void BuildMatchedContentCards_returns_structured_profile_cards_in_query_order()
