@@ -16388,10 +16388,13 @@ FROM scoped_revisions;
 
         if (tokens.Length >= 5 && first is
                 "add" or "ajouter" or "ajoutez" or "apply" or "appliquer" or "assemble" or "assembler"
-                or "bake" or "battre" or "boil" or "check" or "controlez" or "couper" or "coupez"
-                or "cuire" or "faire" or "laisser" or "laver" or "melanger" or "mix" or "mixer"
-                or "ouvrir" or "peler" or "place" or "placer" or "prepare" or "preparer"
-                or "remove" or "retirer" or "validate" or "valider" or "verser")
+                or "check" or "controlez" or "configure" or "configurer" or "connect" or "connecter"
+                or "copy" or "copier" or "delete" or "demarrer" or "install" or "installer"
+                or "lancer" or "mettre" or "open" or "ouvrir" or "place" or "placer"
+                or "prepare" or "preparer" or "remove" or "remplacer" or "replace" or "retirer"
+                or "run" or "select" or "selectionner" or "set" or "start" or "stop"
+                or "supprimer" or "update" or "use" or "utiliser" or "validate" or "valider"
+                or "verify" or "verifier")
         {
             return true;
         }
@@ -23447,6 +23450,7 @@ LIMIT @top_k;
         var prioritizeOperationalSettings = ShouldPrioritizeOperationalSettings(normalizedQueryForOperationalSettings);
         var prioritizeFastDuration = ContainsFastDurationPreference(query);
         var structuredTitleLookup = IsStructuredTitleLookupQuery(query);
+        var hasStructuredDetailIntent = HasStructuredContinuationBackfillIntent(query);
         var allowWeakContentCardTitleSignalWaiver = !ShouldPreferComparativeDocumentDiversity(query);
         var prioritizeSituationalConstraintCoverage =
             ShouldPrioritizeSituationalSelectionConstraintCoverage(query);
@@ -23476,6 +23480,7 @@ LIMIT @top_k;
             {
                 var exactTitleScore = ComputeExactTitleCandidateScore(query, match);
                 var quotedTitleAnchorSignal = ComputeQuotedTitleAnchorSignal(query, match);
+                var hasStructuredProcedureCue = ContainsStructuredProcedureCue(match);
                 var hasQuotedTitlePlacementEvidence = quotedPhrases.Count > 0
                     && HasQuotedTitlePlacementEvidence(quotedPhrases, match);
                 var directQuotedTitleTokenCoverage = ComputeDirectQuotedTitleTokenCoverage(quotedPhrases, match);
@@ -23486,7 +23491,7 @@ LIMIT @top_k;
                     IsDirectTitleTokenRouteMatch(match)
                     && directQuotedTitleTokenCoverage >= 0.99
                     && (LooksLikeStructuredAnswerChunk(match)
-                        || (ContainsStructuredInventoryCue(match) && ContainsStructuredProcedureCue(match)))
+                        || (ContainsStructuredInventoryCue(match) && hasStructuredProcedureCue))
                     && EstimateNormalizedTokenCount(match.Text) >= 60
                     && (match.ContentDensityScore is null or >= 0.50);
                 var weakDirectTitleTokenRoute = rawWeakDirectTitleTokenRoute
@@ -23517,7 +23522,7 @@ LIMIT @top_k;
                         || directChunkTitleSignal > 0)
                     && (LooksLikeStructuredAnswerChunk(match)
                         || ContainsStructuredInventoryCue(match)
-                        || ContainsStructuredProcedureCue(match))
+                        || hasStructuredProcedureCue)
                         ? 1
                         : 0;
                 var weakMatchedContentCardTitlePenalty = ComputeWeakMatchedContentCardTitlePenalty(
@@ -23637,7 +23642,13 @@ LIMIT @top_k;
                         structuredTitleLookup
                         && singleSpecificTitleAnchorCoverage
                         && ContainsStructuredInventoryCue(match)
-                        && ContainsStructuredProcedureCue(match)
+                        && hasStructuredProcedureCue
+                            ? 1
+                            : 0,
+                    StructuredProcedureDetailPriority =
+                        hasStructuredDetailIntent
+                        && hasStructuredProcedureCue
+                        && CountSpecificLexicalAnchors(lexicalTokens, GetDirectChunkSignalText(match)) >= requiredFocusedSpecificContentCoverage
                             ? 1
                             : 0,
                     ComparativeProfileConstraintCoverage =
@@ -23709,6 +23720,7 @@ LIMIT @top_k;
             || item.CompleteStructuredDirectTokenRoute
             || item.LeadingLinkedContinuationPenalty
             || item.StructuredCardCompletenessPriority > 0
+            || item.StructuredProcedureDetailPriority > 0
             || item.QuotedTitleAnchorSignal > 0.0
             || item.ExactQuotedTitlePriority > 0
             || item.FullTitleCoverage
@@ -23784,6 +23796,7 @@ LIMIT @top_k;
             .ThenByDescending(static item => item.QuotedTitleAnchorSignal)
             .ThenByDescending(static item => item.FullTitleCoverage ? 1 : 0)
             .ThenByDescending(static item => item.ExactTitleScore)
+            .ThenByDescending(static item => item.StructuredProcedureDetailPriority)
             .ThenByDescending(item => prioritizeFocusedSpecificContentCoverage
                 && item.FocusedSpecificDocumentCoverage >= requiredFocusedSpecificContentCoverage
                 && item.ContentEvidencePriority >= 0.70
@@ -25438,7 +25451,7 @@ LIMIT @top_k;
         var leadingBody = normalizedText[afterFirstTitle..secondTitle];
         if (!Regex.IsMatch(
                 leadingBody,
-                @"\b(?:lancez|relancez|servez|laissez|repartissez|versez|degustez|couvrez)\b",
+                @"\b(?:ajoutez|appliquez|configurez|connectez|continuez|fermez|installez|lancez|ouvrez|relancez|remplacez|retirez|selectionnez|validez|verifiez)\b",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
         {
             return false;
@@ -25469,7 +25482,7 @@ LIMIT @top_k;
 
         return Regex.IsMatch(
             lead,
-            @"^\s*(?:procedez\s+de\s+la\s+meme\s+facon|de\s+la\s+meme\s+facon|continuer?|continuez|repetez|repeter|[2-9]\d?\s*[\.\)]|recouvrez|cassez\s+delicatement|versez\s+douce\s*ment)\b",
+            @"^\s*(?:procedez\s+de\s+la\s+meme\s+facon|de\s+la\s+meme\s+facon|continuer?|continuez|repetez|repeter|[2-9]\d?\s*[\.\)]|ajoutez|appliquez|configurez|connectez|fermez|installez|ouvrez|remplacez|retirez|selectionnez|validez|verifiez)\b",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 
@@ -25516,7 +25529,7 @@ LIMIT @top_k;
 
         return Regex.IsMatch(
             lead,
-            @"^\s*(?:(?:[2-9]\d?\s*(?:[\.\)]|\b))|au\s+bout|a\s+la\s+fin|puis|ensuite|continuer?|continuez|relancez|servez|degustez|cuire\s+encore|et\s+cuire\s+encore|(?:pa|pe)ris\s+et\s+cuire\s+encore)\b",
+            @"^\s*(?:(?:[2-9]\d?\s*(?:[\.\)]|\b))|au\s+bout|a\s+la\s+fin|puis|ensuite|continuer?|continuez|relancez|ajoutez|appliquez|configurez|connectez|fermez|installez|ouvrez|remplacez|retirez|selectionnez|validez|verifiez)\b",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 
@@ -25848,10 +25861,45 @@ LIMIT @top_k;
             || normalized.Contains("etape", StringComparison.Ordinal)
             || normalized.Contains("step", StringComparison.Ordinal)
             || normalized.Contains("technique", StringComparison.Ordinal)
+            || LooksLikeNumberedProcedureStructure(normalized)
+            || LooksLikeGenericProcedureActionRun(normalized)
             || Regex.IsMatch(
                 normalized,
-                @"(?:^|\s)1\s+(?:\w+\s+){0,18}?(?:ajouter|ajoutez|couper|coupez|cuire|faites|fendre|grattez|incorporer|incorporez|laisser|mettez|melanger|mixer|nettoyer|placer|prechauffer|recouvrez|remuer|remuez|retirer|retournez|versez|verser)\b",
+                @$"(?:^|\s)1\s+(?:\w+\s+){{0,18}}?{GenericProcedureActionVerbPattern}",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    }
+
+    private const string GenericProcedureActionVerbPattern =
+        @"\b(?:add|ajouter|ajoutez|apply|appliquer|appliquez|assemble|assembler|check|controlez|configure|configurer|configurez|connect|connecter|connectez|copy|copier|delete|demarrer|install|installer|installez|lancer|lancez|mettre|mettez|open|ouvrir|ouvrez|place|placer|placez|prepare|preparer|preparez|remove|remplacer|remplacez|replace|retirer|retirez|run|select|selectionner|selectionnez|set|start|stop|supprimer|update|use|utiliser|utilisez|validate|valider|validez|verify|verifier|verifiez)\b";
+
+    private static bool LooksLikeGenericProcedureActionRun(string normalized)
+    {
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return Regex.Matches(
+                normalized,
+                GenericProcedureActionVerbPattern,
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant).Count >= 2;
+    }
+
+    private static bool LooksLikeNumberedProcedureStructure(string normalized)
+    {
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        if (Regex.IsMatch(
+                normalized,
+                @"(?:^|\s)1\s+\p{L}.{0,360}(?:^|\s)2\s+\p{L}",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        return Regex.IsMatch(
+            normalized,
+            @"(?:^|\s)(?:pour|for|para|per|fur|fuer)\s+\d{1,3}\s+(?:\p{L}+\s+){0,24}?1\s+\p{L}",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 
     private static bool ContainsStructuredTimeCue(RagMatch match)

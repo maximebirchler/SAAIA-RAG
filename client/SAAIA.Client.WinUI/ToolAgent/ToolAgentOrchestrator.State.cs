@@ -3149,7 +3149,7 @@ CURRENT_USER_MESSAGE:
         return CountProcedureStepMarkers(normalizedEvidence) > 0
                || Regex.IsMatch(
                    normalizedEvidence,
-                   @"\b(?:items?|elements?|requirements?|quantities?|quantites?|values?|valeurs?|preparation|pr[e\u00e9]paration|procedure|etapes?|[e\u00e9]tapes?|temps|time|pour\s+\d{1,3}\s+\p{L}|\d+\s*(?:g|kg|mg|ml|cl|l|min(?:ute)?s?|h|heures?|hours?))\b",
+                   @"\b(?:items?|elements?|requirements?|quantities?|quantites?|values?|valeurs?|preparation|pr[e\u00e9]paration|operation|workflow|execution|procedure|etapes?|[e\u00e9]tapes?|temps|time|pour\s+\d{1,3}\s+\p{L}|\d+\s*(?:g|kg|mg|ml|cl|l|min(?:ute)?s?|h|heures?|hours?))\b",
                    RegexOptions.CultureInvariant);
     }
 
@@ -3324,7 +3324,7 @@ CURRENT_USER_MESSAGE:
         var normalized = NormalizeLexicalLookup(text);
         var hasStructuredEvidenceCue = Regex.IsMatch(
             normalized,
-            @"\b(?:preparation|procedure|procedures?|process|instruction|instructions|etape|etapes|step|steps|quantity|quantite|value|valeur|\d+\s*(?:g|kg|mg|ml|cl|l|min(?:ute)?s?|h|heures?|hours?|c|celsius))\b",
+            @"\b(?:preparation|operation|workflow|execution|procedure|procedures?|process|instruction|instructions|etape|etapes|step|steps|quantity|quantite|value|valeur|\d+\s*(?:g|kg|mg|ml|cl|l|min(?:ute)?s?|h|heures?|hours?|c|celsius))\b",
             RegexOptions.CultureInvariant);
         var hasNavigationCue = Regex.IsMatch(
             normalized,
@@ -6012,7 +6012,7 @@ CURRENT_USER_MESSAGE:
             score += 3;
         if (!string.IsNullOrWhiteSpace(normalizedSection) && normalizedSection.Contains(normalizedTitle, StringComparison.Ordinal))
             score -= 12;
-        if (Regex.IsMatch(normalizedTitle, @"\b(?:document|section|categories?|modes?|preparation|pages?)\b", RegexOptions.CultureInvariant))
+        if (Regex.IsMatch(normalizedTitle, @"\b(?:document|section|categories?|modes?|preparation|operation|workflow|execution|pages?)\b", RegexOptions.CultureInvariant))
             score -= 16;
 
         return score;
@@ -6528,7 +6528,7 @@ CURRENT_USER_MESSAGE:
                 @"\b(?:documents?|sources?|corpus|base\s+de\s+connaissances?|knowledge\s+base|categories?|categories|dossiers?|folders?|fichiers?|files?)\b",
                 RegexOptions.CultureInvariant);
         return looksLikeAppFeatureCopy
-            && !Regex.IsMatch(text, @"\b(?:preparation|procedure|method|methode|etapes?|steps?|requirements?|values?|valeurs?|quantities?|quantites?|\d+\s*(?:g|kg|mg|ml|cl|l|min|h|mm|cm|m))\b", RegexOptions.CultureInvariant);
+            && !Regex.IsMatch(text, @"\b(?:preparation|operation|workflow|execution|procedure|method|methode|etapes?|steps?|requirements?|values?|valeurs?|quantities?|quantites?|\d+\s*(?:g|kg|mg|ml|cl|l|min|h|mm|cm|m))\b", RegexOptions.CultureInvariant);
     }
 
     private static bool LooksLikeLowSignalContentCandidateHit(RagHitSummary hit)
@@ -6548,7 +6548,7 @@ CURRENT_USER_MESSAGE:
 
         var hasBodyStructure = Regex.IsMatch(
             text,
-            @"\b(?:items?|elements?|requirements?|quantities?|quantites?|values?|valeurs?|preparation|procedure|etapes?|steps?|method|methode|(?:pour|for|para|per|fur|fuer|zu|a|da)\s+\d{1,3}\s+\p{L}|\d+\s*(?:g|kg|mg|ml|cl|l|min(?:ute)?s?|h|heures?|hours?))\b",
+            @"\b(?:items?|elements?|requirements?|quantities?|quantites?|values?|valeurs?|preparation|operation|workflow|execution|procedure|etapes?|steps?|method|methode|(?:pour|for|para|per|fur|fuer|zu|a|da)\s+\d{1,3}\s+\p{L}|\d+\s*(?:g|kg|mg|ml|cl|l|min(?:ute)?s?|h|heures?|hours?))\b",
             RegexOptions.CultureInvariant);
         var hasStrongStructuredEvidence = ComputeProcedureCompletenessCueScore(hit) >= 5
             || ComputeStructuredProcedureVisibleEvidenceCueScore(hit) >= 3
@@ -6584,7 +6584,7 @@ CURRENT_USER_MESSAGE:
                 RegexOptions.CultureInvariant)
             && !Regex.IsMatch(
                 lead,
-                @"\b(?:preparation|procedure|etapes?|steps?|method|methode)\b",
+                @"\b(?:preparation|operation|workflow|execution|procedure|etapes?|steps?|method|methode)\b",
                 RegexOptions.CultureInvariant);
         if (raw.Length <= 2200 && hasMarketingLead)
             return true;
@@ -6679,7 +6679,7 @@ CURRENT_USER_MESSAGE:
         return hit.PageEnd > hit.PageStart
             && Regex.IsMatch(
                 normalizedFocusedEvidence,
-                @"\b(?:items?|elements?|requirements?|quantities?|quantites?|values?|valeurs?|preparation|procedure|etapes?|steps?|\d+\s*(?:g|kg|mg|ml|cl|l|min(?:ute)?s?|h|heures?|hours?))\b",
+                @"\b(?:items?|elements?|requirements?|quantities?|quantites?|values?|valeurs?|preparation|operation|workflow|execution|procedure|etapes?|steps?|\d+\s*(?:g|kg|mg|ml|cl|l|min(?:ute)?s?|h|heures?|hours?))\b",
                 RegexOptions.CultureInvariant);
     }
 
@@ -7692,10 +7692,13 @@ CURRENT_USER_MESSAGE:
             RegexOptions.CultureInvariant);
     }
 
+    private const string OperationalActionLeadPattern =
+        @"ouvrir|ouvrez|fermer|fermez|ajouter|ajoutez|appliquer|appliquez|configurer|configurez|connecter|connectez|installer|installez|lancer|lancez|demarrer|demarrez|arreter|arretez|retirer|retirez|supprimer|supprimez|remplacer|remplacez|valider|validez|verifier|verifiez|controler|controlez|mettre\s+a\s+jour|mettez\s+a\s+jour|actualiser|actualisez|executer|executez|activer|activez|desactiver|desactivez|selectionner|selectionnez|saisir|saisissez|regler|reglez|ajuster|ajustez|start|stop|open|close|add|apply|configure|connect|install|launch|run|execute|remove|delete|replace|validate|verify|check|update|enable|disable|select|enter|set|adjust|measure|restart";
+
     private static bool LooksLikeProcedureLeadLabel(string normalizedLabel)
         => Regex.IsMatch(
             NormalizeLooseLookup(normalizedLabel),
-            @"^(?:pour|pendant|dans|puis|quand|lorsque|avant|apres|jusqu|jusque|then|when|after|before|until|while|durante|cuando|antes|despues|depois|quando|wenn|nach|bevor|pelez|lavez|versez|lancez|mettez|ajoutez|laissez|coupez|servez|faites|ouvrez|fermez|placez|deposez|retirez|remuez|melangez|mixez|preparez|preparer|peel|wash|pour|start|launch|put|add|leave|cut|serve|open|close|place|remove|stir|mix|cook|bake|prepare)$",
+            @"^(?:pour|pendant|dans|puis|quand|lorsque|avant|apres|jusqu|jusque|then|when|after|before|until|while|durante|cuando|antes|despues|depois|quando|wenn|nach|bevor|" + OperationalActionLeadPattern + @")$",
             RegexOptions.CultureInvariant);
 
     private static string? TryExtractQuantityScalingSubject(string? query)
@@ -7774,7 +7777,7 @@ CURRENT_USER_MESSAGE:
 
         return Regex.IsMatch(
                 normalized,
-                @"\b(?:preparation|procedure|procedures?|process|execution|operation|operations|instructions?|method|methods?|methode|methodes|mode\s+operatoire|etape|etapes|steps?)\b",
+                @"\b(?:preparation|workflow|workflows?|procedure|procedures?|process|execution|operation|operations|instructions?|method|methods?|methode|methodes|mode\s+operatoire|etape|etapes|steps?)\b",
                 RegexOptions.CultureInvariant)
             || Regex.IsMatch(normalized, @"^\d{1,3}\s*[\).\-]\s+\p{L}", RegexOptions.CultureInvariant);
     }
@@ -7789,7 +7792,7 @@ CURRENT_USER_MESSAGE:
         var normalized = NormalizeLexicalLookup(cleaned);
         if (!Regex.IsMatch(normalized, @"^[\p{L}'\-\s]{3,70}$", RegexOptions.CultureInvariant))
             return false;
-        if (Regex.IsMatch(normalized, @"\b(?:preparation|procedure|method|methode|etapes?|steps?|instructions?|requirements?|values?|materiel|materials?|equipment|tools?|outils?)\b", RegexOptions.CultureInvariant))
+        if (Regex.IsMatch(normalized, @"\b(?:preparation|operation|workflow|execution|procedure|method|methode|etapes?|steps?|instructions?|requirements?|values?|materiel|materials?|equipment|tools?|outils?)\b", RegexOptions.CultureInvariant))
             return false;
 
         scaled = $"{cleaned} (sans quantite sourcee)";
@@ -8880,7 +8883,7 @@ CURRENT_USER_MESSAGE:
             return false;
 
         var hasItemizedData = Regex.IsMatch(text, @"\b(?:items?|elements?|requirements?|quantities?|quantites?|values?|valeurs?)\b", RegexOptions.CultureInvariant);
-        var hasEarlySteps = Regex.IsMatch(text, @"(?:^|\s|preparation|technique)[\s:]*[1-3][\.)]\s*", RegexOptions.CultureInvariant);
+        var hasEarlySteps = Regex.IsMatch(text, @"(?:^|\s|preparation|procedure|process|operation|technique)[\s:]*[1-3][\.)]\s*", RegexOptions.CultureInvariant);
         var hasLateSteps = Regex.IsMatch(text, @"(?:^|\s)[4-9][\.)]\s*", RegexOptions.CultureInvariant);
         var startsMidSentence = Regex.IsMatch(
             text,
@@ -8907,7 +8910,7 @@ CURRENT_USER_MESSAGE:
 
         var firstStructure = Regex.Match(
             text,
-            @"\b(?:items?|elements?|requirements?|quantities?|preparation|preparacion|preparacao|procedure|instructions?|(?:pour|for|para|per|fur|fuer|zu|a|da)\s+\d{1,3}\s+\p{L}|\d+\s+(?:units?|items?))\b",
+            @"\b(?:items?|elements?|requirements?|quantities?|preparation|preparacion|preparacao|procedure|process|operation|workflow|instructions?|(?:pour|for|para|per|fur|fuer|zu|a|da)\s+\d{1,3}\s+\p{L}|\d+\s+(?:units?|items?))\b",
             RegexOptions.CultureInvariant);
         return !firstStructure.Success || firstStructure.Index > 280;
     }
@@ -8976,7 +8979,7 @@ CURRENT_USER_MESSAGE:
 
         var hasDefinitionWording = Regex.IsMatch(
             text,
-            @"\b(?:cette\s+technique\s+consiste|technique\s+consiste|mode\s+de\s+preparation|modes\s+de\s+preparation|preparation\s+method|process\s+method|procedure\s+method)\b",
+            @"\b(?:cette\s+technique\s+consiste|technique\s+consiste|mode\s+de\s+preparation|modes\s+de\s+preparation|mode\s+operatoire|modes\s+operatoires|preparation\s+method|operation\s+method|workflow\s+method|process\s+method|procedure\s+method)\b",
             RegexOptions.CultureInvariant);
         var hasGenericTechniqueHeading = Regex.IsMatch(
             text,
@@ -8991,7 +8994,7 @@ CURRENT_USER_MESSAGE:
 
         var hasStructuredItemEvidence = Regex.IsMatch(
                 text,
-                @"\b(?:items?|elements?|requirements?|components?|composants?|materials?|materiel|equipment|preparation\s*[:•]|procedure\s*[:•]|method\s*[:•])\b",
+                @"\b(?:items?|elements?|requirements?|components?|composants?|materials?|materiel|equipment|preparation\s*[:•]|operation\s*[:•]|workflow\s*[:•]|procedure\s*[:•]|method\s*[:•])\b",
                 RegexOptions.CultureInvariant)
             || CountProcedureStepMarkers(text) >= 2
             || Regex.Matches(text, @"\b\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|mm|cm|m|bar|pa|kpa|mpa|v|a|w|hz|rpm|%|min|h)\b", RegexOptions.CultureInvariant).Count >= 2;
@@ -9005,7 +9008,7 @@ CURRENT_USER_MESSAGE:
         var normalized = NormalizeLexicalLookup(query);
         return Regex.IsMatch(
             normalized,
-            @"\b(?:procedura|procedure|procedures|procedimento|process|processus|method|methode|instruction|instructions|preparation|preparacion|preparacao|etape|etapes|steps|pasos|passos)\b",
+            @"\b(?:procedura|procedure|procedures|procedimento|process|processus|operation|operations|workflow|workflows|method|methode|instruction|instructions|execution|preparation|preparacion|preparacao|etape|etapes|steps|pasos|passos)\b",
             RegexOptions.CultureInvariant);
     }
 
@@ -9067,7 +9070,7 @@ CURRENT_USER_MESSAGE:
         var fragments = new List<string>();
 
         if (LooksLikeTechnicalRankingQuery(query)
-            && Regex.IsMatch(text, @"\b(?:technique|procedure|procedures|mode operatoire|instruction|instructions|etape|etapes|step|steps|preparation|method|methode)\b", RegexOptions.CultureInvariant))
+            && Regex.IsMatch(text, @"\b(?:technique|procedure|procedures|mode operatoire|operation|workflow|execution|instruction|instructions|etape|etapes|step|steps|preparation|method|methode)\b", RegexOptions.CultureInvariant))
         {
             fragments.Add(normalizedLanguage switch
             {
@@ -9230,7 +9233,7 @@ CURRENT_USER_MESSAGE:
         {
             var prefix = candidate[..index].Trim();
             return prefix.Length >= 12
-                && Regex.IsMatch(prefix, @"\b(?:ajouter|add|apres|after|avant|before|faire|laisser|let|place|placer|prevoir|prevoyez|put|remuer|stir|verser)\b", RegexOptions.CultureInvariant);
+                && Regex.IsMatch(prefix, @"\b(?:apres|after|avant|before|prevoir|prevoyez|" + OperationalActionLeadPattern + @")\b", RegexOptions.CultureInvariant);
         }
 
         return false;
@@ -9303,7 +9306,7 @@ CURRENT_USER_MESSAGE:
 
         if (Regex.IsMatch(
                 normalizedTitle,
-                @"^(?:le|la|les|l|un|une|des|du|de\s+la|the|a|an)?\s*(?:ajouter|add|appliquer|apply|check|close|control|controler|do|faire|fermer|lancer|launch|laisser|laissez|leave|make|mettre|occuper|occupez|organiser|organize|ouvrir|open|planifier|planifiez|put|schedule|set|utiliser|use|using|valider|validate|verifier|verify)\b",
+                @"^(?:le|la|les|l|un|une|des|du|de\s+la|the|a|an)?\s*(?:occuper|occupez|organiser|organize|planifier|planifiez|schedule|utiliser|use|using|" + OperationalActionLeadPattern + @")\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -9373,7 +9376,7 @@ CURRENT_USER_MESSAGE:
         var normalized = NormalizeLexicalLookup(query);
         if (Regex.IsMatch(
                 normalized,
-                @"\b(?:items?|elements?|requirements?|quantities?|quantites?|values?|valeurs?|components?|composants?|preparation|technique|materiel|material|materials|procedure|process|method|methode)\b",
+                @"\b(?:items?|elements?|requirements?|quantities?|quantites?|values?|valeurs?|components?|composants?|preparation|operation|workflow|execution|technique|materiel|material|materials|procedure|process|method|methode)\b",
                 RegexOptions.CultureInvariant))
             return true;
 
@@ -9744,7 +9747,7 @@ CURRENT_USER_MESSAGE:
 
         var hasStructuredEvidence = Regex.IsMatch(
             text,
-            @"\b(?:items?|elements?|requirements?|quantities?|quantites?|values?|valeurs?|preparation|procedure|etapes?|steps?|\d+\s*(?:g|kg|ml|cl|l))\b",
+            @"\b(?:items?|elements?|requirements?|quantities?|quantites?|values?|valeurs?|preparation|operation|workflow|execution|procedure|etapes?|steps?|\d+\s*(?:g|kg|ml|cl|l))\b",
             RegexOptions.CultureInvariant);
         if (hasStructuredEvidence)
             return false;
@@ -9970,7 +9973,7 @@ CURRENT_USER_MESSAGE:
         var escapedTitle = Regex.Escape(normalizedTitle);
         if (Regex.IsMatch(
                 evidence,
-                $@"(?<![\p{{L}}\p{{N}}]){escapedTitle}(?:\s*(?:$|[\.:;\u2022\u00b7])|(?=\s*(?:pour|items?|elements?|quantities?|preparation|procedure|temps|time|repos|rest)\b)|(?=(?:pour|items?|elements?|quantities?|preparation|procedure|temps|time|repos|rest)\b))",
+                $@"(?<![\p{{L}}\p{{N}}]){escapedTitle}(?:\s*(?:$|[\.:;\u2022\u00b7])|(?=\s*(?:pour|items?|elements?|quantities?|preparation|operation|workflow|execution|procedure|temps|time|repos|rest)\b)|(?=(?:pour|items?|elements?|quantities?|preparation|operation|workflow|execution|procedure|temps|time|repos|rest)\b))",
                 RegexOptions.CultureInvariant))
         {
             return 40;
@@ -10028,7 +10031,7 @@ CURRENT_USER_MESSAGE:
                 && ContainsStructuredItemHeading(prefix);
             var hasPreTitleStructuredEvidence =
                 !prefixLooksLikePreviousStructuredItem
-                && (Regex.IsMatch(NormalizeLexicalLookup(prefix), @"\b(?:procedure|procedures?|instructions?|method|methode|etape|etapes|steps?|preparation|technique)\b", RegexOptions.CultureInvariant)
+                && (Regex.IsMatch(NormalizeLexicalLookup(prefix), @"\b(?:procedure|procedures?|instructions?|method|methode|etape|etapes|steps?|preparation|operation|workflow|execution|technique)\b", RegexOptions.CultureInvariant)
                     || Regex.IsMatch(prefix, @"[\u2022\u00b7]\s*\p{L}{3,}", RegexOptions.CultureInvariant));
             var start = hasPreTitleStructuredEvidence
                 ? Math.Max(0, Math.Min(idx, text.Length) - 760)
@@ -10098,7 +10101,7 @@ CURRENT_USER_MESSAGE:
         @"items?|elements?|requirements?|quantities?|quantites?|values?|valeurs?|materials?|materiel|mat[eé]riel|components?|composants?";
 
     private const string ProcedureSectionHeadingPattern =
-        @"preparation|pr(?:e|\u00e9)paration|preparacion|prepara(?:c|\u00e7)(?:a|\u00e3)o|preparazione|zubereitung|procedure|procedures?|instruction|instructions|method|methods?|methode|methodes|m(?:e|\u00e9)thode|m(?:e|\u00e9)thodes|mode\s+operatoire|technique|etape|etapes|(?:e|\u00e9)tapes?|steps?";
+        @"preparation|pr(?:e|\u00e9)paration|preparacion|prepara(?:c|\u00e7)(?:a|\u00e3)o|preparazione|zubereitung|procedure|procedures?|process|processus|operation|operations?|workflow|workflows?|execution|instruction|instructions|method|methods?|methode|methodes|m(?:e|\u00e9)thode|m(?:e|\u00e9)thodes|mode\s+operatoire|technique|etape|etapes|(?:e|\u00e9)tapes?|steps?";
 
     private const string ExactItemStructureHeadingPattern =
         ItemizedSectionHeadingPattern + "|" + ProcedureSectionHeadingPattern;
@@ -10290,7 +10293,7 @@ CURRENT_USER_MESSAGE:
         value = Regex.Replace(value, @"(?i)\b(\p{L}{4,})(cette|celui|celle|this|that)\b", "$1", RegexOptions.CultureInvariant);
         value = Regex.Replace(value, @"\b\d{5,}\b", string.Empty, RegexOptions.CultureInvariant);
         value = Regex.Replace(value, @"\s+\+\s+.*$", string.Empty, RegexOptions.CultureInvariant);
-        value = Regex.Replace(value, @"(?i)\b(?:preparation|pr\u00e9paration)\b.*$", string.Empty, RegexOptions.CultureInvariant);
+        value = Regex.Replace(value, @"(?i)\b(?:preparation|pr\u00e9paration|operation|workflow|execution|procedure)\b.*$", string.Empty, RegexOptions.CultureInvariant);
         value = CollapseWhitespace(value.Trim(' ', ';', ',', ':', '-'));
         return FormatReadableEvidenceExcerpt(value, maxLength: 90);
     }
@@ -10546,13 +10549,13 @@ CURRENT_USER_MESSAGE:
 
         if (Regex.IsMatch(
                 normalized,
-                @"^(?:a\s+la\s+fin|au\s+bout|dans|puis|ensuite|then|when|after|before|lancez|ajoutez|versez|laissez|mettez|pelez|lavez|coupez|servez|faites|placez|deposez|retirez|remuez|melangez|mixez|ouvrez|fermez|start|launch|add|pour|leave|put|peel|wash|cut|serve|place|remove|stir|mix|open|close)\b",
+                @"^(?:a\s+la\s+fin|au\s+bout|dans|puis|ensuite|then|when|after|before|" + OperationalActionLeadPattern + @")\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
         }
 
-        return Regex.IsMatch(normalized, @"\b(?:vitesse|speed|programme|program|robot|four|oven|refrigerateur|fridge)\b", RegexOptions.CultureInvariant)
+        return Regex.IsMatch(normalized, @"\b(?:vitesse|speed|programme|program|mode|cycle|sequence|operation|execution|parametre|parametres|setting|settings|configuration)\b", RegexOptions.CultureInvariant)
                && Regex.IsMatch(normalized, @"\b\d+\s*(?:min(?:ute)?s?|h|heures?|hours?|s|sec(?:onde)?s?|(?:\u00b0|deg|degres?)\s*c)\b", RegexOptions.CultureInvariant);
     }
 
@@ -10613,7 +10616,7 @@ CURRENT_USER_MESSAGE:
 
         var match = Regex.Match(
             readable,
-            @"(?is)\b(?:preparation|pr[eé]paration|preparacion|prepara[cç][aã]o|preparazione|zubereitung|etapes?|[eé]tapes?|steps?)\b\s*[:\-]?\s*(?<body>.+)$",
+            @"(?is)\b(?:preparation|pr[eé]paration|preparacion|prepara[cç][aã]o|preparazione|zubereitung|operation|operations?|workflow|workflows?|execution|procedure|procedures?|process|processus|instructions?|etapes?|[eé]tapes?|steps?)\b\s*[:\-]?\s*(?<body>.+)$",
             RegexOptions.CultureInvariant);
         return match.Success ? match.Groups["body"].Value : readable;
     }
@@ -10661,7 +10664,7 @@ CURRENT_USER_MESSAGE:
         var normalized = NormalizeLexicalLookup(segment);
         if (LooksLikeProcedureInstructionSegment(normalized))
             return false;
-        if (Regex.IsMatch(normalized, @"\b(?:preparation|etape|etapes|temps|time|duration|duree|procedure|method|methode|instructions?|steps?)\b", RegexOptions.CultureInvariant))
+        if (Regex.IsMatch(normalized, @"\b(?:preparation|operation|workflow|execution|etape|etapes|temps|time|duration|duree|procedure|method|methode|instructions?|steps?)\b", RegexOptions.CultureInvariant))
             return false;
         if (Regex.IsMatch(normalized, @"^\d+(?:[,.]\d+)?\s*(?:min|minutes?|h|heures?|hour|hours|c|celsius)\b", RegexOptions.CultureInvariant))
             return false;
@@ -10683,7 +10686,7 @@ CURRENT_USER_MESSAGE:
             return true;
 
         return Regex.IsMatch(normalized, @"^[\p{L}'\-]{3,}(?:\s+[\p{L}'\-]{2,}){0,5}$", RegexOptions.CultureInvariant)
-            && !Regex.IsMatch(normalized, @"\b(?:items?|elements?|requirements?|preparation|procedure|method|methode|technique|materiel|materials?|equipment|tools?|outils?)\b", RegexOptions.CultureInvariant);
+            && !Regex.IsMatch(normalized, @"\b(?:items?|elements?|requirements?|preparation|operation|workflow|execution|procedure|method|methode|technique|materiel|materials?|equipment|tools?|outils?)\b", RegexOptions.CultureInvariant);
     }
 
     private static bool LooksLikeTruncatedItemizedFact(string value)
@@ -11019,7 +11022,7 @@ CURRENT_USER_MESSAGE:
             return true;
 
         return char.IsLower(text[0])
-            && !Regex.IsMatch(normalized, @"^(?:preparation|procedure|pour|for|para|per)\b", RegexOptions.CultureInvariant);
+            && !Regex.IsMatch(normalized, @"^(?:preparation|operation|workflow|execution|procedure|pour|for|para|per)\b", RegexOptions.CultureInvariant);
     }
 
     private static string BuildSourceBackedPlanningOrExtractiveAnswer(ToolResults toolResults, string query, string language, int minPlanningItems = 1)
@@ -12448,9 +12451,9 @@ CURRENT_USER_MESSAGE:
         {
             @"^(?:[\p{Lu}\p{Lt}][\p{Ll}]{2,24})?(?<title>[\p{Lu}\p{Lt}][\p{Lu}\p{Lt}0-9 '&/,\-]{5,90}?)(?:\d+\s*min|\d+(?:[,.]\d+)?\s*(?:eur|euros?|chf))",
             @"(?i)^(?<title>\p{Lu}[\p{L}'\u2019 \-/]{5,80}?)\s+(?:pour|for|para|per|fur|fuer|zu|a|da)\s+\d{1,3}\s+[\p{L}'\u2019.\-]{2,30}\b",
-            @"(?i)\b(?:pour|for|para|per|fur|fuer|zu|a|da)\s+\d{1,3}\s+[\p{L}'\u2019.\-]{2,30}\s+(?<title>\p{Lu}[\p{L}'\u2019 \-/]{5,80}?)(?:\s+(?:Items?|Elements?|Requirements?|Quantities?|Values?|Materials?|Components?|Procedure|Instructions?|Method|Preparation|\d+\s*min))",
-            @"(?i)(?:^|[\s:;])(?<title>\p{Lu}[\p{Lu}0-9 '&/,\-]{5,90}?)(?:\d+\s*min|\d+(?:[,.]\d+)?\s*(?:eur|euros?|chf)|Items?|Elements?|Requirements?|Quantities?|Values?|Materials?|Components?|Procedure|Instructions?|Method|Preparation|Temps\s+total|Total\s+time)",
-            @"(?i)\b(?<title>\p{Lu}[\p{L}'\u2019 \-/]{5,80})\s+(?:\d+\s*(?:items?|elements?|units?|pieces?)|Items?|Elements?|Requirements?|Quantities?|Values?|Materials?|Components?|Procedure|Instructions?|Method|Preparation)"
+            @"(?i)\b(?:pour|for|para|per|fur|fuer|zu|a|da)\s+\d{1,3}\s+[\p{L}'\u2019.\-]{2,30}\s+(?<title>\p{Lu}[\p{L}'\u2019 \-/]{5,80}?)(?:\s+(?:Items?|Elements?|Requirements?|Quantities?|Values?|Materials?|Components?|Procedure|Instructions?|Method|Preparation|Operation|Workflow|\d+\s*min))",
+            @"(?i)(?:^|[\s:;])(?<title>\p{Lu}[\p{Lu}0-9 '&/,\-]{5,90}?)(?:\d+\s*min|\d+(?:[,.]\d+)?\s*(?:eur|euros?|chf)|Items?|Elements?|Requirements?|Quantities?|Values?|Materials?|Components?|Procedure|Instructions?|Method|Preparation|Operation|Workflow|Temps\s+total|Total\s+time)",
+            @"(?i)\b(?<title>\p{Lu}[\p{L}'\u2019 \-/]{5,80})\s+(?:\d+\s*(?:items?|elements?|units?|pieces?)|Items?|Elements?|Requirements?|Quantities?|Values?|Materials?|Components?|Procedure|Instructions?|Method|Preparation|Operation|Workflow)"
         };
 
         foreach (var pattern in patterns)
@@ -12517,7 +12520,7 @@ CURRENT_USER_MESSAGE:
 
         if (Regex.IsMatch(
                 normalized,
-            @"\b(?:liste|source|sources|page|pages|sommaire|index|contents|catalogue|copyright|isbn|edition|preparation|organisation|planning|calendrier|modele|outil|conseils?|consiste|prendre|heures?|temps|documents?|disponibles?|materiel|service|utilisez|utiliser|choisissez|installation|lors|ouvrir|programmer|extraire|volonte|limiter|limit)\b",
+            @"\b(?:liste|source|sources|page|pages|sommaire|index|contents|catalogue|copyright|isbn|edition|preparation|operation|workflow|execution|organisation|planning|calendrier|modele|outil|conseils?|consiste|prendre|heures?|temps|documents?|disponibles?|materiel|service|utilisez|utiliser|choisissez|installation|lors|ouvrir|programmer|extraire|volonte|limiter|limit)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -12533,7 +12536,7 @@ CURRENT_USER_MESSAGE:
 
         if (Regex.IsMatch(
                 normalized,
-                @"^(?:p\s*)?preparation\s*\d*$",
+                @"^(?:p\s*)?(?:preparation|operation|workflow)\s*\d*$",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -15376,7 +15379,7 @@ CURRENT_USER_MESSAGE:
     private static bool ContainsStructuredItemHeading(string value)
         => Regex.IsMatch(
             NormalizeLexicalLookup(value),
-            @"\b(?:items?|elements?|requirements?|quantities?|quantites?|values?|valeurs?|preparation|preparacion|technique|procedure|method|methode)\b",
+            @"\b(?:items?|elements?|requirements?|quantities?|quantites?|values?|valeurs?|preparation|preparacion|operation|workflow|execution|technique|procedure|method|methode)\b",
             RegexOptions.CultureInvariant);
 
     private static bool LooksLikeDelimitedTargetFact(string value)
