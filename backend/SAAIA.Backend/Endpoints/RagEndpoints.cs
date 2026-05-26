@@ -1095,46 +1095,107 @@ WHERE d.tenant_id=@tenant
 
     internal static double ApplyExtractionQualityScorePenalty(double score, RagItemExtractionQualityDto? quality)
     {
-        if (quality is null)
-            return score;
+        var qualityScore = ComputeRetrievalQualityScore(quality);
+        return Math.Round(Math.Clamp((score * qualityScore.ScoreMultiplier) - qualityScore.ScoreOffset, 0.0, 1.02), 6);
+    }
 
+    internal static double ApplyChunkExtractionQualityScorePenalty(double score, RagMatch match)
+    {
+        var qualityScore = ComputeRetrievalQualityScore(match);
+        if (qualityScore.ScoreOffset <= 0)
+            return Math.Round(Math.Clamp(score, 0.0, 1.02), 6);
+
+        return Math.Round(Math.Clamp(score - qualityScore.ScoreOffset, 0.0, 1.02), 6);
+    }
+
+    internal static RagRetrievalQualityScore ComputeRetrievalQualityScore(RagMatch match)
+    {
+        var chunkPenalty = ComputeChunkExtractionQualityPenalty(match);
+        return new RagRetrievalQualityScore(
+            SelectionPenalty: Math.Min(10, chunkPenalty),
+            ChunkPenalty: chunkPenalty,
+            ScoreMultiplier: 1.0,
+            ScoreOffset: Math.Min(0.30, chunkPenalty * 0.015),
+            ManualReviewRecommended: chunkPenalty >= 10,
+            OcrLikelyNeeded: ResolveChunkOcrRecommended(
+                NormalizeExtractionQualityToken(match.ExtractionTextStatus),
+                match.ExtractionOcrCandidate) == true);
+    }
+
+    internal static RagRetrievalQualityScore ComputeRetrievalQualityScore(RagItemExtractionQualityDto? quality)
+    {
+        if (quality is null)
+            return RagRetrievalQualityScore.Clean;
+
+        var selectionPenalty = 0;
         var multiplier = 1.0;
+
         if (quality.DocumentManualReviewRecommended == true)
+        {
+            selectionPenalty += 4;
             multiplier *= 0.90;
+        }
+
         if (quality.PageManualReviewRecommended == true)
+        {
+            selectionPenalty += 6;
             multiplier *= 0.82;
+        }
+
+        var ocrLikelyNeeded = quality.OcrRecommended == true && quality.OcrApplied != true;
+        if (ocrLikelyNeeded)
+            selectionPenalty += 5;
 
         var confidence = quality.PageExtractionConfidence ?? quality.DocumentExtractionConfidence;
         if (confidence is <= 0.35)
+        {
+            selectionPenalty += 8;
             multiplier *= 0.78;
+        }
         else if (confidence is <= 0.50)
+        {
+            selectionPenalty += 5;
             multiplier *= 0.85;
+        }
         else if (confidence is <= 0.70)
+        {
+            selectionPenalty += 2;
             multiplier *= 0.93;
+        }
 
         var status = string.Join(' ', quality.PageQualityStatus, quality.DocumentQualityStatus, quality.TextStatus)
             .ToLowerInvariant();
         if (status.Contains("ocr_failed", StringComparison.Ordinal)
-            || status.Contains("low_confidence", StringComparison.Ordinal)
-            || status.Contains("manual_review", StringComparison.Ordinal))
+            || status.Contains("low_confidence", StringComparison.Ordinal))
         {
+            selectionPenalty += 6;
+            multiplier *= 0.90;
+        }
+
+        var manualReviewStatus =
+            status.Contains("manual_review", StringComparison.Ordinal)
+            || status.Contains("low_text", StringComparison.Ordinal)
+            || status.Contains("empty_text", StringComparison.Ordinal);
+        if (manualReviewStatus)
+        {
+            selectionPenalty += 4;
             multiplier *= 0.90;
         }
 
         var chunkPenalty = ComputeChunkExtractionQualityPenalty(quality);
         if (chunkPenalty > 0)
             multiplier *= Math.Clamp(1.0 - (chunkPenalty * 0.0125), 0.70, 1.0);
+        selectionPenalty += Math.Min(10, chunkPenalty);
 
-        return Math.Round(Math.Clamp(score * multiplier, 0.0, 1.02), 6);
-    }
-
-    internal static double ApplyChunkExtractionQualityScorePenalty(double score, RagMatch match)
-    {
-        var penalty = ComputeChunkExtractionQualityPenalty(match);
-        if (penalty <= 0)
-            return Math.Round(Math.Clamp(score, 0.0, 1.02), 6);
-
-        return Math.Round(Math.Clamp(score - Math.Min(0.30, penalty * 0.015), 0.0, 1.02), 6);
+        return new RagRetrievalQualityScore(
+            SelectionPenalty: Math.Clamp(selectionPenalty, 0, 24),
+            ChunkPenalty: chunkPenalty,
+            ScoreMultiplier: multiplier,
+            ScoreOffset: 0.0,
+            ManualReviewRecommended: quality.DocumentManualReviewRecommended == true
+                || quality.PageManualReviewRecommended == true
+                || manualReviewStatus,
+            OcrLikelyNeeded: ocrLikelyNeeded);
     }
 
     internal static int ComputeChunkExtractionQualityPenalty(RagMatch match)
@@ -17437,44 +17498,7 @@ FROM scoped_revisions;
     }
 
     private static int ComputeSelectionQualityPenalty(RagItemExtractionQualityDto? quality)
-    {
-        if (quality is null)
-            return 0;
-
-        var penalty = 0;
-        if (quality.DocumentManualReviewRecommended == true)
-            penalty += 4;
-        if (quality.PageManualReviewRecommended == true)
-            penalty += 6;
-        if (quality.OcrRecommended == true && quality.OcrApplied != true)
-            penalty += 5;
-
-        var confidence = quality.PageExtractionConfidence ?? quality.DocumentExtractionConfidence;
-        if (confidence is <= 0.35)
-            penalty += 8;
-        else if (confidence is <= 0.50)
-            penalty += 5;
-        else if (confidence is <= 0.70)
-            penalty += 2;
-
-        var status = string.Join(' ', quality.PageQualityStatus, quality.DocumentQualityStatus, quality.TextStatus)
-            .ToLowerInvariant();
-        if (status.Contains("ocr_failed", StringComparison.Ordinal)
-            || status.Contains("low_confidence", StringComparison.Ordinal))
-        {
-            penalty += 6;
-        }
-        if (status.Contains("manual_review", StringComparison.Ordinal)
-            || status.Contains("low_text", StringComparison.Ordinal)
-            || status.Contains("empty_text", StringComparison.Ordinal))
-        {
-            penalty += 4;
-        }
-
-        penalty += Math.Min(10, ComputeChunkExtractionQualityPenalty(quality));
-
-        return Math.Clamp(penalty, 0, 24);
-    }
+        => ComputeRetrievalQualityScore(quality).SelectionPenalty;
 
     private static int ComputeNavigationHintScore(RagMatch match)
     {
@@ -18946,6 +18970,23 @@ GROUP BY d.doc_id;
         int? AttemptedPageCount = null,
         int? SkippedPageCount = null,
         int? PagesWithNovelTextCount = null);
+
+    internal sealed record RagRetrievalQualityScore(
+        int SelectionPenalty,
+        int ChunkPenalty,
+        double ScoreMultiplier,
+        double ScoreOffset,
+        bool ManualReviewRecommended,
+        bool OcrLikelyNeeded)
+    {
+        public static RagRetrievalQualityScore Clean { get; } = new(
+            SelectionPenalty: 0,
+            ChunkPenalty: 0,
+            ScoreMultiplier: 1.0,
+            ScoreOffset: 0.0,
+            ManualReviewRecommended: false,
+            OcrLikelyNeeded: false);
+    }
 
     // Must match the SELECT column order/names/types in SearchSparseMatchesAsync exactly —
     // Dapper materialises records by positional constructor binding, so a missing column

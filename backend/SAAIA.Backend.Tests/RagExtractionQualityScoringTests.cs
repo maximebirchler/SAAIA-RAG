@@ -63,6 +63,57 @@ public sealed class RagExtractionQualityScoringTests
     }
 
     [Fact]
+    public void ComputeRetrievalQualityScore_centralizes_document_page_and_chunk_penalties()
+    {
+        var quality = new RagItemExtractionQualityDto(
+            DocumentQualityStatus: "extraction_ok",
+            DocumentExtractionConfidence: 0.96,
+            DocumentManualReviewRecommended: false,
+            PageQualityStatus: "manual_review_probable_ocr_noise",
+            PageExtractionConfidence: 0.31,
+            PageManualReviewRecommended: true,
+            OcrRecommended: true,
+            OcrApplied: false,
+            TextStatus: "low_text",
+            ChunkTextStatus: "low_text",
+            ChunkTextSparse: true,
+            ChunkOcrCandidate: true,
+            ChunkQualitySignals: ["replacement_chars_remaining"]);
+
+        var score = RagEndpoints.ComputeRetrievalQualityScore(quality);
+
+        Assert.Equal(22, score.ChunkPenalty);
+        Assert.Equal(24, score.SelectionPenalty);
+        Assert.True(score.ScoreMultiplier < 0.50);
+        Assert.Equal(0.0, score.ScoreOffset);
+        Assert.True(score.ManualReviewRecommended);
+        Assert.True(score.OcrLikelyNeeded);
+    }
+
+    [Fact]
+    public void ComputeRetrievalQualityScore_for_match_exposes_chunk_offset_for_raw_retrievers()
+    {
+        var match = CreateMatch(
+            score: 0.91,
+            docPath: "Ops/Scanned.pdf",
+            chunkId: "ocr",
+            text: "OCR-heavy direct evidence.",
+            extractionTextStatus: "low_text",
+            extractionTextSparse: true,
+            extractionOcrCandidate: true,
+            extractionQualitySignals: ["replacement_chars_remaining"]);
+
+        var score = RagEndpoints.ComputeRetrievalQualityScore(match);
+
+        Assert.Equal(22, score.ChunkPenalty);
+        Assert.Equal(10, score.SelectionPenalty);
+        Assert.Equal(1.0, score.ScoreMultiplier);
+        Assert.Equal(0.30, score.ScoreOffset);
+        Assert.True(score.ManualReviewRecommended);
+        Assert.True(score.OcrLikelyNeeded);
+    }
+
+    [Fact]
     public void BuildEffectiveExtractionQualityByMatch_fuses_qdrant_chunk_signals_with_database_quality()
     {
         var match = new RagMatch(
