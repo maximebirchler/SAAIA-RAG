@@ -509,7 +509,13 @@ public sealed class RagMatchedContentCardsTests
               "pageStart": 20,
               "pageEnd": 21,
               "kind": "llm_content_card",
-              "signals": ["release", "gate", "follow-up"]
+              "signals": ["release", "gate", "follow-up"],
+              "evidence": {
+                "schemaVersion": "content_card_evidence_v1",
+                "facts": [
+                  { "kind": "requirement", "label": "release gate follow-up", "sourceText": "Release gate follow-up is checked on page 20." }
+                ]
+              }
             },
             {
               "title": "Document-wide release glossary",
@@ -572,7 +578,38 @@ public sealed class RagMatchedContentCardsTests
     }
 
     [Fact]
-    public void BuildMatchedContentCards_keeps_document_level_cards_for_document_profile_hits()
+    public void BuildMatchedContentCards_keeps_source_backed_document_level_cards_for_document_profile_hits()
+    {
+        const string metadataJson = """
+        {
+          "contentCards": [
+            {
+              "title": "Document-wide release glossary",
+              "kind": "llm_content_card",
+              "signals": ["release", "glossary"],
+              "evidence": {
+                "schemaVersion": "content_card_evidence_v1",
+                "facts": [
+                  { "kind": "definition", "label": "release glossary", "sourceText": "Release glossary defines the document-wide terms." }
+                ]
+              }
+            }
+          ]
+        }
+        """;
+
+        var cards = RagEndpoints.BuildMatchedContentCards(
+            metadataJson,
+            "release glossary",
+            limit: 4);
+
+        var card = Assert.Single(cards);
+        Assert.Equal("Document-wide release glossary", card.Title);
+        Assert.Null(card.PageStart);
+    }
+
+    [Fact]
+    public void BuildMatchedContentCards_does_not_return_document_level_title_only_cards()
     {
         const string metadataJson = """
         {
@@ -591,8 +628,47 @@ public sealed class RagMatchedContentCardsTests
             "release glossary",
             limit: 4);
 
-        var card = Assert.Single(cards);
-        Assert.Equal("Document-wide release glossary", card.Title);
-        Assert.Null(card.PageStart);
+        Assert.Empty(cards);
+    }
+
+    [Fact]
+    public void BuildMatchedContentCards_does_not_return_page_scoped_llm_title_only_cards()
+    {
+        const string metadataJson = """
+        {
+          "contentCards": [
+            {
+              "title": "Release glossary",
+              "kind": "llm_content_card",
+              "pageStart": 12,
+              "pageEnd": 12,
+              "signals": ["release", "glossary"]
+            },
+            {
+              "title": "Release validation checklist",
+              "kind": "llm_content_card",
+              "pageStart": 12,
+              "pageEnd": 12,
+              "signals": ["release", "validation"],
+              "evidence": {
+                "schemaVersion": "content_card_evidence_v1",
+                "facts": [
+                  { "kind": "requirement", "label": "release validation", "sourceText": "Release validation requires approval." }
+                ]
+              }
+            }
+          ]
+        }
+        """;
+
+        var cards = RagEndpoints.BuildMatchedContentCards(
+            metadataJson,
+            "release validation glossary",
+            limit: 4,
+            pageStart: 12,
+            pageEnd: 12);
+
+        Assert.DoesNotContain(cards, card => string.Equals(card.Title, "Release glossary", StringComparison.Ordinal));
+        Assert.Contains(cards, card => string.Equals(card.Title, "Release validation checklist", StringComparison.Ordinal));
     }
 }

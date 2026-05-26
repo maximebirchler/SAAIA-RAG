@@ -40,6 +40,7 @@ internal static class DocumentFoundationRepo
     {
         var revisionId = BuildStableRevisionId(tenantId, docId, indexedVersionAfter);
         var extractionQuality = PdfExtractionQualitySummary.FromPages(pages);
+        var retrievalChunkQuality = IngestionWorker.BuildRetrievalChunkQualitySummary(retrievalChunks);
         var documentProfile = DocumentProfileProjector.Project(docPath, pages, sections, units, exactMatchEntries);
         documentProfile = MergeCapabilityAProfileSeed(
             documentProfile,
@@ -126,7 +127,8 @@ SET doc_path = EXCLUDED.doc_path,
                 nativeExtractionQuality = nativeExtractionQuality is null
                     ? null
                     : BuildExtractionQualityPayload(nativeExtractionQuality),
-                extractionQuality = BuildExtractionQualityPayload(extractionQuality)
+                extractionQuality = BuildExtractionQualityPayload(extractionQuality),
+                retrievalChunkQuality = BuildRetrievalChunkQualityPayload(retrievalChunkQuality)
             }),
             ct);
 
@@ -150,6 +152,250 @@ SET doc_path = EXCLUDED.doc_path,
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "document_profile_content_cards", documentProfile.ContentCards, c => $"card:{c.Title}:{c.PageStart}:{c.PageEnd}:{c.Kind}:{string.Join('|', c.Signals)}", c => BuildContentCardSearchText(c).Length, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "document_title_anchors", titleNavigationIndex.TitleAnchors, a => $"title-anchor:{a.AnchorIndex}:{a.SourceKind}:{a.SourceOrdinal}:{a.NormalizedTitle}:{a.PageStart}:{a.PageEnd}:{a.Confidence}", a => a.Title.Length, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "document_navigation_entries", titleNavigationIndex.NavigationEntries, e => $"navigation-entry:{e.EntryIndex}:{e.SourcePage}:{e.NormalizedLabel}:{e.TargetPageStart}:{e.TargetPageEnd}:{e.ResolutionMethod}:{e.Confidence}", e => e.Label.Length, ct);
+    }
+
+    public static async Task<bool> PublishUnsearchableRetrievalDiagnosticsAsync(
+        NpgsqlDataSource ds,
+        Guid tenantId,
+        Guid docId,
+        Guid jobId,
+        string docPath,
+        byte[] sourceHash,
+        long sourceSize,
+        DateTime sourceMtimeUtc,
+        int ingestionVersion,
+        IReadOnlyList<ExtractedPdfPage> pages,
+        IReadOnlyList<ExtractedDocumentUnit> units,
+        IReadOnlyList<ProjectedRetrievalChunk> retrievalChunks,
+        IngestionRetrievalChunkQualitySummary retrievalChunkQuality,
+        string extractionSource,
+        bool ocrAttempted,
+        bool ocrApplied,
+        string? ocrLanguages,
+        long? ocrDurationMs,
+        PdfOcrDiagnostics? ocrDiagnostics,
+        PdfExtractionQualitySummary extractionQuality,
+        PdfExtractionQualitySummary? nativeExtractionQuality,
+        string failureReason,
+        CancellationToken ct)
+    {
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        await using var tx = await conn.BeginTransactionAsync(ct);
+
+        const string stateSql = """
+SELECT
+    doc_id AS "DocId",
+    COALESCE(ingestion_version, 0) AS "IngestionVersion",
+    COALESCE(indexed_version, 0) AS "IndexedVersion"
+FROM documents
+WHERE tenant_id=@tenant_id
+  AND doc_path=@doc_path
+FOR UPDATE;
+""";
+        var state = await conn.QueryFirstOrDefaultAsync<FailedExtractionDocumentState>(
+            new CommandDefinition(
+                stateSql,
+                new { tenant_id = tenantId, doc_path = docPath },
+                transaction: tx,
+                cancellationToken: ct));
+
+        var persistedDocId = state?.DocId ?? docId;
+        var indexedVersionBefore = Math.Max(0, state?.IndexedVersion ?? 0);
+        if (state is null || state.IngestionVersion != ingestionVersion)
+        {
+            await tx.CommitAsync(ct);
+            await JobRepo.MarkSupersededAndQueueCurrentAsync(
+                ds,
+                tenantId,
+                jobId,
+                docPath,
+                ingestionVersion,
+                ct,
+                lastError: "superseded_unsearchable_retrieval_publish");
+            return false;
+        }
+
+        await PublishUnsearchableRetrievalDiagnosticsInTransactionAsync(
+            conn,
+            tx,
+            tenantId,
+            persistedDocId,
+            jobId,
+            docPath,
+            sourceHash,
+            sourceSize,
+            sourceMtimeUtc,
+            ingestionVersion,
+            indexedVersionBefore,
+            pages,
+            units,
+            retrievalChunks,
+            retrievalChunkQuality,
+            extractionSource,
+            ocrAttempted,
+            ocrApplied,
+            ocrLanguages,
+            ocrDurationMs,
+            ocrDiagnostics,
+            extractionQuality,
+            nativeExtractionQuality,
+            failureReason,
+            ct);
+
+        await tx.CommitAsync(ct);
+        return true;
+    }
+
+    internal static async Task PublishUnsearchableRetrievalDiagnosticsInTransactionAsync(
+        NpgsqlConnection conn,
+        NpgsqlTransaction tx,
+        Guid tenantId,
+        Guid docId,
+        Guid jobId,
+        string docPath,
+        byte[] sourceHash,
+        long sourceSize,
+        DateTime sourceMtimeUtc,
+        int ingestionVersion,
+        int indexedVersionBefore,
+        IReadOnlyList<ExtractedPdfPage> pages,
+        IReadOnlyList<ExtractedDocumentUnit> units,
+        IReadOnlyList<ProjectedRetrievalChunk> retrievalChunks,
+        IngestionRetrievalChunkQualitySummary retrievalChunkQuality,
+        string extractionSource,
+        bool ocrAttempted,
+        bool ocrApplied,
+        string? ocrLanguages,
+        long? ocrDurationMs,
+        PdfOcrDiagnostics? ocrDiagnostics,
+        PdfExtractionQualitySummary extractionQuality,
+        PdfExtractionQualitySummary? nativeExtractionQuality,
+        string failureReason,
+        CancellationToken ct)
+    {
+        var pageCount = Math.Max(0, extractionQuality.PageCount);
+
+        const string documentSql = """
+UPDATE documents
+SET content_hash=CASE
+        WHEN COALESCE(indexed_version, 0) > 0 THEN content_hash
+        ELSE @source_hash
+    END,
+    file_size=CASE
+        WHEN COALESCE(indexed_version, 0) > 0 THEN file_size
+        ELSE @source_size
+    END,
+    file_mtime=CASE
+        WHEN COALESCE(indexed_version, 0) > 0 THEN file_mtime
+        ELSE @source_mtime
+    END,
+    page_count=CASE
+        WHEN COALESCE(indexed_version, 0) <= 0 AND @page_count > 0 THEN @page_count
+        ELSE page_count
+    END,
+    status=CASE
+        WHEN COALESCE(indexed_version, 0) > 0 THEN 'indexed'
+        ELSE 'error'
+    END,
+    auto_ingest_paused=true,
+    auto_ingest_paused_at=COALESCE(auto_ingest_paused_at, now()),
+    auto_ingest_pause_reason=@pause_reason,
+    ingestion_version=GREATEST(COALESCE(ingestion_version, 0), @ingestion_version),
+    updated_at=now()
+WHERE tenant_id=@tenant_id
+  AND doc_path=@doc_path
+  AND COALESCE(status, '') NOT IN ('missing','deleted');
+""";
+        await conn.ExecuteAsync(new CommandDefinition(
+            documentSql,
+            new
+            {
+                tenant_id = tenantId,
+                doc_path = docPath,
+                source_hash = sourceHash,
+                source_size = sourceSize,
+                source_mtime = DateTime.SpecifyKind(sourceMtimeUtc, DateTimeKind.Utc),
+                page_count = pageCount,
+                pause_reason = failureReason,
+                ingestion_version = ingestionVersion
+            },
+            transaction: tx,
+            cancellationToken: ct));
+
+        await InsertProcessingRunAsync(
+            conn,
+            tx,
+            processingRunId: BuildStableProcessingRunId(jobId),
+            tenantId,
+            jobId,
+            docId,
+            docPath,
+            revisionId: null,
+            action: "upsert",
+            status: "failed",
+            ingestionVersion,
+            indexedVersionBefore,
+            indexedVersionAfter: indexedVersionBefore,
+            sourceHash,
+            payload: JsonSerializer.SerializeToElement(new
+            {
+                published = false,
+                documentIndexable = false,
+                diagnosticVersion = "retrieval_quality_failure_v1",
+                diagnosticScope = "failed_run",
+                failureReason,
+                sourceSize,
+                sourceMtimeUtc = DateTime.SpecifyKind(sourceMtimeUtc, DateTimeKind.Utc),
+                extractionSource,
+                ocrAttempted,
+                ocrApplied,
+                ocrLanguages,
+                ocrDurationMs,
+                ocrDiagnostics = ocrDiagnostics is null
+                    ? null
+                    : BuildOcrDiagnosticsPayload(ocrDiagnostics),
+                nativeExtractionQuality = nativeExtractionQuality is null
+                    ? null
+                    : BuildExtractionQualityPayload(nativeExtractionQuality),
+                extractionQuality = BuildExtractionQualityPayload(extractionQuality),
+                retrievalChunkQuality = BuildRetrievalChunkQualityPayload(retrievalChunkQuality),
+                pageDiagnostics = BuildFailedPageDiagnosticsPayload(pages, ocrDiagnostics, units, retrievalChunks)
+            }),
+            ct);
+
+        const string failedJobSql = @"UPDATE ingestion_jobs
+SET status='failed',
+    finished_at=now(),
+    last_error=@last_error,
+    payload=jsonb_set(
+        jsonb_set(
+            COALESCE(payload, '{}'::jsonb),
+            '{quality,retrieval}',
+            CAST(@retrieval_quality AS jsonb),
+            true),
+        '{progress}',
+        jsonb_build_object(
+            'phase', 'failed_no_searchable_chunks',
+            'current', 0,
+            'total', @total_chunks,
+            'percent', 0),
+        true),
+    locked_by=NULL,
+    locked_at=NULL
+WHERE job_id=@job_id AND status='running';";
+        await conn.ExecuteAsync(new CommandDefinition(
+            failedJobSql,
+            new
+            {
+                job_id = jobId,
+                last_error = failureReason,
+                total_chunks = retrievalChunkQuality.TotalChunkCount,
+                retrieval_quality = SerializePostgresJsonForStorage(BuildRetrievalChunkQualityPayload(retrievalChunkQuality))
+            },
+            transaction: tx,
+            cancellationToken: ct));
+
+        await JobRepo.FreezeTerminalSnapshotAsync(conn, jobId, tx, ct);
     }
 
     public static async Task PublishDeleteCompletionAsync(
@@ -546,7 +792,6 @@ SET content_hash = EXCLUDED.content_hash,
         var suggestedTags = seed.SuggestedTags ?? [];
         var keySectionTitles = seed.KeySectionTitles ?? [];
         var seedQuestions = seed.HypotheticalQuestions ?? [];
-        var seedCards = BuildCapabilityASeedContentCards(keySectionTitles, suggestedTags);
 
         return DocumentProfileProjector.BuildProfile(
             profileVersion: profile.ProfileVersion,
@@ -559,7 +804,7 @@ SET content_hash = EXCLUDED.content_hash,
             limits: profile.Limits,
             docPath: docPath,
             docName: docName,
-            contentCards: seedCards.Concat(profile.ContentCards));
+            contentCards: profile.ContentCards);
     }
 
     private static string MergeSummaryPreview(string summary, string? preview)
@@ -580,32 +825,6 @@ SET content_hash = EXCLUDED.content_hash,
         return string.IsNullOrWhiteSpace(summary)
             ? normalizedPreview
             : $"{summary.Trim()} {normalizedPreview}";
-    }
-
-    private static IReadOnlyList<DocumentProfileContentCard> BuildCapabilityASeedContentCards(
-        IReadOnlyList<string> keySectionTitles,
-        IReadOnlyList<string> suggestedTags)
-    {
-        if (keySectionTitles.Count == 0)
-            return [];
-
-        var signals = suggestedTags
-            .Where(static tag => !string.IsNullOrWhiteSpace(tag))
-            .Select(static tag => tag.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(8)
-            .Append("capability_a")
-            .ToArray();
-
-        return keySectionTitles
-            .Where(static title => !string.IsNullOrWhiteSpace(title))
-            .Select(title => new DocumentProfileContentCard(
-                title.Trim(),
-                PageStart: null,
-                PageEnd: null,
-                Kind: "capability_a_hint",
-                Signals: signals))
-            .ToArray();
     }
 
     internal static async Task<DocumentProfileSnapshot?> LoadDocumentProfileAsync(
@@ -1438,6 +1657,29 @@ SET char_count = EXCLUDED.char_count,
             signals = quality.Signals
         };
 
+    private static object BuildRetrievalChunkQualityPayload(IngestionRetrievalChunkQualitySummary summary)
+        => new
+        {
+            totalChunkCount = summary.TotalChunkCount,
+            searchableChunkCount = summary.SearchableChunkCount,
+            rejectedChunkCount = summary.RejectedChunkCount,
+            navigationChunkCount = summary.NavigationChunkCount,
+            qualityRejectedChunkCount = summary.QualityRejectedChunkCount,
+            sparseRejectedChunkCount = summary.SparseRejectedChunkCount,
+            replacementCharRejectedChunkCount = summary.ReplacementCharRejectedChunkCount,
+            emptyTextRejectedChunkCount = summary.EmptyTextRejectedChunkCount,
+            otherRejectedChunkCount = summary.OtherRejectedChunkCount,
+            manualReviewRecommended = summary.ManualReviewRecommended,
+            rejectionReasons = new
+            {
+                navigationOnly = summary.NavigationChunkCount,
+                sparseText = summary.SparseRejectedChunkCount,
+                replacementCharsRemaining = summary.ReplacementCharRejectedChunkCount,
+                emptyText = summary.EmptyTextRejectedChunkCount,
+                other = summary.OtherRejectedChunkCount
+            }
+        };
+
     private static object BuildPageExtractionQualityPayload(
         ExtractionPageReview review,
         int unitCount,
@@ -1462,7 +1704,9 @@ SET char_count = EXCLUDED.char_count,
 
     private static object[] BuildFailedPageDiagnosticsPayload(
         IReadOnlyList<ExtractedPdfPage>? pages,
-        PdfOcrDiagnostics? ocrDiagnostics)
+        PdfOcrDiagnostics? ocrDiagnostics,
+        IReadOnlyList<ExtractedDocumentUnit>? units = null,
+        IReadOnlyList<ProjectedRetrievalChunk>? retrievalChunks = null)
     {
         if (pages is null || pages.Count == 0)
             return [];
@@ -1476,13 +1720,19 @@ SET char_count = EXCLUDED.char_count,
             .Select(page =>
             {
                 var pageQuality = page.Quality ?? PdfPageExtractionQuality.FromCounts(page.WordCount, page.CharCount);
+                var unitsOnPage = units?.Count(unit => unit.PageStart <= page.PageNumber && page.PageNumber <= unit.PageEnd) ?? 0;
+                var suspiciousUnitCount = units?.Count(unit =>
+                    unit.PageStart <= page.PageNumber
+                    && page.PageNumber <= unit.PageEnd
+                    && OcrNoiseFilter.LooksLikeProbableNoiseText(unit.Text)) ?? 0;
+                var chunksOnPage = retrievalChunks?.Count(chunk => chunk.PageStart <= page.PageNumber && page.PageNumber <= chunk.PageEnd) ?? 0;
                 var review = ExtractionQualityDiagnostics.AssessPage(
                     page.WordCount,
                     page.CharCount,
                     page.ImageCount,
-                    unitCount: 0,
-                    suspiciousUnitCount: 0,
-                    chunkCount: 0,
+                    unitsOnPage,
+                    suspiciousUnitCount,
+                    chunksOnPage,
                     pageQuality.Signals);
                 imageDiagnosticsByPage.TryGetValue(page.PageNumber, out var imageDiagnostic);
 
@@ -1492,9 +1742,9 @@ SET char_count = EXCLUDED.char_count,
                     charCount = page.CharCount,
                     wordCount = page.WordCount,
                     imageCount = page.ImageCount,
-                    unitCount = 0,
-                    suspiciousUnitCount = 0,
-                    chunkCount = 0,
+                    unitCount = unitsOnPage,
+                    suspiciousUnitCount,
+                    chunkCount = chunksOnPage,
                     qualityStatus = review.Status,
                     extractionConfidence = review.ExtractionConfidence,
                     manualReviewRecommended = review.ManualReviewRecommended,

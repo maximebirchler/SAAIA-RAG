@@ -311,6 +311,41 @@ public sealed class DocumentProfileProjectorTests
     }
 
     [Fact]
+    public void Project_does_not_fallback_to_restricted_units_when_profile_content_is_unavailable()
+    {
+        const string noisyUnit = "FakeSpecificNoiseMarker a b c d";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, noisyUnit, 5, noisyUnit.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Contents", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                noisyUnit,
+                noisyUnit.Length,
+                5,
+                [2],
+                ExtractionTextStatus: "low_text",
+                ExtractionTextSparse: true)
+        };
+
+        var profile = DocumentProfileProjector.Project("Generic/restricted-profile.pdf", pages, sections, units, exactMatchEntries: []);
+
+        Assert.DoesNotContain("FakeSpecificNoiseMarker", profile.SearchText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(profile.Keywords, keyword => keyword.Contains("fakespecific", StringComparison.OrdinalIgnoreCase));
+        Assert.Empty(profile.ContentCards);
+        Assert.Contains("restricted-profile.pdf", profile.SummaryText, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Project_uses_neutral_extract_when_language_is_not_known()
     {
         var pages = new[]
@@ -2292,17 +2327,53 @@ CatalogPollutionMarker Procedure body: Materials lock padlock warning tag. Proce
     }
 
     [Fact]
+    public void Project_rejects_navigation_shaped_embedded_title_without_substantive_body_evidence()
+    {
+        const string title = "Classic Family Plan";
+        var text = $"table of contents 1 2 3 4 5 6 7 8 9 10 {title}For 4 units";
+        Assert.NotEqual(
+            RetrievalContentClassifier.ContentRole,
+            RetrievalContentClassifier.AnalyzeChunk(text).ContentRole);
+        Assert.Contains(
+            title,
+            StructuredContentLexicon.ExtractEmbeddedStructuredItemTitles(text, limit: 4));
+
+        var pages = new[]
+        {
+            new ExtractedPdfPage(64, text, 17, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Operations", 1, 1, 64, 64, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 64, 64, text, text.Length, 17, [1])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/NavigationShapedStructuredTitleWithoutBody.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, title, StringComparison.Ordinal));
+        Assert.DoesNotContain(title, profile.SearchText, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Project_balanced_content_cards_try_next_page_candidate_when_top_candidate_is_duplicate()
     {
         const string duplicateTitle = "COMMON DUPLICATE TITLE";
-        const string fallbackTitle = "UNIQUE PAGE TWO ANCHOR";
+        const string fallbackTitle = "Field notes and validation details";
         const int pageCount = 241;
 
         static string BuildPageText(int page)
             => page switch
             {
                 1 => duplicateTitle,
-                2 => fallbackTitle,
+                2 => $"Unique Panel Two Anchor\n{fallbackTitle}",
                 _ => $"FILLER TOPIC {page:000} Field notes and validation details."
             };
 

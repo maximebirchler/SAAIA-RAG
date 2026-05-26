@@ -262,6 +262,9 @@ sealed class IngestionWorker : BackgroundService
             : "raw_passage_v1";
 
     internal static bool ShouldEmbedRetrievalChunk(ProjectedRetrievalChunk chunk)
+        => ResolveRetrievalChunkEmbeddingRejectionReason(chunk) is null;
+
+    internal static string? ResolveRetrievalChunkEmbeddingRejectionReason(ProjectedRetrievalChunk chunk)
     {
         if (RetrievalContentClassifier.IsPredominantlyNavigationContent(
                 chunk.ContentRole,
@@ -269,23 +272,68 @@ sealed class IngestionWorker : BackgroundService
                 chunk.NavigationScore,
                 chunk.ContentDensityScore))
         {
-            return false;
+            return "navigation_only";
         }
 
         if (string.Equals(chunk.ExtractionTextStatus, "empty_text", StringComparison.Ordinal))
-            return false;
+            return "empty_text";
 
         if (chunk.ExtractionTextSparse && chunk.TokenCount < 20)
-            return false;
+            return "sparse_text";
 
         if (chunk.ExtractionQualitySignals is { Count: > 0 }
             && chunk.ExtractionQualitySignals.Any(static signal =>
                 string.Equals(signal, "replacement_chars_remaining", StringComparison.Ordinal)))
         {
-            return false;
+            return "replacement_chars_remaining";
         }
 
-        return true;
+        return null;
+    }
+
+    internal static IngestionRetrievalChunkQualitySummary BuildRetrievalChunkQualitySummary(
+        IReadOnlyList<ProjectedRetrievalChunk> retrievalChunks)
+    {
+        var searchable = 0;
+        var navigation = 0;
+        var sparse = 0;
+        var replacementChars = 0;
+        var emptyText = 0;
+        var other = 0;
+
+        foreach (var chunk in retrievalChunks)
+        {
+            switch (ResolveRetrievalChunkEmbeddingRejectionReason(chunk))
+            {
+                case null:
+                    searchable++;
+                    break;
+                case "navigation_only":
+                    navigation++;
+                    break;
+                case "sparse_text":
+                    sparse++;
+                    break;
+                case "replacement_chars_remaining":
+                    replacementChars++;
+                    break;
+                case "empty_text":
+                    emptyText++;
+                    break;
+                default:
+                    other++;
+                    break;
+            }
+        }
+
+        return new IngestionRetrievalChunkQualitySummary(
+            TotalChunkCount: retrievalChunks.Count,
+            SearchableChunkCount: searchable,
+            NavigationChunkCount: navigation,
+            SparseRejectedChunkCount: sparse,
+            ReplacementCharRejectedChunkCount: replacementChars,
+            EmptyTextRejectedChunkCount: emptyText,
+            OtherRejectedChunkCount: other);
     }
 
     internal static bool IsResumeCheckpointCompatible(
@@ -901,12 +949,46 @@ WHERE job_id=@job_id
             ingest.ChunkMaxWords,
             ingest.ChunkOverlapWords,
             ingest.ChunkMinWords);
+        var retrievalChunkQuality = BuildRetrievalChunkQualitySummary(retrievalChunks);
         var chunks = retrievalChunks
             .Where(ShouldEmbedRetrievalChunk)
             .Select(chunk => new Chunk(chunk.ChunkIndex, chunk.PageStart, chunk.PageEnd, chunk.Text))
             .ToList();
         swChunking.Stop();
         chunkingMs = swChunking.ElapsedMilliseconds;
+        if (retrievalChunkQuality.SearchableChunkCount == 0)
+        {
+            const string failureReason = "manual_review_no_searchable_chunks";
+            var failureDiagnosticsPublished = await DocumentFoundationRepo.PublishUnsearchableRetrievalDiagnosticsAsync(
+                ds,
+                tenantId,
+                docId,
+                job.JobId,
+                relDocPath,
+                hash,
+                size,
+                File.GetLastWriteTimeUtc(absPath),
+                job.Version,
+                pages,
+                units,
+                retrievalChunks,
+                retrievalChunkQuality,
+                extraction.Source,
+                ocrAttempted,
+                ocrApplied,
+                ocrLanguages,
+                ocrAttempted ? ocrMs : null,
+                ocrDiagnostics,
+                extractionQuality,
+                nativeExtractionQuality,
+                failureReason,
+                ct);
+            if (!failureDiagnosticsPublished)
+                return false;
+
+            return false;
+        }
+
         await JobRepo.UpdateProgressAsync(ds, job.JobId, "projecting", null, null, ct);
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
         var swExact = Stopwatch.StartNew();

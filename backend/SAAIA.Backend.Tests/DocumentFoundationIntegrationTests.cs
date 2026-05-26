@@ -145,6 +145,11 @@ public sealed class DocumentFoundationIntegrationTests
             Assert.Equal(1, extractionQuality.GetProperty("textPageCount").GetInt32());
             Assert.Equal("low_text", extractionQuality.GetProperty("textStatus").GetString());
             Assert.True(extractionQuality.GetProperty("ocrRecommended").GetBoolean());
+            var retrievalChunkQuality = processingMetadata.RootElement.GetProperty("retrievalChunkQuality");
+            Assert.Equal(1, retrievalChunkQuality.GetProperty("totalChunkCount").GetInt32());
+            Assert.Equal(1, retrievalChunkQuality.GetProperty("searchableChunkCount").GetInt32());
+            Assert.Equal(0, retrievalChunkQuality.GetProperty("rejectedChunkCount").GetInt32());
+            Assert.False(retrievalChunkQuality.GetProperty("manualReviewRecommended").GetBoolean());
         }
 
         var pageMetadataJson = await conn.ExecuteScalarAsync<string>(
@@ -205,6 +210,273 @@ public sealed class DocumentFoundationIntegrationTests
         var retrievalChunkId = await conn.ExecuteScalarAsync<Guid>(
             "SELECT retrieval_chunk_id FROM retrieval_chunks LIMIT 1;");
         Assert.Equal(DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 1, 0), retrievalChunkId);
+    }
+
+    [Fact]
+    public async Task CompleteUpsertAsync_does_not_publish_when_no_searchable_chunks_exist()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("11111111-1111-1111-1111-111111111113");
+        var docId = Guid.Parse("22222222-2222-2222-2222-222222222225");
+        var jobId = Guid.Parse("33333333-3333-3333-3333-333333333337");
+        const string docPath = "Generic/navigation-only.pdf";
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 1, indexedVersion: 0);
+
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, "1 Introduction 3\n2 Scope 8\n3 Terms 12", 8, 36, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Contents", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, "1 Introduction 3\n2 Scope 8\n3 Terms 12", 36, 8, [2])
+        };
+        var retrievalChunks = new[]
+        {
+            new ProjectedRetrievalChunk(
+                0,
+                0,
+                0,
+                1,
+                1,
+                "1 Introduction 3\n2 Scope 8\n3 Terms 12",
+                8,
+                [3],
+                RetrievalContentClassifier.NavigationChunkType,
+                ContentRole: RetrievalContentClassifier.NavigationRole,
+                NavigationScore: 0.95,
+                ContentDensityScore: 0.1)
+        };
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var committed = await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            jobId,
+            docPath,
+            hash: [9, 9, 8],
+            size: 456,
+            mtimeUtc: DateTime.UtcNow,
+            version: 1,
+            pages,
+            sections,
+            units,
+            retrievalChunks,
+            exactMatchEntries: [],
+            contextualTextEntries: [],
+            CancellationToken.None);
+
+        Assert.False(committed);
+
+        await using var conn = new NpgsqlConnection(db.ConnectionString);
+        await conn.OpenAsync();
+
+        var document = await conn.QuerySingleAsync<(string status, int indexed_version, bool auto_ingest_paused, string auto_ingest_pause_reason)>(
+            "SELECT status, indexed_version, auto_ingest_paused, auto_ingest_pause_reason FROM documents WHERE tenant_id=@tenant_id AND doc_path=@doc_path;",
+            new { tenant_id = tenantId, doc_path = docPath });
+        Assert.Equal("error", document.status);
+        Assert.Equal(0, document.indexed_version);
+        Assert.True(document.auto_ingest_paused);
+        Assert.Equal("manual_review_no_searchable_chunks", document.auto_ingest_pause_reason);
+
+        var job = await conn.QuerySingleAsync<(string status, string last_error, string payload)>(
+            "SELECT status, last_error, payload::text FROM ingestion_jobs WHERE job_id=@job_id;",
+            new { job_id = jobId });
+        Assert.Equal("failed", job.status);
+        Assert.Equal("manual_review_no_searchable_chunks", job.last_error);
+
+        using var payload = JsonDocument.Parse(job.payload);
+        Assert.Equal("failed_no_searchable_chunks", payload.RootElement.GetProperty("progress").GetProperty("phase").GetString());
+        var retrievalQuality = payload.RootElement.GetProperty("quality").GetProperty("retrieval");
+        Assert.Equal(1, retrievalQuality.GetProperty("totalChunkCount").GetInt32());
+        Assert.Equal(0, retrievalQuality.GetProperty("searchableChunkCount").GetInt32());
+        Assert.Equal(1, retrievalQuality.GetProperty("navigationChunkCount").GetInt32());
+        Assert.Equal(1, retrievalQuality.GetProperty("rejectionReasons").GetProperty("navigationOnly").GetInt32());
+
+        var processingRun = await conn.QuerySingleAsync<(string status, int ingestion_version, int indexed_version_before, int indexed_version_after, Guid? revision_id, string payload)>(
+            """
+            SELECT status, ingestion_version, indexed_version_before, indexed_version_after, revision_id, payload::text
+            FROM document_processing_runs
+            WHERE tenant_id=@tenant_id AND job_id=@job_id;
+            """,
+            new { tenant_id = tenantId, job_id = jobId });
+        Assert.Equal("failed", processingRun.status);
+        Assert.Equal(1, processingRun.ingestion_version);
+        Assert.Equal(0, processingRun.indexed_version_before);
+        Assert.Equal(0, processingRun.indexed_version_after);
+        Assert.Null(processingRun.revision_id);
+
+        using var processingPayload = JsonDocument.Parse(processingRun.payload);
+        Assert.False(processingPayload.RootElement.GetProperty("published").GetBoolean());
+        Assert.False(processingPayload.RootElement.GetProperty("documentIndexable").GetBoolean());
+        Assert.Equal("retrieval_quality_failure_v1", processingPayload.RootElement.GetProperty("diagnosticVersion").GetString());
+        Assert.Equal("manual_review_no_searchable_chunks", processingPayload.RootElement.GetProperty("failureReason").GetString());
+        var processingRetrievalQuality = processingPayload.RootElement.GetProperty("retrievalChunkQuality");
+        Assert.Equal(1, processingRetrievalQuality.GetProperty("totalChunkCount").GetInt32());
+        Assert.Equal(0, processingRetrievalQuality.GetProperty("searchableChunkCount").GetInt32());
+        Assert.Equal(1, processingRetrievalQuality.GetProperty("rejectionReasons").GetProperty("navigationOnly").GetInt32());
+        var pageDiagnostics = processingPayload.RootElement.GetProperty("pageDiagnostics").EnumerateArray().ToArray();
+        var firstPageDiagnostic = Assert.Single(pageDiagnostics);
+        Assert.Equal(1, firstPageDiagnostic.GetProperty("unitCount").GetInt32());
+        Assert.Equal(1, firstPageDiagnostic.GetProperty("chunkCount").GetInt32());
+
+        var revisionCount = await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM document_revisions WHERE tenant_id=@tenant_id AND doc_id=@doc_id;",
+            new { tenant_id = tenantId, doc_id = docId });
+        var retrievalChunkCount = await conn.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM retrieval_chunks c
+            JOIN document_revisions r ON r.revision_id=c.revision_id
+            WHERE r.tenant_id=@tenant_id AND r.doc_id=@doc_id;
+            """,
+            new { tenant_id = tenantId, doc_id = docId });
+        Assert.Equal(0, revisionCount);
+        Assert.Equal(0, retrievalChunkCount);
+    }
+
+    [Fact]
+    public async Task CompleteUpsertAsync_preserves_previous_indexed_version_when_new_run_has_no_searchable_chunks()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("11111111-1111-1111-1111-111111111114");
+        var docId = Guid.Parse("22222222-2222-2222-2222-222222222226");
+        var jobId = Guid.Parse("33333333-3333-3333-3333-333333333338");
+        const string docPath = "Generic/previous-version-navigation-only.pdf";
+        byte[] oldHash = [1, 2, 3, 4];
+        byte[] newHash = [9, 9, 8, 8];
+        var oldMtime = DateTime.UtcNow.AddDays(-3);
+        var newMtime = DateTime.UtcNow;
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 2, indexedVersion: 1);
+
+        await using (var seedConn = new NpgsqlConnection(db.ConnectionString))
+        {
+            await seedConn.OpenAsync();
+            await seedConn.ExecuteAsync(
+                """
+                UPDATE documents
+                SET status='indexed',
+                    content_hash=@old_hash,
+                    file_size=1234,
+                    file_mtime=@old_mtime,
+                    page_count=9
+                WHERE tenant_id=@tenant_id AND doc_id=@doc_id;
+                """,
+                new
+                {
+                    tenant_id = tenantId,
+                    doc_id = docId,
+                    old_hash = oldHash,
+                    old_mtime = DateTime.SpecifyKind(oldMtime, DateTimeKind.Utc)
+                });
+        }
+
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, "1 Introduction 3\n2 Scope 8\n3 Terms 12", 8, 36, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Contents", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, "1 Introduction 3\n2 Scope 8\n3 Terms 12", 36, 8, [2])
+        };
+        var retrievalChunks = new[]
+        {
+            new ProjectedRetrievalChunk(
+                0,
+                0,
+                0,
+                1,
+                1,
+                "1 Introduction 3\n2 Scope 8\n3 Terms 12",
+                8,
+                [3],
+                RetrievalContentClassifier.NavigationChunkType,
+                ContentRole: RetrievalContentClassifier.NavigationRole,
+                NavigationScore: 0.95,
+                ContentDensityScore: 0.1)
+        };
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var committed = await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            jobId,
+            docPath,
+            newHash,
+            size: 9876,
+            mtimeUtc: newMtime,
+            version: 2,
+            pages,
+            sections,
+            units,
+            retrievalChunks,
+            exactMatchEntries: [],
+            contextualTextEntries: [],
+            CancellationToken.None);
+
+        Assert.False(committed);
+
+        await using var conn = new NpgsqlConnection(db.ConnectionString);
+        await conn.OpenAsync();
+
+        var document = await conn.QuerySingleAsync<(string status, string hash, long file_size, int ingestion_version, int indexed_version, int page_count, bool auto_ingest_paused, string auto_ingest_pause_reason)>(
+            """
+            SELECT status,
+                   LOWER(ENCODE(content_hash, 'hex')) AS hash,
+                   file_size,
+                   ingestion_version,
+                   indexed_version,
+                   page_count,
+                   auto_ingest_paused,
+                   auto_ingest_pause_reason
+            FROM documents
+            WHERE tenant_id=@tenant_id AND doc_id=@doc_id;
+            """,
+            new { tenant_id = tenantId, doc_id = docId });
+        Assert.Equal("indexed", document.status);
+        Assert.Equal(Convert.ToHexString(oldHash).ToLowerInvariant(), document.hash);
+        Assert.Equal(1234, document.file_size);
+        Assert.Equal(2, document.ingestion_version);
+        Assert.Equal(1, document.indexed_version);
+        Assert.Equal(9, document.page_count);
+        Assert.True(document.auto_ingest_paused);
+        Assert.Equal("manual_review_no_searchable_chunks", document.auto_ingest_pause_reason);
+
+        var processingRun = await conn.QuerySingleAsync<(string status, int indexed_version_before, int indexed_version_after, Guid? revision_id, string payload)>(
+            """
+            SELECT status, indexed_version_before, indexed_version_after, revision_id, payload::text
+            FROM document_processing_runs
+            WHERE tenant_id=@tenant_id AND job_id=@job_id;
+            """,
+            new { tenant_id = tenantId, job_id = jobId });
+        Assert.Equal("failed", processingRun.status);
+        Assert.Equal(1, processingRun.indexed_version_before);
+        Assert.Equal(1, processingRun.indexed_version_after);
+        Assert.Null(processingRun.revision_id);
+
+        using var processingPayload = JsonDocument.Parse(processingRun.payload);
+        Assert.Equal("retrieval_quality_failure_v1", processingPayload.RootElement.GetProperty("diagnosticVersion").GetString());
+        Assert.Equal(0, processingPayload.RootElement.GetProperty("retrievalChunkQuality").GetProperty("searchableChunkCount").GetInt32());
+
+        var revisionCount = await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM document_revisions WHERE tenant_id=@tenant_id AND doc_id=@doc_id;",
+            new { tenant_id = tenantId, doc_id = docId });
+        Assert.Equal(0, revisionCount);
     }
 
     [Fact]
@@ -1071,7 +1343,7 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
-    public async Task CompleteUpsertAsync_merges_capability_a_seed_into_published_profile()
+    public async Task CompleteUpsertAsync_merges_capability_a_seed_without_unproved_content_cards()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
@@ -1121,9 +1393,9 @@ public sealed class DocumentFoundationIntegrationTests
             WHERE tenant_id=@tenant AND doc_id=@docId AND profile_version='deterministic_v1';
             """,
             new { tenant = tenantId, docId });
-        var card = await conn.QuerySingleAsync<(string title, string kind, string[] signals, string search_text)>(
+        var unprovedSeedCardCount = await conn.ExecuteScalarAsync<int>(
             """
-            SELECT title, kind, signals, search_text
+            SELECT COUNT(*)
             FROM document_profile_content_cards
             WHERE tenant_id=@tenant AND doc_id=@docId AND profile_version='deterministic_v1'
               AND normalized_title='pressure envelope validation';
@@ -1135,10 +1407,7 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Contains("validation-review", profile.topics);
         Assert.Contains("When should the pressure envelope validation be reviewed?", profile.hypothetical_questions);
         Assert.Contains("pressure envelope validation", profile.search_text, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal("Pressure envelope validation", card.title);
-        Assert.Equal("capability_a_hint", card.kind);
-        Assert.Contains("pressure-envelope", card.signals);
-        Assert.Contains("validation-review", card.search_text, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, unprovedSeedCardCount);
     }
 
     [Fact]

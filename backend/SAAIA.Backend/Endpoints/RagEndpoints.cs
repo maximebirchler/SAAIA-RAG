@@ -16164,6 +16164,7 @@ FROM scoped_revisions;
 
         var preferConcreteContentItems = ShouldPreferConcreteContentCardsForComparativeQuery(query);
         var ranked = contentCards
+            .Where(card => IsContentCardSafeToExpose(card, pageStart, pageEnd))
             .Where(card => ContentCardOverlapsMatchPageRange(card, pageStart, pageEnd))
             .Select(card => new
             {
@@ -16526,6 +16527,51 @@ FROM scoped_revisions;
             " http ",
             " ven ");
     }
+
+    private static bool IsContentCardSafeToExpose(DocumentProfileContentCard card, int? pageStart, int? pageEnd)
+    {
+        if (card.PageStart is > 0 || card.PageEnd is > 0)
+        {
+            return IsDeterministicDocumentProfileContentCardKind(card.Kind)
+                   || HasGroundedDocumentProfileContentCardEvidence(card.Evidence)
+                   || HasTechnicalIdentifier(card.Title);
+        }
+
+        if (HasGroundedDocumentProfileContentCardEvidence(card.Evidence))
+            return true;
+
+        return pageStart is > 0 || pageEnd is > 0
+            ? false
+            : HasTechnicalIdentifier(card.Title);
+    }
+
+    private static bool IsDeterministicDocumentProfileContentCardKind(string? kind)
+    {
+        var normalized = string.IsNullOrWhiteSpace(kind)
+            ? string.Empty
+            : kind.Trim().ToLowerInvariant();
+        return normalized is "section" or "exact_lead" or "page_embedded_title" or "unit_lead" or "standard_ref";
+    }
+
+    private static bool HasGroundedDocumentProfileContentCardEvidence(DocumentProfileCardEvidence? evidence)
+    {
+        if (evidence is null)
+            return false;
+
+        if ((evidence.Facts ?? []).Any(static fact =>
+                !string.IsNullOrWhiteSpace(fact.SourceText)
+                || fact.PageStart is > 0
+                || fact.PageEnd is > 0))
+        {
+            return true;
+        }
+
+        return (evidence.QuantityFacts ?? []).Any(static fact => !string.IsNullOrWhiteSpace(fact.SourceText));
+    }
+
+    private static bool HasTechnicalIdentifier(string? value)
+        => !string.IsNullOrWhiteSpace(value)
+           && ExtractLexicalQueryTokens(value).Any(IsReferenceLikeLookupTerm);
 
     private static bool ContentCardOverlapsMatchPageRange(DocumentProfileContentCard card, int? pageStart, int? pageEnd)
     {

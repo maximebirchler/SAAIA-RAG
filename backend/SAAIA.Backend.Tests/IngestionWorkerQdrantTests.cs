@@ -120,6 +120,61 @@ public sealed class IngestionWorkerQdrantTests
     }
 
     [Fact]
+    public void BuildRetrievalChunkQualitySummary_counts_searchable_and_rejected_chunks()
+    {
+        var content = new ProjectedRetrievalChunk(
+            0,
+            0,
+            0,
+            1,
+            1,
+            "Reliable content with enough words to embed as a semantic passage.",
+            11,
+            [1],
+            "unit_exact_v1",
+            ExtractionTextStatus: "ok");
+        var navigation = content with
+        {
+            ChunkIndex = 1,
+            ChunkType = RetrievalContentClassifier.NavigationChunkType,
+            ContentRole = RetrievalContentClassifier.NavigationRole
+        };
+        var sparse = content with
+        {
+            ChunkIndex = 2,
+            TokenCount = 5,
+            ExtractionTextSparse = true
+        };
+        var replacementChars = content with
+        {
+            ChunkIndex = 3,
+            ExtractionQualitySignals = ["replacement_chars_remaining"]
+        };
+        var empty = content with
+        {
+            ChunkIndex = 4,
+            ExtractionTextStatus = "empty_text"
+        };
+
+        var summary = IngestionWorker.BuildRetrievalChunkQualitySummary(
+            [content, navigation, sparse, replacementChars, empty]);
+
+        Assert.Equal(5, summary.TotalChunkCount);
+        Assert.Equal(1, summary.SearchableChunkCount);
+        Assert.Equal(4, summary.RejectedChunkCount);
+        Assert.Equal(1, summary.NavigationChunkCount);
+        Assert.Equal(1, summary.SparseRejectedChunkCount);
+        Assert.Equal(1, summary.ReplacementCharRejectedChunkCount);
+        Assert.Equal(1, summary.EmptyTextRejectedChunkCount);
+        Assert.False(summary.ManualReviewRecommended);
+
+        var rejectedOnly = IngestionWorker.BuildRetrievalChunkQualitySummary(
+            [navigation, sparse, replacementChars, empty]);
+        Assert.Equal(0, rejectedOnly.SearchableChunkCount);
+        Assert.True(rejectedOnly.ManualReviewRecommended);
+    }
+
+    [Fact]
     public void BuildChunkLinkMap_links_next_chunk_in_same_section_without_rescanning()
     {
         var docId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");

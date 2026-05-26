@@ -214,6 +214,39 @@ WHERE job_id=@job_id AND status='running';";
         var docId = currentDocState?.DocId ?? IdUtil.DeterministicGuid($"{tenantId}:{docPath}");
         var indexedVersionBefore = Math.Max(0, currentDocState?.IndexedVersion ?? 0);
         var nextIndexedVersion = version;
+        var retrievalChunkQuality = IngestionWorker.BuildRetrievalChunkQualitySummary(retrievalChunks);
+        if (retrievalChunkQuality.SearchableChunkCount == 0)
+        {
+            const string noSearchableReason = "manual_review_no_searchable_chunks";
+            await DocumentFoundationRepo.PublishUnsearchableRetrievalDiagnosticsInTransactionAsync(
+                conn,
+                tx,
+                tenantId,
+                docId,
+                jobId,
+                docPath,
+                hash,
+                size,
+                mtimeUtc,
+                version,
+                indexedVersionBefore,
+                pages,
+                units,
+                retrievalChunks,
+                retrievalChunkQuality,
+                extractionSource,
+                ocrAttempted,
+                ocrApplied,
+                ocrLanguages,
+                ocrDurationMs,
+                ocrDiagnostics,
+                PdfExtractionQualitySummary.FromPages(pages),
+                nativeExtractionQuality,
+                noSearchableReason,
+                ct);
+            await tx.CommitAsync(ct);
+            return false;
+        }
 
         const string docSql = @"UPDATE documents
 SET content_hash=@hash,

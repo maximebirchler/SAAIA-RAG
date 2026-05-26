@@ -170,7 +170,7 @@ internal static partial class DocumentProfileProjector
             .Select(static item => item.Unit)
             .ToArray();
 
-        return targetedFallbackUnits.Length == 0 ? units : targetedFallbackUnits;
+        return targetedFallbackUnits;
     }
 
     private static IReadOnlyList<ExtractedDocumentUnit> SelectProfileCardContentUnits(IReadOnlyList<ExtractedDocumentUnit> units)
@@ -655,6 +655,8 @@ internal static partial class DocumentProfileProjector
         if (LooksLikeLowSignalContentCardLead(cleanTitle, normalizedKind))
             return false;
         if (LooksLikeLowSubstanceCoverOrMarketingCandidate(cleanTitle, context, evidence))
+            return false;
+        if (!HasSubstantiveContentCardProof(cleanTitle, normalizedKind, context, evidence, pageStart, pageEnd))
             return false;
 
         var storedEvidence = StampContentCardEvidencePageRange(evidence, pageStart, pageEnd);
@@ -1639,6 +1641,122 @@ internal static partial class DocumentProfileProjector
         return false;
     }
 
+    private static bool HasSubstantiveContentCardProof(
+        string title,
+        string kind,
+        string? context,
+        DocumentProfileCardEvidence? evidence,
+        int? pageStart,
+        int? pageEnd)
+    {
+        if (LooksLikeTechnicalIdentifier(title))
+            return true;
+
+        if (HasSourceBackedContentCardEvidence(evidence))
+            return true;
+
+        if (string.IsNullOrWhiteSpace(context))
+            return false;
+
+        var normalizedContext = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(context));
+        if (string.IsNullOrWhiteSpace(normalizedContext))
+            return false;
+
+        var contextSignal = RetrievalContentClassifier.AnalyzeChunk(context);
+        var isPredominantlyNavigation = RetrievalContentClassifier.IsPredominantlyNavigationContent(
+            contextSignal.ContentRole,
+            chunkType: null,
+            contextSignal.NavigationScore,
+            contextSignal.ContentDensityScore);
+
+        if (string.Equals(kind, "section", StringComparison.Ordinal))
+        {
+            return (pageStart is > 0 || pageEnd is > 0)
+                   && !isPredominantlyNavigation
+                   && !OcrNoiseFilter.LooksLikeProbableNoiseText(context);
+        }
+
+        if (HasSubstantiveTextAroundTitle(title, normalizedContext))
+            return true;
+
+        return (pageStart is > 0 || pageEnd is > 0)
+               && string.Equals(contextSignal.ContentRole, RetrievalContentClassifier.ContentRole, StringComparison.Ordinal)
+               && contextSignal.ContentDensityScore >= 0.42
+               && CountMeaningfulContentCardTokens(normalizedContext) >= 10
+               && !OcrNoiseFilter.LooksLikeProbableNoiseText(context);
+    }
+
+    private static bool HasSubstantiveTextAroundTitle(string title, string normalizedContext)
+    {
+        var normalizedTitle = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(title));
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        var index = normalizedContext.IndexOf(normalizedTitle, StringComparison.Ordinal);
+        if (index < 0)
+            return false;
+
+        var before = normalizedContext[..index];
+        var after = normalizedContext[(index + normalizedTitle.Length)..];
+        return LooksLikeSubstantiveContentCardBody(before)
+               || LooksLikeSubstantiveContentCardBody(after);
+    }
+
+    private static bool LooksLikeSubstantiveContentCardBody(string normalizedBody)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedBody))
+            return false;
+
+        var meaningfulTokenCount = CountMeaningfulContentCardTokens(normalizedBody);
+        if (meaningfulTokenCount < 3)
+            return false;
+
+        var signal = RetrievalContentClassifier.AnalyzeChunk(normalizedBody);
+        if (RetrievalContentClassifier.IsPredominantlyNavigationContent(
+                signal.ContentRole,
+                chunkType: null,
+                signal.NavigationScore,
+                signal.ContentDensityScore))
+        {
+            return false;
+        }
+
+        if (LooksLikeStructuredContentContext(normalizedBody))
+            return true;
+
+        if (meaningfulTokenCount < 7)
+        {
+            if (meaningfulTokenCount >= 4
+                && RetrievalContentClassifier.DetectNavigationReason(normalizedBody) is null)
+            {
+                return true;
+            }
+
+            if (meaningfulTokenCount >= 2
+                && ContentCardTitleMeasurementRegex().IsMatch(normalizedBody))
+            {
+                return true;
+            }
+
+            return string.Equals(signal.ContentRole, RetrievalContentClassifier.ContentRole, StringComparison.Ordinal)
+                   && signal.ContentDensityScore >= 0.4;
+        }
+
+        return string.Equals(signal.ContentRole, RetrievalContentClassifier.ContentRole, StringComparison.Ordinal)
+               || signal.ContentDensityScore >= 0.35;
+    }
+
+    private static int CountMeaningfulContentCardTokens(string normalizedText)
+        => normalizedText
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Count(static token =>
+                token.Length >= 3
+                && token.Any(char.IsLetter)
+                && !ContentCardLeadStopwords.Contains(token)
+                && !ContentCardTitleStopwords.Contains(token)
+                && !ContentCardMetadataLabelTokens.Contains(token)
+                && !DanglingFragmentTitleTokens.Contains(token));
+
     private static bool LooksLikeLongTokenGluedToProcessLabel(string token)
     {
         var lettersOnly = new string(token.Where(char.IsLetter).ToArray());
@@ -2222,7 +2340,8 @@ internal static partial class DocumentProfileProjector
             {
                 continue;
             }
-            var hasGroundedPageEvidence = HasSourceBackedOrGroundedPageEvidence(normalizedEvidence, card.PageStart, card.PageEnd);
+            var (pageStart, pageEnd) = NormalizeContentCardPageRange(card.PageStart, card.PageEnd, normalizedEvidence);
+            var hasGroundedPageEvidence = HasSourceBackedOrGroundedPageEvidence(normalizedEvidence, pageStart, pageEnd);
             if (LooksLikeLowercaseLead(title) && !hasGroundedPageEvidence)
                 continue;
             if (LooksLikeLowSubstanceCoverOrMarketingCandidate(title, null, normalizedEvidence))
@@ -2236,7 +2355,6 @@ internal static partial class DocumentProfileProjector
             if (string.IsNullOrWhiteSpace(key) || !seen.Add(key))
                 continue;
 
-            var (pageStart, pageEnd) = NormalizeContentCardPageRange(card.PageStart, card.PageEnd, normalizedEvidence);
             var normalizedSignals = NormalizeList(
                 BuildStructuredCardSignals(normalizedEvidence)
                     .Concat(card.Signals ?? []),
