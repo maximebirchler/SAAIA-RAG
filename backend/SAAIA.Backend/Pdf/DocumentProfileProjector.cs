@@ -1764,7 +1764,9 @@ internal static partial class DocumentProfileProjector
         int? pageEnd)
     {
         if (LooksLikeTechnicalIdentifier(title))
-            return true;
+            return HasGroundedContentCardEvidence(evidence)
+                   || pageStart is > 0
+                   || pageEnd is > 0;
 
         if (HasSourceBackedContentCardEvidence(evidence))
             return true;
@@ -2437,7 +2439,8 @@ internal static partial class DocumentProfileProjector
         => StructuredContentLexicon.NormalizeStructuredSignalLabel(value);
 
     private static IReadOnlyList<DocumentProfileContentCard> NormalizeContentCards(
-        IEnumerable<DocumentProfileContentCard> cards)
+        IEnumerable<DocumentProfileContentCard> cards,
+        bool requireEvidenceForPageScopedExternalCards = false)
     {
         var normalized = new List<DocumentProfileContentCard>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -2464,6 +2467,16 @@ internal static partial class DocumentProfileProjector
                 continue;
             if (LooksLikeLowSignalContentCardLead(title, kind))
                 continue;
+            if (requireEvidenceForPageScopedExternalCards
+                && !IsSafeNormalizedContentCard(
+                    title,
+                    kind,
+                    normalizedEvidence,
+                    pageStart,
+                    pageEnd))
+            {
+                continue;
+            }
 
             var key = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(title));
             if (string.IsNullOrWhiteSpace(key) || !seen.Add(key))
@@ -2490,10 +2503,31 @@ internal static partial class DocumentProfileProjector
         return normalized;
     }
 
+    private static bool IsSafeNormalizedContentCard(
+        string title,
+        string kind,
+        DocumentProfileCardEvidence? evidence,
+        int? pageStart,
+        int? pageEnd)
+    {
+        if (HasGroundedContentCardEvidence(evidence))
+            return true;
+
+        var hasPageScope = pageStart is > 0 || pageEnd is > 0;
+        if (!hasPageScope)
+            return false;
+
+        return LooksLikeTechnicalIdentifier(title)
+               || IsDeterministicContentCardKind(kind);
+    }
+
     private static string NormalizeContentCardKind(string? kind)
         => string.IsNullOrWhiteSpace(kind)
             ? "content_item"
             : CollapseWhitespace(kind).ToLowerInvariant();
+
+    private static bool IsDeterministicContentCardKind(string kind)
+        => kind is "section" or "exact_lead" or "page_embedded_title" or "unit_lead" or "standard_ref" or "code_ref";
 
     private static bool HasGroundedContentCardEvidence(DocumentProfileCardEvidence? evidence)
     {
@@ -2615,7 +2649,7 @@ internal static partial class DocumentProfileProjector
                 parsed.Add(new DocumentProfileContentCard(title ?? string.Empty, pageStart, pageEnd, kind, signals, evidence, contentCardId));
             }
 
-            return NormalizeContentCards(parsed);
+            return NormalizeContentCards(parsed, requireEvidenceForPageScopedExternalCards: true);
         }
         catch (JsonException)
         {

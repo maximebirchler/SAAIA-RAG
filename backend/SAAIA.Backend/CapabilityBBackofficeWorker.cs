@@ -657,7 +657,8 @@ WHERE j.job_type='summary.generate'
             return true;
 
         if (!string.IsNullOrWhiteSpace(card.Title)
-            && ExactMatchEntryExtractor.ExtractTargetedReferences(card.Title).Any())
+            && ExactMatchEntryExtractor.ExtractTargetedReferences(card.Title).Any()
+            && (card.PageStart is > 0 || card.PageEnd is > 0))
         {
             return true;
         }

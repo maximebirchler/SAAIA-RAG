@@ -2555,4 +2555,49 @@ CatalogPollutionMarker Procedure body: Materials lock padlock warning tag. Proce
             profile.ContentCards,
             card => string.Equals(card.Title, "FILLER TOPIC 241", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void ParseContentCards_drops_title_only_technical_cards_without_page_or_evidence()
+    {
+        const string metadataJson = """
+        {
+          "contentCards": [
+            {
+              "title": "ISO 13849-1",
+              "kind": "llm_content_card",
+              "signals": ["standard"]
+            },
+            {
+              "title": "IEC 61508",
+              "pageStart": 7,
+              "pageEnd": 7,
+              "kind": "llm_content_card",
+              "signals": ["standard"]
+            },
+            {
+              "title": "ISO 9001",
+              "kind": "llm_content_card",
+              "signals": ["standard"],
+              "evidence": {
+                "schemaVersion": "content_card_evidence_v1",
+                "facts": [
+                  {
+                    "kind": "standard",
+                    "label": "standard reference",
+                    "value": "ISO 9001",
+                    "sourceText": "ISO 9001 applies to the quality management procedure."
+                  }
+                ]
+              }
+            }
+          ]
+        }
+        """;
+
+        var cards = DocumentProfileProjector.ParseContentCards(metadataJson);
+
+        Assert.DoesNotContain(cards, card => string.Equals(card.Title, "ISO 13849-1", StringComparison.Ordinal));
+        Assert.Contains(cards, card => string.Equals(card.Title, "IEC 61508", StringComparison.Ordinal));
+        Assert.Contains(cards, card => string.Equals(card.Title, "ISO 9001", StringComparison.Ordinal));
+    }
 }

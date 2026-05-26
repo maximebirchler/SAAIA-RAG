@@ -90,6 +90,6 @@ public sealed class CapabilityBBackofficeWorkerProfileTests
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Unsafe LLM title only card", StringComparison.Ordinal));
         Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Deterministic section card", StringComparison.Ordinal));
         Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Quality controls checklist", StringComparison.Ordinal));
-        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "ISO 13849-1", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "ISO 13849-1", StringComparison.Ordinal));
     }
 }

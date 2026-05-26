@@ -8651,7 +8651,6 @@ ORDER BY d.doc_path;
             " normes ",
             " standard ",
             " standards ",
-            " atex ",
             " tuv ",
             " fda ",
             " sds ",
