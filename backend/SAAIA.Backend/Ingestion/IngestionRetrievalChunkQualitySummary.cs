@@ -5,6 +5,7 @@ internal sealed record IngestionRetrievalChunkQualitySummary(
     int SparseRejectedChunkCount,
     int ReplacementCharRejectedChunkCount,
     int EmptyTextRejectedChunkCount,
+    int OcrNoiseRejectedChunkCount,
     int OtherRejectedChunkCount)
 {
     public int RejectedChunkCount
@@ -14,6 +15,7 @@ internal sealed record IngestionRetrievalChunkQualitySummary(
         => SparseRejectedChunkCount
            + ReplacementCharRejectedChunkCount
            + EmptyTextRejectedChunkCount
+           + OcrNoiseRejectedChunkCount
            + OtherRejectedChunkCount;
 
     public bool ManualReviewRecommended

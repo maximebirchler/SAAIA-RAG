@@ -86,10 +86,10 @@ internal static class ContextualTextProjector
         sb.AppendLine(chunk.Text.Trim());
         sb.AppendLine();
 
-        if (!string.IsNullOrWhiteSpace(unit?.Text) && !TextEquals(unit.Text, chunk.Text))
+        if (ShouldIncludeCurrentUnitContext(unit, chunk))
         {
             sb.AppendLine("context:");
-            sb.AppendLine(unit.Text.Trim());
+            sb.AppendLine(unit!.Text.Trim());
             sb.AppendLine();
         }
 
@@ -110,6 +110,17 @@ internal static class ContextualTextProjector
         return sb.ToString().TrimEnd();
     }
 
+    private static bool ShouldIncludeCurrentUnitContext(ExtractedDocumentUnit? unit, ProjectedRetrievalChunk chunk)
+    {
+        if (string.IsNullOrWhiteSpace(unit?.Text))
+            return false;
+
+        if (TextEquals(unit.Text, chunk.Text))
+            return false;
+
+        return ShouldIncludeUnitTextContext(unit);
+    }
+
     private static bool TextEquals(string left, string right)
         => string.Equals(NormalizeForComparison(left), NormalizeForComparison(right), StringComparison.Ordinal);
 
@@ -126,25 +137,30 @@ internal static class ContextualTextProjector
         if (includeNeighborContextByOrdinal.TryGetValue(unit.Ordinal, out var cached))
             return cached;
 
+        return CacheIncludeNeighborContext(includeNeighborContextByOrdinal, unit.Ordinal, ShouldIncludeUnitTextContext(unit));
+    }
+
+    private static bool ShouldIncludeUnitTextContext(ExtractedDocumentUnit unit)
+    {
         var text = unit.Text.Trim();
         if (OcrNoiseFilter.LooksLikeProbableNoiseText(text))
-            return CacheIncludeNeighborContext(includeNeighborContextByOrdinal, unit.Ordinal, false);
+            return false;
 
         if (!ExtractionQualityPolicy.ShouldUseUnitForRetrievalWindow(unit))
-            return CacheIncludeNeighborContext(includeNeighborContextByOrdinal, unit.Ordinal, false);
+            return false;
 
         var signal = RetrievalContentClassifier.AnalyzeChunk(text);
         if (string.Equals(signal.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.Ordinal))
-            return CacheIncludeNeighborContext(includeNeighborContextByOrdinal, unit.Ordinal, false);
+            return false;
 
         if (string.Equals(signal.ContentRole, RetrievalContentClassifier.MixedNavigationContentRole, StringComparison.Ordinal)
             && signal.NavigationScore >= 0.72
             && signal.ContentDensityScore < 0.55)
         {
-            return CacheIncludeNeighborContext(includeNeighborContextByOrdinal, unit.Ordinal, false);
+            return false;
         }
 
-        return CacheIncludeNeighborContext(includeNeighborContextByOrdinal, unit.Ordinal, true);
+        return true;
     }
 
     private static bool CacheIncludeNeighborContext(Dictionary<int, bool> cache, int unitOrdinal, bool value)

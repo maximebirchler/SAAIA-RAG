@@ -41,6 +41,15 @@ internal static class DocumentFoundationRepo
         var revisionId = BuildStableRevisionId(tenantId, docId, indexedVersionAfter);
         var extractionQuality = PdfExtractionQualitySummary.FromPages(pages);
         var retrievalChunkQuality = IngestionWorker.BuildRetrievalChunkQualitySummary(retrievalChunks);
+        var publishableRetrievalChunks = retrievalChunks
+            .Where(IngestionWorker.ShouldPublishRetrievalChunk)
+            .ToArray();
+        var publishableRetrievalChunkIndexes = publishableRetrievalChunks
+            .Select(static chunk => chunk.ChunkIndex)
+            .ToHashSet();
+        var publishableContextualTextEntries = contextualTextEntries
+            .Where(entry => publishableRetrievalChunkIndexes.Contains(entry.ChunkIndex))
+            .ToArray();
         var documentProfile = DocumentProfileProjector.Project(docPath, pages, sections, units, exactMatchEntries);
         documentProfile = MergeCapabilityAProfileSeed(
             documentProfile,
@@ -135,19 +144,19 @@ SET doc_path = EXCLUDED.doc_path,
         await UpsertPageIndexAsync(conn, tx, tenantId, revisionId, pages, units, retrievalChunks, ocrDiagnostics, ct);
         await UpsertSectionsAsync(conn, tx, tenantId, revisionId, sections, ct);
         await UpsertUnitsAsync(conn, tx, tenantId, revisionId, sections, units, ct);
-        await UpsertRetrievalChunksAsync(conn, tx, tenantId, docId, revisionId, ingestionVersion, sections, units, retrievalChunks, ct);
-        await UpsertRetrievalChunkLinksAsync(conn, tx, tenantId, docId, revisionId, ingestionVersion, retrievalChunks, ct);
+        await UpsertRetrievalChunksAsync(conn, tx, tenantId, docId, revisionId, ingestionVersion, sections, units, publishableRetrievalChunks, ct);
+        await UpsertRetrievalChunkLinksAsync(conn, tx, tenantId, docId, revisionId, ingestionVersion, publishableRetrievalChunks, ct);
         await UpsertExactMatchEntriesAsync(conn, tx, tenantId, revisionId, sections, units, exactMatchEntries, ct);
-        await UpsertContextualTextEntriesAsync(conn, tx, tenantId, docId, revisionId, ingestionVersion, sections, units, contextualTextEntries, ct);
+        await UpsertContextualTextEntriesAsync(conn, tx, tenantId, docId, revisionId, ingestionVersion, sections, units, publishableContextualTextEntries, ct);
         await UpsertDocumentProfileAsync(conn, tx, tenantId, docId, revisionId, documentProfile, ct);
-        var titleNavigationIndex = DocumentTitleNavigationProjector.Project(sections, units, retrievalChunks, documentProfile);
+        var titleNavigationIndex = DocumentTitleNavigationProjector.Project(sections, units, publishableRetrievalChunks, documentProfile);
         await UpsertDocumentTitleNavigationIndexAsync(conn, tx, tenantId, docId, revisionId, ingestionVersion, documentProfile, titleNavigationIndex, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "page_index", pages, p => $"page:{p.PageNumber}:{p.CharCount}:{Convert.ToHexString(p.Checksum)}", p => p.CharCount, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "sections", sections, s => $"section:{s.Ordinal}:{s.Level}:{s.PageStart}:{s.PageEnd}:{s.Title}", _ => 0, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "units", units, u => $"unit:{u.Ordinal}:{u.PageStart}:{u.PageEnd}:{u.TokenCount}:{u.Text}", u => u.CharCount, ct);
-        await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "retrieval_chunks", retrievalChunks, c => $"chunk:{c.ChunkIndex}:{c.PageStart}:{c.PageEnd}:{c.TokenCount}:{c.ChunkType}:{c.Text}", c => c.Text.Length, ct);
+        await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "retrieval_chunks", publishableRetrievalChunks, c => $"chunk:{c.ChunkIndex}:{c.PageStart}:{c.PageEnd}:{c.TokenCount}:{c.ChunkType}:{c.Text}", c => c.Text.Length, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "exact_match_entries", exactMatchEntries, e => $"exact:{e.EntryIndex}:{e.PageStart}:{e.PageEnd}:{e.NormalizedText}", e => e.CharCount, ct);
-        await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "contextual_text_entries", contextualTextEntries, e => $"contextual:{e.EntryIndex}:{e.PageStart}:{e.PageEnd}:{e.Text}", e => e.CharCount, ct);
+        await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "contextual_text_entries", publishableContextualTextEntries, e => $"contextual:{e.EntryIndex}:{e.PageStart}:{e.PageEnd}:{e.Text}", e => e.CharCount, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "document_profile", new[] { documentProfile }, p => $"profile:{p.ProfileVersion}:{p.Language}:{p.SearchText}", p => p.SearchText.Length, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "document_profile_content_cards", documentProfile.ContentCards, c => $"card:{c.Title}:{c.PageStart}:{c.PageEnd}:{c.Kind}:{string.Join('|', c.Signals)}", c => BuildContentCardSearchText(c).Length, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "document_title_anchors", titleNavigationIndex.TitleAnchors, a => $"title-anchor:{a.AnchorIndex}:{a.SourceKind}:{a.SourceOrdinal}:{a.NormalizedTitle}:{a.PageStart}:{a.PageEnd}:{a.Confidence}", a => a.Title.Length, ct);
@@ -1668,6 +1677,7 @@ SET char_count = EXCLUDED.char_count,
             sparseRejectedChunkCount = summary.SparseRejectedChunkCount,
             replacementCharRejectedChunkCount = summary.ReplacementCharRejectedChunkCount,
             emptyTextRejectedChunkCount = summary.EmptyTextRejectedChunkCount,
+            ocrNoiseRejectedChunkCount = summary.OcrNoiseRejectedChunkCount,
             otherRejectedChunkCount = summary.OtherRejectedChunkCount,
             manualReviewRecommended = summary.ManualReviewRecommended,
             rejectionReasons = new
@@ -1676,6 +1686,7 @@ SET char_count = EXCLUDED.char_count,
                 sparseText = summary.SparseRejectedChunkCount,
                 replacementCharsRemaining = summary.ReplacementCharRejectedChunkCount,
                 emptyText = summary.EmptyTextRejectedChunkCount,
+                ocrNoise = summary.OcrNoiseRejectedChunkCount,
                 other = summary.OtherRejectedChunkCount
             }
         };

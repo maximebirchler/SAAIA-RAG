@@ -213,6 +213,94 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
+    public async Task CompleteUpsertAsync_publishes_only_searchable_retrieval_chunks_and_contextual_entries()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("11111111-1111-1111-1111-111111111112");
+        var docId = Guid.Parse("22222222-2222-2222-2222-222222222223");
+        var jobId = Guid.Parse("33333333-3333-3333-3333-333333333334");
+        const string docPath = "Ops/Manual.pdf";
+        var noisyText = string.Join(
+            ' ',
+            Enumerable.Repeat(
+                "iS) m =| a O om Mm Zz @ = m m 2 Zz Q@) OQ Oo Zz G - > z as | op) oo > Cc ie) m UJ O TT ro) = J | a u Mm U A 0 OQ =| Zz UO | W = cr O = 0",
+                3));
+
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 1, indexedVersion: 0);
+
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, "Reliable commissioning procedure with enough semantic body text.", 7, 62, [1]),
+            new ExtractedPdfPage(2, noisyText, 120, noisyText.Length, [2])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Commissioning", 1, 1, 2, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, pages[0].Text, pages[0].CharCount, pages[0].WordCount, [3]),
+            new ExtractedDocumentUnit(1, 0, 2, 2, noisyText, noisyText.Length, 120, [4])
+        };
+        var retrievalChunks = new[]
+        {
+            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, pages[0].Text, 7, [5], "unit_exact_v1", ExtractionTextStatus: "ok"),
+            new ProjectedRetrievalChunk(1, 0, 1, 2, 2, noisyText, 120, [6], "section_window_v1", ExtractionTextStatus: "ok")
+        };
+        var contextualTextEntries = new[]
+        {
+            new ProjectedContextualTextEntry(0, 0, 0, 0, 1, 1, "excerpt:\n" + pages[0].Text, 72, 8, [7]),
+            new ProjectedContextualTextEntry(1, 0, 1, 1, 2, 2, "excerpt:\n" + noisyText, noisyText.Length + 9, 121, [8])
+        };
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var committed = await JobRepo.CompleteUpsertAsync(
+            ds,
+            tenantId,
+            jobId,
+            docPath,
+            hash: [7, 7, 7],
+            size: 456,
+            mtimeUtc: DateTime.UtcNow,
+            version: 1,
+            pages,
+            sections,
+            units,
+            retrievalChunks,
+            exactMatchEntries: [],
+            contextualTextEntries,
+            CancellationToken.None);
+
+        Assert.True(committed);
+
+        await using var conn = new NpgsqlConnection(db.ConnectionString);
+        await conn.OpenAsync();
+
+        Assert.Equal(1, await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM retrieval_chunks;"));
+        Assert.Equal(1, await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM contextual_text_entries;"));
+        Assert.DoesNotContain(
+            "iS) m =|",
+            await conn.ExecuteScalarAsync<string>("SELECT text_content FROM retrieval_chunks LIMIT 1;"),
+            StringComparison.Ordinal);
+
+        var processingPayload = await conn.ExecuteScalarAsync<string>(
+            "SELECT payload::text FROM document_processing_runs LIMIT 1;");
+        using var processingMetadata = JsonDocument.Parse(processingPayload ?? "{}");
+        var retrievalQuality = processingMetadata.RootElement.GetProperty("retrievalChunkQuality");
+        Assert.Equal(2, retrievalQuality.GetProperty("totalChunkCount").GetInt32());
+        Assert.Equal(1, retrievalQuality.GetProperty("searchableChunkCount").GetInt32());
+        Assert.Equal(1, retrievalQuality.GetProperty("ocrNoiseRejectedChunkCount").GetInt32());
+        Assert.Equal(1, retrievalQuality.GetProperty("rejectionReasons").GetProperty("ocrNoise").GetInt32());
+
+        var artifactPayload = await conn.ExecuteScalarAsync<string>(
+            "SELECT payload::text FROM document_revision_artifacts WHERE artifact_type='retrieval_chunks';");
+        Assert.Contains("\"count\":1", artifactPayload, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task CompleteUpsertAsync_does_not_publish_when_no_searchable_chunks_exist()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();

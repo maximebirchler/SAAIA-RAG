@@ -214,6 +214,51 @@ public sealed class ContextualTextProjectorTests
     }
 
     [Fact]
+    public void Project_omits_low_quality_current_unit_from_embedding_context()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Operations", 1, 1, 1, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "FALSE SPARSE LABEL extracted from a poor page",
+                45,
+                8,
+                [1],
+                ExtractionTextStatus: "low_text",
+                ExtractionTextSparse: true,
+                ExtractionOcrCandidate: true,
+                ExtractionQualitySignals: ["sparse_text_on_page"])
+        };
+        var chunks = new[]
+        {
+            new ProjectedRetrievalChunk(
+                0,
+                0,
+                0,
+                1,
+                1,
+                "Clean excerpt chosen for diagnostics only.",
+                6,
+                [2],
+                "section_window_v1")
+        };
+
+        var entry = Assert.Single(ContextualTextProjector.Project("Ops/Manual.pdf", sections, units, chunks));
+
+        Assert.Contains("excerpt:", entry.Text, StringComparison.Ordinal);
+        Assert.Contains("Clean excerpt", entry.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("context:", entry.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("FALSE SPARSE LABEL", entry.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Stable_contextual_text_entry_id_is_deterministic_for_same_revision_and_index()
     {
         var revisionId = Guid.Parse("cdcdcdcd-cdcd-cdcd-cdcd-cdcdcdcdcdcd");

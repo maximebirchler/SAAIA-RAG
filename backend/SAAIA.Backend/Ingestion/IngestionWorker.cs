@@ -311,6 +311,9 @@ sealed class IngestionWorker : BackgroundService
             : "raw_passage_v1";
 
     internal static bool ShouldEmbedRetrievalChunk(ProjectedRetrievalChunk chunk)
+        => ShouldPublishRetrievalChunk(chunk);
+
+    internal static bool ShouldPublishRetrievalChunk(ProjectedRetrievalChunk chunk)
         => ResolveRetrievalChunkEmbeddingRejectionReason(chunk) is null;
 
     internal static string? ResolveRetrievalChunkEmbeddingRejectionReason(ProjectedRetrievalChunk chunk)
@@ -337,6 +340,9 @@ sealed class IngestionWorker : BackgroundService
             return "replacement_chars_remaining";
         }
 
+        if (OcrNoiseFilter.LooksLikeProbableNoiseText(chunk.Text))
+            return "ocr_noise";
+
         return null;
     }
 
@@ -348,6 +354,7 @@ sealed class IngestionWorker : BackgroundService
         var sparse = 0;
         var replacementChars = 0;
         var emptyText = 0;
+        var ocrNoise = 0;
         var other = 0;
 
         foreach (var chunk in retrievalChunks)
@@ -369,6 +376,9 @@ sealed class IngestionWorker : BackgroundService
                 case "empty_text":
                     emptyText++;
                     break;
+                case "ocr_noise":
+                    ocrNoise++;
+                    break;
                 default:
                     other++;
                     break;
@@ -382,6 +392,7 @@ sealed class IngestionWorker : BackgroundService
             SparseRejectedChunkCount: sparse,
             ReplacementCharRejectedChunkCount: replacementChars,
             EmptyTextRejectedChunkCount: emptyText,
+            OcrNoiseRejectedChunkCount: ocrNoise,
             OtherRejectedChunkCount: other);
     }
 

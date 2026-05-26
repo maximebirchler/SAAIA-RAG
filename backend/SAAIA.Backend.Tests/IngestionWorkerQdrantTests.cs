@@ -123,6 +123,15 @@ public sealed class IngestionWorkerQdrantTests
         {
             ExtractionQualitySignals = ["replacement_chars_remaining"]
         };
+        var ocrNoise = content with
+        {
+            Text = string.Join(
+                ' ',
+                Enumerable.Repeat(
+                    "iS) m =| a O om Mm Zz @ = m m 2 Zz Q@) OQ Oo Zz G - > z as | op) oo > Cc ie) m UJ O TT ro) = J | a u Mm U A 0 OQ =| Zz UO | W = cr O = 0",
+                    3)),
+            TokenCount = 120
+        };
         var balancedMixedNavigationContent = content with
         {
             ContentRole = RetrievalContentClassifier.MixedNavigationContentRole,
@@ -142,6 +151,7 @@ public sealed class IngestionWorkerQdrantTests
         Assert.False(IngestionWorker.ShouldEmbedRetrievalChunk(navigationDominantMixedContent));
         Assert.False(IngestionWorker.ShouldEmbedRetrievalChunk(sparse));
         Assert.False(IngestionWorker.ShouldEmbedRetrievalChunk(replacementChars));
+        Assert.False(IngestionWorker.ShouldEmbedRetrievalChunk(ocrNoise));
     }
 
     [Fact]
@@ -180,21 +190,32 @@ public sealed class IngestionWorkerQdrantTests
             ChunkIndex = 4,
             ExtractionTextStatus = "empty_text"
         };
+        var ocrNoise = content with
+        {
+            ChunkIndex = 5,
+            Text = string.Join(
+                ' ',
+                Enumerable.Repeat(
+                    "iS) m =| a O om Mm Zz @ = m m 2 Zz Q@) OQ Oo Zz G - > z as | op) oo > Cc ie) m UJ O TT ro) = J | a u Mm U A 0 OQ =| Zz UO | W = cr O = 0",
+                    3)),
+            TokenCount = 120
+        };
 
         var summary = IngestionWorker.BuildRetrievalChunkQualitySummary(
-            [content, navigation, sparse, replacementChars, empty]);
+            [content, navigation, sparse, replacementChars, empty, ocrNoise]);
 
-        Assert.Equal(5, summary.TotalChunkCount);
+        Assert.Equal(6, summary.TotalChunkCount);
         Assert.Equal(1, summary.SearchableChunkCount);
-        Assert.Equal(4, summary.RejectedChunkCount);
+        Assert.Equal(5, summary.RejectedChunkCount);
         Assert.Equal(1, summary.NavigationChunkCount);
         Assert.Equal(1, summary.SparseRejectedChunkCount);
         Assert.Equal(1, summary.ReplacementCharRejectedChunkCount);
         Assert.Equal(1, summary.EmptyTextRejectedChunkCount);
+        Assert.Equal(1, summary.OcrNoiseRejectedChunkCount);
         Assert.False(summary.ManualReviewRecommended);
 
         var rejectedOnly = IngestionWorker.BuildRetrievalChunkQualitySummary(
-            [navigation, sparse, replacementChars, empty]);
+            [navigation, sparse, replacementChars, empty, ocrNoise]);
         Assert.Equal(0, rejectedOnly.SearchableChunkCount);
         Assert.True(rejectedOnly.ManualReviewRecommended);
     }
