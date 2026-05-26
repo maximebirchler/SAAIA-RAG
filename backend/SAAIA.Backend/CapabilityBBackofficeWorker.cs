@@ -624,7 +624,7 @@ WHERE j.job_type='summary.generate'
             projectedProfile);
     }
 
-    private static ProjectedDocumentProfile BuildBackofficeProfileFromSummary(
+    internal static ProjectedDocumentProfile BuildBackofficeProfileFromSummary(
         CapabilityBDocumentRow doc,
         DocumentProfileSnapshot baseline,
         CapabilityBGeneratedSummaryPayload summary,
@@ -643,7 +643,52 @@ WHERE j.job_type='summary.generate'
                 .Concat(baseline.Limits),
             docPath: doc.DocPath,
             docName: doc.DocName,
-            contentCards: baseline.ContentCards ?? []);
+            contentCards: SelectSafeBaselineContentCardsForBackoffice(baseline.ContentCards ?? []));
+
+    private static IReadOnlyList<DocumentProfileContentCard> SelectSafeBaselineContentCardsForBackoffice(
+        IReadOnlyList<DocumentProfileContentCard> contentCards)
+        => contentCards
+            .Where(IsSafeBaselineContentCardForBackoffice)
+            .ToArray();
+
+    private static bool IsSafeBaselineContentCardForBackoffice(DocumentProfileContentCard card)
+    {
+        if (HasBackofficeContentCardEvidence(card.Evidence))
+            return true;
+
+        if (!string.IsNullOrWhiteSpace(card.Title)
+            && ExactMatchEntryExtractor.ExtractTargetedReferences(card.Title).Any())
+        {
+            return true;
+        }
+
+        return IsDeterministicBackofficeContentCardKind(card.Kind)
+               && (card.PageStart is > 0 || card.PageEnd is > 0);
+    }
+
+    private static bool IsDeterministicBackofficeContentCardKind(string? kind)
+    {
+        var normalized = string.IsNullOrWhiteSpace(kind)
+            ? string.Empty
+            : kind.Trim().ToLowerInvariant();
+        return normalized is "section" or "exact_lead" or "page_embedded_title" or "unit_lead" or "standard_ref" or "code_ref";
+    }
+
+    private static bool HasBackofficeContentCardEvidence(DocumentProfileCardEvidence? evidence)
+    {
+        if (evidence is null)
+            return false;
+
+        if ((evidence.Facts ?? []).Any(static fact =>
+                !string.IsNullOrWhiteSpace(fact.SourceText)
+                || fact.PageStart is > 0
+                || fact.PageEnd is > 0))
+        {
+            return true;
+        }
+
+        return (evidence.QuantityFacts ?? []).Any(static fact => !string.IsNullOrWhiteSpace(fact.SourceText));
+    }
 
     private static string? ResolveDocumentLanguage(params string?[] candidates)
     {
