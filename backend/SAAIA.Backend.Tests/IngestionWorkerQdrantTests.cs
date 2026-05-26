@@ -68,6 +68,31 @@ public sealed class IngestionWorkerQdrantTests
         Assert.Equal(expected, IngestionWorker.ResolveEmbeddingInputFormat(model));
     }
 
+    [Theory]
+    [InlineData("Qdrant upsert failed: 500 Internal Server Error {\"status\":{\"error\":\"Service internal error: RocksDB put_cf error: IO error: Too many open files\"}}", true)]
+    [InlineData("Qdrant get collection failed: 503 Service Unavailable maintenance", true)]
+    [InlineData("Qdrant upsert failed: 400 Bad Request bad vector dimension", false)]
+    [InlineData("PDF extraction failed: unsupported encryption", false)]
+    public void ShouldDeferTransientInfrastructureFailure_only_defers_recoverable_dependency_errors(
+        string message,
+        bool expected)
+    {
+        Assert.Equal(expected, IngestionWorker.ShouldDeferTransientInfrastructureFailure(new Exception(message)));
+    }
+
+    [Fact]
+    public void ComputeTransientInfrastructureDeferralDelay_waits_longer_after_qdrant_storage_pressure()
+    {
+        var storagePressureDelay = IngestionWorker.ComputeTransientInfrastructureDeferralDelay(
+            new Exception("Qdrant upsert failed: 500 Internal Server Error RocksDB Too many open files"));
+        var genericGatewayDelay = IngestionWorker.ComputeTransientInfrastructureDeferralDelay(
+            new Exception("Qdrant upsert failed: 503 Service Unavailable"));
+
+        Assert.True(storagePressureDelay > genericGatewayDelay);
+        Assert.Equal(TimeSpan.FromMinutes(10), storagePressureDelay);
+        Assert.Equal(TimeSpan.FromMinutes(2), genericGatewayDelay);
+    }
+
     [Fact]
     public void ShouldEmbedRetrievalChunk_skips_navigation_and_review_only_chunks()
     {

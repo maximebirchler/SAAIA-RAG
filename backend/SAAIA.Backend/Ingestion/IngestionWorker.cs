@@ -214,6 +214,20 @@ sealed class IngestionWorker : BackgroundService
                                 continue;
                             }
 
+                            if (ShouldDeferTransientInfrastructureFailure(ex))
+                            {
+                                var retryDelay = ComputeTransientInfrastructureDeferralDelay(ex);
+                                _log.LogWarning(
+                                    ex,
+                                    "Job deferred because an external ingestion dependency returned a transient error job={JobId} action={Action} doc={DocPath} delay_seconds={DelaySeconds}",
+                                    job.JobId,
+                                    job.Action,
+                                    job.DocPath,
+                                    (int)Math.Ceiling(retryDelay.TotalSeconds));
+                                await JobRepo.DeferTransientAsync(ds, job.JobId, ex.Message, retryDelay, ct);
+                                continue;
+                            }
+
                             _log.LogError(ex, "Job failed job={JobId} action={Action} doc={DocPath}",
                                 job.JobId, job.Action, job.DocPath);
                             await JobRepo.MarkFailedAsync(ds, job.JobId, ex.Message, ct);
@@ -234,6 +248,41 @@ sealed class IngestionWorker : BackgroundService
     {
         var seconds = Math.Clamp((int)Math.Ceiling(ex.WaitTimeout.TotalSeconds / 2), 30, 900);
         return TimeSpan.FromSeconds(seconds);
+    }
+
+    internal static bool ShouldDeferTransientInfrastructureFailure(Exception ex)
+    {
+        var message = ex.Message ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(message))
+            return false;
+
+        if (message.Contains("Too many open files", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (!message.StartsWith("Qdrant ", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return message.Contains(": 500 ", StringComparison.OrdinalIgnoreCase)
+               || message.Contains(": 502 ", StringComparison.OrdinalIgnoreCase)
+               || message.Contains(": 503 ", StringComparison.OrdinalIgnoreCase)
+               || message.Contains(": 504 ", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("Service internal error", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("Not recovered from previous error", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("RocksDB", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("timed out", StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static TimeSpan ComputeTransientInfrastructureDeferralDelay(Exception ex)
+    {
+        var message = ex.Message ?? string.Empty;
+        if (message.Contains("Too many open files", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Not recovered from previous error", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("RocksDB", StringComparison.OrdinalIgnoreCase))
+        {
+            return TimeSpan.FromMinutes(10);
+        }
+
+        return TimeSpan.FromMinutes(2);
     }
 
     private static async Task<bool> IsCurrentDocVersionAsync(NpgsqlDataSource ds, Guid tenantId, string docPath, int version, CancellationToken ct)
