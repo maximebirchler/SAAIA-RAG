@@ -662,6 +662,7 @@ public sealed class DocumentProfileProjectorTests
                 new DocumentProfileContentCard("un contenant hermetique", 15, 15, "section", ["contenant"]),
                 new DocumentProfileContentCard("g de composants calibres Dans le bac", 16, 16, "section", ["composants"]),
                 new DocumentProfileContentCard("The committee also approved standard definitions and limits for the colors", 17, 17, "exact_lead", ["committee"]),
+                new DocumentProfileContentCard("Automation makes security-related information readily available in an environment where ongoing monitoring needs change", 18, 18, "exact_lead", ["automation"]),
                 new DocumentProfileContentCard("Control Handover Plan", 2, 2, "exact_lead", ["control"])
             ]);
 
@@ -686,6 +687,7 @@ public sealed class DocumentProfileProjectorTests
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "un contenant hermetique", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "g de composants calibres Dans le bac", StringComparison.Ordinal));
         Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "The committee also approved standard definitions and limits for the colors", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Automation makes security-related information readily available in an environment where ongoing monitoring needs change", StringComparison.Ordinal));
         Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Control Handover Plan", StringComparison.Ordinal));
     }
 

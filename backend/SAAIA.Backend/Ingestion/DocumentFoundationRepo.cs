@@ -2265,7 +2265,11 @@ SET section_id = EXCLUDED.section_id,
                 inferred = true,
                 kind = NormalizePostgresTextForStorage(entry.Kind),
                 offsetStart = entry.OffsetStart,
-                offsetEnd = entry.OffsetEnd
+                offsetEnd = entry.OffsetEnd,
+                extractionTextStatus = NormalizeOptionalPostgresTextForStorage(entry.ExtractionTextStatus),
+                extractionTextSparse = entry.ExtractionTextSparse,
+                extractionOcrCandidate = entry.ExtractionOcrCandidate,
+                extractionQualitySignals = NormalizePostgresTextArrayForStorage(entry.ExtractionQualitySignals ?? Array.Empty<string>())
             });
 
             await conn.ExecuteAsync(new CommandDefinition(sql, new

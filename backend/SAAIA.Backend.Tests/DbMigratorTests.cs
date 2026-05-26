@@ -109,6 +109,21 @@ public sealed class DbMigratorTests
         Assert.Contains("SELECT saaia_refresh_document_profile_search_entry", migration, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Noisy_profile_content_card_titles_migration_reuses_safe_projection_cleanup()
+    {
+        var migration = File.ReadAllText(Path.Combine(
+            ResolveMigrationsDir(),
+            "063_filter_noisy_profile_content_card_titles.sql"));
+
+        Assert.Contains("saaia_profile_content_card_has_noisy_title", migration, StringComparison.Ordinal);
+        Assert.Contains("raw_title ~ '[.]{5,}'", migration, StringComparison.Ordinal);
+        Assert.Contains("lowercase_lead_count >= CEIL", migration, StringComparison.Ordinal);
+        Assert.Contains("DELETE FROM document_profile_content_cards", migration, StringComparison.Ordinal);
+        Assert.Contains("SET search_text = safe_profile_search_text.search_text", migration, StringComparison.Ordinal);
+        Assert.Contains("SELECT saaia_refresh_document_profile_search_entry", migration, StringComparison.Ordinal);
+    }
+
     private static string ResolveMigrationsDir()
         => Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,

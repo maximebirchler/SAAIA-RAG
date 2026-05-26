@@ -10380,7 +10380,25 @@ SELECT
     LOWER(ENCODE(d.content_hash, 'hex')) AS "HashDoc",
     COALESCE(e.metadata->>'kind', 'verbatim_excerpt') AS "MatchKind",
     s.title AS "SectionTitle",
-    lookup_terms.term AS "MatchedTerm"
+    lookup_terms.term AS "MatchedTerm",
+    COALESCE(e.metadata->>'extractionTextStatus', u.metadata->>'extractionTextStatus') AS "ExtractionTextStatus",
+    CASE
+        WHEN LOWER(COALESCE(e.metadata->>'extractionTextSparse', u.metadata->>'extractionTextSparse', '')) IN ('true', 'false')
+            THEN COALESCE(e.metadata->>'extractionTextSparse', u.metadata->>'extractionTextSparse')::boolean
+        ELSE NULL
+    END AS "ExtractionTextSparse",
+    CASE
+        WHEN LOWER(COALESCE(e.metadata->>'extractionOcrCandidate', u.metadata->>'extractionOcrCandidate', '')) IN ('true', 'false')
+            THEN COALESCE(e.metadata->>'extractionOcrCandidate', u.metadata->>'extractionOcrCandidate')::boolean
+        ELSE NULL
+    END AS "ExtractionOcrCandidate",
+    CASE
+        WHEN jsonb_typeof(e.metadata->'extractionQualitySignals') = 'array'
+            THEN (e.metadata->'extractionQualitySignals')::text
+        WHEN jsonb_typeof(u.metadata->'extractionQualitySignals') = 'array'
+            THEN (u.metadata->'extractionQualitySignals')::text
+        ELSE NULL
+    END AS "ExtractionQualitySignalsJson"
 FROM (
     SELECT *
     FROM documents
@@ -10403,6 +10421,8 @@ JOIN lookup_terms
   ON __exact_match_lookup_predicate__
 LEFT JOIN document_sections s
   ON s.section_id = e.section_id
+LEFT JOIN document_units u
+  ON u.unit_id = e.unit_id
 LEFT JOIN LATERAL (
     SELECT rc.text_content
     FROM retrieval_chunks rc
@@ -10530,7 +10550,11 @@ LIMIT @top_k;
             ChunkType: "exact_match_entry",
             PrevChunkId: null,
             NextChunkId: null,
-            SameSectionChunkId: null)).ToList();
+            SameSectionChunkId: null,
+            ExtractionTextStatus: row.ExtractionTextStatus,
+            ExtractionTextSparse: row.ExtractionTextSparse,
+            ExtractionOcrCandidate: row.ExtractionOcrCandidate,
+            ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson))).ToList();
 
         if (matches.Count < topK)
         {
@@ -10836,6 +10860,22 @@ SELECT
     rc.metadata->>'prevChunkId' AS "PrevChunkId",
     rc.metadata->>'nextChunkId' AS "NextChunkId",
     rc.metadata->>'sameSectionChunkId' AS "SameSectionChunkId",
+    rc.metadata->>'extractionTextStatus' AS "ExtractionTextStatus",
+    CASE
+        WHEN LOWER(COALESCE(rc.metadata->>'extractionTextSparse', '')) IN ('true', 'false')
+            THEN (rc.metadata->>'extractionTextSparse')::boolean
+        ELSE NULL
+    END AS "ExtractionTextSparse",
+    CASE
+        WHEN LOWER(COALESCE(rc.metadata->>'extractionOcrCandidate', '')) IN ('true', 'false')
+            THEN (rc.metadata->>'extractionOcrCandidate')::boolean
+        ELSE NULL
+    END AS "ExtractionOcrCandidate",
+    CASE
+        WHEN jsonb_typeof(rc.metadata->'extractionQualitySignals') = 'array'
+            THEN (rc.metadata->'extractionQualitySignals')::text
+        ELSE NULL
+    END AS "ExtractionQualitySignalsJson",
     pcm.matched_content_cards_json AS "MatchedContentCardsJson",
     (tm.match_weight + (COALESCE(pcm.match_weight, 0.0) * 2.2))::real AS "SparseRank"
 FROM (
@@ -11024,7 +11064,11 @@ LIMIT @candidate_limit;
             PrevChunkId: row.PrevChunkId,
             NextChunkId: row.NextChunkId,
                     SameSectionChunkId: row.SameSectionChunkId,
-                    MatchedContentCards: BuildSparseMatchedContentCards(row, query));
+                    MatchedContentCards: BuildSparseMatchedContentCards(row, query),
+                    ExtractionTextStatus: row.ExtractionTextStatus,
+                    ExtractionTextSparse: row.ExtractionTextSparse,
+                    ExtractionOcrCandidate: row.ExtractionOcrCandidate,
+                    ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson));
             })
             .ToList();
     }
@@ -11181,6 +11225,22 @@ SELECT
     metadata->>'prevChunkId' AS "PrevChunkId",
     metadata->>'nextChunkId' AS "NextChunkId",
     metadata->>'sameSectionChunkId' AS "SameSectionChunkId",
+    metadata->>'extractionTextStatus' AS "ExtractionTextStatus",
+    CASE
+        WHEN LOWER(COALESCE(metadata->>'extractionTextSparse', '')) IN ('true', 'false')
+            THEN (metadata->>'extractionTextSparse')::boolean
+        ELSE NULL
+    END AS "ExtractionTextSparse",
+    CASE
+        WHEN LOWER(COALESCE(metadata->>'extractionOcrCandidate', '')) IN ('true', 'false')
+            THEN (metadata->>'extractionOcrCandidate')::boolean
+        ELSE NULL
+    END AS "ExtractionOcrCandidate",
+    CASE
+        WHEN jsonb_typeof(metadata->'extractionQualitySignals') = 'array'
+            THEN (metadata->'extractionQualitySignals')::text
+        ELSE NULL
+    END AS "ExtractionQualitySignalsJson",
     NULL::text AS "MatchedContentCardsJson",
     LEAST(1.02, 0.76 + LEAST(0.20, token_hits::double precision * 0.045) + LEAST(0.06, content_density_score * 0.06))::real AS "SparseRank"
 FROM scored_chunks
@@ -11803,6 +11863,22 @@ SELECT
     metadata->>'prevChunkId' AS "PrevChunkId",
     metadata->>'nextChunkId' AS "NextChunkId",
     metadata->>'sameSectionChunkId' AS "SameSectionChunkId",
+    metadata->>'extractionTextStatus' AS "ExtractionTextStatus",
+    CASE
+        WHEN LOWER(COALESCE(metadata->>'extractionTextSparse', '')) IN ('true', 'false')
+            THEN (metadata->>'extractionTextSparse')::boolean
+        ELSE NULL
+    END AS "ExtractionTextSparse",
+    CASE
+        WHEN LOWER(COALESCE(metadata->>'extractionOcrCandidate', '')) IN ('true', 'false')
+            THEN (metadata->>'extractionOcrCandidate')::boolean
+        ELSE NULL
+    END AS "ExtractionOcrCandidate",
+    CASE
+        WHEN jsonb_typeof(metadata->'extractionQualitySignals') = 'array'
+            THEN (metadata->'extractionQualitySignals')::text
+        ELSE NULL
+    END AS "ExtractionQualitySignalsJson",
     NULL::text AS "MatchedContentCardsJson",
     LEAST(
         1.02,
@@ -11864,7 +11940,11 @@ LIMIT @candidate_limit;
                     ContentDensityScore: row.ContentDensityScore,
                     PrevChunkId: row.PrevChunkId,
                     NextChunkId: row.NextChunkId,
-                    SameSectionChunkId: row.SameSectionChunkId))
+                    SameSectionChunkId: row.SameSectionChunkId,
+                    ExtractionTextStatus: row.ExtractionTextStatus,
+                    ExtractionTextSparse: row.ExtractionTextSparse,
+                    ExtractionOcrCandidate: row.ExtractionOcrCandidate,
+                    ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson)))
                 .ToList();
         }
         catch (PostgresException ex)
@@ -11948,7 +12028,11 @@ LIMIT @candidate_limit;
                     PrevChunkId: row.PrevChunkId,
                     NextChunkId: row.NextChunkId,
                     SameSectionChunkId: row.SameSectionChunkId,
-                    MatchedContentCards: null);
+                    MatchedContentCards: null,
+                    ExtractionTextStatus: row.ExtractionTextStatus,
+                    ExtractionTextSparse: row.ExtractionTextSparse,
+                    ExtractionOcrCandidate: row.ExtractionOcrCandidate,
+                    ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson));
             })
             .ToList();
     }
@@ -12593,6 +12677,22 @@ SELECT
     rc.metadata->>'prevChunkId' AS "PrevChunkId",
     rc.metadata->>'nextChunkId' AS "NextChunkId",
     rc.metadata->>'sameSectionChunkId' AS "SameSectionChunkId",
+    rc.metadata->>'extractionTextStatus' AS "ExtractionTextStatus",
+    CASE
+        WHEN LOWER(COALESCE(rc.metadata->>'extractionTextSparse', '')) IN ('true', 'false')
+            THEN (rc.metadata->>'extractionTextSparse')::boolean
+        ELSE NULL
+    END AS "ExtractionTextSparse",
+    CASE
+        WHEN LOWER(COALESCE(rc.metadata->>'extractionOcrCandidate', '')) IN ('true', 'false')
+            THEN (rc.metadata->>'extractionOcrCandidate')::boolean
+        ELSE NULL
+    END AS "ExtractionOcrCandidate",
+    CASE
+        WHEN jsonb_typeof(rc.metadata->'extractionQualitySignals') = 'array'
+            THEN (rc.metadata->'extractionQualitySignals')::text
+        ELSE NULL
+    END AS "ExtractionQualitySignalsJson",
     NULL::text AS "MatchedContentCardsJson",
     MAX(routes.route_rank)::real AS "SparseRank"
 FROM ranked_routes routes
@@ -12687,7 +12787,11 @@ LIMIT @candidate_limit;
                     ContentDensityScore: row.ContentDensityScore,
                     PrevChunkId: row.PrevChunkId,
                     NextChunkId: row.NextChunkId,
-                    SameSectionChunkId: row.SameSectionChunkId))
+                    SameSectionChunkId: row.SameSectionChunkId,
+                    ExtractionTextStatus: row.ExtractionTextStatus,
+                    ExtractionTextSparse: row.ExtractionTextSparse,
+                    ExtractionOcrCandidate: row.ExtractionOcrCandidate,
+                    ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson)))
                 .Where(static match => !IsNavigationRouteMatch(match) || NavigationRouteHasTargetTitleEvidence(match))
                 .ToList();
 
@@ -12882,6 +12986,22 @@ SELECT
     cc.metadata->>'prevChunkId' AS "PrevChunkId",
     cc.metadata->>'nextChunkId' AS "NextChunkId",
     cc.metadata->>'sameSectionChunkId' AS "SameSectionChunkId",
+    cc.metadata->>'extractionTextStatus' AS "ExtractionTextStatus",
+    CASE
+        WHEN LOWER(COALESCE(cc.metadata->>'extractionTextSparse', '')) IN ('true', 'false')
+            THEN (cc.metadata->>'extractionTextSparse')::boolean
+        ELSE NULL
+    END AS "ExtractionTextSparse",
+    CASE
+        WHEN LOWER(COALESCE(cc.metadata->>'extractionOcrCandidate', '')) IN ('true', 'false')
+            THEN (cc.metadata->>'extractionOcrCandidate')::boolean
+        ELSE NULL
+    END AS "ExtractionOcrCandidate",
+    CASE
+        WHEN jsonb_typeof(cc.metadata->'extractionQualitySignals') = 'array'
+            THEN (cc.metadata->'extractionQualitySignals')::text
+        ELSE NULL
+    END AS "ExtractionQualitySignalsJson",
     NULL::text AS "MatchedContentCardsJson",
     LEAST(0.98, 0.66 + (cc.fuzzy_score * 0.24) + (cc.structured_priority * 0.03))::real AS "SparseRank"
 FROM candidate_chunks cc
@@ -12946,7 +13066,11 @@ LIMIT @candidate_limit;
                     ContentDensityScore: row.ContentDensityScore,
                     PrevChunkId: row.PrevChunkId,
                     NextChunkId: row.NextChunkId,
-                    SameSectionChunkId: row.SameSectionChunkId))
+                    SameSectionChunkId: row.SameSectionChunkId,
+                    ExtractionTextStatus: row.ExtractionTextStatus,
+                    ExtractionTextSparse: row.ExtractionTextSparse,
+                    ExtractionOcrCandidate: row.ExtractionOcrCandidate,
+                    ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson)))
                 .ToList();
 
             return await AttachDocumentProfileContentCardsAsync(ds, tenantId, matches, query, ct);
@@ -13378,6 +13502,22 @@ SELECT
     rc.metadata->>'prevChunkId' AS "PrevChunkId",
     rc.metadata->>'nextChunkId' AS "NextChunkId",
     rc.metadata->>'sameSectionChunkId' AS "SameSectionChunkId",
+    rc.metadata->>'extractionTextStatus' AS "ExtractionTextStatus",
+    CASE
+        WHEN LOWER(COALESCE(rc.metadata->>'extractionTextSparse', '')) IN ('true', 'false')
+            THEN (rc.metadata->>'extractionTextSparse')::boolean
+        ELSE NULL
+    END AS "ExtractionTextSparse",
+    CASE
+        WHEN LOWER(COALESCE(rc.metadata->>'extractionOcrCandidate', '')) IN ('true', 'false')
+            THEN (rc.metadata->>'extractionOcrCandidate')::boolean
+        ELSE NULL
+    END AS "ExtractionOcrCandidate",
+    CASE
+        WHEN jsonb_typeof(rc.metadata->'extractionQualitySignals') = 'array'
+            THEN (rc.metadata->'extractionQualitySignals')::text
+        ELSE NULL
+    END AS "ExtractionQualitySignalsJson",
     pcm.matched_content_cards_json AS "MatchedContentCardsJson",
     (
         ts_rank_cd(
@@ -13705,6 +13845,22 @@ SELECT
     rc.metadata->>'prevChunkId' AS "PrevChunkId",
     rc.metadata->>'nextChunkId' AS "NextChunkId",
     rc.metadata->>'sameSectionChunkId' AS "SameSectionChunkId",
+    rc.metadata->>'extractionTextStatus' AS "ExtractionTextStatus",
+    CASE
+        WHEN LOWER(COALESCE(rc.metadata->>'extractionTextSparse', '')) IN ('true', 'false')
+            THEN (rc.metadata->>'extractionTextSparse')::boolean
+        ELSE NULL
+    END AS "ExtractionTextSparse",
+    CASE
+        WHEN LOWER(COALESCE(rc.metadata->>'extractionOcrCandidate', '')) IN ('true', 'false')
+            THEN (rc.metadata->>'extractionOcrCandidate')::boolean
+        ELSE NULL
+    END AS "ExtractionOcrCandidate",
+    CASE
+        WHEN jsonb_typeof(rc.metadata->'extractionQualitySignals') = 'array'
+            THEN (rc.metadata->'extractionQualitySignals')::text
+        ELSE NULL
+    END AS "ExtractionQualitySignalsJson",
     NULL::text AS "MatchedContentCardsJson",
     (
         ranked.match_weight
@@ -13901,6 +14057,22 @@ SELECT
     rc.metadata->>'prevChunkId' AS "PrevChunkId",
     rc.metadata->>'nextChunkId' AS "NextChunkId",
     rc.metadata->>'sameSectionChunkId' AS "SameSectionChunkId",
+    rc.metadata->>'extractionTextStatus' AS "ExtractionTextStatus",
+    CASE
+        WHEN LOWER(COALESCE(rc.metadata->>'extractionTextSparse', '')) IN ('true', 'false')
+            THEN (rc.metadata->>'extractionTextSparse')::boolean
+        ELSE NULL
+    END AS "ExtractionTextSparse",
+    CASE
+        WHEN LOWER(COALESCE(rc.metadata->>'extractionOcrCandidate', '')) IN ('true', 'false')
+            THEN (rc.metadata->>'extractionOcrCandidate')::boolean
+        ELSE NULL
+    END AS "ExtractionOcrCandidate",
+    CASE
+        WHEN jsonb_typeof(rc.metadata->'extractionQualitySignals') = 'array'
+            THEN (rc.metadata->'extractionQualitySignals')::text
+        ELSE NULL
+    END AS "ExtractionQualitySignalsJson",
     NULL::text AS "MatchedContentCardsJson",
     ranked.match_weight AS "SparseRank"
 FROM ranked_chunk_terms ranked
@@ -13979,7 +14151,17 @@ LIMIT @top_k;
             PrevChunkId: row.PrevChunkId,
             NextChunkId: row.NextChunkId,
             SameSectionChunkId: row.SameSectionChunkId,
-            MatchedContentCards: BuildSparseMatchedContentCards(row, query))).ToList();
+            MatchedContentCards: BuildSparseMatchedContentCards(row, query),
+            ExtractionTextStatus: row.ExtractionTextStatus,
+            ExtractionTextSparse: row.ExtractionTextSparse,
+            ExtractionOcrCandidate: row.ExtractionOcrCandidate,
+            ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson))).ToList();
+
+    private static IReadOnlyList<string>? ParseExtractionQualitySignalsJson(string? value)
+    {
+        var signals = NormalizeExtractionQualitySignals(ParseJsonStringArray(value));
+        return signals.Length == 0 ? null : signals;
+    }
 
 private const string LexicalContentFallbackSql = """
 WITH lexical_terms AS (
@@ -14305,6 +14487,22 @@ SELECT
     rc.metadata->>'prevChunkId' AS "PrevChunkId",
     rc.metadata->>'nextChunkId' AS "NextChunkId",
     rc.metadata->>'sameSectionChunkId' AS "SameSectionChunkId",
+    rc.metadata->>'extractionTextStatus' AS "ExtractionTextStatus",
+    CASE
+        WHEN LOWER(COALESCE(rc.metadata->>'extractionTextSparse', '')) IN ('true', 'false')
+            THEN (rc.metadata->>'extractionTextSparse')::boolean
+        ELSE NULL
+    END AS "ExtractionTextSparse",
+    CASE
+        WHEN LOWER(COALESCE(rc.metadata->>'extractionOcrCandidate', '')) IN ('true', 'false')
+            THEN (rc.metadata->>'extractionOcrCandidate')::boolean
+        ELSE NULL
+    END AS "ExtractionOcrCandidate",
+    CASE
+        WHEN jsonb_typeof(rc.metadata->'extractionQualitySignals') = 'array'
+            THEN (rc.metadata->'extractionQualitySignals')::text
+        ELSE NULL
+    END AS "ExtractionQualitySignalsJson",
     pcm.matched_content_cards_json AS "MatchedContentCardsJson",
     (COALESCE(lm.match_weight, 0.0) + (COALESCE(pcm.match_weight, 0.0) * 1.8))::real AS "SparseRank"
 FROM candidate_chunks candidate
@@ -14630,6 +14828,22 @@ ranked_chunks AS (
         rc.metadata->>'prevChunkId' AS prev_chunk_id,
         rc.metadata->>'nextChunkId' AS next_chunk_id,
         rc.metadata->>'sameSectionChunkId' AS same_section_chunk_id,
+        rc.metadata->>'extractionTextStatus' AS extraction_text_status,
+        CASE
+            WHEN LOWER(COALESCE(rc.metadata->>'extractionTextSparse', '')) IN ('true', 'false')
+                THEN (rc.metadata->>'extractionTextSparse')::boolean
+            ELSE NULL
+        END AS extraction_text_sparse,
+        CASE
+            WHEN LOWER(COALESCE(rc.metadata->>'extractionOcrCandidate', '')) IN ('true', 'false')
+                THEN (rc.metadata->>'extractionOcrCandidate')::boolean
+            ELSE NULL
+        END AS extraction_ocr_candidate,
+        CASE
+            WHEN jsonb_typeof(rc.metadata->'extractionQualitySignals') = 'array'
+                THEN (rc.metadata->'extractionQualitySignals')::text
+            ELSE NULL
+        END AS extraction_quality_signals_json,
         ROW_NUMBER() OVER (
             PARTITION BY d.doc_id
             ORDER BY
@@ -14683,6 +14897,10 @@ SELECT
     prev_chunk_id AS "PrevChunkId",
     next_chunk_id AS "NextChunkId",
     same_section_chunk_id AS "SameSectionChunkId",
+    extraction_text_status AS "ExtractionTextStatus",
+    extraction_text_sparse AS "ExtractionTextSparse",
+    extraction_ocr_candidate AS "ExtractionOcrCandidate",
+    extraction_quality_signals_json AS "ExtractionQualitySignalsJson",
     NULL::text AS "MatchedContentCardsJson",
     (0.62 + LEAST(phrase_match_count, 3)::real * 0.04 + LEAST(phrase_match_length, 40)::real * 0.002)::real AS "SparseRank"
 FROM ranked_chunks
@@ -15172,6 +15390,22 @@ ranked_chunks AS (
         rc.metadata->>'prevChunkId' AS prev_chunk_id,
         rc.metadata->>'nextChunkId' AS next_chunk_id,
         rc.metadata->>'sameSectionChunkId' AS same_section_chunk_id,
+        rc.metadata->>'extractionTextStatus' AS extraction_text_status,
+        CASE
+            WHEN LOWER(COALESCE(rc.metadata->>'extractionTextSparse', '')) IN ('true', 'false')
+                THEN (rc.metadata->>'extractionTextSparse')::boolean
+            ELSE NULL
+        END AS extraction_text_sparse,
+        CASE
+            WHEN LOWER(COALESCE(rc.metadata->>'extractionOcrCandidate', '')) IN ('true', 'false')
+                THEN (rc.metadata->>'extractionOcrCandidate')::boolean
+            ELSE NULL
+        END AS extraction_ocr_candidate,
+        CASE
+            WHEN jsonb_typeof(rc.metadata->'extractionQualitySignals') = 'array'
+                THEN (rc.metadata->'extractionQualitySignals')::text
+            ELSE NULL
+        END AS extraction_quality_signals_json,
         ROW_NUMBER() OVER (
             PARTITION BY COALESCE(d.matched_term, '__family__'), d.doc_id
             ORDER BY
@@ -15242,6 +15476,10 @@ SELECT
     prev_chunk_id AS "PrevChunkId",
     next_chunk_id AS "NextChunkId",
     same_section_chunk_id AS "SameSectionChunkId",
+    extraction_text_status AS "ExtractionTextStatus",
+    extraction_text_sparse AS "ExtractionTextSparse",
+    extraction_ocr_candidate AS "ExtractionOcrCandidate",
+    extraction_quality_signals_json AS "ExtractionQualitySignalsJson",
     NULL::text AS "MatchedContentCardsJson",
     (CASE WHEN direct_status_match THEN 0.86 ELSE 0.72 END
         + LEAST(status_match_count, 3)::real * 0.04
@@ -15431,6 +15669,22 @@ ranked_chunks AS (
         rc.metadata->>'prevChunkId' AS prev_chunk_id,
         rc.metadata->>'nextChunkId' AS next_chunk_id,
         rc.metadata->>'sameSectionChunkId' AS same_section_chunk_id,
+        rc.metadata->>'extractionTextStatus' AS extraction_text_status,
+        CASE
+            WHEN LOWER(COALESCE(rc.metadata->>'extractionTextSparse', '')) IN ('true', 'false')
+                THEN (rc.metadata->>'extractionTextSparse')::boolean
+            ELSE NULL
+        END AS extraction_text_sparse,
+        CASE
+            WHEN LOWER(COALESCE(rc.metadata->>'extractionOcrCandidate', '')) IN ('true', 'false')
+                THEN (rc.metadata->>'extractionOcrCandidate')::boolean
+            ELSE NULL
+        END AS extraction_ocr_candidate,
+        CASE
+            WHEN jsonb_typeof(rc.metadata->'extractionQualitySignals') = 'array'
+                THEN (rc.metadata->'extractionQualitySignals')::text
+            ELSE NULL
+        END AS extraction_quality_signals_json,
         ROW_NUMBER() OVER (
             PARTITION BY d.doc_id
             ORDER BY
@@ -15484,6 +15738,10 @@ SELECT
     prev_chunk_id AS "PrevChunkId",
     next_chunk_id AS "NextChunkId",
     same_section_chunk_id AS "SameSectionChunkId",
+    extraction_text_status AS "ExtractionTextStatus",
+    extraction_text_sparse AS "ExtractionTextSparse",
+    extraction_ocr_candidate AS "ExtractionOcrCandidate",
+    extraction_quality_signals_json AS "ExtractionQualitySignalsJson",
     NULL::text AS "MatchedContentCardsJson",
     (0.66 + LEAST(operand_match_count, 4)::real * 0.045 + LEAST(group_match_length, 40)::real * 0.001)::real AS "SparseRank"
 FROM ranked_chunks
@@ -15649,6 +15907,22 @@ ranked_chunks AS (
         rc.metadata->>'prevChunkId' AS prev_chunk_id,
         rc.metadata->>'nextChunkId' AS next_chunk_id,
         rc.metadata->>'sameSectionChunkId' AS same_section_chunk_id,
+        rc.metadata->>'extractionTextStatus' AS extraction_text_status,
+        CASE
+            WHEN LOWER(COALESCE(rc.metadata->>'extractionTextSparse', '')) IN ('true', 'false')
+                THEN (rc.metadata->>'extractionTextSparse')::boolean
+            ELSE NULL
+        END AS extraction_text_sparse,
+        CASE
+            WHEN LOWER(COALESCE(rc.metadata->>'extractionOcrCandidate', '')) IN ('true', 'false')
+                THEN (rc.metadata->>'extractionOcrCandidate')::boolean
+            ELSE NULL
+        END AS extraction_ocr_candidate,
+        CASE
+            WHEN jsonb_typeof(rc.metadata->'extractionQualitySignals') = 'array'
+                THEN (rc.metadata->'extractionQualitySignals')::text
+            ELSE NULL
+        END AS extraction_quality_signals_json,
         ROW_NUMBER() OVER (
             PARTITION BY d.doc_id
             ORDER BY
@@ -15702,6 +15976,10 @@ SELECT
     prev_chunk_id AS "PrevChunkId",
     next_chunk_id AS "NextChunkId",
     same_section_chunk_id AS "SameSectionChunkId",
+    extraction_text_status AS "ExtractionTextStatus",
+    extraction_text_sparse AS "ExtractionTextSparse",
+    extraction_ocr_candidate AS "ExtractionOcrCandidate",
+    extraction_quality_signals_json AS "ExtractionQualitySignalsJson",
     NULL::text AS "MatchedContentCardsJson",
     (0.70 + LEAST(phrase_match_count, 4)::real * 0.04 + LEAST(phrase_match_length, 40)::real * 0.002)::real AS "SparseRank"
 FROM ranked_chunks
@@ -18594,7 +18872,11 @@ GROUP BY d.doc_id;
         string? HashDoc,
         string MatchKind,
         string? SectionTitle,
-        string? MatchedTerm);
+        string? MatchedTerm,
+        string? ExtractionTextStatus,
+        bool? ExtractionTextSparse,
+        bool? ExtractionOcrCandidate,
+        string? ExtractionQualitySignalsJson);
 
     private sealed record MetadataReferenceRow(
         Guid DocId,
@@ -18672,38 +18954,38 @@ GROUP BY d.doc_id;
     // throw "no matching constructor" at runtime.
     private sealed class SparseMatchRow
     {
-        public Guid DocId { get; init; }
-        public string DocPath { get; init; } = string.Empty;
-        public string DocName { get; init; } = string.Empty;
-        public string? Category { get; init; }
-        public int PageStart { get; init; }
-        public int PageEnd { get; init; }
-        public int? OffsetStart { get; init; }
-        public int? OffsetEnd { get; init; }
-        public Guid ChunkId { get; init; }
-        public int ChunkIndex { get; init; }
-        public string Text { get; init; } = string.Empty;
-        public int IngestionVersion { get; init; }
-        public string? HashDoc { get; init; }
-        public string EmbedText { get; init; } = string.Empty;
-        public Guid? SectionOrdinalPlaceholder { get; init; }
-        public string? SectionTitle { get; init; }
-        public string? HeadingPath { get; init; }
-        public string ChunkType { get; init; } = "contextual_text_v1";
-        public string? ContentRole { get; init; }
-        public string? NavigationReason { get; init; }
-        public string? OriginalChunkType { get; init; }
-        public double? NavigationScore { get; init; }
-        public double? ContentDensityScore { get; init; }
-        public string? ExtractionTextStatus { get; init; }
-        public bool? ExtractionTextSparse { get; init; }
-        public bool? ExtractionOcrCandidate { get; init; }
-        public string? ExtractionQualitySignalsJson { get; init; }
-        public string? PrevChunkId { get; init; }
-        public string? NextChunkId { get; init; }
-        public string? SameSectionChunkId { get; init; }
-        public string? MatchedContentCardsJson { get; init; }
-        public float SparseRank { get; init; }
+        public Guid DocId { get; set; }
+        public string DocPath { get; set; } = string.Empty;
+        public string DocName { get; set; } = string.Empty;
+        public string? Category { get; set; }
+        public int PageStart { get; set; }
+        public int PageEnd { get; set; }
+        public int? OffsetStart { get; set; }
+        public int? OffsetEnd { get; set; }
+        public Guid ChunkId { get; set; }
+        public int ChunkIndex { get; set; }
+        public string Text { get; set; } = string.Empty;
+        public int IngestionVersion { get; set; }
+        public string? HashDoc { get; set; }
+        public string EmbedText { get; set; } = string.Empty;
+        public Guid? SectionOrdinalPlaceholder { get; set; }
+        public string? SectionTitle { get; set; }
+        public string? HeadingPath { get; set; }
+        public string ChunkType { get; set; } = "contextual_text_v1";
+        public string? ContentRole { get; set; }
+        public string? NavigationReason { get; set; }
+        public string? OriginalChunkType { get; set; }
+        public double? NavigationScore { get; set; }
+        public double? ContentDensityScore { get; set; }
+        public string? ExtractionTextStatus { get; set; }
+        public bool? ExtractionTextSparse { get; set; }
+        public bool? ExtractionOcrCandidate { get; set; }
+        public string? ExtractionQualitySignalsJson { get; set; }
+        public string? PrevChunkId { get; set; }
+        public string? NextChunkId { get; set; }
+        public string? SameSectionChunkId { get; set; }
+        public string? MatchedContentCardsJson { get; set; }
+        public float SparseRank { get; set; }
     }
 
     // PostgreSQL text[] columns are exposed to Dapper's positional record binder as
@@ -18737,37 +19019,37 @@ GROUP BY d.doc_id;
 
     private sealed class LinkedMatchRow
     {
-        public Guid DocId { get; init; }
-        public string DocPath { get; init; } = string.Empty;
-        public string DocName { get; init; } = string.Empty;
-        public string? Category { get; init; }
-        public int PageStart { get; init; }
-        public int PageEnd { get; init; }
-        public int? OffsetStart { get; init; }
-        public int? OffsetEnd { get; init; }
-        public Guid ChunkId { get; init; }
-        public int ChunkIndex { get; init; }
-        public string Text { get; init; } = string.Empty;
-        public int IngestionVersion { get; init; }
-        public string? HashDoc { get; init; }
-        public string ChunkType { get; init; } = "linked_context_v1";
-        public string? ContentRole { get; init; }
-        public string? NavigationReason { get; init; }
-        public string? OriginalChunkType { get; init; }
-        public double? NavigationScore { get; init; }
-        public double? ContentDensityScore { get; init; }
-        public string? ExtractionTextStatus { get; init; }
-        public bool? ExtractionTextSparse { get; init; }
-        public bool? ExtractionOcrCandidate { get; init; }
-        public string? ExtractionQualitySignalsJson { get; init; }
-        public string? SectionTitle { get; init; }
-        public string? HeadingPath { get; init; }
-        public string LinkType { get; init; } = string.Empty;
-        public Guid AnchorSourceId { get; init; }
-        public Guid AnchorChunkId { get; init; }
-        public string? PrevChunkId { get; init; }
-        public string? NextChunkId { get; init; }
-        public string? SameSectionChunkId { get; init; }
+        public Guid DocId { get; set; }
+        public string DocPath { get; set; } = string.Empty;
+        public string DocName { get; set; } = string.Empty;
+        public string? Category { get; set; }
+        public int PageStart { get; set; }
+        public int PageEnd { get; set; }
+        public int? OffsetStart { get; set; }
+        public int? OffsetEnd { get; set; }
+        public Guid ChunkId { get; set; }
+        public int ChunkIndex { get; set; }
+        public string Text { get; set; } = string.Empty;
+        public int IngestionVersion { get; set; }
+        public string? HashDoc { get; set; }
+        public string ChunkType { get; set; } = "linked_context_v1";
+        public string? ContentRole { get; set; }
+        public string? NavigationReason { get; set; }
+        public string? OriginalChunkType { get; set; }
+        public double? NavigationScore { get; set; }
+        public double? ContentDensityScore { get; set; }
+        public string? ExtractionTextStatus { get; set; }
+        public bool? ExtractionTextSparse { get; set; }
+        public bool? ExtractionOcrCandidate { get; set; }
+        public string? ExtractionQualitySignalsJson { get; set; }
+        public string? SectionTitle { get; set; }
+        public string? HeadingPath { get; set; }
+        public string LinkType { get; set; } = string.Empty;
+        public Guid AnchorSourceId { get; set; }
+        public Guid AnchorChunkId { get; set; }
+        public string? PrevChunkId { get; set; }
+        public string? NextChunkId { get; set; }
+        public string? SameSectionChunkId { get; set; }
     }
 
     private static void AddRankedMatches(
@@ -20295,7 +20577,23 @@ SELECT
     COALESCE(l.anchor_chunk_id, l.linked_chunk_id) AS "AnchorChunkId",
     rc.metadata->>'prevChunkId' AS "PrevChunkId",
     rc.metadata->>'nextChunkId' AS "NextChunkId",
-    rc.metadata->>'sameSectionChunkId' AS "SameSectionChunkId"
+    rc.metadata->>'sameSectionChunkId' AS "SameSectionChunkId",
+    rc.metadata->>'extractionTextStatus' AS "ExtractionTextStatus",
+    CASE
+        WHEN LOWER(COALESCE(rc.metadata->>'extractionTextSparse', '')) IN ('true', 'false')
+            THEN (rc.metadata->>'extractionTextSparse')::boolean
+        ELSE NULL
+    END AS "ExtractionTextSparse",
+    CASE
+        WHEN LOWER(COALESCE(rc.metadata->>'extractionOcrCandidate', '')) IN ('true', 'false')
+            THEN (rc.metadata->>'extractionOcrCandidate')::boolean
+        ELSE NULL
+    END AS "ExtractionOcrCandidate",
+    CASE
+        WHEN jsonb_typeof(rc.metadata->'extractionQualitySignals') = 'array'
+            THEN (rc.metadata->'extractionQualitySignals')::text
+        ELSE NULL
+    END AS "ExtractionQualitySignalsJson"
 FROM requested_anchors a
 JOIN linked_candidates l
   ON l.source_anchor_id = a.source_anchor_id
@@ -20388,7 +20686,11 @@ LIMIT @top_k;
                 ContentDensityScore: row.ContentDensityScore,
                 PrevChunkId: row.PrevChunkId,
                 NextChunkId: row.NextChunkId,
-                SameSectionChunkId: row.SameSectionChunkId);
+                SameSectionChunkId: row.SameSectionChunkId,
+                ExtractionTextStatus: row.ExtractionTextStatus,
+                ExtractionTextSparse: row.ExtractionTextSparse,
+                ExtractionOcrCandidate: row.ExtractionOcrCandidate,
+                ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson));
         }).ToList();
 
         var cardQuery = string.Join(

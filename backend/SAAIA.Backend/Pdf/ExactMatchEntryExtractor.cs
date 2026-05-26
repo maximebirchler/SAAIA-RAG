@@ -70,7 +70,11 @@ internal static partial class ExactMatchEntryExtractor
                     Checksum: SHA256.HashData(Encoding.UTF8.GetBytes(normalizedText)),
                     Kind: kind,
                     OffsetStart: ResolveOffsetStart(unit, candidate),
-                    OffsetEnd: ResolveOffsetEnd(unit, candidate)));
+                    OffsetEnd: ResolveOffsetEnd(unit, candidate),
+                    ExtractionTextStatus: unit.ExtractionTextStatus,
+                    ExtractionTextSparse: unit.ExtractionTextSparse,
+                    ExtractionOcrCandidate: unit.ExtractionOcrCandidate,
+                    ExtractionQualitySignals: unit.ExtractionQualitySignals));
             }
         }
 
@@ -423,4 +427,8 @@ internal sealed record ExtractedExactMatchEntry(
     byte[] Checksum,
     string Kind,
     int? OffsetStart = null,
-    int? OffsetEnd = null);
+    int? OffsetEnd = null,
+    string? ExtractionTextStatus = null,
+    bool ExtractionTextSparse = false,
+    bool ExtractionOcrCandidate = false,
+    IReadOnlyList<string>? ExtractionQualitySignals = null);

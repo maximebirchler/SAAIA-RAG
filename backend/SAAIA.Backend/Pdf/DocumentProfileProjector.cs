@@ -1165,6 +1165,8 @@ internal static partial class DocumentProfileProjector
         }
         if (LooksLikeSentenceOrInstructionTitle(normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
             return false;
+        if (LooksLikeLongProseSentenceTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
+            return false;
         if (ParameterFragmentTitleRegex().IsMatch(normalizedFolded) && !hasTechnicalIdentifier)
             return false;
 
@@ -1281,6 +1283,27 @@ internal static partial class DocumentProfileProjector
             || normalizedFolded.Contains("componentsprocedure", StringComparison.Ordinal)
             || normalizedFolded.Contains("components procedure", StringComparison.Ordinal)
             || LooksLikeAllCapsMarketingHeadline(normalizedFolded, tokenCount);
+    }
+
+    private static bool LooksLikeLongProseSentenceTitle(string title, string normalizedFolded, int tokenCount)
+    {
+        if (tokenCount < 9 || title.Length < 70 || LooksLikeMostlyUppercaseTitle(title))
+            return false;
+
+        var normalizedTokens = normalizedFolded.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var originalTokens = title.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (normalizedTokens.Length < 9 || originalTokens.Length < 9)
+            return false;
+
+        var lowercaseLeadCount = originalTokens.Count(static token => token.Length > 0 && char.IsLower(token[0]));
+        var shortConnectorCount = normalizedTokens.Count(static token =>
+            token.Length <= 4
+            && (ContentCardLeadStopwords.Contains(token)
+                || DanglingFragmentTitleTokens.Contains(token)
+                || ContentCardTitleStopwords.Contains(token)));
+
+        return lowercaseLeadCount >= Math.Ceiling(originalTokens.Length * 0.55)
+               || (lowercaseLeadCount >= Math.Ceiling(originalTokens.Length * 0.45) && shortConnectorCount >= 2);
     }
 
     private static bool LooksLikeColonMetricFragmentTitle(string title, int tokenCount)

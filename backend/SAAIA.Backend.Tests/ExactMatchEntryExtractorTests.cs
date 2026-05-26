@@ -105,7 +105,11 @@ public sealed class ExactMatchEntryExtractorTests
 
         var entries = ExactMatchEntryExtractor.Extract(units);
 
-        Assert.Contains(entries, entry => entry.Text == "EN 15281" && entry.Kind == "standard_ref");
+        var reference = Assert.Single(entries, entry => entry.Text == "EN 15281" && entry.Kind == "standard_ref");
+        Assert.Equal("low_text", reference.ExtractionTextStatus);
+        Assert.True(reference.ExtractionTextSparse);
+        Assert.True(reference.ExtractionOcrCandidate);
+        Assert.Contains("sparse_text_on_page", reference.ExtractionQualitySignals!);
         Assert.DoesNotContain(entries, entry => entry.Text.Contains("weak sentence", StringComparison.OrdinalIgnoreCase));
     }
 

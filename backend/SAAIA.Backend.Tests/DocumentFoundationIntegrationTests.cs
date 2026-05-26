@@ -2944,7 +2944,19 @@ public sealed class DocumentFoundationIntegrationTests
         };
         var units = new[]
         {
-            new ExtractedDocumentUnit(0, 0, 1, 1, "EN 15281", 8, 2, [2])
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "EN 15281",
+                8,
+                2,
+                [2],
+                ExtractionTextStatus: "low_text",
+                ExtractionTextSparse: true,
+                ExtractionOcrCandidate: true,
+                ExtractionQualitySignals: ["sparse_text_on_page"])
         };
         var retrievalChunks = new[]
         {
@@ -2995,6 +3007,10 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal("exact_match_v1", match.EmbeddingBasis);
         Assert.Equal("Introduction", match.SectionTitle);
         Assert.Equal(1, match.IngestionVersion);
+        Assert.Equal("low_text", match.ExtractionTextStatus);
+        Assert.True(match.ExtractionTextSparse);
+        Assert.True(match.ExtractionOcrCandidate);
+        Assert.Contains("sparse_text_on_page", match.ExtractionQualitySignals!);
     }
 
     [Fact]
