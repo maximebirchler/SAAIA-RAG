@@ -886,6 +886,116 @@ CatalogPollutionMarker Procedure body: Materials lock padlock warning tag. Proce
     }
 
     [Fact]
+    public void Project_excludes_navigation_section_titles_from_profile_search_text()
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                1,
+                "CONTROL HANDOVER PLAN Procedure 1. Check status. 2. Record notes for validated handover.",
+                12,
+                84,
+                [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Table of contents", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(1, "Appendix 4", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(2, "CONTROL HANDOVER PLAN", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 2, 1, 1, pages[0].Text, pages[0].Text.Length, 12, [2])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/SectionTitleNoise.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.DoesNotContain("Table of contents", profile.SearchText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Appendix 4", profile.SearchText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(profile.Topics, topic => string.Equals(topic, "Table of contents", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(profile.Topics, topic => string.Equals(topic, "Appendix 4", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("CONTROL HANDOVER PLAN", profile.SearchText, StringComparison.Ordinal);
+        Assert.Contains(profile.Topics, topic => string.Equals(topic, "CONTROL HANDOVER PLAN", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Project_excludes_measure_and_lowercase_fragment_section_titles_from_profile_search_text()
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                1,
+                "Validated operating method requires documented checks before release.",
+                8,
+                65,
+                [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Duration : 1h 30 minutes", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(1, "control washer", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(2, "Validated Operating Method", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 2, 1, 1, pages[0].Text, pages[0].Text.Length, 8, [2])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/SectionFragments.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.DoesNotContain("Duration", profile.SearchText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("control washer", profile.SearchText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(profile.Topics, topic => topic.Contains("Duration", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(profile.Topics, topic => string.Equals(topic, "control washer", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("Validated Operating Method", profile.SearchText, StringComparison.Ordinal);
+        Assert.Contains(profile.Topics, topic => string.Equals(topic, "Validated Operating Method", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Project_does_not_leak_rejected_section_title_into_unit_card_signals()
+    {
+        const string rejectedMarker = "CatalogPollutionMarker";
+        const string title = "CONTROL HANDOVER PLAN";
+        var text = $"{title}\nProcedure 1. Check status. 2. Record notes for validated handover.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, 11, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, $"Table of contents {rejectedMarker} 18", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, text, text.Length, 11, [2])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/RejectedSectionContext.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        var card = Assert.Single(
+            profile.ContentCards,
+            card => string.Equals(card.Title, title, StringComparison.Ordinal));
+        Assert.DoesNotContain(card.Signals, signal => signal.Contains(rejectedMarker, StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(rejectedMarker, profile.SearchText, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(title, profile.SearchText, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Project_keeps_technical_identifier_cards_despite_numeric_title_filters()
     {
         var pages = new[]

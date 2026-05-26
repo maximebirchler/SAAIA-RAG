@@ -27,13 +27,10 @@ internal static partial class DocumentProfileProjector
         var docName = Path.GetFileName(docPath.Replace('\\', '/'));
         var profileUnits = SelectProfileContentUnits(units);
         var profileCardUnits = SelectProfileCardContentUnits(units);
-        var corpus = BuildCorpus(docName, sections, profileUnits);
+        var profileSectionTitles = SelectProfileSectionTitles(sections);
+        var corpus = BuildCorpus(docName, profileSectionTitles, profileUnits);
         var language = DetectLanguage(corpus);
-        var sectionTitles = sections
-            .OrderBy(static section => section.Ordinal)
-            .Select(static section => CollapseWhitespace(section.Title))
-            .Where(static title => !string.IsNullOrWhiteSpace(title))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
+        var sectionTitles = profileSectionTitles
             .Take(10)
             .ToArray();
         var keywords = ExtractKeywords(corpus, maxKeywords: 24);
@@ -111,16 +108,123 @@ internal static partial class DocumentProfileProjector
 
     private static string BuildCorpus(
         string docName,
-        IReadOnlyList<ExtractedDocumentSection> sections,
+        IReadOnlyList<string> sectionTitles,
         IReadOnlyList<ExtractedDocumentUnit> units)
     {
         var sb = new StringBuilder();
         sb.AppendLine(docName);
-        foreach (var section in sections.OrderBy(static section => section.Ordinal).Take(40))
-            sb.AppendLine(section.Title);
+        foreach (var title in sectionTitles.Take(40))
+            sb.AppendLine(title);
         foreach (var unit in units.OrderBy(static unit => unit.Ordinal).Take(160))
             sb.AppendLine(unit.Text);
         return sb.ToString();
+    }
+
+    private static IReadOnlyList<string> SelectProfileSectionTitles(IReadOnlyList<ExtractedDocumentSection> sections)
+        => sections
+            .OrderBy(static section => section.Ordinal)
+            .Select(static section => CleanTitleCandidate(section.Title))
+            .Where(static title => IsUsefulProfileSectionTitle(title))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(40)
+            .ToArray();
+
+    private static bool IsUsefulProfileSectionTitle(string title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            return false;
+
+        if (title.Length is < 4 or > 120)
+            return false;
+
+        if (!title.Any(char.IsLetter))
+            return false;
+
+        var tokenCount = CountTokens(title);
+        if (tokenCount > 14)
+            return false;
+
+        var normalized = ExactMatchEntryExtractor.NormalizeForLookup(title);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        var normalizedFolded = FoldDiacritics(normalized);
+        var hasTechnicalIdentifier = LooksLikeTechnicalIdentifier(title);
+
+        if (title.Count(char.IsDigit) > Math.Max(4, title.Length / 3) && !hasTechnicalIdentifier)
+            return false;
+
+        if (title.Count(static ch => ch is ',' or ';' or ':' or '|' or '/') > 4 && !hasTechnicalIdentifier)
+            return false;
+
+        if (RetrievalContentClassifier.DetectNavigationReason(title) is not null && !hasTechnicalIdentifier)
+            return false;
+
+        if (ContentCardTitleStopwords.Contains(normalizedFolded))
+            return false;
+
+        if (LooksLikeGenericContentCardTitle(normalizedFolded) && !hasTechnicalIdentifier)
+            return false;
+
+        if (LooksLikeMetadataLabelContentCardTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
+            return false;
+
+        if (LooksLikeOcrNoiseTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
+            return false;
+
+        if (HasUnbalancedContentCardDelimiter(title) && !hasTechnicalIdentifier)
+            return false;
+
+        if (LooksLikeGluedNavigationOrHeaderTitle(title) && !hasTechnicalIdentifier)
+            return false;
+
+        if (LooksLikeLeadingSingleLetterOcrFragment(normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
+            return false;
+
+        if (LooksLikeMeasuredSentenceFragmentTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
+            return false;
+
+        if (LooksLikeColonMetricFragmentTitle(title, tokenCount) && !hasTechnicalIdentifier)
+            return false;
+
+        if (LooksLikeDanglingFragmentContentCardTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
+            return false;
+
+        if (LooksLikeConnectorLeadSentenceFragment(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
+            return false;
+
+        if (LooksLikeShortAllCapsOcrFragment(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
+            return false;
+
+        if (LooksLikeSentenceOrInstructionTitle(normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
+            return false;
+
+        if (ParameterFragmentTitleRegex().IsMatch(normalizedFolded) && !hasTechnicalIdentifier)
+            return false;
+
+        if (PageReferenceFragmentRegex().IsMatch(normalizedFolded)
+            && !hasTechnicalIdentifier
+            && (tokenCount >= 4 || normalizedFolded.Contains("table des matieres", StringComparison.Ordinal)))
+        {
+            return false;
+        }
+
+        if (tokenCount <= 2 && title.Any(char.IsDigit) && !hasTechnicalIdentifier)
+            return false;
+
+        if (LooksLikeLowercaseSectionFragment(title, "section") && !hasTechnicalIdentifier)
+            return false;
+
+        var firstToken = normalizedFolded.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        if (firstToken is not null
+            && ContentCardLeadStopwords.Contains(firstToken)
+            && tokenCount <= 3
+            && !hasTechnicalIdentifier)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     private static IReadOnlyList<ExtractedDocumentUnit> SelectProfileContentUnits(IReadOnlyList<ExtractedDocumentUnit> units)
@@ -393,7 +497,13 @@ internal static partial class DocumentProfileProjector
         var candidates = new List<DocumentProfileContentCardCandidate>();
         var sectionTitleByOrdinal = sections
             .GroupBy(static section => section.Ordinal)
-            .ToDictionary(static group => group.Key, static group => CollapseWhitespace(group.First().Title));
+            .ToDictionary(
+                static group => group.Key,
+                static group =>
+                {
+                    var title = CleanTitleCandidate(group.First().Title);
+                    return IsUsefulProfileSectionTitle(title) ? title : string.Empty;
+                });
         var cardPageNumbers = BuildCoveredPageNumbers(units);
         var hasCardPageScope = cardPageNumbers.Count > 0;
         var pageTextByNumber = pages
@@ -407,6 +517,10 @@ internal static partial class DocumentProfileProjector
 
         foreach (var section in sections.OrderBy(static section => section.Ordinal).Take(80))
         {
+            var sectionTitle = CleanTitleCandidate(section.Title);
+            if (!IsUsefulProfileSectionTitle(sectionTitle))
+                continue;
+
             if (hasCardPageScope && !PageRangeOverlaps(section.PageStart, section.PageEnd, cardPageNumbers))
                 continue;
             if (hasPageReliabilityScope
@@ -421,11 +535,11 @@ internal static partial class DocumentProfileProjector
 
             AddContentCardCandidate(
                 candidates,
-                section.Title,
+                sectionTitle,
                 section.PageStart,
                 section.PageEnd,
                 "section",
-                BuildSectionContentCardContext(section, pageTextByNumber),
+                BuildSectionContentCardContext(section, pageTextByNumber, sectionTitle),
                 keywords,
                 score: 65);
         }
@@ -532,9 +646,9 @@ internal static partial class DocumentProfileProjector
 
     private static string BuildSectionContentCardContext(
         ExtractedDocumentSection section,
-        IReadOnlyDictionary<int, string> pageTextByNumber)
+        IReadOnlyDictionary<int, string> pageTextByNumber,
+        string title)
     {
-        var title = CollapseWhitespace(section.Title);
         var pageStart = Math.Min(section.PageStart, section.PageEnd);
         var pageEnd = Math.Max(section.PageStart, section.PageEnd);
         if (pageStart <= 0 || pageStart != pageEnd || !pageTextByNumber.TryGetValue(pageStart, out var pageText))
