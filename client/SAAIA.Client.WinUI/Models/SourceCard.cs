@@ -31,6 +31,9 @@ public sealed class SourceCard
     public string? DocumentQualityStatus { get; set; }
     public string? PageQualityStatus { get; set; }
     public string? TextStatus { get; set; }
+    public string? ChunkTextStatus { get; set; }
+    public bool? ChunkTextSparse { get; set; }
+    public bool? ChunkOcrCandidate { get; set; }
     public string? QualityStatus { get; set; }
     public double? ExtractionConfidence { get; set; }
     public double? DocumentExtractionConfidence { get; set; }
@@ -43,6 +46,7 @@ public sealed class SourceCard
     public bool OcrRecommended { get; set; }
     public SourceExtractionDiagnosticSummary? ExtractionDiagnosticSummary { get; set; }
     public List<string> QualitySignals { get; set; } = new();
+    public List<string> ChunkQualitySignals { get; set; } = new();
     public List<SourceContentCard> MatchedContentCards { get; set; } = new();
     public SourceProfileSignals? ProfileSignals { get; set; }
     public string? SelectionHintEvidenceRole { get; set; }

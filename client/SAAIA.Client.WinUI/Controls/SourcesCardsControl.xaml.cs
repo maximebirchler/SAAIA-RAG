@@ -233,6 +233,20 @@ public sealed partial class SourcesCardsControl : UserControl
             }
         }
 
+        if (!string.IsNullOrWhiteSpace(source.ChunkTextStatus))
+        {
+            parts.Add(BuildQualityPart(
+                SourceCardLabel("chunk_quality", uiLanguage),
+                source.ChunkTextStatus!,
+                null,
+                uiLanguage));
+        }
+
+        if (source.ChunkTextSparse == true)
+            parts.Add(SourceCardLabel("chunk_text_sparse", uiLanguage));
+        if (source.ChunkOcrCandidate == true)
+            parts.Add(SourceCardLabel("chunk_ocr_candidate", uiLanguage));
+
         if (source.OcrAttempted)
             parts.Add(SourceCardLabel("ocr_attempted", uiLanguage));
         if (source.OcrApplied)
@@ -246,6 +260,8 @@ public sealed partial class SourcesCardsControl : UserControl
 
         if (source.QualitySignals is { Count: > 0 } qualitySignals)
             parts.Add($"{SourceCardLabel("extraction_signals", uiLanguage)} {Shorten(CompactSignals(qualitySignals, maxItems: 4), 72)}");
+        if (source.ChunkQualitySignals is { Count: > 0 } chunkQualitySignals)
+            parts.Add($"{SourceCardLabel("chunk_signals", uiLanguage)} {Shorten(CompactSignals(chunkQualitySignals, maxItems: 4), 72)}");
 
         AddDiagnosticMetadataParts(parts, source.ExtractionDiagnosticSummary, uiLanguage);
 

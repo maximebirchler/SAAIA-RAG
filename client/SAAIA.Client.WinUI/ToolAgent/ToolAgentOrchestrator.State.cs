@@ -638,6 +638,7 @@ CURRENT_USER_MESSAGE:
             label = docPath;
 
         var quality = ExtractRagHitExtractionQualitySignals(src);
+        var chunkQuality = ExtractRagHitChunkQualitySignals(src);
         var qualityElement = TryGetObject(src, "extractionQuality") ?? TryGetObject(src, "extraction_quality") ?? TryGetObject(src, "ExtractionQuality");
         var contentSignalsElement =
             TryGetObject(src, "contentSignals")
@@ -667,6 +668,12 @@ CURRENT_USER_MESSAGE:
         var signals = (quality.Signals ?? Array.Empty<string>())
             .Concat(qualityElement.HasValue ? ExtractCompactSignals(qualityElement.Value, "signals") : Array.Empty<string>())
             .Concat(qualityElement.HasValue ? ExtractCompactSignals(qualityElement.Value, "Signals") : Array.Empty<string>())
+            .Where(static signal => !string.IsNullOrWhiteSpace(signal))
+            .Select(static signal => signal.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(8)
+            .ToList();
+        var chunkSignals = (chunkQuality.Signals ?? Array.Empty<string>())
             .Where(static signal => !string.IsNullOrWhiteSpace(signal))
             .Select(static signal => signal.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -770,6 +777,9 @@ CURRENT_USER_MESSAGE:
             DocumentQualityStatus = NullIfWhiteSpace(documentQualityStatus),
             PageQualityStatus = NullIfWhiteSpace(pageQualityStatus),
             TextStatus = NullIfWhiteSpace(textStatus),
+            ChunkTextStatus = NullIfWhiteSpace(chunkQuality.ChunkTextStatus),
+            ChunkTextSparse = chunkQuality.ChunkTextSparse,
+            ChunkOcrCandidate = chunkQuality.ChunkOcrCandidate,
             QualityStatus = NullIfWhiteSpace(quality.QualityStatus ?? pageQualityStatus ?? documentQualityStatus),
             ExtractionConfidence = quality.ExtractionConfidence,
             DocumentExtractionConfidence = quality.DocumentExtractionConfidence,
@@ -782,6 +792,7 @@ CURRENT_USER_MESSAGE:
             OcrRecommended = ocrRecommended,
             ExtractionDiagnosticSummary = diagnosticSummary,
             QualitySignals = signals,
+            ChunkQualitySignals = chunkSignals,
             MatchedContentCards = cards,
             ProfileSignals = BuildSourceProfileSignalsRef(src),
             SelectionHintEvidenceRole = selectionHints.HasValue
@@ -1000,6 +1011,9 @@ CURRENT_USER_MESSAGE:
             DocumentQualityStatus = NullIfWhiteSpace(hit.DocumentQualityStatus),
             PageQualityStatus = NullIfWhiteSpace(hit.PageQualityStatus),
             TextStatus = NullIfWhiteSpace(hit.TextStatus),
+            ChunkTextStatus = NullIfWhiteSpace(hit.ChunkTextStatus),
+            ChunkTextSparse = hit.ChunkTextSparse,
+            ChunkOcrCandidate = hit.ChunkOcrCandidate,
             QualityStatus = NullIfWhiteSpace(hit.QualityStatus),
             ExtractionConfidence = hit.ExtractionConfidence,
             DocumentExtractionConfidence = hit.DocumentExtractionConfidence,
@@ -1012,6 +1026,12 @@ CURRENT_USER_MESSAGE:
             OcrRecommended = hit.OcrRecommended,
             ExtractionDiagnosticSummary = CloneSourceExtractionDiagnostic(hit.ExtractionDiagnosticSummary),
             QualitySignals = hit.QualitySignals?
+                .Where(static signal => !string.IsNullOrWhiteSpace(signal))
+                .Select(static signal => signal.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(8)
+                .ToList() ?? new List<string>(),
+            ChunkQualitySignals = hit.ChunkQualitySignals?
                 .Where(static signal => !string.IsNullOrWhiteSpace(signal))
                 .Select(static signal => signal.Trim())
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -1096,6 +1116,9 @@ CURRENT_USER_MESSAGE:
             DocumentQualityStatus = PickSourceString(sources, static source => source.DocumentQualityStatus),
             PageQualityStatus = PickSourceString(sources, static source => source.PageQualityStatus),
             TextStatus = PickSourceString(sources, static source => source.TextStatus),
+            ChunkTextStatus = PickSourceString(sources, static source => source.ChunkTextStatus),
+            ChunkTextSparse = PickSourceBool(sources, static source => source.ChunkTextSparse),
+            ChunkOcrCandidate = PickSourceBool(sources, static source => source.ChunkOcrCandidate),
             QualityStatus = PickSourceString(sources, static source => source.QualityStatus),
             ExtractionConfidence = PickBestConfidence(sources, static source => source.ExtractionConfidence),
             DocumentExtractionConfidence = PickBestConfidence(sources, static source => source.DocumentExtractionConfidence),
@@ -1111,6 +1134,13 @@ CURRENT_USER_MESSAGE:
                 .FirstOrDefault(static summary => summary is not null),
             QualitySignals = sources
                 .SelectMany(static source => source.QualitySignals)
+                .Where(static signal => !string.IsNullOrWhiteSpace(signal))
+                .Select(static signal => signal.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(8)
+                .ToList(),
+            ChunkQualitySignals = sources
+                .SelectMany(static source => source.ChunkQualitySignals)
                 .Where(static signal => !string.IsNullOrWhiteSpace(signal))
                 .Select(static signal => signal.Trim())
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -1328,6 +1358,7 @@ CURRENT_USER_MESSAGE:
            + (source.MatchedContentCards.Count(static card => card.Evidence is not null) * 6)
            + (ComputeSourceProfileSignalsRichness(source.ProfileSignals) * 2)
            + (source.QualitySignals.Count * 2)
+           + (source.ChunkQualitySignals.Count * 2)
            + (!string.IsNullOrWhiteSpace(source.SourceHash) ? 3 : 0)
            + (!string.IsNullOrWhiteSpace(source.DocLanguage) ? 2 : 0)
            + (!string.IsNullOrWhiteSpace(source.ProfileLanguage) ? 2 : 0)
@@ -1340,6 +1371,9 @@ CURRENT_USER_MESSAGE:
            + (!string.IsNullOrWhiteSpace(source.ContentRole) ? 2 : 0)
            + (source.ContentDensityScore.HasValue ? 1 : 0)
            + (source.ExtractionDiagnosticSummary is not null ? 2 : 0)
+           + (!string.IsNullOrWhiteSpace(source.ChunkTextStatus) ? 2 : 0)
+           + (source.ChunkTextSparse.HasValue ? 1 : 0)
+           + (source.ChunkOcrCandidate.HasValue ? 1 : 0)
            + (source.SelectionHintActionabilityScore ?? 0)
            + (source.SelectionHintSupportScore ?? 0)
            - (source.SelectionHintNavigationScore ?? 0);
@@ -1399,6 +1433,13 @@ CURRENT_USER_MESSAGE:
     private static int? PickSourceInt(
         IEnumerable<ToolMemory.SourceRef> sources,
         Func<ToolMemory.SourceRef, int?> selector)
+        => sources
+            .Select(selector)
+            .FirstOrDefault(static value => value.HasValue);
+
+    private static bool? PickSourceBool(
+        IEnumerable<ToolMemory.SourceRef> sources,
+        Func<ToolMemory.SourceRef, bool?> selector)
         => sources
             .Select(selector)
             .FirstOrDefault(static value => value.HasValue);
@@ -1570,6 +1611,9 @@ CURRENT_USER_MESSAGE:
             && string.IsNullOrWhiteSpace(source.DocumentQualityStatus)
             && string.IsNullOrWhiteSpace(source.PageQualityStatus)
             && string.IsNullOrWhiteSpace(source.TextStatus)
+            && string.IsNullOrWhiteSpace(source.ChunkTextStatus)
+            && source.ChunkTextSparse is null
+            && source.ChunkOcrCandidate is null
             && source.ExtractionConfidence is null
             && source.DocumentExtractionConfidence is null
             && source.PageExtractionConfidence is null
@@ -1580,6 +1624,7 @@ CURRENT_USER_MESSAGE:
             && !source.OcrApplied
             && !source.OcrRecommended
             && source.QualitySignals.Count == 0
+            && source.ChunkQualitySignals.Count == 0
             && diagnosticSummary is null)
         {
             return null;
@@ -1591,6 +1636,9 @@ CURRENT_USER_MESSAGE:
             documentQualityStatus = source.DocumentQualityStatus,
             pageQualityStatus = source.PageQualityStatus,
             textStatus = source.TextStatus,
+            chunkTextStatus = source.ChunkTextStatus,
+            chunkTextSparse = source.ChunkTextSparse,
+            chunkOcrCandidate = source.ChunkOcrCandidate,
             qualityStatus = source.QualityStatus,
             extractionConfidence = source.ExtractionConfidence,
             documentExtractionConfidence = source.DocumentExtractionConfidence,
@@ -1602,6 +1650,7 @@ CURRENT_USER_MESSAGE:
             ocrApplied = source.OcrApplied,
             ocrRecommended = source.OcrRecommended,
             signals = source.QualitySignals.Count == 0 ? null : source.QualitySignals,
+            chunkQualitySignals = source.ChunkQualitySignals.Count == 0 ? null : source.ChunkQualitySignals,
             diagnosticSummary
         };
     }
@@ -14064,8 +14113,12 @@ CURRENT_USER_MESSAGE:
         string? DocumentQualityStatus = null,
         string? PageQualityStatus = null,
         string? TextStatus = null,
+        string? ChunkTextStatus = null,
+        bool? ChunkTextSparse = null,
+        bool? ChunkOcrCandidate = null,
         bool OcrRecommended = false,
         IReadOnlyList<string>? QualitySignals = null,
+        IReadOnlyList<string>? ChunkQualitySignals = null,
         string? SelectionHintRole = null,
         int? SelectionHintActionabilityScore = null,
         int? SelectionHintSupportScore = null,
@@ -14175,6 +14228,7 @@ CURRENT_USER_MESSAGE:
         var categoryPath = TryGetString(h, "categoryPath") ?? TryGetString(h, "category_path") ?? TryGetString(h, "CategoryPath");
         var chunkId = TryGetString(h, "chunkId") ?? TryGetString(h, "chunk_id") ?? TryGetString(h, "ChunkId");
         var quality = ExtractRagHitExtractionQualitySignals(h);
+        var chunkQuality = ExtractRagHitChunkQualitySignals(h);
         var qualityElement = TryGetObject(h, "extractionQuality") ?? TryGetObject(h, "extraction_quality") ?? TryGetObject(h, "ExtractionQuality");
         var diagnosticSummary = TryBuildSourceExtractionDiagnosticRef(h, qualityElement);
         var matchedContentCards = ExtractRagHitMatchedContentCards(h);
@@ -14252,8 +14306,12 @@ CURRENT_USER_MESSAGE:
             quality.DocumentQualityStatus,
             quality.PageQualityStatus,
             quality.TextStatus,
+            chunkQuality.ChunkTextStatus,
+            chunkQuality.ChunkTextSparse,
+            chunkQuality.ChunkOcrCandidate,
             quality.OcrRecommended,
             quality.Signals,
+            chunkQuality.Signals,
             selectionHintRole,
             selectionHintActionabilityScore,
             selectionHintSupportScore,
@@ -14448,6 +14506,74 @@ CURRENT_USER_MESSAGE:
             confidence,
             language,
             genericFacts);
+    }
+
+    private static (string? ChunkTextStatus, bool? ChunkTextSparse, bool? ChunkOcrCandidate, IReadOnlyList<string>? Signals) ExtractRagHitChunkQualitySignals(JsonElement h)
+    {
+        var nestedQuality = TryGetObject(h, "extractionQuality") ?? TryGetObject(h, "extraction_quality") ?? TryGetObject(h, "ExtractionQuality");
+        var quality = nestedQuality ?? h;
+        var hasNestedQuality = nestedQuality.HasValue;
+
+        string? GetQualityString(params string[] names)
+        {
+            foreach (var name in names)
+            {
+                var value = TryGetString(quality, name);
+                if (!string.IsNullOrWhiteSpace(value))
+                    return value;
+            }
+
+            if (!hasNestedQuality)
+                return null;
+
+            foreach (var name in names)
+            {
+                var value = TryGetString(h, name);
+                if (!string.IsNullOrWhiteSpace(value))
+                    return value;
+            }
+
+            return null;
+        }
+
+        bool? GetQualityBool(params string[] names)
+        {
+            foreach (var name in names)
+            {
+                var value = TryGetBool(quality, name);
+                if (value.HasValue)
+                    return value;
+            }
+
+            if (!hasNestedQuality)
+                return null;
+
+            foreach (var name in names)
+            {
+                var value = TryGetBool(h, name);
+                if (value.HasValue)
+                    return value;
+            }
+
+            return null;
+        }
+
+        var signals = ExtractCompactSignals(quality, "chunkQualitySignals")
+            .Concat(ExtractCompactSignals(quality, "chunk_quality_signals"))
+            .Concat(ExtractCompactSignals(quality, "ChunkQualitySignals"))
+            .Concat(hasNestedQuality ? ExtractCompactSignals(h, "chunkQualitySignals") : Array.Empty<string>())
+            .Concat(hasNestedQuality ? ExtractCompactSignals(h, "chunk_quality_signals") : Array.Empty<string>())
+            .Concat(hasNestedQuality ? ExtractCompactSignals(h, "ChunkQualitySignals") : Array.Empty<string>())
+            .Where(static signal => !string.IsNullOrWhiteSpace(signal))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(8)
+            .ToList();
+
+        return (
+            GetQualityString("chunkTextStatus", "chunk_text_status", "ChunkTextStatus"),
+            GetQualityBool("chunkTextSparse", "chunk_text_sparse", "ChunkTextSparse"),
+            GetQualityBool("chunkOcrCandidate", "chunk_ocr_candidate", "ChunkOcrCandidate"),
+            signals.Count == 0 ? null : signals);
     }
 
     private static (string? QualityStatus, double? ExtractionConfidence, double? DocumentExtractionConfidence, double? PageExtractionConfidence, bool ManualReviewRecommended, bool DocumentManualReviewRecommended, bool PageManualReviewRecommended, bool OcrAttempted, bool OcrApplied, string? ExtractionSource, string? DocumentQualityStatus, string? PageQualityStatus, string? TextStatus, bool OcrRecommended, IReadOnlyList<string>? Signals) ExtractRagHitExtractionQualitySignals(JsonElement h)

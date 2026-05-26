@@ -99,6 +99,9 @@ public static class SourceCardParser
             DocumentQualityStatus = PickString(sources, static s => s.DocumentQualityStatus),
             PageQualityStatus = PickString(sources, static s => s.PageQualityStatus),
             TextStatus = PickString(sources, static s => s.TextStatus),
+            ChunkTextStatus = PickString(sources, static s => s.ChunkTextStatus),
+            ChunkTextSparse = PickBool(sources, static s => s.ChunkTextSparse),
+            ChunkOcrCandidate = PickBool(sources, static s => s.ChunkOcrCandidate),
             QualityStatus = PickString(sources, static s => s.QualityStatus),
             ExtractionConfidence = PickDouble(sources, static s => s.ExtractionConfidence),
             DocumentExtractionConfidence = PickDouble(sources, static s => s.DocumentExtractionConfidence),
@@ -111,6 +114,7 @@ public static class SourceCardParser
             OcrRecommended = sources.Any(static s => s.OcrRecommended),
             ExtractionDiagnosticSummary = MergeDiagnosticSummaries(sources),
             QualitySignals = MergeStringLists(sources.Select(static s => s.QualitySignals), 8),
+            ChunkQualitySignals = MergeStringLists(sources.Select(static s => s.ChunkQualitySignals), 8),
             MatchedContentCards = MergeContentCards(sources),
             ProfileSignals = MergeProfileSignals(sources),
             SelectionHintEvidenceRole = PickString(sources, static s => s.SelectionHintEvidenceRole),
@@ -151,6 +155,9 @@ public static class SourceCardParser
         score += HasValue(source.DocumentQualityStatus) * 3;
         score += HasValue(source.PageQualityStatus) * 3;
         score += HasValue(source.TextStatus) * 2;
+        score += HasValue(source.ChunkTextStatus) * 2;
+        score += source.ChunkTextSparse is null ? 0 : 1;
+        score += source.ChunkOcrCandidate is null ? 0 : 1;
         score += HasValue(source.QualityStatus) * 2;
         score += source.ExtractionConfidence is null ? 0 : 2;
         score += source.DocumentExtractionConfidence is null ? 0 : 1;
@@ -163,6 +170,7 @@ public static class SourceCardParser
         score += source.OcrRecommended ? 2 : 0;
         score += SourceDiagnosticRichnessScore(source.ExtractionDiagnosticSummary);
         score += Math.Min(5, source.QualitySignals?.Count ?? 0);
+        score += Math.Min(5, source.ChunkQualitySignals?.Count ?? 0);
         score += Math.Min(25, (source.MatchedContentCards?.Count ?? 0) * 5);
         score += SourceProfileSignalsRichnessScore(source.ProfileSignals);
         score += HasValue(source.SelectionHintEvidenceRole) * 3;
@@ -190,6 +198,11 @@ public static class SourceCardParser
             .FirstOrDefault(static value => value.HasValue);
 
     private static double? PickDouble(IEnumerable<SourceCard> sources, Func<SourceCard, double?> selector)
+        => sources
+            .Select(selector)
+            .FirstOrDefault(static value => value.HasValue);
+
+    private static bool? PickBool(IEnumerable<SourceCard> sources, Func<SourceCard, bool?> selector)
         => sources
             .Select(selector)
             .FirstOrDefault(static value => value.HasValue);
@@ -497,6 +510,18 @@ public static class SourceCardParser
                 el,
                 extractionQuality,
                 "textStatus", "text_status", "TextStatus"),
+            ChunkTextStatus = GetStringFromQualityOrRoot(
+                el,
+                extractionQuality,
+                "chunkTextStatus", "chunk_text_status", "ChunkTextStatus"),
+            ChunkTextSparse = GetBoolFromQualityOrRoot(
+                el,
+                extractionQuality,
+                "chunkTextSparse", "chunk_text_sparse", "ChunkTextSparse"),
+            ChunkOcrCandidate = GetBoolFromQualityOrRoot(
+                el,
+                extractionQuality,
+                "chunkOcrCandidate", "chunk_ocr_candidate", "ChunkOcrCandidate"),
             QualityStatus = GetStringFromQualityOrRoot(
                 el,
                 extractionQuality,
@@ -529,6 +554,11 @@ public static class SourceCardParser
             QualitySignals = (extractionQuality is null
                     ? ExtractSignals(el)
                     : ExtractSignals(extractionQuality.Value).Concat(ExtractSignals(el)))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+            ChunkQualitySignals = (extractionQuality is null
+                    ? ExtractChunkQualitySignals(el)
+                    : ExtractChunkQualitySignals(extractionQuality.Value).Concat(ExtractChunkQualitySignals(el)))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList(),
             MatchedContentCards = ExtractMatchedContentCards(el),
@@ -867,6 +897,24 @@ public static class SourceCardParser
         }
 
         return evidence.Clone();
+    }
+
+    private static IEnumerable<string> ExtractChunkQualitySignals(JsonElement card)
+    {
+        if (card.ValueKind != JsonValueKind.Object
+            || (!card.TryGetProperty("chunkQualitySignals", out var signals)
+                && !card.TryGetProperty("chunk_quality_signals", out signals)
+                && !card.TryGetProperty("ChunkQualitySignals", out signals))
+            || signals.ValueKind != JsonValueKind.Array)
+        {
+            yield break;
+        }
+
+        foreach (var signal in signals.EnumerateArray())
+        {
+            if (signal.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(signal.GetString()))
+                yield return signal.GetString()!.Trim();
+        }
     }
 
     private static IEnumerable<string> ExtractSignals(JsonElement card)

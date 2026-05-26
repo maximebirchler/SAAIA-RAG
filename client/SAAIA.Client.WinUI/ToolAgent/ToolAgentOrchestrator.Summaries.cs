@@ -317,6 +317,13 @@ Rules:
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(8)
             .ToList();
+        var chunkQualitySignals = preferred.ChunkQualitySignals
+            .Concat(fallback.ChunkQualitySignals)
+            .Where(static signal => !string.IsNullOrWhiteSpace(signal))
+            .Select(static signal => signal.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(8)
+            .ToList();
 
         return new ToolMemory.SourceRef
         {
@@ -336,6 +343,9 @@ Rules:
             DocumentQualityStatus = NullIfWhiteSpace(preferred.DocumentQualityStatus) ?? NullIfWhiteSpace(fallback.DocumentQualityStatus),
             PageQualityStatus = NullIfWhiteSpace(preferred.PageQualityStatus) ?? NullIfWhiteSpace(fallback.PageQualityStatus),
             TextStatus = NullIfWhiteSpace(preferred.TextStatus) ?? NullIfWhiteSpace(fallback.TextStatus),
+            ChunkTextStatus = NullIfWhiteSpace(preferred.ChunkTextStatus) ?? NullIfWhiteSpace(fallback.ChunkTextStatus),
+            ChunkTextSparse = preferred.ChunkTextSparse ?? fallback.ChunkTextSparse,
+            ChunkOcrCandidate = preferred.ChunkOcrCandidate ?? fallback.ChunkOcrCandidate,
             QualityStatus = NullIfWhiteSpace(preferred.QualityStatus) ?? NullIfWhiteSpace(fallback.QualityStatus),
             ExtractionConfidence = preferred.ExtractionConfidence ?? fallback.ExtractionConfidence,
             DocumentExtractionConfidence = preferred.DocumentExtractionConfidence ?? fallback.DocumentExtractionConfidence,
@@ -348,6 +358,7 @@ Rules:
             OcrRecommended = preferred.OcrRecommended || fallback.OcrRecommended,
             ExtractionDiagnosticSummary = CloneSourceExtractionDiagnostic(preferred.ExtractionDiagnosticSummary ?? fallback.ExtractionDiagnosticSummary),
             QualitySignals = qualitySignals,
+            ChunkQualitySignals = chunkQualitySignals,
             ProfileSignals = MergeSourceProfileSignals([preferred, fallback]),
             MatchedContentCards = cards
                 .Select(static card => new ToolMemory.SourceContentCardRef

@@ -3208,6 +3208,9 @@ public sealed class RagContextBudgetRegressionTests
             DocumentQualityStatus = "ocr_applied_ok",
             PageQualityStatus = "manual_review_low_text",
             TextStatus = "low_text",
+            ChunkTextStatus = "chunk_sparse",
+            ChunkTextSparse = true,
+            ChunkOcrCandidate = true,
             ExtractionConfidence = 0.44,
             DocumentExtractionConfidence = 0.91,
             PageExtractionConfidence = 0.44,
@@ -3215,6 +3218,7 @@ public sealed class RagContextBudgetRegressionTests
             ManualReviewRecommended = true,
             OcrApplied = true,
             QualitySignals = new() { "page_contains_images" },
+            ChunkQualitySignals = new() { "possible_image_text" },
             ContentRole = "mixed_navigation_content",
             NavigationReason = "inline_page_number_list",
             RetrievalNavigationScore = 0.42,
@@ -3252,6 +3256,10 @@ public sealed class RagContextBudgetRegressionTests
         Assert.True(card.PageManualReviewRecommended);
         Assert.True(card.OcrApplied);
         Assert.Contains("page_contains_images", card.QualitySignals);
+        Assert.Equal("chunk_sparse", card.ChunkTextStatus);
+        Assert.True(card.ChunkTextSparse);
+        Assert.True(card.ChunkOcrCandidate);
+        Assert.Contains("possible_image_text", card.ChunkQualitySignals);
         Assert.Equal("mixed_navigation_content", card.ContentRole);
         Assert.Equal("inline_page_number_list", card.NavigationReason);
         Assert.Equal(0.42, card.RetrievalNavigationScore);

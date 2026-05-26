@@ -545,6 +545,9 @@ public sealed partial class ToolAgentOrchestrator
             DocumentQualityStatus = NullIfWhiteSpace(source.DocumentQualityStatus) ?? NullIfWhiteSpace(fallback.DocumentQualityStatus),
             PageQualityStatus = NullIfWhiteSpace(pageQualitySource.PageQualityStatus) ?? NullIfWhiteSpace(source.PageQualityStatus) ?? NullIfWhiteSpace(fallback.PageQualityStatus),
             TextStatus = NullIfWhiteSpace(pageQualitySource.TextStatus) ?? NullIfWhiteSpace(source.TextStatus) ?? NullIfWhiteSpace(fallback.TextStatus),
+            ChunkTextStatus = NullIfWhiteSpace(pageQualitySource.ChunkTextStatus) ?? NullIfWhiteSpace(source.ChunkTextStatus) ?? NullIfWhiteSpace(fallback.ChunkTextStatus),
+            ChunkTextSparse = pageQualitySource.ChunkTextSparse ?? source.ChunkTextSparse ?? fallback.ChunkTextSparse,
+            ChunkOcrCandidate = pageQualitySource.ChunkOcrCandidate ?? source.ChunkOcrCandidate ?? fallback.ChunkOcrCandidate,
             QualityStatus = NullIfWhiteSpace(pageQualitySource.QualityStatus) ?? NullIfWhiteSpace(source.QualityStatus) ?? NullIfWhiteSpace(fallback.QualityStatus),
             ExtractionConfidence = source.ExtractionConfidence ?? fallback.ExtractionConfidence,
             DocumentExtractionConfidence = source.DocumentExtractionConfidence ?? fallback.DocumentExtractionConfidence,
@@ -558,6 +561,13 @@ public sealed partial class ToolAgentOrchestrator
             ExtractionDiagnosticSummary = CloneSourceExtractionDiagnostic(source.ExtractionDiagnosticSummary ?? fallback.ExtractionDiagnosticSummary),
             QualitySignals = source.QualitySignals
                 .Concat(fallback.QualitySignals)
+                .Where(static signal => !string.IsNullOrWhiteSpace(signal))
+                .Select(static signal => signal.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(8)
+                .ToList(),
+            ChunkQualitySignals = source.ChunkQualitySignals
+                .Concat(fallback.ChunkQualitySignals)
                 .Where(static signal => !string.IsNullOrWhiteSpace(signal))
                 .Select(static signal => signal.Trim())
                 .Distinct(StringComparer.OrdinalIgnoreCase)

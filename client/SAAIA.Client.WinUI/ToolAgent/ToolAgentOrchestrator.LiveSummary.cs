@@ -450,6 +450,9 @@ public sealed partial class ToolAgentOrchestrator
             DocumentQualityStatus: item.ExtractionQuality?.DocumentQualityStatus ?? fallbackSource?.DocumentQualityStatus,
             PageQualityStatus: item.ExtractionQuality?.PageQualityStatus ?? fallbackSource?.PageQualityStatus,
             TextStatus: item.ExtractionQuality?.TextStatus ?? fallbackSource?.TextStatus,
+            ChunkTextStatus: item.ExtractionQuality?.ChunkTextStatus ?? fallbackSource?.ChunkTextStatus,
+            ChunkTextSparse: item.ExtractionQuality?.ChunkTextSparse ?? fallbackSource?.ChunkTextSparse,
+            ChunkOcrCandidate: item.ExtractionQuality?.ChunkOcrCandidate ?? fallbackSource?.ChunkOcrCandidate,
             QualityStatus: qualityStatus,
             ExtractionConfidence: confidence,
             DocumentExtractionConfidence: item.ExtractionQuality?.DocumentExtractionConfidence ?? fallbackSource?.DocumentExtractionConfidence,
@@ -463,6 +466,9 @@ public sealed partial class ToolAgentOrchestrator
             ExtractionDiagnosticSummary: BuildSourceExtractionDiagnosticRef(item.ExtractionQuality?.DiagnosticSummary)
                 ?? CloneSourceExtractionDiagnostic(fallbackSource?.ExtractionDiagnosticSummary),
             QualitySignals: signals is { Count: > 0 } ? signals : fallbackSource?.QualitySignals,
+            ChunkQualitySignals: item.ExtractionQuality?.ChunkQualitySignals is { Count: > 0 } chunkSignals
+                ? chunkSignals
+                : fallbackSource?.ChunkQualitySignals,
             MatchedContentCards: cards is { Count: > 0 } ? cards : fallbackSource?.MatchedContentCards,
             ProfileSignals: MergeSourceProfileSignals(
             [
@@ -508,6 +514,9 @@ public sealed partial class ToolAgentOrchestrator
             DocumentQualityStatus = NullIfWhiteSpace(source.DocumentQualityStatus) ?? chunk.DocumentQualityStatus,
             PageQualityStatus = NullIfWhiteSpace(source.PageQualityStatus) ?? chunk.PageQualityStatus,
             TextStatus = NullIfWhiteSpace(source.TextStatus) ?? chunk.TextStatus,
+            ChunkTextStatus = NullIfWhiteSpace(source.ChunkTextStatus) ?? chunk.ChunkTextStatus,
+            ChunkTextSparse = source.ChunkTextSparse ?? chunk.ChunkTextSparse,
+            ChunkOcrCandidate = source.ChunkOcrCandidate ?? chunk.ChunkOcrCandidate,
             QualityStatus = NullIfWhiteSpace(source.QualityStatus) ?? chunk.QualityStatus,
             ExtractionConfidence = source.ExtractionConfidence ?? chunk.ExtractionConfidence,
             DocumentExtractionConfidence = source.DocumentExtractionConfidence ?? chunk.DocumentExtractionConfidence,
@@ -520,6 +529,7 @@ public sealed partial class ToolAgentOrchestrator
             OcrRecommended = source.OcrRecommended || chunk.OcrRecommended,
             ExtractionDiagnosticSummary = CloneSourceExtractionDiagnostic(source.ExtractionDiagnosticSummary ?? chunk.ExtractionDiagnosticSummary),
             QualitySignals = source.QualitySignals.Count > 0 ? source.QualitySignals : chunk.QualitySignals,
+            ChunkQualitySignals = source.ChunkQualitySignals.Count > 0 ? source.ChunkQualitySignals : chunk.ChunkQualitySignals,
             MatchedContentCards = source.MatchedContentCards.Count > 0 ? source.MatchedContentCards : chunk.MatchedContentCards,
             ProfileSignals = MergeSourceProfileSignals(
             [
@@ -1691,6 +1701,9 @@ public sealed partial class ToolAgentOrchestrator
             DocumentQualityStatus = item?.DocumentQualityStatus ?? fallbackSource?.DocumentQualityStatus,
             PageQualityStatus = item?.PageQualityStatus ?? fallbackSource?.PageQualityStatus,
             TextStatus = item?.TextStatus ?? fallbackSource?.TextStatus,
+            ChunkTextStatus = item?.ChunkTextStatus ?? fallbackSource?.ChunkTextStatus,
+            ChunkTextSparse = item?.ChunkTextSparse ?? fallbackSource?.ChunkTextSparse,
+            ChunkOcrCandidate = item?.ChunkOcrCandidate ?? fallbackSource?.ChunkOcrCandidate,
             QualityStatus = item?.QualityStatus ?? fallbackSource?.QualityStatus,
             ExtractionConfidence = item?.ExtractionConfidence ?? fallbackSource?.ExtractionConfidence,
             DocumentExtractionConfidence = item?.DocumentExtractionConfidence ?? fallbackSource?.DocumentExtractionConfidence,
@@ -1703,6 +1716,7 @@ public sealed partial class ToolAgentOrchestrator
             OcrRecommended = item?.OcrRecommended ?? fallbackSource?.OcrRecommended ?? false,
             ExtractionDiagnosticSummary = CloneSourceExtractionDiagnostic(item?.ExtractionDiagnosticSummary ?? fallbackSource?.ExtractionDiagnosticSummary),
             QualitySignals = (item?.QualitySignals ?? fallbackSource?.QualitySignals ?? []).ToList(),
+            ChunkQualitySignals = (item?.ChunkQualitySignals ?? fallbackSource?.ChunkQualitySignals ?? []).ToList(),
             MatchedContentCards = (item?.MatchedContentCards ?? fallbackSource?.MatchedContentCards ?? []).ToList(),
             ProfileSignals = CloneSourceProfileSignalsRef(item?.ProfileSignals ?? fallbackSource?.ProfileSignals),
             SelectionHintEvidenceRole = item?.SelectionHintEvidenceRole ?? fallbackSource?.SelectionHintEvidenceRole,

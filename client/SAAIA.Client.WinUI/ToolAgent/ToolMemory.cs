@@ -410,6 +410,9 @@ public sealed class ToolMemory
         public string? DocumentQualityStatus { get; set; }
         public string? PageQualityStatus { get; set; }
         public string? TextStatus { get; set; }
+        public string? ChunkTextStatus { get; set; }
+        public bool? ChunkTextSparse { get; set; }
+        public bool? ChunkOcrCandidate { get; set; }
         public string? QualityStatus { get; set; }
         public double? ExtractionConfidence { get; set; }
         public double? DocumentExtractionConfidence { get; set; }
@@ -422,6 +425,7 @@ public sealed class ToolMemory
         public bool OcrRecommended { get; set; }
         public SourceExtractionDiagnosticRef? ExtractionDiagnosticSummary { get; set; }
         public List<string> QualitySignals { get; set; } = new();
+        public List<string> ChunkQualitySignals { get; set; } = new();
         public List<SourceContentCardRef> MatchedContentCards { get; set; } = new();
         public SourceProfileSignalsRef? ProfileSignals { get; set; }
         public string? SelectionHintEvidenceRole { get; set; }

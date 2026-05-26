@@ -602,12 +602,16 @@ public sealed class UiLocalizationSafetyNetTests
                 "documentQualityStatus": "ocr_applied_ok",
                 "pageQualityStatus": "manual_review_low_text",
                 "textStatus": "low_text",
+                "chunkTextStatus": "chunk_sparse",
+                "chunkTextSparse": true,
+                "chunkOcrCandidate": true,
                 "extractionConfidence": 0.73,
                 "manualReviewRecommended": true,
                 "ocrAttempted": true,
                 "ocrApplied": true,
                 "ocrRecommended": true,
-                "signals": [ "low_text", "image_text" ]
+                "signals": [ "low_text", "image_text" ],
+                "chunkQualitySignals": [ "chunk_sparse", "possible_image_text" ]
               },
               "matchedContentCards": [
                 { "title": "Controle source", "kind": "procedure", "pageStart": 3, "signals": [ "title_match" ] }
@@ -641,12 +645,16 @@ public sealed class UiLocalizationSafetyNetTests
         Assert.Equal("ocr_applied_ok", card.DocumentQualityStatus);
         Assert.Equal("manual_review_low_text", card.PageQualityStatus);
         Assert.Equal("low_text", card.TextStatus);
+        Assert.Equal("chunk_sparse", card.ChunkTextStatus);
+        Assert.True(card.ChunkTextSparse);
+        Assert.True(card.ChunkOcrCandidate);
         Assert.Equal(0.73, card.ExtractionConfidence);
         Assert.True(card.ManualReviewRecommended);
         Assert.True(card.OcrAttempted);
         Assert.True(card.OcrApplied);
         Assert.True(card.OcrRecommended);
         Assert.Contains("image_text", card.QualitySignals);
+        Assert.Contains("possible_image_text", card.ChunkQualitySignals);
         Assert.Equal("Controle source", Assert.Single(card.MatchedContentCards).Title);
         Assert.Equal("actionable_item", card.SelectionHintEvidenceRole);
         Assert.Equal(9, card.SelectionHintActionabilityScore);
@@ -655,6 +663,10 @@ public sealed class UiLocalizationSafetyNetTests
         Assert.Equal("inline_page_number_list", card.NavigationReason);
         Assert.Equal(0.42, card.RetrievalNavigationScore);
         Assert.Equal(0.76, card.ContentDensityScore);
+        var metadata = SourcesCardsControl.GetMetadataLabel(card, "en");
+        Assert.Contains("passage quality", metadata);
+        Assert.Contains("OCR candidate passage", metadata);
+        Assert.Contains("passage signals", metadata);
     }
 
     [Fact]

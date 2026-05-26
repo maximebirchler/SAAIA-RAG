@@ -248,6 +248,33 @@ internal static class LocalizedStrings
                 ["de"] = "Dokumentqualität",
                 ["it"] = "qualità documento"
             },
+            ["source_card.chunk_quality"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "qualité passage",
+                ["en"] = "passage quality",
+                ["es"] = "calidad del pasaje",
+                ["pt"] = "qualidade do trecho",
+                ["de"] = "Passagenqualität",
+                ["it"] = "qualità passaggio"
+            },
+            ["source_card.chunk_text_sparse"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "passage peu textuel",
+                ["en"] = "sparse passage text",
+                ["es"] = "pasaje con poco texto",
+                ["pt"] = "trecho com pouco texto",
+                ["de"] = "wenig Text im Ausschnitt",
+                ["it"] = "passaggio con poco testo"
+            },
+            ["source_card.chunk_ocr_candidate"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "passage candidat OCR",
+                ["en"] = "OCR candidate passage",
+                ["es"] = "pasaje candidato a OCR",
+                ["pt"] = "trecho candidato a OCR",
+                ["de"] = "Ausschnitt als OCR-Kandidat",
+                ["it"] = "passaggio candidato OCR"
+            },
             ["source_card.ocr_applied"] = new(StringComparer.OrdinalIgnoreCase)
             {
                 ["fr"] = "OCR appliqué",
@@ -859,6 +886,15 @@ internal static class LocalizedStrings
                 ["pt"] = "sinais extração",
                 ["de"] = "Extraktionssignale",
                 ["it"] = "segnali estrazione"
+            },
+            ["source_card.chunk_signals"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "signaux passage",
+                ["en"] = "passage signals",
+                ["es"] = "señales del pasaje",
+                ["pt"] = "sinais do trecho",
+                ["de"] = "Passagensignale",
+                ["it"] = "segnali passaggio"
             },
             ["source_card.profile_signals"] = new(StringComparer.OrdinalIgnoreCase)
             {
