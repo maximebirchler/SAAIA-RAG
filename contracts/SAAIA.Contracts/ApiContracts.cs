@@ -175,6 +175,18 @@ public sealed class RagItemExtractionQuality
     [JsonPropertyName("signals")]
     public List<string>? Signals { get; set; }
 
+    [JsonPropertyName("chunkTextStatus")]
+    public string? ChunkTextStatus { get; set; }
+
+    [JsonPropertyName("chunkTextSparse")]
+    public bool? ChunkTextSparse { get; set; }
+
+    [JsonPropertyName("chunkOcrCandidate")]
+    public bool? ChunkOcrCandidate { get; set; }
+
+    [JsonPropertyName("chunkQualitySignals")]
+    public List<string>? ChunkQualitySignals { get; set; }
+
     [JsonPropertyName("diagnosticSummary")]
     public RagItemExtractionDiagnosticSummary? DiagnosticSummary { get; set; }
 }

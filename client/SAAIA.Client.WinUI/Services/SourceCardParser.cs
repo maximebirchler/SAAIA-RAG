@@ -876,7 +876,10 @@ public static class SourceCardParser
                 && !card.TryGetProperty("Signals", out signals)
                 && !card.TryGetProperty("qualitySignals", out signals)
                 && !card.TryGetProperty("quality_signals", out signals)
-                && !card.TryGetProperty("QualitySignals", out signals))
+                && !card.TryGetProperty("QualitySignals", out signals)
+                && !card.TryGetProperty("chunkQualitySignals", out signals)
+                && !card.TryGetProperty("chunk_quality_signals", out signals)
+                && !card.TryGetProperty("ChunkQualitySignals", out signals))
             || signals.ValueKind != JsonValueKind.Array)
         {
             yield break;

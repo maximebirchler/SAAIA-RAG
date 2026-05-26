@@ -107,6 +107,10 @@ public sealed record RagItemExtractionQualityDto(
     string? TextStatus = null,
     bool? OcrRecommended = null,
     IReadOnlyList<string>? Signals = null,
+    string? ChunkTextStatus = null,
+    bool? ChunkTextSparse = null,
+    bool? ChunkOcrCandidate = null,
+    IReadOnlyList<string>? ChunkQualitySignals = null,
     RagItemExtractionDiagnosticSummaryDto? DiagnosticSummary = null
 );
 

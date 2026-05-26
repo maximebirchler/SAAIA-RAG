@@ -168,6 +168,26 @@ static class QdrantClient
             double? GetDouble(string k)
                 => payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : null;
 
+            bool? GetBool(string k)
+                => payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty(k, out var v) && v.ValueKind is JsonValueKind.True or JsonValueKind.False ? v.GetBoolean() : null;
+
+            string[]? GetStringArray(string k)
+            {
+                if (payload.ValueKind != JsonValueKind.Object
+                    || !payload.TryGetProperty(k, out var v)
+                    || v.ValueKind != JsonValueKind.Array)
+                    return null;
+
+                var values = v.EnumerateArray()
+                    .Where(static item => item.ValueKind == JsonValueKind.String)
+                    .Select(static item => item.GetString())
+                    .Where(static item => !string.IsNullOrWhiteSpace(item))
+                    .Select(static item => item!.Trim())
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray();
+                return values.Length == 0 ? null : values;
+            }
+
             var m = new RagMatch(
                 Score: score,
                 DocId: GetStr("doc_id"),
@@ -199,7 +219,11 @@ static class QdrantClient
                 NavigationReason: GetStr("navigation_reason"),
                 OriginalChunkType: GetStr("original_chunk_type"),
                 NavigationScore: GetDouble("navigation_score"),
-                ContentDensityScore: GetDouble("content_density_score")
+                ContentDensityScore: GetDouble("content_density_score"),
+                ExtractionTextStatus: GetStr("extraction_text_status"),
+                ExtractionTextSparse: GetBool("extraction_text_sparse"),
+                ExtractionOcrCandidate: GetBool("extraction_ocr_candidate"),
+                ExtractionQualitySignals: GetStringArray("extraction_quality_signals")
             );
 
             list.Add(m);
@@ -280,5 +304,9 @@ public sealed record RagMatch(
     double? ContentDensityScore = null,
     string? EmbeddingModel = null,
     string? EmbeddingInputFormat = null,
-    RagProfileSignals? ProfileSignals = null
+    RagProfileSignals? ProfileSignals = null,
+    string? ExtractionTextStatus = null,
+    bool? ExtractionTextSparse = null,
+    bool? ExtractionOcrCandidate = null,
+    IReadOnlyList<string>? ExtractionQualitySignals = null
 );

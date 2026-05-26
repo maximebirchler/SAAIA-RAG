@@ -520,6 +520,10 @@ public sealed class RagChatAgent
                 item.ExtractionQuality.TextStatus,
                 item.ExtractionQuality.OcrRecommended,
                 item.ExtractionQuality.Signals,
+                item.ExtractionQuality.ChunkTextStatus,
+                item.ExtractionQuality.ChunkTextSparse,
+                item.ExtractionQuality.ChunkOcrCandidate,
+                item.ExtractionQuality.ChunkQualitySignals,
                 item.ExtractionQuality.DiagnosticSummary
             },
             matchedContentCards = item.MatchedContentCards?

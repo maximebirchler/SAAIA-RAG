@@ -14549,8 +14549,14 @@ CURRENT_USER_MESSAGE:
         var ocrRecommended = GetQualityBool("ocrRecommended", "ocr_recommended", "OcrRecommended") ?? false;
         var signals = ExtractCompactSignals(quality, "signals")
             .Concat(ExtractCompactSignals(quality, "Signals"))
+            .Concat(ExtractCompactSignals(quality, "chunkQualitySignals"))
+            .Concat(ExtractCompactSignals(quality, "chunk_quality_signals"))
+            .Concat(ExtractCompactSignals(quality, "ChunkQualitySignals"))
             .Concat(hasNestedQuality ? ExtractCompactSignals(h, "signals") : Array.Empty<string>())
             .Concat(hasNestedQuality ? ExtractCompactSignals(h, "Signals") : Array.Empty<string>())
+            .Concat(hasNestedQuality ? ExtractCompactSignals(h, "chunkQualitySignals") : Array.Empty<string>())
+            .Concat(hasNestedQuality ? ExtractCompactSignals(h, "chunk_quality_signals") : Array.Empty<string>())
+            .Concat(hasNestedQuality ? ExtractCompactSignals(h, "ChunkQualitySignals") : Array.Empty<string>())
             .Where(static signal => !string.IsNullOrWhiteSpace(signal))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(8)
@@ -15216,7 +15222,10 @@ CURRENT_USER_MESSAGE:
             ["pageExtractionConfidence"] = TryGetDouble(quality, "pageExtractionConfidence") ?? TryGetDouble(quality, "page_extraction_confidence") ?? TryGetDouble(quality, "PageExtractionConfidence"),
             ["pageManualReviewRecommended"] = TryGetBool(quality, "pageManualReviewRecommended") ?? TryGetBool(quality, "page_manual_review_recommended") ?? TryGetBool(quality, "PageManualReviewRecommended"),
             ["textStatus"] = TryGetString(quality, "textStatus") ?? TryGetString(quality, "text_status") ?? TryGetString(quality, "TextStatus"),
-            ["ocrRecommended"] = TryGetBool(quality, "ocrRecommended") ?? TryGetBool(quality, "ocr_recommended") ?? TryGetBool(quality, "OcrRecommended")
+            ["ocrRecommended"] = TryGetBool(quality, "ocrRecommended") ?? TryGetBool(quality, "ocr_recommended") ?? TryGetBool(quality, "OcrRecommended"),
+            ["chunkTextStatus"] = TryGetString(quality, "chunkTextStatus") ?? TryGetString(quality, "chunk_text_status") ?? TryGetString(quality, "ChunkTextStatus"),
+            ["chunkTextSparse"] = TryGetBool(quality, "chunkTextSparse") ?? TryGetBool(quality, "chunk_text_sparse") ?? TryGetBool(quality, "ChunkTextSparse"),
+            ["chunkOcrCandidate"] = TryGetBool(quality, "chunkOcrCandidate") ?? TryGetBool(quality, "chunk_ocr_candidate") ?? TryGetBool(quality, "ChunkOcrCandidate")
         };
 
         var diagnosticSummary = CompactExtractionDiagnosticSummaryForPrompt(quality);
@@ -15225,6 +15234,9 @@ CURRENT_USER_MESSAGE:
 
         var signals = ExtractCompactSignals(quality, "signals")
             .Concat(ExtractCompactSignals(quality, "Signals"))
+            .Concat(ExtractCompactSignals(quality, "chunkQualitySignals"))
+            .Concat(ExtractCompactSignals(quality, "chunk_quality_signals"))
+            .Concat(ExtractCompactSignals(quality, "ChunkQualitySignals"))
             .Where(static signal => !string.IsNullOrWhiteSpace(signal))
             .Distinct(StringComparer.Ordinal)
             .Take(5)

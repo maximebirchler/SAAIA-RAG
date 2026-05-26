@@ -299,7 +299,8 @@ ORDER BY display_order, name;
         var extractionQualityByMatch = await extractionQualityTask;
         var documentLanguagesByDocId = await documentLanguagesTask;
         var documentSourceHashesByDocId = await documentSourceHashesTask;
-        var qualityAdjustedMatches = BuildQualityAdjustedMatchesPreservingRank(resp.Matches, extractionQualityByMatch);
+        var effectiveExtractionQualityByMatch = BuildEffectiveExtractionQualityByMatch(resp.Matches, extractionQualityByMatch);
+        var qualityAdjustedMatches = BuildQualityAdjustedMatchesPreservingRank(resp.Matches, effectiveExtractionQualityByMatch);
 
         return new RagSearchResponseDto(
             RequestId: resp.RequestId,
@@ -395,7 +396,7 @@ ORDER BY display_order, name;
             Guidance: BuildAnswerGuidance(
                 resp.Query,
                 qualityAdjustedMatches.Select(static item => item.Match).ToList(),
-                extractionQualityByMatch)
+                effectiveExtractionQualityByMatch)
         );
     }
 
@@ -825,9 +826,33 @@ ORDER BY sd.doc_path, pi.page_number;
     private static RagItemExtractionQualityDto? ResolveExtractionQuality(
         RagMatch match,
         IReadOnlyDictionary<string, RagItemExtractionQualityDto> extractionQualityByMatch)
-        => extractionQualityByMatch.TryGetValue(BuildExtractionQualityMatchKey(match), out var quality)
-            ? quality
-            : null;
+        => BuildEffectiveExtractionQuality(
+            match,
+            extractionQualityByMatch.TryGetValue(BuildExtractionQualityMatchKey(match), out var quality)
+                ? quality
+                : null);
+
+    internal static IReadOnlyDictionary<string, RagItemExtractionQualityDto> BuildEffectiveExtractionQualityByMatch(
+        IReadOnlyList<RagMatch> matches,
+        IReadOnlyDictionary<string, RagItemExtractionQualityDto> extractionQualityByMatch)
+    {
+        var result = new Dictionary<string, RagItemExtractionQualityDto>(StringComparer.OrdinalIgnoreCase);
+        foreach (var match in matches)
+        {
+            var effective = ResolveExtractionQuality(match, extractionQualityByMatch);
+            if (effective is null)
+                continue;
+
+            var key = BuildExtractionQualityMatchKey(match);
+            if (!result.TryGetValue(key, out var existing)
+                || ComputeSelectionQualityPenalty(effective) > ComputeSelectionQualityPenalty(existing))
+            {
+                result[key] = effective;
+            }
+        }
+
+        return result;
+    }
 
     internal static List<RagQualityAdjustedMatch> BuildQualityAdjustedMatchesPreservingRank(
         IReadOnlyList<RagMatch> matches,
@@ -1096,7 +1121,81 @@ WHERE d.tenant_id=@tenant
             multiplier *= 0.90;
         }
 
+        var chunkPenalty = ComputeChunkExtractionQualityPenalty(quality);
+        if (chunkPenalty > 0)
+            multiplier *= Math.Clamp(1.0 - (chunkPenalty * 0.0125), 0.70, 1.0);
+
         return Math.Round(Math.Clamp(score * multiplier, 0.0, 1.02), 6);
+    }
+
+    internal static double ApplyChunkExtractionQualityScorePenalty(double score, RagMatch match)
+    {
+        var penalty = ComputeChunkExtractionQualityPenalty(match);
+        if (penalty <= 0)
+            return Math.Round(Math.Clamp(score, 0.0, 1.02), 6);
+
+        return Math.Round(Math.Clamp(score - Math.Min(0.30, penalty * 0.015), 0.0, 1.02), 6);
+    }
+
+    internal static int ComputeChunkExtractionQualityPenalty(RagMatch match)
+        => ComputeChunkExtractionQualityPenalty(
+            match.ExtractionTextStatus,
+            match.ExtractionTextSparse,
+            match.ExtractionOcrCandidate,
+            match.ExtractionQualitySignals);
+
+    internal static int ComputeChunkExtractionQualityPenalty(RagItemExtractionQualityDto? quality)
+    {
+        if (quality is null)
+            return 0;
+
+        return ComputeChunkExtractionQualityPenalty(
+            quality.ChunkTextStatus ?? quality.TextStatus,
+            quality.ChunkTextSparse,
+            quality.ChunkOcrCandidate,
+            quality.ChunkQualitySignals ?? quality.Signals);
+    }
+
+    private static int ComputeChunkExtractionQualityPenalty(
+        string? textStatus,
+        bool? textSparse,
+        bool? ocrCandidate,
+        IReadOnlyList<string>? qualitySignals)
+    {
+        var penalty = 0;
+        var normalizedStatus = NormalizeExtractionQualityToken(textStatus);
+        penalty += normalizedStatus switch
+        {
+            "empty_text" => 12,
+            "low_text" => 5,
+            "unknown" => 2,
+            _ => 0
+        };
+
+        if (textSparse == true)
+            penalty += 4;
+        if (ocrCandidate == true)
+            penalty += 3;
+
+        foreach (var signal in NormalizeExtractionQualitySignals(qualitySignals))
+        {
+            penalty += signal switch
+            {
+                "replacement_chars_remaining" => 10,
+                "probable_ocr_noise" => 8,
+                "ocr_noise" => 8,
+                "noise_text" => 8,
+                "no_text_extracted" => 8,
+                "empty_text" => 8,
+                "low_text_extraction" => 5,
+                "sparse_text_on_page" => 4,
+                "ocr_candidate_text" => 3,
+                "ocr_recommended" => 2,
+                _ => 0
+            };
+        }
+
+        return Math.Clamp(penalty, 0, 24);
     }
 
     private static RagExtractionDocumentQualityRow? ResolveExtractionDocumentQuality(
@@ -1182,6 +1281,75 @@ WHERE d.tenant_id=@tenant
             .Distinct(StringComparer.Ordinal)
             .Take(8)
             .ToArray();
+
+    private static RagItemExtractionQualityDto? BuildEffectiveExtractionQuality(
+        RagMatch match,
+        RagItemExtractionQualityDto? quality)
+    {
+        var chunkStatus = NormalizeExtractionQualityToken(match.ExtractionTextStatus);
+        var chunkSignals = NormalizeExtractionQualitySignals(match.ExtractionQualitySignals);
+        var hasChunkQuality =
+            !string.IsNullOrWhiteSpace(chunkStatus)
+            || match.ExtractionTextSparse.HasValue
+            || match.ExtractionOcrCandidate.HasValue
+            || chunkSignals.Length > 0;
+
+        if (quality is null && !hasChunkQuality)
+            return null;
+
+        var mergedSignals = MergeExtractionSignals(
+            quality?.Signals,
+            chunkSignals.Length == 0 ? null : chunkSignals);
+
+        return new RagItemExtractionQualityDto(
+            ExtractionSource: quality?.ExtractionSource,
+            OcrAttempted: quality?.OcrAttempted,
+            OcrApplied: quality?.OcrApplied,
+            DocumentQualityStatus: quality?.DocumentQualityStatus,
+            DocumentExtractionConfidence: quality?.DocumentExtractionConfidence,
+            DocumentManualReviewRecommended: quality?.DocumentManualReviewRecommended,
+            PageQualityStatus: quality?.PageQualityStatus,
+            PageExtractionConfidence: quality?.PageExtractionConfidence,
+            PageManualReviewRecommended: quality?.PageManualReviewRecommended,
+            TextStatus: quality?.TextStatus ?? chunkStatus,
+            OcrRecommended: quality?.OcrRecommended ?? ResolveChunkOcrRecommended(chunkStatus, match.ExtractionOcrCandidate),
+            Signals: mergedSignals.Length == 0 ? null : mergedSignals,
+            ChunkTextStatus: chunkStatus,
+            ChunkTextSparse: match.ExtractionTextSparse,
+            ChunkOcrCandidate: match.ExtractionOcrCandidate,
+            ChunkQualitySignals: chunkSignals.Length == 0 ? null : chunkSignals,
+            DiagnosticSummary: quality?.DiagnosticSummary);
+    }
+
+    private static bool? ResolveChunkOcrRecommended(string? chunkStatus, bool? chunkOcrCandidate)
+        => chunkOcrCandidate == true
+           || string.Equals(chunkStatus, "empty_text", StringComparison.Ordinal)
+           || string.Equals(chunkStatus, "low_text", StringComparison.Ordinal)
+            ? true
+            : null;
+
+    private static string? NormalizeExtractionQualityToken(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var normalized = value.Trim().Replace('-', '_').ToLowerInvariant();
+        return normalized.Length is > 0 and <= 80
+            && normalized.All(static ch => char.IsLetterOrDigit(ch) || ch == '_')
+                ? normalized
+                : null;
+    }
+
+    private static string[] NormalizeExtractionQualitySignals(IReadOnlyList<string>? signals)
+        => signals is null
+            ? Array.Empty<string>()
+            : signals
+                .Select(NormalizeExtractionQualityToken)
+                .Where(static signal => !string.IsNullOrWhiteSpace(signal))
+                .Select(static signal => signal!)
+                .Distinct(StringComparer.Ordinal)
+                .Take(8)
+                .ToArray();
 
     private static RagItemExtractionDiagnosticSummaryDto? BuildRagExtractionDiagnosticSummary(RagExtractionDocumentQualityRow row)
     {
@@ -17025,6 +17193,8 @@ FROM scoped_revisions;
             penalty += 4;
         }
 
+        penalty += Math.Min(10, ComputeChunkExtractionQualityPenalty(quality));
+
         return Math.Clamp(penalty, 0, 24);
     }
 
@@ -18500,35 +18670,41 @@ GROUP BY d.doc_id;
     // (e.g. SectionOrdinalPlaceholder, which we don't use but must declare) or a type
     // mismatch (ts_rank_cd returns float/Single, not double) makes the whole endpoint
     // throw "no matching constructor" at runtime.
-    private sealed record SparseMatchRow(
-        Guid DocId,
-        string DocPath,
-        string DocName,
-        string? Category,
-        int PageStart,
-        int PageEnd,
-        int? OffsetStart,
-        int? OffsetEnd,
-        Guid ChunkId,
-        int ChunkIndex,
-        string Text,
-        int IngestionVersion,
-        string? HashDoc,
-        string EmbedText,
-        Guid? SectionOrdinalPlaceholder,
-        string? SectionTitle,
-        string? HeadingPath,
-        string ChunkType,
-        string? ContentRole,
-        string? NavigationReason,
-        string? OriginalChunkType,
-        double? NavigationScore,
-        double? ContentDensityScore,
-        string? PrevChunkId,
-        string? NextChunkId,
-        string? SameSectionChunkId,
-        string? MatchedContentCardsJson,
-        float SparseRank);
+    private sealed class SparseMatchRow
+    {
+        public Guid DocId { get; init; }
+        public string DocPath { get; init; } = string.Empty;
+        public string DocName { get; init; } = string.Empty;
+        public string? Category { get; init; }
+        public int PageStart { get; init; }
+        public int PageEnd { get; init; }
+        public int? OffsetStart { get; init; }
+        public int? OffsetEnd { get; init; }
+        public Guid ChunkId { get; init; }
+        public int ChunkIndex { get; init; }
+        public string Text { get; init; } = string.Empty;
+        public int IngestionVersion { get; init; }
+        public string? HashDoc { get; init; }
+        public string EmbedText { get; init; } = string.Empty;
+        public Guid? SectionOrdinalPlaceholder { get; init; }
+        public string? SectionTitle { get; init; }
+        public string? HeadingPath { get; init; }
+        public string ChunkType { get; init; } = "contextual_text_v1";
+        public string? ContentRole { get; init; }
+        public string? NavigationReason { get; init; }
+        public string? OriginalChunkType { get; init; }
+        public double? NavigationScore { get; init; }
+        public double? ContentDensityScore { get; init; }
+        public string? ExtractionTextStatus { get; init; }
+        public bool? ExtractionTextSparse { get; init; }
+        public bool? ExtractionOcrCandidate { get; init; }
+        public string? ExtractionQualitySignalsJson { get; init; }
+        public string? PrevChunkId { get; init; }
+        public string? NextChunkId { get; init; }
+        public string? SameSectionChunkId { get; init; }
+        public string? MatchedContentCardsJson { get; init; }
+        public float SparseRank { get; init; }
+    }
 
     // PostgreSQL text[] columns are exposed to Dapper's positional record binder as
     // System.Array here. Normalize them to strings only when building profile signals.
@@ -18559,34 +18735,40 @@ GROUP BY d.doc_id;
         double SpecificityBoost,
         double BaseScore);
 
-    private sealed record LinkedMatchRow(
-        Guid DocId,
-        string DocPath,
-        string DocName,
-        string? Category,
-        int PageStart,
-        int PageEnd,
-        int? OffsetStart,
-        int? OffsetEnd,
-        Guid ChunkId,
-        int ChunkIndex,
-        string Text,
-        int IngestionVersion,
-        string? HashDoc,
-        string ChunkType,
-        string? ContentRole,
-        string? NavigationReason,
-        string? OriginalChunkType,
-        double? NavigationScore,
-        double? ContentDensityScore,
-        string? SectionTitle,
-        string? HeadingPath,
-        string LinkType,
-        Guid AnchorSourceId,
-        Guid AnchorChunkId,
-        string? PrevChunkId,
-        string? NextChunkId,
-        string? SameSectionChunkId);
+    private sealed class LinkedMatchRow
+    {
+        public Guid DocId { get; init; }
+        public string DocPath { get; init; } = string.Empty;
+        public string DocName { get; init; } = string.Empty;
+        public string? Category { get; init; }
+        public int PageStart { get; init; }
+        public int PageEnd { get; init; }
+        public int? OffsetStart { get; init; }
+        public int? OffsetEnd { get; init; }
+        public Guid ChunkId { get; init; }
+        public int ChunkIndex { get; init; }
+        public string Text { get; init; } = string.Empty;
+        public int IngestionVersion { get; init; }
+        public string? HashDoc { get; init; }
+        public string ChunkType { get; init; } = "linked_context_v1";
+        public string? ContentRole { get; init; }
+        public string? NavigationReason { get; init; }
+        public string? OriginalChunkType { get; init; }
+        public double? NavigationScore { get; init; }
+        public double? ContentDensityScore { get; init; }
+        public string? ExtractionTextStatus { get; init; }
+        public bool? ExtractionTextSparse { get; init; }
+        public bool? ExtractionOcrCandidate { get; init; }
+        public string? ExtractionQualitySignalsJson { get; init; }
+        public string? SectionTitle { get; init; }
+        public string? HeadingPath { get; init; }
+        public string LinkType { get; init; } = string.Empty;
+        public Guid AnchorSourceId { get; init; }
+        public Guid AnchorChunkId { get; init; }
+        public string? PrevChunkId { get; init; }
+        public string? NextChunkId { get; init; }
+        public string? SameSectionChunkId { get; init; }
+    }
 
     private static void AddRankedMatches(
         List<RagMatch> selected,
@@ -19174,6 +19356,7 @@ GROUP BY d.doc_id;
                     : ComputeShortTechnicalDirectEvidencePriority(query, match, string.Empty, string.Empty))
                 .ThenByDescending(static match => ComputeSelectionPriorityBucket(match))
                 .ThenByDescending(static match => ComputeContentEvidencePriority(match))
+                .ThenBy(static match => ComputeChunkExtractionQualityPenalty(match))
                 .ThenByDescending(static match => match.Score)
                 .ThenBy(static match => match.DocPath, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(static match => match.ChunkIndex)
@@ -19216,6 +19399,7 @@ GROUP BY d.doc_id;
                     .ThenByDescending(static item => item.DirectSpecificContentCoverage)
                     .ThenByDescending(static item => item.SelectionPriorityBucket)
                     .ThenByDescending(static item => item.ContentEvidencePriority)
+                    .ThenBy(static item => ComputeChunkExtractionQualityPenalty(item.Match))
                     .ThenByDescending(static item => item.Match.Score)
                     .ThenBy(static item => item.Match.DocPath, StringComparer.OrdinalIgnoreCase)
                     .ThenBy(static item => item.Match.ChunkIndex)
@@ -19234,6 +19418,7 @@ GROUP BY d.doc_id;
                 .ThenByDescending(static item => item.DirectSpecificContentCoverage)
                 .ThenByDescending(static item => item.SelectionPriorityBucket)
                 .ThenByDescending(static item => item.ContentEvidencePriority)
+                .ThenBy(static item => ComputeChunkExtractionQualityPenalty(item.Match))
                 .ThenByDescending(static item => item.Match.Score)
                 .ThenBy(static item => item.Match.DocPath, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(static item => item.Match.ChunkIndex)
@@ -19271,6 +19456,7 @@ GROUP BY d.doc_id;
                 .ThenByDescending(match => ComputeDirectSpecificContentCoverage(directSpecificContentTokens, match))
                 .ThenByDescending(static match => ComputeSelectionPriorityBucket(match))
                 .ThenByDescending(static match => ComputeContentEvidencePriority(match))
+                .ThenBy(static match => ComputeChunkExtractionQualityPenalty(match))
                 .ThenByDescending(static match => match.Score)
                 .ThenBy(static match => match.DocPath, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(static match => match.ChunkIndex)
@@ -19293,6 +19479,7 @@ GROUP BY d.doc_id;
                 .ThenByDescending(match => ComputeDirectSpecificContentCoverage(directSpecificContentTokens, match))
                 .ThenByDescending(static match => ComputeSelectionPriorityBucket(match))
                 .ThenByDescending(static match => ComputeContentEvidencePriority(match))
+                .ThenBy(static match => ComputeChunkExtractionQualityPenalty(match))
                 .ThenByDescending(static match => match.Score)
                 .ThenBy(static match => match.DocPath, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(static match => match.ChunkIndex)
@@ -21207,6 +21394,8 @@ LIMIT @top_k;
 
                 if (insufficientQuotedTitleEvidenceCap is double finalScoreCap)
                     adjusted = Math.Min(adjusted, finalScoreCap);
+
+                adjusted = ApplyChunkExtractionQualityScorePenalty(adjusted, match);
 
                 return new
                 {
@@ -23672,6 +23861,7 @@ LIMIT @top_k;
                     MatchesDocumentHint = DocumentMatchesHint(documentHintTokens, match),
                     SelectionPriorityBucket = ComputeSelectionPriorityBucket(match),
                     ContentEvidencePriority = contentEvidencePriority,
+                    QualityPenalty = ComputeChunkExtractionQualityPenalty(match),
                     QuotedTitleAnchorSignal = quotedTitleAnchorSignal,
                     ExactTitleScore = exactTitleScore,
                     SpecificAnchorCount = lexicalTokens.Length > 0
@@ -23739,6 +23929,7 @@ LIMIT @top_k;
                 .ThenByDescending(static item => item.SelectionPriorityBucket)
                 .ThenBy(static item => item.LeadingLinkedContinuationPenalty ? 1 : 0)
                 .ThenBy(static item => item.BorrowedLinkedTitleCompanionPenalty)
+                .ThenBy(static item => item.QualityPenalty)
                 .ThenByDescending(static item => item.Match.Score)
                 .ThenByDescending(static item => item.ContentEvidencePriority)
                 .ThenBy(static item => item.Index)
@@ -23797,6 +23988,7 @@ LIMIT @top_k;
                 .ThenByDescending(static item => item.SelectionPriorityBucket)
                 .ThenBy(static item => item.LeadingLinkedContinuationPenalty ? 1 : 0)
                 .ThenBy(static item => item.BorrowedLinkedTitleCompanionPenalty)
+                .ThenBy(static item => item.QualityPenalty)
                 .ThenByDescending(static item => item.Match.Score)
                 .ThenByDescending(static item => item.ContentEvidencePriority)
                 .ThenBy(static item => item.Index)
@@ -23873,6 +24065,7 @@ LIMIT @top_k;
             .ThenByDescending(item => useSpecificCoverageTitlePriority ? item.StructuredAnswerPriority : 0)
             .ThenByDescending(item => useSpecificCoverageTitlePriority ? item.SpecificAnchorCount : 0)
             .ThenByDescending(static item => item.ContentEvidencePriority)
+            .ThenBy(static item => item.QualityPenalty)
             .ThenByDescending(static item => item.Match.Score)
             .ThenBy(static item => item.Index)
             .Select(static item => item.Match));
@@ -28581,7 +28774,7 @@ LIMIT @top_k;
             .Select(match => new
             {
                 Match = match,
-                Score = match.Score + ComputeDenseBoost(match)
+                Score = ApplyChunkExtractionQualityScorePenalty(match.Score + ComputeDenseBoost(match), match)
             })
             .OrderByDescending(item => item.Score)
             .ThenBy(item => item.Match.DocPath, StringComparer.OrdinalIgnoreCase)
