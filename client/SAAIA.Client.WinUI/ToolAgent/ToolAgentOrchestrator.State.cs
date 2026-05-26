@@ -4477,7 +4477,7 @@ CURRENT_USER_MESSAGE:
             "document", "documents", "adapt", "adapted", "derived", "please", "from", "retrouve", "retrouver", "retrouves",
             "choisir", "choix", "choose", "select", "selection", "recommend", "recommends", "recommendation",
             "recommande", "recommander", "conseille", "conseiller", "suggest", "suggestion", "suggestions",
-            "repas", "meal", "meals", "orienter", "orientation", "utilisateur", "user", "users", "demande",
+            "orienter", "orientation", "utilisateur", "user", "users", "demande",
             "demandes", "demander", "asked", "asks", "question", "questions", "client", "customer", "customers",
             "prepare", "preparer", "repond", "reponds", "repondez", "reponse", "answer", "answers",
             "respond", "responds", "reply", "replies"

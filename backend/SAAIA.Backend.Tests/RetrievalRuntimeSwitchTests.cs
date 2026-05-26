@@ -271,7 +271,7 @@ public sealed class RetrievalRuntimeSwitchTests
     [InlineData("Je veux une fiche pour Cr\u00e8me au citron avec source.", "creme au citron")]
     [InlineData("Bouillon de volaille source", "bouillon de volaille")]
     [InlineData("Saumon avec sauce yaourt-menthe source", "saumon avec sauce yaourt menthe")]
-    [InlineData("Alpha Beta ingredients", "alpha beta")]
+    [InlineData("Alpha Beta materials", "alpha beta")]
     [InlineData("Alpha Beta etapes", "alpha beta")]
     [InlineData("Alpha Beta temps", "alpha beta")]
     [InlineData("Alpha Beta duration", "alpha beta")]
@@ -788,7 +788,7 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Theory]
-    [InlineData("Alpha Beta ingredients", "alpha beta", "ingredients")]
+    [InlineData("Alpha Beta materials", "alpha beta", "materials")]
     [InlineData("Alpha Beta etapes", "alpha beta", "etapes")]
     [InlineData("Alpha Beta temps", "alpha beta", "temps")]
     [InlineData("Alpha Beta duration", "alpha beta", "duration")]
@@ -2348,19 +2348,17 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.Contains("mat\u00e9riel", RagEndpoints.BuildDocumentProfileLexicalTerms(
             "Compare trois procedures pour apprentis : mat\u00e9riel, risques et consignes."));
         Assert.Contains("etudiant", RagEndpoints.BuildDocumentProfileLexicalTerms(
-            "Compare les recettes \u00e9tudiantes et les options de travail."));
+            "Compare les procedures \u00e9tudiantes et les options de travail."));
         Assert.Contains("francais", RagEndpoints.BuildDocumentProfileLexicalTerms(
-            "Compare les recettes scandinaves, fran\u00e7aises et espagnoles."));
+            "Compare les procedures scandinaves, fran\u00e7aises et espagnoles."));
         Assert.Contains("cremeux", RagEndpoints.BuildDocumentProfileLexicalTerms(
             "Compare les options cr\u00e9meuses et simples."));
         Assert.Contains("enfants", RagEndpoints.BuildDocumentProfileLexicalTerms(
-            "Une recette enfant."));
+            "Une procedure enfant."));
         Assert.Contains("children", RagEndpoints.BuildDocumentProfileLexicalTerms(
-            "Une recette enfant."));
-        Assert.DoesNotContain("recettes", RagEndpoints.BuildDocumentProfileLexicalTerms(
-            "Compare trois recettes salees pour enfants : temps, materiel, risque de ratage."));
-        Assert.DoesNotContain("salees", RagEndpoints.BuildDocumentProfileLexicalTerms(
-            "Compare trois recettes salees pour enfants : temps, materiel, risque de ratage."));
+            "Une procedure enfant."));
+        Assert.DoesNotContain("procedures", RagEndpoints.BuildDocumentProfileLexicalTerms(
+            "Compare trois procedures pour enfants : temps, materiel, risque de ratage."));
     }
 
     [Fact]
@@ -3879,7 +3877,7 @@ public sealed class RetrievalRuntimeSwitchTests
     public void ComputeDocumentProfileConstraintCoverageScore_weights_audience_and_operational_constraints()
     {
         var tokens = RagEndpoints.BuildDocumentProfileSpecificityTokens(
-            "Compare trois recettes salees pour enfants : temps, materiel, risque de ratage.");
+            "Compare trois procedures pour enfants : temps, materiel, risque de ratage.");
         var genericCoverage = RagEndpoints.ComputeDocumentProfileConstraintCoverageScore(
             tokens,
             "recettes salees enfants impatientent tarte familiale");
@@ -3897,13 +3895,12 @@ public sealed class RetrievalRuntimeSwitchTests
             "Compare trois recettes salees pour enfants : temps, materiel, risque de ratage.");
         var genericCoverage = RagEndpoints.ComputeDocumentProfileConstraintCoverageScore(
             tokens,
-            "recettes salees enfants autour d'un repas familial");
+            "procedures enfants autour d'un atelier familial");
         var targetedCoverage = RagEndpoints.ComputeDocumentProfileConstraintCoverageScore(
             tokens,
-            "recettes destinees a des animateurs qui cuisinent avec les enfants organisation pedagogique et materielle pictogrammes temps degre de difficulte");
+            "procedures destinees a des animateurs avec les enfants organisation pedagogique et materielle pictogrammes temps degre de difficulte");
 
-        Assert.DoesNotContain("recettes", tokens);
-        Assert.DoesNotContain("salees", tokens);
+        Assert.DoesNotContain("procedures", tokens);
         Assert.True(targetedCoverage > genericCoverage);
     }
 
@@ -4039,7 +4036,7 @@ public sealed class RetrievalRuntimeSwitchTests
     [Theory]
     [InlineData("Tu peux me faire une fiche claire pour « Pudding vapeur au sirop » : ingredients, etapes, temps et source ?", true)]
     [InlineData("Pudding vapeur au sirop source", true)]
-    [InlineData("Quels sont les ingredients de Pudding vapeur au sirop ?", true)]
+    [InlineData("Quels sont les composants de Pudding vapeur au sirop ?", true)]
     [InlineData("Je veux une fiche claire sans titre precis.", false)]
     [InlineData("Suggest a complete weekly plan from this category.", false)]
     [InlineData("Quels documents parlent d'inertage ?", false)]
@@ -4241,7 +4238,7 @@ public sealed class RetrievalRuntimeSwitchTests
     [InlineData("Suggest a complete weekly plan from this category.", false)]
     [InlineData("Compare trois procedures salees pour enfants : temps, materiel, risque de ratage.", false)]
     [InlineData("Compare trois recettes sal\u00e9es pour enfants : temps, mat\u00e9riel, risque de ratage.", false)]
-    [InlineData("Une recette enfant.", false)]
+    [InlineData("Une procedure enfant.", false)]
     [InlineData("Pour la procedure Alpha Beta, quels sont les parametres et le reglage ?", true)]
     [InlineData("Quels reglages de temperature pour le module Alpha Beta ?", true)]
     [InlineData("Le modele HPX-2000 est-il certifie ATEX ?", false)]
@@ -6993,7 +6990,7 @@ ALPHA BETA MODULE
         Assert.True(RagEndpoints.ShouldConstrainPreciseTitleLookup("je veux une recette de concombres romaine"));
         Assert.True(RagEndpoints.ShouldConstrainPreciseTitleLookup("Saumon avec sauce yaourt-menthe"));
 
-        Assert.False(RagEndpoints.ShouldConstrainPreciseTitleLookup("Une recette enfant."));
+        Assert.False(RagEndpoints.ShouldConstrainPreciseTitleLookup("Une procedure enfant."));
         Assert.False(RagEndpoints.ShouldConstrainPreciseTitleLookup("comment preparer des concombres pour la semaine"));
         Assert.False(RagEndpoints.ShouldConstrainPreciseTitleLookup("compare concombres romaine et tomates printanieres"));
         Assert.False(RagEndpoints.ShouldConstrainPreciseTitleLookup("Quelles recettes avec des lentilles corail existent dans les PDF ?"));
@@ -7916,7 +7913,7 @@ ALPHA BETA MODULE
             useScopedProfileFallback: false));
 
         Assert.False(RagEndpoints.ShouldProbeUnquotedTitleAnchorRoute(
-            "Une recette enfant.",
+            "Une procedure enfant.",
             skipChunkRetrieversForDocumentOverview: false,
             useScopedProfileFallback: false));
     }
@@ -8748,32 +8745,47 @@ ALPHA BETA MODULE
         Assert.Single(selected);
     }
 
-    [Fact]
-    public void BuildAnswerGuidance_marks_empty_retrieval_as_no_source_match()
+    [Theory]
+    [InlineData("VX-12 calibration limits")]
+    [InlineData("controle interverrouillage VX-12")]
+    [InlineData("Pump maintenance threshold")]
+    public void BuildAnswerGuidance_marks_empty_retrieval_as_no_source_match_for_generic_queries(string query)
     {
-        var guidance = RagEndpoints.BuildAnswerGuidance("raclette suisse", Array.Empty<RagMatch>());
+        var guidance = RagEndpoints.BuildAnswerGuidance(query, Array.Empty<RagMatch>());
 
         Assert.Equal("answer_with_caveat", guidance.Behavior);
         Assert.Equal("no_relevant_source_found", guidance.Reason);
         Assert.Equal("no_source_match", guidance.ResponseShape);
+        Assert.False(string.IsNullOrWhiteSpace(guidance.QualificationNote));
+        Assert.DoesNotContain("recette", guidance.QualificationNote, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ingredient", guidance.QualificationNote, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("cuisine", guidance.QualificationNote, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
-    public void BuildAnswerGuidance_asks_clarification_for_ambiguous_bare_fragment()
+    [Theory]
+    [InlineData("Un controle standard.", "Quel")]
+    [InlineData("A standard control.", "Which")]
+    [InlineData("Un control estandar.", "Que")]
+    [InlineData("Um controle padrao.", "Qual")]
+    [InlineData("Eine Standardkontrolle.", "Welches")]
+    [InlineData("Un controllo standard.", "Quale")]
+    public void BuildAnswerGuidance_asks_localized_clarification_for_ambiguous_generic_fragment(
+        string query,
+        string expectedMarker)
     {
         var matches = new[]
         {
             TestMatch(
-                text: "Procedure standard. Etapes : verifier la demande, collecter les preuves, valider la decision.",
-                docPath: "Knowledge/process.pdf")
+                text: "Standard control procedure: verify sensor, record result, approve deviation.",
+                docPath: "Knowledge/control-procedure.pdf")
         };
 
-        var guidance = RagEndpoints.BuildAnswerGuidance("Un processus classique.", matches);
+        var guidance = RagEndpoints.BuildAnswerGuidance(query, matches);
 
         Assert.Equal("ask_clarification", guidance.Behavior);
         Assert.Equal("ambiguous_bare_fragment_requires_scope", guidance.Reason);
         Assert.Equal("clarify", guidance.ResponseShape);
-        Assert.Contains("perimetre", guidance.ClarifyingQuestion!, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(expectedMarker, guidance.ClarifyingQuestion!, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -8788,7 +8800,7 @@ ALPHA BETA MODULE
                 chunkType: "document_profile")
         };
 
-        var guidance = RagEndpoints.BuildAnswerGuidance("Une recette enfant.", matches);
+        var guidance = RagEndpoints.BuildAnswerGuidance("Une procedure enfant.", matches);
 
         Assert.Equal("ask_clarification", guidance.Behavior);
         Assert.Equal("ambiguous_bare_fragment_requires_scope", guidance.Reason);
@@ -10269,7 +10281,7 @@ ALPHA BETA MODULE
     [Fact]
     public void PrioritizeFinalSelections_prefers_near_exact_ocr_title_over_qualified_prefix_title()
     {
-        const string query = "Tu peux me faire une fiche claire pour \u00ab Sauce bolognaise \u00bb : ingredients, etapes, temps et source ?";
+        const string query = "Tu peux me faire une fiche claire pour \u00ab Sauce bolognaise \u00bb : materials, etapes, temps et source ?";
         var qualifiedPrefix = TestMatch(
             text: "SAUCE BOLOGNAISE AU SOJA TEXTURE Ingredients: soja texture, tomates, carottes. Preparation: hydrater le soja puis mijoter.",
             docPath: "Cuisine/qualified.pdf",
@@ -10329,7 +10341,7 @@ ALPHA BETA MODULE
     {
         var anchorId = Guid.NewGuid().ToString();
         var continuationId = Guid.NewGuid().ToString();
-        const string query = "Tu peux me faire une fiche claire pour \u00ab Sauce bolognaise \u00bb : ingredients, etapes, temps et source ?";
+        const string query = "Tu peux me faire une fiche claire pour \u00ab Sauce bolognaise \u00bb : materials, etapes, temps et source ?";
         var anchor = TestMatch(
             text: "SAUCE BOLOGNANE Accompagnements Viandes Boeuf Modes de preparation Frire Cuire Categories de recettes Pour 4 portions SAUCE BOLOGNANE",
             docPath: "Cuisine/target.pdf",
@@ -10692,7 +10704,7 @@ ALPHA BETA MODULE
     {
         var anchorId = Guid.NewGuid().ToString();
         var continuationId = Guid.NewGuid().ToString();
-        const string query = "Donne-moi la recette du coq au vin dans le livre international.";
+        const string query = "Donne-moi la fiche du coq au vin dans le livre international.";
         var anchor = TestMatch(
             text: "Pour 4 personnes Cette recette francaise traditionnelle etait autrefois preparee avec un coq de plus de 18 mois. Prevoyez au moins douze heures de maceration.",
             embedText: "Matched linked_anchor_title: Coq au vin\nPour 4 personnes Cette recette francaise traditionnelle.",
@@ -10750,7 +10762,7 @@ ALPHA BETA MODULE
         var ingredientsId = Guid.NewGuid().ToString();
         var stepTwoId = Guid.NewGuid().ToString();
         var stepThreeId = Guid.NewGuid().ToString();
-        const string query = "Tu peux me faire une fiche claire pour \"Sauce bearnaise\" : ingredients, etapes, temps et source ?";
+        const string query = "Tu peux me faire une fiche claire pour \"Sauce bearnaise\" : materials, etapes, temps et source ?";
         var anchor = TestMatch(
             text: "SAUCE BEARNAISE Lancez le programme sauce en vitesse 6 a 70 C pour 8 min avec le bouchon. 6 personnes 23 min 10 min SAUCE BEARNAISE Pour les detenteurs d'un Companion connecte bluetooth, vous pouvez remplacer le programme SAUCE par le mode manuel. 2 echalotes 2 cl d'huile 1 c. a s. de fond de veau 125 g de creme epaisse 1 c. a s. de moutarde Eau 1 Dans le robot muni du couteau hachoir ultrablade, mettez les echalotes epluchees puis mixez en vitesse 11 pendant 10 s.",
             embedText: "Matched local_title_token_route: Sauce bearnaise\nSAUCE BEARNAISE Lancez le programme sauce en vitesse 6 a 70 C.",
@@ -10837,7 +10849,7 @@ ALPHA BETA MODULE
         var anchorId = Guid.NewGuid().ToString();
         var preparationId = Guid.NewGuid().ToString();
         var ingredientsId = Guid.NewGuid().ToString();
-        const string query = "Tu peux me faire une fiche claire pour \"Brochettes de poulet grille a l'indonesienne\" : ingredients, etapes, temps et source ?";
+        const string query = "Tu peux me faire une fiche claire pour \"Brochettes de poulet grille a l'indonesienne\" : materials, etapes, temps et source ?";
         var anchor = TestMatch(
             text: "Brochettes de poulet grille a l'indonesienne. Pour 6 personnes. 1. Coupez les blancs de poulet en fines lanieres.",
             embedText: "Matched direct_title_token_route: Brochettes de poulet grille a l'indonesienne\nBrochettes de poulet grille a l'indonesienne. Pour 6 personnes.",
@@ -10905,7 +10917,7 @@ ALPHA BETA MODULE
     {
         var anchorId = Guid.NewGuid().ToString();
         var ingredientsId = Guid.NewGuid().ToString();
-        const string query = "Tu peux me faire une fiche claire pour \"Brochettes de poulet grille a l'indonesienne\" : ingredients, etapes, temps et source ?";
+        const string query = "Tu peux me faire une fiche claire pour \"Brochettes de poulet grille a l'indonesienne\" : materials, etapes, temps et source ?";
         var anchor = TestMatch(
             text: "Pour 6 personnes. 1. Coupez les blancs de poulet en fines lanieres.",
             embedText: "Matched local title token route",
@@ -10954,7 +10966,7 @@ ALPHA BETA MODULE
         var anchorId = Guid.NewGuid().ToString();
         var stepsId = Guid.NewGuid().ToString();
         var ingredientsId = Guid.NewGuid().ToString();
-        const string query = "Tu peux me faire une fiche claire pour \"Trifle aux cerises\" : ingredients, etapes, temps et source ?";
+        const string query = "Tu peux me faire une fiche claire pour \"Trifle aux cerises\" : materials, etapes, temps et source ?";
         var anchor = TestMatch(
             text: "Trifle aux cerises Une recette que l'on peut varier et preparer avec d'autres fruits, comme des fraises ou des peches.",
             docPath: "Cuisine/nobilia-recettes-internationales-FR.pdf",
@@ -11023,7 +11035,7 @@ ALPHA BETA MODULE
         const string sauceId = "3c0b9e09-1502-d48f-aff1-5191245d8856";
         const string ingredientsId = "ad15c7b7-9545-6360-3302-be198033ac7b";
         const string sectionTitle = "4 Homes ila, Egouttez-les et coupez-les en rondelles epaisses. Mettez-les dans un saladier, ajoutez-y les";
-        const string query = "Tu peux me faire une fiche claire pour \"Brochettes de poulet grille a l'indonesienne\" : ingredients, etapes, temps et source ?";
+        const string query = "Tu peux me faire une fiche claire pour \"Brochettes de poulet grille a l'indonesienne\" : materials, etapes, temps et source ?";
         var anchor = TestMatch(
             text: "Brochettes de poulet grille a l'indonesienne. L'Indonesie actuelle appartenait aux colonies neerlandaises d'Extreme-Orient. Pour 6 personnes 1. Coupez les blancs de poulet en fines lanieres.",
             embedText: "Matched local title token route",
@@ -11192,7 +11204,7 @@ ALPHA BETA MODULE
         var titleId = Guid.NewGuid().ToString();
         var previousId = Guid.NewGuid().ToString();
         var continuationId = Guid.NewGuid().ToString();
-        const string query = "Tu peux me faire une fiche claire pour \"Alpha Beta\" : ingredients, etapes, temps et source ?";
+        const string query = "Tu peux me faire une fiche claire pour \"Alpha Beta\" : materials, etapes, temps et source ?";
         var directTitle = TestMatch(
             text: "Alpha Beta Ingredients: 250 g alpha, 100 ml beta, salt and pepper.",
             docPath: "Docs/alpha-guide.pdf",
@@ -11233,7 +11245,7 @@ ALPHA BETA MODULE
     {
         var anchorId = Guid.NewGuid().ToString();
         var ingredientsId = Guid.NewGuid().ToString();
-        const string query = "Tu peux me faire une fiche claire pour \"Brochettes de poulet grille a l'indonesienne\" : ingredients, etapes, temps et source ?";
+        const string query = "Tu peux me faire une fiche claire pour \"Brochettes de poulet grille a l'indonesienne\" : materials, etapes, temps et source ?";
         var anchor = TestMatch(
             text: "Brochettes de poulet grille a l'indonesienne. Pour 6 personnes. 1. Coupez les blancs de poulet en fines lanieres.",
             embedText: "Matched local title token route",
@@ -12225,7 +12237,7 @@ Procedure: 1. Isolate the device. 2. Replace the component. 3. Verify the assemb
     [Fact]
     public void PrioritizeFinalSelections_prefers_complete_direct_token_route_over_partial_sparse_body_match()
     {
-        const string query = "Tu peux me faire une fiche claire pour « Endives au jambon » : ingrédients, étapes, temps et source ?";
+        const string query = "Tu peux me faire une fiche claire pour « Endives au jambon » : materials, étapes, temps et source ?";
         var partialSparse = TestMatch(
             text: "Preparation 1. Cuire les pates puis les egoutter. Couper l'endive en fines lamelles, ajouter les tomates et melanger. Servir avec une vinaigrette.",
             docPath: "Cuisine/livre-recette-sist-2025-web.pdf",
@@ -12772,22 +12784,22 @@ Procedure: 1. Isolate the device. 2. Replace the component. 3. Verify the assemb
     }
 
     [Theory]
-    [InlineData("Transforme la recette en meal prep pour 4 lunchs.", "pour4")]
-    [InlineData("J'ai 20 CHF pour 4 repas, quelles recettes du corpus sont les meilleures candidates ?", "pour 4")]
+    [InlineData("Prepare a documented onboarding plan for 4 people from the corpus.", "pour4")]
+    [InlineData("Compare documented options for 4 people and pick the best candidate.", "pour 4")]
     [InlineData("Build a weekly plan for 6 people from the corpus.", "for 6 people")]
-    public void Weak_serving_exact_terms_are_pruned_for_broad_synthesis_queries(string query, string term)
+    public void Weak_count_exact_terms_are_pruned_for_broad_synthesis_queries(string query, string term)
     {
         Assert.True(RagEndpoints.ShouldPruneWeakExactLookupTermsForQuery(query));
-        Assert.True(RagEndpoints.IsWeakServingQuantityExactLookupTerm(term));
+        Assert.True(RagEndpoints.IsWeakCountQuantityExactLookupTerm(term));
     }
 
     [Fact]
-    public void BuildExactMatchLookupTerms_prunes_weak_serving_terms_but_keeps_specific_references()
+    public void BuildExactMatchLookupTerms_prunes_weak_count_terms_but_keeps_specific_references()
     {
         var terms = RagEndpoints.BuildExactMatchLookupTerms(
-            "J'ai 20 CHF pour 4 repas, quelles options XR-42 du corpus sont les meilleures candidates ?");
+            "Compare documented options XR-42 for 4 people and pick the best candidate.");
 
-        Assert.DoesNotContain(terms, RagEndpoints.IsWeakServingQuantityExactLookupTerm);
+        Assert.DoesNotContain(terms, RagEndpoints.IsWeakCountQuantityExactLookupTerm);
         Assert.Contains("xr 42", terms);
     }
 
@@ -12814,53 +12826,53 @@ Procedure: 1. Isolate the device. 2. Replace the component. 3. Verify the assemb
     }
 
     [Fact]
-    public void CalibrateFusedMatches_penalizes_short_serving_exact_match_for_broad_planning_query()
+    public void CalibrateFusedMatches_penalizes_short_count_exact_match_for_broad_planning_query()
     {
-        const string query = "J'ai 20 CHF pour 4 repas, quelles recettes du corpus sont les meilleures candidates ?";
-        var shortServingExact = TestMatch(
+        const string query = "Compare documented options for 4 people and pick the best candidate.";
+        var shortCountExact = TestMatch(
             "Pour4",
-            chunkId: "serving-count",
+            chunkId: "weak-count",
             embeddingBasis: "exact_match_v1",
             chunkType: "exact_match_entry",
             score: 0.99);
         var planningContext = TestMatch(
-            "Budget repas courses economie batch cooking recettes simples. Ce passage aide a choisir des plats pour plusieurs repas sans inventer les prix.",
+            "Document profile: comparison planning, budget constraints, documented options and selection criteria.",
             chunkId: "planning-context",
             embeddingBasis: "document_profile_v1",
             chunkType: "document_profile",
             score: 0.78);
 
-        var calibrated = RagEndpoints.CalibrateFusedMatches(query, [shortServingExact, planningContext]);
+        var calibrated = RagEndpoints.CalibrateFusedMatches(query, [shortCountExact, planningContext]);
 
-        Assert.True(RagEndpoints.ShouldPenalizeWeakExactMatchForBroadQuery(query, shortServingExact));
+        Assert.True(RagEndpoints.ShouldPenalizeWeakExactMatchForBroadQuery(query, shortCountExact));
         Assert.Equal("planning-context", calibrated[0].ChunkId);
-        Assert.Equal("serving-count", calibrated[1].ChunkId);
+        Assert.Equal("weak-count", calibrated[1].ChunkId);
     }
 
     [Fact]
-    public void OrderMatchesForSelection_places_weak_serving_exact_after_profiles_for_broad_query()
+    public void OrderMatchesForSelection_places_weak_count_exact_after_profiles_for_broad_query()
     {
-        const string query = "Transforme la recette en meal prep pour 4 lunchs.";
-        var shortServingExact = TestMatch(
+        const string query = "Prepare a documented onboarding plan for 4 people from the corpus.";
+        var shortCountExact = TestMatch(
             "Pour4",
-            chunkId: "serving-count",
+            chunkId: "weak-count",
             embeddingBasis: "exact_match_v1",
             chunkType: "exact_match_entry",
             score: 0.99);
         var profile = TestMatch(
-            "Document profile: batch cooking, meal prep, planning lunches and recipes for several meals.",
+            "Document profile: onboarding plan, audience constraints, documented tasks and preparation steps.",
             chunkId: "profile",
             embeddingBasis: "document_profile_v1",
             chunkType: "document_profile",
             score: 0.72);
 
         var ordered = RagEndpoints.OrderMatchesForSelection(
-            [shortServingExact, profile],
+            [shortCountExact, profile],
             prioritizeDocumentProfiles: false,
             query);
 
         Assert.Equal("profile", ordered[0].ChunkId);
-        Assert.Equal("serving-count", ordered[1].ChunkId);
+        Assert.Equal("weak-count", ordered[1].ChunkId);
     }
 
     [Fact]

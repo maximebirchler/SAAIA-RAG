@@ -385,33 +385,29 @@ internal static partial class RetrievalChunkProjector
         var selectedText = InsertStructuralBoundarySpaces(string.Join(ChunkSeparator, selected.Select(static unit => unit.Text)));
         var selectedNormalized = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(selectedText));
         var candidateHasInventory = ContainsItemizedSectionHeading(candidateNormalized)
-            || CountStructuredFoodMeasureEvidence(candidateText) >= 4
-            || CountStructuredFoodMeasureEvidence(candidateNormalized) >= 4
-            || CountStructuredFoodQuantityEvidence(candidateText) >= 4
-            || CountStructuredFoodQuantityEvidence(candidateNormalized) >= 4;
+            || CountStructuredInventoryQuantityEvidence(candidateText) >= 3
+            || CountStructuredInventoryQuantityEvidence(candidateNormalized) >= 3;
         var selectedHasProcedure = ContainsProcedureSectionHeading(selectedNormalized)
             || CountNumberedSteps(selectedText) >= 2
             || CountNumberedSteps(selectedNormalized) >= 2;
         var selectedHasInventory = ContainsItemizedSectionHeading(selectedNormalized)
-            || CountStructuredFoodMeasureEvidence(selectedText) >= 4
-            || CountStructuredFoodMeasureEvidence(selectedNormalized) >= 4
-            || CountStructuredFoodQuantityEvidence(selectedText) >= 4
-            || CountStructuredFoodQuantityEvidence(selectedNormalized) >= 4;
+            || CountStructuredInventoryQuantityEvidence(selectedText) >= 3
+            || CountStructuredInventoryQuantityEvidence(selectedNormalized) >= 3;
 
         return candidateHasInventory && selectedHasProcedure && !selectedHasInventory;
     }
 
-    private static int CountStructuredFoodQuantityEvidence(string text)
+    private static int CountStructuredInventoryQuantityEvidence(string text)
         => Regex.Matches(
                 text,
-                @"\b\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|c\.\s*a\s*[ct]|cuill[e\u00e8]res?|oeufs?|Å“ufs?)\b",
+                @"\b\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|mm|cm|m|km|nm|units?|unites?|items?|elements?|entries?|parts?|pieces?)\b",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
             .Count;
 
-    private static int CountStructuredFoodMeasureEvidence(string text)
+    private static int CountStructuredQuantityUnitEvidence(string text)
         => Regex.Matches(
                 text,
-                @"\b\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|c\.\s*[a\u00e0]\s*[cs]\.?|cuill[e\u00e8]res?|\u0153ufs?|oeufs?)\b",
+                @"\b\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|mm|cm|m|km|nm|bar|pa|kpa|mpa|v|kv|a|ma|w|kw|hz|rpm|pct|percent|pourcent|deg|degrees?|degres?|c|f|units?|unites?|items?|elements?|entries?|parts?|pieces?|pages?|s|sec|secs|secondes?|seconds?|min|mins?|minutes?|h|hr|hrs?|hours?)\b",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
             .Count;
 
@@ -480,7 +476,7 @@ internal static partial class RetrievalChunkProjector
             return false;
 
         return StructuredItemEvidenceRegex().IsMatch(normalizedCandidate)
-            || CountStructuredFoodMeasureEvidence(normalizedCandidate) > 0;
+            || CountStructuredQuantityUnitEvidence(normalizedCandidate) > 0;
     }
 
     private static bool LooksLikeDanglingStructuredContinuationTail(string text)
@@ -533,7 +529,7 @@ internal static partial class RetrievalChunkProjector
             && !SingleWordFooterBeforeLongTitleRegex().IsMatch(lead)
             && (StructuredContentLexicon.LooksLikeStructuredLeadMarker(lead)
                 || StructuredItemEvidenceRegex().IsMatch(lead)
-                || CountStructuredFoodMeasureEvidence(lead) > 0);
+                || CountStructuredQuantityUnitEvidence(lead) > 0);
     }
 
     private static bool LooksLikeStructuredItemTitleLeadBoundary(ExtractedDocumentUnit unit)
@@ -551,7 +547,7 @@ internal static partial class RetrievalChunkProjector
         return LooksLikeMostlyUppercaseTitle(titleLead)
             && !GenericStructuredCueLeadRegex().IsMatch(lead)
             && !SingleWordFooterBeforeLongTitleRegex().IsMatch(lead)
-            && CountStructuredFoodMeasureEvidence(lead) > 0;
+            && CountStructuredQuantityUnitEvidence(lead) > 0;
     }
 
     private static bool LooksLikePostFooterStructuredBodyBoundary(
@@ -584,7 +580,7 @@ internal static partial class RetrievalChunkProjector
         return StructuredContentLexicon.LooksLikeStructuredLeadMarker(lead)
             || StructuredBodyLeadEvidenceRegex().IsMatch(lead)
             || StructuredItemEvidenceRegex().Matches(lead).Count >= 2
-            || CountStructuredFoodMeasureEvidence(lead) >= 2;
+            || CountStructuredQuantityUnitEvidence(lead) >= 2;
     }
 
     private static bool ContainsTrailingStructuredFooterTitle(string text)
@@ -603,7 +599,7 @@ internal static partial class RetrievalChunkProjector
 
         var normalized = InsertStructuralBoundarySpaces(text);
         if (StructuredItemEvidenceRegex().Matches(normalized).Count < 2
-            && CountStructuredFoodMeasureEvidence(normalized) < 2
+            && CountStructuredQuantityUnitEvidence(normalized) < 2
             && !StructuredContentLexicon.LooksLikeStructuredLeadMarker(normalized))
         {
             return false;
@@ -1044,13 +1040,13 @@ internal static partial class RetrievalChunkProjector
     [GeneratedRegex(@"^\s*(?:\d{1,4}\s*)?(?:[\p{Lu}][\p{Lu}\p{Ll}'\u2019\-]{2,}|[\p{Lu}]{2,})(?:\s+(?:[\p{Lu}][\p{Lu}\p{Ll}'\u2019\-]{2,}|[\p{Lu}]{2,}|a|au|aux|de|des|du|la|le|les|et|with|and|of|the|to|con|al|alla|mit|und)){1,9}", RegexOptions.CultureInvariant)]
     private static partial Regex StructuredItemTitleLeadRegex();
 
-    [GeneratedRegex(@"^\s*(?:ingr[e\u00e9]dients?|preparation|pr[e\u00e9]paration|realisation|r[e\u00e9]alisation|technique|mat[e\u00e9]riel|materials?|components?|steps?|[e\u00e9]tapes?|temps(?:\s+total)?)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^\s*(?:preparation|pr[e\u00e9]paration|realisation|r[e\u00e9]alisation|technique|mat[e\u00e9]riel|materials?|components?|requirements?|items?|elements?|steps?|[e\u00e9]tapes?|temps(?:\s+total)?)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex GenericStructuredCueLeadRegex();
 
     [GeneratedRegex(@"^\s*[\p{Lu}]{4,}\s+(?:[\p{Lu}][\p{Lu}\p{Ll}'\u2019\-]{2,}\s+){2,}[\p{Lu}][\p{Lu}\p{Ll}'\u2019\-]{2,}\b", RegexOptions.CultureInvariant)]
     private static partial Regex SingleWordFooterBeforeLongTitleRegex();
 
-    [GeneratedRegex(@"\b(?:ingr[e\u00e9]dients?|preparation|pr[e\u00e9]paration|realisation|r[e\u00e9]alisation|technique|temps\s+total|pour\s+\d{1,3}\s+(?:personnes?|people|persons?)|\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|c\.\s*a\s*[ct]|cuill[e\u00e8]res?|oeufs?|œufs?|min|h))\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(?:preparation|pr[e\u00e9]paration|realisation|r[e\u00e9]alisation|technique|temps\s+total|\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|units?|items?|elements?|parts?|pieces?|min|h))\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex StructuredItemEvidenceRegex();
 
     [GeneratedRegex(@"^\s*(?:\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|units?|items?|pieces?|min|h)\b|(?:materials?|components?|requirements?|items?|elements?|steps?|method|procedure|procedures?)\b)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
@@ -1128,7 +1124,7 @@ internal static partial class RetrievalChunkProjector
     [GeneratedRegex(@"\b(?:items?|elements?|preparation|pr[eé]paration|materials?|components?|requirements?|instructions?|procedures?|method|steps?|\d+\s*(?:g|kg|mg|ml|cl|l|oz|lb|units?|items?|pieces?))\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex StructuredContextAfterTitleRegex();
 
-    [GeneratedRegex(@"\b\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|c\.\s*a\s*[ct]|cuill[e\u00e8]res?)\s+(?:de|d['\u2019]|du|des)\s*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|units?|items?|elements?|parts?|pieces?)\s+(?:de|d['\u2019]|du|des|of)\s*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex DanglingStructuredContinuationTailRegex();
 }
 

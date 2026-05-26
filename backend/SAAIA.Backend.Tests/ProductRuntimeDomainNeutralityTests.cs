@@ -25,8 +25,11 @@ public sealed class ProductRuntimeDomainNeutralityTests
         "cat_cuisine",
         "ingredient",
         "ingredients",
+        "ingr[e",
         "recette",
         "recipe",
+        "rece\"",
+        "reci\"",
         "JeCuisine",
         "Top30",
         "Nobilia",
@@ -53,7 +56,13 @@ public sealed class ProductRuntimeDomainNeutralityTests
         "épluchez",
         "poivrez",
         "saupoudrez",
-        "transvasez"
+        "transvasez",
+        "cuill",
+        "oeufs",
+        "œufs",
+        "servings",
+        "lunchs",
+        "meals"
     ];
 
     [Fact]

@@ -586,13 +586,13 @@ internal static partial class DocumentUnitExtractor
     [GeneratedRegex(@"^\s*(?:\d{1,4}\s*)?(?:[\p{Lu}][\p{Lu}\p{Ll}'\u2019\-]{2,}|[\p{Lu}]{2,})(?:\s+(?:[\p{Lu}][\p{Lu}\p{Ll}'\u2019\-]{2,}|[\p{Lu}]{2,}|a|au|aux|de|des|du|la|le|les|et|with|and|of|the|to|con|al|alla|mit|und)){1,9}", RegexOptions.CultureInvariant)]
     private static partial Regex StructuredTitleLeadRegex();
 
-    [GeneratedRegex(@"^\s*(?:ingr[e\u00e9]dients?|preparation|pr[e\u00e9]paration|realisation|r[e\u00e9]alisation|technique|mat[e\u00e9]riel|materials?|components?|steps?|[e\u00e9]tapes?|temps(?:\s+total)?)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^\s*(?:preparation|pr[e\u00e9]paration|realisation|r[e\u00e9]alisation|technique|mat[e\u00e9]riel|materials?|components?|requirements?|items?|elements?|steps?|[e\u00e9]tapes?|temps(?:\s+total)?)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex GenericStructuredCueLeadRegex();
 
     [GeneratedRegex(@"^\s*(?<footer>[\p{Lu}]{4,})\s+(?<title>(?:[\p{Lu}][\p{Lu}\p{Ll}'\u2019\-]{2,}\s+){2,}[\p{Lu}][\p{Lu}\p{Ll}'\u2019\-]{2,})\b", RegexOptions.CultureInvariant)]
     private static partial Regex SingleWordFooterBeforeLongTitleRegex();
 
-    [GeneratedRegex(@"\b(?:ingr[e\u00e9]dients?|preparation|pr[e\u00e9]paration|realisation|r[e\u00e9]alisation|technique|temps\s+total|pour\s+\d{1,3}\s+(?:personnes?|people|persons?)|\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|c\.\s*a\s*[ct]|cuill[e\u00e8]res?|oeufs?|œufs?|min|h))\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(?:preparation|pr[e\u00e9]paration|realisation|r[e\u00e9]alisation|technique|temps\s+total|\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|units?|items?|elements?|parts?|pieces?|min|h))\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex StructuredItemEvidenceRegex();
 
     [GeneratedRegex(@"\b(?:complete|completed|finish|finished|done|ready|minutes?|min|duration|duree|dur[e\u00e9]e|temps\s+total|total\s+time)\b.{0,90}\b(?:\d{1,3}\s*min|temps\s+total|total\s+time|personnes?|people|persons?)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]

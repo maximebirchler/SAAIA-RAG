@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -145,7 +146,12 @@ public sealed class RagChatAgent
                 return (ack, null);
             }
 
-            var language = LocalizedStrings.DetectLanguage(userText, "fr");
+            var fallbackLanguage = string.IsNullOrWhiteSpace(_mem.LastLanguage)
+                ? LocalizedStrings.NormalizeLanguage(_effectiveSettings.UiLanguage)
+                : _mem.LastLanguage;
+            var language = LocalizedStrings.DetectLanguage(userText, fallbackLanguage);
+            if (ShouldPreferConfiguredLanguageForShortAmbiguousQuery(userText, language, fallbackLanguage))
+                language = fallbackLanguage;
             _mem.LastLanguage = language;
             _mem.LastUserDetectedLanguage = language;
             ApplyDefaultCategoryScope(category);
@@ -226,9 +232,17 @@ public sealed class RagChatAgent
             _ => 8
         };
 
+        var fallbackLanguage = string.IsNullOrWhiteSpace(_mem.LastLanguage)
+            ? LocalizedStrings.NormalizeLanguage(_effectiveSettings.UiLanguage)
+            : _mem.LastLanguage;
         var detectedLanguage = string.IsNullOrWhiteSpace(forcedLanguage)
-            ? LocalizedStrings.DetectLanguage(userText, "fr")
+            ? LocalizedStrings.DetectLanguage(userText, fallbackLanguage)
             : LocalizedStrings.NormalizeLanguage(forcedLanguage);
+        if (string.IsNullOrWhiteSpace(forcedLanguage)
+            && ShouldPreferConfiguredLanguageForShortAmbiguousQuery(userText, detectedLanguage, fallbackLanguage))
+        {
+            detectedLanguage = fallbackLanguage;
+        }
 
         RagSearchResponse resp;
         try
@@ -336,6 +350,22 @@ public sealed class RagChatAgent
         AppendGuidanceLine(sb, guidance?.ClarifyingQuestion);
 
         return sb.ToString().TrimEnd();
+    }
+
+    private static bool ShouldPreferConfiguredLanguageForShortAmbiguousQuery(
+        string userText,
+        string detectedLanguage,
+        string fallbackLanguage)
+    {
+        fallbackLanguage = LocalizedStrings.NormalizeLanguage(fallbackLanguage);
+        if (fallbackLanguage == "fr" || !string.Equals(detectedLanguage, "fr", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var tokens = Regex.Matches(userText ?? string.Empty, @"[\p{L}\p{N}]+", RegexOptions.CultureInvariant).Count;
+        if (tokens is 0 or > 6)
+            return false;
+
+        return Regex.IsMatch(userText ?? string.Empty, @"[\d\-_/]|\b[A-Z]{2,}\b", RegexOptions.CultureInvariant);
     }
 
     private static void AppendGuidanceLine(StringBuilder sb, string? text)

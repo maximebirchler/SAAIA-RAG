@@ -8698,6 +8698,15 @@ ORDER BY d.doc_path;
 
     private static bool LooksLikeShortAudienceConstrainedGenericFragment(string query)
     {
+        var normalized = NormalizeForLexicalSignal(query);
+        if (Regex.IsMatch(
+                normalized,
+                @"^(?:un|une|des|du|de la|de l|a|an|some|una|unos|unas|um|uma|ein|eine)\s+(?:activite|activites|activity|activities|atelier|ateliers|workshop|workshops|contenu|content|controle|control|guide|guides|option|options|procedure|procedures|fiche|fiches|document|documents)\s+(?:pour\s+)?(?:enfant|enfants|children|child|kids|apprenti|apprentis|apprentice|apprentices|debutant|debutants|beginner|beginners)\b",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
         var tokens = ExtractLexicalQueryTokens(query)
             .Where(static token => !PrimaryAnchorStopwords.Contains(token))
             .Where(static token => !SpecificAnchorStopwords.Contains(token))
@@ -10412,7 +10421,7 @@ LIMIT @top_k;
 
         return terms
             .Where(static term => term.Length >= 4)
-            .Where(term => !pruneWeakQuantityTerms || !IsWeakServingQuantityExactLookupTerm(term))
+            .Where(term => !pruneWeakQuantityTerms || !IsWeakCountQuantityExactLookupTerm(term))
             .OrderByDescending(static term => term.Length)
             .ThenBy(static term => term, StringComparer.Ordinal)
             .Take(64)
@@ -10452,7 +10461,7 @@ LIMIT @top_k;
             || ShouldPreferDocumentDiversity(query);
     }
 
-    internal static bool IsWeakServingQuantityExactLookupTerm(string term)
+    internal static bool IsWeakCountQuantityExactLookupTerm(string term)
     {
         if (string.IsNullOrWhiteSpace(term))
             return false;
@@ -10473,12 +10482,12 @@ LIMIT @top_k;
 
         return SafeRegexIsMatch(
                 normalized,
-                @"^(?:pour|for|para|per|fur|fuer)\s+\d{1,3}(?:\s+(?:personnes?|portions?|repas|lunchs?|meals?|servings?|people))?$",
+                @"^(?:pour|for|para|per|fur|fuer)\s+\d{1,3}(?:\s+(?:personnes?|people|items?|elements?|units?|unites?))?$",
                 RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
                 TimeSpan.FromMilliseconds(100))
             || SafeRegexIsMatch(
                 normalized,
-                @"^\d{1,3}\s+(?:personnes?|portions?|repas|lunchs?|meals?|servings?|people)$",
+                @"^\d{1,3}\s+(?:personnes?|people|items?|elements?|units?|unites?)$",
                 RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
                 TimeSpan.FromMilliseconds(100));
     }
@@ -16252,6 +16261,8 @@ FROM scoped_revisions;
     {
         if (string.IsNullOrWhiteSpace(card.Title))
             return 0;
+        if (LooksLikeGenericContentSectionCardTitle(card.Title))
+            return 0;
 
         var titleTokens = ExtractLexicalQueryTokens(card.Title);
         if (titleTokens.Count == 0)
@@ -16273,8 +16284,6 @@ FROM scoped_revisions;
 
         if (LooksLikeProceduralFragmentContentCardTitle(card.Title))
             priority -= 5;
-        if (LooksLikeGenericContentSectionCardTitle(card.Title))
-            priority -= 6;
         if (LooksLikeTruncatedContentCardTitle(card.Title))
             priority -= 4;
         if (LooksLikeQuantityOrOcrFragmentContentCardTitle(card.Title))
@@ -21259,7 +21268,7 @@ LIMIT @top_k;
         }
 
         var text = match.Text?.Trim() ?? string.Empty;
-        if (IsWeakServingQuantityExactLookupTerm(text))
+        if (IsWeakCountQuantityExactLookupTerm(text))
             return true;
 
         return text.Length is > 0 and < 40
@@ -22919,10 +22928,10 @@ LIMIT @top_k;
             completeStructuredDirectTokenRoute);
     }
 
-    private const string LeadingTitleishItemizedCuePattern = @"ingre(?:dient|dients)";
+    private const string LeadingTitleishItemizedCuePattern = @"materials?|components?|requirements?|items?|elements?";
 
     private static readonly Regex LeadingTitleishStructuredCuePattern = new(
-        @"\b(?:" + LeadingTitleishItemizedCuePattern + @"|preparation|materiel|equipment|steps?|etapes?|temps\s+total|total\s+time|duration|pour\s+\d+\s+(?:personnes?|pers|p)|serves?\s+\d+|for\s+\d+\s+servings?)\b",
+        @"\b(?:" + LeadingTitleishItemizedCuePattern + @"|preparation|materiel|equipment|steps?|etapes?|temps\s+total|total\s+time|duration|pour\s+\d+\s+(?:personnes?|pers|p)|for\s+\d+\s+(?:people|items?|units?))\b",
         RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
         TimeSpan.FromMilliseconds(100));
 
@@ -23474,7 +23483,7 @@ LIMIT @top_k;
                 var rawWeakDirectTitleTokenRoute = IsDirectTitleTokenRouteMatch(match)
                     && !DirectTitleTokenRouteHasStrongLeadEvidence(match);
                 var completeStructuredDirectTokenRoute =
-                    rawWeakDirectTitleTokenRoute
+                    IsDirectTitleTokenRouteMatch(match)
                     && directQuotedTitleTokenCoverage >= 0.99
                     && (LooksLikeStructuredAnswerChunk(match)
                         || (ContainsStructuredInventoryCue(match) && ContainsStructuredProcedureCue(match)))
@@ -23500,6 +23509,17 @@ LIMIT @top_k;
                         || titlePlacementSignal > 0
                         || documentHintSubjectCoverage > 0);
                 var fullTitleCoverage = HasFullTitleAnchorCoverage(titleTokens, match);
+                var directStructuredTitleRoutePriority =
+                    IsDirectTitleTokenRouteMatch(match)
+                    && (directQuotedTitleTokenCoverage >= 0.75
+                        || fullTitleCoverage
+                        || exactTitleScore > 0.0
+                        || directChunkTitleSignal > 0)
+                    && (LooksLikeStructuredAnswerChunk(match)
+                        || ContainsStructuredInventoryCue(match)
+                        || ContainsStructuredProcedureCue(match))
+                        ? 1
+                        : 0;
                 var weakMatchedContentCardTitlePenalty = ComputeWeakMatchedContentCardTitlePenalty(
                     match,
                     fullTitleCoverage,
@@ -23533,6 +23553,7 @@ LIMIT @top_k;
                     || (IsResolvedTitleOrNavigationRoute(match) && !IsWeakResolvedRouteTarget(match));
                 var weakStructuredQuotedNavigationMentionPenalty =
                     hasStructuredQuotedTitleDetailIntent
+                    && directStructuredTitleRoutePriority <= 0
                     && IsWeakStructuredQuotedNavigationMention(
                         match,
                         hasReliableStructuredQuotedTitleEvidence,
@@ -23549,16 +23570,19 @@ LIMIT @top_k;
                             ? 1
                             : 0,
                     DirectQuotedTitleTokenCoverage = directQuotedTitleTokenCoverage,
+                    DirectStructuredTitleRoutePriority = directStructuredTitleRoutePriority,
                     CompleteStructuredDirectTokenRoute = completeStructuredDirectTokenRoute,
                     TrustedExactTitleSignal = exactTitleScore > 0.0 && !IsWeakResolvedRouteTarget(match),
                     StructuredTitleAnswerPriority = structuredTitleAnswerPriority,
-                    WeakExactStructuredTitleMention = IsWeakExactStructuredTitleMention(
-                        structuredTitleLookup,
-                        match,
-                        ResolveRetriever(match),
-                        hasQuotedTitlePlacementEvidence,
-                        structuredTitleAnswerPriority,
-                        strongExactReferenceSignal: false),
+                    WeakExactStructuredTitleMention = directStructuredTitleRoutePriority <= 0
+                        && !completeStructuredDirectTokenRoute
+                        && IsWeakExactStructuredTitleMention(
+                            structuredTitleLookup,
+                            match,
+                            ResolveRetriever(match),
+                            hasQuotedTitlePlacementEvidence,
+                            structuredTitleAnswerPriority,
+                            strongExactReferenceSignal: false),
                     MatchedCardTitleSignal = matchedCardTitleSignal,
                     WeakDirectTitleTokenRoute = weakDirectTitleTokenRoute
                         && quotedMatchedCardTitleSignal <= 0
@@ -23742,6 +23766,7 @@ LIMIT @top_k;
             .ThenBy(static item => item.WeakMatchedContentCardTitlePenalty)
             .ThenBy(static item => item.UnrequestedQualifiedTitlePenalty)
             .ThenByDescending(item => hasDocumentHintSubjectMatch ? item.DocumentHintSubjectCoverage : 0)
+            .ThenByDescending(static item => item.DirectStructuredTitleRoutePriority)
             .ThenByDescending(static item => item.StructuredCardCompletenessPriority)
             .ThenByDescending(static item => item.PreciseQuotedTitleSpecificityPriority)
             .ThenByDescending(static item => item.ExactQuotedTitlePriority)
@@ -25785,7 +25810,28 @@ LIMIT @top_k;
     {
         var normalized = NormalizeForLexicalSignal(GetDirectChunkSignalText(match));
         return StructuredContentLexicon.ContainsItemizedCue(normalized)
-            || LooksLikeStructuredQuantityList(normalized);
+            || LooksLikeStructuredQuantityList(normalized)
+            || LooksLikeDenseStructuredQuantityRun(normalized);
+    }
+
+    private static bool LooksLikeDenseStructuredQuantityRun(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var normalized = NormalizeForLexicalSignal(value);
+        var narrowQuantityCount = Regex.Matches(
+            normalized,
+            @"\b\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|mm|cm|m|km|nm|units?|unites?|items?|elements?|entries?|parts?|pieces?)\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant).Count;
+        if (narrowQuantityCount >= 2)
+            return true;
+
+        var numberedObjectCount = Regex.Matches(
+            normalized,
+            @"\b\d+(?:[,.]\d+)?\s+(?:\p{L}{1,14}\s+){0,2}\p{L}{3,}\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant).Count;
+        return narrowQuantityCount >= 1 && numberedObjectCount >= 3;
     }
 
     private static bool ContainsStructuredProcedureCue(RagMatch match)
@@ -28048,7 +28094,8 @@ LIMIT @top_k;
     private static bool LooksLikeStructuredAnswerText(string? value)
     {
         return StructuredContentLexicon.ContainsStructuredAnswerCue(value)
-            || LooksLikeStructuredQuantityList(value);
+            || LooksLikeStructuredQuantityList(value)
+            || LooksLikeDenseStructuredQuantityRun(value);
     }
 
     internal static bool LooksLikeStructuredQuantityList(string? value)
@@ -32150,7 +32197,6 @@ LIMIT @top_k;
                 variants.Add("sanitaires");
                 variants.Add("sanitary");
                 variants.Add("clean");
-                variants.Add("food");
                 break;
 
             case "alimentaire":
@@ -33888,7 +33934,7 @@ WHERE tenant_id=@tenant
 
         return Regex.IsMatch(
             trimmed,
-            @"\b(?:classique|classic|traditionnel|traditionnelle|traditional|standard|typique|typical|courant|courante|common|generique|generic|habituel|habituelle|usual|simple|basique|basic)\b",
+            @"\b(?:classique|classic|traditionnel|traditionnelle|traditional|standard\p{L}*|estandar|padrao|typique|typical|courant|courante|common|generique|generic|habituel|habituelle|usual|simple|basique|basic)\b",
             RegexOptions.CultureInvariant);
     }
 
@@ -34073,7 +34119,22 @@ WHERE tenant_id=@tenant
     private static string ResolveGuidanceLanguage(string query)
     {
         var primary = DocumentLanguageResolver.PrimarySubtag(DocumentLanguageResolver.DetectDominantLanguage(query));
-        return primary is "en" or "es" or "pt" or "de" or "it" ? primary : "fr";
+        if (primary is "en" or "es" or "pt" or "de" or "it")
+            return primary;
+
+        var normalized = $" {FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query)).ToLowerInvariant()} ";
+        if (ContainsAny(normalized, " estandar ", " una ", " unos ", " unas "))
+            return "es";
+        if (ContainsAny(normalized, " padrao ", " um ", " uma ", " voce "))
+            return "pt";
+        if (ContainsAny(normalized, " eine ", " ein ", " welche ", " welches ", " standardkontrolle "))
+            return "de";
+        if (ContainsAny(normalized, " controllo ", " quale ", " perimetro ", " documento "))
+            return "it";
+        if (ContainsAny(normalized, " a standard ", " an ", " which ", " what ", " scope "))
+            return "en";
+
+        return "fr";
     }
 
     private static string BuildNoRelevantSourceNote(string guidanceLanguage)

@@ -667,6 +667,63 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Empty(payload.RootElement.GetProperty("sources").EnumerateArray());
     }
 
+    [Theory]
+    [InlineData("fr", "limites de calibration VX-12", "Aucun document trouvé.")]
+    [InlineData("en", "VX-12 calibration limits", "No documents found.")]
+    [InlineData("es", "límites de calibración VX-12", "No se encontró ningún documento.")]
+    [InlineData("pt", "limites de calibração VX-12", "Nenhum documento encontrado.")]
+    [InlineData("de", "VX-12 Kalibrierungsgrenzen", "Keine Dokumente gefunden.")]
+    [InlineData("it", "limiti di calibrazione VX-12", "Nessun documento trovato.")]
+    public async Task RagChatAgent_degraded_no_llm_preserves_no_source_guidance_for_all_ui_languages(
+        string language,
+        string query,
+        string expectedHeader)
+    {
+        var api = CreateApiClient(new StubHttpHandler(request =>
+        {
+            Assert.Equal("/rag/search", request.RequestUri!.AbsolutePath);
+            var body = $$"""
+            {
+              "requestId": "req-empty-{{language}}",
+              "query": "{{query}}",
+              "topK": 8,
+              "minScore": 0.0,
+              "candidates": 0,
+              "metrics": {},
+              "guidance": {
+                "behavior": "answer_with_caveat",
+                "responseShape": "no_source_match",
+                "qualificationNote": "quality-note-{{language}}",
+                "clarifyingQuestion": "clarifying-question-{{language}}"
+              },
+              "items": []
+            }
+            """;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json")
+            };
+        }));
+
+        var agent = new RagChatAgent(api, new OpenAiLlmClient());
+        agent.ApplySettings(new AppSettings { UseLocalLlm = false, UiLanguage = language, RagQualityPreset = "balanced" });
+
+        var (answer, sourcesPayload) = await agent.RunAsync(
+            query,
+            category: "",
+            conversationTail: Array.Empty<ChatMessageItem>(),
+            onDelta: _ => { },
+            ct: CancellationToken.None);
+
+        Assert.Contains(expectedHeader, answer);
+        Assert.Contains($"quality-note-{language}", answer);
+        Assert.Contains($"clarifying-question-{language}", answer);
+        Assert.NotNull(sourcesPayload);
+
+        using var payload = JsonDocument.Parse(JsonSerializer.Serialize(sourcesPayload));
+        Assert.Empty(payload.RootElement.GetProperty("sources").EnumerateArray());
+    }
+
     [Fact]
     public async Task RagChatAgent_degraded_no_llm_does_not_promote_navigation_hits()
     {
@@ -2127,15 +2184,14 @@ public sealed class RagContextBudgetRegressionTests
     [Fact]
     public void Requested_item_title_ignores_soft_choice_context_as_exact_title()
     {
-        const string query = "Quel dessert francais choisir pour un repas chic ?";
+        const string query = "Quel module technique choisir pour un audit interne ?";
 
         Assert.Null(ToolAgentOrchestrator.TryExtractRequestedItemTitleForTests(query));
         Assert.True(ToolAgentOrchestrator.LooksLikeSourceBackedOptionRequestForTests(query));
-        Assert.Contains("dessert francais", ToolAgentOrchestrator.BuildSourceBackedActionRetrievalQueriesForTests(query));
-        Assert.DoesNotContain("francais", ToolAgentOrchestrator.BuildSourceBackedActionRetrievalQueriesForTests(query));
-        Assert.DoesNotContain("francai", ToolAgentOrchestrator.BuildSourceBackedActionRetrievalQueriesForTests(query));
+        Assert.Contains("module technique", ToolAgentOrchestrator.BuildSourceBackedActionRetrievalQueriesForTests(query));
+        Assert.DoesNotContain("technique", ToolAgentOrchestrator.BuildSourceBackedActionRetrievalQueriesForTests(query));
+        Assert.DoesNotContain("techniqu", ToolAgentOrchestrator.BuildSourceBackedActionRetrievalQueriesForTests(query));
         Assert.DoesNotContain("choisir", ToolAgentOrchestrator.BuildSourceBackedActionRetrievalQueriesForTests(query));
-        Assert.DoesNotContain("repas", ToolAgentOrchestrator.BuildSourceBackedActionRetrievalQueriesForTests(query));
     }
 
     [Fact]

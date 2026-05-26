@@ -8,11 +8,6 @@ internal static class StructuredContentLexicon
 
     private static readonly string[] ItemizedCueTerms =
     [
-        JoinToken("ingre", "dients"),
-        JoinToken("ingre", "dient"),
-        JoinToken("ingre", "dientes"),
-        JoinToken("ingre", "dienti"),
-        "zutaten",
         "materials",
         "materiales",
         "materiais",
@@ -34,14 +29,18 @@ internal static class StructuredContentLexicon
 
     private static readonly string[] StructuredItemTypeTerms =
     [
-        JoinToken("rece", "ttes"),
-        JoinToken("rece", "tte"),
-        JoinToken("reci", "pes"),
-        JoinToken("reci", "pe"),
-        "recetas",
-        "receta",
-        "ricette",
-        "ricetta"
+        "item",
+        "items",
+        "element",
+        "elements",
+        "topic",
+        "topics",
+        "section",
+        "sections",
+        "procedure",
+        "procedures",
+        "process",
+        "processes"
     ];
 
     private static readonly string[] ProcedureCueTerms =
@@ -474,8 +473,6 @@ internal static class StructuredContentLexicon
 
     private static string Normalize(string? value)
         => FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(value ?? string.Empty)).ToLowerInvariant();
-
-    private static string JoinToken(string left, string right) => left + right;
 
     private static bool ContainsExactTerm(string text, string term)
         => Regex.IsMatch(

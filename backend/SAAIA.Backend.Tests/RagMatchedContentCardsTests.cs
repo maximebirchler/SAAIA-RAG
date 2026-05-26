@@ -231,11 +231,11 @@ public sealed class RagMatchedContentCardsTests
               }
             },
             {
-              "title": "Ingredients Technique",
+              "title": "Materials Technique",
               "pageStart": 5,
               "pageEnd": 5,
               "kind": "page_embedded_title",
-              "signals": ["quantity_list", "structured_facts", "ingredients", "technique", "materials"],
+              "signals": ["quantity_list", "structured_facts", "technique", "materials"],
               "evidence": {
                 "schemaVersion": "content_card_evidence_v1",
                 "quantityFacts": [
@@ -321,7 +321,7 @@ public sealed class RagMatchedContentCardsTests
             ["Alpha field drill", "Beta assembly task", "Gamma inspection route"],
             cards.Take(3).Select(static card => card.Title).OrderBy(static title => title, StringComparer.Ordinal));
         Assert.DoesNotContain(cards.Take(3), card => card.Title == "Cover before opening");
-        Assert.DoesNotContain(cards.Take(3), card => card.Title == "Ingredients Technique");
+        Assert.DoesNotContain(cards.Take(3), card => card.Title == "Materials Technique");
         Assert.DoesNotContain(cards.Take(3), card => card.Title.StartsWith("¢1", StringComparison.Ordinal));
         Assert.DoesNotContain(cards.Take(3), card => card.Title == "Quantities for 40 pieces");
     }
