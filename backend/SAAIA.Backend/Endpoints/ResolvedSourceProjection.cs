@@ -783,7 +783,7 @@ LEFT JOIN LATERAL (
     private static int? PositiveOrNull(int value)
         => value > 0 ? value : null;
 
-    private static List<RagItemContentCard> ParseContentCards(string? json)
+    internal static List<RagItemContentCard> ParseContentCards(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
             return [];
@@ -793,6 +793,7 @@ LEFT JOIN LATERAL (
             return JsonSerializer.Deserialize<List<RagItemContentCard>>(json) is { Count: > 0 } cards
                 ? cards
                     .Where(static card => !string.IsNullOrWhiteSpace(card.Title))
+                    .Where(IsContentCardSafeToExpose)
                     .Take(32)
                     .ToList()
                 : [];
@@ -802,6 +803,73 @@ LEFT JOIN LATERAL (
             return [];
         }
     }
+
+    private static bool IsContentCardSafeToExpose(RagItemContentCard card)
+    {
+        if (card.PageStart is > 0 || card.PageEnd is > 0)
+        {
+            return IsDeterministicContentCardKind(card.Kind)
+                   || HasGroundedContentCardEvidence(card.Evidence)
+                   || HasTechnicalIdentifier(card.Title);
+        }
+
+        return HasGroundedContentCardEvidence(card.Evidence)
+               || HasTechnicalIdentifier(card.Title);
+    }
+
+    private static bool IsDeterministicContentCardKind(string? kind)
+    {
+        var normalized = string.IsNullOrWhiteSpace(kind)
+            ? string.Empty
+            : kind.Trim().ToLowerInvariant();
+        return normalized is "section" or "exact_lead" or "page_embedded_title" or "unit_lead" or "standard_ref";
+    }
+
+    private static bool HasGroundedContentCardEvidence(JsonElement? evidence)
+    {
+        if (evidence is not { ValueKind: JsonValueKind.Object } root)
+            return false;
+
+        if (root.TryGetProperty("facts", out var facts)
+            && facts.ValueKind == JsonValueKind.Array
+            && facts.EnumerateArray().Any(HasGroundedEvidenceFact))
+        {
+            return true;
+        }
+
+        return root.TryGetProperty("quantityFacts", out var quantityFacts)
+               && quantityFacts.ValueKind == JsonValueKind.Array
+               && quantityFacts.EnumerateArray().Any(static fact =>
+                   fact.ValueKind == JsonValueKind.Object
+                   && HasNonBlankJsonString(fact, "sourceText"));
+    }
+
+    private static bool HasGroundedEvidenceFact(JsonElement fact)
+    {
+        if (fact.ValueKind != JsonValueKind.Object)
+            return false;
+
+        return HasNonBlankJsonString(fact, "sourceText")
+               || GetPositiveJsonInt(fact, "pageStart") is > 0
+               || GetPositiveJsonInt(fact, "pageEnd") is > 0;
+    }
+
+    private static bool HasNonBlankJsonString(JsonElement source, string propertyName)
+        => source.TryGetProperty(propertyName, out var value)
+           && value.ValueKind == JsonValueKind.String
+           && !string.IsNullOrWhiteSpace(value.GetString());
+
+    private static int? GetPositiveJsonInt(JsonElement source, string propertyName)
+        => source.TryGetProperty(propertyName, out var value)
+           && value.ValueKind == JsonValueKind.Number
+           && value.TryGetInt32(out var parsed)
+           && parsed > 0
+            ? parsed
+            : null;
+
+    private static bool HasTechnicalIdentifier(string? title)
+        => !string.IsNullOrWhiteSpace(title)
+           && ExactMatchEntryExtractor.ExtractTargetedReferences(title).Any();
 
     private static List<string> ParseStringArray(string? json)
     {

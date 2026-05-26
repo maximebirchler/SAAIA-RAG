@@ -8,6 +8,56 @@ namespace SAAIA.Backend.Tests;
 public sealed class RagMatchedContentCardsTests
 {
     [Fact]
+    public void ResolvedSourceProjection_filters_unsafe_profile_cards_before_exposure()
+    {
+        const string contentCardsJson = """
+        [
+          {
+            "title": "Unsafe LLM title only card",
+            "pageStart": 3,
+            "pageEnd": 3,
+            "kind": "llm_content_card",
+            "signals": ["unsafe"]
+          },
+          {
+            "title": "Deterministic section card",
+            "pageStart": 2,
+            "pageEnd": 2,
+            "kind": "section",
+            "signals": ["section"]
+          },
+          {
+            "title": "Source backed LLM card",
+            "kind": "llm_content_card",
+            "signals": ["grounded"],
+            "evidence": {
+              "schemaVersion": "content_card_evidence_v1",
+              "facts": [
+                {
+                  "kind": "procedure",
+                  "label": "visual inspection",
+                  "sourceText": "The checklist requires visual inspection before release."
+                }
+              ]
+            }
+          },
+          {
+            "title": "ISO 13849-1",
+            "kind": "llm_content_card",
+            "signals": ["standard"]
+          }
+        ]
+        """;
+
+        var cards = ResolvedSourceProjection.ParseContentCards(contentCardsJson);
+
+        Assert.DoesNotContain(cards, card => string.Equals(card.Title, "Unsafe LLM title only card", StringComparison.Ordinal));
+        Assert.Contains(cards, card => string.Equals(card.Title, "Deterministic section card", StringComparison.Ordinal));
+        Assert.Contains(cards, card => string.Equals(card.Title, "Source backed LLM card", StringComparison.Ordinal));
+        Assert.Contains(cards, card => string.Equals(card.Title, "ISO 13849-1", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void BuildMatchedContentCards_returns_structured_profile_cards_in_query_order()
     {
         const string metadataJson = """

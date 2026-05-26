@@ -52,6 +52,7 @@ When extraction/OCR quality requires review, include a short limits entry in the
             return null;
 
         var groundingCorpus = BuildGroundingCorpus(doc, baseline, sectionTitles, excerpts);
+        var cardGroundingCorpus = BuildCardGroundingCorpus(baseline, sectionTitles, excerpts);
         var profileLanguage = ResolveProfileLanguage(parsed.Language, targetLanguage);
         var parsedLimits = FilterGroundedQuestions(parsed.Limits, groundingCorpus, allowGenericNoSignal: true);
         var extractionQualityLimits = CapabilityBExtractionQualityPrompting.BuildProfileLimits(doc.ExtractionQuality, profileLanguage);
@@ -67,7 +68,7 @@ When extraction/OCR quality requires review, include a short limits entry in the
             docPath: doc.DocPath,
             docName: doc.DocName,
             contentCards: MergeCards(
-                FilterGroundedCards(parsed.Cards, doc, groundingCorpus),
+                FilterGroundedCards(parsed.Cards, doc, cardGroundingCorpus),
                 baseline.ContentCards ?? []));
     }
 
@@ -212,10 +213,27 @@ Representative excerpts: {string.Join(" | ", excerpts.Where(static excerpt => !s
         return cards
             .Select(card => NormalizeCardPageRange(card, doc.PageCount))
             .Select(card => card with { Evidence = NormalizeEvidencePageRanges(FilterGroundedEvidence(card.Evidence, groundingCorpus), doc.PageCount) })
+            .Select(card => SanitizeCardSignals(card, groundingCorpus))
             .Select(card => DeriveCardPageRangeFromEvidence(card, doc.PageCount))
             .Select(SanitizeUngroundedStructuredSignals)
             .Where(card => card.Evidence is not null || IsGroundedCard(card, groundingCorpus))
             .ToArray();
+    }
+
+    private static DocumentProfileContentCard SanitizeCardSignals(
+        DocumentProfileContentCard card,
+        string groundingCorpus)
+    {
+        if (card.Signals.Count == 0)
+            return card;
+
+        var signals = card.Signals
+            .Where(signal => IsGroundedTerm(signal, groundingCorpus)
+                || (card.Evidence is not null && IsEvidenceDerivedStructuredSignal(signal)))
+            .ToArray();
+        return signals.Length == card.Signals.Count
+            ? card
+            : card with { Signals = signals };
     }
 
     private static DocumentProfileContentCard SanitizeUngroundedStructuredSignals(DocumentProfileContentCard card)
@@ -453,6 +471,27 @@ Representative excerpts: {string.Join(" | ", excerpts.Where(static excerpt => !s
         sb.AppendLine(string.Join(' ', baseline.Entities));
         sb.AppendLine(string.Join(' ', baseline.Topics));
         sb.AppendLine(string.Join(' ', baseline.HypotheticalQuestions));
+        foreach (var card in baseline.ContentCards ?? [])
+        {
+            sb.AppendLine(card.Title);
+            sb.AppendLine(string.Join(' ', card.Signals));
+            sb.AppendLine(FormatPromptEvidence(card.Evidence));
+        }
+
+        foreach (var title in sectionTitles)
+            sb.AppendLine(title);
+        foreach (var excerpt in excerpts)
+            sb.AppendLine(excerpt);
+
+        return NormalizeForGrounding(sb.ToString());
+    }
+
+    private static string BuildCardGroundingCorpus(
+        DocumentProfileSnapshot baseline,
+        IReadOnlyList<string> sectionTitles,
+        IReadOnlyList<string> excerpts)
+    {
+        var sb = new StringBuilder();
         foreach (var card in baseline.ContentCards ?? [])
         {
             sb.AppendLine(card.Title);

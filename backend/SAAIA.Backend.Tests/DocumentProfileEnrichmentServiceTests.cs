@@ -459,6 +459,204 @@ public sealed class DocumentProfileEnrichmentServiceTests
     }
 
     [Fact]
+    public async Task BuildEnrichedProfileAsync_does_not_ground_cards_from_path_or_category_only()
+    {
+        var service = CreateService(
+            BuildChatResponse(
+                """
+                {
+                  "language": "en",
+                  "summary": "LLM profile for available content.",
+                  "keywords": ["secret dessert"],
+                  "entities": [],
+                  "topics": ["secret dessert"],
+                  "questions": [],
+                  "limits": [],
+                  "cards": [
+                    {
+                      "title": "Secret dessert calibration",
+                      "pageStart": 1,
+                      "pageEnd": 1,
+                      "kind": "llm_content_card",
+                      "signals": ["secret dessert", "calibration"]
+                    },
+                    {
+                      "title": "Quality release checklist",
+                      "pageStart": 2,
+                      "pageEnd": 2,
+                      "kind": "llm_content_card",
+                      "signals": ["quality release"]
+                    }
+                  ]
+                }
+                """),
+            HttpStatusCode.OK);
+
+        var baseline = new DocumentProfileSnapshot(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "deterministic_v1",
+            "en",
+            "Deterministic baseline profile.",
+            [],
+            [],
+            [],
+            [],
+            [],
+            "baseline",
+            1);
+
+        var profile = await service.BuildEnrichedProfileAsync(
+            new CapabilityBDocumentRow(
+                baseline.DocId,
+                "SecretDessert/Secret-dessert-calibration.pdf",
+                "Secret-dessert-calibration.pdf",
+                "secret dessert",
+                PageCount: 3,
+                IndexedVersion: 1),
+            baseline,
+            ["Quality release checklist"],
+            ["The quality release checklist requires visual inspection before release."],
+            CancellationToken.None);
+
+        Assert.NotNull(profile);
+        Assert.DoesNotContain(profile!.ContentCards, card => string.Equals(card.Title, "Secret dessert calibration", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Quality release checklist", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task BuildEnrichedProfileAsync_does_not_ground_cards_from_baseline_profile_terms_only()
+    {
+        var service = CreateService(
+            BuildChatResponse(
+                """
+                {
+                  "language": "en",
+                  "summary": "LLM profile for available content.",
+                  "keywords": ["phantom seed topic"],
+                  "entities": [],
+                  "topics": ["phantom seed topic"],
+                  "questions": [],
+                  "limits": [],
+                  "cards": [
+                    {
+                      "title": "Phantom seed topic",
+                      "kind": "llm_content_card",
+                      "signals": ["phantom seed topic"]
+                    },
+                    {
+                      "title": "Quality release checklist",
+                      "kind": "llm_content_card",
+                      "signals": ["quality release"]
+                    }
+                  ]
+                }
+                """),
+            HttpStatusCode.OK);
+
+        var baseline = new DocumentProfileSnapshot(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "deterministic_v1",
+            "en",
+            "Capability A seed preview mentions phantom seed topic.",
+            ["phantom seed topic"],
+            [],
+            ["phantom seed topic"],
+            [],
+            [],
+            "phantom seed topic",
+            1);
+
+        var profile = await service.BuildEnrichedProfileAsync(
+            new CapabilityBDocumentRow(
+                baseline.DocId,
+                "Operations/Quality.pdf",
+                "Quality.pdf",
+                "operations",
+                PageCount: 3,
+                IndexedVersion: 1),
+            baseline,
+            ["Quality release checklist"],
+            ["The quality release checklist requires visual inspection before release."],
+            CancellationToken.None);
+
+        Assert.NotNull(profile);
+        Assert.DoesNotContain(profile!.ContentCards, card => string.Equals(card.Title, "Phantom seed topic", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Quality release checklist", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task BuildEnrichedProfileAsync_filters_ungrounded_llm_signals_when_reusing_baseline_card_title()
+    {
+        var service = CreateService(
+            BuildChatResponse(
+                """
+                {
+                  "language": "en",
+                  "summary": "LLM profile for quality controls.",
+                  "keywords": ["quality controls"],
+                  "entities": [],
+                  "topics": ["quality controls"],
+                  "questions": [],
+                  "limits": [],
+                  "cards": [
+                    {
+                      "title": "Quality controls checklist",
+                      "kind": "llm_content_card",
+                      "signals": ["quality controls", "ZX999 approval", "secret dessert"]
+                    }
+                  ]
+                }
+                """),
+            HttpStatusCode.OK);
+
+        var baseline = new DocumentProfileSnapshot(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "deterministic_v1",
+            "en",
+            "Baseline profile.",
+            ["quality controls"],
+            [],
+            [],
+            [],
+            [],
+            "quality controls",
+            3,
+            ContentCards:
+            [
+                new DocumentProfileContentCard(
+                    "Quality controls checklist",
+                    2,
+                    2,
+                    "unit_lead",
+                    ["quality controls"])
+            ]);
+
+        var profile = await service.BuildEnrichedProfileAsync(
+            new CapabilityBDocumentRow(
+                baseline.DocId,
+                "Operations/Quality.pdf",
+                "Quality.pdf",
+                "operations",
+                PageCount: 3,
+                IndexedVersion: 1),
+            baseline,
+            ["Quality controls checklist"],
+            ["The quality controls checklist requires visual inspection before release."],
+            CancellationToken.None);
+
+        Assert.NotNull(profile);
+        var card = Assert.Single(profile!.ContentCards, card => string.Equals(card.Title, "Quality controls checklist", StringComparison.Ordinal));
+        Assert.Contains("quality controls", card.Signals);
+        Assert.DoesNotContain(card.Signals, signal => signal.Contains("ZX999", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(card.Signals, signal => signal.Contains("dessert", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain("ZX999", profile.SearchText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("secret dessert", profile.SearchText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task BuildEnrichedProfileAsync_keeps_only_grounded_llm_card_evidence()
     {
         var service = CreateService(
