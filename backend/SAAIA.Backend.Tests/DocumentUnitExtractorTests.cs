@@ -76,6 +76,33 @@ public sealed class DocumentUnitExtractorTests
     }
 
     [Fact]
+    public void Extract_fallback_whole_document_carries_page_extraction_quality()
+    {
+        var quality = new PdfPageExtractionQuality(
+            "low_text",
+            TextEmpty: false,
+            TextSparse: true,
+            OcrCandidate: true,
+            AverageCharsPerWord: 6,
+            Signals: ["sparse_text_on_page"]);
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, "ANNEXE", 1, 6, [1], Quality: quality)
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "ANNEXE", 1, 1, 1, 1, null)
+        };
+
+        var unit = Assert.Single(DocumentUnitExtractor.Extract(pages, sections));
+
+        Assert.Equal("low_text", unit.ExtractionTextStatus);
+        Assert.True(unit.ExtractionTextSparse);
+        Assert.True(unit.ExtractionOcrCandidate);
+        Assert.Contains("sparse_text_on_page", unit.ExtractionQualitySignals!);
+    }
+
+    [Fact]
     public void Pdf_text_sanitizer_replaces_nul_bytes_before_storage()
     {
         var sanitized = PdfTextSanitizer.ForStorage("Sauce\0tomate");

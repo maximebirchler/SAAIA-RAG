@@ -90,6 +90,25 @@ public sealed class DbMigratorTests
         Assert.Contains("LIMIT 80", migration, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Safe_profile_content_cards_migration_filters_unsafe_legacy_cards()
+    {
+        var migration = File.ReadAllText(Path.Combine(
+            ResolveMigrationsDir(),
+            "060_safe_profile_content_cards.sql"));
+
+        Assert.Contains("saaia_is_safe_profile_content_card", migration, StringComparison.Ordinal);
+        Assert.Contains("saaia_profile_content_card_has_grounded_evidence", migration, StringComparison.Ordinal);
+        Assert.Contains("saaia_profile_content_card_has_technical_identifier", migration, StringComparison.Ordinal);
+        Assert.Contains("DELETE FROM document_profile_content_cards", migration, StringComparison.Ordinal);
+        Assert.Contains("COALESCE(p.metadata, '{}'::jsonb) - 'contentCards' - 'contentCardCount'", migration, StringComparison.Ordinal);
+        Assert.Contains("safe_profile_search_text", migration, StringComparison.Ordinal);
+        Assert.Contains("SET search_text = safe_profile_search_text.search_text", migration, StringComparison.Ordinal);
+        Assert.DoesNotContain("COALESCE(cards.metadata_json, p.metadata)", migration, StringComparison.Ordinal);
+        Assert.DoesNotContain("profile_terms.search_text", migration, StringComparison.Ordinal);
+        Assert.Contains("SELECT saaia_refresh_document_profile_search_entry", migration, StringComparison.Ordinal);
+    }
+
     private static string ResolveMigrationsDir()
         => Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,

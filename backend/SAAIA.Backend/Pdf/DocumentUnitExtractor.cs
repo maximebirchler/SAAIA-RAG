@@ -91,6 +91,7 @@ internal static partial class DocumentUnitExtractor
             if (string.IsNullOrWhiteSpace(fullText))
                 return Array.Empty<ExtractedDocumentUnit>();
 
+            var fallbackQuality = ResolveFallbackExtractionQuality(pages);
             return new[]
             {
                 new ExtractedDocumentUnit(
@@ -103,12 +104,59 @@ internal static partial class DocumentUnitExtractor
                     TokenCount: CountTokens(fullText),
                     Checksum: SHA256.HashData(Encoding.UTF8.GetBytes(fullText)),
                     OffsetStart: 0,
-                    OffsetEnd: fullText.Length)
+                    OffsetEnd: fullText.Length,
+                    ExtractionTextStatus: fallbackQuality.TextStatus,
+                    ExtractionTextSparse: fallbackQuality.TextSparse,
+                    ExtractionOcrCandidate: fallbackQuality.OcrCandidate,
+                    ExtractionQualitySignals: fallbackQuality.Signals)
             };
         }
 
         return units;
     }
+
+    private static PdfPageExtractionQuality ResolveFallbackExtractionQuality(IReadOnlyList<ExtractedPdfPage> pages)
+    {
+        var qualities = pages
+            .Select(static page => page.Quality ?? PdfPageExtractionQuality.FromText(page.Text, page.WordCount, page.CharCount))
+            .ToArray();
+        if (qualities.Length == 0)
+            return PdfPageExtractionQuality.FromCounts(0, 0);
+
+        var worstStatus = "ok";
+        foreach (var quality in qualities)
+        {
+            worstStatus = ResolveWorseTextStatus(worstStatus, quality.TextStatus);
+        }
+
+        return new PdfPageExtractionQuality(
+            TextStatus: worstStatus,
+            TextEmpty: qualities.All(static quality => quality.TextEmpty),
+            TextSparse: qualities.Any(static quality => quality.TextSparse),
+            OcrCandidate: qualities.Any(static quality => quality.OcrCandidate),
+            AverageCharsPerWord: Math.Round(qualities.Average(static quality => quality.AverageCharsPerWord), 2),
+            Signals: qualities
+                .SelectMany(static quality => quality.Signals)
+                .Where(static signal => !string.IsNullOrWhiteSpace(signal))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray(),
+            RawReplacementCharCount: qualities.Sum(static quality => quality.RawReplacementCharCount),
+            SanitizedReplacementCharCount: qualities.Sum(static quality => quality.SanitizedReplacementCharCount),
+            EncodingRepairApplied: qualities.Any(static quality => quality.EncodingRepairApplied));
+    }
+
+    private static string ResolveWorseTextStatus(string left, string right)
+        => TextStatusScore(right) > TextStatusScore(left) ? right : left;
+
+    private static int TextStatusScore(string? status)
+        => status switch
+        {
+            "empty_text" => 4,
+            "low_text" => 3,
+            "ok" => 1,
+            null or "" => 0,
+            _ => 2
+        };
 
     private static List<string> SplitParagraphs(string text)
     {

@@ -110,6 +110,33 @@ public sealed class ExactMatchEntryExtractorTests
     }
 
     [Fact]
+    public void Extract_skips_restricted_units_without_targeted_references()
+    {
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                1,
+                12,
+                12,
+                "Sparse recovered note without reliable technical reference.",
+                57,
+                7,
+                [1],
+                0,
+                57,
+                ExtractionTextStatus: "low_text",
+                ExtractionTextSparse: true,
+                ExtractionOcrCandidate: true,
+                ExtractionQualitySignals: ["sparse_text_on_page"])
+        };
+
+        var entries = ExactMatchEntryExtractor.Extract(units);
+
+        Assert.Empty(entries);
+    }
+
+    [Fact]
     public void Extract_adds_targeted_references_for_standard_and_code_tokens()
     {
         var units = new[]

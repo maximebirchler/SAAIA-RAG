@@ -37,7 +37,7 @@ internal static partial class ExactMatchEntryExtractor
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            if (candidates.Count == 0)
+            if (candidates.Count == 0 && !restrictToTargetedReferences)
                 candidates.Add(normalizedUnit);
 
             foreach (var candidate in candidates)

@@ -2074,7 +2074,18 @@ public sealed class DocumentFoundationIntegrationTests
                   'Pressure envelope validation accumulator cluster validation review',
                   7,
                   decode(repeat('48', 32), 'hex'),
-                  '{"generatedBy":"llm_backoffice_v1"}'::jsonb
+                  '{
+                    "generatedBy":"llm_backoffice_v1",
+                    "evidence":{
+                      "facts":[
+                        {
+                          "sourceText":"Pressure envelope validation accumulator cluster validation review",
+                          "pageStart":1,
+                          "pageEnd":1
+                        }
+                      ]
+                    }
+                  }'::jsonb
                 );
                 """,
                 new
@@ -2160,6 +2171,136 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
+    public async Task RefreshDocumentProfileSearchEntryAsync_filters_unsafe_legacy_profile_cards()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("88888888-1111-1111-1111-787878787878");
+        var docId = Guid.Parse("99999999-2222-2222-2222-787878787878");
+        var jobId = Guid.Parse("aaaaaaaa-3333-3333-3333-787878787878");
+        const string docPath = "Generic/LegacyProfileCards.pdf";
+        const string text = "Grounded profile card source paragraph with validated inspection evidence.";
+
+        await PublishIndexedDocumentAsync(
+            db,
+            tenantId,
+            docId,
+            jobId,
+            docPath,
+            1,
+            "Legacy profile cards",
+            text,
+            $"Document: LegacyProfileCards.pdf\nHeading Path: Legacy profile cards\nExcerpt:\n{text}");
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        await using var conn = await ds.OpenConnectionAsync();
+        var revisionId = await conn.ExecuteScalarAsync<Guid>(
+            "SELECT revision_id FROM document_revisions WHERE tenant_id=@tenant AND doc_id=@docId LIMIT 1;",
+            new { tenant = tenantId, docId });
+        var profileId = await conn.ExecuteScalarAsync<Guid>(
+            "SELECT document_profile_id FROM document_profiles WHERE tenant_id=@tenant AND doc_id=@docId LIMIT 1;",
+            new { tenant = tenantId, docId });
+
+        await conn.ExecuteAsync(
+            """
+            UPDATE document_profiles
+            SET search_text = 'LegacyProfileCards.pdf Legacy profile cards Unsafe legacy invention invented Grounded profile card validated',
+                metadata = '{
+              "contentCardCount": 2,
+              "contentCards": [
+                {
+                  "title": "Unsafe legacy invention",
+                  "kind": "llm_content_card",
+                  "pageStart": 1,
+                  "pageEnd": 1,
+                  "signals": ["invented"]
+                },
+                {
+                  "title": "Grounded profile card",
+                  "kind": "llm_content_card",
+                  "pageStart": 1,
+                  "pageEnd": 1,
+                  "signals": ["validated"],
+                  "evidence": {
+                    "facts": [
+                      {
+                        "sourceText": "Grounded profile card source paragraph",
+                        "pageStart": 1,
+                        "pageEnd": 1
+                      }
+                    ]
+                  }
+                }
+              ]
+            }'::jsonb
+            WHERE tenant_id=@tenant
+              AND doc_id=@docId;
+
+            INSERT INTO document_profile_content_cards(
+              content_card_id, tenant_id, document_profile_id, revision_id, doc_id, profile_version,
+              card_index, title, normalized_title, page_start, page_end, kind, signals,
+              search_text, token_count, checksum, metadata
+            )
+            VALUES
+            (
+              @unsafeCardId, @tenant, @profileId, @revision, @docId, 'llm_backoffice_v1',
+              0, 'Unsafe legacy invention', 'unsafe legacy invention', 1, 1, 'llm_content_card',
+              ARRAY['invented']::text[], 'Unsafe legacy invention invented', 4, decode(repeat('61', 32), 'hex'),
+              '{"generatedBy":"legacy"}'::jsonb
+            ),
+            (
+              @safeCardId, @tenant, @profileId, @revision, @docId, 'llm_backoffice_v1',
+              1, 'Grounded profile card', 'grounded profile card', 1, 1, 'llm_content_card',
+              ARRAY['validated']::text[], 'Grounded profile card validated', 4, decode(repeat('62', 32), 'hex'),
+              '{
+                "generatedBy":"legacy",
+                "evidence":{
+                  "facts":[
+                    {
+                      "sourceText":"Grounded profile card source paragraph",
+                      "pageStart":1,
+                      "pageEnd":1
+                    }
+                  ]
+                }
+              }'::jsonb
+            );
+            """,
+            new
+            {
+                tenant = tenantId,
+                docId,
+                profileId,
+                revision = revisionId,
+                unsafeCardId = Guid.Parse("bbbbbbbb-4444-4444-4444-787878787878"),
+                safeCardId = Guid.Parse("cccccccc-5555-5555-5555-787878787878")
+            });
+
+        await DocumentFoundationRepo.RefreshDocumentProfileSearchEntryAsync(
+            conn,
+            null,
+            tenantId,
+            revisionId,
+            CancellationToken.None);
+
+        var projection = await conn.QuerySingleAsync<(string search_text, string metadata_json)>(
+            """
+            SELECT search_text, metadata_json::text
+            FROM document_profile_search_entries
+            WHERE tenant_id=@tenant
+              AND revision_id=@revision;
+            """,
+            new { tenant = tenantId, revision = revisionId });
+
+        Assert.DoesNotContain("Unsafe legacy invention", projection.search_text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Unsafe legacy invention", projection.metadata_json, StringComparison.Ordinal);
+        Assert.Contains("Grounded profile card", projection.search_text, StringComparison.Ordinal);
+        Assert.Contains("Grounded profile card", projection.metadata_json, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task SearchDocumentProfileMatchesAsync_uses_content_cards_beyond_legacy_projection_limit()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
@@ -2210,7 +2351,12 @@ public sealed class DocumentFoundationIntegrationTests
                     VALUES(
                       @cardId, @tenant, @profileId, @revision, @docId, 'deterministic_v1',
                       @cardIndex, @title, @normalizedTitle, 1, 1, 'deterministic_content_card',
-                      ARRAY[@signal]::text[], @searchText, 6, decode(repeat('51', 32), 'hex'), '{}'::jsonb
+                      ARRAY[@signal]::text[], @searchText, 6, decode(repeat('51', 32), 'hex'),
+                      jsonb_build_object(
+                        'evidence',
+                        jsonb_build_object(
+                          'facts',
+                          jsonb_build_array(jsonb_build_object('sourceText', @searchText, 'pageStart', 1, 'pageEnd', 1))))
                     );
                     """,
                     new

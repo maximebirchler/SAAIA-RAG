@@ -196,6 +196,61 @@ public sealed class RetrievalChunkProjectorTests
     }
 
     [Fact]
+    public void ProjectStructureAware_excludes_same_page_restricted_units_when_clean_units_exist()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 1, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "Sparse OCR fragment without reliable reference",
+                44,
+                6,
+                [1],
+                0,
+                44,
+                ExtractionTextStatus: "low_text",
+                ExtractionTextSparse: true,
+                ExtractionOcrCandidate: true,
+                ExtractionQualitySignals: ["sparse_text_on_page"]),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                1,
+                1,
+                "Reliable same-page body content with enough context to support semantic retrieval.",
+                78,
+                11,
+                [2],
+                46,
+                124,
+                ExtractionTextStatus: "ok",
+                ExtractionTextSparse: false,
+                ExtractionOcrCandidate: false,
+                ExtractionQualitySignals: ["text_extraction_ok"])
+        };
+
+        var chunk = Assert.Single(RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 100,
+            overlapWords: 0,
+            minWords: 1));
+
+        Assert.DoesNotContain("Sparse OCR fragment", chunk.Text, StringComparison.Ordinal);
+        Assert.Contains("Reliable same-page body content", chunk.Text, StringComparison.Ordinal);
+        Assert.Equal("ok", chunk.ExtractionTextStatus);
+        Assert.False(chunk.ExtractionTextSparse);
+        Assert.DoesNotContain("sparse_text_on_page", chunk.ExtractionQualitySignals!);
+    }
+
+    [Fact]
     public void ProjectStructureAware_does_not_promote_sparse_low_quality_units_as_exact_chunks()
     {
         var sections = new[]
