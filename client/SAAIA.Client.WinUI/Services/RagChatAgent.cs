@@ -266,7 +266,7 @@ public sealed class RagChatAgent
         var payload = new { intent = "rag_search", sources };
 
         var ans = items.Count == 0
-            ? LocalizedStrings.NoDocumentsFound(detectedLanguage)
+            ? BuildNoDocumentsFoundAnswer(resp, detectedLanguage)
             : BuildSearchOnlyFallbackAnswer(resp, answerItems, detectedLanguage);
 
         _mem.LastLanguage = detectedLanguage;
@@ -323,6 +323,17 @@ public sealed class RagChatAgent
 
             sb.AppendLine();
         }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string BuildNoDocumentsFoundAnswer(RagSearchResponse response, string language)
+    {
+        var sb = new StringBuilder(LocalizedStrings.NoDocumentsFound(language).Trim());
+        var guidance = response.Guidance;
+
+        AppendGuidanceLine(sb, guidance?.QualificationNote);
+        AppendGuidanceLine(sb, guidance?.ClarifyingQuestion);
 
         return sb.ToString().TrimEnd();
     }

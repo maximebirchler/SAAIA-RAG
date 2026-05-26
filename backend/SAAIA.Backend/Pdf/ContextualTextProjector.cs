@@ -130,6 +130,9 @@ internal static class ContextualTextProjector
         if (OcrNoiseFilter.LooksLikeProbableNoiseText(text))
             return CacheIncludeNeighborContext(includeNeighborContextByOrdinal, unit.Ordinal, false);
 
+        if (!ExtractionQualityPolicy.ShouldUseUnitForRetrievalWindow(unit))
+            return CacheIncludeNeighborContext(includeNeighborContextByOrdinal, unit.Ordinal, false);
+
         var signal = RetrievalContentClassifier.AnalyzeChunk(text);
         if (string.Equals(signal.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.Ordinal))
             return CacheIncludeNeighborContext(includeNeighborContextByOrdinal, unit.Ordinal, false);

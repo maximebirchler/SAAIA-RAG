@@ -111,6 +111,69 @@ public sealed class ContextualTextProjectorTests
     }
 
     [Fact]
+    public void Project_omits_low_quality_sparse_neighbors_from_embedding_context()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Operations", 1, 1, 3, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "FALSE SPARSE LABEL",
+                18,
+                3,
+                [1],
+                ExtractionTextStatus: "low_text",
+                ExtractionTextSparse: true,
+                ExtractionOcrCandidate: true,
+                ExtractionQualitySignals: ["sparse_text_on_page"]),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                2,
+                2,
+                "Commissioning procedure requires isolation, verification, sign-off, and documented acceptance evidence.",
+                100,
+                10,
+                [2]),
+            new ExtractedDocumentUnit(
+                2,
+                0,
+                3,
+                3,
+                "Follow-up context explains when the verification record must be reviewed by operations.",
+                86,
+                11,
+                [3])
+        };
+        var chunks = new[]
+        {
+            new ProjectedRetrievalChunk(
+                0,
+                0,
+                1,
+                2,
+                2,
+                "Commissioning procedure requires isolation, verification, sign-off, and documented acceptance evidence.",
+                10,
+                [4],
+                "unit_exact_v1")
+        };
+
+        var entry = Assert.Single(ContextualTextProjector.Project("Ops/Manual.pdf", sections, units, chunks));
+
+        Assert.DoesNotContain("previous_context:", entry.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("FALSE SPARSE LABEL", entry.Text, StringComparison.Ordinal);
+        Assert.Contains("next_context:", entry.Text, StringComparison.Ordinal);
+        Assert.Contains("verification record", entry.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Project_puts_exact_excerpt_first_and_omits_duplicate_unit_context()
     {
         var sections = new[]

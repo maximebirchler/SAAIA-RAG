@@ -91,6 +91,62 @@ public sealed class DocumentProfileProjectorTests
     }
 
     [Fact]
+    public void Project_excludes_sparse_low_quality_units_from_profile_corpus_when_reliable_units_exist()
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                1,
+                "Reliable maintenance procedure requires isolation and documented verification.",
+                10,
+                71,
+                [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Maintenance", 1, 1, 1, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "false ocr topic",
+                15,
+                3,
+                [2],
+                ExtractionTextStatus: "low_text",
+                ExtractionTextSparse: true,
+                ExtractionOcrCandidate: true,
+                ExtractionQualitySignals: ["sparse_text_on_page"]),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                1,
+                1,
+                "Reliable maintenance procedure requires isolation and documented verification.",
+                71,
+                8,
+                [3])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/Maintenance.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: []);
+
+        Assert.Contains("maintenance", profile.Keywords);
+        Assert.Contains("Reliable maintenance", profile.SummaryText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("false ocr topic", profile.SummaryText, StringComparison.Ordinal);
+        Assert.DoesNotContain("false", profile.Keywords);
+        Assert.DoesNotContain("false ocr topic", profile.SearchText, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Project_skips_page_embedded_titles_on_sparse_low_quality_pages()
     {
         var pages = new[]
@@ -937,11 +993,15 @@ CatalogPollutionMarker Procedure body: Materials lock padlock warning tag. Proce
         Assert.Contains(card.Evidence.Facts!, fact =>
             string.Equals(fact.Kind, "scale_basis", StringComparison.Ordinal)
             && string.Equals(fact.Value, "4", StringComparison.Ordinal)
-            && string.Equals(fact.Label, "elements", StringComparison.Ordinal));
+            && string.Equals(fact.Label, "elements", StringComparison.Ordinal)
+            && fact.PageStart == 1
+            && fact.PageEnd == 1);
         Assert.Contains(card.Evidence.Facts!, fact =>
             string.Equals(fact.Kind, "quantity", StringComparison.Ordinal)
             && string.Equals(fact.Unit, "g", StringComparison.Ordinal)
-            && fact.Label.Contains("matiere de base", StringComparison.OrdinalIgnoreCase));
+            && fact.Label.Contains("matiere de base", StringComparison.OrdinalIgnoreCase)
+            && fact.PageStart == 1
+            && fact.PageEnd == 1);
         Assert.Contains("scalable_quantities", profile.SearchText, StringComparison.Ordinal);
         Assert.Contains("structured_facts", profile.SearchText, StringComparison.Ordinal);
     }

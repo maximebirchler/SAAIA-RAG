@@ -618,6 +618,56 @@ public sealed class RagContextBudgetRegressionTests
     }
 
     [Fact]
+    public async Task RagChatAgent_degraded_no_llm_preserves_backend_guidance_when_no_sources_match()
+    {
+        var api = CreateApiClient(new StubHttpHandler(request =>
+        {
+            Assert.Equal("/rag/search", request.RequestUri!.AbsolutePath);
+            const string body = """
+            {
+              "requestId": "req-empty",
+              "query": "question sans source",
+              "topK": 8,
+              "minScore": 0.0,
+              "candidates": 0,
+              "metrics": {},
+              "guidance": {
+                "behavior": "ask_clarification",
+                "responseShape": "no_source_match",
+                "qualificationNote": "Aucune source documentaire suffisamment fiable ne couvre la demande.",
+                "clarifyingQuestion": "Pouvez-vous préciser le document, la catégorie ou le terme recherché ?"
+              },
+              "items": []
+            }
+            """;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json")
+            };
+        }));
+
+        var agent = new RagChatAgent(api, new OpenAiLlmClient());
+        agent.ApplySettings(new AppSettings { UseLocalLlm = false, RagQualityPreset = "balanced" });
+
+        var streamed = new StringBuilder();
+        var (answer, sourcesPayload) = await agent.RunAsync(
+            "question sans source",
+            category: "",
+            conversationTail: Array.Empty<ChatMessageItem>(),
+            onDelta: delta => streamed.Append(delta),
+            ct: CancellationToken.None);
+
+        Assert.Contains("Aucun document", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Aucune source documentaire suffisamment fiable", answer);
+        Assert.Contains("Pouvez-vous préciser", answer);
+        Assert.Equal(answer, streamed.ToString());
+        Assert.NotNull(sourcesPayload);
+
+        using var payload = JsonDocument.Parse(JsonSerializer.Serialize(sourcesPayload));
+        Assert.Empty(payload.RootElement.GetProperty("sources").EnumerateArray());
+    }
+
+    [Fact]
     public async Task RagChatAgent_degraded_no_llm_does_not_promote_navigation_hits()
     {
         var api = CreateApiClient(new StubHttpHandler(request =>

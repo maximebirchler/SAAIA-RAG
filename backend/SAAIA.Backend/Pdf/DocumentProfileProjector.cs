@@ -132,13 +132,15 @@ internal static partial class DocumentProfileProjector
             .Select(static unit => new
             {
                 Unit = unit,
-                RetrievalContentClassifier.AnalyzeChunk(unit.Text).ContentRole
+                Signal = RetrievalContentClassifier.AnalyzeChunk(unit.Text),
+                UseForProfileCorpus = ExtractionQualityPolicy.ShouldUseUnitForRetrievalWindow(unit)
             })
             .ToArray();
 
         var contentUnits = classified
+            .Where(static item => item.UseForProfileCorpus)
             .Where(static item => string.Equals(
-                item.ContentRole,
+                item.Signal.ContentRole,
                 RetrievalContentClassifier.ContentRole,
                 StringComparison.Ordinal))
             .Select(static item => item.Unit)
@@ -147,14 +149,28 @@ internal static partial class DocumentProfileProjector
             return contentUnits;
 
         var nonNavigationUnits = classified
-            .Where(static item => !string.Equals(
-                item.ContentRole,
-                RetrievalContentClassifier.NavigationRole,
-                StringComparison.Ordinal))
+            .Where(static item => item.UseForProfileCorpus)
+            .Where(static item => !RetrievalContentClassifier.IsPredominantlyNavigationContent(
+                item.Signal.ContentRole,
+                null,
+                item.Signal.NavigationScore,
+                item.Signal.ContentDensityScore))
+            .Select(static item => item.Unit)
+            .ToArray();
+        if (nonNavigationUnits.Length > 0)
+            return nonNavigationUnits;
+
+        var targetedFallbackUnits = classified
+            .Where(static item => ExtractionQualityPolicy.ShouldUseUnitForProfileCards(item.Unit))
+            .Where(static item => !RetrievalContentClassifier.IsPredominantlyNavigationContent(
+                item.Signal.ContentRole,
+                null,
+                item.Signal.NavigationScore,
+                item.Signal.ContentDensityScore))
             .Select(static item => item.Unit)
             .ToArray();
 
-        return nonNavigationUnits.Length == 0 ? units : nonNavigationUnits;
+        return targetedFallbackUnits.Length == 0 ? units : targetedFallbackUnits;
     }
 
     private static IReadOnlyList<ExtractedDocumentUnit> SelectProfileCardContentUnits(IReadOnlyList<ExtractedDocumentUnit> units)
@@ -623,7 +639,7 @@ internal static partial class DocumentProfileProjector
     {
         var cleanTitle = CleanTitleCandidate(title);
         var normalizedKind = NormalizeContentCardKind(kind);
-        var evidence = BuildStructuredCardEvidence($"{cleanTitle} {context}");
+        var evidence = BuildStructuredCardEvidence($"{cleanTitle} {context}", pageStart: null, pageEnd: null);
         if (!IsUsefulContentCardTitle(
             cleanTitle,
             evidence,
@@ -641,7 +657,8 @@ internal static partial class DocumentProfileProjector
         if (LooksLikeLowSubstanceCoverOrMarketingCandidate(cleanTitle, context, evidence))
             return false;
 
-        var signals = BuildCardSignals(cleanTitle, context, documentKeywords, evidence);
+        var storedEvidence = StampContentCardEvidencePageRange(evidence, pageStart, pageEnd);
+        var signals = BuildCardSignals(cleanTitle, context, documentKeywords, storedEvidence);
         candidates.Add(new DocumentProfileContentCardCandidate(
             new DocumentProfileContentCard(
                 cleanTitle,
@@ -649,7 +666,7 @@ internal static partial class DocumentProfileProjector
                 pageEnd,
                 normalizedKind,
                 signals,
-                evidence,
+                storedEvidence,
                 ContentCardId: null),
             score));
         return true;
@@ -1704,7 +1721,7 @@ internal static partial class DocumentProfileProjector
             18);
     }
 
-    private static DocumentProfileCardEvidence? BuildStructuredCardEvidence(string? context)
+    private static DocumentProfileCardEvidence? BuildStructuredCardEvidence(string? context, int? pageStart, int? pageEnd)
     {
         var normalized = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(context ?? string.Empty));
         if (string.IsNullOrWhiteSpace(normalized))
@@ -1719,6 +1736,11 @@ internal static partial class DocumentProfileProjector
         if (!hasScaleBasis && quantityFacts.Length < 2 && nonScalableReasons.Length == 0)
             return null;
 
+        var factPageStart = pageStart is > 0 ? pageStart : null;
+        var factPageEnd = pageEnd is > 0 ? pageEnd : factPageStart;
+        if (factPageStart is > 0 && factPageEnd is > 0 && factPageEnd < factPageStart)
+            factPageEnd = factPageStart;
+
         var genericFacts = new List<DocumentProfileEvidenceFact>();
         if (hasScaleBasis)
         {
@@ -1728,19 +1750,19 @@ internal static partial class DocumentProfileProjector
                 Value: scaleBasisCount.ToString(CultureInfo.InvariantCulture),
                 Unit: null,
                 SourceText: null,
-                PageStart: null,
-                PageEnd: null,
+                PageStart: factPageStart,
+                PageEnd: factPageEnd,
                 Confidence: 0.82));
         }
 
-        genericFacts.AddRange(quantityFacts.Select(static fact => new DocumentProfileEvidenceFact(
+        genericFacts.AddRange(quantityFacts.Select(fact => new DocumentProfileEvidenceFact(
             Kind: "quantity",
             Label: fact.Label,
             Value: fact.Value.ToString(CultureInfo.InvariantCulture),
             Unit: fact.Unit,
             SourceText: fact.SourceText,
-            PageStart: null,
-            PageEnd: null,
+            PageStart: factPageStart,
+            PageEnd: factPageEnd,
             Confidence: 0.82)));
 
         return new DocumentProfileCardEvidence(
@@ -1751,6 +1773,33 @@ internal static partial class DocumentProfileProjector
             Confidence: hasScaleBasis && quantityFacts.Length >= 2 && nonScalableReasons.Length == 0 ? 0.82 : 0.55,
             Language: null,
             Facts: genericFacts);
+    }
+
+    private static DocumentProfileCardEvidence? StampContentCardEvidencePageRange(
+        DocumentProfileCardEvidence? evidence,
+        int? pageStart,
+        int? pageEnd)
+    {
+        if (evidence?.Facts is not { Count: > 0 } facts)
+            return evidence;
+
+        var factPageStart = pageStart is > 0 ? pageStart : null;
+        var factPageEnd = pageEnd is > 0 ? pageEnd : factPageStart;
+        if (factPageStart is > 0 && factPageEnd is > 0 && factPageEnd < factPageStart)
+            factPageEnd = factPageStart;
+        if (factPageStart is null && factPageEnd is null)
+            return evidence;
+
+        return evidence with
+        {
+            Facts = facts
+                .Select(fact => fact with
+                {
+                    PageStart = fact.PageStart ?? factPageStart,
+                    PageEnd = fact.PageEnd ?? factPageEnd
+                })
+                .ToArray()
+        };
     }
 
     private static IReadOnlyList<string> BuildStructuredCardSignals(DocumentProfileCardEvidence? evidence)
