@@ -8349,6 +8349,101 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
     }
 
     [Fact]
+    public void Source_backed_evidence_exploration_builds_multiple_passes_for_sparse_planning()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                new
+                {
+                    docPath = "Operations/maintenance-a.pdf",
+                    docName = "maintenance-a.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = "Maintenance candidate A. Inspecter les controles ouverts et noter les ecarts.",
+                    matchedContentCards = new[] { new { title = "Maintenance candidate A", kind = "unit_lead" } },
+                    score = 0.98
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        const string query = "Prepare un planning de maintenance hebdomadaire du lundi au vendredi avec controles matin et soir.";
+
+        Assert.True(ToolAgentOrchestrator.ShouldExpandSourceBackedEvidenceRetrievalForTests(toolResults, query, "fr"));
+        Assert.NotEqual(
+            "adequate_planning_coverage",
+            ToolAgentOrchestrator.AnalyzeSourceBackedEvidenceSufficiencyReasonForTests(toolResults, query, "fr"));
+
+        var labels = ToolAgentOrchestrator.BuildSourceBackedEvidenceExplorationPassLabelsForTests(toolResults, query, "fr");
+        var queries = ToolAgentOrchestrator.BuildSourceBackedEvidenceExplorationPassQueriesForTests(toolResults, query, "fr");
+
+        Assert.Contains("planning_exploration", labels);
+        Assert.Contains("candidate_discovery", labels);
+        Assert.True(labels.Length >= 2);
+        Assert.True(labels.Length <= 3);
+        Assert.True(queries.Length <= 52);
+        Assert.Contains(queries, q => q.Contains("maintenance", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, q => q.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, q => q.Contains("recette", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Source_backed_evidence_exploration_stops_when_broad_coverage_is_sufficient()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                new
+                {
+                    docPath = "Operations/control-a.pdf",
+                    docName = "control-a.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = "Control option A. Inspecter les anomalies ouvertes et documenter les ecarts.",
+                    fullText = "Control option A. Inspecter les anomalies ouvertes et documenter les ecarts. Ajouter une synthese courte et fiable.",
+                    matchedContentCards = new[] { new { title = "Control option A", kind = "unit_lead" } },
+                    score = 0.98
+                },
+                new
+                {
+                    docPath = "Operations/control-b.pdf",
+                    docName = "control-b.pdf",
+                    pageStart = 9,
+                    pageEnd = 9,
+                    excerpt = "Control option B. Verifier les seuils et preparer une restitution claire.",
+                    fullText = "Control option B. Verifier les seuils et preparer une restitution claire. Ajouter les suites possibles.",
+                    matchedContentCards = new[] { new { title = "Control option B", kind = "unit_lead" } },
+                    score = 0.97
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        const string query = "Propose-moi plusieurs options utiles a partir des documents.";
+
+        Assert.False(ToolAgentOrchestrator.ShouldExpandSourceBackedEvidenceRetrievalForTests(toolResults, query, "fr"));
+        Assert.Equal(
+            "adequate_broad_coverage",
+            ToolAgentOrchestrator.AnalyzeSourceBackedEvidenceSufficiencyReasonForTests(toolResults, query, "fr"));
+        Assert.Empty(ToolAgentOrchestrator.BuildSourceBackedEvidenceExplorationPassLabelsForTests(toolResults, query, "fr"));
+    }
+
+    [Fact]
     public void Source_backed_evidence_gate_expands_empty_pairing_request_before_clarifying()
     {
         var payload = JsonSerializer.Serialize(new { hits = Array.Empty<object>() });
@@ -8363,6 +8458,31 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         const string query = "Je veux preparer une entrecote ce soir. Quelles sauces ou accompagnements trouves dans les documents pourraient aller avec ?";
 
         Assert.True(ToolAgentOrchestrator.ShouldExpandSourceBackedEvidenceRetrievalForTests(toolResults, query, "fr"));
+    }
+
+    [Fact]
+    public void Source_backed_pairing_exploration_keeps_requested_kinds_across_passes()
+    {
+        var payload = JsonSerializer.Serialize(new { hits = Array.Empty<object>() });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        const string query = "Je veux preparer une entrecote ce soir. Quelles sauces ou accompagnements trouves dans les documents pourraient aller avec ?";
+
+        var labels = ToolAgentOrchestrator.BuildSourceBackedEvidenceExplorationPassLabelsForTests(toolResults, query, "fr");
+        var queries = ToolAgentOrchestrator.BuildSourceBackedEvidenceExplorationPassQueriesForTests(toolResults, query, "fr");
+
+        Assert.Contains("evidence_expansion", labels);
+        Assert.Contains("candidate_discovery", labels);
+        Assert.Contains(queries, q => q.Contains("sauce", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, q => q.Contains("accompagnement", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, q => q.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, q => q.Contains("recette", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

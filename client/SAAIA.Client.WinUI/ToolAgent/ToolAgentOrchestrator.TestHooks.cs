@@ -586,6 +586,28 @@ public sealed partial class ToolAgentOrchestrator
         string language)
         => ShouldExpandSourceBackedEvidenceRetrieval(toolResults, query, language);
 
+    internal static string AnalyzeSourceBackedEvidenceSufficiencyReasonForTests(
+        ToolResults toolResults,
+        string query,
+        string language)
+        => AnalyzeSourceBackedEvidenceSufficiency(toolResults, query, language).Reason;
+
+    internal static string[] BuildSourceBackedEvidenceExplorationPassLabelsForTests(
+        ToolResults toolResults,
+        string query,
+        string language)
+        => BuildSourceBackedEvidenceExplorationPasses(toolResults, query, language)
+            .Select(static pass => pass.Label)
+            .ToArray();
+
+    internal static string[] BuildSourceBackedEvidenceExplorationPassQueriesForTests(
+        ToolResults toolResults,
+        string query,
+        string language)
+        => BuildSourceBackedEvidenceExplorationPasses(toolResults, query, language)
+            .SelectMany(static pass => pass.Queries)
+            .ToArray();
+
     internal static bool IsBetterSourceBackedEvidenceCoverageForTests(
         ToolResults current,
         ToolResults candidate,

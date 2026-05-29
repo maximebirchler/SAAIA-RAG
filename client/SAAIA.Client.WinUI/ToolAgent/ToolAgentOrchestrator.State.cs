@@ -4749,6 +4749,204 @@ CURRENT_USER_MESSAGE:
             .ToArray();
     }
 
+    private const int MaxSourceBackedEvidenceExplorationPasses = 3;
+
+    private sealed record SourceBackedEvidenceExplorationPass(
+        string Label,
+        string Purpose,
+        string[] Queries);
+
+    private static IReadOnlyList<SourceBackedEvidenceExplorationPass> BuildSourceBackedEvidenceExplorationPasses(
+        ToolResults toolResults,
+        string? query,
+        string language)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return Array.Empty<SourceBackedEvidenceExplorationPass>();
+
+        var analysis = AnalyzeSourceBackedEvidenceSufficiency(toolResults, query, language);
+        if (!analysis.ShouldExplore)
+            return Array.Empty<SourceBackedEvidenceExplorationPass>();
+
+        var passes = new List<SourceBackedEvidenceExplorationPass>();
+        var emittedQueries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        void AddPass(string label, string purpose, IEnumerable<string> rawQueries, int maxQueries)
+        {
+            var queries = rawQueries
+                .Where(static value => !string.IsNullOrWhiteSpace(value))
+                .Select(CollapseWhitespace)
+                .Where(static value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Where(emittedQueries.Add)
+                .Take(maxQueries)
+                .ToArray();
+            if (queries.Length == 0)
+                return;
+
+            passes.Add(new SourceBackedEvidenceExplorationPass(label, purpose, queries));
+        }
+
+        var usesPlanningCoverage =
+            LooksLikeAnyDocumentaryPlanningRequest(query)
+            && !LooksLikeSourceBackedPairingRecommendationRequest(query)
+            && !LooksLikeSoftChoiceRecommendationRequest(query);
+        if (usesPlanningCoverage)
+        {
+            AddPass(
+                "planning_exploration",
+                "Find more candidate units and slots for a structured source-backed plan.",
+                BuildPlanningExplorationRetrievalQueries(query),
+                18);
+            AddPass(
+                "candidate_discovery",
+                "Explore adjacent candidate vocabulary when the first planning evidence is too narrow.",
+                BuildSourceBackedCandidateDiscoveryRetrievalQueries(query),
+                18);
+            AddPass(
+                "anchor_discovery",
+                "Probe requested anchors, constraints and slot terms independently.",
+                BuildSourceBackedAnchorDiscoveryRetrievalQueries(query),
+                16);
+        }
+        else
+        {
+            AddPass(
+                "evidence_expansion",
+                "Broaden source-backed retrieval around the explicit request.",
+                BuildSourceBackedEvidenceExpansionRetrievalQueries(query),
+                16);
+            AddPass(
+                "candidate_discovery",
+                "Explore option, candidate and support vocabulary for broad synthesis.",
+                BuildSourceBackedCandidateDiscoveryRetrievalQueries(query),
+                18);
+            AddPass(
+                "anchor_discovery",
+                "Probe requested anchors and option kinds separately when direct evidence is sparse.",
+                BuildSourceBackedAnchorDiscoveryRetrievalQueries(query),
+                16);
+        }
+
+        return passes.Take(MaxSourceBackedEvidenceExplorationPasses).ToArray();
+    }
+
+    private static string[] BuildSourceBackedCandidateDiscoveryRetrievalQueries(string query)
+    {
+        var queries = new List<string>();
+        var normalized = NormalizeLexicalLookup(NormalizeRagQueryForRetrieval(query));
+        if (string.IsNullOrWhiteSpace(normalized))
+            normalized = NormalizeLexicalLookup(query);
+
+        foreach (var retrievalQuery in BuildSoftChoiceOptionKindRetrievalQueries(query))
+            AddDistinctQuery(queries, retrievalQuery);
+
+        var subjectTerms = ExtractQuerySignalTerms(normalized)
+            .Concat(ExtractPlanningRetrievalTerms(normalized))
+            .Where(static term => term.Length >= 4)
+            .Where(static term => !IsSourceBackedActionRetrievalNoiseTerm(term))
+            .Where(static term => !IsGenericPlanningCoverageTerm(term))
+            .SelectMany(BuildRetrievalTermVariants)
+            .Where(static term => term.Length >= 4)
+            .Distinct(StringComparer.Ordinal)
+            .Take(8)
+            .ToArray();
+        var supportTerms = BuildPlanningExplorationSupportTerms(query)
+            .Take(5)
+            .ToArray();
+        var candidateSuffixes = BuildCandidateExpansionSuffixes(query)
+            .Take(4)
+            .ToArray();
+        var slotTerms = ExtractPlanningSlotRetrievalTerms(query)
+            .Take(5)
+            .ToArray();
+        var constraintTerms = ExtractPlanningConstraintRetrievalTerms(normalized)
+            .Take(4)
+            .ToArray();
+
+        foreach (var subject in subjectTerms)
+        {
+            AddDistinctQuery(queries, subject);
+            foreach (var suffix in candidateSuffixes)
+                AddDistinctQuery(queries, $"{subject} {suffix}");
+            foreach (var support in supportTerms.Take(3))
+                AddDistinctQuery(queries, $"{subject} {support}");
+            foreach (var constraint in constraintTerms)
+                AddDistinctQuery(queries, $"{subject} {constraint}");
+        }
+
+        foreach (var slot in slotTerms)
+        {
+            AddDistinctQuery(queries, slot);
+            foreach (var support in supportTerms.Take(3))
+                AddDistinctQuery(queries, $"{slot} {support}");
+            foreach (var subject in subjectTerms.Take(4))
+                AddDistinctQuery(queries, $"{subject} {slot}");
+        }
+
+        foreach (var retrievalQuery in BuildSourceBackedActionRetrievalQueries(query).Take(10))
+            AddDistinctQuery(queries, retrievalQuery);
+
+        return queries
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(CollapseWhitespace)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(18)
+            .ToArray();
+    }
+
+    private static string[] BuildSourceBackedAnchorDiscoveryRetrievalQueries(string query)
+    {
+        var queries = new List<string>();
+        var anchorTerms = ExtractPlanningCoverageAnchorTerms(query)
+            .Concat(ExtractPairingTargetAnchorTerms(query))
+            .Concat(ExtractPairingRequestedOptionKindTerms(query))
+            .Concat(ExtractSoftChoiceRequestedOptionKindTerms(query))
+            .SelectMany(BuildRetrievalTermVariants)
+            .Where(static term => term.Length >= 4)
+            .Where(static term => !IsSourceBackedActionRetrievalNoiseTerm(term))
+            .Where(static term => !IsGenericPlanningCoverageTerm(term))
+            .Distinct(StringComparer.Ordinal)
+            .Take(8)
+            .ToArray();
+        var suffixes = BuildCandidateExpansionSuffixes(query)
+            .Concat(BuildPlanningExpansionSuffixes(query))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(5)
+            .ToArray();
+        var slotTerms = ExtractPlanningSlotRetrievalTerms(query)
+            .Take(5)
+            .ToArray();
+
+        foreach (var anchor in anchorTerms)
+        {
+            AddDistinctQuery(queries, anchor);
+            foreach (var suffix in suffixes)
+                AddDistinctQuery(queries, $"{anchor} {suffix}");
+            foreach (var slot in slotTerms.Take(4))
+                AddDistinctQuery(queries, $"{anchor} {slot}");
+        }
+
+        foreach (var slot in slotTerms)
+            AddDistinctQuery(queries, slot);
+
+        return queries
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(CollapseWhitespace)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(16)
+            .ToArray();
+    }
+
+    private static int ResolveSourceBackedEvidenceExplorationTopK(string? query, string passLabel)
+    {
+        var baseTopK = LooksLikeAnyDocumentaryPlanningRequest(query)
+            ? NormalizeSourceBackedPlanningTopK(null, query ?? string.Empty)
+            : Math.Max(12, NormalizeSourceBackedActionTopK(null, query ?? string.Empty));
+        return string.Equals(passLabel, "candidate_discovery", StringComparison.OrdinalIgnoreCase)
+            ? Math.Max(baseTopK, 18)
+            : baseTopK;
+    }
+
     private static IReadOnlyList<string> BuildPlanningExpansionSuffixes(string? query)
         => DetectRetrievalExpansionLanguage(query) switch
         {
@@ -5794,21 +5992,75 @@ CURRENT_USER_MESSAGE:
         return candidateCoverage.Score > currentCoverage.Score;
     }
 
-    private static bool ShouldExpandSourceBackedEvidenceRetrieval(ToolResults toolResults, string? query, string language)
+    private sealed record SourceBackedEvidenceSufficiency(
+        bool IsSufficient,
+        bool ShouldExplore,
+        string Kind,
+        string Reason,
+        int Score,
+        int UsableHitCount,
+        int DistinctDocumentCount,
+        int DistinctSourcePageCount,
+        int CandidateCount,
+        int MinimumCandidateCount,
+        int TargetSlotCount,
+        bool HasRequiredAnchor);
+
+    private static SourceBackedEvidenceSufficiency AnalyzeSourceBackedEvidenceSufficiency(
+        ToolResults toolResults,
+        string? query,
+        string language)
     {
         if (string.IsNullOrWhiteSpace(query)
             || LooksLikeSourceBackedCountdownPlanningRequest(query)
             || LooksLikeSourceBackedVerificationChecklistRequest(query)
             || LooksLikeCorpusClaimVerificationRequest(query))
         {
-            return false;
+            return new SourceBackedEvidenceSufficiency(
+                true,
+                false,
+                "none",
+                "not_explorable_request",
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                true);
         }
 
         if (LooksLikeAnyDocumentaryPlanningRequest(query)
             && !LooksLikeSourceBackedPairingRecommendationRequest(query)
             && !LooksLikeSoftChoiceRecommendationRequest(query))
         {
-            return ShouldExpandSourceBackedPlanningRetrieval(toolResults, query, language);
+            var coverage = EvaluateSourceBackedPlanningCoverage(toolResults, query, language);
+            var reason = coverage.IsAdequate
+                ? "adequate_planning_coverage"
+                : coverage.CandidateCount <= 0
+                    ? "no_planning_candidates"
+                    : !coverage.HasRequiredAnchor
+                        ? "missing_requested_anchor"
+                        : coverage.CandidateCount < coverage.MinimumCandidates
+                            ? "too_few_distinct_candidates"
+                            : coverage.DistinctSourcePages < Math.Min(3, coverage.MinimumCandidates)
+                                ? "low_source_page_diversity"
+                                : "partial_planning_evidence";
+
+            return new SourceBackedEvidenceSufficiency(
+                coverage.IsAdequate,
+                !coverage.IsAdequate,
+                "planning",
+                reason,
+                coverage.Score,
+                coverage.CandidateCount,
+                0,
+                coverage.DistinctSourcePages,
+                coverage.CandidateCount,
+                coverage.MinimumCandidates,
+                coverage.TargetSlots,
+                coverage.HasRequiredAnchor);
         }
 
         var canBenefitFromDiversity =
@@ -5821,14 +6073,51 @@ CURRENT_USER_MESSAGE:
             || LooksLikeSourceBackedPairingRecommendationRequest(query)
             || LooksLikeUserNeedsSynthesizedDecisionOrPlan(query);
         if (!canBenefitFromDiversity)
-            return false;
+        {
+            return new SourceBackedEvidenceSufficiency(
+                true,
+                false,
+                "broad",
+                "request_not_diversity_sensitive",
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                true);
+        }
 
-        var coverage = EvaluateBroadSourceBackedSynthesisCoverage(toolResults, query);
-        if (coverage.UsableHitCount == 0)
-            return canBenefitFromDiversity;
+        var broadCoverage = EvaluateBroadSourceBackedSynthesisCoverage(toolResults, query);
+        var broadScore = ComputeBroadSourceBackedCoverageScore(broadCoverage);
+        var broadReason = broadCoverage.IsAdequate
+            ? "adequate_broad_coverage"
+            : broadCoverage.UsableHitCount <= 0
+                ? "no_usable_hits"
+                : broadCoverage.DistinctSourcePageCount < Math.Min(2, ResolveMinimumBroadSourceBackedSynthesisHitCount(query))
+                    ? "low_source_page_diversity"
+                    : broadCoverage.RichEvidenceCount <= 0
+                        ? "low_evidence_richness"
+                        : "partial_broad_evidence";
 
-        return !coverage.IsAdequate;
+        return new SourceBackedEvidenceSufficiency(
+            broadCoverage.IsAdequate,
+            !broadCoverage.IsAdequate,
+            "broad",
+            broadReason,
+            broadScore,
+            broadCoverage.UsableHitCount,
+            broadCoverage.DistinctDocumentCount,
+            broadCoverage.DistinctSourcePageCount,
+            broadCoverage.UsableHitCount,
+            ResolveMinimumBroadSourceBackedSynthesisHitCount(query),
+            0,
+            true);
     }
+
+    private static bool ShouldExpandSourceBackedEvidenceRetrieval(ToolResults toolResults, string? query, string language)
+        => AnalyzeSourceBackedEvidenceSufficiency(toolResults, query, language).ShouldExplore;
 
     private static bool IsBetterSourceBackedEvidenceCoverage(
         ToolResults current,

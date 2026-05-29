@@ -1049,69 +1049,92 @@ public sealed partial class ToolAgentOrchestrator
         string effectiveUserMessage,
         CancellationToken ct,
         Action<string>? onPhase,
-        Action<string>? onProgress)
+        Action<string>? onProgress,
+        string? categoryScopeOverride = null)
     {
-        if (!ShouldExpandSourceBackedEvidenceRetrieval(toolResults, effectiveUserMessage, plan.Language))
+        var currentAnalysis = AnalyzeSourceBackedEvidenceSufficiency(toolResults, effectiveUserMessage, plan.Language);
+        if (!currentAnalysis.ShouldExplore)
             return false;
 
-        var queries = BuildSourceBackedEvidenceExpansionRetrievalQueries(effectiveUserMessage);
-        if (queries.Length == 0)
+        var passes = BuildSourceBackedEvidenceExplorationPasses(toolResults, effectiveUserMessage, plan.Language);
+        if (passes.Count == 0)
             return false;
 
-        var topK = LooksLikeAnyDocumentaryPlanningRequest(effectiveUserMessage)
-            ? NormalizeSourceBackedPlanningTopK(null, effectiveUserMessage)
-            : Math.Max(12, NormalizeSourceBackedActionTopK(null, effectiveUserMessage));
-        var args = CreateJsonArgs(new
+        var acceptedAny = false;
+        var categoryScope = string.IsNullOrWhiteSpace(categoryScopeOverride)
+            ? ResolveRagCategoryScope(effectiveUserMessage)
+            : categoryScopeOverride;
+        foreach (var pass in passes.Take(MaxSourceBackedEvidenceExplorationPasses))
         {
-            queries,
-            topK,
-            category = ResolveRagCategoryScope(effectiveUserMessage),
-            mode = "balanced"
-        });
+            if (!currentAnalysis.ShouldExplore)
+                break;
 
-        var sw = Stopwatch.StartNew();
-        try
-        {
-            onPhase?.Invoke(DeterministicAgentText.PhaseRag(plan.Language));
-            onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(plan.Language));
-            var expandedResult = await ExecRagMultiSearchAsync(args, ct).ConfigureAwait(false);
-            sw.Stop();
-            if (!HasRagHits(expandedResult))
-                return false;
+            if (pass.Queries.Length == 0)
+                continue;
 
-            var candidate = new ToolResults();
-            candidate.Items.AddRange(toolResults.Items);
-            candidate.Items.Add(new ToolResults.Item
+            var args = CreateJsonArgs(new
             {
-                ToolName = "rag.multi_search",
-                Result = expandedResult,
-                DurationMs = sw.ElapsedMilliseconds
+                queries = pass.Queries,
+                topK = ResolveSourceBackedEvidenceExplorationTopK(effectiveUserMessage, pass.Label),
+                category = categoryScope,
+                mode = "balanced"
             });
 
-            if (!IsBetterSourceBackedEvidenceCoverage(toolResults, candidate, effectiveUserMessage, plan.Language))
-                return false;
-
-            toolResults.Items.Add(new ToolResults.Item
+            var sw = Stopwatch.StartNew();
+            try
             {
-                ToolName = "rag.multi_search",
-                Result = expandedResult,
-                DurationMs = sw.ElapsedMilliseconds
-            });
-            _lastToolDurations.Add(("rag.multi_search", sw.ElapsedMilliseconds, true));
-            if (!_mem.LastToolNames.Contains("rag.multi_search", StringComparer.OrdinalIgnoreCase))
-                _mem.LastToolNames.Add("rag.multi_search");
-            return true;
+                onPhase?.Invoke(DeterministicAgentText.PhaseRag(plan.Language));
+                onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(plan.Language));
+                var expandedResult = await ExecRagMultiSearchAsync(args, ct).ConfigureAwait(false);
+                sw.Stop();
+                if (!HasRagHits(expandedResult))
+                {
+                    _lastToolDurations.Add(("rag.multi_search", sw.ElapsedMilliseconds, true));
+                    continue;
+                }
+
+                var candidate = new ToolResults();
+                candidate.Items.AddRange(toolResults.Items);
+                candidate.Items.Add(new ToolResults.Item
+                {
+                    ToolName = "rag.multi_search",
+                    Result = expandedResult,
+                    DurationMs = sw.ElapsedMilliseconds
+                });
+
+                var candidateAnalysis = AnalyzeSourceBackedEvidenceSufficiency(candidate, effectiveUserMessage, plan.Language);
+                var improvesCoverage = IsBetterSourceBackedEvidenceCoverage(toolResults, candidate, effectiveUserMessage, plan.Language)
+                    || candidateAnalysis.Score > currentAnalysis.Score;
+                if (!improvesCoverage)
+                {
+                    _lastToolDurations.Add(("rag.multi_search", sw.ElapsedMilliseconds, true));
+                    continue;
+                }
+
+                toolResults.Items.Add(new ToolResults.Item
+                {
+                    ToolName = "rag.multi_search",
+                    Result = expandedResult,
+                    DurationMs = sw.ElapsedMilliseconds
+                });
+                _lastToolDurations.Add(("rag.multi_search", sw.ElapsedMilliseconds, true));
+                if (!_mem.LastToolNames.Contains("rag.multi_search", StringComparer.OrdinalIgnoreCase))
+                    _mem.LastToolNames.Add("rag.multi_search");
+                currentAnalysis = candidateAnalysis;
+                acceptedAny = true;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                sw.Stop();
+                _lastToolDurations.Add(("rag.multi_search", sw.ElapsedMilliseconds, false));
+            }
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch
-        {
-            sw.Stop();
-            _lastToolDurations.Add(("rag.multi_search", sw.ElapsedMilliseconds, false));
-            return false;
-        }
+
+        return acceptedAny;
     }
 
     private async Task<bool> TryExpandBackendGuidanceClarificationRetrievalAsync(
@@ -3450,41 +3473,14 @@ public sealed partial class ToolAgentOrchestrator
                         }
                     }
 
-                    if (ShouldExpandSourceBackedPlanningRetrieval(planningToolResults, effectiveUserMessage, plan.Language))
-                    {
-                        var expandedQueries = BuildPlanningExplorationRetrievalQueries(effectiveUserMessage);
-                        if (expandedQueries.Length > 0)
-                        {
-                            var expandedMultiArgs = CreateJsonArgs(new
-                            {
-                                queries = expandedQueries,
-                                topK = NormalizeSourceBackedPlanningTopK(null, effectiveUserMessage),
-                                category = effectivePlanningCategoryScope,
-                                mode = "balanced"
-                            });
-                            var expandedMultiResult = await ExecRagMultiSearchAsync(expandedMultiArgs, ct).ConfigureAwait(false);
-                            if (HasRagHits(expandedMultiResult))
-                            {
-                                var expandedToolResults = new ToolResults();
-                                expandedToolResults.Items.AddRange(planningToolResults.Items);
-                                expandedToolResults.Items.Add(new ToolResults.Item
-                                {
-                                    ToolName = "rag.multi_search",
-                                    Result = expandedMultiResult
-                                });
-
-                                if (IsBetterSourceBackedPlanningCoverage(
-                                        planningToolResults,
-                                        expandedToolResults,
-                                        effectiveUserMessage,
-                                        plan.Language))
-                                {
-                                    multiArgs = expandedMultiArgs;
-                                    planningToolResults = expandedToolResults;
-                                }
-                            }
-                        }
-                    }
+                    await TryExpandSourceBackedEvidenceRetrievalAsync(
+                        planningToolResults,
+                        plan,
+                        effectiveUserMessage,
+                        ct,
+                        onPhase,
+                        onProgress,
+                        effectivePlanningCategoryScope).ConfigureAwait(false);
 
                     var shouldUsePlanningWriter =
                         ShouldAllowWriterForPartialSourceBackedPlanning(planningToolResults, effectiveUserMessage, plan.Language)
