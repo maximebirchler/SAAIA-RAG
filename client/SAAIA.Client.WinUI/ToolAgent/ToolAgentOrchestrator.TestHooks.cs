@@ -648,11 +648,17 @@ public sealed partial class ToolAgentOrchestrator
     internal static string[] BuildSourceBackedEvidenceExpansionRetrievalQueriesForTests(string query)
         => BuildSourceBackedEvidenceExpansionRetrievalQueries(query);
 
+    internal static int NormalizeSourceBackedPlanningTopKForTests(int? requestedTopK, string query)
+        => NormalizeSourceBackedPlanningTopK(requestedTopK, query);
+
     internal static string RemoveTrailingModelEmittedSourceListForTests(string answer)
         => RemoveTrailingModelEmittedSourceList(answer);
 
     internal static bool ShouldUseWriterForBroadSourceBackedPlanningForTests(ToolResults toolResults, string query)
         => ShouldUseWriterForBroadSourceBackedPlanning(toolResults, query);
+
+    internal static bool ShouldUseLlmSourceBackedEvidencePlannerForTests(ToolResults toolResults, string query, string language)
+        => ShouldUseLlmSourceBackedEvidencePlanner(query, AnalyzeSourceBackedEvidenceSufficiency(toolResults, query, language));
 
     internal static bool ShouldAllowWriterForPartialSourceBackedPlanningForTests(ToolResults toolResults, string query, string language = "fr")
         => ShouldAllowWriterForPartialSourceBackedPlanning(toolResults, query, language);

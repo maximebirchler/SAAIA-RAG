@@ -2437,6 +2437,31 @@ public sealed class RagContextBudgetRegressionTests
     }
 
     [Fact]
+    public void Structured_planning_retrieval_uses_wide_topk_for_many_requested_slots()
+    {
+        const string query = "Je cherche a avoir un plan de repas pour la semaine, petit-dejeuner, midi et soir du lundi au vendredi.";
+
+        Assert.Equal(20, ToolAgentOrchestrator.NormalizeSourceBackedPlanningTopKForTests(null, query));
+    }
+
+    [Fact]
+    public void Structured_planning_may_use_llm_retrieval_strategy_even_when_first_hits_are_empty()
+    {
+        const string query = "Je cherche a avoir un plan de repas pour la semaine, petit-dejeuner, midi et soir du lundi au vendredi.";
+
+        Assert.True(ToolAgentOrchestrator.ShouldUseLlmSourceBackedEvidencePlannerForTests(new ToolResults(), query, "fr"));
+    }
+
+    [Fact]
+    public void Non_planning_empty_results_do_not_use_llm_retrieval_strategy()
+    {
+        Assert.False(ToolAgentOrchestrator.ShouldUseLlmSourceBackedEvidencePlannerForTests(
+            new ToolResults(),
+            "Un processus classique.",
+            "fr"));
+    }
+
+    [Fact]
     public void Pairing_request_upgrades_existing_rag_search_to_diverse_multi_search()
     {
         const string query = "Quel revetement ou finition irait bien avec le module ZEPHYR d'apres les sources ?";
@@ -2766,7 +2791,7 @@ public sealed class RagContextBudgetRegressionTests
             "Resume procedure generale.",
             "fr");
 
-        Assert.StartsWith("Voici les pistes sourcées disponibles", answer);
+        Assert.StartsWith("Voici les éléments documentés disponibles", answer);
         Assert.DoesNotContain("Oui, j'ai", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("éléments documentaires partiels", answer, StringComparison.OrdinalIgnoreCase);
     }
@@ -3102,7 +3127,7 @@ public sealed class RagContextBudgetRegressionTests
         Assert.True(ToolAgentOrchestrator.ShouldUseWriterForBroadSourceBackedSynthesisForTests(
             toolResults,
             "Quelle sauce ou accompagnement irait bien avec module ZEPHYR ?"));
-        Assert.Contains("pistes sourcees", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("elements documentes a verifier", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("pas comme compatibilite certifiee", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("sauce", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Option 1", answer, StringComparison.OrdinalIgnoreCase);
@@ -7706,7 +7731,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             "fr",
             "Peux-tu me faire un plan pour la semaine avec les documents ?");
 
-        Assert.Contains("banque d'options", answer);
+        Assert.Contains("sources disponibles ne couvrent pas encore", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Option 1", answer);
         Assert.DoesNotContain("Jour 1", answer);
         Assert.DoesNotContain("plan partiel", answer, StringComparison.OrdinalIgnoreCase);
@@ -8673,7 +8698,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.Contains("Use a compact grid", guidance);
         Assert.Contains("Avoid opening with \"I can build...\"", guidance);
         Assert.Contains("start with the requested structure or proposal", guidance);
-        Assert.Contains("do not fill the structure by repeating weak candidates", guidance);
+        Assert.Contains("do not fill the structure by repeating weak items", guidance);
         Assert.Contains("do not fill the whole grid by repetition", guidance);
         Assert.DoesNotContain("recette", guidance, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Cuisine", guidance, StringComparison.OrdinalIgnoreCase);
@@ -8722,8 +8747,11 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             "Propose-moi une option utile a partir des documents.",
             "fr");
 
-        Assert.Contains("support cue: content card: Option controlee", leads);
+        Assert.Contains("detail: readable title: Option controlee", leads);
         Assert.DoesNotContain("evidence:", leads, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("support cue:", leads, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("evidence role:", leads, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("- candidate:", leads, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("MATERIAL BOL", leads, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -8858,8 +8886,50 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
     {
         Assert.True(ToolAgentOrchestrator.LooksLikeWriterControlLeakForTests(
             "SOURCE_BACKED_CANDIDATE_LEADS: candidate(s) for slot(s), writerEvidence=abc"));
+        Assert.True(ToolAgentOrchestrator.LooksLikeWriterControlLeakForTests(
+            "PRIVATE_SOURCE_EVIDENCE_INVENTORY: source-backed leads from the candidate bank"));
         Assert.False(ToolAgentOrchestrator.LooksLikeWriterControlLeakForTests(
             "Voici une proposition claire avec des elements sources et des limites explicites."));
+    }
+
+    [Fact]
+    public void Weekly_planning_detects_visible_candidate_bank_and_slot_counts_for_repair()
+    {
+        const string query = "Je cherche a avoir un plan pour la semaine, petit-dejeuner, midi et soir du lundi au vendredi.";
+        const string answer = """
+        J'ai trouve 6 piste(s) sourcee(s) distincte(s) pour 15 creneau(x) demande(s). Ce n'est pas assez pour construire un planning complet et varie sans trop repeter.
+        Voici la banque d'options fiable pour commencer :
+        - Chaud, on le sert avec une salade verte comme repas du soir (nobilia-recettes-internationales-FR.pdf p.143).
+        - Glace, au besoin PETITS DEJ SMOOTHIE VERT (Je_cuisine_simplement.pdf p.38).
+        Pour completer le planning proprement, il faut elargir la recherche.
+        """;
+
+        Assert.True(ToolAgentOrchestrator.LooksLikePoorPlanningFallbackAnswerForTests(answer, query));
+    }
+
+    [Fact]
+    public void Weekly_planning_detects_visible_documented_base_slot_diagnostics_for_repair()
+    {
+        const string query = "Je cherche a avoir un plan pour la semaine, petit-dejeuner, midi et soir du lundi au vendredi.";
+        const string answer = """
+        Here is a readable starting plan from the available sourced elements.
+        The documented base is incomplete: 4 usable elements for 15 requested places. I place what is supported and leave the missing places explicit instead of inventing extra items.
+        """;
+
+        Assert.True(ToolAgentOrchestrator.LooksLikePoorPlanningFallbackAnswerForTests(answer, query));
+    }
+
+    [Fact]
+    public void Broad_writer_detects_english_source_backed_leads_dump_for_repair()
+    {
+        const string query = "Can you suggest a weekly meal plan from the available cooking documents, with sources?";
+        const string answer = """
+        Here are the source-backed leads found in the available documents, without adding facts, quantities, or steps outside the sources:
+        - livre-recette-sist-2025-web.pdf p.20 : ...squ'on sait a l'avance ce qu'on va cuisiner, on achete mieux et moins !
+        - chefbot_livre_de_recettes_fr.pdf p.73 : Ce livre de recettes couvre une variete de plats...
+        """;
+
+        Assert.True(ToolAgentOrchestrator.LooksLikePoorPlanningFallbackAnswerForTests(answer, query));
     }
 
     [Fact]
@@ -9500,7 +9570,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
 
         var answer = ToolAgentOrchestrator.BuildSourceBackedPlanningAnswerForTests(toolResults, "fr", query);
 
-        Assert.Contains("banque d'options", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Options utilisables", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Controle journalier", answer);
         Assert.Contains("Verification hebdomadaire", answer);
         Assert.Contains("Revue qualite", answer);
@@ -9574,10 +9644,12 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
 
         var hints = ToolAgentOrchestrator.BuildSourceBackedCoverageHintsForWriterForTests(toolResults, query, "fr");
 
-        Assert.Contains("2 distinct sourced candidate", hints, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("15 requested slot", hints, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Do not fill every slot", hints, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("offer to broaden the search", hints, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Usable distinct items: 2", hints, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("requested cells/items: 15", hints, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Do not fill every requested cell", hints, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("broader search", hints, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("candidate(s)", hints, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("slot(s)", hints, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -10288,7 +10360,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
 
         Assert.Contains("acier", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("revetement", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("pistes sourcees", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("elements documentes a verifier", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("pas comme compatibilite certifiee", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Option 1", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Revetement epoxy", answer);
@@ -11832,7 +11904,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
 
         var answer = ToolAgentOrchestrator.BuildSourceBackedPlanningAnswerForTests(toolResults, "fr", query);
 
-        Assert.Contains("banque d'options", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Options utilisables", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Maintenance ventilation", answer);
         Assert.Contains("Maintenance capteurs", answer);
         Assert.DoesNotContain("Lundi", answer, StringComparison.OrdinalIgnoreCase);

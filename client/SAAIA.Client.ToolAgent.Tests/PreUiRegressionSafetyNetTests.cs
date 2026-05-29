@@ -29,7 +29,7 @@ public sealed class PreUiRegressionSafetyNetTests
         Assert.Contains("source-backed alternatives", prompt);
         Assert.Contains("build a partial answer from candidates actually present in the hits", prompt);
         Assert.Contains("never certify suitability or compatibility unless the hit explicitly links", prompt);
-        Assert.Contains("source-backed leads or a partial construction", prompt);
+        Assert.Contains("documented partial material or a partial construction", prompt);
         Assert.Contains("contentSignals/contentRole", prompt);
         Assert.Contains("contentDensityScore", prompt);
         Assert.Contains("transitions, grouping, prioritization and a readable structure", prompt);

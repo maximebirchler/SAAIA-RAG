@@ -1145,6 +1145,7 @@ public sealed partial class ToolAgentOrchestrator
 
                 var candidateAnalysis = AnalyzeSourceBackedEvidenceSufficiency(candidate, effectiveUserMessage, plan.Language);
                 var improvesCoverage = IsBetterSourceBackedEvidenceCoverage(toolResults, candidate, effectiveUserMessage, plan.Language)
+                    || CandidateSourceBackedEvidenceAddsUsefulDiversity(currentAnalysis, candidateAnalysis)
                     || candidateAnalysis.Score > currentAnalysis.Score;
                 if (!improvesCoverage)
                 {
@@ -1260,10 +1261,16 @@ public sealed partial class ToolAgentOrchestrator
         if (string.Equals(currentAnalysis.Kind, "planning", StringComparison.OrdinalIgnoreCase))
             return true;
 
+        if (currentAnalysis.UsableHitCount <= 0)
+            return false;
+
         return LooksLikeSourceBackedPairingRecommendationRequest(effectiveUserMessage)
                || LooksLikeSoftChoiceRecommendationRequest(effectiveUserMessage)
                || LooksLikeMultipleCandidateSynthesisRequest(effectiveUserMessage)
                || LooksLikeBroadSourceBackedCompositionRequest(effectiveUserMessage)
+               || LooksLikeBroadSynthesisRequestShape(effectiveUserMessage)
+               || LooksLikeComparativeDocumentaryRequest(effectiveUserMessage)
+               || (currentAnalysis.UsableHitCount > 0 && LooksLikeDocumentaryContentRequest(effectiveUserMessage))
                || LooksLikeUserNeedsSynthesizedDecisionOrPlan(effectiveUserMessage);
     }
 
@@ -1278,6 +1285,8 @@ Task:
 - Do not answer the user.
 - Do not invent document names, category names, file names, product names, recipes or facts.
 - Use generic search reasoning: split broad requests into useful facets, requested constraints, candidate types, synonyms and possible source-language terms.
+- You may derive retrieval keywords from the user intent, not only repeat the exact words. Broad requests often need related nouns, constraints, slot names, option types and source-language equivalents.
+- For planning, recommendation, comparison or selection requests, search both for concrete items and for framing/context passages.
 - If category hints are present, you may use their names as optional retrieval terms, but do not create category-specific hardcoded rules.
 - Keep queries short and reusable across domains.
 - Avoid duplicates of queries already tried.
@@ -1337,6 +1346,7 @@ OUTPUT_RULES:
 - Prefer 4 to 10 strong queries over many weak queries.
 - Include terms that broaden evidence only when the current leads are too narrow.
 - For broad plans, include candidate-discovery queries and constraint/slot queries.
+- For broad plans or recommendations, include queries that search for concrete options even when the user did not name those options explicitly.
 - For pairing/recommendation requests, include requested option kinds and target anchors separately.
 - Do not include UI prose, explanations outside JSON, source excerpts or final answer text.";
     }
@@ -4676,13 +4686,13 @@ USER_MESSAGE:
 ANSWER_SHAPE_GUIDANCE:
 {BuildAnswerShapeGuidanceForWriter(userMessage, plan.Language)}
 
-SOURCE_BACKED_COVERAGE_HINTS:
+PRIVATE_SOURCE_COVERAGE_NOTE:
 {BuildSourceBackedCoverageHintsForWriter(writerToolResults, userMessage, plan.Language)}
 
-SOURCE_BACKED_WRITING_BRIEF:
+PRIVATE_SOURCE_WRITING_BRIEF:
 {BuildSourceBackedWritingBriefForWriter(writerToolResults, userMessage, plan.Language)}
 
-SOURCE_BACKED_CANDIDATE_LEADS:
+PRIVATE_SOURCE_EVIDENCE_INVENTORY:
 {BuildSourceBackedCandidateLeadsForWriter(writerToolResults, userMessage, plan.Language)}
 
 TOOL_RESULTS (json):
@@ -5030,14 +5040,14 @@ AUTHORITATIVE_INVENTORY_DATA (json):
 You are SAAIA assistant.
 Target language: {language}.
 
-The tool results contain partial source-backed leads for a broad documentary request.
+The tool results contain partial documented evidence for a broad documentary request.
 
 Rules:
 - Answer only from the tool results.
 - The final answer must be written in the target language. If a source is in another language, translate/paraphrase the useful meaning into the target language and keep only source names, page numbers, units, values and short quoted terms unchanged.
 - Do not say there is no data when hits are present.
 - Do not dump raw excerpts.
-- Treat SOURCE_BACKED_WRITING_BRIEF, SOURCE_BACKED_COVERAGE_HINTS and SOURCE_BACKED_CANDIDATE_LEADS as private drafting aids, not final wording. Do not expose control words such as coverage, candidate(s), slot(s), evidenceRole, writerEvidence or tool result.
+- Treat PRIVATE_SOURCE_WRITING_BRIEF, PRIVATE_SOURCE_COVERAGE_NOTE and PRIVATE_SOURCE_EVIDENCE_INVENTORY as private drafting aids, not final wording. Do not expose control words such as coverage, candidate(s), slot(s), evidenceRole, writerEvidence or tool result.
 - Your job is to rewrite and synthesize: extract useful facts from the hits, then present them as polished user-facing prose instead of pasting retrieved text.
 - Do not repeat or paraphrase the user's whole question in the first sentence.
 - Do not write bullets whose main content is ""document p.N: copied passage"". Keep source names/pages as short references after a concise candidate or planning point.
@@ -5065,13 +5075,13 @@ USER_MESSAGE:
 ANSWER_SHAPE_GUIDANCE:
 {BuildAnswerShapeGuidanceForWriter(userMessage, plan.Language)}
 
-SOURCE_BACKED_COVERAGE_HINTS:
+PRIVATE_SOURCE_COVERAGE_NOTE:
 {BuildSourceBackedCoverageHintsForWriter(writerToolResults, userMessage, plan.Language)}
 
-SOURCE_BACKED_WRITING_BRIEF:
+PRIVATE_SOURCE_WRITING_BRIEF:
 {BuildSourceBackedWritingBriefForWriter(writerToolResults, userMessage, plan.Language)}
 
-SOURCE_BACKED_CANDIDATE_LEADS:
+PRIVATE_SOURCE_EVIDENCE_INVENTORY:
 {BuildSourceBackedCandidateLeadsForWriter(writerToolResults, userMessage, plan.Language)}
 
 TOOL_RESULTS (json):
@@ -6388,9 +6398,9 @@ TOOL_RESULTS (json):
     private static int NormalizeSourceBackedPlanningTopK(int? requestedTopK, string effectiveUserMessage)
     {
         var targetSlots = ResolveSourceBackedPlanningTargetItemCount(effectiveUserMessage);
-        var defaultTopK = targetSlots >= 10 ? 12 : 10;
+        var defaultTopK = targetSlots >= 10 ? Math.Min(20, targetSlots + 5) : 10;
         var topK = NormalizeIntArg(requestedTopK, defaultTopK, 4, 20);
-        return targetSlots >= 10 ? Math.Max(12, topK) : Math.Max(8, topK);
+        return targetSlots >= 10 ? Math.Min(20, Math.Max(defaultTopK, topK)) : Math.Max(8, topK);
     }
 
     private static int NormalizeComparativeTopK(int? requestedTopK, string effectiveUserMessage)

@@ -3721,12 +3721,12 @@ CURRENT_USER_MESSAGE:
 
         var header = (closeLeads.Count > 0, language) switch
         {
-            (true, "en") => $"I did not find the requested document \"{requestedDocument}\" in the indexed corpus. I will not summarize it or use it as a source. Closest source-backed leads:",
+            (true, "en") => $"I did not find the requested document \"{requestedDocument}\" in the indexed corpus. I will not summarize it or use it as a source. Closest documented alternatives:",
             (true, "es") => $"No he encontrado el documento solicitado \"{requestedDocument}\" en el corpus indexado. No voy a resumirlo ni usarlo como fuente. Pistas cercanas con fuente:",
             (true, "pt") => $"Nao encontrei o documento solicitado \"{requestedDocument}\" no corpus indexado. Nao vou resume-lo nem usa-lo como fonte. Pistas proximas com fonte:",
             (true, "de") => $"Ich habe das angefragte Dokument \"{requestedDocument}\" im indexierten Korpus nicht gefunden. Ich fasse es nicht zusammen und verwende es nicht als Quelle. Naheliegende belegte Hinweise:",
             (true, "it") => $"Non ho trovato il documento richiesto \"{requestedDocument}\" nel corpus indicizzato. Non lo riassumo ne lo uso come fonte. Indicazioni vicine con fonte:",
-            (true, _) => $"Je n'ai pas trouve le document demande \"{requestedDocument}\" dans le corpus indexe. Je ne le resume pas et je ne l'utilise pas comme source principale. Pistes proches sourcees :",
+            (true, _) => $"Je n'ai pas trouve le document demande \"{requestedDocument}\" dans le corpus indexe. Je ne le resume pas et je ne l'utilise pas comme source principale. Alternatives documentees les plus proches :",
             (false, "en") => $"I did not find the requested document \"{requestedDocument}\" in the indexed corpus. I will not summarize it or use it as a source.",
             (false, "es") => $"No he encontrado el documento solicitado \"{requestedDocument}\" en el corpus indexado. No voy a resumirlo ni usarlo como fuente.",
             (false, "pt") => $"Nao encontrei o documento solicitado \"{requestedDocument}\" no corpus indexado. Nao vou resume-lo nem usa-lo como fonte.",
@@ -3830,12 +3830,12 @@ CURRENT_USER_MESSAGE:
 
         var header = (closeLeads.Count > 0, language) switch
         {
-            (true, "en") => $"I did not find the exact requested item \"{requestedTitle}\" in the available excerpts. I will not invent missing facts, quantities, steps, or details. Closest source-backed leads:",
+            (true, "en") => $"I did not find the exact requested item \"{requestedTitle}\" in the available excerpts. I will not invent missing facts, quantities, steps, or details. Closest documented alternatives:",
             (true, "es") => $"No he encontrado el elemento exacto solicitado \"{requestedTitle}\" en los extractos disponibles. No voy a inventar hechos, cantidades, pasos ni detalles. Pistas cercanas con fuente:",
             (true, "pt") => $"Nao encontrei o item exato solicitado \"{requestedTitle}\" nos excertos disponiveis. Nao vou inventar factos, quantidades, passos nem detalhes. Pistas proximas com fonte:",
             (true, "de") => $"Ich habe den exakt angefragten Eintrag \"{requestedTitle}\" in den verfuegbaren Auszuegen nicht gefunden. Ich erfinde keine Fakten, Mengen, Schritte oder Details. Naheliegende belegte Hinweise:",
             (true, "it") => $"Non ho trovato l'elemento esatto richiesto \"{requestedTitle}\" negli estratti disponibili. Non invento fatti, quantita, passaggi o dettagli. Indicazioni vicine con fonte:",
-            (true, _) => $"Je n'ai pas trouve l'element exact demande \"{requestedTitle}\" dans les extraits disponibles. Je n'invente donc pas les faits, quantites, etapes ou details manquants. Pistes proches sourcees :",
+            (true, _) => $"Je n'ai pas trouve l'element exact demande \"{requestedTitle}\" dans les extraits disponibles. Je n'invente donc pas les faits, quantites, etapes ou details manquants. Alternatives documentees les plus proches :",
             (false, "en") => $"I did not find the exact requested item \"{requestedTitle}\" in the available excerpts. I will not invent missing facts, quantities, steps, or details.",
             (false, "es") => $"No he encontrado el elemento exacto solicitado \"{requestedTitle}\" en los extractos disponibles. No voy a inventar hechos, cantidades, pasos ni detalles.",
             (false, "pt") => $"Nao encontrei o item exato solicitado \"{requestedTitle}\" nos excertos disponiveis. Nao vou inventar factos, quantidades, passos nem detalhes.",
@@ -3937,6 +3937,11 @@ CURRENT_USER_MESSAGE:
 
     private static bool LooksLikeAnyDocumentaryPlanningRequest(string? query)
         => LooksLikeSourceBackedPlanningRequest(query) || LooksLikeDocumentaryPlanningRequest(query);
+
+    private static bool UsesSourceBackedPlanningCoverage(string? query)
+        => LooksLikeAnyDocumentaryPlanningRequest(query)
+           && !LooksLikeSourceBackedPairingRecommendationRequest(query)
+           && !LooksLikeSoftChoiceRecommendationRequest(query);
 
     private static bool LooksLikeSourceBackedVerificationChecklistRequest(string? query)
     {
@@ -4729,9 +4734,7 @@ CURRENT_USER_MESSAGE:
 
     private static string[] BuildSourceBackedEvidenceExpansionRetrievalQueries(string query)
     {
-        if (LooksLikeAnyDocumentaryPlanningRequest(query)
-            && !LooksLikeSourceBackedPairingRecommendationRequest(query)
-            && !LooksLikeSoftChoiceRecommendationRequest(query))
+        if (UsesSourceBackedPlanningCoverage(query))
         {
             return BuildPlanningExplorationRetrievalQueries(query);
         }
@@ -4843,10 +4846,7 @@ CURRENT_USER_MESSAGE:
             passes.Add(new SourceBackedEvidenceExplorationPass(label, purpose, queries));
         }
 
-        var usesPlanningCoverage =
-            LooksLikeAnyDocumentaryPlanningRequest(query)
-            && !LooksLikeSourceBackedPairingRecommendationRequest(query)
-            && !LooksLikeSoftChoiceRecommendationRequest(query);
+        var usesPlanningCoverage = UsesSourceBackedPlanningCoverage(query);
         if (usesPlanningCoverage)
         {
             AddPass(
@@ -5165,7 +5165,7 @@ CURRENT_USER_MESSAGE:
 
     private static int ResolveSourceBackedEvidenceExplorationTopK(string? query, string passLabel)
     {
-        var baseTopK = LooksLikeAnyDocumentaryPlanningRequest(query)
+        var baseTopK = UsesSourceBackedPlanningCoverage(query)
             ? NormalizeSourceBackedPlanningTopK(null, query ?? string.Empty)
             : Math.Max(12, NormalizeSourceBackedActionTopK(null, query ?? string.Empty));
         return string.Equals(passLabel, "candidate_discovery", StringComparison.OrdinalIgnoreCase)
@@ -5887,12 +5887,12 @@ CURRENT_USER_MESSAGE:
         {
             var coverageNote = language switch
             {
-                "en" => $"I found {planItems.Count} source-backed item(s). I keep them as an option bank to rotate, instead of adding unsourced items to fill every slot.",
-                "es" => $"He encontrado {planItems.Count} elemento(s) con fuente. Los mantengo como banco de opciones para rotar, en vez de anadir elementos sin fuente para llenar todos los huecos.",
-                "pt" => $"Encontrei {planItems.Count} item(ns) com fonte. Mantenho-os como banco de opcoes para alternar, em vez de adicionar itens sem fonte para preencher todos os horarios.",
-                "de" => $"Ich habe {planItems.Count} quellenbasierte Eintraege gefunden. Ich nutze sie als rotierbare Optionsbank, statt unbelegte Eintraege fuer jeden Slot zu ergaenzen.",
-                "it" => $"Ho trovato {planItems.Count} elemento/i con fonte. Li tengo come banca di opzioni da alternare, invece di aggiungere elementi senza fonte per riempire ogni slot.",
-                _ => $"J'ai trouvé {planItems.Count} élément(s) sourcé(s). Je les garde comme banque d'options à faire tourner, au lieu d'ajouter des éléments non sourcés pour remplir chaque créneau."
+                "en" => "The available sources do not cover the whole requested plan yet. I keep only the usable sourced items, without inventing the missing places.",
+                "es" => "Las fuentes disponibles aun no cubren todo el plan solicitado. Mantengo solo los elementos utilizables con fuente, sin inventar los huecos que faltan.",
+                "pt" => "As fontes disponiveis ainda nao cobrem todo o plano pedido. Mantenho apenas os itens utilizaveis com fonte, sem inventar os espacos em falta.",
+                "de" => "Die verfuegbaren Quellen decken den angefragten Plan noch nicht vollstaendig ab. Ich nutze nur die belegten nutzbaren Elemente, ohne fehlende Plaetze zu erfinden.",
+                "it" => "Le fonti disponibili non coprono ancora tutto il piano richiesto. Mantengo solo gli elementi utilizzabili con fonte, senza inventare gli spazi mancanti.",
+                _ => "Les sources disponibles ne couvrent pas encore tout le planning demandé. Je garde uniquement les éléments réellement trouvés, sans inventer les créneaux manquants."
             };
             sb.AppendLine(coverageNote);
         }
@@ -5986,7 +5986,7 @@ CURRENT_USER_MESSAGE:
         {
             "en" => (
                 Header: "Here is a structured proposal based on the sourced elements available.",
-                Partial: $"The sourced base is still too small to fill the whole requested structure without repetition ({planItems.Count} usable item(s) for {requiredSlots} place(s)). I use it as a starting point to validate rather than inventing missing items.",
+                Partial: $"The documented base is still too small to fill the whole requested structure without repetition: {planItems.Count} usable elements for {requiredSlots} requested places. I use it as a starting point to validate rather than inventing missing items.",
                 Complete: "The organization below is proposed by the assistant; each concrete item remains tied to a cited source.",
                 Verify: "Before using it as a final plan, check the cited pages for quantities, timing, constraints and substitutions."),
             "es" => (
@@ -6011,7 +6011,7 @@ CURRENT_USER_MESSAGE:
                 Verify: "Prima di usarlo come piano finale, controlla le pagine citate per quantita, tempi, vincoli e sostituzioni."),
             _ => (
                 Header: "Voici une proposition structurée à partir des éléments sourcés disponibles.",
-                Partial: $"La base sourcée reste trop courte pour remplir toute la structure demandée sans répétitions ({planItems.Count} élément(s) exploitable(s) pour {requiredSlots} place(s)). Je l'utilise comme point de départ à valider, plutôt que d'inventer les éléments manquants.",
+                Partial: $"La base documentée reste trop courte pour remplir toute la structure demandée sans répétitions : {planItems.Count} élément(s) exploitable(s) pour {requiredSlots} emplacements demandés. Je l'utilise comme point de départ à valider, plutôt que d'inventer les éléments manquants.",
                 Complete: "L'organisation ci-dessous est proposée par l'assistant ; chaque élément concret reste relié à une source citée.",
                 Verify: "Avant d'en faire un planning définitif, vérifie les pages citées pour les quantités, horaires, contraintes et remplacements.")
         };
@@ -6077,29 +6077,29 @@ CURRENT_USER_MESSAGE:
         var labels = language switch
         {
             "en" => (
-                Header: $"I found {planItems.Count} usable sourced item(s), but the requested structure has {requiredSlots} place(s). That is not enough to build a varied complete plan without repeating too much.",
-                Intro: "Here is the reliable option bank to start from:",
-                Next: "To complete the plan cleanly, broaden the search or add more source-backed candidates before filling every slot."),
+                Header: "The sources provide a few usable items, but not enough to fill the whole requested structure without repeating too much.",
+                Intro: "Usable starting options:",
+                Next: "To build a complete and varied plan, broaden the search or add more document-backed items before filling every place."),
             "es" => (
-                Header: $"He encontrado {planItems.Count} elemento(s) util(es) con fuente, pero la estructura solicitada tiene {requiredSlots} espacio(s). No basta para construir un plan completo y variado sin repetir demasiado.",
-                Intro: "Esta es la base fiable de opciones:",
-                Next: "Para completar el plan correctamente, amplia la busqueda o anade mas candidatos con fuente antes de llenar todos los huecos."),
+                Header: "Las fuentes ofrecen algunos elementos utilizables, pero no bastan para completar toda la estructura solicitada sin repetir demasiado.",
+                Intro: "Opciones de partida utilizables:",
+                Next: "Para construir un plan completo y variado, amplia la busqueda o anade mas elementos respaldados por documentos antes de llenar todos los huecos."),
             "pt" => (
-                Header: $"Encontrei {planItems.Count} item(ns) util(eis) com fonte, mas a estrutura pedida tem {requiredSlots} espaco(s). Nao e suficiente para criar um plano completo e variado sem repetir demasiado.",
-                Intro: "Esta e a base fiavel de opcoes:",
-                Next: "Para completar o plano corretamente, alarga a pesquisa ou adiciona mais candidatos com fonte antes de preencher todos os horarios."),
+                Header: "As fontes oferecem alguns itens utilizaveis, mas nao chegam para completar toda a estrutura pedida sem repetir demasiado.",
+                Intro: "Opcoes iniciais utilizaveis:",
+                Next: "Para criar um plano completo e variado, alarga a pesquisa ou adiciona mais itens apoiados pelos documentos antes de preencher todos os horarios."),
             "de" => (
-                Header: $"Ich habe {planItems.Count} nutzbare belegte Elemente gefunden, aber die angefragte Struktur hat {requiredSlots} Plaetze. Das reicht nicht fuer einen abwechslungsreichen vollstaendigen Plan ohne zu viele Wiederholungen.",
-                Intro: "Dies ist die verlaessliche Optionsbank fuer den Start:",
-                Next: "Fuer einen sauberen vollstaendigen Plan sollte die Suche erweitert oder weitere belegte Kandidaten ergaenzt werden."),
+                Header: "Die Quellen liefern einige nutzbare Elemente, aber nicht genug, um die ganze angefragte Struktur ohne zu viele Wiederholungen zu fuellen.",
+                Intro: "Nutzbare Startoptionen:",
+                Next: "Fuer einen vollstaendigen und abwechslungsreichen Plan sollte die Suche erweitert oder weitere belegte Elemente ergaenzt werden."),
             "it" => (
-                Header: $"Ho trovato {planItems.Count} elemento/i utile/i con fonte, ma la struttura richiesta ha {requiredSlots} spazio/i. Non basta per costruire un piano completo e vario senza troppe ripetizioni.",
-                Intro: "Questa e la banca di opzioni affidabile da cui partire:",
-                Next: "Per completare bene il piano, amplia la ricerca o aggiungi altri candidati con fonte prima di riempire tutti gli slot."),
+                Header: "Le fonti offrono alcuni elementi utilizzabili, ma non bastano per completare tutta la struttura richiesta senza troppe ripetizioni.",
+                Intro: "Opzioni iniziali utilizzabili:",
+                Next: "Per costruire un piano completo e vario, amplia la ricerca o aggiungi altri elementi supportati dai documenti prima di riempire tutti gli spazi."),
             _ => (
-                Header: $"J'ai trouv\u00e9 {planItems.Count} \u00e9l\u00e9ment(s) exploitable(s) sourc\u00e9(s), mais la structure demand\u00e9e comporte {requiredSlots} place(s). Ce n'est pas assez pour construire un planning complet et vari\u00e9 sans trop r\u00e9p\u00e9ter.",
-                Intro: "Voici la banque d'options fiable pour commencer :",
-                Next: "Pour compl\u00e9ter le planning proprement, il faut \u00e9largir la recherche ou ajouter d'autres candidats sourc\u00e9s avant de remplir tous les cr\u00e9neaux.")
+                Header: "Les sources donnent quelques éléments exploitables, mais pas assez pour remplir toute la structure demandée sans trop répéter.",
+                Intro: "Options utilisables pour démarrer :",
+                Next: "Pour obtenir un planning complet et varié, il faut élargir la recherche ou ajouter d'autres éléments appuyés par les documents avant de remplir tous les créneaux.")
         };
 
         var sb = new StringBuilder();
@@ -6260,9 +6260,7 @@ CURRENT_USER_MESSAGE:
                 true);
         }
 
-        if (LooksLikeAnyDocumentaryPlanningRequest(query)
-            && !LooksLikeSourceBackedPairingRecommendationRequest(query)
-            && !LooksLikeSoftChoiceRecommendationRequest(query))
+        if (UsesSourceBackedPlanningCoverage(query))
         {
             var coverage = EvaluateSourceBackedPlanningCoverage(toolResults, query, language);
             var reason = coverage.IsAdequate
@@ -6354,7 +6352,7 @@ CURRENT_USER_MESSAGE:
         string? query,
         string language)
     {
-        if (LooksLikeAnyDocumentaryPlanningRequest(query))
+        if (UsesSourceBackedPlanningCoverage(query))
             return IsBetterSourceBackedPlanningCoverage(current, candidate, query, language);
 
         var currentCoverage = EvaluateBroadSourceBackedSynthesisCoverage(current, query);
@@ -6369,6 +6367,40 @@ CURRENT_USER_MESSAGE:
            + (coverage.RichEvidenceCount * 4)
            + Math.Min(18, coverage.EvidenceRichnessScore)
            + (coverage.IsAdequate ? 20 : 0);
+
+    private static bool CandidateSourceBackedEvidenceAddsUsefulDiversity(
+        SourceBackedEvidenceSufficiency current,
+        SourceBackedEvidenceSufficiency candidate)
+    {
+        if (!string.Equals(current.Kind, candidate.Kind, StringComparison.OrdinalIgnoreCase))
+            return candidate.Score > current.Score;
+
+        if (candidate.CandidateCount >= candidate.MinimumCandidateCount
+            && current.CandidateCount < current.MinimumCandidateCount)
+        {
+            return true;
+        }
+
+        if (candidate.CandidateCount > current.CandidateCount
+            && candidate.DistinctSourcePageCount >= current.DistinctSourcePageCount)
+        {
+            return true;
+        }
+
+        if (candidate.DistinctSourcePageCount > current.DistinctSourcePageCount
+            && candidate.CandidateCount >= current.CandidateCount)
+        {
+            return true;
+        }
+
+        if (candidate.DistinctDocumentCount > current.DistinctDocumentCount
+            && candidate.UsableHitCount >= current.UsableHitCount)
+        {
+            return true;
+        }
+
+        return !current.HasRequiredAnchor && candidate.HasRequiredAnchor;
+    }
 
     private static SourceBackedPlanningCoverage EvaluateSourceBackedPlanningCoverage(
         ToolResults toolResults,
@@ -6835,12 +6867,12 @@ CURRENT_USER_MESSAGE:
         {
             "schedule_or_plan" => """
 - The user asks for a plan, schedule, program or organized proposal. Build a usable structure that matches the requested granularity when possible: days, slots, phases, options or rotation.
-- Every concrete item/action/value must come from the tool results. The organization layer may be yours, but label it as a proposed organization based on the available sourced candidates.
+- Every concrete item/action/value must come from the tool results. The organization layer may be yours, but label it as a proposed organization based on the available documented items.
 - If the documents do not cover every slot, still provide a useful partial structure and mark missing/uncertain slots as to complete/validate. Do not answer with a raw list of excerpts.
 - If the user explicitly gives axes or slots such as weekdays, time periods, phases, roles, priorities or criteria, mirror those axes in the answer. Prefer grouped sections or a compact structured list over one bullet per source.
-- If there are fewer distinct sourced candidates than requested slots, do not fill the structure by repeating weak candidates. Place the sourced candidates where they fit and mark the remaining slots as missing/to validate.
-- If the candidate bank is clearly too small for the requested grid, do not fill the whole grid by repetition. Return a readable candidate bank and explain that more sourced candidates are needed for a complete varied plan.
-- If the sourced candidate bank remains too small after retrieval, ask one concise question offering to broaden the search/corpus instead of fabricating missing slots.
+- If there are fewer distinct documented items than requested places, do not fill the structure by repeating weak items. Place the sourced items where they fit and mark the remaining places as missing/to validate.
+- If the available evidence is clearly too small for the requested grid, do not fill the whole grid by repetition. Return a readable partial proposal and explain that more documented items are needed for a complete varied plan.
+- If the available evidence remains too small after retrieval, ask one concise question offering to broaden the search/corpus instead of fabricating missing places.
 - Do not expose internal wording such as candidate(s), slot(s), coverage or evidence role. Translate that into natural user-facing language.
 - Do not repeat the user request. Start with the useful proposal, then add a short caveat only where the available evidence is partial.
 - Avoid opening with "I can build..." or "the sources do not prove..."; that reads like a refusal instead of a helpful answer.
@@ -6855,7 +6887,7 @@ CURRENT_USER_MESSAGE:
 """,
             "recommendation" => """
 - The user asks for a choice or recommendation. Give a direct recommendation when one candidate is better supported, then explain why from the sources and list alternatives only if useful.
-- If the evidence is partial, say the recommendation is a source-backed lead, not a certified compatibility decision.
+- If the evidence is partial, say the recommendation is documented but not a certified compatibility decision.
 """,
             "document_list" => """
 - The user asks which documents/sources mention a topic. Return a clean source list with a one-line reason for each source, not a narrative answer.
@@ -6876,7 +6908,7 @@ Generic output contract:
 - Correct obvious OCR/text-extraction damage, missing accents, broken spacing and malformed words when doing so does not change the source facts.
 - Do not repeat the user's full question in the opening sentence.
 - Do not dump raw excerpts or write bullets whose main content is "document p.N: copied passage".
-- Do not copy SOURCE_BACKED_* control wording. It is there to guide drafting, not to appear in the final answer.
+- Do not copy PRIVATE_SOURCE_* or SOURCE_BACKED_* control wording. It is there to guide drafting, not to appear in the final answer.
 - Avoid mechanical diagnostic phrasing such as "X candidate(s) for Y slot(s)" unless the user explicitly asks for diagnostics.
 - Use source names/pages as short references after readable points.
 - For planning requests, start with the requested structure or proposal. Put source limits after the useful draft, not as the first sentence.
@@ -6907,14 +6939,14 @@ Generic output contract:
                     && coverage.DistinctSourcePages >= Math.Min(3, coverage.MinimumCandidates));
 
             var sb = new StringBuilder();
-            sb.AppendLine($"Planning coverage: {coverage.CandidateCount} distinct sourced candidate(s), {coverage.DistinctSourcePages} distinct source page(s), {coverage.TargetSlots} requested slot(s), minimum target {coverage.MinimumCandidates}.");
-            sb.AppendLine($"Coverage adequate: {(coverage.IsAdequate ? "yes" : "no")}.");
+            sb.AppendLine($"Private drafting note: source coverage is {(coverage.IsAdequate ? "usable" : "partial")} for this requested structure.");
+            sb.AppendLine($"Usable distinct items: {coverage.CandidateCount}; distinct source pages: {coverage.DistinctSourcePages}; requested cells/items: {coverage.TargetSlots}; preferred minimum usable items: {coverage.MinimumCandidates}.");
             if (hasExplicitGrid)
-                sb.AppendLine($"Detected requested grid: {dayAxis.Count} day row(s) x {periodAxis.Count} slot column(s).");
+                sb.AppendLine($"Detected requested grid: {dayAxis.Count} day row(s) x {periodAxis.Count} column(s).");
             if (!enoughForVariedGrid && coverage.TargetSlots > coverage.CandidateCount)
             {
-                sb.AppendLine("Important: the sourced candidate bank is too small for a complete varied grid. Do not fill every slot by rotating the same few candidates.");
-                sb.AppendLine("Preferred behavior: provide a readable sourced candidate bank, optionally a partial structure with unsupported slots marked as to complete/validate, and offer to broaden the search if the user wants a complete plan.");
+                sb.AppendLine("Important: the available evidence is too small for a complete varied grid. Do not fill every requested cell by rotating the same few items.");
+                sb.AppendLine("Preferred behavior: write a practical partial answer from the sourced items, mark unsupported cells as to validate/complete, and offer a broader search if the user wants the full structure.");
             }
             else if (!coverage.IsAdequate)
             {
@@ -6929,9 +6961,9 @@ Generic output contract:
             return "No usable RAG hit is available. Ask for a narrower scope or offer an expanded search instead of inventing.";
 
         return $"""
-Broad source-backed coverage: {broad.UsableHitCount} usable hit(s), {broad.DistinctDocumentCount} distinct document(s), {broad.DistinctSourcePageCount} distinct source page(s), {broad.RichEvidenceCount} rich evidence hit(s).
-Coverage adequate: {(broad.IsAdequate ? "yes" : "no")}.
-If coverage is partial, answer with source-backed leads and clear limits instead of overclaiming.
+Private drafting note: source coverage is {(broad.IsAdequate ? "usable" : "partial")} for this broad request.
+Usable hits: {broad.UsableHitCount}; distinct documents: {broad.DistinctDocumentCount}; distinct source pages: {broad.DistinctSourcePageCount}; rich evidence hits: {broad.RichEvidenceCount}.
+If evidence is partial, write the best useful sourced answer possible and state clear limits instead of overclaiming.
 """;
     }
 
@@ -6946,9 +6978,9 @@ If coverage is partial, answer with source-backed leads and clear limits instead
         language = NormalizeLanguageCode(language);
         var shape = ResolveRequestedAnswerShape(query);
         var sb = new StringBuilder();
-        sb.AppendLine($"Writer objective: answer as a polished user-facing {shape} in language '{language}'.");
+        sb.AppendLine($"Private drafting objective: write a polished user-facing {shape} in language '{language}'.");
         sb.AppendLine("Use the evidence as a fact inventory, not as prose to copy. Rewrite, group, translate/paraphrase and prioritize while keeping every concrete item tied to a source.");
-        sb.AppendLine("Do not expose internal control wording: candidate(s), slot(s), coverage, evidenceRole, writerEvidence, tool result, broad synthesis or retrieval.");
+        sb.AppendLine("Do not expose internal control wording: candidate(s), slot(s), coverage, evidenceRole, writerEvidence, tool result, broad synthesis, retrieval, documented lead, candidate bank or option bank.");
 
         if (LooksLikeAnyDocumentaryPlanningRequest(query))
         {
@@ -6957,7 +6989,7 @@ If coverage is partial, answer with source-backed leads and clear limits instead
             var periodAxis = DetectRequestedPeriodAxisLabels(query, language);
             if (dayAxis.Count > 0 && periodAxis.Count > 0)
             {
-                sb.AppendLine("The user requested an explicit grid. If evidence is sufficient, draft the grid. If not, provide a compact partial proposal or option bank first, then say naturally that more sources are needed to complete all cells.");
+                sb.AppendLine("The user requested an explicit grid. If evidence is sufficient, draft the grid. If not, provide a compact partial proposal first, then say naturally that more sources are needed to complete all cells.");
             }
             else
             {
@@ -7151,7 +7183,7 @@ If coverage is partial, answer with source-backed leads and clear limits instead
 
         foreach (var candidate in candidates)
         {
-            AddSourceBackedCandidateLeadLine(lines, "candidate", candidate.Title, candidate.Hit, language);
+            AddSourceBackedCandidateLeadLine(lines, "usable item", candidate.Title, candidate.Hit, language);
         }
 
         var candidateKeys = candidates
@@ -7175,7 +7207,7 @@ If coverage is partial, answer with source-backed leads and clear limits instead
             if (string.IsNullOrWhiteSpace(title))
                 title = "source-backed context";
 
-            AddSourceBackedCandidateLeadLine(lines, "context", title, hit, language);
+            AddSourceBackedCandidateLeadLine(lines, "supporting context", title, hit, language);
         }
 
         return lines.Count == 0
@@ -7191,9 +7223,24 @@ If coverage is partial, answer with source-backed leads and clear limits instead
 
         var supportCue = BuildSourceBackedCandidateSupportCue(hit);
         var contentRole = CollapseWhitespace(hit.SelectionHintRole ?? hit.ContentRole ?? string.Empty);
-        var roleSuffix = string.IsNullOrWhiteSpace(contentRole) ? string.Empty : $" | evidence role: {contentRole}";
-        var supportSuffix = string.IsNullOrWhiteSpace(supportCue) ? string.Empty : $" | support cue: {supportCue}";
-        lines.Add($"- {role}: {CollapseWhitespace(title)} | source: {source} {SourceBackedPagePrefix(language)}{Math.Max(1, hit.PageStart)}{roleSuffix}{supportSuffix}");
+        var writingNote = BuildSourceBackedCandidateWritingNote(contentRole, hit, language);
+        var supportSuffix = string.IsNullOrWhiteSpace(supportCue) ? string.Empty : $" | detail: {supportCue}";
+        lines.Add($"- {role}: {CollapseWhitespace(title)} ({source} {SourceBackedPagePrefix(language)}{Math.Max(1, hit.PageStart)}) | use: {writingNote}{supportSuffix}");
+    }
+
+    private static string BuildSourceBackedCandidateWritingNote(string contentRole, RagHitSummary hit, string language)
+    {
+        var role = NormalizeLexicalLookup(contentRole);
+        if (role.Contains("navigation", StringComparison.Ordinal) || BackendSelectionHintsPreferNavigation(hit))
+            return "background only; do not present as a proposed item unless the same hit has concrete content";
+        if (role.Contains("fragment", StringComparison.Ordinal) || BackendSelectionHintsPreferLowSignal(hit))
+            return "weak evidence; cite carefully and keep uncertainty visible";
+        if (role.Contains("supporting", StringComparison.Ordinal) || role.Contains("advisory", StringComparison.Ordinal))
+            return "context or caveat, not the main recommendation";
+        if (role.Contains("actionable", StringComparison.Ordinal))
+            return "can be proposed if the title/detail is clear; rewrite naturally";
+
+        return "evidence inventory; rewrite naturally and keep the source reference short";
     }
 
     private static string BuildSourceBackedCandidateSupportCue(RagHitSummary hit)
@@ -7202,11 +7249,11 @@ If coverage is partial, answer with source-backed leads and clear limits instead
             .Select(static card => CollapseWhitespace(card.Title))
             .FirstOrDefault(static title => !string.IsNullOrWhiteSpace(title));
         if (!string.IsNullOrWhiteSpace(cardTitle))
-            return $"content card: {cardTitle}";
+            return $"readable title: {cardTitle}";
 
         var section = CollapseWhitespace(hit.SectionTitle ?? hit.HeadingPath ?? string.Empty);
         if (!string.IsNullOrWhiteSpace(section))
-            return $"section: {section}";
+            return $"related section: {section}";
 
         if (BackendSelectionHintsPreferUsableEvidence(hit))
             return "actionable source page";
@@ -7347,6 +7394,7 @@ If coverage is partial, answer with source-backed leads and clear limits instead
             return false;
 
         return answer.Contains("SOURCE_BACKED_", StringComparison.OrdinalIgnoreCase)
+            || answer.Contains("PRIVATE_SOURCE_", StringComparison.OrdinalIgnoreCase)
             || answer.Contains("TOOL_RESULTS", StringComparison.OrdinalIgnoreCase)
             || answer.Contains("writerEvidence", StringComparison.OrdinalIgnoreCase)
             || answer.Contains("writerUse", StringComparison.OrdinalIgnoreCase)
@@ -7354,7 +7402,15 @@ If coverage is partial, answer with source-backed leads and clear limits instead
             || answer.Contains("candidate(s)", StringComparison.OrdinalIgnoreCase)
             || answer.Contains("slot(s)", StringComparison.OrdinalIgnoreCase)
             || answer.Contains("lead(s)", StringComparison.OrdinalIgnoreCase)
-            || Regex.IsMatch(answer, @"\btool\s+result\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            || Regex.IsMatch(answer, @"\btool\s+result\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                answer,
+                @"\b(?:piste\(s\)\s+sourc\w*|candidat\(s\)\s+sourc\w*|element\(s\)\s+sourc\w*|élément\(s\)\s+sourc\w*|cr[ée]neau\(x\)\s+demand\w*|banque\s+d['’]options|source-backed\s+leads?|candidate\s+bank|option\s+bank)\b",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                NormalizeLexicalLookup(answer),
+                @"\b(?:source\s+backed\s+leads?|candidate\s+bank|option\s+bank|evidence\s+inventory|pistes?\s+sourcees?|piste\s+s\s+sourcee\s+s|banque\s+d\s+options?|candidats?\s+sources?|candidat\s+s\s+source\s+s|creneaux?\s+demandes?|creneau\s+x\s+demande\s+s|elements?\s+sources?\s+distincts?|element\s+s\s+source\s+s\s+distinct)\b",
+                RegexOptions.CultureInvariant);
     }
 
     private static string ResolveRequestedAnswerShape(string? query)
@@ -7525,7 +7581,7 @@ If coverage is partial, answer with source-backed leads and clear limits instead
         var normalized = NormalizeLexicalLookup(answer);
         if (Regex.IsMatch(
                 normalized,
-                @"\b(?:elements?\s+documentaires?\s+partiels?\s+sur|je\s+peux\s+construire\s+une\s+base\s+exploitable|sources?\s+(?:retrouvees?\s+)?ne\s+prouvent?\s+pas|partial\s+document\s+evidence\s+about|i\s+can\s+build\s+an\s+usable\s+basis|sources?\s+do\s+not\s+prove|indicios?\s+documentales?\s+parciales?\s+sobre|indicios?\s+documentais?\s+parciais?\s+sobre|posso\s+construir\s+uma\s+base\s+util|as\s+fontes?\s+nao\s+provam|puedo\s+construir\s+una\s+base\s+util|las\s+fuentes?\s+no\s+prueban|ich\s+kann\s+eine\s+nutzbare\s+grundlage\s+erstellen|die\s+quellen?\s+belegen\s+nicht|posso\s+costruire\s+una\s+base\s+utile|le\s+fonti?\s+non\s+dimostrano)\b",
+                @"\b(?:elements?\s+documentaires?\s+partiels?\s+sur|je\s+peux\s+construire\s+une\s+base\s+exploitable|sources?\s+(?:retrouvees?\s+)?ne\s+prouvent?\s+pas|j\s+ai\s+trouve\s+\d+.{0,80}(?:pistes?|piste\s+s|elements?|element\s+s|candidats?|candidat\s+s).{0,60}(?:sourcees?|sourcee\s+s|sources?|source\s+s)|pistes?\s+sourcees?\s+distinctes?|piste\s+s\s+sourcee\s+s\s+distincte\s+s|creneaux?\s+demandes?|creneau\s+x\s+demande\s+s|banque\s+d\s+options?|partial\s+document\s+evidence\s+about|documented\s+base\s+is\s+incomplete|usable\s+elements?\s+for\s+\d+\s+requested\s+places|i\s+can\s+build\s+an\s+usable\s+basis|sources?\s+do\s+not\s+prove|here\s+are\s+the\s+source\s+backed\s+leads?|without\s+adding\s+facts\s+quantities?\s+or\s+steps?|candidate\s+bank|option\s+bank|indicios?\s+documentales?\s+parciales?\s+sobre|indicios?\s+documentais?\s+parciais?\s+sobre|posso\s+construir\s+uma\s+base\s+util|as\s+fontes?\s+nao\s+provam|puedo\s+construir\s+una\s+base\s+util|las\s+fuentes?\s+no\s+prueban|ich\s+kann\s+eine\s+nutzbare\s+grundlage\s+erstellen|die\s+quellen?\s+belegen\s+nicht|posso\s+costruire\s+una\s+base\s+utile|le\s+fonti?\s+non\s+dimostrano)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -8006,12 +8062,12 @@ If coverage is partial, answer with source-backed leads and clear limits instead
         {
             var pairingCaveat = language switch
             {
-                "en" => "I did not find a passage that explicitly connects every part of the request, so I list these as source-backed leads, not as certified compatible recommendations.",
+                "en" => "I did not find a passage that explicitly connects every part of the request, so I list these as documented options to verify, not as certified compatible recommendations.",
                 "es" => "No he encontrado un pasaje que conecte explicitamente todas las partes de la solicitud; las enumero como pistas con fuente, no como recomendaciones compatibles certificadas.",
                 "pt" => "Nao encontrei uma passagem que ligue explicitamente todas as partes do pedido; listo-as como pistas com fonte, nao como recomendacoes compativeis certificadas.",
                 "de" => "Ich habe keine Stelle gefunden, die alle Teile der Anfrage ausdruecklich verbindet; ich liste sie daher als belegte Hinweise, nicht als bestaetigte kompatible Empfehlungen.",
                 "it" => "Non ho trovato un passaggio che colleghi esplicitamente tutte le parti della richiesta; le elenco quindi come indicazioni con fonte, non come raccomandazioni compatibili certificate.",
-                _ => "Je n'ai pas trouve de passage qui relie explicitement tous les elements de la demande ; je liste donc ces elements comme pistes sourcees, pas comme recommandations compatibles certifiees."
+                _ => "Je n'ai pas trouve de passage qui relie explicitement tous les elements de la demande ; je liste donc ces elements documentes a verifier, pas comme recommandations compatibles certifiees."
             };
             sb.AppendLine(AppendBroadenedSearchOfferIfHelpful(pairingCaveat, query, language));
         }
@@ -8032,12 +8088,12 @@ If coverage is partial, answer with source-backed leads and clear limits instead
                 (true, "de") => $"Die sichtbaren Dauern erfuellen die Vorgabe: insgesamt {selection.VisibleTotalMinutes} Minuten, innerhalb der gewuenschten {requestedMaxMinutesValue} Minuten.",
                 (true, "it") => $"Le durate visibili rispettano il vincolo: {selection.VisibleTotalMinutes} minuti totali, entro i {requestedMaxMinutesValue} minuti richiesti.",
                 (true, _) => $"Les durees visibles respectent la contrainte : {selection.VisibleTotalMinutes} minutes au total, dans la limite demandee de {requestedMaxMinutesValue} minutes.",
-                (false, "en") when visibleCandidateTotal.HasValue => $"I cannot certify the requested combined total under {requestedMaxMinutesValue} minutes: the visible total for the retained items is {visibleCandidateTotal.Value} minutes. I list them as source-backed leads, not as a compatible set.",
+                (false, "en") when visibleCandidateTotal.HasValue => $"I cannot certify the requested combined total under {requestedMaxMinutesValue} minutes: the visible total for the retained items is {visibleCandidateTotal.Value} minutes. I list them as documented options to verify, not as a compatible set.",
                 (false, "es") when visibleCandidateTotal.HasValue => $"No puedo certificar el total combinado pedido en menos de {requestedMaxMinutesValue} minutos: el total visible de los elementos retenidos es {visibleCandidateTotal.Value} minutos. Los enumero como pistas con fuente, no como conjunto compatible.",
                 (false, "pt") when visibleCandidateTotal.HasValue => $"Nao posso certificar o total combinado pedido em menos de {requestedMaxMinutesValue} minutos: o total visivel dos itens retidos e {visibleCandidateTotal.Value} minutos. Listo-os como pistas com fonte, nao como conjunto compativel.",
                 (false, "de") when visibleCandidateTotal.HasValue => $"Ich kann die angefragte kombinierte Summe unter {requestedMaxMinutesValue} Minuten nicht bestaetigen: die sichtbare Summe der behaltenen Eintraege betraegt {visibleCandidateTotal.Value} Minuten. Ich liste sie als belegte Hinweise, nicht als kompatibles Set.",
                 (false, "it") when visibleCandidateTotal.HasValue => $"Non posso certificare il totale combinato richiesto sotto {requestedMaxMinutesValue} minuti: il totale visibile degli elementi mantenuti e {visibleCandidateTotal.Value} minuti. Li elenco come piste con fonte, non come insieme compatibile.",
-                (false, _) when visibleCandidateTotal.HasValue => $"Je ne peux pas certifier le total combine demande en moins de {requestedMaxMinutesValue} minutes : le total visible des elements retenus est de {visibleCandidateTotal.Value} minutes. Je les liste comme pistes sourcees, pas comme ensemble compatible.",
+                (false, _) when visibleCandidateTotal.HasValue => $"Je ne peux pas certifier le total combine demande en moins de {requestedMaxMinutesValue} minutes : le total visible des elements retenus est de {visibleCandidateTotal.Value} minutes. Je les liste comme elements documentes a verifier, pas comme ensemble compatible.",
                 (false, "en") => $"I do not have enough complete visible durations to guarantee the requested combined total under {requestedMaxMinutesValue} minutes; I only list source-backed components.",
                 (false, "es") => $"No tengo suficientes duraciones completas visibles para garantizar el total combinado pedido en menos de {requestedMaxMinutesValue} minutos; solo enumero componentes con fuente.",
                 (false, "pt") => $"Nao tenho duracoes completas visiveis suficientes para garantir o total combinado pedido em menos de {requestedMaxMinutesValue} minutos; listo apenas componentes com fonte.",
@@ -8320,8 +8376,8 @@ If coverage is partial, answer with source-backed leads and clear limits instead
 
         var answer = SourceBackedLabel(
             language,
-            $"Je n'ai pas trouve de passage qui relie explicitement {targetList} a {optionKindList}. Je liste donc ces elements comme pistes sourcees, pas comme compatibilite certifiee.",
-            $"I did not find a passage that explicitly connects {targetList} to {optionKindList}. I therefore list these items as source-backed leads, not as certified compatibility.",
+            $"Je n'ai pas trouve de passage qui relie explicitement {targetList} a {optionKindList}. Je liste donc ces elements documentes a verifier, pas comme compatibilite certifiee.",
+            $"I did not find a passage that explicitly connects {targetList} to {optionKindList}. I therefore list these items as documented options to verify, not as certified compatibility.",
             $"No he encontrado un pasaje que conecte explicitamente {targetList} con {optionKindList}. Por eso enumero estos elementos como pistas con fuente, no como compatibilidad certificada.",
             $"Nao encontrei uma passagem que ligue explicitamente {targetList} a {optionKindList}. Por isso listo estes elementos como pistas com fonte, nao como compatibilidade certificada.",
             $"Ich habe keine Stelle gefunden, die {targetList} ausdruecklich mit {optionKindList} verbindet. Deshalb liste ich diese Punkte als belegte Hinweise, nicht als bestaetigte Kompatibilitaet.",
@@ -15515,23 +15571,23 @@ If coverage is partial, answer with source-backed leads and clear limits instead
         {
             return language switch
             {
-                "en" => "I did not find a passage that explicitly connects every part of the request. Here are the source-backed leads actually present in the available documents, without adding facts outside the sources:",
+                "en" => "I did not find a passage that explicitly connects every part of the request. Here is the documented evidence actually present in the available documents, without adding facts outside the sources:",
                 "es" => "No he encontrado un pasaje que conecte explícitamente todas las partes de la solicitud. Estas son las pistas con fuente que sí aparecen en los documentos disponibles, sin añadir hechos fuera de las fuentes:",
                 "pt" => "Não encontrei uma passagem que ligue explicitamente todas as partes do pedido. Estas são as pistas com fonte que aparecem nos documentos disponíveis, sem acrescentar factos fora das fontes:",
                 "de" => "Ich habe keine Stelle gefunden, die alle Teile der Anfrage ausdrücklich verbindet. Hier sind die belegten Hinweise aus den verfügbaren Dokumenten, ohne Fakten außerhalb der Quellen hinzuzufügen:",
                 "it" => "Non ho trovato un passaggio che colleghi esplicitamente tutte le parti della richiesta. Ecco le indicazioni documentate presenti nei documenti disponibili, senza aggiungere fatti fuori dalle fonti:",
-                _ => "Je n'ai pas trouvé de passage qui relie explicitement tous les éléments de la demande. Voici les pistes réellement présentes dans les documents disponibles, sans ajout de faits hors source :"
+                _ => "Je n'ai pas trouvé de passage qui relie explicitement tous les éléments de la demande. Voici les éléments documentés réellement présents dans les documents disponibles, sans ajout de faits hors source :"
             };
         }
 
         return language switch
         {
-            "en" => "Here are the source-backed leads found in the available documents, without adding facts, quantities, or steps outside the sources:",
+            "en" => "Here is the documented evidence found in the available documents, without adding facts, quantities, or steps outside the sources:",
             "es" => "Estas son las pistas con fuente encontradas en los documentos disponibles, sin añadir hechos, cantidades ni pasos fuera de las fuentes:",
             "pt" => "Estas são as pistas com fonte encontradas nos documentos disponíveis, sem acrescentar factos, quantidades nem passos fora das fontes:",
             "de" => "Hier sind die belegten Hinweise aus den verfügbaren Dokumenten, ohne Fakten, Mengen oder Schritte außerhalb der Quellen hinzuzufügen:",
             "it" => "Ecco le indicazioni con fonte trovate nei documenti disponibili, senza aggiungere fatti, quantità o passaggi non presenti nelle fonti:",
-            _ => "Voici les pistes sourcées disponibles dans les documents, sans ajout de faits, quantités ni étapes hors source :"
+            _ => "Voici les éléments documentés disponibles dans les documents, sans ajout de faits, quantités ni étapes hors source :"
         };
     }
 
@@ -16742,7 +16798,7 @@ If coverage is partial, answer with source-backed leads and clear limits instead
         var labels = language switch
         {
             "en" => (
-                Header: $"Here are the source-backed leads available for {topic}:",
+                Header: $"Here is the documented material available for {topic}:",
                 Caveat: "This does not fully prove every part of the request; use the cited pages to confirm the details."),
             "es" => (
                 Header: $"Estas son las pistas con fuente disponibles sobre {topic}:",
@@ -16757,7 +16813,7 @@ If coverage is partial, answer with source-backed leads and clear limits instead
                 Header: $"Queste sono le indicazioni con fonte disponibili su {topic}:",
                 Caveat: "Questo non prova completamente ogni parte della richiesta; controlla le pagine citate per confermare i dettagli."),
             _ => (
-                Header: $"Voici les pistes sourcées disponibles sur {topic} :",
+                Header: $"Voici les éléments documentés disponibles sur {topic} :",
                 Caveat: "Cela ne prouve pas complètement chaque partie de la demande ; vérifie les pages citées pour confirmer les détails.")
         };
 
@@ -16908,7 +16964,7 @@ If coverage is partial, answer with source-backed leads and clear limits instead
         {
             "en" => (
                 Header: "Here is a readable starting plan from the available sourced elements.",
-                Partial: $"The sourced base is incomplete ({slotLeads.Count} usable item(s) for {requiredSlots} place(s)). I place what is supported and leave the missing places explicit instead of inventing extra items.",
+                Partial: $"The documented base is incomplete: {slotLeads.Count} usable elements for {requiredSlots} requested places. I place what is supported and leave the missing places explicit instead of inventing extra items.",
                 MissingSlot: "to complete with an additional source",
                 Verify: "Before using it as a final plan, check the cited pages for quantities, timing, constraints and substitutions."),
             "es" => (
@@ -16933,7 +16989,7 @@ If coverage is partial, answer with source-backed leads and clear limits instead
                 Verify: "Prima di usarlo come piano finale, controlla le pagine citate per quantita, tempi, vincoli e sostituzioni."),
             _ => (
                 Header: "Voici une base de planning lisible à partir des éléments sourcés disponibles.",
-                Partial: $"La base sourcée est incomplète ({slotLeads.Count} élément(s) exploitable(s) pour {requiredSlots} place(s)). Je place ce qui est appuyé par les sources et je laisse visibles les emplacements manquants, sans inventer d'éléments supplémentaires.",
+                Partial: $"La base documentée est incomplète : {slotLeads.Count} élément(s) exploitable(s) pour {requiredSlots} emplacements demandés. Je place ce qui est appuyé par les sources et je laisse visibles les emplacements manquants, sans inventer d'éléments supplémentaires.",
                 MissingSlot: "à compléter avec une source supplémentaire",
                 Verify: "Avant d'en faire un planning définitif, vérifie les pages citées pour les quantités, horaires, contraintes et remplacements.")
         };
@@ -17035,7 +17091,7 @@ If coverage is partial, answer with source-backed leads and clear limits instead
         {
             "en" when isPlanningLead => "Planning frame",
             "en" when isConcreteOption => "Sourced option",
-            "en" => "Sourced lead",
+            "en" => "Documented lead",
             "es" when isPlanningLead => "Marco de organizacion",
             "es" when isConcreteOption => "Opcion con fuente",
             "es" => "Pista con fuente",
@@ -17050,7 +17106,7 @@ If coverage is partial, answer with source-backed leads and clear limits instead
             "it" => "Indicazione con fonte",
             _ when isPlanningLead => "Cadre d'organisation",
             _ when isConcreteOption => "Option sourcée",
-            _ => "Piste sourcée"
+            _ => "Élément documenté"
         };
 
         var guidance = language switch
@@ -17221,7 +17277,7 @@ If coverage is partial, answer with source-backed leads and clear limits instead
         var labels = NormalizeLanguageCode(language) switch
         {
             "en" => (
-                Header: "I did not find a passage that clearly covers the request. I can only show these nearby source-backed leads:",
+                Header: "I did not find a passage that clearly covers the request. I can only show these nearby documented passages:",
                 Caveat: "These passages should not be treated as a confirmed answer to the request."),
             "es" => (
                 Header: "No he encontrado un pasaje que cubra claramente la solicitud. Solo puedo mostrar estas pistas cercanas con fuente:",
