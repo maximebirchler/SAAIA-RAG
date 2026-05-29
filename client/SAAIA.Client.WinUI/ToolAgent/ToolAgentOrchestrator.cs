@@ -563,7 +563,9 @@ public sealed partial class ToolAgentOrchestrator
         }
 
         var preWriterExactItemTitle = TryExtractRequestedItemTitle(effectiveUserMessage);
-        var preWriterShouldUseBroadSynthesis = ShouldUseWriterForBroadSourceBackedSynthesis(toolResults, effectiveUserMessage);
+        var preWriterShouldUseBroadSynthesis =
+            ShouldUseWriterForBroadSourceBackedSynthesis(toolResults, effectiveUserMessage)
+            || ShouldPreferWriterForPolishedSourceBackedAnswer(toolResults, effectiveUserMessage);
         var preWriterSourceBackedAnswer = string.Empty;
         List<ToolMemory.SourceRef>? preWriterSourceBackedSources = null;
         if (LooksLikeCategoryOverviewOrDocumentOrientationRequest(effectiveUserMessage))
@@ -583,7 +585,8 @@ public sealed partial class ToolAgentOrchestrator
         }
         else if (LooksLikeAnyDocumentaryPlanningRequest(effectiveUserMessage))
         {
-            if (!ShouldAllowWriterForPartialSourceBackedPlanning(toolResults, effectiveUserMessage, plan.Language))
+            if (!preWriterShouldUseBroadSynthesis
+                && !ShouldAllowWriterForPartialSourceBackedPlanning(toolResults, effectiveUserMessage, plan.Language))
             {
                 preWriterSourceBackedAnswer = BuildSourceBackedPlanningOrExtractiveAnswer(toolResults, effectiveUserMessage, plan.Language, minPlanningItems: 1);
                 preWriterSourceBackedSources = DeriveSourcesFromPlanningHits(toolResults, effectiveUserMessage);
@@ -592,7 +595,7 @@ public sealed partial class ToolAgentOrchestrator
             }
         }
         else if (ShouldUseSourceBackedOptionAnswer(preWriterExactItemTitle, effectiveUserMessage)
-            && !ShouldUseWriterForBroadSourceBackedSynthesis(toolResults, effectiveUserMessage))
+            && !preWriterShouldUseBroadSynthesis)
         {
             preWriterSourceBackedAnswer = BuildSourceBackedOptionAnswer(toolResults, plan.Language, minItems: 1, query: effectiveUserMessage);
             preWriterSourceBackedSources = DeriveSourcesFromOptionHits(toolResults, effectiveUserMessage);
@@ -3483,7 +3486,10 @@ public sealed partial class ToolAgentOrchestrator
                         }
                     }
 
-                    var deterministicPlanningAnswer = ShouldAllowWriterForPartialSourceBackedPlanning(planningToolResults, effectiveUserMessage, plan.Language)
+                    var shouldUsePlanningWriter =
+                        ShouldAllowWriterForPartialSourceBackedPlanning(planningToolResults, effectiveUserMessage, plan.Language)
+                        || ShouldPreferWriterForPolishedSourceBackedAnswer(planningToolResults, effectiveUserMessage);
+                    var deterministicPlanningAnswer = shouldUsePlanningWriter
                         ? string.Empty
                         : BuildSourceBackedPlanningOrExtractiveAnswer(planningToolResults, effectiveUserMessage, plan.Language, minPlanningItems: 1);
                     var deterministicPlanningSources = DeriveSourcesFromPlanningHits(planningToolResults, effectiveUserMessage);
@@ -3663,7 +3669,9 @@ public sealed partial class ToolAgentOrchestrator
 
             var preWriterAnswer = string.Empty;
             List<ToolMemory.SourceRef>? preWriterSources = null;
-            var standaloneShouldUseBroadSynthesis = ShouldUseWriterForBroadSourceBackedSynthesis(toolResults, effectiveUserMessage);
+            var standaloneShouldUseBroadSynthesis =
+                ShouldUseWriterForBroadSourceBackedSynthesis(toolResults, effectiveUserMessage)
+                || ShouldPreferWriterForPolishedSourceBackedAnswer(toolResults, effectiveUserMessage);
             if (LooksLikeSourceBackedCountdownPlanningRequest(effectiveUserMessage))
             {
                 preWriterAnswer = BuildSourceBackedCountdownPlanningAnswer(toolResults, effectiveUserMessage, plan.Language);
@@ -4262,7 +4270,9 @@ USER_MESSAGE:
         var shouldUseSourceBackedActionAnswer = LooksLikeSourceBackedActionRequest(userMessage)
             && ShouldPreferSourceBackedAnswerOverBackendClarification(writerToolResults, userMessage);
         var shouldUseSourceBackedPairingAnswer = LooksLikeSourceBackedPairingRecommendationRequest(userMessage);
-        var shouldUseBroadSourceBackedSynthesis = ShouldUseWriterForBroadSourceBackedSynthesis(writerToolResults, userMessage);
+        var shouldUseBroadSourceBackedSynthesis =
+            ShouldUseWriterForBroadSourceBackedSynthesis(writerToolResults, userMessage)
+            || ShouldPreferWriterForPolishedSourceBackedAnswer(writerToolResults, userMessage);
 
         if (!shouldUseBroadSourceBackedSynthesis
             && (shouldUseSourceBackedExtractiveAnswer || shouldUseSourceBackedActionAnswer || shouldUseSourceBackedCountdownAnswer || shouldUseSourceBackedPairingAnswer || shouldUseSourceBackedOptionAnswer))
@@ -4438,7 +4448,8 @@ AUTHORITATIVE_INVENTORY_DATA (json):
 
             if (ShouldFallbackFromNoRagDataAnswer(finalAnswer))
             {
-                var repairAnswer = ShouldUseWriterForBroadSourceBackedSynthesis(writerToolResults, userMessage)
+                var repairAnswer = (ShouldUseWriterForBroadSourceBackedSynthesis(writerToolResults, userMessage)
+                        || ShouldPreferWriterForPolishedSourceBackedAnswer(writerToolResults, userMessage))
                     ? await TryRepairSourceBackedSynthesisAnswerWithWriterAsync(chatHistory, userMessage, plan, writerToolResults, ct).ConfigureAwait(false)
                     : BuildSourceBackedPlanningOrExtractiveAnswer(sourceToolResults, userMessage, plan.Language, minPlanningItems: 1);
                 if (string.IsNullOrWhiteSpace(repairAnswer))
@@ -4469,7 +4480,8 @@ AUTHORITATIVE_INVENTORY_DATA (json):
                 _lastAnswerSource = $"writer_guard_missing_pairing_anchor:{plan.Intent}";
             }
 
-            var missingBroadAnchorAnswer = ShouldUseWriterForBroadSourceBackedSynthesis(sourceToolResults, userMessage)
+            var missingBroadAnchorAnswer = (ShouldUseWriterForBroadSourceBackedSynthesis(sourceToolResults, userMessage)
+                    || ShouldPreferWriterForPolishedSourceBackedAnswer(sourceToolResults, userMessage))
                 ? string.Empty
                 : TryBuildMissingBroadCompositionAnchorAnswer(sourceToolResults, userMessage, plan.Language);
             if (!string.IsNullOrWhiteSpace(missingBroadAnchorAnswer))
@@ -4646,6 +4658,7 @@ AUTHORITATIVE_INVENTORY_DATA (json):
         CancellationToken ct)
     {
         var writerAllowed = ShouldUseWriterForBroadSourceBackedSynthesis(writerToolResults, userMessage)
+            || ShouldPreferWriterForPolishedSourceBackedAnswer(writerToolResults, userMessage)
             || ShouldUseWriterForDocumentaryProbeAnswer(writerToolResults, userMessage);
         var hasRagEvidence = writerToolResults.Items.Any(item => item.ToolName is "rag.search" or "rag.multi_search");
         if (!writerAllowed || !hasRagEvidence)
@@ -4662,8 +4675,10 @@ The tool results contain partial source-backed leads for a broad documentary req
 
 Rules:
 - Answer only from the tool results.
+- The final answer must be written in the target language. If a source is in another language, translate/paraphrase the useful meaning into the target language and keep only source names, page numbers, units, values and short quoted terms unchanged.
 - Do not say there is no data when hits are present.
 - Do not dump raw excerpts.
+- Your job is to rewrite and synthesize: extract useful facts from the hits, then present them as polished user-facing prose instead of pasting retrieved text.
 - Do not repeat or paraphrase the user's whole question in the first sentence.
 - Do not write bullets whose main content is ""document p.N: copied passage"". Keep source names/pages as short references after a concise candidate or planning point.
 - Do not write a final Source/Sources bibliography section. The application appends clickable source cards.
@@ -4773,7 +4788,8 @@ TOOL_RESULTS (json):
 
         var strict = string.Equals(plan.Mode, "strict", StringComparison.OrdinalIgnoreCase)
             || string.Equals(AppSettings.NormalizeActiveMode(_settings?.ActiveMode), "strict", StringComparison.OrdinalIgnoreCase);
-        var broadSourceBackedSynthesis = ShouldUseWriterForBroadSourceBackedSynthesis(toolResults, userMessage);
+        var broadSourceBackedSynthesis = ShouldUseWriterForBroadSourceBackedSynthesis(toolResults, userMessage)
+            || ShouldPreferWriterForPolishedSourceBackedAnswer(toolResults, userMessage);
         if (!strict && !broadSourceBackedSynthesis)
         {
             _lastCriticStatus = "skipped";

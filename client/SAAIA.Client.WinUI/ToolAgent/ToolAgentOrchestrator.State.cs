@@ -5710,6 +5710,31 @@ CURRENT_USER_MESSAGE:
            && LooksLikeAnyDocumentaryPlanningRequest(query)
            && EvaluateSourceBackedPlanningCoverage(toolResults, query, language).IsAdequate;
 
+    private static bool ShouldPreferWriterForPolishedSourceBackedAnswer(ToolResults toolResults, string? query)
+    {
+        if (string.IsNullOrWhiteSpace(query)
+            || LooksLikeSourceBackedCountdownPlanningRequest(query)
+            || LooksLikeSourceBackedVerificationChecklistRequest(query)
+            || LooksLikeStrictCertificationOrExactProofRequest(query)
+            || LooksLikeCorpusClaimVerificationRequest(query)
+            || LooksLikeExactPassageOrCitationRequest(query)
+            || !toolResults.Items.Any(static item => item.ToolName is "rag.search" or "rag.multi_search" && HasRagHits(item.Result)))
+        {
+            return false;
+        }
+
+        return LooksLikeAnyDocumentaryPlanningRequest(query)
+            || LooksLikeBroadSynthesisRequestShape(query)
+            || LooksLikeBroadSourceBackedCompositionRequest(query)
+            || LooksLikeMultipleCandidateSynthesisRequest(query)
+            || LooksLikeSoftChoiceRecommendationRequest(query)
+            || LooksLikeSourceBackedPairingRecommendationRequest(query)
+            || LooksLikeUserNeedsSynthesizedDecisionOrPlan(query)
+            || LooksLikeSourceBackedActionRequest(query)
+            || LooksLikeDocumentaryContentRequest(query)
+            || ShouldUseSourceBackedExtractiveAnswer(query, toolResults);
+    }
+
     private static bool ShouldAllowWriterForPartialSourceBackedPlanning(ToolResults toolResults, string? query, string language = "fr")
     {
         if (string.IsNullOrWhiteSpace(query)
@@ -5950,7 +5975,8 @@ CURRENT_USER_MESSAGE:
         int Score);
 
     private static bool ShouldUseAdvisoryEvidenceGuardForBroadSynthesis(ToolResults toolResults, string? query)
-        => ShouldUseWriterForBroadSourceBackedSynthesis(toolResults, query)
+        => (ShouldUseWriterForBroadSourceBackedSynthesis(toolResults, query)
+            || ShouldPreferWriterForPolishedSourceBackedAnswer(toolResults, query))
            && !LooksLikeStrictCertificationOrExactProofRequest(query);
 
     private static bool ShouldOfferBroadenedSourceSearch(string? query)
@@ -6254,6 +6280,18 @@ CURRENT_USER_MESSAGE:
         return Regex.IsMatch(
             normalized,
             @"\b(?:prouve|preuve|demontre|certifie|certifier|garantis|garantie|compatible|compatibilite|obligatoire|required|mandatory|explicitement|exactement|strictement|sans\s+supposer|valide\s+officiel|officially\s+validated|prove|proof|certify|guarantee|explicitly|exactly)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeExactPassageOrCitationRequest(string? query)
+    {
+        var normalized = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return Regex.IsMatch(
+            normalized,
+            @"\b(?:cite|citer|citation|quote|quotation|verbatim|mot\s+pour\s+mot|mot\s+a\s+mot|passage\s+exact|extrait\s+exact|copie|copy|recopie|copier)\b",
             RegexOptions.CultureInvariant);
     }
 
@@ -6693,11 +6731,11 @@ If coverage is partial, answer with source-backed leads and clear limits instead
         var text = answer.Trim();
         var sourceLeadLineCount = Regex.Matches(
             text,
-            @"(?im)^\s*(?:[-*•]|\d+[.)])?\s*[^:\r\n]{1,160}\.(?:pdf|docx?|xlsx?|pptx?)\s+p\.?\s*\d+\s*:",
+            @"(?im)^\s*(?:[-*•]|\d+[.)])?\s*[^:\r\n]{1,160}\.(?:pdf|docx?|xlsx?|pptx?)\s+p\.?\s*\d+\s*(?::|-|–)",
             RegexOptions.CultureInvariant).Count;
         sourceLeadLineCount += Regex.Matches(
             text,
-            @"(?im)^\s*\u2022\s*[^:\r\n]{1,160}\.(?:pdf|docx?|xlsx?|pptx?)\s+p\.?\s*\d+\s*:",
+            @"(?im)^\s*\u2022\s*[^:\r\n]{1,160}\.(?:pdf|docx?|xlsx?|pptx?)\s+p\.?\s*\d+\s*(?::|-|–)",
             RegexOptions.CultureInvariant).Count;
         if (sourceLeadLineCount >= 2)
             return true;
@@ -6715,7 +6753,7 @@ If coverage is partial, answer with source-backed leads and clear limits instead
 
         var rawSourceReferenceCount = Regex.Matches(
             text,
-            @"(?i)\b(?:pdf|docx?|xlsx?|pptx?)\s+p\.?\s*\d+\s*:",
+            @"(?i)\b(?:pdf|docx?|xlsx?|pptx?)\s+p\.?\s*\d+\s*(?::|-|–)",
             RegexOptions.CultureInvariant).Count;
         var organizationSignals = Regex.IsMatch(
             NormalizeLexicalLookup(text),
@@ -6800,7 +6838,7 @@ If coverage is partial, answer with source-backed leads and clear limits instead
 
         var sourceLeadLineCount = Regex.Matches(
             answer,
-            @"(?im)^\s*(?:[-*\u2022â€¢]|\d+[.)])?\s*[^:\r\n]{1,160}\.(?:pdf|docx?|xlsx?|pptx?)\s+p\.?\s*\d+\s*:",
+            @"(?im)^\s*(?:[-*\u2022â€¢]|\d+[.)])?\s*[^:\r\n]{1,160}\.(?:pdf|docx?|xlsx?|pptx?)\s+p\.?\s*\d+\s*(?::|-|–)",
             RegexOptions.CultureInvariant).Count;
         return sourceLeadLineCount >= 2;
     }

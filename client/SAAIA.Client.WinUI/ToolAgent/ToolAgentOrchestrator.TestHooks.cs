@@ -624,6 +624,9 @@ public sealed partial class ToolAgentOrchestrator
     internal static bool ShouldUseWriterForBroadSourceBackedSynthesisForTests(ToolResults toolResults, string query)
         => ShouldUseWriterForBroadSourceBackedSynthesis(toolResults, query);
 
+    internal static bool ShouldPreferWriterForPolishedSourceBackedAnswerForTests(ToolResults toolResults, string query)
+        => ShouldPreferWriterForPolishedSourceBackedAnswer(toolResults, query);
+
     internal static bool ShouldUseAdvisoryEvidenceGuardForBroadSynthesisForTests(ToolResults toolResults, string query)
         => ShouldUseAdvisoryEvidenceGuardForBroadSynthesis(toolResults, query);
 

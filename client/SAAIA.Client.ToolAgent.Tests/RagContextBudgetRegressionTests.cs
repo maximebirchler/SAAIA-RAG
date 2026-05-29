@@ -8233,7 +8233,10 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.False(ToolAgentOrchestrator.ShouldUseWriterForBroadSourceBackedSynthesisForTests(
             duplicatePageResults,
             "Propose-moi plusieurs options utiles a partir des documents."));
-        Assert.False(ToolAgentOrchestrator.ShouldUseAdvisoryEvidenceGuardForBroadSynthesisForTests(
+        Assert.True(ToolAgentOrchestrator.ShouldPreferWriterForPolishedSourceBackedAnswerForTests(
+            duplicatePageResults,
+            "Propose-moi plusieurs options utiles a partir des documents."));
+        Assert.True(ToolAgentOrchestrator.ShouldUseAdvisoryEvidenceGuardForBroadSynthesisForTests(
             duplicatePageResults,
             "Propose-moi plusieurs options utiles a partir des documents."));
         Assert.True(ToolAgentOrchestrator.ShouldUseWriterForBroadSourceBackedSynthesisForTests(
@@ -11477,6 +11480,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.False(ToolAgentOrchestrator.ShouldExpandSourceBackedPlanningRetrievalForTests(expandedResults, query, "fr"));
         Assert.False(ToolAgentOrchestrator.ShouldAllowWriterForPartialSourceBackedPlanningForTests(sparseResults, query, "fr"));
         Assert.False(ToolAgentOrchestrator.ShouldUseWriterForBroadSourceBackedSynthesisForTests(sparseResults, query));
+        Assert.True(ToolAgentOrchestrator.ShouldPreferWriterForPolishedSourceBackedAnswerForTests(sparseResults, query));
         Assert.True(ToolAgentOrchestrator.ShouldUseWriterForBroadSourceBackedSynthesisForTests(expandedResults, query));
 
         static ToolResults BuildPlanningCoverageToolResults(params string[] titles)
@@ -11563,6 +11567,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.True(ToolAgentOrchestrator.ShouldExpandSourceBackedPlanningRetrievalForTests(repeatedCandidateResults, query, "fr"));
         Assert.False(ToolAgentOrchestrator.ShouldAllowWriterForPartialSourceBackedPlanningForTests(repeatedCandidateResults, query, "fr"));
         Assert.False(ToolAgentOrchestrator.ShouldUseWriterForBroadSourceBackedSynthesisForTests(repeatedCandidateResults, query));
+        Assert.True(ToolAgentOrchestrator.ShouldPreferWriterForPolishedSourceBackedAnswerForTests(repeatedCandidateResults, query));
 
         static ToolResults BuildRepeatedPlanningCandidateToolResults(string title, int count)
         {
@@ -11592,6 +11597,80 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
             return toolResults;
         }
+    }
+
+    [Fact]
+    public void Polished_writer_gate_keeps_exact_citation_requests_on_deterministic_path()
+    {
+        var toolResults = BuildPolishedGateToolResults(
+            "Operations/checklist.pdf",
+            "checklist.pdf",
+            7,
+            "Controle journalier. Verifier le registre, noter l'ecart et signer la fiche.");
+
+        Assert.False(ToolAgentOrchestrator.ShouldPreferWriterForPolishedSourceBackedAnswerForTests(
+            toolResults,
+            "Cite l'extrait exact qui parle du registre."));
+    }
+
+    [Fact]
+    public void Polished_writer_gate_handles_broad_options_even_when_evidence_is_sparse()
+    {
+        var toolResults = BuildPolishedGateToolResults(
+            "Operations/checklist.pdf",
+            "checklist.pdf",
+            7,
+            "Controle journalier. Verifier le registre, noter l'ecart et signer la fiche.");
+
+        Assert.True(ToolAgentOrchestrator.ShouldPreferWriterForPolishedSourceBackedAnswerForTests(
+            toolResults,
+            "Propose-moi une organisation utile avec les controles disponibles."));
+    }
+
+    [Fact]
+    public void Polished_writer_guidance_requires_rewrite_instead_of_excerpt_dump()
+    {
+        var guidance = ToolAgentOrchestrator.BuildAnswerShapeGuidanceForWriterForTests(
+            "Can you suggest a weekly plan from the available documents, with sources?",
+            "en");
+
+        Assert.Contains("Do not dump raw excerpts", guidance, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("natural spelling", guidance, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("useful partial structure", guidance, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static ToolResults BuildPolishedGateToolResults(string docPath, string docName, int page, string text)
+    {
+        using var doc = JsonDocument.Parse(JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                new
+                {
+                    docPath,
+                    docName,
+                    pageStart = page,
+                    pageEnd = page,
+                    excerpt = text,
+                    fullText = text,
+                    matchedContentCards = new[] { new { title = "Controle journalier", kind = "unit_lead" } },
+                    selectionHints = new
+                    {
+                        evidenceRole = "actionable_item",
+                        actionabilityScore = 12,
+                        supportScore = 6,
+                        fragmentScore = 0,
+                        navigationScore = 0,
+                        qualityPenalty = 0
+                    },
+                    score = 0.95
+                }
+            }
+        }));
+
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = doc.RootElement.Clone() });
+        return toolResults;
     }
 
     [Fact]
