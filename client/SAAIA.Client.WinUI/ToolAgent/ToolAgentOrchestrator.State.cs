@@ -40,6 +40,7 @@ public sealed partial class ToolAgentOrchestrator
         _lastWriterToolNames = new List<string>();
         _lastToolDurations = new List<(string tool, long durationMs, bool ok)>();
         _lastAnswerSource = "unknown";
+        _mem.Execution.LastRagEvidenceExploration = new();
     }
 
     private Dictionary<string, object?> BuildAgentRuntimeSnapshot()
@@ -96,7 +97,32 @@ public sealed partial class ToolAgentOrchestrator
             {
                 ["queries"] = _mem.LastRagQueries?.Take(8).ToArray() ?? Array.Empty<string>(),
                 ["hitLabels"] = _mem.LastRagHitLabels?.Take(30).ToArray() ?? Array.Empty<string>(),
-                ["degradedRetrievers"] = _mem.LastRagDegradedRetrievers?.Take(16).ToArray() ?? Array.Empty<string>()
+                ["degradedRetrievers"] = _mem.LastRagDegradedRetrievers?.Take(16).ToArray() ?? Array.Empty<string>(),
+                ["explorationPassCount"] = _mem.Execution.LastRagEvidenceExploration?.Count ?? 0,
+                ["acceptedExplorationPassCount"] = _mem.Execution.LastRagEvidenceExploration?.Count(static pass => pass.Accepted) ?? 0,
+                ["lastInsufficiencyReason"] = _mem.Execution.LastRagEvidenceExploration?.LastOrDefault()?.ReasonAfter
+                    ?? _mem.Execution.LastRagEvidenceExploration?.LastOrDefault()?.ReasonBefore,
+                ["explorationPasses"] = _mem.Execution.LastRagEvidenceExploration?
+                    .Take(8)
+                    .Select(static pass => new Dictionary<string, object?>
+                    {
+                        ["label"] = pass.Label,
+                        ["queries"] = pass.Queries.Take(6).ToArray(),
+                        ["reasonBefore"] = pass.ReasonBefore,
+                        ["reasonAfter"] = pass.ReasonAfter,
+                        ["scoreBefore"] = pass.ScoreBefore,
+                        ["scoreAfter"] = pass.ScoreAfter,
+                        ["hitsBefore"] = pass.UsableHitsBefore,
+                        ["hitsAfter"] = pass.UsableHitsAfter,
+                        ["candidatesBefore"] = pass.CandidateCountBefore,
+                        ["candidatesAfter"] = pass.CandidateCountAfter,
+                        ["distinctPagesBefore"] = pass.DistinctPagesBefore,
+                        ["distinctPagesAfter"] = pass.DistinctPagesAfter,
+                        ["elapsedMs"] = pass.ElapsedMs,
+                        ["accepted"] = pass.Accepted,
+                        ["rejectReason"] = pass.RejectReason
+                    })
+                    .ToArray() ?? Array.Empty<object>()
             },
             ["memorySummary"] = memorySummary,
             ["memory"] = new Dictionary<string, object?>
@@ -138,6 +164,7 @@ public sealed partial class ToolAgentOrchestrator
                     ["lastRagQueriesCount"] = _mem.LastRagQueries?.Count ?? 0,
                     ["lastRagHitLabelsCount"] = _mem.LastRagHitLabels?.Count ?? 0,
                     ["lastRagDegradedRetrieversCount"] = _mem.LastRagDegradedRetrievers?.Count ?? 0,
+                    ["lastRagEvidenceExplorationCount"] = _mem.Execution.LastRagEvidenceExploration?.Count ?? 0,
                     ["lastRiskFlagsCount"] = _mem.LastRiskFlags?.Count ?? 0,
                     ["hasPlannerMemoryUpdate"] = !string.IsNullOrWhiteSpace(_mem.LastPlannerMemoryUpdate),
                     ["routerConfidence"] = _mem.LastRouterConfidence,
@@ -206,6 +233,7 @@ public sealed partial class ToolAgentOrchestrator
                 ["lastRagQueriesCount"] = _mem.LastRagQueries?.Count ?? 0,
                 ["lastRagHitLabelsCount"] = _mem.LastRagHitLabels?.Count ?? 0,
                 ["lastRagDegradedRetrieversCount"] = _mem.LastRagDegradedRetrievers?.Count ?? 0,
+                ["lastRagEvidenceExplorationCount"] = _mem.Execution.LastRagEvidenceExploration?.Count ?? 0,
                 ["hasAdminOperation"] = _mem.LastAdminOperation is not null
             }
         };
@@ -875,6 +903,15 @@ CURRENT_USER_MESSAGE:
             && result.TryGetProperty("hits", out var hits)
             && hits.ValueKind == JsonValueKind.Array
             && hits.GetArrayLength() > 0;
+    }
+
+    private static int CountRagHits(JsonElement result)
+    {
+        return result.ValueKind == JsonValueKind.Object
+            && result.TryGetProperty("hits", out var hits)
+            && hits.ValueKind == JsonValueKind.Array
+            ? hits.GetArrayLength()
+            : 0;
     }
 
     private static List<ToolMemory.SourceRef> DeriveSourcesFromPlanningHits(ToolResults toolResults, string? query = null)

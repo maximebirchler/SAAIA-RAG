@@ -1062,11 +1062,54 @@ public sealed partial class ToolAgentOrchestrator
             : categoryScopeOverride;
         var remainingRagCalls = Math.Max(0, MaxRagToolCalls - CountRagRetrievalToolCalls(toolResults));
 
+        void RememberExplorationPass(
+            SourceBackedEvidenceExplorationPass pass,
+            SourceBackedEvidenceSufficiency before,
+            SourceBackedEvidenceSufficiency? after,
+            long elapsedMs,
+            bool accepted,
+            string? rejectReason)
+        {
+            var traces = _mem.Execution.LastRagEvidenceExploration;
+            if (traces.Count >= 16)
+                traces.RemoveAt(0);
+
+            traces.Add(new ToolMemory.RagEvidenceExplorationTrace
+            {
+                Label = TruncateForPrompt(pass.Label, 80),
+                Queries = pass.Queries
+                    .Where(static query => !string.IsNullOrWhiteSpace(query))
+                    .Select(query => TruncateForPrompt(query, 180))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(8)
+                    .ToList(),
+                KindBefore = before.Kind,
+                ReasonBefore = before.Reason,
+                ScoreBefore = before.Score,
+                UsableHitsBefore = before.UsableHitCount,
+                CandidateCountBefore = before.CandidateCount,
+                DistinctDocumentsBefore = before.DistinctDocumentCount,
+                DistinctPagesBefore = before.DistinctSourcePageCount,
+                MinimumCandidates = before.MinimumCandidateCount,
+                TargetSlots = before.TargetSlotCount,
+                ElapsedMs = Math.Max(0, elapsedMs),
+                Accepted = accepted,
+                RejectReason = rejectReason,
+                ReasonAfter = after?.Reason,
+                ScoreAfter = after?.Score,
+                UsableHitsAfter = after?.UsableHitCount,
+                CandidateCountAfter = after?.CandidateCount,
+                DistinctDocumentsAfter = after?.DistinctDocumentCount,
+                DistinctPagesAfter = after?.DistinctSourcePageCount
+            });
+        }
+
         async Task<bool> TryExecuteExplorationPassAsync(SourceBackedEvidenceExplorationPass pass)
         {
             if (!currentAnalysis.ShouldExplore || remainingRagCalls <= 0 || pass.Queries.Length == 0)
                 return false;
 
+            var beforeAnalysis = currentAnalysis;
             remainingRagCalls--;
 
             var args = CreateJsonArgs(new
@@ -1087,6 +1130,7 @@ public sealed partial class ToolAgentOrchestrator
                 if (!HasRagHits(expandedResult))
                 {
                     _lastToolDurations.Add(("rag.multi_search", sw.ElapsedMilliseconds, true));
+                    RememberExplorationPass(pass, beforeAnalysis, null, sw.ElapsedMilliseconds, accepted: false, rejectReason: "no_hits");
                     return false;
                 }
 
@@ -1105,6 +1149,7 @@ public sealed partial class ToolAgentOrchestrator
                 if (!improvesCoverage)
                 {
                     _lastToolDurations.Add(("rag.multi_search", sw.ElapsedMilliseconds, true));
+                    RememberExplorationPass(pass, beforeAnalysis, candidateAnalysis, sw.ElapsedMilliseconds, accepted: false, rejectReason: "no_coverage_gain");
                     return false;
                 }
 
@@ -1118,6 +1163,7 @@ public sealed partial class ToolAgentOrchestrator
                 if (!_mem.LastToolNames.Contains("rag.multi_search", StringComparer.OrdinalIgnoreCase))
                     _mem.LastToolNames.Add("rag.multi_search");
                 currentAnalysis = candidateAnalysis;
+                RememberExplorationPass(pass, beforeAnalysis, candidateAnalysis, sw.ElapsedMilliseconds, accepted: true, rejectReason: null);
                 return true;
             }
             catch (OperationCanceledException)
@@ -1128,6 +1174,7 @@ public sealed partial class ToolAgentOrchestrator
             {
                 sw.Stop();
                 _lastToolDurations.Add(("rag.multi_search", sw.ElapsedMilliseconds, false));
+                RememberExplorationPass(pass, beforeAnalysis, null, sw.ElapsedMilliseconds, accepted: false, rejectReason: "error");
             }
 
             return false;
@@ -7434,13 +7481,14 @@ TOOL_RESULTS (json):
 
             var runMeta = TryGetObject(run, "meta") ?? TryGetObject(run, "Meta");
             var hits = TryGetArray(run, "hits") ?? TryGetArray(run, "Hits");
+            var hitCount = TryGetInt(run, "hitCount") ?? TryGetInt(run, "HitCount");
             var metrics = runMeta.HasValue
                 ? TryGetObject(runMeta.Value, "metrics") ?? TryGetObject(runMeta.Value, "Metrics")
                 : null;
             compact.Add(new
             {
                 query = TruncateForPrompt(TryGetString(run, "query") ?? TryGetString(run, "Query"), 160),
-                hitCount = hits.HasValue && hits.Value.ValueKind == JsonValueKind.Array ? hits.Value.GetArrayLength() : (int?)null,
+                hitCount = hitCount ?? (hits.HasValue && hits.Value.ValueKind == JsonValueKind.Array ? hits.Value.GetArrayLength() : (int?)null),
                 error = TryGetString(run, "error") ?? TryGetString(run, "Error"),
                 busy = TryGetBool(run, "busy") ?? TryGetBool(run, "Busy"),
                 metrics = metrics.HasValue ? CompactRagMetricsForWriter(metrics.Value) : null

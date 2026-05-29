@@ -353,6 +353,8 @@ public sealed class ToolMemory
 
         public List<string> LastRagDegradedRetrievers { get; set; } = new();
 
+        public List<RagEvidenceExplorationTrace> LastRagEvidenceExploration { get; set; } = new();
+
         public List<string> LastReasoningTracePublic { get; set; } = new();
 
         public List<string> LastRiskFlags { get; set; } = new();
@@ -364,6 +366,49 @@ public sealed class ToolMemory
         public PendingDirectCommand? StagedDirectCommand { get; set; }
 
         public AdminOperationState? LastAdminOperation { get; set; }
+    }
+
+    public sealed class RagEvidenceExplorationTrace
+    {
+        public string Label { get; set; } = "";
+
+        public List<string> Queries { get; set; } = new();
+
+        public string? KindBefore { get; set; }
+
+        public string? ReasonBefore { get; set; }
+
+        public int ScoreBefore { get; set; }
+
+        public int UsableHitsBefore { get; set; }
+
+        public int CandidateCountBefore { get; set; }
+
+        public int DistinctDocumentsBefore { get; set; }
+
+        public int DistinctPagesBefore { get; set; }
+
+        public int MinimumCandidates { get; set; }
+
+        public int TargetSlots { get; set; }
+
+        public long ElapsedMs { get; set; }
+
+        public bool Accepted { get; set; }
+
+        public string? RejectReason { get; set; }
+
+        public string? ReasonAfter { get; set; }
+
+        public int? ScoreAfter { get; set; }
+
+        public int? UsableHitsAfter { get; set; }
+
+        public int? CandidateCountAfter { get; set; }
+
+        public int? DistinctDocumentsAfter { get; set; }
+
+        public int? DistinctPagesAfter { get; set; }
     }
 
     public sealed class DocumentItem
@@ -848,6 +893,7 @@ public sealed class ToolMemory
         Execution.LastRagQueries = new();
         Execution.LastRagHitLabels = new();
         Execution.LastRagDegradedRetrievers = new();
+        Execution.LastRagEvidenceExploration = new();
         Execution.LastReasoningTracePublic = new();
         Execution.LastRiskFlags = new();
         Execution.LastPlannerMemoryUpdate = null;

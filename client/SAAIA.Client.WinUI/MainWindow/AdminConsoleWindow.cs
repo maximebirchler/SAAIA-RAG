@@ -557,6 +557,13 @@ public sealed partial class MainWindow
             (ClientUiText.Get("admin.console.retrieval.metric.degraded", lang), string.IsNullOrWhiteSpace(degraded) ? "-" : degraded)
         }));
 
+        if (metrics.ValueKind == JsonValueKind.Object)
+            stack.Children.Add(BuildAdminConsoleRetrievalPhaseBreakdown(metrics, lang));
+
+        var guidanceCard = BuildAdminConsoleRetrievalGuidanceCard(response, lang);
+        if (guidanceCard is not null)
+            stack.Children.Add(guidanceCard);
+
         if (!string.IsNullOrWhiteSpace(retrievers) && retrievers != "-")
             stack.Children.Add(BuildDialogInfoBanner(ClientUiText.Format("admin.console.retrieval.retrievers", lang, retrievers)));
 
@@ -587,8 +594,127 @@ public sealed partial class MainWindow
         }
 
         stack.Children.Add(BuildAdminConsoleSubHeader(ClientUiText.Get("admin.console.retrieval.sources", lang)));
+        stack.Children.Add(BuildAdminConsoleRetrievalDiversityCard(itemList, lang));
         foreach (var item in itemList)
             stack.Children.Add(BuildAdminConsoleRetrievalItemCard(item, lang));
+
+        return BuildDialogSurfaceCard(stack, new Thickness(14));
+    }
+
+    private FrameworkElement BuildAdminConsoleRetrievalPhaseBreakdown(JsonElement metrics, string lang)
+    {
+        var phaseMetrics = new List<(string Label, string Value)>
+        {
+            (ClientUiText.Get("admin.console.retrieval.phase.exact", lang), FormatAdminConsoleMetric(SumAdminConsoleMetric(metrics, "exactMs", "quotedTitleMs", "localTitleTokenMs", "titleAnchorRouteMs"), "ms")),
+            (ClientUiText.Get("admin.console.retrieval.phase.sparse", lang), FormatAdminConsoleMetric(SumAdminConsoleMetric(metrics, "sparsePhaseMs", "sparseMs"), "ms")),
+            (ClientUiText.Get("admin.console.retrieval.phase.dense", lang), FormatAdminConsoleMetric(SumAdminConsoleMetric(metrics, "denseMs", "qdrantMs", "teiMs"), "ms")),
+            (ClientUiText.Get("admin.console.retrieval.phase.profile", lang), FormatAdminConsoleMetric(TryGetInt(metrics, "profileMs"), "ms")),
+            (ClientUiText.Get("admin.console.retrieval.phase.linked", lang), FormatAdminConsoleMetric(TryGetInt(metrics, "linkedMs"), "ms")),
+            (ClientUiText.Get("admin.console.retrieval.phase.fusion", lang), FormatAdminConsoleMetric(TryGetInt(metrics, "fusionMs"), "ms")),
+            (ClientUiText.Get("admin.console.retrieval.phase.rerank", lang), FormatAdminConsoleMetric(SumAdminConsoleMetric(metrics, "rerankPhaseMs", "rerankMs"), "ms")),
+            (ClientUiText.Get("admin.console.retrieval.phase.selection", lang), FormatAdminConsoleMetric(TryGetInt(metrics, "selectionMs"), "ms"))
+        };
+
+        var stack = new StackPanel { Spacing = 10 };
+        stack.Children.Add(BuildAdminConsoleSubHeader(ClientUiText.Get("admin.console.retrieval.phases", lang)));
+        stack.Children.Add(new TextBlock
+        {
+            Text = ClientUiText.Get("admin.console.retrieval.phases.help", lang),
+            Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
+            TextWrapping = TextWrapping.WrapWholeWords
+        });
+        stack.Children.Add(BuildAdminConsoleMetricsGrid(phaseMetrics));
+        return BuildDialogSurfaceCard(stack, new Thickness(14));
+    }
+
+    private FrameworkElement? BuildAdminConsoleRetrievalGuidanceCard(JsonElement response, string lang)
+    {
+        if (!response.TryGetProperty("guidance", out var guidance) || guidance.ValueKind != JsonValueKind.Object)
+            return null;
+
+        var stack = new StackPanel { Spacing = 8 };
+        stack.Children.Add(BuildAdminConsoleSubHeader(ClientUiText.Get("admin.console.retrieval.guidance.title", lang)));
+        AddAdminConsoleFact(
+            stack,
+            ClientUiText.Get("admin.console.retrieval.guidance.behavior", lang),
+            HumanizeAdminConsoleGuidanceBehavior(TryGetString(guidance, "behavior"), lang));
+        AddAdminConsoleFact(
+            stack,
+            ClientUiText.Get("admin.console.retrieval.guidance.shape", lang),
+            HumanizeAdminConsoleResponseShape(TryGetString(guidance, "responseShape"), lang));
+        AddAdminConsoleFact(
+            stack,
+            ClientUiText.Get("admin.console.retrieval.guidance.reason", lang),
+            HumanizeAdminConsoleGuidanceReason(TryGetString(guidance, "reason"), lang));
+        AddAdminConsoleFact(
+            stack,
+            ClientUiText.Get("admin.console.retrieval.guidance.question", lang),
+            TryGetString(guidance, "clarifyingQuestion"));
+        AddAdminConsoleFact(
+            stack,
+            ClientUiText.Get("admin.console.retrieval.guidance.note", lang),
+            TryGetString(guidance, "qualificationNote"));
+
+        if (guidance.TryGetProperty("matchedDocHints", out var hints) && hints.ValueKind == JsonValueKind.Array)
+        {
+            var hintLines = hints.EnumerateArray()
+                .Select(static item => item.GetString())
+                .Where(static value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => TrimAdminConsoleText(value!, 160))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(6)
+                .ToArray();
+            if (hintLines.Length > 0)
+            {
+                AddAdminConsoleFact(
+                    stack,
+                    ClientUiText.Get("admin.console.retrieval.guidance.hints", lang),
+                    string.Join(Environment.NewLine, hintLines));
+            }
+        }
+
+        return BuildDialogSurfaceCard(stack, new Thickness(14));
+    }
+
+    private FrameworkElement BuildAdminConsoleRetrievalDiversityCard(IReadOnlyList<JsonElement> items, string lang)
+    {
+        var docs = items
+            .Select(item => TryGetString(item, "docPath") ?? TryGetString(item, "docName"))
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+        var pages = items
+            .Select(item =>
+            {
+                var doc = TryGetString(item, "docPath") ?? TryGetString(item, "docName") ?? string.Empty;
+                var page = TryGetInt(item, "pageStart")?.ToString(CultureInfo.InvariantCulture) ?? "-";
+                return $"{doc}#{page}";
+            })
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+        var methods = items
+            .Select(item => HumanizeAdminConsoleRetrievalMethod(TryGetString(item, "retriever"), lang))
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var stack = new StackPanel { Spacing = 10 };
+        stack.Children.Add(BuildAdminConsoleSubHeader(ClientUiText.Get("admin.console.retrieval.diversity.title", lang)));
+        stack.Children.Add(BuildAdminConsoleMetricsGrid(new[]
+        {
+            (ClientUiText.Get("admin.console.retrieval.diversity.docs", lang), docs.ToString("N0", CultureInfo.CurrentCulture)),
+            (ClientUiText.Get("admin.console.retrieval.diversity.pages", lang), pages.ToString("N0", CultureInfo.CurrentCulture)),
+            (ClientUiText.Get("admin.console.retrieval.diversity.methods", lang), methods.Length.ToString("N0", CultureInfo.CurrentCulture)),
+            (ClientUiText.Get("admin.console.retrieval.diversity.duplicates", lang), Math.Max(0, items.Count - pages).ToString("N0", CultureInfo.CurrentCulture))
+        }));
+        stack.Children.Add(new TextBlock
+        {
+            Text = methods.Length == 0
+                ? ClientUiText.Get("admin.console.retrieval.diversity.no_methods", lang)
+                : ClientUiText.Format("admin.console.retrieval.diversity.method_list", lang, string.Join(", ", methods)),
+            Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
+            TextWrapping = TextWrapping.WrapWholeWords
+        });
 
         return BuildDialogSurfaceCard(stack, new Thickness(14));
     }
@@ -603,8 +729,13 @@ public sealed partial class MainWindow
             : ClientUiText.Format("admin.console.retrieval.item.title_page", lang, docName, page.Value.ToString(CultureInfo.InvariantCulture))));
 
         AddAdminConsoleFact(stack, ClientUiText.Get("admin.console.retrieval.item.score", lang), FormatAdminConsoleScore(TryGetDouble(item, "score")));
+        AddAdminConsoleFact(stack, ClientUiText.Get("admin.console.retrieval.item.rerank_score", lang), FormatAdminConsoleScore(TryGetDouble(item, "rerankScore")));
         AddAdminConsoleFact(stack, ClientUiText.Get("admin.console.retrieval.item.retriever", lang), HumanizeAdminConsoleRetrievalMethod(TryGetString(item, "retriever"), lang));
         AddAdminConsoleFact(stack, ClientUiText.Get("admin.console.retrieval.item.heading", lang), TryGetString(item, "headingPath") ?? TryGetString(item, "sectionTitle"));
+        AddAdminConsoleFact(stack, ClientUiText.Get("admin.console.retrieval.item.chunk", lang), TryGetString(item, "chunkId"));
+        AddAdminConsoleFact(stack, ClientUiText.Get("admin.console.retrieval.item.role", lang), HumanizeAdminConsoleContentRole(
+            TryGetStringFromNested(item, "context", "contentRole"),
+            lang));
         AddAdminConsoleFact(stack, ClientUiText.Get("admin.console.retrieval.item.quality", lang),
             HumanizeAdminConsoleQualityStatus(
                 TryGetStringFromNested(item, "extractionQuality", "pageQualityStatus")
@@ -1269,6 +1400,141 @@ public sealed partial class MainWindow
         }
 
         return ClientUiText.Format("admin.console.retrieval.method.unknown", lang, value?.Trim() ?? normalized);
+    }
+
+    private static int? SumAdminConsoleMetric(JsonElement metrics, params string[] propertyNames)
+    {
+        var hasValue = false;
+        var total = 0;
+        foreach (var propertyName in propertyNames)
+        {
+            var value = TryGetInt(metrics, propertyName);
+            if (value is null)
+                continue;
+
+            hasValue = true;
+            total += Math.Max(0, value.Value);
+        }
+
+        return hasValue ? total : null;
+    }
+
+    private static string? HumanizeAdminConsoleGuidanceBehavior(string? value, string lang)
+    {
+        var normalized = NormalizeAdminConsoleToken(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return null;
+
+        if (normalized.Contains("clarification", StringComparison.Ordinal)
+            || normalized.Contains("clarify", StringComparison.Ordinal)
+            || normalized.Contains("ask", StringComparison.Ordinal))
+        {
+            return ClientUiText.Get("admin.console.retrieval.guidance.behavior.clarify", lang);
+        }
+
+        if (normalized.Contains("caveat", StringComparison.Ordinal)
+            || normalized.Contains("qualified", StringComparison.Ordinal))
+        {
+            return ClientUiText.Get("admin.console.retrieval.guidance.behavior.caveat", lang);
+        }
+
+        if (normalized.Contains("answer", StringComparison.Ordinal))
+            return ClientUiText.Get("admin.console.retrieval.guidance.behavior.answer", lang);
+
+        return ClientUiText.Get("admin.console.retrieval.guidance.behavior.unknown", lang);
+    }
+
+    private static string? HumanizeAdminConsoleResponseShape(string? value, string lang)
+    {
+        var normalized = NormalizeAdminConsoleToken(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return null;
+
+        if (normalized.Contains("no_source", StringComparison.Ordinal)
+            || normalized.Contains("no_match", StringComparison.Ordinal))
+        {
+            return ClientUiText.Get("admin.console.retrieval.guidance.shape.no_source", lang);
+        }
+
+        if (normalized.Contains("clarify", StringComparison.Ordinal))
+            return ClientUiText.Get("admin.console.retrieval.guidance.shape.clarify", lang);
+
+        if (normalized.Contains("list", StringComparison.Ordinal)
+            || normalized.Contains("options", StringComparison.Ordinal)
+            || normalized.Contains("compare", StringComparison.Ordinal)
+            || normalized.Contains("planning", StringComparison.Ordinal))
+        {
+            return ClientUiText.Get("admin.console.retrieval.guidance.shape.structured", lang);
+        }
+
+        if (normalized.Contains("qualified", StringComparison.Ordinal)
+            || normalized.Contains("answer", StringComparison.Ordinal))
+        {
+            return ClientUiText.Get("admin.console.retrieval.guidance.shape.answer", lang);
+        }
+
+        return ClientUiText.Get("admin.console.retrieval.guidance.shape.unknown", lang);
+    }
+
+    private static string? HumanizeAdminConsoleGuidanceReason(string? value, string lang)
+    {
+        var normalized = NormalizeAdminConsoleToken(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return null;
+
+        if (normalized.Contains("no_relevant_source", StringComparison.Ordinal))
+            return ClientUiText.Get("admin.console.retrieval.guidance.reason.no_source", lang);
+
+        if (normalized.Contains("quality", StringComparison.Ordinal)
+            || normalized.Contains("ocr", StringComparison.Ordinal)
+            || normalized.Contains("manual_review", StringComparison.Ordinal)
+            || normalized.Contains("confidence", StringComparison.Ordinal))
+        {
+            return ClientUiText.Get("admin.console.retrieval.guidance.reason.quality", lang);
+        }
+
+        if (normalized.Contains("scope", StringComparison.Ordinal)
+            || normalized.Contains("ambiguous", StringComparison.Ordinal)
+            || normalized.Contains("identifier", StringComparison.Ordinal))
+        {
+            return ClientUiText.Get("admin.console.retrieval.guidance.reason.scope", lang);
+        }
+
+        if (normalized.Contains("safety", StringComparison.Ordinal)
+            || normalized.Contains("compliance", StringComparison.Ordinal)
+            || normalized.Contains("risk", StringComparison.Ordinal))
+        {
+            return ClientUiText.Get("admin.console.retrieval.guidance.reason.risk", lang);
+        }
+
+        if (normalized.Contains("documented", StringComparison.Ordinal)
+            || normalized.Contains("relevant", StringComparison.Ordinal))
+        {
+            return ClientUiText.Get("admin.console.retrieval.guidance.reason.relevant", lang);
+        }
+
+        return ClientUiText.Get("admin.console.retrieval.guidance.reason.unknown", lang);
+    }
+
+    private static string? HumanizeAdminConsoleContentRole(string? value, string lang)
+    {
+        var normalized = NormalizeAdminConsoleToken(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return null;
+
+        if (normalized.Contains("navigation", StringComparison.Ordinal))
+            return ClientUiText.Get("admin.console.retrieval.role.navigation", lang);
+
+        if (normalized.Contains("mixed", StringComparison.Ordinal))
+            return ClientUiText.Get("admin.console.retrieval.role.mixed", lang);
+
+        if (normalized.Contains("content", StringComparison.Ordinal)
+            || normalized.Contains("body", StringComparison.Ordinal))
+        {
+            return ClientUiText.Get("admin.console.retrieval.role.content", lang);
+        }
+
+        return ClientUiText.Get("admin.console.retrieval.role.unknown", lang);
     }
 
     private static string? HumanizeAdminConsoleQualityStatus(string? value, string lang)

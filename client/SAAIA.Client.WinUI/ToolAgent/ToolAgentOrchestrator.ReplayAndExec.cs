@@ -1134,6 +1134,7 @@ public sealed partial class ToolAgentOrchestrator
                 await gate.WaitAsync(ct).ConfigureAwait(false);
                 try
                 {
+                    var querySw = Stopwatch.StartNew();
                     JsonElement norm;
                     try
                     {
@@ -1144,6 +1145,7 @@ public sealed partial class ToolAgentOrchestrator
                     {
                         norm = BuildRagSearchBusyPayload(new[] { q }, scope, mode, ex);
                     }
+                    querySw.Stop();
 
                     var localDegradedRetrievers = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
                     CollectRagDegradedRetrievers(norm, localDegradedRetrievers);
@@ -1151,13 +1153,17 @@ public sealed partial class ToolAgentOrchestrator
                     var guidanceBehavior = norm.TryGetProperty("guidance", out var guidanceEl) && guidanceEl.ValueKind == JsonValueKind.Object
                         ? TryGetString(guidanceEl, "behavior")
                         : null;
+                    var busy = IsRagSearchBusyPayload(norm);
                     return new
                     {
                         Index = index,
                         Query = q,
                         Norm = norm.Clone(),
-                        Busy = IsRagSearchBusyPayload(norm),
+                        Busy = busy,
                         RetryAfterSeconds = TryGetInt(norm, "retryAfterSeconds") ?? 1,
+                        ClientElapsedMs = querySw.ElapsedMilliseconds,
+                        HitCount = CountRagHits(norm),
+                        Error = TryGetString(norm, "error"),
                         Guidance = guidance,
                         GuidanceBehavior = guidanceBehavior,
                         Meta = DeserializePromptObject(norm, "meta"),
@@ -1184,6 +1190,12 @@ public sealed partial class ToolAgentOrchestrator
                 queryRuns.Add(new
                 {
                     query = run.Query,
+                    clientElapsedMs = run.ClientElapsedMs,
+                    hitCount = run.HitCount,
+                    error = string.IsNullOrWhiteSpace(run.Error) ? null : run.Error,
+                    busy = run.Busy ? true : (bool?)null,
+                    retryAfterSeconds = run.Busy ? run.RetryAfterSeconds : (int?)null,
+                    degradedRetrievers = run.DegradedRetrievers.Length == 0 ? null : run.DegradedRetrievers,
                     guidance = run.Guidance,
                     meta = run.Meta
                 });

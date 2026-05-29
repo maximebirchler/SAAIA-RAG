@@ -921,7 +921,11 @@ public sealed class ApiClientDocumentsTransitionTests
         var queryRuns = result.GetProperty("meta").GetProperty("queryRuns").EnumerateArray().ToList();
         Assert.Equal(2, queryRuns.Count);
         Assert.Equal(33, queryRuns[0].GetProperty("meta").GetProperty("metrics").GetProperty("tookMs").GetInt32());
-        var degradedRetrievers = result.GetProperty("meta").GetProperty("degradedRetrievers").EnumerateArray().Select(static item => item.GetString()).ToList();
+        Assert.Equal(1, queryRuns[0].GetProperty("hitCount").GetInt32());
+        Assert.True(queryRuns[0].GetProperty("clientElapsedMs").GetInt64() >= 0);
+        Assert.Equal(JsonValueKind.Null, queryRuns[0].GetProperty("busy").ValueKind);
+        Assert.Equal(["document_profile_v1"], queryRuns[0].GetProperty("degradedRetrievers").EnumerateArray().Select(static item => item.GetString() ?? "").ToArray());
+        var degradedRetrievers = result.GetProperty("meta").GetProperty("degradedRetrievers").EnumerateArray().Select(static item => item.GetString() ?? "").ToList();
         Assert.Equal(["document_profile_v1", "sparse_bm25"], degradedRetrievers);
         Assert.Equal(["document_profile_v1", "sparse_bm25"], mem.LastRagDegradedRetrievers);
         var hit = Assert.Single(result.GetProperty("hits").EnumerateArray());

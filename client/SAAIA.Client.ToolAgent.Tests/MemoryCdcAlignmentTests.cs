@@ -138,6 +138,29 @@ public sealed class MemoryCdcAlignmentTests
             LastRagQueries = new() { "inertage" },
             LastRagHitLabels = new() { "Doc.pdf p.1 score=0.9" },
             LastRagDegradedRetrievers = new() { "document_profile_v1" },
+            Execution =
+            {
+                LastRagEvidenceExploration = new()
+                {
+                    new ToolMemory.RagEvidenceExplorationTrace
+                    {
+                        Label = "evidence_expansion",
+                        Queries = new() { "inertage procedure", "inertage risques" },
+                        ReasonBefore = "too_few_distinct_candidates",
+                        ReasonAfter = "adequate_broad_coverage",
+                        ScoreBefore = 12,
+                        ScoreAfter = 38,
+                        UsableHitsBefore = 1,
+                        UsableHitsAfter = 4,
+                        CandidateCountBefore = 1,
+                        CandidateCountAfter = 4,
+                        DistinctPagesBefore = 1,
+                        DistinctPagesAfter = 3,
+                        ElapsedMs = 123,
+                        Accepted = true
+                    }
+                }
+            },
             LastRiskFlags = new() { "broad_query" }
         };
         mem.LastListedDocuments.Add(new ToolMemory.DocumentItem { DocId = "doc-1", DocName = "Doc.pdf" });
@@ -176,6 +199,7 @@ public sealed class MemoryCdcAlignmentTests
         Assert.Equal(1, m6["lastRagQueriesCount"]);
         Assert.Equal(1, m6["lastRagHitLabelsCount"]);
         Assert.Equal(1, m6["lastRagDegradedRetrieversCount"]);
+        Assert.Equal(1, m6["lastRagEvidenceExplorationCount"]);
         Assert.Equal(1, m6["lastRiskFlagsCount"]);
         Assert.True((bool)m6["hasPlannerMemoryUpdate"]!);
         Assert.Equal(0.82, Assert.IsType<double>(m6["routerConfidence"]!));
@@ -186,6 +210,15 @@ public sealed class MemoryCdcAlignmentTests
         Assert.Equal(new[] { "inertage" }, Assert.IsAssignableFrom<string[]>(rag["queries"]));
         Assert.Equal(new[] { "Doc.pdf p.1 score=0.9" }, Assert.IsAssignableFrom<string[]>(rag["hitLabels"]));
         Assert.Equal(new[] { "document_profile_v1" }, Assert.IsAssignableFrom<string[]>(rag["degradedRetrievers"]));
+        Assert.Equal(1, rag["explorationPassCount"]);
+        Assert.Equal(1, rag["acceptedExplorationPassCount"]);
+        Assert.Equal("adequate_broad_coverage", rag["lastInsufficiencyReason"]);
+        var passes = Assert.IsAssignableFrom<Dictionary<string, object?>[]>(rag["explorationPasses"]);
+        var pass = Assert.Single(passes);
+        Assert.Equal("evidence_expansion", pass["label"]);
+        Assert.Equal(true, pass["accepted"]);
+        Assert.Equal("too_few_distinct_candidates", pass["reasonBefore"]);
+        Assert.Equal("adequate_broad_coverage", pass["reasonAfter"]);
     }
 
     [Fact]
